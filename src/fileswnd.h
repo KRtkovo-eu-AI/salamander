@@ -1229,6 +1229,7 @@ private:
     BOOL SwitchToTab(int index, BOOL fromUI, BOOL storePreviousTab);
     void EnsureTabSelection(int index);
 
+public:
     void SelectUnselect(BOOL forceIncludeDirs, BOOL select, BOOL showMaskDlg);
     void InvertSelection(BOOL forceIncludeDirs);
 
