@@ -4,7 +4,7 @@
 #pragma once
 
 // pri zmene hledat "BuiltForVersion" - testy na starsi verze pluginu uz nebudou mit smysl, zahodit je
-#define PLUGIN_REQVER 103 // ("5.0") loadit jen pluginy, ktere vraci alespon tuto pozadovanou verzi Salamandera
+#define PLUGIN_REQVER 102 // ("4.0") loadit jen pluginy, ktere vraci alespon tuto pozadovanou verzi Salamandera (zpetna kompatibilita s Altap Salamander 4.0 pluginy)
 
 //
 // ****************************************************************************
