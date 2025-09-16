@@ -1307,7 +1307,8 @@ DWORD WINAPI IconThreadThreadF(void* param)
 }
 
 CFilesWindow::CFilesWindow(CMainWindow* parent)
-    : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
+    : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE),
+      Tabs(4, 2)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
     NarrowedNameColumn = FALSE;
@@ -1385,6 +1386,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     DeviceNotification = NULL;
     ContextMenu = NULL;
     ContextSubmenuNew = new CMenuNew;
+    TabWindow = NULL;
+    ActiveTabIndex = -1;
+    IgnoreTabSelectionChanges = FALSE;
     UseSystemIcons = FALSE;
     UseThumbnails = FALSE;
     NeedRefreshAfterEndOfSM = FALSE;
@@ -1499,6 +1503,258 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
+    if (TabWindow != NULL)
+        delete TabWindow;
+}
+
+void CFilesWindow::EnsureTabSelection(int index)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::EnsureTabSelection(%d)", index);
+    if (TabWindow != NULL && TabWindow->HWindow != NULL && index >= 0)
+    {
+        IgnoreTabSelectionChanges = TRUE;
+        TabWindow->SetActiveTab(index);
+        IgnoreTabSelectionChanges = FALSE;
+    }
+}
+
+void CFilesWindow::InitializeTabs()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::InitializeTabs()");
+    if (Tabs.Count > 0)
+        Tabs.Delete(0, Tabs.Count);
+    if (TabWindow != NULL && TabWindow->HWindow != NULL)
+        TabWindow->DeleteAllTabs();
+
+    ActiveTabIndex = -1;
+    IgnoreTabSelectionChanges = FALSE;
+
+    CPanelTab tab;
+    tab.Path[0] = 0;
+    int index = Tabs.Add(tab);
+    ActiveTabIndex = index;
+
+    if (TabWindow != NULL && TabWindow->HWindow != NULL)
+        TabWindow->InsertTab(index, "");
+
+    UpdateActiveTabFromCurrentPath();
+    EnsureTabSelection(index);
+}
+
+void CFilesWindow::UpdateTabText(int index)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::UpdateTabText(%d)", index);
+    if (index < 0 || index >= Tabs.Count)
+        return;
+
+    char label[PanelTabPathLength];
+    label[0] = 0;
+    const char* path = Tabs[index].Path;
+    if (path[0] != 0)
+    {
+        char tmp[PanelTabPathLength];
+        lstrcpyn(tmp, path, PanelTabPathLength);
+        int len = (int)strlen(tmp);
+        while (len > 0 && (tmp[len - 1] == '\\' || tmp[len - 1] == '/' || tmp[len - 1] == ':'))
+            tmp[--len] = 0;
+        const char* display = tmp;
+        if (len > 0)
+        {
+            const char* slash = strrchr(tmp, '\\');
+            const char* slash2 = strrchr(tmp, '/');
+            const char* candidate = slash;
+            if (slash2 != NULL && (candidate == NULL || slash2 > candidate))
+                candidate = slash2;
+            if (candidate != NULL && candidate[1] != 0)
+                display = candidate + 1;
+            else
+            {
+                const char* colon = strrchr(tmp, ':');
+                if (colon != NULL && colon[1] != 0)
+                    display = colon + 1;
+                if (*display == 0)
+                    display = tmp;
+            }
+        }
+        else
+            display = path;
+        if (*display == 0)
+            display = path;
+        lstrcpyn(label, display, MAX_PATH);
+    }
+    else
+        label[0] = 0;
+
+    if (TabWindow != NULL && TabWindow->HWindow != NULL)
+        TabWindow->SetTabText(index, label);
+}
+
+void CFilesWindow::UpdateActiveTabFromCurrentPath()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::UpdateActiveTabFromCurrentPath()");
+    if (ActiveTabIndex < 0 || ActiveTabIndex >= Tabs.Count)
+        return;
+
+    char path[PanelTabPathLength];
+    path[0] = 0;
+    if (!GetGeneralPath(path, PanelTabPathLength, TRUE))
+        path[PanelTabPathLength - 1] = 0;
+    lstrcpyn(Tabs[ActiveTabIndex].Path, path, PanelTabPathLength);
+    UpdateTabText(ActiveTabIndex);
+}
+
+BOOL CFilesWindow::SwitchToTab(int index, BOOL fromUI, BOOL storePreviousTab)
+{
+    CALL_STACK_MESSAGE4("CFilesWindow::SwitchToTab(%d, %d, %d)", index, fromUI, storePreviousTab);
+    if (index < 0 || index >= Tabs.Count)
+        return FALSE;
+
+    if (Tabs.Count == 0)
+        return FALSE;
+
+    if (ActiveTabIndex == index)
+    {
+        if (!fromUI)
+            EnsureTabSelection(index);
+        return TRUE;
+    }
+
+    char currentPath[PanelTabPathLength];
+    currentPath[0] = 0;
+    BOOL haveCurrentPath = GetGeneralPath(currentPath, PanelTabPathLength, TRUE);
+
+    int previousIndex = ActiveTabIndex;
+    if (storePreviousTab && previousIndex >= 0 && previousIndex < Tabs.Count)
+        UpdateActiveTabFromCurrentPath();
+
+    ActiveTabIndex = index;
+    if (!fromUI)
+        EnsureTabSelection(index);
+
+    BOOL needChange = TRUE;
+    if (haveCurrentPath)
+    {
+        if (strcmp(currentPath, Tabs[index].Path) == 0)
+            needChange = FALSE;
+    }
+
+    BOOL result = TRUE;
+    if (needChange && Tabs[index].Path[0] != 0)
+        result = ChangeDir(Tabs[index].Path, -1, NULL, 3 /*change-dir*/, NULL, TRUE);
+
+    if (result)
+    {
+        UpdateActiveTabFromCurrentPath();
+        return TRUE;
+    }
+
+    ActiveTabIndex = previousIndex;
+    if (!fromUI)
+        EnsureTabSelection(previousIndex);
+    else
+        EnsureTabSelection(previousIndex);
+    return FALSE;
+}
+
+void CFilesWindow::OpenNewTab(BOOL duplicateCurrentPath)
+{
+    CALL_STACK_MESSAGE2("CFilesWindow::OpenNewTab(%d)", duplicateCurrentPath);
+    if (Tabs.Count == 0)
+        InitializeTabs();
+
+    if (duplicateCurrentPath)
+        UpdateActiveTabFromCurrentPath();
+
+    CPanelTab tab;
+    tab.Path[0] = 0;
+    if (duplicateCurrentPath)
+    {
+        if (!GetGeneralPath(tab.Path, PanelTabPathLength, TRUE))
+            tab.Path[PanelTabPathLength - 1] = 0;
+    }
+
+    int index = Tabs.Add(tab);
+    if (TabWindow != NULL && TabWindow->HWindow != NULL)
+        TabWindow->InsertTab(index, "");
+
+    if (duplicateCurrentPath && tab.Path[0] != 0)
+        lstrcpyn(Tabs[index].Path, tab.Path, PanelTabPathLength);
+
+    SwitchToTab(index, FALSE, TRUE);
+}
+
+void CFilesWindow::CloseActiveTab()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::CloseActiveTab()");
+    if (Tabs.Count <= 1 || ActiveTabIndex < 0)
+        return;
+
+    int oldIndex = ActiveTabIndex;
+    int newIndex = (ActiveTabIndex >= Tabs.Count - 1) ? ActiveTabIndex - 1 : ActiveTabIndex + 1;
+
+    if (TabWindow != NULL && TabWindow->HWindow != NULL)
+    {
+        IgnoreTabSelectionChanges = TRUE;
+        TabWindow->RemoveTab(oldIndex);
+        IgnoreTabSelectionChanges = FALSE;
+    }
+    Tabs.Delete(oldIndex);
+
+    if (Tabs.Count == 0)
+    {
+        ActiveTabIndex = -1;
+        return;
+    }
+
+    if (newIndex >= Tabs.Count)
+        newIndex = Tabs.Count - 1;
+
+    ActiveTabIndex = -1;
+    SwitchToTab(newIndex, FALSE, FALSE);
+}
+
+void CFilesWindow::SwitchToNextTab()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::SwitchToNextTab()");
+    if (Tabs.Count <= 1)
+        return;
+    int next = ActiveTabIndex + 1;
+    if (next >= Tabs.Count)
+        next = 0;
+    SwitchToTab(next, FALSE, TRUE);
+}
+
+void CFilesWindow::SwitchToPreviousTab()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::SwitchToPreviousTab()");
+    if (Tabs.Count <= 1)
+        return;
+    int prev = ActiveTabIndex - 1;
+    if (prev < 0)
+        prev = Tabs.Count - 1;
+    SwitchToTab(prev, FALSE, TRUE);
+}
+
+void CFilesWindow::OnTabSelectionChanged(int index, BOOL fromUI)
+{
+    CALL_STACK_MESSAGE3("CFilesWindow::OnTabSelectionChanged(%d, %d)", index, fromUI);
+    if (IgnoreTabSelectionChanges)
+        return;
+    SwitchToTab(index, fromUI, TRUE);
+}
+
+void CFilesWindow::GetTabTooltipText(int index, char* buffer, int bufSize)
+{
+    CALL_STACK_MESSAGE3("CFilesWindow::GetTabTooltipText(%d, %p, %d)", index, buffer, bufSize);
+    if (buffer == NULL || bufSize <= 0)
+        return;
+    buffer[0] = 0;
+    if (index < 0 || index >= Tabs.Count)
+        return;
+    if (Tabs[index].Path[0] != 0)
+        lstrcpyn(buffer, Tabs[index].Path, bufSize);
+    else
+        GetGeneralPath(buffer, bufSize, TRUE);
 }
 
 void CFilesWindow::ClearHistory()
@@ -1698,6 +1954,8 @@ void CFilesWindow::DirectoryLineSetText()
 
     if (path == NULL)
         return;
+
+    UpdateActiveTabFromCurrentPath();
 
     if (FilterEnabled)
     {

@@ -13,6 +13,7 @@
 #include "snooper.h"
 #include "shellib.h"
 #include "drivelst.h"
+#include "tabwnd.h"
 extern "C"
 {
 #include "shexreg.h"
@@ -76,9 +77,15 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int width = LOWORD(lParam);
             int height = HIWORD(lParam);
 
-            int dlHeight = 3;
+            int tabHeight = 0;
+            int dlHeight = 0;
             int stHeight = 0;
             int windowsCount = 1;
+            if (TabWindow != NULL && TabWindow->HWindow != NULL)
+            {
+                tabHeight = TabWindow->GetNeededHeight();
+                windowsCount++;
+            }
             if (DirectoryLine->HWindow != NULL)
             {
                 dlHeight = DirectoryLine->GetNeededHeight();
@@ -98,13 +105,17 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
             if (hdwp != NULL)
             {
+                if (TabWindow != NULL && TabWindow->HWindow != NULL)
+                    hdwp = HANDLES(DeferWindowPos(hdwp, TabWindow->HWindow, NULL,
+                                                  0, 0, width, tabHeight,
+                                                  SWP_NOACTIVATE | SWP_NOZORDER));
                 if (DirectoryLine->HWindow != NULL)
                     hdwp = HANDLES(DeferWindowPos(hdwp, DirectoryLine->HWindow, NULL,
-                                                  0, 0, width, dlHeight,
+                                                  0, tabHeight, width, dlHeight,
                                                   SWP_NOACTIVATE | SWP_NOZORDER));
 
                 hdwp = HANDLES(DeferWindowPos(hdwp, ListBox->HWindow, NULL,
-                                              0, dlHeight, width, height - stHeight - dlHeight,
+                                              0, tabHeight + dlHeight, width, height - stHeight - dlHeight - tabHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
 
                 if (StatusLine->HWindow != NULL)
@@ -123,7 +134,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (ListBox != NULL && ListBox->HWindow != NULL && DirectoryLine != NULL)
         {
-            if (DirectoryLine->HWindow == NULL)
+            if (DirectoryLine->HWindow == NULL && (TabWindow == NULL || TabWindow->HWindow == NULL))
             {
                 RECT r;
                 GetClientRect(HWindow, &r);
@@ -1011,6 +1022,27 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         DirectoryLine->SetLeftPanel(MainWindow->LeftPanel == this);
         ToggleDirectoryLine();
+        TabWindow = new CTabWindow(this);
+        if (TabWindow == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+        if (!TabWindow->Create(CWINDOW_CLASSNAME2,
+                                "",
+                                WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                                0, 0, 0, 0,
+                                HWindow,
+                                (HMENU)IDC_TABWINDOW,
+                                HInstance,
+                                TabWindow))
+        {
+            TRACE_E("Unable to create tab window.");
+            return -1;
+        }
+        ShowWindow(TabWindow->HWindow, SW_SHOW);
+        TabWindow->SetFont(EnvFont);
+        InitializeTabs();
         //---  nahozeni typu viewu + nacteni obsahu adresare
         SetThumbnailSize(Configuration.ThumbnailSize); // musi existovat ListBox
         if (!ListBox->CreateEx(WS_EX_WINDOWEDGE,
@@ -1073,6 +1105,12 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DirectoryLine->DestroyWindow();
         delete DirectoryLine;
         DirectoryLine = NULL; // oprava padacky
+        if (TabWindow != NULL)
+        {
+            TabWindow->DestroyWindow();
+            delete TabWindow;
+            TabWindow = NULL;
+        }
                               //---
         return 0;
     }
@@ -1534,6 +1572,8 @@ void CFilesWindow::SetFont()
     //  ListBox->SetFont();
     if (StatusLine != NULL)
         StatusLine->SetFont();
+    if (TabWindow != NULL)
+        TabWindow->SetFont(EnvFont);
 }
 
 //****************************************************************************

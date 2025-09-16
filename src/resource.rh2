@@ -323,6 +323,8 @@
 #define IDC_EDITWINDOW      955
 #define IDC_EDITLINE        956
 #define IDC_DIRTEXT         957
+#define IDC_TABWINDOW       958
+#define IDC_TABCONTROL      959
 
 // icons
 #define IDI_SALAMANDER       960
@@ -475,6 +477,14 @@
 #define CM_ACTIVE_SMARTMODE        2951
 #define CM_LEFT_SMARTMODE          2952
 #define CM_RIGHT_SMARTMODE         2953
+#define CM_ACTIVE_NEWTAB           2954
+#define CM_LEFT_NEWTAB             2955
+#define CM_RIGHT_NEWTAB            2956
+#define CM_ACTIVE_CLOSETAB         2957
+#define CM_LEFT_CLOSETAB           2958
+#define CM_RIGHT_CLOSETAB          2959
+#define CM_ACTIVE_NEXTTAB          2960
+#define CM_ACTIVE_PREVTAB          2961
 
 #define CM_ACTIVEMODE_1            2970  // Alt+1..0 pro volbu rezimu aktivniho pohledu
 #define CM_ACTIVEMODE_2            2971

@@ -3642,6 +3642,54 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_ACTIVE_NEWTAB:
+        {
+            activePanel->OpenNewTab(TRUE);
+            return 0;
+        }
+
+        case CM_LEFT_NEWTAB:
+        {
+            LeftPanel->OpenNewTab(TRUE);
+            return 0;
+        }
+
+        case CM_RIGHT_NEWTAB:
+        {
+            RightPanel->OpenNewTab(TRUE);
+            return 0;
+        }
+
+        case CM_ACTIVE_CLOSETAB:
+        {
+            activePanel->CloseActiveTab();
+            return 0;
+        }
+
+        case CM_LEFT_CLOSETAB:
+        {
+            LeftPanel->CloseActiveTab();
+            return 0;
+        }
+
+        case CM_RIGHT_CLOSETAB:
+        {
+            RightPanel->CloseActiveTab();
+            return 0;
+        }
+
+        case CM_ACTIVE_NEXTTAB:
+        {
+            activePanel->SwitchToNextTab();
+            return 0;
+        }
+
+        case CM_ACTIVE_PREVTAB:
+        {
+            activePanel->SwitchToPreviousTab();
+            return 0;
+        }
+
         case CM_LEFT_CHANGEDIR:
         {
             LeftPanel->ChangeDir();

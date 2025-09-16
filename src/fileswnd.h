@@ -158,6 +158,7 @@ class CHeaderLine;
 class CStatusWindow;
 class CFilesArray;
 struct CFileData;
+class CTabWindow;
 class CIconCache;
 class CSalamanderDirectory;
 struct IContextMenu2;
@@ -756,10 +757,25 @@ public:
     CFilesBox* ListBox;
     CStatusWindow *StatusLine,
         *DirectoryLine;
+    CTabWindow* TabWindow;
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
     BOOL HeaderLineVisible;
+
+    enum
+    {
+        PanelTabPathLength = 2 * MAX_PATH
+    };
+
+    struct CPanelTab
+    {
+        char Path[PanelTabPathLength];
+    };
+
+    TDirectArray<CPanelTab> Tabs;
+    int ActiveTabIndex;
+    BOOL IgnoreTabSelectionChanges;
 
     CMainWindow* Parent;
 
@@ -1198,6 +1214,20 @@ public:
 
     void ItemFocused(int index); // pri zmene focusu
     void RedrawIndex(int index);
+
+    void OpenNewTab(BOOL duplicateCurrentPath = TRUE);
+    void CloseActiveTab();
+    void SwitchToNextTab();
+    void SwitchToPreviousTab();
+    void OnTabSelectionChanged(int index, BOOL fromUI);
+    void GetTabTooltipText(int index, char* buffer, int bufSize);
+
+private:
+    void InitializeTabs();
+    void UpdateActiveTabFromCurrentPath();
+    void UpdateTabText(int index);
+    BOOL SwitchToTab(int index, BOOL fromUI, BOOL storePreviousTab);
+    void EnsureTabSelection(int index);
 
     void SelectUnselect(BOOL forceIncludeDirs, BOOL select, BOOL showMaskDlg);
     void InvertSelection(BOOL forceIncludeDirs);
