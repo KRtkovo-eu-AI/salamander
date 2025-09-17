@@ -3,6 +3,10 @@
 
 #pragma once
 
+class CFilesWindow;
+
+#include "plugins.h"
+
 #define NUM_OF_CHECKTHREADS 30                   // max. pocet threadu pro "neblokujici" testy pristupnosti cest
 #define ICONOVR_REFRESH_PERIOD 2000              // minimalni odstup refreshu icon-overlays v panelu (viz IconOverlaysChangedOnPath)
 #define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimalni odstup refreshu pri neaktivnim hl. okne
