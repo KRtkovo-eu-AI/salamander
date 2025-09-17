@@ -80,7 +80,7 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side)
     CFilesWindow* panel = new CFilesWindow(this, side);
     if (panel == NULL)
         return NULL;
-    TIndirectArray<CFilesWindow*>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
+    TIndirectArray<CFilesWindow>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
     tabs.Add(panel);
     SwitchPanelTab(panel);
     return panel;
@@ -92,7 +92,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     if (panel == NULL)
         return;
     CPanelSide side = panel->GetPanelSide();
-    TIndirectArray<CFilesWindow*>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
+    TIndirectArray<CFilesWindow>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
     BOOL found = FALSE;
     for (int i = 0; i < tabs.Count; i++)
     {
@@ -121,7 +121,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     if (panel == NULL)
         return;
     CPanelSide side = panel->GetPanelSide();
-    TIndirectArray<CFilesWindow*>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
+    TIndirectArray<CFilesWindow>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
     for (int i = 0; i < tabs.Count; i++)
     {
         if (tabs[i] == panel)

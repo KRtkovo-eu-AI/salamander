@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "fileswnd.h"
+
 #define HOT_PATHS_COUNT 30
 
 #define TASKBAR_ICON_ID 0x0000
@@ -14,8 +16,6 @@ struct CCommandLineParams;
 
 // pokud uzivatel nechce vic instanci, pouze aktivujeme predchozi
 BOOL CheckOnlyOneInstance(const CCommandLineParams* cmdLineParams);
-
-enum CPanelSide : int;
 
 // otevrenym oknum interniho vieweru a findu rozesle zpravu WM_USER_CFGCHANGED
 void BroadcastConfigChanged();
@@ -379,8 +379,8 @@ public:
 
     CFilesWindow *LeftPanel,
         *RightPanel;
-    TIndirectArray<CFilesWindow*> LeftPanelTabs;
-    TIndirectArray<CFilesWindow*> RightPanelTabs;
+    TIndirectArray<CFilesWindow> LeftPanelTabs;
+    TIndirectArray<CFilesWindow> RightPanelTabs;
     CEditWindow* EditWindow;
     CMainToolBar* TopToolBar;
     CPluginsBar* PluginsBar;
