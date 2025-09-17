@@ -1665,7 +1665,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             if (controlPressed && shiftPressed && !altPressed)
             {
                 // focusing the focused directory/file in the second panel
-                BOOL leftPanel = this == MainWindow->LeftPanel;
+                BOOL leftPanel = IsLeftPanel();
                 if (wParam == VK_LEFT)
                 {
                     SendMessage(MainWindow->HWindow, WM_COMMAND, leftPanel ? CM_OPEN_IN_OTHER_PANEL : CM_OPEN_IN_OTHER_PANEL_ACT, 0);
@@ -2257,7 +2257,7 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
 #ifdef _DEBUG
     char t_path[2 * MAX_PATH];
     GetGeneralPath(t_path, 2 * MAX_PATH);
-    TRACE_I("RefreshDirectory: " << (MainWindow->LeftPanel == this ? "left" : "right") << ": " << t_path);
+    TRACE_I("RefreshDirectory: " << (IsLeftPanel() ? "left" : "right") << ": " << t_path);
 #endif // _DEBUG
 
     // show wait cursor

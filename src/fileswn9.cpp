@@ -69,10 +69,20 @@ BOOL CFilesWindow::ParsePath(char* path, int& type, BOOL& isDir, char*& secondPa
                         Is(ptDisk) || Is(ptZIPArchive), curPath, curArchivePath, error, pathBufSize);
 }
 
+void CFilesWindow::SetPanelSide(CPanelSide side)
+{
+    CALL_STACK_MESSAGE_NONE
+    PanelSide = side;
+    if (StatusLine != NULL)
+        StatusLine->SetLeftPanel(IsLeftPanel());
+    if (DirectoryLine != NULL)
+        DirectoryLine->SetLeftPanel(IsLeftPanel());
+}
+
 int CFilesWindow::GetPanelCode()
 {
     CALL_STACK_MESSAGE_NONE
-    return (MainWindow != NULL && MainWindow->LeftPanel == this) ? PANEL_LEFT : PANEL_RIGHT;
+    return IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
 }
 
 void CFilesWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
@@ -1142,7 +1152,7 @@ void CFilesWindow::OfferArchiveUpdateIfNeeded(HWND parent, int textID, BOOL* arc
 
     OfferArchiveUpdateIfNeededAux(parent, textID, archMaybeUpdated);
 
-    CFilesWindow* otherPanel = MainWindow->LeftPanel == this ? MainWindow->RightPanel : MainWindow->LeftPanel;
+    CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
     BOOL otherPanelArchMaybeUpdated = FALSE;
     if (otherPanel->Is(ptZIPArchive) && StrICmp(GetZIPArchive(), otherPanel->GetZIPArchive()) == 0)
     { // the same archive is in the other panel, we must update it as well
@@ -2004,7 +2014,7 @@ BOOL CFilesWindow::BuildColumnsTemplate()
     column.CustomData = 0;
     CColumDataItem* item;
 
-    BOOL leftPanel = (this == MainWindow->LeftPanel);
+    BOOL leftPanel = IsLeftPanel();
 
     // select from the template the views corresponding to the configuration array
     CColumnConfig* colCfg = ViewTemplate->Columns;
@@ -2120,7 +2130,7 @@ void CFilesWindow::OnHeaderLineColWidthChanged()
     CALL_STACK_MESSAGE1("CFilesWindow::OnHeaderLineColWidthChanged()");
     // transfer data from the panel to the template
     BOOL pluginColMaybeChanged = FALSE;
-    BOOL leftPanel = (this == MainWindow->LeftPanel);
+    BOOL leftPanel = IsLeftPanel();
     int i;
     for (i = 0; i < Columns.Count; i++)
     {

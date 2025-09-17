@@ -5,6 +5,12 @@
 
 class CColorArrowButton;
 
+enum CWorkDirsHistoryScope
+{
+    wdhsShared = 0,
+    wdhsPerTab = 1,
+};
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -195,6 +201,7 @@ struct CConfiguration
         SortDirsByExt,          // emulovat pripony u adresaru (sort by extension + show in separated Ext column)
         SaveHistory,            // ukladat historie do konfigurace?
         SaveWorkDirs,           // ukladat List of Working Directories?
+        WorkDirsHistoryScope,   // rezim historie pracovnich adresaru (sdilena / per-tab)
         EnableCmdLineHistory,   // drzet historii prikazove radky?
         SaveCmdLineHistory,     // ukaladat  historii prikazove radky?
                                 //      LantasticCheck,        // Lantastic 7.0 paranoid-check (porovnani velikosti po Copy)
@@ -290,6 +297,7 @@ struct CConfiguration
     int FullRowSelect;    // v detailed/brief view lze klikat kamkoliv
     int FullRowHighlight; // v detailed view je za focusem jeste podbarven zbytek radku
     int UseIconTincture;  // pro hidden/system/selected/focused polozky
+    int UsePanelTabs;     // pouzivat panelove taby?
     int ShowPanelCaption; // bude v directory line zobrazen barevne panel caption?
     int ShowPanelZoom;    // bude v directory line zobrazeno tlacitko Zoom?
 
