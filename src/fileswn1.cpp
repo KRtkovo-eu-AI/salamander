@@ -1306,7 +1306,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1357,6 +1357,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     OpenedDrivesList = NULL;
 
     Parent = parent;
+    PanelSide = side;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();

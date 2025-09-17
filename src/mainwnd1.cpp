@@ -280,7 +280,8 @@ BOOL CHotPathItems::Load1_52(HKEY hKey)
 // CMainWindow
 //
 
-CMainWindow::CMainWindow() : ChangeNotifArray(3, 5)
+CMainWindow::CMainWindow()
+    : ChangeNotifArray(3, 5), LeftPanelTabs(1, 1, dtNoDelete), RightPanelTabs(1, 1, dtNoDelete)
 {
     HANDLES(InitializeCriticalSection(&DispachChangeNotifCS));
     LastDispachChangeNotifTime = 0;
@@ -454,7 +455,20 @@ CMainWindow::~CMainWindow()
         delete ContextMenuNew;
     if (ToolTip != NULL)
         delete ToolTip;
+    for (int i = 0; i < LeftPanelTabs.Count; i++)
+        if (LeftPanelTabs[i] != NULL)
+            delete LeftPanelTabs[i];
+    for (int i = 0; i < RightPanelTabs.Count; i++)
+        if (RightPanelTabs[i] != NULL)
+            delete RightPanelTabs[i];
     MainWindow = NULL;
+}
+
+CFilesWindow* CMainWindow::GetOtherPanel(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return NULL;
+    return panel->IsLeftPanel() ? RightPanel : LeftPanel;
 }
 
 void CMainWindow::ClearHistory()

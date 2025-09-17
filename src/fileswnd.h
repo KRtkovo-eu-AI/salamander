@@ -3,6 +3,10 @@
 
 #pragma once
 
+class CFilesWindow;
+
+#include "plugins.h"
+
 #define NUM_OF_CHECKTHREADS 30                   // max. pocet threadu pro "neblokujici" testy pristupnosti cest
 #define ICONOVR_REFRESH_PERIOD 2000              // minimalni odstup refreshu icon-overlays v panelu (viz IconOverlaysChangedOnPath)
 #define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimalni odstup refreshu pri neaktivnim hl. okne
@@ -34,6 +38,12 @@ enum CPanelType
     ptDisk,       // aktualni cesta je "c:\path" nebo UNC
     ptZIPArchive, // aktualni cesta je do archivu (obsluhuje bud plug-in nebo kod pro podporu externich archivatoru)
     ptPluginFS,   // aktualni cesta je na plug-inovy file-system (obsluhuje plug-in)
+};
+
+enum CPanelSide
+{
+    cpsLeft,
+    cpsRight,
 };
 
 struct CAttrsData // data pro atChangeAttrs
@@ -757,6 +767,8 @@ public:
     CStatusWindow *StatusLine,
         *DirectoryLine;
 
+    CPanelSide PanelSide;
+
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
     BOOL HeaderLineVisible;
@@ -896,8 +908,13 @@ public:
     DWORD NextIconOvrRefreshTime;             // cas, kdy ma smysl zase zacit sledovat notifikace o zmenach icon-overlays v tomto panelu (viz IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent);
+    CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
+
+    CPanelSide GetPanelSide() const { return PanelSide; }
+    BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
+    BOOL IsRightPanel() const { return PanelSide == cpsRight; }
+    void SetPanelSide(CPanelSide side);
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
