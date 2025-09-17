@@ -302,6 +302,19 @@
 
 #define CM_IMPORTCONFIG        934
 
+#define CM_NEWTAB              1100
+#define CM_CLOSETAB            1101
+#define CM_NEXTTAB             1102
+#define CM_PREVTAB             1103
+#define CM_LEFT_NEWTAB         1104
+#define CM_LEFT_CLOSETAB       1105
+#define CM_LEFT_NEXTTAB        1106
+#define CM_LEFT_PREVTAB        1107
+#define CM_RIGHT_NEWTAB        1108
+#define CM_RIGHT_CLOSETAB      1109
+#define CM_RIGHT_NEXTTAB       1110
+#define CM_RIGHT_PREVTAB       1111
+
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu
 #define IDA_MAINACCELS2        936        // zbytek
@@ -323,6 +336,8 @@
 #define IDC_EDITWINDOW      955
 #define IDC_EDITLINE        956
 #define IDC_DIRTEXT         957
+#define IDC_LEFTTABCTRL     958
+#define IDC_RIGHTTABCTRL    959
 
 // icons
 #define IDI_SALAMANDER       960

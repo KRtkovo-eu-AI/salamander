@@ -973,7 +973,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             if (PluginData.NotEmpty())
             {
                 CSalamanderView view(this);
-                PluginData.SetupView(this == MainWindow->LeftPanel, &view, GetZIPPath(),
+                PluginData.SetupView(IsLeftPanel(), &view, GetZIPPath(),
                                      GetArchiveDir()->GetUpperDir(GetZIPPath()));
             }
 
@@ -1238,7 +1238,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 if (PluginData.NotEmpty())
                 {
                     CSalamanderView view(this);
-                    PluginData.SetupView(this == MainWindow->LeftPanel, &view, NULL, NULL);
+                    PluginData.SetupView(IsLeftPanel(), &view, NULL, NULL);
                 }
 
                 // setting of icon size for IconCache
@@ -1339,7 +1339,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     DWORD varPlacements[100];
                     int varPlacementsCount = 100;
                     if (PluginData.NotEmpty() &&
-                        PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
+                        PluginData.GetInfoLineContent(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
                                                       NULL, FALSE, 0, 0, TRUE, CQuadWord(0, 0), buff,
                                                       varPlacements, varPlacementsCount))
                     {
@@ -2521,7 +2521,7 @@ void CFilesWindow::ChangeDrive(char drive)
     //--- DefaultDire refresh
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() != this);
     //---  possible disk selection from the dialog
-    CFilesWindow* anotherPanel = (Parent->LeftPanel == this ? Parent->RightPanel : Parent->LeftPanel);
+    CFilesWindow* anotherPanel = Parent->GetOtherPanel(this);
     if (drive == 0)
     {
         CDriveTypeEnum driveType = drvtUnknow; // dummy

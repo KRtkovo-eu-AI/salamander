@@ -786,6 +786,10 @@
 
 #define IDS_TBTT_OPENMYDOC           10519   // Open Documents
 #define IDS_TBTT_SMARTMODE           10520   // Smart Column Mode
+#define IDS_TBTT_NEWTAB              10521   // New Tab
+#define IDS_TBTT_CLOSETAB            10522   // Close Tab
+#define IDS_TBTT_NEXTTAB             10523   // Next Tab
+#define IDS_TBTT_PREVTAB             10524   // Previous Tab
 
 // Error codes for variable strings
 #define IDS_EXP_UNMATCHEDPAR         10530   // unmatched '('
@@ -2069,6 +2073,10 @@
 #define IDS_MENU_LEFT_ZOOM           13016
 #define IDS_MENU_LEFT_SWAPPANELS     13017
 #define IDS_MENU_LEFT_SORTOPTIONS    13018
+#define IDS_MENU_LEFT_NEWTAB         13220
+#define IDS_MENU_LEFT_CLOSETAB       13221
+#define IDS_MENU_LEFT_NEXTTAB        13222
+#define IDS_MENU_LEFT_PREVTAB        13223
 
 #define IDS_MENU_FILES               13020
 #define IDS_MENU_FILES_RENAME        13021
@@ -2144,6 +2152,10 @@
 #define IDS_MENU_CMD_DISCONNECTNET   13103
 #define IDS_MENU_CMD_SHELL           13104
 #define IDS_MENU_CMD_REFRESHASSOC    13105
+#define IDS_MENU_CMD_NEWTAB          13210
+#define IDS_MENU_CMD_CLOSETAB        13211
+#define IDS_MENU_CMD_NEXTTAB         13212
+#define IDS_MENU_CMD_PREVTAB         13213
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FREESPACE
 #define IDS_MENU_CMD_USERMENU        13107
 #define IDS_MENU_CMD_FLD             13109
@@ -2201,6 +2213,10 @@
 
 #define IDS_MENU_RIGHT               13170
 #define IDS_MENU_RIGHT_CHANGEDRIVE   13171
+#define IDS_MENU_RIGHT_NEWTAB        13224
+#define IDS_MENU_RIGHT_CLOSETAB      13225
+#define IDS_MENU_RIGHT_NEXTTAB       13226
+#define IDS_MENU_RIGHT_PREVTAB       13227
 
 #define IDS_MENU_HELP                13190
 #define IDS_MENU_HELP_CONTENTS       13191
