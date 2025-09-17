@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -281,7 +281,8 @@ BOOL CHotPathItems::Load1_52(HKEY hKey)
 // CMainWindow
 //
 
-CMainWindow::CMainWindow() : ChangeNotifArray(3, 5)
+CMainWindow::CMainWindow()
+    : ChangeNotifArray(3, 5), LeftPanelTabs(1, 1, dtNoDelete), RightPanelTabs(1, 1, dtNoDelete)
 {
     HANDLES(InitializeCriticalSection(&DispachChangeNotifCS));
     LastDispachChangeNotifTime = 0;
@@ -314,6 +315,8 @@ CMainWindow::CMainWindow() : ChangeNotifArray(3, 5)
     DriveBar = NULL;
     DriveBar2 = NULL;
     BottomToolBar = NULL;
+    LeftTabWindow = NULL;
+    RightTabWindow = NULL;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;
@@ -343,6 +346,9 @@ CMainWindow::CMainWindow() : ChangeNotifArray(3, 5)
     LockedUI = FALSE;
     LockedUIToolWnd = NULL;
     LockedUIReason = NULL;
+
+    PanelConfigPathsRestoredLeft = FALSE;
+    PanelConfigPathsRestoredRight = FALSE;
 
     ToolTip = new CToolTip(ooStatic);
 
@@ -455,7 +461,18 @@ CMainWindow::~CMainWindow()
         delete ContextMenuNew;
     if (ToolTip != NULL)
         delete ToolTip;
+    if (LeftTabWindow != NULL)
+        delete LeftTabWindow;
+    if (RightTabWindow != NULL)
+        delete RightTabWindow;
     MainWindow = NULL;
+}
+
+CFilesWindow* CMainWindow::GetOtherPanel(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return NULL;
+    return panel->IsLeftPanel() ? RightPanel : LeftPanel;
 }
 
 void CMainWindow::ClearHistory()
@@ -465,11 +482,16 @@ void CMainWindow::ClearHistory()
 
     if (DirHistory != NULL)
         DirHistory->ClearHistory();
-    // hide the little arrows in the DirLine
-    if (LeftPanel != NULL)
-        LeftPanel->DirectoryLine->SetHistory(FALSE);
-    if (RightPanel != NULL)
-        RightPanel->DirectoryLine->SetHistory(FALSE);
+
+    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
+    for (int i = 0; i < leftTabs.Count; i++)
+        leftTabs[i]->ClearWorkDirHistory();
+    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
+    for (int i = 0; i < rightTabs.Count; i++)
+        rightTabs[i]->ClearWorkDirHistory();
+
+    UpdateAllDirectoryLineHistoryStates();
+    RefreshCommandStates();
 }
 
 void CMainWindow::UpdateDefaultDir(BOOL activePrefered)
@@ -2708,6 +2730,19 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL leftSmartMode = FALSE;
     BOOL rightSmartMode = FALSE;
 
+    BOOL newTab = FALSE;
+    BOOL closeTab = FALSE;
+    BOOL nextTab = FALSE;
+    BOOL prevTab = FALSE;
+    BOOL leftNewTab = FALSE;
+    BOOL leftCloseTab = FALSE;
+    BOOL leftNextTab = FALSE;
+    BOOL leftPrevTab = FALSE;
+    BOOL rightNewTab = FALSE;
+    BOOL rightCloseTab = FALSE;
+    BOOL rightNextTab = FALSE;
+    BOOL rightPrevTab = FALSE;
+
     int selCount = 0;
     int unselCount = 0;
 
@@ -2728,7 +2763,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         targetArchive = nonActivePanel->Is(ptZIPArchive);
         selCount = activePanel->GetSelCount();
         onDisk = activePanel->Is(ptDisk);
-        dirHistory = obj->DirHistory->HasPaths();
+        dirHistory = obj->HasDirHistory(activePanel);
         sortType = activePanel->SortType;
         leftSortType = obj->LeftPanel->SortType;
         rightSortType = obj->RightPanel->SortType;
@@ -2736,6 +2771,44 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         smartMode = obj->GetSmartColumnMode(activePanel);
         leftSmartMode = obj->GetSmartColumnMode(obj->LeftPanel);
         rightSmartMode = obj->GetSmartColumnMode(obj->RightPanel);
+
+        CPanelSide activeSide = activePanel->GetPanelSide();
+        int activeCount = obj->GetPanelTabCount(activeSide);
+        int activeIndex = obj->GetPanelTabIndex(activeSide, activePanel);
+        newTab = TRUE;
+        closeTab = (activeIndex > 0);
+        nextTab = (activeCount > 1);
+        prevTab = (activeCount > 1);
+
+        int leftCount = obj->GetPanelTabCount(cpsLeft);
+        leftNewTab = (leftCount > 0);
+        int leftIndex = obj->GetPanelTabIndex(cpsLeft, obj->LeftPanel);
+        leftCloseTab = (leftIndex > 0);
+        leftNextTab = (leftCount > 1);
+        leftPrevTab = (leftCount > 1);
+
+        int rightCount = obj->GetPanelTabCount(cpsRight);
+        rightNewTab = (rightCount > 0);
+        int rightIndex = obj->GetPanelTabIndex(cpsRight, obj->RightPanel);
+        rightCloseTab = (rightIndex > 0);
+        rightNextTab = (rightCount > 1);
+        rightPrevTab = (rightCount > 1);
+
+        if (!Configuration.UsePanelTabs)
+        {
+            newTab = FALSE;
+            closeTab = FALSE;
+            nextTab = FALSE;
+            prevTab = FALSE;
+            leftNewTab = FALSE;
+            leftCloseTab = FALSE;
+            leftNextTab = FALSE;
+            leftPrevTab = FALSE;
+            rightNewTab = FALSE;
+            rightCloseTab = FALSE;
+            rightNextTab = FALSE;
+            rightPrevTab = FALSE;
+        }
 
         if (archive)
         {
@@ -2920,6 +2993,18 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
                                                 validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_OPENACTIVEFOLDER)));
     obj->CheckAndSet(&EnablerPermissions, onDisk && files && acls &&
                                               ((containsFile && !containsDir) || (!containsFile && containsDir)));
+    obj->CheckAndSet(&EnablerNewTab, newTab);
+    obj->CheckAndSet(&EnablerCloseTab, closeTab);
+    obj->CheckAndSet(&EnablerNextTab, nextTab);
+    obj->CheckAndSet(&EnablerPrevTab, prevTab);
+    obj->CheckAndSet(&EnablerLeftNewTab, leftNewTab);
+    obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
+    obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
+    obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
+    obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
+    obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
+    obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
+    obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {

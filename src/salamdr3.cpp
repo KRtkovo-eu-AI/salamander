@@ -1945,6 +1945,41 @@ void CPathHistory::RemoveActualPath(int type, const char* pathOrArchiveOrFSName,
     }
 }
 
+void CPathHistory::AppendFrom(const CPathHistory& source)
+{
+    if (&source == this)
+        return;
+
+    TIndirectArray<CPathHistoryItem>& sourcePaths =
+        const_cast<TIndirectArray<CPathHistoryItem>&>(source.Paths);
+    for (int i = 0; i < sourcePaths.Count; i++)
+    {
+        CPathHistoryItem* item = sourcePaths[i];
+        if (item == NULL)
+            continue;
+
+        HICON hIcon = NULL;
+        if (item->HIcon != NULL)
+        {
+            hIcon = CopyIcon(item->HIcon);
+            if (hIcon == NULL)
+                TRACE_E(LOW_MEMORY);
+        }
+
+        AddPathUnique(item->Type, item->PathOrArchiveOrFSName, item->ArchivePathOrFSUserPart, hIcon,
+                      item->PluginFS, NULL);
+    }
+}
+
+void CPathHistory::CopyFrom(const CPathHistory& source)
+{
+    if (&source == this)
+        return;
+
+    ClearHistory();
+    AppendFrom(source);
+}
+
 void CPathHistory::AddPath(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                            CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS)
 {

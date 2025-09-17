@@ -292,6 +292,7 @@
 #define IDD_CFGPAGE_APPEARANCE          595
 #define IDC_NOTHIDDENSYSTEM             596
 #define IDC_USESALOPEN                  597
+#define IDC_PANELS_USETABS              599
 #define IDC_FULLROWHIGHLIGHT            601
 #define IDC_CHD_SHOWMYDOC               602
 #define IDC_QUICKRENAME_SELALL          603
@@ -570,6 +571,8 @@
 #define IDC_HISTORY_SAVECMDLINE         2648
 #define IDC_HISTORY_CLEARHISTORY        2649
 #define IDC_HISTORY_WORKDIRS            2650
+#define IDC_HISTORY_WORKDIRS_SHARED     2651
+#define IDC_HISTORY_WORKDIRS_PER_TAB    2652
 #define IDD_LOADSELECTION               2660
 #define IDC_LOADSEL_COPY                2661
 #define IDC_LOADSEL_OR                  2662
