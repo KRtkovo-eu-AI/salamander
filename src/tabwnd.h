@@ -6,21 +6,39 @@
 //
 // ****************************************************************************
 
+class CMainWindow;
+enum CPanelSide;
+
 class CTabWindow : public CWindow
 {
 public:
-    CFilesWindow* FilesWindow;
-
-    //  protected:
-    //    TDirectArray<CTabItem> TabItems;
-
-public:
-    CTabWindow(CFilesWindow* filesWindow);
+    CTabWindow(CMainWindow* mainWindow, CPanelSide side);
     ~CTabWindow();
 
+    BOOL Create(HWND parent, int controlID);
     void DestroyWindow();
-    int GetNeededHeight();
+    int GetNeededHeight() const;
+
+    int AddTab(int index, const char* text, LPARAM data);
+    void RemoveTab(int index);
+    void RemoveAllTabs();
+    void SetTabText(int index, const char* text);
+    void SetCurSel(int index);
+    int GetCurSel() const;
+    int GetTabCount() const;
+    LPARAM GetItemData(int index) const;
+    int HitTest(POINT pt) const;
+    BOOL HandleNotify(LPNMHDR nmhdr, LRESULT& result);
+
+    CPanelSide GetSide() const { return Side; }
 
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+private:
+    void EnsureSelection();
+
+    CMainWindow* MainWindow;
+    CPanelSide Side;
+    int ControlID;
 };

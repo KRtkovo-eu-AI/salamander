@@ -202,6 +202,12 @@ public:
                           CPluginFSInterfaceAbstract* pluginFS,
                           CPluginFSInterfaceEncapsulation* curPluginFS);
 
+    // zkopiruje vsechny cesty z jine historie (prida je na konec, pripadne odstrani duplicity)
+    void AppendFrom(const CPathHistory& source);
+
+    // nahradi historii kopii z jine historie
+    void CopyFrom(const CPathHistory& source);
+
     // naplni menu polozkami
     // ID budou od jednicky a odpovidaji parameru index ve volani metody Execute()
     void FillBackForwardPopupMenu(CMenuPopup* popup, BOOL forward);

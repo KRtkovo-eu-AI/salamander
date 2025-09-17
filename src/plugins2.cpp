@@ -2876,6 +2876,8 @@ BOOL IsPluginUnsupportedOnX64(const char* dllName, const char** pluginNameEN)
     const char* nameEN = "";
     if (_stricmp(dllName, "winscp\\winscp.spl") == 0)
         nameEN = "WinSCP (SFTP/SCP Client)";
+    else if (_stricmp(dllName, "encrypt\\encrypt.spl") == 0)
+        nameEN = "Encrypt";
     if (pluginNameEN != NULL)
         *pluginNameEN = nameEN;
     return nameEN[0] != 0;
