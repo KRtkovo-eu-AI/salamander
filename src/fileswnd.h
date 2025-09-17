@@ -36,6 +36,12 @@ enum CPanelType
     ptPluginFS,   // aktualni cesta je na plug-inovy file-system (obsluhuje plug-in)
 };
 
+enum CPanelSide
+{
+    cpsLeft,
+    cpsRight,
+};
+
 struct CAttrsData // data pro atChangeAttrs
 {
     DWORD AttrAnd, AttrOr;
@@ -757,6 +763,8 @@ public:
     CStatusWindow *StatusLine,
         *DirectoryLine;
 
+    CPanelSide PanelSide;
+
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
     BOOL HeaderLineVisible;
@@ -896,8 +904,13 @@ public:
     DWORD NextIconOvrRefreshTime;             // cas, kdy ma smysl zase zacit sledovat notifikace o zmenach icon-overlays v tomto panelu (viz IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent);
+    CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
+
+    CPanelSide GetPanelSide() const { return PanelSide; }
+    BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
+    BOOL IsRightPanel() const { return PanelSide == cpsRight; }
+    void SetPanelSide(CPanelSide side);
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&

@@ -15,6 +15,8 @@ struct CCommandLineParams;
 // pokud uzivatel nechce vic instanci, pouze aktivujeme predchozi
 BOOL CheckOnlyOneInstance(const CCommandLineParams* cmdLineParams);
 
+enum CPanelSide : int;
+
 // otevrenym oknum interniho vieweru a findu rozesle zpravu WM_USER_CFGCHANGED
 void BroadcastConfigChanged();
 
@@ -377,6 +379,8 @@ public:
 
     CFilesWindow *LeftPanel,
         *RightPanel;
+    TIndirectArray<CFilesWindow*> LeftPanelTabs;
+    TIndirectArray<CFilesWindow*> RightPanelTabs;
     CEditWindow* EditWindow;
     CMainToolBar* TopToolBar;
     CPluginsBar* PluginsBar;
@@ -504,6 +508,10 @@ public:
     void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // sejme EditMode, protoze do panelu umisti focus
     void FocusLeftPanel();                                                  // vola FocusPanel pro levy panel
 
+    CFilesWindow* AddPanelTab(CPanelSide side);
+    void SwitchPanelTab(CFilesWindow* panel);
+    void ClosePanelTab(CFilesWindow* panel);
+
     // porovna adresare v levem a pravem panelu
     void CompareDirectories(DWORD flags); // flags je kombinaci COMPARE_DIRECTORIES_xxx
 
@@ -563,10 +571,7 @@ public:
     HWND GetActivePanelHWND();
     int GetDirectoryLineHeight();
 
-    CFilesWindow* GetOtherPanel(CFilesWindow* panel)
-    {
-        return panel == LeftPanel ? RightPanel : LeftPanel;
-    }
+    CFilesWindow* GetOtherPanel(CFilesWindow* panel);
 
     BOOL EditWindowKnowHWND(HWND hwnd);
     void EditWindowSetDirectory(); // nastavi text pred command-line a zaroven ji enabluje/disabluje

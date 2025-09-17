@@ -294,7 +294,7 @@ void CFilesWindow::Execute(int index)
                                 s++;
                             if (*s == '\\')
                                 *s = 0;
-                            nethoodPlugin->EnsureShareExistsOnServer(HWindow, this == MainWindow->LeftPanel ? PANEL_LEFT : PANEL_RIGHT,
+                            nethoodPlugin->EnsureShareExistsOnServer(HWindow, IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
                                                                      path + 2, focusName);
                             ChangePathToPluginFS(doublePath, path, -1, focusName);
                             if (Is(ptPluginFS))
@@ -502,7 +502,7 @@ void CFilesWindow::Execute(int index)
                 CPluginInterfaceForFSEncapsulation* ifaceForFS = GetPluginFS()->GetPluginInterfaceForFS();
                 char fsNameBuf[MAX_PATH]; // GetPluginFS() muze prestt existovat, radsi dame fsName do lokalniho bufferu
                 lstrcpyn(fsNameBuf, GetPluginFS()->GetPluginFSName(), MAX_PATH);
-                ifaceForFS->ExecuteOnFS(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
+                ifaceForFS->ExecuteOnFS(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
                                         GetPluginFS()->GetInterface(), fsNameBuf,
                                         GetPluginFS()->GetPluginFSNameIndex(), *file, isDir);
             }
@@ -906,6 +906,8 @@ void CFilesWindow::ToggleDirectoryLine()
                                    HInstance,
                                    DirectoryLine))
             TRACE_E("Unable to create directory-line.");
+        else
+            DirectoryLine->SetLeftPanel(IsLeftPanel());
         IdleForceRefresh = TRUE;  // forcneme update
         IdleRefreshStates = TRUE; // pri pristim Idle vynutime kontrolu stavovych promennych
     }
@@ -945,6 +947,8 @@ void CFilesWindow::ToggleStatusLine()
                                 HInstance,
                                 StatusLine))
             TRACE_E("Unable to create information-line.");
+        else
+            StatusLine->SetLeftPanel(IsLeftPanel());
     }
     RECT r;
     GetClientRect(HWindow, &r);
@@ -1075,7 +1079,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         if (PluginData.NotEmpty())
         {
             CSalamanderView view(this);
-            PluginData.SetupView(this == MainWindow->LeftPanel,
+            PluginData.SetupView(IsLeftPanel(),
                                  &view, Is(ptZIPArchive) ? GetZIPPath() : NULL,
                                  Is(ptZIPArchive) ? GetArchiveDir()->GetUpperDir(GetZIPPath()) : NULL);
         }
@@ -1152,7 +1156,7 @@ void CFilesWindow::ItemFocused(int index)
         {
             if (PluginData.NotEmpty())
             {
-                if (PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
+                if (PluginData.GetInfoLineContent(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
                                                   f, index < Dirs->Count, 0, 0, TRUE, CQuadWord(0, 0), buff,
                                                   varPlacements, varPlacementsCount))
                 {
@@ -1251,7 +1255,7 @@ BOOL CFilesWindow::PrepareCloseCurrentPath(HWND parent, BOOL canForce, BOOL canD
             // pokud muzou byt v diskcache editovane soubory nebo tento archiv neni otevren
             // i v druhem panelu, vyhodime jeho cachovane soubory, pri dalsim otevreni se bude
             // znovu vypakovavat (archiv muze byt mezitim editovan)
-            CFilesWindow* another = (MainWindow->LeftPanel == this) ? MainWindow->RightPanel : MainWindow->LeftPanel;
+            CFilesWindow* another = MainWindow->GetOtherPanel(this);
             if (someFilesChanged || !another->Is(ptZIPArchive) || StrICmp(another->GetZIPArchive(), GetZIPArchive()) != 0)
             {
                 StrICpy(buf, GetZIPArchive()); // v disk-cache je jmeno archivu malymi pismeny (umozni case-insensitive porovnani jmena z Windows file systemu)
@@ -3441,7 +3445,7 @@ void CFilesWindow::RefreshDiskFreeSpace(BOOL check, BOOL doNotRefreshOtherPanel)
                 // disk-free-space i ve vedlejsim panelu (neni dokonale - idealni by bylo
                 // testovat, jestli jsou cesty na stejnem svazku, ale to by bylo moc pomale,
                 // toto zjednoduseni bude pro obycejne pouziti bohate stacit)
-                CFilesWindow* otherPanel = (MainWindow->LeftPanel == this) ? MainWindow->RightPanel : MainWindow->LeftPanel;
+                CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
                 if (otherPanel->Is(ptDisk) && HasTheSameRootPath(GetPath(), otherPanel->GetPath()))
                     otherPanel->RefreshDiskFreeSpace(TRUE, TRUE /* jinak nekonecna rekurze */);
             }
@@ -4029,7 +4033,7 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
         }
 
         // osetrime Smart Mode sloupce Name
-        BOOL leftPanel = (MainWindow->LeftPanel == this);
+        BOOL leftPanel = IsLeftPanel();
         if (Columns[0].FixedWidth == 0 &&
             (leftPanel && ViewTemplate->LeftSmartMode || !leftPanel && ViewTemplate->RightSmartMode) &&
             ListBox->FilesRect.right - ListBox->FilesRect.left > 0) // jen pokud uz je files-box inicializovany
