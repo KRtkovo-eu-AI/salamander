@@ -490,9 +490,9 @@ void CMainWindow::CommandNewTab(CPanelSide side)
         return;
     }
 
-    CFilesWindow* reference = (side == cpsLeft) ? LeftPanel : RightPanel;
-    if (reference != panel && reference != NULL)
-        panel->ChangeDir(reference->GetPath());
+    const char* targetPath = (previous != NULL && previous != panel) ? previous->GetPath() : panel->GetPath();
+    if (targetPath != NULL)
+        panel->ChangeDir(targetPath);
 
     UpdatePanelTabTitle(panel);
     SwitchPanelTab(panel);
