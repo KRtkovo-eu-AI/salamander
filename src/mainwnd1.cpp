@@ -346,6 +346,9 @@ CMainWindow::CMainWindow()
     LockedUIToolWnd = NULL;
     LockedUIReason = NULL;
 
+    PanelConfigPathsRestoredLeft = FALSE;
+    PanelConfigPathsRestoredRight = FALSE;
+
     ToolTip = new CToolTip(ooStatic);
 
     // viewers

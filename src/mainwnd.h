@@ -430,6 +430,9 @@ public:
     BOOL DisableIdleProcessing;       // TRUE = nebudeme provadet IDLE processing (soft jiz konci, jen by zdrzoval a vse komplikoval)
                                       //    CTipOfTheDayDialog *TipOfTheDayDialog;
 
+    BOOL PanelConfigPathsRestoredLeft;
+    BOOL PanelConfigPathsRestoredRight;
+
     BOOL DragMode;
     int DragSplitX;
 
@@ -550,8 +553,8 @@ public:
 
     void SaveConfig(HWND parent = NULL); // parent: NULL = MainWindow->HWindow
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
-    void SavePanelConfig(CFilesWindow* panel, HKEY hSalamander, const char* reg);
-    void LoadPanelConfig(char* panelPath, CFilesWindow* panel, HKEY hSalamander, const char* reg);
+    void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
+    void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);
     void DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoImportConfig,
                                  const char* autoImportConfigFromKey, BOOL doNotDeleteImportedCfg);
 

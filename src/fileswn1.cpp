@@ -1732,6 +1732,9 @@ void CFilesWindow::DirectoryLineSetText()
     {
         DirectoryLine->SetText(path);
     }
+
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
 }
 
 void CFilesWindow::SelectUnselect(BOOL forceIncludeDirs, BOOL select, BOOL showMaskDlg)
@@ -2396,6 +2399,9 @@ BOOL CFilesWindow::CommonRefresh(HWND parent, int suggestedTopIndex, const char*
         RefreshListBox(0, suggestedTopIndex, suggestedFocusIndex, TRUE, !isRefresh);
         //TRACE_I("refresh listbox: end");
     }
+
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
 
     DirectoryLine->InvalidateIfNeeded();
     //TRACE_I("common refresh: end");

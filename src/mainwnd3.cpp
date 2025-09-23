@@ -207,14 +207,45 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
 
 BOOL MainFrameIsActive = FALSE;
 
-static void BuildTabCaption(const char* path, char* buffer, int bufferSize)
+static void BuildTabCaption(const char* generalPath, BOOL isPlugin, char* buffer, int bufferSize)
 {
     CALL_STACK_MESSAGE_NONE
     if (bufferSize <= 0)
         return;
     buffer[0] = 0;
-    if (path == NULL)
+    if (generalPath == NULL)
         return;
+
+    const char* path = generalPath;
+    const char* pluginName = NULL;
+    if (isPlugin)
+    {
+        const char* colon = strchr(generalPath, ':');
+        if (colon != NULL)
+        {
+            pluginName = generalPath;
+            path = colon + 1;
+            while (*path == '\\' || *path == '/')
+                ++path;
+            if (*path == 0)
+            {
+                int len = (int)(colon - pluginName);
+                if (len >= bufferSize)
+                    len = bufferSize - 1;
+                if (len > 0)
+                    memcpy(buffer, pluginName, len);
+                buffer[len] = 0;
+                if (len == 0)
+                    lstrcpyn(buffer, generalPath, bufferSize);
+                return;
+            }
+        }
+        else
+        {
+            lstrcpyn(buffer, generalPath, bufferSize);
+            return;
+        }
+    }
 
     const char* end = path + strlen(path);
     const char* p = end;
@@ -227,9 +258,31 @@ static void BuildTabCaption(const char* path, char* buffer, int bufferSize)
     int len = (int)(p - start);
     if (len <= 0)
     {
-        len = (int)(end - path);
-        start = path;
+        int copyLen = (int)(p - path);
+        if (copyLen <= 0)
+            copyLen = (int)(end - path);
+        if (copyLen <= 0 && pluginName != NULL)
+        {
+            int pluginLen = (int)(strchr(generalPath, ':') - generalPath);
+            if (pluginLen >= bufferSize)
+                pluginLen = bufferSize - 1;
+            if (pluginLen > 0)
+                memcpy(buffer, generalPath, pluginLen);
+            buffer[pluginLen] = 0;
+            if (pluginLen == 0)
+                lstrcpyn(buffer, generalPath, bufferSize);
+            return;
+        }
+        if (copyLen >= bufferSize)
+            copyLen = bufferSize - 1;
+        if (copyLen > 0)
+            memcpy(buffer, path, copyLen);
+        buffer[copyLen] = 0;
+        if (copyLen == 0)
+            lstrcpyn(buffer, generalPath, bufferSize);
+        return;
     }
+
     if (len >= bufferSize)
         len = bufferSize - 1;
     if (len > 0)
@@ -237,7 +290,7 @@ static void BuildTabCaption(const char* path, char* buffer, int bufferSize)
     buffer[len] = 0;
 
     if (buffer[0] == 0)
-        lstrcpyn(buffer, path, bufferSize);
+        lstrcpyn(buffer, generalPath, bufferSize);
 }
 
 TIndirectArray<CFilesWindow>& CMainWindow::GetPanelTabs(CPanelSide side)
@@ -277,8 +330,11 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
     int index = GetPanelTabIndex(side, panel);
     if (index < 0)
         return;
+    char path[2 * MAX_PATH];
+    if (!panel->GetGeneralPath(path, _countof(path), TRUE))
+        path[0] = 0;
     char text[MAX_PATH];
-    BuildTabCaption(panel->GetPath(), text, _countof(text));
+    BuildTabCaption(path, panel->Is(ptPluginFS), text, _countof(text));
     tabWnd->SetTabText(index, text);
 }
 
@@ -311,8 +367,11 @@ void CMainWindow::RebuildPanelTabs(CPanelSide side)
     for (int i = 0; i < tabs.Count; i++)
     {
         CFilesWindow* panel = tabs[i];
+        char path[2 * MAX_PATH];
+        if (!panel->GetGeneralPath(path, _countof(path), TRUE))
+            path[0] = 0;
         char text[MAX_PATH];
-        BuildTabCaption(panel->GetPath(), text, _countof(text));
+        BuildTabCaption(path, panel->Is(ptPluginFS), text, _countof(text));
         tabWnd->AddTab(i, text, (LPARAM)panel);
     }
     CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
