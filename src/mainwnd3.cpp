@@ -527,6 +527,32 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     }
 }
 
+void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
+{
+    CALL_STACK_MESSAGE3("CMainWindow::OnPanelTabReordered(%d, %d, %d)", side, from, to);
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (from < 0 || from >= tabs.Count)
+        return;
+    if (to < 0 || to >= tabs.Count)
+        return;
+    if (from == to)
+        return;
+    if (from == 0 || to == 0)
+        return;
+
+    CFilesWindow* panel = tabs[from];
+    if (panel == NULL)
+        return;
+
+    tabs.Detach(from);
+    if (to > tabs.Count)
+        to = tabs.Count;
+    tabs.Insert(to, panel);
+}
+
 void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 {
     if (!Configuration.UsePanelTabs)

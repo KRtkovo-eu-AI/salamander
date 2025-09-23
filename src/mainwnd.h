@@ -526,6 +526,7 @@ public:
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
+    void OnPanelTabReordered(CPanelSide side, int from, int to);
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
     void CommandNewTab(CPanelSide side, bool addAtEnd = false);
