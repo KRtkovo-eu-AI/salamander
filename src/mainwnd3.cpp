@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <algorithm>
+
 #include <shlwapi.h>
 #undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
 
@@ -213,6 +215,40 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
 
 BOOL MainFrameIsActive = FALSE;
 
+void CMainWindow::RegisterStatusWindow(CStatusWindow* window)
+{
+    if (window == NULL)
+        return;
+    if (std::find(StatusWindows.begin(), StatusWindows.end(), window) == StatusWindows.end())
+        StatusWindows.push_back(window);
+}
+
+void CMainWindow::UnregisterStatusWindow(CStatusWindow* window)
+{
+    if (window == NULL)
+        return;
+    std::vector<CStatusWindow*>::iterator it =
+        std::find(StatusWindows.begin(), StatusWindows.end(), window);
+    if (it != StatusWindows.end())
+        StatusWindows.erase(it);
+}
+
+bool CMainWindow::IsStatusWindowRegistered(const CStatusWindow* window) const
+{
+    if (window == NULL)
+        return false;
+    return std::find(StatusWindows.begin(), StatusWindows.end(), window) != StatusWindows.end();
+}
+
+void CMainWindow::InvalidateDirectoryLine(CFilesWindow* panel, BOOL update)
+{
+    if (panel == NULL)
+        return;
+    CStatusWindow* dirLine = panel->DirectoryLine;
+    if (dirLine != NULL && IsStatusWindowRegistered(dirLine))
+        dirLine->InvalidateAndUpdate(update);
+}
+
 static void BuildTabCaption(const char* generalPath, BOOL isPlugin, char* buffer, int bufferSize)
 {
     CALL_STACK_MESSAGE_NONE
@@ -411,6 +447,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 {
     if (!Configuration.UsePanelTabs)
         return;
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     HMENU menu = CreatePopupMenu();
     if (menu == NULL)
         return;
@@ -449,19 +486,64 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), nextCmd, LoadStr(nextText));
     AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), prevCmd, LoadStr(prevText));
 
-    TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON, screenPt.x, screenPt.y, 0, HWindow, NULL);
+    UINT command = TrackPopupMenuEx(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
+                                   screenPt.x, screenPt.y, HWindow, NULL);
     DestroyMenu(menu);
+
+    if (command == 0)
+        return;
+
+    switch (command)
+    {
+    case CM_LEFT_NEWTAB:
+    case CM_RIGHT_NEWTAB:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandNewTab(side);
+        break;
+
+    case CM_LEFT_CLOSETAB:
+    case CM_RIGHT_CLOSETAB:
+        if (index > 0 && index < tabs.Count)
+        {
+            SwitchPanelTab(tabs[index]);
+            CommandCloseTab(side);
+        }
+        break;
+
+    case CM_LEFT_NEXTTAB:
+    case CM_RIGHT_NEXTTAB:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandNextTab(side);
+        break;
+
+    case CM_LEFT_PREVTAB:
+    case CM_RIGHT_PREVTAB:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandPrevTab(side);
+        break;
+    }
 }
 
-void CMainWindow::CommandNewTab(CPanelSide side)
+void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 {
     if (!Configuration.UsePanelTabs)
         return;
-    int insertIndex = GetPanelTabIndex(side, side == cpsLeft ? LeftPanel : RightPanel);
-    if (insertIndex < 0)
+    int insertIndex;
+    if (addAtEnd)
+    {
         insertIndex = GetPanelTabCount(side);
+    }
     else
-        insertIndex++;
+    {
+        insertIndex = GetPanelTabIndex(side, side == cpsLeft ? LeftPanel : RightPanel);
+        if (insertIndex < 0)
+            insertIndex = GetPanelTabCount(side);
+        else
+            insertIndex++;
+    }
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 
@@ -2240,10 +2322,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_USER_REPAINTSTATUSBARS:
     {
-        if (LeftPanel != NULL && LeftPanel->DirectoryLine != NULL)
-            LeftPanel->DirectoryLine->InvalidateAndUpdate(FALSE);
-        if (RightPanel != NULL && RightPanel->DirectoryLine != NULL)
-            RightPanel->DirectoryLine->InvalidateAndUpdate(FALSE);
+        for (size_t i = 0; i < StatusWindows.size(); i++)
+        {
+            CStatusWindow* window = StatusWindows[i];
+            if (window != NULL)
+                window->InvalidateAndUpdate(FALSE);
+        }
         return 0;
     }
 
@@ -6215,8 +6299,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // if selection is being lost, request an update quickly so we don't
         // destroy the buffer of the opening window with CS_SAVEBITS
         CFilesWindow* panel = GetActivePanel();
-        if (panel != NULL && panel->DirectoryLine != NULL)
-            panel->DirectoryLine->InvalidateAndUpdate(!CaptionIsActive);
+        InvalidateDirectoryLine(panel, !CaptionIsActive);
 
         if (!CaptionIsActive)
         {
