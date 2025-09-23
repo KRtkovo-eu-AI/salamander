@@ -1385,10 +1385,8 @@ void CMainWindow::ChangePanel(BOOL force)
         SetActivePanel(p2);
 
         // ensure the active panel header is redrawn
-        if (p1->DirectoryLine != NULL)
-            p1->DirectoryLine->InvalidateAndUpdate(FALSE);
-        if (p2->DirectoryLine != NULL)
-            p2->DirectoryLine->InvalidateAndUpdate(FALSE);
+        InvalidateDirectoryLine(p1, FALSE);
+        InvalidateDirectoryLine(p2, FALSE);
 
         UpdateDriveBars(); // press the correct drive in the drive bar
 
@@ -1456,10 +1454,8 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
         // see https://forum.altap.cz/viewtopic.php?t=181
 
         // repaint the directory line of both panels
-        if (old != NULL && old->DirectoryLine != NULL)
-            old->DirectoryLine->InvalidateAndUpdate(FALSE);
-        if (focus->DirectoryLine != NULL)
-            focus->DirectoryLine->InvalidateAndUpdate(FALSE);
+        InvalidateDirectoryLine(old, FALSE);
+        InvalidateDirectoryLine(focus, FALSE);
         //    ReleaseMenuNew();
         EditWindowSetDirectory();
         IdleRefreshStates = TRUE; // on the next Idle, force checking of state variables
