@@ -41,6 +41,31 @@ int ImageDragDyHotspot = INT_MAX;
 
 void RecursiveFindAndCopy(char* srcPath, char* dstPath, char** fromBuf, char** toBuf, int* freeBufNames);
 
+static void RemovePanelPathFromHistory(CPathHistory* history, CFilesWindow* panel)
+{
+    if (history == NULL || panel == NULL)
+        return;
+
+    if (panel->Is(ptZIPArchive))
+    {
+        history->RemoveActualPath(1, panel->GetZIPArchive(), panel->GetZIPPath(), NULL, NULL);
+    }
+    else if (panel->Is(ptDisk))
+    {
+        history->RemoveActualPath(0, panel->GetPath(), NULL, NULL, NULL);
+    }
+    else if (panel->Is(ptPluginFS))
+    {
+        CPluginFSInterfaceEncapsulation* pluginFS = panel->GetPluginFS();
+        if (pluginFS != NULL && pluginFS->NotEmpty())
+        {
+            char curPath[MAX_PATH];
+            if (pluginFS->GetCurrentPath(curPath))
+                history->RemoveActualPath(2, pluginFS->GetPluginFSName(), curPath, pluginFS->GetInterface(), pluginFS);
+        }
+    }
+}
+
 CPathHistory* CMainWindow::GetDirHistory(CFilesWindow* panel, BOOL createIfNeeded)
 {
     if (UsingSharedWorkDirHistory() || panel == NULL)
@@ -128,23 +153,28 @@ void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previou
 
     if (newScope == wdhsPerTab)
     {
-        if (DirHistory != NULL)
+        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
+        for (int i = 0; i < leftTabs.Count; i++)
         {
-            TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-            for (int i = 0; i < leftTabs.Count; i++)
-            {
-                CPathHistory* history = leftTabs[i]->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->CopyFrom(*DirHistory);
-            }
+            CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
+            if (history == NULL)
+                history = leftTabs[i]->EnsureWorkDirHistory();
+            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
+                continue;
+            if (history != NULL && DirHistory != NULL)
+                history->CopyFrom(*DirHistory);
+        }
 
-            TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-            for (int i = 0; i < rightTabs.Count; i++)
-            {
-                CPathHistory* history = rightTabs[i]->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->CopyFrom(*DirHistory);
-            }
+        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
+        for (int i = 0; i < rightTabs.Count; i++)
+        {
+            CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
+            if (history == NULL)
+                history = rightTabs[i]->EnsureWorkDirHistory();
+            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
+                continue;
+            if (history != NULL && DirHistory != NULL)
+                history->CopyFrom(*DirHistory);
         }
     }
     else
@@ -158,22 +188,19 @@ void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
 {
     if (DirHistory != NULL)
         DirHistory->ClearPluginFSFromHistory(fs);
-    if (!UsingSharedWorkDirHistory())
+    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
+    for (int i = 0; i < leftTabs.Count; i++)
     {
-        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-        for (int i = 0; i < leftTabs.Count; i++)
-        {
-            CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
-            if (history != NULL)
-                history->ClearPluginFSFromHistory(fs);
-        }
-        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-        for (int i = 0; i < rightTabs.Count; i++)
-        {
-            CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
-            if (history != NULL)
-                history->ClearPluginFSFromHistory(fs);
-        }
+        CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
+        if (history != NULL)
+            history->ClearPluginFSFromHistory(fs);
+    }
+    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
+    for (int i = 0; i < rightTabs.Count; i++)
+    {
+        CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
+        if (history != NULL)
+            history->ClearPluginFSFromHistory(fs);
     }
     UpdateAllDirectoryLineHistoryStates();
 }
@@ -184,39 +211,57 @@ void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
                                           CPluginFSInterfaceAbstract* pluginFS,
                                           CPluginFSInterfaceEncapsulation* curPluginFS)
 {
-    if (CanAddToDirHistory)
-    {
-        CPathHistory* history = GetDirHistory(panel, TRUE);
-        HICON sharedIcon = NULL;
-        if (!UsingSharedWorkDirHistory() && DirHistory != NULL && history != NULL && history != DirHistory)
-        {
-            if (hIcon != NULL)
-            {
-                sharedIcon = CopyIcon(hIcon);
-                if (sharedIcon == NULL)
-                    TRACE_E(LOW_MEMORY);
-            }
-            DirHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, sharedIcon,
-                                      pluginFS, curPluginFS);
-            sharedIcon = NULL;
-        }
-        if (history != NULL)
-        {
-            history->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
-                                   pluginFS, curPluginFS);
-            if (UsingSharedWorkDirHistory())
-                UpdateAllDirectoryLineHistoryStates();
-            else
-                UpdateDirectoryLineHistoryState(panel);
-        }
-        else if (hIcon != NULL)
-            HANDLES(DestroyIcon(hIcon));
-    }
-    else
+    if (!CanAddToDirHistory)
     {
         if (hIcon != NULL)
             HANDLES(DestroyIcon(hIcon));
+        return;
     }
+
+    CPathHistory* sharedHistory = DirHistory;
+    CPathHistory* panelHistory = (panel != NULL) ? panel->EnsureWorkDirHistory() : NULL;
+
+    CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
+    CPathHistory* secondaryHistory = NULL;
+    if (UsingSharedWorkDirHistory())
+    {
+        if (panelHistory != NULL && panelHistory != primaryHistory)
+            secondaryHistory = panelHistory;
+    }
+    else if (sharedHistory != NULL && sharedHistory != primaryHistory)
+        secondaryHistory = sharedHistory;
+
+    HICON secondaryIcon = NULL;
+    if (secondaryHistory != NULL && hIcon != NULL)
+    {
+        secondaryIcon = CopyIcon(hIcon);
+        if (secondaryIcon == NULL)
+            TRACE_E(LOW_MEMORY);
+    }
+
+    if (primaryHistory != NULL)
+    {
+        primaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
+                                      pluginFS, curPluginFS);
+        hIcon = NULL;
+    }
+
+    if (secondaryHistory != NULL)
+    {
+        secondaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, secondaryIcon,
+                                        pluginFS, curPluginFS);
+        secondaryIcon = NULL;
+    }
+
+    if (secondaryIcon != NULL)
+        HANDLES(DestroyIcon(secondaryIcon));
+    if (hIcon != NULL)
+        HANDLES(DestroyIcon(hIcon));
+
+    if (UsingSharedWorkDirHistory())
+        UpdateAllDirectoryLineHistoryStates();
+    else
+        UpdateDirectoryLineHistoryState(panel);
 }
 
 void CMainWindow::DirHistoryRemoveActualPath(CFilesWindow* panel)
@@ -224,40 +269,23 @@ void CMainWindow::DirHistoryRemoveActualPath(CFilesWindow* panel)
     if (panel == NULL)
         return;
 
-    CPathHistory* history = GetDirHistory(panel, FALSE);
-    if (history == NULL)
-        return;
+    CPathHistory* sharedHistory = DirHistory;
+    CPathHistory* panelHistory = panel->GetWorkDirHistory();
 
-    if (panel->Is(ptZIPArchive))
+    CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
+    CPathHistory* secondaryHistory = NULL;
+    if (UsingSharedWorkDirHistory())
     {
-        history->RemoveActualPath(1, panel->GetZIPArchive(), panel->GetZIPPath(), NULL, NULL);
-        if (!UsingSharedWorkDirHistory() && DirHistory != NULL && history != DirHistory)
-            DirHistory->RemoveActualPath(1, panel->GetZIPArchive(), panel->GetZIPPath(), NULL, NULL);
+        if (panelHistory != NULL && panelHistory != primaryHistory)
+            secondaryHistory = panelHistory;
     }
-    else
-    {
-        if (panel->Is(ptDisk))
-        {
-            history->RemoveActualPath(0, panel->GetPath(), NULL, NULL, NULL);
-            if (!UsingSharedWorkDirHistory() && DirHistory != NULL && history != DirHistory)
-                DirHistory->RemoveActualPath(0, panel->GetPath(), NULL, NULL, NULL);
-        }
-        else
-        {
-            if (panel->Is(ptPluginFS))
-            {
-                char curPath[MAX_PATH];
-                if (panel->GetPluginFS()->NotEmpty() && panel->GetPluginFS()->GetCurrentPath(curPath))
-                {
-                    history->RemoveActualPath(2, panel->GetPluginFS()->GetPluginFSName(), curPath,
-                                              panel->GetPluginFS()->GetInterface(), panel->GetPluginFS());
-                    if (!UsingSharedWorkDirHistory() && DirHistory != NULL && history != DirHistory)
-                        DirHistory->RemoveActualPath(2, panel->GetPluginFS()->GetPluginFSName(), curPath,
-                                                     panel->GetPluginFS()->GetInterface(), panel->GetPluginFS());
-                }
-            }
-        }
-    }
+    else if (sharedHistory != NULL && sharedHistory != primaryHistory)
+        secondaryHistory = sharedHistory;
+
+    if (primaryHistory != NULL)
+        RemovePanelPathFromHistory(primaryHistory, panel);
+    if (secondaryHistory != NULL)
+        RemovePanelPathFromHistory(secondaryHistory, panel);
 
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();

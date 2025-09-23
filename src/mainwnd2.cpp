@@ -1544,22 +1544,19 @@ void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char*
         if (CreateKey(actKey, tabKeyName, tabKey))
         {
             SavePanelSettingsToKey(tabs[i], tabKey, TRUE);
-            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            CPathHistory* history = tabs[i]->GetWorkDirHistory();
+            BOOL onlyClear = !Configuration.SaveWorkDirs;
+            if (history != NULL)
             {
-                CPathHistory* history = GetDirHistory(tabs[i], FALSE);
-                BOOL onlyClear = !Configuration.SaveWorkDirs;
-                if (history != NULL)
+                history->SaveToRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG, onlyClear);
+            }
+            else
+            {
+                HKEY historyKey;
+                if (CreateKey(tabKey, CONFIG_WORKDIRSHISTORY_REG, historyKey))
                 {
-                    history->SaveToRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG, onlyClear);
-                }
-                else if (onlyClear)
-                {
-                    HKEY historyKey;
-                    if (CreateKey(tabKey, CONFIG_WORKDIRSHISTORY_REG, historyKey))
-                    {
-                        ClearKey(historyKey);
-                        CloseKey(historyKey);
-                    }
+                    ClearKey(historyKey);
+                    CloseKey(historyKey);
                 }
             }
             CloseKey(tabKey);
@@ -2716,25 +2713,29 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
             LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
-            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            if (Configuration.SaveWorkDirs)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
                 if (history != NULL)
                     history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
             }
+            else
+                panel->ClearWorkDirHistory();
             CloseKey(tabKey);
         }
         else if (i == 0)
         {
             LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
-            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            if (Configuration.SaveWorkDirs)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
                 if (history != NULL)
                     history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
             }
+            else
+                panel->ClearWorkDirHistory();
         }
-        else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+        else
             panel->ClearWorkDirHistory();
 
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)

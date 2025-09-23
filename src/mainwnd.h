@@ -4,6 +4,7 @@
 #pragma once
 
 #include "fileswnd.h"
+#include "cfgdlg.h"
 
 #define HOT_PATHS_COUNT 30
 
