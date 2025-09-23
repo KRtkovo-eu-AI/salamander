@@ -411,6 +411,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 {
     if (!Configuration.UsePanelTabs)
         return;
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     HMENU menu = CreatePopupMenu();
     if (menu == NULL)
         return;
@@ -449,19 +450,64 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), nextCmd, LoadStr(nextText));
     AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), prevCmd, LoadStr(prevText));
 
-    TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON, screenPt.x, screenPt.y, 0, HWindow, NULL);
+    UINT command = TrackPopupMenuEx(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
+                                   screenPt.x, screenPt.y, HWindow, NULL);
     DestroyMenu(menu);
+
+    if (command == 0)
+        return;
+
+    switch (command)
+    {
+    case CM_LEFT_NEWTAB:
+    case CM_RIGHT_NEWTAB:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandNewTab(side);
+        break;
+
+    case CM_LEFT_CLOSETAB:
+    case CM_RIGHT_CLOSETAB:
+        if (index > 0 && index < tabs.Count)
+        {
+            SwitchPanelTab(tabs[index]);
+            CommandCloseTab(side);
+        }
+        break;
+
+    case CM_LEFT_NEXTTAB:
+    case CM_RIGHT_NEXTTAB:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandNextTab(side);
+        break;
+
+    case CM_LEFT_PREVTAB:
+    case CM_RIGHT_PREVTAB:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandPrevTab(side);
+        break;
+    }
 }
 
-void CMainWindow::CommandNewTab(CPanelSide side)
+void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 {
     if (!Configuration.UsePanelTabs)
         return;
-    int insertIndex = GetPanelTabIndex(side, side == cpsLeft ? LeftPanel : RightPanel);
-    if (insertIndex < 0)
+    int insertIndex;
+    if (addAtEnd)
+    {
         insertIndex = GetPanelTabCount(side);
+    }
     else
-        insertIndex++;
+    {
+        insertIndex = GetPanelTabIndex(side, side == cpsLeft ? LeftPanel : RightPanel);
+        if (insertIndex < 0)
+            insertIndex = GetPanelTabCount(side);
+        else
+            insertIndex++;
+    }
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 

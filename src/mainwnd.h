@@ -526,7 +526,7 @@ public:
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
-    void CommandNewTab(CPanelSide side);
+    void CommandNewTab(CPanelSide side, bool addAtEnd = false);
     void CommandCloseTab(CPanelSide side);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);

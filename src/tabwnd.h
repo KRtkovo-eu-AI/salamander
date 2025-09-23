@@ -37,6 +37,10 @@ protected:
 
 private:
     void EnsureSelection();
+    void EnsureNewTabButton();
+    int GetDisplayedTabCount() const;
+    int GetNewTabButtonIndex() const;
+    BOOL IsNewTabButtonIndex(int index) const;
 
     CMainWindow* MainWindow;
     CPanelSide Side;
