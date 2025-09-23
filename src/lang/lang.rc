@@ -1566,7 +1566,7 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "History"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "You can choose whether recently used values (history) will be shared between tabs or separate for each tab.",IDC_STATIC,1,4,254,16
+    LTEXT           "You can choose whether recently used values (history) will be shared between tabs or separate for each tab.",IDC_STATIC_1,1,4,254,16
     CONTROL         "&Share history between tabs",IDC_HISTORY_WORKDIRS_SHARED,
                     "Button",BS_AUTORADIOBUTTON | WS_TABSTOP | WS_GROUP,1,22,180,10
     CONTROL         "Keep history per &tab",IDC_HISTORY_WORKDIRS_PER_TAB,
