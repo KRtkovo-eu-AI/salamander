@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <algorithm>
+
 #include <shlwapi.h>
 #undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
 
@@ -212,6 +214,40 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
 }
 
 BOOL MainFrameIsActive = FALSE;
+
+void CMainWindow::RegisterStatusWindow(CStatusWindow* window)
+{
+    if (window == NULL)
+        return;
+    if (std::find(StatusWindows.begin(), StatusWindows.end(), window) == StatusWindows.end())
+        StatusWindows.push_back(window);
+}
+
+void CMainWindow::UnregisterStatusWindow(CStatusWindow* window)
+{
+    if (window == NULL)
+        return;
+    std::vector<CStatusWindow*>::iterator it =
+        std::find(StatusWindows.begin(), StatusWindows.end(), window);
+    if (it != StatusWindows.end())
+        StatusWindows.erase(it);
+}
+
+bool CMainWindow::IsStatusWindowRegistered(const CStatusWindow* window) const
+{
+    if (window == NULL)
+        return false;
+    return std::find(StatusWindows.begin(), StatusWindows.end(), window) != StatusWindows.end();
+}
+
+void CMainWindow::InvalidateDirectoryLine(CFilesWindow* panel, BOOL update)
+{
+    if (panel == NULL)
+        return;
+    CStatusWindow* dirLine = panel->DirectoryLine;
+    if (dirLine != NULL && IsStatusWindowRegistered(dirLine))
+        dirLine->InvalidateAndUpdate(update);
+}
 
 static void BuildTabCaption(const char* generalPath, BOOL isPlugin, char* buffer, int bufferSize)
 {
@@ -2286,10 +2322,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_USER_REPAINTSTATUSBARS:
     {
-        if (LeftPanel != NULL && LeftPanel->DirectoryLine != NULL)
-            LeftPanel->DirectoryLine->InvalidateAndUpdate(FALSE);
-        if (RightPanel != NULL && RightPanel->DirectoryLine != NULL)
-            RightPanel->DirectoryLine->InvalidateAndUpdate(FALSE);
+        for (size_t i = 0; i < StatusWindows.size(); i++)
+        {
+            CStatusWindow* window = StatusWindows[i];
+            if (window != NULL)
+                window->InvalidateAndUpdate(FALSE);
+        }
         return 0;
     }
 
@@ -6261,8 +6299,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // if selection is being lost, request an update quickly so we don't
         // destroy the buffer of the opening window with CS_SAVEBITS
         CFilesWindow* panel = GetActivePanel();
-        if (panel != NULL && panel->DirectoryLine != NULL)
-            panel->DirectoryLine->InvalidateAndUpdate(!CaptionIsActive);
+        InvalidateDirectoryLine(panel, !CaptionIsActive);
 
         if (!CaptionIsActive)
         {

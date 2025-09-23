@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "fileswnd.h"
 #include "cfgdlg.h"
 
@@ -766,12 +768,21 @@ public:
     void PostFocusNameInPanel(int panel, const char* path, const char* name);
 
 private:
+    friend class CStatusWindow;
+
+    void RegisterStatusWindow(CStatusWindow* window);
+    void UnregisterStatusWindow(CStatusWindow* window);
+    bool IsStatusWindowRegistered(const CStatusWindow* window) const;
+    void InvalidateDirectoryLine(CFilesWindow* panel, BOOL update);
+
     TIndirectArray<CFilesWindow>& GetPanelTabs(CPanelSide side);
     CTabWindow* GetPanelTabWindow(CPanelSide side) const;
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
+
+    std::vector<CStatusWindow*> StatusWindows;
 };
 
 //
