@@ -197,6 +197,9 @@
 #define IDC_C_ITEM3_C                   420
 #define IDC_C_ITEM4_C                   421
 #define IDC_C_ITEM5_C                   422
+#define IDC_C_THEME_DEFAULT             423
+#define IDC_C_THEME_DARK                424
+#define IDC_C_THEME_LABEL               425
 #define IDC_C_ARCHIVE                   427
 #define IDC_C_READONLY                  428
 #define IDC_C_HIDDEN                    429

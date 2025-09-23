@@ -17,6 +17,7 @@
 #include "viewer.h"
 #include "find.h"
 #include "gui.h"
+#include "color.h"
 
 //****************************************************************************
 //
@@ -286,6 +287,7 @@ CConfiguration::CConfiguration()
     PrimaryContextMenu = TRUE;
     NotHiddenSystemFiles = FALSE;
     AlwaysOnTop = FALSE;
+    UseDarkTheme = FALSE;
     //  FastDirectoryMove = TRUE;
     SortUsesLocale = TRUE;
     SortDetectNumbers = TRUE;
@@ -3317,6 +3319,9 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < PAGE7DATA_COUNT; i++)
             SendMessage(HItem, CB_ADDSTRING, 0, (LPARAM)LoadStr(Page7Data[i].ItemLabel));
 
+        CheckDlgButton(HWindow, IDC_C_THEME_DEFAULT, Configuration.UseDarkTheme ? BST_UNCHECKED : BST_CHECKED);
+        CheckDlgButton(HWindow, IDC_C_THEME_DARK, Configuration.UseDarkTheme ? BST_CHECKED : BST_UNCHECKED);
+
         int labels[CFG_COLORS_BUTTONS] = {IDS_COLORLABEL_NORMAL, IDS_COLORLABEL_FOCUSED, IDS_COLORLABEL_SELECTED, IDS_COLORLABEL_FOCUSEDSELECTED, IDS_COLORLABEL_HIGHLIGHTED};
         for (i = 0; i < CFG_COLORS_BUTTONS; i++)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
@@ -3346,6 +3351,14 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
     }
     else
     {
+        BOOL darkModeSelected = (IsDlgButtonChecked(HWindow, IDC_C_THEME_DARK) == BST_CHECKED);
+        if (Configuration.UseDarkTheme != darkModeSelected)
+        {
+            Configuration.UseDarkTheme = darkModeSelected;
+            ApplyDarkModeTheme(Configuration.UseDarkTheme);
+            LoadColors();
+        }
+
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
         if (index == 0)
             CurrentColors = SalamanderColors;

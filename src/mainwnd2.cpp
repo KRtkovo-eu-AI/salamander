@@ -23,6 +23,7 @@
 #include "logo.h"
 #include "tasklist.h"
 #include "pwdmngr.h"
+#include "color.h"
 
 //
 // ConfigVersion - version number of the loaded configuration
@@ -428,6 +429,7 @@ const char* CONFIG_SHIFTFORHOTPATHS_REG = "Use Shift For GoTo HotPath";
 const char* CONFIG_ONLYONEINSTANCE_REG = "Only One Instance";
 const char* CONFIG_STATUSAREA_REG = "Status Area";
 const char* CONFIG_SINGLECLICK_REG = "Single Click";
+const char* CONFIG_DARKMODE_REG = "Use Dark Mode";
 //const char *CONFIG_SHOWTIPOFTHEDAY_REG = "Show tip of the Day";
 //const char *CONFIG_LASTTIPOFTHEDAY_REG = "Last tip of the Day";
 const char* CONFIG_TOPTOOLBAR_REG = "Top ToolBar";
@@ -1985,6 +1987,8 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.ShowPanelZoom, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SINGLECLICK_REG, REG_DWORD,
                          &Configuration.SingleClick, sizeof(DWORD));
+                SetValue(actKey, CONFIG_DARKMODE_REG, REG_DWORD,
+                         &Configuration.UseDarkTheme, sizeof(DWORD));
                 //      SetValue(actKey, CONFIG_SHOWTIPOFTHEDAY_REG, REG_DWORD,
                 //               &Configuration.ShowTipOfTheDay, sizeof(DWORD));
                 //      SetValue(actKey, CONFIG_LASTTIPOFTHEDAY_REG, REG_DWORD,
@@ -2859,6 +2863,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.ConfigVersion, sizeof(DWORD));
             CloseKey(actKey);
         }
+
+        DWORD useDarkTheme = Configuration.UseDarkTheme;
+        if (OpenKey(salamander, SALAMANDER_CONFIG_REG, actKey))
+        {
+            GetValue(actKey, CONFIG_DARKMODE_REG, REG_DWORD, &useDarkTheme, sizeof(DWORD));
+            CloseKey(actKey);
+        }
+        Configuration.UseDarkTheme = useDarkTheme ? TRUE : FALSE;
+        ApplyDarkModeTheme(Configuration.UseDarkTheme);
 
         //---  viewers
 

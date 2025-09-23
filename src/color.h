@@ -8,3 +8,10 @@ void ColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSatu
 
 // Converts colors from hue-luminance-saturation (HLS) to RGB format.
 COLORREF ColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation);
+
+// Applies or restores the application-wide system color overrides used for the
+// legacy WinAPI dark mode simulation.
+void ApplyDarkModeTheme(BOOL enable);
+
+// Returns TRUE when the dark mode overrides are active.
+BOOL IsDarkModeThemeActive();

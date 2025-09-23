@@ -193,6 +193,7 @@ struct CConfiguration
         PrimaryContextMenu,     // je na pravem tlacitku contexove menu ?
         NotHiddenSystemFiles,   // zobrazovat skryte a systemove soubory ?
         AlwaysOnTop,            // je hlavni okno Always On Top?
+        UseDarkTheme,           // pouzivat tmave systemove barvy?
                                 //      FastDirectoryMove,     // presun adresare prejmenovanim povolen?
         SortUsesLocale,         // radit podle lokalniho nastaveni (regional settings)
         SortDetectNumbers,      // detekovat pri razeni cisla v retezcich? (viz StrCmpLogicalW)

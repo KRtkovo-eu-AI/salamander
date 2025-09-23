@@ -4,6 +4,8 @@
 #include "precomp.h"
 #include "color.h"
 
+#include <cstdlib>
+
 // Konverze barevnych prostoru RGB<->HSL
 // HSL prostor viz http://en.wikipedia.org/wiki/HSL_color_space
 // Rutiny viz "How To Converting Colors Between RGB and HLS (HBS)"
@@ -133,4 +135,124 @@ COLORREF ColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation)
         b = (WORD)((HueToRGB(magic1, magic2, (WORD)(wHue - (WORD)(HLSMAX / 3))) * (DWORD)RGBMAX + (HLSMAX / 2))) / (WORD)HLSMAX;
     }
     return RGB(min(r, RGBMAX), min(g, RGBMAX), min(b, RGBMAX));
+}
+
+struct SysColorEntry
+{
+    int Index;
+    COLORREF DarkColor;
+    COLORREF OriginalColor;
+};
+
+static SysColorEntry DarkModeColors[] = {
+    {COLOR_SCROLLBAR, RGB(73, 73, 73), 0},
+    {COLOR_BACKGROUND, RGB(0, 0, 0), 0},
+    {COLOR_ACTIVECAPTION, RGB(153, 180, 209), 0},
+    {COLOR_INACTIVECAPTION, RGB(191, 205, 219), 0},
+    {COLOR_MENU, RGB(73, 73, 73), 0},
+    {COLOR_WINDOW, RGB(255, 255, 255), 0},
+    {COLOR_WINDOWFRAME, RGB(100, 100, 100), 0},
+    {COLOR_MENUTEXT, RGB(255, 255, 255), 0},
+    {COLOR_WINDOWTEXT, RGB(0, 0, 0), 0},
+    {COLOR_CAPTIONTEXT, RGB(0, 0, 0), 0},
+    {COLOR_ACTIVEBORDER, RGB(73, 73, 73), 0},
+    {COLOR_INACTIVEBORDER, RGB(153, 153, 153), 0},
+    {COLOR_APPWORKSPACE, RGB(171, 171, 171), 0},
+    {COLOR_HIGHLIGHT, RGB(0, 120, 215), 0},
+    {COLOR_HIGHLIGHTTEXT, RGB(255, 255, 255), 0},
+    {COLOR_BTNFACE, RGB(73, 73, 73), 0},
+    {COLOR_BTNSHADOW, RGB(127, 127, 127), 0},
+    {COLOR_GRAYTEXT, RGB(142, 142, 142), 0},
+    {COLOR_BTNTEXT, RGB(204, 204, 204), 0},
+    {COLOR_INACTIVECAPTIONTEXT, RGB(0, 0, 0), 0},
+    {COLOR_BTNHIGHLIGHT, RGB(73, 73, 73), 0},
+    {COLOR_3DDKSHADOW, RGB(100, 100, 100), 0},
+    {COLOR_3DLIGHT, RGB(127, 127, 127), 0},
+    {COLOR_INFOTEXT, RGB(0, 0, 0), 0},
+    {COLOR_INFOBK, RGB(255, 255, 225), 0},
+    {COLOR_GRADIENTACTIVECAPTION, RGB(185, 209, 234), 0},
+    {COLOR_GRADIENTINACTIVECAPTION, RGB(215, 228, 242), 0},
+#ifdef COLOR_BTNALTERNATE
+    {COLOR_BTNALTERNATE, RGB(0, 0, 0), 0},
+#endif
+    {COLOR_HOTLIGHT, RGB(0, 102, 204), 0},
+    {COLOR_MENUHILIGHT, RGB(0, 120, 215), 0},
+    {COLOR_MENUBAR, RGB(73, 73, 73), 0},
+    {COLOR_DESKTOP, RGB(0, 0, 0), 0},
+};
+
+static bool OriginalColorsCaptured = false;
+static bool DarkModeActive = false;
+static bool RestoreRegistered = false;
+
+static void CaptureOriginalColors()
+{
+    size_t count = sizeof(DarkModeColors) / sizeof(DarkModeColors[0]);
+    for (size_t i = 0; i < count; i++)
+        DarkModeColors[i].OriginalColor = ::GetSysColor(DarkModeColors[i].Index);
+    OriginalColorsCaptured = true;
+}
+
+static void RestoreOriginalColors()
+{
+    if (!OriginalColorsCaptured)
+        return;
+
+    size_t count = sizeof(DarkModeColors) / sizeof(DarkModeColors[0]);
+    int elements[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
+    COLORREF colors[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
+    for (size_t i = 0; i < count; i++)
+    {
+        elements[i] = DarkModeColors[i].Index;
+        colors[i] = DarkModeColors[i].OriginalColor;
+    }
+    ::SetSysColors((int)count, elements, colors);
+}
+
+static void RestoreOriginalColorsOnExit()
+{
+    if (DarkModeActive)
+    {
+        RestoreOriginalColors();
+        DarkModeActive = false;
+    }
+}
+
+void ApplyDarkModeTheme(BOOL enable)
+{
+    if (enable)
+    {
+        if (!OriginalColorsCaptured)
+            CaptureOriginalColors();
+
+        if (!RestoreRegistered)
+        {
+            atexit(RestoreOriginalColorsOnExit);
+            RestoreRegistered = true;
+        }
+
+        if (!DarkModeActive)
+        {
+            size_t count = sizeof(DarkModeColors) / sizeof(DarkModeColors[0]);
+            int elements[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
+            COLORREF colors[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
+            for (size_t i = 0; i < count; i++)
+            {
+                elements[i] = DarkModeColors[i].Index;
+                colors[i] = DarkModeColors[i].DarkColor;
+            }
+            if (::SetSysColors((int)count, elements, colors))
+                DarkModeActive = true;
+        }
+    }
+    else if (DarkModeActive)
+    {
+        RestoreOriginalColors();
+        DarkModeActive = false;
+    }
+}
+
+BOOL IsDarkModeThemeActive()
+{
+    return DarkModeActive ? TRUE : FALSE;
 }
