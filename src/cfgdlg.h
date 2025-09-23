@@ -5,6 +5,12 @@
 
 class CColorArrowButton;
 
+enum CWorkDirsHistoryScope
+{
+    wdhsShared = 0,
+    wdhsPerTab = 1,
+};
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -195,6 +201,7 @@ struct CConfiguration
         SortDirsByExt,          // emulovat pripony u adresaru (sort by extension + show in separated Ext column)
         SaveHistory,            // ukladat historie do konfigurace?
         SaveWorkDirs,           // ukladat List of Working Directories?
+        WorkDirsHistoryScope,   // rezim historie pracovnich adresaru (sdilena / per-tab)
         EnableCmdLineHistory,   // drzet historii prikazove radky?
         SaveCmdLineHistory,     // ukaladat  historii prikazove radky?
                                 //      LantasticCheck,        // Lantastic 7.0 paranoid-check (porovnani velikosti po Copy)

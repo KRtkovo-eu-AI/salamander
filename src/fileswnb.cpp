@@ -1322,7 +1322,7 @@ void CFilesWindow::ClearCutToClipFlag(BOOL repaint)
 void CFilesWindow::OpenDirHistory()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::OpenDirHistory()");
-    if (!MainWindow->DirHistory->HasPaths())
+    if (!MainWindow->HasDirHistory(this))
         return;
 
     BeginStopRefresh(); // cmuchal si da pohov
@@ -1343,10 +1343,14 @@ void CFilesWindow::OpenDirHistory()
         }
     }
 
-    MainWindow->DirHistory->FillHistoryPopupMenu(&menu, 1, -1, FALSE);
+    CPathHistory* history = MainWindow->GetDirHistory(this, FALSE);
+    if (history == NULL)
+        return;
+
+    history->FillHistoryPopupMenu(&menu, 1, -1, FALSE);
     DWORD cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_VERTICAL, r.left, y, HWindow, exludeRect ? &r : NULL);
     if (cmd != 0)
-        MainWindow->DirHistory->Execute(cmd, FALSE, this, TRUE, FALSE);
+        history->Execute(cmd, FALSE, this, TRUE, FALSE);
 
     EndStopRefresh(); // ted uz zase cmuchal nastartuje
 }

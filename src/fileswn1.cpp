@@ -1404,6 +1404,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     NeedRefreshAfterIconsReading = FALSE;
     RefreshAfterIconsReadingTime = 0;
 
+    WorkDirHistory = NULL;
     PathHistory = new CPathHistory();
 
     DontDrawIndex = -1;
@@ -1474,6 +1475,8 @@ CFilesWindow::~CFilesWindow()
 
     ClearHistory();
 
+    if (WorkDirHistory != NULL)
+        delete WorkDirHistory;
     if (PathHistory != NULL)
         delete PathHistory;
 
@@ -1505,10 +1508,32 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(ExecuteAssocEvent));
 }
 
+CPathHistory* CFilesWindow::EnsureWorkDirHistory()
+{
+    if (WorkDirHistory == NULL)
+    {
+        WorkDirHistory = new CPathHistory(TRUE);
+        if (WorkDirHistory == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return NULL;
+        }
+    }
+    return WorkDirHistory;
+}
+
+void CFilesWindow::ClearWorkDirHistory()
+{
+    if (WorkDirHistory != NULL)
+        WorkDirHistory->ClearHistory();
+}
+
 void CFilesWindow::ClearHistory()
 {
     if (PathHistory != NULL)
         PathHistory->ClearHistory();
+
+    ClearWorkDirHistory();
 
     OldSelection.Clear();
 }

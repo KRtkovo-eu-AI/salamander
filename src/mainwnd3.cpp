@@ -125,11 +125,10 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     panel->SetPanelSide(side);
 
-    if (panel->DirectoryLine != NULL)
-    {
-        BOOL hasHistory = DirHistory != NULL && DirHistory->HasPaths();
-        panel->DirectoryLine->SetHistory(hasHistory);
-    }
+    if (UsingSharedWorkDirHistory())
+        UpdateAllDirectoryLineHistoryStates();
+    else
+        UpdateDirectoryLineHistoryState(panel);
 
     CFilesWindow* active = GetActivePanel();
     if (active == NULL || active->GetPanelSide() == side)
@@ -2967,13 +2966,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         if (LOWORD(wParam) >= CM_LEFTHISTORYPATH_MIN && LOWORD(wParam) <= CM_LEFTHISTORYPATH_MAX)
         {
-            DirHistory->Execute(LOWORD(wParam) - CM_LEFTHISTORYPATH_MIN + 1, FALSE, LeftPanel, TRUE, FALSE);
+            CPathHistory* history = GetDirHistory(LeftPanel, FALSE);
+            if (history != NULL)
+                history->Execute(LOWORD(wParam) - CM_LEFTHISTORYPATH_MIN + 1, FALSE, LeftPanel, TRUE, FALSE);
             return 0;
         }
 
         if (LOWORD(wParam) >= CM_RIGHTHISTORYPATH_MIN && LOWORD(wParam) <= CM_RIGHTHISTORYPATH_MAX)
         {
-            DirHistory->Execute(LOWORD(wParam) - CM_RIGHTHISTORYPATH_MIN + 1, FALSE, RightPanel, TRUE, FALSE);
+            CPathHistory* history = GetDirHistory(RightPanel, FALSE);
+            if (history != NULL)
+                history->Execute(LOWORD(wParam) - CM_RIGHTHISTORYPATH_MIN + 1, FALSE, RightPanel, TRUE, FALSE);
             return 0;
         }
 
@@ -5356,7 +5359,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             // pripojime dir history, maximalne 10 polozek
             firstID = popupID == CML_LEFT_GO ? CM_LEFTHISTORYPATH_MIN : CM_RIGHTHISTORYPATH_MIN;
-            DirHistory->FillHistoryPopupMenu(popup, firstID, 10, TRUE);
+            CFilesWindow* targetPanel = (popupID == CML_LEFT_GO) ? LeftPanel : RightPanel;
+            CPathHistory* history = GetDirHistory(targetPanel, FALSE);
+            if (history != NULL)
+                history->FillHistoryPopupMenu(popup, firstID, 10, TRUE);
             break;
         }
 

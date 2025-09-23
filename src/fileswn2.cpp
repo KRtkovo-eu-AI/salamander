@@ -1390,7 +1390,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
             {
                 const char* path = GetPath();
                 // HICON hIcon = GetFileOrPathIconAux(path, FALSE, TRUE); // vytahneme ikonu
-                MainWindow->DirHistoryAddPathUnique(0, path, NULL, NULL /*hIcon*/, NULL, NULL);
+                MainWindow->DirHistoryAddPathUnique(this, 0, path, NULL /*hIcon*/, NULL, NULL);
                 if (!newPathIsTheSame)
                     UserWorkedOnThisPath = FALSE;
             }
@@ -1417,7 +1417,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
             {
                 if (UserWorkedOnThisPath)
                 {
-                    MainWindow->DirHistoryAddPathUnique(1, GetZIPArchive(), GetZIPPath(), NULL, NULL, NULL);
+                    MainWindow->DirHistoryAddPathUnique(this, 1, GetZIPArchive(), GetZIPPath(), NULL, NULL, NULL);
                     if (!newPathIsTheSame)
                         UserWorkedOnThisPath = FALSE;
                 }
@@ -1467,7 +1467,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
                     {
                         if (UserWorkedOnThisPath)
                         {
-                            MainWindow->DirHistoryAddPathUnique(2, GetPluginFS()->GetPluginFSName(), buf, NULL,
+                            MainWindow->DirHistoryAddPathUnique(this, 2, GetPluginFS()->GetPluginFSName(), buf, NULL,
                                                                 GetPluginFS()->GetInterface(), GetPluginFS());
                             if (!newPathIsTheSame)
                                 UserWorkedOnThisPath = FALSE;
@@ -2403,7 +2403,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     {
         if (UserWorkedOnThisPath)
         {
-            MainWindow->DirHistoryAddPathUnique(1, GetZIPArchive(), currentPath, NULL, NULL, NULL);
+            MainWindow->DirHistoryAddPathUnique(this, 1, GetZIPArchive(), currentPath, NULL, NULL, NULL);
             UserWorkedOnThisPath = FALSE;
         }
 
@@ -2964,7 +2964,7 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                 {
                     if (UserWorkedOnThisPath)
                     {
-                        MainWindow->DirHistoryAddPathUnique(2, currentPathFSName, currentPath, NULL,
+                        MainWindow->DirHistoryAddPathUnique(this, 2, currentPathFSName, currentPath, NULL,
                                                             GetPluginFS()->GetInterface(), GetPluginFS());
                         UserWorkedOnThisPath = FALSE;
                     }
@@ -3099,7 +3099,7 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                 {
                     if (UserWorkedOnThisPath)
                     {
-                        MainWindow->DirHistoryAddPathUnique(2, currentPathFSName, currentPath, NULL,
+                        MainWindow->DirHistoryAddPathUnique(this, 2, currentPathFSName, currentPath, NULL,
                                                             GetPluginFS()->GetInterface(), GetPluginFS());
                         UserWorkedOnThisPath = FALSE;
                     }

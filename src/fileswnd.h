@@ -827,7 +827,8 @@ public:
     BOOL NeedRefreshAfterIconsReading; // bude po ukonceni nacitani ikonek potreba refresh?
     int RefreshAfterIconsReadingTime;  // "cas" nejnovejsiho refreshe, ktery prisel behem nacitani ikonek
 
-    CPathHistory* PathHistory; // historie prochazeni pro tento panel
+    CPathHistory* PathHistory;      // historie prochazeni pro tento panel
+    CPathHistory* WorkDirHistory;   // historie pracovnich adresaru pro tento tab
 
     DWORD HiddenDirsFilesReason; // bitove pole, urcuje z jakeho duvodu jsou soubory/adresare skryty (HIDDEN_REASON_xxx)
     int HiddenDirsCount,         // pocet skrytych adresaru v panelu (pocet skipnutych)
@@ -1597,6 +1598,10 @@ public:
 
     // umisti na clipboard plnou cestu (aktivni v panelu)
     BOOL CopyCurrentPathToClipboard();
+
+    CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
+    CPathHistory* EnsureWorkDirHistory();
+    void ClearWorkDirHistory();
 
     void OpenDirHistory();
 

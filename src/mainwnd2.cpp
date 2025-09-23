@@ -414,6 +414,7 @@ const char* CONFIG_SORTDIRSBYNAME_REG = "Sort Dirs By Name";
 const char* CONFIG_SORTDIRSBYEXT_REG = "Sort Dirs By Ext";
 const char* CONFIG_SAVEHISTORY_REG = "Save History";
 const char* CONFIG_SAVEWORKDIRS_REG = "Save Working Dirs";
+const char* CONFIG_WORKDIRS_HISTORY_SCOPE_REG = "Working Dirs History Scope";
 const char* CONFIG_ENABLECMDLINEHISTORY_REG = "Enable CmdLine History";
 const char* CONFIG_SAVECMDLINEHISTORY_REG = "Save CmdLine History";
 //const char *CONFIG_LANTASTICCHECK_REG = "Lantastic Check";
@@ -1543,6 +1544,24 @@ void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char*
         if (CreateKey(actKey, tabKeyName, tabKey))
         {
             SavePanelSettingsToKey(tabs[i], tabKey, TRUE);
+            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            {
+                CPathHistory* history = GetDirHistory(tabs[i], FALSE);
+                BOOL onlyClear = !Configuration.SaveWorkDirs;
+                if (history != NULL)
+                {
+                    history->SaveToRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG, onlyClear);
+                }
+                else if (onlyClear)
+                {
+                    HKEY historyKey;
+                    if (CreateKey(tabKey, CONFIG_WORKDIRSHISTORY_REG, historyKey))
+                    {
+                        ClearKey(historyKey);
+                        CloseKey(historyKey);
+                    }
+                }
+            }
             CloseKey(tabKey);
         }
     }
@@ -1942,6 +1961,8 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.SaveHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVEWORKDIRS_REG, REG_DWORD,
                          &Configuration.SaveWorkDirs, sizeof(DWORD));
+                SetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
+                         &Configuration.WorkDirsHistoryScope, sizeof(DWORD));
                 SetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
                          &Configuration.EnableCmdLineHistory, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
@@ -2267,7 +2288,12 @@ void CMainWindow::SaveConfig(HWND parent)
                             FILTER_HISTORY_SIZE, !Configuration.SaveHistory);
 
                 if (DirHistory != NULL)
-                    DirHistory->SaveToRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
+                {
+                    if (UsingSharedWorkDirHistory())
+                        DirHistory->SaveToRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG, !Configuration.SaveWorkDirs);
+                    else
+                        DirHistory->SaveToRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG, TRUE);
+                }
 
                 if (GlobalSaveWaitWindow == NULL)
                     analysing.SetProgressPos(++savingProgress); // 6
@@ -2690,10 +2716,29 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
             LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            {
+                CPathHistory* history = panel->EnsureWorkDirHistory();
+                if (history != NULL)
+                    history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+            }
             CloseKey(tabKey);
         }
         else if (i == 0)
+        {
             LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
+            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            {
+                CPathHistory* history = panel->EnsureWorkDirHistory();
+                if (history != NULL)
+                    history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+            }
+        }
+        else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            panel->ClearWorkDirHistory();
+
+        if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            UpdateDirectoryLineHistoryState(panel);
 
         BOOL restored = RestorePanelPathFromConfig(this, panel, path);
         if (i == activeIndex)
@@ -3526,6 +3571,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.SaveHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVEWORKDIRS_REG, REG_DWORD,
                      &Configuration.SaveWorkDirs, sizeof(DWORD));
+            if (GetValue(actKey, CONFIG_WORKDIRS_HISTORY_SCOPE_REG, REG_DWORD,
+                         &Configuration.WorkDirsHistoryScope, sizeof(DWORD)))
+            {
+                if (Configuration.WorkDirsHistoryScope != wdhsShared &&
+                    Configuration.WorkDirsHistoryScope != wdhsPerTab)
+                    Configuration.WorkDirsHistoryScope = wdhsShared;
+            }
+            else
+                Configuration.WorkDirsHistoryScope = wdhsShared;
             GetValue(actKey, CONFIG_ENABLECMDLINEHISTORY_REG, REG_DWORD,
                      &Configuration.EnableCmdLineHistory, sizeof(DWORD));
             GetValue(actKey, CONFIG_SAVECMDLINEHISTORY_REG, REG_DWORD,
@@ -3966,12 +4020,12 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadHistory(actKey, CONFIG_FILTERHISTORY_REG, Configuration.FilterHistory, FILTER_HISTORY_SIZE);
             if (DirHistory != NULL)
             {
-                DirHistory->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
-                if (LeftPanel != NULL)
-                    LeftPanel->DirectoryLine->SetHistory(DirHistory->HasPaths());
-                if (RightPanel != NULL)
-                    RightPanel->DirectoryLine->SetHistory(DirHistory->HasPaths());
+                if (UsingSharedWorkDirHistory())
+                    DirHistory->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                else
+                    DirHistory->ClearHistory();
             }
+            UpdateAllDirectoryLineHistoryStates();
 
             if (OpenKey(actKey, CONFIG_COPYMOVEOPTIONS_REG, actSubKey))
             {
@@ -4084,6 +4138,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         lstrcpyn(sysDefDir, DefaultDir[LowerCase[leftPanelPath[0]] - 'a'], MAX_PATH);
         LoadPanelConfig(leftPanelPath, cpsLeft, salamander, SALAMANDER_LEFTP_REG);
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
+        if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            RebuildSharedDirHistoryFromPanels();
 
         CloseKey(salamander);
         salamander = NULL;

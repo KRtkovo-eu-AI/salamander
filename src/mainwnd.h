@@ -532,7 +532,15 @@ public:
     void CompareDirectories(DWORD flags); // flags je kombinaci COMPARE_DIRECTORIES_xxx
 
     // zajisti volani DirHistory->AddPathUnique a zaroven spravne nastaveni SetHistory panelu
-    void DirHistoryAddPathUnique(int type, const char* pathOrArchiveOrFSName,
+    BOOL UsingSharedWorkDirHistory() const;
+    CPathHistory* GetDirHistory(CFilesWindow* panel, BOOL createIfNeeded = FALSE);
+    BOOL HasDirHistory(CFilesWindow* panel) const;
+    void UpdateDirectoryLineHistoryState(CFilesWindow* panel);
+    void UpdateAllDirectoryLineHistoryStates();
+    void HandleWorkDirsHistoryScopeChange(int previousScope);
+    void RebuildSharedDirHistoryFromPanels();
+
+    void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* pathOrArchiveOrFSName,
                                  const char* archivePathOrFSUserPart, HICON hIcon,
                                  CPluginFSInterfaceAbstract* pluginFS,
                                  CPluginFSInterfaceEncapsulation* curPluginFS);

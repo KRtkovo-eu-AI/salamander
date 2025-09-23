@@ -481,11 +481,16 @@ void CMainWindow::ClearHistory()
 
     if (DirHistory != NULL)
         DirHistory->ClearHistory();
-    // zmizime sipcicky v DirLine
-    if (LeftPanel != NULL)
-        LeftPanel->DirectoryLine->SetHistory(FALSE);
-    if (RightPanel != NULL)
-        RightPanel->DirectoryLine->SetHistory(FALSE);
+
+    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
+    for (int i = 0; i < leftTabs.Count; i++)
+        leftTabs[i]->ClearWorkDirHistory();
+    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
+    for (int i = 0; i < rightTabs.Count; i++)
+        rightTabs[i]->ClearWorkDirHistory();
+
+    UpdateAllDirectoryLineHistoryStates();
+    RefreshCommandStates();
 }
 
 void CMainWindow::UpdateDefaultDir(BOOL activePrefered)
@@ -2757,7 +2762,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         targetArchive = nonActivePanel->Is(ptZIPArchive);
         selCount = activePanel->GetSelCount();
         onDisk = activePanel->Is(ptDisk);
-        dirHistory = obj->DirHistory->HasPaths();
+        dirHistory = obj->HasDirHistory(activePanel);
         sortType = activePanel->SortType;
         leftSortType = obj->LeftPanel->SortType;
         rightSortType = obj->RightPanel->SortType;

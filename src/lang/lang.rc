@@ -1570,13 +1570,17 @@ BEGIN
     CONTROL         "&Save history",IDC_HISTORY_SAVEHISTORY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,24,54,12
     CONTROL         "Save List of &Working Directories",IDC_HISTORY_WORKDIRS,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,37,118,12
-    LTEXT           "For Command line history (it can contain passwords) you can choose special options.",IDC_STATIC_3,1,60,228,16
+    CONTROL         "&Share history between tabs",IDC_HISTORY_WORKDIRS_SHARED,
+                    "Button",BS_AUTORADIOBUTTON | WS_TABSTOP | WS_GROUP,21,50,160,10
+    CONTROL         "Keep history per &tab",IDC_HISTORY_WORKDIRS_PER_TAB,
+                    "Button",BS_AUTORADIOBUTTON,21,62,140,10
+    LTEXT           "For Command line history (it can contain passwords) you can choose special options.",IDC_STATIC_3,1,84,228,16
     CONTROL         "&Enable Command line history",IDC_HISTORY_ENABLECMDLINE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,80,247,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,104,247,12
     CONTROL         "S&ave Command line history",IDC_HISTORY_SAVECMDLINE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,93,247,12
-    LTEXT           "You can clear all history related data now.",IDC_STATIC_4,1,116,144,8
-    PUSHBUTTON      "&Clear History...",IDC_HISTORY_CLEARHISTORY,1,126,60,14
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,117,247,12
+    LTEXT           "You can clear all history related data now.",IDC_STATIC_4,1,140,144,8
+    PUSHBUTTON      "&Clear History...",IDC_HISTORY_CLEARHISTORY,1,150,60,14
 END
 
 IDD_SHARES DIALOGEX 12, 24, 344, 238
