@@ -70,7 +70,14 @@ CStatusWindow::~CStatusWindow()
 {
     CALL_STACK_MESSAGE1("CStatusWindow::~CStatusWindow()");
     if (FilesWindow != NULL && FilesWindow->Parent != NULL && (Border & blTop) != 0)
-        FilesWindow->Parent->UnregisterStatusWindow(this);
+    {
+        BOOL locked = MainWindowCS.LockIfNotClosed();
+        if (locked)
+        {
+            FilesWindow->Parent->UnregisterStatusWindow(this);
+            MainWindowCS.Unlock();
+        }
+    }
     if (SubTexts != NULL)
         free(SubTexts);
     if (Text != NULL)
