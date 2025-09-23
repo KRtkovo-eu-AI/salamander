@@ -10,6 +10,7 @@
 #include "fileswnd.h"
 #include "filesbox.h"
 #include "mainwnd.h"
+#include "tabwnd.h"
 #include "editwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
