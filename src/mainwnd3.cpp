@@ -529,7 +529,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
 void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
 {
-    CALL_STACK_MESSAGE3("CMainWindow::OnPanelTabReordered(%d, %d, %d)", side, from, to);
+    CALL_STACK_MESSAGE4("CMainWindow::OnPanelTabReordered(%d, %d, %d)", side, from, to);
     if (!Configuration.UsePanelTabs)
         return;
 
