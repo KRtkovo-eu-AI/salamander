@@ -171,7 +171,6 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
 
     if (panel->HWindow != NULL)
         DestroyWindow(panel->HWindow);
-    delete panel;
 
     if (tabs.Count == 0)
     {
@@ -7330,6 +7329,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         CanDestroyMainWindow = TRUE; // nyni lze beztrestne zavolat DestroyWindow na MainWindow
 
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+            LeftTabWindow->DestroyWindow();
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            RightTabWindow->DestroyWindow();
+
         DestroyWindow(HWindow);
 
         // WM_QUERYENDSESSION a WM_ENDSESSION: vsechny Windows killnou process jakmile se pri shutdownu
@@ -7457,6 +7461,20 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (Configuration.StatusArea)
             RemoveTrayIcon();
         //--- zruseni child-oken
+        if (LeftTabWindow != NULL)
+        {
+            if (LeftTabWindow->HWindow != NULL)
+                LeftTabWindow->DestroyWindow();
+            delete LeftTabWindow;
+            LeftTabWindow = NULL;
+        }
+        if (RightTabWindow != NULL)
+        {
+            if (RightTabWindow->HWindow != NULL)
+                RightTabWindow->DestroyWindow();
+            delete RightTabWindow;
+            RightTabWindow = NULL;
+        }
         if (EditWindow != NULL)
         {
             if (EditWindow->HWindow != NULL)

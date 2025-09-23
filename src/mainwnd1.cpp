@@ -457,12 +457,6 @@ CMainWindow::~CMainWindow()
         delete ContextMenuNew;
     if (ToolTip != NULL)
         delete ToolTip;
-    for (int i = 0; i < LeftPanelTabs.Count; i++)
-        if (LeftPanelTabs[i] != NULL)
-            delete LeftPanelTabs[i];
-    for (int i = 0; i < RightPanelTabs.Count; i++)
-        if (RightPanelTabs[i] != NULL)
-            delete RightPanelTabs[i];
     if (LeftTabWindow != NULL)
         delete LeftTabWindow;
     if (RightTabWindow != NULL)
