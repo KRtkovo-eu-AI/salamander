@@ -2261,15 +2261,27 @@ BOOL CSalamanderGeneral::PostRefreshPanelFS2(CPluginFSInterfaceAbstract* modifie
         // neni synchronizacni problem, protoze PluginFS se nuluje az po CloseFS, ktere by
         // melo zrusit thread monitorujici zmeny na FS (po CloseFS by nemelo dojit k volani
         // PostRefreshPanelFS2)
-        if (MainWindow->LeftPanel != NULL && MainWindow->LeftPanel->Is(ptPluginFS) &&
-            MainWindow->LeftPanel->GetPluginFS()->Contains(modifiedFS))
+        TIndirectArray<CFilesWindow>& leftTabs = MainWindow->GetPanelTabs(cpsLeft);
+        int i;
+        for (i = 0; i < leftTabs.Count && p == NULL; i++)
         {
-            p = MainWindow->LeftPanel;
+            CFilesWindow* panel = leftTabs[i];
+            if (panel != NULL && panel->Is(ptPluginFS) && panel->GetPluginFS()->Contains(modifiedFS))
+            {
+                p = panel;
+            }
         }
-        if (MainWindow->RightPanel != NULL && MainWindow->RightPanel->Is(ptPluginFS) &&
-            MainWindow->RightPanel->GetPluginFS()->Contains(modifiedFS))
+        if (p == NULL)
         {
-            p = MainWindow->RightPanel;
+            TIndirectArray<CFilesWindow>& rightTabs = MainWindow->GetPanelTabs(cpsRight);
+            for (i = 0; i < rightTabs.Count && p == NULL; i++)
+            {
+                CFilesWindow* panel = rightTabs[i];
+                if (panel != NULL && panel->Is(ptPluginFS) && panel->GetPluginFS()->Contains(modifiedFS))
+                {
+                    p = panel;
+                }
+            }
         }
     }
     if (p != NULL)

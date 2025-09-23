@@ -5290,13 +5290,91 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         // send the message to all loaded plugins
                         Plugins.AcceptChangeOnPathNotification(path, includingSubdirs);
 
-                        if (GetNonActivePanel() != NULL) // non-active panel first (due to timestamps of subdirectory changes on NTFS)
+                        BOOL notifiedLeft = FALSE;
+                        BOOL notifiedRight = FALSE;
+
+                        CFilesWindow* nonActivePanel = GetNonActivePanel();
+                        if (nonActivePanel != NULL) // non-active panel first (due to timestamps of subdirectory changes on NTFS)
                         {
-                            GetNonActivePanel()->AcceptChangeOnPathNotification(path, includingSubdirs);
+                            CPanelSide side = nonActivePanel->GetPanelSide();
+                            if (side == cpsLeft)
+                            {
+                                notifiedLeft = TRUE;
+                                TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(cpsLeft);
+                                for (int i = 0; i < tabs.Count; i++)
+                                {
+                                    CFilesWindow* panel = tabs[i];
+                                    if (panel != NULL)
+                                        panel->AcceptChangeOnPathNotification(path, includingSubdirs);
+                                }
+                            }
+                            else if (side == cpsRight)
+                            {
+                                notifiedRight = TRUE;
+                                TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(cpsRight);
+                                for (int i = 0; i < tabs.Count; i++)
+                                {
+                                    CFilesWindow* panel = tabs[i];
+                                    if (panel != NULL)
+                                        panel->AcceptChangeOnPathNotification(path, includingSubdirs);
+                                }
+                            }
                         }
-                        if (GetActivePanel() != NULL) // then the active panel
+
+                        CFilesWindow* activePanel = GetActivePanel();
+                        if (activePanel != NULL) // then the active panel
                         {
-                            GetActivePanel()->AcceptChangeOnPathNotification(path, includingSubdirs);
+                            CPanelSide side = activePanel->GetPanelSide();
+                            if (side == cpsLeft)
+                            {
+                                if (!notifiedLeft)
+                                {
+                                    notifiedLeft = TRUE;
+                                    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(cpsLeft);
+                                    for (int i = 0; i < tabs.Count; i++)
+                                    {
+                                        CFilesWindow* panel = tabs[i];
+                                        if (panel != NULL)
+                                            panel->AcceptChangeOnPathNotification(path, includingSubdirs);
+                                    }
+                                }
+                            }
+                            else if (side == cpsRight)
+                            {
+                                if (!notifiedRight)
+                                {
+                                    notifiedRight = TRUE;
+                                    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(cpsRight);
+                                    for (int i = 0; i < tabs.Count; i++)
+                                    {
+                                        CFilesWindow* panel = tabs[i];
+                                        if (panel != NULL)
+                                            panel->AcceptChangeOnPathNotification(path, includingSubdirs);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!notifiedLeft)
+                        {
+                            TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(cpsLeft);
+                            for (int i = 0; i < tabs.Count; i++)
+                            {
+                                CFilesWindow* panel = tabs[i];
+                                if (panel != NULL)
+                                    panel->AcceptChangeOnPathNotification(path, includingSubdirs);
+                            }
+                        }
+
+                        if (!notifiedRight)
+                        {
+                            TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(cpsRight);
+                            for (int i = 0; i < tabs.Count; i++)
+                            {
+                                CFilesWindow* panel = tabs[i];
+                                if (panel != NULL)
+                                    panel->AcceptChangeOnPathNotification(path, includingSubdirs);
+                            }
                         }
 
                         if (DetachedFSList->Count > 0)
