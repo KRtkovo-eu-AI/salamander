@@ -529,6 +529,7 @@ public:
     void OnPanelTabReordered(CPanelSide side, int from, int to);
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
+    CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;
     void CommandNewTab(CPanelSide side, bool addAtEnd = false);
     void CommandCloseTab(CPanelSide side);
     void CommandNextTab(CPanelSide side);
