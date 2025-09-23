@@ -537,7 +537,7 @@ public:
     BOOL HasDirHistory(CFilesWindow* panel) const;
     void UpdateDirectoryLineHistoryState(CFilesWindow* panel);
     void UpdateAllDirectoryLineHistoryStates();
-    void HandleWorkDirsHistoryScopeChange(int previousScope);
+    void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
     void RebuildSharedDirHistoryFromPanels();
 
     void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* pathOrArchiveOrFSName,

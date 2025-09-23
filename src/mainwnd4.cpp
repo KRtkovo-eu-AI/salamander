@@ -119,10 +119,10 @@ void CMainWindow::RebuildSharedDirHistoryFromPanels()
     }
 }
 
-void CMainWindow::HandleWorkDirsHistoryScopeChange(int previousScope)
+void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope)
 {
-    CWorkDirsHistoryScope newScope = Configuration.WorkDirsHistoryScope;
-    CWorkDirsHistoryScope prevScope = (CWorkDirsHistoryScope)previousScope;
+    CWorkDirsHistoryScope newScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
+    CWorkDirsHistoryScope prevScope = previousScope;
     if (newScope == prevScope)
         return;
 

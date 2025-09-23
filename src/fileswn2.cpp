@@ -1390,7 +1390,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
             {
                 const char* path = GetPath();
                 // HICON hIcon = GetFileOrPathIconAux(path, FALSE, TRUE); // vytahneme ikonu
-                MainWindow->DirHistoryAddPathUnique(this, 0, path, NULL /*hIcon*/, NULL, NULL);
+                MainWindow->DirHistoryAddPathUnique(this, 0, path, NULL, NULL /*hIcon*/, NULL, NULL);
                 if (!newPathIsTheSame)
                     UserWorkedOnThisPath = FALSE;
             }

@@ -4003,7 +4003,7 @@ void CCfgPageHistory::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_HISTORY_ENABLECMDLINE, Configuration.EnableCmdLineHistory);
     ti.CheckBox(IDC_HISTORY_SAVECMDLINE, Configuration.SaveCmdLineHistory);
 
-    int oldScope = Configuration.WorkDirsHistoryScope;
+    CWorkDirsHistoryScope oldScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
     ti.RadioButton(IDC_HISTORY_WORKDIRS_SHARED, wdhsShared, Configuration.WorkDirsHistoryScope);
     ti.RadioButton(IDC_HISTORY_WORKDIRS_PER_TAB, wdhsPerTab, Configuration.WorkDirsHistoryScope);
 
@@ -4011,7 +4011,7 @@ void CCfgPageHistory::Transfer(CTransferInfo& ti)
         EnableControls();
     else
     {
-        if (oldScope != Configuration.WorkDirsHistoryScope)
+        if (oldScope != (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope)
             MainWindow->HandleWorkDirsHistoryScopeChange(oldScope);
         MainWindow->EditWindow->FillHistory();
     }

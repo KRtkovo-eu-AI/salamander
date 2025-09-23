@@ -1950,9 +1950,11 @@ void CPathHistory::AppendFrom(const CPathHistory& source)
     if (&source == this)
         return;
 
-    for (int i = 0; i < source.Paths.Count; i++)
+    TIndirectArray<CPathHistoryItem>& sourcePaths =
+        const_cast<TIndirectArray<CPathHistoryItem>&>(source.Paths);
+    for (int i = 0; i < sourcePaths.Count; i++)
     {
-        CPathHistoryItem* item = source.Paths[i];
+        CPathHistoryItem* item = sourcePaths[i];
         if (item == NULL)
             continue;
 
