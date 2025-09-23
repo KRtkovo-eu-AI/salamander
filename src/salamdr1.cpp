@@ -433,6 +433,18 @@ DWORD EnablerShowProperties = FALSE;
 DWORD EnablerItemsContextMenu = FALSE;
 DWORD EnablerOpenActiveFolder = FALSE;
 DWORD EnablerPermissions = FALSE;
+DWORD EnablerNewTab = FALSE;
+DWORD EnablerCloseTab = FALSE;
+DWORD EnablerNextTab = FALSE;
+DWORD EnablerPrevTab = FALSE;
+DWORD EnablerLeftNewTab = FALSE;
+DWORD EnablerLeftCloseTab = FALSE;
+DWORD EnablerLeftNextTab = FALSE;
+DWORD EnablerLeftPrevTab = FALSE;
+DWORD EnablerRightNewTab = FALSE;
+DWORD EnablerRightCloseTab = FALSE;
+DWORD EnablerRightNextTab = FALSE;
+DWORD EnablerRightPrevTab = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 

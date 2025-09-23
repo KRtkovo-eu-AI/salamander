@@ -44,6 +44,7 @@ class CMenuBar;
 class CMenuNew;
 class CToolTip;
 class CAnimate;
+class CTabWindow;
 
 //****************************************************************************
 //
@@ -483,6 +484,9 @@ protected:
     BOOL IdleStatesChanged;    // je nastavovani metodou CheckAndSet()
     BOOL PluginsStatesChanged; // je treba rebuildnout plugin bar
 
+    CTabWindow* LeftTabWindow;
+    CTabWindow* RightTabWindow;
+
 public:
     CMainWindow();
     ~CMainWindow();
@@ -508,9 +512,18 @@ public:
     void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // sejme EditMode, protoze do panelu umisti focus
     void FocusLeftPanel();                                                  // vola FocusPanel pro levy panel
 
-    CFilesWindow* AddPanelTab(CPanelSide side);
+    CFilesWindow* AddPanelTab(CPanelSide side, int index = -1);
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel);
+    void UpdatePanelTabTitle(CFilesWindow* panel);
+    void OnPanelTabSelected(CPanelSide side, int index);
+    void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
+    int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
+    int GetPanelTabCount(CPanelSide side) const;
+    void CommandNewTab(CPanelSide side);
+    void CommandCloseTab(CPanelSide side);
+    void CommandNextTab(CPanelSide side);
+    void CommandPrevTab(CPanelSide side);
 
     // porovna adresare v levem a pravem panelu
     void CompareDirectories(DWORD flags); // flags je kombinaci COMPARE_DIRECTORIES_xxx
@@ -736,6 +749,12 @@ public:
 
     CFilesWindow* GetPanel(int panel);
     void PostFocusNameInPanel(int panel, const char* path, const char* name);
+
+private:
+    TIndirectArray<CFilesWindow>& GetPanelTabs(CPanelSide side);
+    CTabWindow* GetPanelTabWindow(CPanelSide side) const;
+    void UpdatePanelTabVisibility(CPanelSide side);
+    void RebuildPanelTabs(CPanelSide side);
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 };

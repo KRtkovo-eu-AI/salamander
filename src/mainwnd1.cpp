@@ -314,6 +314,8 @@ CMainWindow::CMainWindow()
     DriveBar = NULL;
     DriveBar2 = NULL;
     BottomToolBar = NULL;
+    LeftTabWindow = NULL;
+    RightTabWindow = NULL;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;
@@ -455,12 +457,10 @@ CMainWindow::~CMainWindow()
         delete ContextMenuNew;
     if (ToolTip != NULL)
         delete ToolTip;
-    for (int i = 0; i < LeftPanelTabs.Count; i++)
-        if (LeftPanelTabs[i] != NULL)
-            delete LeftPanelTabs[i];
-    for (int i = 0; i < RightPanelTabs.Count; i++)
-        if (RightPanelTabs[i] != NULL)
-            delete RightPanelTabs[i];
+    if (LeftTabWindow != NULL)
+        delete LeftTabWindow;
+    if (RightTabWindow != NULL)
+        delete RightTabWindow;
     MainWindow = NULL;
 }
 
@@ -2721,6 +2721,19 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL leftSmartMode = FALSE;
     BOOL rightSmartMode = FALSE;
 
+    BOOL newTab = FALSE;
+    BOOL closeTab = FALSE;
+    BOOL nextTab = FALSE;
+    BOOL prevTab = FALSE;
+    BOOL leftNewTab = FALSE;
+    BOOL leftCloseTab = FALSE;
+    BOOL leftNextTab = FALSE;
+    BOOL leftPrevTab = FALSE;
+    BOOL rightNewTab = FALSE;
+    BOOL rightCloseTab = FALSE;
+    BOOL rightNextTab = FALSE;
+    BOOL rightPrevTab = FALSE;
+
     int selCount = 0;
     int unselCount = 0;
 
@@ -2749,6 +2762,28 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         smartMode = obj->GetSmartColumnMode(activePanel);
         leftSmartMode = obj->GetSmartColumnMode(obj->LeftPanel);
         rightSmartMode = obj->GetSmartColumnMode(obj->RightPanel);
+
+        CPanelSide activeSide = activePanel->GetPanelSide();
+        int activeCount = obj->GetPanelTabCount(activeSide);
+        int activeIndex = obj->GetPanelTabIndex(activeSide, activePanel);
+        newTab = TRUE;
+        closeTab = (activeIndex > 0);
+        nextTab = (activeCount > 1);
+        prevTab = (activeCount > 1);
+
+        int leftCount = obj->GetPanelTabCount(cpsLeft);
+        leftNewTab = (leftCount > 0);
+        int leftIndex = obj->GetPanelTabIndex(cpsLeft, obj->LeftPanel);
+        leftCloseTab = (leftIndex > 0);
+        leftNextTab = (leftCount > 1);
+        leftPrevTab = (leftCount > 1);
+
+        int rightCount = obj->GetPanelTabCount(cpsRight);
+        rightNewTab = (rightCount > 0);
+        int rightIndex = obj->GetPanelTabIndex(cpsRight, obj->RightPanel);
+        rightCloseTab = (rightIndex > 0);
+        rightNextTab = (rightCount > 1);
+        rightPrevTab = (rightCount > 1);
 
         if (archive)
         {
@@ -2933,6 +2968,18 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
                                                 validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_OPENACTIVEFOLDER)));
     obj->CheckAndSet(&EnablerPermissions, onDisk && files && acls &&
                                               ((containsFile && !containsDir) || (!containsFile && containsDir)));
+    obj->CheckAndSet(&EnablerNewTab, newTab);
+    obj->CheckAndSet(&EnablerCloseTab, closeTab);
+    obj->CheckAndSet(&EnablerNextTab, nextTab);
+    obj->CheckAndSet(&EnablerPrevTab, prevTab);
+    obj->CheckAndSet(&EnablerLeftNewTab, leftNewTab);
+    obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
+    obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
+    obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
+    obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
+    obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
+    obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
+    obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {

@@ -15,6 +15,7 @@
 #include "fileswnd.h"
 #include "toolbar.h"
 #include "mainwnd.h"
+#include "tabwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
 #include "snooper.h"
@@ -74,14 +75,35 @@ const int MIN_WIN_WIDTH = 2; // minimalni sirka panelu
 
 extern BOOL CacheNextSetFocus;
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
     CFilesWindow* panel = new CFilesWindow(this, side);
     if (panel == NULL)
         return NULL;
-    TIndirectArray<CFilesWindow>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
-    tabs.Add(panel);
+
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (index < 0 || index > tabs.Count)
+        index = tabs.Count;
+    tabs.Insert(index, panel);
+
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+    {
+        char text[MAX_PATH];
+        text[0] = 0;
+        if (tabWnd->AddTab(index, text, (LPARAM)panel) < 0)
+        {
+            tabs.Delete(index);
+            delete panel;
+            return NULL;
+        }
+    }
+
+    panel->SetPanelSide(side);
+    if (panel->HWindow != NULL)
+        ShowWindow(panel->HWindow, SW_HIDE);
+
     SwitchPanelTab(panel);
     return panel;
 }
@@ -91,18 +113,9 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
     if (panel == NULL)
         return;
+
     CPanelSide side = panel->GetPanelSide();
-    TIndirectArray<CFilesWindow>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
-    BOOL found = FALSE;
-    for (int i = 0; i < tabs.Count; i++)
-    {
-        if (tabs[i] == panel)
-        {
-            found = TRUE;
-            break;
-        }
-    }
-    if (!found)
+    if (GetPanelTabIndex(side, panel) < 0)
         return;
 
     if (side == cpsLeft)
@@ -110,9 +123,29 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     else
         RightPanel = panel;
 
+    panel->SetPanelSide(side);
+
     CFilesWindow* active = GetActivePanel();
     if (active == NULL || active->GetPanelSide() == side)
         SetActivePanel(panel);
+
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+    {
+        int index = GetPanelTabIndex(side, panel);
+        if (index >= 0 && tabWnd->GetCurSel() != index)
+            tabWnd->SetCurSel(index);
+    }
+
+    UpdatePanelTabVisibility(side);
+
+    UpdatePanelTabTitle(panel);
+
+    if (Created && panel->HWindow != NULL)
+    {
+        LayoutWindows();
+        FocusPanel(panel);
+    }
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel)
@@ -120,38 +153,309 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     CALL_STACK_MESSAGE1("CMainWindow::ClosePanelTab()");
     if (panel == NULL)
         return;
+
     CPanelSide side = panel->GetPanelSide();
-    TIndirectArray<CFilesWindow>& tabs = (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
-    for (int i = 0; i < tabs.Count; i++)
+    int index = GetPanelTabIndex(side, panel);
+    if (index <= 0)
+        return; // implicitni tab nelze zavrit
+
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+
+    BOOL isActive = (side == cpsLeft ? LeftPanel : RightPanel) == panel;
+
+    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+        tabWnd->RemoveTab(index);
+
+    tabs.Delete(index);
+
+    if (panel->HWindow != NULL)
+        DestroyWindow(panel->HWindow);
+
+    if (tabs.Count == 0)
     {
-        if (tabs[i] == panel)
-        {
-            tabs.Delete(i);
-            break;
-        }
+        if (side == cpsLeft)
+            LeftPanel = NULL;
+        else
+            RightPanel = NULL;
+        if (Created)
+            RefreshCommandStates();
+        return;
     }
 
-    CFilesWindow* newActive = NULL;
-    if (side == cpsLeft)
+    if (isActive)
     {
-        if (LeftPanel == panel)
-            newActive = (tabs.Count > 0) ? tabs[0] : NULL;
-        LeftPanel = newActive;
+        if (index >= tabs.Count)
+            index = tabs.Count - 1;
+        CFilesWindow* newPanel = tabs[index];
+        SwitchPanelTab(newPanel);
     }
-    else
+    else if (tabWnd != NULL && tabWnd->HWindow != NULL)
     {
-        if (RightPanel == panel)
-            newActive = (tabs.Count > 0) ? tabs[0] : NULL;
-        RightPanel = newActive;
+        int sel = tabWnd->GetCurSel();
+        if (sel > index)
+            tabWnd->SetCurSel(sel - 1);
     }
 
-    if (GetActivePanel() == panel)
-        SetActivePanel(newActive);
-
-    delete panel;
+    UpdatePanelTabVisibility(side);
+    if (Created)
+    {
+        RefreshCommandStates();
+        LayoutWindows();
+    }
 }
 
 BOOL MainFrameIsActive = FALSE;
+
+static void BuildTabCaption(const char* path, char* buffer, int bufferSize)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (bufferSize <= 0)
+        return;
+    buffer[0] = 0;
+    if (path == NULL)
+        return;
+
+    const char* end = path + strlen(path);
+    const char* p = end;
+    while (p > path && (*(p - 1) == '\\' || *(p - 1) == '/'))
+        --p;
+    const char* start = p;
+    while (start > path && *(start - 1) != '\\' && *(start - 1) != '/')
+        --start;
+
+    int len = (int)(p - start);
+    if (len <= 0)
+    {
+        len = (int)(end - path);
+        start = path;
+    }
+    if (len >= bufferSize)
+        len = bufferSize - 1;
+    if (len > 0)
+        memcpy(buffer, start, len);
+    buffer[len] = 0;
+
+    if (buffer[0] == 0)
+        lstrcpyn(buffer, path, bufferSize);
+}
+
+TIndirectArray<CFilesWindow>& CMainWindow::GetPanelTabs(CPanelSide side)
+{
+    return (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
+}
+
+CTabWindow* CMainWindow::GetPanelTabWindow(CPanelSide side) const
+{
+    return (side == cpsLeft) ? LeftTabWindow : RightTabWindow;
+}
+
+int CMainWindow::GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const
+{
+    if (panel == NULL)
+        return -1;
+    TIndirectArray<CFilesWindow>& tabs = const_cast<CMainWindow*>(this)->GetPanelTabs(side);
+    for (int i = 0; i < tabs.Count; i++)
+        if (tabs[i] == panel)
+            return i;
+    return -1;
+}
+
+int CMainWindow::GetPanelTabCount(CPanelSide side) const
+{
+    return const_cast<CMainWindow*>(this)->GetPanelTabs(side).Count;
+}
+
+void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+    CPanelSide side = panel->GetPanelSide();
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+    if (tabWnd == NULL || tabWnd->HWindow == NULL)
+        return;
+    int index = GetPanelTabIndex(side, panel);
+    if (index < 0)
+        return;
+    char text[MAX_PATH];
+    BuildTabCaption(panel->GetPath(), text, _countof(text));
+    tabWnd->SetTabText(index, text);
+}
+
+void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
+{
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    CFilesWindow* active = (side == cpsLeft) ? LeftPanel : RightPanel;
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+    for (int i = 0; i < tabs.Count; i++)
+    {
+        CFilesWindow* panel = tabs[i];
+        if (panel->HWindow == NULL)
+            continue;
+        ShowWindow(panel->HWindow, panel == active ? SW_SHOW : SW_HIDE);
+    }
+    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+    {
+        BOOL hasTabs = tabs.Count > 0;
+        ShowWindow(tabWnd->HWindow, hasTabs ? SW_SHOWNOACTIVATE : SW_HIDE);
+    }
+}
+
+void CMainWindow::RebuildPanelTabs(CPanelSide side)
+{
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+    if (tabWnd == NULL || tabWnd->HWindow == NULL)
+        return;
+    tabWnd->RemoveAllTabs();
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    for (int i = 0; i < tabs.Count; i++)
+    {
+        CFilesWindow* panel = tabs[i];
+        char text[MAX_PATH];
+        BuildTabCaption(panel->GetPath(), text, _countof(text));
+        tabWnd->AddTab(i, text, (LPARAM)panel);
+    }
+    CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+    int index = GetPanelTabIndex(side, current);
+    if (index < 0 && tabs.Count > 0)
+        index = 0;
+    if (index >= 0)
+        tabWnd->SetCurSel(index);
+    UpdatePanelTabVisibility(side);
+}
+
+void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
+{
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (index < 0 || index >= tabs.Count)
+    {
+        UpdatePanelTabVisibility(side);
+        return;
+    }
+    CFilesWindow* panel = tabs[index];
+    if (panel != NULL)
+        SwitchPanelTab(panel);
+}
+
+void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt)
+{
+    HMENU menu = CreatePopupMenu();
+    if (menu == NULL)
+        return;
+
+    UINT newCmd, closeCmd, nextCmd, prevCmd;
+    UINT newText, closeText, nextText, prevText;
+    if (side == cpsLeft)
+    {
+        newCmd = CM_LEFT_NEWTAB;
+        closeCmd = CM_LEFT_CLOSETAB;
+        nextCmd = CM_LEFT_NEXTTAB;
+        prevCmd = CM_LEFT_PREVTAB;
+        newText = IDS_MENU_LEFT_NEWTAB;
+        closeText = IDS_MENU_LEFT_CLOSETAB;
+        nextText = IDS_MENU_LEFT_NEXTTAB;
+        prevText = IDS_MENU_LEFT_PREVTAB;
+    }
+    else
+    {
+        newCmd = CM_RIGHT_NEWTAB;
+        closeCmd = CM_RIGHT_CLOSETAB;
+        nextCmd = CM_RIGHT_NEXTTAB;
+        prevCmd = CM_RIGHT_PREVTAB;
+        newText = IDS_MENU_RIGHT_NEWTAB;
+        closeText = IDS_MENU_RIGHT_CLOSETAB;
+        nextText = IDS_MENU_RIGHT_NEXTTAB;
+        prevText = IDS_MENU_RIGHT_PREVTAB;
+    }
+
+    AppendMenu(menu, MF_STRING, newCmd, LoadStr(newText));
+
+    BOOL canClose = index > 0;
+    AppendMenu(menu, MF_STRING | (canClose ? MF_ENABLED : MF_GRAYED), closeCmd, LoadStr(closeText));
+
+    BOOL canNavigate = GetPanelTabCount(side) > 1;
+    AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), nextCmd, LoadStr(nextText));
+    AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), prevCmd, LoadStr(prevText));
+
+    TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON, screenPt.x, screenPt.y, 0, HWindow, NULL);
+    DestroyMenu(menu);
+}
+
+void CMainWindow::CommandNewTab(CPanelSide side)
+{
+    int insertIndex = GetPanelTabIndex(side, side == cpsLeft ? LeftPanel : RightPanel);
+    if (insertIndex < 0)
+        insertIndex = GetPanelTabCount(side);
+    else
+        insertIndex++;
+
+    CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
+
+    CFilesWindow* panel = AddPanelTab(side, insertIndex);
+    if (panel == NULL)
+        return;
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    {
+        TRACE_E("AddPanelTab: Create failed");
+        int idx = GetPanelTabIndex(side, panel);
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        if (idx >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(idx);
+            tabs.Delete(idx);
+        }
+        delete panel;
+        if (previous != NULL)
+            SwitchPanelTab(previous);
+        else
+            UpdatePanelTabVisibility(side);
+        return;
+    }
+
+    CFilesWindow* reference = (side == cpsLeft) ? LeftPanel : RightPanel;
+    if (reference != panel && reference != NULL)
+        panel->ChangeDir(reference->GetPath());
+
+    UpdatePanelTabTitle(panel);
+    SwitchPanelTab(panel);
+}
+
+void CMainWindow::CommandCloseTab(CPanelSide side)
+{
+    CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
+    if (panel != NULL)
+        ClosePanelTab(panel);
+}
+
+void CMainWindow::CommandNextTab(CPanelSide side)
+{
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (tabs.Count <= 1)
+        return;
+    CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+    int index = GetPanelTabIndex(side, current);
+    if (index < 0)
+        return;
+    index = (index + 1) % tabs.Count;
+    SwitchPanelTab(tabs[index]);
+}
+
+void CMainWindow::CommandPrevTab(CPanelSide side)
+{
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (tabs.Count <= 1)
+        return;
+    CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+    int index = GetPanelTabIndex(side, current);
+    if (index < 0)
+        return;
+    index = (index - 1 + tabs.Count) % tabs.Count;
+    SwitchPanelTab(tabs[index]);
+}
 
 // kod pro testovani casovych ztrat
 /*
@@ -1152,6 +1456,30 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (!MenuBar->CreateWnd(HTopRebar))
             return -1;
 
+        LeftTabWindow = new CTabWindow(this, cpsLeft);
+        if (LeftTabWindow == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+        if (!LeftTabWindow->Create(HWindow, IDC_LEFTTABCTRL))
+        {
+            TRACE_E("Unable to create left tab control");
+            return -1;
+        }
+
+        RightTabWindow = new CTabWindow(this, cpsRight);
+        if (RightTabWindow == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+        if (!RightTabWindow->Create(HWindow, IDC_RIGHTTABCTRL))
+        {
+            TRACE_E("Unable to create right tab control");
+            return -1;
+        }
+
         CFilesWindow* leftPanel = AddPanelTab(cpsLeft);
         if (leftPanel == NULL)
         {
@@ -1159,7 +1487,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
         if (!leftPanel->Create(CWINDOW_CLASSNAME2, "",
-                               WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                               WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
                                0, 0, 0, 0,
                                HWindow,
                                NULL,
@@ -1170,6 +1498,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             ClosePanelTab(leftPanel);
             return -1;
         }
+        UpdatePanelTabVisibility(cpsLeft);
         SetActivePanel(leftPanel);
         //      ReleaseMenuNew();
         CFilesWindow* rightPanel = AddPanelTab(cpsRight);
@@ -1179,7 +1508,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
         if (!rightPanel->Create(CWINDOW_CLASSNAME2, "",
-                                WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                                WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
                                 0, 0, 0, 0,
                                 HWindow,
                                 NULL,
@@ -1190,6 +1519,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             ClosePanelTab(rightPanel);
             return -1;
         }
+        UpdatePanelTabVisibility(cpsRight);
         LeftPanel = leftPanel;
         RightPanel = rightPanel;
 
@@ -3278,6 +3608,78 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_NEWTAB:
+        {
+            CommandNewTab(activePanel->GetPanelSide());
+            return 0;
+        }
+
+        case CM_CLOSETAB:
+        {
+            CommandCloseTab(activePanel->GetPanelSide());
+            return 0;
+        }
+
+        case CM_NEXTTAB:
+        {
+            CommandNextTab(activePanel->GetPanelSide());
+            return 0;
+        }
+
+        case CM_PREVTAB:
+        {
+            CommandPrevTab(activePanel->GetPanelSide());
+            return 0;
+        }
+
+        case CM_LEFT_NEWTAB:
+        {
+            CommandNewTab(cpsLeft);
+            return 0;
+        }
+
+        case CM_LEFT_CLOSETAB:
+        {
+            CommandCloseTab(cpsLeft);
+            return 0;
+        }
+
+        case CM_LEFT_NEXTTAB:
+        {
+            CommandNextTab(cpsLeft);
+            return 0;
+        }
+
+        case CM_LEFT_PREVTAB:
+        {
+            CommandPrevTab(cpsLeft);
+            return 0;
+        }
+
+        case CM_RIGHT_NEWTAB:
+        {
+            CommandNewTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_CLOSETAB:
+        {
+            CommandCloseTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_NEXTTAB:
+        {
+            CommandNextTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_PREVTAB:
+        {
+            CommandPrevTab(cpsRight);
+            return 0;
+        }
+
         case CM_ACTIVEREFRESH: // refresh praveho panelu
         {
             activePanel->NextFocusName[0] = 0;
@@ -4352,6 +4754,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             LeftPanel = oldRightPanel;
             RightPanel = oldLeftPanel;
+
+            RebuildPanelTabs(cpsLeft);
+            RebuildPanelTabs(cpsRight);
+
             // prohodime zaznamy toolbar
             char buff[1024];
             lstrcpy(buff, Configuration.LeftToolBar);
@@ -5349,6 +5755,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (HasLockedUI())
             break;
         LPNMHDR lphdr = (LPNMHDR)lParam;
+        if (LeftTabWindow != NULL)
+        {
+            LRESULT notifyResult;
+            if (LeftTabWindow->HandleNotify(lphdr, notifyResult))
+                return notifyResult;
+        }
+        if (RightTabWindow != NULL)
+        {
+            LRESULT notifyResult;
+            if (RightTabWindow->HandleNotify(lphdr, notifyResult))
+                return notifyResult;
+        }
         if (lphdr->code == TTN_NEEDTEXT && lphdr->hwndFrom == ToolTipWindow.HWindow)
         {
             char* text = ((LPTOOLTIPTEXT)lParam)->szText;
@@ -5516,12 +5934,36 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         EditHeight = 0;
         PanelsHeight = WindowHeight - 1;
 
-        int windowsCount = 3;
+        BOOL leftTabsVisible = FALSE;
+        int leftTabHeight = 0;
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL && LeftPanelTabs.Count > 0)
+        {
+            leftTabsVisible = TRUE;
+            leftTabHeight = LeftTabWindow->GetNeededHeight();
+        }
+        BOOL rightTabsVisible = FALSE;
+        int rightTabHeight = 0;
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL && RightPanelTabs.Count > 0)
+        {
+            rightTabsVisible = TRUE;
+            rightTabHeight = RightTabWindow->GetNeededHeight();
+        }
+        int maxTabHeight = max(leftTabHeight, rightTabHeight);
+
+        int windowsCount = 1; // top rebar
 
         RECT rebRect;
         GetWindowRect(HTopRebar, &rebRect);
         TopRebarHeight = rebRect.bottom - rebRect.top;
 
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+            windowsCount++;
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            windowsCount++;
+        if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
+            windowsCount++;
+        if (RightPanel != NULL && RightPanel->HWindow != NULL)
+            windowsCount++;
         if (MiddleToolBar->HWindow != NULL)
         {
             windowsCount++;
@@ -5544,30 +5986,66 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
         if (hdwp != NULL)
         {
-            hdwp = HANDLES(DeferWindowPos(hdwp, HTopRebar, NULL,
-                                          0, 0, WindowWidth, TopRebarHeight,
-                                          SWP_NOACTIVATE | SWP_NOZORDER));
+            if (HTopRebar != NULL)
+                hdwp = HANDLES(DeferWindowPos(hdwp, HTopRebar, NULL,
+                                              0, 0, WindowWidth, TopRebarHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
 
-            hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
-                                          1, TopRebarHeight, leftWidth, PanelsHeight,
-                                          SWP_NOACTIVATE | SWP_NOZORDER));
-            hdwp = HANDLES(DeferWindowPos(hdwp, RightPanel->HWindow, NULL,
-                                          SplitPositionPix + splitWidth, TopRebarHeight, rightWidth, PanelsHeight,
-                                          SWP_NOACTIVATE | SWP_NOZORDER));
+            if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+            {
+                UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
+                flags |= leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftTabWindow->HWindow, NULL,
+                                              1, TopRebarHeight, leftWidth, leftTabHeight,
+                                              flags));
+            }
+
+            if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            {
+                UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
+                flags |= rightTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
+                hdwp = HANDLES(DeferWindowPos(hdwp, RightTabWindow->HWindow, NULL,
+                                              SplitPositionPix + splitWidth, TopRebarHeight,
+                                              rightWidth, rightTabHeight,
+                                              flags));
+            }
+
+            if (LeftPanel != NULL && LeftPanel->HWindow != NULL)
+            {
+                int leftPanelHeight = PanelsHeight - leftTabHeight;
+                if (leftPanelHeight < 0)
+                    leftPanelHeight = 0;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
+                                              1, TopRebarHeight + leftTabHeight, leftWidth, leftPanelHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
+            }
+            if (RightPanel != NULL && RightPanel->HWindow != NULL)
+            {
+                int rightPanelHeight = PanelsHeight - rightTabHeight;
+                if (rightPanelHeight < 0)
+                    rightPanelHeight = 0;
+                hdwp = HANDLES(DeferWindowPos(hdwp, RightPanel->HWindow, NULL,
+                                              SplitPositionPix + splitWidth, TopRebarHeight + rightTabHeight,
+                                              rightWidth, rightPanelHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
+            }
 
             if (MiddleToolBar->HWindow != NULL)
             {
                 // toolbar posuneme dolu, pokud ma nektery z panelu directory line
                 int offset1 = 0;
                 int offset2 = 0;
-                if (LeftPanel->DirectoryLine != NULL && LeftPanel->DirectoryLine->HWindow != NULL)
+                if (LeftPanel != NULL && LeftPanel->DirectoryLine != NULL && LeftPanel->DirectoryLine->HWindow != NULL)
                     offset1 = LeftPanel->DirectoryLine->GetNeededHeight();
-                if (RightPanel->DirectoryLine != NULL && RightPanel->DirectoryLine->HWindow != NULL)
+                if (RightPanel != NULL && RightPanel->DirectoryLine != NULL && RightPanel->DirectoryLine->HWindow != NULL)
                     offset2 = RightPanel->DirectoryLine->GetNeededHeight();
                 int offset = max(offset1, offset2);
+                int toolbarHeight = PanelsHeight - maxTabHeight - offset;
+                if (toolbarHeight < 0)
+                    toolbarHeight = 0;
                 hdwp = HANDLES(DeferWindowPos(hdwp, MiddleToolBar->HWindow, NULL,
-                                              SplitPositionPix + SPLIT_LINE_WIDTH, TopRebarHeight + offset,
-                                              middleToolbarWidth, PanelsHeight - offset,
+                                              SplitPositionPix + SPLIT_LINE_WIDTH, TopRebarHeight + maxTabHeight + offset,
+                                              middleToolbarWidth, toolbarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
             }
 
@@ -6851,6 +7329,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         CanDestroyMainWindow = TRUE; // nyni lze beztrestne zavolat DestroyWindow na MainWindow
 
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
+            LeftTabWindow->DestroyWindow();
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL)
+            RightTabWindow->DestroyWindow();
+
         DestroyWindow(HWindow);
 
         // WM_QUERYENDSESSION a WM_ENDSESSION: vsechny Windows killnou process jakmile se pri shutdownu
@@ -6978,6 +7461,20 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (Configuration.StatusArea)
             RemoveTrayIcon();
         //--- zruseni child-oken
+        if (LeftTabWindow != NULL)
+        {
+            if (LeftTabWindow->HWindow != NULL)
+                LeftTabWindow->DestroyWindow();
+            delete LeftTabWindow;
+            LeftTabWindow = NULL;
+        }
+        if (RightTabWindow != NULL)
+        {
+            if (RightTabWindow->HWindow != NULL)
+                RightTabWindow->DestroyWindow();
+            delete RightTabWindow;
+            RightTabWindow = NULL;
+        }
         if (EditWindow != NULL)
         {
             if (EditWindow->HWindow != NULL)

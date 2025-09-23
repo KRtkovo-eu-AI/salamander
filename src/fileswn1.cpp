@@ -223,6 +223,9 @@ void CFilesWindowAncestor::SetPath(const char* path)
     DetachDirectory((CFilesWindow*)this);
     strcpy(Path, path);
 
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle((CFilesWindow*)this);
+
     //--- zjisteni file-based komprese/sifrovani a FAT32
     DWORD dummy1, flags;
     if ((Is(ptDisk) || Is(ptZIPArchive)) &&

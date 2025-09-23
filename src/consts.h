@@ -1929,6 +1929,18 @@ extern DWORD EnablerShowProperties;       // focus|select je na souborech|adresa
 extern DWORD EnablerItemsContextMenu;     // focus|select je na souborech|adresarich && panel je disk nebo FS (s podporou context-menu)
 extern DWORD EnablerOpenActiveFolder;     // panel je disk nebo FS (s podporou open-active-folder)
 extern DWORD EnablerPermissions;          // focus|select je na souborech|adresarich && panel je disk, bezime nejmene na W2K, disk umi ACL (NTFS)
+extern DWORD EnablerNewTab;               // lze vytvorit novy tab v aktivnim panelu?
+extern DWORD EnablerCloseTab;             // lze zavrit aktivni tab?
+extern DWORD EnablerNextTab;              // je dostupny dalsi tab v aktivnim panelu?
+extern DWORD EnablerPrevTab;              // je dostupny predchozi tab v aktivnim panelu?
+extern DWORD EnablerLeftNewTab;           // lze vytvorit novy tab v levem panelu?
+extern DWORD EnablerLeftCloseTab;         // lze zavrit tab v levem panelu?
+extern DWORD EnablerLeftNextTab;          // je dostupny dalsi tab v levem panelu?
+extern DWORD EnablerLeftPrevTab;          // je dostupny predchozi tab v levem panelu?
+extern DWORD EnablerRightNewTab;          // lze vytvorit novy tab v pravem panelu?
+extern DWORD EnablerRightCloseTab;        // lze zavrit tab v pravem panelu?
+extern DWORD EnablerRightNextTab;         // je dostupny dalsi tab v pravem panelu?
+extern DWORD EnablerRightPrevTab;         // je dostupny predchozi tab v pravem panelu?
 
 //******************************************************************************
 //
