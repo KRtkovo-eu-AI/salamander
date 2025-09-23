@@ -135,7 +135,11 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     CFilesWindow* active = GetActivePanel();
     if (active == NULL || active->GetPanelSide() == side)
+    {
         SetActivePanel(panel);
+        if (Created)
+            EditWindowSetDirectory();
+    }
 
     CTabWindow* tabWnd = GetPanelTabWindow(side);
     if (tabWnd != NULL && tabWnd->HWindow != NULL)
