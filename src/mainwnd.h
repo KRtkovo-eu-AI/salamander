@@ -526,12 +526,14 @@ public:
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
+    void OnPanelTabReordered(CPanelSide side, int fromIndex, int toIndex);
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
     void CommandNewTab(CPanelSide side, bool addAtEnd = false);
     void CommandCloseTab(CPanelSide side);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
+    void CommandMoveTabToOtherPanel(CPanelSide side);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
@@ -779,6 +781,8 @@ private:
     CTabWindow* GetPanelTabWindow(CPanelSide side) const;
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
+    void ReorderPanelTab(CPanelSide side, int fromIndex, int toIndex);
+    void MovePanelTabToOtherSide(CPanelSide fromSide, int index);
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 

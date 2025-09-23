@@ -788,7 +788,7 @@
 #define IDS_TBTT_SMARTMODE           10520   // Smart Column Mode
 #define IDS_TBTT_NEWTAB              10521   // New Tab
 #define IDS_TBTT_CLOSETAB            10522   // Close Tab
-#define IDS_TBTT_NEXTTAB             10523   // Next Tab
+#define IDS_TBTT_NEXTTAB             10523   // Move Tab to Other Panel
 #define IDS_TBTT_PREVTAB             10524   // Previous Tab
 
 // Error codes for variable strings

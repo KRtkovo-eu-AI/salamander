@@ -4,6 +4,9 @@
 #include "precomp.h"
 
 #include <commctrl.h>
+#include <windowsx.h>
+#include <algorithm>
+#include <cstdlib>
 #include <string>
 
 #include "tabwnd.h"
@@ -93,6 +96,11 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     Side = side;
     ControlID = 0;
     SuppressSelectionNotifications = 0;
+    DragCandidate = false;
+    Dragging = false;
+    DraggedTabIndex = -1;
+    DragStartPoint.x = 0;
+    DragStartPoint.y = 0;
 }
 
 CTabWindow::~CTabWindow()
@@ -393,6 +401,143 @@ void CTabWindow::UpdateNewTabButtonWidth()
         TabCtrl_SetMinTabWidth(HWindow, minWidth);
 }
 
+void CTabWindow::HandleLButtonDown(const POINT& pt)
+{
+    CALL_STACK_MESSAGE_NONE
+    DragCandidate = false;
+    Dragging = false;
+    DraggedTabIndex = -1;
+
+    int hit = HitTest(pt);
+    if (CanDragTab(hit))
+    {
+        DragCandidate = true;
+        DraggedTabIndex = hit;
+        DragStartPoint = pt;
+    }
+}
+
+void CTabWindow::HandleMouseMove(WPARAM wParam, const POINT& pt)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (!DragCandidate && !Dragging)
+        return;
+
+    if (!Dragging)
+    {
+        if ((wParam & MK_LBUTTON) == 0)
+        {
+            DragCandidate = false;
+            DraggedTabIndex = -1;
+            return;
+        }
+
+        int dx = std::abs(pt.x - DragStartPoint.x);
+        int dy = std::abs(pt.y - DragStartPoint.y);
+        int thresholdX = std::max(GetSystemMetrics(SM_CXDRAG), 4);
+        int thresholdY = std::max(GetSystemMetrics(SM_CYDRAG), 4);
+        if (dx >= thresholdX || dy >= thresholdY)
+        {
+            DragCandidate = false;
+            Dragging = true;
+            SetCapture(HWindow);
+        }
+    }
+}
+
+void CTabWindow::HandleLButtonUp(const POINT& pt)
+{
+    CALL_STACK_MESSAGE_NONE
+    int fromIndex = DraggedTabIndex;
+    int targetIndex = -1;
+    bool notify = false;
+    if (Dragging)
+    {
+        targetIndex = ComputeDropIndex(pt, fromIndex);
+        notify = (targetIndex >= 0 && fromIndex >= 0 && targetIndex != fromIndex && MainWindow != NULL);
+    }
+
+    if (Dragging)
+        ReleaseCapture();
+
+    DragCandidate = false;
+    Dragging = false;
+    DraggedTabIndex = -1;
+
+    if (notify)
+        MainWindow->OnPanelTabReordered(Side, fromIndex, targetIndex);
+}
+
+void CTabWindow::HandleCaptureChanged()
+{
+    CALL_STACK_MESSAGE_NONE
+    DragCandidate = false;
+    Dragging = false;
+    DraggedTabIndex = -1;
+}
+
+bool CTabWindow::CanDragTab(int index) const
+{
+    CALL_STACK_MESSAGE_NONE
+    if (index < 0)
+        return false;
+    if (IsNewTabButtonIndex(index))
+        return false;
+    return index > 0;
+}
+
+int CTabWindow::ComputeDropIndex(const POINT& pt, int draggedIndex) const
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return -1;
+    int tabCount = GetTabCount();
+    if (tabCount <= 1)
+        return -1;
+    if (draggedIndex <= 0 || draggedIndex >= tabCount)
+        return -1;
+
+    RECT rect = {0, 0, 0, 0};
+    int lastIndex = tabCount - 1;
+    int insertBefore = tabCount;
+    for (int i = 1; i <= lastIndex; ++i)
+    {
+        if (!TabCtrl_GetItemRect(HWindow, i, &rect))
+            continue;
+
+        if (pt.x < rect.left)
+        {
+            insertBefore = i;
+            break;
+        }
+
+        int mid = rect.left + (rect.right - rect.left) / 2;
+        if (pt.x < mid)
+        {
+            insertBefore = i;
+            break;
+        }
+
+        insertBefore = i + 1;
+    }
+
+    if (insertBefore < 1)
+        insertBefore = 1;
+    if (insertBefore > tabCount)
+        insertBefore = tabCount;
+
+    int destination = insertBefore;
+    if (destination > draggedIndex)
+        --destination;
+
+    if (destination < 1)
+        destination = 1;
+    if (destination > lastIndex)
+        destination = lastIndex;
+
+    return destination;
+}
+
 int CTabWindow::GetDisplayedTabCount() const
 {
     CALL_STACK_MESSAGE_NONE
@@ -431,5 +576,33 @@ BOOL CTabWindow::IsNewTabButtonIndex(int index) const
 LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE4("CTabWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
+    switch (uMsg)
+    {
+    case WM_LBUTTONDOWN:
+    {
+        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        HandleLButtonDown(pt);
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        HandleMouseMove(wParam, pt);
+        break;
+    }
+
+    case WM_LBUTTONUP:
+    {
+        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        HandleLButtonUp(pt);
+        break;
+    }
+
+    case WM_CAPTURECHANGED:
+    case WM_CANCELMODE:
+        HandleCaptureChanged();
+        break;
+    }
     return CWindow::WindowProc(uMsg, wParam, lParam);
 }

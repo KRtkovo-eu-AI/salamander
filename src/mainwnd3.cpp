@@ -425,6 +425,34 @@ void CMainWindow::RebuildPanelTabs(CPanelSide side)
     UpdatePanelTabVisibility(side);
 }
 
+void CMainWindow::ReorderPanelTab(CPanelSide side, int fromIndex, int toIndex)
+{
+    CALL_STACK_MESSAGE3("CMainWindow::ReorderPanelTab(%d, %d, %d)", side, fromIndex, toIndex);
+    if (!Configuration.UsePanelTabs)
+        return;
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (fromIndex <= 0 || fromIndex >= tabs.Count)
+        return;
+    if (toIndex <= 0)
+        toIndex = 1;
+    if (toIndex >= tabs.Count)
+        toIndex = tabs.Count - 1;
+    if (toIndex == fromIndex)
+        return;
+
+    CFilesWindow* panel = tabs[fromIndex];
+    tabs.Detach(fromIndex);
+    if (toIndex > fromIndex)
+        --toIndex;
+    tabs.Insert(toIndex, panel);
+
+    RebuildPanelTabs(side);
+
+    CFilesWindow* active = (side == cpsLeft) ? LeftPanel : RightPanel;
+    if (panel != NULL && panel == active)
+        SwitchPanelTab(panel);
+}
+
 void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
 {
     if (!Configuration.UsePanelTabs)
@@ -527,6 +555,16 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     }
 }
 
+void CMainWindow::OnPanelTabReordered(CPanelSide side, int fromIndex, int toIndex)
+{
+    if (!Configuration.UsePanelTabs)
+    {
+        UpdatePanelTabVisibility(side);
+        return;
+    }
+    ReorderPanelTab(side, fromIndex, toIndex);
+}
+
 void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 {
     if (!Configuration.UsePanelTabs)
@@ -617,6 +655,93 @@ void CMainWindow::CommandPrevTab(CPanelSide side)
         return;
     index = (index - 1 + tabs.Count) % tabs.Count;
     SwitchPanelTab(tabs[index]);
+}
+
+void CMainWindow::MovePanelTabToOtherSide(CPanelSide fromSide, int index)
+{
+    CALL_STACK_MESSAGE2("CMainWindow::MovePanelTabToOtherSide(%d, %d)", fromSide, index);
+    if (!Configuration.UsePanelTabs)
+        return;
+    if (fromSide != cpsLeft && fromSide != cpsRight)
+        return;
+
+    TIndirectArray<CFilesWindow>& fromTabs = GetPanelTabs(fromSide);
+    if (index <= 0 || index >= fromTabs.Count)
+        return;
+
+    CFilesWindow* panel = fromTabs[index];
+    if (panel == NULL)
+        return;
+
+    CPanelSide toSide = (fromSide == cpsLeft) ? cpsRight : cpsLeft;
+    TIndirectArray<CFilesWindow>& toTabs = GetPanelTabs(toSide);
+
+    BOOL wasActive = ((fromSide == cpsLeft) ? LeftPanel : RightPanel) == panel;
+
+    fromTabs.Detach(index);
+
+    CTabWindow* fromTabWnd = GetPanelTabWindow(fromSide);
+    if (fromTabWnd != NULL && fromTabWnd->HWindow != NULL)
+        fromTabWnd->RemoveTab(index);
+
+    if (wasActive)
+    {
+        if (fromTabs.Count > 0)
+        {
+            int newIndex = index;
+            if (newIndex >= fromTabs.Count)
+                newIndex = fromTabs.Count - 1;
+            CFilesWindow* replacement = fromTabs[newIndex];
+            if (replacement != NULL)
+                SwitchPanelTab(replacement);
+        }
+        else
+        {
+            if (fromSide == cpsLeft)
+                LeftPanel = NULL;
+            else
+                RightPanel = NULL;
+        }
+    }
+    else
+    {
+        UpdatePanelTabVisibility(fromSide);
+    }
+
+    int insertIndex = toTabs.Count;
+    toTabs.Insert(insertIndex, panel);
+
+    panel->SetPanelSide(toSide);
+
+    CTabWindow* toTabWnd = GetPanelTabWindow(toSide);
+    if (toTabWnd != NULL && toTabWnd->HWindow != NULL)
+    {
+        char path[2 * MAX_PATH];
+        if (!panel->GetGeneralPath(path, _countof(path), TRUE))
+            path[0] = 0;
+        char text[MAX_PATH];
+        BuildTabCaption(path, panel->Is(ptPluginFS), text, _countof(text));
+        toTabWnd->AddTab(insertIndex, text, (LPARAM)panel);
+    }
+
+    SwitchPanelTab(panel);
+}
+
+void CMainWindow::CommandMoveTabToOtherPanel(CPanelSide side)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (tabs.Count <= 1)
+        return;
+    CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+    int index = GetPanelTabIndex(side, current);
+    if (index <= 0)
+        return;
+    CPanelSide otherSide = (side == cpsLeft) ? cpsRight : cpsLeft;
+    if (GetPanelTabCount(otherSide) <= 0)
+        return;
+    MovePanelTabToOtherSide(side, index);
 }
 
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
@@ -3833,6 +3958,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_MOVETAB_OTHER_PANEL:
+        {
+            CommandMoveTabToOtherPanel(activePanel->GetPanelSide());
+            return 0;
+        }
+
         case CM_LEFT_NEWTAB:
         {
             CommandNewTab(cpsLeft);
@@ -3857,6 +3988,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_LEFT_MOVETAB_OTHER_PANEL:
+        {
+            CommandMoveTabToOtherPanel(cpsLeft);
+            return 0;
+        }
+
         case CM_RIGHT_NEWTAB:
         {
             CommandNewTab(cpsRight);
@@ -3878,6 +4015,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_RIGHT_PREVTAB:
         {
             CommandPrevTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_MOVETAB_OTHER_PANEL:
+        {
+            CommandMoveTabToOtherPanel(cpsRight);
             return 0;
         }
 

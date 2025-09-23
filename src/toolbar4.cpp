@@ -141,7 +141,7 @@ struct CButtonData
 #define TBBE_SMART_COLUMN_MODE 98
 #define TBBE_NEW_TAB 99
 #define TBBE_CLOSE_TAB 100
-#define TBBE_NEXT_TAB 101
+#define TBBE_MOVE_TAB_OTHER 101
 #define TBBE_PREV_TAB 102
 
 #define TBBE_TERMINATOR 103 // terminator
@@ -254,8 +254,8 @@ CButtonData ToolBarButtons[TBBE_TERMINATOR] =
         /*TBBE_SMART_COLUMN_MODE*/ {IDX_TB_SMART_COLUMN_MODE, 0, IDS_TBTT_SMARTMODE, CM_ACTIVE_SMARTMODE, CM_LEFT_SMARTMODE, CM_RIGHT_SMARTMODE, 0, 0, 0, NULL, NULL, NULL, "SmartColumnMode"},
         /*TBBE_NEW_TAB*/ {IDX_TB_NEW, 0, IDS_TBTT_NEWTAB, CM_NEWTAB, CM_LEFT_NEWTAB, CM_RIGHT_NEWTAB, 0, 0, 0, &EnablerNewTab, &EnablerLeftNewTab, &EnablerRightNewTab, "New"},
         /*TBBE_CLOSE_TAB*/ {IDX_TB_DELETE, 0, IDS_TBTT_CLOSETAB, CM_CLOSETAB, CM_LEFT_CLOSETAB, CM_RIGHT_CLOSETAB, 0, 0, 0, &EnablerCloseTab, &EnablerLeftCloseTab, &EnablerRightCloseTab, "Delete"},
-        /*TBBE_NEXT_TAB*/ {IDX_TB_FORWARD, 0, IDS_TBTT_NEXTTAB, CM_NEXTTAB, CM_LEFT_NEXTTAB, CM_RIGHT_NEXTTAB, 0, 0, 0, &EnablerNextTab, &EnablerLeftNextTab, &EnablerRightNextTab, "Forward"},
-        /*TBBE_PREV_TAB*/ {IDX_TB_BACK, 0, IDS_TBTT_PREVTAB, CM_PREVTAB, CM_LEFT_PREVTAB, CM_RIGHT_PREVTAB, 0, 0, 0, &EnablerPrevTab, &EnablerLeftPrevTab, &EnablerRightPrevTab, "Back"},
+        /*TBBE_MOVE_TAB_OTHER*/ {IDX_TB_FORWARD, 0, IDS_TBTT_NEXTTAB, CM_MOVETAB_OTHER_PANEL, CM_LEFT_MOVETAB_OTHER_PANEL, CM_RIGHT_MOVETAB_OTHER_PANEL, 0, 0, 0, &EnablerMoveTabOtherPanel, &EnablerLeftMoveTabOtherPanel, &EnablerRightMoveTabOtherPanel, "Forward"},
+        /*TBBE_PREV_TAB*/ {0xFFFF, 0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
 };
 
@@ -294,8 +294,7 @@ DWORD TopToolBarButtons[] =
         TBBE_SMART_COLUMN_MODE,
         TBBE_NEW_TAB,
         TBBE_CLOSE_TAB,
-        TBBE_NEXT_TAB,
-        TBBE_PREV_TAB,
+        TBBE_MOVE_TAB_OTHER,
 
         TBBE_USER_MENU_DROP,
         TBBE_CMD,

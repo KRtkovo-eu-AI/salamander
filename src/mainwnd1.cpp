@@ -2743,6 +2743,9 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL rightCloseTab = FALSE;
     BOOL rightNextTab = FALSE;
     BOOL rightPrevTab = FALSE;
+    BOOL moveTabOther = FALSE;
+    BOOL leftMoveTabOther = FALSE;
+    BOOL rightMoveTabOther = FALSE;
 
     int selCount = 0;
     int unselCount = 0;
@@ -2780,6 +2783,8 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         closeTab = (activeIndex > 0);
         nextTab = (activeCount > 1);
         prevTab = (activeCount > 1);
+        CPanelSide otherSide = (activeSide == cpsLeft) ? cpsRight : cpsLeft;
+        moveTabOther = (activeIndex > 0 && obj->GetPanelTabCount(otherSide) > 0);
 
         int leftCount = obj->GetPanelTabCount(cpsLeft);
         leftNewTab = (leftCount > 0);
@@ -2794,6 +2799,8 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightCloseTab = (rightIndex > 0);
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
+        leftMoveTabOther = (leftIndex > 0 && rightCount > 0);
+        rightMoveTabOther = (rightIndex > 0 && leftCount > 0);
 
         if (!Configuration.UsePanelTabs)
         {
@@ -2805,10 +2812,13 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             leftCloseTab = FALSE;
             leftNextTab = FALSE;
             leftPrevTab = FALSE;
+            leftMoveTabOther = FALSE;
             rightNewTab = FALSE;
             rightCloseTab = FALSE;
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
+            rightMoveTabOther = FALSE;
+            moveTabOther = FALSE;
         }
 
         if (archive)
@@ -3006,6 +3016,9 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
+    obj->CheckAndSet(&EnablerMoveTabOtherPanel, moveTabOther);
+    obj->CheckAndSet(&EnablerLeftMoveTabOtherPanel, leftMoveTabOther);
+    obj->CheckAndSet(&EnablerRightMoveTabOtherPanel, rightMoveTabOther);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {

@@ -42,9 +42,20 @@ private:
     int GetNewTabButtonIndex() const;
     BOOL IsNewTabButtonIndex(int index) const;
     void UpdateNewTabButtonWidth();
+    void HandleLButtonDown(const POINT& pt);
+    void HandleMouseMove(WPARAM wParam, const POINT& pt);
+    void HandleLButtonUp(const POINT& pt);
+    void HandleCaptureChanged();
+    bool CanDragTab(int index) const;
+    int ComputeDropIndex(const POINT& pt, int draggedIndex) const;
 
     CMainWindow* MainWindow;
     CPanelSide Side;
     int ControlID;
     int SuppressSelectionNotifications;
+
+    bool DragCandidate;
+    bool Dragging;
+    int DraggedTabIndex;
+    POINT DragStartPoint;
 };
