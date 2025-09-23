@@ -11,6 +11,7 @@
 #include "stswnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "tabwnd.h"
 #include "mainwnd.h"
 #include "cfgdlg.h"
 #include "usermenu.h"
