@@ -125,6 +125,12 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     panel->SetPanelSide(side);
 
+    if (panel->DirectoryLine != NULL)
+    {
+        BOOL hasHistory = DirHistory != NULL && DirHistory->HasPaths();
+        panel->DirectoryLine->SetHistory(hasHistory);
+    }
+
     CFilesWindow* active = GetActivePanel();
     if (active == NULL || active->GetPanelSide() == side)
         SetActivePanel(panel);
