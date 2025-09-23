@@ -42,9 +42,20 @@ private:
     int GetNewTabButtonIndex() const;
     BOOL IsNewTabButtonIndex(int index) const;
     void UpdateNewTabButtonWidth();
+    bool IsReorderableIndex(int index) const;
+    void StartDragTracking(int index, const POINT& pt);
+    void UpdateDragTracking(const POINT& pt);
+    void FinishDragTracking(const POINT& pt, bool canceled);
+    void CancelDragTracking();
+    int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
+    void MoveTabInternal(int from, int to);
 
     CMainWindow* MainWindow;
     CPanelSide Side;
     int ControlID;
     int SuppressSelectionNotifications;
+    bool DragTracking;
+    bool Dragging;
+    POINT DragStartPoint;
+    int DragSourceIndex;
 };
