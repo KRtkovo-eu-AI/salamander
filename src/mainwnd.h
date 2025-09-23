@@ -539,6 +539,7 @@ public:
     void UpdateDirectoryLineHistoryState(CFilesWindow* panel);
     void UpdateAllDirectoryLineHistoryStates();
     void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
+    void HandlePanelTabsEnabledChange(BOOL previouslyEnabled);
     void RebuildSharedDirHistoryFromPanels();
 
     void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* pathOrArchiveOrFSName,

@@ -357,7 +357,7 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
     }
     if (tabWnd != NULL && tabWnd->HWindow != NULL)
     {
-        BOOL hasTabs = tabs.Count > 0;
+        BOOL hasTabs = tabs.Count > 0 && Configuration.UsePanelTabs;
         ShowWindow(tabWnd->HWindow, hasTabs ? SW_SHOWNOACTIVATE : SW_HIDE);
     }
 }
@@ -390,6 +390,11 @@ void CMainWindow::RebuildPanelTabs(CPanelSide side)
 
 void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
 {
+    if (!Configuration.UsePanelTabs)
+    {
+        UpdatePanelTabVisibility(side);
+        return;
+    }
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     if (index < 0 || index >= tabs.Count)
     {
@@ -403,6 +408,8 @@ void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
 
 void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt)
 {
+    if (!Configuration.UsePanelTabs)
+        return;
     HMENU menu = CreatePopupMenu();
     if (menu == NULL)
         return;
@@ -447,6 +454,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
 void CMainWindow::CommandNewTab(CPanelSide side)
 {
+    if (!Configuration.UsePanelTabs)
+        return;
     int insertIndex = GetPanelTabIndex(side, side == cpsLeft ? LeftPanel : RightPanel);
     if (insertIndex < 0)
         insertIndex = GetPanelTabCount(side);
@@ -490,6 +499,8 @@ void CMainWindow::CommandNewTab(CPanelSide side)
 
 void CMainWindow::CommandCloseTab(CPanelSide side)
 {
+    if (!Configuration.UsePanelTabs)
+        return;
     CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
     if (panel != NULL)
         ClosePanelTab(panel);
@@ -497,6 +508,8 @@ void CMainWindow::CommandCloseTab(CPanelSide side)
 
 void CMainWindow::CommandNextTab(CPanelSide side)
 {
+    if (!Configuration.UsePanelTabs)
+        return;
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     if (tabs.Count <= 1)
         return;
@@ -510,6 +523,8 @@ void CMainWindow::CommandNextTab(CPanelSide side)
 
 void CMainWindow::CommandPrevTab(CPanelSide side)
 {
+    if (!Configuration.UsePanelTabs)
+        return;
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     if (tabs.Count <= 1)
         return;
@@ -519,6 +534,41 @@ void CMainWindow::CommandPrevTab(CPanelSide side)
         return;
     index = (index - 1 + tabs.Count) % tabs.Count;
     SwitchPanelTab(tabs[index]);
+}
+
+void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
+{
+    BOOL enabled = Configuration.UsePanelTabs != 0;
+    if (previouslyEnabled && !enabled)
+    {
+        if (LeftPanelTabs.Count > 0)
+        {
+            SwitchPanelTab(LeftPanelTabs[0]);
+            while (LeftPanelTabs.Count > 1)
+            {
+                CFilesWindow* panel = LeftPanelTabs[LeftPanelTabs.Count - 1];
+                ClosePanelTab(panel);
+            }
+        }
+        if (RightPanelTabs.Count > 0)
+        {
+            SwitchPanelTab(RightPanelTabs[0]);
+            while (RightPanelTabs.Count > 1)
+            {
+                CFilesWindow* panel = RightPanelTabs[RightPanelTabs.Count - 1];
+                ClosePanelTab(panel);
+            }
+        }
+    }
+
+    UpdatePanelTabVisibility(cpsLeft);
+    UpdatePanelTabVisibility(cpsRight);
+
+    if (Created)
+    {
+        RefreshCommandStates();
+        LayoutWindows();
+    }
 }
 
 // kod pro testovani casovych ztrat
@@ -6007,14 +6057,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         BOOL leftTabsVisible = FALSE;
         int leftTabHeight = 0;
-        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL && LeftPanelTabs.Count > 0)
+        if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL &&
+            Configuration.UsePanelTabs && LeftPanelTabs.Count > 0)
         {
             leftTabsVisible = TRUE;
             leftTabHeight = LeftTabWindow->GetNeededHeight();
         }
         BOOL rightTabsVisible = FALSE;
         int rightTabHeight = 0;
-        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL && RightPanelTabs.Count > 0)
+        if (RightTabWindow != NULL && RightTabWindow->HWindow != NULL &&
+            Configuration.UsePanelTabs && RightPanelTabs.Count > 0)
         {
             rightTabsVisible = TRUE;
             rightTabHeight = RightTabWindow->GetNeededHeight();

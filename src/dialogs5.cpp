@@ -3345,6 +3345,8 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPagePanels::Transfer()");
 
+    int oldUseTabs = Configuration.UsePanelTabs;
+
     // hodnoty v konfiguraci (Configuration.FileNameFormat) drzime pro zpetnou kompatibilitu
     const int MANGLE_ITEMS = 6;
     int mangles[MANGLE_ITEMS] = {4 /*ONTHEDISK*/, 5 /*EXPLORER*/, 6 /*VC*/, 7 /*PARTMIXEDCASE*/, 2 /*LOWERCASE*/, 3 /*UPPERCASE*/};
@@ -3396,6 +3398,7 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
         Configuration.SizeFormat = sizes[index];
     }
 
+    ti.CheckBox(IDC_PANELS_USETABS, Configuration.UsePanelTabs);
     ti.CheckBox(IDC_NOTHIDDENSYSTEM, Configuration.NotHiddenSystemFiles);
     ti.CheckBox(IDC_INCLUDEDIRS, Configuration.IncludeDirs);
     ti.CheckBox(IDC_DISABLEDANDD, Configuration.UseDragDropMinTime);
@@ -3412,6 +3415,8 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
 
     if (ti.Type == ttDataToWindow)
         EnableControls();
+    else if (oldUseTabs != Configuration.UsePanelTabs)
+        MainWindow->HandlePanelTabsEnabledChange(oldUseTabs != 0);
 }
 
 void CCfgPagePanels::EnableControls()

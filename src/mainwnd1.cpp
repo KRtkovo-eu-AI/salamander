@@ -2793,6 +2793,22 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
 
+        if (!Configuration.UsePanelTabs)
+        {
+            newTab = FALSE;
+            closeTab = FALSE;
+            nextTab = FALSE;
+            prevTab = FALSE;
+            leftNewTab = FALSE;
+            leftCloseTab = FALSE;
+            leftNextTab = FALSE;
+            leftPrevTab = FALSE;
+            rightNewTab = FALSE;
+            rightCloseTab = FALSE;
+            rightNextTab = FALSE;
+            rightPrevTab = FALSE;
+        }
+
         if (archive)
         {
             int format = PackerFormatConfig.PackIsArchive(activePanel->GetZIPArchive());

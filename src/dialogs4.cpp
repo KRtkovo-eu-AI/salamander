@@ -377,6 +377,7 @@ CConfiguration::CConfiguration()
     FullRowSelect = FALSE;
     FullRowHighlight = TRUE;
     UseIconTincture = TRUE;
+    UsePanelTabs = TRUE;
     ShowPanelCaption = TRUE;
     ShowPanelZoom = TRUE;
     strcpy(InfoLineContent, "$(FileName): $(FileSize), $(FileDate), $(FileTime), $(FileAttributes), $(FileDOSName)");
