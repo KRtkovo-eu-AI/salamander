@@ -178,6 +178,8 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     if (panel->HWindow != NULL)
         DestroyWindow(panel->HWindow);
 
+    delete panel;
+
     if (tabs.Count == 0)
     {
         if (side == cpsLeft)
@@ -490,9 +492,8 @@ void CMainWindow::CommandNewTab(CPanelSide side)
         return;
     }
 
-    CFilesWindow* reference = (side == cpsLeft) ? LeftPanel : RightPanel;
-    if (reference != panel && reference != NULL)
-        panel->ChangeDir(reference->GetPath());
+    if (previous != NULL && previous != panel)
+        panel->ChangeDir(previous->GetPath());
 
     UpdatePanelTabTitle(panel);
     SwitchPanelTab(panel);

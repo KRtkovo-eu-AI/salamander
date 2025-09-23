@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include "fileswnd.h"
-#include "cfgdlg.h"
+class CFilesWindow;
+enum CPanelSide;
+enum CWorkDirsHistoryScope;
 
 #define HOT_PATHS_COUNT 30
 
