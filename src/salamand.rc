@@ -101,9 +101,13 @@ BEGIN
     VK_F11,         CM_FILEHISTORY,         VIRTKEY, ALT
     VK_F11,         CM_ACTIVEZOOMPANEL,     VIRTKEY, CONTROL
     VK_F11,         CM_FULLSCREEN,          VIRTKEY, SHIFT, CONTROL
-    VK_F12,         CM_DISCONNECTNET,       VIRTKEY 
+    VK_F12,         CM_DISCONNECTNET,       VIRTKEY
     VK_F12,         CM_CHANGEFILTER,        VIRTKEY, CONTROL
     VK_F12,         CM_DIRHISTORY,          VIRTKEY, ALT
+    "T",            CM_NEWTAB,              VIRTKEY, CONTROL
+    "W",            CM_CLOSETAB,            VIRTKEY, CONTROL
+    VK_NEXT,        CM_NEXTTAB,             VIRTKEY, CONTROL
+    VK_PRIOR,       CM_PREVTAB,             VIRTKEY, CONTROL
     VK_ESCAPE,      CM_MINIMIZE,            VIRTKEY, SHIFT
     VK_LEFT,        CM_ACTIVEBACK,          VIRTKEY, ALT
     VK_RIGHT,       CM_ACTIVEFORWARD,       VIRTKEY, ALT

@@ -1241,6 +1241,12 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
     CFilesWindow* old = GetActivePanel();
     SetActivePanel(focus);
 
+    if (LeftPanel != NULL)
+        LeftPanel->SetPanelSide(cpsLeft);
+    if (RightPanel != NULL)
+        RightPanel->SetPanelSide(cpsRight);
+    focus->SetPanelSide(focus == LeftPanel ? cpsLeft : cpsRight);
+
     UpdateDriveBars(); // zamackneme v drive bar spravny disk
 
     // zajistime prekresleni aktivni hlavicky panelu
@@ -1254,7 +1260,7 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
         // vice viz https://forum.altap.cz/viewtopic.php?t=181
 
         // nechame premalovat directory line obou oken
-        if (old->DirectoryLine != NULL)
+        if (old != NULL && old->DirectoryLine != NULL)
             old->DirectoryLine->InvalidateAndUpdate(FALSE);
         if (focus->DirectoryLine != NULL)
             focus->DirectoryLine->InvalidateAndUpdate(FALSE);
