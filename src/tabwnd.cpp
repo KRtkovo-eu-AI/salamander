@@ -47,8 +47,9 @@ void CTabWindow::DestroyWindow()
     CALL_STACK_MESSAGE_NONE
     if (HWindow != NULL)
     {
-        CWindow::DestroyWindow();
-        HWindow = NULL;
+        HWND hwnd = HWindow;
+        DetachWindow();
+        ::DestroyWindow(hwnd);
     }
 }
 

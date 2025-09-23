@@ -246,11 +246,6 @@ TIndirectArray<CFilesWindow>& CMainWindow::GetPanelTabs(CPanelSide side)
     return (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
 }
 
-const TIndirectArray<CFilesWindow>& CMainWindow::GetPanelTabs(CPanelSide side) const
-{
-    return (side == cpsLeft) ? LeftPanelTabs : RightPanelTabs;
-}
-
 CTabWindow* CMainWindow::GetPanelTabWindow(CPanelSide side) const
 {
     return (side == cpsLeft) ? LeftTabWindow : RightTabWindow;
@@ -260,7 +255,7 @@ int CMainWindow::GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const
 {
     if (panel == NULL)
         return -1;
-    const TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    TIndirectArray<CFilesWindow>& tabs = const_cast<CMainWindow*>(this)->GetPanelTabs(side);
     for (int i = 0; i < tabs.Count; i++)
         if (tabs[i] == panel)
             return i;
@@ -269,7 +264,7 @@ int CMainWindow::GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const
 
 int CMainWindow::GetPanelTabCount(CPanelSide side) const
 {
-    return GetPanelTabs(side).Count;
+    return const_cast<CMainWindow*>(this)->GetPanelTabs(side).Count;
 }
 
 void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
@@ -345,7 +340,7 @@ void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
 
 void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt)
 {
-    HMENU menu = HANDLES(CreatePopupMenu());
+    HMENU menu = CreatePopupMenu();
     if (menu == NULL)
         return;
 
@@ -384,7 +379,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), prevCmd, LoadStr(prevText));
 
     TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON, screenPt.x, screenPt.y, 0, HWindow, NULL);
-    HANDLES(DestroyMenu(menu));
+    DestroyMenu(menu);
 }
 
 void CMainWindow::CommandNewTab(CPanelSide side)

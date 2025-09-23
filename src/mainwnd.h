@@ -752,7 +752,6 @@ public:
 
 private:
     TIndirectArray<CFilesWindow>& GetPanelTabs(CPanelSide side);
-    const TIndirectArray<CFilesWindow>& GetPanelTabs(CPanelSide side) const;
     CTabWindow* GetPanelTabWindow(CPanelSide side) const;
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
