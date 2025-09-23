@@ -437,14 +437,17 @@ DWORD EnablerNewTab = FALSE;
 DWORD EnablerCloseTab = FALSE;
 DWORD EnablerNextTab = FALSE;
 DWORD EnablerPrevTab = FALSE;
+DWORD EnablerMoveTabOtherPanel = FALSE;
 DWORD EnablerLeftNewTab = FALSE;
 DWORD EnablerLeftCloseTab = FALSE;
 DWORD EnablerLeftNextTab = FALSE;
 DWORD EnablerLeftPrevTab = FALSE;
+DWORD EnablerLeftMoveTabOtherPanel = FALSE;
 DWORD EnablerRightNewTab = FALSE;
 DWORD EnablerRightCloseTab = FALSE;
 DWORD EnablerRightNextTab = FALSE;
 DWORD EnablerRightPrevTab = FALSE;
+DWORD EnablerRightMoveTabOtherPanel = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 

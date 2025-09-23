@@ -619,6 +619,59 @@ void CMainWindow::CommandPrevTab(CPanelSide side)
     SwitchPanelTab(tabs[index]);
 }
 
+void CMainWindow::CommandMoveTabToOtherPanel(CPanelSide side)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    CFilesWindow* sourcePanel = (side == cpsLeft) ? LeftPanel : RightPanel;
+    if (sourcePanel == NULL)
+        return;
+
+    int sourceIndex = GetPanelTabIndex(side, sourcePanel);
+    if (sourceIndex <= 0)
+        return;
+
+    const char* sourcePath = sourcePanel->GetPath();
+    char savedPath[2 * MAX_PATH];
+    if (sourcePath != NULL)
+        lstrcpyn(savedPath, sourcePath, _countof(savedPath));
+    else
+        savedPath[0] = 0;
+
+    CPathHistory* sourceHistory = NULL;
+    if (!UsingSharedWorkDirHistory())
+        sourceHistory = sourcePanel->GetWorkDirHistory();
+
+    CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
+    int targetCountBefore = GetPanelTabCount(targetSide);
+    CommandNewTab(targetSide, true);
+    int targetCountAfter = GetPanelTabCount(targetSide);
+    if (targetCountAfter != targetCountBefore + 1)
+        return;
+
+    CFilesWindow* newPanel = (targetSide == cpsLeft) ? LeftPanel : RightPanel;
+    if (newPanel == NULL)
+        return;
+
+    if (savedPath[0] != 0)
+        newPanel->ChangeDir(savedPath);
+
+    UpdatePanelTabTitle(newPanel);
+
+    if (!UsingSharedWorkDirHistory() && sourceHistory != NULL)
+    {
+        CPathHistory* targetHistory = newPanel->EnsureWorkDirHistory();
+        if (targetHistory != NULL)
+        {
+            targetHistory->CopyFrom(*sourceHistory);
+            UpdateDirectoryLineHistoryState(newPanel);
+        }
+    }
+
+    ClosePanelTab(sourcePanel);
+}
+
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
 {
     BOOL enabled = Configuration.UsePanelTabs != 0;
@@ -3833,6 +3886,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_MOVETAB_OTHERPANEL:
+        {
+            if (activePanel != NULL)
+                CommandMoveTabToOtherPanel(activePanel->GetPanelSide());
+            return 0;
+        }
+
         case CM_LEFT_NEWTAB:
         {
             CommandNewTab(cpsLeft);
@@ -3857,6 +3917,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_LEFT_MOVETAB_OTHERPANEL:
+        {
+            CommandMoveTabToOtherPanel(cpsLeft);
+            return 0;
+        }
+
         case CM_RIGHT_NEWTAB:
         {
             CommandNewTab(cpsRight);
@@ -3878,6 +3944,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_RIGHT_PREVTAB:
         {
             CommandPrevTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_MOVETAB_OTHERPANEL:
+        {
+            CommandMoveTabToOtherPanel(cpsRight);
             return 0;
         }
 

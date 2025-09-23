@@ -314,6 +314,9 @@
 #define CM_RIGHT_CLOSETAB      1109
 #define CM_RIGHT_NEXTTAB       1110
 #define CM_RIGHT_PREVTAB       1111
+#define CM_MOVETAB_OTHERPANEL  1112
+#define CM_LEFT_MOVETAB_OTHERPANEL 1113
+#define CM_RIGHT_MOVETAB_OTHERPANEL 1114
 
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu

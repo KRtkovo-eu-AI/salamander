@@ -818,7 +818,7 @@ STRINGTABLE
  IDS_TBTT_SMARTMODE,           "Smart Column Mode\tCtrl+N"
  IDS_TBTT_NEWTAB,              "New Tab\tCtrl+T"
  IDS_TBTT_CLOSETAB,            "Close Tab\tCtrl+W"
- IDS_TBTT_NEXTTAB,             "Next Tab\tCtrl+Page Down"
+ IDS_TBTT_MOVETAB,             "Move Tab to Other Panel"
  IDS_TBTT_PREVTAB,             "Previous Tab\tCtrl+Page Up"
 
  IDS_TBTT_CONVERT,             "Convert\tCtrl+K"

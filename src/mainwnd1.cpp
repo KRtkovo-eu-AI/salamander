@@ -2735,14 +2735,17 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL closeTab = FALSE;
     BOOL nextTab = FALSE;
     BOOL prevTab = FALSE;
+    BOOL moveTabOtherPanel = FALSE;
     BOOL leftNewTab = FALSE;
     BOOL leftCloseTab = FALSE;
     BOOL leftNextTab = FALSE;
     BOOL leftPrevTab = FALSE;
+    BOOL leftMoveTabOtherPanel = FALSE;
     BOOL rightNewTab = FALSE;
     BOOL rightCloseTab = FALSE;
     BOOL rightNextTab = FALSE;
     BOOL rightPrevTab = FALSE;
+    BOOL rightMoveTabOtherPanel = FALSE;
 
     int selCount = 0;
     int unselCount = 0;
@@ -2780,6 +2783,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         closeTab = (activeIndex > 0);
         nextTab = (activeCount > 1);
         prevTab = (activeCount > 1);
+        moveTabOtherPanel = FALSE;
 
         int leftCount = obj->GetPanelTabCount(cpsLeft);
         leftNewTab = (leftCount > 0);
@@ -2794,6 +2798,13 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightCloseTab = (rightIndex > 0);
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
+        rightMoveTabOtherPanel = rightCloseTab && (leftCount > 0);
+        leftMoveTabOtherPanel = leftCloseTab && (rightCount > 0);
+
+        if (activeSide == cpsLeft)
+            moveTabOtherPanel = leftMoveTabOtherPanel;
+        else
+            moveTabOtherPanel = rightMoveTabOtherPanel;
 
         if (!Configuration.UsePanelTabs)
         {
@@ -2801,14 +2812,17 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             closeTab = FALSE;
             nextTab = FALSE;
             prevTab = FALSE;
+            moveTabOtherPanel = FALSE;
             leftNewTab = FALSE;
             leftCloseTab = FALSE;
             leftNextTab = FALSE;
             leftPrevTab = FALSE;
+            leftMoveTabOtherPanel = FALSE;
             rightNewTab = FALSE;
             rightCloseTab = FALSE;
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
+            rightMoveTabOtherPanel = FALSE;
         }
 
         if (archive)
@@ -2998,14 +3012,17 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerCloseTab, closeTab);
     obj->CheckAndSet(&EnablerNextTab, nextTab);
     obj->CheckAndSet(&EnablerPrevTab, prevTab);
+    obj->CheckAndSet(&EnablerMoveTabOtherPanel, moveTabOtherPanel);
     obj->CheckAndSet(&EnablerLeftNewTab, leftNewTab);
     obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
     obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
     obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
+    obj->CheckAndSet(&EnablerLeftMoveTabOtherPanel, leftMoveTabOtherPanel);
     obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
     obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
+    obj->CheckAndSet(&EnablerRightMoveTabOtherPanel, rightMoveTabOtherPanel);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {
