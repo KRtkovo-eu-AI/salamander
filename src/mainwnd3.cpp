@@ -1096,9 +1096,6 @@ void CMainWindow::FillViewModeMenu(CMenuPopup* popup, int firstIndex, int type)
     int i;
     for (i = 0; i < VIEW_TEMPLATES_COUNT; i++)
     {
-        if (i == 0) // tree view is not shown yet
-            continue;
-
         CViewTemplate* tmpl = &ViewTemplates.Items[i];
         if (tmpl->Name[0] != 0)
         {

@@ -1593,7 +1593,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
             TRACE_E("Invalid itemIndex= " << itemIndex);
             return NULL;
         }
-        if (GetViewMode() == vmBrief || GetViewMode() == vmDetailed)
+        if (GetViewMode() == vmBrief || (GetViewMode() == vmDetailed || GetViewMode() == vmTree))
         {
             iconWidth = 1 + IconSizes[ICONSIZE_16] + 1 + 2;
             CFileData* f = (itemIndex < Dirs->Count) ? &Dirs->At(itemIndex) : &Files->At(itemIndex - Dirs->Count);
@@ -1617,7 +1617,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
     SIZE sz;
     GetTextExtentPoint32(hDC, buff, buffLen, &sz);
     width = iconWidth + sz.cx;
-    if (GetViewMode() == vmDetailed && trimWidth)
+    if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) && trimWidth)
         width = Columns[0].Width; // if the column is shortened, we do not want other columns to bleed into the dragged image
 
     BITMAPINFOHEADER bmhdr;
@@ -1679,7 +1679,7 @@ CFilesWindow::CreateDragImage(int cursorX, int cursorY, int& dxHotspot, int& dyH
     {
         r.left = 0;
         int oldXOffset = ListBox->XOffset;
-        if (GetViewMode() == vmBrief || GetViewMode() == vmDetailed)
+        if (GetViewMode() == vmBrief || (GetViewMode() == vmDetailed || GetViewMode() == vmTree))
         {
             ListBox->XOffset = 0; // affects item offset in the detailed mode
             DrawBriefDetailedItem(hDC, itemIndex, &r, DRAWFLAG_NO_FRAME | DRAWFLAG_NO_STATE | DRAWFLAG_SKIP_VISTEST | DRAWFLAG_DRAGDROP);

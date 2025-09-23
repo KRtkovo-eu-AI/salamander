@@ -121,6 +121,7 @@ void CFilesBox::UpdateInternalData()
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         ColumnsCount = 1;
         EntireColumnsCount = 1;
@@ -199,6 +200,7 @@ void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         // vmDetailed mode
         int y = FilesRect.top;
@@ -473,6 +475,7 @@ void CFilesBox::PaintItem(int index, DWORD drawFlags)
         {
         case vmBrief:
         case vmDetailed:
+        case vmTree:
         {
             // nebudeme testovat viditelnost - jde nam o rychlost
             Parent->DrawBriefDetailedItem(HPrivateDC, index, &r, drawFlags | DRAWFLAG_SKIP_VISTEST);
@@ -508,6 +511,7 @@ BOOL CFilesBox::GetItemRect(int index, RECT* rect)
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         rect->left = FilesRect.left;
         rect->right = FilesRect.right;
@@ -556,6 +560,7 @@ void CFilesBox::EnsureItemVisible(int index, BOOL forcePaint, BOOL scroll, BOOL 
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         // vmDetailed
         int newTopIndex = TopIndex;
@@ -719,6 +724,7 @@ void CFilesBox::GetVisibleItems(int* firstIndex, int* count)
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         // vmDetailed
         *firstIndex = TopIndex;
@@ -766,6 +772,7 @@ BOOL CFilesBox::IsItemVisible(int index, BOOL* isFullyVisible)
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         // vmDetailed
         if (index < TopIndex)
@@ -835,6 +842,7 @@ int CFilesBox::PredictTopIndex(int index)
     switch (ViewMode)
     {
     case vmDetailed:
+    case vmTree:
     {
         // vmDetailed
         if (index < TopIndex)
@@ -946,7 +954,7 @@ void CFilesBox::OnHScroll(int scrollCode, int pos)
 {
     if (Parent->DragBox && !Parent->ScrollingWindow) // tahneme klec - zatluceme rolovani od mousewheel
         return;
-    if (ViewMode == vmDetailed)
+    if (ViewMode == vmDetailed || ViewMode == vmTree)
     {
         if (FilesRect.right - FilesRect.left + 1 > ItemWidth)
             return;
@@ -1094,7 +1102,7 @@ void CFilesBox::OnVScroll(int scrollCode, int pos)
     if (Parent->DragBox && !Parent->ScrollingWindow) // tahneme klec - zatluceme rolovani od mousewheel
         return;
     int newTopIndex = TopIndex;
-    if (ViewMode == vmDetailed)
+    if (ViewMode == vmDetailed || ViewMode == vmTree)
     {
         // Detailed
         if (EntireItemsInColumn + 1 > ItemsCount)
@@ -1586,7 +1594,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (MainWindow->HasLockedUI())
             break;
-        if (ViewMode == vmDetailed || ViewMode == vmBrief)
+        if (ViewMode == vmDetailed || ViewMode == vmTree || ViewMode == vmBrief)
         {
             short zDelta = (short)HIWORD(wParam);
             if ((zDelta < 0 && MouseHWheelAccumulator > 0) || (zDelta > 0 && MouseHWheelAccumulator < 0))
@@ -1598,7 +1606,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             GetScrollInfo(HHScrollBar, SB_CTL, &si);
 
             DWORD wheelScroll = 1;
-            if (ViewMode == vmDetailed)
+            if (ViewMode == vmDetailed || ViewMode == vmTree)
             {
                 wheelScroll = ItemHeight * GetMouseWheelScrollChars();
                 wheelScroll = max(1, min(wheelScroll, si.nPage - 1)); // omezime maximalne na delku stranky
@@ -1692,7 +1700,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 GetScrollInfo(HVScrollBar, SB_CTL, &si);
 
                 DWORD wheelScroll = max(1, ItemHeight);
-                if (ViewMode == vmDetailed)
+                if (ViewMode == vmDetailed || ViewMode == vmTree)
                 {
                     wheelScroll = GetMouseWheelScrollLines();             // muze byt az WHEEL_PAGESCROLL(0xffffffff)
                     wheelScroll = max(1, min(wheelScroll, si.nPage - 1)); // omezime maximalne na delku stranky
@@ -1714,7 +1722,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // SHIFT: horizontalni rolovani
         if (!controlPressed && !altPressed && shiftPressed &&
-            (ViewMode == vmDetailed || ViewMode == vmBrief))
+            (ViewMode == vmDetailed || ViewMode == vmTree || ViewMode == vmBrief))
         {
             SCROLLINFO si;
             si.cbSize = sizeof(si);
@@ -1722,7 +1730,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             GetScrollInfo(HHScrollBar, SB_CTL, &si);
 
             DWORD wheelScroll = 1;
-            if (ViewMode == vmDetailed)
+            if (ViewMode == vmDetailed || ViewMode == vmTree)
             {
                 wheelScroll = ItemHeight * GetMouseWheelScrollLines(); // 'delta' muze byt az WHEEL_PAGESCROLL(0xffffffff)
                 wheelScroll = max(1, min(wheelScroll, si.nPage));      // omezime maximalne na sirku stranky
@@ -1859,6 +1867,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
     }
 
     case vmDetailed:
+    case vmTree:
     {
         int itemY = y / ItemHeight;
         if (x + XOffset < ItemWidth || nearest)
@@ -1893,10 +1902,10 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
     if (itemIndex != INT_MAX)
     {
         // (vmBrief+vmDetailed) pokud neni FullRowSelect, omerime skutecnou delku polozky
-        if ((ViewMode == vmBrief || ViewMode == vmDetailed) &&
+        if ((ViewMode == vmBrief || ViewMode == vmDetailed || ViewMode == vmTree) &&
             !nearest && !Configuration.FullRowSelect)
         {
-            if (ViewMode == vmDetailed)
+            if (ViewMode == vmDetailed || ViewMode == vmTree)
                 x += XOffset;
             char formatedFileName[MAX_PATH];
             CFileData* f;
@@ -1914,7 +1923,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
 
             SIZE sz;
             int len;
-            if ((!isDir || Configuration.SortDirsByExt) && ViewMode == vmDetailed &&
+            if ((!isDir || Configuration.SortDirsByExt) && (ViewMode == vmDetailed || ViewMode == vmTree) &&
                 Parent->IsExtensionInSeparateColumn() && f->Ext[0] != 0 && f->Ext > f->Name + 1) // vyjimka pro jmena jako ".htaccess", ukazuji se ve sloupci Name i kdyz jde o pripony
             {
                 len = (int)(f->Ext - f->Name - 1);
@@ -1942,7 +1951,7 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
             GetTextExtentPoint32(dc, s, len, &sz);
             width += 2 + sz.cx + 3;
 
-            if (ViewMode == vmDetailed && width > (int)Parent->Columns[0].Width)
+            if ((ViewMode == vmDetailed || ViewMode == vmTree) && width > (int)Parent->Columns[0].Width)
                 width = Parent->Columns[0].Width;
 
             SelectObject(dc, hOldFont);
@@ -2131,14 +2140,14 @@ int CFilesBox::GetIndex(int x, int y, BOOL nearest, RECT* labelRect)
 BOOL CFilesBox::ShowHideChilds()
 {
     BOOL change = FALSE;
-    if (HeaderLineVisible && ViewMode != vmDetailed)
+    if (HeaderLineVisible && ViewMode != vmDetailed && ViewMode != vmTree)
     {
         TRACE_E("Header line is supported only in Detailed mode");
         HeaderLineVisible = FALSE;
     }
 
     // vodorovne rolovatko je pripustne v detailed a brief; jinak ho schovam
-    if (ViewMode != vmDetailed && ViewMode != vmBrief && HHScrollBar != NULL)
+    if (ViewMode != vmDetailed && ViewMode != vmTree && ViewMode != vmBrief && HHScrollBar != NULL)
     {
         DestroyWindow(BottomBar.HWindow);
         BottomBar.HScrollBar = NULL;
@@ -2156,7 +2165,7 @@ BOOL CFilesBox::ShowHideChilds()
 
     // header line je pripustna pouze v detailed (a jeste ji musi user chtit);
     // jinak ji schovam
-    if ((ViewMode != vmDetailed || !HeaderLineVisible) &&
+    if (((ViewMode != vmDetailed && ViewMode != vmTree) || !HeaderLineVisible) &&
         HeaderLine.HWindow != NULL)
     {
         DestroyWindow(HeaderLine.HWindow);
@@ -2165,7 +2174,7 @@ BOOL CFilesBox::ShowHideChilds()
     }
 
     // pokud jsem v detailed nebo brief, potrebujeme vodorovne rolovatko
-    if ((ViewMode == vmDetailed || ViewMode == vmBrief) && HHScrollBar == NULL)
+    if ((ViewMode == vmDetailed || ViewMode == vmTree || ViewMode == vmBrief) && HHScrollBar == NULL)
     {
         BottomBar.Create(CWINDOW_CLASSNAME2, "", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
                          0, 0, 0, 0,
@@ -2184,7 +2193,7 @@ BOOL CFilesBox::ShowHideChilds()
     }
 
     // v detailed rezimu nechame ve vodorovnem rolovatku vpravo mezeru pod svislym rolovatkem
-    BottomBar.VertScrollSpace = (ViewMode == vmDetailed);
+    BottomBar.VertScrollSpace = (ViewMode == vmDetailed || ViewMode == vmTree);
 
     // svisle rolovatko potrebujeme ve vsech rezimech mimo brief
     if (ViewMode != vmBrief)
@@ -2202,7 +2211,7 @@ BOOL CFilesBox::ShowHideChilds()
     }
 
     // v detailed rezimu, je-li pozadovana headerline, zajistime jeji vytvoreni
-    if (ViewMode == vmDetailed && HeaderLineVisible && HeaderLine.HWindow == NULL)
+    if ((ViewMode == vmDetailed || ViewMode == vmTree) && HeaderLineVisible && HeaderLine.HWindow == NULL)
     {
         HeaderLine.Create(CWINDOW_CLASSNAME2, "", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
                           0, 0, 0, 0,
@@ -2223,12 +2232,12 @@ void CFilesBox::SetupScrollBars(DWORD flags)
     {
         si.cbSize = sizeof(si);
         si.fMask = SIF_DISABLENOSCROLL | SIF_POS | SIF_RANGE | SIF_PAGE;
-        if (ViewMode == vmDetailed)
+        if (ViewMode == vmDetailed || ViewMode == vmTree)
             si.nPos = XOffset;
         else
             si.nPos = TopIndex / EntireItemsInColumn;
         si.nMin = 0;
-        if (ViewMode == vmDetailed)
+        if (ViewMode == vmDetailed || ViewMode == vmTree)
         {
             // Detailed
             si.nMax = ItemWidth;
@@ -2271,7 +2280,7 @@ void CFilesBox::SetupScrollBars(DWORD flags)
         si.nPos = TopIndex;
         si.nMin = 0;
 
-        if (ViewMode == vmDetailed)
+        if (ViewMode == vmDetailed || ViewMode == vmTree)
         {
             // Detailed
             si.nMax = ItemsCount;
@@ -2506,7 +2515,7 @@ void CFilesBox::LayoutChilds(BOOL updateAndCheck)
             int oldEntireItemsInColumn = EntireItemsInColumn;
             int oldEntireColumnsCount = EntireColumnsCount;
 
-            if (ViewMode == vmDetailed) // prepocitame sirku sloupce Name ve smart-mode detail view
+            if (ViewMode == vmDetailed || ViewMode == vmTree) // prepocitame sirku sloupce Name ve smart-mode detail view
             {
                 BOOL leftPanel = (Parent == MainWindow->LeftPanel);
                 CColumn* nameCol = &Parent->Columns[0];

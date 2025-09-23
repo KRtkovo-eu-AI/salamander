@@ -504,7 +504,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
         isItemFocusedOrEditMode = FALSE;
 
     BOOL fullRowHighlight = FALSE;
-    if (GetViewMode() == vmDetailed && !Configuration.FullRowSelect && Configuration.FullRowHighlight)
+    if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) && !Configuration.FullRowSelect && Configuration.FullRowHighlight)
         fullRowHighlight = TRUE;
 
     int xOffset = ListBox->XOffset;
@@ -689,7 +689,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             if (!isItemUpDir && !Configuration.FullRowSelect)
             {
                 // measure the actual text length
-                if (GetViewMode() == vmDetailed && (column->FixedWidth == 1 || NarrowedNameColumn))
+                if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) && (column->FixedWidth == 1 || NarrowedNameColumn))
                 {
                     textWidth = nameWidth - 1 - IconSizes[ICONSIZE_16] - 1 - 2 - SPACE_WIDTH;
                     GetTextExtentExPoint(hDC, TransferBuffer, nameLen, textWidth,
@@ -709,7 +709,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
                 focusFrameRightValid = TRUE;
                 focusFrameRight = r.right;
             }
-            if (!isItemUpDir && GetViewMode() == vmDetailed && (column->FixedWidth == 1 || NarrowedNameColumn))
+            if (!isItemUpDir && (GetViewMode() == vmDetailed || GetViewMode() == vmTree) && (column->FixedWidth == 1 || NarrowedNameColumn))
             {
                 if (Configuration.FullRowSelect)
                 {
@@ -776,8 +776,8 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             cacheValidWidth = nameWidth;
         // if FullRowSelect is off and we draw only dirty items or only focus/select changed,
         // skip drawing the remaining columns - nothing changed there
-        if (GetViewMode() == vmDetailed && (fullRowHighlight || Configuration.FullRowSelect ||
-                                            !(drawFlags & DRAWFLAG_DIRTY_ONLY) && !(drawFlags & DRAWFLAG_SELFOC_CHANGE)))
+        if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) && (fullRowHighlight || Configuration.FullRowSelect ||
+                                                                         !(drawFlags & DRAWFLAG_DIRTY_ONLY) && !(drawFlags & DRAWFLAG_SELFOC_CHANGE)))
         {
             if (!Configuration.FullRowSelect)
             {
@@ -921,7 +921,7 @@ void CFilesWindow::DrawBriefDetailedItem(HDC hTgtDC, int itemIndex, RECT* itemRe
             adjR.bottom++;
             forFrameAdjusted = FALSE;
         }
-        if (GetViewMode() == vmDetailed && !(drawFlags & DRAWFLAG_DIRTY_ONLY) &&
+        if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) && !(drawFlags & DRAWFLAG_DIRTY_ONLY) &&
             !(drawFlags & DRAWFLAG_SELFOC_CHANGE))
         {
             if (r.right < rect.right)

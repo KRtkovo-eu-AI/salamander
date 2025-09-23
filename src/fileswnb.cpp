@@ -1032,8 +1032,21 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         int index;
         switch (GetViewMode())
         {
-            //        case vmThumbnails: index = 0; break;
-            //        case vmBrief: index = 1; break;
+        case vmTree:
+            index = 0;
+            break;
+        case vmBrief:
+            index = 1;
+            break;
+        case vmIcons:
+            index = 3;
+            break;
+        case vmThumbnails:
+            index = 4;
+            break;
+        case vmTiles:
+            index = 5;
+            break;
         case vmDetailed:
             index = 2;
             break;

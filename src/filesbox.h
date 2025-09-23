@@ -17,7 +17,8 @@ enum CViewModeEnum
     vmDetailed,   // jeden sloupec dat; zobrzene obe rolovatka; posledni radek nemusi byt cely viditelny
     vmIcons,      // velke ikony zleva doprava a pak shora dolu; pouze svisle rolovatko
     vmThumbnails, // nahledy zleva doprava a pak shora dolu; pouze svisle rolovatko
-    vmTiles       // velke (48x48) ikony zleva doprava a pak shora dolu; pouze svisle rolovatko
+    vmTiles,      // velke (48x48) ikony zleva doprava a pak shora dolu; pouze svisle rolovatko
+    vmTree        // zobrazeni stromu adresaru; momentalne sdili rozvrzeni s detailed modem
 };
 
 //****************************************************************************

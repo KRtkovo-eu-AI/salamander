@@ -963,9 +963,13 @@ void CFilesWindow::ToggleHeaderLine()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ToggleHeaderLine()");
     BOOL headerLine = !HeaderLineVisible;
-    if (GetViewMode() == vmBrief)
+    CViewModeEnum mode = GetViewMode();
+    if (mode != vmDetailed)
         headerLine = FALSE;
-    ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, headerLine);
+    if (mode == vmBrief)
+        ListBox->SetMode(vmBrief, headerLine);
+    else
+        ListBox->SetMode(mode, headerLine);
 }
 
 int CFilesWindow::GetViewTemplateIndex()
@@ -985,25 +989,25 @@ int CFilesWindow::GetNextTemplateIndex(BOOL forward, BOOL wrap)
         {
             if (forward)
             {
-                if (newIndex > 9)
-                    newIndex = 1; // the edge item was empty; jump to the other end of the list
+                if (newIndex >= VIEW_TEMPLATES_COUNT)
+                    newIndex = 0; // wrap to the beginning of the list
             }
             else
             {
-                if (newIndex < 1)
-                    newIndex = 9; // the edge item was empty; jump to the other end of the list
+                if (newIndex < 0)
+                    newIndex = VIEW_TEMPLATES_COUNT - 1; // wrap to the end of the list
             }
         }
         else
         {
             if (forward)
             {
-                if (newIndex > 9)
+                if (newIndex >= VIEW_TEMPLATES_COUNT)
                     newIndex = oldIndex; // the edge item was empty; return to the last valid one
             }
             else
             {
-                if (newIndex < 1)
+                if (newIndex < 0)
                     newIndex = oldIndex; // the edge item was empty; return to the last valid one
             }
         }
@@ -1014,8 +1018,6 @@ int CFilesWindow::GetNextTemplateIndex(BOOL forward, BOOL wrap)
 BOOL CFilesWindow::IsViewTemplateValid(int templateIndex)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::IsViewTemplateValid(%d)", templateIndex);
-    if (templateIndex < 1) // tree is not supported yet
-        return FALSE;
     CViewTemplate* newTemplate = &Parent->ViewTemplates.Items[templateIndex];
     if (lstrlen(newTemplate->Name) == 0)
         return FALSE;
@@ -1029,8 +1031,6 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
     CALL_STACK_MESSAGE5("CFilesWindow::SelectViewTemplate(%d, %d, %d, 0x%X)", templateIndex,
                         canRefreshPath, calledFromPluginBeforeListing, columnValidMask);
 
-    if (templateIndex == 0)
-        return FALSE;
     CViewTemplate* newTemplate = &Parent->ViewTemplates.Items[templateIndex];
     if (lstrlen(newTemplate->Name) == 0)
     {
@@ -1045,7 +1045,9 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         CViewModeEnum newViewMode;
         switch (templateIndex)
         {
-            //      case 0: newViewMode = vmTree; break;
+        case 0:
+            newViewMode = vmTree;
+            break;
         case 1:
             newViewMode = vmBrief;
             break;
@@ -1088,7 +1090,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         // once the view mode differs we must refresh (a different icon or thumbnail size is required)
         // the only exception is brief and detailed, which share the same icons
         BOOL needRefresh = oldViewMode != GetViewMode() &&
-                           (oldViewMode != vmBrief || GetViewMode() != vmDetailed) &&
+                           (oldViewMode != vmBrief || GetViewMode() != vmDetailed && GetViewMode() != vmTree) &&
                            (oldViewMode != vmDetailed || GetViewMode() != vmBrief);
         if (canRefreshPath && needRefresh)
         {

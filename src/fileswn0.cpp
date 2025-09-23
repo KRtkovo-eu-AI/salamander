@@ -347,7 +347,7 @@ void CFilesWindow::SetCaretIndex(int index, int scroll, BOOL forcePaint)
     if (FocusedIndex != index)
     {
         BOOL normalProcessing = TRUE;
-        if (!scroll && GetViewMode() == vmDetailed)
+        if (!scroll && (GetViewMode() == vmDetailed || GetViewMode() == vmTree))
         {
             int newTopIndex = ListBox->PredictTopIndex(index);
             // optimization comes into play only when TopIndex changes
@@ -933,7 +933,7 @@ BOOL CFilesWindow::OnChar(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 
         if (!QuickSearchMode) // initialization of search
         {
-            if (GetViewMode() == vmDetailed)
+            if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree))
                 ListBox->OnHScroll(SB_THUMBPOSITION, 0);
             QuickSearchMode = TRUE;
             CreateCaret(ListBox->HWindow, NULL, CARET_WIDTH, CaretHeight);
@@ -1687,7 +1687,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 {
                     if (GetViewMode() == vmBrief)
                         SendMessage(ListBox->HWindow, WM_HSCROLL, SB_LINEUP, 0);
-                    else if (GetViewMode() == vmDetailed)
+                    else if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree))
                     {
                         int i;
                         for (i = 0; i < 5; i++) // let's do some macro programming
@@ -1700,7 +1700,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
                 {
                     if (GetViewMode() == vmBrief)
                         SendMessage(ListBox->HWindow, WM_HSCROLL, SB_LINEDOWN, 0);
-                    else if (GetViewMode() == vmDetailed)
+                    else if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree))
                     {
                         int i;
                         for (i = 0; i < 5; i++) // let's do some macro programming
@@ -1711,7 +1711,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
 
                 if (wParam == VK_UP)
                 {
-                    if (GetViewMode() == vmDetailed ||
+                    if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) ||
                         GetViewMode() == vmIcons ||
                         GetViewMode() == vmThumbnails ||
                         GetViewMode() == vmTiles)
@@ -1721,7 +1721,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
 
                 if (wParam == VK_DOWN)
                 {
-                    if (GetViewMode() == vmDetailed ||
+                    if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) ||
                         GetViewMode() == vmIcons ||
                         GetViewMode() == vmThumbnails ||
                         GetViewMode() == vmTiles)
@@ -3154,7 +3154,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
     char* ss;
     BOOL ext = FALSE;
     int offset = 0;
-    if ((!isDir || Configuration.SortDirsByExt) && GetViewMode() == vmDetailed &&
+    if ((!isDir || Configuration.SortDirsByExt) && (GetViewMode() == vmDetailed || GetViewMode() == vmTree) &&
         IsExtensionInSeparateColumn() && file->Ext[0] != 0 && file->Ext > file->Name + 1 && // exception for names like ".htaccess", they are shown in the Name column even though they are extensions
         qsLen >= preLen)
     {
@@ -3191,7 +3191,7 @@ void CFilesWindow::SetQuickSearchCaretPos()
             y = r.top + 2;
             // if the column width is manually limited, we ensure that
             // the caret doesn't go beyond the limit; otherwise, it would spill into other columns
-            if (GetViewMode() == vmDetailed && !ext && x >= (int)Columns[0].Width)
+            if ((GetViewMode() == vmDetailed || GetViewMode() == vmTree) && !ext && x >= (int)Columns[0].Width)
                 x = Columns[0].Width - 3;
             x -= ListBox->XOffset;
             break;
@@ -3349,6 +3349,7 @@ CFilesWindow::GetIconSizeForCurrentViewMode()
     {
     case vmBrief:
     case vmDetailed:
+    case vmTree:
         return ICONSIZE_16;
 
     case vmIcons:
