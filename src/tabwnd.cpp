@@ -20,6 +20,53 @@ namespace
     constexpr LPARAM kNewTabButtonParam = static_cast<LPARAM>(-1);
     const wchar_t kNewTabButtonText[] = L"+";
 
+    class CSelChangeGuard
+    {
+    public:
+        explicit CSelChangeGuard(int& counter) : Counter(counter)
+        {
+            ++Counter;
+        }
+
+        ~CSelChangeGuard()
+        {
+            --Counter;
+        }
+
+    private:
+        int& Counter;
+    };
+
+    int ComputeNewTabMinWidth(HWND hwnd)
+    {
+        if (hwnd == NULL)
+            return 0;
+
+        int minWidth = 0;
+        HDC hdc = GetDC(hwnd);
+        if (hdc != NULL)
+        {
+            HFONT oldFont = NULL;
+            if (EnvFont != NULL)
+                oldFont = (HFONT)SelectObject(hdc, EnvFont);
+            SIZE size = {0, 0};
+            if (GetTextExtentPoint32W(hdc, kNewTabButtonText, _countof(kNewTabButtonText) - 1, &size))
+                minWidth = size.cx;
+            if (oldFont != NULL)
+                SelectObject(hdc, oldFont);
+            ReleaseDC(hwnd, hdc);
+        }
+
+        if (minWidth <= 0)
+            minWidth = EnvFontCharHeight;
+
+        int padding = EnvFontCharHeight / 2;
+        if (padding < 4)
+            padding = 4;
+
+        return minWidth + padding;
+    }
+
     std::wstring ToWide(const char* text)
     {
         if (text == NULL)
@@ -45,6 +92,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     MainWindow = mainWindow;
     Side = side;
     ControlID = 0;
+    SuppressSelectionNotifications = 0;
 }
 
 CTabWindow::~CTabWindow()
@@ -107,7 +155,11 @@ int CTabWindow::AddTab(int index, const char* text, LPARAM data)
     int newTabIndex = GetNewTabButtonIndex();
     if (newTabIndex >= 0 && insertIndex > newTabIndex)
         insertIndex = newTabIndex;
-    int result = (int)SendMessageW(HWindow, TCM_INSERTITEMW, insertIndex, (LPARAM)&item);
+    int result;
+    {
+        CSelChangeGuard guard(SuppressSelectionNotifications);
+        result = (int)SendMessageW(HWindow, TCM_INSERTITEMW, insertIndex, (LPARAM)&item);
+    }
     EnsureNewTabButton();
     return result;
 }
@@ -119,7 +171,10 @@ void CTabWindow::RemoveTab(int index)
     {
         if (index < 0 || index >= GetTabCount())
             return;
-        SendMessage(HWindow, TCM_DELETEITEM, index, 0);
+        {
+            CSelChangeGuard guard(SuppressSelectionNotifications);
+            SendMessage(HWindow, TCM_DELETEITEM, index, 0);
+        }
         EnsureNewTabButton();
     }
 }
@@ -129,7 +184,10 @@ void CTabWindow::RemoveAllTabs()
     CALL_STACK_MESSAGE_NONE
     if (HWindow != NULL)
     {
-        SendMessage(HWindow, TCM_DELETEALLITEMS, 0, 0);
+        {
+            CSelChangeGuard guard(SuppressSelectionNotifications);
+            SendMessage(HWindow, TCM_DELETEALLITEMS, 0, 0);
+        }
         EnsureNewTabButton();
     }
 }
@@ -153,7 +211,10 @@ void CTabWindow::SetCurSel(int index)
     if (HWindow != NULL)
     {
         if (index >= 0 && index < GetTabCount())
+        {
+            CSelChangeGuard guard(SuppressSelectionNotifications);
             TabCtrl_SetCurSel(HWindow, index);
+        }
     }
 }
 
@@ -214,6 +275,11 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
     {
     case TCN_SELCHANGE:
     {
+        if (SuppressSelectionNotifications > 0)
+        {
+            result = 0;
+            return TRUE;
+        }
         int sel = TabCtrl_GetCurSel(HWindow);
         if (IsNewTabButtonIndex(sel))
         {
@@ -264,8 +330,24 @@ void CTabWindow::EnsureSelection()
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return;
-    if (GetTabCount() > 0 && TabCtrl_GetCurSel(HWindow) < 0)
-        TabCtrl_SetCurSel(HWindow, 0);
+    if (GetTabCount() <= 0)
+        return;
+
+    int sel = TabCtrl_GetCurSel(HWindow);
+    if (sel < 0)
+    {
+        SetCurSel(0);
+        return;
+    }
+
+    int newTabIndex = GetNewTabButtonIndex();
+    if (newTabIndex >= 0 && sel == newTabIndex)
+    {
+        if (newTabIndex > 0)
+            SetCurSel(newTabIndex - 1);
+        else
+            SetCurSel(0);
+    }
 }
 
 void CTabWindow::EnsureNewTabButton()
@@ -276,22 +358,39 @@ void CTabWindow::EnsureNewTabButton()
 
     int total = GetDisplayedTabCount();
     int newTabIndex = GetNewTabButtonIndex();
-    if (newTabIndex >= 0)
     {
-        TCITEMW item;
-        ZeroMemory(&item, sizeof(item));
-        item.mask = TCIF_TEXT;
-        item.pszText = const_cast<LPWSTR>(kNewTabButtonText);
-        SendMessageW(HWindow, TCM_SETITEMW, newTabIndex, (LPARAM)&item);
-        return;
+        CSelChangeGuard guard(SuppressSelectionNotifications);
+        if (newTabIndex >= 0)
+        {
+            TCITEMW item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = TCIF_TEXT;
+            item.pszText = const_cast<LPWSTR>(kNewTabButtonText);
+            SendMessageW(HWindow, TCM_SETITEMW, newTabIndex, (LPARAM)&item);
+        }
+        else
+        {
+            TCITEMW item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = TCIF_TEXT | TCIF_PARAM;
+            item.pszText = const_cast<LPWSTR>(kNewTabButtonText);
+            item.lParam = kNewTabButtonParam;
+            SendMessageW(HWindow, TCM_INSERTITEMW, total, (LPARAM)&item);
+        }
     }
 
-    TCITEMW item;
-    ZeroMemory(&item, sizeof(item));
-    item.mask = TCIF_TEXT | TCIF_PARAM;
-    item.pszText = const_cast<LPWSTR>(kNewTabButtonText);
-    item.lParam = kNewTabButtonParam;
-    SendMessageW(HWindow, TCM_INSERTITEMW, total, (LPARAM)&item);
+    UpdateNewTabButtonWidth();
+}
+
+void CTabWindow::UpdateNewTabButtonWidth()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return;
+
+    int minWidth = ComputeNewTabMinWidth(HWindow);
+    if (minWidth > 0)
+        TabCtrl_SetMinTabWidth(HWindow, minWidth);
 }
 
 int CTabWindow::GetDisplayedTabCount() const

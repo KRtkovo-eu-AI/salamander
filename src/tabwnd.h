@@ -41,8 +41,10 @@ private:
     int GetDisplayedTabCount() const;
     int GetNewTabButtonIndex() const;
     BOOL IsNewTabButtonIndex(int index) const;
+    void UpdateNewTabButtonWidth();
 
     CMainWindow* MainWindow;
     CPanelSide Side;
     int ControlID;
+    int SuppressSelectionNotifications;
 };
