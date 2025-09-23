@@ -4,6 +4,7 @@
 #include "precomp.h"
 
 #include <commctrl.h>
+#include <string>
 
 #include "tabwnd.h"
 #include "mainwnd.h"
@@ -14,8 +15,28 @@
 // CTabWindow
 //
 
+namespace
+{
+    std::wstring ToWide(const char* text)
+    {
+        if (text == NULL)
+            return std::wstring();
+        int length = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+        if (length <= 0)
+            return std::wstring();
+        std::wstring wide(length - 1, L'\0');
+        if (length > 1)
+            MultiByteToWideChar(CP_ACP, 0, text, -1, &wide[0], length);
+        return wide;
+    }
+}
+
 CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
+#ifndef _UNICODE
+    : CWindow(ooStatic, TRUE)
+#else
     : CWindow(ooStatic)
+#endif
 {
     CALL_STACK_MESSAGE_NONE
     MainWindow = mainWindow;
@@ -34,8 +55,13 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
     CALL_STACK_MESSAGE_NONE
     ControlID = controlID;
     DWORD style = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | TCS_TABS | TCS_TOOLTIPS | TCS_FOCUSNEVER;
+#ifndef _UNICODE
+    HWND hwnd = CreateExW(0, WC_TABCONTROLW, L"", style, 0, 0, 0, 0, parent,
+                          (HMENU)(INT_PTR)controlID, HInstance, this);
+#else
     HWND hwnd = CreateEx(0, WC_TABCONTROL, "", style, 0, 0, 0, 0, parent,
-                        (HMENU)(INT_PTR)controlID, HInstance, this);
+                         (HMENU)(INT_PTR)controlID, HInstance, this);
+#endif
     if (hwnd == NULL)
         return FALSE;
     SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
@@ -64,15 +90,16 @@ int CTabWindow::AddTab(int index, const char* text, LPARAM data)
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return -1;
-    TCITEM item;
+    TCITEMW item;
     ZeroMemory(&item, sizeof(item));
     item.mask = TCIF_TEXT | TCIF_PARAM;
-    item.pszText = const_cast<char*>(text);
+    std::wstring textW = ToWide(text);
+    item.pszText = textW.empty() ? const_cast<LPWSTR>(L"") : const_cast<LPWSTR>(textW.c_str());
     item.lParam = data;
     int count = TabCtrl_GetItemCount(HWindow);
     if (index < 0 || index > count)
         index = count;
-    return (int)SendMessage(HWindow, TCM_INSERTITEM, index, (LPARAM)&item);
+    return (int)SendMessageW(HWindow, TCM_INSERTITEMW, index, (LPARAM)&item);
 }
 
 void CTabWindow::RemoveTab(int index)
@@ -94,11 +121,12 @@ void CTabWindow::SetTabText(int index, const char* text)
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return;
-    TCITEM item;
+    TCITEMW item;
     ZeroMemory(&item, sizeof(item));
     item.mask = TCIF_TEXT;
-    item.pszText = const_cast<char*>(text);
-    SendMessage(HWindow, TCM_SETITEM, index, (LPARAM)&item);
+    std::wstring textW = ToWide(text);
+    item.pszText = textW.empty() ? const_cast<LPWSTR>(L"") : const_cast<LPWSTR>(textW.c_str());
+    SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
 }
 
 void CTabWindow::SetCurSel(int index)
@@ -129,10 +157,10 @@ LPARAM CTabWindow::GetItemData(int index) const
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return 0;
-    TCITEM item;
+    TCITEMW item;
     ZeroMemory(&item, sizeof(item));
     item.mask = TCIF_PARAM;
-    if (!SendMessage(HWindow, TCM_GETITEM, index, (LPARAM)&item))
+    if (!SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&item))
         return 0;
     return item.lParam;
 }
