@@ -1571,10 +1571,10 @@ BEGIN
                     "Button",BS_AUTORADIOBUTTON | WS_TABSTOP | WS_GROUP,1,22,180,10
     CONTROL         "Keep history per &tab",IDC_HISTORY_WORKDIRS_PER_TAB,
                     "Button",BS_AUTORADIOBUTTON,1,34,140,10
-    LTEXT           "You can choose whether recently used values (history) will be stored in Registry as a part of configuration of Open Salamander and plugins.",IDC_STATIC_2,1,48,254,16
-    CONTROL         "&Save history",IDC_HISTORY_SAVEHISTORY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,68,54,12
+    LTEXT           "You can choose whether recently used values (history) will be stored in Registry as a part of configuration of Open Salamander and plugins.",IDC_STATIC_2,1,64,254,16
+    CONTROL         "&Save history",IDC_HISTORY_SAVEHISTORY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,84,54,12
     CONTROL         "Save List of &Working Directories",IDC_HISTORY_WORKDIRS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,81,118,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,97,118,12
     LTEXT           "For Command line history (it can contain passwords) you can choose special options.",IDC_STATIC_3,1,128,228,16
     CONTROL         "&Enable Command line history",IDC_HISTORY_ENABLECMDLINE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,148,247,12
@@ -1875,7 +1875,7 @@ BEGIN
     LTEXT           "items.",IDC_STATIC_8,175,181,22,8
 END
 
-IDD_CFGPAGE_PANELS DIALOGEX 64, 22, 299, 231
+IDD_CFGPAGE_PANELS DIALOGEX 64, 22, 299, 243
 STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Panels"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
