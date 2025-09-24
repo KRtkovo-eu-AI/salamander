@@ -6,7 +6,7 @@ on:
       - dev_tabs
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -48,7 +48,7 @@ jobs:
             throw "Expected build output directory '$artifactRoot' does not exist."
           }
 
-          $zipPath = Join-Path $env:GITHUB_WORKSPACE 'salamand-release.zip'
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE 'salamand-testing-tabs.zip'
           if (Test-Path $zipPath) {
             Remove-Item $zipPath
           }
@@ -58,6 +58,28 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: salamand-release
-          path: salamand-release.zip
+          name: salamand-testing-tabs
+          path: salamand-testing-tabs.zip
           if-no-files-found: error
+
+      - name: Create prerelease
+        id: create_prerelease
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: dev_tabs-${{ github.run_number }}
+          release_name: Salamand Testing Tabs Build ${{ github.run_number }}
+          draft: false
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_prerelease.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}\salamand-testing-tabs.zip
+          asset_name: salamand-testing-tabs.zip
+          asset_content_type: application/zip
