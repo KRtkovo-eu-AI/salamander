@@ -1378,6 +1378,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     LastFocus = INT_MAX;
     SetValidFileData(VALID_DATA_ALL);
     AutomaticRefresh = TRUE;
+    NeedsRefreshOnActivation = FALSE;
     NextFocusName[0] = 0;
     DontClearNextFocusName = FALSE;
     LastRefreshTime = 0;
