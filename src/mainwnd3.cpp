@@ -649,6 +649,13 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
         return;
     }
 
+    if (previous != NULL && previous != panel)
+    {
+        int templateIndex = previous->GetViewTemplateIndex();
+        if (panel->IsViewTemplateValid(templateIndex))
+            panel->SelectViewTemplate(templateIndex, TRUE, FALSE);
+    }
+
     const char* targetPath = (previous != NULL && previous != panel) ? previous->GetPath() : panel->GetPath();
     if (targetPath != NULL)
         panel->ChangeDir(targetPath);
