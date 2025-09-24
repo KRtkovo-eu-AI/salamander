@@ -160,6 +160,14 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         LayoutWindows();
         FocusPanel(panel);
     }
+
+    if (Created && panel->HWindow != NULL)
+    {
+        HANDLES(EnterCriticalSection(&TimeCounterSection));
+        int t1 = MyTimeCounter++;
+        HANDLES(LeaveCriticalSection(&TimeCounterSection));
+        PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
+    }
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel)
