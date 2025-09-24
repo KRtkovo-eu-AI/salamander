@@ -155,6 +155,20 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
+    if (panel->GetMonitorChanges() && !panel->AutomaticRefresh &&
+        (panel->Is(ptDisk) || panel->Is(ptZIPArchive)))
+    {
+        const char* path = panel->GetPath();
+        if (path != NULL && path[0] != 0)
+        {
+            BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                           panel->GetPathDriveType() == DRIVE_FIXED;
+            ChangeDirectory(panel, path, registerDevNotification);
+            if (!panel->AutomaticRefresh)
+                AddDirectory(panel, path, registerDevNotification);
+        }
+    }
+
     if (canFocusNow)
     {
         LayoutWindows();
