@@ -1,0 +1,63 @@
+name: Dev Tabs Release Build
+
+on:
+  push:
+    branches:
+      - dev_tabs
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      OPENSAL_BUILD_DIR: ${{ github.workspace }}\build\
+      BUILD_CONFIGURATION: Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild in PATH (VS2022)
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup MSVC Developer Command Prompt (x64 toolchain)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Prepare build directory
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:OPENSAL_BUILD_DIR | Out-Null
+
+      - name: Build Salamand (Release | Win32)
+        run: |
+          msbuild .\src\vcxproj\salamand.sln /m /t:Rebuild /p:Configuration=$env:BUILD_CONFIGURATION /p:Platform=Win32 /p:PreferredToolArchitecture=x64 /nr:false /v:m
+
+      - name: Build Salamand (Release | x64)
+        run: |
+          msbuild .\src\vcxproj\salamand.sln /m /t:Rebuild /p:Configuration=$env:BUILD_CONFIGURATION /p:Platform=x64 /p:PreferredToolArchitecture=x64 /nr:false /v:m
+
+      - name: Create release archive
+        run: |
+          $artifactRoot = Join-Path $env:OPENSAL_BUILD_DIR 'salamander'
+          if (-not (Test-Path $artifactRoot)) {
+            throw "Expected build output directory '$artifactRoot' does not exist."
+          }
+
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE 'salamand-release.zip'
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath
+          }
+
+          Compress-Archive -Path (Join-Path $artifactRoot '*') -DestinationPath $zipPath -Force
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: salamand-release
+          path: salamand-release.zip
+          if-no-files-found: error
