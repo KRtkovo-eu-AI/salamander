@@ -1521,7 +1521,7 @@ int GetRootPath(char* root, const char* path)
 COLORREF GetHilightColor(COLORREF clr1, COLORREF clr2)
 {
     WORD h1, l1, s1;
-    ColorRGBToHLS(clr1, &h1, &l1, &s1);
+    SalamanderColorRGBToHLS(clr1, &h1, &l1, &s1);
     BYTE gray1 = GetGrayscaleFromRGB(GetRValue(clr1), GetGValue(clr1), GetBValue(clr1));
     BYTE gray2 = GetGrayscaleFromRGB(GetRValue(clr2), GetGValue(clr2), GetBValue(clr2));
     COLORREF res;
@@ -1539,7 +1539,7 @@ COLORREF GetHilightColor(COLORREF clr1, COLORREF clr2)
             l1 += 5;
             if (l1 > 240)
                 l1 = 240;
-            res = ColorHLSToRGB(h1, l1, s1);
+            res = SalamanderColorHLSToRGB(h1, l1, s1);
             if ((unsigned)GetGrayscaleFromRGB(GetRValue(res), GetGValue(res), GetBValue(res)) >= wantedGray)
                 break;
         }
@@ -1575,14 +1575,14 @@ COLORREF GetFullRowHighlight(COLORREF bkHighlightColor) // vraci "heuristicky" h
 {
     // trochu heuristiky: zsvetle pozadi budeme "trochu" ztmavovat a tmave pozadi "trochu" zesvetlovat
     WORD h, l, s;
-    ColorRGBToHLS(bkHighlightColor, &h, &l, &s);
+    SalamanderColorRGBToHLS(bkHighlightColor, &h, &l, &s);
 
     if (l < 121) // [TMAVA]  0-120 -> zesvetlime Luminance progresivne 0..120 -> +40..+20
         l += 20 + 20 * (120 - l) / 120;
     else // [SVETLA] 121-240 -> ztmavime Luminance o konstatnich 20
         l -= 20;
 
-    return ColorHLSToRGB(h, l, s);
+    return SalamanderColorHLSToRGB(h, l, s);
 }
 
 void UpdateDefaultColors(SALCOLOR* colors, CHighlightMasks* highlightMasks, BOOL processColors, BOOL processMasks)

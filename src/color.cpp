@@ -31,7 +31,7 @@
 // initially set for achromatic colors
 #define UNDEFINED (HLSMAX * 2 / 3)
 
-void ColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSaturation)
+void SalamanderColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSaturation)
 {
     int r, g, b;     // input RGB values
     int h, l, s;     // output HLS values
@@ -107,7 +107,7 @@ WORD HueToRGB(WORD n1, WORD n2, WORD hue)
         return (n1);
 }
 
-COLORREF ColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation)
+COLORREF SalamanderColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation)
 {
     WORD r, g, b;        // RGB component values
     WORD magic1, magic2; // calculated magic numbers (really!)

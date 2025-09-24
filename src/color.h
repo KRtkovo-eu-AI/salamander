@@ -3,16 +3,11 @@
 
 #pragma once
 
-#if !defined(_SHLWAPI_H_) && !defined(_SHLWAPI_H) && !defined(_INC_SHLWAPI)
-// When <shlwapi.h> is included it already declares these helpers with DLL
-// linkage attributes. Re-declaring them here would cause a mismatch, so only
-// provide our prototypes when the system header has not been included yet.
 // Converts colors from RGB to hue-luminance-saturation (HLS) format.
-void ColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSaturation);
+void SalamanderColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSaturation);
 
 // Converts colors from hue-luminance-saturation (HLS) to RGB format.
-COLORREF ColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation);
-#endif
+COLORREF SalamanderColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation);
 
 // Applies or restores the application-wide system color overrides used for the
 // legacy WinAPI dark mode simulation.
