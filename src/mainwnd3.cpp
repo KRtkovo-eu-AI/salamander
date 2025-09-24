@@ -134,7 +134,9 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         UpdateDirectoryLineHistoryState(panel);
 
     CFilesWindow* active = GetActivePanel();
-    if (active == NULL || active->GetPanelSide() == side)
+    bool activateSameSide = (active == NULL || active->GetPanelSide() == side);
+    bool canFocusNow = (Created && panel->HWindow != NULL);
+    if (activateSameSide && !canFocusNow)
     {
         SetActivePanel(panel);
         if (Created)
@@ -153,7 +155,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    if (Created && panel->HWindow != NULL)
+    if (canFocusNow)
     {
         LayoutWindows();
         FocusPanel(panel);
