@@ -1446,6 +1446,7 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
     // ensure the active panel header is redrawn
     if (old != focus)
     {
+        focus->UpdateDriveIcon(FALSE);
         // activated a different panel, let it set its enablers
         RefreshCommandStates();
         // fixes a bug (present in 2.5b10) when users had one panel active with focus on UpDir
