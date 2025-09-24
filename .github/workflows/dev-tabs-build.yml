@@ -48,12 +48,22 @@ jobs:
             throw "Expected build output directory '$artifactRoot' does not exist."
           }
 
+          $buildDirectories = @(
+            Join-Path $artifactRoot 'Release_x64'
+            Join-Path $artifactRoot 'Release_x86'
+          )
+
+          $missing = $buildDirectories | Where-Object { -not (Test-Path $_) }
+          if ($missing) {
+            throw "Missing expected build output directories: $($missing -join ', ')"
+          }
+
           $zipPath = Join-Path $env:GITHUB_WORKSPACE 'salamand-testing-tabs.zip'
           if (Test-Path $zipPath) {
             Remove-Item $zipPath
           }
 
-          Compress-Archive -Path (Join-Path $artifactRoot '*') -DestinationPath $zipPath -Force
+          Compress-Archive -Path $buildDirectories -DestinationPath $zipPath -Force
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
