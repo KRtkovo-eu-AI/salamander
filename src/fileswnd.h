@@ -753,6 +753,7 @@ public:
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
+    BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
     BOOL FilesActionInProgress; // is work already being prepared or executed for the Worker?
 
     CDrivesList* OpenedDrivesList; // if the Alt+F1(2) menu is open, this value points to it; otherwise it is NULL
