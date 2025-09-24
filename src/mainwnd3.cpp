@@ -155,19 +155,29 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    if (panel->GetMonitorChanges() && !panel->AutomaticRefresh &&
-        (panel->Is(ptDisk) || panel->Is(ptZIPArchive)))
+    bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
+    const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
+    const char* path = panel->GetPath();
+    if (isDiskLike && path != NULL && path[0] != 0)
     {
-        const char* path = panel->GetPath();
-        if (path != NULL && path[0] != 0)
+        if (!panel->GetMonitorChanges())
+        {
+            refreshOnActivate = true;
+        }
+        else if (!panel->AutomaticRefresh)
         {
             BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
                                            panel->GetPathDriveType() == DRIVE_FIXED;
+            refreshOnActivate = true;
             ChangeDirectory(panel, path, registerDevNotification);
             if (!panel->AutomaticRefresh)
                 AddDirectory(panel, path, registerDevNotification);
         }
+
+        if (refreshOnActivate && panel->HWindow != NULL)
+            panel->ChangePathToDisk(panel->HWindow, path);
     }
+    panel->NeedsRefreshOnActivation = FALSE;
 
     if (canFocusNow)
     {
@@ -426,7 +436,12 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
         CFilesWindow* panel = tabs[i];
         if (panel->HWindow == NULL)
             continue;
-        ShowWindow(panel->HWindow, panel == active ? SW_SHOW : SW_HIDE);
+        BOOL show = (panel == active);
+        ShowWindow(panel->HWindow, show ? SW_SHOW : SW_HIDE);
+        if (show)
+            panel->NeedsRefreshOnActivation = FALSE;
+        else if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+            panel->NeedsRefreshOnActivation = TRUE;
     }
     if (tabWnd != NULL && tabWnd->HWindow != NULL)
     {
