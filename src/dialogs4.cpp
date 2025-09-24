@@ -4026,8 +4026,10 @@ void CCfgPageHistory::EnableControls()
         CheckDlgButton(HWindow, IDC_HISTORY_WORKDIRS, BST_UNCHECKED);
     }
     EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS), saveHistory);
-    EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS_SHARED), saveHistory);
-    EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS_PER_TAB), saveHistory);
+
+    BOOL enableWorkDirScope = Configuration.UsePanelTabs != 0;
+    EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS_SHARED), enableWorkDirScope);
+    EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS_PER_TAB), enableWorkDirScope);
     BOOL enableCmdLineHistory = IsDlgButtonChecked(HWindow, IDC_HISTORY_ENABLECMDLINE) == BST_CHECKED;
     if (!saveHistory || !enableCmdLineHistory)
         CheckDlgButton(HWindow, IDC_HISTORY_SAVECMDLINE, BST_UNCHECKED);
