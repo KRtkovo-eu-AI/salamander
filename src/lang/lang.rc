@@ -1566,10 +1566,10 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "History"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "You can choose whether recently used values (history) will be shared between tabs or separate for each tab.",IDC_STATIC_1,1,4,254,16
-    CONTROL         "&Share history between tabs",IDC_HISTORY_WORKDIRS_SHARED,
+    LTEXT           "You can choose whether recently used values (history) will be shared between panels/tabs or separate for each panel/tab.",IDC_STATIC_1,1,4,254,16
+    CONTROL         "&Share history between panels/tabs",IDC_HISTORY_WORKDIRS_SHARED,
                     "Button",BS_AUTORADIOBUTTON | WS_TABSTOP | WS_GROUP,1,22,180,10
-    CONTROL         "Keep history per &tab",IDC_HISTORY_WORKDIRS_PER_TAB,
+    CONTROL         "Keep history per &panel/tab",IDC_HISTORY_WORKDIRS_PER_TAB,
                     "Button",BS_AUTORADIOBUTTON,1,34,140,10
     LTEXT           "You can choose whether recently used values (history) will be stored in Registry as a part of configuration of Open Salamander and plugins.",IDC_STATIC_2,1,64,254,16
     CONTROL         "&Save history",IDC_HISTORY_SAVEHISTORY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,84,54,12
