@@ -20,3 +20,20 @@ void ApplyDarkModeTheme(BOOL enable);
 
 // Returns TRUE when the dark mode overrides are active.
 BOOL IsDarkModeThemeActive();
+
+// Retrieves the Salamander-specific replacements for system colors and
+// brushes used when the legacy dark mode simulation is active.
+COLORREF GetSalamanderSysColor(int index);
+HBRUSH GetSalamanderSysColorBrush(int index);
+
+#ifndef SALAMANDER_COLOR_DISABLE_OVERRIDES
+#ifdef GetSysColor
+#undef GetSysColor
+#endif
+#define GetSysColor(index) GetSalamanderSysColor(index)
+
+#ifdef GetSysColorBrush
+#undef GetSysColorBrush
+#endif
+#define GetSysColorBrush(index) GetSalamanderSysColorBrush(index)
+#endif

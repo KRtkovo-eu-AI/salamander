@@ -1,10 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#define SALAMANDER_COLOR_DISABLE_OVERRIDES
 #include "precomp.h"
 #include "color.h"
-
-#include <cstdlib>
+#undef SALAMANDER_COLOR_DISABLE_OVERRIDES
 
 // Konverze barevnych prostoru RGB<->HSL
 // HSL prostor viz http://en.wikipedia.org/wiki/HSL_color_space
@@ -141,118 +141,132 @@ struct SysColorEntry
 {
     int Index;
     COLORREF DarkColor;
-    COLORREF OriginalColor;
+    HBRUSH DarkBrush;
 };
 
 static SysColorEntry DarkModeColors[] = {
-    {COLOR_SCROLLBAR, RGB(73, 73, 73), 0},
-    {COLOR_BACKGROUND, RGB(0, 0, 0), 0},
-    {COLOR_ACTIVECAPTION, RGB(153, 180, 209), 0},
-    {COLOR_INACTIVECAPTION, RGB(191, 205, 219), 0},
-    {COLOR_MENU, RGB(73, 73, 73), 0},
-    {COLOR_WINDOW, RGB(255, 255, 255), 0},
-    {COLOR_WINDOWFRAME, RGB(100, 100, 100), 0},
-    {COLOR_MENUTEXT, RGB(255, 255, 255), 0},
-    {COLOR_WINDOWTEXT, RGB(0, 0, 0), 0},
-    {COLOR_CAPTIONTEXT, RGB(0, 0, 0), 0},
-    {COLOR_ACTIVEBORDER, RGB(73, 73, 73), 0},
-    {COLOR_INACTIVEBORDER, RGB(153, 153, 153), 0},
-    {COLOR_APPWORKSPACE, RGB(171, 171, 171), 0},
-    {COLOR_HIGHLIGHT, RGB(0, 120, 215), 0},
-    {COLOR_HIGHLIGHTTEXT, RGB(255, 255, 255), 0},
-    {COLOR_BTNFACE, RGB(73, 73, 73), 0},
-    {COLOR_BTNSHADOW, RGB(127, 127, 127), 0},
-    {COLOR_GRAYTEXT, RGB(142, 142, 142), 0},
-    {COLOR_BTNTEXT, RGB(204, 204, 204), 0},
-    {COLOR_INACTIVECAPTIONTEXT, RGB(0, 0, 0), 0},
-    {COLOR_BTNHIGHLIGHT, RGB(73, 73, 73), 0},
-    {COLOR_3DDKSHADOW, RGB(100, 100, 100), 0},
-    {COLOR_3DLIGHT, RGB(127, 127, 127), 0},
-    {COLOR_INFOTEXT, RGB(0, 0, 0), 0},
-    {COLOR_INFOBK, RGB(255, 255, 225), 0},
-    {COLOR_GRADIENTACTIVECAPTION, RGB(185, 209, 234), 0},
-    {COLOR_GRADIENTINACTIVECAPTION, RGB(215, 228, 242), 0},
+    {COLOR_SCROLLBAR, RGB(73, 73, 73), NULL},
+    {COLOR_BACKGROUND, RGB(0, 0, 0), NULL},
+    {COLOR_ACTIVECAPTION, RGB(153, 180, 209), NULL},
+    {COLOR_INACTIVECAPTION, RGB(191, 205, 219), NULL},
+    {COLOR_MENU, RGB(73, 73, 73), NULL},
+    {COLOR_WINDOW, RGB(255, 255, 255), NULL},
+    {COLOR_WINDOWFRAME, RGB(100, 100, 100), NULL},
+    {COLOR_MENUTEXT, RGB(255, 255, 255), NULL},
+    {COLOR_WINDOWTEXT, RGB(0, 0, 0), NULL},
+    {COLOR_CAPTIONTEXT, RGB(0, 0, 0), NULL},
+    {COLOR_ACTIVEBORDER, RGB(73, 73, 73), NULL},
+    {COLOR_INACTIVEBORDER, RGB(153, 153, 153), NULL},
+    {COLOR_APPWORKSPACE, RGB(171, 171, 171), NULL},
+    {COLOR_HIGHLIGHT, RGB(0, 120, 215), NULL},
+    {COLOR_HIGHLIGHTTEXT, RGB(255, 255, 255), NULL},
+    {COLOR_BTNFACE, RGB(73, 73, 73), NULL},
+    {COLOR_BTNSHADOW, RGB(127, 127, 127), NULL},
+    {COLOR_GRAYTEXT, RGB(142, 142, 142), NULL},
+    {COLOR_BTNTEXT, RGB(204, 204, 204), NULL},
+    {COLOR_INACTIVECAPTIONTEXT, RGB(0, 0, 0), NULL},
+    {COLOR_BTNHIGHLIGHT, RGB(73, 73, 73), NULL},
+    {COLOR_3DDKSHADOW, RGB(100, 100, 100), NULL},
+    {COLOR_3DLIGHT, RGB(127, 127, 127), NULL},
+    {COLOR_INFOTEXT, RGB(0, 0, 0), NULL},
+    {COLOR_INFOBK, RGB(255, 255, 225), NULL},
+    {COLOR_GRADIENTACTIVECAPTION, RGB(185, 209, 234), NULL},
+    {COLOR_GRADIENTINACTIVECAPTION, RGB(215, 228, 242), NULL},
 #ifdef COLOR_BTNALTERNATE
-    {COLOR_BTNALTERNATE, RGB(0, 0, 0), 0},
+    {COLOR_BTNALTERNATE, RGB(0, 0, 0), NULL},
 #endif
-    {COLOR_HOTLIGHT, RGB(0, 102, 204), 0},
-    {COLOR_MENUHILIGHT, RGB(0, 120, 215), 0},
-    {COLOR_MENUBAR, RGB(73, 73, 73), 0},
-    {COLOR_DESKTOP, RGB(0, 0, 0), 0},
+    {COLOR_HOTLIGHT, RGB(0, 102, 204), NULL},
+    {COLOR_MENUHILIGHT, RGB(0, 120, 215), NULL},
+    {COLOR_MENUBAR, RGB(73, 73, 73), NULL},
+    {COLOR_DESKTOP, RGB(0, 0, 0), NULL},
 };
 
-static bool OriginalColorsCaptured = false;
 static bool DarkModeActive = false;
-static bool RestoreRegistered = false;
-
-static void CaptureOriginalColors()
+static SysColorEntry* FindDarkModeEntry(int index)
 {
     size_t count = sizeof(DarkModeColors) / sizeof(DarkModeColors[0]);
     for (size_t i = 0; i < count; i++)
-        DarkModeColors[i].OriginalColor = ::GetSysColor(DarkModeColors[i].Index);
-    OriginalColorsCaptured = true;
+    {
+        if (DarkModeColors[i].Index == index)
+            return &DarkModeColors[i];
+    }
+    return NULL;
 }
 
-static void RestoreOriginalColors()
+static HBRUSH EnsureDarkBrush(SysColorEntry& entry)
 {
-    if (!OriginalColorsCaptured)
-        return;
+    if (entry.DarkBrush == NULL)
+        entry.DarkBrush = ::CreateSolidBrush(entry.DarkColor);
+    return entry.DarkBrush;
+}
 
+static void DeleteDarkBrushes()
+{
     size_t count = sizeof(DarkModeColors) / sizeof(DarkModeColors[0]);
-    int elements[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
-    COLORREF colors[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
     for (size_t i = 0; i < count; i++)
     {
-        elements[i] = DarkModeColors[i].Index;
-        colors[i] = DarkModeColors[i].OriginalColor;
+        if (DarkModeColors[i].DarkBrush != NULL)
+        {
+            ::DeleteObject(DarkModeColors[i].DarkBrush);
+            DarkModeColors[i].DarkBrush = NULL;
+        }
     }
-    ::SetSysColors((int)count, elements, colors);
 }
 
-static void RestoreOriginalColorsOnExit()
+static BOOL CALLBACK SendSysColorChangeToProcessWindowsProc(HWND hwnd, LPARAM lParam)
 {
-    if (DarkModeActive)
-    {
-        RestoreOriginalColors();
-        DarkModeActive = false;
-    }
+    DWORD windowProcessId = 0;
+    ::GetWindowThreadProcessId(hwnd, &windowProcessId);
+    if (windowProcessId == static_cast<DWORD>(lParam))
+        ::SendMessage(hwnd, WM_SYSCOLORCHANGE, 0, 0);
+    return TRUE;
+}
+
+static void NotifyProcessWindowsOfColorChange()
+{
+    DWORD processId = ::GetCurrentProcessId();
+    ::EnumWindows(SendSysColorChangeToProcessWindowsProc, static_cast<LPARAM>(processId));
 }
 
 void ApplyDarkModeTheme(BOOL enable)
 {
-    if (enable)
-    {
-        if (!OriginalColorsCaptured)
-            CaptureOriginalColors();
+    BOOL requestedState = enable ? TRUE : FALSE;
+    if (DarkModeActive == (requestedState != FALSE))
+        return;
 
-        if (!RestoreRegistered)
-        {
-            atexit(RestoreOriginalColorsOnExit);
-            RestoreRegistered = true;
-        }
+    DarkModeActive = (requestedState != FALSE);
 
-        if (!DarkModeActive)
-        {
-            size_t count = sizeof(DarkModeColors) / sizeof(DarkModeColors[0]);
-            int elements[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
-            COLORREF colors[sizeof(DarkModeColors) / sizeof(DarkModeColors[0])];
-            for (size_t i = 0; i < count; i++)
-            {
-                elements[i] = DarkModeColors[i].Index;
-                colors[i] = DarkModeColors[i].DarkColor;
-            }
-            if (::SetSysColors((int)count, elements, colors))
-                DarkModeActive = true;
-        }
-    }
-    else if (DarkModeActive)
-    {
-        RestoreOriginalColors();
-        DarkModeActive = false;
-    }
+    if (!DarkModeActive)
+        DeleteDarkBrushes();
+
+    NotifyProcessWindowsOfColorChange();
 }
 
 BOOL IsDarkModeThemeActive()
 {
     return DarkModeActive ? TRUE : FALSE;
+}
+
+COLORREF GetSalamanderSysColor(int index)
+{
+    if (DarkModeActive)
+    {
+        if (SysColorEntry* entry = FindDarkModeEntry(index))
+            return entry->DarkColor;
+    }
+    return ::GetSysColor(index);
+}
+
+HBRUSH GetSalamanderSysColorBrush(int index)
+{
+    if (DarkModeActive)
+    {
+        if (SysColorEntry* entry = FindDarkModeEntry(index))
+        {
+            HBRUSH brush = EnsureDarkBrush(*entry);
+            if (brush != NULL)
+                return brush;
+        }
+    }
+    return ::GetSysColorBrush(index);
 }

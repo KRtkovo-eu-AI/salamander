@@ -75,6 +75,7 @@
 #include "bitmap.h"
 #include "iconlist.h"
 #include "consts.h"
+#include "color.h"
 #include "icncache.h"
 #include "salamand.h"
 #include "sort.h"

@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <shlobj.h>
 
+#include "color.h"
 #include "strings.h"
 #include "comdefs.h"
 #include "selfextr.h"
