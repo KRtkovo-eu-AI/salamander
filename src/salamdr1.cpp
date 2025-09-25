@@ -441,10 +441,12 @@ DWORD EnablerLeftNewTab = FALSE;
 DWORD EnablerLeftCloseTab = FALSE;
 DWORD EnablerLeftNextTab = FALSE;
 DWORD EnablerLeftPrevTab = FALSE;
+DWORD EnablerLeftCloseAllButDefault = FALSE;
 DWORD EnablerRightNewTab = FALSE;
 DWORD EnablerRightCloseTab = FALSE;
 DWORD EnablerRightNextTab = FALSE;
 DWORD EnablerRightPrevTab = FALSE;
+DWORD EnablerRightCloseAllButDefault = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 
