@@ -37,6 +37,7 @@ protected:
     int HistoryCount;
     BOOL DirectoryHelper;
     int SelectionEnd;
+    int SelectionEndChars;
 
 public:
     // 'history' urcuje, jestli dialog bude obsahovat combbox(TRUE), nebo editline (FALSE)

@@ -889,7 +889,22 @@ void InitLocales()
         IsAlpha[i] = IsCharAlpha((char)i);
     }
 
-    if ((DecimalSeparatorLen = GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, DecimalSeparator, 5)) == 0 ||
+    auto LoadLocaleString = [](LCTYPE type, char* buffer, int bufferSize) -> int {
+        if (GetACP() == CP_UTF8)
+        {
+            WCHAR wide[8];
+            int wideLen = GetLocaleInfoW(LOCALE_USER_DEFAULT, type, wide, _countof(wide));
+            if (wideLen == 0 || wideLen > (int)_countof(wide))
+                return 0;
+            int bytes = WideCharToMultiByte(CP_UTF8, 0, wide, wideLen, buffer, bufferSize, NULL, NULL);
+            if (bytes == 0 || bytes > bufferSize)
+                return 0;
+            return bytes;
+        }
+        return GetLocaleInfo(LOCALE_USER_DEFAULT, type, buffer, bufferSize);
+    };
+
+    if ((DecimalSeparatorLen = LoadLocaleString(LOCALE_SDECIMAL, DecimalSeparator, 5)) == 0 ||
         DecimalSeparatorLen > 5)
     {
         strcpy(DecimalSeparator, ".");
@@ -901,7 +916,7 @@ void InitLocales()
         DecimalSeparator[DecimalSeparatorLen] = 0; // posychrujeme nulu na konci
     }
 
-    if ((ThousandsSeparatorLen = GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_STHOUSAND, ThousandsSeparator, 5)) == 0 ||
+    if ((ThousandsSeparatorLen = LoadLocaleString(LOCALE_STHOUSAND, ThousandsSeparator, 5)) == 0 ||
         ThousandsSeparatorLen > 5)
     {
         strcpy(ThousandsSeparator, " ");
@@ -3625,12 +3640,22 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     CHARSETINFO ci;
     memset(&ci, 0, sizeof(ci));
     char bufANSI[10];
-    if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE, bufANSI, 10))
+    UINT activeCodePage = GetACP();
+    if (activeCodePage == CP_UTF8)
+    {
+        UserCharset = DEFAULT_CHARSET;
+    }
+    else if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE, bufANSI, 10))
     {
         if (TranslateCharsetInfo((DWORD*)(DWORD_PTR)MAKELONG(atoi(bufANSI), 0), &ci, TCI_SRCCODEPAGE))
         {
             UserCharset = ci.ciCharset;
         }
+    }
+    else if (activeCodePage != 0)
+    {
+        if (TranslateCharsetInfo((DWORD*)(DWORD_PTR)MAKELONG(activeCodePage, 0), &ci, TCI_SRCCODEPAGE))
+            UserCharset = ci.ciCharset;
     }
 
     // kvuli pouzivani souboru mapovanych do pameti je nutne ziskat granularitu alokaci
