@@ -838,6 +838,22 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_MBUTTONDOWN:
+    {
+        POINTS pts = MAKEPOINTS(lParam);
+        POINT pt;
+        pt.x = pts.x;
+        pt.y = pts.y;
+        int hit = HitTest(pt);
+        if (hit > 0 && !IsNewTabButtonIndex(hit) && MainWindow != NULL)
+        {
+            CFilesWindow* panel = MainWindow->GetPanelTabAt(Side, hit);
+            if (panel != NULL)
+                MainWindow->ClosePanelTab(panel);
+        }
+        return 0;
+    }
+
     case WM_MOUSEMOVE:
         if (DragTracking)
         {
