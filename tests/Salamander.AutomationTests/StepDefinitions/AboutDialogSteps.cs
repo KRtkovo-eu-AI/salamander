@@ -24,17 +24,18 @@ public sealed class AboutDialogSteps
     public void WhenIOpenTheAboutDialogFromTheHelpMenu()
     {
         var mainWindow = TestSession.MainWindow;
-        var menuBar = mainWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuBar))?.AsMenu()
-                       ?? throw new InvalidOperationException("The main window does not contain a menu bar.");
-        var helpMenuItem = menuBar.Items.FirstOrDefault(item => item.Name.Contains("Help", StringComparison.OrdinalIgnoreCase))
+        var menuBar = mainWindow.FindMainMenu();
+
+        var helpMenuItem = menuBar.FindMenuItem("Help")
                            ?? throw new InvalidOperationException("The Help menu could not be located.");
+        helpMenuItem.ExpandMenuItem();
 
-        helpMenuItem.Click();
+        var aboutMenuItem = Retry.WhileNull(
+                () => helpMenuItem.FindMenuItem("About"),
+                timeout: TimeSpan.FromSeconds(5))
+            .Result ?? throw new InvalidOperationException("The About menu item could not be located.");
 
-        var aboutMenuItem = helpMenuItem.Items.FirstOrDefault(item => item.Name.Contains("About", StringComparison.OrdinalIgnoreCase))
-                             ?? throw new InvalidOperationException("The About menu item could not be located.");
-
-        aboutMenuItem.Click();
+        aboutMenuItem.InvokeMenuItem();
 
         _aboutWindow = Retry.WhileNull(
                 () => mainWindow.ModalWindows.FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase)),
@@ -78,5 +79,127 @@ public sealed class AboutDialogSteps
     public void ThenSalamanderIsNotRunning()
     {
         Assert.That(TestSession.IsRunning, Is.False, "The Salamander application is still running.");
+    }
+}
+
+internal static class MenuElementExtensions
+{
+    private static readonly StringComparison MenuTextComparison = StringComparison.OrdinalIgnoreCase;
+
+    public static Menu FindMainMenu(this Window window)
+    {
+        if (window == null)
+        {
+            throw new ArgumentNullException(nameof(window));
+        }
+
+        var mainMenu = window.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuBar))?.AsMenu()
+                        ?? window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu))?.AsMenu();
+
+        return mainMenu ?? throw new InvalidOperationException("The main window does not contain a menu bar.");
+    }
+
+    public static MenuItem? FindMenuItem(this Menu menu, string nameFragment)
+    {
+        if (menu == null)
+        {
+            throw new ArgumentNullException(nameof(menu));
+        }
+
+        if (string.IsNullOrWhiteSpace(nameFragment))
+        {
+            throw new ArgumentException("A menu item name fragment must be provided.", nameof(nameFragment));
+        }
+
+        foreach (var item in menu.Items)
+        {
+            if (item.Name.Contains(nameFragment, MenuTextComparison))
+            {
+                return item;
+            }
+        }
+
+        foreach (var item in menu.Items)
+        {
+            var match = item.FindMenuItemRecursive(nameFragment);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    public static MenuItem? FindMenuItem(this MenuItem menuItem, string nameFragment)
+    {
+        if (menuItem == null)
+        {
+            throw new ArgumentNullException(nameof(menuItem));
+        }
+
+        if (string.IsNullOrWhiteSpace(nameFragment))
+        {
+            throw new ArgumentException("A menu item name fragment must be provided.", nameof(nameFragment));
+        }
+
+        return menuItem.FindMenuItemRecursive(nameFragment);
+    }
+
+    public static void ExpandMenuItem(this MenuItem menuItem)
+    {
+        if (menuItem == null)
+        {
+            throw new ArgumentNullException(nameof(menuItem));
+        }
+
+        var expandCollapse = menuItem.Patterns.ExpandCollapse?.PatternOrDefault;
+        if (expandCollapse != null && expandCollapse.ExpandCollapseState != ExpandCollapseState.Expanded)
+        {
+            expandCollapse.Expand();
+        }
+        else
+        {
+            menuItem.Click();
+        }
+    }
+
+    public static void InvokeMenuItem(this MenuItem menuItem)
+    {
+        if (menuItem == null)
+        {
+            throw new ArgumentNullException(nameof(menuItem));
+        }
+
+        var invoke = menuItem.Patterns.Invoke?.PatternOrDefault;
+        if (invoke != null)
+        {
+            invoke.Invoke();
+        }
+        else
+        {
+            menuItem.Click();
+        }
+    }
+
+    private static MenuItem? FindMenuItemRecursive(this MenuItem menuItem, string nameFragment)
+    {
+        if (menuItem.Name.Contains(nameFragment, MenuTextComparison))
+        {
+            return menuItem;
+        }
+
+        menuItem.ExpandMenuItem();
+
+        foreach (var child in menuItem.Items)
+        {
+            var match = child.FindMenuItemRecursive(nameFragment);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
     }
 }
