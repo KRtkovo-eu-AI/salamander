@@ -16,6 +16,10 @@ public static class TestConfiguration
         Path.Combine("..", "..", "..", "..", "bin", "Salamand.exe")
     };
 
+    private static readonly Lazy<string> RepositoryRootLazy = new(LocateRepositoryRoot);
+
+    public static string RepositoryRoot => RepositoryRootLazy.Value;
+
     /// <summary>
     /// Resolves the path to the Salamander executable to be tested.
     /// </summary>
@@ -47,5 +51,16 @@ public static class TestConfiguration
 
         throw new FileNotFoundException(
             "Could not locate Salamand.exe. Set the SALAMANDER_APP_PATH environment variable to the built executable before running the tests.");
+    }
+
+    private static string LocateRepositoryRoot()
+    {
+        var candidate = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        if (Directory.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        throw new DirectoryNotFoundException("The Salamander repository root could not be determined from the test binary location.");
     }
 }

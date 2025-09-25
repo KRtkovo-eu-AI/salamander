@@ -1,8 +1,9 @@
 using System;
 using System.Linq;
 using FlaUI.Core.AutomationElements;
-using FlaUI.Core.Definitions;
+using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
+using FlaUI.Core.WindowsAPI;
 using NUnit.Framework;
 using Reqnroll;
 
@@ -27,23 +28,22 @@ public sealed class AboutDialogSteps
         mainWindow.Focus();
         Retry.WhileFalse(() => mainWindow.IsEnabled && mainWindow.IsAvailable, timeout: TimeSpan.FromSeconds(5));
 
-        var menuBar = mainWindow.FindMainMenu();
-
-        var helpMenuItem = menuBar.FindMenuItem("Help")
-                           ?? throw new InvalidOperationException("The Help menu could not be located.");
-        helpMenuItem.ExpandMenuItem();
-
-        var aboutMenuItem = Retry.WhileNull(
-                () => helpMenuItem.FindMenuItem("About"),
-                timeout: TimeSpan.FromSeconds(5))
-            .Result ?? throw new InvalidOperationException("The About menu item could not be located.");
-
-        aboutMenuItem.InvokeMenuItem();
+        TryOpenAboutWithKeyboard();
 
         _aboutWindow = Retry.WhileNull(
                 () => mainWindow.ModalWindows.FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase)),
-                timeout: TimeSpan.FromSeconds(5))
-            .Result ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
+                timeout: TimeSpan.FromSeconds(2))
+            .Result;
+
+        if (_aboutWindow is null)
+        {
+            InvokeAboutCommand(mainWindow);
+
+            _aboutWindow = Retry.WhileNull(
+                    () => mainWindow.ModalWindows.FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase)),
+                    timeout: TimeSpan.FromSeconds(5))
+                .Result ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
+        }
     }
 
     [Then("the About dialog is displayed")]
@@ -82,138 +82,33 @@ public sealed class AboutDialogSteps
     public void ThenSalamanderIsNotRunning()
     {
         Assert.That(TestSession.IsRunning, Is.False, "The Salamander application is still running.");
-    }
 }
 
-internal static class MenuElementExtensions
-{
-    private static readonly StringComparison MenuTextComparison = StringComparison.OrdinalIgnoreCase;
-
-    public static Menu FindMainMenu(this Window window)
+    private static void TryOpenAboutWithKeyboard()
     {
-        if (window == null)
-        {
-            throw new ArgumentNullException(nameof(window));
-        }
+        Keyboard.Press(VirtualKeyShort.MENU);
+        Keyboard.Press(VirtualKeyShort.KEY_H);
+        Keyboard.Release(VirtualKeyShort.KEY_H);
+        Keyboard.Release(VirtualKeyShort.MENU);
 
-        var mainMenu = window.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuBar))?.AsMenu()
-                        ?? window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu))?.AsMenu();
+        Wait.UntilInputIsProcessed();
 
-        return mainMenu ?? throw new InvalidOperationException("The main window does not contain a menu bar.");
+        Keyboard.Press(VirtualKeyShort.KEY_A);
+        Keyboard.Release(VirtualKeyShort.KEY_A);
+
+        Wait.UntilInputIsProcessed();
     }
 
-    public static MenuItem? FindMenuItem(this Menu menu, string nameFragment)
+    private static void InvokeAboutCommand(Window mainWindow)
     {
-        if (menu == null)
+        var nativeHandle = mainWindow.Properties.NativeWindowHandle.Value;
+        if (nativeHandle is null)
         {
-            throw new ArgumentNullException(nameof(menu));
+            throw new InvalidOperationException("The main window handle is not available.");
         }
 
-        if (string.IsNullOrWhiteSpace(nameFragment))
-        {
-            throw new ArgumentException("A menu item name fragment must be provided.", nameof(nameFragment));
-        }
+        NativeMethods.SendMessage(new IntPtr(nativeHandle.Value), NativeMethods.WM_COMMAND, new IntPtr(NativeCommandIds.HelpAbout), IntPtr.Zero);
 
-        foreach (var item in menu.Items)
-        {
-            if (item.Name.Contains(nameFragment, MenuTextComparison))
-            {
-                return item;
-            }
-        }
-
-        foreach (var item in menu.Items)
-        {
-            var match = item.FindMenuItemRecursive(nameFragment);
-            if (match != null)
-            {
-                return match;
-            }
-        }
-
-        return null;
-    }
-
-    public static MenuItem? FindMenuItem(this MenuItem menuItem, string nameFragment)
-    {
-        if (menuItem == null)
-        {
-            throw new ArgumentNullException(nameof(menuItem));
-        }
-
-        if (string.IsNullOrWhiteSpace(nameFragment))
-        {
-            throw new ArgumentException("A menu item name fragment must be provided.", nameof(nameFragment));
-        }
-
-        return menuItem.FindMenuItemRecursive(nameFragment);
-    }
-
-    public static void ExpandMenuItem(this MenuItem menuItem)
-    {
-        if (menuItem == null)
-        {
-            throw new ArgumentNullException(nameof(menuItem));
-        }
-
-        Retry.WhileFalse(() => menuItem.IsEnabled, timeout: TimeSpan.FromSeconds(5));
-
-        var expandCollapse = menuItem.Patterns.ExpandCollapse?.PatternOrDefault;
-        if (expandCollapse != null && expandCollapse.ExpandCollapseState != ExpandCollapseState.Expanded)
-        {
-            try
-            {
-                expandCollapse.Expand();
-            }
-            catch (System.Windows.Automation.ElementNotEnabledException)
-            {
-                menuItem.Focus();
-                menuItem.Click();
-            }
-        }
-        else
-        {
-            menuItem.Focus();
-            menuItem.Click();
-        }
-    }
-
-    public static void InvokeMenuItem(this MenuItem menuItem)
-    {
-        if (menuItem == null)
-        {
-            throw new ArgumentNullException(nameof(menuItem));
-        }
-
-        var invoke = menuItem.Patterns.Invoke?.PatternOrDefault;
-        if (invoke != null)
-        {
-            invoke.Invoke();
-        }
-        else
-        {
-            menuItem.Click();
-        }
-    }
-
-    private static MenuItem? FindMenuItemRecursive(this MenuItem menuItem, string nameFragment)
-    {
-        if (menuItem.Name.Contains(nameFragment, MenuTextComparison))
-        {
-            return menuItem;
-        }
-
-        menuItem.ExpandMenuItem();
-
-        foreach (var child in menuItem.Items)
-        {
-            var match = child.FindMenuItemRecursive(nameFragment);
-            if (match != null)
-            {
-                return match;
-            }
-        }
-
-        return null;
+        Wait.UntilInputIsProcessed();
     }
 }
