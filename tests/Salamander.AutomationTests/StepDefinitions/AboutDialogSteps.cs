@@ -34,7 +34,10 @@ public sealed class AboutDialogSteps
         mainWindow.Focus();
         Retry.WhileFalse(() => mainWindow.IsEnabled && mainWindow.IsAvailable, timeout: TimeSpan.FromSeconds(5));
 
-        var knownWindows = CaptureExistingProcessWindows(mainWindow);
+        var processId = (uint)TestSession.Application.ProcessId;
+        var mainHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
+
+        var knownWindows = CaptureExistingProcessWindows(processId);
 
         var openedViaMenu = TryOpenAboutThroughMenu(mainWindow);
 
@@ -43,13 +46,13 @@ public sealed class AboutDialogSteps
             TryOpenAboutWithKeyboard();
         }
 
-        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5), knownWindows);
+        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5), knownWindows, processId, mainHandle);
 
         if (_aboutWindow is null)
         {
             InvokeAboutCommand(mainWindow);
 
-            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(10), knownWindows)
+            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(10), knownWindows, processId, mainHandle)
                 ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
         }
     }
@@ -92,11 +95,13 @@ public sealed class AboutDialogSteps
         Assert.That(TestSession.IsRunning, Is.False, "The Salamander application is still running.");
     }
 
-    private static Window? WaitForAboutDialog(Window mainWindow, TimeSpan timeout, HashSet<IntPtr> knownWindows)
+    private static Window? WaitForAboutDialog(
+        Window mainWindow,
+        TimeSpan timeout,
+        HashSet<IntPtr> knownWindows,
+        uint processId,
+        IntPtr mainHandle)
     {
-        var processId = (uint)mainWindow.Properties.ProcessId.Value;
-        var mainHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
-
         return Retry.WhileNull(
                 () => SafeFindAboutDialog(mainWindow, processId, mainHandle, knownWindows),
                 timeout: timeout,
@@ -118,7 +123,7 @@ public sealed class AboutDialogSteps
 
     private static Window? FindAboutDialog(Window mainWindow, uint processId, IntPtr mainHandle, HashSet<IntPtr> knownWindows)
     {
-        foreach (var modalWindow in mainWindow.ModalWindows)
+        foreach (var modalWindow in EnumerateModalWindows(mainWindow))
         {
             if (IsAboutDialogSafe(modalWindow, mainWindow))
             {
@@ -515,9 +520,20 @@ public sealed class AboutDialogSteps
         Wait.UntilInputIsProcessed();
     }
 
-    private static HashSet<IntPtr> CaptureExistingProcessWindows(Window mainWindow)
+    private static IEnumerable<Window> EnumerateModalWindows(Window mainWindow)
     {
-        var processId = (uint)mainWindow.Properties.ProcessId.Value;
+        try
+        {
+            return mainWindow.ModalWindows;
+        }
+        catch (SWA.ElementNotAvailableException)
+        {
+            return Array.Empty<Window>();
+        }
+    }
+
+    private static HashSet<IntPtr> CaptureExistingProcessWindows(uint processId)
+    {
         var handles = NativeMethods.EnumerateProcessWindowHandles(processId);
         var knownHandles = new HashSet<IntPtr>();
 
