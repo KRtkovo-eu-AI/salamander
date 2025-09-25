@@ -889,7 +889,22 @@ void InitLocales()
         IsAlpha[i] = IsCharAlpha((char)i);
     }
 
-    if ((DecimalSeparatorLen = GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, DecimalSeparator, 5)) == 0 ||
+    auto LoadLocaleString = [](LCTYPE type, char* buffer, int bufferSize) -> int {
+        if (GetACP() == CP_UTF8)
+        {
+            WCHAR wide[8];
+            int wideLen = GetLocaleInfoW(LOCALE_USER_DEFAULT, type, wide, _countof(wide));
+            if (wideLen == 0 || wideLen > (int)_countof(wide))
+                return 0;
+            int bytes = WideCharToMultiByte(CP_UTF8, 0, wide, wideLen, buffer, bufferSize, NULL, NULL);
+            if (bytes == 0 || bytes > bufferSize)
+                return 0;
+            return bytes;
+        }
+        return GetLocaleInfo(LOCALE_USER_DEFAULT, type, buffer, bufferSize);
+    };
+
+    if ((DecimalSeparatorLen = LoadLocaleString(LOCALE_SDECIMAL, DecimalSeparator, 5)) == 0 ||
         DecimalSeparatorLen > 5)
     {
         strcpy(DecimalSeparator, ".");
@@ -901,7 +916,7 @@ void InitLocales()
         DecimalSeparator[DecimalSeparatorLen] = 0; // posychrujeme nulu na konci
     }
 
-    if ((ThousandsSeparatorLen = GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_STHOUSAND, ThousandsSeparator, 5)) == 0 ||
+    if ((ThousandsSeparatorLen = LoadLocaleString(LOCALE_STHOUSAND, ThousandsSeparator, 5)) == 0 ||
         ThousandsSeparatorLen > 5)
     {
         strcpy(ThousandsSeparator, " ");

@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "cfgdlg.h"
 #include "mainwnd.h"
 #include "plugins.h"
@@ -2689,15 +2691,41 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     RECT r = *labelRect;
     AdjustQuickRenameRect(formatedFileName, &r);
 
-    HWND hWnd = QuickRenameWindow.CreateEx(0,
-                                           "edit",
-                                           formatedFileName,
-                                           WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
-                                           r.left, r.top, r.right - r.left, r.bottom - r.top,
-                                           GetListBoxHWND(),
-                                           NULL,
-                                           HInstance,
-                                           &QuickRenameWindow);
+    HWND hWnd = NULL;
+    if (GetACP() == CP_UTF8)
+    {
+        int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, formatedFileName, -1, NULL, 0);
+        if (required == 0)
+            required = MultiByteToWideChar(CP_UTF8, 0, formatedFileName, -1, NULL, 0);
+        if (required > 0)
+        {
+            std::wstring wideName;
+            wideName.resize(required ? required - 1 : 0);
+            if (!wideName.empty())
+                MultiByteToWideChar(CP_UTF8, 0, formatedFileName, -1, wideName.data(), required);
+            hWnd = QuickRenameWindow.CreateExW(0,
+                                              L"edit",
+                                              wideName.empty() ? L"" : wideName.c_str(),
+                                              WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
+                                              r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                              GetListBoxHWND(),
+                                              NULL,
+                                              HInstance,
+                                              &QuickRenameWindow);
+        }
+    }
+    if (hWnd == NULL)
+    {
+        hWnd = QuickRenameWindow.CreateEx(0,
+                                          "edit",
+                                          formatedFileName,
+                                          WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_LEFT,
+                                          r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                          GetListBoxHWND(),
+                                          NULL,
+                                          HInstance,
+                                          &QuickRenameWindow);
+    }
     if (hWnd == NULL)
     {
         TRACE_E("Cannot create QuickRenameWindow");
