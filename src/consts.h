@@ -1938,11 +1938,15 @@ extern DWORD EnablerLeftCloseTab;         // lze zavrit tab v levem panelu?
 extern DWORD EnablerLeftNextTab;          // je dostupny dalsi tab v levem panelu?
 extern DWORD EnablerLeftPrevTab;          // je dostupny predchozi tab v levem panelu?
 extern DWORD EnablerLeftCloseAllButDefault; // lze zavrit vsechny taby krome vychoziho v levem panelu?
+extern DWORD EnablerLeftDuplicateTabToRight; // lze duplikovat tab na pravou stranu?
+extern DWORD EnablerLeftMoveTabToRight;      // lze presunout tab na pravou stranu?
 extern DWORD EnablerRightNewTab;          // lze vytvorit novy tab v pravem panelu?
 extern DWORD EnablerRightCloseTab;        // lze zavrit tab v pravem panelu?
 extern DWORD EnablerRightNextTab;         // je dostupny dalsi tab v pravem panelu?
 extern DWORD EnablerRightPrevTab;         // je dostupny predchozi tab v pravem panelu?
 extern DWORD EnablerRightCloseAllButDefault; // lze zavrit vsechny taby krome vychoziho v pravem panelu?
+extern DWORD EnablerRightDuplicateTabToLeft; // lze duplikovat tab na levou stranu?
+extern DWORD EnablerRightMoveTabToLeft;      // lze presunout tab na levou stranu?
 
 //******************************************************************************
 //

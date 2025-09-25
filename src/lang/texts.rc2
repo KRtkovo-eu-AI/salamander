@@ -30,6 +30,8 @@ STRINGTABLE
  IDS_MENU_LEFT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_LEFT_SETTABPREFIX, "Set Tab &Prefix..."
  IDS_MENU_LEFT_CLEARTABPREFIX,"C&lear Tab Prefix"
+ IDS_MENU_LEFT_DUPLICATETABRIGHT, "Duplicate Tab to &Right"
+ IDS_MENU_LEFT_MOVETABTORIGHT,    "Move Tab to &Right"
  IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT, "Close all &left tabs except the default"
 
  IDS_MENU_FILES,             "&Files"
@@ -172,6 +174,8 @@ STRINGTABLE
  IDS_MENU_RIGHT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_RIGHT_SETTABPREFIX,"Set Tab &Prefix..."
  IDS_MENU_RIGHT_CLEARTABPREFIX,"C&lear Tab Prefix"
+ IDS_MENU_RIGHT_DUPLICATETABTOLEFT, "Duplicate Tab to &Left"
+ IDS_MENU_RIGHT_MOVETABTOLEFT,      "Move Tab to &Left"
  IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, "Close all &right tabs except the default"
 
  IDS_SETTABPREFIX_TITLE,      "Set Tab Prefix"

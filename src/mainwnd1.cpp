@@ -2755,6 +2755,10 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL rightPrevTab = FALSE;
     BOOL leftCloseAllButDefault = FALSE;
     BOOL rightCloseAllButDefault = FALSE;
+    BOOL leftDuplicateTab = FALSE;
+    BOOL leftMoveTab = FALSE;
+    BOOL rightDuplicateTab = FALSE;
+    BOOL rightMoveTab = FALSE;
 
     int selCount = 0;
     int unselCount = 0;
@@ -2800,6 +2804,8 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         leftNextTab = (leftCount > 1);
         leftPrevTab = (leftCount > 1);
         leftCloseAllButDefault = (leftCount > 1);
+        leftDuplicateTab = (leftIndex >= 0);
+        leftMoveTab = (leftIndex > 0);
 
         int rightCount = obj->GetPanelTabCount(cpsRight);
         rightNewTab = (rightCount > 0);
@@ -2808,6 +2814,8 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
         rightCloseAllButDefault = (rightCount > 1);
+        rightDuplicateTab = (rightIndex >= 0);
+        rightMoveTab = (rightIndex > 0);
 
         if (!Configuration.UsePanelTabs)
         {
@@ -2825,6 +2833,10 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
             rightCloseAllButDefault = FALSE;
+            leftDuplicateTab = FALSE;
+            leftMoveTab = FALSE;
+            rightDuplicateTab = FALSE;
+            rightMoveTab = FALSE;
         }
 
         if (archive)
@@ -3019,11 +3031,15 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
     obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
     obj->CheckAndSet(&EnablerLeftCloseAllButDefault, leftCloseAllButDefault);
+    obj->CheckAndSet(&EnablerLeftDuplicateTabToRight, leftDuplicateTab);
+    obj->CheckAndSet(&EnablerLeftMoveTabToRight, leftMoveTab);
     obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
     obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
     obj->CheckAndSet(&EnablerRightCloseAllButDefault, rightCloseAllButDefault);
+    obj->CheckAndSet(&EnablerRightDuplicateTabToLeft, rightDuplicateTab);
+    obj->CheckAndSet(&EnablerRightMoveTabToLeft, rightMoveTab);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {
