@@ -139,8 +139,16 @@ bool Utf8ToWide(const char* str, int count, std::wstring& wide)
         if (required == 0)
             return false;
         wide.resize(required - 1);
-        if (!wide.empty())
-            MultiByteToWideChar(CP_UTF8, 0, str, -1, wide.data(), required);
+        if (required > 1)
+        {
+            int written = MultiByteToWideChar(CP_UTF8, 0, str, -1, wide.data(), required);
+            if (written > 0)
+                wide.resize(written - 1);
+            else
+                wide.clear();
+        }
+        else
+            wide.clear();
         return true;
     }
     if (count < 0)
@@ -156,8 +164,12 @@ bool Utf8ToWide(const char* str, int count, std::wstring& wide)
     if (required == 0)
         return false;
     wide.resize(required);
-    MultiByteToWideChar(CP_UTF8, 0, str, count, wide.data(), required);
-    return true;
+    int written = MultiByteToWideChar(CP_UTF8, 0, str, count, wide.data(), required);
+    if (written > 0 && written <= required)
+        wide.resize(written);
+    else
+        wide.clear();
+    return written > 0;
 }
 
 } // namespace

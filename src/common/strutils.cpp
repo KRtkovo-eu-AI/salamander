@@ -224,19 +224,28 @@ BOOL ConvertUtf8ToWideBestEffort(const char* src, std::wstring& dst)
     }
 
     int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, src, -1, NULL, 0);
+    BOOL validUtf8 = len > 0;
+    if (!validUtf8)
+        len = MultiByteToWideChar(CP_UTF8, 0, src, -1, NULL, 0);
     if (len > 0)
     {
-        dst.resize(len > 0 ? len - 1 : 0);
-        if (!dst.empty())
-            MultiByteToWideChar(CP_UTF8, 0, src, -1, &dst[0], len);
-        return TRUE;
+        dst.resize(len - 1);
+        if (len > 1)
+        {
+            int written = MultiByteToWideChar(CP_UTF8, 0, src, -1, dst.data(), len);
+            if (written > 0)
+                dst.resize(written - 1);
+            else
+                dst.clear();
+        }
+        return validUtf8;
     }
 
     size_t bytes = strlen(src);
-    dst.reserve(bytes);
+    dst.resize(bytes);
     const unsigned char* s = reinterpret_cast<const unsigned char*>(src);
     for (size_t i = 0; i < bytes; ++i)
-        dst.push_back(static_cast<WCHAR>(s[i]));
+        dst[i] = static_cast<WCHAR>(s[i]);
     return FALSE;
 }
 
