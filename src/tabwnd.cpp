@@ -201,7 +201,7 @@ int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
     int newTabIndex = GetNewTabButtonIndex();
     if (newTabIndex >= 0 && insertIndex > newTabIndex)
         insertIndex = newTabIndex;
-    int colorIndex = std::min(insertIndex, count);
+    int colorIndex = (insertIndex < count) ? insertIndex : count;
     int result;
     {
         CSelChangeGuard guard(SuppressSelectionNotifications);
