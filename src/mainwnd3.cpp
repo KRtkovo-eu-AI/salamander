@@ -328,11 +328,13 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     char text[2 * MAX_PATH];
     BuildTabCaption(panel, text, _countof(text));
     std::wstring caption = AnsiToWide(text);
-    const wchar_t* icon = (index == 0) ? L"\U0001F512" : L"\U0001F513";
-    std::wstring result = icon;
+    std::wstring result;
+    if (index == 0)
+        result = L"\U0001F512";
     if (!caption.empty())
     {
-        result += L" ";
+        if (!result.empty())
+            result += L" ";
         result += caption;
     }
     return result;

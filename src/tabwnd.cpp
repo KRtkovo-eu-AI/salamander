@@ -4,6 +4,7 @@
 #include "precomp.h"
 
 #include <commctrl.h>
+#include <algorithm>
 #include <string>
 
 #include "tabwnd.h"
@@ -200,11 +201,15 @@ int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
     int newTabIndex = GetNewTabButtonIndex();
     if (newTabIndex >= 0 && insertIndex > newTabIndex)
         insertIndex = newTabIndex;
+    int colorIndex = std::min(insertIndex, count);
     int result;
     {
         CSelChangeGuard guard(SuppressSelectionNotifications);
         result = (int)SendMessageW(HWindow, TCM_INSERTITEMW, insertIndex, (LPARAM)&item);
     }
+    if (result < 0)
+        return result;
+    InsertTabColorSlot(colorIndex, count);
     EnsureNewTabButton();
     return result;
 }
@@ -216,10 +221,13 @@ void CTabWindow::RemoveTab(int index)
     {
         if (index < 0 || index >= GetTabCount())
             return;
+        BOOL removed = FALSE;
         {
             CSelChangeGuard guard(SuppressSelectionNotifications);
-            SendMessage(HWindow, TCM_DELETEITEM, index, 0);
+            removed = (BOOL)SendMessage(HWindow, TCM_DELETEITEM, index, 0);
         }
+        if (removed)
+            RemoveTabColorSlot(index);
         EnsureNewTabButton();
     }
 }
@@ -233,6 +241,7 @@ void CTabWindow::RemoveAllTabs()
             CSelChangeGuard guard(SuppressSelectionNotifications);
             SendMessage(HWindow, TCM_DELETEALLITEMS, 0, 0);
         }
+        TabColors.clear();
         EnsureNewTabButton();
     }
 }
@@ -390,17 +399,30 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
                 result = CDRF_DODEFAULT;
                 return TRUE;
             }
-            CFilesWindow* panel = NULL;
-            if (MainWindow != NULL)
-                panel = MainWindow->GetPanelTabAt(Side, index);
-            if (panel == NULL || !panel->HasCustomTabColor())
+            COLORREF baseColor = 0;
+            bool haveColor = false;
+            const STabColor* colorEntry = GetTabColor(index);
+            if (colorEntry != NULL && colorEntry->Valid)
+            {
+                baseColor = colorEntry->Color;
+                haveColor = true;
+            }
+            else if (MainWindow != NULL)
+            {
+                CFilesWindow* panel = MainWindow->GetPanelTabAt(Side, index);
+                if (panel != NULL && panel->HasCustomTabColor())
+                {
+                    baseColor = panel->GetCustomTabColor();
+                    haveColor = true;
+                }
+            }
+            if (!haveColor)
             {
                 result = CDRF_DODEFAULT;
                 return TRUE;
             }
 
             RECT rect = draw->rc;
-            COLORREF baseColor = panel->GetCustomTabColor();
             bool selected = (draw->uItemState & CDIS_SELECTED) != 0;
             bool hot = (draw->uItemState & CDIS_HOT) != 0;
 
@@ -935,6 +957,8 @@ void CTabWindow::MoveTabInternal(int from, int to)
         TabCtrl_SetCurSel(HWindow, insertIndex);
     }
 
+    MoveTabColor(from, insertIndex);
+
     if (MainWindow != NULL)
         MainWindow->OnPanelTabReordered(Side, from, insertIndex);
 }
@@ -942,13 +966,21 @@ void CTabWindow::MoveTabInternal(int from, int to)
 void CTabWindow::SetTabColor(int index, COLORREF color)
 {
     CALL_STACK_MESSAGE_NONE
-    (void)color;
+    STabColor* entry = GetTabColor(index);
+    if (entry != NULL)
+    {
+        entry->Valid = true;
+        entry->Color = color;
+    }
     InvalidateTab(index);
 }
 
 void CTabWindow::ClearTabColor(int index)
 {
     CALL_STACK_MESSAGE_NONE
+    STabColor* entry = GetTabColor(index);
+    if (entry != NULL)
+        entry->Valid = false;
     InvalidateTab(index);
 }
 
@@ -963,6 +995,86 @@ void CTabWindow::InvalidateTab(int index)
         InvalidateRect(HWindow, &rect, FALSE);
     else
         InvalidateRect(HWindow, NULL, FALSE);
+}
+
+void CTabWindow::EnsureTabColorCapacity()
+{
+    int count = GetTabCount();
+    if (count < 0)
+        count = 0;
+    if ((int)TabColors.size() < count)
+    {
+        STabColor empty = {false, RGB(0, 0, 0)};
+        TabColors.resize(count, empty);
+    }
+    else if ((int)TabColors.size() > count)
+    {
+        TabColors.resize(count);
+    }
+}
+
+void CTabWindow::InsertTabColorSlot(int index, int currentCount)
+{
+    if (currentCount < 0)
+        currentCount = 0;
+    if ((int)TabColors.size() < currentCount)
+    {
+        STabColor empty = {false, RGB(0, 0, 0)};
+        TabColors.resize(currentCount, empty);
+    }
+    else if ((int)TabColors.size() > currentCount)
+    {
+        TabColors.resize(currentCount);
+    }
+    STabColor empty = {false, RGB(0, 0, 0)};
+    if (index < 0)
+        index = 0;
+    if (index > (int)TabColors.size())
+        index = (int)TabColors.size();
+    TabColors.insert(TabColors.begin() + index, empty);
+}
+
+void CTabWindow::RemoveTabColorSlot(int index)
+{
+    if (index < 0 || index >= (int)TabColors.size())
+        return;
+    TabColors.erase(TabColors.begin() + index);
+}
+
+void CTabWindow::MoveTabColor(int from, int to)
+{
+    EnsureTabColorCapacity();
+    if (from < 0 || from >= (int)TabColors.size())
+        return;
+    if (to < 0)
+        to = 0;
+    if (to > (int)TabColors.size())
+        to = (int)TabColors.size();
+    STabColor entry = TabColors[from];
+    TabColors.erase(TabColors.begin() + from);
+    if (to > (int)TabColors.size())
+        to = (int)TabColors.size();
+    TabColors.insert(TabColors.begin() + to, entry);
+}
+
+CTabWindow::STabColor* CTabWindow::GetTabColor(int index)
+{
+    if (index < 0)
+        return NULL;
+    EnsureTabColorCapacity();
+    if (index < 0 || index >= (int)TabColors.size())
+        return NULL;
+    return &TabColors[index];
+}
+
+const CTabWindow::STabColor* CTabWindow::GetTabColor(int index) const
+{
+    if (index < 0)
+        return NULL;
+    const_cast<CTabWindow*>(this)->EnsureTabColorCapacity();
+    if (index < 0 || index >= (int)TabColors.size())
+        return NULL;
+    return &TabColors[index];
 }
 
 LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <vector>
+
 //
 // ****************************************************************************
 
@@ -58,6 +60,19 @@ private:
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
 
+    struct STabColor
+    {
+        bool Valid;
+        COLORREF Color;
+    };
+
+    void EnsureTabColorCapacity();
+    void InsertTabColorSlot(int index, int currentCount);
+    void RemoveTabColorSlot(int index);
+    void MoveTabColor(int from, int to);
+    STabColor* GetTabColor(int index);
+    const STabColor* GetTabColor(int index) const;
+
     CMainWindow* MainWindow;
     CPanelSide Side;
     int ControlID;
@@ -69,5 +84,7 @@ private:
     int DragCurrentTarget;
     int DragInsertMarkItem;
     DWORD DragInsertMarkFlags;
+
+    std::vector<STabColor> TabColors;
 
 };
