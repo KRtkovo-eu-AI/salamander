@@ -7,6 +7,9 @@
 #include <shlwapi.h>
 #undef PathIsPrefix // otherwise, collision with CSalamanderGeneral::PathIsPrefix
 
+#include <string>
+#include <vector>
+
 #include "toolbar.h"
 #include "stswnd.h"
 #include "plugins.h"
@@ -358,6 +361,8 @@ const char* PANEL_FILTERHISTORY_REG = "Filter History";
 const char* PANEL_FILTER = "Filter";
 const char* PANEL_TABCOUNT_REG = "Tab Count";
 const char* PANEL_ACTIVETAB_REG = "Active Tab";
+const char* PANEL_TABCOLOR_REG = "Tab Color";
+const char* PANEL_TABPREFIX_REG = "Tab Prefix";
 
 const char* SALAMANDER_DEFDIRS_REG = "Default Directories";
 
@@ -1392,6 +1397,32 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     DWORD filterEnabled = panel->FilterEnabled;
     SetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &filterEnabled, sizeof(DWORD));
     SetValue(key, PANEL_FILTER, REG_SZ, panel->Filter.GetMasksString(), -1);
+
+    if (panel->HasCustomTabColor())
+    {
+        DWORD color = panel->GetCustomTabColor();
+        SetValue(key, PANEL_TABCOLOR_REG, REG_DWORD, &color, sizeof(DWORD));
+    }
+    else
+        DeleteValue(key, PANEL_TABCOLOR_REG);
+
+    if (panel->HasCustomTabPrefix())
+    {
+        const std::wstring& prefix = panel->GetCustomTabPrefix();
+        int needed = WideCharToMultiByte(CP_ACP, 0, prefix.c_str(), -1, NULL, 0, NULL, NULL);
+        if (needed > 0)
+        {
+            std::vector<char> buffer(needed);
+            if (WideCharToMultiByte(CP_ACP, 0, prefix.c_str(), -1, buffer.data(), needed, NULL, NULL) > 0)
+                SetValue(key, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), -1);
+            else
+                DeleteValue(key, PANEL_TABPREFIX_REG);
+        }
+        else
+            DeleteValue(key, PANEL_TABPREFIX_REG);
+    }
+    else
+        DeleteValue(key, PANEL_TABPREFIX_REG);
 }
 
 static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBuffer, int pathBufferSize)
@@ -1469,6 +1500,43 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             panel->Filter.PrepareMasks(errPos);
         }
     }
+
+    DWORD colorValue;
+    if (GetValue(key, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
+        panel->SetCustomTabColor(colorValue);
+    else
+        panel->ClearCustomTabColor();
+
+    DWORD prefixSize = 0;
+    if (GetSize(key, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
+    {
+        std::vector<char> buffer(prefixSize);
+        if (GetValue(key, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), prefixSize))
+        {
+            int needed = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, NULL, 0);
+            if (needed > 0)
+            {
+                std::wstring prefix(needed - 1, L'\0');
+                int written = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, &prefix[0], needed);
+                if (written > 0)
+                {
+                    prefix.resize(written - 1);
+                    if (!prefix.empty())
+                        panel->SetCustomTabPrefix(prefix.c_str());
+                    else
+                        panel->ClearCustomTabPrefix();
+                }
+                else
+                    panel->ClearCustomTabPrefix();
+            }
+            else
+                panel->ClearCustomTabPrefix();
+        }
+        else
+            panel->ClearCustomTabPrefix();
+    }
+    else
+        panel->ClearCustomTabPrefix();
 }
 
 static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
@@ -2617,7 +2685,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     {
         CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
         if (panel != NULL)
+        {
             LoadPanelSettingsFromKey(panel, actKey, panelPath, panelPath != NULL ? MAX_PATH : 0);
+            UpdatePanelTabColor(panel);
+        }
         CloseKey(actKey);
         return;
     }
@@ -2746,6 +2817,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel->ClearWorkDirHistory();
 
+        UpdatePanelTabColor(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
