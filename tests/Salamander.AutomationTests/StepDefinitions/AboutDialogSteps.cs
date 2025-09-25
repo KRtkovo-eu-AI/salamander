@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.AutomationElements.MenuItems;
+using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
@@ -28,21 +30,21 @@ public sealed class AboutDialogSteps
         mainWindow.Focus();
         Retry.WhileFalse(() => mainWindow.IsEnabled && mainWindow.IsAvailable, timeout: TimeSpan.FromSeconds(5));
 
-        TryOpenAboutWithKeyboard();
+        var openedViaMenu = TryOpenAboutThroughMenu(mainWindow);
 
-        _aboutWindow = Retry.WhileNull(
-                () => mainWindow.ModalWindows.FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase)),
-                timeout: TimeSpan.FromSeconds(2))
-            .Result;
+        if (!openedViaMenu)
+        {
+            TryOpenAboutWithKeyboard();
+        }
+
+        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(2));
 
         if (_aboutWindow is null)
         {
             InvokeAboutCommand(mainWindow);
 
-            _aboutWindow = Retry.WhileNull(
-                    () => mainWindow.ModalWindows.FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase)),
-                    timeout: TimeSpan.FromSeconds(5))
-                .Result ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
+            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5))
+                ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
         }
     }
 
@@ -84,6 +86,76 @@ public sealed class AboutDialogSteps
         Assert.That(TestSession.IsRunning, Is.False, "The Salamander application is still running.");
     }
 
+    private static Window? WaitForAboutDialog(Window mainWindow, TimeSpan timeout)
+    {
+        return Retry.WhileNull(
+                () => FindAboutDialog(mainWindow),
+                timeout: timeout,
+                throwOnTimeout: false)
+            .Result;
+    }
+
+    private static Window? FindAboutDialog(Window mainWindow)
+    {
+        return mainWindow.ModalWindows
+            .FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool TryOpenAboutThroughMenu(Window mainWindow)
+    {
+        var menuResult = Retry.WhileNull(
+            () => mainWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuBar)),
+            timeout: TimeSpan.FromSeconds(2),
+            throwOnTimeout: false);
+
+        if (!menuResult.Success || menuResult.Result is null)
+        {
+            return false;
+        }
+
+        var menuBar = menuResult.Result.AsMenu();
+        var helpResult = Retry.WhileNull(
+            () => FindMenuItem(menuBar, "Help"),
+            timeout: TimeSpan.FromSeconds(2),
+            throwOnTimeout: false);
+
+        if (!helpResult.Success || helpResult.Result is null)
+        {
+            return false;
+        }
+
+        var helpMenuItem = helpResult.Result;
+
+        try
+        {
+            ExpandMenuItem(helpMenuItem);
+        }
+        catch
+        {
+            return false;
+        }
+
+        var aboutResult = Retry.WhileNull(
+            () => FindMenuItem(helpMenuItem, "About"),
+            timeout: TimeSpan.FromSeconds(2),
+            throwOnTimeout: false);
+
+        if (!aboutResult.Success || aboutResult.Result is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            InvokeMenuItem(aboutResult.Result);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static void TryOpenAboutWithKeyboard()
     {
         Keyboard.Press(VirtualKeyShort.ALT);
@@ -107,7 +179,67 @@ public sealed class AboutDialogSteps
             throw new InvalidOperationException("The main window handle is not available.");
         }
 
-        NativeMethods.SendMessage(nativeHandle, NativeMethods.WM_COMMAND, new IntPtr(NativeCommandIds.HelpAbout), IntPtr.Zero);
+        NativeMethods.SendMessage(nativeHandle, NativeMethods.WM_COMMAND, (IntPtr)NativeCommandIds.HelpAbout, IntPtr.Zero);
+
+        Wait.UntilInputIsProcessed();
+    }
+
+    private static MenuItem? FindMenuItem(Menu menu, string nameFragment)
+    {
+        var items = menu.Items ?? Array.Empty<MenuItem>();
+        return items.FirstOrDefault(item => MatchesName(item, nameFragment));
+    }
+
+    private static MenuItem? FindMenuItem(MenuItem parent, string nameFragment)
+    {
+        var items = parent.Items ?? Array.Empty<MenuItem>();
+        return items.FirstOrDefault(item => MatchesName(item, nameFragment));
+    }
+
+    private static bool MatchesName(MenuItem item, string nameFragment)
+    {
+        var name = item.Name ?? string.Empty;
+        return name.Contains(nameFragment, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void ExpandMenuItem(MenuItem menuItem)
+    {
+        if (!menuItem.IsEnabled)
+        {
+            throw new InvalidOperationException($"Menu item '{menuItem.Name}' is disabled.");
+        }
+
+        if (menuItem.Patterns.ExpandCollapse.IsSupported)
+        {
+            var expandCollapse = menuItem.Patterns.ExpandCollapse.Pattern;
+            if (expandCollapse.Current.ExpandCollapseState != ExpandCollapseState.Expanded)
+            {
+                expandCollapse.Expand();
+            }
+        }
+        else
+        {
+            menuItem.Click();
+        }
+
+        Wait.UntilInputIsProcessed();
+    }
+
+    private static void InvokeMenuItem(MenuItem menuItem)
+    {
+        if (!menuItem.IsEnabled)
+        {
+            throw new InvalidOperationException($"Menu item '{menuItem.Name}' is disabled.");
+        }
+
+        if (menuItem.Patterns.Invoke.IsSupported)
+        {
+            menuItem.Patterns.Invoke.Pattern.Invoke();
+        }
+        else
+        {
+            menuItem.Click();
+        }
 
         Wait.UntilInputIsProcessed();
     }
