@@ -226,8 +226,8 @@ public:
                  int nHeight,            // window height
                  HWND hwndParent,        // handle of parent or owner window
                  HMENU hmenu,            // handle of menu or child-window identifier
-                 HINSTANCE hinst,        // handle of application instance
-                 LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
+                  HINSTANCE hinst,        // handle of application instance
+                  LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
 
     HWND CreateExW(DWORD dwExStyle,        // extended window style
                    LPCWSTR lpszClassName,  // address of registered class name
@@ -241,6 +241,8 @@ public:
                    HMENU hmenu,            // handle of menu or child-window identifier
                    HINSTANCE hinst,        // handle of application instance
                    LPVOID lpvParam);       // ukazatel na objekt vytvareneho okna
+
+    void SetUnicodeWindow(BOOL unicode) { UnicodeWnd = unicode; }
 #endif                                     // _UNICODE
 
     void AttachToWindow(HWND hWnd);

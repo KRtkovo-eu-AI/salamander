@@ -23,12 +23,26 @@ CSTR::CSTR()
     CALL_STACK_MESSAGE_NONE
     uintptr_t i;
     char charTable[256];
-    for (i = 0; i < 256; i++)
+    if (GetACP() == CP_UTF8)
     {
-        LowerCase[i] = (char)(UINT_PTR)CharLowerA((LPSTR)i);
-        UpperCase[i] = (char)(UINT_PTR)CharUpperA((LPSTR)i);
-        charTable[i] = (unsigned char)i;
+        for (i = 0; i < 256; i++)
+        {
+            LowerCase[i] = (char)i;
+            UpperCase[i] = (char)i;
+            charTable[i] = (unsigned char)i;
+        }
+        for (i = 'A'; i <= 'Z'; i++)
+            LowerCase[i] = (char)(i - 'A' + 'a');
+        for (i = 'a'; i <= 'z'; i++)
+            UpperCase[i] = (char)(i - 'a' + 'A');
     }
+    else
+        for (i = 0; i < 256; i++)
+        {
+            LowerCase[i] = (char)(UINT_PTR)CharLowerA((LPSTR)i);
+            UpperCase[i] = (char)(UINT_PTR)CharUpperA((LPSTR)i);
+            charTable[i] = (unsigned char)i;
+        }
     if (!GetStringTypeA(LOCALE_USER_DEFAULT, CT_CTYPE1, charTable, 256, CType))
     {
         //TRACE_E("GetStringTypeA failed. Last Error = " << GetLastError());

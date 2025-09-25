@@ -3,6 +3,10 @@
 
 #include "precomp.h"
 
+#include <string>
+#include <string.h>
+#include <vector>
+
 #include "mainwnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
@@ -15,6 +19,174 @@
 #include "codetbl.h"
 #include "worker.h"
 #include "menu.h"
+
+namespace
+{
+HWND ResolveComboEditControl(HWND ctrl)
+{
+    char className[16];
+    if (GetClassName(ctrl, className, (int)ARRAYSIZE(className)) > 0)
+    {
+        if (_stricmp(className, "ComboBox") == 0)
+        {
+            COMBOBOXINFO info;
+            info.cbSize = sizeof(info);
+            if (GetComboBoxInfo(ctrl, &info) && info.hwndItem != NULL)
+                return info.hwndItem;
+        }
+    }
+    return ctrl;
+}
+
+bool GetControlTextUtf8(HWND ctrl, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+
+    buffer[0] = '\0';
+
+    if (GetACP() != CP_UTF8)
+    {
+        SendMessage(ctrl, WM_GETTEXT, bufferSize, (LPARAM)buffer);
+        return true;
+    }
+
+    HWND source = ResolveComboEditControl(ctrl);
+
+    int length = GetWindowTextLengthW(source);
+    if (length < 0)
+        length = 0;
+
+    std::vector<WCHAR> wide(length + 1);
+    int copied = GetWindowTextW(source, wide.data(), length + 1);
+    if (copied < 0)
+        copied = 0;
+    if ((size_t)copied >= wide.size())
+        wide.push_back(L'\0');
+    wide[copied] = L'\0';
+
+    int required = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, NULL, 0, NULL, NULL);
+    if (required < 0)
+        required = 0;
+
+    if (required >= bufferSize)
+    {
+        if (bufferSize > 1)
+        {
+            int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, buffer, bufferSize - 1, NULL, NULL);
+            if (written < 0)
+                written = 0;
+            buffer[written] = '\0';
+        }
+        else
+            buffer[0] = '\0';
+        return false;
+    }
+
+    int written = WideCharToMultiByte(CP_UTF8, 0, wide.data(), copied, buffer, bufferSize, NULL, NULL);
+    if (written < 0)
+        written = 0;
+    if (written >= bufferSize)
+        written = bufferSize - 1;
+    buffer[written] = '\0';
+    return true;
+}
+
+bool Utf8ToWideString(const char* text, int count, std::wstring& wide);
+
+void SetControlTextUtf8(HWND ctrl, const char* text)
+{
+    if (text == NULL)
+        text = "";
+
+    if (GetACP() != CP_UTF8)
+    {
+        SendMessage(ctrl, WM_SETTEXT, 0, (LPARAM)text);
+        return;
+    }
+
+    HWND target = ResolveComboEditControl(ctrl);
+    if (IsWindowUnicode(target))
+    {
+        std::wstring wide;
+        if (Utf8ToWideString(text, -1, wide))
+        {
+            SetWindowTextW(target, wide.empty() ? L"" : wide.c_str());
+            return;
+        }
+    }
+
+    SendMessage(target, WM_SETTEXT, 0, (LPARAM)text);
+}
+
+bool Utf8ToWideString(const char* text, int count, std::wstring& wide)
+{
+    if (text == NULL)
+    {
+        wide.clear();
+        return true;
+    }
+
+    if (count == 0)
+    {
+        wide.clear();
+        return true;
+    }
+
+    if (count < 0)
+    {
+        int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+        if (required == 0)
+            required = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+        if (required == 0)
+        {
+            wide.clear();
+            return false;
+        }
+
+        wide.resize(required);
+        int converted = MultiByteToWideChar(CP_UTF8, 0, text, -1, &wide[0], required);
+        if (converted == 0)
+        {
+            wide.clear();
+            return false;
+        }
+
+        if (!wide.empty() && wide.back() == L'\0')
+            wide.pop_back();
+
+        return true;
+    }
+
+    if (count == 0)
+    {
+        wide.clear();
+        return true;
+    }
+
+    int required = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, count, NULL, 0);
+    if (required == 0)
+        required = MultiByteToWideChar(CP_UTF8, 0, text, count, NULL, 0);
+    if (required == 0)
+    {
+        wide.clear();
+        return false;
+    }
+
+    wide.resize(required);
+    int converted = MultiByteToWideChar(CP_UTF8, 0, text, count, &wide[0], required);
+    if (converted == 0)
+    {
+        wide.clear();
+        return false;
+    }
+
+    if (converted < required)
+        wide.resize(converted);
+
+    return true;
+}
+} // namespace
 
 //
 // ****************************************************************************
@@ -73,7 +245,7 @@ void CConvertFilesDlg::Validate(CTransferInfo& ti)
         if (ti.Type == ttDataFromWindow)
         {
             char buf[MAX_PATH];
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buf);
+            GetControlTextUtf8(hWnd, buf, MAX_PATH);
             CMaskGroup mask(buf);
             int errorPos;
             if (!mask.PrepareMasks(errorPos))
@@ -109,11 +281,11 @@ void CConvertFilesDlg::Transfer(CTransferInfo& ti)
         {
             LoadComboFromStdHistoryValues(hWnd, history, CONVERT_HISTORY_SIZE);
             SendMessage(hWnd, CB_LIMITTEXT, MAX_PATH - 1, 0);
-            SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Mask);
+            SetControlTextUtf8(hWnd, Mask);
         }
         else
         {
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)Mask);
+            GetControlTextUtf8(hWnd, Mask, MAX_PATH);
             AddValueToStdHistoryValues(history, CONVERT_HISTORY_SIZE, Mask, FALSE);
         }
     }
@@ -312,11 +484,11 @@ void CFilterDialog::Transfer(CTransferInfo& ti)
         {
             LoadComboFromStdHistoryValues(hWnd, history, FILTER_HISTORY_SIZE);
             SendMessage(hWnd, CB_LIMITTEXT, MAX_PATH - 1, 0);
-            SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Filter->GetMasksString());
+            SetControlTextUtf8(hWnd, Filter->GetMasksString());
         }
         else
         {
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)Filter->GetWritableMasksString());
+            GetControlTextUtf8(hWnd, Filter->GetWritableMasksString(), MAX_PATH);
             AddValueToStdHistoryValues(history, FILTER_HISTORY_SIZE, Filter->GetMasksString(), FALSE);
         }
     }
@@ -408,11 +580,19 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     HistoryCount = historyCount;
     SetHelpID(helpID); // dialog se pouziva k vice ucelum - nastavime spravne helpID
     SelectionEnd = -1; // -1 = select all
+    SelectionEndChars = -1;
 }
 
 void CCopyMoveDialog::SetSelectionEnd(int selectionEnd)
 {
     SelectionEnd = selectionEnd;
+    SelectionEndChars = -1;
+    if (selectionEnd >= 0 && GetACP() == CP_UTF8 && Path != NULL)
+    {
+        std::wstring wide;
+        if (Utf8ToWideString(Path, selectionEnd, wide))
+            SelectionEndChars = (int)wide.length();
+    }
 }
 
 void CCopyMoveDialog::Transfer(CTransferInfo& ti)
@@ -427,11 +607,11 @@ void CCopyMoveDialog::Transfer(CTransferInfo& ti)
             {
                 LoadComboFromStdHistoryValues(hWnd, History, HistoryCount);
                 SendMessage(hWnd, CB_LIMITTEXT, PathBufSize - 1, 0);
-                SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+                SetControlTextUtf8(hWnd, Path);
             }
             else
             {
-                SendMessage(hWnd, WM_GETTEXT, PathBufSize, (LPARAM)Path);
+                GetControlTextUtf8(hWnd, Path, PathBufSize);
                 AddValueToStdHistoryValues(History, HistoryCount, Path, FALSE);
             }
         }
@@ -465,8 +645,29 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
         // umime vybirat pouze nazev bez tecky a pripony
+        int selectionEnd = SelectionEnd;
+        if (SelectionEndChars >= 0)
+        {
+            HWND combo = GetDlgItem(HWindow, IDE_PATH);
+            if (combo != NULL)
+            {
+                HWND child = GetWindow(combo, GW_CHILD);
+                while (child != NULL)
+                {
+                    char className[16];
+                    if (GetClassName(child, className, (int)ARRAYSIZE(className)) > 0)
+                    {
+                        if (_stricmp(className, "Edit") == 0)
+                            break;
+                    }
+                    child = GetWindow(child, GW_HWNDNEXT);
+                }
+                if (child != NULL && IsWindowUnicode(child))
+                    selectionEnd = SelectionEndChars;
+            }
+        }
         PostMessage(GetDlgItem(HWindow, IDE_PATH), CB_SETEDITSEL, 0,
-                    MAKELPARAM(0, SelectionEnd));
+                    MAKELPARAM(0, selectionEnd));
         return FALSE;
     }
 
@@ -542,7 +743,9 @@ MENU_TEMPLATE_ITEM EditNewFileDialogMenu[] =
             if (cmd == 1)
             {
                 Configuration.UseEditNewFileDefault = TRUE;
-                SendDlgItemMessage(HWindow, IDE_PATH, WM_GETTEXT, MAX_PATH, (LPARAM)Configuration.EditNewFileDefault);
+                HWND edit = GetDlgItem(HWindow, IDE_PATH);
+                if (edit != NULL)
+                    GetControlTextUtf8(edit, Configuration.EditNewFileDefault, MAX_PATH);
             }
             if (cmd == 2)
             {
@@ -607,11 +810,11 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
             {
                 LoadComboFromStdHistoryValues(hWnd, History, HistoryCount);
                 SendMessage(hWnd, CB_LIMITTEXT, PathBufSize - 1, 0);
-                SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+                SetControlTextUtf8(hWnd, Path);
             }
             else
             {
-                SendMessage(hWnd, WM_GETTEXT, PathBufSize, (LPARAM)Path);
+                GetControlTextUtf8(hWnd, Path, PathBufSize);
                 AddValueToStdHistoryValues(History, HistoryCount, Path, FALSE);
             }
         }
@@ -1167,11 +1370,11 @@ void CChangeDirDlg::Transfer(CTransferInfo& ti)
         {
             LoadComboFromStdHistoryValues(hWnd, history, CHANGEDIR_HISTORY_SIZE);
             SendMessage(hWnd, CB_LIMITTEXT, 2 * MAX_PATH - 1, 0);
-            SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+            SetControlTextUtf8(hWnd, Path);
         }
         else
         {
-            SendMessage(hWnd, WM_GETTEXT, 2 * MAX_PATH, (LPARAM)Path);
+            GetControlTextUtf8(hWnd, Path, 2 * MAX_PATH);
             AddValueToStdHistoryValues(history, CHANGEDIR_HISTORY_SIZE, Path, FALSE);
         }
     }
@@ -1238,7 +1441,7 @@ void CDriveInfo::Validate(CTransferInfo& ti)
     if (ti.GetControl(edit, IDE_VOLNAME) && ti.Type == ttDataFromWindow)
     {
         char newName[MAX_PATH];
-        SendMessage(edit, WM_GETTEXT, MAX_PATH, (LPARAM)newName);
+        GetControlTextUtf8(edit, newName, MAX_PATH);
 
         if (strcmp(OldVolumeName, newName) != 0)
         {
