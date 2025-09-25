@@ -2595,7 +2595,7 @@ void CMainWindow::SaveConfig(HWND parent)
 
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
-    if (panelPath != NULL && MAX_PATH > 0)
+    if (panelPath != NULL)
         panelPath[0] = 0;
 
     HKEY actKey;
