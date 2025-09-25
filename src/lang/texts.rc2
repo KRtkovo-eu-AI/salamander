@@ -175,7 +175,7 @@ STRINGTABLE
  IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, "Close all &right tabs except the default"
 
  IDS_SETTABPREFIX_TITLE,      "Set Tab Prefix"
- IDS_SETTABPREFIX_PROMPT,     "Enter a custom tab prefix for \"%%s\" (leave empty to clear):"
+ IDS_SETTABPREFIX_PROMPT,     "Enter a custom tab prefix for '%s' (leave empty to clear):"
 
  IDS_MENU_HELP,              "&Help"
  IDS_MENU_HELP_CONTENTS,     "&Contents\tF1"
