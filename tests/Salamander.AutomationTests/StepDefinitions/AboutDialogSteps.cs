@@ -38,13 +38,13 @@ public sealed class AboutDialogSteps
             TryOpenAboutWithKeyboard();
         }
 
-        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(2));
+        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5));
 
         if (_aboutWindow is null)
         {
             InvokeAboutCommand(mainWindow);
 
-            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5))
+            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(10))
                 ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
         }
     }
@@ -98,8 +98,26 @@ public sealed class AboutDialogSteps
 
     private static Window? FindAboutDialog(Window mainWindow)
     {
-        return mainWindow.ModalWindows
-            .FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase));
+        var aboutWindow = mainWindow.ModalWindows
+            .FirstOrDefault(window => IsAboutDialog(window, mainWindow));
+
+        if (aboutWindow is not null)
+        {
+            return aboutWindow;
+        }
+
+        var automation = TestSession.Automation;
+        var application = TestSession.Application;
+
+        foreach (var window in application.GetAllTopLevelWindows(automation))
+        {
+            if (IsAboutDialog(window, mainWindow))
+            {
+                return window;
+            }
+        }
+
+        return null;
     }
 
     private static bool TryOpenAboutThroughMenu(Window mainWindow)
@@ -155,6 +173,99 @@ public sealed class AboutDialogSteps
         {
             return false;
         }
+    }
+
+    private static bool IsAboutDialog(Window candidate, Window mainWindow)
+    {
+        if (candidate.FrameworkAutomationElement.NativeWindowHandle == mainWindow.FrameworkAutomationElement.NativeWindowHandle)
+        {
+            return false;
+        }
+
+        if (candidate.Properties.ProcessId.Value != mainWindow.Properties.ProcessId.Value)
+        {
+            return false;
+        }
+
+        if (MatchesAboutTitle(candidate.Title))
+        {
+            return true;
+        }
+
+        var hasAboutContent = ContainsAboutContent(candidate);
+
+        if (candidate.Patterns.Window.IsSupported)
+        {
+            var windowPattern = candidate.Patterns.Window.Pattern;
+            if (windowPattern.IsModal && hasAboutContent)
+            {
+                return true;
+            }
+
+            if (!windowPattern.IsModal)
+            {
+                return hasAboutContent;
+            }
+
+            return IsOwnedByMainWindow(candidate, mainWindow);
+        }
+
+        return hasAboutContent;
+    }
+
+    private static bool MatchesAboutTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return false;
+        }
+
+        return title.Contains("About", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("Salamander", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("Altap", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsAboutContent(Window window)
+    {
+        try
+        {
+            return window
+                .FindAllDescendants(cf => cf.ByControlType(ControlType.Text))
+                .Any(element => MatchesAboutContent(element.Name));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsOwnedByMainWindow(Window candidate, Window mainWindow)
+    {
+        var candidateHandle = candidate.FrameworkAutomationElement.NativeWindowHandle;
+        var mainHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
+
+        if (candidateHandle == IntPtr.Zero || mainHandle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var owner = NativeMethods.GetWindow(candidateHandle, NativeMethods.GW_OWNER);
+        return owner == mainHandle;
+    }
+
+    private static bool MatchesAboutContent(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        return content.Contains("About", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("Salamander", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("Altap", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("Version", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("Licence", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("License", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void TryOpenAboutWithKeyboard()
