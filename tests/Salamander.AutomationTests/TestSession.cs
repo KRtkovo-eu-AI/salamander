@@ -42,6 +42,9 @@ public static class TestSession
                 () => _application.GetMainWindow(_automation, DefaultTimeout),
                 timeout: DefaultTimeout)
             .Result ?? throw new InvalidOperationException("Failed to locate the Salamander main window.");
+
+        _mainWindow.Focus();
+        Retry.WhileFalse(() => _mainWindow!.IsEnabled && _mainWindow.IsAvailable, timeout: DefaultTimeout);
     }
 
     /// <summary>

@@ -24,6 +24,9 @@ public sealed class AboutDialogSteps
     public void WhenIOpenTheAboutDialogFromTheHelpMenu()
     {
         var mainWindow = TestSession.MainWindow;
+        mainWindow.Focus();
+        Retry.WhileFalse(() => mainWindow.IsEnabled && mainWindow.IsAvailable, timeout: TimeSpan.FromSeconds(5));
+
         var menuBar = mainWindow.FindMainMenu();
 
         var helpMenuItem = menuBar.FindMenuItem("Help")
@@ -153,13 +156,24 @@ internal static class MenuElementExtensions
             throw new ArgumentNullException(nameof(menuItem));
         }
 
+        Retry.WhileFalse(() => menuItem.IsEnabled, timeout: TimeSpan.FromSeconds(5));
+
         var expandCollapse = menuItem.Patterns.ExpandCollapse?.PatternOrDefault;
         if (expandCollapse != null && expandCollapse.ExpandCollapseState != ExpandCollapseState.Expanded)
         {
-            expandCollapse.Expand();
+            try
+            {
+                expandCollapse.Expand();
+            }
+            catch (System.Windows.Automation.ElementNotEnabledException)
+            {
+                menuItem.Focus();
+                menuItem.Click();
+            }
         }
         else
         {
+            menuItem.Focus();
             menuItem.Click();
         }
     }
