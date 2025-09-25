@@ -753,19 +753,19 @@ void CMainWindow::OnPanelTabDragStarted(CPanelSide side, int index)
     PanelTabCrossDragHasTarget = false;
 }
 
-void CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt)
+bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt)
 {
     if (!PanelTabCrossDragActive)
-        return;
+        return false;
     if (side != PanelTabCrossDragSourceSide || index != PanelTabCrossDragSourceIndex)
-        return;
+        return false;
 
     CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
     CTabWindow* targetTabWnd = GetPanelTabWindow(targetSide);
     if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
     {
         ClearPanelTabDragTargetIndicator();
-        return;
+        return false;
     }
 
     int targetIndex = -1;
@@ -780,16 +780,16 @@ void CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
         if (changed)
         {
             targetTabWnd->ShowExternalDropIndicator(markItem, markFlags);
-            PanelTabCrossDragHasTarget = true;
-            PanelTabCrossDragDisplayedInsertIndex = targetIndex;
-            PanelTabCrossDragDisplayedMarkItem = markItem;
-            PanelTabCrossDragDisplayedMarkFlags = markFlags;
         }
+        PanelTabCrossDragHasTarget = true;
+        PanelTabCrossDragDisplayedInsertIndex = targetIndex;
+        PanelTabCrossDragDisplayedMarkItem = markItem;
+        PanelTabCrossDragDisplayedMarkFlags = markFlags;
+        return true;
     }
-    else
-    {
-        ClearPanelTabDragTargetIndicator();
-    }
+
+    ClearPanelTabDragTargetIndicator();
+    return false;
 }
 
 bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt)
@@ -807,8 +807,15 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     int targetIndex = -1;
     int markItem = -1;
     DWORD markFlags = 0;
-    if (!targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags))
-        return false;
+    bool hasTarget = targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags);
+    if (!hasTarget)
+    {
+        if (!PanelTabCrossDragHasTarget)
+            return false;
+        targetIndex = PanelTabCrossDragDisplayedInsertIndex;
+        if (targetIndex < 0)
+            return false;
+    }
 
     ClearPanelTabDragTargetIndicator();
     CommandMoveTabToOtherSide(side, index, targetIndex);

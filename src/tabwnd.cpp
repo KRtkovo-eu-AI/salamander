@@ -145,6 +145,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragStartPoint.x = 0;
     DragStartPoint.y = 0;
     DragSourceIndex = -1;
+    DragHasExternalTarget = false;
     DragCurrentTarget = -1;
     DragInsertMarkItem = -1;
     DragInsertMarkFlags = 0;
@@ -513,6 +514,7 @@ void CTabWindow::StartDragTracking(int index, const POINT& pt)
     Dragging = false;
     DragSourceIndex = index;
     DragStartPoint = pt;
+    DragHasExternalTarget = false;
     DragCurrentTarget = -1;
     ClearInsertMark();
 }
@@ -522,6 +524,9 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
     CALL_STACK_MESSAGE_NONE
     if (!DragTracking)
         return;
+
+    bool externalTarget = false;
+    bool mainWindowUpdated = false;
 
     if (!Dragging)
     {
@@ -550,7 +555,8 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
                 if (HWindow != NULL)
                     ClientToScreen(HWindow, &screenPt);
                 MainWindow->OnPanelTabDragStarted(Side, DragSourceIndex);
-                MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+                externalTarget = MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+                mainWindowUpdated = true;
             }
         }
     }
@@ -559,11 +565,27 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
         POINT screenPt = pt;
         if (HWindow != NULL)
             ClientToScreen(HWindow, &screenPt);
-        MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+        externalTarget = MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+        mainWindowUpdated = true;
     }
 
-    if (Dragging)
-        UpdateDragIndicator(pt);
+    if (!Dragging)
+    {
+        DragHasExternalTarget = false;
+        return;
+    }
+
+    bool newExternalTarget = mainWindowUpdated && externalTarget;
+    DragHasExternalTarget = newExternalTarget;
+
+    if (DragHasExternalTarget)
+    {
+        DragCurrentTarget = -1;
+        ClearInsertMark();
+        return;
+    }
+
+    UpdateDragIndicator(pt);
 }
 
 void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
@@ -587,6 +609,7 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+    DragHasExternalTarget = false;
 
     bool movedToOtherSide = false;
     if (MainWindow != NULL)
@@ -628,6 +651,7 @@ void CTabWindow::CancelDragTracking()
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+    DragHasExternalTarget = false;
 
     if (MainWindow != NULL)
         MainWindow->CancelPanelTabDrag();
@@ -637,6 +661,13 @@ void CTabWindow::UpdateDragIndicator(const POINT& pt)
 {
     CALL_STACK_MESSAGE_NONE
     if (!Dragging || HWindow == NULL)
+    {
+        ClearInsertMark();
+        DragCurrentTarget = -1;
+        return;
+    }
+
+    if (DragHasExternalTarget)
     {
         ClearInsertMark();
         DragCurrentTarget = -1;

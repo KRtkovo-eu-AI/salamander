@@ -92,6 +92,7 @@ private:
     bool Dragging;
     POINT DragStartPoint;
     int DragSourceIndex;
+    bool DragHasExternalTarget;
     int DragCurrentTarget;
     int DragInsertMarkItem;
     DWORD DragInsertMarkFlags;

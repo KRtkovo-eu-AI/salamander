@@ -536,7 +536,7 @@ public:
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
     void OnPanelTabReordered(CPanelSide side, int from, int to);
     void OnPanelTabDragStarted(CPanelSide side, int index);
-    void OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt);
+    bool OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt);
     bool TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt);
     void CancelPanelTabDrag();
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
