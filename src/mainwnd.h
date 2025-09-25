@@ -528,6 +528,7 @@ public:
     void OnPanelTabSelected(CPanelSide side, int index);
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
     void OnPanelTabReordered(CPanelSide side, int from, int to);
+    void OnPanelTabDropped(CPanelSide fromSide, int fromIndex, CPanelSide toSide, int insertIndex, bool copy);
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
     CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;

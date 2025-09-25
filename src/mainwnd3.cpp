@@ -697,6 +697,125 @@ void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
     tabs.Insert(to, panel);
 }
 
+void CMainWindow::OnPanelTabDropped(CPanelSide fromSide, int fromIndex, CPanelSide toSide, int insertIndex, bool copy)
+{
+    CALL_STACK_MESSAGE5("CMainWindow::OnPanelTabDropped(%d, %d, %d, %d, %d)", fromSide, fromIndex, toSide, insertIndex, copy);
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    TIndirectArray<CFilesWindow>& fromTabs = GetPanelTabs(fromSide);
+    if (fromIndex < 0 || fromIndex >= fromTabs.Count)
+        return;
+    if (fromIndex == 0)
+        return;
+
+    CFilesWindow* sourcePanel = fromTabs[fromIndex];
+    if (sourcePanel == NULL)
+        return;
+
+    TIndirectArray<CFilesWindow>& toTabs = GetPanelTabs(toSide);
+    if (insertIndex < 1)
+        insertIndex = 1;
+    if (insertIndex > toTabs.Count)
+        insertIndex = toTabs.Count;
+
+    if (copy)
+    {
+        CFilesWindow* newPanel = AddPanelTab(toSide, insertIndex);
+        if (newPanel == NULL)
+            return;
+
+        int templateIndex = sourcePanel->GetViewTemplateIndex();
+        if (newPanel->IsViewTemplateValid(templateIndex))
+            newPanel->SelectViewTemplate(templateIndex, TRUE, FALSE);
+
+        if (sourcePanel->HasCustomTabColor())
+            newPanel->SetCustomTabColor(sourcePanel->GetCustomTabColor());
+        else
+            newPanel->ClearCustomTabColor();
+
+        if (sourcePanel->HasCustomTabPrefix())
+            newPanel->SetCustomTabPrefix(sourcePanel->GetCustomTabPrefix().c_str());
+        else
+            newPanel->ClearCustomTabPrefix();
+
+        const char* path = sourcePanel->GetPath();
+        if (path != NULL)
+            newPanel->ChangeDir(path);
+
+        UpdatePanelTabColor(newPanel);
+        UpdatePanelTabTitle(newPanel);
+        return;
+    }
+
+    if (fromSide == toSide)
+        return;
+
+    bool sourceWasActive = ((fromSide == cpsLeft) ? LeftPanel : RightPanel) == sourcePanel;
+
+    CTabWindow* fromTabWnd = GetPanelTabWindow(fromSide);
+    if (fromTabWnd != NULL && fromTabWnd->HWindow != NULL)
+        fromTabWnd->RemoveTab(fromIndex);
+
+    fromTabs.Detach(fromIndex);
+
+    if (sourceWasActive)
+    {
+        if (fromTabs.Count > 0)
+        {
+            int newIndex = fromIndex;
+            if (newIndex >= fromTabs.Count)
+                newIndex = fromTabs.Count - 1;
+            if (newIndex < 0)
+                newIndex = 0;
+            CFilesWindow* newPanel = fromTabs[newIndex];
+            if (newPanel != NULL)
+                SwitchPanelTab(newPanel);
+        }
+        else
+        {
+            if (fromSide == cpsLeft)
+                LeftPanel = NULL;
+            else
+                RightPanel = NULL;
+            UpdatePanelTabVisibility(fromSide);
+        }
+    }
+    else
+    {
+        if (fromTabWnd != NULL && fromTabWnd->HWindow != NULL)
+        {
+            int sel = fromTabWnd->GetCurSel();
+            if (sel > fromIndex)
+                fromTabWnd->SetCurSel(sel - 1);
+        }
+        UpdatePanelTabVisibility(fromSide);
+    }
+
+    if (insertIndex < 1)
+        insertIndex = 1;
+    if (insertIndex > toTabs.Count)
+        insertIndex = toTabs.Count;
+
+    toTabs.Insert(insertIndex, sourcePanel);
+    sourcePanel->SetPanelSide(toSide);
+
+    CTabWindow* toTabWnd = GetPanelTabWindow(toSide);
+    if (toTabWnd != NULL && toTabWnd->HWindow != NULL)
+    {
+        std::wstring text = BuildTabDisplayText(sourcePanel, insertIndex);
+        toTabWnd->AddTab(insertIndex, text.c_str(), (LPARAM)sourcePanel);
+        UpdatePanelTabColor(sourcePanel);
+        toTabWnd->SetCurSel(insertIndex);
+    }
+    else
+    {
+        UpdatePanelTabColor(sourcePanel);
+    }
+
+    SwitchPanelTab(sourcePanel);
+}
+
 void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 {
     if (!Configuration.UsePanelTabs)

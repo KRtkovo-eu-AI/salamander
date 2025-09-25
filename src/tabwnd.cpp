@@ -50,6 +50,11 @@ namespace
     constexpr LPARAM kNewTabButtonParam = static_cast<LPARAM>(-1);
     const wchar_t kNewTabButtonText[] = L"+";
 
+    CTabWindow* g_GlobalDragSource = NULL;
+    CTabWindow* g_GlobalDropWindow = NULL;
+    bool g_GlobalDropIsInternal = false;
+    int g_GlobalDropIndex = -1;
+
     COLORREF BlendColor(COLORREF from, COLORREF to, int weight)
     {
         if (weight < 0)
@@ -513,6 +518,19 @@ void CTabWindow::StartDragTracking(int index, const POINT& pt)
     DragStartPoint = pt;
     DragCurrentTarget = -1;
     ClearInsertMark();
+
+    g_GlobalDragSource = this;
+    g_GlobalDropWindow = NULL;
+    g_GlobalDropIsInternal = false;
+    g_GlobalDropIndex = -1;
+
+    if (MainWindow != NULL)
+    {
+        CPanelSide otherSide = (Side == cpsLeft) ? cpsRight : cpsLeft;
+        CTabWindow* otherWindow = MainWindow->GetPanelTabWindow(otherSide);
+        if (otherWindow != NULL)
+            otherWindow->ClearInsertMark();
+    }
 }
 
 void CTabWindow::UpdateDragTracking(const POINT& pt)
@@ -546,7 +564,12 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
     }
 
     if (Dragging)
-        UpdateDragIndicator(pt);
+    {
+        POINT screenPt = pt;
+        if (HWindow != NULL)
+            ClientToScreen(HWindow, &screenPt);
+        UpdateDragIndicator(screenPt);
+    }
 }
 
 void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
@@ -563,8 +586,17 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     if (HWindow != NULL && GetCapture() == HWindow)
         ReleaseCapture();
 
+    CTabWindow* otherWindow = NULL;
+    if (MainWindow != NULL)
+    {
+        CPanelSide otherSide = (Side == cpsLeft) ? cpsRight : cpsLeft;
+        otherWindow = MainWindow->GetPanelTabWindow(otherSide);
+    }
+
     int lastTarget = DragCurrentTarget;
     ClearInsertMark();
+    if (otherWindow != NULL)
+        otherWindow->ClearInsertMark();
     DragCurrentTarget = -1;
 
     DragTracking = false;
@@ -572,15 +604,50 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     DragSourceIndex = -1;
 
     if (canceled || !wasDragging)
+    {
+        g_GlobalDragSource = NULL;
+        g_GlobalDropWindow = NULL;
+        g_GlobalDropIsInternal = false;
+        g_GlobalDropIndex = -1;
         return;
+    }
 
-    int targetIndex = ComputeDragTargetIndex(pt, sourceIndex);
-    if (targetIndex < 0)
-        targetIndex = lastTarget;
-    if (targetIndex < 0 || targetIndex == sourceIndex)
-        return;
+    POINT screenPt = pt;
+    if (HWindow != NULL)
+        ClientToScreen(HWindow, &screenPt);
 
-    MoveTabInternal(sourceIndex, targetIndex);
+    CTabWindow* targetWindow = NULL;
+    bool internalTarget = false;
+    int targetIndex = -1;
+    int markItem = -1;
+    DWORD markFlags = 0;
+    if (!FindDropTarget(screenPt, false, targetWindow, internalTarget, targetIndex, markItem, markFlags))
+    {
+        targetWindow = g_GlobalDropWindow;
+        internalTarget = g_GlobalDropIsInternal;
+        targetIndex = g_GlobalDropIndex;
+    }
+
+    if (targetWindow == this && internalTarget)
+    {
+        if (targetIndex < 0)
+            targetIndex = lastTarget;
+        if (targetIndex >= 0 && targetIndex != sourceIndex)
+            MoveTabInternal(sourceIndex, targetIndex);
+    }
+    else if (targetWindow != NULL && targetWindow != this && MainWindow != NULL)
+    {
+        if (targetIndex >= 0)
+        {
+            bool copy = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+            MainWindow->OnPanelTabDropped(Side, sourceIndex, targetWindow->GetSide(), targetIndex, copy);
+        }
+    }
+
+    g_GlobalDragSource = NULL;
+    g_GlobalDropWindow = NULL;
+    g_GlobalDropIsInternal = false;
+    g_GlobalDropIndex = -1;
 }
 
 void CTabWindow::CancelDragTracking()
@@ -593,36 +660,67 @@ void CTabWindow::CancelDragTracking()
         ReleaseCapture();
 
     ClearInsertMark();
+    if (MainWindow != NULL)
+    {
+        CPanelSide otherSide = (Side == cpsLeft) ? cpsRight : cpsLeft;
+        CTabWindow* otherWindow = MainWindow->GetPanelTabWindow(otherSide);
+        if (otherWindow != NULL)
+            otherWindow->ClearInsertMark();
+    }
     DragCurrentTarget = -1;
 
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+
+    g_GlobalDragSource = NULL;
+    g_GlobalDropWindow = NULL;
+    g_GlobalDropIsInternal = false;
+    g_GlobalDropIndex = -1;
 }
 
-void CTabWindow::UpdateDragIndicator(const POINT& pt)
+void CTabWindow::UpdateDragIndicator(const POINT& screenPt)
 {
     CALL_STACK_MESSAGE_NONE
-    if (!Dragging || HWindow == NULL)
+    if (!Dragging)
     {
         ClearInsertMark();
+        if (MainWindow != NULL)
+        {
+            CPanelSide otherSide = (Side == cpsLeft) ? cpsRight : cpsLeft;
+            CTabWindow* otherWindow = MainWindow->GetPanelTabWindow(otherSide);
+            if (otherWindow != NULL)
+                otherWindow->ClearInsertMark();
+        }
         DragCurrentTarget = -1;
+        g_GlobalDropWindow = NULL;
+        g_GlobalDropIsInternal = false;
+        g_GlobalDropIndex = -1;
         return;
     }
 
+    CTabWindow* targetWindow = NULL;
+    bool internalTarget = false;
     int targetIndex = -1;
     int markItem = -1;
     DWORD markFlags = 0;
-    if (ComputeDragTargetInfo(pt, DragSourceIndex, targetIndex, markItem, markFlags))
-    {
-        DragCurrentTarget = targetIndex;
-        SetInsertMark(markItem, markFlags);
-    }
-    else
+    if (!FindDropTarget(screenPt, true, targetWindow, internalTarget, targetIndex, markItem, markFlags))
     {
         DragCurrentTarget = -1;
-        ClearInsertMark();
+        g_GlobalDropWindow = NULL;
+        g_GlobalDropIsInternal = false;
+        g_GlobalDropIndex = -1;
+        return;
     }
+
+    if (targetWindow == this && internalTarget)
+        DragCurrentTarget = targetIndex;
+    else
+        DragCurrentTarget = -1;
+
+    g_GlobalDropWindow = targetWindow;
+    g_GlobalDropIsInternal = internalTarget;
+    g_GlobalDropIndex = targetIndex;
 }
 
 void CTabWindow::SetInsertMark(int item, DWORD flags)
@@ -800,6 +898,246 @@ int CTabWindow::ComputeDragTargetIndex(POINT pt, int fromIndex) const
         return -1;
 
     return targetIndex;
+}
+
+bool CTabWindow::ComputeExternalDropTarget(POINT pt, int& insertIndex, int& markItem, DWORD& markFlags) const
+{
+    CALL_STACK_MESSAGE_NONE
+    insertIndex = -1;
+    markItem = -1;
+    markFlags = 0;
+
+    if (HWindow == NULL)
+        return false;
+
+    int tabCount = GetTabCount();
+    if (tabCount <= 0)
+        return false;
+
+    int newTabIndex = GetNewTabButtonIndex();
+    if (newTabIndex <= 0)
+        return false;
+
+    int hit = HitTest(pt);
+    if (hit >= 0)
+    {
+        if (hit == 0)
+        {
+            insertIndex = 1;
+            markItem = 0;
+            markFlags = TCIMF_AFTER;
+        }
+        else if (hit >= newTabIndex)
+        {
+            insertIndex = tabCount;
+            markItem = newTabIndex - 1;
+            if (markItem < 0)
+                markItem = 0;
+            markFlags = TCIMF_AFTER;
+        }
+        else
+        {
+            RECT rect;
+            if (!TabCtrl_GetItemRect(HWindow, hit, &rect))
+                return false;
+            int center = (rect.left + rect.right) / 2;
+            if (pt.x < center)
+            {
+                insertIndex = hit;
+                markItem = hit;
+                markFlags = TCIMF_BEFORE;
+            }
+            else
+            {
+                insertIndex = hit + 1;
+                markItem = hit;
+                markFlags = TCIMF_AFTER;
+            }
+        }
+    }
+    else
+    {
+        RECT previousRect;
+        if (!TabCtrl_GetItemRect(HWindow, 0, &previousRect))
+            return false;
+
+        int slotIndex = newTabIndex;
+        for (int index = 1; index <= newTabIndex; ++index)
+        {
+            RECT currentRect;
+            if (!TabCtrl_GetItemRect(HWindow, index, &currentRect))
+                continue;
+
+            int boundary = (previousRect.right + currentRect.left) / 2;
+            if (pt.x < boundary)
+            {
+                slotIndex = index;
+                break;
+            }
+
+            previousRect = currentRect;
+        }
+
+        if (slotIndex <= 1)
+        {
+            insertIndex = 1;
+            markItem = 0;
+            markFlags = TCIMF_AFTER;
+        }
+        else if (slotIndex >= newTabIndex)
+        {
+            insertIndex = tabCount;
+            markItem = newTabIndex - 1;
+            if (markItem < 0)
+                markItem = 0;
+            markFlags = TCIMF_AFTER;
+        }
+        else
+        {
+            insertIndex = slotIndex;
+            markItem = slotIndex;
+            markFlags = TCIMF_BEFORE;
+        }
+    }
+
+    if (insertIndex < 1)
+        insertIndex = 1;
+    if (insertIndex > tabCount)
+        insertIndex = tabCount;
+
+    if (markItem < 0)
+        return false;
+    if (markItem >= newTabIndex)
+        markItem = newTabIndex - 1;
+    if (markItem < 0)
+        markItem = 0;
+
+    return insertIndex >= 1 && tabCount > 0;
+}
+
+bool CTabWindow::FindDropTarget(const POINT& screenPt, bool updateInsertMarks, CTabWindow*& targetWindow,
+                                bool& isInternalTarget, int& targetIndex, int& markItem, DWORD& markFlags)
+{
+    CALL_STACK_MESSAGE_NONE
+    targetWindow = NULL;
+    isInternalTarget = false;
+    targetIndex = -1;
+    markItem = -1;
+    markFlags = 0;
+
+    CTabWindow* otherWindow = NULL;
+    if (MainWindow != NULL)
+    {
+        CPanelSide otherSide = (Side == cpsLeft) ? cpsRight : cpsLeft;
+        otherWindow = MainWindow->GetPanelTabWindow(otherSide);
+        if (otherWindow == this)
+            otherWindow = NULL;
+    }
+
+    POINT localPt = screenPt;
+    RECT localRect = {0};
+    bool pointerInThis = false;
+    if (HWindow != NULL)
+    {
+        ScreenToClient(HWindow, &localPt);
+        GetClientRect(HWindow, &localRect);
+        pointerInThis = PtInRect(&localRect, localPt) != 0;
+    }
+
+    POINT otherPt = screenPt;
+    RECT otherRect = {0};
+    bool pointerInOther = false;
+    if (otherWindow != NULL && otherWindow->HWindow != NULL)
+    {
+        ScreenToClient(otherWindow->HWindow, &otherPt);
+        GetClientRect(otherWindow->HWindow, &otherRect);
+        pointerInOther = PtInRect(&otherRect, otherPt) != 0;
+    }
+
+    bool internalValid = false;
+    int internalTargetIndex = -1;
+    int internalMarkItem = -1;
+    DWORD internalMarkFlags = 0;
+    if (HWindow != NULL)
+    {
+        if (ComputeDragTargetInfo(localPt, DragSourceIndex, internalTargetIndex, internalMarkItem, internalMarkFlags))
+            internalValid = true;
+    }
+
+    bool externalValid = false;
+    int externalInsertIndex = -1;
+    int externalMarkItem = -1;
+    DWORD externalMarkFlags = 0;
+    if (otherWindow != NULL && otherWindow->HWindow != NULL)
+    {
+        if (otherWindow->ComputeExternalDropTarget(otherPt, externalInsertIndex, externalMarkItem, externalMarkFlags))
+            externalValid = true;
+    }
+
+    if (pointerInOther && externalValid)
+    {
+        targetWindow = otherWindow;
+        isInternalTarget = false;
+        targetIndex = externalInsertIndex;
+        markItem = externalMarkItem;
+        markFlags = externalMarkFlags;
+    }
+    else if (pointerInThis && internalValid)
+    {
+        targetWindow = this;
+        isInternalTarget = true;
+        targetIndex = internalTargetIndex;
+        markItem = internalMarkItem;
+        markFlags = internalMarkFlags;
+    }
+    else if (!pointerInThis && externalValid && !internalValid)
+    {
+        targetWindow = otherWindow;
+        isInternalTarget = false;
+        targetIndex = externalInsertIndex;
+        markItem = externalMarkItem;
+        markFlags = externalMarkFlags;
+    }
+    else if (internalValid)
+    {
+        targetWindow = this;
+        isInternalTarget = true;
+        targetIndex = internalTargetIndex;
+        markItem = internalMarkItem;
+        markFlags = internalMarkFlags;
+    }
+    else if (externalValid)
+    {
+        targetWindow = otherWindow;
+        isInternalTarget = false;
+        targetIndex = externalInsertIndex;
+        markItem = externalMarkItem;
+        markFlags = externalMarkFlags;
+    }
+
+    if (!updateInsertMarks)
+        return targetWindow != NULL;
+
+    if (targetWindow == this && isInternalTarget)
+    {
+        SetInsertMark(markItem, markFlags);
+        if (otherWindow != NULL)
+            otherWindow->ClearInsertMark();
+    }
+    else if (targetWindow == otherWindow && externalValid)
+    {
+        ClearInsertMark();
+        if (otherWindow != NULL)
+            otherWindow->SetInsertMark(markItem, markFlags);
+    }
+    else
+    {
+        ClearInsertMark();
+        if (otherWindow != NULL)
+            otherWindow->ClearInsertMark();
+    }
+
+    return targetWindow != NULL;
 }
 
 void CTabWindow::MoveTabInternal(int from, int to)

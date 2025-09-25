@@ -52,11 +52,14 @@ private:
     void UpdateDragTracking(const POINT& pt);
     void FinishDragTracking(const POINT& pt, bool canceled);
     void CancelDragTracking();
-    void UpdateDragIndicator(const POINT& pt);
+    void UpdateDragIndicator(const POINT& screenPt);
     void SetInsertMark(int item, DWORD flags);
     void ClearInsertMark();
     bool ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const;
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
+    bool ComputeExternalDropTarget(POINT pt, int& insertIndex, int& markItem, DWORD& markFlags) const;
+    bool FindDropTarget(const POINT& screenPt, bool updateInsertMarks, CTabWindow*& targetWindow,
+                        bool& isInternalTarget, int& targetIndex, int& markItem, DWORD& markFlags);
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
 
