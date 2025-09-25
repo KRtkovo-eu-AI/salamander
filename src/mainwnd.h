@@ -532,6 +532,7 @@ public:
     CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;
     void CommandNewTab(CPanelSide side, bool addAtEnd = false);
     void CommandCloseTab(CPanelSide side);
+    void CommandCloseAllTabsExceptDefault(CPanelSide side);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
 
