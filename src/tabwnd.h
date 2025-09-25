@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <vector>
+
 //
 // ****************************************************************************
 
@@ -30,6 +32,9 @@ public:
     int HitTest(POINT pt) const;
     BOOL HandleNotify(LPNMHDR nmhdr, LRESULT& result);
 
+    void SetTabColor(int index, COLORREF color);
+    void ClearTabColor(int index);
+
     CPanelSide GetSide() const { return Side; }
 
 protected:
@@ -53,6 +58,25 @@ private:
     bool ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const;
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
     void MoveTabInternal(int from, int to);
+    void InvalidateTab(int index);
+
+    struct STabColor
+    {
+        bool Valid;
+        COLORREF Color;
+    };
+
+    void EnsureTabColorCapacity();
+    void InsertTabColorSlot(int index, int currentCount);
+    void RemoveTabColorSlot(int index);
+    void MoveTabColor(int from, int to);
+    STabColor* GetTabColor(int index);
+    const STabColor* GetTabColor(int index) const;
+    bool HasAnyCustomTabColors() const;
+    bool TryResolveTabColor(int index, COLORREF& color) const;
+    void PaintCustomTabs(HDC hdc, const RECT* clipRect) const;
+    void DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
+                        bool selected, bool hot, bool hasFocus) const;
 
     CMainWindow* MainWindow;
     CPanelSide Side;
@@ -65,4 +89,7 @@ private:
     int DragCurrentTarget;
     int DragInsertMarkItem;
     DWORD DragInsertMarkFlags;
+
+    std::vector<STabColor> TabColors;
+
 };

@@ -1361,6 +1361,10 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     Parent = parent;
     PanelSide = side;
+    CustomTabColorValid = false;
+    CustomTabColor = RGB(0, 0, 0);
+    CustomTabPrefixValid = false;
+    CustomTabPrefix.clear();
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
