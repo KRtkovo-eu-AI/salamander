@@ -79,7 +79,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <Link>
-      <AdditionalDependencies>COMCTL32.LIB;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>COMCTL32.LIB;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)tserver.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)tserver.pdb</ProgramDatabaseFile>
@@ -116,7 +116,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <Link>
-      <AdditionalDependencies>COMCTL32.LIB;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>COMCTL32.LIB;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)tserver.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)tserver.pdb</ProgramDatabaseFile>
@@ -139,6 +139,7 @@
     <ClCompile Include="..\..\common\strutils.cpp" />
     <ClCompile Include="..\..\common\trace.cpp" />
     <ClCompile Include="..\..\common\winlib.cpp" />
+    <ClCompile Include="..\..\darkmode.cpp" />
     <ClCompile Include="..\..\tserver\config.cpp" />
     <ClCompile Include="..\..\tserver\dialogs.cpp" />
     <ClCompile Include="..\..\tserver\ms_init.cpp" />

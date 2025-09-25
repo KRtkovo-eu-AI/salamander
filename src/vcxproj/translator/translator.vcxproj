@@ -80,7 +80,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <Link>
-      <AdditionalDependencies>Msimg32.lib;COMCTL32.LIB;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Msimg32.lib;COMCTL32.LIB;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)translator.exe</OutputFile>
       <ProgramDatabaseFile>$(OutDir)translator.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -118,7 +118,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <Link>
-      <AdditionalDependencies>Msimg32.lib;COMCTL32.LIB;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Msimg32.lib;COMCTL32.LIB;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)translator.exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -142,6 +142,7 @@
     <ClCompile Include="..\..\common\str.cpp" />
     <ClCompile Include="..\..\common\trace.cpp" />
     <ClCompile Include="..\..\common\winlib.cpp" />
+    <ClCompile Include="..\..\darkmode.cpp" />
     <ClCompile Include="..\..\translator\config.cpp" />
     <ClCompile Include="..\..\translator\databook.cpp" />
     <ClCompile Include="..\..\translator\datacnfl.cpp" />

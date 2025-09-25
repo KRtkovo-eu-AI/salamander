@@ -63,6 +63,9 @@
     <ClCompile Include="..\common\winlib.cpp">
       <Filter>Common Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\darkmode.cpp">
+      <Filter>Common Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

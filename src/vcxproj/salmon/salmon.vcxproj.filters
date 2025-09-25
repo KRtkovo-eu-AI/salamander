@@ -39,6 +39,9 @@
     <ClCompile Include="..\..\common\winlib.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\darkmode.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\salmon\compress.cpp">
       <Filter>source</Filter>
     </ClCompile>
