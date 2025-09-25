@@ -9,6 +9,8 @@
 
 namespace
 {
+    int GetDarkModeAttributeId();
+
     enum class PreferredAppMode
     {
         Default,
