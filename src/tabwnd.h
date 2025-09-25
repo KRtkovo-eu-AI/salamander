@@ -19,10 +19,10 @@ public:
     void DestroyWindow();
     int GetNeededHeight() const;
 
-    int AddTab(int index, const char* text, LPARAM data);
+    int AddTab(int index, const wchar_t* text, LPARAM data);
     void RemoveTab(int index);
     void RemoveAllTabs();
-    void SetTabText(int index, const char* text);
+    void SetTabText(int index, const wchar_t* text);
     void SetCurSel(int index);
     int GetCurSel() const;
     int GetTabCount() const;
