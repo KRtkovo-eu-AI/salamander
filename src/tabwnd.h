@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <vector>
-
 //
 // ****************************************************************************
 
@@ -34,7 +32,6 @@ public:
 
     void SetTabColor(int index, COLORREF color);
     void ClearTabColor(int index);
-    bool GetTabColor(int index, COLORREF& color) const;
 
     CPanelSide GetSide() const { return Side; }
 
@@ -61,14 +58,6 @@ private:
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
 
-    struct TabAppearance
-    {
-        bool HasCustomColor;
-        COLORREF Color;
-
-        TabAppearance() : HasCustomColor(false), Color(RGB(0, 0, 0)) {}
-    };
-
     CMainWindow* MainWindow;
     CPanelSide Side;
     int ControlID;
@@ -81,5 +70,4 @@ private:
     int DragInsertMarkItem;
     DWORD DragInsertMarkFlags;
 
-    std::vector<TabAppearance> TabAppearances;
 };

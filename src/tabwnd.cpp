@@ -5,7 +5,6 @@
 
 #include <commctrl.h>
 #include <string>
-#include <algorithm>
 
 #include "tabwnd.h"
 #include "mainwnd.h"
@@ -197,9 +196,6 @@ int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
     int count = GetTabCount();
     if (index < 0 || index > count)
         index = count;
-    int vectorIndex = index;
-    if (vectorIndex < 0 || vectorIndex > (int)TabAppearances.size())
-        vectorIndex = (int)TabAppearances.size();
     int insertIndex = index;
     int newTabIndex = GetNewTabButtonIndex();
     if (newTabIndex >= 0 && insertIndex > newTabIndex)
@@ -209,8 +205,6 @@ int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
         CSelChangeGuard guard(SuppressSelectionNotifications);
         result = (int)SendMessageW(HWindow, TCM_INSERTITEMW, insertIndex, (LPARAM)&item);
     }
-    if (result >= 0)
-        TabAppearances.insert(TabAppearances.begin() + vectorIndex, TabAppearance());
     EnsureNewTabButton();
     return result;
 }
@@ -222,8 +216,6 @@ void CTabWindow::RemoveTab(int index)
     {
         if (index < 0 || index >= GetTabCount())
             return;
-        if (index >= 0 && index < (int)TabAppearances.size())
-            TabAppearances.erase(TabAppearances.begin() + index);
         {
             CSelChangeGuard guard(SuppressSelectionNotifications);
             SendMessage(HWindow, TCM_DELETEITEM, index, 0);
@@ -241,7 +233,6 @@ void CTabWindow::RemoveAllTabs()
             CSelChangeGuard guard(SuppressSelectionNotifications);
             SendMessage(HWindow, TCM_DELETEALLITEMS, 0, 0);
         }
-        TabAppearances.clear();
         EnsureNewTabButton();
     }
 }
@@ -389,7 +380,7 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
         case CDDS_ITEMPREPAINT:
         {
             int index = static_cast<int>(draw->dwItemSpec);
-            if (index < 0 || index >= (int)TabAppearances.size())
+            if (index < 0)
             {
                 result = CDRF_DODEFAULT;
                 return TRUE;
@@ -399,15 +390,29 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
                 result = CDRF_DODEFAULT;
                 return TRUE;
             }
-            const TabAppearance& appearance = TabAppearances[index];
-            if (!appearance.HasCustomColor)
+            TCITEMW paramItem;
+            ZeroMemory(&paramItem, sizeof(paramItem));
+            paramItem.mask = TCIF_PARAM;
+            if (!SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&paramItem))
+            {
+                result = CDRF_DODEFAULT;
+                return TRUE;
+            }
+            if (paramItem.lParam == kNewTabButtonParam)
+            {
+                result = CDRF_DODEFAULT;
+                return TRUE;
+            }
+
+            CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(paramItem.lParam);
+            if (panel == NULL || !panel->HasCustomTabColor())
             {
                 result = CDRF_DODEFAULT;
                 return TRUE;
             }
 
             RECT rect = draw->rc;
-            COLORREF baseColor = appearance.Color;
+            COLORREF baseColor = panel->GetCustomTabColor();
             bool selected = (draw->uItemState & CDIS_SELECTED) != 0;
             bool hot = (draw->uItemState & CDIS_HOT) != 0;
 
@@ -942,17 +947,6 @@ void CTabWindow::MoveTabInternal(int from, int to)
         TabCtrl_SetCurSel(HWindow, insertIndex);
     }
 
-    if (from >= 0 && from < (int)TabAppearances.size())
-    {
-        TabAppearance appearance = TabAppearances[from];
-        TabAppearances.erase(TabAppearances.begin() + from);
-        if (insertIndex < 0)
-            insertIndex = 0;
-        if (insertIndex > (int)TabAppearances.size())
-            insertIndex = (int)TabAppearances.size();
-        TabAppearances.insert(TabAppearances.begin() + insertIndex, appearance);
-    }
-
     if (MainWindow != NULL)
         MainWindow->OnPanelTabReordered(Side, from, insertIndex);
 }
@@ -960,41 +954,21 @@ void CTabWindow::MoveTabInternal(int from, int to)
 void CTabWindow::SetTabColor(int index, COLORREF color)
 {
     CALL_STACK_MESSAGE_NONE
-    if (index < 0 || index >= (int)TabAppearances.size())
-        return;
-    TabAppearance& appearance = TabAppearances[index];
-    appearance.HasCustomColor = true;
-    appearance.Color = color;
+    (void)color;
     InvalidateTab(index);
 }
 
 void CTabWindow::ClearTabColor(int index)
 {
     CALL_STACK_MESSAGE_NONE
-    if (index < 0 || index >= (int)TabAppearances.size())
-        return;
-    TabAppearance& appearance = TabAppearances[index];
-    if (!appearance.HasCustomColor)
-        return;
-    appearance.HasCustomColor = false;
     InvalidateTab(index);
-}
-
-bool CTabWindow::GetTabColor(int index, COLORREF& color) const
-{
-    CALL_STACK_MESSAGE_NONE
-    if (index < 0 || index >= (int)TabAppearances.size())
-        return false;
-    const TabAppearance& appearance = TabAppearances[index];
-    if (!appearance.HasCustomColor)
-        return false;
-    color = appearance.Color;
-    return true;
 }
 
 void CTabWindow::InvalidateTab(int index)
 {
     if (HWindow == NULL)
+        return;
+    if (index < 0)
         return;
     RECT rect;
     if (TabCtrl_GetItemRect(HWindow, index, &rect))
