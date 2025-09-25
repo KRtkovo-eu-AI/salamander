@@ -841,6 +841,21 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
         return false;
 
+    bool pointerOnTargetSide = PanelTabCrossDragHasTarget;
+    if (!pointerOnTargetSide && HWindow != NULL)
+    {
+        POINT clientPt = screenPt;
+        if (ScreenToClient(HWindow, &clientPt))
+        {
+            RECT splitRect;
+            GetSplitRect(splitRect);
+            if (targetSide == cpsRight)
+                pointerOnTargetSide = (clientPt.x >= splitRect.right);
+            else
+                pointerOnTargetSide = (clientPt.x <= splitRect.left);
+        }
+    }
+
     int targetIndex = -1;
     int markItem = -1;
     DWORD markFlags = 0;
@@ -864,37 +879,24 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
             hasTarget = true;
         }
 
-        if (!hasTarget && PanelTabCrossDragStoredInsertIndex >= 0)
+        if (!hasTarget && pointerOnTargetSide)
         {
-            RECT targetRect;
-            if (targetTabWnd->HWindow != NULL && GetWindowRect(targetTabWnd->HWindow, &targetRect))
+            if (PanelTabCrossDragStoredInsertIndex >= 0)
             {
-                RECT expandedRect = targetRect;
-                int verticalMargin = EnvFontCharHeight / 2;
-                if (verticalMargin < 6)
-                    verticalMargin = 6;
-                int horizontalMargin = EnvFontCharHeight;
-                if (horizontalMargin < 12)
-                    horizontalMargin = 12;
-                InflateRect(&expandedRect, horizontalMargin, verticalMargin);
-                bool insideExpanded = PtInRect(&expandedRect, screenPt) != FALSE;
-                bool acrossDivider = false;
-                if (!insideExpanded)
-                {
-                    if (targetSide == cpsRight)
-                        acrossDivider = (screenPt.x >= expandedRect.left);
-                    else
-                        acrossDivider = (screenPt.x <= expandedRect.right);
-                }
-
-                if (insideExpanded || acrossDivider)
-                {
-                    targetIndex = PanelTabCrossDragStoredInsertIndex;
-                    markItem = PanelTabCrossDragStoredMarkItem;
-                    markFlags = PanelTabCrossDragStoredMarkFlags;
-                    hasTarget = true;
-                }
+                targetIndex = PanelTabCrossDragStoredInsertIndex;
+                markItem = PanelTabCrossDragStoredMarkItem;
+                markFlags = PanelTabCrossDragStoredMarkFlags;
             }
+            else
+            {
+                targetIndex = GetPanelTabs(targetSide).Count;
+                markItem = -1;
+                markFlags = 0;
+            }
+            PanelTabCrossDragStoredInsertIndex = targetIndex;
+            PanelTabCrossDragStoredMarkItem = markItem;
+            PanelTabCrossDragStoredMarkFlags = markFlags;
+            hasTarget = true;
         }
 
         if (!hasTarget)
