@@ -1739,10 +1739,10 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
         pluginFS = panel->GetPluginFS();
         if (pluginFS != NULL)
             pluginTitleService = pluginFS->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE);
-    }
 
-    if (!pluginTitleService && mode != TITLE_BAR_MODE_FULLPATH)
-        mode = TITLE_BAR_MODE_FULLPATH;
+        if (!pluginTitleService && mode != TITLE_BAR_MODE_FULLPATH)
+            mode = TITLE_BAR_MODE_FULLPATH;
+    }
 
     char generalPath[2 * MAX_PATH];
     generalPath[0] = 0;
