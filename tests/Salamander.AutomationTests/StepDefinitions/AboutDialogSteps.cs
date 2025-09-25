@@ -1,13 +1,14 @@
 using System;
 using System.Linq;
 using FlaUI.Core.AutomationElements;
-using FlaUI.Core.AutomationElements.MenuItems;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
 using NUnit.Framework;
 using Reqnroll;
+using Menu = FlaUI.Core.AutomationElements.Menu;
+using MenuItem = FlaUI.Core.AutomationElements.MenuItem;
 
 namespace Salamander.AutomationTests.StepDefinitions;
 
