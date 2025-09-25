@@ -656,6 +656,7 @@ public:
 
     void MakeFileList();
 
+    static void FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* text, int textSize);
     // helper method for SetTitle; 'text' must be at least 2 * MAX_PATH characters long
     void GetFormatedPathForTitle(char* text);
 

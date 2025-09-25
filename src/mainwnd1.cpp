@@ -1719,82 +1719,86 @@ void CMainWindow::SetTrayIconText(const char* text)
     Shell_NotifyIcon(NIM_MODIFY, &tnid);
 }
 
-void CMainWindow::GetFormatedPathForTitle(char* path)
+void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* buffer, int bufferSize)
 {
-    path[0] = 0;
-    int titleBarMode = Configuration.TitleBarMode;
-    // a plugin FS without support for retrieving the path for the window title can only display the Full Path
-    CFilesWindow* panel = GetActivePanel();
-    if (panel == NULL)
-    {
-        path[0] = 0;
+    if (buffer == NULL || bufferSize <= 0)
         return;
-    }
-    if (panel->Is(ptPluginFS) &&
-        !panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE))
+
+    buffer[0] = 0;
+
+    if (panel == NULL)
+        return;
+
+    if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
+        mode = TITLE_BAR_MODE_DIRECTORY;
+
+    CPluginFSInterfaceEncapsulation* pluginFS = NULL;
+    BOOL pluginTitleService = FALSE;
+    if (panel->Is(ptPluginFS))
     {
-        titleBarMode = TITLE_BAR_MODE_FULLPATH;
+        pluginFS = panel->GetPluginFS();
+        if (pluginFS != NULL)
+            pluginTitleService = pluginFS->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE);
     }
-    switch (titleBarMode)
+
+    if (!pluginTitleService && mode != TITLE_BAR_MODE_FULLPATH)
+        mode = TITLE_BAR_MODE_FULLPATH;
+
+    char generalPath[2 * MAX_PATH];
+    generalPath[0] = 0;
+    panel->GetGeneralPath(generalPath, _countof(generalPath));
+
+    switch (mode)
     {
     case TITLE_BAR_MODE_COMPOSITE:
     {
-        if (!panel->Is(ptPluginFS) ||
-            !panel->GetPluginFS()->GetPathForMainWindowTitle(panel->GetPluginFS()->GetPluginFSName(),
-                                                             2, path, 2 * MAX_PATH))
+        if (pluginTitleService &&
+            pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), 2, buffer, bufferSize) && buffer[0] != 0)
         {
-            // we should display "root\...\current directory"
-            panel->GetGeneralPath(path, 2 * MAX_PATH);
-            if (path[0] != 0)
+            return;
+        }
+
+        lstrcpyn(buffer, generalPath, bufferSize);
+        if (buffer[0] != 0)
+        {
+            char* trimStart = NULL;
+            char* trimEnd = NULL;
+            if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
-                char* trimStart = NULL; // place where I insert "...", after which I append 'trimEnd'
-                char* trimEnd = NULL;
-                if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+                char rootPath[MAX_PATH];
+                GetRootPath(rootPath, buffer);
+                int chars = (int)strlen(rootPath);
+                trimStart = buffer + chars;
+                while (buffer[chars] != 0)
                 {
-                    char rootPath[MAX_PATH];
-                    GetRootPath(rootPath, path);
-                    int chars = (int)strlen(rootPath);
-                    // we isolated the root
-                    trimStart = path + chars;
-                    while (path[chars] != 0)
+                    if (buffer[chars] == '\' && buffer[chars + 1] != 0)
+                        trimEnd = buffer + chars;
+                    chars++;
+                }
+            }
+            else if (panel->Is(ptPluginFS) && pluginFS != NULL)
+            {
+                int chars = 0;
+                int pathLen = (int)strlen(buffer);
+                if (pluginFS->GetNextDirectoryLineHotPath(buffer, pathLen, chars) && chars < pathLen)
+                {
+                    trimStart = buffer + chars;
+                    int lastChars = chars;
+                    while (pluginFS->GetNextDirectoryLineHotPath(buffer, pathLen, chars))
                     {
-                        // we are looking for the last component we want to keep
-                        if (path[chars] == '\\' && path[chars + 1] != 0)
-                            trimEnd = path + chars;
-                        chars++;
+                        if (chars < pathLen)
+                            lastChars = chars;
+                        else
+                            break;
                     }
+                    trimEnd = buffer + lastChars;
                 }
-                else
-                {
-                    if (panel->Is(ptPluginFS))
-                    {
-                        int chars = 0;
-                        int pathLen = (int)strlen(path);
-                        // if FS does not support FS_SERVICE_GETNEXTDIRLINEHOTPATH, we get FALSE and show the full path
-                        if (panel->GetPluginFS()->GetNextDirectoryLineHotPath(path, pathLen, chars) &&
-                            chars < pathLen) // end of path isn't a point of division; bug in GetNextDirectoryLineHotPath implementation
-                        {
-                            // we isolated the root
-                            trimStart = path + chars;
-                            int lastChars = chars;
-                            while (panel->GetPluginFS()->GetNextDirectoryLineHotPath(path, pathLen, chars))
-                            {
-                                // we are looking for the last component we want to keep
-                                if (chars < pathLen)
-                                    lastChars = chars;
-                                else
-                                    break; // end of path isn't a point of division;bug in GetNextDirectoryLineHotPath implementation
-                            }
-                            trimEnd = path + lastChars;
-                        }
-                    }
-                }
-                // trim the path
-                if (trimStart != NULL && trimEnd != NULL && trimEnd > trimStart)
-                {
-                    memmove(trimStart + 3, trimEnd, strlen(trimEnd) + 1);
-                    memcpy(trimStart, "...", 3);
-                }
+            }
+
+            if (trimStart != NULL && trimEnd != NULL && trimEnd > trimStart)
+            {
+                memmove(trimStart + 3, trimEnd, strlen(trimEnd) + 1);
+                memcpy(trimStart, "...", 3);
             }
         }
         break;
@@ -1802,50 +1806,46 @@ void CMainWindow::GetFormatedPathForTitle(char* path)
 
     case TITLE_BAR_MODE_DIRECTORY:
     {
-        if (!panel->Is(ptPluginFS) ||
-            !panel->GetPluginFS()->GetPathForMainWindowTitle(panel->GetPluginFS()->GetPluginFSName(),
-                                                             1, path, MAX_PATH))
+        if (pluginTitleService &&
+            pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), 1, buffer, bufferSize) && buffer[0] != 0)
         {
-            // we should display only the current directory
-            panel->GetGeneralPath(path, 2 * MAX_PATH);
-            if (path[0] != 0)
+            return;
+        }
+
+        lstrcpyn(buffer, generalPath, bufferSize);
+        if (buffer[0] != 0)
+        {
+            if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
-                if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+                char rootPath[MAX_PATH];
+                GetRootPath(rootPath, buffer);
+                int chars = (int)strlen(rootPath);
+                char* p = buffer + strlen(buffer);
+                if (*p == '\')
+                    p--;
+                while (p > buffer && *p != '\')
+                    p--;
+                if (*(p + 1) != 0 && p + 1 >= buffer + chars)
+                    memmove(buffer, p + 1, strlen(p + 1) + 1);
+            }
+            else if (panel->Is(ptPluginFS) && pluginFS != NULL)
+            {
+                int chars = 0;
+                int pathLen = (int)strlen(buffer);
+                int lastChars = 0;
+                while (pluginFS->GetNextDirectoryLineHotPath(buffer, pathLen, chars))
                 {
-                    char rootPath[MAX_PATH];
-                    GetRootPath(rootPath, path);
-                    int chars = (int)strlen(rootPath);
-                    char* p = path + strlen(path);
-                    if (*p == '\\')
-                        p--;
-                    while (p > path && *p != '\\')
-                        p--;
-                    if (*(p + 1) != 0 && p + 1 >= path + chars)
-                        memmove(path, p + 1, strlen(p + 1) + 1);
+                    if (chars < pathLen)
+                        lastChars = chars;
+                    else
+                        break;
                 }
-                else
+                if (lastChars > 0)
                 {
-                    if (panel->Is(ptPluginFS))
-                    {
-                        int chars = 0;
-                        int pathLen = (int)strlen(path);
-                        int lastChars = 0;
-                        // if FS does not support FS_SERVICE_GETNEXTDIRLINEHOTPATH, we get FALSE and show the full path
-                        while (panel->GetPluginFS()->GetNextDirectoryLineHotPath(path, pathLen, chars))
-                        {
-                            if (chars < pathLen)
-                                lastChars = chars;
-                            else
-                                break; // end of path isn't a point of division; bug in GetNextDirectoryLineHotPath implementation
-                        }
-                        if (lastChars > 0)
-                        {
-                            char* p = path + lastChars;
-                            if (*p == '/' || *p == '\\')
-                                p++;
-                            memmove(path, p, strlen(p) + 1);
-                        }
-                    }
+                    char* p = buffer + lastChars;
+                    if (*p == '/' || *p == '\')
+                        p++;
+                    memmove(buffer, p, strlen(p) + 1);
                 }
             }
         }
@@ -1853,19 +1853,26 @@ void CMainWindow::GetFormatedPathForTitle(char* path)
     }
 
     case TITLE_BAR_MODE_FULLPATH:
-    {
-        // return the full path
-        panel->GetGeneralPath(path, 2 * MAX_PATH);
+    default:
+        lstrcpyn(buffer, generalPath, bufferSize);
         break;
     }
 
-    default:
-    {
-        TRACE_E("Configuration.TitleBarMode = " << Configuration.TitleBarMode);
-    }
-    }
+    if (buffer[0] == 0)
+        lstrcpyn(buffer, generalPath, bufferSize);
 }
 
+void CMainWindow::GetFormatedPathForTitle(char* path)
+{
+    path[0] = 0;
+    CFilesWindow* panel = GetActivePanel();
+    if (panel == NULL)
+    {
+        path[0] = 0;
+        return;
+    }
+    FormatPanelPathForDisplay(panel, Configuration.TitleBarMode, path, 2 * MAX_PATH);
+}
 void CMainWindow::SetWindowTitle(const char* text)
 {
     CALL_STACK_MESSAGE2("CMainWindow::SetWindowTitle(%s)", text);
