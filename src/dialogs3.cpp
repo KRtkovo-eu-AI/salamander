@@ -41,7 +41,8 @@ void SetWindowTextUTF8(HWND hWnd, const char* text)
         return;
     }
     std::wstring wide = Utf8ToWide(text);
-    SendMessageW(hWnd, WM_SETTEXT, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+    const wchar_t* payload = wide.c_str();
+    SendMessageW(hWnd, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(payload));
 }
 
 void GetWindowTextUTF8(HWND hWnd, char* buffer, int bufferSize)
@@ -58,7 +59,7 @@ void GetWindowTextUTF8(HWND hWnd, char* buffer, int bufferSize)
         len = 0;
     std::wstring wide(len, L'\0');
     if (len > 0)
-        SendMessageW(hWnd, WM_GETTEXT, len + 1, &wide[0]);
+        SendMessageW(hWnd, WM_GETTEXT, len + 1, reinterpret_cast<LPARAM>(&wide[0]));
     ConvertU2A(wide.c_str(), -1, buffer, bufferSize, FALSE, CP_UTF8);
 }
 
@@ -70,7 +71,8 @@ void ComboAddStringUTF8(HWND combo, const char* text)
         return;
     }
     std::wstring wide = Utf8ToWide(text);
-    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+    const wchar_t* payload = wide.c_str();
+    SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(payload));
 }
 
 void ComboSetTextUTF8(HWND combo, const char* text)
@@ -81,7 +83,8 @@ void ComboSetTextUTF8(HWND combo, const char* text)
         return;
     }
     std::wstring wide = Utf8ToWide(text);
-    SendMessageW(combo, WM_SETTEXT, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+    const wchar_t* payload = wide.c_str();
+    SendMessageW(combo, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(payload));
 }
 
 void ComboGetTextUTF8(HWND combo, char* buffer, int bufferSize)
