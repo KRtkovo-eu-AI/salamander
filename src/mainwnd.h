@@ -524,6 +524,7 @@ public:
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
+    void UpdatePanelTabColor(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
     void OnPanelTabReordered(CPanelSide side, int from, int to);
@@ -535,6 +536,10 @@ public:
     void CommandCloseAllTabsExceptDefault(CPanelSide side);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
+    void CommandSetPanelTabColor(CFilesWindow* panel);
+    void CommandClearPanelTabColor(CFilesWindow* panel);
+    void CommandSetPanelTabPrefix(CFilesWindow* panel);
+    void CommandClearPanelTabPrefix(CFilesWindow* panel);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx

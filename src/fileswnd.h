@@ -7,6 +7,7 @@
 class CFilesWindow;
 
 #include "plugins.h"
+#include <string>
 
 #define NUM_OF_CHECKTHREADS 30                   // max. pocet threadu pro "neblokujici" testy pristupnosti cest
 #define ICONOVR_REFRESH_PERIOD 2000              // minimalni odstup refreshu icon-overlays v panelu (viz IconOverlaysChangedOnPath)
@@ -765,6 +766,10 @@ public:
         *DirectoryLine;
 
     CPanelSide PanelSide;
+    bool CustomTabColorValid;
+    COLORREF CustomTabColor;
+    bool CustomTabPrefixValid;
+    std::wstring CustomTabPrefix;
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
@@ -916,6 +921,14 @@ public:
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
     BOOL IsRightPanel() const { return PanelSide == cpsRight; }
     void SetPanelSide(CPanelSide side);
+    bool HasCustomTabColor() const { return CustomTabColorValid; }
+    COLORREF GetCustomTabColor() const { return CustomTabColor; }
+    void SetCustomTabColor(COLORREF color);
+    void ClearCustomTabColor();
+    bool HasCustomTabPrefix() const { return CustomTabPrefixValid && !CustomTabPrefix.empty(); }
+    const std::wstring& GetCustomTabPrefix() const { return CustomTabPrefix; }
+    void SetCustomTabPrefix(const wchar_t* prefix);
+    void ClearCustomTabPrefix();
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
