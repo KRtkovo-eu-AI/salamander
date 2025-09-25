@@ -1761,6 +1761,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
         lstrcpyn(buffer, generalPath, bufferSize);
         if (buffer[0] != 0)
         {
+            const char backslash = 0x5C;  // '\\'
             char* trimStart = NULL;
             char* trimEnd = NULL;
             if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
@@ -1771,7 +1772,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
                 trimStart = buffer + chars;
                 while (buffer[chars] != 0)
                 {
-                    if (buffer[chars] == '\' && buffer[chars + 1] != 0)
+                    if (buffer[chars] == backslash && buffer[chars + 1] != 0)
                         trimEnd = buffer + chars;
                     chars++;
                 }
@@ -1815,15 +1816,17 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
         lstrcpyn(buffer, generalPath, bufferSize);
         if (buffer[0] != 0)
         {
+            const char backslash = 0x5C;      // '\\'
+            const char forwardSlash = 0x2F;   // '/'
             if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
             {
                 char rootPath[MAX_PATH];
                 GetRootPath(rootPath, buffer);
                 int chars = (int)strlen(rootPath);
                 char* p = buffer + strlen(buffer);
-                if (*p == '\')
+                if (*p == backslash)
                     p--;
-                while (p > buffer && *p != '\')
+                while (p > buffer && *p != backslash)
                     p--;
                 if (*(p + 1) != 0 && p + 1 >= buffer + chars)
                     memmove(buffer, p + 1, strlen(p + 1) + 1);
@@ -1843,7 +1846,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
                 if (lastChars > 0)
                 {
                     char* p = buffer + lastChars;
-                    if (*p == '/' || *p == '\')
+                    if (*p == forwardSlash || *p == backslash)
                         p++;
                     memmove(buffer, p, strlen(p) + 1);
                 }
