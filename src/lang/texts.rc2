@@ -26,6 +26,7 @@ STRINGTABLE
  IDS_MENU_LEFT_CLOSETAB,     "&Close Tab"
  IDS_MENU_LEFT_NEXTTAB,      "&Next Tab"
  IDS_MENU_LEFT_PREVTAB,      "&Previous Tab"
+ IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT, "Close all &left tabs except the default"
 
  IDS_MENU_FILES,             "&Files"
  IDS_MENU_FILES_RENAME,      "&Quick Rename...\tF2"
@@ -163,6 +164,7 @@ STRINGTABLE
  IDS_MENU_RIGHT_CLOSETAB,    "&Close Tab"
  IDS_MENU_RIGHT_NEXTTAB,     "&Next Tab"
  IDS_MENU_RIGHT_PREVTAB,     "&Previous Tab"
+ IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, "Close all &right tabs except the default"
 
  IDS_MENU_HELP,              "&Help"
  IDS_MENU_HELP_CONTENTS,     "&Contents\tF1"
