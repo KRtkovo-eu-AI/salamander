@@ -661,8 +661,16 @@ void WinMainCRTStartup()
         ExitProcess(2);
 
     int i;
-    for (i = 0; i < 256; i++)
-        LowerCase[i] = (char)(UINT_PTR)CharLower((LPTSTR)(UINT_PTR)i);
+    if (GetACP() == CP_UTF8)
+    {
+        for (i = 0; i < 256; i++)
+            LowerCase[i] = (char)i;
+        for (i = 'A'; i <= 'Z'; i++)
+            LowerCase[i] = (char)(i - 'A' + 'a');
+    }
+    else
+        for (i = 0; i < 256; i++)
+            LowerCase[i] = (char)(UINT_PTR)CharLower((LPTSTR)(UINT_PTR)i);
 
     char* cmdline = GetCommandLine();
     // skip leading spaces
