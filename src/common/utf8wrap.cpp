@@ -1,5 +1,7 @@
-#define UTF8WRAPPERS_IMPLEMENTATION
 #include "precomp.h"
+
+#define UTF8WRAPPERS_IMPLEMENTATION
+#include "utf8wrap.h"
 
 #include <cstring>
 #include <string>
