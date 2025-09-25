@@ -32,6 +32,14 @@ typedef struct tagTCINSERTMARK
 #define TCIMF_AFTER 0x0001
 #endif
 
+#ifndef TCIS_BUTTONPRESSED
+#define TCIS_BUTTONPRESSED 0x0001
+#endif
+
+#ifndef TCIS_HIGHLIGHTED
+#define TCIS_HIGHLIGHTED 0x0002
+#endif
+
 //
 // ****************************************************************************
 // CTabWindow
@@ -374,132 +382,6 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
         return TRUE;
     }
 
-    case NM_CUSTOMDRAW:
-    {
-        LPNMCUSTOMDRAW draw = reinterpret_cast<LPNMCUSTOMDRAW>(nmhdr);
-        if (draw == NULL)
-            return FALSE;
-
-        switch (draw->dwDrawStage)
-        {
-        case CDDS_PREPAINT:
-            result = CDRF_NOTIFYITEMDRAW;
-            return TRUE;
-
-        case CDDS_ITEMPREPAINT:
-        {
-            int index = static_cast<int>(draw->dwItemSpec);
-            if (index < 0)
-            {
-                result = CDRF_DODEFAULT;
-                return TRUE;
-            }
-            if (IsNewTabButtonIndex(index))
-            {
-                result = CDRF_DODEFAULT;
-                return TRUE;
-            }
-            COLORREF baseColor = 0;
-            bool haveColor = false;
-            CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(GetItemData(index));
-            if (panel != NULL && panel->HasCustomTabColor())
-            {
-                baseColor = panel->GetCustomTabColor();
-                haveColor = true;
-            }
-            if (!haveColor)
-            {
-                const STabColor* colorEntry = GetTabColor(index);
-                if (colorEntry != NULL && colorEntry->Valid)
-                {
-                    baseColor = colorEntry->Color;
-                    haveColor = true;
-                }
-            }
-            if (!haveColor && MainWindow != NULL)
-            {
-                CFilesWindow* fallback = MainWindow->GetPanelTabAt(Side, index);
-                if (fallback != NULL && fallback->HasCustomTabColor())
-                {
-                    baseColor = fallback->GetCustomTabColor();
-                    haveColor = true;
-                }
-            }
-            if (!haveColor)
-            {
-                result = CDRF_DODEFAULT;
-                return TRUE;
-            }
-
-            RECT rect = draw->rc;
-            bool selected = (draw->uItemState & CDIS_SELECTED) != 0;
-            bool hot = (draw->uItemState & CDIS_HOT) != 0;
-
-            COLORREF fillColor = baseColor;
-            if (selected)
-                fillColor = LightenColor(fillColor, 96);
-            else if (hot)
-                fillColor = LightenColor(fillColor, 48);
-
-            HBRUSH brush = CreateSolidBrush(fillColor);
-            if (brush != NULL)
-            {
-                FillRect(draw->hdc, &rect, brush);
-                DeleteObject(brush);
-            }
-
-            COLORREF borderColor = DarkenColor(baseColor, 80);
-            HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
-            HPEN oldPen = NULL;
-            HBRUSH oldBrush = NULL;
-            if (pen != NULL)
-            {
-                oldPen = (HPEN)SelectObject(draw->hdc, pen);
-                oldBrush = (HBRUSH)SelectObject(draw->hdc, GetStockObject(NULL_BRUSH));
-                int radius = EnvFontCharHeight / 2;
-                if (radius < 3)
-                    radius = 3;
-                RoundRect(draw->hdc, rect.left, rect.top, rect.right, rect.bottom, radius, radius);
-                if (oldBrush != NULL)
-                    SelectObject(draw->hdc, oldBrush);
-                if (oldPen != NULL)
-                    SelectObject(draw->hdc, oldPen);
-                DeleteObject(pen);
-            }
-
-            RECT textRect = rect;
-            InflateRect(&textRect, -4, -2);
-
-            wchar_t textBuffer[512];
-            textBuffer[0] = L'\0';
-            TCITEMW item;
-            ZeroMemory(&item, sizeof(item));
-            item.mask = TCIF_TEXT;
-            item.pszText = textBuffer;
-            item.cchTextMax = _countof(textBuffer);
-            if (!SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&item))
-                textBuffer[0] = L'\0';
-
-            HFONT oldFont = NULL;
-            if (EnvFont != NULL)
-                oldFont = (HFONT)SelectObject(draw->hdc, EnvFont);
-            int oldBkMode = SetBkMode(draw->hdc, TRANSPARENT);
-            COLORREF textColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
-            COLORREF oldTextColor = SetTextColor(draw->hdc, textColor);
-            DrawTextW(draw->hdc, textBuffer, -1, &textRect,
-                      DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
-            if (oldTextColor != CLR_INVALID)
-                SetTextColor(draw->hdc, oldTextColor);
-            SetBkMode(draw->hdc, oldBkMode);
-            if (oldFont != NULL)
-                SelectObject(draw->hdc, oldFont);
-
-            result = CDRF_SKIPDEFAULT;
-            return TRUE;
-        }
-        }
-        break;
-    }
     }
 
     return FALSE;
@@ -1086,11 +968,229 @@ const CTabWindow::STabColor* CTabWindow::GetTabColor(int index) const
     return &TabColors[index];
 }
 
+bool CTabWindow::HasAnyCustomTabColors() const
+{
+    int total = GetDisplayedTabCount();
+    for (int i = 0; i < total; ++i)
+    {
+        if (IsNewTabButtonIndex(i))
+            continue;
+        COLORREF color;
+        if (TryResolveTabColor(i, color))
+            return true;
+    }
+    return false;
+}
+
+bool CTabWindow::TryResolveTabColor(int index, COLORREF& color) const
+{
+    if (index < 0)
+        return false;
+
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(GetItemData(index));
+    if (panel != NULL && panel->HasCustomTabColor())
+    {
+        color = panel->GetCustomTabColor();
+        return true;
+    }
+
+    const STabColor* entry = GetTabColor(index);
+    if (entry != NULL && entry->Valid)
+    {
+        color = entry->Color;
+        return true;
+    }
+
+    if (MainWindow != NULL)
+    {
+        CFilesWindow* fallback = MainWindow->GetPanelTabAt(Side, index);
+        if (fallback != NULL && fallback->HasCustomTabColor())
+        {
+            color = fallback->GetCustomTabColor();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
+{
+    if (hdc == NULL)
+        return;
+    if (HWindow == NULL)
+        return;
+
+    int total = GetDisplayedTabCount();
+    if (total <= 0)
+        return;
+
+    int selected = TabCtrl_GetCurSel(HWindow);
+    int focus = TabCtrl_GetCurFocus(HWindow);
+    HWND focusWnd = GetFocus();
+
+    for (int i = 0; i < total; ++i)
+    {
+        if (IsNewTabButtonIndex(i))
+            continue;
+
+        COLORREF baseColor;
+        if (!TryResolveTabColor(i, baseColor))
+            continue;
+
+        RECT itemRect;
+        if (!TabCtrl_GetItemRect(HWindow, i, &itemRect))
+            continue;
+
+        if (clipRect != NULL)
+        {
+            RECT intersection;
+            if (!IntersectRect(&intersection, &itemRect, clipRect))
+                continue;
+        }
+
+        wchar_t textBuffer[512];
+        textBuffer[0] = L'\0';
+
+        TCITEMW item;
+        ZeroMemory(&item, sizeof(item));
+        item.mask = TCIF_TEXT | TCIF_STATE;
+        item.pszText = textBuffer;
+        item.cchTextMax = _countof(textBuffer);
+        item.dwStateMask = 0xFFFFFFFF;
+        if (!SendMessageW(HWindow, TCM_GETITEMW, i, (LPARAM)&item))
+            textBuffer[0] = L'\0';
+
+        bool isSelected = (i == selected);
+        bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
+        bool hasFocus = (focus == i) && (focusWnd == HWindow);
+
+        DrawColoredTab(hdc, itemRect, textBuffer, baseColor, isSelected, isHot, hasFocus);
+    }
+}
+
+void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
+                                bool selected, bool hot, bool hasFocus) const
+{
+    if (hdc == NULL)
+        return;
+
+    RECT rect = itemRect;
+    RECT fillRect = rect;
+    InflateRect(&fillRect, -1, -1);
+    if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
+        fillRect = rect;
+
+    COLORREF fillColor = baseColor;
+    if (selected)
+        fillColor = LightenColor(fillColor, 96);
+    else if (hot)
+        fillColor = LightenColor(fillColor, 48);
+
+    HBRUSH brush = CreateSolidBrush(fillColor);
+    if (brush != NULL)
+    {
+        FillRect(hdc, &fillRect, brush);
+        DeleteObject(brush);
+    }
+
+    COLORREF borderColor = DarkenColor(baseColor, 80);
+    HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
+    if (pen != NULL)
+    {
+        HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+        int radius = EnvFontCharHeight / 2;
+        if (radius < 3)
+            radius = 3;
+        RoundRect(hdc, fillRect.left, fillRect.top, fillRect.right, fillRect.bottom, radius, radius);
+        if (oldBrush != NULL)
+            SelectObject(hdc, oldBrush);
+        if (oldPen != NULL)
+            SelectObject(hdc, oldPen);
+        DeleteObject(pen);
+    }
+
+    RECT textRect = fillRect;
+    InflateRect(&textRect, -4, -2);
+    if (textRect.right <= textRect.left)
+    {
+        textRect.left = fillRect.left;
+        textRect.right = fillRect.right;
+    }
+    if (textRect.bottom <= textRect.top)
+    {
+        textRect.top = fillRect.top;
+        textRect.bottom = fillRect.bottom;
+    }
+
+    HFONT oldFont = NULL;
+    if (EnvFont != NULL)
+        oldFont = (HFONT)SelectObject(hdc, EnvFont);
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+    COLORREF textColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
+    COLORREF oldTextColor = SetTextColor(hdc, textColor);
+
+    const wchar_t* drawText = (text != NULL) ? text : L"";
+    DrawTextW(hdc, drawText, -1, &textRect,
+              DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+    if (hasFocus)
+    {
+        RECT focusRect = fillRect;
+        InflateRect(&focusRect, -3, -3);
+        DrawFocusRect(hdc, &focusRect);
+    }
+
+    if (oldTextColor != CLR_INVALID)
+        SetTextColor(hdc, oldTextColor);
+    SetBkMode(hdc, oldBkMode);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
 LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE4("CTabWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_PAINT:
+    {
+        RECT updateRect;
+        BOOL hasUpdate = (HWindow != NULL) ? GetUpdateRect(HWindow, &updateRect, FALSE) : FALSE;
+        LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
+        if (HasAnyCustomTabColors())
+        {
+            HDC hdc = GetDC(HWindow);
+            if (hdc != NULL)
+            {
+                int saved = SaveDC(hdc);
+                if (hasUpdate)
+                    IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
+                PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
+                RestoreDC(hdc, saved);
+                ReleaseDC(HWindow, hdc);
+            }
+        }
+        return baseResult;
+    }
+
+    case WM_PRINTCLIENT:
+    {
+        LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
+        if (HasAnyCustomTabColors())
+        {
+            HDC hdc = reinterpret_cast<HDC>(wParam);
+            if (hdc != NULL)
+            {
+                int saved = SaveDC(hdc);
+                PaintCustomTabs(hdc, NULL);
+                RestoreDC(hdc, saved);
+            }
+        }
+        return baseResult;
+    }
+
     case WM_LBUTTONDOWN:
     {
         POINTS pts = MAKEPOINTS(lParam);
