@@ -670,6 +670,59 @@ COLORREF NavigatorColors[NUMBER_OF_COLORS] =
         RGBF(255, 255, 0, 0),   // THUMBNAIL_FRAME_FOCSEL
 };
 
+COLORREF DarkColors[NUMBER_OF_COLORS] =
+    {
+        // barvy pera pro ramecek kolem polozky
+        RGBF(0, 120, 215, 0),  // FOCUS_ACTIVE_NORMAL
+        RGBF(0, 120, 215, 0),  // FOCUS_ACTIVE_SELECTED
+        RGBF(153, 153, 153, 0), // FOCUS_FG_INACTIVE_NORMAL
+        RGBF(153, 153, 153, 0), // FOCUS_FG_INACTIVE_SELECTED
+        RGBF(32, 32, 32, 0),   // FOCUS_BK_INACTIVE_NORMAL
+        RGBF(32, 32, 32, 0),   // FOCUS_BK_INACTIVE_SELECTED
+
+        // barvy textu polozek v panelu
+        RGBF(230, 230, 230, 0), // ITEM_FG_NORMAL
+        RGBF(255, 255, 255, 0), // ITEM_FG_SELECTED
+        RGBF(230, 230, 230, 0), // ITEM_FG_FOCUSED
+        RGBF(255, 255, 255, 0), // ITEM_FG_FOCSEL
+        RGBF(255, 255, 255, 0), // ITEM_FG_HIGHLIGHT
+
+        // barvy pozadi polozek v panelu
+        RGBF(32, 32, 32, 0),   // ITEM_BK_NORMAL
+        RGBF(0, 120, 215, 0),  // ITEM_BK_SELECTED
+        RGBF(45, 45, 48, 0),   // ITEM_BK_FOCUSED
+        RGBF(0, 120, 215, 0),  // ITEM_BK_FOCSEL
+        RGBF(63, 63, 70, 0),   // ITEM_BK_HIGHLIGHT
+
+        // barvy pro blend ikonek
+        RGBF(0, 120, 215, 0),  // ICON_BLEND_SELECTED
+        RGBF(200, 200, 200, 0), // ICON_BLEND_FOCUSED
+        RGBF(0, 120, 215, 0),  // ICON_BLEND_FOCSEL
+
+        // barvy progress bary
+        RGBF(0, 120, 215, 0),  // PROGRESS_FG_NORMAL
+        RGBF(255, 255, 255, 0), // PROGRESS_FG_SELECTED
+        RGBF(45, 45, 48, 0),   // PROGRESS_BK_NORMAL
+        RGBF(0, 120, 215, 0),  // PROGRESS_BK_SELECTED
+
+        // barvy hot polozek
+        RGBF(0, 153, 255, 0),  // HOT_PANEL
+        RGBF(255, 255, 255, 0), // HOT_ACTIVE
+        RGBF(200, 200, 200, 0), // HOT_INACTIVE
+
+        // barvy titulku panelu
+        RGBF(255, 255, 255, 0), // ACTIVE_CAPTION_FG
+        RGBF(32, 32, 32, 0),    // ACTIVE_CAPTION_BK
+        RGBF(200, 200, 200, 0), // INACTIVE_CAPTION_FG
+        RGBF(45, 45, 48, 0),    // INACTIVE_CAPTION_BK
+
+        // barvy pera pro ramecek kolem thumbnails
+        RGBF(80, 80, 88, 0),   // THUMBNAIL_FRAME_NORMAL
+        RGBF(0, 120, 215, 0),  // THUMBNAIL_FRAME_FOCUSED
+        RGBF(0, 120, 215, 0),  // THUMBNAIL_FRAME_SELECTED
+        RGBF(0, 120, 215, 0),  // THUMBNAIL_FRAME_FOCSEL
+    };
+
 COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS] =
     {
         RGB(255, 255, 255),
@@ -3702,6 +3755,8 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     Windows8AndLater = SalIsWindowsVersionOrGreater(6, 2, 0);
     Windows8_1AndLater = SalIsWindowsVersionOrGreater(6, 3, 0);
     Windows10AndLater = SalIsWindowsVersionOrGreater(10, 0, 0);
+
+    InitializeDarkModeSupport();
 
     DWORD integrityLevel;
     if (GetProcessIntegrityLevel(&integrityLevel) && integrityLevel >= SECURITY_MANDATORY_HIGH_RID)

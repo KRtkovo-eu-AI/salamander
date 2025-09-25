@@ -146,6 +146,7 @@ HWND CWindow::CreateEx(DWORD dwExStyle,        // extended window style
     {
         if (WindowsManager.GetWindowPtr(hWnd) == NULL) // pokud se jeste neni ve WindowsManageru
             AttachToWindow(hWnd);                      // tak ho pridame -> subclassing
+        ApplyDarkModeForWindow(hWnd);
     }
     return hWnd;
 }
@@ -207,6 +208,7 @@ HWND CWindow::CreateExW(DWORD dwExStyle,        // extended window style
     {
         if (WindowsManager.GetWindowPtr(hWnd) == NULL) // pokud se jeste neni ve WindowsManageru
             AttachToWindow(hWnd);                      // tak ho pridame -> subclassing
+        ApplyDarkModeForWindow(hWnd);
     }
     return hWnd;
 }
@@ -331,6 +333,9 @@ CWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;   // pokud F1 nezpracujeme a pokud je to child okno, nechame F1 propadnout do parenta
         return TRUE; // pokud to neni child, ukoncime zpracovani F1
     }
+    case WM_THEMECHANGED:
+        ApplyDarkModeForWindow(HWindow);
+        break;
     }
 #ifndef _UNICODE
     if (UnicodeWnd)
@@ -378,6 +383,7 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
         else
         {
             wnd->HWindow = hwnd;
+            ApplyDarkModeForWindow(hwnd);
 #ifndef _UNICODE
             if (wnd->UnicodeWnd != unicode)
                 TRACE_C("Incompatible windows procedure.");
@@ -717,6 +723,7 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
         {
             dlg->HWindow = hwndDlg;
+            ApplyDarkModeForWindow(hwndDlg);
             //--- zarazeni okna podle hwndDlg do seznamu oken
             if (!WindowsManager.AddWindow(hwndDlg, dlg)) // chyba
             {

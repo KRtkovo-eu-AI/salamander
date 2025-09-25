@@ -2472,15 +2472,17 @@ void CMainWindow::SaveConfig(HWND parent)
 
             if (CreateKey(salamander, SALAMANDER_COLORS_REG, actKey))
             {
-                DWORD scheme = 4; // custom
+                DWORD scheme = COLORSCHEME_CUSTOM;
                 if (CurrentColors == SalamanderColors)
-                    scheme = 0;
+                    scheme = COLORSCHEME_SALAMANDER;
                 else if (CurrentColors == ExplorerColors)
-                    scheme = 1;
+                    scheme = COLORSCHEME_EXPLORER;
                 else if (CurrentColors == NortonColors)
-                    scheme = 2;
+                    scheme = COLORSCHEME_NORTON;
                 else if (CurrentColors == NavigatorColors)
-                    scheme = 3;
+                    scheme = COLORSCHEME_NAVIGATOR;
+                else if (CurrentColors == DarkColors)
+                    scheme = COLORSCHEME_DARK;
                 SetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD));
 
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG, UserColors[FOCUS_ACTIVE_NORMAL]);
@@ -2892,17 +2894,19 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (GetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD)))
             {
                 // we added a new scheme (DOS Navigator) at position 3
-                if (Configuration.ConfigVersion < 28 && scheme == 3)
-                    scheme = 4;
+                if (Configuration.ConfigVersion < 28 && scheme == COLORSCHEME_NAVIGATOR)
+                    scheme = COLORSCHEME_CUSTOM;
 
-                if (scheme == 0)
+                if (scheme == COLORSCHEME_SALAMANDER)
                     CurrentColors = SalamanderColors;
-                else if (scheme == 1)
+                else if (scheme == COLORSCHEME_EXPLORER)
                     CurrentColors = ExplorerColors;
-                else if (scheme == 2)
+                else if (scheme == COLORSCHEME_NORTON)
                     CurrentColors = NortonColors;
-                else if (scheme == 3)
+                else if (scheme == COLORSCHEME_NAVIGATOR)
                     CurrentColors = NavigatorColors;
+                else if (scheme == COLORSCHEME_DARK)
+                    CurrentColors = DarkColors;
             }
 
             LoadRGBF(actKey, SALAMANDER_CLR_ITEM_FG_NORMAL_REG, UserColors[ITEM_FG_NORMAL]);

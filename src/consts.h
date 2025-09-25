@@ -1270,6 +1270,14 @@ extern SALCOLOR SalamanderColors[NUMBER_OF_COLORS]; // standardni barvy
 extern SALCOLOR ExplorerColors[NUMBER_OF_COLORS];   // standardni barvy
 extern SALCOLOR NortonColors[NUMBER_OF_COLORS];     // standardni barvy
 extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standardni barvy
+extern SALCOLOR DarkColors[NUMBER_OF_COLORS];        // standardni barvy
+
+#define COLORSCHEME_SALAMANDER 0
+#define COLORSCHEME_EXPLORER 1
+#define COLORSCHEME_NORTON 2
+#define COLORSCHEME_NAVIGATOR 3
+#define COLORSCHEME_CUSTOM 4
+#define COLORSCHEME_DARK 5
 
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // barvy vieweru
 

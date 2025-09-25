@@ -117,6 +117,8 @@
     </ClCompile>
     <ClCompile Include="..\bugreprt.cpp">
     </ClCompile>
+    <ClCompile Include="..\darkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\common\dep\bzip2\blocksort.c">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">BZ_NO_STDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

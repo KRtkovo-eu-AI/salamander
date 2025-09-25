@@ -3199,6 +3199,41 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 #define CFG7F_DEFFG 0x02       // foreground muze nabyvat default hodnot
 #define CFG7F_DEFBK 0x04       // background muze nabyvat default hodnot
 
+static COLORREF* GetSchemeColorsById(int schemeId)
+{
+    switch (schemeId)
+    {
+    case COLORSCHEME_SALAMANDER:
+        return SalamanderColors;
+    case COLORSCHEME_EXPLORER:
+        return ExplorerColors;
+    case COLORSCHEME_NORTON:
+        return NortonColors;
+    case COLORSCHEME_NAVIGATOR:
+        return NavigatorColors;
+    case COLORSCHEME_DARK:
+        return DarkColors;
+    default:
+        return NULL;
+    }
+}
+
+static int GetSchemeIdFromColors(COLORREF* colors)
+{
+    if (colors == SalamanderColors)
+        return COLORSCHEME_SALAMANDER;
+    if (colors == ExplorerColors)
+        return COLORSCHEME_EXPLORER;
+    if (colors == NortonColors)
+        return COLORSCHEME_NORTON;
+    if (colors == NavigatorColors)
+        return COLORSCHEME_NAVIGATOR;
+    if (colors == DarkColors)
+        return COLORSCHEME_DARK;
+    return COLORSCHEME_CUSTOM;
+}
+
+
 struct CConfigurationPage7SubData
 {
     int Label;    // resID stringu s nazvem prvni barvy [static pred tlacitkem]
@@ -3310,9 +3345,14 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < NUMBER_OF_COLORS; i++)
             TmpColors[i] = UserColors[i];
 
-        int schemes[5] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON, IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_CUSTOM};
-        for (i = 0; i < 5; i++)
-            SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[i]));
+        const int schemeOrder[] = {COLORSCHEME_SALAMANDER, COLORSCHEME_EXPLORER, COLORSCHEME_NORTON, COLORSCHEME_NAVIGATOR, COLORSCHEME_DARK, COLORSCHEME_CUSTOM};
+        const int schemeLabels[] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON, IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_DARK, IDS_COLORSCHEME_CUSTOM};
+        const int schemeCount = sizeof(schemeOrder) / sizeof(schemeOrder[0]);
+        for (i = 0; i < schemeCount; i++)
+        {
+            LRESULT idx = SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemeLabels[i]));
+            SendMessage(HScheme, CB_SETITEMDATA, idx, schemeOrder[i]);
+        }
 
         for (i = 0; i < PAGE7DATA_COUNT; i++)
             SendMessage(HItem, CB_ADDSTRING, 0, (LPARAM)LoadStr(Page7Data[i].ItemLabel));
@@ -3321,16 +3361,17 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < CFG_COLORS_BUTTONS; i++)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
 
-        int index = 4; // custom
-        if (CurrentColors == SalamanderColors)
-            index = 0;
-        else if (CurrentColors == ExplorerColors)
-            index = 1;
-        else if (CurrentColors == NortonColors)
-            index = 2;
-        else if (CurrentColors == NavigatorColors)
-            index = 3;
-        SendMessage(HScheme, CB_SETCURSEL, index, 0);
+        int selectedScheme = GetSchemeIdFromColors(CurrentColors);
+        int selectedIndex = 0;
+        for (i = 0; i < schemeCount; i++)
+        {
+            if ((int)SendMessage(HScheme, CB_GETITEMDATA, i, 0) == selectedScheme)
+            {
+                selectedIndex = i;
+                break;
+            }
+        }
+        SendMessage(HScheme, CB_SETCURSEL, selectedIndex, 0);
         SendMessage(HItem, CB_SETCURSEL, 0, 0);
 
         // naleju seznam hilight polozek
@@ -3347,14 +3388,12 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
     else
     {
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-        if (index == 0)
-            CurrentColors = SalamanderColors;
-        else if (index == 1)
-            CurrentColors = ExplorerColors;
-        else if (index == 2)
-            CurrentColors = NortonColors;
-        else if (index == 3)
-            CurrentColors = NavigatorColors;
+        int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+        COLORREF* schemeColors = GetSchemeColorsById(schemeId);
+        if (schemeColors != NULL)
+        {
+            CurrentColors = schemeColors;
+        }
         else
         {
             CurrentColors = UserColors;
@@ -3379,14 +3418,10 @@ void CCfgPageColors::LoadColors()
 
     COLORREF* tmpColors;
     int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-    if (index == 0)
-        tmpColors = SalamanderColors;
-    else if (index == 1)
-        tmpColors = ExplorerColors;
-    else if (index == 2)
-        tmpColors = NortonColors;
-    else if (index == 3)
-        tmpColors = NavigatorColors;
+    int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+    COLORREF* schemeColors = GetSchemeColorsById(schemeId);
+    if (schemeColors != NULL)
+        tmpColors = schemeColors;
     else
         tmpColors = TmpColors;
 

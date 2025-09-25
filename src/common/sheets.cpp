@@ -397,6 +397,7 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
         {
             dlg->HWindow = hwndDlg;
             dlg->Parent = ::GetParent(hwndDlg);
+            ApplyDarkModeForWindow(hwndDlg);
             //--- zarazeni okna podle hwndDlg do seznamu oken
             if (!WindowsManager.AddWindow(hwndDlg, dlg)) // chyba
             {

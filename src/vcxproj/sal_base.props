@@ -22,7 +22,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <Link>
-      <AdditionalDependencies>htmlhelp.lib;comctl32.lib;mpr.lib;wsock32.lib;netapi32.lib;msimg32.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>htmlhelp.lib;comctl32.lib;mpr.lib;wsock32.lib;netapi32.lib;msimg32.lib;shlwapi.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\plugins\shared\libs\$(ShortPlatform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>

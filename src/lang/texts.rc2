@@ -1181,11 +1181,12 @@ STRINGTABLE
  IDS_PUT_NONE, "-- not supported --"
 
 // color Scheme
- IDS_COLORSCHEME_CUSTOM, "Custom"
- IDS_COLORSCHEME_SALAMANDER, "Open Salamander"
- IDS_COLORSCHEME_EXPLORER, "Windows Explorer"
- IDS_COLORSCHEME_NORTON, "Norton Commander"
- IDS_COLORSCHEME_NAVIGATOR, "DOS Navigator"
+IDS_COLORSCHEME_CUSTOM, "Custom"
+IDS_COLORSCHEME_SALAMANDER, "Open Salamander"
+IDS_COLORSCHEME_EXPLORER, "Windows Explorer"
+IDS_COLORSCHEME_NORTON, "Norton Commander"
+IDS_COLORSCHEME_NAVIGATOR, "DOS Navigator"
+IDS_COLORSCHEME_DARK, "Dark mode"
 // color Item
  IDS_COLORITEM_PANELITEM, "Items in panel"
  IDS_COLORITEM_FOCUSEDFRAME, "Frame of focused item in panel"
