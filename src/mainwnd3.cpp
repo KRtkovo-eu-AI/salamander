@@ -817,8 +817,39 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
             return false;
     }
 
+    CFilesWindow* panel = GetPanelTabAt(side, index);
+    if (panel == NULL)
+        return false;
+
     ClearPanelTabDragTargetIndicator();
-    CommandMoveTabToOtherSide(side, index, targetIndex);
+
+    int insertedIndex = CommandMoveTabToOtherSide(side, index, targetIndex);
+    if (insertedIndex < 0)
+        return false;
+
+    if (targetIndex >= 0)
+    {
+        CPanelSide finalSide = targetSide;
+        int desiredIndex = targetIndex;
+        TIndirectArray<CFilesWindow>& targetTabs = GetPanelTabs(finalSide);
+        if (desiredIndex >= targetTabs.Count)
+            desiredIndex = targetTabs.Count - 1;
+        if (desiredIndex < 0)
+            desiredIndex = 0;
+        if (targetTabs.Count > 1 && desiredIndex < 1)
+            desiredIndex = 1;
+
+        int currentIndex = GetPanelTabIndex(finalSide, panel);
+        if (currentIndex >= 0 && currentIndex != desiredIndex)
+        {
+            CTabWindow* finalTabWnd = GetPanelTabWindow(finalSide);
+            if (finalTabWnd != NULL && finalTabWnd->HWindow != NULL)
+                finalTabWnd->MoveTab(currentIndex, desiredIndex);
+            else
+                OnPanelTabReordered(finalSide, currentIndex, desiredIndex);
+        }
+    }
+
     return true;
 }
 
@@ -1184,10 +1215,10 @@ void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
     SwitchPanelTab(newPanel);
 }
 
-void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex)
+int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex)
 {
     if (!Configuration.UsePanelTabs)
-        return;
+        return -1;
 
     if (index < 0)
     {
@@ -1197,13 +1228,13 @@ void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targ
 
     TIndirectArray<CFilesWindow>& fromTabs = GetPanelTabs(side);
     if (index < 0 || index >= fromTabs.Count)
-        return;
+        return -1;
     if (index == 0)
-        return;
+        return -1;
 
     CFilesWindow* panel = fromTabs[index];
     if (panel == NULL)
-        return;
+        return -1;
 
     CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
     TIndirectArray<CFilesWindow>& targetTabs = GetPanelTabs(targetSide);
@@ -1270,7 +1301,7 @@ void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targ
             UpdatePanelTabTitle(panel);
             if (wasActive)
                 SwitchPanelTab(panel);
-            return;
+            return -1;
         }
     }
 
@@ -1282,6 +1313,7 @@ void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targ
     else
         UpdateDirectoryLineHistoryState(panel);
     SwitchPanelTab(panel);
+    return insertIndex;
 }
 
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)

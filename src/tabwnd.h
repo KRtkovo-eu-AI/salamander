@@ -38,6 +38,7 @@ public:
     bool ComputeExternalDropTarget(POINT screenPt, int& targetIndex, int& markItem, DWORD& markFlags) const;
     void ShowExternalDropIndicator(int markItem, DWORD markFlags);
     void HideExternalDropIndicator();
+    void MoveTab(int from, int to);
 
     CPanelSide GetSide() const { return Side; }
 

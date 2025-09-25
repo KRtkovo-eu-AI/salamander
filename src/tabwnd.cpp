@@ -1092,6 +1092,14 @@ void CTabWindow::HideExternalDropIndicator()
     ClearInsertMark();
 }
 
+void CTabWindow::MoveTab(int from, int to)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (from == to)
+        return;
+    MoveTabInternal(from, to);
+}
+
 void CTabWindow::MoveTabInternal(int from, int to)
 {
     CALL_STACK_MESSAGE_NONE
