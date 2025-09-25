@@ -5,6 +5,8 @@
 
 class CColorArrowButton;
 
+#define WM_CFG_UPDATE_TABS_VISIBILITY (WM_APP + 105)
+
 enum CWorkDirsHistoryScope
 {
     wdhsShared = 0,
@@ -1220,6 +1222,9 @@ public:
     HWND HOldPluginMsgBoxParent;
 
 protected:
+    BOOL TabsPageVisible;
+
+    void EnsureTabsPageVisibility(BOOL showTabs);
     virtual void DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 

@@ -692,6 +692,7 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight),
+      TabsPageVisible(TRUE),
       PageView(mode == 4 ? param : -1), //-1 = active panel
       PageUserMenu(userMenuItems),
       PageHotPath(mode == 1 ? TRUE : FALSE, param),
@@ -740,6 +741,56 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 }
 
+void CConfigurationDlg::EnsureTabsPageVisibility(BOOL showTabs)
+{
+    HWND tree = Dialog.HTreeView;
+    if (tree == NULL)
+        return;
+
+    if (showTabs)
+    {
+        if (TabsPageVisible && PageTabs.HTreeItem != NULL)
+            return;
+
+        TVINSERTSTRUCT tvis;
+        ZeroMemory(&tvis, sizeof(tvis));
+        tvis.hParent = NULL;
+        tvis.hInsertAfter = PagePanels.HTreeItem != NULL ? PagePanels.HTreeItem : TVI_LAST;
+        tvis.item.mask = TVIF_TEXT | TVIF_STATE | TVIF_PARAM;
+        tvis.item.pszText = PageTabs.Title;
+        tvis.item.cchTextMax = PageTabs.Title != NULL ? (int)_tcslen(PageTabs.Title) : 0;
+        tvis.item.lParam = (LPARAM)&PageTabs;
+
+        HTREEITEM item = TreeView_InsertItem(tree, &tvis);
+        if (item != NULL)
+        {
+            PageTabs.HTreeItem = item;
+            TabsPageVisible = TRUE;
+        }
+        return;
+    }
+
+    if (!TabsPageVisible && PageTabs.HTreeItem == NULL)
+        return;
+
+    HTREEITEM tabsItem = PageTabs.HTreeItem;
+    if (tabsItem != NULL)
+    {
+        HTREEITEM selection = TreeView_GetSelection(tree);
+        if (selection == tabsItem)
+        {
+            HTREEITEM fallback = PagePanels.HTreeItem;
+            if (fallback == tabsItem || fallback == NULL)
+                fallback = TreeView_GetRoot(tree);
+            if (fallback != NULL && fallback != tabsItem)
+                TreeView_SelectItem(tree, fallback);
+        }
+        TreeView_DeleteItem(tree, tabsItem);
+        PageTabs.HTreeItem = NULL;
+    }
+    TabsPageVisible = FALSE;
+}
+
 void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
@@ -751,6 +802,7 @@ void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HOldPluginMsgBoxParent = PluginMsgBoxParent;
         PluginMsgBoxParent = Dialog.HWindow;
         MultiMonCenterWindow(Dialog.HWindow, Parent, TRUE);
+        EnsureTabsPageVisibility(Configuration.UsePanelTabs != 0);
         break;
     }
 
@@ -772,6 +824,12 @@ void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (w != NULL)
                 PostMessage(w, WM_SYSCOLORCHANGE, 0, 0);
         }
+        break;
+    }
+
+    case WM_CFG_UPDATE_TABS_VISIBILITY:
+    {
+        EnsureTabsPageVisibility(wParam != 0);
         break;
     }
     }

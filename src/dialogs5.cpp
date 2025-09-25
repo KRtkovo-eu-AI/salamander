@@ -3433,7 +3433,14 @@ CCfgPagePanels::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == BN_CLICKED)
+        {
             EnableControls();
+            if (LOWORD(wParam) == IDC_PANELS_USETABS)
+            {
+                BOOL useTabs = IsDlgButtonChecked(HWindow, IDC_PANELS_USETABS) == BST_CHECKED;
+                SendMessage(GetParent(HWindow), WM_CFG_UPDATE_TABS_VISIBILITY, useTabs, 0);
+            }
+        }
         break;
     }
     }
