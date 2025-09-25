@@ -22,6 +22,19 @@
 #include "codetbl.h"
 #include "find.h"
 #include "menu.h"
+#include "strutils.h"
+
+static int ComputeSelectionEndUTF8(const char* text, const char* dot)
+{
+    if (dot == NULL || dot <= text)
+        return -1;
+    if (GetACP() != CP_UTF8)
+        return static_cast<int>(dot - text);
+
+    int bytes = static_cast<int>(dot - text);
+    int chars = CountUtf8Chars(text, bytes);
+    return chars > 0 ? chars : bytes;
+}
 
 //
 // ****************************************************************************
@@ -1512,7 +1525,7 @@ void CFilesWindow::EditNewFile()
                 const char* dot = strrchr(path, '.');
                 if (dot != NULL && dot > path) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
                                                //      if (dot != NULL)
-                    selectionEnd = (int)(dot - path);
+                    selectionEnd = ComputeSelectionEndUTF8(path, dot);
                 dlg.SetSelectionEnd(selectionEnd);
                 first = FALSE; // after an error we get the full file name, so we select it all
             }
@@ -2405,7 +2418,7 @@ void CFilesWindow::RenameFile(int specialIndex)
                     const char* dot = strrchr(formatedFileName, '.');
                     if (dot != NULL && dot > formatedFileName) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
                                                                //        if (dot != NULL)
-                        selectionEnd = (int)(dot - formatedFileName);
+                        selectionEnd = ComputeSelectionEndUTF8(formatedFileName, dot);
                 }
                 dlg.SetSelectionEnd(selectionEnd);
             }
@@ -2480,8 +2493,8 @@ void CFilesWindow::RenameFile(int specialIndex)
                             {
                                 const char* dot = strrchr(formatedFileName, '.');
                                 if (dot != NULL && dot > formatedFileName) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
-                                                                           //        if (dot != NULL)
-                                    selectionEnd = (int)(dot - formatedFileName);
+                                                                            //        if (dot != NULL)
+                                    selectionEnd = ComputeSelectionEndUTF8(formatedFileName, dot);
                             }
                             dlg.SetSelectionEnd(selectionEnd);
                         }
@@ -2651,7 +2664,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
             const char* dot = strrchr(formatedFileName, '.');
             if (dot != NULL && dot > formatedFileName) // although ".cvspass" is an extension in Windows, Explorer selects the entire name, so we do the same
                                                        //    if (dot != NULL)
-                selectionEnd = (int)(dot - formatedFileName);
+                selectionEnd = ComputeSelectionEndUTF8(formatedFileName, dot);
         }
     }
 

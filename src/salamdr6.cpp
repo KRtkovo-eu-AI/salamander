@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include <Sddl.h>
+#include <string>
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
@@ -11,6 +12,7 @@
 #include "dialogs.h"
 #include "tasklist.h"
 #include "md5.h"
+#include "strutils.h"
 
 CProgressDlgArray ProgressDlgArray; // pole dialogu diskovych operaci (jen dialogy bezici ve svych threadech)
 
@@ -386,7 +388,16 @@ void LoadComboFromStdHistoryValues(HWND combo, char** historyArr, int historyIte
     int i;
     for (i = 0; i < historyItemsCount; i++)
         if (historyArr[i] != NULL && strlen(historyArr[i]) > 0)
-            SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)historyArr[i]);
+        {
+            if (GetACP() == CP_UTF8)
+            {
+                std::wstring wide;
+                ConvertUtf8ToWideBestEffort(historyArr[i], wide);
+                SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+            }
+            else
+                SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)historyArr[i]);
+        }
 }
 
 BOOL IsPathOnVolumeSupADS(const char* path, BOOL* isFAT32)

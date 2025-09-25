@@ -18,6 +18,9 @@
 #include "svg.h"
 
 #include "versinfo.rh2"
+#include "strutils.h"
+
+#include <string>
 
 void GetDlgItemRectAndDestroy(HWND hWindow, int resID, RECT* r)
 {
@@ -104,7 +107,14 @@ BOOL CSplashScreen::PaintText(const char* text, int x, int y, BOOL bold, COLORRE
         int oldBkMode = SetBkMode(hDC, TRANSPARENT);
         COLORREF oldTextColor = SetTextColor(hDC, clr);
         HFONT hOldFont = (HFONT)SelectObject(hDC, bold ? HBoldFont : HNormalFont);
-        DrawText(hDC, text, -1, &r, DT_SINGLELINE | DT_NOPREFIX | DT_NOCLIP);
+        if (GetACP() == CP_UTF8)
+        {
+            std::wstring wide;
+            ConvertUtf8ToWideBestEffort(text != NULL ? text : "", wide);
+            DrawTextW(hDC, wide.empty() ? L"" : wide.c_str(), -1, &r, DT_SINGLELINE | DT_NOPREFIX | DT_NOCLIP);
+        }
+        else
+            DrawText(hDC, text, -1, &r, DT_SINGLELINE | DT_NOPREFIX | DT_NOCLIP);
         SelectObject(hDC, hOldFont);
         SetTextColor(hDC, oldTextColor);
         SetBkMode(hDC, oldBkMode);

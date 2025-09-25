@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include <string>
+
 #include "mainwnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
@@ -15,6 +17,78 @@
 #include "codetbl.h"
 #include "worker.h"
 #include "menu.h"
+#include "strutils.h"
+
+namespace
+{
+bool SystemUsesUTF8ACP()
+{
+    return GetACP() == CP_UTF8;
+}
+
+std::wstring Utf8ToWide(const char* text)
+{
+    std::wstring wide;
+    ConvertUtf8ToWideBestEffort(text != NULL ? text : "", wide);
+    return wide;
+}
+
+void SetWindowTextUTF8(HWND hWnd, const char* text)
+{
+    if (!SystemUsesUTF8ACP())
+    {
+        SetWindowText(hWnd, text);
+        return;
+    }
+    std::wstring wide = Utf8ToWide(text);
+    SendMessageW(hWnd, WM_SETTEXT, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+}
+
+void GetWindowTextUTF8(HWND hWnd, char* buffer, int bufferSize)
+{
+    if (!SystemUsesUTF8ACP())
+    {
+        GetWindowText(hWnd, buffer, bufferSize);
+        return;
+    }
+    if (bufferSize <= 0)
+        return;
+    LRESULT len = SendMessageW(hWnd, WM_GETTEXTLENGTH, 0, 0);
+    if (len < 0)
+        len = 0;
+    std::wstring wide(len, L'\0');
+    if (len > 0)
+        SendMessageW(hWnd, WM_GETTEXT, len + 1, &wide[0]);
+    ConvertU2A(wide.c_str(), -1, buffer, bufferSize, FALSE, CP_UTF8);
+}
+
+void ComboAddStringUTF8(HWND combo, const char* text)
+{
+    if (!SystemUsesUTF8ACP())
+    {
+        SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+        return;
+    }
+    std::wstring wide = Utf8ToWide(text);
+    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+}
+
+void ComboSetTextUTF8(HWND combo, const char* text)
+{
+    if (!SystemUsesUTF8ACP())
+    {
+        SendMessage(combo, WM_SETTEXT, 0, (LPARAM)text);
+        return;
+    }
+    std::wstring wide = Utf8ToWide(text);
+    SendMessageW(combo, WM_SETTEXT, 0, (LPARAM)(wide.empty() ? L"" : wide.c_str()));
+}
+
+void ComboGetTextUTF8(HWND combo, char* buffer, int bufferSize)
+{
+    GetWindowTextUTF8(combo, buffer, bufferSize);
+}
+} // namespace
 
 //
 // ****************************************************************************
@@ -427,11 +501,11 @@ void CCopyMoveDialog::Transfer(CTransferInfo& ti)
             {
                 LoadComboFromStdHistoryValues(hWnd, History, HistoryCount);
                 SendMessage(hWnd, CB_LIMITTEXT, PathBufSize - 1, 0);
-                SendMessage(hWnd, WM_SETTEXT, 0, (LPARAM)Path);
+                ComboSetTextUTF8(hWnd, Path);
             }
             else
             {
-                SendMessage(hWnd, WM_GETTEXT, PathBufSize, (LPARAM)Path);
+                ComboGetTextUTF8(hWnd, Path, PathBufSize);
                 AddValueToStdHistoryValues(History, HistoryCount, Path, FALSE);
             }
         }
@@ -1778,7 +1852,7 @@ void CPackDialog::Transfer(CTransferInfo& ti)
             int i;
             for (i = 0; i < PackerConfig->GetPackersCount(); i++)
             {
-                SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)PackerConfig->GetPackerTitle(i));
+                ComboAddStringUTF8(combo, PackerConfig->GetPackerTitle(i));
             }
             // nastavi pozici v combu, preferedPacker == -1 -> zadny selection
             SendMessage(combo, CB_SETCURSEL, (WPARAM)PackerConfig->GetPreferedPacker(), 0);
@@ -1808,10 +1882,10 @@ void CPackDialog::Transfer(CTransferInfo& ti)
     {
         // !!! POZOR: kod musi byt konzistentni s CPackDialog::DialogProc/WM_COMMAND
         ti.GetControl(combo, IDE_PATH);
-        SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)Path);
+        ComboAddStringUTF8(combo, Path);
         // pokud je alternativni cesta stejna jako prvni, nebudeme ji pridavat (target neni ptDisk)
         if (StrICmp(Path, PathAlt) != 0)
-            SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)PathAlt);
+            ComboAddStringUTF8(combo, PathAlt);
         SendMessage(combo, CB_SETCURSEL, 0, 0);
     }
     else
@@ -1916,36 +1990,37 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 char name[MAX_PATH];
                 char name2[MAX_PATH];
 
-                int curSel = (int)SendDlgItemMessage(HWindow, IDE_PATH, CB_GETCURSEL, 0, 0);
+                HWND pathCombo = GetDlgItem(HWindow, IDE_PATH);
+                int curSel = (int)SendMessage(pathCombo, CB_GETCURSEL, 0, 0);
                 if (curSel == CB_ERR) // text musim vytahnout uz tady, protoze CB_RESETCONTENT ho sestreli
-                    GetWindowText(GetDlgItem(HWindow, IDE_PATH), name2, MAX_PATH);
+                    GetWindowTextUTF8(pathCombo, name2, MAX_PATH);
 
                 // !!! POZOR: kod musi byt konzistentni s CPackDialog::Transfer
                 // zamenim pripony v comboboxu
-                SendDlgItemMessage(HWindow, IDE_PATH, CB_RESETCONTENT, 0, 0);
+                SendMessage(pathCombo, CB_RESETCONTENT, 0, 0);
                 strcpy(name, Path);
                 if (ChangeExtension(name, PackerConfig->GetPackerExt(i)))
-                    SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)name);
+                    ComboAddStringUTF8(pathCombo, name);
                 else
-                    SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)Path);
+                    ComboAddStringUTF8(pathCombo, Path);
 
                 // pokud je alternativni cesta stejna jako prvni, nebudeme ji pridavat (target neni ptDisk)
                 if (StrICmp(Path, PathAlt) != 0)
                 {
                     strcpy(name, PathAlt);
                     if (ChangeExtension(name, PackerConfig->GetPackerExt(i)))
-                        SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)name);
+                        ComboAddStringUTF8(pathCombo, name);
                     else
-                        SendDlgItemMessage(HWindow, IDE_PATH, CB_ADDSTRING, 0, (LPARAM)PathAlt);
+                        ComboAddStringUTF8(pathCombo, PathAlt);
                 }
 
                 if (curSel != CB_ERR)
-                    SendDlgItemMessage(HWindow, IDE_PATH, CB_SETCURSEL, (WPARAM)curSel, 0);
+                    SendMessage(pathCombo, CB_SETCURSEL, (WPARAM)curSel, 0);
                 else
                 {
                     // pokud je editline modifikovana, zmenim priponu take v ni
                     if (ChangeExtension(name2, PackerConfig->GetPackerExt(i)))
-                        SetWindowText(GetDlgItem(HWindow, IDE_PATH), name2);
+                        SetWindowTextUTF8(pathCombo, name2);
                 }
 
                 BOOL supMove = TRUE;

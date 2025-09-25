@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <string>
+
 // makro SAFE_ALLOC odstranuje kod, ve kterem se testuje, jestli se povedla alokace pameti (viz allochan.*)
 
 // prevod Unicodoveho stringu (UTF-16) na ANSI multibytovy string; 'src' je Unicodovy string;
@@ -42,6 +44,18 @@ int ConvertA2U(const char* src, int srcLen, WCHAR* buf, int bufSizeInChars,
 // 'codepage' je kodova stranka ANSI stringu; vraci alokovany Unicodovy string; pri
 // chybe vraci NULL (detaily viz GetLastError())
 WCHAR* ConvertAllocA2U(const char* src, int srcLen, UINT codepage = CP_ACP);
+
+// Converts a UTF-8 encoded string to a wide string. If the input is not valid UTF-8,
+// the function performs a best-effort conversion by mapping bytes to the same code
+// points to preserve the original glyphs (useful for legacy resources). Returns TRUE
+// if the input was valid UTF-8, FALSE if the fallback path was used. The resulting
+// string is stored in 'dst'.
+BOOL ConvertUtf8ToWideBestEffort(const char* src, std::wstring& dst);
+
+// Returns the number of Unicode characters represented by the first 'byteCount'
+// bytes of a UTF-8 string. If the sequence is invalid UTF-8, the function falls back
+// to returning 'byteCount'.
+int CountUtf8Chars(const char* src, int byteCount);
 
 // nakopiruje string 'txt' do nove naalokovaneho stringu, NULL = malo pameti (hrozi jen pokud
 // se nepouziva allochan.*) nebo 'txt'==NULL

@@ -4,6 +4,7 @@
 #include "precomp.h"
 
 #include <windows.h>
+#include <string>
 
 #pragma warning(3 : 4706) // warning C4706: assignment within conditional expression
 
@@ -212,6 +213,43 @@ WCHAR* ConvertAllocA2U(const char* src, int srcLen, UINT codepage)
     }
 #endif // SAFE_ALLOC
     return txt;
+}
+
+BOOL ConvertUtf8ToWideBestEffort(const char* src, std::wstring& dst)
+{
+    dst.clear();
+    if (src == NULL)
+    {
+        return TRUE;
+    }
+
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, src, -1, NULL, 0);
+    if (len > 0)
+    {
+        dst.resize(len > 0 ? len - 1 : 0);
+        if (!dst.empty())
+            MultiByteToWideChar(CP_UTF8, 0, src, -1, &dst[0], len);
+        return TRUE;
+    }
+
+    size_t bytes = strlen(src);
+    dst.reserve(bytes);
+    const unsigned char* s = reinterpret_cast<const unsigned char*>(src);
+    for (size_t i = 0; i < bytes; ++i)
+        dst.push_back(static_cast<WCHAR>(s[i]));
+    return FALSE;
+}
+
+int CountUtf8Chars(const char* src, int byteCount)
+{
+    if (src == NULL || byteCount <= 0)
+        return byteCount;
+
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, src, byteCount, NULL, 0);
+    if (len > 0)
+        return len;
+
+    return byteCount;
 }
 
 WCHAR* DupStr(const WCHAR* txt)

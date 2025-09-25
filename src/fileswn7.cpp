@@ -11,6 +11,19 @@
 #include "dialogs.h"
 #include "zip.h"
 #include "pack.h"
+#include "strutils.h"
+
+static int ComputeSelectionEndUTF8(const char* text, const char* dot)
+{
+    if (dot == NULL || dot <= text)
+        return -1;
+    if (GetACP() != CP_UTF8)
+        return static_cast<int>(dot - text);
+
+    int bytes = static_cast<int>(dot - text);
+    int chars = CountUtf8Chars(text, bytes);
+    return chars > 0 ? chars : bytes;
+}
 
 //
 // ****************************************************************************
@@ -1509,7 +1522,7 @@ _PACK_AGAIN:
             const char* dot = strrchr(fileBuf, '.');
             if (dot != NULL && dot > fileBuf) // although ".cvspass" is technically an extension in Windows, Explorer selects the entire name, so we do the same
                                               //    if (dot != NULL)
-                selectionEnd = (int)(dot - fileBuf);
+                selectionEnd = ComputeSelectionEndUTF8(fileBuf, dot);
             dlg.SetSelectionEnd(selectionEnd);
         }
         first = FALSE; // after an error we get the full filename, so select it entirely
