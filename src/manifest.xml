@@ -39,11 +39,11 @@
   </application>
 </compatibility>
 <asmv3:application xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
-  <asmv3:windowsSettings
-      xmlns:ws2005="http://schemas.microsoft.com/SMI/2005/WindowsSettings"
-      xmlns:ws2016="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
-    <ws2005:dpiAware>true</ws2005:dpiAware>
-    <ws2016:activeCodePage>UTF-8</ws2016:activeCodePage>
+  <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
+    <dpiAware>true</dpiAware>
+  </asmv3:windowsSettings>
+  <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
+    <activeCodePage>UTF-8</activeCodePage>
   </asmv3:windowsSettings>
 </asmv3:application>
 </assembly>
