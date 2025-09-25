@@ -10,6 +10,27 @@
 #include "mainwnd.h"
 #include "fileswnd.h"
 
+#ifndef TCM_SETINSERTMARK
+#define TCM_SETINSERTMARK (TCM_FIRST + 44)
+#endif
+
+#ifndef TCINSERTMARK
+typedef struct tagTCINSERTMARK
+{
+    UINT cbSize;
+    DWORD dwFlags;
+    int iItem;
+} TCINSERTMARK, *PTCINSERTMARK;
+#endif
+
+#ifndef TCIMF_BEFORE
+#define TCIMF_BEFORE 0x0000
+#endif
+
+#ifndef TCIMF_AFTER
+#define TCIMF_AFTER 0x0001
+#endif
+
 //
 // ****************************************************************************
 // CTabWindow
@@ -98,6 +119,9 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragStartPoint.x = 0;
     DragStartPoint.y = 0;
     DragSourceIndex = -1;
+    DragCurrentTarget = -1;
+    DragInsertMarkItem = -1;
+    DragInsertMarkFlags = 0;
 }
 
 CTabWindow::~CTabWindow()
@@ -454,34 +478,42 @@ void CTabWindow::StartDragTracking(int index, const POINT& pt)
     Dragging = false;
     DragSourceIndex = index;
     DragStartPoint = pt;
+    DragCurrentTarget = -1;
+    ClearInsertMark();
 }
 
 void CTabWindow::UpdateDragTracking(const POINT& pt)
 {
     CALL_STACK_MESSAGE_NONE
-    if (!DragTracking || Dragging)
+    if (!DragTracking)
         return;
 
-    int dx = pt.x - DragStartPoint.x;
-    if (dx < 0)
-        dx = -dx;
-    int dy = pt.y - DragStartPoint.y;
-    if (dy < 0)
-        dy = -dy;
-
-    int thresholdX = GetSystemMetrics(SM_CXDRAG);
-    int thresholdY = GetSystemMetrics(SM_CYDRAG);
-    if (thresholdX <= 0)
-        thresholdX = 4;
-    if (thresholdY <= 0)
-        thresholdY = 4;
-
-    if (dx >= thresholdX || dy >= thresholdY)
+    if (!Dragging)
     {
-        Dragging = true;
-        if (HWindow != NULL && GetCapture() != HWindow)
-            SetCapture(HWindow);
+        int dx = pt.x - DragStartPoint.x;
+        if (dx < 0)
+            dx = -dx;
+        int dy = pt.y - DragStartPoint.y;
+        if (dy < 0)
+            dy = -dy;
+
+        int thresholdX = GetSystemMetrics(SM_CXDRAG);
+        int thresholdY = GetSystemMetrics(SM_CYDRAG);
+        if (thresholdX <= 0)
+            thresholdX = 4;
+        if (thresholdY <= 0)
+            thresholdY = 4;
+
+        if (dx >= thresholdX || dy >= thresholdY)
+        {
+            Dragging = true;
+            if (HWindow != NULL && GetCapture() != HWindow)
+                SetCapture(HWindow);
+        }
     }
+
+    if (Dragging)
+        UpdateDragIndicator(pt);
 }
 
 void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
@@ -498,6 +530,10 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     if (HWindow != NULL && GetCapture() == HWindow)
         ReleaseCapture();
 
+    int lastTarget = DragCurrentTarget;
+    ClearInsertMark();
+    DragCurrentTarget = -1;
+
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
@@ -506,6 +542,8 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
         return;
 
     int targetIndex = ComputeDragTargetIndex(pt, sourceIndex);
+    if (targetIndex < 0)
+        targetIndex = lastTarget;
     if (targetIndex < 0 || targetIndex == sourceIndex)
         return;
 
@@ -521,29 +559,156 @@ void CTabWindow::CancelDragTracking()
     if (HWindow != NULL && GetCapture() == HWindow)
         ReleaseCapture();
 
+    ClearInsertMark();
+    DragCurrentTarget = -1;
+
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
 }
 
-int CTabWindow::ComputeDragTargetIndex(POINT pt, int fromIndex) const
+void CTabWindow::UpdateDragIndicator(const POINT& pt)
 {
     CALL_STACK_MESSAGE_NONE
+    if (!Dragging || HWindow == NULL)
+    {
+        ClearInsertMark();
+        DragCurrentTarget = -1;
+        return;
+    }
+
+    int targetIndex = -1;
+    int markItem = -1;
+    DWORD markFlags = 0;
+    if (ComputeDragTargetInfo(pt, DragSourceIndex, targetIndex, markItem, markFlags))
+    {
+        DragCurrentTarget = targetIndex;
+        SetInsertMark(markItem, markFlags);
+    }
+    else
+    {
+        DragCurrentTarget = -1;
+        ClearInsertMark();
+    }
+}
+
+void CTabWindow::SetInsertMark(int item, DWORD flags)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (DragInsertMarkItem == item && DragInsertMarkFlags == flags)
+        return;
+
+    DragInsertMarkItem = item;
+    DragInsertMarkFlags = flags;
+
     if (HWindow == NULL)
-        return -1;
+        return;
+
+    TCINSERTMARK mark;
+    mark.cbSize = sizeof(mark);
+    mark.dwFlags = flags;
+    mark.iItem = item;
+    SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+}
+
+void CTabWindow::ClearInsertMark()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (DragInsertMarkItem == -1 && DragInsertMarkFlags == 0)
+        return;
+
+    DragInsertMarkItem = -1;
+    DragInsertMarkFlags = 0;
+
+    if (HWindow == NULL)
+        return;
+
+    TCINSERTMARK mark;
+    mark.cbSize = sizeof(mark);
+    mark.dwFlags = 0;
+    mark.iItem = -1;
+    SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+}
+
+bool CTabWindow::ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const
+{
+    CALL_STACK_MESSAGE_NONE
+    targetIndex = -1;
+    markItem = -1;
+    markFlags = 0;
+
+    if (HWindow == NULL)
+        return false;
 
     int newTabIndex = GetNewTabButtonIndex();
     if (newTabIndex <= 1)
-        return -1;
+        return false;
 
     if (fromIndex <= 0 || fromIndex >= newTabIndex)
-        return -1;
+        return false;
+
+    int hit = HitTest(pt);
+    if (hit >= 0)
+    {
+        if (hit <= 0)
+            hit = 1;
+        if (hit >= newTabIndex)
+            hit = newTabIndex - 1;
+        if (IsNewTabButtonIndex(hit))
+            hit = newTabIndex - 1;
+
+        if (hit == fromIndex)
+        {
+            RECT fromRect;
+            if (TabCtrl_GetItemRect(HWindow, fromIndex, &fromRect))
+            {
+                int center = (fromRect.left + fromRect.right) / 2;
+                if (pt.x < center && fromIndex > 1)
+                    hit = fromIndex - 1;
+                else if (pt.x > center && fromIndex < newTabIndex - 1)
+                    hit = fromIndex + 1;
+            }
+        }
+
+        if (hit != fromIndex)
+        {
+            if (hit < fromIndex)
+            {
+                if (hit < 1)
+                    hit = 1;
+                if (hit >= newTabIndex)
+                    hit = newTabIndex - 1;
+                targetIndex = hit;
+                if (targetIndex < 1)
+                    targetIndex = 1;
+                if (targetIndex == fromIndex)
+                    return false;
+
+                markItem = targetIndex;
+                markFlags = TCIMF_BEFORE;
+            }
+            else
+            {
+                if (hit >= newTabIndex)
+                    hit = newTabIndex - 1;
+                if (hit <= fromIndex)
+                    return false;
+
+                targetIndex = hit;
+                markItem = hit;
+                markFlags = TCIMF_AFTER;
+            }
+
+            if (targetIndex >= 1 && targetIndex < newTabIndex && targetIndex != fromIndex)
+                return true;
+        }
+    }
 
     RECT previousRect;
     if (!TabCtrl_GetItemRect(HWindow, 0, &previousRect))
-        return -1;
+        return false;
 
-    int targetIndex = newTabIndex;
+    int slotIndex = newTabIndex;
     for (int index = 1; index <= newTabIndex; ++index)
     {
         RECT currentRect;
@@ -553,32 +718,55 @@ int CTabWindow::ComputeDragTargetIndex(POINT pt, int fromIndex) const
         int boundary = (previousRect.right + currentRect.left) / 2;
         if (pt.x < boundary)
         {
-            targetIndex = index;
+            slotIndex = index;
             break;
         }
 
         previousRect = currentRect;
     }
 
-    if (targetIndex <= 0)
-        targetIndex = 1;
-    if (targetIndex > newTabIndex)
-        targetIndex = newTabIndex;
+    if (slotIndex <= 0)
+        slotIndex = 1;
+    if (slotIndex > newTabIndex)
+        slotIndex = newTabIndex;
 
-    int finalIndex = targetIndex;
+    int finalIndex = slotIndex;
     if (finalIndex > fromIndex)
         finalIndex--;
 
-    int maxIndex = newTabIndex - 1;
-    if (maxIndex < 1)
+    if (finalIndex <= 0 || finalIndex >= newTabIndex || finalIndex == fromIndex)
+        return false;
+
+    targetIndex = finalIndex;
+
+    if (targetIndex < fromIndex)
+    {
+        markItem = targetIndex;
+        markFlags = TCIMF_BEFORE;
+    }
+    else
+    {
+        markItem = targetIndex;
+        markFlags = TCIMF_AFTER;
+        if (markItem >= newTabIndex)
+            markItem = newTabIndex - 1;
+        if (markItem < 1)
+            markItem = 1;
+    }
+
+    return true;
+}
+
+int CTabWindow::ComputeDragTargetIndex(POINT pt, int fromIndex) const
+{
+    CALL_STACK_MESSAGE_NONE
+    int targetIndex = -1;
+    int markItem = -1;
+    DWORD markFlags = 0;
+    if (!ComputeDragTargetInfo(pt, fromIndex, targetIndex, markItem, markFlags))
         return -1;
 
-    if (finalIndex < 1)
-        finalIndex = 1;
-    if (finalIndex > maxIndex)
-        finalIndex = maxIndex;
-
-    return finalIndex;
+    return targetIndex;
 }
 
 void CTabWindow::MoveTabInternal(int from, int to)
