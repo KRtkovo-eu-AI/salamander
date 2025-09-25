@@ -94,18 +94,21 @@ public sealed class AboutDialogSteps
 
     private static Window? WaitForAboutDialog(Window mainWindow, TimeSpan timeout, HashSet<IntPtr> knownWindows)
     {
+        var processId = (uint)mainWindow.Properties.ProcessId.Value;
+        var mainHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
+
         return Retry.WhileNull(
-                () => SafeFindAboutDialog(mainWindow, knownWindows),
+                () => SafeFindAboutDialog(mainWindow, processId, mainHandle, knownWindows),
                 timeout: timeout,
                 throwOnTimeout: false)
             .Result;
     }
 
-    private static Window? SafeFindAboutDialog(Window mainWindow, HashSet<IntPtr> knownWindows)
+    private static Window? SafeFindAboutDialog(Window mainWindow, uint processId, IntPtr mainHandle, HashSet<IntPtr> knownWindows)
     {
         try
         {
-            return FindAboutDialog(mainWindow, knownWindows);
+            return FindAboutDialog(mainWindow, processId, mainHandle, knownWindows);
         }
         catch (SWA.ElementNotAvailableException)
         {
@@ -113,30 +116,100 @@ public sealed class AboutDialogSteps
         }
     }
 
-    private static Window? FindAboutDialog(Window mainWindow, HashSet<IntPtr> knownWindows)
+    private static Window? FindAboutDialog(Window mainWindow, uint processId, IntPtr mainHandle, HashSet<IntPtr> knownWindows)
     {
-        var aboutWindow = mainWindow.ModalWindows
-            .FirstOrDefault(window => IsAboutDialogSafe(window, mainWindow));
-
-        if (aboutWindow is not null)
+        foreach (var modalWindow in mainWindow.ModalWindows)
         {
-            return aboutWindow;
+            if (IsAboutDialogSafe(modalWindow, mainWindow))
+            {
+                RegisterKnownWindow(modalWindow, knownWindows);
+                return modalWindow;
+            }
         }
 
         var automation = TestSession.Automation;
         var application = TestSession.Application;
-        var mainHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
 
         foreach (var window in application.GetAllTopLevelWindows(automation))
         {
+            if (window is null)
+            {
+                continue;
+            }
+
             if (IsAboutDialogSafe(window, mainWindow))
             {
+                RegisterKnownWindow(window, knownWindows);
                 return window;
             }
         }
 
-        var processId = (uint)mainWindow.Properties.ProcessId.Value;
+        var candidateHandle = FindNativeAboutHandle(processId, mainHandle, knownWindows);
+        if (candidateHandle != IntPtr.Zero)
+        {
+            var wrappedResult = Retry.WhileNull(
+                    () => TryWrapWindow(candidateHandle),
+                    timeout: TimeSpan.FromSeconds(2),
+                    throwOnTimeout: false)
+                .Result;
 
+            var candidateWindow = wrappedResult ?? TryWrapWindow(candidateHandle);
+            if (candidateWindow is not null)
+            {
+                if (IsAboutDialogSafe(candidateWindow, mainWindow))
+                {
+                    RegisterKnownWindow(candidateWindow, knownWindows);
+                    return candidateWindow;
+                }
+
+                var owner = NativeMethods.GetWindow(candidateHandle, NativeMethods.GW_OWNER);
+                var ownedByMain = owner == mainHandle;
+                var isVisible = NativeMethods.IsWindowVisible(candidateHandle);
+                var title = NativeMethods.GetWindowText(candidateHandle);
+
+                if (IsNativeAboutCandidate(candidateHandle, mainHandle, title, isVisible, ownedByMain)
+                    || (!knownWindows.Contains(candidateHandle) && ownedByMain))
+                {
+                    RegisterHandle(candidateHandle, knownWindows);
+                    return candidateWindow;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static void RegisterKnownWindow(Window window, HashSet<IntPtr> knownWindows)
+    {
+        var handle = window.FrameworkAutomationElement.NativeWindowHandle;
+        RegisterHandle(handle, knownWindows);
+    }
+
+    private static void RegisterHandle(IntPtr handle, HashSet<IntPtr> knownWindows)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        knownWindows.Add(handle);
+    }
+
+    private static Window? TryWrapWindow(IntPtr handle)
+    {
+        try
+        {
+            var element = TestSession.Automation.FromHandle(handle);
+            return element?.AsWindow();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static IntPtr FindNativeAboutHandle(uint processId, IntPtr mainHandle, HashSet<IntPtr> knownWindows)
+    {
         foreach (var handle in NativeMethods.EnumerateProcessWindowHandles(processId))
         {
             if (handle == IntPtr.Zero || handle == mainHandle)
@@ -144,47 +217,24 @@ public sealed class AboutDialogSteps
                 continue;
             }
 
-            if (knownWindows.Contains(handle))
-            {
-                continue;
-            }
-
-            if (!NativeMethods.IsWindowVisible(handle))
-            {
-                continue;
-            }
-
+            var isKnown = knownWindows.Contains(handle);
             var owner = NativeMethods.GetWindow(handle, NativeMethods.GW_OWNER);
-            if (owner != IntPtr.Zero && owner != mainHandle)
+            var ownedByMain = owner == mainHandle;
+            var isVisible = NativeMethods.IsWindowVisible(handle);
+            var title = NativeMethods.GetWindowText(handle);
+
+            if (!isKnown && ownedByMain)
             {
-                continue;
+                return handle;
             }
 
-            try
+            if (IsNativeAboutCandidate(handle, mainHandle, title, isVisible, ownedByMain))
             {
-                var window = automation.FromHandle(handle).AsWindow();
-                if (window is null)
-                {
-                    continue;
-                }
-
-                if (IsAboutDialogSafe(window, mainWindow))
-                {
-                    return window;
-                }
-
-                if (IsNativeAboutCandidate(handle))
-                {
-                    return window;
-                }
-            }
-            catch
-            {
-                // The window might disappear between enumeration and retrieval.
+                return handle;
             }
         }
 
-        return null;
+        return IntPtr.Zero;
     }
 
     private static bool IsAboutDialogSafe(Window candidate, Window mainWindow)
@@ -302,7 +352,11 @@ public sealed class AboutDialogSteps
         return title.Contains("About", StringComparison.OrdinalIgnoreCase)
             || title.Contains("Salamander", StringComparison.OrdinalIgnoreCase)
             || title.Contains("Altap", StringComparison.OrdinalIgnoreCase)
-            || title.Contains("O aplikaci", StringComparison.OrdinalIgnoreCase);
+            || title.Contains("O aplikaci", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("O programu", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("Informace o", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("Informácie o", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("Über", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ContainsAboutContent(Window window)
@@ -319,17 +373,27 @@ public sealed class AboutDialogSteps
         }
     }
 
-    private static bool IsNativeAboutCandidate(IntPtr handle)
+    private static bool IsNativeAboutCandidate(IntPtr handle, IntPtr mainHandle, string? title, bool isVisible, bool ownedByMain)
     {
-        var title = NativeMethods.GetWindowText(handle);
-        if (MatchesAboutTitle(title))
+        if (!string.IsNullOrWhiteSpace(title) && MatchesAboutTitle(title))
         {
             return true;
         }
 
         var className = NativeMethods.GetWindowClassName(handle);
-        return className.Equals("#32770", StringComparison.Ordinal)
-            && title.Contains("Salamander", StringComparison.OrdinalIgnoreCase);
+
+        if (className.Equals("#32770", StringComparison.Ordinal))
+        {
+            return ownedByMain || (!string.IsNullOrWhiteSpace(title)
+                && title.Contains("Salamander", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (ownedByMain && className.Equals("TDialog", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return ownedByMain && isVisible;
     }
 
     private static bool IsOwnedByMainWindow(Window candidate, Window mainWindow)
@@ -359,6 +423,7 @@ public sealed class AboutDialogSteps
             || content.Contains("Version", StringComparison.OrdinalIgnoreCase)
             || content.Contains("Licence", StringComparison.OrdinalIgnoreCase)
             || content.Contains("License", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("Copyright", StringComparison.OrdinalIgnoreCase)
             || content.Contains("https://", StringComparison.OrdinalIgnoreCase)
             || content.Contains("altap.cz", StringComparison.OrdinalIgnoreCase)
             || content.Contains("verze", StringComparison.OrdinalIgnoreCase);
