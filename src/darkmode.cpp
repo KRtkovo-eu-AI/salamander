@@ -124,7 +124,7 @@ namespace
 
 void InitializeDarkModeSupport()
 {
-    if (gDarkModeSupported || !Windows10AndLater)
+    if (gDarkModeSupported)
         return;
 
     DWORD build = GetBuildNumber();
