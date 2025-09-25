@@ -1,8 +1,6 @@
 using System;
 using System.Linq;
-using System.Windows.Automation;
 using FlaUI.Core.AutomationElements;
-using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
@@ -10,6 +8,9 @@ using NUnit.Framework;
 using Reqnroll;
 using Menu = FlaUI.Core.AutomationElements.Menu;
 using MenuItem = FlaUI.Core.AutomationElements.MenuItem;
+using SWA = System.Windows.Automation;
+using FlaUIControlType = FlaUI.Core.Definitions.ControlType;
+using FlaUIExpandCollapseState = FlaUI.Core.Definitions.ExpandCollapseState;
 
 namespace Salamander.AutomationTests.StepDefinitions;
 
@@ -103,7 +104,7 @@ public sealed class AboutDialogSteps
         {
             return FindAboutDialog(mainWindow);
         }
-        catch (ElementNotAvailableException)
+        catch (SWA.ElementNotAvailableException)
         {
             return null;
         }
@@ -139,7 +140,7 @@ public sealed class AboutDialogSteps
         {
             return IsAboutDialog(candidate, mainWindow);
         }
-        catch (ElementNotAvailableException)
+        catch (SWA.ElementNotAvailableException)
         {
             return false;
         }
@@ -148,7 +149,7 @@ public sealed class AboutDialogSteps
     private static bool TryOpenAboutThroughMenu(Window mainWindow)
     {
         var menuResult = Retry.WhileNull(
-            () => mainWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuBar)),
+            () => mainWindow.FindFirstDescendant(cf => cf.ByControlType(FlaUIControlType.MenuBar)),
             timeout: TimeSpan.FromSeconds(2),
             throwOnTimeout: false);
 
@@ -255,7 +256,7 @@ public sealed class AboutDialogSteps
         try
         {
             return window
-                .FindAllDescendants(cf => cf.ByControlType(ControlType.Text))
+                .FindAllDescendants(cf => cf.ByControlType(FlaUIControlType.Text))
                 .Any(element => MatchesAboutContent(element.Name));
         }
         catch
@@ -347,7 +348,7 @@ public sealed class AboutDialogSteps
         if (menuItem.Patterns.ExpandCollapse.IsSupported)
         {
             var expandCollapse = menuItem.Patterns.ExpandCollapse.Pattern;
-            if (expandCollapse.ExpandCollapseState != ExpandCollapseState.Expanded)
+            if (expandCollapse.ExpandCollapseState != FlaUIExpandCollapseState.Expanded)
             {
                 expandCollapse.Expand();
             }
