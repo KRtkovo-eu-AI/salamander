@@ -90,6 +90,14 @@ BOOL Is64BitWindows()
 void InitUtils()
 {
     int i;
-    for (i = 0; i < 256; i++)
-        LowerCase[i] = (char)CharLower((LPTSTR)(DWORD_PTR)i);
+    if (GetACP() == CP_UTF8)
+    {
+        for (i = 0; i < 256; i++)
+            LowerCase[i] = (char)i;
+        for (i = 'A'; i <= 'Z'; i++)
+            LowerCase[i] = (char)(i - 'A' + 'a');
+    }
+    else
+        for (i = 0; i < 256; i++)
+            LowerCase[i] = (char)CharLower((LPTSTR)(DWORD_PTR)i);
 }
