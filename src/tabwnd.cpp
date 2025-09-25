@@ -148,6 +148,8 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragCurrentTarget = -1;
     DragInsertMarkItem = -1;
     DragInsertMarkFlags = 0;
+    SetRectEmpty(&DragIndicatorRect);
+    DragIndicatorVisible = false;
 }
 
 CTabWindow::~CTabWindow()
@@ -629,38 +631,174 @@ void CTabWindow::SetInsertMark(int item, DWORD flags)
 {
     CALL_STACK_MESSAGE_NONE
     if (DragInsertMarkItem == item && DragInsertMarkFlags == flags)
+    {
+        UpdateInsertMarkRect();
         return;
+    }
 
     DragInsertMarkItem = item;
     DragInsertMarkFlags = flags;
 
-    if (HWindow == NULL)
-        return;
+    if (HWindow != NULL)
+    {
+        TCINSERTMARK mark;
+        mark.cbSize = sizeof(mark);
+        mark.dwFlags = flags;
+        mark.iItem = item;
+        SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+    }
 
-    TCINSERTMARK mark;
-    mark.cbSize = sizeof(mark);
-    mark.dwFlags = flags;
-    mark.iItem = item;
-    SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+    UpdateInsertMarkRect();
 }
 
 void CTabWindow::ClearInsertMark()
 {
     CALL_STACK_MESSAGE_NONE
     if (DragInsertMarkItem == -1 && DragInsertMarkFlags == 0)
+    {
+        UpdateInsertMarkRect();
         return;
+    }
 
     DragInsertMarkItem = -1;
     DragInsertMarkFlags = 0;
 
-    if (HWindow == NULL)
+    if (HWindow != NULL)
+    {
+        TCINSERTMARK mark;
+        mark.cbSize = sizeof(mark);
+        mark.dwFlags = 0;
+        mark.iItem = -1;
+        SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+    }
+
+    UpdateInsertMarkRect();
+}
+
+void CTabWindow::UpdateInsertMarkRect()
+{
+    CALL_STACK_MESSAGE_NONE
+    RECT oldRect = DragIndicatorRect;
+    bool oldVisible = DragIndicatorVisible;
+
+    DragIndicatorVisible = false;
+    SetRectEmpty(&DragIndicatorRect);
+
+    if (HWindow != NULL && DragInsertMarkItem >= 0)
+    {
+        RECT itemRect;
+        if (TabCtrl_GetItemRect(HWindow, DragInsertMarkItem, &itemRect))
+        {
+            RECT indicatorRect = itemRect;
+
+            int verticalMargin = EnvFontCharHeight / 6;
+            if (verticalMargin < 2)
+                verticalMargin = 2;
+            if (verticalMargin * 2 >= (indicatorRect.bottom - indicatorRect.top))
+                verticalMargin = 0;
+
+            indicatorRect.top += verticalMargin;
+            indicatorRect.bottom -= verticalMargin;
+
+            int indicatorWidth = EnvFontCharHeight / 4;
+            if (indicatorWidth < 4)
+                indicatorWidth = 4;
+            if (indicatorWidth > 12)
+                indicatorWidth = 12;
+
+            int center = (DragInsertMarkFlags == TCIMF_AFTER) ? itemRect.right : itemRect.left;
+            indicatorRect.left = center - indicatorWidth / 2;
+            indicatorRect.right = indicatorRect.left + indicatorWidth;
+
+            int expandLimit = indicatorWidth;
+            if (indicatorRect.left < itemRect.left - expandLimit)
+                indicatorRect.left = itemRect.left - expandLimit;
+            if (indicatorRect.right > itemRect.right + expandLimit)
+                indicatorRect.right = itemRect.right + expandLimit;
+
+            if (indicatorRect.left < 0)
+                indicatorRect.left = 0;
+            if (indicatorRect.right <= indicatorRect.left)
+                indicatorRect.right = indicatorRect.left + indicatorWidth;
+
+            DragIndicatorRect = indicatorRect;
+            DragIndicatorVisible = true;
+        }
+    }
+
+    if (HWindow != NULL)
+    {
+        bool sameRect = oldVisible && DragIndicatorVisible &&
+                        oldRect.left == DragIndicatorRect.left &&
+                        oldRect.top == DragIndicatorRect.top &&
+                        oldRect.right == DragIndicatorRect.right &&
+                        oldRect.bottom == DragIndicatorRect.bottom;
+
+        if (oldVisible && !sameRect)
+            InvalidateRect(HWindow, &oldRect, FALSE);
+        if (DragIndicatorVisible && (!oldVisible || !sameRect))
+            InvalidateRect(HWindow, &DragIndicatorRect, FALSE);
+    }
+}
+
+void CTabWindow::PaintDragIndicator(HDC hdc) const
+{
+    CALL_STACK_MESSAGE_NONE
+    if (!DragIndicatorVisible)
+        return;
+    if (hdc == NULL)
         return;
 
-    TCINSERTMARK mark;
-    mark.cbSize = sizeof(mark);
-    mark.dwFlags = 0;
-    mark.iItem = -1;
-    SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+    RECT rect = DragIndicatorRect;
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    COLORREF baseColor = GetSysColor(COLOR_HIGHLIGHT);
+    COLORREF fillColor = LightenColor(baseColor, 96);
+    COLORREF borderColor = DarkenColor(baseColor, 64);
+
+    HBRUSH fillBrush = CreateSolidBrush(fillColor);
+    if (fillBrush != NULL)
+    {
+        FillRect(hdc, &rect, fillBrush);
+        DeleteObject(fillBrush);
+    }
+
+    HPEN borderPen = CreatePen(PS_SOLID, 1, borderColor);
+    if (borderPen != NULL)
+    {
+        HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
+        MoveToEx(hdc, rect.left, rect.top, NULL);
+        LineTo(hdc, rect.left, rect.bottom - 1);
+        LineTo(hdc, rect.right - 1, rect.bottom - 1);
+        LineTo(hdc, rect.right - 1, rect.top);
+        LineTo(hdc, rect.left, rect.top);
+        if (oldPen != NULL)
+            SelectObject(hdc, oldPen);
+        DeleteObject(borderPen);
+    }
+
+    int centerX = (rect.left + rect.right) / 2;
+    int capLength = (rect.right - rect.left) * 2;
+    if (capLength < 6)
+        capLength = 6;
+    if (capLength > 18)
+        capLength = 18;
+
+    HPEN capPen = CreatePen(PS_SOLID, 1, borderColor);
+    if (capPen != NULL)
+    {
+        HPEN oldPen = (HPEN)SelectObject(hdc, capPen);
+        MoveToEx(hdc, centerX, rect.top, NULL);
+        LineTo(hdc, centerX, rect.bottom - 1);
+        MoveToEx(hdc, centerX - capLength / 2, rect.top, NULL);
+        LineTo(hdc, centerX + capLength / 2, rect.top);
+        MoveToEx(hdc, centerX - capLength / 2, rect.bottom - 1, NULL);
+        LineTo(hdc, centerX + capLength / 2, rect.bottom - 1);
+        if (oldPen != NULL)
+            SelectObject(hdc, oldPen);
+        DeleteObject(capPen);
+    }
 }
 
 bool CTabWindow::ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const
@@ -1162,17 +1300,25 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RECT updateRect;
         BOOL hasUpdate = (HWindow != NULL) ? GetUpdateRect(HWindow, &updateRect, FALSE) : FALSE;
         LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
-        if (HasAnyCustomTabColors())
+        if (HWindow != NULL)
         {
-            HDC hdc = GetDC(HWindow);
-            if (hdc != NULL)
+            bool hasCustomColors = HasAnyCustomTabColors();
+            bool shouldPaintIndicator = DragIndicatorVisible;
+            if (hasCustomColors || shouldPaintIndicator)
             {
-                int saved = SaveDC(hdc);
-                if (hasUpdate)
-                    IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
-                PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
-                RestoreDC(hdc, saved);
-                ReleaseDC(HWindow, hdc);
+                HDC hdc = GetDC(HWindow);
+                if (hdc != NULL)
+                {
+                    int saved = SaveDC(hdc);
+                    if (hasUpdate)
+                        IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
+                    if (hasCustomColors)
+                        PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
+                    if (shouldPaintIndicator)
+                        PaintDragIndicator(hdc);
+                    RestoreDC(hdc, saved);
+                    ReleaseDC(HWindow, hdc);
+                }
             }
         }
         return baseResult;

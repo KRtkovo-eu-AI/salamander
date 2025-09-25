@@ -55,6 +55,8 @@ private:
     void UpdateDragIndicator(const POINT& pt);
     void SetInsertMark(int item, DWORD flags);
     void ClearInsertMark();
+    void UpdateInsertMarkRect();
+    void PaintDragIndicator(HDC hdc) const;
     bool ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const;
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
     void MoveTabInternal(int from, int to);
@@ -89,6 +91,8 @@ private:
     int DragCurrentTarget;
     int DragInsertMarkItem;
     DWORD DragInsertMarkFlags;
+    RECT DragIndicatorRect;
+    bool DragIndicatorVisible;
 
     std::vector<STabColor> TabColors;
 
