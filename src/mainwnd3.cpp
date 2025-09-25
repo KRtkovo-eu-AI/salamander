@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include <algorithm>
+#include <memory>
 
 #include <shlwapi.h>
 #undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
@@ -212,10 +213,12 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     if (tabWnd != NULL && tabWnd->HWindow != NULL)
         tabWnd->RemoveTab(index);
 
-    tabs.Delete(index);
+    tabs.Detach(index);
 
     if (panel->HWindow != NULL)
         DestroyWindow(panel->HWindow);
+
+    std::unique_ptr<CFilesWindow> panelOwner(panel);
 
     if (tabs.Count == 0)
     {
