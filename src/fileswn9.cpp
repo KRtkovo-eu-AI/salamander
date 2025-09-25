@@ -79,6 +79,19 @@ void CFilesWindow::SetPanelSide(CPanelSide side)
         DirectoryLine->SetLeftPanel(IsLeftPanel());
 }
 
+void CFilesWindow::SetCustomTabColor(COLORREF color)
+{
+    CALL_STACK_MESSAGE_NONE
+    CustomTabColor = color;
+    CustomTabColorValid = true;
+}
+
+void CFilesWindow::ClearCustomTabColor()
+{
+    CALL_STACK_MESSAGE_NONE
+    CustomTabColorValid = false;
+}
+
 int CFilesWindow::GetPanelCode()
 {
     CALL_STACK_MESSAGE_NONE

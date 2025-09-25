@@ -316,6 +316,10 @@
 #define CM_RIGHT_PREVTAB       1111
 #define CM_LEFT_CLOSEALLBUTDEFAULT 1112
 #define CM_RIGHT_CLOSEALLBUTDEFAULT 1113
+#define CM_LEFT_SETTABCOLOR     1114
+#define CM_LEFT_CLEARTABCOLOR   1115
+#define CM_RIGHT_SETTABCOLOR    1116
+#define CM_RIGHT_CLEARTABCOLOR  1117
 
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu

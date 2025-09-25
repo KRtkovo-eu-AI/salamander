@@ -26,6 +26,8 @@ STRINGTABLE
  IDS_MENU_LEFT_CLOSETAB,     "&Close Tab\tCtrl+Shift+W"
  IDS_MENU_LEFT_NEXTTAB,      "&Next Tab\tCtrl+Shift+Page Down"
  IDS_MENU_LEFT_PREVTAB,      "&Previous Tab\tCtrl+Shift+Page Up"
+ IDS_MENU_LEFT_SETTABCOLOR,  "Set Tab &Color..."
+ IDS_MENU_LEFT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT, "Close all &left tabs except the default"
 
  IDS_MENU_FILES,             "&Files"
@@ -164,6 +166,8 @@ STRINGTABLE
  IDS_MENU_RIGHT_CLOSETAB,    "&Close Tab\tAlt+Shift+W"
  IDS_MENU_RIGHT_NEXTTAB,     "&Next Tab\tAlt+Shift+Page Down"
  IDS_MENU_RIGHT_PREVTAB,     "&Previous Tab\tAlt+Shift+Page Up"
+ IDS_MENU_RIGHT_SETTABCOLOR, "Set Tab &Color..."
+ IDS_MENU_RIGHT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, "Close all &right tabs except the default"
 
  IDS_MENU_HELP,              "&Help"

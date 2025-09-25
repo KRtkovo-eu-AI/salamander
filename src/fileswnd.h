@@ -765,6 +765,8 @@ public:
         *DirectoryLine;
 
     CPanelSide PanelSide;
+    bool CustomTabColorValid;
+    COLORREF CustomTabColor;
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
@@ -916,6 +918,10 @@ public:
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
     BOOL IsRightPanel() const { return PanelSide == cpsRight; }
     void SetPanelSide(CPanelSide side);
+    bool HasCustomTabColor() const { return CustomTabColorValid; }
+    COLORREF GetCustomTabColor() const { return CustomTabColor; }
+    void SetCustomTabColor(COLORREF color);
+    void ClearCustomTabColor();
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
