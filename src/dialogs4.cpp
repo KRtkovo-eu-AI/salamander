@@ -743,50 +743,52 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
 
 void CConfigurationDlg::EnsureTabsPageVisibility(BOOL showTabs)
 {
-    HWND tree = Dialog.HTreeView;
+    HWND tree = GetTreeViewHandle();
     if (tree == NULL)
         return;
 
     if (showTabs)
     {
-        if (TabsPageVisible && PageTabs.HTreeItem != NULL)
+        if (TabsPageVisible && GetPageTreeItem(&PageTabs) != NULL)
             return;
 
         TVINSERTSTRUCT tvis;
         ZeroMemory(&tvis, sizeof(tvis));
         tvis.hParent = NULL;
-        tvis.hInsertAfter = PagePanels.HTreeItem != NULL ? PagePanels.HTreeItem : TVI_LAST;
+        HTREEITEM panelsItem = GetPageTreeItem(&PagePanels);
+        tvis.hInsertAfter = panelsItem != NULL ? panelsItem : TVI_LAST;
         tvis.item.mask = TVIF_TEXT | TVIF_STATE | TVIF_PARAM;
-        tvis.item.pszText = PageTabs.Title;
-        tvis.item.cchTextMax = PageTabs.Title != NULL ? (int)_tcslen(PageTabs.Title) : 0;
+        const TCHAR* tabsTitle = GetPageTitle(&PageTabs);
+        tvis.item.pszText = (TCHAR*)tabsTitle;
+        tvis.item.cchTextMax = (tabsTitle != NULL) ? (int)_tcslen(tabsTitle) : 0;
         tvis.item.lParam = (LPARAM)&PageTabs;
 
         HTREEITEM item = TreeView_InsertItem(tree, &tvis);
         if (item != NULL)
         {
-            PageTabs.HTreeItem = item;
+            SetPageTreeItem(&PageTabs, item);
             TabsPageVisible = TRUE;
         }
         return;
     }
 
-    if (!TabsPageVisible && PageTabs.HTreeItem == NULL)
+    if (!TabsPageVisible && GetPageTreeItem(&PageTabs) == NULL)
         return;
 
-    HTREEITEM tabsItem = PageTabs.HTreeItem;
+    HTREEITEM tabsItem = GetPageTreeItem(&PageTabs);
     if (tabsItem != NULL)
     {
         HTREEITEM selection = TreeView_GetSelection(tree);
         if (selection == tabsItem)
         {
-            HTREEITEM fallback = PagePanels.HTreeItem;
+            HTREEITEM fallback = GetPageTreeItem(&PagePanels);
             if (fallback == tabsItem || fallback == NULL)
                 fallback = TreeView_GetRoot(tree);
             if (fallback != NULL && fallback != tabsItem)
                 TreeView_SelectItem(tree, fallback);
         }
         TreeView_DeleteItem(tree, tabsItem);
-        PageTabs.HTreeItem = NULL;
+        SetPageTreeItem(&PageTabs, NULL);
     }
     TabsPageVisible = FALSE;
 }
