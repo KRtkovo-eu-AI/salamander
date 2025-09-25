@@ -779,6 +779,7 @@ public:
 
 private:
     friend class CStatusWindow;
+    friend class CTabWindow;
 
     void RegisterStatusWindow(CStatusWindow* window);
     void UnregisterStatusWindow(CStatusWindow* window);
