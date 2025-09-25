@@ -35,6 +35,10 @@ public:
     void SetTabColor(int index, COLORREF color);
     void ClearTabColor(int index);
 
+    bool ComputeExternalDropTarget(POINT screenPt, int& targetIndex, int& markItem, DWORD& markFlags) const;
+    void ShowExternalDropIndicator(int markItem, DWORD markFlags);
+    void HideExternalDropIndicator();
+
     CPanelSide GetSide() const { return Side; }
 
 protected:

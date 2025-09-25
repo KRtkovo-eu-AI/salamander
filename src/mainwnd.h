@@ -494,6 +494,13 @@ protected:
 
     CTabWindow* LeftTabWindow;
     CTabWindow* RightTabWindow;
+    bool PanelTabCrossDragActive;
+    CPanelSide PanelTabCrossDragSourceSide;
+    int PanelTabCrossDragSourceIndex;
+    bool PanelTabCrossDragHasTarget;
+    int PanelTabCrossDragDisplayedInsertIndex;
+    int PanelTabCrossDragDisplayedMarkItem;
+    DWORD PanelTabCrossDragDisplayedMarkFlags;
 
 public:
     CMainWindow();
@@ -528,6 +535,10 @@ public:
     void OnPanelTabSelected(CPanelSide side, int index);
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
     void OnPanelTabReordered(CPanelSide side, int from, int to);
+    void OnPanelTabDragStarted(CPanelSide side, int index);
+    void OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt);
+    bool TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt);
+    void CancelPanelTabDrag();
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
     CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;
@@ -541,7 +552,7 @@ public:
     void CommandSetPanelTabPrefix(CFilesWindow* panel);
     void CommandClearPanelTabPrefix(CFilesWindow* panel);
     void CommandDuplicateTabToOtherSide(CPanelSide side, int index);
-    void CommandMoveTabToOtherSide(CPanelSide side, int index);
+    void CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex = -1);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
@@ -790,6 +801,7 @@ private:
     CTabWindow* GetPanelTabWindow(CPanelSide side) const;
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
+    void ClearPanelTabDragTargetIndicator();
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 

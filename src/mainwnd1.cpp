@@ -318,6 +318,13 @@ CMainWindow::CMainWindow()
     BottomToolBar = NULL;
     LeftTabWindow = NULL;
     RightTabWindow = NULL;
+    PanelTabCrossDragActive = false;
+    PanelTabCrossDragSourceSide = cpsLeft;
+    PanelTabCrossDragSourceIndex = -1;
+    PanelTabCrossDragHasTarget = false;
+    PanelTabCrossDragDisplayedInsertIndex = -1;
+    PanelTabCrossDragDisplayedMarkItem = -1;
+    PanelTabCrossDragDisplayedMarkFlags = 0;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;

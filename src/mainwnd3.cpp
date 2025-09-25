@@ -738,6 +738,112 @@ void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
     tabs.Insert(to, panel);
 }
 
+void CMainWindow::OnPanelTabDragStarted(CPanelSide side, int index)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    PanelTabCrossDragActive = true;
+    PanelTabCrossDragSourceSide = side;
+    PanelTabCrossDragSourceIndex = index;
+    PanelTabCrossDragDisplayedInsertIndex = -1;
+    PanelTabCrossDragDisplayedMarkItem = -1;
+    PanelTabCrossDragDisplayedMarkFlags = 0;
+    ClearPanelTabDragTargetIndicator();
+    PanelTabCrossDragHasTarget = false;
+}
+
+void CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt)
+{
+    if (!PanelTabCrossDragActive)
+        return;
+    if (side != PanelTabCrossDragSourceSide || index != PanelTabCrossDragSourceIndex)
+        return;
+
+    CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
+    CTabWindow* targetTabWnd = GetPanelTabWindow(targetSide);
+    if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
+    {
+        ClearPanelTabDragTargetIndicator();
+        return;
+    }
+
+    int targetIndex = -1;
+    int markItem = -1;
+    DWORD markFlags = 0;
+    if (targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags))
+    {
+        bool changed = !PanelTabCrossDragHasTarget ||
+                       PanelTabCrossDragDisplayedInsertIndex != targetIndex ||
+                       PanelTabCrossDragDisplayedMarkItem != markItem ||
+                       PanelTabCrossDragDisplayedMarkFlags != markFlags;
+        if (changed)
+        {
+            targetTabWnd->ShowExternalDropIndicator(markItem, markFlags);
+            PanelTabCrossDragHasTarget = true;
+            PanelTabCrossDragDisplayedInsertIndex = targetIndex;
+            PanelTabCrossDragDisplayedMarkItem = markItem;
+            PanelTabCrossDragDisplayedMarkFlags = markFlags;
+        }
+    }
+    else
+    {
+        ClearPanelTabDragTargetIndicator();
+    }
+}
+
+bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt)
+{
+    if (!PanelTabCrossDragActive)
+        return false;
+    if (side != PanelTabCrossDragSourceSide || index != PanelTabCrossDragSourceIndex)
+        return false;
+
+    CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
+    CTabWindow* targetTabWnd = GetPanelTabWindow(targetSide);
+    if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
+        return false;
+
+    int targetIndex = -1;
+    int markItem = -1;
+    DWORD markFlags = 0;
+    if (!targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags))
+        return false;
+
+    ClearPanelTabDragTargetIndicator();
+    CommandMoveTabToOtherSide(side, index, targetIndex);
+    return true;
+}
+
+void CMainWindow::CancelPanelTabDrag()
+{
+    if (!PanelTabCrossDragActive)
+        return;
+    ClearPanelTabDragTargetIndicator();
+    PanelTabCrossDragActive = false;
+    PanelTabCrossDragSourceIndex = -1;
+    PanelTabCrossDragHasTarget = false;
+    PanelTabCrossDragDisplayedInsertIndex = -1;
+    PanelTabCrossDragDisplayedMarkItem = -1;
+    PanelTabCrossDragDisplayedMarkFlags = 0;
+}
+
+void CMainWindow::ClearPanelTabDragTargetIndicator()
+{
+    if (PanelTabCrossDragHasTarget)
+    {
+        CPanelSide targetSide = (PanelTabCrossDragSourceSide == cpsLeft) ? cpsRight : cpsLeft;
+        CTabWindow* targetTabWnd = GetPanelTabWindow(targetSide);
+        if (targetTabWnd != NULL && targetTabWnd->HWindow != NULL)
+            targetTabWnd->HideExternalDropIndicator();
+    }
+
+    PanelTabCrossDragHasTarget = false;
+    PanelTabCrossDragDisplayedInsertIndex = -1;
+    PanelTabCrossDragDisplayedMarkItem = -1;
+    PanelTabCrossDragDisplayedMarkFlags = 0;
+}
+
 void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 {
     if (!Configuration.UsePanelTabs)
@@ -1071,7 +1177,7 @@ void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
     SwitchPanelTab(newPanel);
 }
 
-void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index)
+void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex)
 {
     if (!Configuration.UsePanelTabs)
         return;
@@ -1127,6 +1233,16 @@ void CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index)
     UpdatePanelTabVisibility(side);
 
     int insertIndex = targetTabs.Count;
+    if (targetInsertIndex >= 0)
+    {
+        insertIndex = targetInsertIndex;
+        if (insertIndex > targetTabs.Count)
+            insertIndex = targetTabs.Count;
+        if (insertIndex < 0)
+            insertIndex = 0;
+        if (targetTabs.Count > 0 && insertIndex < 1)
+            insertIndex = 1;
+    }
     targetTabs.Insert(insertIndex, panel);
     panel->SetPanelSide(targetSide);
 

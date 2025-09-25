@@ -544,7 +544,22 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
             Dragging = true;
             if (HWindow != NULL && GetCapture() != HWindow)
                 SetCapture(HWindow);
+            if (MainWindow != NULL && DragSourceIndex >= 0)
+            {
+                POINT screenPt = pt;
+                if (HWindow != NULL)
+                    ClientToScreen(HWindow, &screenPt);
+                MainWindow->OnPanelTabDragStarted(Side, DragSourceIndex);
+                MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+            }
         }
+    }
+    else if (MainWindow != NULL && DragSourceIndex >= 0)
+    {
+        POINT screenPt = pt;
+        if (HWindow != NULL)
+            ClientToScreen(HWindow, &screenPt);
+        MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
     }
 
     if (Dragging)
@@ -573,7 +588,20 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     Dragging = false;
     DragSourceIndex = -1;
 
-    if (canceled || !wasDragging)
+    bool movedToOtherSide = false;
+    if (MainWindow != NULL)
+    {
+        if (!canceled && wasDragging && sourceIndex >= 0)
+        {
+            POINT screenPt = pt;
+            if (HWindow != NULL)
+                ClientToScreen(HWindow, &screenPt);
+            movedToOtherSide = MainWindow->TryCompletePanelTabDrag(Side, sourceIndex, screenPt);
+        }
+        MainWindow->CancelPanelTabDrag();
+    }
+
+    if (movedToOtherSide || canceled || !wasDragging)
         return;
 
     int targetIndex = ComputeDragTargetIndex(pt, sourceIndex);
@@ -600,6 +628,9 @@ void CTabWindow::CancelDragTracking()
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+
+    if (MainWindow != NULL)
+        MainWindow->CancelPanelTabDrag();
 }
 
 void CTabWindow::UpdateDragIndicator(const POINT& pt)
@@ -938,6 +969,96 @@ int CTabWindow::ComputeDragTargetIndex(POINT pt, int fromIndex) const
         return -1;
 
     return targetIndex;
+}
+
+bool CTabWindow::ComputeExternalDropTarget(POINT screenPt, int& targetIndex, int& markItem, DWORD& markFlags) const
+{
+    CALL_STACK_MESSAGE_NONE
+    targetIndex = -1;
+    markItem = -1;
+    markFlags = 0;
+
+    if (HWindow == NULL)
+        return false;
+
+    POINT pt = screenPt;
+    ScreenToClient(HWindow, &pt);
+
+    RECT clientRect;
+    if (!GetClientRect(HWindow, &clientRect))
+        return false;
+
+    int verticalMargin = EnvFontCharHeight / 2;
+    if (verticalMargin < 6)
+        verticalMargin = 6;
+    int horizontalMargin = EnvFontCharHeight;
+    if (horizontalMargin < 12)
+        horizontalMargin = 12;
+    InflateRect(&clientRect, horizontalMargin, verticalMargin);
+
+    if (pt.x < clientRect.left || pt.x > clientRect.right || pt.y < clientRect.top || pt.y > clientRect.bottom)
+        return false;
+
+    int tabCount = GetTabCount();
+    if (tabCount <= 0)
+        return false;
+
+    RECT previousRect;
+    if (!TabCtrl_GetItemRect(HWindow, 0, &previousRect))
+        return false;
+
+    int slotIndex = tabCount;
+    for (int index = 1; index < tabCount; ++index)
+    {
+        RECT currentRect;
+        if (!TabCtrl_GetItemRect(HWindow, index, &currentRect))
+            continue;
+
+        int boundary = (previousRect.right + currentRect.left) / 2;
+        if (pt.x < boundary)
+        {
+            slotIndex = index;
+            break;
+        }
+
+        previousRect = currentRect;
+    }
+
+    if (slotIndex < 1)
+        slotIndex = 1;
+    if (slotIndex > tabCount)
+        slotIndex = tabCount;
+
+    targetIndex = slotIndex;
+
+    if (slotIndex >= tabCount)
+    {
+        markItem = tabCount - 1;
+        if (markItem < 0)
+            markItem = 0;
+        markFlags = TCIMF_AFTER;
+    }
+    else
+    {
+        markItem = slotIndex;
+        if (markItem < 1)
+            markItem = 1;
+        markFlags = TCIMF_BEFORE;
+    }
+
+    return true;
+}
+
+void CTabWindow::ShowExternalDropIndicator(int markItem, DWORD markFlags)
+{
+    CALL_STACK_MESSAGE_NONE
+    SetInsertMark(markItem, markFlags);
+}
+
+void CTabWindow::HideExternalDropIndicator()
+{
+    CALL_STACK_MESSAGE_NONE
+    ClearInsertMark();
 }
 
 void CTabWindow::MoveTabInternal(int from, int to)
