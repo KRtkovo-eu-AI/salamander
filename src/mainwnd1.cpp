@@ -2743,6 +2743,8 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL rightCloseTab = FALSE;
     BOOL rightNextTab = FALSE;
     BOOL rightPrevTab = FALSE;
+    BOOL leftCloseAllButDefault = FALSE;
+    BOOL rightCloseAllButDefault = FALSE;
 
     int selCount = 0;
     int unselCount = 0;
@@ -2787,6 +2789,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         leftCloseTab = (leftIndex > 0);
         leftNextTab = (leftCount > 1);
         leftPrevTab = (leftCount > 1);
+        leftCloseAllButDefault = (leftCount > 1);
 
         int rightCount = obj->GetPanelTabCount(cpsRight);
         rightNewTab = (rightCount > 0);
@@ -2794,6 +2797,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightCloseTab = (rightIndex > 0);
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
+        rightCloseAllButDefault = (rightCount > 1);
 
         if (!Configuration.UsePanelTabs)
         {
@@ -2805,10 +2809,12 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             leftCloseTab = FALSE;
             leftNextTab = FALSE;
             leftPrevTab = FALSE;
+            leftCloseAllButDefault = FALSE;
             rightNewTab = FALSE;
             rightCloseTab = FALSE;
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
+            rightCloseAllButDefault = FALSE;
         }
 
         if (archive)
@@ -3002,10 +3008,12 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
     obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
     obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
+    obj->CheckAndSet(&EnablerLeftCloseAllButDefault, leftCloseAllButDefault);
     obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
     obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
+    obj->CheckAndSet(&EnablerRightCloseAllButDefault, rightCloseAllButDefault);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {
