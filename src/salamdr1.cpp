@@ -3625,12 +3625,22 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     CHARSETINFO ci;
     memset(&ci, 0, sizeof(ci));
     char bufANSI[10];
-    if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE, bufANSI, 10))
+    UINT activeCodePage = GetACP();
+    if (activeCodePage == CP_UTF8)
+    {
+        UserCharset = DEFAULT_CHARSET;
+    }
+    else if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE, bufANSI, 10))
     {
         if (TranslateCharsetInfo((DWORD*)(DWORD_PTR)MAKELONG(atoi(bufANSI), 0), &ci, TCI_SRCCODEPAGE))
         {
             UserCharset = ci.ciCharset;
         }
+    }
+    else if (activeCodePage != 0)
+    {
+        if (TranslateCharsetInfo((DWORD*)(DWORD_PTR)MAKELONG(activeCodePage, 0), &ci, TCI_SRCCODEPAGE))
+            UserCharset = ci.ciCharset;
     }
 
     // kvuli pouzivani souboru mapovanych do pameti je nutne ziskat granularitu alokaci
