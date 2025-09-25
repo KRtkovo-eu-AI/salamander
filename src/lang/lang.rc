@@ -1925,7 +1925,7 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Tabs"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "&Display current path in tab name as:",IDC_STATIC,1,3,162,8
+    LTEXT           "&Display current path in tab name as:",IDC_TABS_LABEL,1,3,162,8
     COMBOBOX        IDC_TABS_MODE,164,3,130,55,CBS_DROPDOWNLIST | WS_TABSTOP
 END
 

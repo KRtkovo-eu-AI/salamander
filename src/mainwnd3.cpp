@@ -490,7 +490,7 @@ static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
 
     if (panel->Is(ptPluginFS))
     {
-        CPluginFSInterface* pluginFS = panel->GetPluginFS();
+        CPluginFSInterfaceEncapsulation* pluginFS = panel->GetPluginFS();
         if (pluginFS != NULL && pluginFS->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE))
         {
             int pluginMode = 0;

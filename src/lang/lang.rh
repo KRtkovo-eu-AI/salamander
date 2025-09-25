@@ -594,6 +594,7 @@
 #define IDC_TITLEBAR_ICON               2687
 #define IDC_TITLEBAR_ICON_INDEX         2688
 #define IDC_TABS_MODE                   2689
+#define IDC_TABS_LABEL                  2690
 #define IDD_CFGPAGE_ARCHIVERS           2700
 #define IDC_ARCH_SIMPLEICONS            2701
 #define IDC_ARCH_ANOTHERPANELP          2702

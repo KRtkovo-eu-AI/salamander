@@ -3484,8 +3484,17 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
         Configuration.TabCaptionMode = modes[index];
         if (Configuration.TabCaptionMode != oldMode && MainWindow != NULL)
         {
-            MainWindow->RebuildPanelTabs(cpsLeft);
-            MainWindow->RebuildPanelTabs(cpsRight);
+            for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+            {
+                CPanelSide side = (sideIndex == 0) ? cpsLeft : cpsRight;
+                int tabCount = MainWindow->GetPanelTabCount(side);
+                for (int i = 0; i < tabCount; ++i)
+                {
+                    CFilesWindow* panel = MainWindow->GetPanelTabAt(side, i);
+                    if (panel != NULL)
+                        MainWindow->UpdatePanelTabTitle(panel);
+                }
+            }
         }
     }
 }
