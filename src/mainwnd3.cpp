@@ -160,18 +160,17 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     const char* path = panel->GetPath();
     if (isDiskLike && path != NULL && path[0] != 0)
     {
+        BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                       panel->GetPathDriveType() == DRIVE_FIXED;
         if (!panel->GetMonitorChanges())
         {
             refreshOnActivate = true;
         }
-        else if (!panel->AutomaticRefresh)
+        else
         {
-            BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
-                                           panel->GetPathDriveType() == DRIVE_FIXED;
-            refreshOnActivate = true;
-            ChangeDirectory(panel, path, registerDevNotification);
+            EnsureWatching(panel, registerDevNotification);
             if (!panel->AutomaticRefresh)
-                AddDirectory(panel, path, registerDevNotification);
+                refreshOnActivate = true;
         }
 
         if (refreshOnActivate && panel->HWindow != NULL)
