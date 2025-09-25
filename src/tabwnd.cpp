@@ -390,21 +390,9 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
                 result = CDRF_DODEFAULT;
                 return TRUE;
             }
-            TCITEMW paramItem;
-            ZeroMemory(&paramItem, sizeof(paramItem));
-            paramItem.mask = TCIF_PARAM;
-            if (!SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&paramItem))
-            {
-                result = CDRF_DODEFAULT;
-                return TRUE;
-            }
-            if (paramItem.lParam == kNewTabButtonParam)
-            {
-                result = CDRF_DODEFAULT;
-                return TRUE;
-            }
-
-            CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(paramItem.lParam);
+            CFilesWindow* panel = NULL;
+            if (MainWindow != NULL)
+                panel = MainWindow->GetPanelTabAt(Side, index);
             if (panel == NULL || !panel->HasCustomTabColor())
             {
                 result = CDRF_DODEFAULT;

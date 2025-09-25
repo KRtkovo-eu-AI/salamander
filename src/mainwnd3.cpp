@@ -530,6 +530,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     BOOL canCloseAll = GetPanelTabCount(side) > 1;
     AppendMenu(menu, MF_STRING | (canCloseAll ? MF_ENABLED : MF_GRAYED), closeAllCmd, LoadStr(closeAllText));
 
+    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+
     BOOL canSetColor = index >= 0 && index < tabs.Count;
     CFilesWindow* targetPanel = (index >= 0 && index < tabs.Count) ? tabs[index] : NULL;
     BOOL hasCustomColor = targetPanel != NULL && targetPanel->HasCustomTabColor();
