@@ -13,13 +13,13 @@ public static class TestSession
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
 
-    private static Application? _application;
+    private static FlaUI.Core.Application? _application;
     private static UIA3Automation? _automation;
     private static Window? _mainWindow;
 
     public static bool IsRunning => _application is { HasExited: false };
 
-    public static Application Application => _application ?? throw new InvalidOperationException("The application has not been started yet.");
+    public static FlaUI.Core.Application Application => _application ?? throw new InvalidOperationException("The application has not been started yet.");
 
     public static UIA3Automation Automation => _automation ?? throw new InvalidOperationException("The UI Automation instance is not available.");
 
@@ -36,7 +36,7 @@ public static class TestSession
         }
 
         var executablePath = TestConfiguration.ResolveApplicationPath();
-        _application = Application.Launch(executablePath);
+        _application = FlaUI.Core.Application.Launch(executablePath);
         _automation = new UIA3Automation();
         _mainWindow = Retry.WhileNull(
                 () => _application.GetMainWindow(_automation, DefaultTimeout),

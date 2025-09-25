@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
 using FlaUI.Core.Tools;
 using NUnit.Framework;
 using Reqnroll;
@@ -23,17 +24,17 @@ public sealed class AboutDialogSteps
     public void WhenIOpenTheAboutDialogFromTheHelpMenu()
     {
         var mainWindow = TestSession.MainWindow;
-        var menuBar = mainWindow.MenuBar ?? throw new InvalidOperationException("The main window does not contain a menu bar.");
-        var helpMenu = menuBar.Items.FirstOrDefault(item => item.Name.Contains("Help", StringComparison.OrdinalIgnoreCase))
-                       ?? throw new InvalidOperationException("The Help menu could not be located.");
+        var menuBar = mainWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuBar))?.AsMenu()
+                       ?? throw new InvalidOperationException("The main window does not contain a menu bar.");
+        var helpMenuItem = menuBar.Items.FirstOrDefault(item => item.Name.Contains("Help", StringComparison.OrdinalIgnoreCase))
+                           ?? throw new InvalidOperationException("The Help menu could not be located.");
 
-        var helpMenuItem = helpMenu.AsMenuItem();
         helpMenuItem.Click();
 
-        var aboutMenu = helpMenuItem.SubMenu.Items.FirstOrDefault(item => item.Name.Contains("About", StringComparison.OrdinalIgnoreCase))
-                         ?? throw new InvalidOperationException("The About menu item could not be located.");
+        var aboutMenuItem = helpMenuItem.Items.FirstOrDefault(item => item.Name.Contains("About", StringComparison.OrdinalIgnoreCase))
+                             ?? throw new InvalidOperationException("The About menu item could not be located.");
 
-        aboutMenu.Click();
+        aboutMenuItem.Click();
 
         _aboutWindow = Retry.WhileNull(
                 () => mainWindow.ModalWindows.FirstOrDefault(window => window.Title.Contains("About", StringComparison.OrdinalIgnoreCase)),
