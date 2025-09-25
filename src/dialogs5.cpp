@@ -3442,6 +3442,56 @@ CCfgPagePanels::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 //
 // ****************************************************************************
+// CCfgPageTabs
+//
+
+CCfgPageTabs::CCfgPageTabs()
+    : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_TABS, IDD_CFGPAGE_TABS, PSP_USETITLE, NULL)
+{
+}
+
+void CCfgPageTabs::Transfer(CTransferInfo& ti)
+{
+    CALL_STACK_MESSAGE1("CCfgPageTabs::Transfer()");
+
+    const int MODE_ITEMS = 3;
+    int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
+
+    if (ti.Type == ttDataToWindow)
+    {
+        int resIDs[MODE_ITEMS] = {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH};
+        SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_RESETCONTENT, 0, 0);
+        BOOL selected = FALSE;
+        for (int i = 0; i < MODE_ITEMS; i++)
+        {
+            SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_ADDSTRING, 0, (LPARAM)LoadStr(resIDs[i]));
+            if (!selected && Configuration.TabCaptionMode == modes[i])
+            {
+                SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_SETCURSEL, i, 0);
+                selected = TRUE;
+            }
+        }
+        if (!selected)
+            SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_SETCURSEL, 0, 0);
+    }
+    else
+    {
+        int index = (int)SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_GETCURSEL, 0, 0);
+        if (index < 0 || index >= MODE_ITEMS)
+            index = 0;
+
+        int oldMode = Configuration.TabCaptionMode;
+        Configuration.TabCaptionMode = modes[index];
+        if (Configuration.TabCaptionMode != oldMode && MainWindow != NULL)
+        {
+            MainWindow->RebuildPanelTabs(cpsLeft);
+            MainWindow->RebuildPanelTabs(cpsRight);
+        }
+    }
+}
+
+//
+// ****************************************************************************
 // CTaskListDialog
 //
 

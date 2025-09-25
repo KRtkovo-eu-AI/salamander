@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include <algorithm>
+#include <string>
 
 #include <shlwapi.h>
 #undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
@@ -93,9 +94,7 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     CTabWindow* tabWnd = GetPanelTabWindow(side);
     if (tabWnd != NULL && tabWnd->HWindow != NULL)
     {
-        char text[MAX_PATH];
-        text[0] = 0;
-        if (tabWnd->AddTab(index, text, (LPARAM)panel) < 0)
+        if (tabWnd->AddTab(index, L"", (LPARAM)panel) < 0)
         {
             tabs.Delete(index);
             delete panel;
@@ -295,9 +294,21 @@ void CMainWindow::InvalidateDirectoryLine(CFilesWindow* panel, BOOL update)
         dirLine->InvalidateAndUpdate(update);
 }
 
-static void BuildTabCaption(const char* generalPath, BOOL isPlugin, char* buffer, int bufferSize)
+static std::wstring AnsiToWide(const char* text)
 {
-    CALL_STACK_MESSAGE_NONE
+    if (text == NULL)
+        return std::wstring();
+    int length = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+    if (length <= 0)
+        return std::wstring();
+    std::wstring result(length - 1, L'\0');
+    if (length > 1)
+        MultiByteToWideChar(CP_ACP, 0, text, -1, &result[0], length);
+    return result;
+}
+
+static void BuildDirectoryCaption(CFilesWindow* panel, const char* generalPath, char* buffer, int bufferSize)
+{
     if (bufferSize <= 0)
         return;
     buffer[0] = 0;
@@ -306,7 +317,7 @@ static void BuildTabCaption(const char* generalPath, BOOL isPlugin, char* buffer
 
     const char* path = generalPath;
     const char* pluginName = NULL;
-    if (isPlugin)
+    if (panel != NULL && panel->Is(ptPluginFS))
     {
         const char* colon = strchr(generalPath, ':');
         if (colon != NULL)
@@ -376,9 +387,158 @@ static void BuildTabCaption(const char* generalPath, BOOL isPlugin, char* buffer
     if (len > 0)
         memcpy(buffer, start, len);
     buffer[len] = 0;
+}
+
+static void BuildCompositeCaption(CFilesWindow* panel, const char* generalPath, char* buffer, int bufferSize)
+{
+    if (bufferSize <= 0)
+        return;
+    buffer[0] = 0;
+    if (generalPath == NULL || generalPath[0] == 0)
+        return;
+
+    char path[2 * MAX_PATH];
+    lstrcpyn(path, generalPath, _countof(path));
+
+    char root[2 * MAX_PATH] = "";
+    if (panel != NULL)
+    {
+        if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+        {
+            GetRootPath(root, path);
+        }
+        else if (panel->Is(ptPluginFS))
+        {
+            if (!panel->GetPluginFS()->GetRootPath(root))
+            {
+                const char* colon = strchr(path, ':');
+                if (colon != NULL)
+                {
+                    size_t len = (size_t)(colon - path + 1);
+                    if (len >= _countof(root))
+                        len = _countof(root) - 1;
+                    memcpy(root, path, len);
+                    root[len] = 0;
+                }
+            }
+        }
+    }
+
+    const char* end = path + strlen(path);
+    const char* p = end;
+    while (p > path && (*(p - 1) == '\\' || *(p - 1) == '/'))
+        --p;
+    const char* start = p;
+    while (start > path && *(start - 1) != '\\' && *(start - 1) != '/')
+        --start;
+
+    if (start <= path)
+    {
+        lstrcpyn(buffer, generalPath, bufferSize);
+        return;
+    }
+
+    int len = (int)(p - start);
+    if (len <= 0)
+    {
+        lstrcpyn(buffer, generalPath, bufferSize);
+        return;
+    }
+
+    char leaf[MAX_PATH];
+    if (len >= (int)_countof(leaf))
+        len = (int)_countof(leaf) - 1;
+    if (len > 0)
+        memcpy(leaf, start, len);
+    leaf[len] = 0;
+
+    if (leaf[0] == 0)
+    {
+        lstrcpyn(buffer, generalPath, bufferSize);
+        return;
+    }
+
+    char composite[2 * MAX_PATH];
+    size_t rootLen = strlen(root);
+    const char* separator = "";
+    if (rootLen > 0 && root[rootLen - 1] != '\\' && root[rootLen - 1] != '/')
+        separator = "\\";
+    if (rootLen == 0)
+        _snprintf_s(composite, _countof(composite), _TRUNCATE, "...\\%s", leaf);
+    else
+        _snprintf_s(composite, _countof(composite), _TRUNCATE, "%s%s...\\%s", root, separator, leaf);
+
+    lstrcpyn(buffer, composite, bufferSize);
+}
+
+static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (bufferSize <= 0)
+        return;
+    buffer[0] = 0;
+    if (panel == NULL)
+        return;
+
+    int mode = Configuration.TabCaptionMode;
+    if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
+        mode = TITLE_BAR_MODE_DIRECTORY;
+
+    char generalPath[2 * MAX_PATH];
+    if (!panel->GetGeneralPath(generalPath, _countof(generalPath), TRUE))
+        generalPath[0] = 0;
+
+    if (panel->Is(ptPluginFS))
+    {
+        CPluginFSInterface* pluginFS = panel->GetPluginFS();
+        if (pluginFS != NULL && pluginFS->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE))
+        {
+            int pluginMode = 0;
+            if (mode == TITLE_BAR_MODE_DIRECTORY)
+                pluginMode = 1;
+            else if (mode == TITLE_BAR_MODE_COMPOSITE)
+                pluginMode = 2;
+            if (pluginMode != 0 &&
+                pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), pluginMode, buffer, bufferSize))
+            {
+                return;
+            }
+        }
+    }
+
+    switch (mode)
+    {
+    case TITLE_BAR_MODE_FULLPATH:
+        lstrcpyn(buffer, generalPath, bufferSize);
+        break;
+
+    case TITLE_BAR_MODE_COMPOSITE:
+        BuildCompositeCaption(panel, generalPath, buffer, bufferSize);
+        break;
+
+    case TITLE_BAR_MODE_DIRECTORY:
+    default:
+        BuildDirectoryCaption(panel, generalPath, buffer, bufferSize);
+        break;
+    }
 
     if (buffer[0] == 0)
         lstrcpyn(buffer, generalPath, bufferSize);
+}
+
+static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
+{
+    char text[2 * MAX_PATH];
+    BuildTabCaption(panel, text, _countof(text));
+    std::wstring caption = AnsiToWide(text);
+    const wchar_t* icon = (index == 0) ? L"\U0001F512" : L"\U0001F513";
+    std::wstring result = icon;
+    if (!caption.empty())
+    {
+        result += L" ";
+        result += caption;
+    }
+    return result;
 }
 
 TIndirectArray<CFilesWindow>& CMainWindow::GetPanelTabs(CPanelSide side)
@@ -426,12 +586,8 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
     int index = GetPanelTabIndex(side, panel);
     if (index < 0)
         return;
-    char path[2 * MAX_PATH];
-    if (!panel->GetGeneralPath(path, _countof(path), TRUE))
-        path[0] = 0;
-    char text[MAX_PATH];
-    BuildTabCaption(path, panel->Is(ptPluginFS), text, _countof(text));
-    tabWnd->SetTabText(index, text);
+    std::wstring text = BuildTabDisplayText(panel, index);
+    tabWnd->SetTabText(index, text.c_str());
 }
 
 void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
@@ -468,12 +624,8 @@ void CMainWindow::RebuildPanelTabs(CPanelSide side)
     for (int i = 0; i < tabs.Count; i++)
     {
         CFilesWindow* panel = tabs[i];
-        char path[2 * MAX_PATH];
-        if (!panel->GetGeneralPath(path, _countof(path), TRUE))
-            path[0] = 0;
-        char text[MAX_PATH];
-        BuildTabCaption(path, panel->Is(ptPluginFS), text, _countof(text));
-        tabWnd->AddTab(i, text, (LPARAM)panel);
+        std::wstring text = BuildTabDisplayText(panel, i);
+        tabWnd->AddTab(i, text.c_str(), (LPARAM)panel);
     }
     CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
     int index = GetPanelTabIndex(side, current);

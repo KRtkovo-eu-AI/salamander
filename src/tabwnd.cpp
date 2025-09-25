@@ -88,18 +88,6 @@ namespace
         return minWidth + padding;
     }
 
-    std::wstring ToWide(const char* text)
-    {
-        if (text == NULL)
-            return std::wstring();
-        int length = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
-        if (length <= 0)
-            return std::wstring();
-        std::wstring wide(length - 1, L'\0');
-        if (length > 1)
-            MultiByteToWideChar(CP_ACP, 0, text, -1, &wide[0], length);
-        return wide;
-    }
 }
 
 CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
@@ -166,7 +154,7 @@ int CTabWindow::GetNeededHeight() const
     return 2 + EnvFontCharHeight + 2;
 }
 
-int CTabWindow::AddTab(int index, const char* text, LPARAM data)
+int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
 {
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
@@ -174,8 +162,7 @@ int CTabWindow::AddTab(int index, const char* text, LPARAM data)
     TCITEMW item;
     ZeroMemory(&item, sizeof(item));
     item.mask = TCIF_TEXT | TCIF_PARAM;
-    std::wstring textW = ToWide(text);
-    item.pszText = textW.empty() ? const_cast<LPWSTR>(L"") : const_cast<LPWSTR>(textW.c_str());
+    item.pszText = const_cast<LPWSTR>(text != NULL ? text : L"");
     item.lParam = data;
     int count = GetTabCount();
     if (index < 0 || index > count)
@@ -221,7 +208,7 @@ void CTabWindow::RemoveAllTabs()
     }
 }
 
-void CTabWindow::SetTabText(int index, const char* text)
+void CTabWindow::SetTabText(int index, const wchar_t* text)
 {
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL || index < 0 || index >= GetTabCount())
@@ -229,8 +216,7 @@ void CTabWindow::SetTabText(int index, const char* text)
     TCITEMW item;
     ZeroMemory(&item, sizeof(item));
     item.mask = TCIF_TEXT;
-    std::wstring textW = ToWide(text);
-    item.pszText = textW.empty() ? const_cast<LPWSTR>(L"") : const_cast<LPWSTR>(textW.c_str());
+    item.pszText = const_cast<LPWSTR>(text != NULL ? text : L"");
     SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
 }
 

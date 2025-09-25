@@ -475,6 +475,7 @@ const char* CONFIG_SHOWSPLASHSCREEN_REG = "Show Splash Screen";
 const char* CONFIG_CONVERSIONTABLE_REG = "Conversion Table";
 const char* CONFIG_TITLEBARSHOWPATH_REG = "Title bar show path";
 const char* CONFIG_TITLEBARMODE_REG = "Title bar mode";
+const char* CONFIG_TABCAPTIONMODE_REG = "Tab caption mode";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
 const char* CONFIG_TITLEBARPREFIXTEXT_REG = "Title bar prefix text";
 const char* CONFIG_MAINWINDOWICONINDEX_REG = "Main window icon index";
@@ -2048,6 +2049,8 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.TitleBarShowPath, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARMODE_REG, REG_DWORD,
                          &Configuration.TitleBarMode, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABCAPTIONMODE_REG, REG_DWORD,
+                         &Configuration.TabCaptionMode, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                          &Configuration.UseTitleBarPrefix, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
@@ -3698,6 +3701,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.TitleBarShowPath, sizeof(DWORD));
             GetValue(actKey, CONFIG_TITLEBARMODE_REG, REG_DWORD,
                      &Configuration.TitleBarMode, sizeof(DWORD));
+            BOOL hasTabCaptionMode = GetValue(actKey, CONFIG_TABCAPTIONMODE_REG, REG_DWORD,
+                                              &Configuration.TabCaptionMode, sizeof(DWORD));
+            if (!hasTabCaptionMode)
+                Configuration.TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
+            if (Configuration.TabCaptionMode < TITLE_BAR_MODE_DIRECTORY ||
+                Configuration.TabCaptionMode > TITLE_BAR_MODE_FULLPATH)
+                Configuration.TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
             GetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                      &Configuration.UseTitleBarPrefix, sizeof(DWORD));
             GetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
@@ -3990,6 +4000,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
             GetValue(actKey, CONFIG_LASTFOCUSEDPAGE, REG_DWORD,
                      &Configuration.LastFocusedPage, sizeof(DWORD));
+            if (!hasTabCaptionMode && Configuration.LastFocusedPage >= 2)
+                Configuration.LastFocusedPage++;
             GetValue(actKey, CONFIG_CONFIGURATION_HEIGHT, REG_DWORD,
                      &Configuration.ConfigurationHeight, sizeof(DWORD));
             GetValue(actKey, CONFIG_VIEWANDEDITEXPAND, REG_DWORD,

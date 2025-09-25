@@ -532,6 +532,7 @@ CConfiguration::CConfiguration()
 
     TitleBarShowPath = TRUE;
     TitleBarMode = TITLE_BAR_MODE_DIRECTORY; // podle Exploreru
+    TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
     UseTitleBarPrefix = FALSE;
     strcpy(TitleBarPrefix, "ADMIN");
     UseTitleBarPrefixForced = FALSE;
@@ -682,12 +683,12 @@ int CConfiguration::GetMainWindowIconIndex()
 CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                      int mode, int param)
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
-                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 14
-                                                              : mode == 2   ? 13
-                                                              : mode == 3   ? 21
-                                                              : mode == 4   ? 12
+                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 15
+                                                              : mode == 2   ? 14
+                                                              : mode == 3   ? 22
+                                                              : mode == 4   ? 13
                                                               : mode == 5   ? 1
-                                                                            : 11 /* mode == 6 */,
+                                                                            : 12 /* mode == 6 */,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight),
@@ -700,40 +701,41 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     HOldPluginMsgBoxParent = NULL;
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // pri zmene poradi stranek je treba zmenit konstruktor
-    // mode == 0 ? Configuration.LastFocusedPage : 4
+    // aktualizovat mapovani mode -> index
     // v 1.6b2 me to vypeklo
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     /*00*/ Add(&PageGeneral);       // General
     /*01*/ Add(&PagePanels);        // Panels
-    /*02*/ Add(&PageHistory);       // History
-    /*03*/ Add(&PageSystem);        // System
-    /*04*/ Add(&PageRegional);      // Regional
-    /*05*/ Add(&PageMainWindow);    // MainWindow
-    /*06*/ Add(&PageAppear);        // Appearance
-    /*07*/ Add(&PageColors);        // Colors
-    /*08*/ Add(&PageKeyboard);      // Keyboard
-    /*09*/ Add(&PageConfirmations); // Confirmations
-    /*10*/ Add(&PageChangeDrive);   // Change Drive Menu
-    /*11*/ Add(&PageDrives);        // Drives
-    /*12*/ Add(&PageView);          // Views
-    /*13*/ Add(&PageUserMenu);      // User Menu
-    /*14*/ Add(&PageHotPath);       // Hot Paths
-    /*15*/ Add(&PageSecurity);      // Security
-    /*16*/ Add(&PageIconOvrls);     // Icon Overlays
-    /*17*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
-    /*18*/ Add(&Page13, &PageViewEdit);
-    /*19*/ Add(&Page14, &PageViewEdit);
-    /*20*/ Add(&Page15, &PageViewEdit);
-    /*21*/ Add(&PageViewer, &PageViewEdit);
-    /*22*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
-    /*23*/ Add(&PageP4, &PagePP);
-    /*24*/ Add(&PageP3, &PagePP);
-    /*25*/ Add(&PageP1, &PagePP);
-    /*26*/ Add(&PageP2, &PagePP);
+    /*02*/ Add(&PageTabs);          // Tabs
+    /*03*/ Add(&PageHistory);       // History
+    /*04*/ Add(&PageSystem);        // System
+    /*05*/ Add(&PageRegional);      // Regional
+    /*06*/ Add(&PageMainWindow);    // MainWindow
+    /*07*/ Add(&PageAppear);        // Appearance
+    /*08*/ Add(&PageColors);        // Colors
+    /*09*/ Add(&PageKeyboard);      // Keyboard
+    /*10*/ Add(&PageConfirmations); // Confirmations
+    /*11*/ Add(&PageChangeDrive);   // Change Drive Menu
+    /*12*/ Add(&PageDrives);        // Drives
+    /*13*/ Add(&PageView);          // Views
+    /*14*/ Add(&PageUserMenu);      // User Menu
+    /*15*/ Add(&PageHotPath);       // Hot Paths
+    /*16*/ Add(&PageSecurity);      // Security
+    /*17*/ Add(&PageIconOvrls);     // Icon Overlays
+    /*18*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
+    /*19*/ Add(&Page13, &PageViewEdit);
+    /*20*/ Add(&Page14, &PageViewEdit);
+    /*21*/ Add(&Page15, &PageViewEdit);
+    /*22*/ Add(&PageViewer, &PageViewEdit);
+    /*23*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
+    /*24*/ Add(&PageP4, &PagePP);
+    /*25*/ Add(&PageP3, &PagePP);
+    /*26*/ Add(&PageP1, &PagePP);
+    /*27*/ Add(&PageP2, &PagePP);
     /*27*/ //  Add(&PageShellExtensions);
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
            // pri zmene poradi stranek je treba zmenit konstruktor
-           // mode == 0 ? Configuration.LastFocusedPage : 4
+           // aktualizovat mapovani mode -> index
            // v 1.6b2 me to vypeklo
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 }

@@ -461,6 +461,7 @@ struct CConfiguration
 
     int TitleBarShowPath;                        // budeme v titulku zobrazovat cestu?
     int TitleBarMode;                            // rezim zobrazeni title bar (TITLE_BAR_MODE_xxx)
+    int TabCaptionMode;                          // rezim zobrazeni nazvu tabu (TITLE_BAR_MODE_xxx)
     int UseTitleBarPrefix;                       // zobrazovat prefix v title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix pro title bar
     int UseTitleBarPrefixForced;                 // cmdline varianta, ma prednost a neuklada se
@@ -1146,6 +1147,17 @@ protected:
 //
 // ****************************************************************************
 
+class CCfgPageTabs : public CCommonPropSheetPage
+{
+public:
+    CCfgPageTabs();
+
+    virtual void Transfer(CTransferInfo& ti);
+};
+
+//
+// ****************************************************************************
+
 class CCfgPageHistory : public CCommonPropSheetPage
 {
 public:
@@ -1193,6 +1205,7 @@ public:
     CCfgPageHistory PageHistory;
     CCfgPageChangeDrive PageChangeDrive;
     CCfgPagePanels PagePanels;
+    CCfgPageTabs PageTabs;
     CCfgPageKeyboard PageKeyboard;
     CCfgPageSecurity PageSecurity;
 
