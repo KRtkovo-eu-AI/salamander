@@ -2650,6 +2650,16 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
         }
     }
 
+    int selectionEndForEdit = selectionEnd;
+    if (GetACP() == CP_UTF8 && selectionEndForEdit > 0)
+    {
+        int wideSelectionEnd = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, formatedFileName, selectionEndForEdit, NULL, 0);
+        if (wideSelectionEnd == 0)
+            wideSelectionEnd = MultiByteToWideChar(CP_UTF8, 0, formatedFileName, selectionEndForEdit, NULL, 0);
+        if (wideSelectionEnd > 0)
+            selectionEndForEdit = wideSelectionEnd;
+    }
+
     // if this is a FS, we must first call QuickRename with mode=1
     // allowing the file system to open its own rename dialog
     if (Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&
@@ -2742,7 +2752,7 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
 
     //SendMessage(hWnd, EM_SETSEL, 0, -1); // select all
     // we can select only the name without dot and extension
-    SendMessage(hWnd, EM_SETSEL, 0, selectionEnd);
+    SendMessage(hWnd, EM_SETSEL, 0, selectionEndForEdit);
 
     ShowWindow(hWnd, SW_SHOW);
     SetFocus(hWnd);
@@ -2787,8 +2797,8 @@ BOOL CFilesWindow::HandeQuickRenameWindowKey(WPARAM wParam)
     QuickRenameWindow.SetCloseEnabled(FALSE);
 
     HWND hWnd = QuickRenameWindow.HWindow;
-    char newName[MAX_PATH];
-    GetWindowText(hWnd, newName, MAX_PATH);
+    char newName[3 * MAX_PATH];
+    GetWindowText(hWnd, newName, 3 * MAX_PATH);
 
     // lower the thread priority to "normal" (so operations don't overload the machine)
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
