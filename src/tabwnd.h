@@ -50,6 +50,8 @@ private:
     void UpdateDragIndicator(const POINT& pt);
     void SetInsertMark(int item, DWORD flags);
     void ClearInsertMark();
+    void SetDragCursor(HCURSOR cursor);
+    void ResetDragCursor();
     bool ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const;
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
     void MoveTabInternal(int from, int to);
@@ -65,4 +67,8 @@ private:
     int DragCurrentTarget;
     int DragInsertMarkItem;
     DWORD DragInsertMarkFlags;
+    HCURSOR DragCursorAllowed;
+    HCURSOR DragCursorDenied;
+    HCURSOR DragCursorDefault;
+    HCURSOR DragCursorCurrent;
 };

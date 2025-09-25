@@ -122,6 +122,10 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragCurrentTarget = -1;
     DragInsertMarkItem = -1;
     DragInsertMarkFlags = 0;
+    DragCursorAllowed = LoadCursor(NULL, IDC_SIZEWE);
+    DragCursorDenied = LoadCursor(NULL, IDC_NO);
+    DragCursorDefault = LoadCursor(NULL, IDC_ARROW);
+    DragCursorCurrent = NULL;
 }
 
 CTabWindow::~CTabWindow()
@@ -480,6 +484,7 @@ void CTabWindow::StartDragTracking(int index, const POINT& pt)
     DragStartPoint = pt;
     DragCurrentTarget = -1;
     ClearInsertMark();
+    ResetDragCursor();
 }
 
 void CTabWindow::UpdateDragTracking(const POINT& pt)
@@ -537,6 +542,7 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+    ResetDragCursor();
 
     if (canceled || !wasDragging)
         return;
@@ -565,6 +571,7 @@ void CTabWindow::CancelDragTracking()
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+    ResetDragCursor();
 }
 
 void CTabWindow::UpdateDragIndicator(const POINT& pt)
@@ -584,11 +591,32 @@ void CTabWindow::UpdateDragIndicator(const POINT& pt)
     {
         DragCurrentTarget = targetIndex;
         SetInsertMark(markItem, markFlags);
+        SetDragCursor(DragCursorAllowed);
     }
     else
     {
         DragCurrentTarget = -1;
         ClearInsertMark();
+        bool showDenied = false;
+        if (HWindow != NULL)
+        {
+            int newTabIndex = GetNewTabButtonIndex();
+            if (newTabIndex > 1)
+            {
+                RECT firstRect;
+                if (TabCtrl_GetItemRect(HWindow, 1, &firstRect))
+                {
+                    int boundary = (firstRect.left + firstRect.right) / 2;
+                    if (pt.x < boundary)
+                        showDenied = true;
+                }
+            }
+        }
+
+        if (showDenied)
+            SetDragCursor(DragCursorDenied);
+        else
+            SetDragCursor(DragCursorAllowed);
     }
 }
 
@@ -628,6 +656,34 @@ void CTabWindow::ClearInsertMark()
     mark.dwFlags = 0;
     mark.iItem = -1;
     SendMessage(HWindow, TCM_SETINSERTMARK, 0, (LPARAM)&mark);
+}
+
+void CTabWindow::SetDragCursor(HCURSOR cursor)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (DragCursorCurrent == cursor)
+        return;
+
+    DragCursorCurrent = cursor;
+
+    if (DragTracking && Dragging)
+    {
+        if (DragCursorCurrent != NULL)
+            SetCursor(DragCursorCurrent);
+        else if (DragCursorDefault != NULL)
+            SetCursor(DragCursorDefault);
+    }
+}
+
+void CTabWindow::ResetDragCursor()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (DragCursorCurrent == NULL)
+        return;
+
+    DragCursorCurrent = NULL;
+    if (DragCursorDefault != NULL)
+        SetCursor(DragCursorDefault);
 }
 
 bool CTabWindow::ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const
@@ -866,6 +922,17 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CANCELMODE:
         CancelDragTracking();
+        break;
+
+    case WM_SETCURSOR:
+        if ((HWND)wParam == HWindow && LOWORD(lParam) == HTCLIENT)
+        {
+            if (DragTracking && Dragging && DragCursorCurrent != NULL)
+            {
+                SetCursor(DragCursorCurrent);
+                return TRUE;
+            }
+        }
         break;
     }
 
