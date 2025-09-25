@@ -405,6 +405,9 @@
     <ClCompile Include="..\common\strutils.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\utf8wrap.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\common\trace.cpp">
       <Filter>common</Filter>
     </ClCompile>
