@@ -857,7 +857,17 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
                 if (horizontalMargin < 12)
                     horizontalMargin = 12;
                 InflateRect(&expandedRect, horizontalMargin, verticalMargin);
-                if (PtInRect(&expandedRect, screenPt))
+                bool insideExpanded = PtInRect(&expandedRect, screenPt) != FALSE;
+                bool acrossDivider = false;
+                if (!insideExpanded)
+                {
+                    if (targetSide == cpsRight)
+                        acrossDivider = (screenPt.x >= expandedRect.left);
+                    else
+                        acrossDivider = (screenPt.x <= expandedRect.right);
+                }
+
+                if (insideExpanded || acrossDivider)
                 {
                     targetIndex = PanelTabCrossDragStoredInsertIndex;
                     hasTarget = true;

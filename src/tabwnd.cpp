@@ -1382,6 +1382,8 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
             fillRect = rect;
     }
 
+    RECT borderRect = fillRect;
+
     COLORREF fillColor = baseColor;
     if (selected)
         fillColor = LightenColor(fillColor, 96);
@@ -1401,10 +1403,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     {
         HPEN oldPen = (HPEN)SelectObject(hdc, pen);
         HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-        int radius = EnvFontCharHeight / 2;
-        if (radius < 3)
-            radius = 3;
-        RoundRect(hdc, fillRect.left, fillRect.top, fillRect.right, fillRect.bottom, radius, radius);
+        Rectangle(hdc, borderRect.left, borderRect.top, borderRect.right, borderRect.bottom);
         if (oldBrush != NULL)
             SelectObject(hdc, oldBrush);
         if (oldPen != NULL)
