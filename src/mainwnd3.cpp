@@ -74,6 +74,13 @@ int GlobalSaveWaitWindowProgress = 0;     // current progress value of the globa
 #define APPCOMMAND_PASTE                  38
 */
 
+#ifndef TCIMF_BEFORE
+#define TCIMF_BEFORE 0x0000
+#endif
+#ifndef TCIMF_AFTER
+#define TCIMF_AFTER 0x0001
+#endif
+
 const int SPLIT_LINE_WIDTH = 3; // width of the split line in points
 // if the middle toolbar is visible, the composition will be SPLIT_LINE_WIDTH + toolbar + SPLIT_LINE_WIDTH
 
@@ -1477,6 +1484,7 @@ int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targe
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
 {
     BOOL enabled = Configuration.UsePanelTabs != 0;
+    UpdateTabbedPanelMenuItems(enabled);
     if (previouslyEnabled && !enabled)
     {
         if (LeftPanelTabs.Count > 0)

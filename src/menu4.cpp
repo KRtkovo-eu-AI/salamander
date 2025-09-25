@@ -9,6 +9,80 @@ CMenuPopup MainMenu;
 CMenuPopup ArchiveMenu;
 CMenuPopup ArchivePanelMenu;
 
+static void UpdateSeparatorSkillLevel(CMenuPopup* popup, int index, DWORD skillLevel)
+{
+    if (popup == NULL || index < 0)
+        return;
+
+    MENU_ITEM_INFO query;
+    ZeroMemory(&query, sizeof(query));
+    query.Mask = MENU_MASK_TYPE;
+    if (!popup->GetItemInfo(index, TRUE, &query))
+        return;
+    if ((query.Type & MENU_TYPE_SEPARATOR) == 0)
+        return;
+
+    MENU_ITEM_INFO update;
+    ZeroMemory(&update, sizeof(update));
+    update.Mask = MENU_MASK_SKILLLEVEL;
+    update.SkillLevel = skillLevel;
+    popup->SetItemInfo(index, TRUE, &update);
+}
+
+static void UpdateSideTabMenuItems(CMenuPopup* popup, const DWORD* commandIds, size_t commandCount, DWORD skillLevel)
+{
+    if (popup == NULL)
+        return;
+
+    MENU_ITEM_INFO update;
+    ZeroMemory(&update, sizeof(update));
+    update.Mask = MENU_MASK_SKILLLEVEL;
+    update.SkillLevel = skillLevel;
+    for (size_t i = 0; i < commandCount; ++i)
+        popup->SetItemInfo(commandIds[i], FALSE, &update);
+
+    if (commandCount == 0)
+        return;
+
+    int firstIndex = popup->FindItemPosition(commandIds[0]);
+    if (firstIndex != -1)
+        UpdateSeparatorSkillLevel(popup, firstIndex - 1, skillLevel);
+
+    int lastIndex = popup->FindItemPosition(commandIds[commandCount - 1]);
+    if (lastIndex != -1)
+        UpdateSeparatorSkillLevel(popup, lastIndex + 1, skillLevel);
+}
+
+void UpdateTabbedPanelMenuItems(BOOL tabsEnabled)
+{
+    DWORD skillLevel = tabsEnabled ? (MNTS_B | MNTS_I | MNTS_A) : 0;
+
+    static const DWORD leftCommands[] = {
+        CM_LEFT_NEWTAB,
+        CM_LEFT_CLOSETAB,
+        CM_LEFT_NEXTTAB,
+        CM_LEFT_PREVTAB,
+        CM_LEFT_DUPLICATETABTORIGHT,
+        CM_LEFT_MOVETABTORIGHT,
+        CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT,
+        CM_LEFT_CLOSEALLBUTDEFAULT,
+    };
+
+    static const DWORD rightCommands[] = {
+        CM_RIGHT_NEWTAB,
+        CM_RIGHT_CLOSETAB,
+        CM_RIGHT_NEXTTAB,
+        CM_RIGHT_PREVTAB,
+        CM_RIGHT_DUPLICATETABTOLEFT,
+        CM_RIGHT_MOVETABTOLEFT,
+        CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT,
+        CM_RIGHT_CLOSEALLBUTDEFAULT,
+    };
+
+    UpdateSideTabMenuItems(MainMenu.GetSubMenu(CML_LEFT, FALSE), leftCommands, _countof(leftCommands), skillLevel);
+    UpdateSideTabMenuItems(MainMenu.GetSubMenu(CML_RIGHT, FALSE), rightCommands, _countof(rightCommands), skillLevel);
+}
+
 //
 // vytvori a naplni menu
 //

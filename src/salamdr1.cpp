@@ -4086,6 +4086,7 @@ FIND_NEW_SLG_FILE:
         SplashScreenCloseIfExist();
         goto EXIT_8;
     }
+    UpdateTabbedPanelMenuItems(Configuration.UsePanelTabs != 0);
     if (!InitializeThread())
     {
         SplashScreenCloseIfExist();
