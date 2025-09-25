@@ -538,6 +538,8 @@ public:
     void CommandPrevTab(CPanelSide side);
     void CommandSetPanelTabColor(CFilesWindow* panel);
     void CommandClearPanelTabColor(CFilesWindow* panel);
+    void CommandSetPanelTabPrefix(CFilesWindow* panel);
+    void CommandClearPanelTabPrefix(CFilesWindow* panel);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx

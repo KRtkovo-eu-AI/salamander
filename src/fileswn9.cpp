@@ -92,6 +92,26 @@ void CFilesWindow::ClearCustomTabColor()
     CustomTabColorValid = false;
 }
 
+void CFilesWindow::SetCustomTabPrefix(const wchar_t* prefix)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (prefix == NULL)
+    {
+        ClearCustomTabPrefix();
+        return;
+    }
+
+    CustomTabPrefix.assign(prefix);
+    CustomTabPrefixValid = !CustomTabPrefix.empty();
+}
+
+void CFilesWindow::ClearCustomTabPrefix()
+{
+    CALL_STACK_MESSAGE_NONE
+    CustomTabPrefix.clear();
+    CustomTabPrefixValid = false;
+}
+
 int CFilesWindow::GetPanelCode()
 {
     CALL_STACK_MESSAGE_NONE

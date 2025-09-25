@@ -401,18 +401,27 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
             }
             COLORREF baseColor = 0;
             bool haveColor = false;
-            const STabColor* colorEntry = GetTabColor(index);
-            if (colorEntry != NULL && colorEntry->Valid)
+            CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(GetItemData(index));
+            if (panel != NULL && panel->HasCustomTabColor())
             {
-                baseColor = colorEntry->Color;
+                baseColor = panel->GetCustomTabColor();
                 haveColor = true;
             }
-            else if (MainWindow != NULL)
+            if (!haveColor)
             {
-                CFilesWindow* panel = MainWindow->GetPanelTabAt(Side, index);
-                if (panel != NULL && panel->HasCustomTabColor())
+                const STabColor* colorEntry = GetTabColor(index);
+                if (colorEntry != NULL && colorEntry->Valid)
                 {
-                    baseColor = panel->GetCustomTabColor();
+                    baseColor = colorEntry->Color;
+                    haveColor = true;
+                }
+            }
+            if (!haveColor && MainWindow != NULL)
+            {
+                CFilesWindow* fallback = MainWindow->GetPanelTabAt(Side, index);
+                if (fallback != NULL && fallback->HasCustomTabColor())
+                {
+                    baseColor = fallback->GetCustomTabColor();
                     haveColor = true;
                 }
             }

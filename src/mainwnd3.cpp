@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <string>
+#include <cwctype>
 #include <commdlg.h>
 
 #include <shlwapi.h>
@@ -328,9 +329,18 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     char text[2 * MAX_PATH];
     BuildTabCaption(panel, text, _countof(text));
     std::wstring caption = AnsiToWide(text);
+    std::wstring prefix;
+    if (panel != NULL && panel->HasCustomTabPrefix())
+        prefix = panel->GetCustomTabPrefix();
     std::wstring result;
     if (index == 0)
         result = L"\U0001F512";
+    if (!prefix.empty())
+    {
+        if (!result.empty())
+            result += L" ";
+        result += prefix;
+    }
     if (!caption.empty())
     {
         if (!result.empty())
@@ -487,8 +497,10 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
     UINT newCmd, closeCmd, closeAllCmd, nextCmd, prevCmd;
     UINT colorCmd, clearCmd;
+    UINT prefixCmd, clearPrefixCmd;
     UINT newText, closeText, closeAllText, nextText, prevText;
     UINT colorText, clearText;
+    UINT prefixText, clearPrefixText;
     if (side == cpsLeft)
     {
         newCmd = CM_LEFT_NEWTAB;
@@ -498,6 +510,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         prevCmd = CM_LEFT_PREVTAB;
         colorCmd = CM_LEFT_SETTABCOLOR;
         clearCmd = CM_LEFT_CLEARTABCOLOR;
+        prefixCmd = CM_LEFT_SETTABPREFIX;
+        clearPrefixCmd = CM_LEFT_CLEARTABPREFIX;
         newText = IDS_MENU_LEFT_NEWTAB;
         closeText = IDS_MENU_LEFT_CLOSETAB;
         closeAllText = IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT;
@@ -505,6 +519,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         prevText = IDS_MENU_LEFT_PREVTAB;
         colorText = IDS_MENU_LEFT_SETTABCOLOR;
         clearText = IDS_MENU_LEFT_CLEARTABCOLOR;
+        prefixText = IDS_MENU_LEFT_SETTABPREFIX;
+        clearPrefixText = IDS_MENU_LEFT_CLEARTABPREFIX;
     }
     else
     {
@@ -515,6 +531,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         prevCmd = CM_RIGHT_PREVTAB;
         colorCmd = CM_RIGHT_SETTABCOLOR;
         clearCmd = CM_RIGHT_CLEARTABCOLOR;
+        prefixCmd = CM_RIGHT_SETTABPREFIX;
+        clearPrefixCmd = CM_RIGHT_CLEARTABPREFIX;
         newText = IDS_MENU_RIGHT_NEWTAB;
         closeText = IDS_MENU_RIGHT_CLOSETAB;
         closeAllText = IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT;
@@ -522,6 +540,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         prevText = IDS_MENU_RIGHT_PREVTAB;
         colorText = IDS_MENU_RIGHT_SETTABCOLOR;
         clearText = IDS_MENU_RIGHT_CLEARTABCOLOR;
+        prefixText = IDS_MENU_RIGHT_SETTABPREFIX;
+        clearPrefixText = IDS_MENU_RIGHT_CLEARTABPREFIX;
     }
 
     AppendMenu(menu, MF_STRING, newCmd, LoadStr(newText));
@@ -537,8 +557,13 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     BOOL canSetColor = index >= 0 && index < tabs.Count;
     CFilesWindow* targetPanel = (index >= 0 && index < tabs.Count) ? tabs[index] : NULL;
     BOOL hasCustomColor = targetPanel != NULL && targetPanel->HasCustomTabColor();
+    BOOL canSetPrefix = targetPanel != NULL;
+    BOOL hasCustomPrefix = targetPanel != NULL && targetPanel->HasCustomTabPrefix();
     AppendMenu(menu, MF_STRING | (canSetColor ? MF_ENABLED : MF_GRAYED), colorCmd, LoadStr(colorText));
     AppendMenu(menu, MF_STRING | (hasCustomColor ? MF_ENABLED : MF_GRAYED), clearCmd, LoadStr(clearText));
+
+    AppendMenu(menu, MF_STRING | (canSetPrefix ? MF_ENABLED : MF_GRAYED), prefixCmd, LoadStr(prefixText));
+    AppendMenu(menu, MF_STRING | (hasCustomPrefix ? MF_ENABLED : MF_GRAYED), clearPrefixCmd, LoadStr(clearPrefixText));
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
 
@@ -614,6 +639,32 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             {
                 SwitchPanelTab(panel);
                 CommandClearPanelTabColor(panel);
+            }
+        }
+        break;
+
+    case CM_LEFT_SETTABPREFIX:
+    case CM_RIGHT_SETTABPREFIX:
+        if (index >= 0 && index < tabs.Count)
+        {
+            CFilesWindow* panel = tabs[index];
+            if (panel != NULL)
+            {
+                SwitchPanelTab(panel);
+                CommandSetPanelTabPrefix(panel);
+            }
+        }
+        break;
+
+    case CM_LEFT_CLEARTABPREFIX:
+    case CM_RIGHT_CLEARTABPREFIX:
+        if (index >= 0 && index < tabs.Count)
+        {
+            CFilesWindow* panel = tabs[index];
+            if (panel != NULL)
+            {
+                SwitchPanelTab(panel);
+                CommandClearPanelTabPrefix(panel);
             }
         }
         break;
@@ -796,6 +847,65 @@ void CMainWindow::CommandClearPanelTabColor(CFilesWindow* panel)
 
     panel->ClearCustomTabColor();
     UpdatePanelTabColor(panel);
+}
+
+void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    char buffer[2 * MAX_PATH];
+    buffer[0] = 0;
+
+    if (panel->HasCustomTabPrefix())
+    {
+        const std::wstring& existing = panel->GetCustomTabPrefix();
+        if (!existing.empty())
+            WideCharToMultiByte(CP_ACP, 0, existing.c_str(), -1, buffer, _countof(buffer), NULL, NULL);
+        buffer[_countof(buffer) - 1] = 0;
+    }
+
+    char caption[2 * MAX_PATH];
+    BuildTabCaption(panel, caption, _countof(caption));
+
+    CTruncatedString subject;
+    subject.Set(LoadStr(IDS_SETTABPREFIX_PROMPT), caption);
+
+    CCopyMoveDialog dlg(HWindow, buffer, _countof(buffer), LoadStr(IDS_SETTABPREFIX_TITLE),
+                        &subject, IDD_RENAMEDIALOG, NULL, 0, FALSE);
+
+    dlg.SetSelectionEnd(-1);
+
+    if ((int)dlg.Execute() != IDOK)
+        return;
+
+    std::wstring prefix = AnsiToWide(buffer);
+    size_t start = 0;
+    while (start < prefix.length() && iswspace(prefix[start]))
+        ++start;
+    size_t end = prefix.length();
+    while (end > start && iswspace(prefix[end - 1]))
+        --end;
+    if (start > 0 || end < prefix.length())
+        prefix = prefix.substr(start, end - start);
+
+    if (prefix.empty())
+        panel->ClearCustomTabPrefix();
+    else
+        panel->SetCustomTabPrefix(prefix.c_str());
+
+    UpdatePanelTabTitle(panel);
+}
+
+void CMainWindow::CommandClearPanelTabPrefix(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+    if (!panel->HasCustomTabPrefix())
+        return;
+
+    panel->ClearCustomTabPrefix();
+    UpdatePanelTabTitle(panel);
 }
 
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
