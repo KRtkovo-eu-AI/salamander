@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.AutomationElements.Infrastructure;
+using FlaUI.Core.Exceptions;
 using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
@@ -39,22 +41,28 @@ public sealed class AboutDialogSteps
 
         var knownWindows = CaptureExistingProcessWindows(processId);
 
-        var openedViaMenu = TryOpenAboutThroughMenu(mainWindow);
-
-        if (!openedViaMenu)
-        {
-            TryOpenAboutWithKeyboard();
-        }
-
-        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5), knownWindows, processId, mainHandle);
-
-        if (_aboutWindow is null)
-        {
-            InvokeAboutCommand(mainWindow);
-
-            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(10), knownWindows, processId, mainHandle)
-                ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
-        }
+        _aboutWindow = TryOpenAndWait(
+                mainWindow,
+                TimeSpan.FromSeconds(4),
+                knownWindows,
+                processId,
+                mainHandle,
+                TryOpenAboutThroughMenu)
+            ?? TryOpenAndWait(
+                mainWindow,
+                TimeSpan.FromSeconds(5),
+                knownWindows,
+                processId,
+                mainHandle,
+                TryOpenAboutWithKeyboard)
+            ?? TryOpenAndWait(
+                mainWindow,
+                TimeSpan.FromSeconds(6),
+                knownWindows,
+                processId,
+                mainHandle,
+                TryInvokeAboutCommand)
+            ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
     }
 
     [Then("the About dialog is displayed")]
@@ -254,19 +262,37 @@ public sealed class AboutDialogSteps
         }
     }
 
+    private static Window? TryOpenAndWait(
+        Window mainWindow,
+        TimeSpan timeout,
+        HashSet<IntPtr> knownWindows,
+        uint processId,
+        IntPtr mainHandle,
+        Func<Window, bool> openAction)
+    {
+        var invoked = SafeInvoke(openAction, mainWindow);
+        if (!invoked)
+        {
+            return null;
+        }
+
+        return WaitForAboutDialog(mainWindow, timeout, knownWindows, processId, mainHandle);
+    }
+
     private static bool TryOpenAboutThroughMenu(Window mainWindow)
     {
-        var menuResult = Retry.WhileNull(
-            () => mainWindow.FindFirstDescendant(cf => cf.ByControlType(FlaUIControlType.MenuBar)),
+        var menuBarResult = Retry.WhileNull(
+            () => FindMenuBar(mainWindow),
             timeout: TimeSpan.FromSeconds(2),
             throwOnTimeout: false);
 
-        if (!menuResult.Success || menuResult.Result is null)
+        if (!menuBarResult.Success || menuBarResult.Result is null)
         {
             return false;
         }
 
-        var menuBar = menuResult.Result.AsMenu();
+        var menuBar = menuBarResult.Result;
+
         var helpResult = Retry.WhileNull(
             () => FindMenuItem(menuBar, "Help"),
             timeout: TimeSpan.FromSeconds(2),
@@ -278,12 +304,7 @@ public sealed class AboutDialogSteps
         }
 
         var helpMenuItem = helpResult.Result;
-
-        try
-        {
-            ExpandMenuItem(helpMenuItem);
-        }
-        catch
+        if (!TryExpandMenuItem(helpMenuItem))
         {
             return false;
         }
@@ -298,15 +319,7 @@ public sealed class AboutDialogSteps
             return false;
         }
 
-        try
-        {
-            InvokeMenuItem(aboutResult.Result);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        return TryInvokeMenuItem(aboutResult.Result);
     }
 
     private static bool IsAboutDialog(Window candidate, Window mainWindow)
@@ -434,42 +447,56 @@ public sealed class AboutDialogSteps
             || content.Contains("verze", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void TryOpenAboutWithKeyboard()
+    private static Menu? FindMenuBar(Window mainWindow)
     {
-        Keyboard.Press(VirtualKeyShort.ALT);
-        Keyboard.Press(VirtualKeyShort.KEY_H);
-        Keyboard.Release(VirtualKeyShort.KEY_H);
-        Keyboard.Release(VirtualKeyShort.ALT);
+        var menuBarElement = mainWindow.FindFirstDescendant(cf => cf.ByControlType(FlaUIControlType.MenuBar))
+            ?? mainWindow.FindFirstDescendant(cf => cf.ByControlType(FlaUIControlType.Menu));
 
-        Wait.UntilInputIsProcessed();
-
-        Keyboard.Press(VirtualKeyShort.KEY_A);
-        Keyboard.Release(VirtualKeyShort.KEY_A);
-
-        Wait.UntilInputIsProcessed();
-    }
-
-    private static void InvokeAboutCommand(Window mainWindow)
-    {
-        var nativeHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
-        if (nativeHandle == IntPtr.Zero)
-        {
-            throw new InvalidOperationException("The main window handle is not available.");
-        }
-
-        NativeMethods.SendMessage(nativeHandle, NativeMethods.WM_COMMAND, (IntPtr)NativeCommandIds.HelpAbout, IntPtr.Zero);
-
-        Wait.UntilInputIsProcessed();
+        return AsMenu(menuBarElement);
     }
 
     private static MenuItem? FindMenuItem(Menu menu, string nameFragment)
     {
-        return menu.Items.FirstOrDefault(item => MatchesName(item, nameFragment));
+        return EnumerateMenuItems(menu.AutomationElement)
+            .FirstOrDefault(item => MatchesName(item, nameFragment));
     }
 
     private static MenuItem? FindMenuItem(MenuItem parent, string nameFragment)
     {
-        return parent.Items.FirstOrDefault(item => MatchesName(item, nameFragment));
+        return EnumerateMenuItems(parent.AutomationElement)
+            .FirstOrDefault(item => MatchesName(item, nameFragment));
+    }
+
+    private static IEnumerable<MenuItem> EnumerateMenuItems(AutomationElement container)
+    {
+        AutomationElement[] children;
+
+        try
+        {
+            children = container.FindAllChildren(cf => cf.ByControlType(FlaUIControlType.MenuItem));
+        }
+        catch (Exception ex) when (ex is FlaUIException or SWA.ElementNotAvailableException)
+        {
+            yield break;
+        }
+
+        foreach (var child in children)
+        {
+            MenuItem? item = null;
+            try
+            {
+                item = child.AsMenuItem();
+            }
+            catch (Exception ex) when (ex is FlaUIException or SWA.ElementNotAvailableException)
+            {
+                continue;
+            }
+
+            if (item is not null)
+            {
+                yield return item;
+            }
+        }
     }
 
     private static bool MatchesName(MenuItem item, string nameFragment)
@@ -478,46 +505,130 @@ public sealed class AboutDialogSteps
         return name.Contains(nameFragment, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void ExpandMenuItem(MenuItem menuItem)
+    private static bool TryExpandMenuItem(MenuItem menuItem)
     {
-        if (!menuItem.IsEnabled)
+        try
         {
-            throw new InvalidOperationException($"Menu item '{menuItem.Name}' is disabled.");
-        }
-
-        if (menuItem.Patterns.ExpandCollapse.IsSupported)
-        {
-            var expandCollapse = menuItem.Patterns.ExpandCollapse.Pattern;
-            if (expandCollapse.ExpandCollapseState != FlaUIExpandCollapseState.Expanded)
+            if (!menuItem.IsEnabled)
             {
-                expandCollapse.Expand();
+                return false;
             }
-        }
-        else
-        {
-            menuItem.Click();
-        }
 
-        Wait.UntilInputIsProcessed();
+            if (menuItem.Patterns.ExpandCollapse.IsSupported)
+            {
+                var expandCollapse = menuItem.Patterns.ExpandCollapse.Pattern;
+                if (expandCollapse.ExpandCollapseState != FlaUIExpandCollapseState.Expanded)
+                {
+                    expandCollapse.Expand();
+                }
+            }
+            else
+            {
+                menuItem.Click();
+            }
+
+            Wait.UntilInputIsProcessed();
+            return true;
+        }
+        catch (Exception ex) when (ex is FlaUIException or SWA.ElementNotAvailableException or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
-    private static void InvokeMenuItem(MenuItem menuItem)
+    private static bool TryInvokeMenuItem(MenuItem menuItem)
     {
-        if (!menuItem.IsEnabled)
+        try
         {
-            throw new InvalidOperationException($"Menu item '{menuItem.Name}' is disabled.");
+            if (!menuItem.IsEnabled)
+            {
+                return false;
+            }
+
+            if (menuItem.Patterns.Invoke.IsSupported)
+            {
+                menuItem.Patterns.Invoke.Pattern.Invoke();
+            }
+            else
+            {
+                menuItem.Click();
+            }
+
+            Wait.UntilInputIsProcessed();
+            return true;
+        }
+        catch (Exception ex) when (ex is FlaUIException or SWA.ElementNotAvailableException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryOpenAboutWithKeyboard(Window mainWindow)
+    {
+        try
+        {
+            mainWindow.Focus();
+            Wait.UntilInputIsProcessed();
+
+            Keyboard.Press(VirtualKeyShort.ALT);
+            Keyboard.Press(VirtualKeyShort.KEY_H);
+            Keyboard.Release(VirtualKeyShort.KEY_H);
+            Keyboard.Release(VirtualKeyShort.ALT);
+
+            Wait.UntilInputIsProcessed();
+
+            Keyboard.Press(VirtualKeyShort.KEY_A);
+            Keyboard.Release(VirtualKeyShort.KEY_A);
+
+            Wait.UntilInputIsProcessed();
+            return true;
+        }
+        catch (Exception ex) when (ex is FlaUIException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryInvokeAboutCommand(Window mainWindow)
+    {
+        var nativeHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
+        if (nativeHandle == IntPtr.Zero)
+        {
+            return false;
         }
 
-        if (menuItem.Patterns.Invoke.IsSupported)
-        {
-            menuItem.Patterns.Invoke.Pattern.Invoke();
-        }
-        else
-        {
-            menuItem.Click();
-        }
-
+        NativeMethods.SendMessage(nativeHandle, NativeMethods.WM_COMMAND, (IntPtr)NativeCommandIds.HelpAbout, IntPtr.Zero);
         Wait.UntilInputIsProcessed();
+        return true;
+    }
+
+    private static Menu? AsMenu(AutomationElement? element)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return element.AsMenu();
+        }
+        catch (Exception ex) when (ex is FlaUIException or SWA.ElementNotAvailableException)
+        {
+            return null;
+        }
+    }
+
+    private static bool SafeInvoke(Func<Window, bool> action, Window window)
+    {
+        try
+        {
+            return action(window);
+        }
+        catch (Exception ex) when (ex is FlaUIException or SWA.ElementNotAvailableException or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static IEnumerable<Window> EnumerateModalWindows(Window mainWindow)
