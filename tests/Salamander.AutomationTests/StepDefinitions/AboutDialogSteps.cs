@@ -144,7 +144,7 @@ public sealed class AboutDialogSteps
                 continue;
             }
 
-            if (!knownWindows.Add(handle))
+            if (knownWindows.Contains(handle))
             {
                 continue;
             }
