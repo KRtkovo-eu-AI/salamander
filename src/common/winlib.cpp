@@ -25,6 +25,8 @@
 
 #include "winlib.h"
 
+#include "darkmode.h"
+
 // opatreni proti runtime check failure v debug verzi: puvodni verze makra pretypovava rgb na WORD,
 // takze hlasi ztratu dat (RED slozky)
 #undef GetGValue
