@@ -284,6 +284,8 @@ void CWindow::AttachToWindow(HWND hWnd)
         TRACE_CT(_T("This should never happen."));
         DefWndProc = GetDefWindowProc();
     }
+
+    ApplyDarkModeForWindow(HWindow);
 }
 
 void CWindow::AttachToControl(HWND dlg, int ctrlID)

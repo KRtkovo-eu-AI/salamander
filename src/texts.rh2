@@ -856,6 +856,9 @@
 #define IDS_COLORSCHEME_NORTON           10603
 #define IDS_COLORSCHEME_NAVIGATOR        10604
 #define IDS_COLORSCHEME_DARK             10605
+#define IDS_COLORTHEME_SYSTEM            10606
+#define IDS_COLORTHEME_LIGHT             10607
+#define IDS_COLORTHEME_DARK              10608
 
 // ConfigPage5 - HotPaths
 #define IDS_HOTPATH_NAME             10665

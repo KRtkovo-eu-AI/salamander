@@ -229,6 +229,8 @@ struct CConfiguration
         TileSpacingVert,        // vertikalni roztec v bodech mezi Tiles v panelu
         ThumbnailSpacingHorz,   // horizontalni roztec v bodech mezi Thumbnails v panelu
         ThumbnailSize,          // ctvercove rozmery thumbnailu v bodech
+        ColorThemeMode,         // aplikacni motiv (sledovat Windows / svetly / tmavy)
+        ColorScheme,            // vychozi barevne schema pro svetly motiv
                                 //      PanelTooltip,         // v panelu jsou tooltipovany zkracene texty
         KeepPluginsSorted,      // pluginy budou abecedne razeny (plugins manager, menu)
         ShowSLGIncomplete,      // TRUE = je-li IsSLGIncomplete neprazdne, ukazat hlasku o nekompletnim prekladu (ze shanime prekladatele)
@@ -752,6 +754,7 @@ protected:
     CColorArrowButton* Items[CFG_COLORS_BUTTONS];
     CColorArrowButton* Masks[CFG_COLORS_BUTTONS];
 
+    HWND HTheme;
     HWND HScheme;
     HWND HItem;
     COLORREF TmpColors[NUMBER_OF_COLORS];
@@ -776,6 +779,7 @@ protected:
     void LoadMasks();
     void StoreMasks();
     void EnableControls();
+    void UpdateThemeControls();
 };
 
 //

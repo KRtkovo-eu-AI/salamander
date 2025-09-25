@@ -17,6 +17,7 @@
 #include "viewer.h"
 #include "find.h"
 #include "gui.h"
+#include "darkmode.h"
 
 //****************************************************************************
 //
@@ -322,6 +323,8 @@ CConfiguration::CConfiguration()
     TileSpacingVert = 8;
     ThumbnailSpacingHorz = 19; // 29 je pod WinXP
     ThumbnailSize = THUMBNAIL_SIZE_DEFAULT;
+    ColorThemeMode = APPTHEME_FOLLOWSYSTEM;
+    ColorScheme = COLORSCHEME_SALAMANDER;
 
     // options for Compare Directories
     CompareByTime = TRUE;
@@ -3319,6 +3322,7 @@ int CConfigurationPage7MasksBut[CFG_COLORS_BUTTONS] = {IDC_C_MASK1_C, IDC_C_MASK
 CCfgPageColors::CCfgPageColors()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_COLORS, IDD_CFGPAGE_COLORS, PSP_USETITLE, NULL), HighlightMasks(10, 5)
 {
+    HTheme = NULL;
     HScheme = NULL;
     HItem = NULL;
     int i;
@@ -3345,6 +3349,20 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < NUMBER_OF_COLORS; i++)
             TmpColors[i] = UserColors[i];
 
+        DisableNotification = TRUE;
+
+        SendMessage(HTheme, CB_RESETCONTENT, 0, 0);
+        const int themeOrder[] = {APPTHEME_FOLLOWSYSTEM, APPTHEME_LIGHT, APPTHEME_DARK};
+        const int themeLabels[] = {IDS_COLORTHEME_SYSTEM, IDS_COLORTHEME_LIGHT, IDS_COLORTHEME_DARK};
+        const int themeCount = sizeof(themeOrder) / sizeof(themeOrder[0]);
+        for (i = 0; i < themeCount; i++)
+        {
+            LRESULT idx = SendMessage(HTheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(themeLabels[i]));
+            SendMessage(HTheme, CB_SETITEMDATA, idx, themeOrder[i]);
+        }
+
+        SendMessage(HScheme, CB_RESETCONTENT, 0, 0);
+
         const int schemeOrder[] = {COLORSCHEME_SALAMANDER, COLORSCHEME_EXPLORER, COLORSCHEME_NORTON, COLORSCHEME_NAVIGATOR, COLORSCHEME_DARK, COLORSCHEME_CUSTOM};
         const int schemeLabels[] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON, IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_DARK, IDS_COLORSCHEME_CUSTOM};
         const int schemeCount = sizeof(schemeOrder) / sizeof(schemeOrder[0]);
@@ -3362,6 +3380,8 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
 
         int selectedScheme = GetSchemeIdFromColors(CurrentColors);
+        if (!IsDarkModeEnabled())
+            selectedScheme = Configuration.ColorScheme;
         int selectedIndex = 0;
         for (i = 0; i < schemeCount; i++)
         {
@@ -3374,35 +3394,54 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         SendMessage(HScheme, CB_SETCURSEL, selectedIndex, 0);
         SendMessage(HItem, CB_SETCURSEL, 0, 0);
 
+        int selectedTheme = Configuration.ColorThemeMode;
+        int selectedThemeIndex = 0;
+        for (i = 0; i < themeCount; i++)
+        {
+            if ((int)SendMessage(HTheme, CB_GETITEMDATA, i, 0) == selectedTheme)
+            {
+                selectedThemeIndex = i;
+                break;
+            }
+        }
+        SendMessage(HTheme, CB_SETCURSEL, selectedThemeIndex, 0);
+
         // naleju seznam hilight polozek
         for (i = 0; i < HighlightMasks.Count; i++)
             EditLB->AddItem((INT_PTR)HighlightMasks[i]);
 
-        DisableNotification = TRUE;
         EditLB->SetCurSel(0);
         DisableNotification = FALSE;
         LoadColors();
         LoadMasks();
+        UpdateThemeControls();
         EnableControls();
     }
     else
     {
+        int themeIndex = (int)SendMessage(HTheme, CB_GETCURSEL, 0, 0);
+        if (themeIndex == CB_ERR)
+            themeIndex = 0;
+        Configuration.ColorThemeMode = (int)SendMessage(HTheme, CB_GETITEMDATA, themeIndex, 0);
+
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
         int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
         COLORREF* schemeColors = GetSchemeColorsById(schemeId);
         if (schemeColors != NULL)
         {
-            CurrentColors = schemeColors;
+            if (!IsDarkModeEnabled())
+                Configuration.ColorScheme = schemeId;
         }
         else
         {
-            CurrentColors = UserColors;
             int i;
             for (i = 0; i < NUMBER_OF_COLORS; i++)
                 UserColors[i] = TmpColors[i];
+            if (!IsDarkModeEnabled())
+                Configuration.ColorScheme = COLORSCHEME_CUSTOM;
         }
 
-        ColorsChanged(TRUE, TRUE, FALSE); // sporime cas, nechame zmenit jen barvo-zavisle polozky, neloadime znovu ikony
+        ApplyAppTheme(TRUE);
 
         SourceHighlightMasks->Load(HighlightMasks);
         int errPos;
@@ -3420,7 +3459,9 @@ void CCfgPageColors::LoadColors()
     int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
     int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
     COLORREF* schemeColors = GetSchemeColorsById(schemeId);
-    if (schemeColors != NULL)
+    if (IsDarkModeEnabled())
+        tmpColors = DarkColors;
+    else if (schemeColors != NULL)
         tmpColors = schemeColors;
     else
         tmpColors = TmpColors;
@@ -3551,6 +3592,13 @@ void CCfgPageColors::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDC_C_MASK5_C), validItem);
 }
 
+void CCfgPageColors::UpdateThemeControls()
+{
+    CALL_STACK_MESSAGE1("CCfgPageColors::UpdateThemeControls()");
+    BOOL allowSchemeChanges = !IsDarkModeEnabled();
+    EnableWindow(HScheme, allowSchemeChanges);
+}
+
 void CCfgPageColors::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPageColors::Validate()");
@@ -3583,6 +3631,7 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        HTheme = GetDlgItem(HWindow, IDC_C_THEME);
         HScheme = GetDlgItem(HWindow, IDC_C_SCHEME);
         HItem = GetDlgItem(HWindow, IDC_C_ITEM);
 
@@ -3619,7 +3668,21 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             StoreMasks();
         }
 
-        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME || LOWORD(wParam) == IDC_C_ITEM)
+        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_THEME)
+        {
+            if (!DisableNotification)
+            {
+                int themeIndex = (int)SendMessage(HTheme, CB_GETCURSEL, 0, 0);
+                if (themeIndex == CB_ERR)
+                    themeIndex = 0;
+                Configuration.ColorThemeMode = (int)SendMessage(HTheme, CB_GETITEMDATA, themeIndex, 0);
+                ApplyAppTheme(TRUE);
+                UpdateThemeControls();
+                LoadColors();
+            }
+            break;
+        }
+        if ((HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME) || LOWORD(wParam) == IDC_C_ITEM)
         {
             LoadColors();
             break;

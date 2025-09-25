@@ -34,6 +34,8 @@
 
 #include "svg.h"
 
+#include "darkmode.h"
+
 extern "C"
 {
 #include "shexreg.h"
@@ -742,6 +744,78 @@ COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS] =
         RGB(255, 255, 255),
         RGB(255, 255, 255),
 };
+
+static int NormalizeColorSchemeId(int schemeId)
+{
+    switch (schemeId)
+    {
+    case COLORSCHEME_SALAMANDER:
+    case COLORSCHEME_EXPLORER:
+    case COLORSCHEME_NORTON:
+    case COLORSCHEME_NAVIGATOR:
+    case COLORSCHEME_DARK:
+    case COLORSCHEME_CUSTOM:
+        return schemeId;
+    default:
+        return COLORSCHEME_SALAMANDER;
+    }
+}
+
+SALCOLOR* GetColorSchemeById(int schemeId)
+{
+    switch (schemeId)
+    {
+    case COLORSCHEME_SALAMANDER:
+        return SalamanderColors;
+    case COLORSCHEME_EXPLORER:
+        return ExplorerColors;
+    case COLORSCHEME_NORTON:
+        return NortonColors;
+    case COLORSCHEME_NAVIGATOR:
+        return NavigatorColors;
+    case COLORSCHEME_DARK:
+        return DarkColors;
+    case COLORSCHEME_CUSTOM:
+    default:
+        return UserColors;
+    }
+}
+
+static DarkModePreference GetDarkModePreferenceForConfiguration()
+{
+    switch (Configuration.ColorThemeMode)
+    {
+    case APPTHEME_LIGHT:
+        return DarkModePreference_ForceLight;
+    case APPTHEME_DARK:
+        return DarkModePreference_ForceDark;
+    case APPTHEME_FOLLOWSYSTEM:
+    default:
+        return DarkModePreference_FollowSystem;
+    }
+}
+
+void ApplyAppTheme(BOOL refreshColors)
+{
+    Configuration.ColorScheme = NormalizeColorSchemeId(Configuration.ColorScheme);
+
+    SetDarkModePreference(GetDarkModePreferenceForConfiguration());
+
+    SALCOLOR* desiredColors = GetColorSchemeById(Configuration.ColorScheme);
+
+    if (Configuration.ColorThemeMode == APPTHEME_DARK || (IsDarkModeSupported() && IsDarkModeEnabled()))
+        desiredColors = DarkColors;
+
+    if (CurrentColors != desiredColors)
+    {
+        CurrentColors = desiredColors;
+        ColorsChanged(TRUE, TRUE, FALSE);
+    }
+    else if (refreshColors)
+    {
+        ColorsChanged(TRUE, TRUE, FALSE);
+    }
+}
 
 //*****************************************************************************
 //
@@ -3757,6 +3831,7 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     Windows10AndLater = SalIsWindowsVersionOrGreater(10, 0, 0);
 
     InitializeDarkModeSupport();
+    ApplyAppTheme(FALSE);
 
     DWORD integrityLevel;
     if (GetProcessIntegrityLevel(&integrityLevel) && integrityLevel >= SECURITY_MANDATORY_HIGH_RID)

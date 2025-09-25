@@ -651,6 +651,7 @@ const char* SALAMANDER_CUSTOMCOLORS_REG = "Custom Colors";
 
 // colors
 const char* SALAMANDER_COLORS_REG = "Colors";
+const char* SALAMANDER_THEME_MODE_REG = "App Theme";
 const char* SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG = "Focus Active Normal";
 const char* SALAMANDER_CLR_FOCUS_ACTIVE_SELECTED_REG = "Focus Active Selected";
 const char* SALAMANDER_CLR_FOCUS_INACTIVE_NORMAL_REG = "Focus Inactive Normal";
@@ -2472,18 +2473,11 @@ void CMainWindow::SaveConfig(HWND parent)
 
             if (CreateKey(salamander, SALAMANDER_COLORS_REG, actKey))
             {
-                DWORD scheme = COLORSCHEME_CUSTOM;
-                if (CurrentColors == SalamanderColors)
-                    scheme = COLORSCHEME_SALAMANDER;
-                else if (CurrentColors == ExplorerColors)
-                    scheme = COLORSCHEME_EXPLORER;
-                else if (CurrentColors == NortonColors)
-                    scheme = COLORSCHEME_NORTON;
-                else if (CurrentColors == NavigatorColors)
-                    scheme = COLORSCHEME_NAVIGATOR;
-                else if (CurrentColors == DarkColors)
-                    scheme = COLORSCHEME_DARK;
+                DWORD scheme = (DWORD)Configuration.ColorScheme;
                 SetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD));
+
+                DWORD themeMode = (DWORD)Configuration.ColorThemeMode;
+                SetValue(actKey, SALAMANDER_THEME_MODE_REG, REG_DWORD, &themeMode, sizeof(DWORD));
 
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG, UserColors[FOCUS_ACTIVE_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_SELECTED_REG, UserColors[FOCUS_ACTIVE_SELECTED]);
@@ -2891,22 +2885,22 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         {
             DWORD scheme;
             CurrentColors = UserColors;
+            Configuration.ColorScheme = COLORSCHEME_CUSTOM;
             if (GetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD)))
             {
                 // we added a new scheme (DOS Navigator) at position 3
                 if (Configuration.ConfigVersion < 28 && scheme == COLORSCHEME_NAVIGATOR)
                     scheme = COLORSCHEME_CUSTOM;
 
-                if (scheme == COLORSCHEME_SALAMANDER)
-                    CurrentColors = SalamanderColors;
-                else if (scheme == COLORSCHEME_EXPLORER)
-                    CurrentColors = ExplorerColors;
-                else if (scheme == COLORSCHEME_NORTON)
-                    CurrentColors = NortonColors;
-                else if (scheme == COLORSCHEME_NAVIGATOR)
-                    CurrentColors = NavigatorColors;
-                else if (scheme == COLORSCHEME_DARK)
-                    CurrentColors = DarkColors;
+                Configuration.ColorScheme = (int)scheme;
+            }
+
+            DWORD themeMode;
+            if (GetValue(actKey, SALAMANDER_THEME_MODE_REG, REG_DWORD, &themeMode, sizeof(DWORD)))
+            {
+                if (themeMode > APPTHEME_DARK)
+                    themeMode = APPTHEME_FOLLOWSYSTEM;
+                Configuration.ColorThemeMode = (int)themeMode;
             }
 
             LoadRGBF(actKey, SALAMANDER_CLR_ITEM_FG_NORMAL_REG, UserColors[ITEM_FG_NORMAL]);
@@ -3029,6 +3023,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
             CloseKey(actKey);
         }
+
+        ApplyAppTheme(FALSE);
 
         //---  window
 

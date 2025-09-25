@@ -1272,12 +1272,19 @@ extern SALCOLOR NortonColors[NUMBER_OF_COLORS];     // standardni barvy
 extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standardni barvy
 extern SALCOLOR DarkColors[NUMBER_OF_COLORS];        // standardni barvy
 
+SALCOLOR* GetColorSchemeById(int schemeId);
+void ApplyAppTheme(BOOL refreshColors);
+
 #define COLORSCHEME_SALAMANDER 0
 #define COLORSCHEME_EXPLORER 1
 #define COLORSCHEME_NORTON 2
 #define COLORSCHEME_NAVIGATOR 3
 #define COLORSCHEME_CUSTOM 4
 #define COLORSCHEME_DARK 5
+
+#define APPTHEME_FOLLOWSYSTEM 0
+#define APPTHEME_LIGHT 1
+#define APPTHEME_DARK 2
 
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // barvy vieweru
 

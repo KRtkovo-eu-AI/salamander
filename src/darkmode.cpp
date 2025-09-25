@@ -5,6 +5,7 @@
 #include "darkmode.h"
 
 #include <dwmapi.h>
+#include <uxtheme.h>
 
 namespace
 {
@@ -54,6 +55,7 @@ namespace
     DWORD gBuildNumber = 0;
     bool gDarkModeSupported = false;
     bool gDarkModeEnabled = false;
+    DarkModePreference gDarkModePreference = DarkModePreference_FollowSystem;
 
     DWORD GetBuildNumber()
     {
@@ -100,6 +102,35 @@ namespace
         gDarkModeEnabled = enable;
     }
 
+    void ApplyDarkModeToSingleWindow(HWND hwnd)
+    {
+        if (!gDarkModeSupported || hwnd == NULL)
+            return;
+
+        BOOL allow = gDarkModeEnabled ? TRUE : FALSE;
+        if (gAllowDarkModeForWindow != nullptr)
+            gAllowDarkModeForWindow(hwnd, allow);
+
+        if (gIsDarkModeAllowedForWindow != nullptr && !gIsDarkModeAllowedForWindow(hwnd))
+            return;
+
+        HWND topLevel = GetAncestor(hwnd, GA_ROOT);
+        if (topLevel == hwnd)
+        {
+            int attribute = GetDarkModeAttributeId();
+            DwmSetWindowAttribute(hwnd, attribute, &allow, sizeof(allow));
+        }
+
+        if (gDarkModeEnabled)
+            SetWindowTheme(hwnd, L"DarkMode_Explorer", nullptr);
+        else
+            SetWindowTheme(hwnd, L"Explorer", nullptr);
+
+        SendMessage(hwnd, WM_THEMECHANGED, 0, 0);
+        RedrawWindow(hwnd, nullptr, nullptr,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+    }
+
     BOOL CALLBACK ApplyDarkModeEnumProc(HWND hwnd, LPARAM)
     {
         ApplyDarkModeForWindow(hwnd);
@@ -114,6 +145,20 @@ namespace
     void ApplyDarkModeToAllWindows()
     {
         EnumThreadWindows(GetCurrentThreadId(), ApplyDarkModeEnumProc, 0);
+    }
+
+    bool CalculateShouldUseDarkMode()
+    {
+        switch (gDarkModePreference)
+        {
+        case DarkModePreference_ForceLight:
+            return false;
+        case DarkModePreference_ForceDark:
+            return true;
+        case DarkModePreference_FollowSystem:
+        default:
+            return ShouldUseDarkModeFromSystem();
+        }
     }
 
     int GetDarkModeAttributeId()
@@ -164,25 +209,15 @@ void InitializeDarkModeSupport()
     }
 
     gDarkModeSupported = true;
-    bool enable = ShouldUseDarkModeFromSystem();
+    bool enable = CalculateShouldUseDarkMode();
     UpdateDarkModeAppPreference(enable);
     ApplyDarkModeToAllWindows();
 }
 
 void ApplyDarkModeForWindow(HWND hwnd)
 {
-    if (!gDarkModeSupported || hwnd == NULL)
-        return;
-
-    BOOL allow = gDarkModeEnabled ? TRUE : FALSE;
-    if (gAllowDarkModeForWindow != nullptr)
-        gAllowDarkModeForWindow(hwnd, allow);
-
-    if (gIsDarkModeAllowedForWindow != nullptr && !gIsDarkModeAllowedForWindow(hwnd))
-        return;
-
-    int attribute = GetDarkModeAttributeId();
-    DwmSetWindowAttribute(hwnd, attribute, &allow, sizeof(allow));
+    ApplyDarkModeToSingleWindow(hwnd);
+    EnumChildWindows(hwnd, ApplyDarkModeEnumProc, 0);
 }
 
 bool HandleDarkModeSettingChange(LPARAM lParam)
@@ -199,6 +234,9 @@ bool HandleDarkModeSettingChange(LPARAM lParam)
     if (_stricmp(setting, "ImmersiveColorSet") != 0 && _stricmp(setting, "WindowsThemeElement") != 0)
         return false;
 #endif
+
+    if (gDarkModePreference != DarkModePreference_FollowSystem)
+        return false;
 
     bool enable = ShouldUseDarkModeFromSystem();
     if (enable == gDarkModeEnabled)
@@ -225,4 +263,21 @@ void RefreshDarkModeForProcess()
         return;
 
     ApplyDarkModeToAllWindows();
+}
+
+void SetDarkModePreference(DarkModePreference preference)
+{
+    gDarkModePreference = preference;
+
+    if (!gDarkModeSupported)
+        return;
+
+    bool enable = CalculateShouldUseDarkMode();
+    UpdateDarkModeAppPreference(enable);
+    ApplyDarkModeToAllWindows();
+}
+
+DarkModePreference GetDarkModePreference()
+{
+    return gDarkModePreference;
 }
