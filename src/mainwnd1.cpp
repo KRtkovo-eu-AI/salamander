@@ -325,6 +325,7 @@ CMainWindow::CMainWindow()
     PanelTabCrossDragDisplayedInsertIndex = -1;
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
+    PanelTabCrossDragStoredInsertIndex = -1;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;
@@ -2761,7 +2762,9 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL rightNextTab = FALSE;
     BOOL rightPrevTab = FALSE;
     BOOL leftCloseAllButDefault = FALSE;
+    BOOL leftCloseAllExceptThisAndDefault = FALSE;
     BOOL rightCloseAllButDefault = FALSE;
+    BOOL rightCloseAllExceptThisAndDefault = FALSE;
     BOOL leftDuplicateTab = FALSE;
     BOOL leftMoveTab = FALSE;
     BOOL rightDuplicateTab = FALSE;
@@ -2811,6 +2814,13 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         leftNextTab = (leftCount > 1);
         leftPrevTab = (leftCount > 1);
         leftCloseAllButDefault = (leftCount > 1);
+        if (leftCount > 1)
+        {
+            if (leftIndex == 0)
+                leftCloseAllExceptThisAndDefault = TRUE;
+            else if (leftCount > 2)
+                leftCloseAllExceptThisAndDefault = TRUE;
+        }
         leftDuplicateTab = (leftIndex >= 0);
         leftMoveTab = (leftIndex > 0);
 
@@ -2821,6 +2831,13 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
         rightCloseAllButDefault = (rightCount > 1);
+        if (rightCount > 1)
+        {
+            if (rightIndex == 0)
+                rightCloseAllExceptThisAndDefault = TRUE;
+            else if (rightCount > 2)
+                rightCloseAllExceptThisAndDefault = TRUE;
+        }
         rightDuplicateTab = (rightIndex >= 0);
         rightMoveTab = (rightIndex > 0);
 
@@ -2835,11 +2852,13 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             leftNextTab = FALSE;
             leftPrevTab = FALSE;
             leftCloseAllButDefault = FALSE;
+            leftCloseAllExceptThisAndDefault = FALSE;
             rightNewTab = FALSE;
             rightCloseTab = FALSE;
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
             rightCloseAllButDefault = FALSE;
+            rightCloseAllExceptThisAndDefault = FALSE;
             leftDuplicateTab = FALSE;
             leftMoveTab = FALSE;
             rightDuplicateTab = FALSE;
@@ -3038,6 +3057,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
     obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
     obj->CheckAndSet(&EnablerLeftCloseAllButDefault, leftCloseAllButDefault);
+    obj->CheckAndSet(&EnablerLeftCloseAllExceptThisAndDefault, leftCloseAllExceptThisAndDefault);
     obj->CheckAndSet(&EnablerLeftDuplicateTabToRight, leftDuplicateTab);
     obj->CheckAndSet(&EnablerLeftMoveTabToRight, leftMoveTab);
     obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
@@ -3045,6 +3065,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
     obj->CheckAndSet(&EnablerRightCloseAllButDefault, rightCloseAllButDefault);
+    obj->CheckAndSet(&EnablerRightCloseAllExceptThisAndDefault, rightCloseAllExceptThisAndDefault);
     obj->CheckAndSet(&EnablerRightDuplicateTabToLeft, rightDuplicateTab);
     obj->CheckAndSet(&EnablerRightMoveTabToLeft, rightMoveTab);
 

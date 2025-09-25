@@ -33,6 +33,7 @@ STRINGTABLE
  IDS_MENU_LEFT_DUPLICATETABRIGHT, "Duplicate Tab to &Right"
  IDS_MENU_LEFT_MOVETABTORIGHT,    "Move Tab to &Right"
  IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT, "Close all &left tabs except the default"
+ IDS_MENU_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT, "Close all &left tabs except this and default"
 
  IDS_MENU_FILES,             "&Files"
  IDS_MENU_FILES_RENAME,      "&Quick Rename...\tF2"
@@ -177,6 +178,7 @@ STRINGTABLE
  IDS_MENU_RIGHT_DUPLICATETABTOLEFT, "Duplicate Tab to &Left"
  IDS_MENU_RIGHT_MOVETABTOLEFT,      "Move Tab to &Left"
  IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, "Close all &right tabs except the default"
+ IDS_MENU_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT, "Close all &right tabs except this and default"
 
  IDS_SETTABPREFIX_TITLE,      "Set Tab Prefix"
  IDS_SETTABPREFIX_PROMPT,     "Enter a custom tab prefix for '%s' (leave empty to clear):"

@@ -495,11 +495,11 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     if (menu == NULL)
         return;
 
-    UINT newCmd, closeCmd, closeAllCmd, nextCmd, prevCmd;
+    UINT newCmd, closeCmd, closeAllCmd, closeExceptThisCmd, nextCmd, prevCmd;
     UINT colorCmd, clearCmd;
     UINT prefixCmd, clearPrefixCmd;
     UINT duplicateCmd, moveCmd;
-    UINT newText, closeText, closeAllText, nextText, prevText;
+    UINT newText, closeText, closeAllText, closeExceptThisText, nextText, prevText;
     UINT colorText, clearText;
     UINT prefixText, clearPrefixText;
     UINT duplicateText, moveText;
@@ -508,6 +508,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         newCmd = CM_LEFT_NEWTAB;
         closeCmd = CM_LEFT_CLOSETAB;
         closeAllCmd = CM_LEFT_CLOSEALLBUTDEFAULT;
+        closeExceptThisCmd = CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT;
         nextCmd = CM_LEFT_NEXTTAB;
         prevCmd = CM_LEFT_PREVTAB;
         colorCmd = CM_LEFT_SETTABCOLOR;
@@ -519,6 +520,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         newText = IDS_MENU_LEFT_NEWTAB;
         closeText = IDS_MENU_LEFT_CLOSETAB;
         closeAllText = IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT;
+        closeExceptThisText = IDS_MENU_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT;
         nextText = IDS_MENU_LEFT_NEXTTAB;
         prevText = IDS_MENU_LEFT_PREVTAB;
         colorText = IDS_MENU_LEFT_SETTABCOLOR;
@@ -533,6 +535,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         newCmd = CM_RIGHT_NEWTAB;
         closeCmd = CM_RIGHT_CLOSETAB;
         closeAllCmd = CM_RIGHT_CLOSEALLBUTDEFAULT;
+        closeExceptThisCmd = CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT;
         nextCmd = CM_RIGHT_NEXTTAB;
         prevCmd = CM_RIGHT_PREVTAB;
         colorCmd = CM_RIGHT_SETTABCOLOR;
@@ -544,6 +547,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         newText = IDS_MENU_RIGHT_NEWTAB;
         closeText = IDS_MENU_RIGHT_CLOSETAB;
         closeAllText = IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT;
+        closeExceptThisText = IDS_MENU_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT;
         nextText = IDS_MENU_RIGHT_NEXTTAB;
         prevText = IDS_MENU_RIGHT_PREVTAB;
         colorText = IDS_MENU_RIGHT_SETTABCOLOR;
@@ -559,7 +563,17 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     BOOL canClose = index > 0;
     AppendMenu(menu, MF_STRING | (canClose ? MF_ENABLED : MF_GRAYED), closeCmd, LoadStr(closeText));
 
-    BOOL canCloseAll = GetPanelTabCount(side) > 1;
+    int tabCount = GetPanelTabCount(side);
+    BOOL canCloseAll = tabCount > 1;
+    BOOL canCloseExceptThis = FALSE;
+    if (index >= 0)
+    {
+        if (tabCount > 2)
+            canCloseExceptThis = TRUE;
+        else if (tabCount > 1 && index == 0)
+            canCloseExceptThis = TRUE;
+    }
+    AppendMenu(menu, MF_STRING | (canCloseExceptThis ? MF_ENABLED : MF_GRAYED), closeExceptThisCmd, LoadStr(closeExceptThisText));
     AppendMenu(menu, MF_STRING | (canCloseAll ? MF_ENABLED : MF_GRAYED), closeAllCmd, LoadStr(closeAllText));
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
@@ -609,6 +623,13 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             SwitchPanelTab(tabs[index]);
             CommandCloseTab(side);
         }
+        break;
+
+    case CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT:
+    case CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandCloseAllTabsExceptThisAndDefault(side, targetPanel);
         break;
 
     case CM_LEFT_CLOSEALLBUTDEFAULT:
@@ -749,6 +770,7 @@ void CMainWindow::OnPanelTabDragStarted(CPanelSide side, int index)
     PanelTabCrossDragDisplayedInsertIndex = -1;
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
+    PanelTabCrossDragStoredInsertIndex = -1;
     ClearPanelTabDragTargetIndicator();
     PanelTabCrossDragHasTarget = false;
 }
@@ -785,10 +807,16 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
         PanelTabCrossDragDisplayedInsertIndex = targetIndex;
         PanelTabCrossDragDisplayedMarkItem = markItem;
         PanelTabCrossDragDisplayedMarkFlags = markFlags;
+        PanelTabCrossDragStoredInsertIndex = targetIndex;
         return true;
     }
 
-    ClearPanelTabDragTargetIndicator();
+    if (PanelTabCrossDragHasTarget)
+        targetTabWnd->HideExternalDropIndicator();
+    PanelTabCrossDragHasTarget = false;
+    PanelTabCrossDragDisplayedInsertIndex = -1;
+    PanelTabCrossDragDisplayedMarkItem = -1;
+    PanelTabCrossDragDisplayedMarkFlags = 0;
     return false;
 }
 
@@ -810,10 +838,34 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     bool hasTarget = targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags);
     if (!hasTarget)
     {
-        if (!PanelTabCrossDragHasTarget)
-            return false;
-        targetIndex = PanelTabCrossDragDisplayedInsertIndex;
-        if (targetIndex < 0)
+        if (PanelTabCrossDragHasTarget && PanelTabCrossDragDisplayedInsertIndex >= 0)
+        {
+            targetIndex = PanelTabCrossDragDisplayedInsertIndex;
+            hasTarget = true;
+        }
+
+        if (!hasTarget && PanelTabCrossDragStoredInsertIndex >= 0)
+        {
+            RECT targetRect;
+            if (targetTabWnd->HWindow != NULL && GetWindowRect(targetTabWnd->HWindow, &targetRect))
+            {
+                RECT expandedRect = targetRect;
+                int verticalMargin = EnvFontCharHeight / 2;
+                if (verticalMargin < 6)
+                    verticalMargin = 6;
+                int horizontalMargin = EnvFontCharHeight;
+                if (horizontalMargin < 12)
+                    horizontalMargin = 12;
+                InflateRect(&expandedRect, horizontalMargin, verticalMargin);
+                if (PtInRect(&expandedRect, screenPt))
+                {
+                    targetIndex = PanelTabCrossDragStoredInsertIndex;
+                    hasTarget = true;
+                }
+            }
+        }
+
+        if (!hasTarget)
             return false;
     }
 
@@ -864,6 +916,7 @@ void CMainWindow::CancelPanelTabDrag()
     PanelTabCrossDragDisplayedInsertIndex = -1;
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
+    PanelTabCrossDragStoredInsertIndex = -1;
 }
 
 void CMainWindow::ClearPanelTabDragTargetIndicator()
@@ -880,6 +933,7 @@ void CMainWindow::ClearPanelTabDragTargetIndicator()
     PanelTabCrossDragDisplayedInsertIndex = -1;
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
+    PanelTabCrossDragStoredInsertIndex = -1;
 }
 
 void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
@@ -968,6 +1022,35 @@ void CMainWindow::CommandCloseAllTabsExceptDefault(CPanelSide side)
     {
         CFilesWindow* panel = tabs[i];
         if (panel != NULL)
+            ClosePanelTab(panel);
+    }
+}
+
+void CMainWindow::CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (tabs.Count <= 1)
+        return;
+
+    if (keepPanel != NULL && (keepPanel->GetPanelSide() != side || GetPanelTabIndex(side, keepPanel) < 0))
+        keepPanel = NULL;
+
+    CFilesWindow* defaultPanel = tabs[0];
+    if (keepPanel == NULL)
+        keepPanel = (side == cpsLeft) ? LeftPanel : RightPanel;
+
+    if (keepPanel != NULL)
+        SwitchPanelTab(keepPanel);
+    else if (defaultPanel != NULL)
+        SwitchPanelTab(defaultPanel);
+
+    for (int i = tabs.Count - 1; i >= 1; --i)
+    {
+        CFilesWindow* panel = tabs[i];
+        if (panel != NULL && panel != keepPanel)
             ClosePanelTab(panel);
     }
 }
@@ -4542,6 +4625,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT:
+        {
+            CommandCloseAllTabsExceptThisAndDefault(cpsLeft);
+            return 0;
+        }
+
         case CM_LEFT_CLOSEALLBUTDEFAULT:
         {
             CommandCloseAllTabsExceptDefault(cpsLeft);
@@ -4581,6 +4670,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_RIGHT_CLOSETAB:
         {
             CommandCloseTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT:
+        {
+            CommandCloseAllTabsExceptThisAndDefault(cpsRight);
             return 0;
         }
 

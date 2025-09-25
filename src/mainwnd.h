@@ -501,6 +501,7 @@ protected:
     int PanelTabCrossDragDisplayedInsertIndex;
     int PanelTabCrossDragDisplayedMarkItem;
     DWORD PanelTabCrossDragDisplayedMarkFlags;
+    int PanelTabCrossDragStoredInsertIndex;
 
 public:
     CMainWindow();
@@ -545,6 +546,7 @@ public:
     void CommandNewTab(CPanelSide side, bool addAtEnd = false);
     void CommandCloseTab(CPanelSide side);
     void CommandCloseAllTabsExceptDefault(CPanelSide side);
+    void CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel = NULL);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
     void CommandSetPanelTabColor(CFilesWindow* panel);
