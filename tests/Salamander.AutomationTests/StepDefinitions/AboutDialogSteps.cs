@@ -82,14 +82,14 @@ public sealed class AboutDialogSteps
     public void ThenSalamanderIsNotRunning()
     {
         Assert.That(TestSession.IsRunning, Is.False, "The Salamander application is still running.");
-}
+    }
 
     private static void TryOpenAboutWithKeyboard()
     {
-        Keyboard.Press(VirtualKeyShort.MENU);
+        Keyboard.Press(VirtualKeyShort.ALT);
         Keyboard.Press(VirtualKeyShort.KEY_H);
         Keyboard.Release(VirtualKeyShort.KEY_H);
-        Keyboard.Release(VirtualKeyShort.MENU);
+        Keyboard.Release(VirtualKeyShort.ALT);
 
         Wait.UntilInputIsProcessed();
 
@@ -101,13 +101,13 @@ public sealed class AboutDialogSteps
 
     private static void InvokeAboutCommand(Window mainWindow)
     {
-        var nativeHandle = mainWindow.Properties.NativeWindowHandle.Value;
-        if (nativeHandle is null)
+        var nativeHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
+        if (nativeHandle == IntPtr.Zero)
         {
             throw new InvalidOperationException("The main window handle is not available.");
         }
 
-        NativeMethods.SendMessage(new IntPtr(nativeHandle.Value), NativeMethods.WM_COMMAND, new IntPtr(NativeCommandIds.HelpAbout), IntPtr.Zero);
+        NativeMethods.SendMessage(nativeHandle, NativeMethods.WM_COMMAND, new IntPtr(NativeCommandIds.HelpAbout), IntPtr.Zero);
 
         Wait.UntilInputIsProcessed();
     }
