@@ -326,6 +326,8 @@ CMainWindow::CMainWindow()
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
     PanelTabCrossDragStoredInsertIndex = -1;
+    PanelTabCrossDragStoredMarkItem = -1;
+    PanelTabCrossDragStoredMarkFlags = 0;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;

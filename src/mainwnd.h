@@ -502,6 +502,8 @@ protected:
     int PanelTabCrossDragDisplayedMarkItem;
     DWORD PanelTabCrossDragDisplayedMarkFlags;
     int PanelTabCrossDragStoredInsertIndex;
+    int PanelTabCrossDragStoredMarkItem;
+    DWORD PanelTabCrossDragStoredMarkFlags;
 
 public:
     CMainWindow();

@@ -1382,8 +1382,6 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
             fillRect = rect;
     }
 
-    RECT borderRect = fillRect;
-
     COLORREF fillColor = baseColor;
     if (selected)
         fillColor = LightenColor(fillColor, 96);
@@ -1395,20 +1393,6 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     {
         FillRect(hdc, &fillRect, brush);
         DeleteObject(brush);
-    }
-
-    COLORREF borderColor = DarkenColor(baseColor, 80);
-    HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
-    if (pen != NULL)
-    {
-        HPEN oldPen = (HPEN)SelectObject(hdc, pen);
-        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-        Rectangle(hdc, borderRect.left, borderRect.top, borderRect.right, borderRect.bottom);
-        if (oldBrush != NULL)
-            SelectObject(hdc, oldBrush);
-        if (oldPen != NULL)
-            SelectObject(hdc, oldPen);
-        DeleteObject(pen);
     }
 
     RECT textRect = fillRect;

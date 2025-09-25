@@ -808,6 +808,8 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
         PanelTabCrossDragDisplayedMarkItem = markItem;
         PanelTabCrossDragDisplayedMarkFlags = markFlags;
         PanelTabCrossDragStoredInsertIndex = targetIndex;
+        PanelTabCrossDragStoredMarkItem = markItem;
+        PanelTabCrossDragStoredMarkFlags = markFlags;
         return true;
     }
 
@@ -836,11 +838,22 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     int markItem = -1;
     DWORD markFlags = 0;
     bool hasTarget = targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags);
-    if (!hasTarget)
+    if (hasTarget)
+    {
+        PanelTabCrossDragStoredInsertIndex = targetIndex;
+        PanelTabCrossDragStoredMarkItem = markItem;
+        PanelTabCrossDragStoredMarkFlags = markFlags;
+    }
+    else
     {
         if (PanelTabCrossDragHasTarget && PanelTabCrossDragDisplayedInsertIndex >= 0)
         {
             targetIndex = PanelTabCrossDragDisplayedInsertIndex;
+            markItem = PanelTabCrossDragDisplayedMarkItem;
+            markFlags = PanelTabCrossDragDisplayedMarkFlags;
+            PanelTabCrossDragStoredInsertIndex = targetIndex;
+            PanelTabCrossDragStoredMarkItem = markItem;
+            PanelTabCrossDragStoredMarkFlags = markFlags;
             hasTarget = true;
         }
 
@@ -870,6 +883,8 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
                 if (insideExpanded || acrossDivider)
                 {
                     targetIndex = PanelTabCrossDragStoredInsertIndex;
+                    markItem = PanelTabCrossDragStoredMarkItem;
+                    markFlags = PanelTabCrossDragStoredMarkFlags;
                     hasTarget = true;
                 }
             }
@@ -879,21 +894,67 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
             return false;
     }
 
+    if (markItem < 0)
+    {
+        int tabCount = targetTabWnd->GetTabCount();
+        if (tabCount <= 0)
+        {
+            markItem = 0;
+            markFlags = TCIMF_AFTER;
+        }
+        else if (targetIndex >= tabCount)
+        {
+            markItem = tabCount - 1;
+            markFlags = TCIMF_AFTER;
+        }
+        else
+        {
+            markItem = (targetIndex > 0) ? targetIndex : 1;
+            markFlags = TCIMF_BEFORE;
+        }
+    }
+
     CFilesWindow* panel = GetPanelTabAt(side, index);
     if (panel == NULL)
         return false;
 
+    int targetCountBefore = GetPanelTabs(targetSide).Count;
+    auto normalizeInsertIndex = [](int candidate, int count) -> int {
+        int clamped = candidate;
+        if (clamped > count)
+            clamped = count;
+        if (clamped < 0)
+            clamped = 0;
+        if (count > 0 && clamped < 1)
+            clamped = 1;
+        return clamped;
+    };
+
+    int requestedIndex = normalizeInsertIndex(targetIndex, targetCountBefore);
+
     ClearPanelTabDragTargetIndicator();
 
-    int insertedIndex = CommandMoveTabToOtherSide(side, index, targetIndex);
+    int insertedIndex = CommandMoveTabToOtherSide(side, index, requestedIndex);
     if (insertedIndex < 0)
         return false;
 
-    if (targetIndex >= 0)
+    if (requestedIndex >= 0)
     {
         CPanelSide finalSide = targetSide;
-        int desiredIndex = targetIndex;
+        int desiredIndex = requestedIndex;
         TIndirectArray<CFilesWindow>& targetTabs = GetPanelTabs(finalSide);
+        if (markFlags == TCIMF_AFTER)
+        {
+            if (markItem >= 0 && markItem < targetTabs.Count - 1)
+                desiredIndex = markItem + 1;
+            else
+                desiredIndex = targetTabs.Count - 1;
+        }
+        else if (markFlags == TCIMF_BEFORE)
+        {
+            if (markItem >= 0 && markItem < targetTabs.Count)
+                desiredIndex = markItem;
+        }
         if (desiredIndex >= targetTabs.Count)
             desiredIndex = targetTabs.Count - 1;
         if (desiredIndex < 0)
@@ -927,6 +988,8 @@ void CMainWindow::CancelPanelTabDrag()
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
     PanelTabCrossDragStoredInsertIndex = -1;
+    PanelTabCrossDragStoredMarkItem = -1;
+    PanelTabCrossDragStoredMarkFlags = 0;
 }
 
 void CMainWindow::ClearPanelTabDragTargetIndicator()
@@ -944,6 +1007,8 @@ void CMainWindow::ClearPanelTabDragTargetIndicator()
     PanelTabCrossDragDisplayedMarkItem = -1;
     PanelTabCrossDragDisplayedMarkFlags = 0;
     PanelTabCrossDragStoredInsertIndex = -1;
+    PanelTabCrossDragStoredMarkItem = -1;
+    PanelTabCrossDragStoredMarkFlags = 0;
 }
 
 void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
