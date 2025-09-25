@@ -511,16 +511,18 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     if (menu == NULL)
         return;
 
-    UINT newCmd, closeCmd, nextCmd, prevCmd;
-    UINT newText, closeText, nextText, prevText;
+    UINT newCmd, closeCmd, closeAllCmd, nextCmd, prevCmd;
+    UINT newText, closeText, closeAllText, nextText, prevText;
     if (side == cpsLeft)
     {
         newCmd = CM_LEFT_NEWTAB;
         closeCmd = CM_LEFT_CLOSETAB;
+        closeAllCmd = CM_LEFT_CLOSEALLBUTDEFAULT;
         nextCmd = CM_LEFT_NEXTTAB;
         prevCmd = CM_LEFT_PREVTAB;
         newText = IDS_MENU_LEFT_NEWTAB;
         closeText = IDS_MENU_LEFT_CLOSETAB;
+        closeAllText = IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT;
         nextText = IDS_MENU_LEFT_NEXTTAB;
         prevText = IDS_MENU_LEFT_PREVTAB;
     }
@@ -528,10 +530,12 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     {
         newCmd = CM_RIGHT_NEWTAB;
         closeCmd = CM_RIGHT_CLOSETAB;
+        closeAllCmd = CM_RIGHT_CLOSEALLBUTDEFAULT;
         nextCmd = CM_RIGHT_NEXTTAB;
         prevCmd = CM_RIGHT_PREVTAB;
         newText = IDS_MENU_RIGHT_NEWTAB;
         closeText = IDS_MENU_RIGHT_CLOSETAB;
+        closeAllText = IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT;
         nextText = IDS_MENU_RIGHT_NEXTTAB;
         prevText = IDS_MENU_RIGHT_PREVTAB;
     }
@@ -540,6 +544,9 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
     BOOL canClose = index > 0;
     AppendMenu(menu, MF_STRING | (canClose ? MF_ENABLED : MF_GRAYED), closeCmd, LoadStr(closeText));
+
+    BOOL canCloseAll = GetPanelTabCount(side) > 1;
+    AppendMenu(menu, MF_STRING | (canCloseAll ? MF_ENABLED : MF_GRAYED), closeAllCmd, LoadStr(closeAllText));
 
     BOOL canNavigate = GetPanelTabCount(side) > 1;
     AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), nextCmd, LoadStr(nextText));
@@ -568,6 +575,13 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             SwitchPanelTab(tabs[index]);
             CommandCloseTab(side);
         }
+        break;
+
+    case CM_LEFT_CLOSEALLBUTDEFAULT:
+    case CM_RIGHT_CLOSEALLBUTDEFAULT:
+        if (index >= 0 && index < tabs.Count)
+            SwitchPanelTab(tabs[index]);
+        CommandCloseAllTabsExceptDefault(side);
         break;
 
     case CM_LEFT_NEXTTAB:
@@ -679,6 +693,27 @@ void CMainWindow::CommandCloseTab(CPanelSide side)
     CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
     if (panel != NULL)
         ClosePanelTab(panel);
+}
+
+void CMainWindow::CommandCloseAllTabsExceptDefault(CPanelSide side)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (tabs.Count <= 1)
+        return;
+
+    CFilesWindow* defaultPanel = tabs[0];
+    if (defaultPanel != NULL)
+        SwitchPanelTab(defaultPanel);
+
+    for (int i = tabs.Count - 1; i >= 1; --i)
+    {
+        CFilesWindow* panel = tabs[i];
+        if (panel != NULL)
+            ClosePanelTab(panel);
+    }
 }
 
 void CMainWindow::CommandNextTab(CPanelSide side)
@@ -3937,6 +3972,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
+        case CM_LEFT_CLOSEALLBUTDEFAULT:
+        {
+            CommandCloseAllTabsExceptDefault(cpsLeft);
+            return 0;
+        }
+
         case CM_LEFT_NEXTTAB:
         {
             CommandNextTab(cpsLeft);
@@ -3958,6 +3999,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_RIGHT_CLOSETAB:
         {
             CommandCloseTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_CLOSEALLBUTDEFAULT:
+        {
+            CommandCloseAllTabsExceptDefault(cpsRight);
             return 0;
         }
 
