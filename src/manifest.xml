@@ -39,7 +39,7 @@
   </application>
 </compatibility>
 <asmv3:application xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
-  <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
+  <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
     <dpiAware>true</dpiAware>
     <activeCodePage>UTF-8</activeCodePage>
   </asmv3:windowsSettings>
