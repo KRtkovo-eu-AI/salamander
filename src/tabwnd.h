@@ -47,6 +47,10 @@ private:
     void UpdateDragTracking(const POINT& pt);
     void FinishDragTracking(const POINT& pt, bool canceled);
     void CancelDragTracking();
+    void UpdateDragIndicator(const POINT& pt);
+    void SetInsertMark(int item, DWORD flags);
+    void ClearInsertMark();
+    bool ComputeDragTargetInfo(POINT pt, int fromIndex, int& targetIndex, int& markItem, DWORD& markFlags) const;
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
     void MoveTabInternal(int from, int to);
 
@@ -58,4 +62,7 @@ private:
     bool Dragging;
     POINT DragStartPoint;
     int DragSourceIndex;
+    int DragCurrentTarget;
+    int DragInsertMarkItem;
+    DWORD DragInsertMarkFlags;
 };
