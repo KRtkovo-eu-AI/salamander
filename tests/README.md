@@ -2,7 +2,8 @@
 
 This folder contains the Visual Studio solution `Salamander.AutomationTests.sln` with a C# project for
 running automated UI tests against Salamander using [FlaUI](https://github.com/FlaUI/FlaUI)
-and [Reqnroll](https://github.com/reqnroll/Reqnroll).
+(with the UIA2 automation backend suitable for Win32/WinForms applications) and
+[Reqnroll](https://github.com/reqnroll/Reqnroll).
 
 ## Getting started
 

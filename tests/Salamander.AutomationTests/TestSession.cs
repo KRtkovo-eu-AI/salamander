@@ -2,7 +2,7 @@ using System;
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Tools;
-using FlaUI.UIA3;
+using FlaUI.UIA2;
 
 namespace Salamander.AutomationTests;
 
@@ -14,14 +14,14 @@ public static class TestSession
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
 
     private static FlaUI.Core.Application? _application;
-    private static UIA3Automation? _automation;
+    private static UIA2Automation? _automation;
     private static Window? _mainWindow;
 
     public static bool IsRunning => _application is { HasExited: false };
 
     public static FlaUI.Core.Application Application => _application ?? throw new InvalidOperationException("The application has not been started yet.");
 
-    public static UIA3Automation Automation => _automation ?? throw new InvalidOperationException("The UI Automation instance is not available.");
+    public static UIA2Automation Automation => _automation ?? throw new InvalidOperationException("The UI Automation instance is not available.");
 
     public static Window MainWindow => _mainWindow ?? throw new InvalidOperationException("The main window is not available.");
 
@@ -37,7 +37,7 @@ public static class TestSession
 
         var executablePath = TestConfiguration.ResolveApplicationPath();
         _application = FlaUI.Core.Application.Launch(executablePath);
-        _automation = new UIA3Automation();
+        _automation = new UIA2Automation();
         _mainWindow = Retry.WhileNull(
                 () => _application.GetMainWindow(_automation, DefaultTimeout),
                 timeout: DefaultTimeout)
