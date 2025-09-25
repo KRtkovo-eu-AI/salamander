@@ -9,7 +9,7 @@ CMenuPopup MainMenu;
 CMenuPopup ArchiveMenu;
 CMenuPopup ArchivePanelMenu;
 
-static void UpdateSeparatorSkillLevel(CMenuPopup* popup, int index, DWORD skillLevel)
+static void UpdateSeparatorSkillLevel(CGUIMenuPopupAbstract* popup, int index, DWORD skillLevel)
 {
     if (popup == NULL || index < 0)
         return;
@@ -29,7 +29,7 @@ static void UpdateSeparatorSkillLevel(CMenuPopup* popup, int index, DWORD skillL
     popup->SetItemInfo(index, TRUE, &update);
 }
 
-static void UpdateSideTabMenuItems(CMenuPopup* popup, const DWORD* commandIds, size_t commandCount, DWORD skillLevel)
+static void UpdateSideTabMenuItems(CGUIMenuPopupAbstract* popup, const DWORD* commandIds, size_t commandCount, DWORD skillLevel)
 {
     if (popup == NULL)
         return;
