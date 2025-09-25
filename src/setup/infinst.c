@@ -609,8 +609,16 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdS
     // nechceme zadne kriticke chyby jako "no disk in drive A:"
     SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS);
 
-    for (int i = 0; i < 256; i++)
-        LowerCase[i] = (char)CharLower((LPTSTR)(DWORD_PTR)i);
+    if (GetACP() == CP_UTF8)
+    {
+        for (int i = 0; i < 256; i++)
+            LowerCase[i] = (char)i;
+        for (int i = 'A'; i <= 'Z'; i++)
+            LowerCase[i] = (char)(i - 'A' + 'a');
+    }
+    else
+        for (int i = 0; i < 256; i++)
+            LowerCase[i] = (char)CharLower((LPTSTR)(DWORD_PTR)i);
 
     lstrcpy(MAINWINDOW_TITLE, LoadStr(IDS_MAINWINDOWTITLE));
 

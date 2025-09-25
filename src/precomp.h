@@ -58,6 +58,7 @@
 #include "multimon.h"
 #include "sheets.h"
 #include "strutils.h"
+#include "utf8wrap.h"
 #include "spl_com.h"
 #include "spl_base.h"
 #include "spl_crypt.h"

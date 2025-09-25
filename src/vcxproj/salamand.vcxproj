@@ -265,6 +265,8 @@
     </ClCompile>
     <ClCompile Include="..\common\strutils.cpp">
     </ClCompile>
+    <ClCompile Include="..\common\utf8wrap.cpp">
+    </ClCompile>
     <ClCompile Include="..\common\trace.cpp">
     </ClCompile>
     <ClCompile Include="..\common\winlib.cpp">
