@@ -442,11 +442,17 @@ DWORD EnablerLeftCloseTab = FALSE;
 DWORD EnablerLeftNextTab = FALSE;
 DWORD EnablerLeftPrevTab = FALSE;
 DWORD EnablerLeftCloseAllButDefault = FALSE;
+DWORD EnablerLeftCloseAllExceptThisAndDefault = FALSE;
+DWORD EnablerLeftDuplicateTabToRight = FALSE;
+DWORD EnablerLeftMoveTabToRight = FALSE;
 DWORD EnablerRightNewTab = FALSE;
 DWORD EnablerRightCloseTab = FALSE;
 DWORD EnablerRightNextTab = FALSE;
 DWORD EnablerRightPrevTab = FALSE;
 DWORD EnablerRightCloseAllButDefault = FALSE;
+DWORD EnablerRightCloseAllExceptThisAndDefault = FALSE;
+DWORD EnablerRightDuplicateTabToLeft = FALSE;
+DWORD EnablerRightMoveTabToLeft = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 
@@ -4055,6 +4061,7 @@ FIND_NEW_SLG_FILE:
         SplashScreenCloseIfExist();
         goto EXIT_8;
     }
+    UpdateTabbedPanelMenuItems(Configuration.UsePanelTabs != 0);
     if (!InitializeThread())
     {
         SplashScreenCloseIfExist();

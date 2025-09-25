@@ -145,6 +145,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragStartPoint.x = 0;
     DragStartPoint.y = 0;
     DragSourceIndex = -1;
+    DragHasExternalTarget = false;
     DragCurrentTarget = -1;
     DragInsertMarkItem = -1;
     DragInsertMarkFlags = 0;
@@ -513,6 +514,7 @@ void CTabWindow::StartDragTracking(int index, const POINT& pt)
     Dragging = false;
     DragSourceIndex = index;
     DragStartPoint = pt;
+    DragHasExternalTarget = false;
     DragCurrentTarget = -1;
     ClearInsertMark();
 }
@@ -522,6 +524,9 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
     CALL_STACK_MESSAGE_NONE
     if (!DragTracking)
         return;
+
+    bool externalTarget = false;
+    bool mainWindowUpdated = false;
 
     if (!Dragging)
     {
@@ -544,11 +549,43 @@ void CTabWindow::UpdateDragTracking(const POINT& pt)
             Dragging = true;
             if (HWindow != NULL && GetCapture() != HWindow)
                 SetCapture(HWindow);
+            if (MainWindow != NULL && DragSourceIndex >= 0)
+            {
+                POINT screenPt = pt;
+                if (HWindow != NULL)
+                    ClientToScreen(HWindow, &screenPt);
+                MainWindow->OnPanelTabDragStarted(Side, DragSourceIndex);
+                externalTarget = MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+                mainWindowUpdated = true;
+            }
         }
     }
+    else if (MainWindow != NULL && DragSourceIndex >= 0)
+    {
+        POINT screenPt = pt;
+        if (HWindow != NULL)
+            ClientToScreen(HWindow, &screenPt);
+        externalTarget = MainWindow->OnPanelTabDragUpdated(Side, DragSourceIndex, screenPt);
+        mainWindowUpdated = true;
+    }
 
-    if (Dragging)
-        UpdateDragIndicator(pt);
+    if (!Dragging)
+    {
+        DragHasExternalTarget = false;
+        return;
+    }
+
+    bool newExternalTarget = mainWindowUpdated && externalTarget;
+    DragHasExternalTarget = newExternalTarget;
+
+    if (DragHasExternalTarget)
+    {
+        DragCurrentTarget = -1;
+        ClearInsertMark();
+        return;
+    }
+
+    UpdateDragIndicator(pt);
 }
 
 void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
@@ -572,8 +609,22 @@ void CTabWindow::FinishDragTracking(const POINT& pt, bool canceled)
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+    DragHasExternalTarget = false;
 
-    if (canceled || !wasDragging)
+    bool movedToOtherSide = false;
+    if (MainWindow != NULL)
+    {
+        if (!canceled && wasDragging && sourceIndex >= 0)
+        {
+            POINT screenPt = pt;
+            if (HWindow != NULL)
+                ClientToScreen(HWindow, &screenPt);
+            movedToOtherSide = MainWindow->TryCompletePanelTabDrag(Side, sourceIndex, screenPt);
+        }
+        MainWindow->CancelPanelTabDrag();
+    }
+
+    if (movedToOtherSide || canceled || !wasDragging)
         return;
 
     int targetIndex = ComputeDragTargetIndex(pt, sourceIndex);
@@ -600,12 +651,23 @@ void CTabWindow::CancelDragTracking()
     DragTracking = false;
     Dragging = false;
     DragSourceIndex = -1;
+    DragHasExternalTarget = false;
+
+    if (MainWindow != NULL)
+        MainWindow->CancelPanelTabDrag();
 }
 
 void CTabWindow::UpdateDragIndicator(const POINT& pt)
 {
     CALL_STACK_MESSAGE_NONE
     if (!Dragging || HWindow == NULL)
+    {
+        ClearInsertMark();
+        DragCurrentTarget = -1;
+        return;
+    }
+
+    if (DragHasExternalTarget)
     {
         ClearInsertMark();
         DragCurrentTarget = -1;
@@ -940,6 +1002,104 @@ int CTabWindow::ComputeDragTargetIndex(POINT pt, int fromIndex) const
     return targetIndex;
 }
 
+bool CTabWindow::ComputeExternalDropTarget(POINT screenPt, int& targetIndex, int& markItem, DWORD& markFlags) const
+{
+    CALL_STACK_MESSAGE_NONE
+    targetIndex = -1;
+    markItem = -1;
+    markFlags = 0;
+
+    if (HWindow == NULL)
+        return false;
+
+    POINT pt = screenPt;
+    ScreenToClient(HWindow, &pt);
+
+    RECT clientRect;
+    if (!GetClientRect(HWindow, &clientRect))
+        return false;
+
+    int verticalMargin = EnvFontCharHeight / 2;
+    if (verticalMargin < 6)
+        verticalMargin = 6;
+    int horizontalMargin = EnvFontCharHeight;
+    if (horizontalMargin < 12)
+        horizontalMargin = 12;
+    InflateRect(&clientRect, horizontalMargin, verticalMargin);
+
+    if (pt.x < clientRect.left || pt.x > clientRect.right || pt.y < clientRect.top || pt.y > clientRect.bottom)
+        return false;
+
+    int tabCount = GetTabCount();
+    if (tabCount <= 0)
+        return false;
+
+    RECT previousRect;
+    if (!TabCtrl_GetItemRect(HWindow, 0, &previousRect))
+        return false;
+
+    int slotIndex = tabCount;
+    for (int index = 1; index < tabCount; ++index)
+    {
+        RECT currentRect;
+        if (!TabCtrl_GetItemRect(HWindow, index, &currentRect))
+            continue;
+
+        int boundary = (previousRect.right + currentRect.left) / 2;
+        if (pt.x < boundary)
+        {
+            slotIndex = index;
+            break;
+        }
+
+        previousRect = currentRect;
+    }
+
+    if (slotIndex < 1)
+        slotIndex = 1;
+    if (slotIndex > tabCount)
+        slotIndex = tabCount;
+
+    targetIndex = slotIndex;
+
+    if (slotIndex >= tabCount)
+    {
+        markItem = tabCount - 1;
+        if (markItem < 0)
+            markItem = 0;
+        markFlags = TCIMF_AFTER;
+    }
+    else
+    {
+        markItem = slotIndex;
+        if (markItem < 1)
+            markItem = 1;
+        markFlags = TCIMF_BEFORE;
+    }
+
+    return true;
+}
+
+void CTabWindow::ShowExternalDropIndicator(int markItem, DWORD markFlags)
+{
+    CALL_STACK_MESSAGE_NONE
+    SetInsertMark(markItem, markFlags);
+}
+
+void CTabWindow::HideExternalDropIndicator()
+{
+    CALL_STACK_MESSAGE_NONE
+    ClearInsertMark();
+}
+
+void CTabWindow::MoveTab(int from, int to)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (from == to)
+        return;
+    MoveTabInternal(from, to);
+}
+
 void CTabWindow::MoveTabInternal(int from, int to)
 {
     CALL_STACK_MESSAGE_NONE
@@ -1215,7 +1375,42 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
 
     RECT rect = itemRect;
     RECT fillRect = rect;
-    if (!selected)
+    if (selected)
+    {
+        int expand = 2;
+        if (HWindow != NULL)
+        {
+            RECT clientRect;
+            if (GetClientRect(HWindow, &clientRect))
+            {
+                if (fillRect.left > clientRect.left)
+                {
+                    fillRect.left -= expand;
+                    if (fillRect.left < clientRect.left)
+                        fillRect.left = clientRect.left;
+                }
+                if (fillRect.right < clientRect.right)
+                {
+                    fillRect.right += expand;
+                    if (fillRect.right > clientRect.right)
+                        fillRect.right = clientRect.right;
+                }
+                if (fillRect.top > clientRect.top)
+                {
+                    fillRect.top -= expand;
+                    if (fillRect.top < clientRect.top)
+                        fillRect.top = clientRect.top;
+                }
+            }
+        }
+        else
+        {
+            fillRect.left -= expand;
+            fillRect.right += expand;
+            fillRect.top -= expand;
+        }
+    }
+    else
     {
         InflateRect(&fillRect, -1, -1);
         if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
@@ -1229,27 +1424,15 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         fillColor = LightenColor(fillColor, 48);
 
     HBRUSH brush = CreateSolidBrush(fillColor);
+    if (fillRect.right <= fillRect.left)
+        fillRect.right = fillRect.left + 1;
+    if (fillRect.bottom <= fillRect.top)
+        fillRect.bottom = fillRect.top + 1;
+
     if (brush != NULL)
     {
         FillRect(hdc, &fillRect, brush);
         DeleteObject(brush);
-    }
-
-    COLORREF borderColor = DarkenColor(baseColor, 80);
-    HPEN pen = CreatePen(PS_SOLID, 1, borderColor);
-    if (pen != NULL)
-    {
-        HPEN oldPen = (HPEN)SelectObject(hdc, pen);
-        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-        int radius = EnvFontCharHeight / 2;
-        if (radius < 3)
-            radius = 3;
-        RoundRect(hdc, fillRect.left, fillRect.top, fillRect.right, fillRect.bottom, radius, radius);
-        if (oldBrush != NULL)
-            SelectObject(hdc, oldBrush);
-        if (oldPen != NULL)
-            SelectObject(hdc, oldPen);
-        DeleteObject(pen);
     }
 
     RECT textRect = fillRect;
