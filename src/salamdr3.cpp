@@ -416,8 +416,13 @@ BOOL SalGetFullName(char* name, int* errTextID, const char* curDir, char* nextFo
 
     int rootOffset = 3; // offset zacatku adresarove casti cesty (3 pro "c:\path")
     char* s = name;
-    while (*s >= 1 && *s <= ' ')
+    while (*s != 0)
+    {
+        unsigned char ch = static_cast<unsigned char>(*s);
+        if (ch < 1 || ch > ' ')
+            break;
         s++;
+    }
     if (*s == '\\' && *(s + 1) == '\\') // UNC (\\server\share\...)
     {                                   // eliminace mezer na zacatku cesty
         if (s != name)
@@ -1185,13 +1190,15 @@ AGAIN:
             BOOL first = TRUE;
             while (*st != 0)
             {
-                BOOL invalidName = manualCrDir && *st <= ' '; // mezery na zacatku jmena vytvareneho adresare jsou nezadouci jen pri rucnim vytvareni (Windows to umi, ale je to potencialne nebezpecne)
+                unsigned char firstChar = static_cast<unsigned char>(*st);
+                BOOL invalidName = manualCrDir && firstChar <= ' '; // mezery na zacatku jmena vytvareneho adresare jsou nezadouci jen pri rucnim vytvareni (Windows to umi, ale je to potencialne nebezpecne)
                 const char* slash = strchr(st, '\\');
                 if (slash == NULL)
                     slash = st + strlen(st);
                 memcpy(name + len, st, slash - st);
                 name[len += (int)(slash - st)] = 0;
-                if (name[len - 1] <= ' ' || name[len - 1] == '.')
+                unsigned char lastChar = static_cast<unsigned char>(name[len - 1]);
+                if (lastChar <= ' ' || lastChar == '.')
                     invalidName = TRUE; // mezery a tecky na konci jmena vytvareneho adresare jsou nezadouci
             AGAIN2:
                 if (invalidName || !CreateDirectory(name, NULL))

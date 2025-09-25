@@ -1881,7 +1881,12 @@ BOOL FileNameInvalidForManualCreate(const char* path)
     {
         name++;
         int nameLen = (int)strlen(name);
-        return nameLen > 0 && (*name <= ' ' || name[nameLen - 1] <= ' ' || name[nameLen - 1] == '.');
+        if (nameLen > 0)
+        {
+            unsigned char first = static_cast<unsigned char>(*name);
+            unsigned char last = static_cast<unsigned char>(name[nameLen - 1]);
+            return first <= ' ' || last <= ' ' || last == '.';
+        }
     }
     return FALSE;
 }
@@ -1893,7 +1898,7 @@ BOOL MakeValidFileName(char* path)
     // and https://forum.altap.cz/viewtopic.php?f=2&t=4210
     BOOL ch = FALSE;
     char* n = path;
-    while (*n != 0 && *n <= ' ')
+    while (*n != 0 && static_cast<unsigned char>(*n) <= ' ')
         n++;
     if (n > path)
     {
@@ -1901,7 +1906,7 @@ BOOL MakeValidFileName(char* path)
         ch = TRUE;
     }
     n = path + strlen(path);
-    while (n > path && (*(n - 1) <= ' ' || *(n - 1) == '.'))
+    while (n > path && (static_cast<unsigned char>(*(n - 1)) <= ' ' || *(n - 1) == '.'))
         n--;
     if (*n != 0)
     {
@@ -1916,7 +1921,7 @@ BOOL CutSpacesFromBothSides(char* path)
     // trim spaces at the beginning and end of the name
     BOOL ch = FALSE;
     char* n = path;
-    while (*n != 0 && *n <= ' ')
+    while (*n != 0 && static_cast<unsigned char>(*n) <= ' ')
         n++;
     if (n > path)
     {
@@ -1924,7 +1929,7 @@ BOOL CutSpacesFromBothSides(char* path)
         ch = TRUE;
     }
     n = path + strlen(path);
-    while (n > path && (*(n - 1) <= ' '))
+    while (n > path && static_cast<unsigned char>(*(n - 1)) <= ' ')
         n--;
     if (*n != 0)
     {
@@ -2111,7 +2116,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
 void CFilesWindow::RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL* mayChange, BOOL* tryAgain)
 {
     *tryAgain = TRUE;
-    const char* s = formatedFileName;
+    const unsigned char* s = reinterpret_cast<const unsigned char*>(formatedFileName);
     while (*s != 0 && *s != '\\' && *s != '/' && *s != ':' &&
            *s >= 32 && *s != '<' && *s != '>' && *s != '|' && *s != '"')
         s++;
