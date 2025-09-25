@@ -187,14 +187,12 @@ public sealed class AboutDialogSteps
 
     private static MenuItem? FindMenuItem(Menu menu, string nameFragment)
     {
-        var items = menu.Items ?? Array.Empty<MenuItem>();
-        return items.FirstOrDefault(item => MatchesName(item, nameFragment));
+        return menu.Items.FirstOrDefault(item => MatchesName(item, nameFragment));
     }
 
     private static MenuItem? FindMenuItem(MenuItem parent, string nameFragment)
     {
-        var items = parent.Items ?? Array.Empty<MenuItem>();
-        return items.FirstOrDefault(item => MatchesName(item, nameFragment));
+        return parent.Items.FirstOrDefault(item => MatchesName(item, nameFragment));
     }
 
     private static bool MatchesName(MenuItem item, string nameFragment)
@@ -213,7 +211,7 @@ public sealed class AboutDialogSteps
         if (menuItem.Patterns.ExpandCollapse.IsSupported)
         {
             var expandCollapse = menuItem.Patterns.ExpandCollapse.Pattern;
-            if (expandCollapse.Current.ExpandCollapseState != ExpandCollapseState.Expanded)
+            if (expandCollapse.ExpandCollapseState != ExpandCollapseState.Expanded)
             {
                 expandCollapse.Expand();
             }
