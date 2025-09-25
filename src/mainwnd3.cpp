@@ -212,10 +212,10 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     if (tabWnd != NULL && tabWnd->HWindow != NULL)
         tabWnd->RemoveTab(index);
 
-    tabs.Delete(index);
+    tabs.Detach(index);
 
-    if (panel->HWindow != NULL)
-        DestroyWindow(panel->HWindow);
+    HWND panelWindow = panel->HWindow;
+    bool destroyWindow = panelWindow != NULL;
 
     if (tabs.Count == 0)
     {
@@ -225,6 +225,10 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
             RightPanel = NULL;
         if (Created)
             RefreshCommandStates();
+        if (destroyWindow)
+            DestroyWindow(panelWindow);
+        else
+            delete panel;
         return;
     }
 
@@ -248,6 +252,11 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
         RefreshCommandStates();
         LayoutWindows();
     }
+
+    if (destroyWindow)
+        DestroyWindow(panelWindow);
+    else
+        delete panel;
 }
 
 BOOL MainFrameIsActive = FALSE;
