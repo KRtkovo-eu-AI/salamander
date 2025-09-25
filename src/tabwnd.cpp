@@ -1077,9 +1077,12 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
 
     RECT rect = itemRect;
     RECT fillRect = rect;
-    InflateRect(&fillRect, -1, -1);
-    if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
-        fillRect = rect;
+    if (!selected)
+    {
+        InflateRect(&fillRect, -1, -1);
+        if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
+            fillRect = rect;
+    }
 
     COLORREF fillColor = baseColor;
     if (selected)
