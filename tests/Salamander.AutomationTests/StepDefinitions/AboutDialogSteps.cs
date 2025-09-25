@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Input;
@@ -33,6 +34,8 @@ public sealed class AboutDialogSteps
         mainWindow.Focus();
         Retry.WhileFalse(() => mainWindow.IsEnabled && mainWindow.IsAvailable, timeout: TimeSpan.FromSeconds(5));
 
+        var knownWindows = CaptureExistingProcessWindows(mainWindow);
+
         var openedViaMenu = TryOpenAboutThroughMenu(mainWindow);
 
         if (!openedViaMenu)
@@ -40,13 +43,13 @@ public sealed class AboutDialogSteps
             TryOpenAboutWithKeyboard();
         }
 
-        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5));
+        _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(5), knownWindows);
 
         if (_aboutWindow is null)
         {
             InvokeAboutCommand(mainWindow);
 
-            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(10))
+            _aboutWindow = WaitForAboutDialog(mainWindow, TimeSpan.FromSeconds(10), knownWindows)
                 ?? throw new InvalidOperationException("The About dialog did not appear within the expected time.");
         }
     }
@@ -89,20 +92,20 @@ public sealed class AboutDialogSteps
         Assert.That(TestSession.IsRunning, Is.False, "The Salamander application is still running.");
     }
 
-    private static Window? WaitForAboutDialog(Window mainWindow, TimeSpan timeout)
+    private static Window? WaitForAboutDialog(Window mainWindow, TimeSpan timeout, HashSet<IntPtr> knownWindows)
     {
         return Retry.WhileNull(
-                () => SafeFindAboutDialog(mainWindow),
+                () => SafeFindAboutDialog(mainWindow, knownWindows),
                 timeout: timeout,
                 throwOnTimeout: false)
             .Result;
     }
 
-    private static Window? SafeFindAboutDialog(Window mainWindow)
+    private static Window? SafeFindAboutDialog(Window mainWindow, HashSet<IntPtr> knownWindows)
     {
         try
         {
-            return FindAboutDialog(mainWindow);
+            return FindAboutDialog(mainWindow, knownWindows);
         }
         catch (SWA.ElementNotAvailableException)
         {
@@ -110,7 +113,7 @@ public sealed class AboutDialogSteps
         }
     }
 
-    private static Window? FindAboutDialog(Window mainWindow)
+    private static Window? FindAboutDialog(Window mainWindow, HashSet<IntPtr> knownWindows)
     {
         var aboutWindow = mainWindow.ModalWindows
             .FirstOrDefault(window => IsAboutDialogSafe(window, mainWindow));
@@ -122,12 +125,62 @@ public sealed class AboutDialogSteps
 
         var automation = TestSession.Automation;
         var application = TestSession.Application;
+        var mainHandle = mainWindow.FrameworkAutomationElement.NativeWindowHandle;
 
         foreach (var window in application.GetAllTopLevelWindows(automation))
         {
             if (IsAboutDialogSafe(window, mainWindow))
             {
                 return window;
+            }
+        }
+
+        var processId = (uint)mainWindow.Properties.ProcessId.Value;
+
+        foreach (var handle in NativeMethods.EnumerateProcessWindowHandles(processId))
+        {
+            if (handle == IntPtr.Zero || handle == mainHandle)
+            {
+                continue;
+            }
+
+            if (!knownWindows.Add(handle))
+            {
+                continue;
+            }
+
+            if (!NativeMethods.IsWindowVisible(handle))
+            {
+                continue;
+            }
+
+            var owner = NativeMethods.GetWindow(handle, NativeMethods.GW_OWNER);
+            if (owner != IntPtr.Zero && owner != mainHandle)
+            {
+                continue;
+            }
+
+            try
+            {
+                var window = automation.FromHandle(handle).AsWindow();
+                if (window is null)
+                {
+                    continue;
+                }
+
+                if (IsAboutDialogSafe(window, mainWindow))
+                {
+                    return window;
+                }
+
+                if (IsNativeAboutCandidate(handle))
+                {
+                    return window;
+                }
+            }
+            catch
+            {
+                // The window might disappear between enumeration and retrieval.
             }
         }
 
@@ -248,7 +301,8 @@ public sealed class AboutDialogSteps
 
         return title.Contains("About", StringComparison.OrdinalIgnoreCase)
             || title.Contains("Salamander", StringComparison.OrdinalIgnoreCase)
-            || title.Contains("Altap", StringComparison.OrdinalIgnoreCase);
+            || title.Contains("Altap", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("O aplikaci", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ContainsAboutContent(Window window)
@@ -263,6 +317,19 @@ public sealed class AboutDialogSteps
         {
             return false;
         }
+    }
+
+    private static bool IsNativeAboutCandidate(IntPtr handle)
+    {
+        var title = NativeMethods.GetWindowText(handle);
+        if (MatchesAboutTitle(title))
+        {
+            return true;
+        }
+
+        var className = NativeMethods.GetWindowClassName(handle);
+        return className.Equals("#32770", StringComparison.Ordinal)
+            && title.Contains("Salamander", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsOwnedByMainWindow(Window candidate, Window mainWindow)
@@ -291,7 +358,10 @@ public sealed class AboutDialogSteps
             || content.Contains("Altap", StringComparison.OrdinalIgnoreCase)
             || content.Contains("Version", StringComparison.OrdinalIgnoreCase)
             || content.Contains("Licence", StringComparison.OrdinalIgnoreCase)
-            || content.Contains("License", StringComparison.OrdinalIgnoreCase);
+            || content.Contains("License", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("https://", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("altap.cz", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("verze", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void TryOpenAboutWithKeyboard()
@@ -378,5 +448,19 @@ public sealed class AboutDialogSteps
         }
 
         Wait.UntilInputIsProcessed();
+    }
+
+    private static HashSet<IntPtr> CaptureExistingProcessWindows(Window mainWindow)
+    {
+        var processId = (uint)mainWindow.Properties.ProcessId.Value;
+        var handles = NativeMethods.EnumerateProcessWindowHandles(processId);
+        var knownHandles = new HashSet<IntPtr>();
+
+        foreach (var handle in handles)
+        {
+            knownHandles.Add(handle);
+        }
+
+        return knownHandles;
     }
 }
