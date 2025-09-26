@@ -2474,7 +2474,19 @@ BOOL CFilesWindow::CommonRefresh(HWND parent, int suggestedTopIndex, const char*
     else
     {
         if (Is(ptDisk) || Is(ptZIPArchive))
+        {
+            BOOL registerDevNotification = FALSE;
+            if (Is(ptDisk))
+            {
+                int driveType = GetPathDriveType();
+                registerDevNotification = (driveType == DRIVE_REMOVABLE || driveType == DRIVE_FIXED);
+            }
+
             DetachDirectory(this); // something went wrong
+
+            if (GetMonitorChanges())
+                ScheduleMonitorRetry(registerDevNotification);
+        }
     }
     //TRACE_I("read directory: begin");
 
