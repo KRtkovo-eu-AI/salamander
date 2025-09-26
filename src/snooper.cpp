@@ -13,6 +13,13 @@
 #include <string>
 #include <vector>
 
+#ifdef min
+#    undef min
+#endif
+#ifdef max
+#    undef max
+#endif
+
 struct WatchEntry
 {
     std::string Key;                     // normalized (case-insensitive) key
@@ -27,6 +34,8 @@ static std::map<std::string, WatchEntry*> WatchEntriesByPath;
 static std::map<CFilesWindow*, WatchEntry*> WatchEntriesByPanel;
 static std::vector<WatchEntry*> WatchEntrySlots;
 static std::vector<HANDLE> WaitHandles;
+static std::vector<HANDLE> WaitHandleBuffer;
+static size_t NextWaitChunkStart = 4;
 
 HANDLE Thread = NULL;
 HANDLE DataUsageMutex = NULL;       // kvuli arrayum s daty pro thread i proces
@@ -67,6 +76,102 @@ static PreparedWatchPath PrepareWatchPath(const char* path)
     if (!prepared.Key.empty())
         CharUpperBuffA(prepared.Key.data(), (DWORD)prepared.Key.length());
     return prepared;
+}
+
+static DWORD WaitForChangeNotifications(DWORD timeout, bool ignoreRefreshes, DWORD& outIndex)
+{
+    outIndex = (DWORD)-1;
+
+    size_t waitCount = WaitHandles.size();
+    if (waitCount == 0)
+        return WAIT_TIMEOUT;
+
+    if (ignoreRefreshes || waitCount <= MAXIMUM_WAIT_OBJECTS)
+    {
+        DWORD waitLimit = ignoreRefreshes ? std::min<DWORD>(4, (DWORD)waitCount) : (DWORD)waitCount;
+        if (waitLimit == 0)
+            waitLimit = 1;
+        DWORD res = WaitForMultipleObjects(waitLimit, WaitHandles.data(), FALSE, timeout);
+        if (res >= WAIT_OBJECT_0 && res < WAIT_OBJECT_0 + waitLimit)
+            outIndex = res - WAIT_OBJECT_0;
+        return res;
+    }
+
+    const size_t baseCount = std::min<size_t>(4, waitCount);
+    const size_t maxExtra = MAXIMUM_WAIT_OBJECTS > baseCount ? MAXIMUM_WAIT_OBJECTS - baseCount : 0;
+    DWORD startTick = (timeout == INFINITE) ? 0 : GetTickCount();
+
+    while (true)
+    {
+        waitCount = WaitHandles.size();
+        size_t currentBase = std::min<size_t>(baseCount, waitCount);
+        if (NextWaitChunkStart < currentBase || NextWaitChunkStart >= waitCount)
+            NextWaitChunkStart = currentBase;
+
+        size_t available = waitCount > NextWaitChunkStart ? waitCount - NextWaitChunkStart : 0;
+        size_t extraCount = std::min(available, maxExtra);
+
+        WaitHandleBuffer.clear();
+        WaitHandleBuffer.reserve(currentBase + extraCount);
+        if (currentBase > 0)
+            WaitHandleBuffer.insert(WaitHandleBuffer.end(), WaitHandles.begin(), WaitHandles.begin() + currentBase);
+        if (extraCount > 0)
+        {
+            WaitHandleBuffer.insert(WaitHandleBuffer.end(),
+                                    WaitHandles.begin() + NextWaitChunkStart,
+                                    WaitHandles.begin() + NextWaitChunkStart + extraCount);
+        }
+
+        DWORD sliceTimeout;
+        if (timeout == INFINITE)
+            sliceTimeout = REFRESH_PAUSE;
+        else
+        {
+            DWORD now = GetTickCount();
+            DWORD elapsed = now - startTick;
+            if (elapsed >= timeout)
+                return WAIT_TIMEOUT;
+            sliceTimeout = std::min<DWORD>(timeout - elapsed, REFRESH_PAUSE);
+        }
+
+        DWORD res = WaitForMultipleObjects((DWORD)WaitHandleBuffer.size(), WaitHandleBuffer.data(), FALSE, sliceTimeout);
+        if (res == WAIT_TIMEOUT)
+        {
+            if (timeout != INFINITE)
+            {
+                DWORD now = GetTickCount();
+                if (now - startTick >= timeout)
+                    return WAIT_TIMEOUT;
+            }
+
+            if (extraCount > 0)
+            {
+                NextWaitChunkStart += extraCount;
+                if (NextWaitChunkStart >= waitCount)
+                    NextWaitChunkStart = currentBase;
+            }
+            continue;
+        }
+
+        if (res >= WAIT_OBJECT_0 && res < WAIT_OBJECT_0 + WaitHandleBuffer.size())
+        {
+            DWORD localIndex = res - WAIT_OBJECT_0;
+            if (localIndex < currentBase)
+                outIndex = localIndex;
+            else if (extraCount > 0)
+                outIndex = (DWORD)(NextWaitChunkStart + (localIndex - currentBase));
+        }
+
+        if (extraCount > 0)
+        {
+            size_t nextStart = NextWaitChunkStart + extraCount;
+            if (nextStart >= waitCount)
+                nextStart = currentBase;
+            NextWaitChunkStart = nextStart;
+        }
+
+        return res;
+    }
 }
 
 static int FindWatchEntryIndex(const WatchEntry* entry)
@@ -338,22 +443,30 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                 ignoreRefreshesAbsTimeout = 0;
                 timeout = INFINITE;
             }
-            //      TRACE_I("Snooper is waiting for: " << (ignoreRefreshes ? std::min<DWORD>(4, (DWORD)WaitHandles.size()) : (DWORD)WaitHandles.size()) << " events");
-            DWORD waitCount = (DWORD)WaitHandles.size();
-            DWORD waitLimit = ignoreRefreshes ? std::min<DWORD>(4, waitCount) : waitCount;
-            if (waitLimit == 0)
-                waitLimit = 1;
-            res = WaitForMultipleObjects(waitLimit, WaitHandles.data(), FALSE, timeout);
+            DWORD waitIndex = (DWORD)-1;
+            DWORD waitTimeout = (timeout == INFINITE) ? INFINITE : (timeout < 0 ? 0 : (DWORD)timeout);
+            res = WaitForChangeNotifications(waitTimeout, ignoreRefreshes != FALSE, waitIndex);
             CALL_STACK_MESSAGE2("ThreadSnooperBody::wait_satisfied: 0x%X", res);
-            switch (res)
+
+            if (res == WAIT_TIMEOUT)
+                continue;
+
+            if (res == WAIT_FAILED)
             {
-            case WAIT_OBJECT_0:
+                DWORD err = GetLastError();
+                TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res << ", error=" << err);
+                continue;
+            }
+
+            switch (waitIndex)
+            {
+            case 0:
                 DoWantDataEvent();
                 break; // WantDataEvent
-            case WAIT_OBJECT_0 + 1:
+            case 1:
                 notEnd = FALSE;
-                break;              // TerminateEvent
-            case WAIT_OBJECT_0 + 2: // BeginSuspendMode
+                break; // TerminateEvent
+            case 2: // BeginSuspendMode
             {
                 TRACE_I("Start suspend mode");
 
@@ -374,39 +487,44 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                         ignoreRefreshesAbsTimeout = 0;
                         timeout = INFINITE;
                     }
-                    DWORD suspendWaitCount = (DWORD)WaitHandles.size();
-                    DWORD suspendWaitLimit = ignoreRefreshes ? std::min<DWORD>(4, suspendWaitCount) : suspendWaitCount;
-                    if (suspendWaitLimit == 0)
-                        suspendWaitLimit = 1;
-                    res = WaitForMultipleObjects(suspendWaitLimit, WaitHandles.data(), FALSE, timeout);
+                    DWORD suspendIndex = (DWORD)-1;
+                    DWORD suspendTimeout = (timeout == INFINITE) ? INFINITE : (timeout < 0 ? 0 : (DWORD)timeout);
+                    res = WaitForChangeNotifications(suspendTimeout, ignoreRefreshes != FALSE, suspendIndex);
 
                     CALL_STACK_MESSAGE2("ThreadSnooperBody::suspend_wait_satisfied: 0x%X", res);
-                    switch (res)
+
+                    if (res == WAIT_TIMEOUT)
+                        continue;
+
+                    if (res == WAIT_FAILED)
                     {
-                    case WAIT_OBJECT_0:
+                        DWORD err = GetLastError();
+                        TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res << ", error=" << err);
+                        continue;
+                    }
+
+                    switch (suspendIndex)
+                    {
+                    case 0:
                         DoWantDataEvent();
                         break; // WantDataEvent
-                    case WAIT_OBJECT_0 + 1:
+                    case 1:
                         suspendNotFinished = notEnd = FALSE;
                         break; // TerminateEvent
-                    case WAIT_OBJECT_0 + 2:
+                    case 2:
                         suspendNotFinished = FALSE;
-                        break;              // EndSuspendEvent
-                    case WAIT_OBJECT_0 + 3: // SharesEvent
+                        break; // EndSuspendEvent
+                    case 3: // SharesEvent
                     {
                         // obnovime shary + refreshneme prip. i panely (pomoci WM_USER_REFRESH_SHARES)
                         setSharesEvent = TRUE;
                         break;
                     }
 
-                    case WAIT_TIMEOUT:
-                        break; // ignorujeme (konec rezimu ignorovani zmen v adresarich)
-
                     default:
                     {
-                        int index = res - WAIT_OBJECT_0;
-                        if (index >= 4 && index < (int)WatchEntrySlots.size())
-                            RemoveWatchEntryDuringSuspend((size_t)index, refreshPanels);
+                        if (suspendIndex >= 4 && suspendIndex < (DWORD)WatchEntrySlots.size())
+                            RemoveWatchEntryDuringSuspend((size_t)suspendIndex, refreshPanels);
                         else
                             TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res);
                         break;
@@ -467,7 +585,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                 break;
             }
 
-            case WAIT_OBJECT_0 + 3: // SharesEvent
+            case 3: // SharesEvent
             {                       // nechame refreshout panely
                 if (MainWindowCS.LockIfNotClosed())
                 {
@@ -484,26 +602,21 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                 break;
             }
 
-            case WAIT_TIMEOUT:
-                break; // ignorujeme (konec rezimu ignorovani zmen v adresarich)
-
             default:
             {
-                int index;
-                index = res - WAIT_OBJECT_0;
-                if (index < 4 || index >= (int)WatchEntrySlots.size())
+                if (waitIndex < 4 || waitIndex >= (DWORD)WatchEntrySlots.size())
                 {
                     DWORD err = GetLastError();
                     TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res);
                     break; // pro pripad nejake jine hodnoty res
                 }
 
-                WatchEntry* entry = WatchEntrySlots[index];
+                WatchEntry* entry = WatchEntrySlots[waitIndex];
                 if (entry == NULL)
                     break;
 
                 NotifySubscribers(entry);
-                FindNextChangeNotification(WaitHandles[index]); // stornujem tuto zmenu
+                FindNextChangeNotification(WaitHandles[waitIndex]); // stornujem tuto zmenu
                                                                         // indexy se muzou zmenit...
                 HANDLE objects[4];
                 objects[0] = WantDataEvent;        // v refreshi se muzou menit data

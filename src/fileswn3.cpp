@@ -55,6 +55,44 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory()");
 
+    class CAutoRefreshRestore
+    {
+    public:
+        explicit CAutoRefreshRestore(CFilesWindow* window)
+            : Win(window), RestoreMonitor(FALSE), ResetSuppress(FALSE)
+        {
+        }
+
+        void Suppress(BOOL monitorWasEnabled)
+        {
+            if (monitorWasEnabled)
+                RestoreMonitor = TRUE;
+            ResetSuppress = TRUE;
+        }
+
+        ~CAutoRefreshRestore()
+        {
+            if (Win == NULL)
+                return;
+
+            if (RestoreMonitor && Win->Is(ptDisk))
+            {
+                Win->SetMonitorChanges(TRUE);
+                BOOL registerDevNotification = Win->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                               Win->GetPathDriveType() == DRIVE_FIXED;
+                EnsureWatching(Win, registerDevNotification);
+            }
+
+            if (ResetSuppress)
+                Win->SetSuppressAutoRefresh(FALSE);
+        }
+
+    private:
+        CFilesWindow* Win;
+        BOOL RestoreMonitor;
+        BOOL ResetSuppress;
+    } autoRefreshRestore(this);
+
     //  TRACE_I("ReadDirectory: begin");
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
@@ -416,12 +454,14 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         {
                             if (resBut == IDNO)
                             {
-                                if (GetMonitorChanges()) // need to suppress monitoring of changes (autorefresh)
+                                BOOL monitorWasEnabled = GetMonitorChanges();
+                                if (monitorWasEnabled) // need to suppress monitoring of changes (autorefresh)
                                 {
                                     DetachDirectory((CFilesWindow*)this);
                                     SetMonitorChanges(FALSE); // the changes won't be monitored anymore
                                 }
 
+                                autoRefreshRestore.Suppress(monitorWasEnabled);
                                 SetSuppressAutoRefresh(TRUE);
                             }
                         }
