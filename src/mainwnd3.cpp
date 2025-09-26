@@ -160,8 +160,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             tabWnd->SetCurSel(index);
     }
 
-    UpdatePanelTabVisibility(side);
-
     UpdatePanelTabTitle(panel);
 
     bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
@@ -190,6 +188,12 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     if (canFocusNow)
     {
         LayoutWindows();
+    }
+
+    UpdatePanelTabVisibility(side);
+
+    if (canFocusNow)
+    {
         FocusPanel(panel);
     }
 
