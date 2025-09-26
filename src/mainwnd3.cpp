@@ -185,7 +185,15 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         }
 
         if (refreshOnActivate && panel->HWindow != NULL)
+        {
             panel->ChangePathToDisk(panel->HWindow, path);
+            if (panel->GetMonitorChanges())
+            {
+                EnsureWatching(panel, registerDevNotification);
+                if (!panel->AutomaticRefresh)
+                    panel->ScheduleMonitorRetry(registerDevNotification);
+            }
+        }
     }
     else if (isPluginFS && panel->HWindow != NULL)
     {
