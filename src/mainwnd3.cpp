@@ -841,6 +841,7 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
         return false;
 
+    bool hadStoredTarget = (PanelTabCrossDragStoredInsertIndex >= 0);
     bool pointerOnTargetSide = PanelTabCrossDragHasTarget;
     if (!pointerOnTargetSide && HWindow != NULL)
     {
@@ -899,6 +900,14 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
             hasTarget = true;
         }
 
+        if (!hasTarget && hadStoredTarget)
+        {
+            targetIndex = PanelTabCrossDragStoredInsertIndex;
+            markItem = PanelTabCrossDragStoredMarkItem;
+            markFlags = PanelTabCrossDragStoredMarkFlags;
+            hasTarget = (targetIndex >= 0);
+        }
+
         if (!hasTarget)
             return false;
     }
@@ -941,9 +950,12 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
 
     int requestedIndex = normalizeInsertIndex(targetIndex, targetCountBefore);
 
+    DWORD finalMarkFlags = markFlags;
+    int finalMarkItem = markItem;
+
     ClearPanelTabDragTargetIndicator();
 
-    int insertedIndex = CommandMoveTabToOtherSide(side, index, requestedIndex);
+    int insertedIndex = CommandMoveTabToOtherSide(side, panel, requestedIndex);
     if (insertedIndex < 0)
         return false;
 
@@ -952,17 +964,17 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
         CPanelSide finalSide = targetSide;
         int desiredIndex = requestedIndex;
         TIndirectArray<CFilesWindow>& targetTabs = GetPanelTabs(finalSide);
-        if (markFlags == TCIMF_AFTER)
+        if (finalMarkFlags == TCIMF_AFTER)
         {
-            if (markItem >= 0 && markItem < targetTabs.Count - 1)
-                desiredIndex = markItem + 1;
+            if (finalMarkItem >= 0 && finalMarkItem < targetTabs.Count - 1)
+                desiredIndex = finalMarkItem + 1;
             else
                 desiredIndex = targetTabs.Count - 1;
         }
-        else if (markFlags == TCIMF_BEFORE)
+        else if (finalMarkFlags == TCIMF_BEFORE)
         {
-            if (markItem >= 0 && markItem < targetTabs.Count)
-                desiredIndex = markItem;
+            if (finalMarkItem >= 0 && finalMarkItem < targetTabs.Count)
+                desiredIndex = finalMarkItem;
         }
         if (desiredIndex >= targetTabs.Count)
             desiredIndex = targetTabs.Count - 1;
@@ -1481,6 +1493,16 @@ int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targe
         UpdateDirectoryLineHistoryState(panel);
     SwitchPanelTab(panel);
     return insertIndex;
+}
+
+int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex)
+{
+    if (panel == NULL)
+        return -1;
+    int index = GetPanelTabIndex(side, panel);
+    if (index < 0)
+        return -1;
+    return CommandMoveTabToOtherSide(side, index, targetInsertIndex);
 }
 
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)

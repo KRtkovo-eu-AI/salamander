@@ -1375,7 +1375,42 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
 
     RECT rect = itemRect;
     RECT fillRect = rect;
-    if (!selected)
+    if (selected)
+    {
+        int expand = 2;
+        if (HWindow != NULL)
+        {
+            RECT clientRect;
+            if (GetClientRect(HWindow, &clientRect))
+            {
+                if (fillRect.left > clientRect.left)
+                {
+                    fillRect.left -= expand;
+                    if (fillRect.left < clientRect.left)
+                        fillRect.left = clientRect.left;
+                }
+                if (fillRect.right < clientRect.right)
+                {
+                    fillRect.right += expand;
+                    if (fillRect.right > clientRect.right)
+                        fillRect.right = clientRect.right;
+                }
+                if (fillRect.top > clientRect.top)
+                {
+                    fillRect.top -= expand;
+                    if (fillRect.top < clientRect.top)
+                        fillRect.top = clientRect.top;
+                }
+            }
+        }
+        else
+        {
+            fillRect.left -= expand;
+            fillRect.right += expand;
+            fillRect.top -= expand;
+        }
+    }
+    else
     {
         InflateRect(&fillRect, -1, -1);
         if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
@@ -1389,6 +1424,11 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         fillColor = LightenColor(fillColor, 48);
 
     HBRUSH brush = CreateSolidBrush(fillColor);
+    if (fillRect.right <= fillRect.left)
+        fillRect.right = fillRect.left + 1;
+    if (fillRect.bottom <= fillRect.top)
+        fillRect.bottom = fillRect.top + 1;
+
     if (brush != NULL)
     {
         FillRect(hdc, &fillRect, brush);

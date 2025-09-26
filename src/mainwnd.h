@@ -557,6 +557,7 @@ public:
     void CommandClearPanelTabPrefix(CFilesWindow* panel);
     void CommandDuplicateTabToOtherSide(CPanelSide side, int index);
     int CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex = -1);
+    int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
