@@ -88,6 +88,8 @@ const int MIN_WIN_WIDTH = 2; // minimal panel width
 
 extern BOOL CacheNextSetFocus;
 
+static void EnsurePanelAutoRefresh(CFilesWindow* panel);
+
 CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
