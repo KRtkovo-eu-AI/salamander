@@ -164,27 +164,21 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
     const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
+    const bool isPluginFS = panel->Is(ptPluginFS);
     const char* path = panel->GetPath();
     if (isDiskLike && path != NULL && path[0] != 0)
     {
         BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
                                        panel->GetPathDriveType() == DRIVE_FIXED;
-        if (!panel->GetMonitorChanges())
-        {
+        if (panel->EnsureActiveDiskMonitoring(registerDevNotification))
             refreshOnActivate = true;
-        }
-        else
-        {
-            EnsureWatching(panel, registerDevNotification);
-            if (!panel->AutomaticRefresh)
-            {
-                panel->ScheduleMonitorRetry(registerDevNotification);
-                refreshOnActivate = true;
-            }
-        }
 
         if (refreshOnActivate && panel->HWindow != NULL)
             panel->ChangePathToDisk(panel->HWindow, path);
+    }
+    else if (isPluginFS && panel->HWindow != NULL)
+    {
+        panel->RequestPluginRefreshOnActivation();
     }
     panel->NeedsRefreshOnActivation = FALSE;
 
@@ -449,7 +443,7 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
         ShowWindow(panel->HWindow, show ? SW_SHOW : SW_HIDE);
         if (show)
             panel->NeedsRefreshOnActivation = FALSE;
-        else if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+        else if (panel->Is(ptDisk) || panel->Is(ptZIPArchive) || panel->Is(ptPluginFS))
             panel->NeedsRefreshOnActivation = TRUE;
     }
     if (tabWnd != NULL && tabWnd->HWindow != NULL)

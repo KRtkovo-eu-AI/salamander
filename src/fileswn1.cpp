@@ -2247,6 +2247,39 @@ void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
     }
 }
 
+bool CFilesWindow::EnsureActiveDiskMonitoring(BOOL registerDevNotification)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (!(Is(ptDisk) || Is(ptZIPArchive)))
+        return false;
+
+    const char* path = GetPath();
+    if (path == NULL || path[0] == 0)
+        return false;
+
+    if (!GetMonitorChanges())
+        return true;
+
+    EnsureWatching(this, registerDevNotification);
+    if (!AutomaticRefresh)
+    {
+        ScheduleMonitorRetry(registerDevNotification);
+        return true;
+    }
+
+    return false;
+}
+
+void CFilesWindow::RequestPluginRefreshOnActivation()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (!Is(ptPluginFS) || HWindow == NULL)
+        return;
+
+    if (!PostMessage(HWindow, WM_USER_REFRESH_PLUGINFS, 0, 0))
+        SendMessage(HWindow, WM_USER_REFRESH_PLUGINFS, 0, 0);
+}
+
 void CFilesWindow::GotoRoot()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::GotoRoot()");

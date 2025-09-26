@@ -1196,6 +1196,8 @@ public:
 
     void SetAutomaticRefresh(BOOL value, BOOL force = FALSE);
     void ScheduleMonitorRetry(BOOL registerDevNotification);
+    bool EnsureActiveDiskMonitoring(BOOL registerDevNotification);
+    void RequestPluginRefreshOnActivation();
 
     // it sets ValidFileData; it checks if the VALID_DATA_PL_XXX constants can be used
     // (PluginData must not be empty and the corresponding constant VALID_DATA_SIZE,
