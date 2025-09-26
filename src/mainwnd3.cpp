@@ -170,8 +170,19 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     {
         BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
                                        panel->GetPathDriveType() == DRIVE_FIXED;
-        if (panel->EnsureActiveDiskMonitoring(registerDevNotification))
+        if (!panel->GetMonitorChanges())
+        {
             refreshOnActivate = true;
+        }
+        else
+        {
+            EnsureWatching(panel, registerDevNotification);
+            if (!panel->AutomaticRefresh)
+            {
+                panel->ScheduleMonitorRetry(registerDevNotification);
+                refreshOnActivate = true;
+            }
+        }
 
         if (refreshOnActivate && panel->HWindow != NULL)
             panel->ChangePathToDisk(panel->HWindow, path);

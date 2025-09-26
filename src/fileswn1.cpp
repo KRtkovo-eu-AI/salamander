@@ -2247,34 +2247,6 @@ void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
     }
 }
 
-bool CFilesWindow::EnsureActiveDiskMonitoring(BOOL registerDevNotification)
-{
-    CALL_STACK_MESSAGE_NONE
-    if (!(Is(ptDisk) || Is(ptZIPArchive)))
-        return false;
-
-    const char* path = GetPath();
-    if (path == NULL || path[0] == 0)
-        return false;
-
-    if (!GetMonitorChanges())
-    {
-        // Monitoring is disabled for this path, so the caller should refresh on
-        // activation to keep the listing current even without change
-        // notifications.
-        return true;
-    }
-
-    EnsureWatching(this, registerDevNotification);
-    if (!AutomaticRefresh)
-    {
-        ScheduleMonitorRetry(registerDevNotification);
-        return true;
-    }
-
-    return false;
-}
-
 void CFilesWindow::RequestPluginRefreshOnActivation()
 {
     CALL_STACK_MESSAGE_NONE
