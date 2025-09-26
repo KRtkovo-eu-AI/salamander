@@ -2258,7 +2258,12 @@ bool CFilesWindow::EnsureActiveDiskMonitoring(BOOL registerDevNotification)
         return false;
 
     if (!GetMonitorChanges())
+    {
+        // Monitoring is disabled for this path, so the caller should refresh on
+        // activation to keep the listing current even without change
+        // notifications.
         return true;
+    }
 
     EnsureWatching(this, registerDevNotification);
     if (!AutomaticRefresh)
