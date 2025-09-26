@@ -2039,8 +2039,13 @@ extern DWORD EnablerRightMoveTabToLeft;      // lze presunout tab na levou stran
 #define IDX_TB_HIDE_SELECTED 75     // Hide Selected Names
 #define IDX_TB_SHOW_ALL 76          // Show All Names
 #define IDX_TB_SMART_COLUMN_MODE 77 // Smart Column Mode
+#define IDX_TB_TABSNEW 78           // New Tab
+#define IDX_TB_TABSCLOSE 79         // Close Tab
+#define IDX_TB_TABSNEXT 80          // Next Tab
+#define IDX_TB_TABSPREV 81          // Previous Tab
+#define IDX_TB_TABSDUPLICATE 82     // Duplicate Tab
 
-#define IDX_TB_FD 78 // first "dynamic added" index
+#define IDX_TB_FD 83 // first "dynamic added" index
 // nasledujici ikony budou pridany k bitmape dynamicky
 // a nektere budou nacteny z shell32.dll
 

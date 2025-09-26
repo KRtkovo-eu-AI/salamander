@@ -252,10 +252,10 @@ CButtonData ToolBarButtons[TBBE_TERMINATOR] =
         /*TBBE_SHOW_ALL*/ {IDX_TB_SHOW_ALL, 0, IDS_TBTT_SHOW_ALL, CM_SHOW_ALL_NAME, 0, 0, 0, 0, 0, &EnablerHiddenNames, NULL, NULL, "ShowHiddenNames"},
         /*TBBE_OPEN_MYDOC*/ {NIB1(IDX_TB_OPENMYDOC), 21, IDS_TBTT_OPENMYDOC, CM_OPENPERSONAL, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
         /*TBBE_SMART_COLUMN_MODE*/ {IDX_TB_SMART_COLUMN_MODE, 0, IDS_TBTT_SMARTMODE, CM_ACTIVE_SMARTMODE, CM_LEFT_SMARTMODE, CM_RIGHT_SMARTMODE, 0, 0, 0, NULL, NULL, NULL, "SmartColumnMode"},
-        /*TBBE_NEW_TAB*/ {IDX_TB_NEW, 0, IDS_TBTT_NEWTAB, CM_NEWTAB, CM_LEFT_NEWTAB, CM_RIGHT_NEWTAB, 0, 0, 0, &EnablerNewTab, &EnablerLeftNewTab, &EnablerRightNewTab, "New"},
-        /*TBBE_CLOSE_TAB*/ {IDX_TB_DELETE, 0, IDS_TBTT_CLOSETAB, CM_CLOSETAB, CM_LEFT_CLOSETAB, CM_RIGHT_CLOSETAB, 0, 0, 0, &EnablerCloseTab, &EnablerLeftCloseTab, &EnablerRightCloseTab, "Delete"},
-        /*TBBE_NEXT_TAB*/ {IDX_TB_FORWARD, 0, IDS_TBTT_NEXTTAB, CM_NEXTTAB, CM_LEFT_NEXTTAB, CM_RIGHT_NEXTTAB, 0, 0, 0, &EnablerNextTab, &EnablerLeftNextTab, &EnablerRightNextTab, "Forward"},
-        /*TBBE_PREV_TAB*/ {IDX_TB_BACK, 0, IDS_TBTT_PREVTAB, CM_PREVTAB, CM_LEFT_PREVTAB, CM_RIGHT_PREVTAB, 0, 0, 0, &EnablerPrevTab, &EnablerLeftPrevTab, &EnablerRightPrevTab, "Back"},
+        /*TBBE_NEW_TAB*/ {IDX_TB_TABSNEW, 0, IDS_TBTT_NEWTAB, CM_NEWTAB, CM_LEFT_NEWTAB, CM_RIGHT_NEWTAB, 0, 0, 0, &EnablerNewTab, &EnablerLeftNewTab, &EnablerRightNewTab, "TabsNew"},
+        /*TBBE_CLOSE_TAB*/ {IDX_TB_TABSCLOSE, 0, IDS_TBTT_CLOSETAB, CM_CLOSETAB, CM_LEFT_CLOSETAB, CM_RIGHT_CLOSETAB, 0, 0, 0, &EnablerCloseTab, &EnablerLeftCloseTab, &EnablerRightCloseTab, "TabsClose"},
+        /*TBBE_NEXT_TAB*/ {IDX_TB_TABSNEXT, 0, IDS_TBTT_NEXTTAB, CM_NEXTTAB, CM_LEFT_NEXTTAB, CM_RIGHT_NEXTTAB, 0, 0, 0, &EnablerNextTab, &EnablerLeftNextTab, &EnablerRightNextTab, "TabsNext"},
+        /*TBBE_PREV_TAB*/ {IDX_TB_TABSPREV, 0, IDS_TBTT_PREVTAB, CM_PREVTAB, CM_LEFT_PREVTAB, CM_RIGHT_PREVTAB, 0, 0, 0, &EnablerPrevTab, &EnablerLeftPrevTab, &EnablerRightPrevTab, "TabsPrevious"},
 
 };
 
@@ -416,14 +416,28 @@ DWORD RightToolBarButtons[] =
 
 void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
 {
-    static CSVGIcon SVGIcons[TBBE_TERMINATOR];
+    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 1];
+    int count = 0;
     for (auto i = 0; i < TBBE_TERMINATOR; i++)
     {
-        SVGIcons[i].ImageIndex = ToolBarButtons[i].ImageIndex;
-        SVGIcons[i].SVGName = ToolBarButtons[i].SVGName;
+        SVGIcons[count].ImageIndex = ToolBarButtons[i].ImageIndex;
+        SVGIcons[count].SVGName = ToolBarButtons[i].SVGName;
+        count++;
     }
+
+    static const CSVGIcon ExtraSVGIcons[] = {
+        {IDX_TB_TABSDUPLICATE, "TabsDuplicate"},
+    };
+
+    for (size_t i = 0; i < _countof(ExtraSVGIcons); i++)
+    {
+        SVGIcons[count].ImageIndex = ExtraSVGIcons[i].ImageIndex;
+        SVGIcons[count].SVGName = ExtraSVGIcons[i].SVGName;
+        count++;
+    }
+
     *svgIcons = SVGIcons;
-    *svgIconsCount = TBBE_TERMINATOR;
+    *svgIconsCount = count;
 }
 
 //****************************************************************************
@@ -803,9 +817,20 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                 tbbe_BMPCOUNT++;
     }
 
+    int baseIconCount = bi.bmiHeader.biWidth / iconSize;
+    int iconCountWithoutShell = baseIconCount;
+    if (svgIcons != NULL)
+    {
+        for (int i = 0; i < svgIconsCount; i++)
+        {
+            if (svgIcons[i].SVGName != NULL && svgIcons[i].ImageIndex + 1 > iconCountWithoutShell)
+                iconCountWithoutShell = svgIcons[i].ImageIndex + 1;
+        }
+    }
+
     // pripravim novou bitmapu, do ktere se vejde hSource a ikonky z DLLka
     // prodlouzim delku o ikonky z DLL
-    iconCount = bi.bmiHeader.biWidth / 16 + tbbe_BMPCOUNT;
+    iconCount = iconCountWithoutShell + tbbe_BMPCOUNT;
 
     //  hColorBitmap = HANDLES(CreateBitmap(width, height, bh.bV4Planes, bh.bV4BitCount, NULL));
     //protoze je CreateBitmap() vhodne pouze pro vytvareni B&W bitmap (viz MSDN)
@@ -823,7 +848,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     hOldTmpBitmap = (HBITMAP)SelectObject(hTmpMemDC, hTmpBitmap);
 
     // prenesu do nove bitmapy bitmapu puvodni
-    if (!StretchBlt(hTgtMemDC, 0, 0, (iconCount - tbbe_BMPCOUNT) * iconSize, iconSize,
+    if (!StretchBlt(hTgtMemDC, 0, 0, baseIconCount * iconSize, iconSize,
                     hSrcMemDC, 0, 0, bi.bmiHeader.biWidth, bi.bmiHeader.biHeight,
                     SRCCOPY))
     {
