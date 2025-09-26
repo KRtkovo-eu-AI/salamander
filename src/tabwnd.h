@@ -66,6 +66,7 @@ private:
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
+    void ExpandSelectedTabRect(RECT& rect) const;
 
     struct STabColor
     {
