@@ -66,6 +66,7 @@ private:
     int ComputeDragTargetIndex(POINT pt, int fromIndex) const;
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
+    void ExpandSelectedTabRect(RECT& rect) const;
 
     struct STabColor
     {
@@ -79,7 +80,6 @@ private:
     void MoveTabColor(int from, int to);
     STabColor* GetTabColor(int index);
     const STabColor* GetTabColor(int index) const;
-    bool HasAnyCustomTabColors() const;
     bool TryResolveTabColor(int index, COLORREF& color) const;
     void PaintCustomTabs(HDC hdc, const RECT* clipRect) const;
     void DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
