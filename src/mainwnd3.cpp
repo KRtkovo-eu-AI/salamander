@@ -177,7 +177,10 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         {
             EnsureWatching(panel, registerDevNotification);
             if (!panel->AutomaticRefresh)
+            {
+                panel->ScheduleMonitorRetry(registerDevNotification);
                 refreshOnActivate = true;
+            }
         }
 
         if (refreshOnActivate && panel->HWindow != NULL)

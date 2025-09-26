@@ -1405,6 +1405,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     MonitorRetryTimerSet = FALSE;
     MonitorRetryPending = FALSE;
     MonitorRetryRegisterDevNotification = FALSE;
+    MonitorRetryRequested = FALSE;
     LastMonitorRetryAttempt = 0;
     InactiveRefreshTimerSet = FALSE;
     InactRefreshLParam = 0;
@@ -2192,13 +2193,28 @@ void CFilesWindow::SetAutomaticRefresh(BOOL value, BOOL force)
 void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
 {
     CALL_STACK_MESSAGE_NONE
-    if (HWindow == NULL || !GetMonitorChanges())
+    MonitorRetryRegisterDevNotification = MonitorRetryRegisterDevNotification || registerDevNotification;
+
+    if (!GetMonitorChanges())
+    {
+        MonitorRetryRequested = FALSE;
         return;
+    }
 
     if (AutomaticRefresh)
+    {
+        MonitorRetryRequested = FALSE;
         return;
+    }
 
-    MonitorRetryRegisterDevNotification = MonitorRetryRegisterDevNotification || registerDevNotification;
+    if (HWindow == NULL)
+    {
+        MonitorRetryRequested = TRUE;
+        return;
+    }
+
+    if (MonitorRetryTimerSet || MonitorRetryPending)
+        return;
 
     DWORD now = GetTickCount();
     DWORD wait = REFRESH_PAUSE;
@@ -2209,20 +2225,25 @@ void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
             wait = REFRESH_PAUSE - elapsed;
     }
 
-    if (MonitorRetryTimerSet || MonitorRetryPending)
-        return;
-
     UINT delay = wait == 0 ? 1u : (UINT)wait;
     if (SetTimer(HWindow, IDT_MONITOR_RETRY, delay, NULL))
     {
         MonitorRetryTimerSet = TRUE;
+        MonitorRetryRequested = FALSE;
     }
     else
     {
         MonitorRetryTimerSet = FALSE;
         MonitorRetryPending = TRUE;
         if (!PostMessage(HWindow, WM_USER_MONITOR_RETRY, MonitorRetryRegisterDevNotification, 0))
+        {
             MonitorRetryPending = FALSE;
+            MonitorRetryRequested = TRUE;
+        }
+        else
+        {
+            MonitorRetryRequested = FALSE;
+        }
     }
 }
 

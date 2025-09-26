@@ -406,6 +406,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_MONITOR_RETRY:
     {
         MonitorRetryPending = FALSE;
+        MonitorRetryRequested = FALSE;
         MonitorRetryRegisterDevNotification = MonitorRetryRegisterDevNotification || (BOOL)wParam;
 
         DWORD now = GetTickCount();
@@ -1101,6 +1102,9 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // srovname nastaveni promenne AutomaticRefresh a directory-liny
         SetAutomaticRefresh(AutomaticRefresh, TRUE);
+
+        if (MonitorRetryRequested)
+            ScheduleMonitorRetry(MonitorRetryRegisterDevNotification);
 
         return 0;
     }

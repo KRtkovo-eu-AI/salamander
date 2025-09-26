@@ -827,6 +827,7 @@ public:
     BOOL MonitorRetryTimerSet;               // TRUE when the timer for retrying directory monitoring is running
     BOOL MonitorRetryPending;                // TRUE when a retry message is queued
     BOOL MonitorRetryRegisterDevNotification; // TRUE if retry should register for device notifications
+    BOOL MonitorRetryRequested;              // TRUE when a retry should be scheduled once the window exists
     DWORD LastMonitorRetryAttempt;           // GetTickCount() timestamp of the last retry attempt
 
     BOOL InactiveRefreshTimerSet;   // TRUE when the timer for sending WM_USER_INACTREFRESH_DIR is running
