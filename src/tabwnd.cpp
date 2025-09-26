@@ -1266,20 +1266,6 @@ const CTabWindow::STabColor* CTabWindow::GetTabColor(int index) const
     return &TabColors[index];
 }
 
-bool CTabWindow::HasAnyCustomTabColors() const
-{
-    int total = GetDisplayedTabCount();
-    for (int i = 0; i < total; ++i)
-    {
-        if (IsNewTabButtonIndex(i))
-            continue;
-        COLORREF color;
-        if (TryResolveTabColor(i, color))
-            return true;
-    }
-    return false;
-}
-
 bool CTabWindow::TryResolveTabColor(int index, COLORREF& color) const
 {
     if (index < 0)
@@ -1334,7 +1320,7 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
 
         COLORREF baseColor;
         if (!TryResolveTabColor(i, baseColor))
-            continue;
+            baseColor = GetSysColor(COLOR_BTNFACE);
 
         RECT itemRect;
         if (!TabCtrl_GetItemRect(HWindow, i, &itemRect))
@@ -1485,9 +1471,9 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
         if (HWindow != NULL)
         {
-            bool hasCustomColors = HasAnyCustomTabColors();
+            bool shouldPaintTabs = true;
             bool shouldPaintIndicator = DragIndicatorVisible;
-            if (hasCustomColors || shouldPaintIndicator)
+            if (shouldPaintTabs || shouldPaintIndicator)
             {
                 HDC hdc = GetDC(HWindow);
                 if (hdc != NULL)
@@ -1495,7 +1481,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     int saved = SaveDC(hdc);
                     if (hasUpdate)
                         IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
-                    if (hasCustomColors)
+                    if (shouldPaintTabs)
                         PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
                     if (shouldPaintIndicator)
                         PaintDragIndicator(hdc);
@@ -1510,15 +1496,12 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PRINTCLIENT:
     {
         LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
-        if (HasAnyCustomTabColors())
+        HDC hdc = reinterpret_cast<HDC>(wParam);
+        if (hdc != NULL)
         {
-            HDC hdc = reinterpret_cast<HDC>(wParam);
-            if (hdc != NULL)
-            {
-                int saved = SaveDC(hdc);
-                PaintCustomTabs(hdc, NULL);
-                RestoreDC(hdc, saved);
-            }
+            int saved = SaveDC(hdc);
+            PaintCustomTabs(hdc, NULL);
+            RestoreDC(hdc, saved);
         }
         return baseResult;
     }
