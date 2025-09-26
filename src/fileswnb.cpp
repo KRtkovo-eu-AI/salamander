@@ -382,10 +382,63 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         InactiveRefreshTimerSet = FALSE;
                         return 0;
                     }
+                    else
+                    {
+                        if (wParam == IDT_MONITOR_RETRY)
+                        {
+                            KillTimer(HWindow, IDT_MONITOR_RETRY);
+                            if (MonitorRetryTimerSet)
+                            {
+                                MonitorRetryTimerSet = FALSE;
+                                MonitorRetryPending = TRUE;
+                                if (!PostMessage(HWindow, WM_USER_MONITOR_RETRY, MonitorRetryRegisterDevNotification, 0))
+                                    MonitorRetryPending = FALSE;
+                            }
+                            return 0;
+                        }
+                    }
                 }
             }
         }
         break;
+    }
+
+    case WM_USER_MONITOR_RETRY:
+    {
+        MonitorRetryPending = FALSE;
+        MonitorRetryRegisterDevNotification = MonitorRetryRegisterDevNotification || (BOOL)wParam;
+
+        DWORD now = GetTickCount();
+        if (LastMonitorRetryAttempt != 0)
+        {
+            DWORD elapsed = now - LastMonitorRetryAttempt;
+            if (elapsed < REFRESH_PAUSE)
+            {
+                ScheduleMonitorRetry(MonitorRetryRegisterDevNotification);
+                return 0;
+            }
+        }
+
+        BOOL wasAutomatic = AutomaticRefresh;
+        LastMonitorRetryAttempt = now;
+
+        EnsureWatching(this, MonitorRetryRegisterDevNotification);
+
+        if (AutomaticRefresh)
+        {
+            if (!wasAutomatic)
+            {
+                const char* restoredPath = GetPath();
+                TRACE_I("Automatic refresh restored for '" << (restoredPath != NULL ? restoredPath : "") << "'.");
+            }
+            MonitorRetryRegisterDevNotification = FALSE;
+        }
+        else if (!MonitorRetryTimerSet && !MonitorRetryPending)
+        {
+            ScheduleMonitorRetry(MonitorRetryRegisterDevNotification);
+        }
+
+        return 0;
     }
 
     case WM_USER_REFRESH_DIR_EX:

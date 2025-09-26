@@ -1181,6 +1181,7 @@ struct COpenViewerData
 #define WM_USER_SLGINCOMPLETE WM_APP + 414 // [0, 0] - upozorneni, ze SLG neni kompletne prelozene, motivacni text aby se zapojili
 
 #define WM_USER_USERMENUICONS_READY WM_APP + 415 // [bkgndReaderData, threadID] - notifikace pro hl. okno, ze se dokoncilo cteni ikon pro User Menu v threadu s ID 'threadID'
+#define WM_USER_MONITOR_RETRY WM_APP + 416       // [registerDevNotification, 0] - odlozeny pokus o znovuotevreni change-notify
 
 // states for Shift+F1 help mode
 #define HELP_INACTIVE 0 // not in Shift+F1 help mode (must be 0)
@@ -1756,6 +1757,7 @@ DWORD CfgSkillLevelToMenu(BYTE cfgSkillLevel);
 #define IDT_THROBBER 949
 #define IDT_DELAYEDTHROBBER 950
 #define IDT_UPDATETASKLIST 951
+#define IDT_MONITOR_RETRY 952
 
 // POZOR: skoro vsechny funkce v teto sekci pri chybe zobrazuji hlaseni o LOAD / SAVE
 //        konfigurace, coz z nich dela nevhodne pro bezny pristup do Registry,

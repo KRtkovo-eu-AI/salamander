@@ -857,6 +857,7 @@ void AddDirectory(CFilesWindow* win, const char* path, BOOL registerDevNotificat
         if (!AttachPanelInternal(win, prepared, registerDevNotification))
         {
             win->SetAutomaticRefresh(FALSE);
+            win->ScheduleMonitorRetry(registerDevNotification);
             TRACE_W("Unable to receive change notifications for directory '" << prepared.Path << "' (auto-refresh will not work).");
         }
     }
@@ -973,6 +974,7 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
         if (!AttachPanelInternal(win, prepared, registerDevNotification))
         {
             win->SetAutomaticRefresh(FALSE);
+            win->ScheduleMonitorRetry(registerDevNotification);
             TRACE_W("Unable to receive change notifications for directory '" << prepared.Path << "' (auto-refresh will not work).");
         }
     }
@@ -1032,7 +1034,10 @@ void EnsureWatching(CFilesWindow* win, BOOL registerDevNotification)
     if (!attached)
     {
         if (!AttachPanelInternal(win, prepared, registerDevNotification))
+        {
             win->SetAutomaticRefresh(FALSE);
+            win->ScheduleMonitorRetry(registerDevNotification);
+        }
     }
 
     ReleaseMutex(DataUsageMutex);

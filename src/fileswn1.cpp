@@ -1402,6 +1402,10 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     SmEndNotifyTimerSet = FALSE;
     RefreshDirExTimerSet = FALSE;
     RefreshDirExLParam = 0;
+    MonitorRetryTimerSet = FALSE;
+    MonitorRetryPending = FALSE;
+    MonitorRetryRegisterDevNotification = FALSE;
+    LastMonitorRetryAttempt = 0;
     InactiveRefreshTimerSet = FALSE;
     InactRefreshLParam = 0;
     LastInactiveRefreshStart = LastInactiveRefreshEnd = 0;
@@ -2179,9 +2183,46 @@ void CFilesWindow::SetAutomaticRefresh(BOOL value, BOOL force)
         AutomaticRefresh = value;
         /* // "throwing away" the refresh mark from the directory line
     // it crashed here; a destroyed object was called
-    if (DirectoryLine != NULL)                       
+    if (DirectoryLine != NULL)
       DirectoryLine->SetAutomatic(AutomaticRefresh);
 */
+    }
+}
+
+void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL || !GetMonitorChanges())
+        return;
+
+    if (AutomaticRefresh)
+        return;
+
+    MonitorRetryRegisterDevNotification = MonitorRetryRegisterDevNotification || registerDevNotification;
+
+    DWORD now = GetTickCount();
+    DWORD wait = REFRESH_PAUSE;
+    if (LastMonitorRetryAttempt != 0)
+    {
+        DWORD elapsed = now - LastMonitorRetryAttempt;
+        if (elapsed < REFRESH_PAUSE)
+            wait = REFRESH_PAUSE - elapsed;
+    }
+
+    if (MonitorRetryTimerSet || MonitorRetryPending)
+        return;
+
+    UINT delay = wait == 0 ? 1u : (UINT)wait;
+    if (SetTimer(HWindow, IDT_MONITOR_RETRY, delay, NULL))
+    {
+        MonitorRetryTimerSet = TRUE;
+    }
+    else
+    {
+        MonitorRetryTimerSet = FALSE;
+        MonitorRetryPending = TRUE;
+        if (!PostMessage(HWindow, WM_USER_MONITOR_RETRY, MonitorRetryRegisterDevNotification, 0))
+            MonitorRetryPending = FALSE;
     }
 }
 

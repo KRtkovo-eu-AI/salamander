@@ -824,6 +824,11 @@ public:
     BOOL RefreshDirExTimerSet; // TRUE when the timer for sending WM_USER_REFRESH_DIR_EX_DELAYED is running
     LPARAM RefreshDirExLParam; // lParam for sending WM_USER_REFRESH_DIR_EX_DELAYED
 
+    BOOL MonitorRetryTimerSet;               // TRUE when the timer for retrying directory monitoring is running
+    BOOL MonitorRetryPending;                // TRUE when a retry message is queued
+    BOOL MonitorRetryRegisterDevNotification; // TRUE if retry should register for device notifications
+    DWORD LastMonitorRetryAttempt;           // GetTickCount() timestamp of the last retry attempt
+
     BOOL InactiveRefreshTimerSet;   // TRUE when the timer for sending WM_USER_INACTREFRESH_DIR is running
     LPARAM InactRefreshLParam;      // lParam for sending WM_USER_INACTREFRESH_DIR
     DWORD LastInactiveRefreshStart; // info about the last snooper-initiated refresh in an inactive window: when did it start + matching the line below...
@@ -1189,6 +1194,7 @@ public:
     void InvalidateChangesInPanelWeHaveNewListing();
 
     void SetAutomaticRefresh(BOOL value, BOOL force = FALSE);
+    void ScheduleMonitorRetry(BOOL registerDevNotification);
 
     // it sets ValidFileData; it checks if the VALID_DATA_PL_XXX constants can be used
     // (PluginData must not be empty and the corresponding constant VALID_DATA_SIZE,
