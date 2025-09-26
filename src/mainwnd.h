@@ -494,6 +494,16 @@ protected:
 
     CTabWindow* LeftTabWindow;
     CTabWindow* RightTabWindow;
+    bool PanelTabCrossDragActive;
+    CPanelSide PanelTabCrossDragSourceSide;
+    int PanelTabCrossDragSourceIndex;
+    bool PanelTabCrossDragHasTarget;
+    int PanelTabCrossDragDisplayedInsertIndex;
+    int PanelTabCrossDragDisplayedMarkItem;
+    DWORD PanelTabCrossDragDisplayedMarkFlags;
+    int PanelTabCrossDragStoredInsertIndex;
+    int PanelTabCrossDragStoredMarkItem;
+    DWORD PanelTabCrossDragStoredMarkFlags;
 
 public:
     CMainWindow();
@@ -524,16 +534,30 @@ public:
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
+    void UpdatePanelTabColor(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);
     void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
     void OnPanelTabReordered(CPanelSide side, int from, int to);
+    void OnPanelTabDragStarted(CPanelSide side, int index);
+    bool OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt);
+    bool TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt);
+    void CancelPanelTabDrag();
     int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
     int GetPanelTabCount(CPanelSide side) const;
     CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;
     void CommandNewTab(CPanelSide side, bool addAtEnd = false);
     void CommandCloseTab(CPanelSide side);
+    void CommandCloseAllTabsExceptDefault(CPanelSide side);
+    void CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel = NULL);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
+    void CommandSetPanelTabColor(CFilesWindow* panel);
+    void CommandClearPanelTabColor(CFilesWindow* panel);
+    void CommandSetPanelTabPrefix(CFilesWindow* panel);
+    void CommandClearPanelTabPrefix(CFilesWindow* panel);
+    void CommandDuplicateTabToOtherSide(CPanelSide side, int index);
+    int CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex = -1);
+    int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
@@ -655,6 +679,7 @@ public:
 
     void MakeFileList();
 
+    static void FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* text, int textSize);
     // helper method for SetTitle; 'text' must be at least 2 * MAX_PATH characters long
     void GetFormatedPathForTitle(char* text);
 
@@ -781,6 +806,7 @@ private:
     CTabWindow* GetPanelTabWindow(CPanelSide side) const;
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
+    void ClearPanelTabDragTargetIndicator();
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 

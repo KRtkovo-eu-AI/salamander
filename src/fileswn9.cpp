@@ -79,6 +79,39 @@ void CFilesWindow::SetPanelSide(CPanelSide side)
         DirectoryLine->SetLeftPanel(IsLeftPanel());
 }
 
+void CFilesWindow::SetCustomTabColor(COLORREF color)
+{
+    CALL_STACK_MESSAGE_NONE
+    CustomTabColor = color;
+    CustomTabColorValid = true;
+}
+
+void CFilesWindow::ClearCustomTabColor()
+{
+    CALL_STACK_MESSAGE_NONE
+    CustomTabColorValid = false;
+}
+
+void CFilesWindow::SetCustomTabPrefix(const wchar_t* prefix)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (prefix == NULL)
+    {
+        ClearCustomTabPrefix();
+        return;
+    }
+
+    CustomTabPrefix.assign(prefix);
+    CustomTabPrefixValid = !CustomTabPrefix.empty();
+}
+
+void CFilesWindow::ClearCustomTabPrefix()
+{
+    CALL_STACK_MESSAGE_NONE
+    CustomTabPrefix.clear();
+    CustomTabPrefixValid = false;
+}
+
 int CFilesWindow::GetPanelCode()
 {
     CALL_STACK_MESSAGE_NONE

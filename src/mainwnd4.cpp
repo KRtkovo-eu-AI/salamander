@@ -361,9 +361,30 @@ BOOL CMainWindow::CloseDetachedFS(HWND parent, CPluginFSInterfaceEncapsulation* 
 BOOL CMainWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin)
 {
     CALL_STACK_MESSAGE1("CMainWindow::CanUnloadPlugin()");
-    if (LeftPanel != NULL && !LeftPanel->CanUnloadPlugin(parent, plugin))
+    auto canUnloadFromPanel = [&](CFilesWindow* panel) {
+        return panel == NULL || panel->CanUnloadPlugin(parent, plugin);
+    };
+
+    if (!canUnloadFromPanel(LeftPanel))
         return FALSE;
-    if (RightPanel != NULL && !RightPanel->CanUnloadPlugin(parent, plugin))
+    if (!canUnloadFromPanel(RightPanel))
+        return FALSE;
+
+    auto canUnloadFromTabs = [&](TIndirectArray<CFilesWindow>& tabs, CFilesWindow* activePanel) {
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            CFilesWindow* panel = tabs[i];
+            if (panel == activePanel)
+                continue; // already checked above
+            if (panel != NULL && !panel->CanUnloadPlugin(parent, plugin))
+                return FALSE;
+        }
+        return TRUE;
+    };
+
+    if (!canUnloadFromTabs(LeftPanelTabs, LeftPanel))
+        return FALSE;
+    if (!canUnloadFromTabs(RightPanelTabs, RightPanel))
         return FALSE;
 
     // find detached FS belonging to the plug-in 'plugin' and attempt to close them
