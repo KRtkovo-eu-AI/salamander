@@ -831,9 +831,7 @@ bool CMainWindow::OnPanelTabDragUpdated(CPanelSide side, int index, POINT screen
 
 bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt)
 {
-    if (!PanelTabCrossDragActive)
-        return false;
-    if (side != PanelTabCrossDragSourceSide || index != PanelTabCrossDragSourceIndex)
+    if (!Configuration.UsePanelTabs)
         return false;
 
     CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
@@ -841,7 +839,29 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
         return false;
 
-    bool pointerOnTargetSide = PanelTabCrossDragHasTarget;
+    bool usesCrossDragState = PanelTabCrossDragActive &&
+                              side == PanelTabCrossDragSourceSide &&
+                              index == PanelTabCrossDragSourceIndex;
+
+    bool pointerOnTargetSide = false;
+    if (usesCrossDragState && PanelTabCrossDragHasTarget)
+        pointerOnTargetSide = true;
+
+    if (!pointerOnTargetSide)
+    {
+        RECT targetRect;
+        if (GetWindowRect(targetTabWnd->HWindow, &targetRect))
+        {
+            RECT expanded = targetRect;
+            int verticalInflate = EnvFontCharHeight;
+            if (verticalInflate < 12)
+                verticalInflate = 12;
+            InflateRect(&expanded, EnvFontCharHeight * 2, verticalInflate);
+            if (PtInRect(&expanded, screenPt))
+                pointerOnTargetSide = true;
+        }
+    }
+
     if (!pointerOnTargetSide && HWindow != NULL)
     {
         POINT clientPt = screenPt;
@@ -856,8 +876,8 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
         }
     }
 
-    bool hadStoredTarget = (PanelTabCrossDragStoredInsertIndex >= 0);
-    bool shouldMoveToOtherSide = pointerOnTargetSide || PanelTabCrossDragHasTarget || hadStoredTarget;
+    bool hadStoredTarget = usesCrossDragState && (PanelTabCrossDragStoredInsertIndex >= 0);
+    bool shouldMoveToOtherSide = pointerOnTargetSide || (usesCrossDragState && PanelTabCrossDragHasTarget) || hadStoredTarget;
     if (!shouldMoveToOtherSide)
         return false;
 
@@ -866,7 +886,7 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     DWORD markFlags = 0;
     bool hasTarget = false;
 
-    if (PanelTabCrossDragHasTarget && PanelTabCrossDragDisplayedInsertIndex >= 0)
+    if (usesCrossDragState && PanelTabCrossDragHasTarget && PanelTabCrossDragDisplayedInsertIndex >= 0)
     {
         targetIndex = PanelTabCrossDragDisplayedInsertIndex;
         markItem = PanelTabCrossDragDisplayedMarkItem;
@@ -885,7 +905,7 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     if (!hasTarget)
     {
         hasTarget = targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags);
-        if (hasTarget)
+        if (hasTarget && usesCrossDragState)
         {
             PanelTabCrossDragStoredInsertIndex = targetIndex;
             PanelTabCrossDragStoredMarkItem = markItem;
