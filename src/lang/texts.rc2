@@ -26,6 +26,7 @@ STRINGTABLE
  IDS_MENU_LEFT_CLOSETAB,     "&Close Tab\tCtrl+Shift+W"
  IDS_MENU_LEFT_NEXTTAB,      "&Next Tab\tCtrl+Shift+Page Down"
  IDS_MENU_LEFT_PREVTAB,      "&Previous Tab\tCtrl+Shift+Page Up"
+ IDS_MENU_LEFT_DUPLICATETAB, "D&uplicate Tab"
  IDS_MENU_LEFT_SETTABCOLOR,  "Set Tab &Color..."
  IDS_MENU_LEFT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_LEFT_SETTABPREFIX, "Set Tab &Prefix..."
@@ -112,6 +113,7 @@ STRINGTABLE
  IDS_MENU_CMD_CLOSETAB,      "&Close Tab"
  IDS_MENU_CMD_NEXTTAB,       "&Next Tab"
  IDS_MENU_CMD_PREVTAB,       "Pre&vious Tab"
+ IDS_MENU_CMD_DUPLICATETAB,  "D&uplicate Tab"
  IDS_MENU_CMD_USERMENU,      "&User Menu\tF9"
  IDS_MENU_CMD_FOCUSLNK,      "&Go to Shortcut or Link Target\tCtrl+T"
  IDS_MENU_CMD_FLD,           "O&pen Folder"
@@ -171,6 +173,7 @@ STRINGTABLE
  IDS_MENU_RIGHT_CLOSETAB,    "&Close Tab\tAlt+Shift+W"
  IDS_MENU_RIGHT_NEXTTAB,     "&Next Tab\tAlt+Shift+Page Down"
  IDS_MENU_RIGHT_PREVTAB,     "&Previous Tab\tAlt+Shift+Page Up"
+ IDS_MENU_RIGHT_DUPLICATETAB, "D&uplicate Tab"
  IDS_MENU_RIGHT_SETTABCOLOR, "Set Tab &Color..."
  IDS_MENU_RIGHT_CLEARTABCOLOR,"C&lear Tab Color"
  IDS_MENU_RIGHT_SETTABPREFIX,"Set Tab &Prefix..."
@@ -839,6 +842,7 @@ STRINGTABLE
  IDS_TBTT_CLOSETAB,            "Close Tab"
  IDS_TBTT_NEXTTAB,             "Next Tab"
  IDS_TBTT_PREVTAB,             "Previous Tab"
+ IDS_TBTT_DUPLICATETAB,        "Duplicate Tab"
 
  IDS_TBTT_CONVERT,             "Convert\tCtrl+K"
 

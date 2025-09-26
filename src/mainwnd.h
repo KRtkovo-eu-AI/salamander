@@ -551,6 +551,7 @@ public:
     void CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel = NULL);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
+    void CommandDuplicateTab(CPanelSide side, int index = -1);
     void CommandSetPanelTabColor(CFilesWindow* panel);
     void CommandClearPanelTabColor(CFilesWindow* panel);
     void CommandSetPanelTabPrefix(CFilesWindow* panel);
@@ -807,6 +808,7 @@ private:
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
+    CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 
