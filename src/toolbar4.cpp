@@ -143,8 +143,9 @@ struct CButtonData
 #define TBBE_CLOSE_TAB 100
 #define TBBE_NEXT_TAB 101
 #define TBBE_PREV_TAB 102
+#define TBBE_DUPLICATE_TAB 103
 
-#define TBBE_TERMINATOR 103 // terminator
+#define TBBE_TERMINATOR 104 // terminator
 
 #define NIB1(x) x
 #define NIB2(x) x,
@@ -256,6 +257,7 @@ CButtonData ToolBarButtons[TBBE_TERMINATOR] =
         /*TBBE_CLOSE_TAB*/ {IDX_TB_TABSCLOSE, 0, IDS_TBTT_CLOSETAB, CM_CLOSETAB, CM_LEFT_CLOSETAB, CM_RIGHT_CLOSETAB, 0, 0, 0, &EnablerCloseTab, &EnablerLeftCloseTab, &EnablerRightCloseTab, "TabsClose"},
         /*TBBE_NEXT_TAB*/ {IDX_TB_TABSNEXT, 0, IDS_TBTT_NEXTTAB, CM_NEXTTAB, CM_LEFT_NEXTTAB, CM_RIGHT_NEXTTAB, 0, 0, 0, &EnablerNextTab, &EnablerLeftNextTab, &EnablerRightNextTab, "TabsNext"},
         /*TBBE_PREV_TAB*/ {IDX_TB_TABSPREV, 0, IDS_TBTT_PREVTAB, CM_PREVTAB, CM_LEFT_PREVTAB, CM_RIGHT_PREVTAB, 0, 0, 0, &EnablerPrevTab, &EnablerLeftPrevTab, &EnablerRightPrevTab, "TabsPrevious"},
+        /*TBBE_DUPLICATE_TAB*/ {IDX_TB_TABSDUPLICATE, 0, IDS_TBTT_DUPLICATETAB, CM_DUPLICATETAB, CM_LEFT_DUPLICATETAB, CM_RIGHT_DUPLICATETAB, 0, 0, 0, &EnablerDuplicateTab, &EnablerLeftDuplicateTab, &EnablerRightDuplicateTab, "TabsDuplicate"},
 
 };
 
@@ -296,6 +298,7 @@ DWORD TopToolBarButtons[] =
         TBBE_CLOSE_TAB,
         TBBE_NEXT_TAB,
         TBBE_PREV_TAB,
+        TBBE_DUPLICATE_TAB,
 
         TBBE_USER_MENU_DROP,
         TBBE_CMD,
@@ -416,28 +419,15 @@ DWORD RightToolBarButtons[] =
 
 void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
 {
-    static CSVGIcon SVGIcons[TBBE_TERMINATOR + 1];
-    int count = 0;
+    static CSVGIcon SVGIcons[TBBE_TERMINATOR];
     for (auto i = 0; i < TBBE_TERMINATOR; i++)
     {
-        SVGIcons[count].ImageIndex = ToolBarButtons[i].ImageIndex;
-        SVGIcons[count].SVGName = ToolBarButtons[i].SVGName;
-        count++;
-    }
-
-    static const CSVGIcon ExtraSVGIcons[] = {
-        {IDX_TB_TABSDUPLICATE, "TabsDuplicate"},
-    };
-
-    for (size_t i = 0; i < _countof(ExtraSVGIcons); i++)
-    {
-        SVGIcons[count].ImageIndex = ExtraSVGIcons[i].ImageIndex;
-        SVGIcons[count].SVGName = ExtraSVGIcons[i].SVGName;
-        count++;
+        SVGIcons[i].ImageIndex = ToolBarButtons[i].ImageIndex;
+        SVGIcons[i].SVGName = ToolBarButtons[i].SVGName;
     }
 
     *svgIcons = SVGIcons;
-    *svgIconsCount = count;
+    *svgIconsCount = TBBE_TERMINATOR;
 }
 
 //****************************************************************************
@@ -770,6 +760,8 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
 
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
     int iconCount = 0;
+    int baseIconCount = 0;
+    int iconCountWithoutShell = 0;
 
     // Windows XP a novejsi pouzivaji transparentni ikony; protoze je pomoci masky
     // zobrazime do teto docasne bitmapy a zajistime, aby pod pruhlednou casti byla
@@ -817,8 +809,8 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                 tbbe_BMPCOUNT++;
     }
 
-    int baseIconCount = bi.bmiHeader.biWidth / iconSize;
-    int iconCountWithoutShell = baseIconCount;
+    baseIconCount = bi.bmiHeader.biWidth / iconSize;
+    iconCountWithoutShell = baseIconCount;
     if (svgIcons != NULL)
     {
         for (int i = 0; i < svgIconsCount; i++)
