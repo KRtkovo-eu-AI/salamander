@@ -1173,6 +1173,41 @@ void CTabWindow::ClearTabColor(int index)
     InvalidateTab(index);
 }
 
+void CTabWindow::ExpandSelectedTabRect(RECT& rect) const
+{
+    int expand = 2;
+    if (HWindow != NULL)
+    {
+        RECT clientRect;
+        if (GetClientRect(HWindow, &clientRect))
+        {
+            if (rect.left > clientRect.left)
+            {
+                rect.left -= expand;
+                if (rect.left < clientRect.left)
+                    rect.left = clientRect.left;
+            }
+            if (rect.right < clientRect.right)
+            {
+                rect.right += expand;
+                if (rect.right > clientRect.right)
+                    rect.right = clientRect.right;
+            }
+            if (rect.top > clientRect.top)
+            {
+                rect.top -= expand;
+                if (rect.top < clientRect.top)
+                    rect.top = clientRect.top;
+            }
+            return;
+        }
+    }
+
+    rect.left -= expand;
+    rect.right += expand;
+    rect.top -= expand;
+}
+
 void CTabWindow::InvalidateTab(int index)
 {
     if (HWindow == NULL)
@@ -1181,7 +1216,11 @@ void CTabWindow::InvalidateTab(int index)
         return;
     RECT rect;
     if (TabCtrl_GetItemRect(HWindow, index, &rect))
+    {
+        if (TabCtrl_GetCurSel(HWindow) == index)
+            ExpandSelectedTabRect(rect);
         InvalidateRect(HWindow, &rect, FALSE);
+    }
     else
         InvalidateRect(HWindow, NULL, FALSE);
 }
@@ -1363,38 +1402,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     RECT fillRect = rect;
     if (selected)
     {
-        int expand = 2;
-        if (HWindow != NULL)
-        {
-            RECT clientRect;
-            if (GetClientRect(HWindow, &clientRect))
-            {
-                if (fillRect.left > clientRect.left)
-                {
-                    fillRect.left -= expand;
-                    if (fillRect.left < clientRect.left)
-                        fillRect.left = clientRect.left;
-                }
-                if (fillRect.right < clientRect.right)
-                {
-                    fillRect.right += expand;
-                    if (fillRect.right > clientRect.right)
-                        fillRect.right = clientRect.right;
-                }
-                if (fillRect.top > clientRect.top)
-                {
-                    fillRect.top -= expand;
-                    if (fillRect.top < clientRect.top)
-                        fillRect.top = clientRect.top;
-                }
-            }
-        }
-        else
-        {
-            fillRect.left -= expand;
-            fillRect.right += expand;
-            fillRect.top -= expand;
-        }
+        ExpandSelectedTabRect(fillRect);
     }
     else
     {
