@@ -841,7 +841,6 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
     if (targetTabWnd == NULL || targetTabWnd->HWindow == NULL)
         return false;
 
-    bool hadStoredTarget = (PanelTabCrossDragStoredInsertIndex >= 0);
     bool pointerOnTargetSide = PanelTabCrossDragHasTarget;
     if (!pointerOnTargetSide && HWindow != NULL)
     {
@@ -857,60 +856,57 @@ bool CMainWindow::TryCompletePanelTabDrag(CPanelSide side, int index, POINT scre
         }
     }
 
+    bool hadStoredTarget = (PanelTabCrossDragStoredInsertIndex >= 0);
+    bool shouldMoveToOtherSide = pointerOnTargetSide || PanelTabCrossDragHasTarget || hadStoredTarget;
+    if (!shouldMoveToOtherSide)
+        return false;
+
     int targetIndex = -1;
     int markItem = -1;
     DWORD markFlags = 0;
-    bool hasTarget = targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags);
-    if (hasTarget)
+    bool hasTarget = false;
+
+    if (PanelTabCrossDragHasTarget && PanelTabCrossDragDisplayedInsertIndex >= 0)
     {
-        PanelTabCrossDragStoredInsertIndex = targetIndex;
-        PanelTabCrossDragStoredMarkItem = markItem;
-        PanelTabCrossDragStoredMarkFlags = markFlags;
+        targetIndex = PanelTabCrossDragDisplayedInsertIndex;
+        markItem = PanelTabCrossDragDisplayedMarkItem;
+        markFlags = PanelTabCrossDragDisplayedMarkFlags;
+        hasTarget = true;
     }
-    else
+
+    if (!hasTarget && hadStoredTarget)
     {
-        if (PanelTabCrossDragHasTarget && PanelTabCrossDragDisplayedInsertIndex >= 0)
+        targetIndex = PanelTabCrossDragStoredInsertIndex;
+        markItem = PanelTabCrossDragStoredMarkItem;
+        markFlags = PanelTabCrossDragStoredMarkFlags;
+        hasTarget = (targetIndex >= 0);
+    }
+
+    if (!hasTarget)
+    {
+        hasTarget = targetTabWnd->ComputeExternalDropTarget(screenPt, targetIndex, markItem, markFlags);
+        if (hasTarget)
         {
-            targetIndex = PanelTabCrossDragDisplayedInsertIndex;
-            markItem = PanelTabCrossDragDisplayedMarkItem;
-            markFlags = PanelTabCrossDragDisplayedMarkFlags;
             PanelTabCrossDragStoredInsertIndex = targetIndex;
             PanelTabCrossDragStoredMarkItem = markItem;
             PanelTabCrossDragStoredMarkFlags = markFlags;
-            hasTarget = true;
         }
-
-        if (!hasTarget && pointerOnTargetSide)
-        {
-            if (PanelTabCrossDragStoredInsertIndex >= 0)
-            {
-                targetIndex = PanelTabCrossDragStoredInsertIndex;
-                markItem = PanelTabCrossDragStoredMarkItem;
-                markFlags = PanelTabCrossDragStoredMarkFlags;
-            }
-            else
-            {
-                targetIndex = GetPanelTabs(targetSide).Count;
-                markItem = -1;
-                markFlags = 0;
-            }
-            PanelTabCrossDragStoredInsertIndex = targetIndex;
-            PanelTabCrossDragStoredMarkItem = markItem;
-            PanelTabCrossDragStoredMarkFlags = markFlags;
-            hasTarget = true;
-        }
-
-        if (!hasTarget && hadStoredTarget)
-        {
-            targetIndex = PanelTabCrossDragStoredInsertIndex;
-            markItem = PanelTabCrossDragStoredMarkItem;
-            markFlags = PanelTabCrossDragStoredMarkFlags;
-            hasTarget = (targetIndex >= 0);
-        }
-
-        if (!hasTarget)
-            return false;
     }
+
+    if (!hasTarget && pointerOnTargetSide)
+    {
+        targetIndex = GetPanelTabs(targetSide).Count;
+        markItem = -1;
+        markFlags = 0;
+        hasTarget = true;
+    }
+
+    if (!hasTarget)
+        return false;
+
+    PanelTabCrossDragStoredInsertIndex = targetIndex;
+    PanelTabCrossDragStoredMarkItem = markItem;
+    PanelTabCrossDragStoredMarkFlags = markFlags;
 
     if (markItem < 0)
     {
