@@ -108,8 +108,8 @@ STRINGTABLE
  IDS_MENU_CMD_SHARES,        "Shared Direc&tories...\tCtrl+Shift+F9"
  IDS_MENU_CMD_SHELL,         "Co&mmand Shell\tNum /"
  IDS_MENU_CMD_REFRESHASSOC,  "&Reread Associations"
- IDS_MENU_CMD_NEWTAB,        "&New Tab\tCtrl+T"
- IDS_MENU_CMD_CLOSETAB,      "&Close Tab\tCtrl+W"
+ IDS_MENU_CMD_NEWTAB,        "&New Tab"
+ IDS_MENU_CMD_CLOSETAB,      "&Close Tab"
  IDS_MENU_CMD_NEXTTAB,       "&Next Tab"
  IDS_MENU_CMD_PREVTAB,       "Pre&vious Tab"
  IDS_MENU_CMD_USERMENU,      "&User Menu\tF9"
@@ -835,8 +835,8 @@ STRINGTABLE
  IDS_TBTT_OPENMYDOC,           "Open Documents"
 
  IDS_TBTT_SMARTMODE,           "Smart Column Mode\tCtrl+N"
- IDS_TBTT_NEWTAB,              "New Tab\tCtrl+T"
- IDS_TBTT_CLOSETAB,            "Close Tab\tCtrl+W"
+ IDS_TBTT_NEWTAB,              "New Tab"
+ IDS_TBTT_CLOSETAB,            "Close Tab"
  IDS_TBTT_NEXTTAB,             "Next Tab"
  IDS_TBTT_PREVTAB,             "Previous Tab"
 

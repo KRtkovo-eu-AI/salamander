@@ -104,10 +104,8 @@ BEGIN
     VK_F12,         CM_DISCONNECTNET,       VIRTKEY
     VK_F12,         CM_CHANGEFILTER,        VIRTKEY, CONTROL
     VK_F12,         CM_DIRHISTORY,          VIRTKEY, ALT
-    "T",            CM_NEWTAB,              VIRTKEY, CONTROL
     "T",            CM_LEFT_NEWTAB,        VIRTKEY, SHIFT, CONTROL
     "T",            CM_RIGHT_NEWTAB,       VIRTKEY, SHIFT, ALT
-    "W",            CM_CLOSETAB,            VIRTKEY, CONTROL
     "W",            CM_LEFT_CLOSETAB,      VIRTKEY, SHIFT, CONTROL
     "W",            CM_RIGHT_CLOSETAB,     VIRTKEY, SHIFT, ALT
     VK_NEXT,        CM_LEFT_NEXTTAB,       VIRTKEY, SHIFT, CONTROL
