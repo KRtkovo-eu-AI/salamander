@@ -105,7 +105,7 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     {
         if (tabWnd->AddTab(index, L"", (LPARAM)panel) < 0)
         {
-            tabs.Delete(index);
+            tabs.Detach(index);
             delete panel;
             return NULL;
         }
@@ -267,6 +267,8 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
             index = tabs.Count - 1;
         CFilesWindow* newPanel = tabs[index];
         SwitchPanelTab(newPanel);
+        if (newPanel != NULL)
+            EnsurePanelAutoRefresh(newPanel);
     }
     else if (tabWnd != NULL && tabWnd->HWindow != NULL)
     {
@@ -375,6 +377,28 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
         result += caption;
     }
     return result;
+}
+
+static void EnsurePanelAutoRefresh(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    if (!panel->Is(ptDisk) && !panel->Is(ptZIPArchive))
+        return;
+
+    const char* path = panel->GetPath();
+    if (path == NULL || path[0] == 0)
+        return;
+
+    BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                   panel->GetPathDriveType() == DRIVE_FIXED;
+
+    if (panel->GetMonitorChanges())
+        EnsureWatching(panel, registerDevNotification);
+
+    if (panel->GetMonitorChanges() && !panel->AutomaticRefresh)
+        panel->ScheduleMonitorRetry(registerDevNotification);
 }
 
 TIndirectArray<CFilesWindow>& CMainWindow::GetPanelTabs(CPanelSide side)
@@ -1103,7 +1127,7 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
             CTabWindow* tabWnd = GetPanelTabWindow(side);
             if (tabWnd != NULL && tabWnd->HWindow != NULL)
                 tabWnd->RemoveTab(idx);
-            tabs.Delete(idx);
+            tabs.Detach(idx);
         }
         delete panel;
         if (previous != NULL)
@@ -1348,7 +1372,7 @@ void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
             CTabWindow* tabWnd = GetPanelTabWindow(targetSide);
             if (tabWnd != NULL && tabWnd->HWindow != NULL)
                 tabWnd->RemoveTab(idx);
-            tabs.Delete(idx);
+            tabs.Detach(idx);
         }
         delete newPanel;
         if (previousTarget != NULL)
