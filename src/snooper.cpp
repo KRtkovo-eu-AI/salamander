@@ -13,6 +13,13 @@
 #include <string>
 #include <vector>
 
+#ifdef min
+#    undef min
+#endif
+#ifdef max
+#    undef max
+#endif
+
 struct WatchEntry
 {
     std::string Key;                     // normalized (case-insensitive) key
