@@ -5,6 +5,13 @@
 
 #include "svg.h"
 
+#include <cctype>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <utility>
+
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg\nanosvg.h"
 #define NANOSVGRAST_IMPLEMENTATION
@@ -45,6 +52,160 @@ DWORD GetSVGSysColor(int index)
 //
 // RenderSVGImage
 //
+
+namespace
+{
+
+std::string Trim(const std::string& value)
+{
+    size_t start = 0;
+    while (start < value.size() && isspace(static_cast<unsigned char>(value[start])))
+        start++;
+    size_t end = value.size();
+    while (end > start && isspace(static_cast<unsigned char>(value[end - 1])))
+        end--;
+    return value.substr(start, end - start);
+}
+
+void ParseStyleBlock(const std::string& block, std::map<std::string, std::vector<std::pair<std::string, std::string>>>& styles)
+{
+    size_t pos = 0;
+    while ((pos = block.find('.', pos)) != std::string::npos)
+    {
+        pos++;
+        size_t nameEnd = block.find_first_of(" {", pos);
+        if (nameEnd == std::string::npos)
+            break;
+
+        std::string className = block.substr(pos, nameEnd - pos);
+        size_t braceOpen = block.find('{', nameEnd);
+        if (braceOpen == std::string::npos)
+            break;
+        size_t braceClose = block.find('}', braceOpen);
+        if (braceClose == std::string::npos)
+            break;
+
+        std::string declarations = block.substr(braceOpen + 1, braceClose - braceOpen - 1);
+        std::vector<std::pair<std::string, std::string>> attributes;
+
+        size_t declPos = 0;
+        while (declPos < declarations.size())
+        {
+            size_t colon = declarations.find(':', declPos);
+            if (colon == std::string::npos)
+                break;
+
+            std::string name = Trim(declarations.substr(declPos, colon - declPos));
+            size_t semi = declarations.find(';', colon + 1);
+            std::string value = Trim(declarations.substr(colon + 1, (semi == std::string::npos ? declarations.size() : semi) - (colon + 1)));
+
+            if (!name.empty() && !value.empty())
+                attributes.emplace_back(name, value);
+
+            if (semi == std::string::npos)
+                break;
+            declPos = semi + 1;
+        }
+
+        if (!className.empty() && !attributes.empty())
+            styles[className] = attributes;
+
+        pos = braceClose + 1;
+    }
+}
+
+std::map<std::string, std::vector<std::pair<std::string, std::string>>> ExtractSVGClassStyles(const std::string& svg)
+{
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> styles;
+    size_t searchPos = 0;
+
+    while (true)
+    {
+        size_t styleStart = svg.find("<style", searchPos);
+        if (styleStart == std::string::npos)
+            break;
+
+        size_t contentStart = svg.find('>', styleStart);
+        if (contentStart == std::string::npos)
+            break;
+        contentStart++;
+
+        size_t styleEnd = svg.find("</style>", contentStart);
+        if (styleEnd == std::string::npos)
+            break;
+
+        std::string styleContent = svg.substr(contentStart, styleEnd - contentStart);
+        size_t cdataStart = styleContent.find("<![CDATA[");
+        if (cdataStart != std::string::npos)
+        {
+            size_t cdataEnd = styleContent.find("]]>" , cdataStart + 9);
+            if (cdataEnd != std::string::npos)
+                styleContent = styleContent.substr(cdataStart + 9, cdataEnd - (cdataStart + 9));
+            else
+                styleContent = styleContent.substr(cdataStart + 9);
+        }
+
+        ParseStyleBlock(styleContent, styles);
+        searchPos = styleEnd + 8; // length of "</style>"
+    }
+
+    return styles;
+}
+
+std::string ExpandSVGClasses(const std::string& svg)
+{
+    auto styles = ExtractSVGClassStyles(svg);
+    if (styles.empty())
+        return svg;
+
+    std::string result = svg;
+    size_t searchPos = 0;
+
+    while ((searchPos = result.find("class=\"", searchPos)) != std::string::npos)
+    {
+        size_t valueStart = searchPos + 7;
+        size_t valueEnd = result.find('"', valueStart);
+        if (valueEnd == std::string::npos)
+            break;
+
+        std::string classNames = result.substr(valueStart, valueEnd - valueStart);
+        std::istringstream classesStream(classNames);
+        std::string className;
+        std::vector<std::pair<std::string, std::string>> attributes;
+
+        while (classesStream >> className)
+        {
+            auto it = styles.find(className);
+            if (it != styles.end())
+                attributes.insert(attributes.end(), it->second.begin(), it->second.end());
+        }
+
+        if (!attributes.empty())
+        {
+            std::string replacement;
+            for (const auto& attribute : attributes)
+            {
+                if (!replacement.empty())
+                    replacement.push_back(' ');
+                replacement += attribute.first;
+                replacement += "=\"";
+                replacement += attribute.second;
+                replacement += "\"";
+            }
+
+            result.replace(searchPos, valueEnd - searchPos + 1, replacement);
+            searchPos += replacement.size();
+        }
+        else
+        {
+            searchPos = valueEnd + 1;
+        }
+    }
+
+    return result;
+}
+
+} // namespace
 
 char* ReadSVGFile(const char* fileName)
 {
@@ -96,6 +257,12 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
     char* svg = ReadSVGFile(svgFile);
     if (svg != NULL)
     {
+        std::string svgText(svg);
+        free(svg);
+        std::string processedSVG = ExpandSVGClasses(svgText);
+        std::vector<char> svgBuffer(processedSVG.begin(), processedSVG.end());
+        svgBuffer.push_back('\0');
+
         HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
         BITMAPINFOHEADER bmhdr;
         memset(&bmhdr, 0, sizeof(bmhdr));
@@ -120,7 +287,7 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
         ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
         float sysDPIScale = (float)GetScaleForSystemDPI();
-        NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
+        NSVGimage* image = nsvgParse(svgBuffer.data(), "px", sysDPIScale);
 
         if (!enabled)
         {
@@ -147,8 +314,6 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
 
         HANDLES(DeleteObject(hMemBmp));
         HANDLES(DeleteDC(hMemDC));
-
-        free(svg);
     }
 }
 

@@ -19,6 +19,7 @@ This review covers all commits from `db63b6d6be6be463e36a20de7ab54cafde275375` t
 
 ## Command routing & backwards compatibility
 - All tab management commands short-circuit when `UsePanelTabs` is false, so the classic command set behaves exactly as before. This includes creation, closure, cycling, cross-panel moves, and context menus invoked via command IDs such as `CM_LEFT_NEWTAB` or `CM_NEXTTAB`.【F:src/mainwnd3.cpp†L482-L1202】
+- The duplicate-tab command now routes through the same helper for active, left, and right panels, letting the toolbar button and all menu entries duplicate in-place while respecting the focused side.【F:src/mainwnd3.cpp†L4820-L4865】【F:src/menu4.cpp†L229-L233】
 - Layout calculations treat tab rows as having zero height unless both the feature and at least one tab are active on that side, preventing empty padding in non-tabbed mode.【F:src/mainwnd3.cpp†L7174-L7188】
 - Panel swapping (`CM_SWAPPANELS`) now swaps entire tab collections and reassigns panel sides, ensuring that legacy swap behaviour persists while multiple tabs simply travel with their respective side. The active panel pointer is corrected afterwards to keep keyboard focus deterministic.【F:src/mainwnd3.cpp†L5882-L5950】
 

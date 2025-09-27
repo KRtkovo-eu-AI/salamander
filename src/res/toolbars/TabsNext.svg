@@ -1,11 +1,32 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
-  <g>
-    <polygon fill="#999999" points="2,6 6,4 12,4 14,6 14,12 2,12"/>
-    <polygon fill="#CFCFCF" points="3,7 7,5 11,5 13,7 13,8 3,8"/>
-    <polygon fill="#FFFFFF" points="3,8 13,8 13,11 3,11"/>
-    <polygon fill="#4F4F4F" points="7,9 10,11 7,13 8,13 11,11 8,9"/>
+<!-- Creator: CorelDRAW Standard 2024 -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="22px" height="22px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
+viewBox="0 0 0.189 0.189"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .fil0 {fill:none}
+    .fil3 {fill:#999999;fill-rule:nonzero}
+    .fil4 {fill:white;fill-rule:nonzero}
+    .fil1 {fill:black;fill-rule:nonzero;fill-opacity:0.149020}
+    .fil2 {fill:black;fill-rule:nonzero;fill-opacity:0.250980}
+   ]]>
+  </style>
+ </defs>
+ <g id="Layer_x0020_1">
+  <metadata id="CorelCorpID_0Corel-Layer"/>
+  <g id="_2318276997424">
+   <rect class="fil0" width="0.189" height="0.189"/>
+   <g>
+    <path class="fil1" d="M0.1 0.069l0.057 0c0.005,0 0.009,0.003 0.009,0.008l0 0.043 -0.066 0 0 -0.051z"/>
+    <path class="fil2" d="M0.009 0.126l0.171 0c0.003,0 0.006,0.002 0.006,0.005l0 0.006c0,0.003 -0.003,0.006 -0.006,0.006l-0.171 0c-0.003,0 -0.006,-0.003 -0.006,-0.006l0 -0.006c0,-0.003 0.003,-0.005 0.006,-0.005z"/>
+    <path class="fil3" d="M0.015 0.063c0,-0.009 0.006,-0.017 0.015,-0.017l0.052 0c0.004,0 0.009,0.002 0.011,0.006l0.008 0.011 0.068 0c0.004,0 0.008,0.004 0.008,0.009l0 0.051 -0.162 0 0 -0.06z"/>
+    <path class="fil4" d="M0.094 0.114l0.083 0 0 -0.042c0,-0.005 -0.004,-0.009 -0.008,-0.009l-0.068 0 -0.007 -0.009 0 0.06z"/>
+    <path class="fil3" d="M0.117 0.094c-0.002,0 -0.004,-0.001 -0.004,-0.004 0,-0.002 0.002,-0.004 0.004,-0.004l0.024 0 -0.004 -0.004c-0.002,-0.002 -0.002,-0.005 0,-0.006 0.002,-0.002 0.004,-0.002 0.006,0l0.011 0.011 0 0 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0c0.001,0.001 0.001,0.001 0.001,0.002l0 0c0,0 0,0 0,0 0,0 0,0 0,0l0 0c0,0.001 0,0.001 -0.001,0.002l0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -0.001 0 0 0 0 0 -0.011 0.012c-0.002,0.001 -0.004,0.001 -0.006,0 -0.002,-0.002 -0.002,-0.005 0,-0.006l0.004 -0.005 -0.024 0z"/>
+   </g>
   </g>
+ </g>
 </svg>
