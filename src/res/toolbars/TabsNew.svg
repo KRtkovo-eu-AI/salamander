@@ -1,16 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<!-- Creator: CorelDRAW Standard 2024 -->
-<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="16px" height="16px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd" viewBox="0 0 16 16" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
- <g id="Layer_x0020_1">
-  <metadata id="CorelCorpID_0Corel-Layer"/>
-  <g id="_2318294827232">
-   <g>
-    <path fill="#999999" d="M0.774194 10.666667l14.451613 0c0.258065,0 0.516129,0.172043 0.516129,0.430108l0 0.516129c0,0.258065 -0.258065,0.516129 -0.516129,0.516129l-14.451613 0c-0.258065,0 -0.516129,-0.258065 -0.516129,-0.516129l0 -0.516129c0,-0.258065 0.258065,-0.430108 0.516129,-0.430108z"/>
-    <path fill="#999999" d="M1.204301 5.333333c0,-0.688172 0.602151,-1.462366 1.290323,-1.462366l4.473118 0c0.344086,0 0.688172,0.172043 0.946237,0.516129l0.602151 0.946237 5.763441 0c0.430108,0 0.688172,0.344086 0.688172,0.688172l0 4.387097 -13.763441 0 0 -5.075269z"/>
-    <path fill="#FFFFFF" d="M8 9.72043l6.967742 0 0 -3.698925c0,-0.344086 -0.258065,-0.688172 -0.688172,-0.688172l-5.763441 0 -0.516129 -0.774194 0 5.16129z"/>
-    <path fill="#999999" d="M11.096774 6.537634c0,-0.172043 0.172043,-0.344086 0.430108,-0.344086 0.172043,0 0.344086,0.172043 0.344086,0.344086l0 0.602151 0.688172 0c0.258065,0 0.344086,0.172043 0.344086,0.344086 0,0.258065 -0.086022,0.344086 -0.344086,0.344086l-0.688172 0 0 0.602151c0,0.258065 -0.172043,0.430108 -0.344086,0.430108 -0.258065,0 -0.430108,-0.172043 -0.430108,-0.430108l0 -0.602151 -0.688172 0c-0.172043,0 -0.344086,-0.086022 -0.344086,-0.344086 0,-0.172043 0.172043,-0.344086 0.344086,-0.344086l0.688172 0 0 -0.602151z"/>
-   </g>
-  </g>
- </g>
+<svg version="1.1" id="TabNew" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <path fill="#999999" d="M2,6V5c0-0.55,0.45-1,1-1h4.5L8.5,5H13c0.55,0,1,0.45,1,1v6H2V6z"/>
+  <rect x="2" y="11" fill="#999999" width="12" height="1"/>
+  <rect x="3" y="6" fill="#FFFFFF" width="10" height="5"/>
+  <path fill="#2A5496" d="M8,7h1v2h2v1H9v2H8v-2H6V9h2V7z"/>
 </svg>
