@@ -2,8 +2,8 @@
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg version="1.1" id="TabsDuplicate" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
      width="16px" height="16px" viewBox="0 0 16 16" xml:space="preserve">
-  <path fill="#B3B3B3" d="M4 4h4.5L9.5 6h4.5v4H4z"/>
-  <path fill="#FFFFFF" d="M5 5h3.3L9 7h4v2H5z"/>
-  <path fill="#999999" d="M2 7h4.8L8 9h6v4H2z"/>
+  <path fill="#6B7FA5" d="M4 4h4.5L9.5 6h4.5v4H4z"/>
+  <path fill="#E6EFFB" d="M5 5h3.3L9 7h4v2H5z"/>
+  <path fill="#414141" d="M2 7h4.8L8 9h6v4H2z"/>
   <path fill="#FFFFFF" d="M3 8h3.9L7.6 10H13v2H3z"/>
 </svg>
