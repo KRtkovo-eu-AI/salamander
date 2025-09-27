@@ -142,6 +142,11 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
     if (s != NULL)
         sprintf(s + 1, "toolbars\\%s.svg", svgName);
     char* svg = ReadSVGFile(svgFile);
+    if (svg == NULL && s != NULL)
+    {
+        sprintf(s + 1, "res\\toolbars\\%s.svg", svgName);
+        svg = ReadSVGFile(svgFile);
+    }
     if (svg == NULL)
     {
         svg = LoadToolbarSVGResource(svgName);
