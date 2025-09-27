@@ -88,12 +88,37 @@ char* ReadSVGFile(const char* fileName)
 // vykresli ikony pro ktere mame SVG reprezentaci
 void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled)
 {
+    RECT r;
+    r.left = x;
+    r.top = y;
+    r.right = x + iconSize;
+    r.bottom = y + iconSize;
+    SetBkColor(hDC, bkColor);
+    ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
+
     char svgFile[2 * MAX_PATH];
+    svgFile[0] = 0;
     GetModuleFileName(NULL, svgFile, _countof(svgFile));
     char* s = strrchr(svgFile, '\\');
+    char* svg = NULL;
     if (s != NULL)
-        sprintf(s + 1, "toolbars\\%s.svg", svgName);
-    char* svg = ReadSVGFile(svgFile);
+    {
+        static const char* searchDirs[] = {
+            "toolbars",
+            "..\\toolbars",
+            "..\\res\\toolbars",
+            "..\\..\\toolbars",
+            "..\\..\\res\\toolbars",
+            "..\\src\\res\\toolbars",
+            "..\\..\\src\\res\\toolbars"
+        };
+        for (int i = 0; i < _countof(searchDirs) && svg == NULL; i++)
+        {
+            sprintf(s + 1, "%s\\%s.svg", searchDirs[i], svgName);
+            svg = ReadSVGFile(svgFile);
+        }
+    }
+
     if (svg != NULL)
     {
         HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
@@ -109,43 +134,41 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
         bmhdr.biCompression = BI_RGB;
         void* lpMemBits = NULL;
         HBITMAP hMemBmp = HANDLES(CreateDIBSection(hMemDC, (CONST BITMAPINFO*)&bmhdr, DIB_RGB_COLORS, &lpMemBits, NULL, 0));
-        SelectObject(hMemDC, hMemBmp);
-
-        RECT r;
-        r.left = x;
-        r.top = y;
-        r.right = x + iconSize;
-        r.bottom = y + iconSize;
-        SetBkColor(hDC, bkColor);
-        ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
-
-        float sysDPIScale = (float)GetScaleForSystemDPI();
-        NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
-
-        if (!enabled)
+        if (hMemBmp != NULL)
         {
-            DWORD disabledColor = GetSVGSysColor(COLOR_BTNSHADOW); // JRYFIXME - prvotni nastrel, kde budeme brat disabled barvu?
-            NSVGshape* shape = image->shapes;
-            while (shape != NULL)
+            SelectObject(hMemDC, hMemBmp);
+
+            float sysDPIScale = (float)GetScaleForSystemDPI();
+            NSVGimage* image = nsvgParse(svg, "px", sysDPIScale);
+
+            if (image != NULL)
             {
-                if ((shape->fill.color & 0x00FFFFFF) != 0x00FFFFFF)
-                    shape->fill.color = disabledColor;
-                shape = shape->next;
+                if (!enabled)
+                {
+                    DWORD disabledColor = GetSVGSysColor(COLOR_BTNSHADOW); // JRYFIXME - prvotni nastrel, kde budeme brat disabled barvu?
+                    NSVGshape* shape = image->shapes;
+                    while (shape != NULL)
+                    {
+                        if ((shape->fill.color & 0x00FFFFFF) != 0x00FFFFFF)
+                            shape->fill.color = disabledColor;
+                        shape = shape->next;
+                    }
+                }
+
+                float scale = sysDPIScale / 100;
+                nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
+                nsvgDelete(image);
+
+                BLENDFUNCTION bf;
+                bf.BlendOp = AC_SRC_OVER;
+                bf.BlendFlags = 0;
+                bf.SourceConstantAlpha = 0xff; // want to use per-pixel alpha values
+                bf.AlphaFormat = AC_SRC_ALPHA;
+                AlphaBlend(hDC, x, y, iconSize, iconSize, hMemDC, 0, 0, iconSize, iconSize, bf);
             }
+
+            HANDLES(DeleteObject(hMemBmp));
         }
-
-        float scale = sysDPIScale / 100;
-        nsvgRasterize(rast, image, 0, 0, scale, (BYTE*)lpMemBits, iconSize, iconSize, iconSize * 4);
-        nsvgDelete(image);
-
-        BLENDFUNCTION bf;
-        bf.BlendOp = AC_SRC_OVER;
-        bf.BlendFlags = 0;
-        bf.SourceConstantAlpha = 0xff; // want to use per-pixel alpha values
-        bf.AlphaFormat = AC_SRC_ALPHA;
-        AlphaBlend(hDC, x, y, iconSize, iconSize, hMemDC, 0, 0, iconSize, iconSize, bf);
-
-        HANDLES(DeleteObject(hMemBmp));
         HANDLES(DeleteDC(hMemDC));
 
         free(svg);
