@@ -629,6 +629,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     appendMenuItem(prefixCmd, prefixText, -1, canSetPrefix);
     appendMenuItem(clearPrefixCmd, clearPrefixText, -1, hasCustomPrefix);
 
+    appendSeparator();
+
     BOOL canDuplicateSame = index >= 0 && index < tabs.Count;
     BOOL canDuplicateOther = canDuplicateSame;
     BOOL canMove = index > 0 && index < tabs.Count;
