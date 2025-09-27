@@ -19,6 +19,64 @@
 #include "geticon.h"
 #include "shiconov.h"
 
+#include <algorithm>
+#include <vector>
+
+namespace
+{
+static CRITICAL_SECTION MonitorRetryListCS;
+static volatile LONG MonitorRetryListInitState = 0;
+static bool MonitorRetryListInitDone = false;
+static std::vector<CFilesWindow*> MonitorRetryWaiters;
+
+void EnsureMonitorRetryListInitialized()
+{
+    if (MonitorRetryListInitDone)
+        return;
+    if (InterlockedCompareExchange(&MonitorRetryListInitState, 1, 0) == 0)
+    {
+        HANDLES(InitializeCriticalSection(&MonitorRetryListCS));
+        MonitorRetryListInitDone = true;
+    }
+    else
+    {
+        while (!MonitorRetryListInitDone)
+            Sleep(0);
+    }
+}
+
+void MonitorRetryListAdd(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+    EnsureMonitorRetryListInitialized();
+    HANDLES(EnterCriticalSection(&MonitorRetryListCS));
+    if (std::find(MonitorRetryWaiters.begin(), MonitorRetryWaiters.end(), panel) == MonitorRetryWaiters.end())
+        MonitorRetryWaiters.push_back(panel);
+    HANDLES(LeaveCriticalSection(&MonitorRetryListCS));
+}
+
+void MonitorRetryListRemove(CFilesWindow* panel)
+{
+    if (!MonitorRetryListInitDone || panel == NULL)
+        return;
+    HANDLES(EnterCriticalSection(&MonitorRetryListCS));
+    MonitorRetryWaiters.erase(std::remove(MonitorRetryWaiters.begin(), MonitorRetryWaiters.end(), panel),
+                              MonitorRetryWaiters.end());
+    HANDLES(LeaveCriticalSection(&MonitorRetryListCS));
+}
+
+void MonitorRetryListSnapshot(std::vector<CFilesWindow*>& out)
+{
+    if (!MonitorRetryListInitDone)
+        return;
+    HANDLES(EnterCriticalSection(&MonitorRetryListCS));
+    out.assign(MonitorRetryWaiters.begin(), MonitorRetryWaiters.end());
+    HANDLES(LeaveCriticalSection(&MonitorRetryListCS));
+}
+
+} // namespace
+
 //
 // ****************************************************************************
 // CFilesWindowAncestor
@@ -1480,6 +1538,8 @@ CFilesWindow::~CFilesWindow()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::~CFilesWindow()");
 
+    MonitorRetryListRemove(this);
+
     if (DeviceNotification != NULL)
         TRACE_E("CFilesWindow::~CFilesWindow(): unexpected situation: DeviceNotification != NULL");
 
@@ -2182,6 +2242,11 @@ void CFilesWindow::SetAutomaticRefresh(BOOL value, BOOL force)
     if (force || AutomaticRefresh != value)
     {
         AutomaticRefresh = value;
+        if (AutomaticRefresh)
+        {
+            MonitorRetryRequested = FALSE;
+            MonitorRetryListRemove(this);
+        }
         /* // "throwing away" the refresh mark from the directory line
     // it crashed here; a destroyed object was called
     if (DirectoryLine != NULL)
@@ -2198,23 +2263,29 @@ void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
     if (!GetMonitorChanges())
     {
         MonitorRetryRequested = FALSE;
+        MonitorRetryListRemove(this);
         return;
     }
 
     if (AutomaticRefresh)
     {
         MonitorRetryRequested = FALSE;
+        MonitorRetryListRemove(this);
         return;
     }
 
     if (HWindow == NULL)
     {
         MonitorRetryRequested = TRUE;
+        MonitorRetryListAdd(this);
         return;
     }
 
     if (MonitorRetryTimerSet || MonitorRetryPending)
+    {
+        MonitorRetryListAdd(this);
         return;
+    }
 
     DWORD now = GetTickCount();
     DWORD wait = REFRESH_PAUSE;
@@ -2230,6 +2301,7 @@ void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
     {
         MonitorRetryTimerSet = TRUE;
         MonitorRetryRequested = FALSE;
+        MonitorRetryListAdd(this);
     }
     else
     {
@@ -2239,11 +2311,107 @@ void CFilesWindow::ScheduleMonitorRetry(BOOL registerDevNotification)
         {
             MonitorRetryPending = FALSE;
             MonitorRetryRequested = TRUE;
+            MonitorRetryListAdd(this);
         }
         else
         {
             MonitorRetryRequested = FALSE;
+            MonitorRetryListAdd(this);
         }
+    }
+}
+
+void CFilesWindow::KickMonitorRetry()
+{
+    CALL_STACK_MESSAGE_NONE
+
+    if (!GetMonitorChanges() || AutomaticRefresh)
+    {
+        MonitorRetryRequested = FALSE;
+        MonitorRetryListRemove(this);
+        return;
+    }
+
+    if (HWindow == NULL)
+    {
+        MonitorRetryRequested = TRUE;
+        MonitorRetryListAdd(this);
+        return;
+    }
+
+    DWORD now = GetTickCount();
+    if (LastMonitorRetryAttempt != 0)
+    {
+        DWORD elapsed = now - LastMonitorRetryAttempt;
+        if (elapsed < REFRESH_PAUSE)
+        {
+            UINT delay = (UINT)(REFRESH_PAUSE - elapsed);
+            if (delay == 0)
+                delay = 1;
+            if (!MonitorRetryTimerSet)
+            {
+                if (SetTimer(HWindow, IDT_MONITOR_RETRY, delay, NULL))
+                {
+                    MonitorRetryTimerSet = TRUE;
+                    MonitorRetryRequested = FALSE;
+                    MonitorRetryListAdd(this);
+                    return;
+                }
+            }
+
+            if (!MonitorRetryPending)
+            {
+                MonitorRetryPending = TRUE;
+                if (!PostMessage(HWindow, WM_USER_MONITOR_RETRY, MonitorRetryRegisterDevNotification, 0))
+                {
+                    MonitorRetryPending = FALSE;
+                    MonitorRetryRequested = TRUE;
+                }
+                else
+                {
+                    MonitorRetryRequested = FALSE;
+                }
+            }
+
+            MonitorRetryListAdd(this);
+            return;
+        }
+    }
+
+    if (MonitorRetryPending)
+    {
+        MonitorRetryListAdd(this);
+        return;
+    }
+
+    if (MonitorRetryTimerSet)
+    {
+        KillTimer(HWindow, IDT_MONITOR_RETRY);
+        MonitorRetryTimerSet = FALSE;
+    }
+
+    MonitorRetryPending = TRUE;
+    if (!PostMessage(HWindow, WM_USER_MONITOR_RETRY, MonitorRetryRegisterDevNotification, 0))
+    {
+        MonitorRetryPending = FALSE;
+        MonitorRetryRequested = TRUE;
+    }
+    else
+    {
+        MonitorRetryRequested = FALSE;
+    }
+
+    MonitorRetryListAdd(this);
+}
+
+void CFilesWindow::NotifyMonitorRetrySlotsFreed()
+{
+    std::vector<CFilesWindow*> waiters;
+    MonitorRetryListSnapshot(waiters);
+    for (CFilesWindow* panel : waiters)
+    {
+        if (panel != NULL)
+            panel->KickMonitorRetry();
     }
 }
 

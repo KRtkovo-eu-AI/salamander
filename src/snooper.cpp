@@ -258,6 +258,8 @@ static void RemoveWatchEntryInternal(WatchEntry* entry, DWORD closeTimeout)
     }
 
     delete entry;
+
+    CFilesWindow::NotifyMonitorRetrySlotsFreed();
 }
 
 static bool AttachPanelInternal(CFilesWindow* win, const PreparedWatchPath& prepared, BOOL registerDevNotification)

@@ -433,6 +433,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 TRACE_I("Automatic refresh restored for '" << (restoredPath != NULL ? restoredPath : "") << "'.");
             }
             MonitorRetryRegisterDevNotification = FALSE;
+            KickMonitorRetry();
         }
         else if (!MonitorRetryTimerSet && !MonitorRetryPending)
         {

@@ -1196,6 +1196,8 @@ public:
 
     void SetAutomaticRefresh(BOOL value, BOOL force = FALSE);
     void ScheduleMonitorRetry(BOOL registerDevNotification);
+    void KickMonitorRetry(); // internal helper used when monitor slots become available
+    static void NotifyMonitorRetrySlotsFreed();
     void RequestPluginRefreshOnActivation();
 
     // it sets ValidFileData; it checks if the VALID_DATA_PL_XXX constants can be used
