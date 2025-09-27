@@ -1,30 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<!-- Creator: CorelDRAW Standard 2024 -->
-<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="22px" height="22px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
-viewBox="0 0 0.238 0.238"
- xmlns:xlink="http://www.w3.org/1999/xlink"
- xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
- <defs>
-  <style type="text/css">
-   <![CDATA[
-    .fil0 {fill:none}
-    .fil2 {fill:#999999;fill-rule:nonzero}
-    .fil3 {fill:white;fill-rule:nonzero}
-    .fil1 {fill:black;fill-rule:nonzero;fill-opacity:0.250980}
-   ]]>
-  </style>
- </defs>
- <g id="Layer_x0020_1">
-  <metadata id="CorelCorpID_0Corel-Layer"/>
-  <g id="_2318285554704">
-   <rect class="fil0" width="0.238" height="0.238"/>
-   <g>
-    <path class="fil1" d="M0.011 0.159l0.216 0c0.004,0 0.007,0.003 0.007,0.007l0 0.007c0,0.004 -0.003,0.007 -0.007,0.007l-0.216 0c-0.004,0 -0.007,-0.003 -0.007,-0.007l0 -0.007c0,-0.004 0.003,-0.007 0.007,-0.007z"/>
-    <path class="fil2" d="M0.018 0.079c0,-0.01 0.009,-0.021 0.02,-0.021l0.065 0c0.006,0 0.011,0.003 0.015,0.007l0.009 0.014 0.085 0c0.007,0 0.011,0.005 0.011,0.011l0 0.065 -0.205 0 0 -0.076z"/>
-    <path class="fil3" d="M0.119 0.144l0.104 0 0 -0.054c0,-0.006 -0.004,-0.011 -0.011,-0.011l-0.085 0 -0.008 -0.011 0 0.076z"/>
-    <path class="fil2" d="M0.151 0.084l0.029 0c0.002,0 0.004,0.001 0.005,0.002 0.002,0.001 0.002,0.003 0.002,0.005l0 0.011 0.004 0c0.002,0 0.004,0.001 0.005,0.002 0.001,0.001 0.002,0.003 0.002,0.005l0 0.022c0,0.002 -0.001,0.004 -0.002,0.005 -0.001,0.001 -0.003,0.002 -0.005,0.002l-0.029 0c-0.002,0 -0.004,-0.001 -0.005,-0.002 -0.001,-0.001 -0.002,-0.003 -0.002,-0.005l0 -0.011 -0.004 0c-0.002,0 -0.003,-0.001 -0.005,-0.002 -0.001,-0.001 -0.002,-0.003 -0.002,-0.005l0 -0.022 0 0c0,-0.002 0.001,-0.004 0.002,-0.005l0 0c0.002,-0.001 0.003,-0.002 0.005,-0.002l0 0.007 0 -0.007zm0.036 0.025l0 0.004c0,0.002 0,0.004 -0.002,0.005 -0.001,0.001 -0.003,0.002 -0.005,0.002l-0.018 0 0 0.011 0 0 0.029 0 0 -0.022 -0.004 0zm-0.025 -0.007l0.018 0 0 -0.011 -0.029 0 0 0.022 0.004 0 0 -0.004 0 0c0,-0.002 0.001,-0.004 0.002,-0.005l0 0c0.001,-0.001 0.003,-0.002 0.005,-0.002l0 0.007 0 -0.007zm0.018 0.007l-0.018 0 0 0.004 0.018 0 0 -0.004z"/>
-   </g>
-  </g>
- </g>
+<svg version="1.1" id="TabsDuplicate" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" xml:space="preserve">
+  <path fill="#B3B3B3" d="M4 4h4.5L9.5 6h4.5v4H4z"/>
+  <path fill="#FFFFFF" d="M5 5h3.3L9 7h4v2H5z"/>
+  <path fill="#999999" d="M2 7h4.8L8 9h6v4H2z"/>
+  <path fill="#FFFFFF" d="M3 8h3.9L7.6 10H13v2H3z"/>
 </svg>
