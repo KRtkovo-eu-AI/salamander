@@ -1354,13 +1354,6 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
 
     for (int i = 0; i < total; ++i)
     {
-        if (IsNewTabButtonIndex(i))
-            continue;
-
-        COLORREF baseColor;
-        if (!TryResolveTabColor(i, baseColor))
-            baseColor = GetSysColor(COLOR_BTNFACE);
-
         RECT itemRect;
         if (!TabCtrl_GetItemRect(HWindow, i, &itemRect))
             continue;
@@ -1384,11 +1377,22 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
         if (!SendMessageW(HWindow, TCM_GETITEMW, i, (LPARAM)&item))
             textBuffer[0] = L'\0';
 
+        bool isNewTab = IsNewTabButtonIndex(i);
+
+        COLORREF baseColor;
+        if (!isNewTab && TryResolveTabColor(i, baseColor))
+        {
+            // baseColor already resolved
+        }
+        else
+            baseColor = GetSysColor(COLOR_BTNFACE);
+
         bool isSelected = (i == selected);
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
         bool hasFocus = (focus == i) && (focusWnd == HWindow);
 
-        DrawColoredTab(hdc, itemRect, textBuffer, baseColor, isSelected, isHot, hasFocus);
+        const wchar_t* drawText = isNewTab ? kNewTabButtonText : textBuffer;
+        DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus);
     }
 }
 
