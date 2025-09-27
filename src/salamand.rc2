@@ -53,6 +53,12 @@ IDB_ABOUT_GRAD RCDATA "res\\gradabt.svg"
 IDB_THROBBER RCDATA "res\\throbber.png"
 IDB_LOCK RCDATA "res\\lock.png"
 
+"TabsNew" RCDATA "res\\toolbars\\TabsNew.svg"
+"TabsClose" RCDATA "res\\toolbars\\TabsClose.svg"
+"TabsNext" RCDATA "res\\toolbars\\TabsNext.svg"
+"TabsPrevious" RCDATA "res\\toolbars\\TabsPrevious.svg"
+"TabsDuplicate" RCDATA "res\\toolbars\\TabsDuplicate.svg"
+
 IDC_SPLIT CURSOR "res\\split.cur"
 IDC_TOOLBAR_MOVE CURSOR "res\\toolbar1.cur"
 IDC_TOOLBAR_DEL CURSOR "res\\toolbar2.cur"

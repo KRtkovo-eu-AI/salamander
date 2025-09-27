@@ -46,6 +46,54 @@ DWORD GetSVGSysColor(int index)
 // RenderSVGImage
 //
 
+static char* LoadToolbarSVGResource(const char* svgName)
+{
+    char* ret = NULL;
+    if (svgName == NULL)
+        return ret;
+
+    HRSRC hRsrc = FindResourceA(HInstance, svgName, RT_RCDATA);
+    if (hRsrc != NULL)
+    {
+        HGLOBAL hGlobal = LoadResource(HInstance, hRsrc);
+        if (hGlobal != NULL)
+        {
+            DWORD size = SizeofResource(HInstance, hRsrc);
+            if (size > 0)
+            {
+                const void* data = LockResource(hGlobal);
+                if (data != NULL)
+                {
+                    ret = (char*)malloc(size + 1);
+                    if (ret != NULL)
+                    {
+                        memcpy(ret, data, size);
+                        ret[size] = 0;
+                    }
+                    else
+                    {
+                        TRACE_E("LoadToolbarSVGResource(): malloc() failed for SVG " << svgName);
+                    }
+                }
+                else
+                {
+                    TRACE_E("LoadToolbarSVGResource(): LockResource() failed for SVG " << svgName);
+                }
+            }
+            else
+            {
+                TRACE_E("LoadToolbarSVGResource(): SizeofResource() failed for SVG " << svgName);
+            }
+        }
+        else
+        {
+            TRACE_E("LoadToolbarSVGResource(): LoadResource() failed for SVG " << svgName);
+        }
+    }
+
+    return ret;
+}
+
 char* ReadSVGFile(const char* fileName)
 {
     char* buff = NULL;
@@ -94,6 +142,10 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
     if (s != NULL)
         sprintf(s + 1, "toolbars\\%s.svg", svgName);
     char* svg = ReadSVGFile(svgFile);
+    if (svg == NULL)
+    {
+        svg = LoadToolbarSVGResource(svgName);
+    }
     if (svg != NULL)
     {
         HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));
