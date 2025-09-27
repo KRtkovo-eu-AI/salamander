@@ -1,29 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <!-- Creator: CorelDRAW Standard 2024 -->
-<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="22px" height="22px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
-viewBox="0 0 0.207 0.207"
- xmlns:xlink="http://www.w3.org/1999/xlink"
- xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
- <defs>
-  <style type="text/css">
-   <![CDATA[
-    .fil0 {fill:none}
-    .fil3 {fill:#999999;fill-rule:nonzero}
-    .fil2 {fill:white;fill-rule:nonzero}
-    .fil1 {fill:black;fill-rule:nonzero;fill-opacity:0.250980}
-   ]]>
-  </style>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="22px" height="22px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd" viewBox="0 0 0.207 0.207" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
  <g id="Layer_x0020_1">
   <metadata id="CorelCorpID_0Corel-Layer"/>
   <g id="_2318295430624">
-   <rect class="fil0" width="0.207" height="0.207"/>
    <g>
-    <path class="fil1" d="M0.01 0.138l0.187 0c0.004,0 0.007,0.003 0.007,0.006l0 0.006c0,0.004 -0.003,0.007 -0.007,0.007l-0.187 0c-0.004,0 -0.007,-0.003 -0.007,-0.007l0 -0.006c0,-0.003 0.003,-0.006 0.007,-0.006z"/>
-    <path class="fil2" d="M0.016 0.069c0,-0.009 0.007,-0.019 0.017,-0.019l0.057 0c0.005,0 0.01,0.003 0.012,0.007l0.008 0.012 0.075 0c0.005,0 0.009,0.004 0.009,0.01l0 0.056 -0.178 0 0 -0.066z"/>
-    <path class="fil3" d="M0.104 0.125l0.09 0 0 -0.047c0,-0.005 -0.004,-0.009 -0.009,-0.009l-0.075 0 -0.006 -0.01 0 0.066z"/>
-    <path class="fil3" d="M0.046 0.085c-0.002,-0.002 -0.002,-0.005 0,-0.007 0.001,-0.001 0.004,-0.001 0.006,0l0.009 0.01 0.01 -0.01c0.001,-0.001 0.004,-0.001 0.006,0 0.002,0.002 0.002,0.005 0,0.007l-0.009 0.009 0.009 0.009c0.002,0.002 0.002,0.005 0,0.007 -0.002,0.002 -0.005,0.002 -0.006,0l-0.01 -0.009 -0.009 0.009c-0.002,0.002 -0.005,0.002 -0.006,0 -0.002,-0.002 -0.002,-0.005 0,-0.007l0.009 -0.009 -0.009 -0.009z"/>
+    <path fill="#000000" fill-opacity="0.25098" d="M0.01 0.138l0.187 0c0.004,0 0.007,0.003 0.007,0.006l0 0.006c0,0.004 -0.003,0.007 -0.007,0.007l-0.187 0c-0.004,0 -0.007,-0.003 -0.007,-0.007l0 -0.006c0,-0.003 0.003,-0.006 0.007,-0.006z"/>
+    <path fill="#FFFFFF" d="M0.016 0.069c0,-0.009 0.007,-0.019 0.017,-0.019l0.057 0c0.005,0 0.01,0.003 0.012,0.007l0.008 0.012 0.075 0c0.005,0 0.009,0.004 0.009,0.01l0 0.056 -0.178 0 0 -0.066z"/>
+    <path fill="#999999" d="M0.104 0.125l0.09 0 0 -0.047c0,-0.005 -0.004,-0.009 -0.009,-0.009l-0.075 0 -0.006 -0.01 0 0.066z"/>
+    <path fill="#999999" d="M0.046 0.085c-0.002,-0.002 -0.002,-0.005 0,-0.007 0.001,-0.001 0.004,-0.001 0.006,0l0.009 0.01 0.01 -0.01c0.001,-0.001 0.004,-0.001 0.006,0 0.002,0.002 0.002,0.005 0,0.007l-0.009 0.009 0.009 0.009c0.002,0.002 0.002,0.005 0,0.007 -0.002,0.002 -0.005,0.002 -0.006,0l-0.01 -0.009 -0.009 0.009c-0.002,0.002 -0.005,0.002 -0.006,0 -0.002,-0.002 -0.002,-0.005 0,-0.007l0.009 -0.009 -0.009 -0.009z"/>
    </g>
   </g>
  </g>
