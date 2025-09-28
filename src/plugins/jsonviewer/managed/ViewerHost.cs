@@ -98,6 +98,7 @@ internal static class ViewerHost
 
         private void OnFormClosed(object? sender, FormClosedEventArgs e)
         {
+            _request.SignalClosed();
             ExitThread();
         }
     }
@@ -405,6 +406,8 @@ internal static class ViewerHost
             {
                 _request.MarkStartupFailed();
             }
+
+            _request.SignalClosed();
         }
 
         private void LoadJson()
