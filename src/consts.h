@@ -1934,6 +1934,9 @@ extern DWORD EnablerCloseTab;             // lze zavrit aktivni tab?
 extern DWORD EnablerNextTab;              // je dostupny dalsi tab v aktivnim panelu?
 extern DWORD EnablerPrevTab;              // je dostupny predchozi tab v aktivnim panelu?
 extern DWORD EnablerDuplicateTab;         // lze duplikovat aktivni tab na stejnou stranu?
+extern DWORD EnablerReopenTab;            // lze znovu otevrit zavreny tab v aktivnim panelu?
+extern DWORD EnablerLockTab;              // lze zamknout aktivni tab?
+extern DWORD EnablerUnlockTab;            // lze odemknout aktivni tab?
 extern DWORD EnablerLeftNewTab;           // lze vytvorit novy tab v levem panelu?
 extern DWORD EnablerLeftCloseTab;         // lze zavrit tab v levem panelu?
 extern DWORD EnablerLeftNextTab;          // je dostupny dalsi tab v levem panelu?
@@ -1943,6 +1946,9 @@ extern DWORD EnablerLeftCloseAllExceptThisAndDefault; // lze zavrit vsechny taby
 extern DWORD EnablerLeftDuplicateTab;     // lze duplikovat tab v levem panelu na stejnou stranu?
 extern DWORD EnablerLeftDuplicateTabToRight; // lze duplikovat tab na pravou stranu?
 extern DWORD EnablerLeftMoveTabToRight;      // lze presunout tab na pravou stranu?
+extern DWORD EnablerLeftReopenTab;        // lze znovu otevrit zavreny tab v levem panelu?
+extern DWORD EnablerLeftLockTab;          // lze zamknout tab v levem panelu?
+extern DWORD EnablerLeftUnlockTab;        // lze odemknout tab v levem panelu?
 extern DWORD EnablerRightNewTab;          // lze vytvorit novy tab v pravem panelu?
 extern DWORD EnablerRightCloseTab;        // lze zavrit tab v pravem panelu?
 extern DWORD EnablerRightNextTab;         // je dostupny dalsi tab v pravem panelu?
@@ -1952,6 +1958,9 @@ extern DWORD EnablerRightCloseAllExceptThisAndDefault; // lze zavrit vsechny tab
 extern DWORD EnablerRightDuplicateTab;    // lze duplikovat tab v pravem panelu na stejnou stranu?
 extern DWORD EnablerRightDuplicateTabToLeft; // lze duplikovat tab na levou stranu?
 extern DWORD EnablerRightMoveTabToLeft;      // lze presunout tab na levou stranu?
+extern DWORD EnablerRightReopenTab;       // lze znovu otevrit zavreny tab v pravem panelu?
+extern DWORD EnablerRightLockTab;         // lze zamknout tab v pravem panelu?
+extern DWORD EnablerRightUnlockTab;       // lze odemknout tab v pravem panelu?
 
 //******************************************************************************
 //
