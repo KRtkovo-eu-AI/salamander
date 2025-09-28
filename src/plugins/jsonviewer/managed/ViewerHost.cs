@@ -401,13 +401,13 @@ internal static class ViewerHost
                 _dispatcher.BeginInvoke(new MethodInvoker(() => _form.ShowSession(session)));
                 return true;
             }
-            catch (InvalidOperationException)
-            {
-                return EnqueuePending(session);
-            }
             catch (ObjectDisposedException)
             {
                 return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return EnqueuePending(session);
             }
         }
 
@@ -473,11 +473,11 @@ internal static class ViewerHost
                 {
                     _dispatcher.BeginInvoke(new MethodInvoker(FlushPendingSessions));
                 }
-                catch (InvalidOperationException)
+                catch (ObjectDisposedException)
                 {
                     return false;
                 }
-                catch (ObjectDisposedException)
+                catch (InvalidOperationException)
                 {
                     return false;
                 }
