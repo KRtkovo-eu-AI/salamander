@@ -1003,7 +1003,7 @@ internal static class ViewerHost
                 var after = match.Groups[3].Value;
 
                 var fullTag = match.Value;
-                if (fullTag.IndexOf("style=", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (fullTag.IndexOf("style=", 0, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     return fullTag;
                 }
@@ -1143,15 +1143,15 @@ internal static class ViewerHost
                 return;
             }
 
-            if (value.IndexOf("italic", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (value.IndexOf("italic", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("font-style:italic;");
             }
-            if (value.IndexOf("bold", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (value.IndexOf("bold", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("font-weight:bold;");
             }
-            if (value.IndexOf("underline", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (value.IndexOf("underline", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("text-decoration:underline;");
             }
