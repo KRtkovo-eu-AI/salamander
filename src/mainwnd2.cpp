@@ -2730,7 +2730,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     while (tabs.Count > tabCount)
     {
         CFilesWindow* toClose = tabs[tabs.Count - 1];
-        ClosePanelTab(toClose);
+        ClosePanelTab(toClose, false);
     }
 
     while (tabs.Count < tabCount)

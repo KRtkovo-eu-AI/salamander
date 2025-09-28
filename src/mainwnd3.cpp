@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <cwctype>
 #include <commdlg.h>
 
@@ -88,12 +89,32 @@ const int MIN_WIN_WIDTH = 2; // minimal panel width
 
 extern BOOL CacheNextSetFocus;
 
+namespace
+{
+    constexpr size_t kMaxStoredClosedTabs = 10;
+}
+
 CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
     CFilesWindow* panel = new CFilesWindow(this, side);
     if (panel == NULL)
         return NULL;
+
+    if (!InsertPanelTabInstance(side, index, panel, false))
+    {
+        delete panel;
+        return NULL;
+    }
+
+    SwitchPanelTab(panel);
+    return panel;
+}
+
+bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
+{
+    if (panel == NULL)
+        return false;
 
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     if (index < 0 || index > tabs.Count)
@@ -105,19 +126,26 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     {
         if (tabWnd->AddTab(index, L"", (LPARAM)panel) < 0)
         {
-            tabs.Delete(index);
-            delete panel;
-            return NULL;
+            tabs.Detach(index);
+            return false;
         }
     }
 
     panel->SetPanelSide(side);
+    if (!preserveLockState)
+    {
+        if (tabs.Count == 1)
+            panel->SetTabLocked(true);
+        else
+            panel->SetTabLocked(false);
+    }
+
+    UpdatePanelTabTitle(panel);
     UpdatePanelTabColor(panel);
     if (panel->HWindow != NULL)
         ShowWindow(panel->HWindow, SW_HIDE);
 
-    SwitchPanelTab(panel);
-    return panel;
+    return true;
 }
 
 void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
@@ -245,7 +273,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
-void CMainWindow::ClosePanelTab(CFilesWindow* panel)
+void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
 {
     CALL_STACK_MESSAGE1("CMainWindow::ClosePanelTab()");
     if (panel == NULL)
@@ -255,6 +283,10 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     int index = GetPanelTabIndex(side, panel);
     if (index <= 0)
         return; // implicitni tab nelze zavrit
+    if (storeForReopen && panel->IsTabLocked())
+        return;
+
+    int originalIndex = index;
 
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     CTabWindow* tabWnd = GetPanelTabWindow(side);
@@ -269,18 +301,21 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     HWND panelWindow = panel->HWindow;
     bool destroyWindow = panelWindow != NULL;
 
+    if (storeForReopen)
+        RememberClosedTab(side, panel, originalIndex);
+
     if (tabs.Count == 0)
     {
         if (side == cpsLeft)
             LeftPanel = NULL;
         else
             RightPanel = NULL;
-        if (Created)
-            RefreshCommandStates();
         if (destroyWindow)
             DestroyWindow(panelWindow);
         else
             delete panel;
+        if (Created)
+            RefreshCommandStates();
         return;
     }
 
@@ -300,10 +335,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
 
     UpdatePanelTabVisibility(side);
     if (Created)
-    {
-        RefreshCommandStates();
         LayoutWindows();
-    }
 
     if (destroyWindow)
         DestroyWindow(panelWindow);
@@ -312,10 +344,78 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
 
     if (Created)
     {
+        RefreshCommandStates();
         CFilesWindow* activePanel = GetActivePanel();
         if (activePanel != NULL)
             EnsurePanelRefreshAndRequest(activePanel, true, true);
     }
+}
+
+bool CMainWindow::HasClosedTab(CPanelSide side) const
+{
+    size_t vectorIndex = (side == cpsLeft) ? 0 : 1;
+    return !ClosedPanelTabs[vectorIndex].empty();
+}
+
+void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int insertIndex)
+{
+    if (panel == NULL)
+        return;
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    size_t vectorIndex = (side == cpsLeft) ? 0 : 1;
+    panel->SetPanelSide(side);
+    panel->NeedsRefreshOnActivation = TRUE;
+
+    SClosedPanelTab info;
+    info.InsertIndex = insertIndex;
+
+    char path[2 * MAX_PATH];
+    path[0] = 0;
+    if (panel->GetGeneralPath(path, _countof(path), TRUE))
+        info.GeneralPath.assign(path);
+    const char* basicPath = panel->GetPath();
+    if (basicPath != NULL)
+        info.FallbackPath.assign(basicPath);
+
+    info.ViewTemplateIndex = panel->GetViewTemplateIndex();
+    info.SortType = panel->SortType;
+    info.ReverseSort = panel->ReverseSort;
+    info.StatusLineVisible = panel->StatusLineVisible;
+    info.DirectoryLineVisible = panel->DirectoryLineVisible;
+    info.HeaderLineVisible = panel->HeaderLineVisible;
+    info.FilterEnabled = panel->FilterEnabled != FALSE;
+    const char* filterMasks = panel->Filter.GetMasksString();
+    if (filterMasks != NULL)
+        info.FilterMasks.assign(filterMasks);
+    info.FilterExtendedMode = panel->Filter.GetExtendedMode() != FALSE;
+    info.HasCustomColor = panel->HasCustomTabColor();
+    if (info.HasCustomColor)
+        info.CustomColor = panel->GetCustomTabColor();
+    info.HasCustomPrefix = panel->HasCustomTabPrefix();
+    if (info.HasCustomPrefix)
+        info.CustomPrefix = panel->GetCustomTabPrefix();
+    info.UserWorkedOnPath = panel->UserWorkedOnThisPath != FALSE;
+
+    if (panel->PathHistory != NULL)
+    {
+        info.PathHistory.reset(new CPathHistory());
+        if (info.PathHistory != NULL)
+            info.PathHistory->CopyFrom(*panel->PathHistory);
+    }
+
+    if (panel->WorkDirHistory != NULL)
+    {
+        info.WorkDirHistory.reset(new CPathHistory(TRUE));
+        if (info.WorkDirHistory != NULL)
+            info.WorkDirHistory->CopyFrom(*panel->WorkDirHistory);
+    }
+
+    ClosedPanelTabs[vectorIndex].push_back(std::move(info));
+
+    if (ClosedPanelTabs[vectorIndex].size() > kMaxStoredClosedTabs)
+        ClosedPanelTabs[vectorIndex].erase(ClosedPanelTabs[vectorIndex].begin());
 }
 
 BOOL MainFrameIsActive = FALSE;
@@ -390,7 +490,7 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     if (panel != NULL && panel->HasCustomTabPrefix())
         prefix = panel->GetCustomTabPrefix();
     std::wstring result;
-    if (index == 0)
+    if (panel != NULL && panel->IsTabLocked())
         result = L"\U0001F512";
     if (!prefix.empty())
     {
@@ -552,7 +652,9 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     UINT colorCmd, clearCmd;
     UINT prefixCmd, clearPrefixCmd;
     UINT duplicateSameCmd, duplicateOtherCmd, moveCmd;
+    UINT reopenCmd, lockCmd, unlockCmd;
     UINT newText, closeText, closeAllText, closeExceptThisText, nextText, prevText;
+    UINT reopenText, lockText, unlockText;
     UINT colorText, clearText;
     UINT prefixText, clearPrefixText;
     UINT duplicateSameText, duplicateOtherText, moveText;
@@ -571,6 +673,9 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         duplicateSameCmd = CM_LEFT_DUPLICATETAB;
         duplicateOtherCmd = CM_LEFT_DUPLICATETABTORIGHT;
         moveCmd = CM_LEFT_MOVETABTORIGHT;
+        reopenCmd = CM_LEFT_REOPENTAB;
+        lockCmd = CM_LEFT_LOCKTAB;
+        unlockCmd = CM_LEFT_UNLOCKTAB;
         newText = IDS_MENU_LEFT_NEWTAB;
         closeText = IDS_MENU_LEFT_CLOSETAB;
         closeAllText = IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT;
@@ -584,6 +689,9 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         duplicateSameText = IDS_MENU_LEFT_DUPLICATETAB;
         duplicateOtherText = IDS_MENU_LEFT_DUPLICATETABRIGHT;
         moveText = IDS_MENU_LEFT_MOVETABTORIGHT;
+        reopenText = IDS_MENU_LEFT_REOPENTAB;
+        lockText = IDS_MENU_LEFT_LOCKTAB;
+        unlockText = IDS_MENU_LEFT_UNLOCKTAB;
     }
     else
     {
@@ -600,6 +708,9 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         duplicateSameCmd = CM_RIGHT_DUPLICATETAB;
         duplicateOtherCmd = CM_RIGHT_DUPLICATETABTOLEFT;
         moveCmd = CM_RIGHT_MOVETABTOLEFT;
+        reopenCmd = CM_RIGHT_REOPENTAB;
+        lockCmd = CM_RIGHT_LOCKTAB;
+        unlockCmd = CM_RIGHT_UNLOCKTAB;
         newText = IDS_MENU_RIGHT_NEWTAB;
         closeText = IDS_MENU_RIGHT_CLOSETAB;
         closeAllText = IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT;
@@ -613,6 +724,9 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         duplicateSameText = IDS_MENU_RIGHT_DUPLICATETAB;
         duplicateOtherText = IDS_MENU_RIGHT_DUPLICATETABTOLEFT;
         moveText = IDS_MENU_RIGHT_MOVETABTOLEFT;
+        reopenText = IDS_MENU_RIGHT_REOPENTAB;
+        lockText = IDS_MENU_RIGHT_LOCKTAB;
+        unlockText = IDS_MENU_RIGHT_UNLOCKTAB;
     }
 
     CMenuPopup popup;
@@ -646,29 +760,34 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
     appendMenuItem(newCmd, newText, IDX_TB_TABSNEW, TRUE);
 
-    BOOL canClose = index > 0;
+    CFilesWindow* targetPanel = (index >= 0 && index < tabs.Count) ? tabs[index] : NULL;
+    BOOL canClose = (index > 0 && targetPanel != NULL && !targetPanel->IsTabLocked());
     appendMenuItem(closeCmd, closeText, IDX_TB_TABSCLOSE, canClose);
 
     int tabCount = GetPanelTabCount(side);
-    BOOL canCloseAll = tabCount > 1;
+    BOOL canCloseAll = FALSE;
     BOOL canCloseExceptThis = FALSE;
-    if (index >= 0)
+    if (tabCount > 1)
     {
-        if (tabCount > 2)
-            canCloseExceptThis = TRUE;
-        else if (tabCount > 1 && index == 0)
-            canCloseExceptThis = TRUE;
+        for (int i = 1; i < tabCount; ++i)
+        {
+            CFilesWindow* candidate = tabs[i];
+            if (candidate == NULL || candidate->IsTabLocked())
+                continue;
+            canCloseAll = TRUE;
+            if (index <= 0 || i != index)
+                canCloseExceptThis = TRUE;
+        }
     }
     appendMenuItem(closeExceptThisCmd, closeExceptThisText, -1, canCloseExceptThis);
     appendMenuItem(closeAllCmd, closeAllText, -1, canCloseAll);
 
     appendSeparator();
 
-    BOOL canSetColor = index >= 0 && index < tabs.Count;
-    CFilesWindow* targetPanel = (index >= 0 && index < tabs.Count) ? tabs[index] : NULL;
-    BOOL hasCustomColor = targetPanel != NULL && targetPanel->HasCustomTabColor();
-    BOOL canSetPrefix = targetPanel != NULL;
-    BOOL hasCustomPrefix = targetPanel != NULL && targetPanel->HasCustomTabPrefix();
+    BOOL canSetColor = (index >= 0 && index < tabs.Count && targetPanel != NULL && !targetPanel->IsTabLocked());
+    BOOL hasCustomColor = (targetPanel != NULL && targetPanel->HasCustomTabColor() && !targetPanel->IsTabLocked());
+    BOOL canSetPrefix = targetPanel != NULL && !targetPanel->IsTabLocked();
+    BOOL hasCustomPrefix = (targetPanel != NULL && targetPanel->HasCustomTabPrefix() && !targetPanel->IsTabLocked());
     appendMenuItem(colorCmd, colorText, -1, canSetColor);
     appendMenuItem(clearCmd, clearText, -1, hasCustomColor);
 
@@ -679,8 +798,14 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
 
     BOOL canDuplicateSame = index >= 0 && index < tabs.Count;
     BOOL canDuplicateOther = canDuplicateSame;
-    BOOL canMove = index > 0 && index < tabs.Count;
+    BOOL canMove = (index > 0 && index < tabs.Count && targetPanel != NULL && !targetPanel->IsTabLocked());
+    BOOL canReopen = HasClosedTab(side);
+    BOOL canLock = (index > 0 && targetPanel != NULL && !targetPanel->IsTabLocked());
+    BOOL canUnlock = (index > 0 && targetPanel != NULL && targetPanel->IsTabLocked());
     appendMenuItem(duplicateSameCmd, duplicateSameText, IDX_TB_TABSDUPLICATE, canDuplicateSame);
+    appendMenuItem(reopenCmd, reopenText, -1, canReopen);
+    appendMenuItem(lockCmd, lockText, -1, canLock);
+    appendMenuItem(unlockCmd, unlockText, -1, canUnlock);
     appendMenuItem(duplicateOtherCmd, duplicateOtherText, IDX_TB_TABSDUPLICATE, canDuplicateOther);
     appendMenuItem(moveCmd, moveText, -1, canMove);
 
@@ -807,6 +932,37 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         }
         break;
 
+    case CM_LEFT_REOPENTAB:
+    case CM_RIGHT_REOPENTAB:
+        CommandReopenClosedTab(side);
+        break;
+
+    case CM_LEFT_LOCKTAB:
+    case CM_RIGHT_LOCKTAB:
+        if (index > 0 && index < tabs.Count)
+        {
+            CFilesWindow* panel = tabs[index];
+            if (panel != NULL)
+            {
+                SwitchPanelTab(panel);
+                CommandLockTab(panel);
+            }
+        }
+        break;
+
+    case CM_LEFT_UNLOCKTAB:
+    case CM_RIGHT_UNLOCKTAB:
+        if (index > 0 && index < tabs.Count)
+        {
+            CFilesWindow* panel = tabs[index];
+            if (panel != NULL)
+            {
+                SwitchPanelTab(panel);
+                CommandUnlockTab(panel);
+            }
+        }
+        break;
+
     case CM_LEFT_DUPLICATETABTORIGHT:
     case CM_RIGHT_DUPLICATETABTOLEFT:
         if (index >= 0 && index < tabs.Count)
@@ -853,6 +1009,8 @@ void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
 
     CFilesWindow* panel = tabs[from];
     if (panel == NULL)
+        return;
+    if (panel->IsTabLocked())
         return;
 
     tabs.Detach(from);
@@ -1208,7 +1366,7 @@ void CMainWindow::CommandCloseTab(CPanelSide side)
     if (!Configuration.UsePanelTabs)
         return;
     CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
-    if (panel != NULL)
+    if (panel != NULL && !panel->IsTabLocked())
         ClosePanelTab(panel);
 }
 
@@ -1228,7 +1386,7 @@ void CMainWindow::CommandCloseAllTabsExceptDefault(CPanelSide side)
     for (int i = tabs.Count - 1; i >= 1; --i)
     {
         CFilesWindow* panel = tabs[i];
-        if (panel != NULL)
+        if (panel != NULL && !panel->IsTabLocked())
             ClosePanelTab(panel);
     }
 }
@@ -1257,7 +1415,7 @@ void CMainWindow::CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFile
     for (int i = tabs.Count - 1; i >= 1; --i)
     {
         CFilesWindow* panel = tabs[i];
-        if (panel != NULL && panel != keepPanel)
+        if (panel != NULL && panel != keepPanel && !panel->IsTabLocked())
             ClosePanelTab(panel);
     }
 }
@@ -1296,6 +1454,8 @@ void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
+    if (panel->IsTabLocked())
+        return;
 
     static COLORREF customColors[16] = {0};
 
@@ -1317,6 +1477,8 @@ void CMainWindow::CommandClearPanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)
         return;
+    if (panel->IsTabLocked())
+        return;
     if (!panel->HasCustomTabColor())
         return;
 
@@ -1327,6 +1489,8 @@ void CMainWindow::CommandClearPanelTabColor(CFilesWindow* panel)
 void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
 {
     if (panel == NULL)
+        return;
+    if (panel->IsTabLocked())
         return;
 
     char buffer[2 * MAX_PATH];
@@ -1375,6 +1539,8 @@ void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
 void CMainWindow::CommandClearPanelTabPrefix(CFilesWindow* panel)
 {
     if (panel == NULL)
+        return;
+    if (panel->IsTabLocked())
         return;
     if (!panel->HasCustomTabPrefix())
         return;
@@ -1539,6 +1705,124 @@ void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
     CreateDuplicatePanelTab(targetSide, sourcePanel, -1);
 }
 
+bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
+{
+    if (!Configuration.UsePanelTabs)
+        return false;
+
+    size_t vectorIndex = (side == cpsLeft) ? 0 : 1;
+    if (ClosedPanelTabs[vectorIndex].empty())
+        return false;
+
+    SClosedPanelTab entry = std::move(ClosedPanelTabs[vectorIndex].back());
+    ClosedPanelTabs[vectorIndex].pop_back();
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    int insertIndex = entry.InsertIndex;
+    if (insertIndex < 0 || insertIndex > tabs.Count)
+        insertIndex = tabs.Count;
+    if (tabs.Count > 0 && insertIndex <= 0)
+        insertIndex = 1;
+
+    CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
+
+    CFilesWindow* panel = AddPanelTab(side, insertIndex);
+    if (panel == NULL)
+    {
+        ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
+        if (previous != NULL)
+            SwitchPanelTab(previous);
+        return false;
+    }
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    {
+        int idx = GetPanelTabIndex(side, panel);
+        if (idx >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(idx);
+            tabs.Delete(idx);
+        }
+        delete panel;
+        if (previous != NULL)
+            SwitchPanelTab(previous);
+        else
+            UpdatePanelTabVisibility(side);
+        ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
+        return false;
+    }
+
+    if (panel->IsViewTemplateValid(entry.ViewTemplateIndex))
+        panel->SelectViewTemplate(entry.ViewTemplateIndex, TRUE, FALSE);
+
+    panel->ChangeSortType(entry.SortType, entry.ReverseSort, TRUE);
+
+    if (!!panel->StatusLineVisible != !!entry.StatusLineVisible)
+        panel->ToggleStatusLine();
+    if (!!panel->DirectoryLineVisible != !!entry.DirectoryLineVisible)
+        panel->ToggleDirectoryLine();
+    if (!!panel->HeaderLineVisible != !!entry.HeaderLineVisible)
+        panel->ToggleHeaderLine();
+
+    panel->FilterEnabled = entry.FilterEnabled ? TRUE : FALSE;
+    const char* filterMasks = entry.FilterMasks.empty() ? "*.*" : entry.FilterMasks.c_str();
+    panel->Filter.SetMasksString(filterMasks, entry.FilterExtendedMode ? TRUE : FALSE);
+    int errPos;
+    if (!panel->Filter.PrepareMasks(errPos))
+    {
+        panel->Filter.SetMasksString("*.*");
+        panel->Filter.PrepareMasks(errPos);
+    }
+    panel->UpdateFilterSymbol();
+
+    if (entry.HasCustomColor)
+        panel->SetCustomTabColor(entry.CustomColor);
+    else
+        panel->ClearCustomTabColor();
+
+    if (entry.HasCustomPrefix)
+        panel->SetCustomTabPrefix(entry.CustomPrefix.c_str());
+    else
+        panel->ClearCustomTabPrefix();
+
+    if (panel->PathHistory != NULL)
+    {
+        if (entry.PathHistory != NULL)
+            panel->PathHistory->CopyFrom(*entry.PathHistory);
+        else
+            panel->PathHistory->ClearHistory();
+    }
+
+    if (entry.WorkDirHistory != NULL)
+    {
+        CPathHistory* history = panel->EnsureWorkDirHistory();
+        if (history != NULL)
+            history->CopyFrom(*entry.WorkDirHistory);
+    }
+    else
+        panel->ClearWorkDirHistory();
+
+    panel->UserWorkedOnThisPath = entry.UserWorkedOnPath;
+
+    if (!entry.GeneralPath.empty())
+        panel->ChangeDir(entry.GeneralPath.c_str());
+    else if (!entry.FallbackPath.empty())
+        panel->ChangeDir(entry.FallbackPath.c_str());
+
+    UpdatePanelTabColor(panel);
+    UpdatePanelTabTitle(panel);
+    UpdatePanelTabVisibility(side);
+    if (UsingSharedWorkDirHistory())
+        UpdateAllDirectoryLineHistoryStates();
+    else
+        UpdateDirectoryLineHistoryState(panel);
+    SwitchPanelTab(panel);
+    RefreshCommandStates();
+    return true;
+}
+
 int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex)
 {
     if (!Configuration.UsePanelTabs)
@@ -1558,6 +1842,8 @@ int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targe
 
     CFilesWindow* panel = fromTabs[index];
     if (panel == NULL)
+        return -1;
+    if (panel->IsTabLocked())
         return -1;
 
     CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
@@ -1650,6 +1936,40 @@ int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel,
     return CommandMoveTabToOtherSide(side, index, targetInsertIndex);
 }
 
+void CMainWindow::CommandLockTab(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    CPanelSide side = panel->GetPanelSide();
+    int index = GetPanelTabIndex(side, panel);
+    if (index <= 0)
+        return;
+    if (panel->IsTabLocked())
+        return;
+
+    panel->SetTabLocked(true);
+    UpdatePanelTabTitle(panel);
+    RefreshCommandStates();
+}
+
+void CMainWindow::CommandUnlockTab(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    CPanelSide side = panel->GetPanelSide();
+    int index = GetPanelTabIndex(side, panel);
+    if (index <= 0)
+        return;
+    if (!panel->IsTabLocked())
+        return;
+
+    panel->SetTabLocked(false);
+    UpdatePanelTabTitle(panel);
+    RefreshCommandStates();
+}
+
 void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
 {
     BOOL enabled = Configuration.UsePanelTabs != 0;
@@ -1662,7 +1982,7 @@ void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
             while (LeftPanelTabs.Count > 1)
             {
                 CFilesWindow* panel = LeftPanelTabs[LeftPanelTabs.Count - 1];
-                ClosePanelTab(panel);
+                ClosePanelTab(panel, false);
             }
         }
         if (RightPanelTabs.Count > 0)
@@ -1671,7 +1991,7 @@ void CMainWindow::HandlePanelTabsEnabledChange(BOOL previouslyEnabled)
             while (RightPanelTabs.Count > 1)
             {
                 CFilesWindow* panel = RightPanelTabs[RightPanelTabs.Count - 1];
-                ClosePanelTab(panel);
+                ClosePanelTab(panel, false);
             }
         }
     }
@@ -2724,7 +3044,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                leftPanel))
         {
             TRACE_E("LeftPanel->Create failed");
-            ClosePanelTab(leftPanel);
+            ClosePanelTab(leftPanel, false);
             return -1;
         }
         UpdatePanelTabVisibility(cpsLeft);
@@ -2745,7 +3065,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                 rightPanel))
         {
             TRACE_E("RightPanel->Create failed");
-            ClosePanelTab(rightPanel);
+            ClosePanelTab(rightPanel, false);
             return -1;
         }
         UpdatePanelTabVisibility(cpsRight);
@@ -4849,6 +5169,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         return 0;
     }
 
+    case CM_REOPENTAB:
+    {
+        CommandReopenClosedTab(activePanel->GetPanelSide());
+        return 0;
+    }
+
+    case CM_LOCKTAB:
+    {
+        CommandLockTab(activePanel);
+        return 0;
+    }
+
+    case CM_UNLOCKTAB:
+    {
+        CommandUnlockTab(activePanel);
+        return 0;
+    }
+
         case CM_LEFT_NEWTAB:
         {
             CommandNewTab(cpsLeft);
@@ -4858,6 +5196,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_LEFT_CLOSETAB:
         {
             CommandCloseTab(cpsLeft);
+            return 0;
+        }
+
+        case CM_LEFT_REOPENTAB:
+        {
+            CommandReopenClosedTab(cpsLeft);
+            return 0;
+        }
+
+        case CM_LEFT_LOCKTAB:
+        {
+            CommandLockTab(LeftPanel);
+            return 0;
+        }
+
+        case CM_LEFT_UNLOCKTAB:
+        {
+            CommandUnlockTab(LeftPanel);
             return 0;
         }
 
@@ -4912,6 +5268,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_RIGHT_CLOSETAB:
         {
             CommandCloseTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_REOPENTAB:
+        {
+            CommandReopenClosedTab(cpsRight);
+            return 0;
+        }
+
+        case CM_RIGHT_LOCKTAB:
+        {
+            CommandLockTab(RightPanel);
+            return 0;
+        }
+
+        case CM_RIGHT_UNLOCKTAB:
+        {
+            CommandUnlockTab(RightPanel);
             return 0;
         }
 

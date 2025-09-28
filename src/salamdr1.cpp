@@ -287,6 +287,7 @@ HIMAGELIST HGrayToolBarImageList = NULL;
 HIMAGELIST HHotToolBarImageList = NULL;
 HIMAGELIST HBottomTBImageList = NULL;
 HIMAGELIST HHotBottomTBImageList = NULL;
+int ToolBarLockImageIndex = -1;
 
 CBitmap ItemBitmap;
 
@@ -438,6 +439,9 @@ DWORD EnablerCloseTab = FALSE;
 DWORD EnablerNextTab = FALSE;
 DWORD EnablerPrevTab = FALSE;
 DWORD EnablerDuplicateTab = FALSE;
+DWORD EnablerReopenTab = FALSE;
+DWORD EnablerLockTab = FALSE;
+DWORD EnablerUnlockTab = FALSE;
 DWORD EnablerLeftNewTab = FALSE;
 DWORD EnablerLeftCloseTab = FALSE;
 DWORD EnablerLeftNextTab = FALSE;
@@ -447,6 +451,9 @@ DWORD EnablerLeftCloseAllExceptThisAndDefault = FALSE;
 DWORD EnablerLeftDuplicateTab = FALSE;
 DWORD EnablerLeftDuplicateTabToRight = FALSE;
 DWORD EnablerLeftMoveTabToRight = FALSE;
+DWORD EnablerLeftReopenTab = FALSE;
+DWORD EnablerLeftLockTab = FALSE;
+DWORD EnablerLeftUnlockTab = FALSE;
 DWORD EnablerRightNewTab = FALSE;
 DWORD EnablerRightCloseTab = FALSE;
 DWORD EnablerRightNextTab = FALSE;
@@ -456,6 +463,9 @@ DWORD EnablerRightCloseAllExceptThisAndDefault = FALSE;
 DWORD EnablerRightDuplicateTab = FALSE;
 DWORD EnablerRightDuplicateTabToLeft = FALSE;
 DWORD EnablerRightMoveTabToLeft = FALSE;
+DWORD EnablerRightReopenTab = FALSE;
+DWORD EnablerRightLockTab = FALSE;
+DWORD EnablerRightUnlockTab = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 
@@ -1900,6 +1910,22 @@ void ReleaseConstGraphics()
     }
 }
 
+static HICON SafeLoadDirectoryIcon(const char* systemDir, CIconSizeEnum sizeIndex)
+{
+    HICON hIcon = NULL;
+    __try
+    {
+        if (!GetFileIcon(systemDir, FALSE, &hIcon, sizeIndex, FALSE, FALSE))
+            hIcon = NULL;
+    }
+    __except (CCallStack::HandleException(GetExceptionInformation(), 15))
+    {
+        FGIExceptionHasOccured++;
+        hIcon = NULL;
+    }
+    return hIcon;
+}
+
 BOOL AuxAllocateImageLists()
 {
     int i;
@@ -2333,6 +2359,44 @@ BOOL InitializeGraphics(BOOL colorsOnly)
             return FALSE;
         }
 
+        ToolBarLockImageIndex = -1;
+        if (LockFrames != NULL)
+        {
+            HICON colorLock = LockFrames->GetIcon(0);
+            CIconList grayLockCopy;
+            HICON grayLock = NULL;
+            if (grayLockCopy.CreateAsCopy(LockFrames, TRUE))
+                grayLock = grayLockCopy.GetIcon(0);
+
+            if (colorLock != NULL)
+            {
+                ToolBarLockImageIndex = ImageList_AddIcon(HHotToolBarImageList, colorLock);
+                DestroyIcon(colorLock);
+            }
+
+            if (grayLock != NULL)
+            {
+                int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, grayLock);
+                if (ToolBarLockImageIndex >= 0 && grayIndex != ToolBarLockImageIndex)
+                {
+                    ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, grayLock);
+                    ImageList_Remove(HGrayToolBarImageList, grayIndex);
+                }
+                DestroyIcon(grayLock);
+            }
+            else if (ToolBarLockImageIndex >= 0)
+            {
+                HICON fallback = LockFrames->GetIcon(0);
+                if (fallback != NULL)
+                {
+                    int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, fallback);
+                    if (grayIndex != ToolBarLockImageIndex)
+                        ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, fallback);
+                    DestroyIcon(fallback);
+                }
+            }
+        }
+
         HBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
         HHotBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
         if (HBottomTBImageList == NULL || HHotBottomTBImageList == NULL)
@@ -2375,17 +2439,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         for (sizeIndex = ICONSIZE_16; sizeIndex < ICONSIZE_COUNT; sizeIndex++)
         {
             // ikonka adresare
-            hIcon = NULL;
-            __try
-            {
-                if (!GetFileIcon(systemDir, FALSE, &hIcon, (CIconSizeEnum)sizeIndex, FALSE, FALSE))
-                    hIcon = NULL;
-            }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 15))
-            {
-                FGIExceptionHasOccured++;
-                hIcon = NULL;
-            }
+            hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
             if (hIcon != NULL) // pokud ikonku neziskame, je tam porad jeste 4-rka z shell32.dll
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
