@@ -1,4 +1,4 @@
-LIBRARY JSONVIEW.SPL
+LIBRARY jsonviewer.spl
 
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer

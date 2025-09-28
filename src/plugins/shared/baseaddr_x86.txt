@@ -30,6 +30,7 @@ lang_diskmap    0x30d00000
 demoview        0x20e00000
 lang_demoview   0x30e00000
 jsonviewer      0x21b00000
+lang_jsonviewer 0x31b00000
 demomenu        0x20f00000
 lang_demomenu   0x30f00000
 unrar           0x21000000
