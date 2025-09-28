@@ -23,7 +23,7 @@
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2009-2024 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyleft \u2665 2017-2025 realworld666, KRtekTM"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "JSON Viewer plugin for Open Salamander"
