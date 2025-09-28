@@ -29,6 +29,7 @@ diskmap         0x0000010020d00000
 lang_diskmap    0x0000010030d00000
 demoview        0x0000010020e00000
 lang_demoview   0x0000010030e00000
+jsonviewer      0x0000010021b00000
 demomenu        0x0000010020f00000
 lang_demomenu   0x0000010030f00000
 unrar           0x0000010021000000

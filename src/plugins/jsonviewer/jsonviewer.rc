@@ -1,0 +1,27 @@
+// SPDX-FileCopyrightText: 2024 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma code_page(65001)
+
+#include "jsonviewer.rh"
+
+#define APSTUDIO_READONLY_SYMBOLS
+///////////////////////////////////////////////////////////////////////////// 
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winresrc.h"
+#include "jsonviewer.rh2"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+STRINGTABLE
+BEGIN
+    IDS_PLUGINNAME         "JSON Viewer"
+    IDS_ABOUT              "About"
+    IDS_PLUGIN_DESCRIPTION "Displays JSON files using a tree representation."
+    IDS_NO_CONFIGURATION   "This plugin does not provide configurable options."
+END
+

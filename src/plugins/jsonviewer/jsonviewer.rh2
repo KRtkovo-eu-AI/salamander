@@ -1,0 +1,12 @@
+// SPDX-FileCopyrightText: 2024 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#ifndef __JSONVIEWER_RH2
+#define __JSONVIEWER_RH2
+
+#define IDS_PLUGINNAME          100
+#define IDS_ABOUT               101
+#define IDS_PLUGIN_DESCRIPTION  102
+#define IDS_NO_CONFIGURATION    103
+
+#endif // __JSONVIEWER_RH2
