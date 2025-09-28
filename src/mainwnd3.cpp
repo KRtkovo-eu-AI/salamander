@@ -144,6 +144,36 @@ void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars
         RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0);
 }
 
+void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
+    const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
+    const char* path = panel->GetPath();
+    if (isDiskLike && path != NULL && path[0] != 0)
+    {
+        BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                       panel->GetPathDriveType() == DRIVE_FIXED;
+        if (!panel->GetMonitorChanges())
+        {
+            refreshOnActivate = true;
+        }
+        else
+        {
+            EnsureWatching(panel, registerDevNotification);
+            if (!panel->AutomaticRefresh)
+                refreshOnActivate = true;
+        }
+
+        if (refreshOnActivate && panel->HWindow != NULL)
+            panel->ChangePathToDisk(panel->HWindow, path);
+    }
+
+    panel->NeedsRefreshOnActivation = FALSE;
+}
+
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
@@ -186,28 +216,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
-    const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
-    const char* path = panel->GetPath();
-    if (isDiskLike && path != NULL && path[0] != 0)
-    {
-        BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
-                                       panel->GetPathDriveType() == DRIVE_FIXED;
-        if (!panel->GetMonitorChanges())
-        {
-            refreshOnActivate = true;
-        }
-        else
-        {
-            EnsureWatching(panel, registerDevNotification);
-            if (!panel->AutomaticRefresh)
-                refreshOnActivate = true;
-        }
-
-        if (refreshOnActivate && panel->HWindow != NULL)
-            panel->ChangePathToDisk(panel->HWindow, path);
-    }
-    panel->NeedsRefreshOnActivation = FALSE;
+    EnsurePanelAutomaticRefresh(panel);
 
     if (canFocusNow)
     {
@@ -289,7 +298,10 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     {
         CFilesWindow* currentPanel = (side == cpsLeft) ? LeftPanel : RightPanel;
         if (currentPanel != NULL)
+        {
+            EnsurePanelAutomaticRefresh(currentPanel);
             RequestPanelRefresh(currentPanel, false);
+        }
     }
 
     if (destroyWindow)
