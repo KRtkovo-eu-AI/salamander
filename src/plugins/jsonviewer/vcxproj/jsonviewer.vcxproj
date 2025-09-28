@@ -203,7 +203,7 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(JsonViewerPluginDir)" mkdir "$(JsonViewerPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\JsonViewer.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\JsonViewer.Managed.dll" "$(JsonViewerPluginDir)JsonViewer.Managed.dll"</Command>
+      <Command>if not exist "$(JsonViewerPluginDir)" mkdir "$(JsonViewerPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\JsonViewer.Managed.dll" (&#x0D;&#x0A;  copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\JsonViewer.Managed.dll" "$(JsonViewerPluginDir)JsonViewer.Managed.dll"&#x0D;&#x0A;) else (&#x0D;&#x0A;  if exist "$(ProjectDir)..\managed\bin\$(Configuration)\net48\JsonViewer.Managed.dll" (&#x0D;&#x0A;    copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\net48\JsonViewer.Managed.dll" "$(JsonViewerPluginDir)JsonViewer.Managed.dll"&#x0D;&#x0A;  ) else (&#x0D;&#x0A;    echo JsonViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\$(Configuration)" or its net48 subfolder.&#x0D;&#x0A;    exit /B 1&#x0D;&#x0A;  )&#x0D;&#x0A;)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
