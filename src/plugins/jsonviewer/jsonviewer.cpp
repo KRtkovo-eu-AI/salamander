@@ -159,15 +159,8 @@ void WINAPI CPluginInterface::About(HWND parent)
 
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
-    if (!force)
-    {
-        if (!ManagedBridge_RequestShutdown(parent, false))
-            return FALSE;
-    }
-    else
-    {
-        ManagedBridge_RequestShutdown(parent, true);
-    }
+    if (!ManagedBridge_RequestShutdown(parent, force != FALSE))
+        return FALSE;
 
     ManagedBridge_Shutdown();
     return TRUE;
