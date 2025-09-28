@@ -22,6 +22,7 @@ STRINGTABLE
  IDS_MENU_LEFT_ZOOM,         "&Maximize/Restore\tCtrl+F11"
  IDS_MENU_LEFT_SWAPPANELS,   "S&wap Sides\tCtrl+U"
  IDS_MENU_LEFT_SORTOPTIONS,  "Sort &Options..."
+ IDS_MENU_LEFT_TABS,        "&Tabs"
  IDS_MENU_LEFT_NEWTAB,       "New &Tab\tCtrl+Shift+T"
  IDS_MENU_LEFT_CLOSETAB,     "&Close Tab\tCtrl+Shift+W"
  IDS_MENU_LEFT_NEXTTAB,      "&Next Tab\tCtrl+Shift+Page Down"
@@ -172,6 +173,7 @@ STRINGTABLE
 
  IDS_MENU_RIGHT,             "&Right"
  IDS_MENU_RIGHT_CHANGEDRIVE, "&Change Drive\tAlt+F2"
+ IDS_MENU_RIGHT_TABS,       "&Tabs"
  IDS_MENU_RIGHT_NEWTAB,      "New &Tab\tAlt+Shift+T"
  IDS_MENU_RIGHT_CLOSETAB,    "&Close Tab\tAlt+Shift+W"
  IDS_MENU_RIGHT_NEXTTAB,     "&Next Tab\tAlt+Shift+Page Down"
