@@ -89,8 +89,14 @@
 
 #define ssize_t int
 
-// static inline not supported by MSVC and not usefull here -> define it out
-#define inline
+// MSVC names the C inline keyword __inline.  Keep the semantics intact instead
+// of dropping the keyword entirely (which pulls inline function definitions
+// into every translation unit and breaks the link step with duplicate symbols).
+#if !defined(__cplusplus)
+#    if !defined(inline)
+#        define inline __inline
+#    endif
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
