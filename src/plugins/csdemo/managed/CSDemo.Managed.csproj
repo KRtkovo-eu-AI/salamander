@@ -5,7 +5,6 @@
     <AssemblyName>CSDemo.Managed</AssemblyName>
     <RootNamespace>OpenSalamander.CSDemo</RootNamespace>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>10.0</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
