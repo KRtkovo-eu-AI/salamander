@@ -11,9 +11,9 @@
 
 #include "precomp.h"
 
-// projekt CSDemo obsahuje tri skupiny modulu
+// the CSDemo project contains three groups of modules
 //
-// 1) modul precomp.cpp, ktery postavi csdemo.pch (/Yc"precomp.h")
-// 2) moduly vyuzivajici csdemo.pch (/Yu"precomp.h")
-// 3) commony maji vlastni, automaticky generovany WINDOWS.PCH
+// 1) the precomp.cpp module, which builds csdemo.pch (/Yc"precomp.h")
+// 2) modules that use csdemo.pch (/Yu"precomp.h")
+// 3) common files have their own automatically generated WINDOWS.PCH
 //    (/YX"windows.h" /Fp"$(OutDir)\WINDOWS.PCH")

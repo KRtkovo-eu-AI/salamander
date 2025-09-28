@@ -209,7 +209,7 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(CSDemoPluginDir)" mkdir "$(CSDemoPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" "$(CSDemoPluginDir)CSDemo.Managed.dll"</Command>
+      <Command>if not exist "$(CSDemoPluginDir)" mkdir "$(CSDemoPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" "$(CSDemoPluginDir)CSDemo.Managed.dll"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.pdb" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.pdb" "$(CSDemoPluginDir)CSDemo.Managed.pdb"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">

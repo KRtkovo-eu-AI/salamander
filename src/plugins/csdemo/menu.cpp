@@ -12,7 +12,7 @@
 #include "precomp.h"
 
 // ****************************************************************************
-// SEKCE MENU
+// MENU SECTION
 // ****************************************************************************
 
 BOOL WINAPI
@@ -34,7 +34,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
         SalamanderGeneral->ShowMessageBox("Unknown command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
         break;
     }
-    return FALSE; // neodznacovat polozky v panelu
+    return FALSE; // keep panel items selected
 }
 
 BOOL WINAPI
