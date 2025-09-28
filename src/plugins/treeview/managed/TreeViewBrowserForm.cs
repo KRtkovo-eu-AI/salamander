@@ -18,6 +18,7 @@ internal sealed class TreeViewBrowserForm : Form
     private readonly ToolStripStatusLabel _statusLabel;
     private readonly ToolStripComboBox _rootCombo;
     private readonly ToolStripButton _showVirtualButton;
+    private readonly SplitContainer _splitContainer;
     private readonly TreeStrategyShell32Provider _shellProvider;
     private bool _initializingRoot;
     private string _initialPath;
@@ -60,16 +61,15 @@ internal sealed class TreeViewBrowserForm : Form
         };
         selectionGroup.Controls.Add(_selectionList);
 
-        var splitContainer = new SplitContainer
+        _splitContainer = new SplitContainer
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
             Panel2MinSize = 180,
-            Panel1MinSize = 260,
-            SplitterDistance = 460,
+            Panel1MinSize = 220,
         };
-        splitContainer.Panel1.Controls.Add(_folderBrowser);
-        splitContainer.Panel2.Controls.Add(selectionGroup);
+        _splitContainer.Panel1.Controls.Add(_folderBrowser);
+        _splitContainer.Panel2.Controls.Add(selectionGroup);
 
         var statusStrip = new StatusStrip();
         _statusLabel = new ToolStripStatusLabel
@@ -119,7 +119,7 @@ internal sealed class TreeViewBrowserForm : Form
         _showVirtualButton.CheckedChanged += (_, _) => ToggleVirtualFolders();
         toolStrip.Items.Add(_showVirtualButton);
 
-        Controls.Add(splitContainer);
+        Controls.Add(_splitContainer);
         Controls.Add(statusStrip);
         Controls.Add(toolStrip);
 
@@ -127,6 +127,7 @@ internal sealed class TreeViewBrowserForm : Form
         statusStrip.Dock = DockStyle.Bottom;
 
         Shown += OnShown;
+        Resize += OnResize;
     }
 
     private void OnShown(object? sender, EventArgs e)
@@ -141,8 +142,42 @@ internal sealed class TreeViewBrowserForm : Form
             _initializingRoot = false;
         }
 
+        AdjustSplitterForCurrentWidth();
+
         RefreshTree(string.IsNullOrWhiteSpace(_initialPath) ? null : _initialPath);
         _initialPath = string.Empty;
+    }
+
+    private void OnResize(object? sender, EventArgs e)
+    {
+        AdjustSplitterForCurrentWidth();
+    }
+
+    private void AdjustSplitterForCurrentWidth()
+    {
+        int width = _splitContainer.ClientSize.Width;
+        if (width <= 0)
+        {
+            return;
+        }
+
+        int minDistance = _splitContainer.Panel1MinSize;
+        int maxDistance = Math.Max(minDistance, width - _splitContainer.Panel2MinSize);
+        int desired = (width * 2) / 3;
+
+        if (desired < minDistance)
+        {
+            desired = minDistance;
+        }
+        else if (desired > maxDistance)
+        {
+            desired = maxDistance;
+        }
+
+        if (_splitContainer.SplitterDistance != desired)
+        {
+            _splitContainer.SplitterDistance = desired;
+        }
     }
 
     private void OnRootComboSelectedIndexChanged(object? sender, EventArgs e)
