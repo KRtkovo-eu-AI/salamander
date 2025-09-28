@@ -996,26 +996,30 @@ internal static class ViewerHost
                 return html;
             }
 
-            return Regex.Replace(html, "(<[^>]+\\sclass=\")([^\"]+)(\"[^>]*>)", match =>
-            {
-                var before = match.Groups[1].Value;
-                var classValue = match.Groups[2].Value;
-                var after = match.Groups[3].Value;
-
-                var fullTag = match.Value;
-                if (fullTag.IndexOf("style=", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            return Regex.Replace(html,
+                "(<[^>]+?\\sclass\\s*=\\s*)([\"'])([^\"'>]+)(\\2[^>]*>)",
+                match =>
                 {
-                    return fullTag;
-                }
+                    var before = match.Groups[1].Value;
+                    var quote = match.Groups[2].Value;
+                    var classValue = match.Groups[3].Value;
+                    var after = match.Groups[4].Value;
 
-                var style = BuildStyleForClasses(classValue, styleMap);
-                if (string.IsNullOrEmpty(style))
-                {
-                    return fullTag;
-                }
+                    var fullTag = match.Value;
+                    if (fullTag.IndexOf("style=", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return fullTag;
+                    }
 
-                return $"{before}{classValue}\" style=\"{style}{after}";
-            }, RegexOptions.IgnoreCase);
+                    var style = BuildStyleForClasses(classValue, styleMap);
+                    if (string.IsNullOrEmpty(style))
+                    {
+                        return fullTag;
+                    }
+
+                    var suffix = after.Length > 0 ? after.Substring(1) : string.Empty;
+                    return $"{before}{quote}{classValue}{quote} style=\"{style}\"{suffix}";
+                }, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 
         private static IReadOnlyDictionary<string, string> BuildClassStyleMap(Theme theme, out string? globalPreStyle)
