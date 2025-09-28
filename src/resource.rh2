@@ -333,6 +333,15 @@
 #define CM_DUPLICATETAB         1128
 #define CM_LEFT_DUPLICATETAB    1129
 #define CM_RIGHT_DUPLICATETAB   1130
+#define CM_REOPENTAB           1131
+#define CM_LOCKTAB             1132
+#define CM_UNLOCKTAB           1133
+#define CM_LEFT_REOPENTAB      1134
+#define CM_LEFT_LOCKTAB        1135
+#define CM_LEFT_UNLOCKTAB      1136
+#define CM_RIGHT_REOPENTAB     1137
+#define CM_RIGHT_LOCKTAB       1138
+#define CM_RIGHT_UNLOCKTAB     1139
 
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu

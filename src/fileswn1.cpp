@@ -1365,6 +1365,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     CustomTabColor = RGB(0, 0, 0);
     CustomTabPrefixValid = false;
     CustomTabPrefix.clear();
+    TabLocked = false;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();

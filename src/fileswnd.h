@@ -770,6 +770,7 @@ public:
     COLORREF CustomTabColor;
     bool CustomTabPrefixValid;
     std::wstring CustomTabPrefix;
+    bool TabLocked;
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
@@ -929,6 +930,8 @@ public:
     const std::wstring& GetCustomTabPrefix() const { return CustomTabPrefix; }
     void SetCustomTabPrefix(const wchar_t* prefix);
     void ClearCustomTabPrefix();
+    bool IsTabLocked() const { return TabLocked; }
+    void SetTabLocked(bool locked) { TabLocked = locked; }
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
