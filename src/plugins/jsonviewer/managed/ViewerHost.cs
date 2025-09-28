@@ -178,13 +178,13 @@ internal static class ViewerHost
             }
 
             string filePath;
-            try
+            if (TryDecodeBase64(encodedPath, out var decodedPath))
             {
-                filePath = DecodeBase64(encodedPath);
+                filePath = decodedPath;
             }
-            catch
+            else
             {
-                return false;
+                filePath = encodedPath?.Trim() ?? string.Empty;
             }
 
             if (string.IsNullOrEmpty(filePath))
@@ -195,17 +195,13 @@ internal static class ViewerHost
             string caption = Path.GetFileName(filePath);
             if (map.TryGetValue("caption", out var encodedCaption) && !string.IsNullOrEmpty(encodedCaption))
             {
-                try
+                if (TryDecodeBase64(encodedCaption, out var decodedCaption) && !string.IsNullOrWhiteSpace(decodedCaption))
                 {
-                    var decodedCaption = DecodeBase64(encodedCaption);
-                    if (!string.IsNullOrEmpty(decodedCaption))
-                    {
-                        caption = decodedCaption;
-                    }
+                    caption = decodedCaption.Trim();
                 }
-                catch
+                else if (!string.IsNullOrEmpty(encodedCaption))
                 {
-                    // ignore caption errors
+                    caption = encodedCaption.Trim();
                 }
             }
 
@@ -222,10 +218,33 @@ internal static class ViewerHost
             return true;
         }
 
-        private static string DecodeBase64(string value)
+        private static bool TryDecodeBase64(string value, out string decoded)
         {
-            var bytes = Convert.FromBase64String(value);
-            return Encoding.UTF8.GetString(bytes);
+            decoded = string.Empty;
+            var trimmedValue = value?.Trim();
+            if (string.IsNullOrEmpty(trimmedValue))
+            {
+                return false;
+            }
+
+            try
+            {
+                var bytes = Convert.FromBase64String(trimmedValue);
+                decoded = Encoding.UTF8.GetString(bytes);
+                return true;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (DecoderFallbackException)
+            {
+                return false;
+            }
         }
 
         private static int ReadInt(IDictionary<string, string> map, string key)
