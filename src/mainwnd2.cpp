@@ -363,6 +363,7 @@ const char* PANEL_TABCOUNT_REG = "Tab Count";
 const char* PANEL_ACTIVETAB_REG = "Active Tab";
 const char* PANEL_TABCOLOR_REG = "Tab Color";
 const char* PANEL_TABPREFIX_REG = "Tab Prefix";
+const char* PANEL_TABLOCKED_REG = "Tab Locked";
 
 const char* SALAMANDER_DEFDIRS_REG = "Default Directories";
 
@@ -1423,6 +1424,14 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     }
     else
         DeleteValue(key, PANEL_TABPREFIX_REG);
+
+    if (panel->IsTabLocked())
+    {
+        DWORD locked = 1;
+        SetValue(key, PANEL_TABLOCKED_REG, REG_DWORD, &locked, sizeof(DWORD));
+    }
+    else
+        DeleteValue(key, PANEL_TABLOCKED_REG);
 }
 
 static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBuffer, int pathBufferSize)
@@ -1537,6 +1546,12 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
     }
     else
         panel->ClearCustomTabPrefix();
+
+    DWORD lockedValue = 0;
+    if (GetValue(key, PANEL_TABLOCKED_REG, REG_DWORD, &lockedValue, sizeof(DWORD)))
+        panel->SetTabLocked(lockedValue != 0);
+    else
+        panel->SetTabLocked(false);
 }
 
 static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
@@ -2818,6 +2833,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             panel->ClearWorkDirHistory();
 
         UpdatePanelTabColor(panel);
+        UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
