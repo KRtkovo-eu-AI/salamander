@@ -237,10 +237,6 @@ internal static class ViewerHost
             {
                 return false;
             }
-            catch (ArgumentException)
-            {
-                return false;
-            }
             catch (DecoderFallbackException)
             {
                 return false;
