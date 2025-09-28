@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{3CB8B01D-BCB3-4F4E-B60A-9B46D2AF2F69}</ProjectGuid>
+    <ProjectGuid>{FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}</ProjectGuid>
     <RootNamespace>lang_treeview</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <Keyword>Win32Proj</Keyword>

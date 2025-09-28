@@ -111,6 +111,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_jsonviewer", "..\plugi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonViewer.Managed", "..\plugins\jsonviewer\managed\JsonViewer.Managed.csproj", "{FAA575FC-812E-4C0F-A39A-543115FDC31F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "treeview", "..\plugins\treeview\vcxproj\treeview.vcxproj", "{D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_treeview", "..\plugins\treeview\vcxproj\lang_treeview.vcxproj", "{FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TreeView.Managed", "..\plugins\treeview\managed\TreeView.Managed.csproj", "{A769BC7D-62CC-4792-A06F-9DE8C6909AE5}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "demoplug", "..\plugins\demoplug\vcxproj\demoplug.vcxproj", "{C355231B-65C2-4826-B419-37518E187F78}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "demoview", "..\plugins\demoview\vcxproj\demoview.vcxproj", "{B6636FCB-B76E-4DD5-8E08-350F2F8C5163}"
@@ -1146,6 +1152,36 @@ Global
                 {FAA575FC-812E-4C0F-A39A-543115FDC31F}.Release|x64.Build.0 = Release|Any CPU
                 {FAA575FC-812E-4C0F-A39A-543115FDC31F}.Utils (Release)|Win32.ActiveCfg = Release|Any CPU
                 {FAA575FC-812E-4C0F-A39A-543115FDC31F}.Utils (Release)|x64.ActiveCfg = Release|Any CPU
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Debug|Win32.ActiveCfg = Debug|Win32
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Debug|Win32.Build.0 = Debug|Win32
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Debug|x64.ActiveCfg = Debug|x64
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Debug|x64.Build.0 = Debug|x64
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Release|Win32.ActiveCfg = Release|Win32
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Release|Win32.Build.0 = Release|Win32
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Release|x64.ActiveCfg = Release|x64
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Release|x64.Build.0 = Release|x64
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Utils (Release)|Win32.ActiveCfg = Release|Win32
+                {D24E63F6-58AC-4C9F-B4DA-11E02A5DD586}.Utils (Release)|x64.ActiveCfg = Release|x64
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Debug|Win32.ActiveCfg = Debug|Win32
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Debug|Win32.Build.0 = Debug|Win32
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Debug|x64.ActiveCfg = Debug|x64
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Debug|x64.Build.0 = Debug|x64
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Release|Win32.ActiveCfg = Release|Win32
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Release|Win32.Build.0 = Release|Win32
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Release|x64.ActiveCfg = Release|x64
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Release|x64.Build.0 = Release|x64
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Utils (Release)|Win32.ActiveCfg = Release|Win32
+                {FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}.Utils (Release)|x64.ActiveCfg = Release|x64
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Debug|Win32.ActiveCfg = Debug|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Debug|Win32.Build.0 = Debug|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Debug|x64.ActiveCfg = Debug|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Debug|x64.Build.0 = Debug|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Release|Win32.ActiveCfg = Release|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Release|Win32.Build.0 = Release|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Release|x64.ActiveCfg = Release|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Release|x64.Build.0 = Release|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Utils (Release)|Win32.ActiveCfg = Release|Any CPU
+                {A769BC7D-62CC-4792-A06F-9DE8C6909AE5}.Utils (Release)|x64.ActiveCfg = Release|Any CPU
         EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
