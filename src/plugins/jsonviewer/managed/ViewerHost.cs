@@ -410,11 +410,11 @@ internal static class ViewerHost
                     }
                 }));
             }
-            catch (InvalidOperationException)
+            catch (ObjectDisposedException)
             {
                 return true;
             }
-            catch (ObjectDisposedException)
+            catch (InvalidOperationException)
             {
                 return true;
             }
