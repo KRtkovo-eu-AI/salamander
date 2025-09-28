@@ -1910,6 +1910,22 @@ void ReleaseConstGraphics()
     }
 }
 
+static HICON SafeLoadDirectoryIcon(const char* systemDir, CIconSizeEnum sizeIndex)
+{
+    HICON hIcon = NULL;
+    __try
+    {
+        if (!GetFileIcon(systemDir, FALSE, &hIcon, sizeIndex, FALSE, FALSE))
+            hIcon = NULL;
+    }
+    __except (CCallStack::HandleException(GetExceptionInformation(), 15))
+    {
+        FGIExceptionHasOccured++;
+        hIcon = NULL;
+    }
+    return hIcon;
+}
+
 BOOL AuxAllocateImageLists()
 {
     int i;
@@ -2423,17 +2439,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         for (sizeIndex = ICONSIZE_16; sizeIndex < ICONSIZE_COUNT; sizeIndex++)
         {
             // ikonka adresare
-            hIcon = NULL;
-            __try
-            {
-                if (!GetFileIcon(systemDir, FALSE, &hIcon, (CIconSizeEnum)sizeIndex, FALSE, FALSE))
-                    hIcon = NULL;
-            }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 15))
-            {
-                FGIExceptionHasOccured++;
-                hIcon = NULL;
-            }
+            hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
             if (hIcon != NULL) // pokud ikonku neziskame, je tam porad jeste 4-rka z shell32.dll
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
