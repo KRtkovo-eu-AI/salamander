@@ -625,6 +625,7 @@ internal static class ViewerHost
             Text = BuildCaption(session.Payload.Caption);
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
+            EnsureTaskbarVisibility();
 
             try
             {
@@ -704,6 +705,7 @@ internal static class ViewerHost
         private void OnHandleCreated(object? sender, EventArgs e)
         {
             ApplyOwner(_session?.Parent ?? IntPtr.Zero);
+            EnsureTaskbarVisibility();
         }
 
         private void OnHandleDestroyed(object? sender, EventArgs e)
@@ -817,6 +819,21 @@ internal static class ViewerHost
             _session = null;
             _jsonLoaded = false;
             DetachOwner();
+        }
+
+        private void EnsureTaskbarVisibility()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            int style = unchecked((int)NativeMethods.GetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE).ToInt64());
+            int updated = (style & ~NativeMethods.WS_EX_TOOLWINDOW) | NativeMethods.WS_EX_APPWINDOW;
+            if (updated != style)
+            {
+                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE, new IntPtr(updated));
+            }
         }
 
         private static string BuildCaption(string caption)

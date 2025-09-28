@@ -22,6 +22,10 @@ internal sealed class WindowHandleWrapper : IWin32Window
 internal static class NativeMethods
 {
     public const int GWL_HWNDPARENT = -8;
+    public const int GWL_EXSTYLE = -20;
+
+    public const int WS_EX_TOOLWINDOW = 0x00000080;
+    public const int WS_EX_APPWINDOW = 0x00040000;
 
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
