@@ -73,6 +73,7 @@ internal sealed class TreeViewBrowserForm : Form
             Panel2MinSize = _defaultPanel2MinSize,
             Panel1MinSize = _defaultPanel1MinSize,
         };
+        _splitContainer.SizeChanged += OnSplitContainerSizeChanged;
         _splitContainer.Panel1.Controls.Add(_folderBrowser);
         _splitContainer.Panel2.Controls.Add(selectionGroup);
 
@@ -158,6 +159,11 @@ internal sealed class TreeViewBrowserForm : Form
         AdjustSplitterForCurrentWidth();
     }
 
+    private void OnSplitContainerSizeChanged(object? sender, EventArgs e)
+    {
+        AdjustSplitterForCurrentWidth();
+    }
+
     private void AdjustSplitterForCurrentWidth()
     {
         int width = _splitContainer.ClientSize.Width;
@@ -195,9 +201,16 @@ internal sealed class TreeViewBrowserForm : Form
             _splitContainer.Panel2MinSize = panel2Min;
         }
 
-        int minDistance = panel1Min;
-        int maxDistance = Math.Max(minDistance, width - panel2Min);
-        int desired = (width * 2) / 3;
+        int splitterWidth = Math.Max(0, _splitContainer.SplitterWidth);
+        int available = Math.Max(0, width - splitterWidth);
+        int minDistance = Math.Min(panel1Min, available);
+        int maxDistance = Math.Max(minDistance, available - panel2Min);
+        if (maxDistance < minDistance)
+        {
+            maxDistance = minDistance;
+        }
+
+        int desired = (available * 2) / 3;
 
         if (desired < minDistance)
         {
@@ -208,9 +221,18 @@ internal sealed class TreeViewBrowserForm : Form
             desired = maxDistance;
         }
 
+        desired = Math.Min(desired, available);
+
         if (_splitContainer.SplitterDistance != desired)
         {
-            _splitContainer.SplitterDistance = desired;
+            try
+            {
+                _splitContainer.SplitterDistance = desired;
+            }
+            catch (ArgumentException)
+            {
+                _splitContainer.SplitterDistance = Math.Min(Math.Max(minDistance, desired), maxDistance);
+            }
         }
     }
 
