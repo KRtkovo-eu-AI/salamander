@@ -4,6 +4,8 @@ VisualStudioVersion = 16.0.29020.237
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jsonviewer", "jsonviewer.vcxproj", "{E0F8B90D-ED3C-4E96-ACD1-6D2D54A6E2F1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_jsonviewer", "lang_jsonviewer.vcxproj", "{7159C753-A87A-4F01-810D-9A77552FA382}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{383041AD-ACD5-47D3-B1D3-94E84297F40C}"
 ProjectSection(SolutionItems) = preProject
 ..\..\..\.editorconfig = ..\..\..\.editorconfig
@@ -31,6 +33,18 @@ GlobalSection(ProjectConfigurationPlatforms) = postSolution
 {E0F8B90D-ED3C-4E96-ACD1-6D2D54A6E2F1}.SDK|x64.Build.0 = SDK|x64
 {E0F8B90D-ED3C-4E96-ACD1-6D2D54A6E2F1}.SDK|x86.ActiveCfg = SDK|Win32
 {E0F8B90D-ED3C-4E96-ACD1-6D2D54A6E2F1}.SDK|x86.Build.0 = SDK|Win32
+{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|x64.ActiveCfg = Debug|x64
+{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|x64.Build.0 = Debug|x64
+{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|x86.ActiveCfg = Debug|Win32
+{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|x86.Build.0 = Debug|Win32
+{7159C753-A87A-4F01-810D-9A77552FA382}.Release|x64.ActiveCfg = Release|x64
+{7159C753-A87A-4F01-810D-9A77552FA382}.Release|x64.Build.0 = Release|x64
+{7159C753-A87A-4F01-810D-9A77552FA382}.Release|x86.ActiveCfg = Release|Win32
+{7159C753-A87A-4F01-810D-9A77552FA382}.Release|x86.Build.0 = Release|Win32
+{7159C753-A87A-4F01-810D-9A77552FA382}.SDK|x64.ActiveCfg = SDK|x64
+{7159C753-A87A-4F01-810D-9A77552FA382}.SDK|x64.Build.0 = SDK|x64
+{7159C753-A87A-4F01-810D-9A77552FA382}.SDK|x86.ActiveCfg = SDK|Win32
+{7159C753-A87A-4F01-810D-9A77552FA382}.SDK|x86.Build.0 = SDK|Win32
 EndGlobalSection
 GlobalSection(SolutionProperties) = preSolution
 HideSolutionNode = FALSE

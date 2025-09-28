@@ -47,6 +47,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_ftp", "..\plugins\ftp\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_ieviewer", "..\plugins\ieviewer\vcxproj\lang_ieviewer.vcxproj", "{FFC3DC5D-8E4B-40E9-BFE6-609709565ED0}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_jsonviewer", "..\plugins\jsonviewer\vcxproj\lang_jsonviewer.vcxproj", "{7159C753-A87A-4F01-810D-9A77552FA382}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_mmviewer", "..\plugins\mmviewer\vcxproj\lang_mmviewer.vcxproj", "{0C16BFF5-47AC-48C8-81EC-2788FFAA42BB}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lang_nethood", "..\plugins\nethood\vcxproj\lang_nethood.vcxproj", "{43ED8A87-0C1C-4322-A765-1EC4F13E465B}"
@@ -420,6 +422,16 @@ Global
 		{FFC3DC5D-8E4B-40E9-BFE6-609709565ED0}.Release|x64.Build.0 = Release|x64
 		{FFC3DC5D-8E4B-40E9-BFE6-609709565ED0}.Utils (Release)|Win32.ActiveCfg = Release|Win32
 		{FFC3DC5D-8E4B-40E9-BFE6-609709565ED0}.Utils (Release)|x64.ActiveCfg = Release|x64
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|Win32.Build.0 = Debug|Win32
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|x64.ActiveCfg = Debug|x64
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Debug|x64.Build.0 = Debug|x64
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Release|Win32.ActiveCfg = Release|Win32
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Release|Win32.Build.0 = Release|Win32
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Release|x64.ActiveCfg = Release|x64
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Release|x64.Build.0 = Release|x64
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Utils (Release)|Win32.ActiveCfg = Release|Win32
+		{7159C753-A87A-4F01-810D-9A77552FA382}.Utils (Release)|x64.ActiveCfg = Release|x64
 		{0C16BFF5-47AC-48C8-81EC-2788FFAA42BB}.Debug|Win32.ActiveCfg = Debug|Win32
 		{0C16BFF5-47AC-48C8-81EC-2788FFAA42BB}.Debug|Win32.Build.0 = Debug|Win32
 		{0C16BFF5-47AC-48C8-81EC-2788FFAA42BB}.Debug|x64.ActiveCfg = Debug|x64

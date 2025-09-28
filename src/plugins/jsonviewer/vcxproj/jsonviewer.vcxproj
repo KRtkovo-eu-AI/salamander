@@ -177,12 +177,20 @@
     </None>
     <None Include="..\jsonviewer.rh2">
     </None>
+    <None Include="..\lang\lang.rh">
+    </None>
     <None Include="..\versinfo.rh2">
     </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\jsonviewer.rc">
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="lang_jsonviewer.vcxproj">
+      <Project>{7159C753-A87A-4F01-810D-9A77552FA382}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>
