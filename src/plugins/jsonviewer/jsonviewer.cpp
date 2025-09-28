@@ -169,7 +169,6 @@ void WINAPI
 CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     salamander->AddViewer("*.json", FALSE);
-    salamander->AddViewer("*.json5", FALSE);
 }
 
 void WINAPI
@@ -194,7 +193,7 @@ CPluginInterfaceForViewer::CanViewFile(const char* name)
     if (!ext)
         return FALSE;
 
-    if (_stricmp(ext, ".json") == 0 || _stricmp(ext, ".json5") == 0)
+    if (_stricmp(ext, ".json") == 0)
         return TRUE;
 
     return FALSE;
