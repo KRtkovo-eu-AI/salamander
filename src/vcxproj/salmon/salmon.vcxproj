@@ -127,6 +127,8 @@
     </ClCompile>
     <ClCompile Include="..\..\common\ms_init.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\common\unicode.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\common\str.cpp">
     </ClCompile>
     <ClCompile Include="..\..\common\trace.cpp">
@@ -162,6 +164,8 @@
     <ClInclude Include="..\..\common\lstrfix.h">
     </ClInclude>
     <ClInclude Include="..\..\common\messages.h">
+    </ClInclude>
+    <ClInclude Include="..\..\common\unicode.h">
     </ClInclude>
     <ClInclude Include="..\..\common\str.h">
     </ClInclude>

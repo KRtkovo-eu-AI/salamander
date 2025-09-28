@@ -253,6 +253,8 @@
     </ClCompile>
     <ClCompile Include="..\common\messages.cpp">
     </ClCompile>
+    <ClCompile Include="..\common\unicode.cpp">
+    </ClCompile>
     <ClCompile Include="..\common\moore.cpp">
     </ClCompile>
     <ClCompile Include="..\common\multimon.cpp">
@@ -704,6 +706,8 @@
     <ClInclude Include="..\common\heap.h">
     </ClInclude>
     <ClInclude Include="..\common\messages.h">
+    </ClInclude>
+    <ClInclude Include="..\common\unicode.h">
     </ClInclude>
     <ClInclude Include="..\common\moore.h">
     </ClInclude>

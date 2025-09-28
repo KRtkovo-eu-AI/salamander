@@ -120,6 +120,9 @@
     <ClCompile Include="..\common\messages.cpp">
       <Filter>Commons</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\unicode.cpp">
+      <Filter>Commons</Filter>
+    </ClCompile>
     <ClCompile Include="..\common\str.cpp">
       <Filter>Commons</Filter>
     </ClCompile>
@@ -210,6 +213,9 @@
       <Filter>Commons</Filter>
     </ClInclude>
     <ClInclude Include="..\common\messages.h">
+      <Filter>Commons</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\unicode.h">
       <Filter>Commons</Filter>
     </ClInclude>
     <ClInclude Include="..\common\str.h">

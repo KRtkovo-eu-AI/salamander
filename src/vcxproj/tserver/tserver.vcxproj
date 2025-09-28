@@ -134,6 +134,7 @@
     <ClCompile Include="..\..\common\heap.cpp" />
     <ClCompile Include="..\..\common\lstrfix.cpp" />
     <ClCompile Include="..\..\common\messages.cpp" />
+    <ClCompile Include="..\..\common\unicode.cpp" />
     <ClCompile Include="..\..\common\multimon.cpp" />
     <ClCompile Include="..\..\common\sheets.cpp" />
     <ClCompile Include="..\..\common\strutils.cpp" />
@@ -160,6 +161,7 @@
     <ClInclude Include="..\..\common\heap.h" />
     <ClInclude Include="..\..\common\lstrfix.h" />
     <ClInclude Include="..\..\common\messages.h" />
+    <ClInclude Include="..\..\common\unicode.h" />
     <ClInclude Include="..\..\common\multimon.h" />
     <ClInclude Include="..\..\common\sheets.h" />
     <ClInclude Include="..\..\common\strutils.h" />

@@ -393,6 +393,9 @@
     <ClCompile Include="..\common\messages.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\unicode.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\common\moore.cpp">
       <Filter>common</Filter>
     </ClCompile>
@@ -705,6 +708,9 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\common\messages.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\unicode.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\common\moore.h">

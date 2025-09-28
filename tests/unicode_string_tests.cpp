@@ -55,7 +55,7 @@ void TestStrNCatWide()
 {
     std::array<wchar_t, 16> buffer{};
     lstrcpyW(buffer.data(), L"Hi");
-    StrNCatW(buffer.data(), L" 😀", static_cast<int>(buffer.size()));
+    SalStrNCatW(buffer.data(), L" 😀", static_cast<int>(buffer.size()));
     assert(std::wstring(buffer.data()) == L"Hi 😀");
 }
 

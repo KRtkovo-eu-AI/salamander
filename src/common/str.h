@@ -168,7 +168,7 @@ const char* StrIStr(const char* txtStart, const char* txtEnd,
 // retezec zakoncuje nulou, ktera spada do delky 'dstSize'
 // vraci 'dst'
 char* StrNCat(char* dst, const char* src, int dstSize);
-WCHAR* StrNCatW(WCHAR* dst, const WCHAR* src, int dstSize);
+WCHAR* SalStrNCatW(WCHAR* dst, const WCHAR* src, int dstSize);
 
 // tento historicky kod uz nikdo nepouziva
 /*

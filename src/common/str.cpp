@@ -133,7 +133,7 @@ char* DupStrEx(const char* str, BOOL& err)
     return s;
 }
 
-WCHAR* StrNCatW(WCHAR* dst, const WCHAR* src, int dstSize)
+WCHAR* SalStrNCatW(WCHAR* dst, const WCHAR* src, int dstSize)
 {
     if (dst == NULL || src == NULL || dstSize <= 0)
         return dst;
@@ -160,13 +160,10 @@ char* StrNCat(char* dst, const char* src, int dstSize)
     if (!srcWide)
         return dst;
 
-    std::wstring dest = dstWide.to_wstring();
-    std::wstring source = srcWide.to_wstring();
+    std::wstring_view dstView(dstWide.c_str(), dstWide.length());
+    std::wstring_view srcView(srcWide.c_str(), srcWide.length());
 
-    dest.reserve(dest.size() + source.size());
-    dest.append(source);
-
-    SalWideString combined(dest);
+    SalWideString combined = SalWideString::Concat(dstView, srcView);
     if (!combined)
         return dst;
 

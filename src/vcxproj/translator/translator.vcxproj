@@ -139,6 +139,7 @@
     <ClCompile Include="..\..\common\heap.cpp" />
     <ClCompile Include="..\..\common\lstrfix.cpp" />
     <ClCompile Include="..\..\common\messages.cpp" />
+    <ClCompile Include="..\..\common\unicode.cpp" />
     <ClCompile Include="..\..\common\str.cpp" />
     <ClCompile Include="..\..\common\trace.cpp" />
     <ClCompile Include="..\..\common\winlib.cpp" />
@@ -184,6 +185,7 @@
     <ClInclude Include="..\..\common\handles.h" />
     <ClInclude Include="..\..\common\lstrfix.h" />
     <ClInclude Include="..\..\common\messages.h" />
+    <ClInclude Include="..\..\common\unicode.h" />
     <ClInclude Include="..\..\common\str.h" />
     <ClInclude Include="..\..\common\trace.h" />
     <ClInclude Include="..\..\common\winlib.h" />
