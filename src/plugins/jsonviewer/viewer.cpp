@@ -464,6 +464,28 @@ LRESULT CJsonViewerWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             PopulateTree();
         }
         return 0;
+    case WM_KEYDOWN:
+        if (wParam == VK_ESCAPE)
+        {
+            PostMessage(HWnd, WM_CLOSE, 0, 0);
+            return 0;
+        }
+        break;
+    case WM_NOTIFY:
+        if (lParam != 0)
+        {
+            const auto* header = reinterpret_cast<NMHDR*>(lParam);
+            if (header->hwndFrom == TreeHandle && header->code == TVN_KEYDOWN)
+            {
+                const auto* keyInfo = reinterpret_cast<NMTVKEYDOWN*>(lParam);
+                if (keyInfo->wVKey == VK_ESCAPE)
+                {
+                    PostMessage(HWnd, WM_CLOSE, 0, 0);
+                    return 0;
+                }
+            }
+        }
+        break;
     case WM_SIZE:
         if (TreeHandle)
         {
