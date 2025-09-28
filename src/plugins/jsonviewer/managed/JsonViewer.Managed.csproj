@@ -5,7 +5,7 @@
     <AssemblyName>JsonViewer.Managed</AssemblyName>
     <RootNamespace>EPocalipse.Json.Viewer</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
     <LangVersion>10.0</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>

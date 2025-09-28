@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#nullable enable
+
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
