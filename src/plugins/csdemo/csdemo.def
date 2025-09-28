@@ -1,0 +1,4 @@
+LIBRARY CSDEMO.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
