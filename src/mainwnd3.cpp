@@ -5105,13 +5105,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_LEFT_LOCKTAB:
         {
-            CommandLockTab(obj->LeftPanel);
+            CommandLockTab(LeftPanel);
             return 0;
         }
 
         case CM_LEFT_UNLOCKTAB:
         {
-            CommandUnlockTab(obj->LeftPanel);
+            CommandUnlockTab(LeftPanel);
             return 0;
         }
 
@@ -5177,13 +5177,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_RIGHT_LOCKTAB:
         {
-            CommandLockTab(obj->RightPanel);
+            CommandLockTab(RightPanel);
             return 0;
         }
 
         case CM_RIGHT_UNLOCKTAB:
         {
-            CommandUnlockTab(obj->RightPanel);
+            CommandUnlockTab(RightPanel);
             return 0;
         }
 
