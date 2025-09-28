@@ -9,4 +9,14 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
+
+  <Target Name="EnsureRestoreBeforeBuild"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(ProjectAssetsFile))."
+             Importance="High" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore"
+             Properties="RestoreDuringBuild=true" />
+  </Target>
 </Project>
