@@ -7,13 +7,15 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <initializer_list>
 #include <limits>
+#include <vector>
 
 namespace salamander::unicode
 {
 namespace
 {
-constexpr size_t kMaxSize = static_cast<size_t>(std::numeric_limits<int>::max());
+constexpr size_t kMaxSize = static_cast<size_t>((std::numeric_limits<int>::max)());
 
 [[nodiscard]] bool ShouldIncludeTerminator(int length)
 {
@@ -158,7 +160,13 @@ SalWideString SalWideString::Duplicate(std::wstring_view text)
 
 SalWideString SalWideString::Concat(std::wstring_view first, std::wstring_view second)
 {
-    return Concat(std::vector<std::wstring_view>{first, second});
+    return Concat({first, second});
+}
+
+SalWideString SalWideString::Concat(std::initializer_list<std::wstring_view> parts)
+{
+    std::vector<std::wstring_view> buffer(parts.begin(), parts.end());
+    return Concat(buffer);
 }
 
 SalWideString SalWideString::Concat(const std::vector<std::wstring_view>& parts)

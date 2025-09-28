@@ -6,6 +6,8 @@
 
 #include <array>
 #include <cassert>
+#include <cstdlib>
+#include <cwchar>
 #include <string>
 
 using salamander::unicode::SalWideString;
@@ -20,7 +22,7 @@ void TestDuplicateAndRelease()
     wchar_t* raw = duplicated.release();
     assert(raw != nullptr);
     std::wstring restored(raw);
-    free(raw);
+    std::free(raw);
     assert(restored == sample);
 }
 
@@ -54,7 +56,7 @@ void TestUtf8RoundTrip()
 void TestStrNCatWide()
 {
     std::array<wchar_t, 16> buffer{};
-    lstrcpyW(buffer.data(), L"Hi");
+    std::wcscpy(buffer.data(), L"Hi");
     SalStrNCatW(buffer.data(), L" 😀", static_cast<int>(buffer.size()));
     assert(std::wstring(buffer.data()) == L"Hi 😀");
 }

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -36,6 +37,7 @@ public:
 
     static SalWideString Duplicate(std::wstring_view text);
     static SalWideString Concat(std::wstring_view first, std::wstring_view second);
+    static SalWideString Concat(std::initializer_list<std::wstring_view> parts);
     static SalWideString Concat(const std::vector<std::wstring_view>& parts);
     static SalWideString Slice(std::wstring_view source, size_t start, size_t length);
 
