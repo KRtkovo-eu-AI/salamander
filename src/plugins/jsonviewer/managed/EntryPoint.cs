@@ -80,9 +80,9 @@ public static class EntryPoint
 
     private static bool ShouldForceRelease(string? payload)
     {
-        var payloadText = payload?.Trim();
+        var payloadText = payload?.Trim() ?? string.Empty;
 
-        if (string.IsNullOrEmpty(payloadText))
+        if (payloadText.Length == 0)
         {
             return false;
         }
