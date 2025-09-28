@@ -8,6 +8,7 @@
     <LangVersion>10.0</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
     <ProjectGuid>{755CF63D-31EB-43B6-8402-2BB9D7D3E53F}</ProjectGuid>
   </PropertyGroup>
 

@@ -1097,7 +1097,7 @@ internal static class ViewerHost
                 builder.Append(style);
             }
 
-            if (token.IndexOf('.', StringComparison.Ordinal) >= 0)
+            if (token.IndexOf('.') >= 0)
             {
                 var parts = token.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var part in parts)
