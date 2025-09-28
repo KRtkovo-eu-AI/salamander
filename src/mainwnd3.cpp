@@ -174,6 +174,13 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
     panel->NeedsRefreshOnActivation = FALSE;
 }
 
+void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars)
+{
+    EnsurePanelAutomaticRefresh(panel);
+    if (panel != NULL && Created)
+        RequestPanelRefresh(panel, rebuildDriveBars);
+}
+
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
@@ -216,8 +223,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    EnsurePanelAutomaticRefresh(panel);
-
     if (canFocusNow)
     {
         LayoutWindows();
@@ -230,8 +235,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         FocusPanel(panel);
     }
 
-    if (Created)
-        RequestPanelRefresh(panel, false);
+    bool refreshActive = (panel == GetActivePanel());
+    EnsurePanelRefreshAndRequest(panel, refreshActive);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel)
@@ -297,17 +302,17 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     if (Created)
     {
         CFilesWindow* currentPanel = (side == cpsLeft) ? LeftPanel : RightPanel;
+        CFilesWindow* activePanel = GetActivePanel();
+
         if (currentPanel != NULL)
         {
-            EnsurePanelAutomaticRefresh(currentPanel);
-            RequestPanelRefresh(currentPanel, false);
+            bool isActive = (currentPanel == activePanel);
+            EnsurePanelRefreshAndRequest(currentPanel, isActive);
         }
 
-        CFilesWindow* activePanel = GetActivePanel();
         if (activePanel != NULL && activePanel != currentPanel)
         {
-            EnsurePanelAutomaticRefresh(activePanel);
-            RequestPanelRefresh(activePanel, false);
+            EnsurePanelRefreshAndRequest(activePanel, true);
         }
     }
 
