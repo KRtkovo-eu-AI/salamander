@@ -27,4 +27,6 @@ STRINGTABLE
  IDS_PLUGIN_DESCRIPTION,     "Browse Windows folders using the managed Raccoom tree view control."
  IDS_PLUGIN_HOME,            "https://github.com/KRtkovo-eu-AI/salamander/"
  IDS_MENU_OPEN_BROWSER,      "Open &Tree View Browser"
+ IDS_MENU_SHOW_LEFTPANEL,    "Show Tree View in &Left Panel"
+ IDS_MENU_SHOW_RIGHTPANEL,   "Show Tree View in &Right Panel"
 }

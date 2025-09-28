@@ -156,6 +156,10 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
     // zakladni cast:
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_OPEN_BROWSER), 0,
                             MENUCMD_SHOWBROWSER, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_SHOW_LEFTPANEL), 0,
+                            MENUCMD_SHOWLEFTPANEL, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_SHOW_RIGHTPANEL), 0,
+                            MENUCMD_SHOWRIGHTPANEL, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 
     /*
   CGUIIconListAbstract *iconList = SalamanderGUI->CreateIconList();

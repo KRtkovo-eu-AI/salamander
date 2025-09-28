@@ -22,6 +22,8 @@ char* LoadStr(int resID);
 
 // prikazy pluginoveho menu
 #define MENUCMD_SHOWBROWSER 1
+#define MENUCMD_SHOWLEFTPANEL 2
+#define MENUCMD_SHOWRIGHTPANEL 3
 
 //
 // ****************************************************************************
@@ -35,7 +37,7 @@ public:
     virtual BOOL WINAPI ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
                                         int id, DWORD eventMask);
     virtual BOOL WINAPI HelpForMenuItem(HWND parent, int id);
-    virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander) {}
+    virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander);
 };
 
 class CPluginInterface : public CPluginInterfaceAbstract
