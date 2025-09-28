@@ -302,6 +302,13 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
             EnsurePanelAutomaticRefresh(currentPanel);
             RequestPanelRefresh(currentPanel, false);
         }
+
+        CFilesWindow* activePanel = GetActivePanel();
+        if (activePanel != NULL && activePanel != currentPanel)
+        {
+            EnsurePanelAutomaticRefresh(activePanel);
+            RequestPanelRefresh(activePanel, false);
+        }
     }
 
     if (destroyWindow)
