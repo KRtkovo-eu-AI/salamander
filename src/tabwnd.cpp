@@ -1562,6 +1562,21 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_LBUTTONDBLCLK:
+    {
+        POINTS pts = MAKEPOINTS(lParam);
+        POINT pt;
+        pt.x = pts.x;
+        pt.y = pts.y;
+        int hit = HitTest(pt);
+        if (hit > 0 && !IsNewTabButtonIndex(hit) && MainWindow != NULL)
+        {
+            MainWindow->CommandDuplicateTab(Side, hit);
+            return 0;
+        }
+        break;
+    }
+
     case WM_MOUSEMOVE:
         if (DragTracking)
         {
