@@ -10,7 +10,9 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using ColorfulCode;
@@ -867,11 +869,11 @@ internal static class ViewerHost
 
         public static string BuildDocument(string text, string extension, string? caption)
         {
-            string body = HighlightOrFallback(text, extension);
-            return WrapDocument(body, caption);
+            var content = HighlightOrFallback(text, extension);
+            return WrapDocument(content, caption);
         }
 
-        private static string HighlightOrFallback(string text, string extension)
+        private static RenderedContent HighlightOrFallback(string text, string extension)
         {
             try
             {
@@ -883,7 +885,8 @@ internal static class ViewerHost
                     var highlighted = syntax.HighlightToHtml(text, theme);
                     if (!string.IsNullOrEmpty(highlighted))
                     {
-                        return highlighted;
+                        var styled = ApplyThemeStyles(highlighted, theme, out var globalStyle);
+                        return new RenderedContent(styled, globalStyle);
                     }
                 }
             }
@@ -892,7 +895,7 @@ internal static class ViewerHost
                 // fall back to plain text
             }
 
-            return BuildPlainTextHtml(text);
+            return new RenderedContent(BuildPlainTextHtml(text), null);
         }
 
         private static Syntax? GetSyntax(string extension)
@@ -957,19 +960,24 @@ internal static class ViewerHost
             return null;
         }
 
-        private static string WrapDocument(string body, string? caption)
+        private static string WrapDocument(RenderedContent content, string? caption)
         {
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
-            builder.Append("<html><head><meta charset=\"utf-8\"/>");
+            builder.Append("<html><head><meta charset=\"utf-8\"/><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>");
             builder.Append("<title>");
             builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer" : caption));
             builder.Append("</title>");
-            builder.Append("<style>body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;}" +
+            builder.Append("<style>body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;color:#24292e;}" +
                            ".code-container{padding:16px;}" +
-                           "pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;}</style>");
+                           "pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;");
+            if (!string.IsNullOrEmpty(content.PreStyle))
+            {
+                builder.Append(content.PreStyle);
+            }
+            builder.Append("}</style>");
             builder.Append("</head><body><div class=\"code-container\">");
-            builder.Append(body);
+            builder.Append(content.Html);
             builder.Append("</div></body></html>");
             return builder.ToString();
         }
@@ -978,6 +986,390 @@ internal static class ViewerHost
         {
             var encoded = WebUtility.HtmlEncode(text ?? string.Empty);
             return $"<pre>{encoded}</pre>";
+        }
+        private static string ApplyThemeStyles(string html, Theme theme, out string? globalPreStyle)
+        {
+            var styleMap = BuildClassStyleMap(theme, out globalPreStyle);
+            if (styleMap.Count == 0)
+            {
+                return html;
+            }
+
+            return Regex.Replace(html, "(<[^>]+\\sclass=\")([^\"]+)(\"[^>]*>)", match =>
+            {
+                var before = match.Groups[1].Value;
+                var classValue = match.Groups[2].Value;
+                var after = match.Groups[3].Value;
+
+                var fullTag = match.Value;
+                if (fullTag.IndexOf("style=", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return fullTag;
+                }
+
+                var style = BuildStyleForClasses(classValue, styleMap);
+                if (string.IsNullOrEmpty(style))
+                {
+                    return fullTag;
+                }
+
+                return $"{before}{classValue}\" style=\"{style}{after}";
+            }, RegexOptions.IgnoreCase);
+        }
+
+        private static IReadOnlyDictionary<string, string> BuildClassStyleMap(Theme theme, out string? globalPreStyle)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string? global = null;
+
+            foreach (var rule in EnumerateThemeRules(theme))
+            {
+                var declaration = BuildCssDeclaration(rule.Settings);
+                if (string.IsNullOrEmpty(declaration))
+                {
+                    continue;
+                }
+
+                if (rule.ScopeNames.Count == 0)
+                {
+                    global ??= declaration;
+                    continue;
+                }
+
+                foreach (var scope in rule.ScopeNames)
+                {
+                    if (string.IsNullOrWhiteSpace(scope))
+                    {
+                        continue;
+                    }
+
+                    var trimmed = scope.Trim();
+                    AddStyleMapping(map, trimmed, declaration);
+
+                    foreach (var part in trimmed.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        AddStyleMapping(map, part, declaration);
+
+                        foreach (var token in part.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            AddStyleMapping(map, token, declaration);
+                        }
+                    }
+                }
+            }
+
+            globalPreStyle = global;
+            return map;
+        }
+
+        private static void AddStyleMapping(IDictionary<string, string> map, string key, string value)
+        {
+            if (string.IsNullOrEmpty(key) || map.ContainsKey(key))
+            {
+                return;
+            }
+
+            map[key] = value;
+        }
+
+        private static string BuildStyleForClasses(string classValue, IReadOnlyDictionary<string, string> styleMap)
+        {
+            if (string.IsNullOrWhiteSpace(classValue))
+            {
+                return string.Empty;
+            }
+
+            var builder = new StringBuilder();
+            var tokens = classValue.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var token in tokens)
+            {
+                AppendStyleForToken(builder, token, styleMap);
+            }
+
+            return builder.ToString();
+        }
+
+        private static void AppendStyleForToken(StringBuilder builder, string token, IReadOnlyDictionary<string, string> styleMap)
+        {
+            if (styleMap.TryGetValue(token, out var style))
+            {
+                builder.Append(style);
+            }
+
+            if (token.IndexOf('.', StringComparison.Ordinal) >= 0)
+            {
+                var parts = token.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var part in parts)
+                {
+                    if (styleMap.TryGetValue(part, out var partStyle))
+                    {
+                        builder.Append(partStyle);
+                    }
+                }
+            }
+        }
+
+        private static string BuildCssDeclaration(object settings)
+        {
+            var builder = new StringBuilder();
+
+            AppendColor(builder, settings, "Foreground", "color");
+            AppendColor(builder, settings, "Background", "background-color");
+
+            AppendFontStyle(builder, settings);
+            AppendFontWeight(builder, settings);
+
+            return builder.ToString();
+        }
+
+        private static void AppendColor(StringBuilder builder, object settings, string propertyName, string cssProperty)
+        {
+            var color = GetColor(settings, propertyName);
+            if (!string.IsNullOrEmpty(color))
+            {
+                builder.Append(cssProperty);
+                builder.Append(':');
+                builder.Append(color);
+                builder.Append(';');
+            }
+        }
+
+        private static void AppendFontStyle(StringBuilder builder, object settings)
+        {
+            var value = GetString(settings, "FontStyle");
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            if (value.IndexOf("italic", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                builder.Append("font-style:italic;");
+            }
+            if (value.IndexOf("bold", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                builder.Append("font-weight:bold;");
+            }
+            if (value.IndexOf("underline", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                builder.Append("text-decoration:underline;");
+            }
+        }
+
+        private static void AppendFontWeight(StringBuilder builder, object settings)
+        {
+            var weight = GetString(settings, "FontWeight");
+            if (string.IsNullOrEmpty(weight))
+            {
+                return;
+            }
+
+            if (int.TryParse(weight, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) && numeric > 0)
+            {
+                builder.Append("font-weight:");
+                builder.Append(numeric.ToString(CultureInfo.InvariantCulture));
+                builder.Append(';');
+                return;
+            }
+
+            builder.Append("font-weight:");
+            builder.Append(weight);
+            builder.Append(';');
+        }
+
+        private static string? GetColor(object settings, string propertyName)
+        {
+            object? value = GetMember(settings, propertyName);
+            if (value is null)
+            {
+                return null;
+            }
+
+            if (value is string str)
+            {
+                return NormalizeColor(str);
+            }
+
+            if (value is Color color)
+            {
+                return ColorTranslator.ToHtml(color);
+            }
+
+            var toString = value.ToString();
+            if (!string.IsNullOrEmpty(toString))
+            {
+                return NormalizeColor(toString);
+            }
+
+            return null;
+        }
+
+        private static string? NormalizeColor(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            value = value.Trim();
+            if (value.StartsWith("#", StringComparison.Ordinal))
+            {
+                return value;
+            }
+
+            if (uint.TryParse(value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var numeric))
+            {
+                if (value.Length <= 6)
+                {
+                    return "#" + value.PadLeft(6, '0');
+                }
+
+                return "#" + numeric.ToString("X8", CultureInfo.InvariantCulture);
+            }
+
+            return value;
+        }
+
+        private static string? GetString(object settings, string propertyName)
+        {
+            object? value = GetMember(settings, propertyName);
+            return value switch
+            {
+                null => null,
+                string str => string.IsNullOrWhiteSpace(str) ? null : str,
+                _ => value.ToString(),
+            };
+        }
+
+        private static object? GetMember(object instance, string memberName)
+        {
+            if (instance is null)
+            {
+                return null;
+            }
+
+            var type = instance.GetType();
+
+            var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property is not null)
+            {
+                return property.GetValue(instance);
+            }
+
+            var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field is not null)
+            {
+                return field.GetValue(instance);
+            }
+
+            return null;
+        }
+
+        private static IEnumerable<ThemeRule> EnumerateThemeRules(Theme theme)
+        {
+            var themeType = theme.GetType();
+            var candidates = new[] { "Settings", "Scopes", "Rules" };
+            foreach (var candidate in candidates)
+            {
+                if (TryGetEnumerable(theme, candidate, out var values))
+                {
+                    foreach (var setting in values)
+                    {
+                        if (setting is null)
+                        {
+                            continue;
+                        }
+
+                        var style = GetMember(setting, "Settings") ?? GetMember(setting, "Style") ?? GetMember(setting, "SettingsValue");
+                        if (style is null)
+                        {
+                            continue;
+                        }
+
+                        var scopes = ExtractScopes(setting);
+                        yield return new ThemeRule(scopes, style);
+                    }
+                    yield break;
+                }
+            }
+        }
+
+        private static bool TryGetEnumerable(object instance, string memberName, out IEnumerable values)
+        {
+            values = Array.Empty<object>();
+            var member = GetMember(instance, memberName);
+            if (member is IEnumerable enumerable)
+            {
+                values = enumerable;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static IReadOnlyCollection<string> ExtractScopes(object setting)
+        {
+            var scopes = new List<string>();
+
+            object? scopeValue = GetMember(setting, "Scope") ?? GetMember(setting, "Scopes");
+            if (scopeValue is string scopeString)
+            {
+                AddScopes(scopes, scopeString);
+            }
+            else if (scopeValue is IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    if (item is string s)
+                    {
+                        AddScopes(scopes, s);
+                    }
+                }
+            }
+
+            return scopes;
+        }
+
+        private static void AddScopes(ICollection<string> target, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            var parts = value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (!string.IsNullOrEmpty(trimmed))
+                {
+                    target.Add(trimmed);
+                }
+            }
+        }
+
+        private readonly struct RenderedContent
+        {
+            public RenderedContent(string html, string? preStyle)
+            {
+                Html = html;
+                PreStyle = preStyle;
+            }
+
+            public string Html { get; }
+            public string? PreStyle { get; }
+        }
+
+        private readonly struct ThemeRule
+        {
+            public ThemeRule(IReadOnlyCollection<string> scopeNames, object settings)
+            {
+                ScopeNames = scopeNames;
+                Settings = settings;
+            }
+
+            public IReadOnlyCollection<string> ScopeNames { get; }
+            public object Settings { get; }
         }
     }
 }
