@@ -107,4 +107,6 @@ csdemo          0x29f00000
 lang_csdemo     0x39f00000
 jsonviewer      0x2a000000
 lang_jsonviewer 0x3a000000
+textviewer      0x2a100000
+lang_textviewer 0x3a100000
 
