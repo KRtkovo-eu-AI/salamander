@@ -99,6 +99,17 @@
     <Import Project="..\..\shared\vcxproj\lang_debug.props">
     </Import>
   </ImportGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'!=''">
+    <CSDemoBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</CSDemoBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'==''">
+    <CSDemoBuildRoot>$(ProjectDir)..\..\..\..\build\salamander\</CSDemoBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CSDemoLangDir>$(CSDemoBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\csdemo\lang\</CSDemoLangDir>
+    <OutDir>$(CSDemoLangDir)</OutDir>
+    <IntDir>$(OutDir)Intermediate\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Label="UserMacros">
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

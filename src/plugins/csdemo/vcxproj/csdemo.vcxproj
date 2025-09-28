@@ -98,6 +98,17 @@
     <Import Project="csdemo.props">
     </Import>
   </ImportGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'!=''">
+    <CSDemoBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</CSDemoBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'==''">
+    <CSDemoBuildRoot>$(ProjectDir)..\..\..\..\build\salamander\</CSDemoBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CSDemoPluginDir>$(CSDemoBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\csdemo\</CSDemoPluginDir>
+    <OutDir>$(CSDemoPluginDir)</OutDir>
+    <IntDir>$(OutDir)Intermediate\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Label="UserMacros">
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -198,7 +209,7 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if exist "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" "$(TargetDir)CSDemo.Managed.dll"</Command>
+      <Command>if not exist "$(CSDemoPluginDir)" mkdir "$(CSDemoPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\CSDemo.Managed.dll" "$(CSDemoPluginDir)CSDemo.Managed.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
