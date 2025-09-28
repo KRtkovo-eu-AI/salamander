@@ -127,7 +127,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGeneral->SetHelpFileName("csdemo.chm");
 
     // nastavime zakladni informace o pluginu
-    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_MENU | FUNCTION_CONFIGURATION,
+    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_DYNAMICMENUEXT | FUNCTION_CONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION), PluginNameShort,
                                    NULL, NULL);
