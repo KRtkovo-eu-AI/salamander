@@ -790,6 +790,7 @@
 #define IDS_TBTT_CLOSETAB            10522   // Close Tab
 #define IDS_TBTT_NEXTTAB             10523   // Next Tab
 #define IDS_TBTT_PREVTAB             10524   // Previous Tab
+#define IDS_TBTT_DUPLICATETAB        10525   // Duplicate Tab
 
 // Error codes for variable strings
 #define IDS_EXP_UNMATCHEDPAR         10530   // unmatched '('
@@ -2077,6 +2078,7 @@
 #define IDS_MENU_LEFT_CLOSETAB       13221
 #define IDS_MENU_LEFT_NEXTTAB        13222
 #define IDS_MENU_LEFT_PREVTAB        13223
+#define IDS_MENU_LEFT_DUPLICATETAB   13246
 #define IDS_MENU_LEFT_SETTABCOLOR    13230
 #define IDS_MENU_LEFT_CLEARTABCOLOR  13231
 #define IDS_MENU_LEFT_SETTABPREFIX   13234
@@ -2164,6 +2166,7 @@
 #define IDS_MENU_CMD_CLOSETAB        13211
 #define IDS_MENU_CMD_NEXTTAB         13212
 #define IDS_MENU_CMD_PREVTAB         13213
+#define IDS_MENU_CMD_DUPLICATETAB    13214
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FREESPACE
 #define IDS_MENU_CMD_USERMENU        13107
 #define IDS_MENU_CMD_FLD             13109
@@ -2225,6 +2228,7 @@
 #define IDS_MENU_RIGHT_CLOSETAB      13225
 #define IDS_MENU_RIGHT_NEXTTAB       13226
 #define IDS_MENU_RIGHT_PREVTAB       13227
+#define IDS_MENU_RIGHT_DUPLICATETAB  13247
 #define IDS_MENU_RIGHT_SETTABCOLOR   13232
 #define IDS_MENU_RIGHT_CLEARTABCOLOR 13233
 #define IDS_MENU_RIGHT_SETTABPREFIX  13236

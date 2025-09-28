@@ -502,18 +502,14 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     if (!Configuration.UsePanelTabs)
         return;
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
-    HMENU menu = CreatePopupMenu();
-    if (menu == NULL)
-        return;
-
     UINT newCmd, closeCmd, closeAllCmd, closeExceptThisCmd, nextCmd, prevCmd;
     UINT colorCmd, clearCmd;
     UINT prefixCmd, clearPrefixCmd;
-    UINT duplicateCmd, moveCmd;
+    UINT duplicateSameCmd, duplicateOtherCmd, moveCmd;
     UINT newText, closeText, closeAllText, closeExceptThisText, nextText, prevText;
     UINT colorText, clearText;
     UINT prefixText, clearPrefixText;
-    UINT duplicateText, moveText;
+    UINT duplicateSameText, duplicateOtherText, moveText;
     if (side == cpsLeft)
     {
         newCmd = CM_LEFT_NEWTAB;
@@ -526,7 +522,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         clearCmd = CM_LEFT_CLEARTABCOLOR;
         prefixCmd = CM_LEFT_SETTABPREFIX;
         clearPrefixCmd = CM_LEFT_CLEARTABPREFIX;
-        duplicateCmd = CM_LEFT_DUPLICATETABTORIGHT;
+        duplicateSameCmd = CM_LEFT_DUPLICATETAB;
+        duplicateOtherCmd = CM_LEFT_DUPLICATETABTORIGHT;
         moveCmd = CM_LEFT_MOVETABTORIGHT;
         newText = IDS_MENU_LEFT_NEWTAB;
         closeText = IDS_MENU_LEFT_CLOSETAB;
@@ -538,7 +535,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         clearText = IDS_MENU_LEFT_CLEARTABCOLOR;
         prefixText = IDS_MENU_LEFT_SETTABPREFIX;
         clearPrefixText = IDS_MENU_LEFT_CLEARTABPREFIX;
-        duplicateText = IDS_MENU_LEFT_DUPLICATETABRIGHT;
+        duplicateSameText = IDS_MENU_LEFT_DUPLICATETAB;
+        duplicateOtherText = IDS_MENU_LEFT_DUPLICATETABRIGHT;
         moveText = IDS_MENU_LEFT_MOVETABTORIGHT;
     }
     else
@@ -553,7 +551,8 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         clearCmd = CM_RIGHT_CLEARTABCOLOR;
         prefixCmd = CM_RIGHT_SETTABPREFIX;
         clearPrefixCmd = CM_RIGHT_CLEARTABPREFIX;
-        duplicateCmd = CM_RIGHT_DUPLICATETABTOLEFT;
+        duplicateSameCmd = CM_RIGHT_DUPLICATETAB;
+        duplicateOtherCmd = CM_RIGHT_DUPLICATETABTOLEFT;
         moveCmd = CM_RIGHT_MOVETABTOLEFT;
         newText = IDS_MENU_RIGHT_NEWTAB;
         closeText = IDS_MENU_RIGHT_CLOSETAB;
@@ -565,14 +564,44 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         clearText = IDS_MENU_RIGHT_CLEARTABCOLOR;
         prefixText = IDS_MENU_RIGHT_SETTABPREFIX;
         clearPrefixText = IDS_MENU_RIGHT_CLEARTABPREFIX;
-        duplicateText = IDS_MENU_RIGHT_DUPLICATETABTOLEFT;
+        duplicateSameText = IDS_MENU_RIGHT_DUPLICATETAB;
+        duplicateOtherText = IDS_MENU_RIGHT_DUPLICATETABTOLEFT;
         moveText = IDS_MENU_RIGHT_MOVETABTOLEFT;
     }
 
-    AppendMenu(menu, MF_STRING, newCmd, LoadStr(newText));
+    CMenuPopup popup;
+    popup.SetStyle(MENU_POPUP_UPDATESTATES);
+    popup.SetImageList(HGrayToolBarImageList);
+    popup.SetHotImageList(HHotToolBarImageList);
+
+    auto appendMenuItem = [&](UINT id, UINT textResID, int imageIndex, BOOL enabled) {
+        MENU_ITEM_INFO mii;
+        ZeroMemory(&mii, sizeof(mii));
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE;
+        if (imageIndex >= 0)
+        {
+            mii.Mask |= MENU_MASK_IMAGEINDEX;
+            mii.ImageIndex = imageIndex;
+        }
+        mii.Type = MENU_TYPE_STRING;
+        mii.ID = id;
+        mii.String = const_cast<char*>(LoadStr(textResID));
+        mii.State = enabled ? 0 : MENU_STATE_GRAYED;
+        popup.InsertItem(-1, TRUE, &mii);
+    };
+
+    auto appendSeparator = [&]() {
+        MENU_ITEM_INFO mii;
+        ZeroMemory(&mii, sizeof(mii));
+        mii.Mask = MENU_MASK_TYPE;
+        mii.Type = MENU_TYPE_SEPARATOR;
+        popup.InsertItem(-1, TRUE, &mii);
+    };
+
+    appendMenuItem(newCmd, newText, IDX_TB_TABSNEW, TRUE);
 
     BOOL canClose = index > 0;
-    AppendMenu(menu, MF_STRING | (canClose ? MF_ENABLED : MF_GRAYED), closeCmd, LoadStr(closeText));
+    appendMenuItem(closeCmd, closeText, IDX_TB_TABSCLOSE, canClose);
 
     int tabCount = GetPanelTabCount(side);
     BOOL canCloseAll = tabCount > 1;
@@ -584,36 +613,39 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
         else if (tabCount > 1 && index == 0)
             canCloseExceptThis = TRUE;
     }
-    AppendMenu(menu, MF_STRING | (canCloseExceptThis ? MF_ENABLED : MF_GRAYED), closeExceptThisCmd, LoadStr(closeExceptThisText));
-    AppendMenu(menu, MF_STRING | (canCloseAll ? MF_ENABLED : MF_GRAYED), closeAllCmd, LoadStr(closeAllText));
+    appendMenuItem(closeExceptThisCmd, closeExceptThisText, -1, canCloseExceptThis);
+    appendMenuItem(closeAllCmd, closeAllText, -1, canCloseAll);
 
-    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    appendSeparator();
 
     BOOL canSetColor = index >= 0 && index < tabs.Count;
     CFilesWindow* targetPanel = (index >= 0 && index < tabs.Count) ? tabs[index] : NULL;
     BOOL hasCustomColor = targetPanel != NULL && targetPanel->HasCustomTabColor();
     BOOL canSetPrefix = targetPanel != NULL;
     BOOL hasCustomPrefix = targetPanel != NULL && targetPanel->HasCustomTabPrefix();
-    AppendMenu(menu, MF_STRING | (canSetColor ? MF_ENABLED : MF_GRAYED), colorCmd, LoadStr(colorText));
-    AppendMenu(menu, MF_STRING | (hasCustomColor ? MF_ENABLED : MF_GRAYED), clearCmd, LoadStr(clearText));
+    appendMenuItem(colorCmd, colorText, -1, canSetColor);
+    appendMenuItem(clearCmd, clearText, -1, hasCustomColor);
 
-    AppendMenu(menu, MF_STRING | (canSetPrefix ? MF_ENABLED : MF_GRAYED), prefixCmd, LoadStr(prefixText));
-    AppendMenu(menu, MF_STRING | (hasCustomPrefix ? MF_ENABLED : MF_GRAYED), clearPrefixCmd, LoadStr(clearPrefixText));
+    appendMenuItem(prefixCmd, prefixText, -1, canSetPrefix);
+    appendMenuItem(clearPrefixCmd, clearPrefixText, -1, hasCustomPrefix);
 
-    BOOL canDuplicate = index >= 0 && index < tabs.Count;
+    appendSeparator();
+
+    BOOL canDuplicateSame = index >= 0 && index < tabs.Count;
+    BOOL canDuplicateOther = canDuplicateSame;
     BOOL canMove = index > 0 && index < tabs.Count;
-    AppendMenu(menu, MF_STRING | (canDuplicate ? MF_ENABLED : MF_GRAYED), duplicateCmd, LoadStr(duplicateText));
-    AppendMenu(menu, MF_STRING | (canMove ? MF_ENABLED : MF_GRAYED), moveCmd, LoadStr(moveText));
+    appendMenuItem(duplicateSameCmd, duplicateSameText, IDX_TB_TABSDUPLICATE, canDuplicateSame);
+    appendMenuItem(duplicateOtherCmd, duplicateOtherText, IDX_TB_TABSDUPLICATE, canDuplicateOther);
+    appendMenuItem(moveCmd, moveText, -1, canMove);
 
-    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    appendSeparator();
 
     BOOL canNavigate = GetPanelTabCount(side) > 1;
-    AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), nextCmd, LoadStr(nextText));
-    AppendMenu(menu, MF_STRING | (canNavigate ? MF_ENABLED : MF_GRAYED), prevCmd, LoadStr(prevText));
+    appendMenuItem(nextCmd, nextText, IDX_TB_TABSNEXT, canNavigate);
+    appendMenuItem(prevCmd, prevText, IDX_TB_TABSPREV, canNavigate);
 
-    UINT command = TrackPopupMenuEx(menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
-                                   screenPt.x, screenPt.y, HWindow, NULL);
-    DestroyMenu(menu);
+    DWORD command = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON | MENU_TRACK_HIDEACCEL,
+                                screenPt.x, screenPt.y, HWindow, NULL);
 
     if (command == 0)
         return;
@@ -712,6 +744,19 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
             {
                 SwitchPanelTab(panel);
                 CommandClearPanelTabPrefix(panel);
+            }
+        }
+        break;
+
+    case CM_LEFT_DUPLICATETAB:
+    case CM_RIGHT_DUPLICATETAB:
+        if (index >= 0 && index < tabs.Count)
+        {
+            CFilesWindow* panel = tabs[index];
+            if (panel != NULL)
+            {
+                SwitchPanelTab(panel);
+                CommandDuplicateTab(side, index);
             }
         }
         break;
@@ -1292,54 +1337,41 @@ void CMainWindow::CommandClearPanelTabPrefix(CFilesWindow* panel)
     UpdatePanelTabTitle(panel);
 }
 
-void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
+CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex)
 {
     if (!Configuration.UsePanelTabs)
-        return;
-
-    if (index < 0)
-    {
-        CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
-        index = GetPanelTabIndex(side, current);
-    }
-
-    TIndirectArray<CFilesWindow>& sourceTabs = GetPanelTabs(side);
-    if (index < 0 || index >= sourceTabs.Count)
-        return;
-
-    CFilesWindow* sourcePanel = sourceTabs[index];
+        return NULL;
     if (sourcePanel == NULL)
-        return;
+        return NULL;
 
-    CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
     TIndirectArray<CFilesWindow>& targetTabs = GetPanelTabs(targetSide);
-    int insertIndex = targetTabs.Count;
+    if (insertIndex < 0 || insertIndex > targetTabs.Count)
+        insertIndex = targetTabs.Count;
 
     CFilesWindow* previousTarget = (targetSide == cpsLeft) ? LeftPanel : RightPanel;
 
     CFilesWindow* newPanel = AddPanelTab(targetSide, insertIndex);
     if (newPanel == NULL)
-        return;
+        return NULL;
 
     DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     if (!newPanel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, newPanel))
     {
         TRACE_E("Unable to create panel window while duplicating tab");
         int idx = GetPanelTabIndex(targetSide, newPanel);
-        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(targetSide);
         if (idx >= 0)
         {
             CTabWindow* tabWnd = GetPanelTabWindow(targetSide);
             if (tabWnd != NULL && tabWnd->HWindow != NULL)
                 tabWnd->RemoveTab(idx);
-            tabs.Delete(idx);
+            targetTabs.Delete(idx);
         }
         delete newPanel;
         if (previousTarget != NULL)
             SwitchPanelTab(previousTarget);
         else
             UpdatePanelTabVisibility(targetSide);
-        return;
+        return NULL;
     }
 
     int viewTemplate = sourcePanel->GetViewTemplateIndex();
@@ -1412,6 +1444,53 @@ void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
     else
         UpdateDirectoryLineHistoryState(newPanel);
     SwitchPanelTab(newPanel);
+
+    return newPanel;
+}
+
+void CMainWindow::CommandDuplicateTab(CPanelSide side, int index)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    if (index < 0)
+    {
+        CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+        index = GetPanelTabIndex(side, current);
+    }
+
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    if (index < 0 || index >= tabs.Count)
+        return;
+
+    CFilesWindow* sourcePanel = tabs[index];
+    if (sourcePanel == NULL)
+        return;
+
+    CreateDuplicatePanelTab(side, sourcePanel, index + 1);
+}
+
+void CMainWindow::CommandDuplicateTabToOtherSide(CPanelSide side, int index)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    if (index < 0)
+    {
+        CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+        index = GetPanelTabIndex(side, current);
+    }
+
+    TIndirectArray<CFilesWindow>& sourceTabs = GetPanelTabs(side);
+    if (index < 0 || index >= sourceTabs.Count)
+        return;
+
+    CFilesWindow* sourcePanel = sourceTabs[index];
+    if (sourcePanel == NULL)
+        return;
+
+    CPanelSide targetSide = (side == cpsLeft) ? cpsRight : cpsLeft;
+    CreateDuplicatePanelTab(targetSide, sourcePanel, -1);
 }
 
 int CMainWindow::CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex)
@@ -4734,11 +4813,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
-        case CM_PREVTAB:
-        {
-            CommandPrevTab(activePanel->GetPanelSide());
-            return 0;
-        }
+    case CM_PREVTAB:
+    {
+        CommandPrevTab(activePanel->GetPanelSide());
+        return 0;
+    }
+
+    case CM_DUPLICATETAB:
+    {
+        CommandDuplicateTab(activePanel->GetPanelSide());
+        return 0;
+    }
 
         case CM_LEFT_NEWTAB:
         {
@@ -4770,11 +4855,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
-        case CM_LEFT_PREVTAB:
-        {
-            CommandPrevTab(cpsLeft);
-            return 0;
-        }
+    case CM_LEFT_PREVTAB:
+    {
+        CommandPrevTab(cpsLeft);
+        return 0;
+    }
+
+    case CM_LEFT_DUPLICATETAB:
+    {
+        CommandDuplicateTab(cpsLeft);
+        return 0;
+    }
 
         case CM_LEFT_DUPLICATETABTORIGHT:
         {
@@ -4818,11 +4909,17 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return 0;
         }
 
-        case CM_RIGHT_PREVTAB:
-        {
-            CommandPrevTab(cpsRight);
-            return 0;
-        }
+    case CM_RIGHT_PREVTAB:
+    {
+        CommandPrevTab(cpsRight);
+        return 0;
+    }
+
+    case CM_RIGHT_DUPLICATETAB:
+    {
+        CommandDuplicateTab(cpsRight);
+        return 0;
+    }
 
         case CM_RIGHT_DUPLICATETABTOLEFT:
         {

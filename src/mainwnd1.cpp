@@ -2755,14 +2755,17 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL closeTab = FALSE;
     BOOL nextTab = FALSE;
     BOOL prevTab = FALSE;
+    BOOL duplicateTab = FALSE;
     BOOL leftNewTab = FALSE;
     BOOL leftCloseTab = FALSE;
     BOOL leftNextTab = FALSE;
     BOOL leftPrevTab = FALSE;
+    BOOL leftDuplicateTabSame = FALSE;
     BOOL rightNewTab = FALSE;
     BOOL rightCloseTab = FALSE;
     BOOL rightNextTab = FALSE;
     BOOL rightPrevTab = FALSE;
+    BOOL rightDuplicateTabSame = FALSE;
     BOOL leftCloseAllButDefault = FALSE;
     BOOL leftCloseAllExceptThisAndDefault = FALSE;
     BOOL rightCloseAllButDefault = FALSE;
@@ -2808,6 +2811,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         closeTab = (activeIndex > 0);
         nextTab = (activeCount > 1);
         prevTab = (activeCount > 1);
+        duplicateTab = (activeIndex >= 0);
 
         int leftCount = obj->GetPanelTabCount(cpsLeft);
         leftNewTab = (leftCount > 0);
@@ -2815,6 +2819,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         leftCloseTab = (leftIndex > 0);
         leftNextTab = (leftCount > 1);
         leftPrevTab = (leftCount > 1);
+        leftDuplicateTabSame = (leftIndex >= 0);
         leftCloseAllButDefault = (leftCount > 1);
         if (leftCount > 1)
         {
@@ -2832,6 +2837,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         rightCloseTab = (rightIndex > 0);
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
+        rightDuplicateTabSame = (rightIndex >= 0);
         rightCloseAllButDefault = (rightCount > 1);
         if (rightCount > 1)
         {
@@ -2849,16 +2855,19 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             closeTab = FALSE;
             nextTab = FALSE;
             prevTab = FALSE;
+            duplicateTab = FALSE;
             leftNewTab = FALSE;
             leftCloseTab = FALSE;
             leftNextTab = FALSE;
             leftPrevTab = FALSE;
+            leftDuplicateTabSame = FALSE;
             leftCloseAllButDefault = FALSE;
             leftCloseAllExceptThisAndDefault = FALSE;
             rightNewTab = FALSE;
             rightCloseTab = FALSE;
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
+            rightDuplicateTabSame = FALSE;
             rightCloseAllButDefault = FALSE;
             rightCloseAllExceptThisAndDefault = FALSE;
             leftDuplicateTab = FALSE;
@@ -3054,10 +3063,12 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerCloseTab, closeTab);
     obj->CheckAndSet(&EnablerNextTab, nextTab);
     obj->CheckAndSet(&EnablerPrevTab, prevTab);
+    obj->CheckAndSet(&EnablerDuplicateTab, duplicateTab);
     obj->CheckAndSet(&EnablerLeftNewTab, leftNewTab);
     obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
     obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
     obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
+    obj->CheckAndSet(&EnablerLeftDuplicateTab, leftDuplicateTabSame);
     obj->CheckAndSet(&EnablerLeftCloseAllButDefault, leftCloseAllButDefault);
     obj->CheckAndSet(&EnablerLeftCloseAllExceptThisAndDefault, leftCloseAllExceptThisAndDefault);
     obj->CheckAndSet(&EnablerLeftDuplicateTabToRight, leftDuplicateTab);
@@ -3066,6 +3077,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
+    obj->CheckAndSet(&EnablerRightDuplicateTab, rightDuplicateTabSame);
     obj->CheckAndSet(&EnablerRightCloseAllButDefault, rightCloseAllButDefault);
     obj->CheckAndSet(&EnablerRightCloseAllExceptThisAndDefault, rightCloseAllExceptThisAndDefault);
     obj->CheckAndSet(&EnablerRightDuplicateTabToLeft, rightDuplicateTab);
