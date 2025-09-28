@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32.SafeHandles;
-using EPocalipse.Json.Viewer;
+using JsonViewerControl = EPocalipse.Json.Viewer.JsonViewer;
 
 namespace OpenSalamander.JsonViewer;
 
@@ -263,7 +263,7 @@ internal static class ViewerHost
     private sealed class JsonViewerForm : Form
     {
         private readonly ViewerRequest _request;
-        private readonly JsonViewer _viewer;
+        private readonly JsonViewerControl _viewer;
         private bool _jsonLoaded;
 
         public JsonViewerForm(ViewerRequest request)
@@ -276,7 +276,7 @@ internal static class ViewerHost
             MinimizeBox = true;
             MaximizeBox = true;
 
-            _viewer = new JsonViewer
+            _viewer = new JsonViewerControl
             {
                 Dock = DockStyle.Fill
             };

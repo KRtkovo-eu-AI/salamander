@@ -4,6 +4,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>JsonViewer.Managed</AssemblyName>
     <RootNamespace>EPocalipse.Json.Viewer</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Nullable>enable</Nullable>
     <LangVersion>10.0</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -101,6 +102,7 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Reference Include="System.Configuration" />
   </ItemGroup>
 
   <Target Name="EnsureRestoreBeforeBuild"
