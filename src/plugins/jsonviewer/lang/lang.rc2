@@ -1,0 +1,30 @@
+//****************************************************************************
+//
+// Copyright (c) 2023-2024 Open Salamander Authors
+//
+// This is a part of the Open Salamander SDK library.
+//
+//****************************************************************************
+
+//
+// lang.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// Add manually edited resources here...
+
+#include "..\versinfo.rh2"
+#include "versinfo.rc2"
+
+STRINGTABLE
+{
+ IDS_PLUGINNAME,                 "JSON Viewer"
+ IDS_ABOUT,                      "About Plugin"
+ IDS_PLUGIN_DESCRIPTION,         "Internal viewer that displays JSON documents using a managed WinForms UI."
+ IDS_PLUGIN_HOME,                "https://github.com/open-salamander"
+ IDS_VIEWER_CREATE_EVENT_FAILED, "Unable to prepare synchronization event required by the viewer."
+}
