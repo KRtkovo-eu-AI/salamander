@@ -13,7 +13,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <ProjectGuid>{FAA575FC-812E-4C0F-A39A-543115FDC31F}</ProjectGuid>
-    <ApplicationIcon>..\..\..\..\jsonViewer\JsonView\curly_brackets_w39_icon.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\..\..\3rd-party\jsonViewer\JsonView\curly_brackets_w39_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,59 +21,59 @@
     <Compile Include="ViewerHost.cs" />
     <Compile Include="WindowInterop.cs" />
 
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\GridVisualizer.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\GridVisualizer.cs">
       <Link>JsonViewer\GridVisualizer.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\GridVisualizer.Designer.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\GridVisualizer.Designer.cs">
       <Link>JsonViewer\GridVisualizer.Designer.cs</Link>
       <DependentUpon>GridVisualizer.cs</DependentUpon>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\InternalPlugins.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\InternalPlugins.cs">
       <Link>JsonViewer\InternalPlugins.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\IJsonViewerPlugin.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\IJsonViewerPlugin.cs">
       <Link>JsonViewer\IJsonViewerPlugin.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonFields.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonFields.cs">
       <Link>JsonViewer\JsonFields.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonObject.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonObject.cs">
       <Link>JsonViewer\JsonObject.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonObjectTree.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonObjectTree.cs">
       <Link>JsonViewer\JsonObjectTree.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonObjectTypeConverter.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonObjectTypeConverter.cs">
       <Link>JsonViewer\JsonObjectTypeConverter.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonObjectVisualizer.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonObjectVisualizer.cs">
       <Link>JsonViewer\JsonObjectVisualizer.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonObjectVisualizer.Designer.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonObjectVisualizer.Designer.cs">
       <Link>JsonViewer\JsonObjectVisualizer.Designer.cs</Link>
       <DependentUpon>JsonObjectVisualizer.cs</DependentUpon>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonTreeObjectTypeDescriptor.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonTreeObjectTypeDescriptor.cs">
       <Link>JsonViewer\JsonTreeObjectTypeDescriptor.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonViewer.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonViewer.cs">
       <Link>JsonViewer\JsonViewer.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\JsonViewer.Designer.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonViewer.Designer.cs">
       <Link>JsonViewer\JsonViewer.Designer.cs</Link>
       <DependentUpon>JsonViewer.cs</DependentUpon>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\PluginsManager.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\PluginsManager.cs">
       <Link>JsonViewer\PluginsManager.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\UnbufferedStringReader.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\UnbufferedStringReader.cs">
       <Link>JsonViewer\UnbufferedStringReader.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\ViewerConfiguration.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\ViewerConfiguration.cs">
       <Link>JsonViewer\ViewerConfiguration.cs</Link>
     </Compile>
 
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\Properties\AssemblyInfo.cs">
+    <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\Properties\AssemblyInfo.cs">
       <Link>JsonViewer\Properties\AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Properties\Resources.Designer.cs">
@@ -84,15 +84,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\..\..\jsonViewer\JsonViewer\GridVisualizer.resx">
+    <EmbeddedResource Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\GridVisualizer.resx">
       <Link>JsonViewer\GridVisualizer.resx</Link>
       <DependentUpon>GridVisualizer.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\..\..\..\jsonViewer\JsonViewer\JsonObjectVisualizer.resx">
+    <EmbeddedResource Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonObjectVisualizer.resx">
       <Link>JsonViewer\JsonObjectVisualizer.resx</Link>
       <DependentUpon>JsonObjectVisualizer.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\..\..\..\jsonViewer\JsonViewer\JsonViewer.resx">
+    <EmbeddedResource Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\JsonViewer.resx">
       <Link>JsonViewer\JsonViewer.resx</Link>
       <DependentUpon>JsonViewer.cs</DependentUpon>
     </EmbeddedResource>

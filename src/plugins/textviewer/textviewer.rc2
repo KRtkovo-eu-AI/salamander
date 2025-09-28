@@ -19,4 +19,4 @@
 #include "versinfo.rh2"
 #include "versinfo.rc2"
 
-IDI_TEXTVIEWER ICON "..\\..\\..\\jsonViewer\\JsonView\\curly_brackets_w39_icon.ico"
+IDI_TEXTVIEWER ICON "..\\..\\..\\3rd-party\\jsonViewer\\JsonView\\curly_brackets_w39_icon.ico"

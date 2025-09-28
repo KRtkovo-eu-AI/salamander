@@ -862,8 +862,8 @@ internal static class ViewerHost
     private static class ColorfulCodeRenderer
     {
         private const string DefaultThemeName = "InspiredGitHub";
-        private static readonly Lazy<SyntaxSet> s_syntaxSet = new(SyntaxSet.LoadDefaults);
-        private static readonly Lazy<ThemeSet> s_themeSet = new(ThemeSet.LoadDefaults);
+        private static readonly Lazy<SyntaxSet> s_syntaxSet = new(() => SyntaxSet.LoadDefaults());
+        private static readonly Lazy<ThemeSet> s_themeSet = new(() => ThemeSet.LoadDefaults());
 
         public static string BuildDocument(string text, string extension, string? caption)
         {
