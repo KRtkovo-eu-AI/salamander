@@ -363,11 +363,21 @@ internal static class ViewerHost
     {
         private readonly Control _dispatcher;
         private readonly JsonViewerForm _form;
+        private readonly Queue<ViewerSession> _pendingSessions = new();
+        private readonly object _pendingLock = new();
+        private volatile bool _dispatcherReady;
 
         public JsonViewerApplicationContext()
         {
             _dispatcher = new Control();
+            _dispatcher.HandleCreated += OnDispatcherHandleCreated;
+            _dispatcher.HandleDestroyed += OnDispatcherHandleDestroyed;
             _dispatcher.CreateControl();
+
+            if (_dispatcher.IsHandleCreated)
+            {
+                OnDispatcherHandleCreated(_dispatcher, EventArgs.Empty);
+            }
 
             _form = new JsonViewerForm();
             _form.FormClosed += OnFormClosed;
@@ -376,13 +386,29 @@ internal static class ViewerHost
 
         public bool TryShow(ViewerSession session)
         {
-            if (!_dispatcher.IsHandleCreated)
+            if (_dispatcher.IsDisposed)
             {
                 return false;
             }
 
-            _dispatcher.BeginInvoke(new MethodInvoker(() => _form.ShowSession(session)));
-            return true;
+            if (!_dispatcherReady)
+            {
+                return EnqueuePending(session);
+            }
+
+            try
+            {
+                _dispatcher.BeginInvoke(new MethodInvoker(() => _form.ShowSession(session)));
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return EnqueuePending(session);
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
         }
 
         public bool TryClose(TimeSpan timeout)
@@ -420,6 +446,79 @@ internal static class ViewerHost
             }
 
             return completion.Wait(timeout);
+        }
+
+        private bool EnqueuePending(ViewerSession session)
+        {
+            if (_dispatcher.IsDisposed)
+            {
+                return false;
+            }
+
+            bool shouldFlush;
+            lock (_pendingLock)
+            {
+                if (_dispatcher.IsDisposed)
+                {
+                    return false;
+                }
+
+                _pendingSessions.Enqueue(session);
+                shouldFlush = _dispatcherReady;
+            }
+
+            if (shouldFlush)
+            {
+                try
+                {
+                    _dispatcher.BeginInvoke(new MethodInvoker(FlushPendingSessions));
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void FlushPendingSessions()
+        {
+            while (true)
+            {
+                ViewerSession? next;
+                lock (_pendingLock)
+                {
+                    if (_pendingSessions.Count == 0)
+                    {
+                        return;
+                    }
+
+                    next = _pendingSessions.Dequeue();
+                }
+
+                if (next is null)
+                {
+                    continue;
+                }
+
+                _form.ShowSession(next);
+            }
+        }
+
+        private void OnDispatcherHandleCreated(object? sender, EventArgs e)
+        {
+            _dispatcherReady = true;
+            FlushPendingSessions();
+        }
+
+        private void OnDispatcherHandleDestroyed(object? sender, EventArgs e)
+        {
+            _dispatcherReady = false;
         }
 
         private void OnFormClosed(object? sender, FormClosedEventArgs e)
