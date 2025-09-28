@@ -648,10 +648,15 @@ internal static class ViewerHost
 
             if (!Visible)
             {
+                ShowInTaskbar = true;
                 Show();
             }
             else
             {
+                if (!ShowInTaskbar)
+                {
+                    ShowInTaskbar = true;
+                }
                 Activate();
             }
 
@@ -796,6 +801,7 @@ internal static class ViewerHost
             {
                 if (Visible)
                 {
+                    ShowInTaskbar = false;
                     Hide();
                 }
                 return;
@@ -803,6 +809,7 @@ internal static class ViewerHost
 
             if (Visible)
             {
+                ShowInTaskbar = false;
                 Hide();
             }
 
