@@ -301,6 +301,9 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
     HWND panelWindow = panel->HWindow;
     bool destroyWindow = panelWindow != NULL;
 
+    if (storeForReopen)
+        RememberClosedTab(side, panel, originalIndex);
+
     if (tabs.Count == 0)
     {
         if (side == cpsLeft)
@@ -309,10 +312,8 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
             RightPanel = NULL;
         if (destroyWindow)
             DestroyWindow(panelWindow);
-        panel->HWindow = NULL;
-        if (storeForReopen)
-            RememberClosedTab(side, panel, originalIndex);
-        delete panel;
+        else
+            delete panel;
         if (Created)
             RefreshCommandStates();
         return;
@@ -338,11 +339,8 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
 
     if (destroyWindow)
         DestroyWindow(panelWindow);
-    panel->HWindow = NULL;
-
-    if (storeForReopen)
-        RememberClosedTab(side, panel, originalIndex);
-    delete panel;
+    else
+        delete panel;
 
     if (Created)
     {
