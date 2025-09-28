@@ -101,9 +101,25 @@ void UpdateTabbedPanelMenuItems(BOOL tabsEnabled)
     submenuUpdate.Mask = MENU_MASK_SKILLLEVEL;
     submenuUpdate.SkillLevel = skillLevel;
     if (leftMenu != NULL)
+    {
         leftMenu->SetItemInfo(CML_LEFT_TABS, FALSE, &submenuUpdate);
+        int tabsIndex = leftMenu->FindItemPosition(CML_LEFT_TABS);
+        if (tabsIndex != -1)
+        {
+            UpdateSeparatorSkillLevel(leftMenu, tabsIndex - 1, skillLevel);
+            UpdateSeparatorSkillLevel(leftMenu, tabsIndex + 1, skillLevel);
+        }
+    }
     if (rightMenu != NULL)
+    {
         rightMenu->SetItemInfo(CML_RIGHT_TABS, FALSE, &submenuUpdate);
+        int tabsIndex = rightMenu->FindItemPosition(CML_RIGHT_TABS);
+        if (tabsIndex != -1)
+        {
+            UpdateSeparatorSkillLevel(rightMenu, tabsIndex - 1, skillLevel);
+            UpdateSeparatorSkillLevel(rightMenu, tabsIndex + 1, skillLevel);
+        }
+    }
 
     if (ToolBarLockImageIndex >= 0)
     {
