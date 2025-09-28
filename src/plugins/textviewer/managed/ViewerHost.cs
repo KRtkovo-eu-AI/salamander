@@ -407,6 +407,7 @@ internal static class ViewerHost
                     }
 
                     completion.Set();
+                    ExitThread();
                 }));
             }
             catch (ObjectDisposedException)
