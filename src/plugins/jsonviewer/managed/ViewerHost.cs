@@ -152,6 +152,12 @@ internal static class ViewerHost
             catch (InvalidOperationException)
             {
             }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
             finally
             {
                 handle.Dispose();
