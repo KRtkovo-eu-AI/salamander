@@ -11,6 +11,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32.SafeHandles;
 using JsonViewerControl = EPocalipse.Json.Viewer.JsonViewer;
+using ViewerTabs = EPocalipse.Json.Viewer.Tabs;
 
 namespace OpenSalamander.JsonViewer;
 
@@ -340,7 +341,7 @@ internal static class ViewerHost
             try
             {
                 string json = File.ReadAllText(_request.Payload.FilePath);
-                _viewer.ShowTab(Tabs.Viewer);
+                _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
                 _jsonLoaded = true;
             }
