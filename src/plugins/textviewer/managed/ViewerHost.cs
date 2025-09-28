@@ -4,15 +4,16 @@
 #nullable enable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Reflection;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using ColorfulCode;
 
 namespace OpenSalamander.TextViewer;
 
@@ -466,7 +467,7 @@ internal static class ViewerHost
     private sealed class TextViewerForm : Form
     {
         private ViewerSession? _session;
-        private Control? _editor;
+        private WebBrowser? _browser;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
@@ -496,7 +497,7 @@ internal static class ViewerHost
             Text = BuildCaption(session.Payload.Caption);
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
-            EnsureEditor();
+            EnsureBrowser();
 
             try
             {
@@ -536,38 +537,40 @@ internal static class ViewerHost
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        private void EnsureEditor()
+        private void EnsureBrowser()
         {
-            if (_editor is not null)
+            if (_browser is not null)
             {
                 return;
             }
 
-            var editor = ColorfulCodeAdapter.CreateEditor();
-            editor.Dock = DockStyle.Fill;
-            Controls.Add(editor);
-            _editor = editor;
+            var viewer = new WebBrowser
+            {
+                Dock = DockStyle.Fill,
+                AllowWebBrowserDrop = false,
+                AllowNavigation = false,
+                IsWebBrowserContextMenuEnabled = true,
+                WebBrowserShortcutsEnabled = true,
+                ScriptErrorsSuppressed = true,
+            };
+
+            Controls.Add(viewer);
+            _browser = viewer;
         }
 
         private void LoadFile(string path)
         {
-            if (_editor is null)
+            if (_browser is null)
             {
                 return;
             }
 
             string text = File.ReadAllText(path);
-            string language = LanguageGuesser.FromFileName(path);
+            string extension = LanguageGuesser.FromFileName(path);
+            string caption = Path.GetFileName(path);
 
-            if (!ColorfulCodeAdapter.TryApplyHighlight(_editor, text, language))
-            {
-                if (_editor is TextBoxBase textBox)
-                {
-                    textBox.Text = text;
-                    textBox.SelectionStart = 0;
-                    textBox.SelectionLength = 0;
-                }
-            }
+            string html = ColorfulCodeRenderer.BuildDocument(text, extension, caption);
+            _browser.DocumentText = html;
         }
 
         private void OnHandleCreated(object? sender, EventArgs e)
@@ -844,241 +847,137 @@ internal static class ViewerHost
 
     private static class LanguageGuesser
     {
-        private static readonly Dictionary<string, string> s_languageByExtension = new(StringComparer.OrdinalIgnoreCase)
-        {
-            [".cs"] = "csharp",
-            [".cpp"] = "cpp",
-            [".cxx"] = "cpp",
-            [".cc"] = "cpp",
-            [".c"] = "c",
-            [".h"] = "cpp",
-            [".hpp"] = "cpp",
-            [".js"] = "javascript",
-            [".ts"] = "typescript",
-            [".json"] = "json",
-            [".xml"] = "xml",
-            [".html"] = "html",
-            [".htm"] = "html",
-            [".css"] = "css",
-            [".py"] = "python",
-            [".rb"] = "ruby",
-            [".java"] = "java",
-            [".cshtml"] = "html",
-            [".xaml"] = "xml",
-            [".yaml"] = "yaml",
-            [".yml"] = "yaml",
-            [".ini"] = "ini",
-            [".cfg"] = "ini",
-            [".md"] = "markdown",
-            [".sql"] = "sql",
-            [".bat"] = "dos",
-            [".ps1"] = "powershell",
-        };
-
         public static string FromFileName(string filePath)
         {
             var extension = Path.GetExtension(filePath);
             if (string.IsNullOrEmpty(extension))
             {
-                return "";
+                return string.Empty;
             }
 
-            return s_languageByExtension.TryGetValue(extension, out var language) ? language : string.Empty;
+            return extension.TrimStart('.').ToLowerInvariant();
         }
     }
 
-    private static class ColorfulCodeAdapter
+    private static class ColorfulCodeRenderer
     {
-        private static bool s_initialized;
-        private static Func<string, string, string?>? s_rtfFormatter;
+        private const string DefaultThemeName = "InspiredGitHub";
+        private static readonly Lazy<SyntaxSet> s_syntaxSet = new(SyntaxSet.LoadDefaults);
+        private static readonly Lazy<ThemeSet> s_themeSet = new(ThemeSet.LoadDefaults);
 
-        public static Control CreateEditor()
+        public static string BuildDocument(string text, string extension, string? caption)
         {
-            EnsureInitialized();
-
-            var box = new RichTextBox
-            {
-                BorderStyle = BorderStyle.None,
-                DetectUrls = false,
-                HideSelection = false,
-                Multiline = true,
-                ReadOnly = true,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                WordWrap = false,
-                Font = new Font("Consolas", 10.0f, FontStyle.Regular),
-            };
-
-            return box;
+            string body = HighlightOrFallback(text, extension);
+            return WrapDocument(body, caption);
         }
 
-        public static bool TryApplyHighlight(Control editor, string text, string language)
+        private static string HighlightOrFallback(string text, string extension)
         {
-            EnsureInitialized();
-
-            if (editor is RichTextBox richText)
-            {
-                if (s_rtfFormatter is not null)
-                {
-                    try
-                    {
-                        var formatted = s_rtfFormatter(text, language);
-                        if (!string.IsNullOrEmpty(formatted))
-                        {
-                            richText.Rtf = formatted;
-                            return true;
-                        }
-                    }
-                    catch
-                    {
-                        // ignore and fallback
-                    }
-                }
-
-                richText.Text = text;
-                return true;
-            }
-
             try
             {
-                var type = editor.GetType();
-                var method = type.GetMethod("SetText", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if (method is not null)
-                {
-                    method.Invoke(editor, new object?[] { text });
-                    TryApplyLanguage(type, editor, language);
-                    return true;
-                }
+                var syntax = GetSyntax(extension);
+                var theme = GetTheme();
 
-                var textProperty = type.GetProperty("Text", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if (textProperty is not null && textProperty.CanWrite)
+                if (syntax is not null && theme is not null)
                 {
-                    textProperty.SetValue(editor, text);
-                    TryApplyLanguage(type, editor, language);
-                    return true;
+                    var highlighted = syntax.HighlightToHtml(text, theme);
+                    if (!string.IsNullOrEmpty(highlighted))
+                    {
+                        return highlighted;
+                    }
                 }
             }
             catch
             {
+                // fall back to plain text
             }
 
-            return false;
+            return BuildPlainTextHtml(text);
         }
 
-        private static void TryApplyLanguage(Type controlType, object control, string language)
+        private static Syntax? GetSyntax(string extension)
         {
-            if (string.IsNullOrEmpty(language))
+            var syntaxSet = s_syntaxSet.Value;
+
+            if (!string.IsNullOrEmpty(extension))
             {
-                return;
-            }
-
-            try
-            {
-                var property = controlType.GetProperty("Language", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if (property is not null && property.CanWrite)
+                try
                 {
-                    property.SetValue(control, language);
-                    return;
-                }
-
-                var method = controlType.GetMethod("SetLanguage", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if (method is not null)
-                {
-                    method.Invoke(control, new object?[] { language });
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        private static void EnsureInitialized()
-        {
-            if (s_initialized)
-            {
-                return;
-            }
-
-            s_initialized = true;
-
-            try
-            {
-                var assembly = LoadColorfulCodeAssembly();
-                if (assembly is null)
-                {
-                    return;
-                }
-
-                var formatterType = assembly
-                    .GetTypes()
-                    .FirstOrDefault(t => !t.IsAbstract && t.Name.IndexOf("Rtf", StringComparison.OrdinalIgnoreCase) >= 0 && t.GetMethods().Any(m => string.Equals(m.Name, "Format", StringComparison.OrdinalIgnoreCase)));
-
-                if (formatterType is null)
-                {
-                    return;
-                }
-
-                var method = formatterType
-                    .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
-                    .FirstOrDefault(m => string.Equals(m.Name, "Format", StringComparison.OrdinalIgnoreCase) &&
-                                         m.GetParameters().Length >= 2 &&
-                                         m.GetParameters()[0].ParameterType == typeof(string));
-
-                if (method is null)
-                {
-                    return;
-                }
-
-                object? instance = method.IsStatic ? null : Activator.CreateInstance(formatterType);
-
-                s_rtfFormatter = (code, language) =>
-                {
-                    try
+                    var syntax = syntaxSet.FindByExtension(extension);
+                    if (syntax is not null)
                     {
-                        var parameters = method.GetParameters();
-                        var args = new object?[parameters.Length];
-                        args[0] = code;
-                        if (parameters.Length > 1)
-                        {
-                            args[1] = language;
-                        }
-
-                        for (int i = 2; i < args.Length; i++)
-                        {
-                            args[i] = null;
-                        }
-
-                        var result = method.Invoke(instance, args);
-                        return result as string;
+                        return syntax;
                     }
-                    catch
-                    {
-                        return null;
-                    }
-                };
-            }
-            catch
-            {
-            }
-        }
-
-        private static Assembly? LoadColorfulCodeAssembly()
-        {
-            var loaded = AppDomain.CurrentDomain
-                .GetAssemblies()
-                .FirstOrDefault(a => string.Equals(a.GetName().Name, "ColorfulCode", StringComparison.OrdinalIgnoreCase));
-            if (loaded is not null)
-            {
-                return loaded;
+                }
+                catch
+                {
+                }
             }
 
             try
             {
-                return Assembly.Load("ColorfulCode");
+                return syntaxSet.FindByExtension("txt");
             }
             catch
             {
                 return null;
             }
+        }
+
+        private static Theme? GetTheme()
+        {
+            var themeSet = s_themeSet.Value;
+
+            try
+            {
+                return themeSet[DefaultThemeName];
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var valuesProperty = themeSet.GetType().GetProperty("Values");
+                if (valuesProperty?.GetValue(themeSet) is IEnumerable values)
+                {
+                    foreach (var value in values)
+                    {
+                        if (value is Theme theme)
+                        {
+                            return theme;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static string WrapDocument(string body, string? caption)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("<!DOCTYPE html>");
+            builder.Append("<html><head><meta charset=\"utf-8\"/>");
+            builder.Append("<title>");
+            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer" : caption));
+            builder.Append("</title>");
+            builder.Append("<style>body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;}" +
+                           ".code-container{padding:16px;}" +
+                           "pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;}</style>");
+            builder.Append("</head><body><div class=\"code-container\">");
+            builder.Append(body);
+            builder.Append("</div></body></html>");
+            return builder.ToString();
+        }
+
+        private static string BuildPlainTextHtml(string text)
+        {
+            var encoded = WebUtility.HtmlEncode(text ?? string.Empty);
+            return $"<pre>{encoded}</pre>";
         }
     }
 }
