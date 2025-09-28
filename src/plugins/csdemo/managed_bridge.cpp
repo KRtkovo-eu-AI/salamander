@@ -50,8 +50,14 @@ std::wstring ToWide(const char* text)
     }
 
     std::wstring result;
-    result.resize(required - 1);
-    MultiByteToWideChar(CP_UTF8, 0, text, -1, result.data(), required - 1);
+    result.resize(required);
+    int converted = MultiByteToWideChar(CP_UTF8, 0, text, -1, result.data(), required);
+    if (converted <= 0)
+    {
+        return std::wstring();
+    }
+
+    result.resize(converted - 1);
     return result;
 }
 
