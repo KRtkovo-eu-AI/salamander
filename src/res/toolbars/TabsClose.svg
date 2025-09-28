@@ -1,8 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" id="TabsClose" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-     width="16px" height="16px" viewBox="0 0 16 16" xml:space="preserve">
-  <path fill="#414141" d="M2 5h4.8L8 7h6v5H2z"/>
-  <path fill="#FFFFFF" d="M3 6h3.9L7.6 8H13v3H3z"/>
-  <path fill="#C23A3A" d="M6.2 8l0.8-0.8L8 8.2l1-1 0.8 0.8-1.2 1.2 1.2 1.2-0.8 0.8-1-1-1 1-0.8-0.8 1.2-1.2z"/>
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#414141" d="M2,5h4.8L8,7h6v5H2V5z"/>
+    <path fill="#FFFFFF" d="M3,6h3.9L7.6,8H13v3H3V6z"/>
+    <path fill="#C23A3A" d="M6.2,8l0.8-0.8L8,8.2l1-1l0.8,0.8L8.6,9.2l1.2,1.2L9,11.2l-1-1l-1,1l-0.8-0.8l1.2-1.2L6.2,8z"/>
+  </g>
 </svg>
