@@ -192,7 +192,10 @@ void CTabWindow::DestroyWindow()
 int CTabWindow::GetNeededHeight() const
 {
     CALL_STACK_MESSAGE_NONE
-    return 2 + EnvFontCharHeight + 2;
+    int verticalPadding = EnvFontCharHeight / 8;
+    if (verticalPadding < 2)
+        verticalPadding = 2;
+    return EnvFontCharHeight + 2 * verticalPadding;
 }
 
 int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
@@ -1424,7 +1427,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     }
     else
     {
-        InflateRect(&fillRect, -1, -1);
+        InflateRect(&fillRect, -1, 0);
         if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
             fillRect = rect;
     }
@@ -1448,12 +1451,24 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     }
 
     RECT textRect = fillRect;
-    InflateRect(&textRect, -4, -2);
+    InflateRect(&textRect, -4, 0);
     if (textRect.right <= textRect.left)
     {
         textRect.left = fillRect.left;
         textRect.right = fillRect.right;
     }
+
+    int topPadding = EnvFontCharHeight / 12;
+    if (topPadding < 1)
+        topPadding = 1;
+    int verticalLift = EnvFontCharHeight / 6;
+    if (verticalLift < 2)
+        verticalLift = 2;
+    ++verticalLift;
+    int bottomPadding = topPadding + verticalLift;
+
+    textRect.top += topPadding;
+    textRect.bottom -= bottomPadding;
     if (textRect.bottom <= textRect.top)
     {
         textRect.top = fillRect.top;
