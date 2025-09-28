@@ -37,11 +37,21 @@ public static class EntryPoint
         }
         catch (Exception ex)
         {
-            MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
-                $"Unexpected managed exception:\n{ex.Message}",
-                "JSON Viewer Plugin",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            if (parent != IntPtr.Zero)
+            {
+                MessageBox.Show(new WindowHandleWrapper(parent),
+                    $"Unexpected managed exception:\n{ex.Message}",
+                    "JSON Viewer Plugin",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            else
+            {
+                MessageBox.Show($"Unexpected managed exception:\n{ex.Message}",
+                    "JSON Viewer Plugin",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
             return -1;
         }
     }
@@ -70,12 +80,14 @@ public static class EntryPoint
 
     private static bool ShouldForceRelease(string? payload)
     {
-        if (string.IsNullOrWhiteSpace(payload))
+        var payloadText = payload?.Trim() ?? string.Empty;
+
+        if (payloadText.Length == 0)
         {
             return false;
         }
 
-        var segments = payload.Split('|');
+        var segments = payloadText.Split('|');
         foreach (var segment in segments)
         {
             if (string.IsNullOrWhiteSpace(segment))
