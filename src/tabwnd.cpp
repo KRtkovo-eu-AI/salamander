@@ -1427,7 +1427,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     }
     else
     {
-        InflateRect(&fillRect, -1, -1);
+        InflateRect(&fillRect, -1, 0);
         if (fillRect.right <= fillRect.left || fillRect.bottom <= fillRect.top)
             fillRect = rect;
     }
