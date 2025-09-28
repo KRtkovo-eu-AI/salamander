@@ -191,8 +191,16 @@ void InitializeCase()
     int i;
     WCHAR src[2] = {0};
     WCHAR mapped[4] = {0};
+    const bool acpIsUtf8 = GetACP() == CP_UTF8;
     for (i = 0; i < 256; i++)
     {
+        if (acpIsUtf8 && i >= 0x80)
+        {
+            LowerCase[i] = static_cast<BYTE>(i);
+            UpperCase[i] = static_cast<BYTE>(i);
+            continue;
+        }
+
         src[0] = static_cast<WCHAR>(i);
         int lowerCount = LCMapStringEx(LOCALE_NAME_USER_DEFAULT, LCMAP_LOWERCASE, src, 1, mapped, _countof(mapped), NULL, NULL, 0);
         if (lowerCount > 0 && mapped[0] <= 0x00FF)
