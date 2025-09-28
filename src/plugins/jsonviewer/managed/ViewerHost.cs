@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -296,6 +297,7 @@ internal static class ViewerHost
             {
                 Dock = DockStyle.Fill
             };
+            _viewer.PropertyChanged += OnViewerPropertyChanged;
             Controls.Add(_viewer);
 
             HandleCreated += OnHandleCreated;
@@ -379,6 +381,12 @@ internal static class ViewerHost
                 return "JSON Viewer";
             }
             return string.Format(CultureInfo.CurrentCulture, "{0} - JSON Viewer", caption);
+        }
+
+        private static void OnViewerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            // The embedded control raises PropertyChanged without guarding against
+            // null handlers, so simply subscribing prevents it from throwing.
         }
     }
 }
