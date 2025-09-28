@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>TextViewer.Managed</AssemblyName>
+    <RootNamespace>OpenSalamander.TextViewer</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <ProjectGuid>{755CF63D-31EB-43B6-8402-2BB9D7D3E53F}</ProjectGuid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ColorfulCode" Version="1.0.0-preview1" />
+  </ItemGroup>
+
+  <Target Name="EnsureRestoreBeforeBuild"
+          BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
+          Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(ProjectAssetsFile))."
+             Importance="High" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore"
+             Properties="RestoreDuringBuild=true" />
+  </Target>
+</Project>
