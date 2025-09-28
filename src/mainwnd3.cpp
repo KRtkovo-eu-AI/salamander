@@ -299,27 +299,17 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
         LayoutWindows();
     }
 
-    if (Created)
-    {
-        CFilesWindow* currentPanel = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* activePanel = GetActivePanel();
-
-        if (currentPanel != NULL)
-        {
-            bool isActive = (currentPanel == activePanel);
-            EnsurePanelRefreshAndRequest(currentPanel, isActive);
-        }
-
-        if (activePanel != NULL && activePanel != currentPanel)
-        {
-            EnsurePanelRefreshAndRequest(activePanel, true);
-        }
-    }
-
     if (destroyWindow)
         DestroyWindow(panelWindow);
     else
         delete panel;
+
+    if (Created)
+    {
+        CFilesWindow* activePanel = GetActivePanel();
+        if (activePanel != NULL)
+            EnsurePanelRefreshAndRequest(activePanel, true);
+    }
 }
 
 BOOL MainFrameIsActive = FALSE;
