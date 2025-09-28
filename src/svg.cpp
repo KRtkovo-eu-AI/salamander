@@ -138,8 +138,6 @@ static char* LoadToolbarSVG(const char* svgName)
   <g id="Icon_1_">
     <path fill="#414141" d="M2,5h4.8L8,7h6v5H2V5z"/>
     <path fill="#FFFFFF" d="M3,6h3.9L7.6,8H13v3H3V6z"/>
-    <rect x="6" y="9" width="4" height="2" fill="#2A5496"/>
-    <rect x="7" y="8" width="2" height="4" fill="#2A5496"/>
   </g>
 </svg>
 )SVG"},
