@@ -120,6 +120,30 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     return panel;
 }
 
+void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars)
+{
+    if (panel == NULL || panel->HWindow == NULL)
+        return;
+
+    panel->NextFocusName[0] = 0;
+
+    while (SnooperSuspended)
+        EndSuspendMode();
+    while (StopRefresh)
+        EndStopRefresh(FALSE);
+    while (StopIconRepaint)
+        EndStopIconRepaint(FALSE);
+
+    HANDLES(EnterCriticalSection(&TimeCounterSection));
+    int refreshId = MyTimeCounter++;
+    HANDLES(LeaveCriticalSection(&TimeCounterSection));
+
+    SendMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, refreshId);
+
+    if (rebuildDriveBars)
+        RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0);
+}
+
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
@@ -197,13 +221,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         FocusPanel(panel);
     }
 
-    if (Created && panel->HWindow != NULL)
-    {
-        HANDLES(EnterCriticalSection(&TimeCounterSection));
-        int t1 = MyTimeCounter++;
-        HANDLES(LeaveCriticalSection(&TimeCounterSection));
-        PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-    }
+    if (Created)
+        RequestPanelRefresh(panel, false);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel)
@@ -264,6 +283,13 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     {
         RefreshCommandStates();
         LayoutWindows();
+    }
+
+    if (Created)
+    {
+        CFilesWindow* currentPanel = (side == cpsLeft) ? LeftPanel : RightPanel;
+        if (currentPanel != NULL)
+            RequestPanelRefresh(currentPanel, false);
     }
 
     if (destroyWindow)
@@ -4763,35 +4789,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_LEFTREFRESH: // refresh the left panel
         {
-            LeftPanel->NextFocusName[0] = 0;
-            while (SnooperSuspended)
-                EndSuspendMode(); // safety catch to resume refreshing
-            while (StopRefresh)
-                EndStopRefresh(FALSE); // safety catch to resume refreshing
-            while (StopIconRepaint)
-                EndStopIconRepaint(FALSE); // safety catch to resume refreshing
-            HANDLES(EnterCriticalSection(&TimeCounterSection));
-            int t1 = MyTimeCounter++;
-            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            SendMessage(LeftPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-            RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(LeftPanel, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
         case CM_RIGHTREFRESH: // refresh the right panel
         {
-            RightPanel->NextFocusName[0] = 0;
-            while (SnooperSuspended)
-                EndSuspendMode(); // safety catch to resume refreshing
-            while (StopRefresh)
-                EndStopRefresh(FALSE); // safety catch to resume refreshing
-            while (StopIconRepaint)
-                EndStopIconRepaint(FALSE); // safety catch to resume refreshing
-            HANDLES(EnterCriticalSection(&TimeCounterSection));
-            int t1 = MyTimeCounter++;
-            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            SendMessage(RightPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-            RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(RightPanel, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
@@ -4935,18 +4939,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_ACTIVEREFRESH: // refresh praveho panelu
         {
-            activePanel->NextFocusName[0] = 0;
-            while (SnooperSuspended)
-                EndSuspendMode(); // safety catch to resume refreshing
-            while (StopRefresh)
-                EndStopRefresh(FALSE); // safety catch to resume refreshing
-            while (StopIconRepaint)
-                EndStopIconRepaint(FALSE); // safety catch to resume refreshing
-            HANDLES(EnterCriticalSection(&TimeCounterSection));
-            int t1 = MyTimeCounter++;
-            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            SendMessage(activePanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-            RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(activePanel, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 

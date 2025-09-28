@@ -533,6 +533,7 @@ public:
     CFilesWindow* AddPanelTab(CPanelSide side, int index = -1);
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel);
+    void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);
