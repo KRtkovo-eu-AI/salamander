@@ -417,11 +417,6 @@ bool CJsonViewerWindow::Create(const char* fileName, int left, int top, int widt
     return true;
 }
 
-HWND CJsonViewerWindow::GetHWND() const
-{
-    return HWnd;
-}
-
 LRESULT CALLBACK CJsonViewerWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     CJsonViewerWindow* self = nullptr;
@@ -534,7 +529,7 @@ void CJsonViewerWindow::PopulateTree()
     std::string text = FormatNodeText(*Root);
     insert.item.mask = TVIF_TEXT;
     insert.item.pszText = const_cast<char*>(text.c_str());
-    HTREEITEM rootItem = TreeView_InsertItemA(TreeHandle, &insert);
+    HTREEITEM rootItem = TreeView_InsertItem(TreeHandle, &insert);
 
     for (const auto& child : Root->Children)
     {
@@ -552,7 +547,7 @@ void CJsonViewerWindow::PopulateNode(HTREEITEM parent, const JsonNode& node)
     std::string text = FormatNodeText(node);
     insert.item.mask = TVIF_TEXT;
     insert.item.pszText = const_cast<char*>(text.c_str());
-    HTREEITEM item = TreeView_InsertItemA(TreeHandle, &insert);
+    HTREEITEM item = TreeView_InsertItem(TreeHandle, &insert);
 
     for (const auto& child : node.Children)
     {
