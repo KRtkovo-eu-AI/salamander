@@ -21,6 +21,9 @@ namespace OpenSalamander.JsonViewer;
 
 internal static class ViewerHost
 {
+    private static readonly object s_threadLock = new();
+    private static ViewerThread? s_viewerThread;
+
     public static int Launch(IntPtr parent, string payload, bool asynchronous)
     {
         if (!ViewCommandPayload.TryParse(payload, asynchronous, out var parsed))
@@ -33,82 +36,140 @@ internal static class ViewerHost
             return 1;
         }
 
-        var request = new ViewerRequest(parent, parsed);
-
-        if (asynchronous)
+        if (asynchronous && parsed.CloseHandle == IntPtr.Zero)
         {
-            if (!request.RequiresSynchronization)
-            {
-                MessageBox.Show(request.OwnerWindow,
-                    "The native host did not provide a synchronization handle for the viewer.",
-                    "JSON Viewer Plugin",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                return 1;
-            }
-
-            var thread = new Thread(() => RunViewer(request))
-            {
-                IsBackground = false,
-                Name = "JSON Viewer"
-            };
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
-            return 0;
-        }
-
-        RunViewer(request);
-        return request.StartupSucceeded ? 0 : 1;
-    }
-
-    private static void RunViewer(ViewerRequest request)
-    {
-        try
-        {
-            using var context = new JsonViewerApplicationContext(request);
-            Application.Run(context);
-        }
-        catch (Exception ex)
-        {
-            request.MarkStartupFailed();
-            MessageBox.Show(request.OwnerWindow,
-                $"Unable to open the JSON viewer window.\n{ex.Message}",
+            MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
+                "The native host did not provide a synchronization handle for the viewer.",
                 "JSON Viewer Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
+            return 1;
         }
-        finally
+
+        ViewerSession session;
+        try
         {
-            request.SignalClosed();
+            session = new ViewerSession(parent, parsed, asynchronous);
         }
+        catch (Exception ex)
+        {
+            MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
+                $"Unable to prepare the JSON viewer session.\n{ex.Message}",
+                "JSON Viewer Plugin",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return 1;
+        }
+
+        ViewerThread? thread;
+        try
+        {
+            thread = EnsureViewerThread();
+        }
+        catch (Exception ex)
+        {
+            session.MarkStartupFailed();
+            session.Complete();
+            MessageBox.Show(session.OwnerWindow,
+                $"Unable to initialize the JSON viewer.\n{ex.Message}",
+                "JSON Viewer Plugin",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            if (!asynchronous)
+            {
+                session.WaitForCompletion();
+            }
+            return 1;
+        }
+
+        if (!thread.TryShow(session))
+        {
+            session.MarkStartupFailed();
+            session.Complete();
+            MessageBox.Show(session.OwnerWindow,
+                "Unable to open the JSON viewer window.",
+                "JSON Viewer Plugin",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            if (!asynchronous)
+            {
+                session.WaitForCompletion();
+            }
+            return 1;
+        }
+
+        if (!asynchronous)
+        {
+            session.WaitForCompletion();
+            return session.StartupSucceeded ? 0 : 1;
+        }
+
+        return 0;
     }
 
-    private sealed class JsonViewerApplicationContext : ApplicationContext
+    private static ViewerThread EnsureViewerThread()
     {
-        private readonly ViewerRequest _request;
-        private readonly JsonViewerForm _form;
-
-        public JsonViewerApplicationContext(ViewerRequest request)
+        lock (s_threadLock)
         {
-            _request = request;
-            _form = new JsonViewerForm(request);
-            _form.FormClosed += OnFormClosed;
-            MainForm = _form;
-        }
-
-        private void OnFormClosed(object? sender, FormClosedEventArgs e)
-        {
-            _request.SignalClosed();
-            ExitThread();
+            s_viewerThread ??= new ViewerThread();
+            return s_viewerThread;
         }
     }
 
-    private sealed class ViewerRequest
+    private sealed class ViewerThread
+    {
+        private readonly Thread _thread;
+        private readonly AutoResetEvent _ready = new(false);
+        private JsonViewerApplicationContext? _context;
+
+        public ViewerThread()
+        {
+            _thread = new Thread(Run)
+            {
+                IsBackground = true,
+                Name = "JSON Viewer"
+            };
+            _thread.SetApartmentState(ApartmentState.STA);
+            _thread.Start();
+            _ready.WaitOne();
+        }
+
+        public bool TryShow(ViewerSession session)
+        {
+            var context = _context;
+            if (context is null)
+            {
+                return false;
+            }
+
+            return context.TryShow(session);
+        }
+
+        private void Run()
+        {
+            try
+            {
+                using var context = new JsonViewerApplicationContext();
+                _context = context;
+                _ready.Set();
+                Application.Run(context);
+            }
+            finally
+            {
+                _context = null;
+                _ready.Set();
+            }
+        }
+    }
+
+    private sealed class ViewerSession
     {
         private readonly EventWaitHandle? _closeEvent;
+        private readonly ManualResetEventSlim? _completionEvent;
         private int _closeSignaled;
+        private int _completionSignaled;
 
-        public ViewerRequest(IntPtr parent, ViewCommandPayload payload)
+        public ViewerSession(IntPtr parent, ViewCommandPayload payload, bool asynchronous)
         {
             Parent = parent;
             Payload = payload;
@@ -121,14 +182,17 @@ internal static class ViewerHost
                     SafeWaitHandle = new SafeWaitHandle(payload.CloseHandle, ownsHandle: false)
                 };
             }
+
+            if (!asynchronous)
+            {
+                _completionEvent = new ManualResetEventSlim(false);
+            }
         }
 
         public IntPtr Parent { get; }
         public ViewCommandPayload Payload { get; }
         public IWin32Window? OwnerWindow { get; }
         public bool StartupSucceeded { get; private set; } = true;
-
-        public bool RequiresSynchronization => _closeEvent is not null;
 
         public void SignalClosed()
         {
@@ -165,9 +229,57 @@ internal static class ViewerHost
             }
         }
 
+        public void Complete()
+        {
+            if (Interlocked.Exchange(ref _completionSignaled, 1) != 0)
+            {
+                return;
+            }
+
+            SignalClosed();
+            _completionEvent?.Set();
+        }
+
+        public void WaitForCompletion()
+        {
+            _completionEvent?.Wait();
+        }
+
         public void MarkStartupFailed()
         {
             StartupSucceeded = false;
+        }
+    }
+
+    private sealed class JsonViewerApplicationContext : ApplicationContext
+    {
+        private readonly Control _dispatcher;
+        private readonly JsonViewerForm _form;
+
+        public JsonViewerApplicationContext()
+        {
+            _dispatcher = new Control();
+            _dispatcher.CreateControl();
+
+            _form = new JsonViewerForm();
+            _form.FormClosed += OnFormClosed;
+            MainForm = _form;
+        }
+
+        public bool TryShow(ViewerSession session)
+        {
+            if (!_dispatcher.IsHandleCreated)
+            {
+                return false;
+            }
+
+            _dispatcher.BeginInvoke(new MethodInvoker(() => _form.ShowSession(session)));
+            return true;
+        }
+
+        private void OnFormClosed(object? sender, FormClosedEventArgs e)
+        {
+            ExitThread();
         }
     }
 
@@ -321,16 +433,16 @@ internal static class ViewerHost
 
     private sealed class JsonViewerForm : Form
     {
-        private readonly ViewerRequest _request;
         private readonly JsonViewerControl _viewer;
+        private ViewerSession? _session;
         private bool _jsonLoaded;
-        private IntPtr _previousOwner;
+        private IntPtr _ownerRestore;
+        private bool _ownerAttached;
+        private bool _allowClose;
 
-        public JsonViewerForm(ViewerRequest request)
+        public JsonViewerForm()
         {
-            _request = request;
-
-            Text = BuildCaption(request.Payload.Caption);
+            Text = "JSON Viewer";
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
             MinimizeBox = true;
@@ -347,97 +459,191 @@ internal static class ViewerHost
 
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
-            Shown += OnShown;
             FormClosing += OnFormClosing;
         }
 
-        protected override void OnLoad(EventArgs e)
+        public void ShowSession(ViewerSession session)
         {
-            base.OnLoad(e);
-
-            var bounds = _request.Payload.Bounds;
-            if (bounds.Width > 0 && bounds.Height > 0)
+            if (!IsHandleCreated)
             {
-                Bounds = bounds;
-            }
-            else
-            {
-                StartPosition = FormStartPosition.CenterScreen;
+                CreateControl();
             }
 
-            if (_request.Payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
+            if (_session is not null && !ReferenceEquals(_session, session))
             {
-                WindowState = FormWindowState.Maximized;
-            }
-            else if (_request.Payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
-            {
-                WindowState = FormWindowState.Minimized;
+                _session.Complete();
             }
 
-            TopMost = _request.Payload.AlwaysOnTop;
-        }
+            _session = session;
+            _jsonLoaded = false;
 
-        private void OnHandleCreated(object? sender, EventArgs e)
-        {
-            if (_request.Parent != IntPtr.Zero)
-            {
-                _previousOwner = NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _request.Parent);
-            }
-        }
+            Text = BuildCaption(session.Payload.Caption);
+            ApplyOwner(session.Parent);
+            ApplyPlacement(session.Payload);
 
-        private void OnHandleDestroyed(object? sender, EventArgs e)
-        {
-            if (_previousOwner != IntPtr.Zero)
-            {
-                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _previousOwner);
-                _previousOwner = IntPtr.Zero;
-            }
-        }
-
-        private void OnShown(object? sender, EventArgs e)
-        {
-            LoadJson();
-            NativeMethods.SetForegroundWindow(Handle);
-        }
-
-        private void OnFormClosing(object? sender, FormClosingEventArgs e)
-        {
-            if (!_jsonLoaded)
-            {
-                _request.MarkStartupFailed();
-            }
-        }
-
-        private void LoadJson()
-        {
             try
             {
-                string json = File.ReadAllText(_request.Payload.FilePath);
+                string json = File.ReadAllText(session.Payload.FilePath);
                 _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
                 _jsonLoaded = true;
             }
             catch (Exception ex)
             {
-                _request.MarkStartupFailed();
-                MessageBox.Show(_request.OwnerWindow,
+                session.MarkStartupFailed();
+                MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
                     "JSON Viewer Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                BeginInvoke(new MethodInvoker(Close));
+                var failedSession = session;
+                BeginInvoke(new MethodInvoker(() => HideSession(failedSession)));
+                return;
             }
+
+            if (!Visible)
+            {
+                Show();
+            }
+            else
+            {
+                Activate();
+            }
+
+            NativeMethods.SetForegroundWindow(Handle);
+        }
+
+        public void AllowClose()
+        {
+            _allowClose = true;
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == Keys.Escape)
             {
-                Close();
+                var currentSession = _session;
+                BeginInvoke(new MethodInvoker(() => HideSession(currentSession)));
                 return true;
             }
 
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void OnHandleCreated(object? sender, EventArgs e)
+        {
+            ApplyOwner(_session?.Parent ?? IntPtr.Zero);
+        }
+
+        private void OnHandleDestroyed(object? sender, EventArgs e)
+        {
+            DetachOwner();
+        }
+
+        private void OnFormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (!_allowClose)
+            {
+                e.Cancel = true;
+                if (!_jsonLoaded)
+                {
+                    _session?.MarkStartupFailed();
+                }
+
+                var closingSession = _session;
+                BeginInvoke(new MethodInvoker(() => HideSession(closingSession)));
+                return;
+            }
+
+            HideSession(null);
+        }
+
+        private void ApplyPlacement(ViewCommandPayload payload)
+        {
+            var bounds = payload.Bounds;
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                Bounds = bounds;
+            }
+            else if (!Visible)
+            {
+                StartPosition = FormStartPosition.CenterScreen;
+            }
+
+            WindowState = FormWindowState.Normal;
+            if (payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
+            {
+                WindowState = FormWindowState.Maximized;
+            }
+            else if (payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
+            {
+                WindowState = FormWindowState.Minimized;
+            }
+
+            TopMost = payload.AlwaysOnTop;
+        }
+
+        private void ApplyOwner(IntPtr parent)
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            if (_ownerAttached)
+            {
+                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _ownerRestore);
+                _ownerRestore = IntPtr.Zero;
+                _ownerAttached = false;
+            }
+
+            if (parent != IntPtr.Zero)
+            {
+                _ownerRestore = NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, parent);
+                _ownerAttached = true;
+            }
+        }
+
+        private void DetachOwner()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            if (_ownerAttached)
+            {
+                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _ownerRestore);
+                _ownerRestore = IntPtr.Zero;
+                _ownerAttached = false;
+            }
+        }
+
+        private void HideSession(ViewerSession? target)
+        {
+            if (target is not null && !ReferenceEquals(_session, target))
+            {
+                return;
+            }
+
+            if (_session is null)
+            {
+                if (Visible)
+                {
+                    Hide();
+                }
+                return;
+            }
+
+            if (Visible)
+            {
+                Hide();
+            }
+
+            _session.Complete();
+            _session = null;
+            _jsonLoaded = false;
+            DetachOwner();
         }
 
         private static string BuildCaption(string caption)
