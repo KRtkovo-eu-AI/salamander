@@ -19,4 +19,5 @@ STRINGTABLE
  IDS_ABOUT, "About"
  IDS_PLUGIN_DESCRIPTION, "Displays JSON files using a tree representation."
  IDS_NO_CONFIGURATION, "This plugin does not provide configurable options."
+ IDS_CLOSE_VIEWERS, "JSON Viewer windows are still open. Close them now?"
 }

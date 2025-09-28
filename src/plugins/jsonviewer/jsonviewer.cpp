@@ -22,6 +22,23 @@ static CRITICAL_SECTION ViewerSection;
 static bool ViewerSectionInitialized = false;
 static std::vector<HWND> OpenViewers;
 
+static std::vector<HWND> SnapshotViewerWindows()
+{
+    std::vector<HWND> windows;
+    if (!ViewerSectionInitialized)
+        return windows;
+
+    EnterCriticalSection(&ViewerSection);
+    auto it = std::remove_if(OpenViewers.begin(), OpenViewers.end(),
+                             [](HWND hwnd) { return hwnd == NULL || !IsWindow(hwnd); });
+    if (it != OpenViewers.end())
+        OpenViewers.erase(it, OpenViewers.end());
+    windows = OpenViewers;
+    LeaveCriticalSection(&ViewerSection);
+
+    return windows;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
@@ -36,6 +53,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             MessageBox(NULL, "InitCommonControlsEx failed!", "JsonView", MB_OK | MB_ICONERROR);
             return FALSE;
         }
+    }
+    else if (fdwReason == DLL_PROCESS_DETACH)
+    {
+        ReleaseViewer();
     }
 
     return TRUE;
@@ -61,16 +82,9 @@ void ReleaseViewer()
     if (!ViewerSectionInitialized)
         return;
 
-    std::vector<HWND> windows;
-    EnterCriticalSection(&ViewerSection);
-    windows = OpenViewers;
-    LeaveCriticalSection(&ViewerSection);
-
-    for (HWND hwnd : windows)
-    {
-        if (IsWindow(hwnd))
-            PostMessage(hwnd, WM_CLOSE, 0, 0);
-    }
+    DeleteCriticalSection(&ViewerSection);
+    ViewerSectionInitialized = false;
+    OpenViewers.clear();
 }
 
 void RegisterViewerWindow(HWND hwnd)
@@ -105,6 +119,29 @@ CPluginInterface::About(HWND parent)
 BOOL WINAPI
 CPluginInterface::Release(HWND parent, BOOL force)
 {
+    std::vector<HWND> windows = SnapshotViewerWindows();
+    if (!windows.empty() && !force)
+    {
+        if (SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_CLOSE_VIEWERS), LoadStr(IDS_PLUGINNAME),
+                                             MB_YESNO | MB_ICONQUESTION) != IDYES)
+        {
+            return FALSE;
+        }
+    }
+
+    for (HWND hwnd : windows)
+    {
+        if (IsWindow(hwnd))
+            SendMessage(hwnd, WM_CLOSE, 0, 0);
+    }
+
+    if (!force)
+    {
+        windows = SnapshotViewerWindows();
+        if (!windows.empty())
+            return FALSE;
+    }
+
     ReleaseViewer();
     return TRUE;
 }
@@ -207,6 +244,15 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     SalamanderGUI = salamander->GetSalamanderGUI();
+
+    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME),
+                                   FUNCTION_VIEWER,
+                                   VERSINFO_VERSION_NO_PLATFORM,
+                                   VERSINFO_COPYRIGHT,
+                                   LoadStr(IDS_PLUGIN_DESCRIPTION),
+                                   PluginNameShort);
+
+    salamander->SetPluginHomePageURL(VERSINFO_SLG_WEB);
 
     if (!InitViewer())
         return NULL;

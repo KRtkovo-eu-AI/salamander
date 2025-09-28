@@ -8,5 +8,6 @@
 #define IDS_ABOUT               101
 #define IDS_PLUGIN_DESCRIPTION  102
 #define IDS_NO_CONFIGURATION    103
+#define IDS_CLOSE_VIEWERS       104
 
 #endif // __JSONVIEWER_RH2
