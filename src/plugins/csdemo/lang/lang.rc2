@@ -25,6 +25,6 @@ STRINGTABLE
  IDS_PLUGINNAME,             "C# Demo"
  IDS_ABOUT,                  "About Plugin"
  IDS_PLUGIN_DESCRIPTION,     "Example plugin that hosts managed WinForms UI through the CLR."
- IDS_PLUGIN_HOME,            "https://github.com/open-salamander"
+ IDS_PLUGIN_HOME,            "https://github.com/KRtkovo-eu-AI/salamander/"
  IDS_MENU_HELLO,             "Show &C# Demo Window"
 }
