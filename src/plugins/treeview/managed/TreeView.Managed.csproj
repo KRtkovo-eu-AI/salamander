@@ -31,16 +31,19 @@
     <Compile Include="BrowserHost.cs" />
     <Compile Include="TreeViewBrowserForm.cs" />
     <Compile Include="WindowInterop.cs" />
-
-    <Compile Include="..\..\..\..\3rd-party\treeview\BaseAssemblyInfo.cs">
-      <Link>ThirdParty\BaseAssemblyInfo.cs</Link>
-    </Compile>
+    <Compile Include="IsExternalInit.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="..\..\..\..\3rd-party\treeview\Raccoom.TreeViewFolderBrowser\**\*.cs">
       <Link>ThirdParty\TreeViewFolderBrowser\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Compile>
     <Compile Include="..\..\..\..\3rd-party\treeview\Raccoom.TreeViewFolderBrowser.DataProviders\**\*.cs">
       <Link>ThirdParty\DataProviders\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="..\..\..\..\3rd-party\treeview\BaseAssemblyInfo.cs" />
+    <Compile Remove="..\..\..\..\3rd-party\treeview\**\AssemblyInfo.cs" />
   </ItemGroup>
 
   <ItemGroup>
