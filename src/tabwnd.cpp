@@ -504,6 +504,16 @@ bool CTabWindow::IsReorderableIndex(int index) const
         return false;
     if (GetTabCount() <= 2)
         return false;
+    TCITEMW item;
+    ZeroMemory(&item, sizeof(item));
+    item.mask = TCIF_PARAM;
+    if (!SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&item))
+        return false;
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(item.lParam);
+    if (panel == NULL)
+        return false;
+    if (panel->IsTabLocked())
+        return false;
     return true;
 }
 
@@ -1130,6 +1140,10 @@ void CTabWindow::MoveTabInternal(int from, int to)
     if (!SendMessageW(HWindow, TCM_GETITEMW, from, (LPARAM)&item))
         return;
 
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(item.lParam);
+    if (panel != NULL && panel->IsTabLocked())
+        return;
+
     std::wstring text(textBuffer);
     item.pszText = text.empty() ? const_cast<LPWSTR>(L"") : &text[0];
     item.cchTextMax = (int)text.length() + 1;
@@ -1173,6 +1187,41 @@ void CTabWindow::ClearTabColor(int index)
     InvalidateTab(index);
 }
 
+void CTabWindow::ExpandSelectedTabRect(RECT& rect) const
+{
+    int expand = 2;
+    if (HWindow != NULL)
+    {
+        RECT clientRect;
+        if (GetClientRect(HWindow, &clientRect))
+        {
+            if (rect.left > clientRect.left)
+            {
+                rect.left -= expand;
+                if (rect.left < clientRect.left)
+                    rect.left = clientRect.left;
+            }
+            if (rect.right < clientRect.right)
+            {
+                rect.right += expand;
+                if (rect.right > clientRect.right)
+                    rect.right = clientRect.right;
+            }
+            if (rect.top > clientRect.top)
+            {
+                rect.top -= expand;
+                if (rect.top < clientRect.top)
+                    rect.top = clientRect.top;
+            }
+            return;
+        }
+    }
+
+    rect.left -= expand;
+    rect.right += expand;
+    rect.top -= expand;
+}
+
 void CTabWindow::InvalidateTab(int index)
 {
     if (HWindow == NULL)
@@ -1181,7 +1230,11 @@ void CTabWindow::InvalidateTab(int index)
         return;
     RECT rect;
     if (TabCtrl_GetItemRect(HWindow, index, &rect))
+    {
+        if (TabCtrl_GetCurSel(HWindow) == index)
+            ExpandSelectedTabRect(rect);
         InvalidateRect(HWindow, &rect, FALSE);
+    }
     else
         InvalidateRect(HWindow, NULL, FALSE);
 }
@@ -1266,20 +1319,6 @@ const CTabWindow::STabColor* CTabWindow::GetTabColor(int index) const
     return &TabColors[index];
 }
 
-bool CTabWindow::HasAnyCustomTabColors() const
-{
-    int total = GetDisplayedTabCount();
-    for (int i = 0; i < total; ++i)
-    {
-        if (IsNewTabButtonIndex(i))
-            continue;
-        COLORREF color;
-        if (TryResolveTabColor(i, color))
-            return true;
-    }
-    return false;
-}
-
 bool CTabWindow::TryResolveTabColor(int index, COLORREF& color) const
 {
     if (index < 0)
@@ -1329,13 +1368,6 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
 
     for (int i = 0; i < total; ++i)
     {
-        if (IsNewTabButtonIndex(i))
-            continue;
-
-        COLORREF baseColor;
-        if (!TryResolveTabColor(i, baseColor))
-            continue;
-
         RECT itemRect;
         if (!TabCtrl_GetItemRect(HWindow, i, &itemRect))
             continue;
@@ -1359,11 +1391,22 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
         if (!SendMessageW(HWindow, TCM_GETITEMW, i, (LPARAM)&item))
             textBuffer[0] = L'\0';
 
+        bool isNewTab = IsNewTabButtonIndex(i);
+
+        COLORREF baseColor;
+        if (!isNewTab && TryResolveTabColor(i, baseColor))
+        {
+            // baseColor already resolved
+        }
+        else
+            baseColor = GetSysColor(COLOR_BTNFACE);
+
         bool isSelected = (i == selected);
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
         bool hasFocus = (focus == i) && (focusWnd == HWindow);
 
-        DrawColoredTab(hdc, itemRect, textBuffer, baseColor, isSelected, isHot, hasFocus);
+        const wchar_t* drawText = isNewTab ? kNewTabButtonText : textBuffer;
+        DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus);
     }
 }
 
@@ -1377,38 +1420,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     RECT fillRect = rect;
     if (selected)
     {
-        int expand = 2;
-        if (HWindow != NULL)
-        {
-            RECT clientRect;
-            if (GetClientRect(HWindow, &clientRect))
-            {
-                if (fillRect.left > clientRect.left)
-                {
-                    fillRect.left -= expand;
-                    if (fillRect.left < clientRect.left)
-                        fillRect.left = clientRect.left;
-                }
-                if (fillRect.right < clientRect.right)
-                {
-                    fillRect.right += expand;
-                    if (fillRect.right > clientRect.right)
-                        fillRect.right = clientRect.right;
-                }
-                if (fillRect.top > clientRect.top)
-                {
-                    fillRect.top -= expand;
-                    if (fillRect.top < clientRect.top)
-                        fillRect.top = clientRect.top;
-                }
-            }
-        }
-        else
-        {
-            fillRect.left -= expand;
-            fillRect.right += expand;
-            fillRect.top -= expand;
-        }
+        ExpandSelectedTabRect(fillRect);
     }
     else
     {
@@ -1485,9 +1497,9 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
         if (HWindow != NULL)
         {
-            bool hasCustomColors = HasAnyCustomTabColors();
+            bool shouldPaintTabs = true;
             bool shouldPaintIndicator = DragIndicatorVisible;
-            if (hasCustomColors || shouldPaintIndicator)
+            if (shouldPaintTabs || shouldPaintIndicator)
             {
                 HDC hdc = GetDC(HWindow);
                 if (hdc != NULL)
@@ -1495,7 +1507,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     int saved = SaveDC(hdc);
                     if (hasUpdate)
                         IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
-                    if (hasCustomColors)
+                    if (shouldPaintTabs)
                         PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
                     if (shouldPaintIndicator)
                         PaintDragIndicator(hdc);
@@ -1510,15 +1522,12 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PRINTCLIENT:
     {
         LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
-        if (HasAnyCustomTabColors())
+        HDC hdc = reinterpret_cast<HDC>(wParam);
+        if (hdc != NULL)
         {
-            HDC hdc = reinterpret_cast<HDC>(wParam);
-            if (hdc != NULL)
-            {
-                int saved = SaveDC(hdc);
-                PaintCustomTabs(hdc, NULL);
-                RestoreDC(hdc, saved);
-            }
+            int saved = SaveDC(hdc);
+            PaintCustomTabs(hdc, NULL);
+            RestoreDC(hdc, saved);
         }
         return baseResult;
     }
@@ -1547,10 +1556,25 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hit > 0 && !IsNewTabButtonIndex(hit) && MainWindow != NULL)
         {
             CFilesWindow* panel = MainWindow->GetPanelTabAt(Side, hit);
-            if (panel != NULL)
+            if (panel != NULL && !panel->IsTabLocked())
                 MainWindow->ClosePanelTab(panel);
         }
         return 0;
+    }
+
+    case WM_LBUTTONDBLCLK:
+    {
+        POINTS pts = MAKEPOINTS(lParam);
+        POINT pt;
+        pt.x = pts.x;
+        pt.y = pts.y;
+        int hit = HitTest(pt);
+        if (hit > 0 && !IsNewTabButtonIndex(hit) && MainWindow != NULL)
+        {
+            MainWindow->CommandDuplicateTab(Side, hit);
+            return 0;
+        }
+        break;
     }
 
     case WM_MOUSEMOVE:

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "fileswnd.h"
@@ -387,6 +389,29 @@ public:
         *RightPanel;
     TIndirectArray<CFilesWindow> LeftPanelTabs;
     TIndirectArray<CFilesWindow> RightPanelTabs;
+    struct SClosedPanelTab
+    {
+        int InsertIndex;
+        std::string GeneralPath;
+        std::string FallbackPath;
+        int ViewTemplateIndex;
+        CSortType SortType;
+        BOOL ReverseSort;
+        BOOL StatusLineVisible;
+        BOOL DirectoryLineVisible;
+        BOOL HeaderLineVisible;
+        bool FilterEnabled;
+        std::string FilterMasks;
+        bool FilterExtendedMode;
+        bool HasCustomColor;
+        COLORREF CustomColor;
+        bool HasCustomPrefix;
+        std::wstring CustomPrefix;
+        bool UserWorkedOnPath;
+        std::unique_ptr<CPathHistory> PathHistory;
+        std::unique_ptr<CPathHistory> WorkDirHistory;
+    };
+    std::vector<SClosedPanelTab> ClosedPanelTabs[2];
     CEditWindow* EditWindow;
     CMainToolBar* TopToolBar;
     CPluginsBar* PluginsBar;
@@ -531,8 +556,14 @@ public:
     void FocusLeftPanel();                                                  // calls FocusPanel for the left panel
 
     CFilesWindow* AddPanelTab(CPanelSide side, int index = -1);
+    bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
     void SwitchPanelTab(CFilesWindow* panel);
-    void ClosePanelTab(CFilesWindow* panel);
+    void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
+    void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
+    void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
+                                      bool postRefreshMessage = false);
+    void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
+                             bool postRefreshMessage = false);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);
@@ -551,6 +582,8 @@ public:
     void CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel = NULL);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
+    void CommandDuplicateTab(CPanelSide side, int index = -1);
+    bool CommandReopenClosedTab(CPanelSide side);
     void CommandSetPanelTabColor(CFilesWindow* panel);
     void CommandClearPanelTabColor(CFilesWindow* panel);
     void CommandSetPanelTabPrefix(CFilesWindow* panel);
@@ -558,6 +591,8 @@ public:
     void CommandDuplicateTabToOtherSide(CPanelSide side, int index);
     int CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex = -1);
     int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);
+    void CommandLockTab(CFilesWindow* panel);
+    void CommandUnlockTab(CFilesWindow* panel);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
@@ -632,6 +667,9 @@ public:
     BOOL EditWindowKnowHWND(HWND hwnd);
     void EditWindowSetDirectory(); // sets the text before the command line and enables/disables it at the same time
     HWND GetEditLineHWND(BOOL disableSkip = FALSE);
+
+    bool HasClosedTab(CPanelSide side) const;
+    void RememberClosedTab(CPanelSide side, CFilesWindow* panel, int insertIndex);
 
     // returns TRUE if the key was handled
     BOOL HandleCtrlLetter(char c); // Ctrl+letter hotkeys
@@ -807,6 +845,7 @@ private:
     void UpdatePanelTabVisibility(CPanelSide side);
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
+    CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 

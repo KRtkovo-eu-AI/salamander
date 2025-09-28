@@ -476,6 +476,10 @@ CMainWindow::~CMainWindow()
         delete LeftTabWindow;
     if (RightTabWindow != NULL)
         delete RightTabWindow;
+    for (int side = 0; side < 2; ++side)
+    {
+        ClosedPanelTabs[side].clear();
+    }
     MainWindow = NULL;
 }
 
@@ -2755,14 +2759,17 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL closeTab = FALSE;
     BOOL nextTab = FALSE;
     BOOL prevTab = FALSE;
+    BOOL duplicateTab = FALSE;
     BOOL leftNewTab = FALSE;
     BOOL leftCloseTab = FALSE;
     BOOL leftNextTab = FALSE;
     BOOL leftPrevTab = FALSE;
+    BOOL leftDuplicateTabSame = FALSE;
     BOOL rightNewTab = FALSE;
     BOOL rightCloseTab = FALSE;
     BOOL rightNextTab = FALSE;
     BOOL rightPrevTab = FALSE;
+    BOOL rightDuplicateTabSame = FALSE;
     BOOL leftCloseAllButDefault = FALSE;
     BOOL leftCloseAllExceptThisAndDefault = FALSE;
     BOOL rightCloseAllButDefault = FALSE;
@@ -2771,6 +2778,15 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL leftMoveTab = FALSE;
     BOOL rightDuplicateTab = FALSE;
     BOOL rightMoveTab = FALSE;
+    BOOL reopenTab = FALSE;
+    BOOL lockTab = FALSE;
+    BOOL unlockTab = FALSE;
+    BOOL leftReopenTab = FALSE;
+    BOOL leftLockTab = FALSE;
+    BOOL leftUnlockTab = FALSE;
+    BOOL rightReopenTab = FALSE;
+    BOOL rightLockTab = FALSE;
+    BOOL rightUnlockTab = FALSE;
 
     int selCount = 0;
     int unselCount = 0;
@@ -2804,44 +2820,73 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         CPanelSide activeSide = activePanel->GetPanelSide();
         int activeCount = obj->GetPanelTabCount(activeSide);
         int activeIndex = obj->GetPanelTabIndex(activeSide, activePanel);
+        bool activeLocked = activePanel->IsTabLocked();
         newTab = TRUE;
-        closeTab = (activeIndex > 0);
+        closeTab = (activeIndex > 0 && !activeLocked);
         nextTab = (activeCount > 1);
         prevTab = (activeCount > 1);
+        duplicateTab = (activeIndex >= 0);
+        reopenTab = obj->HasClosedTab(activeSide);
+        lockTab = (activeIndex > 0 && !activeLocked);
+        unlockTab = (activeIndex > 0 && activeLocked);
 
         int leftCount = obj->GetPanelTabCount(cpsLeft);
         leftNewTab = (leftCount > 0);
-        int leftIndex = obj->GetPanelTabIndex(cpsLeft, obj->LeftPanel);
-        leftCloseTab = (leftIndex > 0);
+        CFilesWindow* leftPanel = obj->LeftPanel;
+        int leftIndex = obj->GetPanelTabIndex(cpsLeft, leftPanel);
+        bool leftLocked = (leftPanel != NULL && leftPanel->IsTabLocked());
+        leftCloseTab = (leftIndex > 0 && !leftLocked);
         leftNextTab = (leftCount > 1);
         leftPrevTab = (leftCount > 1);
-        leftCloseAllButDefault = (leftCount > 1);
-        if (leftCount > 1)
+        leftDuplicateTabSame = (leftIndex >= 0);
+        bool leftHasClosable = FALSE;
+        bool leftHasClosableExcludingCurrent = FALSE;
+        for (int i = 1; i < leftCount; ++i)
         {
-            if (leftIndex == 0)
-                leftCloseAllExceptThisAndDefault = TRUE;
-            else if (leftCount > 2)
-                leftCloseAllExceptThisAndDefault = TRUE;
+            CFilesWindow* tabPanel = obj->GetPanelTabAt(cpsLeft, i);
+            if (tabPanel != NULL && !tabPanel->IsTabLocked())
+            {
+                leftHasClosable = TRUE;
+                if (i != leftIndex)
+                    leftHasClosableExcludingCurrent = TRUE;
+            }
         }
+        leftCloseAllButDefault = leftHasClosable;
+        leftCloseAllExceptThisAndDefault = (leftIndex <= 0) ? leftHasClosable : leftHasClosableExcludingCurrent;
         leftDuplicateTab = (leftIndex >= 0);
-        leftMoveTab = (leftIndex > 0);
+        leftMoveTab = (leftIndex > 0 && !leftLocked);
+        leftReopenTab = obj->HasClosedTab(cpsLeft);
+        leftLockTab = (leftIndex > 0 && !leftLocked);
+        leftUnlockTab = (leftIndex > 0 && leftLocked);
 
         int rightCount = obj->GetPanelTabCount(cpsRight);
         rightNewTab = (rightCount > 0);
-        int rightIndex = obj->GetPanelTabIndex(cpsRight, obj->RightPanel);
-        rightCloseTab = (rightIndex > 0);
+        CFilesWindow* rightPanel = obj->RightPanel;
+        int rightIndex = obj->GetPanelTabIndex(cpsRight, rightPanel);
+        bool rightLocked = (rightPanel != NULL && rightPanel->IsTabLocked());
+        rightCloseTab = (rightIndex > 0 && !rightLocked);
         rightNextTab = (rightCount > 1);
         rightPrevTab = (rightCount > 1);
-        rightCloseAllButDefault = (rightCount > 1);
-        if (rightCount > 1)
+        rightDuplicateTabSame = (rightIndex >= 0);
+        bool rightHasClosable = FALSE;
+        bool rightHasClosableExcludingCurrent = FALSE;
+        for (int i = 1; i < rightCount; ++i)
         {
-            if (rightIndex == 0)
-                rightCloseAllExceptThisAndDefault = TRUE;
-            else if (rightCount > 2)
-                rightCloseAllExceptThisAndDefault = TRUE;
+            CFilesWindow* tabPanel = obj->GetPanelTabAt(cpsRight, i);
+            if (tabPanel != NULL && !tabPanel->IsTabLocked())
+            {
+                rightHasClosable = TRUE;
+                if (i != rightIndex)
+                    rightHasClosableExcludingCurrent = TRUE;
+            }
         }
+        rightCloseAllButDefault = rightHasClosable;
+        rightCloseAllExceptThisAndDefault = (rightIndex <= 0) ? rightHasClosable : rightHasClosableExcludingCurrent;
         rightDuplicateTab = (rightIndex >= 0);
-        rightMoveTab = (rightIndex > 0);
+        rightMoveTab = (rightIndex > 0 && !rightLocked);
+        rightReopenTab = obj->HasClosedTab(cpsRight);
+        rightLockTab = (rightIndex > 0 && !rightLocked);
+        rightUnlockTab = (rightIndex > 0 && rightLocked);
 
         if (!Configuration.UsePanelTabs)
         {
@@ -2849,22 +2894,34 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             closeTab = FALSE;
             nextTab = FALSE;
             prevTab = FALSE;
+            duplicateTab = FALSE;
             leftNewTab = FALSE;
             leftCloseTab = FALSE;
             leftNextTab = FALSE;
             leftPrevTab = FALSE;
+            leftDuplicateTabSame = FALSE;
             leftCloseAllButDefault = FALSE;
             leftCloseAllExceptThisAndDefault = FALSE;
             rightNewTab = FALSE;
             rightCloseTab = FALSE;
             rightNextTab = FALSE;
             rightPrevTab = FALSE;
+            rightDuplicateTabSame = FALSE;
             rightCloseAllButDefault = FALSE;
             rightCloseAllExceptThisAndDefault = FALSE;
             leftDuplicateTab = FALSE;
             leftMoveTab = FALSE;
             rightDuplicateTab = FALSE;
             rightMoveTab = FALSE;
+            reopenTab = FALSE;
+            lockTab = FALSE;
+            unlockTab = FALSE;
+            leftReopenTab = FALSE;
+            leftLockTab = FALSE;
+            leftUnlockTab = FALSE;
+            rightReopenTab = FALSE;
+            rightLockTab = FALSE;
+            rightUnlockTab = FALSE;
         }
 
         if (archive)
@@ -3054,22 +3111,34 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerCloseTab, closeTab);
     obj->CheckAndSet(&EnablerNextTab, nextTab);
     obj->CheckAndSet(&EnablerPrevTab, prevTab);
+    obj->CheckAndSet(&EnablerDuplicateTab, duplicateTab);
+    obj->CheckAndSet(&EnablerReopenTab, reopenTab);
+    obj->CheckAndSet(&EnablerLockTab, lockTab);
+    obj->CheckAndSet(&EnablerUnlockTab, unlockTab);
     obj->CheckAndSet(&EnablerLeftNewTab, leftNewTab);
     obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
     obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
     obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
+    obj->CheckAndSet(&EnablerLeftDuplicateTab, leftDuplicateTabSame);
     obj->CheckAndSet(&EnablerLeftCloseAllButDefault, leftCloseAllButDefault);
     obj->CheckAndSet(&EnablerLeftCloseAllExceptThisAndDefault, leftCloseAllExceptThisAndDefault);
     obj->CheckAndSet(&EnablerLeftDuplicateTabToRight, leftDuplicateTab);
     obj->CheckAndSet(&EnablerLeftMoveTabToRight, leftMoveTab);
+    obj->CheckAndSet(&EnablerLeftReopenTab, leftReopenTab);
+    obj->CheckAndSet(&EnablerLeftLockTab, leftLockTab);
+    obj->CheckAndSet(&EnablerLeftUnlockTab, leftUnlockTab);
     obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
     obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
     obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
     obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
+    obj->CheckAndSet(&EnablerRightDuplicateTab, rightDuplicateTabSame);
     obj->CheckAndSet(&EnablerRightCloseAllButDefault, rightCloseAllButDefault);
     obj->CheckAndSet(&EnablerRightCloseAllExceptThisAndDefault, rightCloseAllExceptThisAndDefault);
     obj->CheckAndSet(&EnablerRightDuplicateTabToLeft, rightDuplicateTab);
     obj->CheckAndSet(&EnablerRightMoveTabToLeft, rightMoveTab);
+    obj->CheckAndSet(&EnablerRightReopenTab, rightReopenTab);
+    obj->CheckAndSet(&EnablerRightLockTab, rightLockTab);
+    obj->CheckAndSet(&EnablerRightUnlockTab, rightUnlockTab);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {
