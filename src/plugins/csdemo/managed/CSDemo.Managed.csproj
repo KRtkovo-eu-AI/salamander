@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <Target Name="EnsureRestoreBeforeBuild"
-          BeforeTargets="PrepareForBuild"
+          BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
           Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">
     <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(ProjectAssetsFile))."
              Importance="High" />
