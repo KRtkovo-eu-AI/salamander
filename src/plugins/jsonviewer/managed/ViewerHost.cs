@@ -13,6 +13,7 @@ using System.Windows.Forms;
 using Microsoft.Win32.SafeHandles;
 using JsonViewerControl = EPocalipse.Json.Viewer.JsonViewer;
 using ViewerTabs = EPocalipse.Json.Viewer.Tabs;
+using JsonViewerResources = EPocalipse.Json.Viewer.Properties.Resources;
 
 namespace OpenSalamander.JsonViewer;
 
@@ -327,6 +328,7 @@ internal static class ViewerHost
             MinimizeBox = true;
             MaximizeBox = true;
             KeyPreview = true;
+            Icon = JsonViewerResources.JsonViewerIcon;
 
             _viewer = new JsonViewerControl
             {

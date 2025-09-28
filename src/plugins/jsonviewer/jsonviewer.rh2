@@ -14,6 +14,8 @@
 #error this file is not editable by Microsoft Visual C++
 #endif //defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
 
+#define IDI_JSONVIEWER                    8000
+
 #define IDS_PLUGINNAME                     46
 #define IDS_ABOUT                          47
 #define IDS_PLUGIN_DESCRIPTION             48

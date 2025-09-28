@@ -25,6 +25,7 @@ HINSTANCE HLanguage = NULL;   // handle k SLG-cku - jazykove zavisle resourcy
 
 // obecne rozhrani Salamandera - platne od startu az do ukonceni pluginu
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
 // definice promenne pro "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
@@ -110,6 +111,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // ziskame obecne rozhrani Salamandera
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    SalamanderGUI = salamander->GetSalamanderGUI();
 
     salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_VIEWER,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
@@ -147,6 +149,31 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
     salamander->AddViewer("*.json", FALSE);
+
+    if (SalamanderGUI != NULL)
+    {
+        CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
+        if (iconList != NULL)
+        {
+            if (iconList->Create(16, 16, 1))
+            {
+                UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags() : LR_DEFAULTCOLOR;
+                HICON icon16 = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_JSONVIEWER), IMAGE_ICON, 16, 16, loadFlags);
+                if (icon16 != NULL)
+                {
+                    iconList->ReplaceIcon(0, icon16);
+                    DestroyIcon(icon16);
+                    salamander->SetIconListForGUI(iconList);
+                    salamander->SetPluginIcon(0);
+                    salamander->SetPluginMenuAndToolbarIcon(0);
+                    iconList = NULL;
+                }
+            }
+
+            if (iconList != NULL)
+                SalamanderGUI->DestroyIconList(iconList);
+        }
+    }
 }
 
 CPluginInterfaceForViewerAbstract* WINAPI CPluginInterface::GetInterfaceForViewer()

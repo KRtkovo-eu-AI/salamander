@@ -13,6 +13,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <ProjectGuid>{FAA575FC-812E-4C0F-A39A-543115FDC31F}</ProjectGuid>
+    <ApplicationIcon>..\..\..\..\jsonViewer\JsonView\curly_brackets_w39_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
