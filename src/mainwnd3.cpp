@@ -804,7 +804,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     BOOL canUnlock = (index > 0 && targetPanel != NULL && targetPanel->IsTabLocked());
     appendMenuItem(duplicateSameCmd, duplicateSameText, IDX_TB_TABSDUPLICATE, canDuplicateSame);
     appendMenuItem(reopenCmd, reopenText, -1, canReopen);
-    appendMenuItem(lockCmd, lockText, ToolBarLockImageIndex >= 0 ? ToolBarLockImageIndex : -1, canLock);
+    appendMenuItem(lockCmd, lockText, -1, canLock);
     appendMenuItem(unlockCmd, unlockText, -1, canUnlock);
     appendMenuItem(duplicateOtherCmd, duplicateOtherText, IDX_TB_TABSDUPLICATE, canDuplicateOther);
     appendMenuItem(moveCmd, moveText, -1, canMove);
