@@ -8,6 +8,9 @@
 #pragma warning(3 : 4706) // warning C4706: assignment within conditional expression
 
 #include "strutils.h"
+#include "unicode.h"
+
+using salamander::unicode::SalWideString;
 
 int ConvertU2A(const WCHAR* src, int srcLen, char* buf, int bufSize, BOOL compositeCheck, UINT codepage)
 {
@@ -22,36 +25,38 @@ int ConvertU2A(const WCHAR* src, int srcLen, char* buf, int bufSize, BOOL compos
         SetLastError(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    if (srcLen != -1 && srcLen <= 0)
+    if (srcLen != -1 && srcLen < 0)
     {
-        if (srcLen == 0)
-            return 1;
         SetLastError(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    int res = WideCharToMultiByte(codepage, compositeCheck ? WC_COMPOSITECHECK : 0, src, srcLen, buf, bufSize, NULL, NULL);
-    if (srcLen != -1 && res > 0)
-        res++;
-    if (compositeCheck && res == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) // nektere codepage nepodporuji WC_COMPOSITECHECK
+    if (srcLen == 0)
+        return 1;
+
+    size_t length = (srcLen == -1) ? wcslen(src) : static_cast<size_t>(srcLen);
+    SalWideString view(std::wstring_view(src, length));
+    if (!view)
+        return 0;
+
+    std::string converted = view.ToAnsi(compositeCheck, codepage);
+    if (converted.empty() && view.length() > 0)
+        return 0;
+
+    size_t required = converted.size() + 1;
+    if (required > static_cast<size_t>(bufSize))
     {
-        res = WideCharToMultiByte(codepage, 0, src, srcLen, buf, bufSize, NULL, NULL);
-        if (srcLen != -1 && res > 0)
-            res++;
+        size_t copyCount = static_cast<size_t>(bufSize - 1);
+        if (copyCount > 0)
+            memcpy(buf, converted.data(), copyCount);
+        buf[bufSize - 1] = 0;
+        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+        return 0;
     }
-    if (res > 0 && res <= bufSize)
-        buf[res - 1] = 0; // uspech, zakoncime string nulou
-    else
-    {
-        if (res > bufSize || res == 0 && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-        {
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            buf[bufSize - 1] = 0; // maly buffer, vratime chybu, ale castecne prelozeny string nechame v bufferu
-        }
-        else
-            buf[0] = 0; // jina chyba, zajistime prazdny buffer
-        res = 0;
-    }
-    return res;
+
+    if (!converted.empty())
+        memcpy(buf, converted.data(), converted.size());
+    buf[converted.size()] = 0;
+    return static_cast<int>(required);
 }
 
 char* ConvertAllocU2A(const WCHAR* src, int srcLen, BOOL compositeCheck, UINT codepage)
@@ -61,60 +66,40 @@ char* ConvertAllocU2A(const WCHAR* src, int srcLen, BOOL compositeCheck, UINT co
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
-    if (srcLen != -1 && srcLen <= 0)
+    if (srcLen != -1 && srcLen < 0)
     {
-        if (srcLen == 0)
-        {
-            char* txt = (char*)malloc(1);
-#ifndef SAFE_ALLOC
-            if (txt == NULL)
-                SetLastError(ERROR_OUTOFMEMORY);
-            else
-            {
-#endif // SAFE_ALLOC
-                *txt = 0;
-#ifndef SAFE_ALLOC
-            }
-#endif // SAFE_ALLOC
-            return txt;
-        }
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
-    DWORD flags;
-    int len = WideCharToMultiByte(codepage, flags = (compositeCheck ? WC_COMPOSITECHECK : 0), src, srcLen, NULL, 0, NULL, NULL);
-    if (srcLen != -1 && len > 0)
-        len++;
-    if (compositeCheck && len == 0) // nektere codepage nepodporuji WC_COMPOSITECHECK
+    if (srcLen == 0)
     {
-        len = WideCharToMultiByte(codepage, flags = 0, src, srcLen, NULL, 0, NULL, NULL);
-        if (srcLen != -1 && len > 0)
-            len++;
-    }
-    if (len == 0)
-        return NULL;
-    char* txt = (char*)malloc(len);
-#ifndef SAFE_ALLOC
-    if (txt == NULL)
-        SetLastError(ERROR_OUTOFMEMORY);
-    else
-    {
-#endif // SAFE_ALLOC
-        int res = WideCharToMultiByte(codepage, flags, src, srcLen, txt, len, NULL, NULL);
-        if (srcLen != -1 && res > 0)
-            res++;
-        if (res > 0 && res <= len)
-            txt[res - 1] = 0; // uspech, zakoncime string nulou
+        char* txt = static_cast<char*>(malloc(1));
+        if (txt == NULL)
+            SetLastError(ERROR_OUTOFMEMORY);
         else
-        {
-            DWORD err = GetLastError();
-            free(txt);
-            txt = NULL;
-            SetLastError(err);
-        }
-#ifndef SAFE_ALLOC
+            txt[0] = 0;
+        return txt;
     }
-#endif // SAFE_ALLOC
+
+    size_t length = (srcLen == -1) ? wcslen(src) : static_cast<size_t>(srcLen);
+    SalWideString view(std::wstring_view(src, length));
+    if (!view)
+        return NULL;
+
+    std::string converted = view.ToAnsi(compositeCheck, codepage);
+    if (converted.empty() && view.length() > 0)
+        return NULL;
+
+    size_t bytes = converted.size() + 1;
+    char* txt = static_cast<char*>(malloc(bytes));
+    if (txt == NULL)
+    {
+        SetLastError(ERROR_OUTOFMEMORY);
+        return NULL;
+    }
+    if (!converted.empty())
+        memcpy(txt, converted.data(), converted.size());
+    txt[converted.size()] = 0;
     return txt;
 }
 
@@ -131,30 +116,31 @@ int ConvertA2U(const char* src, int srcLen, WCHAR* buf, int bufSizeInChars, UINT
         SetLastError(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    if (srcLen != -1 && srcLen <= 0)
+    if (srcLen != -1 && srcLen < 0)
     {
-        if (srcLen == 0)
-            return 1;
         SetLastError(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    int res = MultiByteToWideChar(codepage, 0, src, srcLen, buf, bufSizeInChars);
-    if (srcLen != -1 && res > 0)
-        res++;
-    if (res > 0 && res <= bufSizeInChars)
-        buf[res - 1] = 0; // uspech, zakoncime string nulou
-    else
+    if (srcLen == 0)
+        return 1;
+
+    SalWideString wide = SalWideString::FromAnsi(src, srcLen, codepage);
+    if (!wide)
+        return 0;
+
+    size_t required = wide.length() + 1;
+    if (required > static_cast<size_t>(bufSizeInChars))
     {
-        if (res > bufSizeInChars || res == 0 && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-        {
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            buf[bufSizeInChars - 1] = 0; // maly buffer, vratime chybu, ale castecne prelozeny string nechame v bufferu
-        }
-        else
-            buf[0] = 0; // jina chyba, zajistime prazdny buffer
-        res = 0;
+        size_t copyCount = static_cast<size_t>(bufSizeInChars - 1);
+        if (copyCount > 0)
+            memcpy(buf, wide.c_str(), copyCount * sizeof(WCHAR));
+        buf[bufSizeInChars - 1] = 0;
+        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+        return 0;
     }
-    return res;
+
+    memcpy(buf, wide.c_str(), required * sizeof(WCHAR));
+    return static_cast<int>(required);
 }
 
 WCHAR* ConvertAllocA2U(const char* src, int srcLen, UINT codepage)
@@ -164,54 +150,26 @@ WCHAR* ConvertAllocA2U(const char* src, int srcLen, UINT codepage)
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
-    if (srcLen != -1 && srcLen <= 0)
+    if (srcLen != -1 && srcLen < 0)
     {
-        if (srcLen == 0)
-        {
-            WCHAR* txt = (WCHAR*)malloc(1 * sizeof(WCHAR));
-#ifndef SAFE_ALLOC
-            if (txt == NULL)
-                SetLastError(ERROR_OUTOFMEMORY);
-            else
-            {
-#endif // SAFE_ALLOC
-                *txt = 0;
-#ifndef SAFE_ALLOC
-            }
-#endif // SAFE_ALLOC
-            return txt;
-        }
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
-    int len = MultiByteToWideChar(codepage, 0, src, srcLen, NULL, 0);
-    if (srcLen != -1 && len > 0)
-        len++;
-    if (len == 0)
-        return NULL;
-    WCHAR* txt = (WCHAR*)malloc(len * sizeof(WCHAR));
-#ifndef SAFE_ALLOC
-    if (txt == NULL)
-        SetLastError(ERROR_OUTOFMEMORY);
-    else
+    if (srcLen == 0)
     {
-#endif // SAFE_ALLOC
-        int res = MultiByteToWideChar(codepage, 0, src, srcLen, txt, len);
-        if (srcLen != -1 && res > 0)
-            res++;
-        if (res > 0 && res <= len)
-            txt[res - 1] = 0; // uspech, zakoncime string nulou
+        WCHAR* txt = static_cast<WCHAR*>(malloc(sizeof(WCHAR)));
+        if (txt == NULL)
+            SetLastError(ERROR_OUTOFMEMORY);
         else
-        {
-            DWORD err = GetLastError();
-            free(txt);
-            txt = NULL;
-            SetLastError(err);
-        }
-#ifndef SAFE_ALLOC
+            txt[0] = 0;
+        return txt;
     }
-#endif // SAFE_ALLOC
-    return txt;
+
+    SalWideString wide = SalWideString::FromAnsi(src, srcLen, codepage);
+    if (!wide)
+        return NULL;
+
+    return wide.release();
 }
 
 WCHAR* DupStr(const WCHAR* txt)

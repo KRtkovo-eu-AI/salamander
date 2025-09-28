@@ -25,6 +25,9 @@
 #endif //INSIDE_SPL
 
 #include "str.h"
+#include "unicode.h"
+
+using salamander::unicode::SalWideString;
 
 #ifndef INSIDE_SPL // krome pouziti v pluginech
 
@@ -73,35 +76,114 @@ public:
 
 // ****************************************************************************
 
+WCHAR* DupStrW(const WCHAR* txt)
+{
+    if (txt == NULL)
+        return NULL;
+    SalWideString wide = SalWideString::Duplicate(std::wstring_view(txt));
+    if (!wide)
+    {
+        TRACE_E("Low memory.");
+        return NULL;
+    }
+    return wide.release();
+}
+
+WCHAR* DupStrExW(const WCHAR* str, BOOL& err)
+{
+    err = FALSE;
+    WCHAR* s = DupStrW(str);
+    if (str != NULL && s == NULL)
+        err = TRUE;
+    return s;
+}
+
 char* DupStr(const char* txt)
 {
     if (txt == NULL)
         return NULL;
-    int l = (int)strlen(txt);
-    char* s = (char*)malloc(l + 1);
+
+    SalWideString wide = SalWideString::FromAnsi(txt, -1, CP_ACP);
+    if (!wide)
+        return NULL;
+
+    std::string ansi = wide.ToAnsi(FALSE, CP_ACP);
+    if (ansi.empty() && wide.length() > 0)
+        return NULL;
+
+    size_t bytes = ansi.size() + 1;
+    char* s = static_cast<char*>(malloc(bytes));
     if (s == NULL)
     {
         TRACE_E("Low memory.");
         return NULL;
     }
-    memcpy(s, txt, l + 1);
+    if (!ansi.empty())
+        memcpy(s, ansi.data(), ansi.size());
+    s[ansi.size()] = 0;
     return s;
 }
 
 char* DupStrEx(const char* str, BOOL& err)
 {
+    err = FALSE;
     char* s = DupStr(str);
     if (str != NULL && s == NULL)
         err = TRUE;
     return s;
 }
 
+WCHAR* StrNCatW(WCHAR* dst, const WCHAR* src, int dstSize)
+{
+    if (dst == NULL || src == NULL || dstSize <= 0)
+        return dst;
+
+    int len = lstrlenW(dst);
+    if (len >= dstSize - 1)
+        return dst;
+
+    lstrcpynW(dst + len, src, dstSize - len);
+    return dst;
+}
+
 // ****************************************************************************
 
 char* StrNCat(char* dst, const char* src, int dstSize)
 {
-    int i = lstrlenA(dst);
-    lstrcpynA(dst + i, src, dstSize - i);
+    if (dst == NULL || src == NULL || dstSize <= 0)
+        return dst;
+
+    SalWideString dstWide = SalWideString::FromAnsi(dst, -1, CP_ACP);
+    if (!dstWide)
+        return dst;
+    SalWideString srcWide = SalWideString::FromAnsi(src, -1, CP_ACP);
+    if (!srcWide)
+        return dst;
+
+    std::wstring dest = dstWide.to_wstring();
+    std::wstring source = srcWide.to_wstring();
+
+    dest.reserve(dest.size() + source.size());
+    dest.append(source);
+
+    SalWideString combined(dest);
+    if (!combined)
+        return dst;
+
+    std::string ansi = combined.ToAnsi(FALSE, CP_ACP);
+    if (ansi.empty() && combined.length() > 0)
+        return dst;
+
+    size_t copyCount = ansi.size();
+    if (copyCount + 1 > static_cast<size_t>(dstSize))
+    {
+        copyCount = static_cast<size_t>(dstSize - 1);
+        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    }
+
+    if (copyCount > 0)
+        memcpy(dst, ansi.data(), copyCount);
+    dst[copyCount] = 0;
     return dst;
 }
 
@@ -110,27 +192,23 @@ char* StrNCat(char* dst, const char* src, int dstSize)
 void InitializeCase()
 {
     int i;
-    if (GetACP() == CP_UTF8)
+    WCHAR src[2] = {0};
+    WCHAR mapped[4] = {0};
+    for (i = 0; i < 256; i++)
     {
-        for (i = 0; i < 256; i++)
-        {
-            LowerCase[i] = (BYTE)i;
-            UpperCase[i] = (BYTE)i;
-        }
-        for (i = 'A'; i <= 'Z'; i++)
-        {
-            LowerCase[i] = (BYTE)(i - 'A' + 'a');
-        }
-        for (i = 'a'; i <= 'z'; i++)
-        {
-            UpperCase[i] = (BYTE)(i - 'a' + 'A');
-        }
-        return;
+        src[0] = static_cast<WCHAR>(i);
+        int lowerCount = LCMapStringEx(LOCALE_NAME_USER_DEFAULT, LCMAP_LOWERCASE, src, 1, mapped, _countof(mapped), NULL, NULL, 0);
+        if (lowerCount > 0 && mapped[0] <= 0x00FF)
+            LowerCase[i] = static_cast<BYTE>(mapped[0]);
+        else
+            LowerCase[i] = (BYTE)(UINT_PTR)CharLowerA((LPSTR)(UINT_PTR)i);
+
+        int upperCount = LCMapStringEx(LOCALE_NAME_USER_DEFAULT, LCMAP_UPPERCASE, src, 1, mapped, _countof(mapped), NULL, NULL, 0);
+        if (upperCount > 0 && mapped[0] <= 0x00FF)
+            UpperCase[i] = static_cast<BYTE>(mapped[0]);
+        else
+            UpperCase[i] = (BYTE)(UINT_PTR)CharUpperA((LPSTR)(UINT_PTR)i);
     }
-    for (i = 0; i < 256; i++)
-        LowerCase[i] = (char)(UINT_PTR)CharLowerA((LPSTR)(UINT_PTR)i);
-    for (i = 0; i < 256; i++)
-        UpperCase[i] = (char)(UINT_PTR)CharUpperA((LPSTR)(UINT_PTR)i);
 }
 
 //
