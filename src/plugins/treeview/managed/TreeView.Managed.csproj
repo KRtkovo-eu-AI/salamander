@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>TreeView.Managed</AssemblyName>
+    <RootNamespace>OpenSalamander.TreeViewBrowser</RootNamespace>
+    <ProjectGuid>{A769BC7D-62CC-4792-A06F-9DE8C6909AE5}</ProjectGuid>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>enable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Design" />
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Drawing.Design" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="EntryPoint.cs" />
+    <Compile Include="BrowserHost.cs" />
+    <Compile Include="TreeViewBrowserForm.cs" />
+    <Compile Include="WindowInterop.cs" />
+
+    <Compile Include="..\..\..\..\3rd-party\treeview\BaseAssemblyInfo.cs">
+      <Link>ThirdParty\BaseAssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\3rd-party\treeview\Raccoom.TreeViewFolderBrowser\**\*.cs">
+      <Link>ThirdParty\TreeViewFolderBrowser\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\3rd-party\treeview\Raccoom.TreeViewFolderBrowser.DataProviders\**\*.cs">
+      <Link>ThirdParty\DataProviders\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\3rd-party\treeview\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProvider.resx">
+      <Link>ThirdParty\DataProviders\TreeViewFolderBrowserDataProvider.resx</Link>
+      <DependentUpon>TreeViewFolderBrowserDataProvider.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\3rd-party\treeview\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewStrategyCultureInfo.resx">
+      <Link>ThirdParty\DataProviders\TreeViewStrategyCultureInfo.resx</Link>
+      <DependentUpon>TreeViewStrategyCultureInfo.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="EnsureRestoreBeforeBuild"
+          BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
+          Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(ProjectAssetsFile))."
+             Importance="High" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore"
+             Properties="RestoreDuringBuild=true" />
+  </Target>
+</Project>

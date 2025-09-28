@@ -1,0 +1,4 @@
+LIBRARY TREEVIEW.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer

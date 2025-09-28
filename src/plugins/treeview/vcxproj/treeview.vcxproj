@@ -1,0 +1,219 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{8C89C5D0-4D7C-4A6D-8BFB-57C9B0E1682C}</ProjectGuid>
+    <RootNamespace>treeview</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props">
+  </Import>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props">
+  </Import>
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x86.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_release.props">
+    </Import>
+    <Import Project="treeview.props">
+    </Import>
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x86.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props">
+    </Import>
+    <Import Project="treeview.props">
+    </Import>
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x64.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_release.props">
+    </Import>
+    <Import Project="treeview.props">
+    </Import>
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x64.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props">
+    </Import>
+    <Import Project="treeview.props">
+    </Import>
+  </ImportGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'!=''">
+    <TreeViewBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</TreeViewBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'==''">
+    <TreeViewBuildRoot>$(ProjectDir)..\..\..\..\build\salamander\</TreeViewBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <TreeViewPluginDir>$(TreeViewBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\treeview\</TreeViewPluginDir>
+    <OutDir>$(TreeViewPluginDir)</OutDir>
+    <IntDir>$(OutDir)Intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros">
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\shared\auxtools.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\dbg.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+    </ClCompile>
+    <ClCompile Include="..\treeview.cpp">
+    </ClCompile>
+    <ClCompile Include="..\managed_bridge.cpp">
+    </ClCompile>
+    <ClCompile Include="..\menu.cpp">
+    </ClCompile>
+    <ClCompile Include="..\precomp.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\shared\auxtools.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\dbg.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\mhandles.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_base.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_com.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_gen.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_gui.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_menu.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_thum.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_vers.h">
+    </ClInclude>
+    <ClInclude Include="..\treeview.h">
+    </ClInclude>
+    <ClInclude Include="..\managed_bridge.h">
+    </ClInclude>
+    <ClInclude Include="..\precomp.h">
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\treeview.def">
+    </None>
+    <None Include="..\treeview.rc2">
+    </None>
+    <None Include="..\treeview.rh">
+    </None>
+    <None Include="..\treeview.rh2">
+    </None>
+    <None Include="..\lang\lang.rh">
+    </None>
+    <None Include="..\versinfo.rh2">
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\treeview.rc">
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="lang_treeview.vcxproj">
+      <Project>{3cb8b01d-bcb3-4f4e-b60a-9b46d2af2f69}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\managed\TreeView.Managed.csproj">
+      <Project>{A769BC7D-62CC-4792-A06F-9DE8C6909AE5}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <PostBuildEvent>
+      <Command>if not exist "$(TreeViewPluginDir)" mkdir "$(TreeViewPluginDir)"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TreeView.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TreeView.Managed.dll" (&#x0D;&#x0A;  echo TreeView.Managed.dll was not found in "$(ProjectDir)..\managed\bin\$(Configuration)" or its net48 subfolder.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;copy /Y "%MANAGED_DIR%TreeView.Managed.dll" "$(TreeViewPluginDir)TreeView.Managed.dll"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
+  </Import>
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
