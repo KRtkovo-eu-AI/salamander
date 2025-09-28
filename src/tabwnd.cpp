@@ -504,6 +504,16 @@ bool CTabWindow::IsReorderableIndex(int index) const
         return false;
     if (GetTabCount() <= 2)
         return false;
+    TCITEMW item;
+    ZeroMemory(&item, sizeof(item));
+    item.mask = TCIF_PARAM;
+    if (!SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&item))
+        return false;
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(item.lParam);
+    if (panel == NULL)
+        return false;
+    if (panel->IsTabLocked())
+        return false;
     return true;
 }
 
@@ -1130,6 +1140,10 @@ void CTabWindow::MoveTabInternal(int from, int to)
     if (!SendMessageW(HWindow, TCM_GETITEMW, from, (LPARAM)&item))
         return;
 
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(item.lParam);
+    if (panel != NULL && panel->IsTabLocked())
+        return;
+
     std::wstring text(textBuffer);
     item.pszText = text.empty() ? const_cast<LPWSTR>(L"") : &text[0];
     item.cchTextMax = (int)text.length() + 1;
@@ -1542,7 +1556,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hit > 0 && !IsNewTabButtonIndex(hit) && MainWindow != NULL)
         {
             CFilesWindow* panel = MainWindow->GetPanelTabAt(Side, hit);
-            if (panel != NULL)
+            if (panel != NULL && !panel->IsTabLocked())
                 MainWindow->ClosePanelTab(panel);
         }
         return 0;
