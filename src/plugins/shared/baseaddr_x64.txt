@@ -105,4 +105,6 @@ lang_portables  0x0000010039d00000
 regliba         0x0000010029e00000
 csdemo          0x0000010029f00000
 lang_csdemo     0x0000010039f00000
+jsonviewer      0x000001002a000000
+lang_jsonviewer 0x000001003a000000
 
