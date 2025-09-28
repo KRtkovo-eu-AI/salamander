@@ -37,11 +37,21 @@ public static class EntryPoint
         }
         catch (Exception ex)
         {
-            MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
-                $"Unexpected managed exception:\n{ex.Message}",
-                "JSON Viewer Plugin",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            if (parent != IntPtr.Zero)
+            {
+                MessageBox.Show(new WindowHandleWrapper(parent),
+                    $"Unexpected managed exception:\n{ex.Message}",
+                    "JSON Viewer Plugin",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            else
+            {
+                MessageBox.Show($"Unexpected managed exception:\n{ex.Message}",
+                    "JSON Viewer Plugin",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
             return -1;
         }
     }
