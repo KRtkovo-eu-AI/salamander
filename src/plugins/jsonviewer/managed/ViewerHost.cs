@@ -34,7 +34,7 @@ internal static class ViewerHost
 
         if (asynchronous)
         {
-            if (request.CloseEvent is null)
+            if (!request.RequiresSynchronization)
             {
                 MessageBox.Show(request.OwnerWindow,
                     "The native host did not provide a synchronization handle for the viewer.",
@@ -73,6 +73,9 @@ internal static class ViewerHost
                 "JSON Viewer Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
+        }
+        finally
+        {
             request.SignalClosed();
         }
     }
@@ -99,6 +102,9 @@ internal static class ViewerHost
 
     private sealed class ViewerRequest
     {
+        private readonly EventWaitHandle? _closeEvent;
+        private int _closeSignaled;
+
         public ViewerRequest(IntPtr parent, ViewCommandPayload payload)
         {
             Parent = parent;
@@ -107,20 +113,47 @@ internal static class ViewerHost
 
             if (payload.CloseHandle != IntPtr.Zero)
             {
-                CloseEvent = new EventWaitHandle(false, EventResetMode.AutoReset);
-                CloseEvent.SafeWaitHandle = new SafeWaitHandle(payload.CloseHandle, ownsHandle: false);
+                _closeEvent = new EventWaitHandle(false, EventResetMode.AutoReset)
+                {
+                    SafeWaitHandle = new SafeWaitHandle(payload.CloseHandle, ownsHandle: false)
+                };
             }
         }
 
         public IntPtr Parent { get; }
         public ViewCommandPayload Payload { get; }
         public IWin32Window? OwnerWindow { get; }
-        public EventWaitHandle? CloseEvent { get; }
         public bool StartupSucceeded { get; private set; } = true;
+
+        public bool RequiresSynchronization => _closeEvent is not null;
 
         public void SignalClosed()
         {
-            CloseEvent?.Set();
+            var handle = _closeEvent;
+            if (handle is null)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _closeSignaled, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                handle.Set();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            finally
+            {
+                handle.Dispose();
+            }
         }
 
         public void MarkStartupFailed()
@@ -282,6 +315,7 @@ internal static class ViewerHost
         private readonly ViewerRequest _request;
         private readonly JsonViewerControl _viewer;
         private bool _jsonLoaded;
+        private IntPtr _previousOwner;
 
         public JsonViewerForm(ViewerRequest request)
         {
@@ -292,6 +326,7 @@ internal static class ViewerHost
             ShowInTaskbar = false;
             MinimizeBox = true;
             MaximizeBox = true;
+            KeyPreview = true;
 
             _viewer = new JsonViewerControl
             {
@@ -301,6 +336,7 @@ internal static class ViewerHost
             Controls.Add(_viewer);
 
             HandleCreated += OnHandleCreated;
+            HandleDestroyed += OnHandleDestroyed;
             Shown += OnShown;
             FormClosing += OnFormClosing;
         }
@@ -335,7 +371,16 @@ internal static class ViewerHost
         {
             if (_request.Parent != IntPtr.Zero)
             {
-                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _request.Parent);
+                _previousOwner = NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _request.Parent);
+            }
+        }
+
+        private void OnHandleDestroyed(object? sender, EventArgs e)
+        {
+            if (_previousOwner != IntPtr.Zero)
+            {
+                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _previousOwner);
+                _previousOwner = IntPtr.Zero;
             }
         }
 
@@ -372,6 +417,17 @@ internal static class ViewerHost
                     MessageBoxIcon.Error);
                 BeginInvoke(new MethodInvoker(Close));
             }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Escape)
+            {
+                Close();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private static string BuildCaption(string caption)
