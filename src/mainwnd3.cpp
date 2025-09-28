@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <cwctype>
 #include <commdlg.h>
 
@@ -311,8 +312,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
         panel->HWindow = NULL;
         if (storeForReopen)
             RememberClosedTab(side, panel, originalIndex);
-        else
-            delete panel;
+        delete panel;
         if (Created)
             RefreshCommandStates();
         return;
@@ -342,8 +342,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
 
     if (storeForReopen)
         RememberClosedTab(side, panel, originalIndex);
-    else
-        delete panel;
+    delete panel;
 
     if (Created)
     {
@@ -364,23 +363,61 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
 {
     if (panel == NULL)
         return;
+    if (!Configuration.UsePanelTabs)
+        return;
 
     size_t vectorIndex = (side == cpsLeft) ? 0 : 1;
     panel->SetPanelSide(side);
     panel->NeedsRefreshOnActivation = TRUE;
 
     SClosedPanelTab info;
-    info.Panel = panel;
     info.InsertIndex = insertIndex;
-    ClosedPanelTabs[vectorIndex].push_back(info);
+
+    char path[2 * MAX_PATH];
+    path[0] = 0;
+    if (panel->GetGeneralPath(path, _countof(path), TRUE))
+        info.GeneralPath.assign(path);
+    const char* basicPath = panel->GetPath();
+    if (basicPath != NULL)
+        info.FallbackPath.assign(basicPath);
+
+    info.ViewTemplateIndex = panel->GetViewTemplateIndex();
+    info.SortType = panel->SortType;
+    info.ReverseSort = panel->ReverseSort;
+    info.StatusLineVisible = panel->StatusLineVisible;
+    info.DirectoryLineVisible = panel->DirectoryLineVisible;
+    info.HeaderLineVisible = panel->HeaderLineVisible;
+    info.FilterEnabled = panel->FilterEnabled != FALSE;
+    const char* filterMasks = panel->Filter.GetMasksString();
+    if (filterMasks != NULL)
+        info.FilterMasks.assign(filterMasks);
+    info.FilterExtendedMode = panel->Filter.GetExtendedMode() != FALSE;
+    info.HasCustomColor = panel->HasCustomTabColor();
+    if (info.HasCustomColor)
+        info.CustomColor = panel->GetCustomTabColor();
+    info.HasCustomPrefix = panel->HasCustomTabPrefix();
+    if (info.HasCustomPrefix)
+        info.CustomPrefix = panel->GetCustomTabPrefix();
+    info.UserWorkedOnPath = panel->UserWorkedOnThisPath != FALSE;
+
+    if (panel->PathHistory != NULL)
+    {
+        info.PathHistory.reset(new CPathHistory());
+        if (info.PathHistory != NULL)
+            info.PathHistory->CopyFrom(*panel->PathHistory);
+    }
+
+    if (panel->WorkDirHistory != NULL)
+    {
+        info.WorkDirHistory.reset(new CPathHistory(TRUE));
+        if (info.WorkDirHistory != NULL)
+            info.WorkDirHistory->CopyFrom(*panel->WorkDirHistory);
+    }
+
+    ClosedPanelTabs[vectorIndex].push_back(std::move(info));
 
     if (ClosedPanelTabs[vectorIndex].size() > kMaxStoredClosedTabs)
-    {
-        SClosedPanelTab& oldest = ClosedPanelTabs[vectorIndex].front();
-        if (oldest.Panel != NULL)
-            delete oldest.Panel;
         ClosedPanelTabs[vectorIndex].erase(ClosedPanelTabs[vectorIndex].begin());
-    }
 }
 
 BOOL MainFrameIsActive = FALSE;
@@ -769,7 +806,7 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     BOOL canUnlock = (index > 0 && targetPanel != NULL && targetPanel->IsTabLocked());
     appendMenuItem(duplicateSameCmd, duplicateSameText, IDX_TB_TABSDUPLICATE, canDuplicateSame);
     appendMenuItem(reopenCmd, reopenText, -1, canReopen);
-    appendMenuItem(lockCmd, lockText, -1, canLock);
+    appendMenuItem(lockCmd, lockText, ToolBarLockImageIndex >= 0 ? ToolBarLockImageIndex : -1, canLock);
     appendMenuItem(unlockCmd, unlockText, -1, canUnlock);
     appendMenuItem(duplicateOtherCmd, duplicateOtherText, IDX_TB_TABSDUPLICATE, canDuplicateOther);
     appendMenuItem(moveCmd, moveText, -1, canMove);
@@ -1679,12 +1716,8 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
     if (ClosedPanelTabs[vectorIndex].empty())
         return false;
 
-    SClosedPanelTab entry = ClosedPanelTabs[vectorIndex].back();
+    SClosedPanelTab entry = std::move(ClosedPanelTabs[vectorIndex].back());
     ClosedPanelTabs[vectorIndex].pop_back();
-    CFilesWindow* panel = entry.Panel;
-    if (panel == NULL)
-        return false;
-
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
     int insertIndex = entry.InsertIndex;
     if (insertIndex < 0 || insertIndex > tabs.Count)
@@ -1692,25 +1725,96 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
     if (tabs.Count > 0 && insertIndex <= 0)
         insertIndex = 1;
 
-    if (!InsertPanelTabInstance(side, insertIndex, panel, true))
+    CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
+
+    CFilesWindow* panel = AddPanelTab(side, insertIndex);
+    if (panel == NULL)
     {
-        ClosedPanelTabs[vectorIndex].push_back(entry);
+        ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
+        if (previous != NULL)
+            SwitchPanelTab(previous);
         return false;
     }
 
     DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
     {
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
-        if (tabWnd != NULL && tabWnd->HWindow != NULL)
-            tabWnd->RemoveTab(insertIndex);
-        tabs.Detach(insertIndex);
-        panel->HWindow = NULL;
-        ClosedPanelTabs[vectorIndex].push_back(entry);
-        UpdatePanelTabVisibility(side);
+        int idx = GetPanelTabIndex(side, panel);
+        if (idx >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(idx);
+            tabs.Delete(idx);
+        }
+        delete panel;
+        if (previous != NULL)
+            SwitchPanelTab(previous);
+        else
+            UpdatePanelTabVisibility(side);
+        ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
         return false;
     }
 
+    if (panel->IsViewTemplateValid(entry.ViewTemplateIndex))
+        panel->SelectViewTemplate(entry.ViewTemplateIndex, TRUE, FALSE);
+
+    panel->ChangeSortType(entry.SortType, entry.ReverseSort, TRUE);
+
+    if (!!panel->StatusLineVisible != !!entry.StatusLineVisible)
+        panel->ToggleStatusLine();
+    if (!!panel->DirectoryLineVisible != !!entry.DirectoryLineVisible)
+        panel->ToggleDirectoryLine();
+    if (!!panel->HeaderLineVisible != !!entry.HeaderLineVisible)
+        panel->ToggleHeaderLine();
+
+    panel->FilterEnabled = entry.FilterEnabled ? TRUE : FALSE;
+    const char* filterMasks = entry.FilterMasks.empty() ? "*.*" : entry.FilterMasks.c_str();
+    panel->Filter.SetMasksString(filterMasks, entry.FilterExtendedMode ? TRUE : FALSE);
+    int errPos;
+    if (!panel->Filter.PrepareMasks(errPos))
+    {
+        panel->Filter.SetMasksString("*.*");
+        panel->Filter.PrepareMasks(errPos);
+    }
+    panel->UpdateFilterSymbol();
+
+    if (entry.HasCustomColor)
+        panel->SetCustomTabColor(entry.CustomColor);
+    else
+        panel->ClearCustomTabColor();
+
+    if (entry.HasCustomPrefix)
+        panel->SetCustomTabPrefix(entry.CustomPrefix.c_str());
+    else
+        panel->ClearCustomTabPrefix();
+
+    if (panel->PathHistory != NULL)
+    {
+        if (entry.PathHistory != NULL)
+            panel->PathHistory->CopyFrom(*entry.PathHistory);
+        else
+            panel->PathHistory->ClearHistory();
+    }
+
+    if (entry.WorkDirHistory != NULL)
+    {
+        CPathHistory* history = panel->EnsureWorkDirHistory();
+        if (history != NULL)
+            history->CopyFrom(*entry.WorkDirHistory);
+    }
+    else
+        panel->ClearWorkDirHistory();
+
+    panel->UserWorkedOnThisPath = entry.UserWorkedOnPath;
+
+    if (!entry.GeneralPath.empty())
+        panel->ChangeDir(entry.GeneralPath.c_str());
+    else if (!entry.FallbackPath.empty())
+        panel->ChangeDir(entry.FallbackPath.c_str());
+
+    UpdatePanelTabColor(panel);
+    UpdatePanelTabTitle(panel);
     UpdatePanelTabVisibility(side);
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();

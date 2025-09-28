@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "fileswnd.h"
@@ -389,8 +391,25 @@ public:
     TIndirectArray<CFilesWindow> RightPanelTabs;
     struct SClosedPanelTab
     {
-        CFilesWindow* Panel;
         int InsertIndex;
+        std::string GeneralPath;
+        std::string FallbackPath;
+        int ViewTemplateIndex;
+        CSortType SortType;
+        BOOL ReverseSort;
+        BOOL StatusLineVisible;
+        BOOL DirectoryLineVisible;
+        BOOL HeaderLineVisible;
+        bool FilterEnabled;
+        std::string FilterMasks;
+        bool FilterExtendedMode;
+        bool HasCustomColor;
+        COLORREF CustomColor;
+        bool HasCustomPrefix;
+        std::wstring CustomPrefix;
+        bool UserWorkedOnPath;
+        std::unique_ptr<CPathHistory> PathHistory;
+        std::unique_ptr<CPathHistory> WorkDirHistory;
     };
     std::vector<SClosedPanelTab> ClosedPanelTabs[2];
     CEditWindow* EditWindow;

@@ -287,6 +287,7 @@ HIMAGELIST HGrayToolBarImageList = NULL;
 HIMAGELIST HHotToolBarImageList = NULL;
 HIMAGELIST HBottomTBImageList = NULL;
 HIMAGELIST HHotBottomTBImageList = NULL;
+int ToolBarLockImageIndex = -1;
 
 CBitmap ItemBitmap;
 
@@ -2340,6 +2341,44 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         {
             TRACE_E("Unable to create image list.");
             return FALSE;
+        }
+
+        ToolBarLockImageIndex = -1;
+        if (LockFrames != NULL)
+        {
+            HICON colorLock = LockFrames->GetIcon(0);
+            CIconList grayLockCopy;
+            HICON grayLock = NULL;
+            if (grayLockCopy.CreateAsCopy(LockFrames, TRUE))
+                grayLock = grayLockCopy.GetIcon(0);
+
+            if (colorLock != NULL)
+            {
+                ToolBarLockImageIndex = ImageList_AddIcon(HHotToolBarImageList, colorLock);
+                DestroyIcon(colorLock);
+            }
+
+            if (grayLock != NULL)
+            {
+                int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, grayLock);
+                if (ToolBarLockImageIndex >= 0 && grayIndex != ToolBarLockImageIndex)
+                {
+                    ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, grayLock);
+                    ImageList_Remove(HGrayToolBarImageList, grayIndex);
+                }
+                DestroyIcon(grayLock);
+            }
+            else if (ToolBarLockImageIndex >= 0)
+            {
+                HICON fallback = LockFrames->GetIcon(0);
+                if (fallback != NULL)
+                {
+                    int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, fallback);
+                    if (grayIndex != ToolBarLockImageIndex)
+                        ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, fallback);
+                    DestroyIcon(fallback);
+                }
+            }
         }
 
         HBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
