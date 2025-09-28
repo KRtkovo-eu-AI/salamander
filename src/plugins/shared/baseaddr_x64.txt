@@ -103,4 +103,10 @@ lang_renamer    0x0000010039c00000
 portables       0x0000010029d00000
 lang_portables  0x0000010039d00000
 regliba         0x0000010029e00000
+csdemo          0x0000010029f00000
+lang_csdemo     0x0000010039f00000
+jsonviewer      0x000001002a000000
+lang_jsonviewer 0x000001003a000000
+textviewer      0x000001002a100000
+lang_textviewer 0x000001003a100000
 

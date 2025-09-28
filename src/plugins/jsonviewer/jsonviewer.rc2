@@ -1,0 +1,22 @@
+//
+// Copyright (c) 2023-2024 Open Salamander Authors
+//
+// This is a part of the Open Salamander SDK library.
+//
+//****************************************************************************
+
+//
+// jsonviewer.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// Add manually edited resources here...
+
+#include "versinfo.rh2"
+#include "versinfo.rc2"
+
+IDI_JSONVIEWER ICON "..\\..\\..\\jsonViewer\\JsonView\\curly_brackets_w39_icon.ico"

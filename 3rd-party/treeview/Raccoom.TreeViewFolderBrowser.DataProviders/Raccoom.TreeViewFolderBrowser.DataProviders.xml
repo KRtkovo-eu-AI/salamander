@@ -1,0 +1,814 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Raccoom.TreeViewFolderBrowser.DataProviders</name>
+    </assembly>
+    <members>
+        <member name="T:FTPLib.FTP">
+            <summary>
+            Class written by J.P. Trosclair, extended by Christoph Richner
+            Copyright (c) 2005, J.P. Trosclair
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.Shell32Namespaces">
+            <summary>
+            Shell32Namespaces handles Shell32 Interop
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.SystemImageListSize">
+            <summary>
+            Available system image list sizes
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.SystemImageListSize.LargeIcons">
+            <summary>
+            System Large Icon Size (typically 32x32)
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.SystemImageListSize.SmallIcons">
+            <summary>
+            System Small Icon Size (typically 16x16)
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.SystemImageListSize.ExtraLargeIcons">
+            <summary>
+            System Extra Large Icon Size (typically 48x48).
+            Only available under XP; under other OS the
+            Large Icon ImageList is returned.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.ImageListDrawItemConstants">
+            <summary>
+            Flags controlling how the Image List item is 
+            drawn
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_NORMAL">
+            <summary>
+            Draw item normally.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_TRANSPARENT">
+            <summary>
+            Draw item transparently.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_BLEND25">
+            <summary>
+            Draw item blended with 25% of the specified foreground colour
+            or the Highlight colour if no foreground colour specified.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_SELECTED">
+            <summary>
+            Draw item blended with 50% of the specified foreground colour
+            or the Highlight colour if no foreground colour specified.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_MASK">
+            <summary>
+            Draw the icon's mask
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_IMAGE">
+            <summary>
+            Draw the icon image without using the mask
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_ROP">
+            <summary>
+            Draw the icon using the ROP specified.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_PRESERVEALPHA">
+            <summary>
+            Preserves the alpha channel in dest. XP only.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_SCALE">
+            <summary>
+            Scale the image to cx, cy instead of clipping it.  XP only.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawItemConstants.ILD_DPISCALE">
+            <summary>
+            Scale the image to the current DPI of the display. XP only.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.ImageListDrawStateConstants">
+            <summary>
+            Enumeration containing XP ImageList Draw State options
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawStateConstants.ILS_NORMAL">
+            <summary>
+            The image state is not modified. 
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawStateConstants.ILS_GLOW">
+            <summary>
+            Adds a glow effect to the icon, which causes the icon to appear to glow 
+            with a given color around the edges. (Note: does not appear to be
+            implemented)
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawStateConstants.ILS_SHADOW">
+            <summary>
+            Adds a drop shadow effect to the icon. (Note: does not appear to be
+            implemented)
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawStateConstants.ILS_SATURATE">
+            <summary>
+            Saturates the icon by increasing each color component 
+            of the RGB triplet for each pixel in the icon. (Note: only ever appears
+            to result in a completely unsaturated icon)
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ImageListDrawStateConstants.ILS_ALPHA">
+            <summary>
+            Alpha blends the icon. Alpha blending controls the transparency 
+            level of an icon, according to the value of its alpha channel. 
+            (Note: does not appear to be implemented).
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.ShellIconStateConstants">
+            <summary>
+            Flags specifying the state of the icon to draw from the Shell
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ShellIconStateConstants.ShellIconStateNormal">
+            <summary>
+            Get icon in normal state
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ShellIconStateConstants.ShellIconStateLinkOverlay">
+            <summary>
+            Put a link overlay on icon 
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ShellIconStateConstants.ShellIconStateSelected">
+            <summary>
+            show icon in selected state 
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ShellIconStateConstants.ShellIconStateOpen">
+            <summary>
+            get open icon 
+            </summary>
+        </member>
+        <member name="F:Raccoom.Win32.ShellIconStateConstants.ShellIconAddOverlays">
+            <summary>
+            apply the appropriate overlays
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.SystemImageList">
+            <summary>
+            Sys32ImageList wrapper class
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.#ctor">
+            <summary>
+            Creates a Small Icons SystemImageList 
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.#ctor(Raccoom.Win32.SystemImageListSize)">
+            <summary>
+            Creates a SystemImageList with the specified size
+            </summary>
+            <param name="size">Size of System ImageList</param>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.Dispose">
+            <summary>
+            Clears up any resources associated with the SystemImageList
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.Dispose(System.Boolean)">
+            <summary>
+            Clears up any resources associated with the SystemImageList
+            when disposing is true.
+            </summary>
+            <param name="disposing">Whether the object is being disposed</param>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.Finalize">
+            <summary>
+            Finalise for SysImageList
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.SHGetImageList(System.Int32,System.Guid@,Raccoom.Win32.SystemImageList.IImageList@)">
+            <summary>
+            SHGetImageList is not exported correctly in XP.  See KB316931
+            http://support.microsoft.com/default.aspx?scid=kb;EN-US;Q316931
+            Apparently (and hopefully) ordinal 727 isn't going to change.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.isXpOrAbove">
+            <summary>
+            Determines if the system is running Windows XP
+            or above
+            </summary>
+            <returns>True if system is running XP or above, False otherwise</returns>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.create">
+            <summary>
+            Creates the SystemImageList
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.Icon(System.Int32)">
+            <summary>
+            Returns a GDI+ copy of the icon from the ImageList
+            at the specified index.
+            </summary>
+            <param name="index">The index to get the icon for</param>
+            <returns>The specified icon</returns>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.IconIndex(System.String)">
+            <summary>
+            Return the index of the icon for the specified file, always using 
+            the cached version where possible.
+            </summary>
+            <param name="fileName">Filename to get icon for</param>
+            <returns>Index of the icon</returns>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.IconIndex(System.String,System.Boolean)">
+            <summary>
+            Returns the index of the icon for the specified file
+            </summary>
+            <param name="fileName">Filename to get icon for</param>
+            <param name="forceLoadFromDisk">If True, then hit the disk to get the icon,
+            otherwise only hit the disk if no cached icon is available.</param>
+            <returns>Index of the icon</returns>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.IconIndex(System.String,System.Boolean,Raccoom.Win32.ShellIconStateConstants)">
+            <summary>
+            Returns the index of the icon for the specified file
+            </summary>
+            <param name="fileName">Filename to get icon for</param>
+            <param name="forceLoadFromDisk">If True, then hit the disk to get the icon,
+            otherwise only hit the disk if no cached icon is available.</param>
+            <param name="iconState">Flags specifying the state of the icon
+            returned.</param>
+            <returns>Index of the icon</returns>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.DrawImage(System.IntPtr,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Draws an image
+            </summary>
+            <param name="hdc">Device context to draw to</param>
+            <param name="index">Index of image to draw</param>
+            <param name="x">X Position to draw at</param>
+            <param name="y">Y Position to draw at</param>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.DrawImage(System.IntPtr,System.Int32,System.Int32,System.Int32,Raccoom.Win32.ImageListDrawItemConstants)">
+            <summary>
+            Draws an image using the specified flags
+            </summary>
+            <param name="hdc">Device context to draw to</param>
+            <param name="index">Index of image to draw</param>
+            <param name="x">X Position to draw at</param>
+            <param name="y">Y Position to draw at</param>
+            <param name="flags">Drawing flags</param>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.DrawImage(System.IntPtr,System.Int32,System.Int32,System.Int32,Raccoom.Win32.ImageListDrawItemConstants,System.Int32,System.Int32)">
+            <summary>
+            Draws an image using the specified flags and specifies
+            the size to clip to (or to stretch to if ILD_SCALE
+            is provided).
+            </summary>
+            <param name="hdc">Device context to draw to</param>
+            <param name="index">Index of image to draw</param>
+            <param name="x">X Position to draw at</param>
+            <param name="y">Y Position to draw at</param>
+            <param name="flags">Drawing flags</param>
+            <param name="cx">Width to draw</param>
+            <param name="cy">Height to draw</param>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageList.DrawImage(System.IntPtr,System.Int32,System.Int32,System.Int32,Raccoom.Win32.ImageListDrawItemConstants,System.Int32,System.Int32,System.Drawing.Color,Raccoom.Win32.ImageListDrawStateConstants,System.Drawing.Color,System.Drawing.Color)">
+            <summary>
+            Draws an image using the specified flags and state on XP systems.
+            </summary>
+            <param name="hdc">Device context to draw to</param>
+            <param name="index">Index of image to draw</param>
+            <param name="x">X Position to draw at</param>
+            <param name="y">Y Position to draw at</param>
+            <param name="flags">Drawing flags</param>
+            <param name="cx">Width to draw</param>
+            <param name="cy">Height to draw</param>
+            <param name="foreColor">Fore colour to blend with when using the 
+            ILD_SELECTED or ILD_BLEND25 flags</param>
+            <param name="stateFlags">State flags</param>
+            <param name="glowOrShadowColor">If stateFlags include ILS_GLOW, then
+            the colour to use for the glow effect.  Otherwise if stateFlags includes 
+            ILS_SHADOW, then the colour to use for the shadow.</param>
+            <param name="saturateColorOrAlpha">If stateFlags includes ILS_ALPHA,
+            then the alpha component is applied to the icon. Otherwise if 
+            ILS_SATURATE is included, then the (R,G,B) components are used
+            to saturate the image.</param>
+        </member>
+        <member name="P:Raccoom.Win32.SystemImageList.Handle">
+            <summary>
+            Gets the hImageList handle
+            </summary>
+        </member>
+        <member name="P:Raccoom.Win32.SystemImageList.ImageListSize">
+            <summary>
+            Gets/sets the size of System Image List to retrieve.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Win32.SystemImageList.Size">
+            <summary>
+            Returns the size of the Image List Icons.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Win32.SystemImageListHelper">
+            <summary>
+            Helper Methods for Connecting SystemImageList to Common Controls
+            </summary>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageListHelper.SetListViewImageList(System.Windows.Forms.ListView,Raccoom.Win32.SystemImageList,System.Boolean)">
+            <summary>
+            Associates a SysImageList with a ListView control
+            </summary>
+            <param name="listView">ListView control to associate ImageList with</param>
+            <param name="sysImageList">System Image List to associate</param>
+            <param name="forStateImages">Whether to add ImageList as StateImageList</param>
+        </member>
+        <member name="M:Raccoom.Win32.SystemImageListHelper.SetTreeViewImageList(System.Windows.Forms.TreeView,Raccoom.Win32.SystemImageList,System.Boolean)">
+            <summary>
+            Associates a SysImageList with a TreeView control
+            </summary>
+            <param name="treeView">TreeView control to associated ImageList with</param>
+            <param name="sysImageList">System Image List to associate</param>
+            <param name="forStateImages">Whether to add ImageList as StateImageList</param>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.DriveTypes">
+            <summary>
+            Defines the DriveTypes used for Win32_LogicalDisk<seealso cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/>.This enumeration can be treated as a bit field, that is, a set of flags.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.All">
+            <summary>All drive types</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.NoRootDirectory">
+            <summary>
+            NoRootDirectory
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.RemovableDisk">
+            <summary>
+            Drive has removable media. This includes all floppy drives and many other varieties of storage devices.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.LocalDisk">
+            <summary>
+            Drive has fixed (nonremovable) media. This includes all hard drives, including hard drives that are removable.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.NetworkDrive">
+            <summary>
+            Network drives. This includes drives shared anywhere on a network.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.CompactDisc">
+            <summary>
+            Drive is a CD-ROM. No distinction is made between read-only and read/write CD-ROM drives.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.DriveTypes.RAMDisk">
+            <summary>
+            Drive is a block of Random Access Memory (RAM) on the local computer that behaves like a disk drive.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes">
+            <summary>
+            Defines the DriveTypes used for Win32_LogicalDisk<seealso cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/>.This enumeration can a<b>not</b> be treated as a bit field
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes.NoRootDirectory">
+            <summary>
+            NoRootDirectory
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes.RemovableDisk">
+            <summary>
+            Drive has removable media. This includes all floppy drives and many other varieties of storage devices.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes.LocalDisk">
+            <summary>
+            Drive has fixed (nonremovable) media. This includes all hard drives, including hard drives that are removable.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes.NetworkDrive">
+            <summary>
+            Network drives. This includes drives shared anywhere on a network.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes.CompactDisc">
+            <summary>
+            Drive is a CD-ROM. No distinction is made between read-only and read/write CD-ROM drives.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.Win32_LogicalDiskDriveTypes.RAMDisk">
+            <summary>
+            Drive is a block of Random Access Memory (RAM) on the local computer that behaves like a disk drive.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase">
+            <summary>
+            TreeStrategyShellImageListProviderBase defines the common logic needed to assing icons form the <c>SystemImageList</c> class.
+            <seealso cref="P:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.SystemImageList"/>
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase._checkboxMode">
+            <summary>last CheckboxMode used to fill the tree view, saved to know about changes</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase._systemImageList">
+            <summary>Shell32 ImageList</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.AttachSystemImageList(Raccoom.Windows.Forms.TreeViewFolderBrowserHelper)">
+            <summary>
+            Attaches the Shell32 ImageList to the TreeView
+            </summary>
+            <param name="helper">Helper class to have access to managed TreeView instance</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.SetIcon(Raccoom.Windows.Forms.TreeViewFolderBrowser,Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Extract the icon for the file type (Extension)
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.CreateTreeNode(Raccoom.Windows.Forms.TreeNodePath,System.String,System.String,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a new node and assigns an icon
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.CreateTreeNode(System.Windows.Forms.TreeNodeCollection,Raccoom.Windows.Forms.TreeNodePath,System.String,System.String,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a new node and assigns an icon
+            </summary>
+            <param name="text"></param>
+            <param name="path"></param>
+            <param name="addDummyNode"></param>
+            <param name="forceChecked"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.Dispose">
+            <summary>
+            Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategyShellImageListProviderBase.SystemImageList">
+            <summary>
+            Gets the Shell32ImageList handle
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeStrategyFolderBrowserProviderBase">
+            <summary>
+            TreeStrategyFolderBrowserProviderBase defines the common FolderBrowser environment and can be
+            used for all Shell32ImageList based folder browser components to display folder and files
+            associated with Windows Explorer like Icons.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyFolderBrowserProviderBase._showFiles">
+            <summary></summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase">
+            <summary>
+            TreeStrategySystemFolderBrowserProviderBase extends <c>TreeStrategyFolderBrowserProviderBase</c> and can be used for folder browser components
+            which shows the local machine drive types. The class uses WMI LogicalDisk classes to enumerate the machine local drives.
+            The clue is that you can specifiy which drives types to include into the query, this way you can set a filter and show only
+            Removable Drives or Local hard disk drives.<seealso cref="P:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase.DriveTypes"/><seealso cref="!:FolderBrowserDataProvider"/>
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase._driveTypes">
+            <summary>Specify which drive types are displayed.</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase.DriveTypesChanged">
+            <summary>Fired if a drive types has changed</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase.GetLogicaldiskCollection">
+            <summary>
+            Returns a filtered <c>LogicaldiskCollection</c> filled with the requested drives.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase.GetWMIQueryStatement(Raccoom.Windows.Forms.TreeViewFolderBrowser)">
+            <summary>
+            Gets the WMI query string based on the current drive types.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase.OnDriveTypesChanged(System.EventArgs)">
+            <summary>
+            Raises the DriveTypesChanged event.
+            </summary>
+            <param name="e">An EventArgs that contains the event data.</param>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategySystemFolderBrowserProviderBase.DriveTypes">
+            <summary>
+            Specify which drive types are displayed.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProvider">
+            <summary>
+            <c>TreeViewFolderBrowserDataProvider</c> is the standard data provider for <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> which is based on <see cref="T:ROOT.CIMV2.Win32.Logicaldisk"/>, System.IO and <see cref="T:Raccoom.Win32.SystemImageList"/>
+            <seealso cref="T:Raccoom.Windows.Forms.TreeStrategyDataProviderBase"/>
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProvider._specialFolderRootFolder">
+            <summary>designer</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProvider.#ctor">
+            <summary>
+            Initializes a new instance of the <c>TreeViewFolderBrowserDataProvider</c> class.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProvider.ShowNode(System.String)">
+            <summary>
+            Focus the specified folder and scroll it in to view.
+            </summary>
+            <param name="directoryPath">The path which should be focused</param>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProvider.RootFolder">
+            <summary>
+            Gets or sets the root folder where the browsing starts from.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeStrategyDirectoryServices">
+            <summary>
+            <c>TreeViewFolderBrowserDataProviderADS</c>  implements <c>TreeStrategyDataProviderBase</c> and provides a explorer like Active Directory browsing
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDirectoryServices._imageList">
+            <summary>Imagelist used for ADS Nodes</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.components">
+            <summary>Designer support</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDirectoryServices._helper">
+            <summary>Helper class to access the managed TreeViewFolderBrowser</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDirectoryServices._rootPath">
+            <summary>Root path</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDirectoryServices._credential">
+            <summary>credential used to connect to the machine</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDirectoryServices._authenticationType">
+            <summary>AuthenticationType used to connect to the machine</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.#ctor">
+            <summary>
+            Initializes a new instance of the <c>TreeStrategyDirectoryServices</c> class.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.#ctor(System.Net.NetworkCredential,System.DirectoryServices.AuthenticationTypes)">
+            <summary>
+            Initializes a new instance of the <c>TreeStrategyDirectoryServices</c> class.
+            </summary>
+            <param name="authenticationType">Used AuthenticationType</param>
+            <param name="credential">Credential used to retrieve Data from the Directory Services.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.SetIcon(System.DirectoryServices.DirectoryEntry,Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Determines and sets the ImageIndex for <c>node</c>
+            </summary>
+            <param name="entry">ADS Entry</param>
+            <param name="node">TreeNode which represents <c>entry</c></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.ExtractTokens(System.String)">
+            <summary>
+            Extract the tokens from the ldap string
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.InitializeComponent">
+            <summary>
+            Designer support
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.ToString">
+            <summary>
+            Returns the display name for the <c>TreeStrategyDirectoryServices</c> dataprovider
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.RootPath">
+            <summary>
+            Gets or sets the root folder where the browsing starts from.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.Credential">
+            <summary>
+            Gets or sets the NetworkCredential used to connect to the machine
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategyDirectoryServices.AuthenticationType">
+            <summary>
+            Gets or sets the AuthenticationType used to connect to the machine
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp">
+            <summary>
+            <c>TreeViewFolderBrowserDataProviderFtp</c> implements <c>TreeStrategyDataProviderBase</c> and provides a explorer like ftp directory browsing
+            using the FTP Component for .NET (April 2002 by Jérôme Lacaille www.codeproject.com)
+            </summary> 
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp._server">
+            <summary>server to connect to</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp._port">
+            <summary>port number to connect</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp._credential">
+            <summary>username and password to login</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp._ftp">
+            <summary>FTP Component instance</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp._directorySeparatorChar">
+            <summary>the path separator the ftp server needs to split up paths</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.#ctor">
+            <summary>
+            Initializes a new instance of the <c>TreeViewFolderBrowserDataProviderFtp</c> class.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.#ctor(System.String,System.Net.NetworkCredential)">
+            <summary>
+            Initializes a new instance of the <c>TreeViewFolderBrowserDataProviderFtp</c> class.
+            </summary>
+            <param name="credential">Username and Password used to login</param>
+            <param name="server">Server adress</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <c>TreeViewFolderBrowserDataProviderFtp</c> class used for Anonymous access.
+            </summary>
+            <param name="server">Server adress</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.#ctor(System.String,System.Int32,System.Net.NetworkCredential)">
+            <summary>
+            Initializes a new instance of the <c>TreeViewFolderBrowserDataProviderFtp</c> class.
+            </summary>
+            <param name="credential">Username and Password used to login</param>
+            <param name="port">Server port number</param>
+            <param name="server">Server adress</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.ResetFtp">
+            <summary>
+            Releases a existing ftp component (disconnect) instance
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.DetermineUseSlash">
+            <summary>
+            Tries to find out what path separator char the ftp servers needs to work correctly by trail and error.		
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.RequestHelper(Raccoom.Windows.Forms.TreeViewFolderBrowserHelper,Raccoom.Windows.Forms.TreeNodePath,System.Windows.Forms.TreeNodeCollection)">
+            <summary>
+            Internal helper methods to create nodes and assign them as root or child nodes.
+            </summary>
+            <param name="helper"></param>
+            <param name="parentNode"></param>
+            <param name="parentCollection"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.SetIcon(Raccoom.Windows.Forms.TreeViewFolderBrowser,Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Extract the icon for the file type (Extension)
+            </summary>
+            <remarks>SetIcon is overriden because icons are retrieved by it's path property. Because this class is dealing
+            with ftp data and not the local file system, we have to treat SetIcon process slightley different than for local system data.</remarks>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderFtp.FTP">
+            <summary>
+            Create a new instance or retrieve the existing one configured with the given connection string
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32">
+            <summary>
+            <c>TreeViewFolderBrowserDataProvider</c> is the shell32 interop data provider for <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> which is based on <see cref="T:ROOT.CIMV2.Win32.Logicaldisk"/>, <c>Shell32</c> Interop and <see cref="T:Raccoom.Win32.SystemImageList"/>
+            <seealso cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProvider"/>
+            </summary>
+            <remarks>
+            Shell32 does not support the .NET System.Security.Permissions system. There is no code access permission, only FileSystem ACL.
+            </remarks>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32._shell">
+            <summary>Shell32 Com Object</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32._rootCollection">
+            <summary>drive tree node (mycomputer) root collection</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32._showAllShellObjects">
+            <summary>show only filesystem</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32._enableContextMenu">
+            <summary>enable shell context menu</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32.FillMyComputer(Shell32.FolderItem,System.Windows.Forms.TreeNodeCollection,Raccoom.Windows.Forms.TreeViewFolderBrowserHelper)">
+            <summary>
+            Popluates the MyComputer node
+            </summary>
+            <param name="folderItem"></param>
+            <param name="parentCollection"></param>
+            <param name="helper"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32.IsFolderWithChilds(Shell32.FolderItem)">
+            <summary>
+            Do we have to add a dummy node (+ sign)
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32.EnableContextMenu">
+            <summary>
+            Enables or disables the context menu which show's the folder item's shell verbs.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowserDataProviderShell32.ShowAllShellObjects">
+            <summary>
+            Gets or sets if virtual shell folders are displayed or not. virtual shell folders are system folders like control panel.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.MenuItemShellVerb">
+            <summary>
+            Extends the <c>MenuItem</c> class with a Shell32.FolderItemVerb.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.MenuItemShellVerb._verb">
+            <summary>Holds the FolderItem instance</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.MenuItemShellVerb.#ctor(Shell32.FolderItemVerb)">
+            <summary>
+            Initializes a new instance of the <c>MenuItemShellVerb</c> class.
+            </summary>
+            <param name="verb">The ShellVerb instance</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.MenuItemShellVerb.OnClick(System.EventArgs)">
+            <summary>
+            Event is fired if the user select this menuitem, the ShellItemVerb is executed.
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeStrategyCultureInfo">
+            <summary>
+            TreeViewStrategyCultureInfo uses the System.Globalization.CultureInfo class to let the user choose
+            languages (cultures) in a two level filled tree structure
+            This class serves as a reference implementation and shows how less code it needs to write
+            a data provider.	
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyCultureInfo._imageList">
+            <summary>ImageList used to assign icons</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyCultureInfo.components">
+            <summary>needed for designer support</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyCultureInfo._useNativeNames">
+            <summary>flag to control which display name that is used</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyCultureInfo.#ctor">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyCultureInfo.Attach(Raccoom.Windows.Forms.TreeViewFolderBrowserHelper)">
+            <summary>
+            Attaches the imagelist to the tree view
+            </summary>
+            <param name="helper"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyCultureInfo.RequestRoot">
+            <summary>
+            Populates the culture neutrale CultureInfo instances
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyCultureInfo.RequestSubDirs(Raccoom.Windows.Forms.TreeNodePath,System.Windows.Forms.TreeViewCancelEventArgs)">
+            <summary>
+            Popluates the culture specific CultureInfo instances (Children)
+            </summary>
+            <param name="parent"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyCultureInfo.HasSelectedChildNodes(System.Collections.Specialized.StringCollection,Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Seeks for marked culture specific CultureInfos to mark the parent invariant CultureInfo bold. 
+            </summary>
+            <param name="items"></param>
+            <param name="node"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyCultureInfo.ToString">
+            <summary>
+            Returns the name of this data provider
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategyCultureInfo.UseNativeNames">
+            <summary>
+            Gets or sets the flag that controls which display name that is used.
+            Native names are in the given language, english names not.
+            </summary>
+        </member>
+    </members>
+</doc>
