@@ -1457,6 +1457,7 @@ extern HIMAGELIST HFindSymbolsImageList; // symboly pro find
 extern HIMAGELIST HMenuMarkImageList;    // check marky pro menu
 extern HIMAGELIST HGrayToolBarImageList; // toolbar a menu v sedivem provedeni (pocitano z barevneho)
 extern HIMAGELIST HHotToolBarImageList;  // toolbar a menu v barevnem provedeni
+extern int ToolBarLockImageIndex;        // index ikony zamku v toolbarovych imagelistech
 extern HIMAGELIST HBottomTBImageList;    // bottom toolbar (F1 - F12)
 extern HIMAGELIST HHotBottomTBImageList; // bottom toolbar (F1 - F12)
 

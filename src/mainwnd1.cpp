@@ -478,12 +478,6 @@ CMainWindow::~CMainWindow()
         delete RightTabWindow;
     for (int side = 0; side < 2; ++side)
     {
-        for (std::vector<CMainWindow::SClosedPanelTab>::iterator it = ClosedPanelTabs[side].begin();
-             it != ClosedPanelTabs[side].end(); ++it)
-        {
-            if (it->Panel != NULL)
-                delete it->Panel;
-        }
         ClosedPanelTabs[side].clear();
     }
     MainWindow = NULL;
