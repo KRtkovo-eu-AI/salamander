@@ -534,6 +534,7 @@ public:
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
+    void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars);
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
