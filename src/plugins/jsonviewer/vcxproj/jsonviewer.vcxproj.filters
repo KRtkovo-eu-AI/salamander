@@ -91,6 +91,9 @@
     <None Include="..\jsonviewer.rh2">
       <Filter>rc</Filter>
     </None>
+    <None Include="..\jsonviewer.rc2">
+      <Filter>rc</Filter>
+    </None>
     <None Include="..\lang\lang.rh">
       <Filter>rc</Filter>
     </None>

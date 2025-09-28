@@ -1,0 +1,12 @@
+// SPDX-FileCopyrightText: 2024 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// jsonviewer.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif // APSTUDIO_INVOKED
+
+#include "versinfo.rh2"
+#include "versinfo.rc2"
+

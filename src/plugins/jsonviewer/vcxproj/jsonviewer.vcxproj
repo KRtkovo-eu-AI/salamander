@@ -177,6 +177,8 @@
     </None>
     <None Include="..\jsonviewer.rh2">
     </None>
+    <None Include="..\jsonviewer.rc2">
+    </None>
     <None Include="..\lang\lang.rh">
     </None>
     <None Include="..\versinfo.rh2">

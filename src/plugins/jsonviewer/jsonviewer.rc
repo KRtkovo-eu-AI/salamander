@@ -6,7 +6,7 @@
 #include "jsonviewer.rh"
 
 #define APSTUDIO_READONLY_SYMBOLS
-///////////////////////////////////////////////////////////////////////////// 
+/////////////////////////////////////////////////////////////////////////////
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
@@ -15,6 +15,10 @@
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
 STRINGTABLE
@@ -24,4 +28,18 @@ BEGIN
     IDS_PLUGIN_DESCRIPTION "Displays JSON files using a tree representation."
     IDS_NO_CONFIGURATION   "This plugin does not provide configurable options."
 END
+
+#endif    // Neutral resources
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Additional non-Microsoft Visual C++ edited resources
+//
+
+#ifndef APSTUDIO_INVOKED
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#include "jsonviewer.rc2"   // non-Microsoft Visual C++ edited resources
+#endif
+#endif
 
