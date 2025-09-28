@@ -3,7 +3,7 @@
     <TargetFramework>net48</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>JsonViewer.Managed</AssemblyName>
-    <RootNamespace>OpenSalamander.JsonViewer</RootNamespace>
+    <RootNamespace>EPocalipse.Json.Viewer</RootNamespace>
     <Nullable>enable</Nullable>
     <LangVersion>10.0</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -73,8 +73,7 @@
     <Compile Include="..\..\..\..\jsonViewer\JsonViewer\Properties\AssemblyInfo.cs">
       <Link>JsonViewer\Properties\AssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\..\jsonViewer\JsonViewer\Properties\Resources.Designer.cs">
-      <Link>JsonViewer\Properties\Resources.Designer.cs</Link>
+    <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
@@ -94,8 +93,7 @@
       <Link>JsonViewer\JsonViewer.resx</Link>
       <DependentUpon>JsonViewer.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\..\..\..\jsonViewer\JsonViewer\Properties\Resources.resx">
-      <Link>JsonViewer\Properties\Resources.resx</Link>
+    <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
