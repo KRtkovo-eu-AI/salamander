@@ -406,8 +406,6 @@ internal static class ViewerHost
             {
                 _request.MarkStartupFailed();
             }
-
-            _request.SignalClosed();
         }
 
         private void LoadJson()
