@@ -38,6 +38,32 @@ std::wstring BuildArgument(const wchar_t* command, HWND parent, const wchar_t* p
     return argument;
 }
 
+std::wstring ConvertMultiByteToWide(const char* text, UINT codePage)
+{
+    if (text == nullptr)
+    {
+        return std::wstring();
+    }
+
+    DWORD flags = (codePage == CP_UTF8) ? MB_ERR_INVALID_CHARS : 0;
+    int required = MultiByteToWideChar(codePage, flags, text, -1, nullptr, 0);
+    if (required <= 0)
+    {
+        return std::wstring();
+    }
+
+    std::wstring result;
+    result.resize(static_cast<size_t>(required));
+    int converted = MultiByteToWideChar(codePage, flags, text, -1, result.data(), required);
+    if (converted <= 0)
+    {
+        return std::wstring();
+    }
+
+    result.resize(static_cast<size_t>(converted) - 1);
+    return result;
+}
+
 std::wstring AnsiToWide(const char* text)
 {
     if (text == nullptr)
@@ -45,21 +71,27 @@ std::wstring AnsiToWide(const char* text)
         return std::wstring();
     }
 
-    int required = MultiByteToWideChar(CP_ACP, 0, text, -1, nullptr, 0);
-    if (required <= 0)
+    std::wstring result = ConvertMultiByteToWide(text, CP_ACP);
+    if (!result.empty())
     {
-        return std::wstring();
+        return result;
     }
 
-    std::wstring result;
-    result.resize(required);
-    int converted = MultiByteToWideChar(CP_ACP, 0, text, -1, result.data(), required);
-    if (converted <= 0)
+    result = ConvertMultiByteToWide(text, CP_UTF8);
+    if (!result.empty())
     {
-        return std::wstring();
+        return result;
     }
 
-    result.resize(converted - 1);
+    // As a last resort, map bytes directly to Unicode code points so the
+    // managed side still receives something meaningful to work with.
+    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(text);
+    while (*bytes != '\0')
+    {
+        result.push_back(static_cast<wchar_t>(*bytes));
+        ++bytes;
+    }
+
     return result;
 }
 
@@ -266,9 +298,30 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
     }
 
     std::wstring widePath = AnsiToWide(filePath);
+
     std::wstring encodedPath = EncodeBase64FromWide(widePath);
+    if (encodedPath.empty())
+    {
+        encodedPath = widePath;
+    }
+
+    if (encodedPath.empty())
+    {
+        ShowLoadError(parent, L"Unable to prepare parameters for the JSON viewer.");
+        return false;
+    }
+
     std::wstring caption = ExtractFileName(widePath);
+    if (caption.empty())
+    {
+        caption = widePath;
+    }
+
     std::wstring encodedCaption = EncodeBase64FromWide(caption);
+    if (encodedCaption.empty())
+    {
+        encodedCaption = caption;
+    }
 
     std::wstring payload;
     AppendKeyValue(payload, L"path", encodedPath.c_str());
