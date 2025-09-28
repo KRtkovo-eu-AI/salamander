@@ -622,6 +622,7 @@ internal static class ViewerHost
 
             _session = session;
             _jsonLoaded = false;
+            _allowClose = false;
 
             Text = BuildCaption(session.Payload.Caption);
             ApplyOwner(session.Parent);
@@ -643,8 +644,7 @@ internal static class ViewerHost
                     "JSON Viewer Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                var failedSession = session;
-                BeginInvoke(new MethodInvoker(() => HideSession(failedSession)));
+                HideSession(session);
                 return;
             }
 
@@ -695,8 +695,7 @@ internal static class ViewerHost
         {
             if (keyData == Keys.Escape)
             {
-                var currentSession = _session;
-                BeginInvoke(new MethodInvoker(() => HideSession(currentSession)));
+                HideSession(_session);
                 return true;
             }
 
@@ -724,9 +723,7 @@ internal static class ViewerHost
                 {
                     _session?.MarkStartupFailed();
                 }
-
-                var closingSession = _session;
-                BeginInvoke(new MethodInvoker(() => HideSession(closingSession)));
+                HideSession(_session);
                 return;
             }
 
