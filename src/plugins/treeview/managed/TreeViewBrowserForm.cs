@@ -20,6 +20,8 @@ internal sealed class TreeViewBrowserForm : Form
     private readonly ToolStripButton _showVirtualButton;
     private readonly SplitContainer _splitContainer;
     private readonly TreeStrategyShell32Provider _shellProvider;
+    private readonly int _defaultPanel1MinSize;
+    private readonly int _defaultPanel2MinSize;
     private bool _initializingRoot;
     private string _initialPath;
 
@@ -61,12 +63,15 @@ internal sealed class TreeViewBrowserForm : Form
         };
         selectionGroup.Controls.Add(_selectionList);
 
+        _defaultPanel1MinSize = 220;
+        _defaultPanel2MinSize = 180;
+
         _splitContainer = new SplitContainer
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            Panel2MinSize = 180,
-            Panel1MinSize = 220,
+            Panel2MinSize = _defaultPanel2MinSize,
+            Panel1MinSize = _defaultPanel1MinSize,
         };
         _splitContainer.Panel1.Controls.Add(_folderBrowser);
         _splitContainer.Panel2.Controls.Add(selectionGroup);
@@ -161,8 +166,37 @@ internal sealed class TreeViewBrowserForm : Form
             return;
         }
 
-        int minDistance = _splitContainer.Panel1MinSize;
-        int maxDistance = Math.Max(minDistance, width - _splitContainer.Panel2MinSize);
+        int panel1Min = _defaultPanel1MinSize;
+        int panel2Min = _defaultPanel2MinSize;
+
+        if (width < panel1Min + panel2Min)
+        {
+            int overflow = panel1Min + panel2Min - width;
+
+            int reducePanel2 = Math.Min(overflow, panel2Min);
+            panel2Min -= reducePanel2;
+            overflow -= reducePanel2;
+
+            if (overflow > 0)
+            {
+                int reducePanel1 = Math.Min(overflow, panel1Min);
+                panel1Min -= reducePanel1;
+                overflow -= reducePanel1;
+            }
+        }
+
+        if (_splitContainer.Panel1MinSize != panel1Min)
+        {
+            _splitContainer.Panel1MinSize = panel1Min;
+        }
+
+        if (_splitContainer.Panel2MinSize != panel2Min)
+        {
+            _splitContainer.Panel2MinSize = panel2Min;
+        }
+
+        int minDistance = panel1Min;
+        int maxDistance = Math.Max(minDistance, width - panel2Min);
         int desired = (width * 2) / 3;
 
         if (desired < minDistance)
