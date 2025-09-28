@@ -120,7 +120,8 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     return panel;
 }
 
-void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars)
+void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
+                                      bool postRefreshMessage)
 {
     if (panel == NULL || panel->HWindow == NULL)
         return;
@@ -138,7 +139,10 @@ void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars
     int refreshId = MyTimeCounter++;
     HANDLES(LeaveCriticalSection(&TimeCounterSection));
 
-    SendMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, refreshId);
+    if (postRefreshMessage)
+        PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
+    else
+        SendMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
 
     if (rebuildDriveBars)
         RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0);
@@ -171,14 +175,16 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
             panel->ChangePathToDisk(panel->HWindow, path);
     }
 
-    panel->NeedsRefreshOnActivation = FALSE;
+    if (panel == GetActivePanel())
+        panel->NeedsRefreshOnActivation = FALSE;
 }
 
-void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars)
+void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
+                                               bool postRefreshMessage)
 {
     EnsurePanelAutomaticRefresh(panel);
     if (panel != NULL && Created)
-        RequestPanelRefresh(panel, rebuildDriveBars);
+        RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
 }
 
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
@@ -236,7 +242,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     }
 
     bool refreshActive = (panel == GetActivePanel());
-    EnsurePanelRefreshAndRequest(panel, refreshActive);
+    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel)
@@ -308,7 +314,7 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
     {
         CFilesWindow* activePanel = GetActivePanel();
         if (activePanel != NULL)
-            EnsurePanelRefreshAndRequest(activePanel, true);
+            EnsurePanelRefreshAndRequest(activePanel, true, true);
     }
 }
 
