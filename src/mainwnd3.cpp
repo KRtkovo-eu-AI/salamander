@@ -120,6 +120,73 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
     return panel;
 }
 
+void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
+                                      bool postRefreshMessage)
+{
+    if (panel == NULL || panel->HWindow == NULL)
+        return;
+
+    panel->NextFocusName[0] = 0;
+
+    while (SnooperSuspended)
+        EndSuspendMode();
+    while (StopRefresh)
+        EndStopRefresh(FALSE);
+    while (StopIconRepaint)
+        EndStopIconRepaint(FALSE);
+
+    HANDLES(EnterCriticalSection(&TimeCounterSection));
+    int refreshId = MyTimeCounter++;
+    HANDLES(LeaveCriticalSection(&TimeCounterSection));
+
+    if (postRefreshMessage)
+        PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
+    else
+        SendMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
+
+    if (rebuildDriveBars)
+        RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0);
+}
+
+void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
+    const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
+    const char* path = panel->GetPath();
+    if (isDiskLike && path != NULL && path[0] != 0)
+    {
+        BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                       panel->GetPathDriveType() == DRIVE_FIXED;
+        if (!panel->GetMonitorChanges())
+        {
+            refreshOnActivate = true;
+        }
+        else
+        {
+            EnsureWatching(panel, registerDevNotification);
+            if (!panel->AutomaticRefresh)
+                refreshOnActivate = true;
+        }
+
+        if (refreshOnActivate && panel->HWindow != NULL)
+            panel->ChangePathToDisk(panel->HWindow, path);
+    }
+
+    if (panel == GetActivePanel())
+        panel->NeedsRefreshOnActivation = FALSE;
+}
+
+void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
+                                               bool postRefreshMessage)
+{
+    EnsurePanelAutomaticRefresh(panel);
+    if (panel != NULL && Created)
+        RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
+}
+
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
@@ -162,29 +229,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
-    const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
-    const char* path = panel->GetPath();
-    if (isDiskLike && path != NULL && path[0] != 0)
-    {
-        BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
-                                       panel->GetPathDriveType() == DRIVE_FIXED;
-        if (!panel->GetMonitorChanges())
-        {
-            refreshOnActivate = true;
-        }
-        else
-        {
-            EnsureWatching(panel, registerDevNotification);
-            if (!panel->AutomaticRefresh)
-                refreshOnActivate = true;
-        }
-
-        if (refreshOnActivate && panel->HWindow != NULL)
-            panel->ChangePathToDisk(panel->HWindow, path);
-    }
-    panel->NeedsRefreshOnActivation = FALSE;
-
     if (canFocusNow)
     {
         LayoutWindows();
@@ -197,13 +241,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         FocusPanel(panel);
     }
 
-    if (Created && panel->HWindow != NULL)
-    {
-        HANDLES(EnterCriticalSection(&TimeCounterSection));
-        int t1 = MyTimeCounter++;
-        HANDLES(LeaveCriticalSection(&TimeCounterSection));
-        PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-    }
+    bool refreshActive = (panel == GetActivePanel());
+    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel)
@@ -270,6 +309,13 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
         DestroyWindow(panelWindow);
     else
         delete panel;
+
+    if (Created)
+    {
+        CFilesWindow* activePanel = GetActivePanel();
+        if (activePanel != NULL)
+            EnsurePanelRefreshAndRequest(activePanel, true, true);
+    }
 }
 
 BOOL MainFrameIsActive = FALSE;
@@ -4763,35 +4809,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_LEFTREFRESH: // refresh the left panel
         {
-            LeftPanel->NextFocusName[0] = 0;
-            while (SnooperSuspended)
-                EndSuspendMode(); // safety catch to resume refreshing
-            while (StopRefresh)
-                EndStopRefresh(FALSE); // safety catch to resume refreshing
-            while (StopIconRepaint)
-                EndStopIconRepaint(FALSE); // safety catch to resume refreshing
-            HANDLES(EnterCriticalSection(&TimeCounterSection));
-            int t1 = MyTimeCounter++;
-            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            SendMessage(LeftPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-            RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(LeftPanel, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
         case CM_RIGHTREFRESH: // refresh the right panel
         {
-            RightPanel->NextFocusName[0] = 0;
-            while (SnooperSuspended)
-                EndSuspendMode(); // safety catch to resume refreshing
-            while (StopRefresh)
-                EndStopRefresh(FALSE); // safety catch to resume refreshing
-            while (StopIconRepaint)
-                EndStopIconRepaint(FALSE); // safety catch to resume refreshing
-            HANDLES(EnterCriticalSection(&TimeCounterSection));
-            int t1 = MyTimeCounter++;
-            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            SendMessage(RightPanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-            RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(RightPanel, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
@@ -4935,18 +4959,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_ACTIVEREFRESH: // refresh praveho panelu
         {
-            activePanel->NextFocusName[0] = 0;
-            while (SnooperSuspended)
-                EndSuspendMode(); // safety catch to resume refreshing
-            while (StopRefresh)
-                EndStopRefresh(FALSE); // safety catch to resume refreshing
-            while (StopIconRepaint)
-                EndStopIconRepaint(FALSE); // safety catch to resume refreshing
-            HANDLES(EnterCriticalSection(&TimeCounterSection));
-            int t1 = MyTimeCounter++;
-            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-            SendMessage(activePanel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
-            RebuildDriveBarsIfNeeded(FALSE, 0, FALSE, 0); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(activePanel, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
