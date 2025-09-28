@@ -250,7 +250,11 @@ void CMainWindow::ClosePanelTab(CFilesWindow* panel)
         if (index >= tabs.Count)
             index = tabs.Count - 1;
         CFilesWindow* newPanel = tabs[index];
-        SwitchPanelTab(newPanel);
+        if (newPanel != NULL)
+        {
+            newPanel->NeedsRefreshOnActivation = TRUE;
+            SwitchPanelTab(newPanel);
+        }
     }
     else if (tabWnd != NULL && tabWnd->HWindow != NULL)
     {
