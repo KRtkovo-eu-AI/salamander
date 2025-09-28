@@ -80,12 +80,14 @@ public static class EntryPoint
 
     private static bool ShouldForceRelease(string? payload)
     {
-        if (string.IsNullOrWhiteSpace(payload))
+        var payloadText = payload?.Trim();
+
+        if (string.IsNullOrEmpty(payloadText))
         {
             return false;
         }
 
-        var segments = payload.Split('|');
+        var segments = payloadText.Split('|');
         foreach (var segment in segments)
         {
             if (string.IsNullOrWhiteSpace(segment))
