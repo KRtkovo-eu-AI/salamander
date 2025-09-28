@@ -1457,6 +1457,17 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         textRect.left = fillRect.left;
         textRect.right = fillRect.right;
     }
+
+    int topPadding = EnvFontCharHeight / 12;
+    if (topPadding < 1)
+        topPadding = 1;
+    int verticalLift = EnvFontCharHeight / 6;
+    if (verticalLift < 2)
+        verticalLift = 2;
+    int bottomPadding = topPadding + verticalLift;
+
+    textRect.top += topPadding;
+    textRect.bottom -= bottomPadding;
     if (textRect.bottom <= textRect.top)
     {
         textRect.top = fillRect.top;
