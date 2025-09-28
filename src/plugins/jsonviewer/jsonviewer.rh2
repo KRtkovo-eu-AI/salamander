@@ -21,5 +21,6 @@
 #define IDS_PLUGIN_DESCRIPTION             48
 #define IDS_PLUGIN_HOME                    49
 #define IDS_VIEWER_CREATE_EVENT_FAILED     50
+#define IDS_FILE_TOO_LARGE                 51
 
 #endif // __JSONVIEWER_RH2

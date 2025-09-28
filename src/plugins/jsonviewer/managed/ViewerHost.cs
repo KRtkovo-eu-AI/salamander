@@ -23,6 +23,10 @@ internal static class ViewerHost
 {
     private static readonly object s_threadLock = new();
     private static ViewerThread? s_viewerThread;
+    private static readonly object s_sessionLock = new();
+    private static readonly HashSet<ViewerSession> s_activeSessions = new();
+    private static readonly ManualResetEventSlim s_sessionsDrained = new(true);
+    private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(5);
 
     public static int Launch(IntPtr parent, string payload, bool asynchronous)
     {
@@ -60,6 +64,8 @@ internal static class ViewerHost
                 MessageBoxIcon.Error);
             return 1;
         }
+
+        RegisterSession(session);
 
         ViewerThread? thread;
         try
@@ -107,6 +113,38 @@ internal static class ViewerHost
         return 0;
     }
 
+    public static int ReleaseSessions(bool forceClose)
+    {
+        if (!forceClose)
+        {
+            return HasActiveSessions ? 1 : 0;
+        }
+
+        ViewerThread? thread;
+        lock (s_threadLock)
+        {
+            thread = s_viewerThread;
+        }
+
+        if (thread is null)
+        {
+            return 0;
+        }
+
+        if (!thread.TryShutdown(s_shutdownTimeout))
+        {
+            return 1;
+        }
+
+        if (!s_sessionsDrained.Wait(s_shutdownTimeout))
+        {
+            return 1;
+        }
+
+        s_sessionsDrained.Set();
+        return 0;
+    }
+
     private static ViewerThread EnsureViewerThread()
     {
         lock (s_threadLock)
@@ -114,6 +152,54 @@ internal static class ViewerHost
             s_viewerThread ??= new ViewerThread();
             return s_viewerThread;
         }
+    }
+
+    private static void RegisterSession(ViewerSession session)
+    {
+        lock (s_sessionLock)
+        {
+            if (s_activeSessions.Count == 0)
+            {
+                s_sessionsDrained.Reset();
+            }
+
+            s_activeSessions.Add(session);
+        }
+    }
+
+    private static void SessionCompleted(ViewerSession session)
+    {
+        lock (s_sessionLock)
+        {
+            if (s_activeSessions.Remove(session) && s_activeSessions.Count == 0)
+            {
+                s_sessionsDrained.Set();
+            }
+        }
+    }
+
+    private static bool HasActiveSessions
+    {
+        get
+        {
+            lock (s_sessionLock)
+            {
+                return s_activeSessions.Count > 0;
+            }
+        }
+    }
+
+    private static void OnViewerThreadExited(ViewerThread thread)
+    {
+        lock (s_threadLock)
+        {
+            if (ReferenceEquals(s_viewerThread, thread))
+            {
+                s_viewerThread = null;
+            }
+        }
+
+        s_sessionsDrained.Set();
     }
 
     private sealed class ViewerThread
@@ -145,6 +231,26 @@ internal static class ViewerHost
             return context.TryShow(session);
         }
 
+        public bool TryShutdown(TimeSpan timeout)
+        {
+            var context = _context;
+            if (context is not null)
+            {
+                if (!context.TryClose(timeout))
+                {
+                    return false;
+                }
+            }
+
+            if (timeout <= TimeSpan.Zero)
+            {
+                _thread.Join();
+                return true;
+            }
+
+            return _thread.Join(timeout);
+        }
+
         private void Run()
         {
             try
@@ -158,6 +264,7 @@ internal static class ViewerHost
             {
                 _context = null;
                 _ready.Set();
+                OnViewerThreadExited(this);
             }
         }
     }
@@ -237,6 +344,7 @@ internal static class ViewerHost
             }
 
             SignalClosed();
+            ViewerHost.SessionCompleted(this);
             _completionEvent?.Set();
         }
 
@@ -275,6 +383,43 @@ internal static class ViewerHost
 
             _dispatcher.BeginInvoke(new MethodInvoker(() => _form.ShowSession(session)));
             return true;
+        }
+
+        public bool TryClose(TimeSpan timeout)
+        {
+            if (!_dispatcher.IsHandleCreated || _dispatcher.IsDisposed)
+            {
+                return true;
+            }
+
+            using var completion = new ManualResetEventSlim(false);
+            try
+            {
+                _dispatcher.BeginInvoke(new MethodInvoker(() =>
+                {
+                    try
+                    {
+                        if (!_form.IsDisposed)
+                        {
+                            _form.ForceClose();
+                        }
+                    }
+                    finally
+                    {
+                        completion.Set();
+                    }
+                }));
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return true;
+            }
+
+            return completion.Wait(timeout);
         }
 
         private void OnFormClosed(object? sender, FormClosedEventArgs e)
@@ -516,6 +661,27 @@ internal static class ViewerHost
         public void AllowClose()
         {
             _allowClose = true;
+        }
+
+        public void ForceClose()
+        {
+            _allowClose = true;
+            var activeSession = _session;
+            if (activeSession is not null)
+            {
+                HideSession(activeSession);
+            }
+
+            if (!IsDisposed)
+            {
+                try
+                {
+                    Close();
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)

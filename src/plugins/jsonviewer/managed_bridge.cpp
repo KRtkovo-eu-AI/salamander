@@ -289,6 +289,18 @@ void ManagedBridge_Shutdown()
     }
 }
 
+bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose)
+{
+    if (gRuntimeHost == nullptr)
+    {
+        return true;
+    }
+
+    std::wstring payload;
+    AppendKeyValue(payload, L"force", forceClose ? L"1" : L"0");
+    return ExecuteCommand(L"Release", parent, payload.c_str());
+}
+
 bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& placement,
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous)
 {

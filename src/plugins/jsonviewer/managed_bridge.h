@@ -7,5 +7,6 @@
 
 bool ManagedBridge_EnsureInitialized(HWND parent);
 void ManagedBridge_Shutdown();
+bool ManagedBridge_RequestShutdown(HWND parent, bool forceClose);
 bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& placement,
                                 UINT showCmd, BOOL alwaysOnTop, HANDLE fileLock, bool asynchronous);

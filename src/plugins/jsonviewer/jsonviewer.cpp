@@ -30,6 +30,9 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 // definice promenne pro "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
+// maximum file size (in bytes) allowed for the managed viewer
+static const ULONGLONG kMaxJsonFileSize = 8ULL * 1024ULL * 1024ULL; // 8 MB
+
 // definice promenne pro "spl_com.h"
 int SalamanderVersion = 0;
 
@@ -62,6 +65,22 @@ char* LoadStr(int resID)
 static void ShowStartupError(HWND parent, const char* text)
 {
     SalamanderGeneral->SalMessageBox(parent, text, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+}
+
+static bool IsFileTooLarge(const char* path, ULONGLONG limit)
+{
+    if (path == NULL || path[0] == '\0')
+        return false;
+
+    WIN32_FILE_ATTRIBUTE_DATA attrs;
+    if (!GetFileAttributesExA(path, GetFileExInfoStandard, &attrs))
+        return false;
+
+    if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        return false;
+
+    ULONGLONG size = (static_cast<ULONGLONG>(attrs.nFileSizeHigh) << 32) | attrs.nFileSizeLow;
+    return size > limit;
 }
 
 //
@@ -140,6 +159,16 @@ void WINAPI CPluginInterface::About(HWND parent)
 
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
+    if (!force)
+    {
+        if (!ManagedBridge_RequestShutdown(parent, false))
+            return FALSE;
+    }
+    else
+    {
+        ManagedBridge_RequestShutdown(parent, true);
+    }
+
     ManagedBridge_Shutdown();
     return TRUE;
 }
@@ -196,13 +225,20 @@ BOOL WINAPI CPluginInterfaceForViewer::ViewFile(const char* name, int left, int 
     if (name == NULL || name[0] == '\0')
         return FALSE;
 
+    HWND parent = SalamanderGeneral->GetMainWindowHWND();
+
+    if (IsFileTooLarge(name, kMaxJsonFileSize))
+    {
+        SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_FILE_TOO_LARGE), LoadStr(IDS_PLUGINNAME),
+                                         MB_OK | MB_ICONINFORMATION);
+        return FALSE;
+    }
+
     RECT placement;
     placement.left = left;
     placement.top = top;
     placement.right = left + width;
     placement.bottom = top + height;
-
-    HWND parent = SalamanderGeneral->GetMainWindowHWND();
 
     if (returnLock)
     {

@@ -31,6 +31,7 @@ public static class EntryPoint
             {
                 "View" => ViewerHost.Launch(parent, payload, asynchronous: true),
                 "ViewSync" => ViewerHost.Launch(parent, payload, asynchronous: false),
+                "Release" => ViewerHost.ReleaseSessions(ShouldForceRelease(payload)),
                 _ => 1,
             };
         }
@@ -65,5 +66,45 @@ public static class EntryPoint
         }
 
         return IntPtr.Zero;
+    }
+
+    private static bool ShouldForceRelease(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return false;
+        }
+
+        var segments = payload.Split('|');
+        foreach (var segment in segments)
+        {
+            if (string.IsNullOrWhiteSpace(segment))
+            {
+                continue;
+            }
+
+            var kv = segment.Split(new[] { '=' }, 2);
+            if (kv.Length == 0)
+            {
+                continue;
+            }
+
+            var key = kv[0].Trim();
+            if (!key.Equals("force", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (kv.Length == 1)
+            {
+                return true;
+            }
+
+            var value = kv[1].Trim();
+            return value.Equals("1", StringComparison.OrdinalIgnoreCase) ||
+                   value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 }
