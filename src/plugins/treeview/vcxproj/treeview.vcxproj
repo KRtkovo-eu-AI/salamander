@@ -199,7 +199,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="lang_treeview.vcxproj">
-      <Project>{3cb8b01d-bcb3-4f4e-b60a-9b46d2af2f69}</Project>
+      <Project>{FE0C2BF2-A7E2-4B1E-ACA5-A7FECE27053E}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
     <ProjectReference Include="..\managed\TreeView.Managed.csproj">
