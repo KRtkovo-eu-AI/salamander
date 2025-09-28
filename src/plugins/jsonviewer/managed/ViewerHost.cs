@@ -584,6 +584,7 @@ internal static class ViewerHost
         private IntPtr _ownerRestore;
         private bool _ownerAttached;
         private bool _allowClose;
+        private bool _taskbarStyleApplied;
 
         public JsonViewerForm()
         {
@@ -711,6 +712,7 @@ internal static class ViewerHost
         private void OnHandleDestroyed(object? sender, EventArgs e)
         {
             DetachOwner();
+            _taskbarStyleApplied = false;
         }
 
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
@@ -803,7 +805,6 @@ internal static class ViewerHost
             {
                 if (Visible)
                 {
-                    ShowInTaskbar = false;
                     Hide();
                 }
                 return;
@@ -811,7 +812,6 @@ internal static class ViewerHost
 
             if (Visible)
             {
-                ShowInTaskbar = false;
                 Hide();
             }
 
@@ -828,12 +828,32 @@ internal static class ViewerHost
                 return;
             }
 
+            if (_taskbarStyleApplied)
+            {
+                return;
+            }
+
             int style = unchecked((int)NativeMethods.GetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE).ToInt64());
             int updated = (style & ~NativeMethods.WS_EX_TOOLWINDOW) | NativeMethods.WS_EX_APPWINDOW;
             if (updated != style)
             {
                 NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE, new IntPtr(updated));
+                NativeMethods.SetWindowPos(
+                    Handle,
+                    IntPtr.Zero,
+                    0,
+                    0,
+                    0,
+                    0,
+                    NativeMethods.SWP_NOMOVE |
+                    NativeMethods.SWP_NOSIZE |
+                    NativeMethods.SWP_NOZORDER |
+                    NativeMethods.SWP_NOACTIVATE |
+                    NativeMethods.SWP_FRAMECHANGED |
+                    NativeMethods.SWP_NOOWNERZORDER);
             }
+
+            _taskbarStyleApplied = true;
         }
 
         private static string BuildCaption(string caption)
