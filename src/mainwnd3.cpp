@@ -490,7 +490,12 @@ static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)
     if (panel != NULL && panel->HasCustomTabPrefix())
         prefix = panel->GetCustomTabPrefix();
     std::wstring result;
-    if (panel != NULL && panel->IsTabLocked())
+    bool shouldShowLock = (panel != NULL && panel->IsTabLocked());
+    if (!shouldShowLock && index == 0)
+        // The default tab is always considered locked from the UI perspective,
+        // even if the persisted state marks it as unlocked.
+        shouldShowLock = true;
+    if (shouldShowLock)
         result = L"\U0001F512";
     if (!prefix.empty())
     {
