@@ -41,6 +41,8 @@ static std::vector<HWND> SnapshotViewerWindows()
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
+    UNREFERENCED_PARAMETER(lpvReserved);
+
     if (fdwReason == DLL_PROCESS_ATTACH)
     {
         DLLInstance = hinstDLL;
@@ -149,12 +151,20 @@ CPluginInterface::Release(HWND parent, BOOL force)
 void WINAPI
 CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry)
 {
+    UNREFERENCED_PARAMETER(parent);
+    UNREFERENCED_PARAMETER(regKey);
+    UNREFERENCED_PARAMETER(registry);
+
     // no persistent configuration yet
 }
 
 void WINAPI
 CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry)
 {
+    UNREFERENCED_PARAMETER(parent);
+    UNREFERENCED_PARAMETER(regKey);
+    UNREFERENCED_PARAMETER(registry);
+
     // no persistent configuration yet
 }
 
@@ -168,12 +178,16 @@ CPluginInterface::Configuration(HWND parent)
 void WINAPI
 CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
+    UNREFERENCED_PARAMETER(parent);
+
     salamander->AddViewer("*.json", FALSE);
 }
 
 void WINAPI
 CPluginInterface::ClearHistory(HWND parent)
 {
+    UNREFERENCED_PARAMETER(parent);
+
     // nothing to clear for now
 }
 
@@ -205,6 +219,10 @@ CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, int wid
                                     BOOL* lockOwner, CSalamanderPluginViewerData* viewerData,
                                     int enumFilesSourceUID, int enumFilesCurrentIndex)
 {
+    UNREFERENCED_PARAMETER(viewerData);
+    UNREFERENCED_PARAMETER(enumFilesSourceUID);
+    UNREFERENCED_PARAMETER(enumFilesCurrentIndex);
+
     std::unique_ptr<CJsonViewerWindow> window(new CJsonViewerWindow());
     if (!window->Create(name, left, top, width, height, showCmd, alwaysOnTop, returnLock, lock, lockOwner))
         return FALSE;
@@ -216,6 +234,9 @@ CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, int wid
 void WINAPI
 CPluginInterface::Event(int event, DWORD param)
 {
+    UNREFERENCED_PARAMETER(event);
+    UNREFERENCED_PARAMETER(param);
+
     // no special events handled
 }
 

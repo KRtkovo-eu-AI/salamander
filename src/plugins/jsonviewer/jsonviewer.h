@@ -56,7 +56,10 @@ public:
 
     virtual void WINAPI Connect(HWND parent, CSalamanderConnectAbstract* salamander);
 
-    virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract* pluginData) {}
+    virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract* pluginData)
+    {
+        UNREFERENCED_PARAMETER(pluginData);
+    }
 
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
     virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer();
