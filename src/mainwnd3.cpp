@@ -1004,6 +1004,9 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SetTimer(HWindow, IDT_ADDNEWMODULES, 15000, NULL); // timer after 15 seconds for AddNewlyLoadedModulesToGlobalModulesStore()
 
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+
         CMWDropTarget* dropTarget = new CMWDropTarget();
         if (dropTarget != NULL)
         {
@@ -1066,6 +1069,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
         style |= WS_BORDER;
         SetWindowLongPtr(HTopRebar, GWL_STYLE, style);
+
+        DarkModeApplyWindow(HTopRebar);
 
         MenuBar = new CMenuBar(&MainMenu, HWindow);
         if (MenuBar == NULL)
@@ -1247,8 +1252,24 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         return 0;
     }
 
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        if (HTopRebar != NULL)
+            SendMessage(HTopRebar, uMsg, wParam, lParam);
+        return 0;
+    }
+
     case WM_SETTINGCHANGE:
     {
+        BOOL darkChanged = DarkModeHandleSettingChange(uMsg, lParam) ? TRUE : FALSE;
+        if (darkChanged)
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+        }
+
         if (IgnoreWM_SETTINGCHANGE || LeftPanel == NULL || RightPanel == NULL) // a bug report showed that WM_SETTINGCHANGE was delivered immediately from WM_CREATE of the main window (panels didn't exist yet, causing a NULL access)
             return 0;
 
