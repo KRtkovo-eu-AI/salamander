@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "../../darkmode.h"
+
 #include "mmviewer.rh"
 #include "mmviewer.rh2"
 #include "lang\lang.rh"
@@ -878,17 +880,21 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         RECT r;
         GetClientRect(HWindow, &r);
+        DWORD rebarStyle = WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
+                           WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
+                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN |
+                           RBS_AUTOSIZE;
+        if (!DarkModeShouldUseDarkColors())
+            rebarStyle |= RBS_BANDBORDERS;
+
         HRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, "",
-                                WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
-                                    WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                                    RBS_VARHEIGHT | CCS_NODIVIDER |
-                                    RBS_BANDBORDERS | CCS_NOPARENTALIGN |
-                                    RBS_AUTOSIZE,
+                                rebarStyle,
                                 0, 0, r.right, r.bottom, // dummy
                                 HWindow, (HMENU)0, DLLInstance, NULL);
 
         // nechceme vizualni styly pro rebar
-        SalamanderGUI->DisableWindowVisualStyles(HRebar);
+        if (!DarkModeShouldUseDarkColors())
+            SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
         Renderer.CreateEx(WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
@@ -908,6 +914,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ToolBar->CreateWnd(HRebar);
         FillToolBar();
         InsertToolBarBand();
+
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
 
         ViewerWindowQueue.Add(new CWindowQueueItem(HWindow));
         break;
@@ -984,6 +994,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         // tady by se mely premapovat barvy
         TRACE_I("CViewerWindow::WindowProc - WM_SYSCOLORCHANGE");
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        return 0;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyWindow(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyTree(HWindow);
+            return 0;
+        }
         break;
     }
 

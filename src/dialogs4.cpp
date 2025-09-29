@@ -17,6 +17,7 @@
 #include "viewer.h"
 #include "find.h"
 #include "gui.h"
+#include "darkmode.h"
 
 //****************************************************************************
 //
@@ -380,6 +381,7 @@ CConfiguration::CConfiguration()
     UsePanelTabs = TRUE;
     ShowPanelCaption = TRUE;
     ShowPanelZoom = TRUE;
+    UseWindowsDarkMode = FALSE;
     strcpy(InfoLineContent, "$(FileName): $(FileSize), $(FileDate), $(FileTime), $(FileAttributes), $(FileDOSName)");
 
     HotPathAutoConfig = TRUE;
@@ -1418,13 +1420,16 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // prvky dialogu se maji natahovat podle jeho velikosti, nastavime delici controly
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
 
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
+
         break;
     }
 
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
-        ListView_SetBkColor(HListView2, GetSysColor(COLOR_WINDOW));
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
         break;
     }
 
@@ -1999,6 +2004,7 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
         }
         break;
     }
+
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
@@ -3033,6 +3039,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // prvky dialogu se maji natahovat podle jeho velikosti, nastavime delici controly
         ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
 
+        DarkModeUpdateListViewColors(HListView);
+
         break;
     }
 
@@ -3171,6 +3179,19 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             }
         }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeUpdateListViewColors(HListView);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            DarkModeUpdateListViewColors(HListView);
         break;
     }
     }
@@ -3372,8 +3393,9 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < NUMBER_OF_COLORS; i++)
             TmpColors[i] = UserColors[i];
 
-        int schemes[5] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON, IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_CUSTOM};
-        for (i = 0; i < 5; i++)
+        int schemes[6] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON,
+                          IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_WINDARK, IDS_COLORSCHEME_CUSTOM};
+        for (i = 0; i < 6; i++)
             SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[i]));
 
         for (i = 0; i < PAGE7DATA_COUNT; i++)
@@ -3383,8 +3405,10 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < CFG_COLORS_BUTTONS; i++)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
 
-        int index = 4; // custom
-        if (CurrentColors == SalamanderColors)
+        int index = 5; // custom
+        if (Configuration.UseWindowsDarkMode)
+            index = 4;
+        else if (CurrentColors == SalamanderColors)
             index = 0;
         else if (CurrentColors == ExplorerColors)
             index = 1;
@@ -3424,6 +3448,8 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             for (i = 0; i < NUMBER_OF_COLORS; i++)
                 UserColors[i] = TmpColors[i];
         }
+
+        Configuration.UseWindowsDarkMode = (index == 4);
 
         ColorsChanged(TRUE, TRUE, FALSE); // sporime cas, nechame zmenit jen barvo-zavisle polozky, neloadime znovu ikony
 
@@ -3608,6 +3634,15 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         HScheme = GetDlgItem(HWindow, IDC_C_SCHEME);

@@ -110,6 +110,7 @@ CToolBar::CToolBar(HWND hNotifyWindow, CObjectOrigin origin)
     MouseIsTracked = FALSE;
     DropDownUpTime = GetTickCount();
     HelpMode = FALSE;
+    DarkCheckedUseAccent = TRUE;
 }
 
 CToolBar::~CToolBar()
@@ -780,6 +781,12 @@ void CToolBar::SetPadding(const TOOLBAR_PADDING* padding)
     DirtyItems = TRUE;
     if (HWindow != NULL)
         InvalidateRect(HWindow, NULL, FALSE);
+}
+
+void CToolBar::SetDarkCheckedUseAccent(BOOL useAccent)
+{
+    CALL_STACK_MESSAGE2("CToolBar::SetDarkCheckedUseAccent(%d)", useAccent);
+    DarkCheckedUseAccent = useAccent;
 }
 
 /*

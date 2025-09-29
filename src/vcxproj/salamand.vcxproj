@@ -467,6 +467,8 @@
     </ClCompile>
     <ClCompile Include="..\plugins\shared\dbg.cpp">
     </ClCompile>
+    <ClCompile Include="..\darkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\common\dep\pnglite\pnglite.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </PrecompiledHeader>
@@ -720,6 +722,8 @@
     <ClInclude Include="..\common\winlib.h">
     </ClInclude>
     <ClInclude Include="..\consts.h">
+    </ClInclude>
+    <ClInclude Include="..\darkmode.h">
     </ClInclude>
     <ClInclude Include="..\common\dep\crypt\aes.h">
     </ClInclude>

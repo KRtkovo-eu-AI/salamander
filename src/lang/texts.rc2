@@ -1217,6 +1217,7 @@ STRINGTABLE
  IDS_COLORSCHEME_EXPLORER, "Windows Explorer"
  IDS_COLORSCHEME_NORTON, "Norton Commander"
  IDS_COLORSCHEME_NAVIGATOR, "DOS Navigator"
+ IDS_COLORSCHEME_WINDARK, "Windows Dark Mode (experimental)"
 // color Item
  IDS_COLORITEM_PANELITEM, "Items in panel"
  IDS_COLORITEM_FOCUSEDFRAME, "Frame of focused item in panel"

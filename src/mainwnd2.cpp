@@ -721,6 +721,7 @@ const char* SALAMANDER_HLT_ITEM_BK_FOCSEL_REG = "Item Bk Focused and Selected";
 const char* SALAMANDER_HLT_ITEM_BK_HIGHLIGHT_REG = "Item Bk Highlight";
 
 const char* SALAMANDER_CLRSCHEME_REG = "Color Scheme";
+const char* SALAMANDER_CLR_USE_WIN_DARK_REG = "Use Windows Dark Mode";
 
 // Plugins
 const char* SALAMANDER_PLUGINS = "Plugins";
@@ -2558,8 +2559,10 @@ void CMainWindow::SaveConfig(HWND parent)
 
             if (CreateKey(salamander, SALAMANDER_COLORS_REG, actKey))
             {
-                DWORD scheme = 4; // custom
-                if (CurrentColors == SalamanderColors)
+                DWORD scheme = 5; // custom
+                if (Configuration.UseWindowsDarkMode)
+                    scheme = 4;
+                else if (CurrentColors == SalamanderColors)
                     scheme = 0;
                 else if (CurrentColors == ExplorerColors)
                     scheme = 1;
@@ -2568,6 +2571,9 @@ void CMainWindow::SaveConfig(HWND parent)
                 else if (CurrentColors == NavigatorColors)
                     scheme = 3;
                 SetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD));
+
+                DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
+                SetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
 
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG, UserColors[FOCUS_ACTIVE_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_SELECTED_REG, UserColors[FOCUS_ACTIVE_SELECTED]);
@@ -2980,6 +2986,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         {
             DWORD scheme;
             CurrentColors = UserColors;
+            DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
+            if (GetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD)))
+                Configuration.UseWindowsDarkMode = useWinDark != 0;
             if (GetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD)))
             {
                 // we added a new scheme (DOS Navigator) at position 3
@@ -2987,13 +2996,39 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     scheme = 4;
 
                 if (scheme == 0)
+                {
                     CurrentColors = SalamanderColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
                 else if (scheme == 1)
+                {
                     CurrentColors = ExplorerColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
                 else if (scheme == 2)
+                {
                     CurrentColors = NortonColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
                 else if (scheme == 3)
+                {
                     CurrentColors = NavigatorColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
+                else if (scheme == 4)
+                {
+                    CurrentColors = UserColors;
+                    if (!Configuration.UseWindowsDarkMode)
+                    {
+                        // Legacy configurations stored "custom" as 4 before the Windows dark mode option existed.
+                        // Leave UseWindowsDarkMode cleared to treat it as a custom scheme.
+                    }
+                }
+                else
+                {
+                    CurrentColors = UserColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
             }
 
             LoadRGBF(actKey, SALAMANDER_CLR_ITEM_FG_NORMAL_REG, UserColors[ITEM_FG_NORMAL]);
