@@ -1273,6 +1273,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (IgnoreWM_SETTINGCHANGE || LeftPanel == NULL || RightPanel == NULL) // a bug report showed that WM_SETTINGCHANGE was delivered immediately from WM_CREATE of the main window (panels didn't exist yet, causing a NULL access)
             return 0;
 
+        if (darkChanged)
+            ColorsChanged(TRUE, FALSE, TRUE);
+
         // detection based on EXPLORER.EXE on NT4
         if (lParam != 0 && stricmp((LPCTSTR)lParam, "Environment") == 0)
         {
