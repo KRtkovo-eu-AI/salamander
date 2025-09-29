@@ -190,7 +190,8 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
                                        panel->GetPathDriveType() == DRIVE_FIXED;
         if (!panel->GetMonitorChanges())
         {
-            refreshOnActivate = true;
+            if (panel->NeedsRefreshOnActivation)
+                refreshOnActivate = true;
         }
         else
         {
