@@ -292,6 +292,7 @@ struct CConfiguration
     int UseIconTincture;  // pro hidden/system/selected/focused polozky
     int ShowPanelCaption; // bude v directory line zobrazen barevne panel caption?
     int ShowPanelZoom;    // bude v directory line zobrazeno tlacitko Zoom?
+    int UseWindowsDarkMode; // enable native Windows dark mode when available
 
     char InfoLineContent[200];
 
@@ -754,6 +755,7 @@ protected:
     CHighlightMasks* SourceHighlightMasks;
 
     BOOL Dirty;
+    int SelectedSchemeId;
 
 public:
     CCfgPageColors();
@@ -768,6 +770,7 @@ protected:
     void LoadMasks();
     void StoreMasks();
     void EnableControls();
+    void OnSchemeChanged();
 };
 
 //

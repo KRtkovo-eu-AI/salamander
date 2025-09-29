@@ -1,0 +1,56 @@
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+//****************************************************************************
+//
+// Copyright (c) 2023 Open Salamander Authors
+//
+// This is a part of the Open Salamander SDK library.
+//
+//****************************************************************************
+
+#pragma once
+
+#define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
+
+#include <windows.h>
+#include <CommDlg.h>
+#include <shlobj.h>
+#ifdef _MSC_VER
+#include <crtdbg.h>
+#endif // _MSC_VER
+#include <limits.h>
+#include <process.h>
+#include <commctrl.h>
+#include <ostream>
+#include <stdio.h>
+#include <time.h>
+
+#if defined(_DEBUG) && defined(_MSC_VER)
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+
+#include "versinfo.rh2"
+
+#include "spl_com.h"
+#include "spl_base.h"
+#include "spl_gen.h"
+#include "spl_gui.h"
+#include "spl_view.h"
+#include "spl_vers.h"
+
+#include "dbg.h"
+#include "mhandles.h"
+#include "arraylt.h"
+#include "winliblt.h"
+#include "auxtools.h"
+#include "jsonviewer.h"
+#include "managed_bridge.h"
+#include "jsonviewer.rh"
+#include "jsonviewer.rh2"
+#include "lang\lang.rh"
+
+#ifdef __BORLANDC__
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#endif // __BORLANDC__

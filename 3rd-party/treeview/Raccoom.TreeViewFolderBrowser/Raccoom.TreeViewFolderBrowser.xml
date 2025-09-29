@@ -1,0 +1,605 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Raccoom.TreeViewFolderBrowser</name>
+    </assembly>
+    <members>
+        <member name="T:Raccoom.Windows.Forms.Design.FlagsEditor">
+            <summary>
+            Implements a custom type editor for enum's with FlagAttribute
+            </summary>
+            <remarks>
+            Copyright by Thierry Bouquain, <a href="http://www.codeproject.com/cs/miscctrl/flagseditor.asp?target=FlagsEditor" target="_blank">A flag editor article on codeproject.com</a>
+            </remarks>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.EditValue(System.ComponentModel.ITypeDescriptorContext,System.IServiceProvider,System.Object)">
+            <summary>
+            Overrides the method used to provide basic behaviour for selecting editor.
+            Shows our custom control for editing the value.
+            </summary>
+            <param name="context">The context of the editing control</param>
+            <param name="provider">A valid service provider</param>
+            <param name="value">The current value of the object to edit</param>
+            <returns>The new value of the object</returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.GetEditStyle(System.ComponentModel.ITypeDescriptorContext)">
+            <summary>
+            Shows a dropdown icon in the property editor
+            </summary>
+            <param name="context">The context of the editing control</param>
+            <returns>Returns <c>UITypeEditorEditStyle.DropDown</c></returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.OnMouseDown(System.Object,System.Windows.Forms.MouseEventArgs)">
+            <summary>
+            When got the focus, handle the lost focus event.
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.OnMouseMoved(System.Object,System.Windows.Forms.MouseEventArgs)">
+            <summary>
+            Occurs when the mouse is moved over the checkedlistbox. 
+            Sets the tooltip of the item under the pointer
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.ValueChanged(System.Object,System.EventArgs)">
+            <summary>
+            Close the dropdowncontrol when the user has selected a value
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.Design.FlagsEditor.clbItem">
+            <summary>
+            Internal class used for storing custom data in listviewitems
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.clbItem.#ctor(System.String,System.Int32,System.String)">
+            <summary>
+            Creates a new instance of the <c>clbItem</c>
+            </summary>
+            <param name="str">The string to display in the <c>ToString</c> method. 
+            It will contains the name of the flag</param>
+            <param name="value">The integer value of the flag</param>
+            <param name="tooltip">The tooltip to display in the <see cref="T:System.Windows.Forms.CheckedListBox"/></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.Design.FlagsEditor.clbItem.ToString">
+            <summary>
+            Gets the name of this item
+            </summary>
+            <returns>The name passed in the constructor</returns>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.Design.FlagsEditor.clbItem.Value">
+            <summary>
+            Gets the int value for this item
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.Design.FlagsEditor.clbItem.Tooltip">
+            <summary>
+            Gets the tooltip for this item
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeNodeBase">
+            <summary>
+            Inherits from <see cref="T:System.Windows.Forms.TreeNode"/> and extends it dummy node handling and a Refresh method.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodeBase.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the TreeNodeBase class.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodeBase.#ctor(System.String,System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the TreeNodeBase class.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodeBase.Refresh">
+            <summary>
+            Collapse the node, clears all child nodes, add a dummy node and expand it again.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodeBase.AddDummyNode">
+            <summary>
+            Adds a dummy node to the parent node
+            </summary>		
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodeBase.RemoveDummyNode">
+            <summary>
+            Removes the dummy node from the parent node.
+            </summary>		
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeNodeBase.CanRefresh">
+            <summary>
+            Gets a value indicating whether the tree node can be refreshed.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeNodeBase.HasDummyNode">
+            <summary>
+            Gets a value indicating whether the tree node owns a dummy node.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeNodePath">
+            <summary>
+            Extends the <c>TreeNode</c> type with a path property. This node type is used by <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/>
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeNodePath._isSpecialFolder">
+            <summary>Specifiy that this node instance represent a special folder.</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeNodePath._path">
+            <summary>
+            File or directory path information
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodePath.#ctor(System.String,System.Boolean)">
+            <summary>
+            Initializes a new instance of the TreeNodePath class.
+            </summary>
+            <param name="text">The label Text of the new tree node. </param>
+            <param name="isSpecialFolder">Indicates if this folder is a special folder and cannot be refreshed the common way.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeNodePath.#ctor(System.String,System.Boolean,System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the TreeNodePath class.
+            </summary>
+            <param name="text">The label Text of the new tree node. </param>
+            <param name="imageIndex">The index value of Image to display when the tree node is unselected.</param>
+            <param name="selectedImageIndex">The index value of Image to display when the tree node is selected.</param>
+            <param name="isSpecialFolder">Indicates if this folder is a special folder and cannot be refreshed the common way.</param>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeNodePath.CanRefresh">
+            <summary>
+            Gets whetever this node supports the standard refreshing mechanism.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeNodePath.IsSpecialFolder">
+            <summary>
+            Gets or sets this node as a special folder node.
+            </summary>
+            <remarks>
+            SpecialFolder's are folder's which are defined by <see cref="T:System.Environment.SpecialFolder"/> enum.
+            </remarks>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeNodePath.Path">
+            <summary>
+            Gets or sets the file or directory path information
+            </summary>			
+        </member>
+        <member name="T:Raccoom.Windows.Forms.ITreeStrategyDataProvider">
+            <summary>
+            <c>ITreeViewFolderBrowserDataProvider</c> is used by a <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> instance and is responsible for
+            <list type="bullet"> 
+            <item>retrieve the computer drives and directories</item>
+            <item>Imagelist which is used to assign images to the nodes created by this instance.</item>  
+            <item>ContextMenu</item>
+            </list>
+            <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> calls the interface method's and provide a <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper"/> instance which let you create node's and give you access to the underlying <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> instance.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.Attach(Raccoom.Windows.Forms.TreeViewFolderBrowserHelper)">
+            <summary>
+            The <c>TreeViewFolderBrowser</c> calls this method to let the provider initialize itself.
+            </summary>
+            <param name="helper">Helper class to create TreeNodes</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.Detach">
+            <summary>
+            The <c>TreeViewFolderBrowser</c> calls this method to let the provider detach itself.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.QueryContextMenuItems(Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Fired before the context menu popup.
+            </summary>
+            <param name="node">The node on which the context menu was requested.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.RequestRoot">
+            <summary>
+            Fill the root level.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.RequestSubDirs(Raccoom.Windows.Forms.TreeNodePath,System.Windows.Forms.TreeViewCancelEventArgs)">
+            <summary>
+            Fill the Directory structure for a given path.
+            </summary>
+            <param name="parent">The expanding node.</param>
+            <param name="e">EventArgs that let you cancel the node expanding.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.ShowNode(System.String)">
+            <summary>
+            Gets the tree node collection which holds the drive node's. The requested collection is than used to search a specific node.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.ITreeStrategyDataProvider.HasSelectedChildNodes(System.Collections.Specialized.StringCollection,Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Determines if the node has to be a marked bold, because the <c>items</c> collection contains <c>node</c> child items.
+            </summary>
+            <param name="items">The selected items we have to check against for the <c>node</c></param>
+            <param name="node">The node for which we have to check the IsBold State</param>
+            <returns>True to mark the node bold, False to use the regular Font</returns>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeStrategyDataProviderBase">
+            <summary>
+            <c>TreeViewFolderBrowserDataProviderBase</c> serves as a abstract standard implementation for <see cref="T:Raccoom.Windows.Forms.ITreeStrategyDataProvider"/> and is responsible for
+            <list type="bullet"> 
+            <item>retrieve the computer drives and directories</item>
+            <item>Imagelist which is used to assign images to the nodes created by this instance.</item>  
+            <item>ContextMenu</item>
+            </list>
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeStrategyDataProviderBase._helper">
+            <summary>Holds an instance to the Helper Class provided trough attach process</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.Attach(Raccoom.Windows.Forms.TreeViewFolderBrowserHelper)">
+            <summary>
+            The <c>TreeViewFolderBrowser</c> calls this method to let the provider initialize itself.
+            </summary>
+            <param name="helper">Helper class to create TreeNodes</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.Detach">
+            <summary>
+            The <c>TreeViewFolderBrowser</c> calls this method to let the provider detach itself.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.QueryContextMenuItems(Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Fired before the context menu popup.
+            </summary>
+            <param name="node">The node on which the context menu was requested.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.RequestRoot">
+            <summary>
+            Fill the root level.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.RequestSubDirs(Raccoom.Windows.Forms.TreeNodePath,System.Windows.Forms.TreeViewCancelEventArgs)">
+            <summary>
+            Fill the Directory structure for a given path.
+            </summary>
+            <param name="parent">The expanding node.</param>
+            <param name="e">EventArgs that let you cancel the node expanding.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.ShowNode(System.String)">
+            <summary>
+            Gets the tree node collection which holds the drive node's. The requested collection is than used to search a specific node.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.Dispose">
+            <summary>
+            Releases all resources used by the Dataprovider.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeStrategyDataProviderBase.Helper">
+            <summary>
+            Gets the helper class needed to create nodes
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowser">
+            <summary>
+            TreeViewFolderBrowser works a bite like FolderBrowserDialog but was designed to let the user choose many directories by <c>Chechboxes</c>.	
+            <seealso cref="P:Raccoom.Windows.Forms.TreeViewFolderBrowser.CheckboxBehaviorMode"/><seealso cref="T:Raccoom.Windows.Forms.TreeNodePath"/>
+            </summary>	
+            <remarks>
+            Because this class delegates the drive, folder and ImageList specific task's to a <see cref="T:Raccoom.Windows.Forms.ITreeStrategyDataProvider"/> instance, this class needs a wired <see cref="T:Raccoom.Windows.Forms.ITreeStrategyDataProvider"/> instance before you can call any method wich fill's the tree view.
+            </remarks>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser.DataSourceChanged">
+            <summary>
+            Fired if a data provider has changed
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser.CheckboxBehaviorModeChanged">
+            <summary>
+            Fired if a CheckboxBehaviorMode has changed
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser.folderList_">
+            <summary>holds the path list</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser._supressCheck">
+            <summary>flag used to suppress CheckItem Event</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser.boldFont_">
+            <summary>font used to mark nodes which contains checked sub nodes</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser._checkboxBehavior">
+            <summary>current working mode</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser.components">
+            <summary>designer</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser._dataProvider">
+            <summary>data provider which is responsible to manage this instance</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowser._helper">
+            <summary>data provider helper instance</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.#ctor">
+            <summary>
+            Initializes a new instance of the <c>TreeViewFolderBrowser</c> class.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.Populate">
+            <summary>
+            Clears the TreeView and popluates the root level.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.Populate(System.String)">
+            <summary>
+            Clears the TreeView and popluates the root level.
+            </summary>
+            <param name="selectedNodePath">The path of the folder that should be selected after population.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnContextMenuPopup(System.EventArgs)">
+            <summary>
+            Handles the OnMenuPopup event and invokes <c>QueryContextMenuItems</c> on the current Dataprovider.
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.SupressCheckEvent(System.Boolean)">
+            <summary>
+            True to supress OnBeforeCheck Execution, otherwise false to allow it.
+            </summary>
+            <param name="supressEvent"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.GetSubDirs(Raccoom.Windows.Forms.TreeNodePath,System.Windows.Forms.TreeViewCancelEventArgs)">
+            <summary>
+            Populates the Directory structure for a given path.
+            </summary>
+            <param name="parent">Parent node for which the data is to retrieve</param>
+            <param name="e"><c>TreeViewCancelEventArgs</c> to abort current expanding.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.CheckNodesRec(System.Windows.Forms.TreeNode,System.Boolean)">
+            <summary>
+            Toggle the check flag for tree nodes, works recursive
+            </summary>
+            <param name="parent"></param>
+            <param name="check"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.ExchangeFoldersRec(Raccoom.Windows.Forms.TreeNodePath,System.Boolean)">
+            <summary>
+            Add or removes the nodes recursive to or from the folderList_.
+            </summary>
+            <param name="parent"></param>
+            <param name="add"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.ExchangePath(System.String,System.Boolean)">
+            <summary>
+            Add or removes path from the folderList_.
+            </summary>
+            <param name="path"></param>
+            <param name="add"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.MarkNode(Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Set the text bold if there is a child node checked.
+            </summary>
+            <param name="node"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.MarkNodesRec(Raccoom.Windows.Forms.TreeNodePath)">
+            <summary>
+            Set the text bold for each parent node if there is a child node checked.
+            </summary>
+            <param name="parent"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnCheckboxBehaviorModeChanged(System.EventArgs)">
+            <summary>
+            Raises the CheckboxBehaviorModeChanged event.
+            </summary>
+            <param name="e">An EventArgs that contains the event data.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnDataSourceChanged(System.EventArgs)">
+            <summary>
+            Raises the DataSourceChanged event.
+            </summary>
+            <param name="e">An EventArgs that contains the event data.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnDoubleClick(System.EventArgs)">
+            <summary>
+            Used for drives like floppy, cd - rom ect. where it can be that no valid medium is inserted.
+            in this case the click on the + will remove the +, after double click there's a new + to give the user
+            the chance to browse this device after inserting a valid medium.
+            </summary>		
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnBeforeCheck(System.Windows.Forms.TreeViewCancelEventArgs)">
+            <summary>
+            Fired before check action occurs, manages the folderList_.
+            </summary>		
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnBeforeExpand(System.Windows.Forms.TreeViewCancelEventArgs)">
+            <summary>
+            Fired before node expands, used to fill next level in directory structure.
+            </summary>		
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.OnSelectedDirectoriesChanged(Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs)">
+            <summary>
+            Raises the SelectedDirectoriesChanged event.<seealso cref="T:Raccoom.Windows.Forms.SelectedDirectoriesChangedDelegate"/>
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowser.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="E:Raccoom.Windows.Forms.TreeViewFolderBrowser.SelectedDirectoriesChanged">
+            <summary>
+            Fired if a directory was selected or deselected.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowser.DataSource">
+            <summary>
+            Gets or sets <see cref="T:Raccoom.Windows.Forms.ITreeStrategyDataProvider"/> which is responsible to fill this <c>TreeViewFolderBrowser</c> instance.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowser.CheckBoxes">
+            <summary>
+            Gets a value indicating whether check boxes are displayed next to the tree nodes in the tree view control.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowser.SelectedDirectories">
+            <summary>
+            List contains the path for all checked items.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowser.CheckboxBehaviorMode">
+            <summary>
+            Specify how the tree view handles checkboxes and associated events.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowser.IsCheckEventSupressed">
+            <summary>
+            Indicates if OnBeforeCheck is permitted to call code
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserDesigner">
+            <summary>
+            A simple designer class for the <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> control to remove 
+            unwanted properties at design time.
+            </summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserDesigner.PreFilterProperties(System.Collections.IDictionary)">
+            <summary>
+            Allows a designer to change or remove items from the set of properties that it exposes through a TypeDescriptor. 
+            </summary>
+            <param name="properties">The properties for the class of the component.</param>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.SelectedDirectoriesChangedDelegate">
+            <summary>
+            Occurs when a directory checkstate has changed
+            </summary>
+            <remarks>
+            The SelectedDirectoriesChangedDelegate event passes an SelectedDirectoriesChangedEventArgs object to its event handler. 
+            </remarks>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs">
+            <summary>
+            Provides data for the SelectedDirectoriesChangedDelegate event of a TreeViewFolderBrowser control.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs._path">
+            <summary>File path</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs._checkState">
+            <summary>Checkstate</summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs.#ctor(System.String,System.Windows.Forms.CheckState)">
+            <summary>Initalize a new instance of SelectedDirectoriesChangedEventArgs</summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs.Path">
+            <summary>Gets the path which was modified</summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.SelectedDirectoriesChangedEventArgs.CheckState">
+            <summary>Gets the check state for the path</summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.CheckboxBehaviorMode">
+            <summary>
+            Indicating whether check boxes are displayed next to the tree nodes in the tree view control and how the tree view handle related events.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.CheckboxBehaviorMode.None">
+            <summary>
+            No check boxes are displayed next to the tree nodes in the tree view control.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.CheckboxBehaviorMode.SingleChecked">
+            <summary>
+            Check boxes are displayed next to the tree nodes in the tree view control. The user can check directories.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.CheckboxBehaviorMode.RecursiveChecked">
+            <summary>
+            Check boxes are displayed next to the tree nodes in the tree view control. The user can check directories, the subdirectories are checked recursive.
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper">
+            <summary>
+            <c>TreeViewFolderBrowserHelper</c> is like a bridge between <see cref="T:Raccoom.Windows.Forms.ITreeStrategyDataProvider"/> and <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/>
+            and provides access to the needed informations to fill the tree view.
+            </summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper._treeView">
+            <summary>the managed tree view instance</summary>
+        </member>
+        <member name="F:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper._waitCursorCounter">
+            <summary></summary>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.#ctor(Raccoom.Windows.Forms.TreeViewFolderBrowser)">
+            <summary>
+            Initialize a new instance of TreeViewFolderBrowserHelper for the specified TreeViewFolderBrowser instance.
+            </summary>
+            <param name="treeView"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.CreateTreeNode(Raccoom.Windows.Forms.TreeNodePath,System.String,System.String,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a tree node and add it to the <c>parentNode</c>.
+            </summary>		
+            <param name="parentNode">Parent node for the new created child node, can be null to indicate root level.</param>
+            <param name="text">The text displayed in the label of the tree node.</param>
+            <param name="path">The path the node represents.</param>
+            <param name="addDummyNode">True to add + sign, otherwise no + sign appears.</param>
+            <param name="forceChecked">True to check node in each case, otherwise false to allow normal check against selected paths.</param>
+            <param name="isSpecialFolder">Specifies if this node is a special folder. Special folders do not request data from the attached data provider.</param>
+            <returns>The newly created and added node</returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.CreateTreeNode(System.Windows.Forms.TreeNodeCollection,Raccoom.Windows.Forms.TreeNodePath,System.String,System.String,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a tree node and add it to the <c>TreeNodeCollection</c>.
+            </summary>		
+            <param name="parentCollection"><c>TreeNodeCollection</c> to which the new node will added.</param>
+            <param name="parentNode">Parent node for the new created child node.</param>
+            <param name="text">The text displayed in the label of the tree node.</param>
+            <param name="path">The path the node represents.</param>
+            <param name="addDummyNode">True to add + sign, otherwise no + sign appears.</param>
+            <param name="forceChecked">True to check node in each case, otherwise false to allow normal check against selected paths.</param>
+            <param name="isSpecialFolder">Specifies if this node is a special folder. Special folders do not request data from the attached data provider.</param>
+            <returns>The newly created and added node</returns>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.ExpandNode(System.Windows.Forms.TreeNode)">
+            <summary>
+            Expands the tree node.
+            </summary>
+            <param name="parentNode">The Expand method expands the current TreeNode down to the next level of nodes.</param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.HandleWaitCursor(System.Boolean)">
+            <summary>
+            Thread safe Wait Cursor handling
+            </summary>
+            <param name="show"></param>
+        </member>
+        <member name="M:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.CreateTreeNode(System.String,System.String,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a tree node and add it to the <c>TreeNodeCollection</c>.
+            </summary>
+            <param name="text">The text displayed in the label of the tree node.</param>
+            <param name="path">The path the node represents.</param>
+            <param name="addDummyNode">True to add + sign, otherwise no + sign appears.</param>
+            <param name="forceChecked">True to check node in each case, otherwise false to allow normal check against selected paths.</param>
+            <param name="isSpecialFolder">Specifies if this node is a special folder. Special folders do not request data from the attached data provider.</param>
+            <returns></returns>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.TreeView">
+            <summary>
+            Gets the underlying <see cref="T:Raccoom.Windows.Forms.TreeViewFolderBrowser"/> instance.
+            </summary>
+        </member>
+        <member name="P:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.WaitCursor">
+            <summary>
+            Gets or set a flag which indicates if the WaitCursor is shown or not
+            </summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.CreateTreeNodeDelegate">
+            <summary>Delegate to invoke thread safe method calls</summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.HandleWaitCursorDelegate">
+            <summary>Delegate used to handle wait cursor</summary>
+        </member>
+        <member name="T:Raccoom.Windows.Forms.TreeViewFolderBrowserHelper.ExpandNodeDelegate">
+            <summary>Delegate used to expand a parent node</summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,21 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<meta name="GENERATOR" content="Microsoft&reg; HTML Help Workshop 4.1">
+<!-- Sitemap 1.0 -->
+</HEAD>
+<BODY>
+<OBJECT type="text/site properties">
+</OBJECT>
+<UL>
+        <LI> <OBJECT type="text/sitemap">
+                <param name="Name" value="Introducing the C# Demo Plugin">
+                <param name="Local" value="hh\samandarin\introduction_intro.htm">
+                </OBJECT>
+        <LI> <OBJECT type="text/sitemap">
+                <param name="Name" value="Opening the Managed Window">
+                <param name="Local" value="hh\samandarin\basic_hello.htm">
+                </OBJECT>
+</UL>
+</BODY>
+</HTML>
