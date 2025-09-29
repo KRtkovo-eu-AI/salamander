@@ -181,6 +181,17 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
     if (panel == NULL)
         return;
 
+    if (panel->HasPendingInitialPath())
+    {
+        if (panel->HWindow != NULL)
+        {
+            panel->LoadPendingInitialPath();
+            if (panel == GetActivePanel())
+                panel->NeedsRefreshOnActivation = FALSE;
+        }
+        return;
+    }
+
     bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
     const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
     const char* path = panel->GetPath();
@@ -468,6 +479,102 @@ static std::wstring AnsiToWide(const char* text)
     return result;
 }
 
+static const char* FindLastPathSegment(const char* path)
+{
+    if (path == NULL)
+        return NULL;
+
+    const char* start = path;
+    const char* end = path + strlen(path);
+    const char* p = end;
+    while (p > start && (*(p - 1) == '\\' || *(p - 1) == '/'))
+        --p;
+
+    if (p == start)
+        return start;
+
+    const char* lastSep = NULL;
+    for (const char* q = start; q < p; ++q)
+        if (*q == '\\' || *q == '/')
+            lastSep = q;
+
+    if (lastSep == NULL)
+        return start;
+
+    if (lastSep + 1 >= p)
+    {
+        const char* prevSep = NULL;
+        for (const char* q = start; q < lastSep; ++q)
+            if (*q == '\\' || *q == '/')
+                prevSep = q;
+        if (prevSep != NULL && prevSep + 1 < p)
+            return prevSep + 1;
+        return start;
+    }
+
+    return lastSep + 1;
+}
+
+static void FormatPendingPathCaption(const char* path, int mode, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return;
+
+    buffer[0] = 0;
+    if (path == NULL || path[0] == 0)
+        return;
+
+    switch (mode)
+    {
+    case TITLE_BAR_MODE_DIRECTORY:
+    {
+        const char* segment = FindLastPathSegment(path);
+        if (segment == NULL || segment[0] == 0)
+            lstrcpyn(buffer, path, bufferSize);
+        else if (segment == path && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+            lstrcpyn(buffer, path, bufferSize);
+        else
+            lstrcpyn(buffer, segment, bufferSize);
+        break;
+    }
+    case TITLE_BAR_MODE_COMPOSITE:
+    {
+        const char* segment = FindLastPathSegment(path);
+        if (segment != NULL && segment != path && segment[0] != 0)
+        {
+            int rootLen = 0;
+            if (((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) && path[1] == ':' &&
+                (path[2] == '\\' || path[2] == '/'))
+            {
+                rootLen = 3;
+            }
+            else if (path[0] == '\\' && path[1] == '\\')
+            {
+                const char* first = strchr(path + 2, '\\');
+                if (first != NULL)
+                {
+                    const char* second = strchr(first + 1, '\\');
+                    if (second != NULL)
+                        rootLen = (int)(second - path + 1);
+                }
+            }
+            if (rootLen > 0 && rootLen < bufferSize)
+            {
+                _snprintf(buffer, bufferSize, "%.*s...%s", rootLen, path, segment);
+                buffer[bufferSize - 1] = 0;
+                break;
+            }
+        }
+        lstrcpyn(buffer, path, bufferSize);
+        break;
+    }
+    case TITLE_BAR_MODE_FULLPATH:
+    default:
+        lstrcpyn(buffer, path, bufferSize);
+        break;
+    }
+}
+
 static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
 {
     CALL_STACK_MESSAGE_NONE
@@ -479,7 +586,10 @@ static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
         return;
 
     int mode = Configuration.TabCaptionMode;
-    CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, bufferSize);
+    if (panel != NULL && panel->HasPendingInitialPath())
+        FormatPendingPathCaption(panel->GetPendingInitialPath(), mode, buffer, bufferSize);
+    else
+        CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, bufferSize);
 }
 
 static std::wstring BuildTabDisplayText(CFilesWindow* panel, int index)

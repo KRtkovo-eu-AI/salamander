@@ -1417,6 +1417,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     DrawOnlyIndex = -1;
 
     FocusFirstNewItem = FALSE;
+    PendingInitialPathValid = FALSE;
+    PendingInitialPath[0] = 0;
 
     ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
     AssocUsed = FALSE;
@@ -1470,6 +1472,36 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     NeedIconOvrRefreshAfterIconsReading = FALSE;
     LastIconOvrRefreshTime = GetTickCount() - ICONOVR_REFRESH_PERIOD;
     IconOvrRefreshTimerSet = FALSE;
+}
+
+void CFilesWindow::SetPendingInitialPath(const char* path)
+{
+    if (path != NULL && path[0] != 0)
+    {
+        lstrcpyn(PendingInitialPath, path, _countof(PendingInitialPath));
+        PendingInitialPathValid = TRUE;
+    }
+    else
+    {
+        ClearPendingInitialPath();
+    }
+}
+
+BOOL CFilesWindow::LoadPendingInitialPath()
+{
+    if (!HasPendingInitialPath())
+        return FALSE;
+
+    char path[2 * MAX_PATH];
+    lstrcpyn(path, PendingInitialPath, _countof(path));
+    ClearPendingInitialPath();
+    return ChangeDirLite(path);
+}
+
+void CFilesWindow::ClearPendingInitialPath()
+{
+    PendingInitialPathValid = FALSE;
+    PendingInitialPath[0] = 0;
 }
 
 CFilesWindow::~CFilesWindow()

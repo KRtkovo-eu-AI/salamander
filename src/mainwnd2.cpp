@@ -2833,17 +2833,25 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             panel->ClearWorkDirHistory();
 
         UpdatePanelTabColor(panel);
-        UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
         if (i == activeIndex)
         {
+            panel->ClearPendingInitialPath();
+            BOOL restored = RestorePanelPathFromConfig(this, panel, path);
             activeRestored = restored;
             if (panelPath != NULL && IsDiskOrUNCPath(path))
                 lstrcpyn(panelPath, path, MAX_PATH);
         }
+        else
+        {
+            panel->SetPendingInitialPath(path);
+            if (panel->HasPendingInitialPath())
+                panel->NeedsRefreshOnActivation = TRUE;
+        }
+
+        UpdatePanelTabTitle(panel);
     }
 
     CFilesWindow* activePanel = NULL;

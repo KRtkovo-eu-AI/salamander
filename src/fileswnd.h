@@ -792,6 +792,9 @@ public:
     BOOL FocusFirstNewItem;       // refresh: should the newly added item be selected? (for system New)
     CTopIndexMem TopIndexMem;     // memory of top index for Execute()
 
+    BOOL PendingInitialPathValid;
+    char PendingInitialPath[2 * MAX_PATH];
+
     int LastRefreshTime; // used to handle the chaos of directory change notifications
 
     BOOL CanDrawItems;         // can items be redrawn in the list box?
@@ -1184,6 +1187,12 @@ public:
     // less orthodox version of ChangeDir: returns TRUE even when ChangeDir returns FALSE and
     // 'failReason' is CHPPFR_SHORTERPATH or CHPPFR_FILENAMEFOCUSED
     BOOL ChangeDirLite(const char* newDir);
+
+    void SetPendingInitialPath(const char* path);
+    BOOL HasPendingInitialPath() const { return PendingInitialPathValid && PendingInitialPath[0] != 0; }
+    const char* GetPendingInitialPath() const { return HasPendingInitialPath() ? PendingInitialPath : NULL; }
+    BOOL LoadPendingInitialPath();
+    void ClearPendingInitialPath();
 
     BOOL ChangePathToDrvType(HWND parent, int driveType, const char* displayName = NULL);
 
