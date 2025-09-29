@@ -305,8 +305,6 @@ void EnsureInitialized()
 
     if (!gSupported)
         return;
-
-    HookDarkScrollbars();
 }
 
 } // namespace
@@ -339,6 +337,9 @@ void DarkModeSetEnabled(bool enabled)
         gAllowDarkModeForApp(gEnabled);
     else if (gSetPreferredAppMode)
         gSetPreferredAppMode(gEnabled ? AllowDark : Default);
+
+    if (gEnabled)
+        HookDarkScrollbars();
 
     RefreshColorPolicy();
 

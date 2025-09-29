@@ -3595,9 +3595,6 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     SetMessagesTitle(MAINWINDOW_NAME);
     TRACE_I("Begin");
 
-    DarkModeInitialize();
-    DarkModeFixScrollbars();
-
     // inicializace OLE
     if (FAILED(OleInitialize(NULL)))
     {
