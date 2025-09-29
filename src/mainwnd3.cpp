@@ -112,6 +112,27 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate
     return panel;
 }
 
+bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return false;
+    if (panel->HWindow != NULL)
+        return true;
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    {
+        TRACE_E("Unable to create panel window");
+        return false;
+    }
+
+    panel->ApplyPendingPanelSettings();
+    if (panel->HasDeferredConfigPath())
+        panel->ApplyDeferredConfigPath();
+
+    return true;
+}
+
 bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
 {
     if (panel == NULL)
@@ -240,6 +261,12 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     CFilesWindow* active = GetActivePanel();
     bool activateSameSide = (active == NULL || active->GetPanelSide() == side);
+    if (Created && panel->HWindow == NULL)
+    {
+        if (!EnsurePanelWindowCreated(panel))
+            return;
+    }
+
     bool canFocusNow = (Created && panel->HWindow != NULL);
     if (activateSameSide && !canFocusNow)
     {
@@ -271,8 +298,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     }
 
     bool refreshActive = (panel == GetActivePanel());
-    if (panel->HasDeferredConfigPath())
-        panel->ApplyDeferredConfigPath();
     EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
@@ -1329,12 +1354,11 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 
-    CFilesWindow* panel = AddPanelTab(side, insertIndex);
+    CFilesWindow* panel = AddPanelTab(side, insertIndex, false);
     if (panel == NULL)
         return;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
         TRACE_E("AddPanelTab: Create failed");
         int idx = GetPanelTabIndex(side, panel);
@@ -1570,12 +1594,11 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
 
     CFilesWindow* previousTarget = (targetSide == cpsLeft) ? LeftPanel : RightPanel;
 
-    CFilesWindow* newPanel = AddPanelTab(targetSide, insertIndex);
+    CFilesWindow* newPanel = AddPanelTab(targetSide, insertIndex, false);
     if (newPanel == NULL)
         return NULL;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!newPanel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, newPanel))
+    if (!EnsurePanelWindowCreated(newPanel))
     {
         TRACE_E("Unable to create panel window while duplicating tab");
         int idx = GetPanelTabIndex(targetSide, newPanel);
@@ -1733,7 +1756,7 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 
-    CFilesWindow* panel = AddPanelTab(side, insertIndex);
+    CFilesWindow* panel = AddPanelTab(side, insertIndex, false);
     if (panel == NULL)
     {
         ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
@@ -1742,8 +1765,7 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         return false;
     }
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
         int idx = GetPanelTabIndex(side, panel);
         if (idx >= 0)

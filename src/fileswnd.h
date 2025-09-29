@@ -760,6 +760,27 @@ public:
     bool DeferredConfigPathValid; // TRUE when a deferred configuration path is cached
     std::string DeferredConfigPath; // cached path restored on first activation
 
+    struct CPendingPanelSettings
+    {
+        bool HasSettings;
+        int ViewTemplateIndex;
+        BOOL HeaderLineVisible;
+        BOOL DirectoryLineVisible;
+        BOOL StatusLineVisible;
+        BOOL ReverseSort;
+        CSortType SortType;
+        BOOL FilterEnabled;
+        std::string FilterMasks;
+
+        CPendingPanelSettings()
+            : HasSettings(false), ViewTemplateIndex(2), HeaderLineVisible(TRUE), DirectoryLineVisible(TRUE),
+              StatusLineVisible(TRUE), ReverseSort(FALSE), SortType(stName), FilterEnabled(FALSE), FilterMasks()
+        {
+        }
+    };
+
+    CPendingPanelSettings PendingPanelSettings; // cached settings applied when the window is materialized
+
     CDrivesList* OpenedDrivesList; // if the Alt+F1(2) menu is open, this value points to it; otherwise it is NULL
 
     int LastFocus; // to avoid unnecessary overwriting of the status line
@@ -1619,6 +1640,13 @@ public:
     BOOL HasDeferredConfigPath() const;
     const std::string& GetDeferredConfigPath() const;
     BOOL ApplyDeferredConfigPath();
+
+    void ClearPendingPanelSettings();
+    void SetPendingPanelSettings(int viewTemplateIndex, BOOL headerVisible, BOOL directoryVisible,
+                                 BOOL statusVisible, BOOL reverseSort, CSortType sortType, BOOL filterEnabled,
+                                 const char* filterMasks);
+    BOOL HasPendingPanelSettings() const;
+    void ApplyPendingPanelSettings();
 
     void OpenDirHistory();
 

@@ -1439,6 +1439,8 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
     if (panel == NULL || key == NULL)
         return;
 
+    panel->ClearPendingPanelSettings();
+
     if (pathBuffer != NULL && pathBufferSize > 0)
         pathBuffer[0] = 0;
 
@@ -1448,30 +1450,39 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         if (pathBuffer != NULL && pathBufferSize > 0)
             lstrcpyn(pathBuffer, path, pathBufferSize);
 
+        int viewTemplateIndex = panel->GetViewTemplateIndex();
+        BOOL headerVisible = panel->HeaderLineVisible;
+        BOOL directoryVisible = panel->DirectoryLineVisible;
+        BOOL statusVisible = panel->StatusLineVisible;
+        BOOL reverseSort = panel->ReverseSort;
+        CSortType sortType = panel->SortType;
+        BOOL filterEnabled = panel->FilterEnabled;
+        std::string filterMasks;
+
         DWORD value;
         if (GetValue(key, PANEL_HEADER_REG, REG_DWORD, &value, sizeof(DWORD)))
-            panel->HeaderLineVisible = value;
+            headerVisible = value;
         if (GetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD)))
         {
             if (Configuration.ConfigVersion < 13 && !value)
                 value = 2;
-            panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            viewTemplateIndex = value;
         }
         if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            panel->ReverseSort = value;
+            reverseSort = value;
         if (GetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD)))
         {
             if (value > stAttr)
                 value = stName;
-            panel->SortType = (CSortType)value;
+            sortType = (CSortType)value;
         }
         if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->DirectoryLine->HWindow != NULL))
-                panel->ToggleDirectoryLine();
+            directoryVisible = value;
         if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->StatusLine->HWindow != NULL))
-                panel->ToggleStatusLine();
-        GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
+            statusVisible = value;
+        DWORD filterEnableValue;
+        if (GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &filterEnableValue, sizeof(DWORD)))
+            filterEnabled = filterEnableValue;
 
         char filter[MAX_PATH];
         if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_PATH))
@@ -1496,17 +1507,61 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
                 }
             }
             else
-                panel->FilterEnabled = FALSE;
+                filterEnabled = FALSE;
         }
         if (filter[0] != 0)
-            panel->Filter.SetMasksString(filter);
+            filterMasks.assign(filter);
 
-        panel->UpdateFilterSymbol();
-        int errPos;
-        if (!panel->Filter.PrepareMasks(errPos))
+        if (panel->HWindow == NULL)
         {
-            panel->Filter.SetMasksString("*.*");
-            panel->Filter.PrepareMasks(errPos);
+            const char* masks = filterMasks.empty() ? NULL : filterMasks.c_str();
+            panel->SetPendingPanelSettings(viewTemplateIndex, headerVisible, directoryVisible, statusVisible,
+                                           reverseSort, sortType, filterEnabled, masks);
+        }
+        else
+        {
+            panel->HeaderLineVisible = headerVisible;
+            panel->DirectoryLineVisible = directoryVisible;
+            panel->StatusLineVisible = statusVisible;
+            panel->ReverseSort = reverseSort;
+            panel->SortType = sortType;
+            panel->FilterEnabled = filterEnabled;
+
+            if (panel->IsViewTemplateValid(viewTemplateIndex))
+            {
+                CViewTemplate* desiredTemplate = &panel->Parent->ViewTemplates.Items[viewTemplateIndex];
+                if (panel->ViewTemplate == desiredTemplate)
+                    panel->ViewTemplate = NULL;
+                panel->SelectViewTemplate(viewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+                panel->ViewTemplate = desiredTemplate;
+            }
+
+            BOOL currentDirLine = (panel->DirectoryLine != NULL && panel->DirectoryLine->HWindow != NULL) ? TRUE : FALSE;
+            if (currentDirLine != (directoryVisible ? TRUE : FALSE))
+            {
+                panel->DirectoryLineVisible = directoryVisible;
+                panel->ToggleDirectoryLine();
+            }
+
+            BOOL currentStatus = (panel->StatusLine != NULL && panel->StatusLine->HWindow != NULL) ? TRUE : FALSE;
+            if (currentStatus != (statusVisible ? TRUE : FALSE))
+            {
+                panel->StatusLineVisible = statusVisible;
+                panel->ToggleStatusLine();
+            }
+
+            if (!filterMasks.empty())
+                panel->Filter.SetMasksString(filterMasks.c_str());
+
+            int errPos;
+            if (!panel->Filter.PrepareMasks(errPos))
+            {
+                panel->Filter.SetMasksString("*.*");
+                panel->Filter.PrepareMasks(errPos);
+            }
+
+            if (panel->DirectoryLine != NULL && panel->DirectoryLine->HWindow != NULL)
+                panel->UpdateFilterSymbol();
         }
     }
 
@@ -2729,32 +2784,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         tabCount = 1;
 
     if (tabs.Count == 0)
-    {
-        CFilesWindow* panel = AddPanelTab(side, 0);
-        if (panel != NULL)
-        {
-            DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-            if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                               style,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               panel))
-            {
-                TRACE_E("Unable to create panel window while loading configuration");
-                int idx = GetPanelTabIndex(side, panel);
-                if (idx >= 0)
-                {
-                    CTabWindow* tabWnd = GetPanelTabWindow(side);
-                    if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                        tabWnd->RemoveTab(idx);
-                    tabs.Delete(idx);
-                }
-                delete panel;
-            }
-        }
-    }
+        AddPanelTab(side, 0, false);
 
     while (tabs.Count > tabCount)
     {
@@ -2764,37 +2794,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     while (tabs.Count < tabCount)
     {
-        CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false);
-        if (panel == NULL)
+        if (AddPanelTab(side, tabs.Count, false) == NULL)
             break;
-
-        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-        if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                           style,
-                           0, 0, 0, 0,
-                           HWindow,
-                           NULL,
-                           HInstance,
-                           panel))
-        {
-            TRACE_E("Unable to create panel window while loading configuration");
-            int idx = GetPanelTabIndex(side, panel);
-            TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
-            if (idx >= 0)
-            {
-                CTabWindow* tabWnd = GetPanelTabWindow(side);
-                if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                    tabWnd->RemoveTab(idx);
-                localTabs.Delete(idx);
-            }
-            delete panel;
-            if (previous != NULL)
-                SwitchPanelTab(previous);
-            else
-                UpdatePanelTabVisibility(side);
-            break;
-        }
     }
 
     TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);

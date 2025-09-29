@@ -1427,6 +1427,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     Filter.SetMasksString("*.*");
     int errPos;
     Filter.PrepareMasks(errPos);
+    ClearPendingPanelSettings();
 
     QuickSearchMode = FALSE;
     CaretHeight = 1; // dummy
@@ -1563,6 +1564,123 @@ BOOL CFilesWindow::HasDeferredConfigPath() const
 const std::string& CFilesWindow::GetDeferredConfigPath() const
 {
     return DeferredConfigPath;
+}
+
+void CFilesWindow::ClearPendingPanelSettings()
+{
+    PendingPanelSettings.HasSettings = false;
+    PendingPanelSettings.ViewTemplateIndex = GetViewTemplateIndex();
+    PendingPanelSettings.HeaderLineVisible = HeaderLineVisible;
+    PendingPanelSettings.DirectoryLineVisible = DirectoryLineVisible;
+    PendingPanelSettings.StatusLineVisible = StatusLineVisible;
+    PendingPanelSettings.ReverseSort = ReverseSort;
+    PendingPanelSettings.SortType = SortType;
+    PendingPanelSettings.FilterEnabled = FilterEnabled;
+    PendingPanelSettings.FilterMasks.clear();
+}
+
+void CFilesWindow::SetPendingPanelSettings(int viewTemplateIndex, BOOL headerVisible, BOOL directoryVisible,
+                                           BOOL statusVisible, BOOL reverseSort, CSortType sortType, BOOL filterEnabled,
+                                           const char* filterMasks)
+{
+    PendingPanelSettings.HasSettings = true;
+    PendingPanelSettings.ViewTemplateIndex = viewTemplateIndex;
+    PendingPanelSettings.HeaderLineVisible = headerVisible;
+    PendingPanelSettings.DirectoryLineVisible = directoryVisible;
+    PendingPanelSettings.StatusLineVisible = statusVisible;
+    PendingPanelSettings.ReverseSort = reverseSort;
+    PendingPanelSettings.SortType = sortType;
+    PendingPanelSettings.FilterEnabled = filterEnabled;
+    PendingPanelSettings.FilterMasks.assign(filterMasks != NULL ? filterMasks : "");
+
+    HeaderLineVisible = headerVisible;
+    DirectoryLineVisible = directoryVisible;
+    StatusLineVisible = statusVisible;
+    ReverseSort = reverseSort;
+    SortType = sortType;
+    FilterEnabled = filterEnabled;
+
+    if (IsViewTemplateValid(viewTemplateIndex))
+        ViewTemplate = &Parent->ViewTemplates.Items[viewTemplateIndex];
+
+    const char* masks = (filterMasks != NULL && *filterMasks != 0) ? filterMasks : "*.*";
+    Filter.SetMasksString(masks);
+    int errPos;
+    if (!Filter.PrepareMasks(errPos))
+    {
+        Filter.SetMasksString("*.*");
+        Filter.PrepareMasks(errPos);
+    }
+}
+
+BOOL CFilesWindow::HasPendingPanelSettings() const
+{
+    return PendingPanelSettings.HasSettings ? TRUE : FALSE;
+}
+
+void CFilesWindow::ApplyPendingPanelSettings()
+{
+    if (HWindow == NULL || !PendingPanelSettings.HasSettings)
+        return;
+
+    CPendingPanelSettings settings = PendingPanelSettings;
+    ClearPendingPanelSettings();
+
+    HeaderLineVisible = settings.HeaderLineVisible;
+    DirectoryLineVisible = settings.DirectoryLineVisible;
+    StatusLineVisible = settings.StatusLineVisible;
+    ReverseSort = settings.ReverseSort;
+    SortType = settings.SortType;
+    FilterEnabled = settings.FilterEnabled;
+
+    int templateIndex = settings.ViewTemplateIndex;
+    if (!IsViewTemplateValid(templateIndex))
+        templateIndex = GetViewTemplateIndex();
+    CViewTemplate* desiredTemplate = &Parent->ViewTemplates.Items[templateIndex];
+    if (ViewTemplate == desiredTemplate)
+        ViewTemplate = NULL;
+    SelectViewTemplate(templateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+    ViewTemplate = desiredTemplate;
+
+    BOOL statusVisible = settings.StatusLineVisible ? TRUE : FALSE;
+    if ((StatusLine != NULL && StatusLine->HWindow != NULL) != (statusVisible ? TRUE : FALSE))
+    {
+        StatusLineVisible = statusVisible;
+        ToggleStatusLine();
+    }
+    else
+        StatusLineVisible = statusVisible;
+
+    BOOL directoryVisible = settings.DirectoryLineVisible ? TRUE : FALSE;
+    if ((DirectoryLine != NULL && DirectoryLine->HWindow != NULL) != (directoryVisible ? TRUE : FALSE))
+    {
+        DirectoryLineVisible = directoryVisible;
+        ToggleDirectoryLine();
+    }
+    else
+        DirectoryLineVisible = directoryVisible;
+
+    if (ListBox != NULL)
+    {
+        BOOL desiredHeader = settings.HeaderLineVisible ? TRUE : FALSE;
+        if (GetViewMode() != vmDetailed)
+            desiredHeader = FALSE;
+        if (ListBox->HeaderLineVisible != desiredHeader)
+            ListBox->SetMode(GetViewMode(), desiredHeader);
+        HeaderLineVisible = settings.HeaderLineVisible;
+    }
+
+    const char* masks = settings.FilterMasks.empty() ? "*.*" : settings.FilterMasks.c_str();
+    Filter.SetMasksString(masks);
+    int errPos;
+    if (!Filter.PrepareMasks(errPos))
+    {
+        Filter.SetMasksString("*.*");
+        Filter.PrepareMasks(errPos);
+    }
+
+    if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+        UpdateFilterSymbol();
 }
 
 void CFilesWindow::ClearHistory()
