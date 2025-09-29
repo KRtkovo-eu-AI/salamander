@@ -1743,6 +1743,13 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
     if (panel == NULL)
         return;
 
+    if (panel->HasDeferredConfigPath())
+    {
+        const std::string& deferred = panel->GetDeferredConfigPath();
+        lstrcpyn(buffer, deferred.c_str(), bufferSize);
+        return;
+    }
+
     if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
         mode = TITLE_BAR_MODE_DIRECTORY;
 

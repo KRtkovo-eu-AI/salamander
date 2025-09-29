@@ -757,6 +757,9 @@ public:
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
     BOOL FilesActionInProgress; // is work already being prepared or executed for the Worker?
 
+    bool DeferredConfigPathValid; // TRUE when a deferred configuration path is cached
+    std::string DeferredConfigPath; // cached path restored on first activation
+
     CDrivesList* OpenedDrivesList; // if the Alt+F1(2) menu is open, this value points to it; otherwise it is NULL
 
     int LastFocus; // to avoid unnecessary overwriting of the status line
@@ -1610,6 +1613,12 @@ public:
     CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
     CPathHistory* EnsureWorkDirHistory();
     void ClearWorkDirHistory();
+
+    void SetDeferredConfigPath(const char* path);
+    void ClearDeferredConfigPath();
+    BOOL HasDeferredConfigPath() const;
+    const std::string& GetDeferredConfigPath() const;
+    BOOL ApplyDeferredConfigPath();
 
     void OpenDirHistory();
 

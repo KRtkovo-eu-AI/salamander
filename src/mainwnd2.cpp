@@ -1599,6 +1599,20 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
     return FALSE;
 }
 
+BOOL CFilesWindow::ApplyDeferredConfigPath()
+{
+    if (!HasDeferredConfigPath())
+        return FALSE;
+
+    std::string path = DeferredConfigPath;
+    ClearDeferredConfigPath();
+
+    BOOL restored = RestorePanelPathFromConfig(Parent, this, path.c_str());
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
+    return restored;
+}
+
 void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg)
 {
     HKEY actKey;
@@ -2832,18 +2846,30 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel->ClearWorkDirHistory();
 
+        panel->ClearDeferredConfigPath();
+
+        BOOL restored = FALSE;
+        if (i == activeIndex)
+        {
+            restored = RestorePanelPathFromConfig(this, panel, path);
+            if (panelPath != NULL && IsDiskOrUNCPath(path))
+                lstrcpyn(panelPath, path, MAX_PATH);
+            panel->NeedsRefreshOnActivation = FALSE;
+        }
+        else
+        {
+            if (path[0] != 0)
+                panel->SetDeferredConfigPath(path);
+            panel->NeedsRefreshOnActivation = TRUE;
+        }
+
         UpdatePanelTabColor(panel);
         UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
         if (i == activeIndex)
-        {
             activeRestored = restored;
-            if (panelPath != NULL && IsDiskOrUNCPath(path))
-                lstrcpyn(panelPath, path, MAX_PATH);
-        }
     }
 
     CFilesWindow* activePanel = NULL;

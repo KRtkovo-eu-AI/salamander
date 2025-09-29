@@ -1384,6 +1384,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     SetValidFileData(VALID_DATA_ALL);
     AutomaticRefresh = TRUE;
     NeedsRefreshOnActivation = FALSE;
+    DeferredConfigPathValid = false;
+    DeferredConfigPath.clear();
     NextFocusName[0] = 0;
     DontClearNextFocusName = FALSE;
     LastRefreshTime = 0;
@@ -1532,6 +1534,35 @@ void CFilesWindow::ClearWorkDirHistory()
 {
     if (WorkDirHistory != NULL)
         WorkDirHistory->ClearHistory();
+}
+
+void CFilesWindow::SetDeferredConfigPath(const char* path)
+{
+    if (path != NULL && path[0] != 0)
+    {
+        DeferredConfigPath.assign(path);
+        DeferredConfigPathValid = true;
+    }
+    else
+    {
+        ClearDeferredConfigPath();
+    }
+}
+
+void CFilesWindow::ClearDeferredConfigPath()
+{
+    DeferredConfigPath.clear();
+    DeferredConfigPathValid = false;
+}
+
+BOOL CFilesWindow::HasDeferredConfigPath() const
+{
+    return DeferredConfigPathValid ? TRUE : FALSE;
+}
+
+const std::string& CFilesWindow::GetDeferredConfigPath() const
+{
+    return DeferredConfigPath;
 }
 
 void CFilesWindow::ClearHistory()

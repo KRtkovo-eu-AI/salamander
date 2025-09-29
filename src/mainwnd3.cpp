@@ -271,6 +271,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     }
 
     bool refreshActive = (panel == GetActivePanel());
+    if (panel->HasDeferredConfigPath())
+        panel->ApplyDeferredConfigPath();
     EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
