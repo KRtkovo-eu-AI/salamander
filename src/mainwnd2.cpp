@@ -721,6 +721,7 @@ const char* SALAMANDER_HLT_ITEM_BK_FOCSEL_REG = "Item Bk Focused and Selected";
 const char* SALAMANDER_HLT_ITEM_BK_HIGHLIGHT_REG = "Item Bk Highlight";
 
 const char* SALAMANDER_CLRSCHEME_REG = "Color Scheme";
+const char* SALAMANDER_CLR_USE_WIN_DARK_REG = "Use Windows Dark Mode";
 
 // Plugins
 const char* SALAMANDER_PLUGINS = "Plugins";
@@ -2569,6 +2570,9 @@ void CMainWindow::SaveConfig(HWND parent)
                     scheme = 3;
                 SetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD));
 
+                DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
+                SetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
+
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_NORMAL_REG, UserColors[FOCUS_ACTIVE_NORMAL]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_ACTIVE_SELECTED_REG, UserColors[FOCUS_ACTIVE_SELECTED]);
                 SaveRGBF(actKey, SALAMANDER_CLR_FOCUS_INACTIVE_NORMAL_REG, UserColors[FOCUS_FG_INACTIVE_NORMAL]);
@@ -2980,6 +2984,9 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         {
             DWORD scheme;
             CurrentColors = UserColors;
+            DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
+            if (GetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD)))
+                Configuration.UseWindowsDarkMode = useWinDark != 0;
             if (GetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD)))
             {
                 // we added a new scheme (DOS Navigator) at position 3

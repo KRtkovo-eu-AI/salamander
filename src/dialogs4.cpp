@@ -380,6 +380,7 @@ CConfiguration::CConfiguration()
     UsePanelTabs = TRUE;
     ShowPanelCaption = TRUE;
     ShowPanelZoom = TRUE;
+    UseWindowsDarkMode = FALSE;
     strcpy(InfoLineContent, "$(FileName): $(FileSize), $(FileDate), $(FileTime), $(FileAttributes), $(FileDOSName)");
 
     HotPathAutoConfig = TRUE;
@@ -3394,6 +3395,7 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             index = 3;
         SendMessage(HScheme, CB_SETCURSEL, index, 0);
         SendMessage(HItem, CB_SETCURSEL, 0, 0);
+        CheckDlgButton(HWindow, IDC_C_WIN32DARK, Configuration.UseWindowsDarkMode ? BST_CHECKED : BST_UNCHECKED);
 
         // naleju seznam hilight polozek
         for (i = 0; i < HighlightMasks.Count; i++)
@@ -3408,6 +3410,7 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
     }
     else
     {
+        Configuration.UseWindowsDarkMode = (IsDlgButtonChecked(HWindow, IDC_C_WIN32DARK) == BST_CHECKED);
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
         if (index == 0)
             CurrentColors = SalamanderColors;
