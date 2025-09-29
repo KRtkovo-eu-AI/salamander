@@ -94,7 +94,7 @@ namespace
     constexpr size_t kMaxStoredClosedTabs = 10;
 }
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
     CFilesWindow* panel = new CFilesWindow(this, side);
@@ -107,7 +107,8 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
         return NULL;
     }
 
-    SwitchPanelTab(panel);
+    if (activate)
+        SwitchPanelTab(panel);
     return panel;
 }
 

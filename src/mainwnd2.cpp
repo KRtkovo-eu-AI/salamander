@@ -2751,7 +2751,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     while (tabs.Count < tabCount)
     {
         CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* panel = AddPanelTab(side, tabs.Count);
+        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false);
         if (panel == NULL)
             break;
 
