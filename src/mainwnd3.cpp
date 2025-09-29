@@ -1258,7 +1258,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         DarkModeRefreshTitleBar(HWindow);
         if (HTopRebar != NULL)
             SendMessage(HTopRebar, uMsg, wParam, lParam);
-        return 0;
+        break;
     }
 
     case WM_SETTINGCHANGE:
