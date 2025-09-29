@@ -119,6 +119,12 @@ bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
     if (panel->HWindow != NULL)
         return true;
 
+    if (!panel->EnsureIconInfrastructure())
+    {
+        TRACE_E("Unable to initialize panel icon infrastructure");
+        return false;
+    }
+
     DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
     {

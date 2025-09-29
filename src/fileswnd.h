@@ -739,6 +739,8 @@ public:
 
     CIconCache* IconCache;                // cache containing icons directly from files
     BOOL IconCacheValid;                  // is the cache already loaded?
+    bool IconInfrastructureReady;         // TRUE when icon cache helpers/events/thread were initialized
+    bool IconCriticalSectionsInitialized; // TRUE when critical sections for the icon infrastructure were initialized
     BOOL InactWinOptimizedReading;        // TRUE = only icons/thumbnails/overlays from the visible part of the panel are being read (used when the main window is inactive and a refresh is triggered – we try to minimize system load as we're "in the background")
     DWORD WaitBeforeReadingIcons;         // how many milliseconds to wait before the icon reader starts reading icons (used on refresh; while waiting old icons can be pushed into the cache to avoid repeated reading and endless refreshes on network drives)
     DWORD WaitOneTimeBeforeReadingIcons;  // how many milliseconds to wait before starting to read icons, then this value resets (used to catch batches of changes from Tortoise SVN, see IconOverlaysChangedOnPath())
@@ -971,6 +973,7 @@ public:
 
     // suspends or resumes the icon reader-either stops accessing IconCache or starts loading
     // icons into IconCache; both methods can be called repeatedly and the last call wins
+    bool EnsureIconInfrastructure();
     void SleepIconCacheThread();
     void WakeupIconCacheThread();
 

@@ -1329,34 +1329,22 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     HiddenDirsFilesReason = 0;
     HiddenDirsCount = HiddenFilesCount = 0;
     IconCacheValid = FALSE;
+    IconInfrastructureReady = false;
+    IconCriticalSectionsInitialized = false;
     InactWinOptimizedReading = FALSE;
     WaitBeforeReadingIcons = 0;
     WaitOneTimeBeforeReadingIcons = 0;
     EndOfIconReadingTime = GetTickCount() - 10000;
-    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    IconCache = NULL;
+    IconCacheThread = NULL;
+    ICEventTerminate = NULL;
+    ICEventWork = NULL;
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
-    HANDLES(InitializeCriticalSection(&ICSleepSection));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
-    DWORD ThreadID;
-    IconCacheThread = NULL;
-    if (ICEventTerminate != NULL && ICEventWork != NULL)
-        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
-    if (ICEventTerminate == NULL ||
-        ICEventWork == NULL ||
-        IconCacheThread == NULL)
-    {
-        TRACE_E("Unable to start icon-reader thread.");
-        IconCache = NULL;
-    }
-    else
-    {
-        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
-        IconCache = new CIconCache();
-    }
+    ZeroMemory(&ICSleepSection, sizeof(ICSleepSection));
+    ZeroMemory(&ICSectionUsingIcon, sizeof(ICSectionUsingIcon));
+    ZeroMemory(&ICSectionUsingThumb, sizeof(ICSectionUsingThumb));
 
     OpenedDrivesList = NULL;
 
@@ -1502,9 +1490,13 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(IconCacheThread));
     }
 
-    HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
-    HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
-    HANDLES(DeleteCriticalSection(&ICSleepSection));
+    if (IconCriticalSectionsInitialized)
+    {
+        HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
+        HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
+        HANDLES(DeleteCriticalSection(&ICSleepSection));
+        IconCriticalSectionsInitialized = false;
+    }
     if (ICEventTerminate != NULL)
         HANDLES(CloseHandle(ICEventTerminate));
     if (ICEventWork != NULL)
@@ -1516,6 +1508,47 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
+}
+
+bool CFilesWindow::EnsureIconInfrastructure()
+{
+    if (IconInfrastructureReady && IconCache != NULL)
+        return true;
+
+    CALL_STACK_MESSAGE1("CFilesWindow::EnsureIconInfrastructure()");
+
+    if (!IconCriticalSectionsInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSleepSection));
+        HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
+        HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+        IconCriticalSectionsInitialized = true;
+    }
+
+    if (ICEventTerminate == NULL)
+        ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    if (ICEventWork == NULL)
+        ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+
+    if (IconCacheThread == NULL && ICEventTerminate != NULL && ICEventWork != NULL)
+    {
+        DWORD ThreadID;
+        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
+        if (IconCacheThread == NULL)
+            TRACE_E("Unable to start icon-reader thread.");
+    }
+
+    if (IconCache == NULL)
+    {
+        IconCache = new CIconCache();
+        if (IconCache == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+        }
+    }
+
+    IconInfrastructureReady = (IconCache != NULL);
+    return IconInfrastructureReady;
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()
@@ -1697,6 +1730,8 @@ void CFilesWindow::ClearHistory()
 void CFilesWindow::SleepIconCacheThread()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::SleepIconCacheThread()");
+    if (!EnsureIconInfrastructure())
+        return;
     ICSleep = TRUE;          // to interrupt the icon-reading loop (ICSleepSection may not be left at all)
     ICStopWork = TRUE;       // to interrupt the icon-reading loop if ICStopWork has already been processed
     ResetEvent(ICEventWork); // to interrupt the icon-reading loop if ICStopWork has not been processed yet
@@ -1709,6 +1744,8 @@ void CFilesWindow::SleepIconCacheThread()
 void CFilesWindow::WakeupIconCacheThread()
 {
     CALL_STACK_MESSAGE_NONE
+    if (!EnsureIconInfrastructure())
+        return;
     ICStopWork = FALSE;    // so that the work is not interrupted right from the start
     SetEvent(ICEventWork); // switch to work mode without waiting for a response
     MSG msg;               // remove any WM_USER_ICONREADING_END that would set IconCacheValid = TRUE

@@ -2252,6 +2252,9 @@ BOOL AreTheSameFiles(DWORD validFileData, CPluginDataInterfaceEncapsulation* plu
 void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloadThumbnails, BOOL isInactiveRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::RefreshDirectory()");
+
+    if (!EnsureIconInfrastructure())
+        return;
     //  if (QuickSearchMode) EndQuickSearch();   // We will try to make the quick search mode survive a refresh.
 
 #ifdef _DEBUG

@@ -55,6 +55,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory()");
 
+    if (!EnsureIconInfrastructure())
+        return FALSE;
+
     class CAutoRefreshRestore
     {
     public:
@@ -1939,6 +1942,13 @@ BOOL CFilesWindow::ChangeDir(const char* newDir, int suggestedTopIndex, const ch
 {
     CALL_STACK_MESSAGE7("CFilesWindow::ChangeDir(%s, %d, %s, %d, , %d, %d)", newDir, suggestedTopIndex,
                         suggestedFocusName, mode, convertFSPathToInternal, showNewDirPathInErrBoxes);
+
+    if (!EnsureIconInfrastructure())
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_INTERNALERROR;
+        return FALSE;
+    }
 
     // backup the string (it could change during execution - e.g. Name from CFileData from panel)
     char backup[MAX_PATH];
