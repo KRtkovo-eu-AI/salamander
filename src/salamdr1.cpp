@@ -2963,6 +2963,13 @@ BOOL PackErrorHandler(HWND parent, const WORD err, ...)
 void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
 {
     CALL_STACK_MESSAGE2("ColorsChanged(%d)", refresh);
+    DarkModeSetEnabled(Configuration.UseWindowsDarkMode != FALSE);
+    if (MainWindow != NULL && MainWindow->HWindow != NULL)
+    {
+        DarkModeApplyTree(MainWindow->HWindow);
+        DarkModeRefreshTitleBar(MainWindow->HWindow);
+        SendMessage(MainWindow->HWindow, WM_THEMECHANGED, 0, 0);
+    }
     // POZOR! fonts musi byt FALSE, aby nedoslo k zmene handlu fontu, o ktere
     // se museji dozvedet toolbary, ktere jej pouzivaji
     ReleaseGraphics(colorsOnly);
@@ -3587,6 +3594,9 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     SetThreadNameInVCAndTrace("Main");
     SetMessagesTitle(MAINWINDOW_NAME);
     TRACE_I("Begin");
+
+    DarkModeInitialize();
+    DarkModeFixScrollbars();
 
     // inicializace OLE
     if (FAILED(OleInitialize(NULL)))

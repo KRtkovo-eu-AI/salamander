@@ -271,6 +271,8 @@ void CWindow::AttachToWindow(HWND hWnd)
         SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)CWindowProc);
 #endif // _UNICODE
 
+    DarkModeApplyWindow(HWindow);
+
     if (DefWndProc == CWindow::CWindowProc
 #ifndef _UNICODE
         || DefWndProc == CWindow::CWindowProcW
@@ -696,6 +698,23 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+        }
+        break;
+    }
     }
     return FALSE;
 }
@@ -723,6 +742,8 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 TRACE_ET(_T("Unable to create dialog."));
                 return TRUE;
             }
+            DarkModeApplyTree(hwndDlg);
+            DarkModeRefreshTitleBar(hwndDlg);
             dlg->NotifDlgJustCreated(); // zavedeno jako misto pro upravu layoutu dialogu
         }
         break;
