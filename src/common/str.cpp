@@ -5,6 +5,7 @@
 
 #include <windows.h>
 #include <crtdbg.h>
+#include <cstring>
 #include <ostream>
 #include <commctrl.h> // potrebuju LPCOLORMAP
 
@@ -103,24 +104,14 @@ char* DupStr(const char* txt)
     if (txt == NULL)
         return NULL;
 
-    SalWideString wide = SalWideString::FromAnsi(txt, -1, CP_ACP);
-    if (!wide)
-        return NULL;
-
-    std::string ansi = wide.ToAnsi(FALSE, CP_ACP);
-    if (ansi.empty() && wide.length() > 0)
-        return NULL;
-
-    size_t bytes = ansi.size() + 1;
-    char* s = static_cast<char*>(malloc(bytes));
+    size_t len = strlen(txt);
+    char* s = static_cast<char*>(malloc(len + 1));
     if (s == NULL)
     {
         TRACE_E("Low memory.");
         return NULL;
     }
-    if (!ansi.empty())
-        memcpy(s, ansi.data(), ansi.size());
-    s[ansi.size()] = 0;
+    memcpy(s, txt, len + 1);
     return s;
 }
 
