@@ -133,6 +133,8 @@
     </ClCompile>
     <ClCompile Include="..\..\common\winlib.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\darkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\salmon\compress.cpp">
     </ClCompile>
     <ClCompile Include="..\..\salmon\config.cpp">
