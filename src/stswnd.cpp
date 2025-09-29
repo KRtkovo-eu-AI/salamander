@@ -12,6 +12,24 @@
 #include "shellib.h"
 #include "svg.h"
 
+static COLORREF GetPanelDefaultTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                                         : GetSysColor(COLOR_BTNTEXT);
+}
+
+static COLORREF GetPanelHighlightTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_SELECTED])
+                                         : GetSysColor(COLOR_HIGHLIGHTTEXT);
+}
+
+static COLORREF GetPanelBackgroundColor()
+{
+    return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL])
+                                         : GetSysColor(COLOR_BTNFACE);
+}
+
 //
 // ****************************************************************************
 // CStatusWindow
@@ -672,13 +690,13 @@ void PaintSymbol(HDC hDC, HDC hMemDC, HBITMAP hBitmap, int xOffset, int width, i
         if (Configuration.ShowPanelCaption)
             textColor = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
         else
-            textColor = GetSysColor(COLOR_BTNTEXT);
+            textColor = GetPanelDefaultTextColor();
     }
     COLORREF bkColor;
     if (Configuration.ShowPanelCaption)
         bkColor = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
     else
-        bkColor = GetSysColor(COLOR_BTNFACE);
+        bkColor = GetPanelBackgroundColor();
     int oldTextColor = SetTextColor(hDC, textColor);
     int oldBkColor = SetBkColor(hDC, bkColor);
     int x = (rect->left + rect->right) / 2 - width / 2;
@@ -705,7 +723,7 @@ void CStatusWindow::PaintThrobber(HDC hDC)
     if (Configuration.ShowPanelCaption)
         fgClr = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
     else
-        fgClr = GetSysColor(COLOR_BTNTEXT);
+        fgClr = GetPanelDefaultTextColor();
 
     ThrobberFrames->Draw(ThrobberFrame, hDC, x, y, fgClr, IL_DRAW_ASALPHA);
 }
@@ -735,7 +753,7 @@ void CStatusWindow::PaintSecurity(HDC hDC)
         if (Configuration.ShowPanelCaption)
             fgClr = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
         else
-            fgClr = GetSysColor(COLOR_BTNTEXT);
+            fgClr = GetPanelDefaultTextColor();
     }
 
     LockFrames->Draw(DWORD(Security - 1), hDC, x, y, fgClr, IL_DRAW_ASALPHA /*IL_DRAW_TRANSPARENT*/);
@@ -994,9 +1012,9 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             }
             else
             {
-                SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+                SetTextColor(dc, GetPanelDefaultTextColor());
                 if (highlightText && !highlightHotTrackOnly)
-                    SetTextColor(dc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+                    SetTextColor(dc, GetPanelHighlightTextColor());
             }
 
             int firstClipChar = 2 * TextLen;
@@ -1151,7 +1169,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 if (isDirectoryLine && Configuration.ShowPanelCaption)
                     SetTextColor(dc, GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]));
                 else
-                    SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+                    SetTextColor(dc, GetPanelDefaultTextColor());
             }
 
             HFONT hOldFont = NULL;
