@@ -155,6 +155,7 @@ using fnRefreshImmersiveColorPolicyState = void(WINAPI*)();
 using fnIsDarkModeAllowedForWindow = bool(WINAPI*)(HWND hWnd);
 using fnGetIsImmersiveColorUsingHighContrast = bool(WINAPI*)(IMMERSIVE_HC_CACHE_MODE mode);
 using fnOpenNcThemeData = HTHEME(WINAPI*)(HWND hWnd, LPCWSTR pszClassList);
+using fnSetWindowTheme = HRESULT(WINAPI*)(HWND hWnd, LPCWSTR pszSubAppName, LPCWSTR pszSubIdList);
 using fnShouldSystemUseDarkMode = bool(WINAPI*)();
 using fnSetPreferredAppMode = PreferredAppMode(WINAPI*)(PreferredAppMode appMode);
 using fnIsDarkModeAllowedForApp = bool(WINAPI*)();
@@ -169,6 +170,7 @@ fnRefreshImmersiveColorPolicyState gRefreshImmersiveColorPolicyState = nullptr;
 fnIsDarkModeAllowedForWindow gIsDarkModeAllowedForWindow = nullptr;
 fnGetIsImmersiveColorUsingHighContrast gGetIsImmersiveColorUsingHighContrast = nullptr;
 fnOpenNcThemeData gOpenNcThemeData = nullptr;
+fnSetWindowTheme gSetWindowTheme = nullptr;
 fnShouldSystemUseDarkMode gShouldSystemUseDarkMode = nullptr;
 fnSetPreferredAppMode gSetPreferredAppMode = nullptr;
 fnIsDarkModeAllowedForApp gIsDarkModeAllowedForApp = nullptr;
@@ -310,14 +312,16 @@ void ApplyControlTheme(HWND hwnd)
 
     if (theme != nullptr)
     {
-        SetWindowTheme(hwnd, theme, nullptr);
+        if (gSetWindowTheme)
+            gSetWindowTheme(hwnd, theme, nullptr);
         SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(1));
         SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
     }
     else if (hadTheme)
     {
         RemovePropW(hwnd, kDarkModeThemeProp);
-        SetWindowTheme(hwnd, nullptr, nullptr);
+        if (gSetWindowTheme)
+            gSetWindowTheme(hwnd, nullptr, nullptr);
         SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
     }
 }
@@ -363,6 +367,7 @@ void EnsureInitialized()
     gGetIsImmersiveColorUsingHighContrast = reinterpret_cast<fnGetIsImmersiveColorUsingHighContrast>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(106)));
     gShouldSystemUseDarkMode = reinterpret_cast<fnShouldSystemUseDarkMode>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(138)));
     gIsDarkModeAllowedForApp = reinterpret_cast<fnIsDarkModeAllowedForApp>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(139)));
+    gSetWindowTheme = reinterpret_cast<fnSetWindowTheme>(GetProcAddress(gUxTheme, "SetWindowTheme"));
 
     if (gBuildNumber >= 18362)
         gSetPreferredAppMode = reinterpret_cast<fnSetPreferredAppMode>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(135)));
