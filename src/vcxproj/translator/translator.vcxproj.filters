@@ -129,6 +129,9 @@
     <ClCompile Include="..\common\winlib.cpp">
       <Filter>Commons</Filter>
     </ClCompile>
+    <ClCompile Include="..\darkmode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\trlipc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
