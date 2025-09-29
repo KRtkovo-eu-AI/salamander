@@ -622,6 +622,8 @@ void CToolBar::DrawItem(HDC hDC, int index)
             r.bottom = r.top + item->Height;
             DWORD noPrefix = item->Style & TLBI_STYLE_NOPREFIX ? DT_NOPREFIX : 0;
             HFONT hOldFont = (HFONT)SelectObject(CacheBitmap->HMemDC, HFont);
+            COLORREF defaultText = DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                                                                 : GetSysColor(COLOR_BTNTEXT);
             if (grayed)
             {
                 RECT textR2 = r;
@@ -629,13 +631,17 @@ void CToolBar::DrawItem(HDC hDC, int index)
                 textR2.top++;
                 textR2.right++;
                 textR2.bottom++;
-                SetTextColor(CacheBitmap->HMemDC, GetSysColor(COLOR_BTNHILIGHT));
+                COLORREF disabledHighlight =
+                    DarkModeShouldUseDarkColors() ? RGB(200, 200, 200) : GetSysColor(COLOR_BTNHILIGHT);
+                SetTextColor(CacheBitmap->HMemDC, disabledHighlight);
                 DrawText(CacheBitmap->HMemDC, item->Text, item->TextLen,
                          &textR2, noPrefix | DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
-                SetTextColor(CacheBitmap->HMemDC, GetSysColor(COLOR_BTNSHADOW));
+                COLORREF disabledText =
+                    DarkModeShouldUseDarkColors() ? RGB(128, 128, 128) : GetSysColor(COLOR_BTNSHADOW);
+                SetTextColor(CacheBitmap->HMemDC, disabledText);
             }
             else
-                SetTextColor(CacheBitmap->HMemDC, GetSysColor(COLOR_BTNTEXT));
+                SetTextColor(CacheBitmap->HMemDC, defaultText);
             DrawText(CacheBitmap->HMemDC, item->Text, item->TextLen, &r,
                      noPrefix | DT_NOCLIP | DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             if (hOldFont != NULL)
