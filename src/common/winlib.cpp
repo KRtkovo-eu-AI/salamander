@@ -21,7 +21,7 @@
 #include "messages.h"
 #include "handles.h"
 
-#include "darkmode.h"
+#include "../darkmode.h"
 
 #include "array.h"
 
