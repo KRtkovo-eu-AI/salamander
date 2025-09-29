@@ -1554,48 +1554,68 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         panel->SetTabLocked(false);
 }
 
-static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
+BOOL CMainWindow::RestorePanelPathFromConfig(CFilesWindow* panel, const char* path, bool loadContentImmediately)
 {
     if (panel == NULL)
         return FALSE;
-    if (path == NULL || path[0] == 0)
+
+    if (!loadContentImmediately)
     {
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
+        if (path != NULL && path[0] != 0)
+        {
+            panel->SetPendingConfigPath(path);
+            panel->NeedsRefreshOnActivation = TRUE;
+            panel->SetPath(path);
+        }
+        else
+        {
+            panel->ClearPendingConfigPath();
+        }
+        UpdatePanelTabTitle(panel);
         return FALSE;
     }
 
-    if (panel->ChangeDirLite(path))
+    const char* effectivePath = path;
+    if ((effectivePath == NULL || effectivePath[0] == 0) && panel->HasPendingConfigPath())
+        effectivePath = panel->GetPendingConfigPath();
+
+    if (effectivePath == NULL || effectivePath[0] == 0)
     {
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
+        panel->ClearPendingConfigPath();
+        UpdatePanelTabTitle(panel);
+        return FALSE;
+    }
+
+    char tmpPath[2 * MAX_PATH];
+    lstrcpyn(tmpPath, effectivePath, _countof(tmpPath));
+    panel->ClearPendingConfigPath();
+    panel->NeedsRefreshOnActivation = FALSE;
+
+    if (panel->ChangeDirLite(tmpPath))
+    {
+        UpdatePanelTabTitle(panel);
         return TRUE;
     }
 
-    if (IsDiskOrUNCPath(path))
+    if (IsDiskOrUNCPath(tmpPath))
     {
-        char tmp[2 * MAX_PATH];
-        lstrcpyn(tmp, path, _countof(tmp));
         BOOL tryNet = TRUE;
         DWORD err, lastErr;
         BOOL pathInvalid, cut;
-        if (SalCheckAndRestorePathWithCut(panel->HWindow, tmp, tryNet, err, lastErr, pathInvalid, cut, TRUE))
+        if (SalCheckAndRestorePathWithCut(panel->HWindow, tmpPath, tryNet, err, lastErr, pathInvalid, cut, TRUE))
         {
-            if (panel->ChangePathToDisk(panel->HWindow, tmp))
+            if (panel->ChangePathToDisk(panel->HWindow, tmpPath))
             {
-                if (mainWnd != NULL)
-                    mainWnd->UpdatePanelTabTitle(panel);
+                UpdatePanelTabTitle(panel);
                 return TRUE;
             }
         }
         panel->ChangeToRescuePathOrFixedDrive(panel->HWindow);
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
+        UpdatePanelTabTitle(panel);
         return FALSE;
     }
 
-    if (mainWnd != NULL)
-        mainWnd->UpdatePanelTabTitle(panel);
+    UpdatePanelTabTitle(panel);
     return FALSE;
 }
 
@@ -2688,6 +2708,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     if (!OpenKey(hSalamander, reg, actKey))
         return;
 
+    bool previousLoadingTabs = PanelTabsLoading;
+    PanelTabsLoading = true;
+
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = FALSE;
     else
@@ -2704,6 +2727,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             LoadPanelSettingsFromKey(panel, actKey, panelPath, panelPath != NULL ? MAX_PATH : 0);
             UpdatePanelTabColor(panel);
         }
+        PanelTabsLoading = previousLoadingTabs;
         CloseKey(actKey);
         return;
     }
@@ -2837,13 +2861,15 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
         if (i == activeIndex)
         {
+            BOOL restored = RestorePanelPathFromConfig(panel, path, true);
             activeRestored = restored;
             if (panelPath != NULL && IsDiskOrUNCPath(path))
                 lstrcpyn(panelPath, path, MAX_PATH);
         }
+        else
+            RestorePanelPathFromConfig(panel, path, false);
     }
 
     CFilesWindow* activePanel = NULL;
@@ -2852,6 +2878,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     else if (localTabs.Count > 0)
         activePanel = localTabs[0];
 
+    PanelTabsLoading = previousLoadingTabs;
     if (activePanel != NULL)
     {
         SwitchPanelTab(activePanel);
@@ -2867,7 +2894,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         PanelConfigPathsRestoredLeft = activeRestored;
     else
         PanelConfigPathsRestoredRight = activeRestored;
-
     CloseKey(actKey);
 }
 

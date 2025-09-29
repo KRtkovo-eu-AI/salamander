@@ -240,10 +240,11 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CFilesWindow* active = GetActivePanel();
     bool activateSameSide = (active == NULL || active->GetPanelSide() == side);
     bool canFocusNow = (Created && panel->HWindow != NULL);
+    bool skipActivation = PanelTabsLoading;
     if (activateSameSide && !canFocusNow)
     {
         SetActivePanel(panel);
-        if (Created)
+        if (Created && !skipActivation)
             EditWindowSetDirectory();
     }
 
@@ -257,20 +258,28 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    if (canFocusNow)
+    if (!skipActivation && canFocusNow)
     {
         LayoutWindows();
     }
 
     UpdatePanelTabVisibility(side);
 
-    if (canFocusNow)
+    if (!skipActivation && canFocusNow)
     {
         FocusPanel(panel);
     }
 
+    if (!PanelTabsLoading)
+    {
+        const char* pendingPath = panel->GetPendingConfigPath();
+        if (pendingPath != NULL && pendingPath[0] != 0)
+            RestorePanelPathFromConfig(panel, pendingPath, true);
+    }
+
     bool refreshActive = (panel == GetActivePanel());
-    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+    if (!skipActivation)
+        EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)

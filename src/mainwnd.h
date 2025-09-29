@@ -462,6 +462,7 @@ public:
 
     BOOL PanelConfigPathsRestoredLeft;
     BOOL PanelConfigPathsRestoredRight;
+    bool PanelTabsLoading;
 
     BOOL DragMode;
     int DragSplitX;
@@ -630,6 +631,7 @@ public:
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
     void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
     void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);
+    BOOL RestorePanelPathFromConfig(CFilesWindow* panel, const char* path, bool loadContentImmediately);
     void DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoImportConfig,
                                  const char* autoImportConfigFromKey, BOOL doNotDeleteImportedCfg);
 

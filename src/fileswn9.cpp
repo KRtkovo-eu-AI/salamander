@@ -112,6 +112,28 @@ void CFilesWindow::ClearCustomTabPrefix()
     CustomTabPrefixValid = false;
 }
 
+void CFilesWindow::SetPendingConfigPath(const char* path)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (path != NULL && path[0] != 0)
+    {
+        lstrcpyn(PendingConfigPath, path, _countof(PendingConfigPath));
+        PendingConfigPathValid = true;
+    }
+    else
+    {
+        PendingConfigPath[0] = 0;
+        PendingConfigPathValid = false;
+    }
+}
+
+void CFilesWindow::ClearPendingConfigPath()
+{
+    CALL_STACK_MESSAGE_NONE
+    PendingConfigPath[0] = 0;
+    PendingConfigPathValid = false;
+}
+
 int CFilesWindow::GetPanelCode()
 {
     CALL_STACK_MESSAGE_NONE

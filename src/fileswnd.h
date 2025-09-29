@@ -771,6 +771,8 @@ public:
     bool CustomTabPrefixValid;
     std::wstring CustomTabPrefix;
     bool TabLocked;
+    bool PendingConfigPathValid;
+    char PendingConfigPath[2 * MAX_PATH];
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
@@ -932,6 +934,13 @@ public:
     void ClearCustomTabPrefix();
     bool IsTabLocked() const { return TabLocked; }
     void SetTabLocked(bool locked) { TabLocked = locked; }
+    bool HasPendingConfigPath() const { return PendingConfigPathValid; }
+    const char* GetPendingConfigPath() const
+    {
+        return PendingConfigPathValid ? PendingConfigPath : NULL;
+    }
+    void SetPendingConfigPath(const char* path);
+    void ClearPendingConfigPath();
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&

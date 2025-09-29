@@ -1366,6 +1366,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     CustomTabPrefixValid = false;
     CustomTabPrefix.clear();
     TabLocked = false;
+    PendingConfigPathValid = false;
+    PendingConfigPath[0] = 0;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
