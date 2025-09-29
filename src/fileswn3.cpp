@@ -2728,7 +2728,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
     {
         if (!check || CheckPath(FALSE) == ERROR_SUCCESS)
         { // only if the path is accessible
-            if (DirectoryLine->HWindow != NULL)
+            if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
             {
                 UINT type = MyGetDriveType(GetPath());
                 char root[MAX_PATH];
@@ -2745,7 +2745,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
     {
         if (Is(ptZIPArchive))
         {
-            if (DirectoryLine->HWindow != NULL)
+            if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
             {
                 HICON hIcon = LoadArchiveIcon(IconSizes[ICONSIZE_16], IconSizes[ICONSIZE_16], IconLRFlags);
                 DirectoryLine->SetDriveIcon(hIcon);
@@ -2756,7 +2756,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
         {
             if (Is(ptPluginFS))
             {
-                if (DirectoryLine->HWindow != NULL)
+                if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
                 {
                     BOOL destroyIcon;
                     HICON icon = GetPluginFS()->GetFSIcon(destroyIcon);

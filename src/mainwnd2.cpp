@@ -2852,10 +2852,19 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         BOOL restored = FALSE;
         if (i == activeIndex)
         {
-            restored = RestorePanelPathFromConfig(this, panel, path);
-            if (panelPath != NULL && IsDiskOrUNCPath(path))
-                lstrcpyn(panelPath, path, MAX_PATH);
-            panel->NeedsRefreshOnActivation = FALSE;
+            if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
+            {
+                TRACE_E("Unable to materialize active panel window for configuration restore");
+                panel->NeedsRefreshOnActivation = TRUE;
+                restored = FALSE;
+            }
+            else
+            {
+                restored = RestorePanelPathFromConfig(this, panel, path);
+                if (panelPath != NULL && IsDiskOrUNCPath(path))
+                    lstrcpyn(panelPath, path, MAX_PATH);
+                panel->NeedsRefreshOnActivation = FALSE;
+            }
         }
         else
         {
