@@ -10,6 +10,7 @@
 #include "usermenu.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "filesbox.h"
 #include "stswnd.h"
 #include "snooper.h"
 #include "zip.h"
@@ -1519,6 +1520,17 @@ void CFilesWindow::SetPendingFilter(const char* masks, bool enabled)
     PendingSettings.FilterMasks = (masks != NULL) ? masks : "";
 }
 
+static BOOL FilesWindowIsDiskOrUNCPath(const char* path)
+{
+    if (path == NULL || *path == 0)
+        return FALSE;
+    if (((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) && path[1] == ':')
+        return TRUE;
+    if ((path[0] == '\\' || path[0] == '/') && (path[1] == '\\' || path[1] == '/'))
+        return TRUE;
+    return FALSE;
+}
+
 void CFilesWindow::ApplyPendingSettings()
 {
     if (HWindow == NULL)
@@ -1631,7 +1643,7 @@ BOOL CFilesWindow::RestorePathFromConfig(CMainWindow* mainWnd, const char* path)
         return TRUE;
     }
 
-    if (IsDiskOrUNCPath(path))
+    if (FilesWindowIsDiskOrUNCPath(path))
     {
         char tmp[2 * MAX_PATH];
         lstrcpyn(tmp, path, _countof(tmp));
