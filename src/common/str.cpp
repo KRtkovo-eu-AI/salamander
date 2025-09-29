@@ -144,23 +144,39 @@ char* StrNCat(char* dst, const char* src, int dstSize)
     if (dst == NULL || src == NULL || dstSize <= 0)
         return dst;
 
+    const auto legacyAppend = [dst, src, dstSize]() {
+        int len = lstrlenA(dst);
+        int remaining = dstSize - len;
+        if (remaining <= 0)
+            return dst;
+        lstrcpynA(dst + len, src, remaining);
+        return dst;
+    };
+
+    const auto fallbackAppend = [&]() {
+        char* result = legacyAppend();
+        SetLastError(ERROR_SUCCESS);
+        return result;
+    };
+
     SalWideString dstWide = SalWideString::FromAnsi(dst, -1, CP_ACP);
     if (!dstWide)
-        return dst;
+        return fallbackAppend();
+
     SalWideString srcWide = SalWideString::FromAnsi(src, -1, CP_ACP);
     if (!srcWide)
-        return dst;
+        return fallbackAppend();
 
     std::wstring_view dstView(dstWide.c_str(), dstWide.length());
     std::wstring_view srcView(srcWide.c_str(), srcWide.length());
 
     SalWideString combined = SalWideString::Concat(dstView, srcView);
     if (!combined)
-        return dst;
+        return fallbackAppend();
 
     std::string ansi = combined.ToAnsi(FALSE, CP_ACP);
     if (ansi.empty() && combined.length() > 0)
-        return dst;
+        return fallbackAppend();
 
     size_t copyCount = ansi.size();
     if (copyCount + 1 > static_cast<size_t>(dstSize))
