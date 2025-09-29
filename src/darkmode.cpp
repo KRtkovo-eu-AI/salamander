@@ -5,6 +5,7 @@
 #include "darkmode.h"
 
 #include <delayimp.h>
+#include <uxtheme.h>
 
 #ifndef LOAD_LIBRARY_SEARCH_SYSTEM32
 #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
@@ -178,6 +179,8 @@ bool gSupported = false;
 bool gEnabled = false;
 bool gScrollbarsHooked = false;
 
+const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
+
 bool IsHighContrast()
 {
     HIGHCONTRASTW highContrast = {sizeof(highContrast)};
@@ -246,6 +249,77 @@ void HookDarkScrollbars()
     thunk->u1.Function = reinterpret_cast<ULONG_PTR>(static_cast<fnOpenNcThemeData>(replacement));
     VirtualProtect(thunk, sizeof(IMAGE_THUNK_DATA), oldProtect, &oldProtect);
     gScrollbarsHooked = true;
+}
+
+bool MatchesAnyClass(const wchar_t* className, const wchar_t* const* list, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (wcscmp(className, list[i]) == 0)
+            return true;
+    }
+    return false;
+}
+
+void ApplyControlTheme(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return;
+
+    static const wchar_t* const explorerClasses[] = {
+        L"Button",
+        L"ReBarWindow32",
+        L"ToolbarWindow32",
+        L"msctls_progress32",
+        L"msctls_statusbar32",
+        L"msctls_trackbar32",
+    };
+
+    static const wchar_t* const darkExplorerClasses[] = {
+        L"SysListView32",
+        L"SysTreeView32",
+        L"SysHeader32",
+        L"SysTabControl32",
+        L"ComboBoxEx32",
+    };
+
+    static const wchar_t* const cfdClasses[] = {
+        L"Edit",
+        L"ComboBox",
+        L"RichEdit20W",
+        L"RICHEDIT50W",
+    };
+
+    const bool wantDark = ShouldUseDarkColorsInternal();
+    const bool hadTheme = GetPropW(hwnd, kDarkModeThemeProp) != NULL;
+    const wchar_t* theme = nullptr;
+
+    if (wantDark)
+    {
+        if (MatchesAnyClass(className, darkExplorerClasses, _countof(darkExplorerClasses)))
+            theme = L"DarkMode_Explorer";
+        else if (MatchesAnyClass(className, explorerClasses, _countof(explorerClasses)))
+            theme = L"Explorer";
+        else if (MatchesAnyClass(className, cfdClasses, _countof(cfdClasses)))
+            theme = L"CFD";
+    }
+
+    if (theme != nullptr)
+    {
+        SetWindowTheme(hwnd, theme, nullptr);
+        SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(1));
+        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+    }
+    else if (hadTheme)
+    {
+        RemovePropW(hwnd, kDarkModeThemeProp);
+        SetWindowTheme(hwnd, nullptr, nullptr);
+        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+    }
 }
 
 void EnsureInitialized()
@@ -361,6 +435,8 @@ void DarkModeApplyWindow(HWND hwnd)
 
     if (gAllowDarkModeForWindow)
         gAllowDarkModeForWindow(hwnd, gEnabled);
+
+    ApplyControlTheme(hwnd);
 }
 
 void DarkModeApplyTree(HWND hwnd)
