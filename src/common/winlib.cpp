@@ -21,6 +21,8 @@
 #include "messages.h"
 #include "handles.h"
 
+#include "darkmode.h"
+
 #include "array.h"
 
 #include "winlib.h"
