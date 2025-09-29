@@ -8,8 +8,34 @@
 #include "mainwnd.h"
 #include "snooper.h"
 
-CWindowArray WindowArray(10, 5);
-CObjectArray ObjectArray(10, 5);
+#include <algorithm>
+#include <map>
+#include <string>
+#include <vector>
+
+#ifdef min
+#    undef min
+#endif
+#ifdef max
+#    undef max
+#endif
+
+struct WatchEntry
+{
+    std::string Key;                     // normalized (case-insensitive) key
+    std::string Path;                    // path passed to FindFirstChangeNotification
+    HANDLE ChangeHandle = INVALID_HANDLE_VALUE;
+    HDEVNOTIFY DeviceNotification = NULL;
+    CFilesWindow* DeviceNotificationOwner = NULL;
+    std::vector<CFilesWindow*> Subscribers;
+};
+
+static std::map<std::string, WatchEntry*> WatchEntriesByPath;
+static std::map<CFilesWindow*, WatchEntry*> WatchEntriesByPanel;
+static std::vector<WatchEntry*> WatchEntrySlots;
+static std::vector<HANDLE> WaitHandles;
+static std::vector<HANDLE> WaitHandleBuffer;
+static size_t NextWaitChunkStart = 4;
 
 HANDLE Thread = NULL;
 HANDLE DataUsageMutex = NULL;       // kvuli arrayum s daty pro thread i proces
@@ -32,6 +58,328 @@ CRITICAL_SECTION SafeFindCloseCS;               // krit. sekce pro pristup do po
 BOOL SafeFindCloseTerminate = FALSE;            // pro ukonceni threadu
 HANDLE SafeFindCloseStart = NULL;               // "starter" threadu - je-li non-signaled, ceka
 HANDLE SafeFindCloseFinished = NULL;            // signaled -> thread uz zavrel vsechny handly
+
+struct PreparedWatchPath
+{
+    std::string Key;
+    std::string Path;
+};
+
+static PreparedWatchPath PrepareWatchPath(const char* path)
+{
+    PreparedWatchPath prepared;
+    const char* usePath = path;
+    char pathCopy[3 * MAX_PATH];
+    MakeCopyWithBackslashIfNeeded(usePath, pathCopy);
+    prepared.Path.assign(usePath);
+    prepared.Key = prepared.Path;
+    if (!prepared.Key.empty())
+        CharUpperBuffA(prepared.Key.data(), (DWORD)prepared.Key.length());
+    return prepared;
+}
+
+static DWORD WaitForChangeNotifications(DWORD timeout, bool ignoreRefreshes, DWORD& outIndex)
+{
+    outIndex = (DWORD)-1;
+
+    size_t waitCount = WaitHandles.size();
+    if (waitCount == 0)
+        return WAIT_TIMEOUT;
+
+    if (ignoreRefreshes || waitCount <= MAXIMUM_WAIT_OBJECTS)
+    {
+        DWORD waitLimit = ignoreRefreshes ? std::min<DWORD>(4, (DWORD)waitCount) : (DWORD)waitCount;
+        if (waitLimit == 0)
+            waitLimit = 1;
+        DWORD res = WaitForMultipleObjects(waitLimit, WaitHandles.data(), FALSE, timeout);
+        if (res >= WAIT_OBJECT_0 && res < WAIT_OBJECT_0 + waitLimit)
+            outIndex = res - WAIT_OBJECT_0;
+        return res;
+    }
+
+    const size_t baseCount = std::min<size_t>(4, waitCount);
+    const size_t maxExtra = MAXIMUM_WAIT_OBJECTS > baseCount ? MAXIMUM_WAIT_OBJECTS - baseCount : 0;
+    DWORD startTick = (timeout == INFINITE) ? 0 : GetTickCount();
+
+    while (true)
+    {
+        waitCount = WaitHandles.size();
+        size_t currentBase = std::min<size_t>(baseCount, waitCount);
+        if (NextWaitChunkStart < currentBase || NextWaitChunkStart >= waitCount)
+            NextWaitChunkStart = currentBase;
+
+        size_t available = waitCount > NextWaitChunkStart ? waitCount - NextWaitChunkStart : 0;
+        size_t extraCount = std::min(available, maxExtra);
+
+        WaitHandleBuffer.clear();
+        WaitHandleBuffer.reserve(currentBase + extraCount);
+        if (currentBase > 0)
+            WaitHandleBuffer.insert(WaitHandleBuffer.end(), WaitHandles.begin(), WaitHandles.begin() + currentBase);
+        if (extraCount > 0)
+        {
+            WaitHandleBuffer.insert(WaitHandleBuffer.end(),
+                                    WaitHandles.begin() + NextWaitChunkStart,
+                                    WaitHandles.begin() + NextWaitChunkStart + extraCount);
+        }
+
+        DWORD sliceTimeout;
+        if (timeout == INFINITE)
+            sliceTimeout = REFRESH_PAUSE;
+        else
+        {
+            DWORD now = GetTickCount();
+            DWORD elapsed = now - startTick;
+            if (elapsed >= timeout)
+                return WAIT_TIMEOUT;
+            sliceTimeout = std::min<DWORD>(timeout - elapsed, REFRESH_PAUSE);
+        }
+
+        DWORD res = WaitForMultipleObjects((DWORD)WaitHandleBuffer.size(), WaitHandleBuffer.data(), FALSE, sliceTimeout);
+        if (res == WAIT_TIMEOUT)
+        {
+            if (timeout != INFINITE)
+            {
+                DWORD now = GetTickCount();
+                if (now - startTick >= timeout)
+                    return WAIT_TIMEOUT;
+            }
+
+            if (extraCount > 0)
+            {
+                NextWaitChunkStart += extraCount;
+                if (NextWaitChunkStart >= waitCount)
+                    NextWaitChunkStart = currentBase;
+            }
+            continue;
+        }
+
+        if (res >= WAIT_OBJECT_0 && res < WAIT_OBJECT_0 + WaitHandleBuffer.size())
+        {
+            DWORD localIndex = res - WAIT_OBJECT_0;
+            if (localIndex < currentBase)
+                outIndex = localIndex;
+            else if (extraCount > 0)
+                outIndex = (DWORD)(NextWaitChunkStart + (localIndex - currentBase));
+        }
+
+        if (extraCount > 0)
+        {
+            size_t nextStart = NextWaitChunkStart + extraCount;
+            if (nextStart >= waitCount)
+                nextStart = currentBase;
+            NextWaitChunkStart = nextStart;
+        }
+
+        return res;
+    }
+}
+
+static int FindWatchEntryIndex(const WatchEntry* entry)
+{
+    for (size_t i = 0; i < WatchEntrySlots.size(); ++i)
+    {
+        if (WatchEntrySlots[i] == entry)
+            return (int)i;
+    }
+    return -1;
+}
+
+static void ResetDeviceNotification(WatchEntry* entry)
+{
+    if (entry->DeviceNotification != NULL)
+    {
+        UnregisterDeviceNotification(entry->DeviceNotification);
+        entry->DeviceNotification = NULL;
+    }
+    if (entry->DeviceNotificationOwner != NULL)
+    {
+        entry->DeviceNotificationOwner->DeviceNotification = NULL;
+        entry->DeviceNotificationOwner = NULL;
+    }
+}
+
+static void EnsureDeviceNotification(WatchEntry* entry, CFilesWindow* win, BOOL registerDevNotification)
+{
+    if (entry == NULL || !registerDevNotification || win == NULL || win->HWindow == NULL)
+        return;
+
+    if (entry->DeviceNotificationOwner == win && entry->DeviceNotification != NULL)
+    {
+        win->DeviceNotification = entry->DeviceNotification;
+        return;
+    }
+
+    ResetDeviceNotification(entry);
+
+    DEV_BROADCAST_HANDLE dbh;
+    memset(&dbh, 0, sizeof(dbh));
+    dbh.dbch_size = sizeof(dbh);
+    dbh.dbch_devicetype = DBT_DEVTYP_HANDLE;
+    dbh.dbch_handle = entry->ChangeHandle;
+    entry->DeviceNotification = RegisterDeviceNotificationA(win->HWindow, &dbh, DEVICE_NOTIFY_WINDOW_HANDLE);
+    if (entry->DeviceNotification != NULL)
+    {
+        entry->DeviceNotificationOwner = win;
+        win->DeviceNotification = entry->DeviceNotification;
+    }
+}
+
+static void RemoveWatchEntryInternal(WatchEntry* entry, DWORD closeTimeout)
+{
+    if (entry == NULL)
+        return;
+
+    ResetDeviceNotification(entry);
+
+    int index = FindWatchEntryIndex(entry);
+    if (index >= 0)
+    {
+        WatchEntrySlots.erase(WatchEntrySlots.begin() + index);
+        WaitHandles.erase(WaitHandles.begin() + index);
+    }
+
+    HANDLE handle = entry->ChangeHandle;
+    entry->ChangeHandle = INVALID_HANDLE_VALUE;
+
+    if (!entry->Key.empty())
+        WatchEntriesByPath.erase(entry->Key);
+
+    if (handle != INVALID_HANDLE_VALUE && handle != NULL)
+    {
+        HANDLES(EnterCriticalSection(&SafeFindCloseCS));
+        SafeFindCloseCNArr.Add(handle);
+        if (!SafeFindCloseCNArr.IsGood())
+            SafeFindCloseCNArr.ResetState();
+        HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
+
+        ResetEvent(SafeFindCloseFinished);
+        SetEvent(SafeFindCloseStart);
+        WaitForSingleObject(SafeFindCloseFinished, closeTimeout);
+    }
+
+    delete entry;
+}
+
+static bool AttachPanelInternal(CFilesWindow* win, const PreparedWatchPath& prepared, BOOL registerDevNotification)
+{
+    WatchEntry* entry = NULL;
+    auto it = WatchEntriesByPath.find(prepared.Key);
+    if (it != WatchEntriesByPath.end())
+    {
+        entry = it->second;
+    }
+    else
+    {
+        HANDLE handle = HANDLES_Q(FindFirstChangeNotification(prepared.Path.c_str(), FALSE,
+                                                               FILE_NOTIFY_CHANGE_FILE_NAME |
+                                                                   FILE_NOTIFY_CHANGE_DIR_NAME |
+                                                                   FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                                                                   FILE_NOTIFY_CHANGE_SIZE |
+                                                                   FILE_NOTIFY_CHANGE_LAST_WRITE |
+                                                                   FILE_NOTIFY_CHANGE_CREATION |
+                                                                   FILE_NOTIFY_CHANGE_SECURITY));
+        if (handle == INVALID_HANDLE_VALUE)
+            return false;
+
+        entry = new WatchEntry();
+        entry->Key = prepared.Key;
+        entry->Path = prepared.Path;
+        entry->ChangeHandle = handle;
+
+        WatchEntriesByPath[entry->Key] = entry;
+        WatchEntrySlots.push_back(entry);
+        WaitHandles.push_back(handle);
+    }
+
+    if (std::find(entry->Subscribers.begin(), entry->Subscribers.end(), win) == entry->Subscribers.end())
+        entry->Subscribers.push_back(win);
+
+    WatchEntriesByPanel[win] = entry;
+    win->SetAutomaticRefresh(TRUE);
+
+    EnsureDeviceNotification(entry, win, registerDevNotification);
+
+    return true;
+}
+
+static void DetachPanelInternal(CFilesWindow* win, DWORD closeTimeout, BOOL closeDevNotification)
+{
+    auto it = WatchEntriesByPanel.find(win);
+    if (it == WatchEntriesByPanel.end())
+    {
+        if (closeDevNotification && win->DeviceNotification != NULL)
+        {
+            UnregisterDeviceNotification(win->DeviceNotification);
+            win->DeviceNotification = NULL;
+        }
+        return;
+    }
+
+    WatchEntry* entry = it->second;
+    WatchEntriesByPanel.erase(it);
+
+    if (closeDevNotification && entry->DeviceNotificationOwner == win)
+        ResetDeviceNotification(entry);
+    win->DeviceNotification = NULL;
+
+    entry->Subscribers.erase(std::remove(entry->Subscribers.begin(), entry->Subscribers.end(), win), entry->Subscribers.end());
+
+    if (entry->Subscribers.empty())
+        RemoveWatchEntryInternal(entry, closeTimeout);
+}
+
+static void NotifySubscribers(WatchEntry* entry)
+{
+    if (entry == NULL)
+        return;
+
+    HANDLES(EnterCriticalSection(&TimeCounterSection));
+    for (CFilesWindow* subscriber : entry->Subscribers)
+    {
+        if (subscriber != NULL && subscriber->HWindow != NULL)
+            PostMessage(subscriber->HWindow, WM_USER_REFRESH_DIR, TRUE, MyTimeCounter++);
+    }
+    HANDLES(LeaveCriticalSection(&TimeCounterSection));
+}
+
+static void RemoveWatchEntryDuringSuspend(size_t index, TDirectArray<HWND>& refreshPanels)
+{
+    if (index >= WatchEntrySlots.size())
+        return;
+
+    WatchEntry* entry = WatchEntrySlots[index];
+    if (entry == NULL)
+        return;
+
+    ResetDeviceNotification(entry);
+
+    HANDLE handle = WaitHandles[index];
+    HANDLES(FindCloseChangeNotification(handle));
+
+    for (CFilesWindow* subscriber : entry->Subscribers)
+    {
+        if (subscriber == NULL)
+            continue;
+
+        auto panelIt = WatchEntriesByPanel.find(subscriber);
+        if (panelIt != WatchEntriesByPanel.end() && panelIt->second == entry)
+            WatchEntriesByPanel.erase(panelIt);
+
+        if (subscriber->DeviceNotification != NULL)
+            subscriber->DeviceNotification = NULL;
+
+        if (subscriber->HWindow != NULL)
+            refreshPanels.Add(subscriber->HWindow);
+    }
+
+    if (!entry->Key.empty())
+        WatchEntriesByPath.erase(entry->Key);
+
+    WatchEntrySlots.erase(WatchEntrySlots.begin() + index);
+    WaitHandles.erase(WaitHandles.begin() + index);
+
+    delete entry;
+}
 
 DWORD WINAPI ThreadFindCloseChangeNotification(void* param);
 
@@ -72,14 +420,16 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
     {
         SetEvent(ContinueEvent); // ted uz jsou data cmuchala, hl. thread muze pokracovat
 
-        WindowArray.Add(NULL); // zakladni objekty, musi byt na zacatku !
-        WindowArray.Add(NULL);
-        WindowArray.Add(NULL);
-        WindowArray.Add(NULL);
-        ObjectArray.Add(WantDataEvent);
-        ObjectArray.Add(TerminateEvent);
-        ObjectArray.Add(BeginSuspendEvent);
-        ObjectArray.Add(SharesEvent);
+        WatchEntrySlots.clear();
+        WaitHandles.clear();
+        WatchEntrySlots.push_back(NULL); // zakladni objekty, musi byt na zacatku !
+        WatchEntrySlots.push_back(NULL);
+        WatchEntrySlots.push_back(NULL);
+        WatchEntrySlots.push_back(NULL);
+        WaitHandles.push_back(WantDataEvent);
+        WaitHandles.push_back(TerminateEvent);
+        WaitHandles.push_back(BeginSuspendEvent);
+        WaitHandles.push_back(SharesEvent);
 
         BOOL ignoreRefreshes = FALSE;        // TRUE = ignorovat refreshe (zmeny v adresarich), jinak fungujeme normalne
         DWORD ignoreRefreshesAbsTimeout = 0; // az bude (int)(GetTickCount() - ignoreRefreshesAbsTimeout) >= 0, prepneme ignoreRefreshes na FALSE
@@ -93,20 +443,30 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                 ignoreRefreshesAbsTimeout = 0;
                 timeout = INFINITE;
             }
-            //      TRACE_I("Snooper is waiting for: " << (ignoreRefreshes ? min(4, ObjectArray.Count) : ObjectArray.Count) << " events");
-            res = WaitForMultipleObjects(ignoreRefreshes ? min(4, ObjectArray.Count) : ObjectArray.Count,
-                                         (HANDLE*)ObjectArray.GetData(),
-                                         FALSE, timeout);
+            DWORD waitIndex = (DWORD)-1;
+            DWORD waitTimeout = (timeout == INFINITE) ? INFINITE : (timeout < 0 ? 0 : (DWORD)timeout);
+            res = WaitForChangeNotifications(waitTimeout, ignoreRefreshes != FALSE, waitIndex);
             CALL_STACK_MESSAGE2("ThreadSnooperBody::wait_satisfied: 0x%X", res);
-            switch (res)
+
+            if (res == WAIT_TIMEOUT)
+                continue;
+
+            if (res == WAIT_FAILED)
             {
-            case WAIT_OBJECT_0:
+                DWORD err = GetLastError();
+                TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res << ", error=" << err);
+                continue;
+            }
+
+            switch (waitIndex)
+            {
+            case 0:
                 DoWantDataEvent();
                 break; // WantDataEvent
-            case WAIT_OBJECT_0 + 1:
+            case 1:
                 notEnd = FALSE;
-                break;              // TerminateEvent
-            case WAIT_OBJECT_0 + 2: // BeginSuspendMode
+                break; // TerminateEvent
+            case 2: // BeginSuspendMode
             {
                 TRACE_I("Start suspend mode");
 
@@ -114,7 +474,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
 
                 TDirectArray<HWND> refreshPanels(10, 5); // pro pripad smazani sledovaneho adresare
 
-                ObjectArray[2] = EndSuspendEvent; // misto beginu ted end suspend modu
+                WaitHandles[2] = EndSuspendEvent; // misto beginu ted end suspend modu
 
                 BOOL setSharesEvent = FALSE; // TRUE => znovu nahodit sledovani registry
                 BOOL suspendNotFinished = TRUE;
@@ -127,93 +487,46 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                         ignoreRefreshesAbsTimeout = 0;
                         timeout = INFINITE;
                     }
-                    res = WaitForMultipleObjects(ignoreRefreshes ? min(4, ObjectArray.Count) : ObjectArray.Count,
-                                                 (HANDLE*)ObjectArray.GetData(),
-                                                 FALSE, timeout);
+                    DWORD suspendIndex = (DWORD)-1;
+                    DWORD suspendTimeout = (timeout == INFINITE) ? INFINITE : (timeout < 0 ? 0 : (DWORD)timeout);
+                    res = WaitForChangeNotifications(suspendTimeout, ignoreRefreshes != FALSE, suspendIndex);
 
                     CALL_STACK_MESSAGE2("ThreadSnooperBody::suspend_wait_satisfied: 0x%X", res);
-                    switch (res)
+
+                    if (res == WAIT_TIMEOUT)
+                        continue;
+
+                    if (res == WAIT_FAILED)
                     {
-                    case WAIT_OBJECT_0:
+                        DWORD err = GetLastError();
+                        TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res << ", error=" << err);
+                        continue;
+                    }
+
+                    switch (suspendIndex)
+                    {
+                    case 0:
                         DoWantDataEvent();
                         break; // WantDataEvent
-                    case WAIT_OBJECT_0 + 1:
+                    case 1:
                         suspendNotFinished = notEnd = FALSE;
                         break; // TerminateEvent
-                    case WAIT_OBJECT_0 + 2:
+                    case 2:
                         suspendNotFinished = FALSE;
-                        break;              // EndSuspendEvent
-                    case WAIT_OBJECT_0 + 3: // SharesEvent
+                        break; // EndSuspendEvent
+                    case 3: // SharesEvent
                     {
                         // obnovime shary + refreshneme prip. i panely (pomoci WM_USER_REFRESH_SHARES)
                         setSharesEvent = TRUE;
                         break;
                     }
 
-                    case WAIT_TIMEOUT:
-                        break; // ignorujeme (konec rezimu ignorovani zmen v adresarich)
-
                     default:
                     {
-                        int index = res - WAIT_OBJECT_0;
-                        if (index < 0 || index >= WindowArray.Count)
-                        {
+                        if (suspendIndex >= 4 && suspendIndex < (DWORD)WatchEntrySlots.size())
+                            RemoveWatchEntryDuringSuspend((size_t)suspendIndex, refreshPanels);
+                        else
                             TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res);
-                            break; // pro pripad nejake jine hodnoty res
-                        }
-
-                        // volani FindCloseChangeNotification znehodnoti ostatni handly na stejnou cestu
-                        // (dela u UNC cest), proto signaled-state simulujeme nasilne
-                        HANDLE sameHandle = NULL; // != NULL -> handle na stejnou cestu
-                        CFilesWindow* actWin = WindowArray[index];
-                        int e;
-                        for (e = 0; e < WindowArray.Count; e++)
-                        {
-                            CFilesWindow* w = WindowArray[e];
-                            if (w != NULL && w != actWin && actWin->SamePath(w))
-                            {
-                                sameHandle = (HANDLE)ObjectArray[e];
-                                break;
-                            }
-                        }
-
-                        // uz doslo ke zmenene, dalsi nas nezajima, za suspend prijde refresh
-                        if (MainWindowCS.LockIfNotClosed())
-                        {
-                            //                  TRACE_I("Change notification in suspend mode: " << (MainWindow->LeftPanel == WindowArray[index] ? "left" : "right"));
-                            MainWindowCS.Unlock();
-                        }
-                        HDEVNOTIFY panelDevNotification = WindowArray[index]->DeviceNotification;
-                        if (panelDevNotification != NULL)
-                        {
-                            UnregisterDeviceNotification(panelDevNotification);
-                            WindowArray[index]->DeviceNotification = NULL;
-                        }
-                        HANDLES(FindCloseChangeNotification((HANDLE)ObjectArray[index]));
-                        refreshPanels.Add(WindowArray[index]->HWindow); // pridame mezi obnovovane
-                        ObjectArray.Delete(index);                      // vyhodime ho ze seznamu
-                        WindowArray.Delete(index);
-
-                        // pokud je potreba obejit chybu systemu, provedeme to zde
-                        if (sameHandle != NULL)
-                        {
-                            for (index = 0; index < ObjectArray.Count; index++)
-                            {
-                                if ((HANDLE)ObjectArray[index] == sameHandle)
-                                {
-                                    HDEVNOTIFY panelDevNotification2 = WindowArray[index]->DeviceNotification;
-                                    if (panelDevNotification2 != NULL)
-                                    {
-                                        UnregisterDeviceNotification(panelDevNotification2);
-                                        WindowArray[index]->DeviceNotification = NULL;
-                                    }
-                                    HANDLES(FindCloseChangeNotification((HANDLE)ObjectArray[index]));
-                                    refreshPanels.Add(WindowArray[index]->HWindow); // pridame mezi obnovovane
-                                    ObjectArray.Delete(index);                      // vyhodime ho ze seznamu
-                                    WindowArray.Delete(index);
-                                }
-                            }
-                        }
                         break;
                     }
                     }
@@ -235,7 +548,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                     }
                 }
 
-                ObjectArray[2] = BeginSuspendEvent;
+                WaitHandles[2] = BeginSuspendEvent;
                 TRACE_I("End suspend mode");
 
                 CALL_STACK_MESSAGE1("ThreadSnooperBody::post_refresh");
@@ -272,7 +585,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                 break;
             }
 
-            case WAIT_OBJECT_0 + 3: // SharesEvent
+            case 3: // SharesEvent
             {                       // nechame refreshout panely
                 if (MainWindowCS.LockIfNotClosed())
                 {
@@ -289,47 +602,22 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                 break;
             }
 
-            case WAIT_TIMEOUT:
-                break; // ignorujeme (konec rezimu ignorovani zmen v adresarich)
-
             default:
             {
-                int index;
-                index = res - WAIT_OBJECT_0;
-                if (index < 0 || index >= WindowArray.Count)
+                if (waitIndex < 4 || waitIndex >= (DWORD)WatchEntrySlots.size())
                 {
                     DWORD err = GetLastError();
                     TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res);
                     break; // pro pripad nejake jine hodnoty res
                 }
 
-                // volani FindNextChangeNotification znehodnoti ostatni handly na stejnou cestu
-                // (dela u UNC cest), proto signaled-state simulujeme nasilne
-                HANDLE sameHandle = NULL; // != NULL -> handle na stejnou cestu
-                CFilesWindow* actWin = WindowArray[index];
-                int e;
-                for (e = 0; e < WindowArray.Count; e++)
-                {
-                    CFilesWindow* w = WindowArray[e];
-                    if (w != NULL && w != actWin && actWin->SamePath(w))
-                    {
-                        sameHandle = (HANDLE)ObjectArray[e];
-                        break;
-                    }
-                }
+                WatchEntry* entry = WatchEntrySlots[waitIndex];
+                if (entry == NULL)
+                    break;
 
-                if (MainWindowCS.LockIfNotClosed())
-                {
-                    //            TRACE_I("Change notification: " << (MainWindow->LeftPanel == WindowArray[index] ? "left" : "right"));
-                    MainWindowCS.Unlock();
-                }
-                HANDLES(EnterCriticalSection(&TimeCounterSection));
-                PostMessage(WindowArray[index]->HWindow, WM_USER_REFRESH_DIR, TRUE, MyTimeCounter++);
-                HANDLES(LeaveCriticalSection(&TimeCounterSection));
-                FindNextChangeNotification((HANDLE)ObjectArray[index]); // stornujem tuto zmenu
+                NotifySubscribers(entry);
+                FindNextChangeNotification(WaitHandles[waitIndex]); // stornujem tuto zmenu
                                                                         // indexy se muzou zmenit...
-            ERROR_BYPASS:
-
                 HANDLE objects[4];
                 objects[0] = WantDataEvent;        // v refreshi se muzou menit data
                 objects[1] = TerminateEvent;       // pro pripad konce bez stihnuti refreshe
@@ -356,30 +644,6 @@ unsigned ThreadSnooperBody(void* /*param*/) // nevolat funkce hl. threadu (ani T
                     default:
                         refreshNotFinished = FALSE;
                         break; // RefreshFinishedEvent
-                    }
-                }
-
-                // pokud je potreba obejit chybu systemu, provedeme to zde
-                if (sameHandle != NULL)
-                {
-                    for (index = 0; index < ObjectArray.Count; index++)
-                    {
-                        if (sameHandle == (HANDLE)ObjectArray[index])
-                        {
-                            int r = WaitForSingleObject(sameHandle, 0); // simulace wait-funkce pro pripad, ze chyba zanikne
-                            sameHandle = NULL;
-
-                            HANDLES(EnterCriticalSection(&TimeCounterSection));
-                            PostMessage(WindowArray[index]->HWindow, WM_USER_REFRESH_DIR, TRUE, MyTimeCounter++);
-                            HANDLES(LeaveCriticalSection(&TimeCounterSection));
-
-                            if (r != WAIT_TIMEOUT) // pokud neni chyba hledame dalsi zmenu
-                            {
-                                FindNextChangeNotification((HANDLE)ObjectArray[index]); // stornujem tuto zmenu
-                            }
-
-                            goto ERROR_BYPASS;
-                        }
                     }
                 }
 
@@ -570,42 +834,31 @@ void AddDirectory(CFilesWindow* win, const char* path, BOOL registerDevNotificat
     WaitForSingleObject(DataUsageMutex, INFINITE); // pockame na nej
     SetEvent(WantDataEvent);                       // cmuchal uz zase muze zacit cekat na DataUsageMutex
                                                    //---  ted uz jsou data hl. threadu, cmuchal ceka
-    // pokud cesta konci mezerou/teckou, musime pripojit '\\', jinak FindFirstChangeNotification
-    // mezery/tecky orizne a pracuje tak s jinou cestou
-    char pathCopy[3 * MAX_PATH];
-    MakeCopyWithBackslashIfNeeded(path, pathCopy);
-    HANDLE h = HANDLES_Q(FindFirstChangeNotification(path, FALSE,
-                                                     FILE_NOTIFY_CHANGE_FILE_NAME |
-                                                         FILE_NOTIFY_CHANGE_DIR_NAME |
-                                                         FILE_NOTIFY_CHANGE_ATTRIBUTES |
-                                                         FILE_NOTIFY_CHANGE_SIZE |
-                                                         FILE_NOTIFY_CHANGE_LAST_WRITE));
-    if (h != INVALID_HANDLE_VALUE)
-    {
-        win->SetAutomaticRefresh(TRUE);
-        WindowArray.Add(win);
-        ObjectArray.Add(h);
+    PreparedWatchPath prepared = PrepareWatchPath(path);
 
-        if (registerDevNotification)
+    bool attached = false;
+    auto panelIt = WatchEntriesByPanel.find(win);
+    if (panelIt != WatchEntriesByPanel.end())
+    {
+        WatchEntry* current = panelIt->second;
+        if (current != NULL && current->Key == prepared.Key)
         {
-            // zaregistrujeme okno panelu pro prijem zprav o zmenach media (odstraneni, atd.)
-            DEV_BROADCAST_HANDLE dbh;
-            memset(&dbh, 0, sizeof(dbh));
-            dbh.dbch_size = sizeof(dbh);
-            dbh.dbch_devicetype = DBT_DEVTYP_HANDLE;
-            dbh.dbch_handle = h;
-            if (win->DeviceNotification != NULL)
-            {
-                TRACE_E("AddDirectory(): unexpected situation: win->DeviceNotification != NULL");
-                UnregisterDeviceNotification(win->DeviceNotification);
-            }
-            win->DeviceNotification = RegisterDeviceNotificationA(win->HWindow, &dbh, DEVICE_NOTIFY_WINDOW_HANDLE);
+            attached = true;
+            EnsureDeviceNotification(current, win, registerDevNotification);
+        }
+        else
+        {
+            DetachPanelInternal(win, 200, TRUE);
         }
     }
-    else
+
+    if (!attached)
     {
-        win->SetAutomaticRefresh(FALSE);
-        TRACE_W("Unable to receive change notifications for directory '" << path << "' (auto-refresh will not work).");
+        if (!AttachPanelInternal(win, prepared, registerDevNotification))
+        {
+            win->SetAutomaticRefresh(FALSE);
+            TRACE_W("Unable to receive change notifications for directory '" << prepared.Path << "' (auto-refresh will not work).");
+        }
     }
     //---
     ReleaseMutex(DataUsageMutex);                 // uvolnime cmuchalovi DataUsageMutex
@@ -688,96 +941,40 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
     SetEvent(WantDataEvent);                       // pozadame cmuchala o uvolneni DataUsageMutexu
     WaitForSingleObject(DataUsageMutex, INFINITE); // pockame na nej
     SetEvent(WantDataEvent);                       // cmuchal uz zase muze zacit cekat na DataUsageMutex
-    BOOL registerDevNot = FALSE;
-    HANDLE registerDevNotHandle = NULL;
     //---  ted uz jsou data hl. threadu, cmuchal ceka
-    if (win->DeviceNotification != NULL)
-    {
-        UnregisterDeviceNotification(win->DeviceNotification);
-        win->DeviceNotification = NULL;
-    }
+    PreparedWatchPath prepared = PrepareWatchPath(newPath);
 
-    int i;
-    for (i = 0; i < WindowArray.Count; i++)
-        if (win == WindowArray[i])
-        {
-            // pokud je change notifikace na odpojenem sitovem disku
-            // nemuzem si dovolit cekat ... nechame to zavrit jiny thread
-            HANDLES(EnterCriticalSection(&SafeFindCloseCS));
-            SafeFindCloseCNArr.Add(ObjectArray[i]);
-            if (!SafeFindCloseCNArr.IsGood())
-                SafeFindCloseCNArr.ResetState(); // chyby ignorujeme
-            HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
-            ResetEvent(SafeFindCloseFinished);               // budeme cekat na nahozeni...
-            SetEvent(SafeFindCloseStart);                    // nastartujeme uklid
-            WaitForSingleObject(SafeFindCloseFinished, 200); // 200 ms time-out pro zavreni handlu
-
-            // pokud cesta konci mezerou/teckou, musime pripojit '\\', jinak FindFirstChangeNotification
-            // mezery/tecky orizne a pracuje tak s jinou cestou
-            char newPathCopy[3 * MAX_PATH];
-            MakeCopyWithBackslashIfNeeded(newPath, newPathCopy);
-            ObjectArray[i] = HANDLES_Q(FindFirstChangeNotification(newPath, FALSE,
-                                                                   FILE_NOTIFY_CHANGE_FILE_NAME |
-                                                                       FILE_NOTIFY_CHANGE_DIR_NAME |
-                                                                       FILE_NOTIFY_CHANGE_ATTRIBUTES |
-                                                                       FILE_NOTIFY_CHANGE_SIZE |
-                                                                       FILE_NOTIFY_CHANGE_LAST_WRITE));
-            if ((HANDLE)ObjectArray[i] == INVALID_HANDLE_VALUE)
-            {
-                win->SetAutomaticRefresh(FALSE);
-                ObjectArray.Delete(i); // vyhodime ho ze seznamu
-                WindowArray.Delete(i);
-                TRACE_W("Unable to receive change notifications for directory '" << newPath << "' (auto-refresh will not work).");
-            }
-            else
-            {
-                if (registerDevNotification)
-                {
-                    registerDevNot = TRUE;
-                    registerDevNotHandle = (HANDLE)ObjectArray[i];
-                }
-            }
-            break;
-        }
-    //---  nebylo nalezeno -> pridame
-    if (i == WindowArray.Count)
+    bool attached = false;
+    auto panelIt = WatchEntriesByPanel.find(win);
+    if (panelIt != WatchEntriesByPanel.end())
     {
-        // pokud cesta konci mezerou/teckou, musime pripojit '\\', jinak FindFirstChangeNotification
-        // mezery/tecky orizne a pracuje tak s jinou cestou
-        char newPathCopy[3 * MAX_PATH];
-        MakeCopyWithBackslashIfNeeded(newPath, newPathCopy);
-        HANDLE h = HANDLES_Q(FindFirstChangeNotification(newPath, FALSE,
-                                                         FILE_NOTIFY_CHANGE_FILE_NAME |
-                                                             FILE_NOTIFY_CHANGE_DIR_NAME |
-                                                             FILE_NOTIFY_CHANGE_ATTRIBUTES |
-                                                             FILE_NOTIFY_CHANGE_SIZE |
-                                                             FILE_NOTIFY_CHANGE_LAST_WRITE));
-        if (h != INVALID_HANDLE_VALUE)
+        WatchEntry* current = panelIt->second;
+        if (current != NULL && current->Key == prepared.Key)
         {
-            win->SetAutomaticRefresh(TRUE);
-            WindowArray.Add(win);
-            ObjectArray.Add(h);
-            if (registerDevNotification)
-            {
-                registerDevNot = TRUE;
-                registerDevNotHandle = h;
-            }
+            attached = true;
+            EnsureDeviceNotification(current, win, registerDevNotification);
         }
         else
         {
-            win->SetAutomaticRefresh(FALSE);
-            TRACE_W("Unable to receive change notifications for directory '" << newPath << "' (auto-refresh will not work).");
+            DetachPanelInternal(win, 200, TRUE);
         }
     }
-    if (registerDevNot)
+    else
     {
-        // zaregistrujeme okno panelu pro prijem zprav o zmenach media (odstraneni, atd.)
-        DEV_BROADCAST_HANDLE dbh;
-        memset(&dbh, 0, sizeof(dbh));
-        dbh.dbch_size = sizeof(dbh);
-        dbh.dbch_devicetype = DBT_DEVTYP_HANDLE;
-        dbh.dbch_handle = registerDevNotHandle;
-        win->DeviceNotification = RegisterDeviceNotificationA(win->HWindow, &dbh, DEVICE_NOTIFY_WINDOW_HANDLE);
+        if (win->DeviceNotification != NULL)
+        {
+            UnregisterDeviceNotification(win->DeviceNotification);
+            win->DeviceNotification = NULL;
+        }
+    }
+
+    if (!attached)
+    {
+        if (!AttachPanelInternal(win, prepared, registerDevNotification))
+        {
+            win->SetAutomaticRefresh(FALSE);
+            TRACE_W("Unable to receive change notifications for directory '" << prepared.Path << "' (auto-refresh will not work).");
+        }
     }
     //---
     ReleaseMutex(DataUsageMutex);                 // uvolnime cmuchalovi DataUsageMutex
@@ -791,34 +988,55 @@ void DetachDirectory(CFilesWindow* win, BOOL waitForHandleClosure, BOOL closeDev
     WaitForSingleObject(DataUsageMutex, INFINITE); // pockame na nej
     SetEvent(WantDataEvent);                       // cmuchal uz zase muze zacit cekat na DataUsageMutex
                                                    //---  ted uz jsou data hl. threadu, cmuchal ceka
-    if (closeDevNotifification && win->DeviceNotification != NULL)
-    {
-        UnregisterDeviceNotification(win->DeviceNotification);
-        win->DeviceNotification = NULL;
-    }
-
-    int i;
-    for (i = 0; i < WindowArray.Count; i++)
-        if (win == WindowArray[i])
-        {
-            // pokud je change notifikace na odpojenem sitovem disku
-            // nemuzem si dovolit cekat ... nechame to zavrit jiny thread
-            HANDLES(EnterCriticalSection(&SafeFindCloseCS));
-            SafeFindCloseCNArr.Add(ObjectArray[i]);
-            if (!SafeFindCloseCNArr.IsGood())
-                SafeFindCloseCNArr.ResetState(); // chyby ignorujeme
-            HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
-            ResetEvent(SafeFindCloseFinished);                                             // budeme cekat na nahozeni...
-            SetEvent(SafeFindCloseStart);                                                  // nastartujeme uklid
-            WaitForSingleObject(SafeFindCloseFinished, waitForHandleClosure ? 5000 : 200); // 200 ms time-out pro zavreni handlu
-
-            ObjectArray.Delete(i); // vyhodime ho ze seznamu
-            WindowArray.Delete(i);
-            win->SetAutomaticRefresh(FALSE);
-        }
+    DWORD closeTimeout = waitForHandleClosure ? 5000 : 200;
+    DetachPanelInternal(win, closeTimeout, closeDevNotifification);
+    win->SetAutomaticRefresh(FALSE);
     //---
     ReleaseMutex(DataUsageMutex);                 // uvolnime cmuchalovi DataUsageMutex
     WaitForSingleObject(ContinueEvent, INFINITE); // a pockame az si ho zabere
+}
+
+void EnsureWatching(CFilesWindow* win, BOOL registerDevNotification)
+{
+    if (win == NULL || !win->GetMonitorChanges())
+        return;
+
+    const char* path = win->GetPath();
+    if (path == NULL || path[0] == 0)
+        return;
+
+    CALL_STACK_MESSAGE2("EnsureWatching(%s)", path);
+
+    SetEvent(WantDataEvent);
+    WaitForSingleObject(DataUsageMutex, INFINITE);
+    SetEvent(WantDataEvent);
+
+    PreparedWatchPath prepared = PrepareWatchPath(path);
+    bool attached = false;
+
+    auto panelIt = WatchEntriesByPanel.find(win);
+    if (panelIt != WatchEntriesByPanel.end())
+    {
+        WatchEntry* current = panelIt->second;
+        if (current != NULL && current->Key == prepared.Key)
+        {
+            attached = true;
+            EnsureDeviceNotification(current, win, registerDevNotification);
+        }
+        else
+        {
+            DetachPanelInternal(win, 200, TRUE);
+        }
+    }
+
+    if (!attached)
+    {
+        if (!AttachPanelInternal(win, prepared, registerDevNotification))
+            win->SetAutomaticRefresh(FALSE);
+    }
+
+    ReleaseMutex(DataUsageMutex);
+    WaitForSingleObject(ContinueEvent, INFINITE);
 }
 
 /*

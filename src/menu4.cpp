@@ -9,6 +9,124 @@ CMenuPopup MainMenu;
 CMenuPopup ArchiveMenu;
 CMenuPopup ArchivePanelMenu;
 
+static void UpdateSeparatorSkillLevel(CGUIMenuPopupAbstract* popup, int index, DWORD skillLevel)
+{
+    if (popup == NULL || index < 0)
+        return;
+
+    MENU_ITEM_INFO query;
+    ZeroMemory(&query, sizeof(query));
+    query.Mask = MENU_MASK_TYPE;
+    if (!popup->GetItemInfo(index, TRUE, &query))
+        return;
+    if ((query.Type & MENU_TYPE_SEPARATOR) == 0)
+        return;
+
+    MENU_ITEM_INFO update;
+    ZeroMemory(&update, sizeof(update));
+    update.Mask = MENU_MASK_SKILLLEVEL;
+    update.SkillLevel = skillLevel;
+    popup->SetItemInfo(index, TRUE, &update);
+}
+
+static void UpdateSideTabMenuItems(CGUIMenuPopupAbstract* popup, const DWORD* commandIds, size_t commandCount, DWORD skillLevel)
+{
+    if (popup == NULL)
+        return;
+
+    MENU_ITEM_INFO update;
+    ZeroMemory(&update, sizeof(update));
+    update.Mask = MENU_MASK_SKILLLEVEL;
+    update.SkillLevel = skillLevel;
+    for (size_t i = 0; i < commandCount; ++i)
+        popup->SetItemInfo(commandIds[i], FALSE, &update);
+
+    if (commandCount == 0)
+        return;
+
+    int firstIndex = popup->FindItemPosition(commandIds[0]);
+    if (firstIndex != -1)
+        UpdateSeparatorSkillLevel(popup, firstIndex - 1, skillLevel);
+
+    int lastIndex = popup->FindItemPosition(commandIds[commandCount - 1]);
+    if (lastIndex != -1)
+        UpdateSeparatorSkillLevel(popup, lastIndex + 1, skillLevel);
+}
+
+void UpdateTabbedPanelMenuItems(BOOL tabsEnabled)
+{
+    DWORD skillLevel = tabsEnabled ? (MNTS_B | MNTS_I | MNTS_A) : 0;
+
+    static const DWORD leftCommands[] = {
+        CM_LEFT_NEWTAB,
+        CM_LEFT_CLOSETAB,
+        CM_LEFT_NEXTTAB,
+        CM_LEFT_PREVTAB,
+        CM_LEFT_DUPLICATETABTORIGHT,
+        CM_LEFT_MOVETABTORIGHT,
+        CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT,
+        CM_LEFT_CLOSEALLBUTDEFAULT,
+        CM_LEFT_REOPENTAB,
+        CM_LEFT_LOCKTAB,
+        CM_LEFT_UNLOCKTAB,
+    };
+
+    static const DWORD rightCommands[] = {
+        CM_RIGHT_NEWTAB,
+        CM_RIGHT_CLOSETAB,
+        CM_RIGHT_NEXTTAB,
+        CM_RIGHT_PREVTAB,
+        CM_RIGHT_DUPLICATETABTOLEFT,
+        CM_RIGHT_MOVETABTOLEFT,
+        CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT,
+        CM_RIGHT_CLOSEALLBUTDEFAULT,
+        CM_RIGHT_REOPENTAB,
+        CM_RIGHT_LOCKTAB,
+        CM_RIGHT_UNLOCKTAB,
+    };
+
+    CGUIMenuPopupAbstract* leftMenu = MainMenu.GetSubMenu(CML_LEFT, FALSE);
+    CGUIMenuPopupAbstract* rightMenu = MainMenu.GetSubMenu(CML_RIGHT, FALSE);
+    CGUIMenuPopupAbstract* leftTabs = MainMenu.GetSubMenu(CML_LEFT_TABS, FALSE);
+    CGUIMenuPopupAbstract* rightTabs = MainMenu.GetSubMenu(CML_RIGHT_TABS, FALSE);
+
+    UpdateSideTabMenuItems(leftMenu, leftCommands, _countof(leftCommands), skillLevel);
+    UpdateSideTabMenuItems(rightMenu, rightCommands, _countof(rightCommands), skillLevel);
+    UpdateSideTabMenuItems(leftTabs, leftCommands, _countof(leftCommands), skillLevel);
+    UpdateSideTabMenuItems(rightTabs, rightCommands, _countof(rightCommands), skillLevel);
+
+    MENU_ITEM_INFO submenuUpdate;
+    ZeroMemory(&submenuUpdate, sizeof(submenuUpdate));
+    submenuUpdate.Mask = MENU_MASK_SKILLLEVEL;
+    submenuUpdate.SkillLevel = skillLevel;
+    if (leftMenu != NULL)
+    {
+        leftMenu->SetItemInfo(CML_LEFT_TABS, FALSE, &submenuUpdate);
+        int tabsIndex = leftMenu->FindItemPosition(CML_LEFT_TABS);
+        if (tabsIndex != -1)
+            UpdateSeparatorSkillLevel(leftMenu, tabsIndex - 1, skillLevel);
+    }
+    if (rightMenu != NULL)
+    {
+        rightMenu->SetItemInfo(CML_RIGHT_TABS, FALSE, &submenuUpdate);
+        int tabsIndex = rightMenu->FindItemPosition(CML_RIGHT_TABS);
+        if (tabsIndex != -1)
+            UpdateSeparatorSkillLevel(rightMenu, tabsIndex - 1, skillLevel);
+    }
+
+    if (ToolBarLockImageIndex >= 0)
+    {
+        MENU_ITEM_INFO iconUpdate;
+        ZeroMemory(&iconUpdate, sizeof(iconUpdate));
+        iconUpdate.Mask = MENU_MASK_IMAGEINDEX;
+        iconUpdate.ImageIndex = ToolBarLockImageIndex;
+        if (leftTabs != NULL)
+            leftTabs->SetItemInfo(CM_LEFT_LOCKTAB, FALSE, &iconUpdate);
+        if (rightTabs != NULL)
+            rightTabs->SetItemInfo(CM_RIGHT_LOCKTAB, FALSE, &iconUpdate);
+    }
+}
+
 //
 // vytvori a naplni menu
 //
@@ -40,6 +158,23 @@ MENU_TEMPLATE_ITEM MainMenuTemplate[] =
         {MNTT_SP, -1, MNTS_B | MNTS_I | MNTS_A, 0, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_ZOOM, MNTS_I | MNTS_A, CM_LEFTZOOMPANEL, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_SWAPPANELS, MNTS_I | MNTS_A, CM_SWAPPANELS, -1, 0, NULL},
+        {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
+        {MNTT_PB, IDS_MENU_LEFT_TABS, MNTS_I | MNTS_A, CML_LEFT_TABS, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_LEFT_NEWTAB, MNTS_I | MNTS_A, CM_LEFT_NEWTAB, IDX_TB_TABSNEW, 0, &EnablerLeftNewTab},
+        {MNTT_IT, IDS_MENU_LEFT_CLOSETAB, MNTS_I | MNTS_A, CM_LEFT_CLOSETAB, IDX_TB_TABSCLOSE, 0, &EnablerLeftCloseTab},
+        {MNTT_IT, IDS_MENU_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT, MNTS_I | MNTS_A, CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT, -1, 0, &EnablerLeftCloseAllExceptThisAndDefault},
+        {MNTT_IT, IDS_MENU_LEFT_CLOSEALLEXCEPTDEFAULT, MNTS_I | MNTS_A, CM_LEFT_CLOSEALLBUTDEFAULT, -1, 0, &EnablerLeftCloseAllButDefault},
+        {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_LEFT_DUPLICATETAB, MNTS_I | MNTS_A, CM_LEFT_DUPLICATETAB, IDX_TB_TABSDUPLICATE, 0, &EnablerLeftDuplicateTab},
+        {MNTT_IT, IDS_MENU_LEFT_REOPENTAB, MNTS_I | MNTS_A, CM_LEFT_REOPENTAB, -1, 0, &EnablerLeftReopenTab},
+        {MNTT_IT, IDS_MENU_LEFT_LOCKTAB, MNTS_I | MNTS_A, CM_LEFT_LOCKTAB, -1, 0, &EnablerLeftLockTab},
+        {MNTT_IT, IDS_MENU_LEFT_UNLOCKTAB, MNTS_I | MNTS_A, CM_LEFT_UNLOCKTAB, -1, 0, &EnablerLeftUnlockTab},
+        {MNTT_IT, IDS_MENU_LEFT_DUPLICATETABRIGHT, MNTS_I | MNTS_A, CM_LEFT_DUPLICATETABTORIGHT, IDX_TB_TABSDUPLICATE, 0, &EnablerLeftDuplicateTabToRight},
+        {MNTT_IT, IDS_MENU_LEFT_MOVETABTORIGHT, MNTS_I | MNTS_A, CM_LEFT_MOVETABTORIGHT, -1, 0, &EnablerLeftMoveTabToRight},
+        {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_LEFT_NEXTTAB, MNTS_I | MNTS_A, CM_LEFT_NEXTTAB, IDX_TB_TABSNEXT, 0, &EnablerLeftNextTab},
+        {MNTT_IT, IDS_MENU_LEFT_PREVTAB, MNTS_I | MNTS_A, CM_LEFT_PREVTAB, IDX_TB_TABSPREV, 0, &EnablerLeftPrevTab},
+        {MNTT_PE},
         {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_FILTER, MNTS_I | MNTS_A, CM_LCHANGEFILTER, IDX_TB_FILTER, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_REFRESH, MNTS_B | MNTS_I | MNTS_A, CM_LEFTREFRESH, IDX_TB_REFRESH, 0, NULL},
@@ -239,6 +374,23 @@ MENU_TEMPLATE_ITEM MainMenuTemplate[] =
         {MNTT_SP, -1, MNTS_B | MNTS_I | MNTS_A, 0, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_ZOOM, MNTS_I | MNTS_A, CM_RIGHTZOOMPANEL, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_SWAPPANELS, MNTS_I | MNTS_A, CM_SWAPPANELS, -1, 0, NULL},
+        {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
+        {MNTT_PB, IDS_MENU_RIGHT_TABS, MNTS_I | MNTS_A, CML_RIGHT_TABS, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_RIGHT_NEWTAB, MNTS_I | MNTS_A, CM_RIGHT_NEWTAB, IDX_TB_TABSNEW, 0, &EnablerRightNewTab},
+        {MNTT_IT, IDS_MENU_RIGHT_CLOSETAB, MNTS_I | MNTS_A, CM_RIGHT_CLOSETAB, IDX_TB_TABSCLOSE, 0, &EnablerRightCloseTab},
+        {MNTT_IT, IDS_MENU_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT, MNTS_I | MNTS_A, CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT, -1, 0, &EnablerRightCloseAllExceptThisAndDefault},
+        {MNTT_IT, IDS_MENU_RIGHT_CLOSEALLEXCEPTDEFAULT, MNTS_I | MNTS_A, CM_RIGHT_CLOSEALLBUTDEFAULT, -1, 0, &EnablerRightCloseAllButDefault},
+        {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_RIGHT_DUPLICATETAB, MNTS_I | MNTS_A, CM_RIGHT_DUPLICATETAB, IDX_TB_TABSDUPLICATE, 0, &EnablerRightDuplicateTab},
+        {MNTT_IT, IDS_MENU_RIGHT_REOPENTAB, MNTS_I | MNTS_A, CM_RIGHT_REOPENTAB, -1, 0, &EnablerRightReopenTab},
+        {MNTT_IT, IDS_MENU_RIGHT_LOCKTAB, MNTS_I | MNTS_A, CM_RIGHT_LOCKTAB, -1, 0, &EnablerRightLockTab},
+        {MNTT_IT, IDS_MENU_RIGHT_UNLOCKTAB, MNTS_I | MNTS_A, CM_RIGHT_UNLOCKTAB, -1, 0, &EnablerRightUnlockTab},
+        {MNTT_IT, IDS_MENU_RIGHT_DUPLICATETABTOLEFT, MNTS_I | MNTS_A, CM_RIGHT_DUPLICATETABTOLEFT, IDX_TB_TABSDUPLICATE, 0, &EnablerRightDuplicateTabToLeft},
+        {MNTT_IT, IDS_MENU_RIGHT_MOVETABTOLEFT, MNTS_I | MNTS_A, CM_RIGHT_MOVETABTOLEFT, -1, 0, &EnablerRightMoveTabToLeft},
+        {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
+        {MNTT_IT, IDS_MENU_RIGHT_NEXTTAB, MNTS_I | MNTS_A, CM_RIGHT_NEXTTAB, IDX_TB_TABSNEXT, 0, &EnablerRightNextTab},
+        {MNTT_IT, IDS_MENU_RIGHT_PREVTAB, MNTS_I | MNTS_A, CM_RIGHT_PREVTAB, IDX_TB_TABSPREV, 0, &EnablerRightPrevTab},
+        {MNTT_PE},
         {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_FILTER, MNTS_I | MNTS_A, CM_RCHANGEFILTER, IDX_TB_FILTER, 0, NULL},
         {MNTT_IT, IDS_MENU_LEFT_REFRESH, MNTS_B | MNTS_I | MNTS_A, CM_RIGHTREFRESH, IDX_TB_REFRESH, 0, NULL},

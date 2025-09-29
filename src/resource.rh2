@@ -302,6 +302,47 @@
 
 #define CM_IMPORTCONFIG        934
 
+#define CM_NEWTAB              1100
+#define CM_CLOSETAB            1101
+#define CM_NEXTTAB             1102
+#define CM_PREVTAB             1103
+#define CM_LEFT_NEWTAB         1104
+#define CM_LEFT_CLOSETAB       1105
+#define CM_LEFT_NEXTTAB        1106
+#define CM_LEFT_PREVTAB        1107
+#define CM_RIGHT_NEWTAB        1108
+#define CM_RIGHT_CLOSETAB      1109
+#define CM_RIGHT_NEXTTAB       1110
+#define CM_RIGHT_PREVTAB       1111
+#define CM_LEFT_CLOSEALLBUTDEFAULT 1112
+#define CM_RIGHT_CLOSEALLBUTDEFAULT 1113
+#define CM_LEFT_SETTABCOLOR     1114
+#define CM_LEFT_CLEARTABCOLOR   1115
+#define CM_RIGHT_SETTABCOLOR    1116
+#define CM_RIGHT_CLEARTABCOLOR  1117
+#define CM_LEFT_SETTABPREFIX     1118
+#define CM_LEFT_CLEARTABPREFIX   1119
+#define CM_RIGHT_SETTABPREFIX    1120
+#define CM_RIGHT_CLEARTABPREFIX  1121
+#define CM_LEFT_DUPLICATETABTORIGHT 1122
+#define CM_LEFT_MOVETABTORIGHT      1123
+#define CM_RIGHT_DUPLICATETABTOLEFT 1124
+#define CM_RIGHT_MOVETABTOLEFT      1125
+#define CM_LEFT_CLOSEALLEXCEPTTHISANDDEFAULT 1126
+#define CM_RIGHT_CLOSEALLEXCEPTTHISANDDEFAULT 1127
+#define CM_DUPLICATETAB         1128
+#define CM_LEFT_DUPLICATETAB    1129
+#define CM_RIGHT_DUPLICATETAB   1130
+#define CM_REOPENTAB           1131
+#define CM_LOCKTAB             1132
+#define CM_UNLOCKTAB           1133
+#define CM_LEFT_REOPENTAB      1134
+#define CM_LEFT_LOCKTAB        1135
+#define CM_LEFT_UNLOCKTAB      1136
+#define CM_RIGHT_REOPENTAB     1137
+#define CM_RIGHT_LOCKTAB       1138
+#define CM_RIGHT_UNLOCKTAB     1139
+
 // accelerators
 #define IDA_MAINACCELS1        935        // pouzitelne i v editacnim modu
 #define IDA_MAINACCELS2        936        // zbytek
@@ -323,6 +364,8 @@
 #define IDC_EDITWINDOW      955
 #define IDC_EDITLINE        956
 #define IDC_DIRTEXT         957
+#define IDC_LEFTTABCTRL     958
+#define IDC_RIGHTTABCTRL    959
 
 // icons
 #define IDI_SALAMANDER       960
@@ -517,6 +560,7 @@
 #define CML_LEFT_SORTBY         5505
 #define CML_LEFT_VISIBLE        5506
 #define CML_LEFT_GO             5507
+#define CML_LEFT_TABS           5508
 
 
 #define CML_FILES               5509
@@ -546,6 +590,7 @@
 #define CML_RIGHT_SORTBY        5544
 #define CML_RIGHT_VISIBLE       5545
 #define CML_RIGHT_GO            5546
+#define CML_RIGHT_TABS          5547
 
 #define CML_HELP                5550
 #define CML_HELP_ABOUTPLUGINS   5551

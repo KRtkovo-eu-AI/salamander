@@ -85,15 +85,110 @@ char* ReadSVGFile(const char* fileName)
     return buff;
 }
 
-// vykresli ikony pro ktere mame SVG reprezentaci
-void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled)
+struct CBuiltinToolbarSVG
 {
+    const char* Name;
+    const char* Svg;
+};
+
+static char* DuplicateToolbarSVG(const char* svg)
+{
+    size_t len = strlen(svg);
+    char* buffer = (char*)malloc(len + 1);
+    if (buffer != NULL)
+        memcpy(buffer, svg, len + 1);
+    else
+        TRACE_E("DuplicateToolbarSVG(): malloc() failed");
+    return buffer;
+}
+
+static char* LoadToolbarSVG(const char* svgName)
+{
+    static const CBuiltinToolbarSVG BuiltinToolbarSVGs[] = {
+        {"TabsClose",
+         R"SVG(<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#414141" d="M2,5h4.8L8,7h6v5H2V5z"/>
+    <path fill="#FFFFFF" d="M3,6h3.9L7.6,8H13v3H3V6z"/>
+    <path fill="#C23A3A" d="M6.2,8l0.8-0.8L8,8.2l1-1l0.8,0.8L8.6,9.2l1.2,1.2L9,11.2l-1-1l-1,1l-0.8-0.8l1.2-1.2L6.2,8z"/>
+  </g>
+</svg>
+)SVG"},
+        {"TabsDuplicate",
+         R"SVG(<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#6B7FA5" d="M4,4h4.5L9.5,6H14v4H4V4z"/>
+    <path fill="#E6EFFB" d="M5,5h3.3L9,7h4v2H5V5z"/>
+    <path fill="#414141" d="M2,7h4.8L8,9h6v4H2V7z"/>
+    <path fill="#FFFFFF" d="M3,8h3.9L7.6,10H13v2H3V8z"/>
+  </g>
+</svg>
+)SVG"},
+        {"TabsNew",
+         R"SVG(<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#414141" d="M2,5h4.8L8,7h6v5H2V5z"/>
+    <path fill="#FFFFFF" d="M3,6h3.9L7.6,8H13v3H3V6z"/>
+  </g>
+</svg>
+)SVG"},
+        {"TabsNext",
+         R"SVG(<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#414141" d="M2,5h4.8L8,7h6v5H2V5z"/>
+    <path fill="#FFFFFF" d="M3,6h3.9L7.6,8H13v3H3V6z"/>
+    <polygon fill="#2A5496" points="6.2,8.5 6.2,11.5 8.2,11.5 8.2,12.5 11,10 8.2,7.5 8.2,8.5"/>
+  </g>
+</svg>
+)SVG"},
+        {"TabsPrevious",
+         R"SVG(<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#414141" d="M2,5h4.8L8,7h6v5H2V5z"/>
+    <path fill="#FFFFFF" d="M3,6h3.9L7.6,8H13v3H3V6z"/>
+    <polygon fill="#2A5496" points="9.8,8.5 9.8,11.5 7.8,11.5 7.8,12.5 5,10 7.8,7.5 7.8,8.5"/>
+  </g>
+</svg>
+)SVG"},
+    };
+
     char svgFile[2 * MAX_PATH];
     GetModuleFileName(NULL, svgFile, _countof(svgFile));
     char* s = strrchr(svgFile, '\\');
     if (s != NULL)
         sprintf(s + 1, "toolbars\\%s.svg", svgName);
     char* svg = ReadSVGFile(svgFile);
+    if (svg != NULL)
+        return svg;
+
+    for (int i = 0; i < _countof(BuiltinToolbarSVGs); i++)
+    {
+        if (strcmp(BuiltinToolbarSVGs[i].Name, svgName) == 0)
+            return DuplicateToolbarSVG(BuiltinToolbarSVGs[i].Svg);
+    }
+
+    return NULL;
+}
+
+// vykresli ikony pro ktere mame SVG reprezentaci
+void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled)
+{
+    char* svg = LoadToolbarSVG(svgName);
     if (svg != NULL)
     {
         HDC hMemDC = HANDLES(CreateCompatibleDC(NULL));

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -143,6 +143,20 @@ BOOL CFilesWindowAncestor::GetGeneralPath(char* buf, int bufSize, BOOL convertFS
     if (bufSize == 0)
         return FALSE;
     BOOL ret = TRUE;
+    CFilesWindow* self = static_cast<CFilesWindow*>(this);
+    if (self->HasDeferredConfigPath())
+    {
+        const std::string& deferred = self->GetDeferredConfigPath();
+        int l = (int)deferred.length();
+        if (l >= bufSize)
+        {
+            l = bufSize - 1;
+            ret = FALSE;
+        }
+        memcpy(buf, deferred.c_str(), l);
+        buf[l] = 0;
+        return ret;
+    }
     char buf2[2 * MAX_PATH];
     if (Is(ptDisk))
     {
@@ -224,7 +238,10 @@ void CFilesWindowAncestor::SetPath(const char* path)
     DetachDirectory((CFilesWindow*)this);
     strcpy(Path, path);
 
-    //--- detection of file-based compression/encryption and FAT32
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle((CFilesWindow*)this);
+
+    //--- zjisteni file-based komprese/sifrovani a FAT32
     DWORD dummy1, flags;
     if ((Is(ptDisk) || Is(ptZIPArchive)) &&
         MyGetVolumeInformation(path, NULL, NULL, NULL, NULL, 0, NULL, &dummy1, &flags, NULL, 0))
@@ -1306,7 +1323,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1357,6 +1374,12 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     OpenedDrivesList = NULL;
 
     Parent = parent;
+    PanelSide = side;
+    CustomTabColorValid = false;
+    CustomTabColor = RGB(0, 0, 0);
+    CustomTabPrefixValid = false;
+    CustomTabPrefix.clear();
+    TabLocked = false;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
@@ -1366,6 +1389,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
+    DeferredConfigPath.clear();
+    DeferredConfigRefreshOnActivation = false;
 
     SortType = stName;
     ReverseSort = FALSE;
@@ -1374,6 +1399,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     LastFocus = INT_MAX;
     SetValidFileData(VALID_DATA_ALL);
     AutomaticRefresh = TRUE;
+    NeedsRefreshOnActivation = FALSE;
     NextFocusName[0] = 0;
     DontClearNextFocusName = FALSE;
     LastRefreshTime = 0;
@@ -1400,6 +1426,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     NeedRefreshAfterIconsReading = FALSE;
     RefreshAfterIconsReadingTime = 0;
 
+    WorkDirHistory = NULL;
     PathHistory = new CPathHistory();
 
     DontDrawIndex = -1;
@@ -1461,6 +1488,176 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     IconOvrRefreshTimerSet = FALSE;
 }
 
+void CFilesWindow::SetPendingViewTemplate(int templateIndex)
+{
+    PendingSettings.HasViewTemplate = true;
+    PendingSettings.ViewTemplateIndex = templateIndex;
+}
+
+void CFilesWindow::SetPendingDirectoryLineVisible(bool visible)
+{
+    PendingSettings.HasDirectoryLine = true;
+    PendingSettings.DirectoryLineVisible = visible;
+}
+
+void CFilesWindow::SetPendingStatusLineVisible(bool visible)
+{
+    PendingSettings.HasStatusLine = true;
+    PendingSettings.StatusLineVisible = visible;
+}
+
+void CFilesWindow::SetPendingHeaderLineVisible(bool visible)
+{
+    PendingSettings.HasHeaderLine = true;
+    PendingSettings.HeaderLineVisible = visible;
+}
+
+void CFilesWindow::SetPendingFilter(const char* masks, bool enabled)
+{
+    PendingSettings.HasFilter = true;
+    PendingSettings.FilterEnabled = enabled;
+    PendingSettings.FilterMasks = (masks != NULL) ? masks : "";
+}
+
+void CFilesWindow::ApplyPendingSettings()
+{
+    if (HWindow == NULL)
+        return;
+
+    if (PendingSettings.HasViewTemplate)
+    {
+        int index = PendingSettings.ViewTemplateIndex;
+        if (index == 0)
+            index = 2;
+        SelectViewTemplate(index, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+        PendingSettings.HasViewTemplate = false;
+    }
+
+    if (PendingSettings.HasHeaderLine)
+    {
+        HeaderLineVisible = PendingSettings.HeaderLineVisible ? TRUE : FALSE;
+        if (ListBox != NULL)
+        {
+            BOOL headerLine = HeaderLineVisible;
+            if (GetViewMode() == vmBrief)
+                headerLine = FALSE;
+            ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, headerLine);
+        }
+        PendingSettings.HasHeaderLine = false;
+    }
+
+    if (PendingSettings.HasDirectoryLine && DirectoryLine != NULL)
+    {
+        BOOL desired = PendingSettings.DirectoryLineVisible ? TRUE : FALSE;
+        if ((DirectoryLine->HWindow != NULL) != (desired != FALSE))
+            ToggleDirectoryLine();
+        DirectoryLineVisible = desired;
+        PendingSettings.HasDirectoryLine = false;
+    }
+
+    if (PendingSettings.HasStatusLine && StatusLine != NULL)
+    {
+        BOOL desired = PendingSettings.StatusLineVisible ? TRUE : FALSE;
+        if ((StatusLine->HWindow != NULL) != (desired != FALSE))
+            ToggleStatusLine();
+        StatusLineVisible = desired;
+        PendingSettings.HasStatusLine = false;
+    }
+
+    if (PendingSettings.HasFilter)
+    {
+        FilterEnabled = PendingSettings.FilterEnabled ? TRUE : FALSE;
+        const char* masks = PendingSettings.FilterMasks.empty() ? "*.*" : PendingSettings.FilterMasks.c_str();
+        Filter.SetMasksString(masks);
+        int errPos;
+        if (!Filter.PrepareMasks(errPos))
+        {
+            Filter.SetMasksString("*.*");
+            Filter.PrepareMasks(errPos);
+        }
+        if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+            UpdateFilterSymbol();
+        PendingSettings.HasFilter = false;
+    }
+}
+
+void CFilesWindow::ClearDeferredConfigPath()
+{
+    DeferredConfigPath.clear();
+    DeferredConfigRefreshOnActivation = false;
+}
+
+void CFilesWindow::SetDeferredConfigPath(const char* path, bool refreshOnActivation)
+{
+    if (path == NULL || path[0] == 0)
+    {
+        ClearDeferredConfigPath();
+        return;
+    }
+    DeferredConfigPath = path;
+    DeferredConfigRefreshOnActivation = refreshOnActivation;
+    if (refreshOnActivation)
+        NeedsRefreshOnActivation = TRUE;
+}
+
+BOOL CFilesWindow::ApplyDeferredConfigPath(CMainWindow* mainWnd)
+{
+    if (!HasDeferredConfigPath())
+        return FALSE;
+    std::string path = DeferredConfigPath;
+    bool refresh = DeferredConfigRefreshOnActivation;
+    ClearDeferredConfigPath();
+    BOOL restored = RestorePathFromConfig(mainWnd, path.c_str());
+    if (!restored && refresh)
+        NeedsRefreshOnActivation = TRUE;
+    else if (restored && refresh)
+        NeedsRefreshOnActivation = FALSE;
+    return restored;
+}
+
+BOOL CFilesWindow::RestorePathFromConfig(CMainWindow* mainWnd, const char* path)
+{
+    if (path == NULL || path[0] == 0)
+    {
+        if (mainWnd != NULL)
+            mainWnd->UpdatePanelTabTitle(this);
+        return FALSE;
+    }
+
+    if (ChangeDirLite(path))
+    {
+        if (mainWnd != NULL)
+            mainWnd->UpdatePanelTabTitle(this);
+        return TRUE;
+    }
+
+    if (IsDiskOrUNCPath(path))
+    {
+        char tmp[2 * MAX_PATH];
+        lstrcpyn(tmp, path, _countof(tmp));
+        BOOL tryNet = TRUE;
+        DWORD err, lastErr;
+        BOOL pathInvalid, cut;
+        if (SalCheckAndRestorePathWithCut(HWindow, tmp, tryNet, err, lastErr, pathInvalid, cut, TRUE))
+        {
+            if (ChangePathToDisk(HWindow, tmp))
+            {
+                if (mainWnd != NULL)
+                    mainWnd->UpdatePanelTabTitle(this);
+                return TRUE;
+            }
+        }
+        ChangeToRescuePathOrFixedDrive(HWindow);
+        if (mainWnd != NULL)
+            mainWnd->UpdatePanelTabTitle(this);
+        return FALSE;
+    }
+
+    if (mainWnd != NULL)
+        mainWnd->UpdatePanelTabTitle(this);
+    return FALSE;
+}
+
 CFilesWindow::~CFilesWindow()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::~CFilesWindow()");
@@ -1470,6 +1667,8 @@ CFilesWindow::~CFilesWindow()
 
     ClearHistory();
 
+    if (WorkDirHistory != NULL)
+        delete WorkDirHistory;
     if (PathHistory != NULL)
         delete PathHistory;
 
@@ -1501,10 +1700,32 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(ExecuteAssocEvent));
 }
 
+CPathHistory* CFilesWindow::EnsureWorkDirHistory()
+{
+    if (WorkDirHistory == NULL)
+    {
+        WorkDirHistory = new CPathHistory(TRUE);
+        if (WorkDirHistory == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return NULL;
+        }
+    }
+    return WorkDirHistory;
+}
+
+void CFilesWindow::ClearWorkDirHistory()
+{
+    if (WorkDirHistory != NULL)
+        WorkDirHistory->ClearHistory();
+}
+
 void CFilesWindow::ClearHistory()
 {
     if (PathHistory != NULL)
         PathHistory->ClearHistory();
+
+    ClearWorkDirHistory();
 
     OldSelection.Clear();
 }
@@ -1728,6 +1949,9 @@ void CFilesWindow::DirectoryLineSetText()
     {
         DirectoryLine->SetText(path);
     }
+
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
 }
 
 void CFilesWindow::SelectUnselect(BOOL forceIncludeDirs, BOOL select, BOOL showMaskDlg)
@@ -2392,6 +2616,9 @@ BOOL CFilesWindow::CommonRefresh(HWND parent, int suggestedTopIndex, const char*
         RefreshListBox(0, suggestedTopIndex, suggestedFocusIndex, TRUE, !isRefresh);
         //TRACE_I("refresh listbox: end");
     }
+
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
 
     DirectoryLine->InvalidateIfNeeded();
     //TRACE_I("common refresh: end");

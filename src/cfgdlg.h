@@ -5,6 +5,14 @@
 
 class CColorArrowButton;
 
+#define WM_CFG_UPDATE_TABS_VISIBILITY (WM_APP + 105)
+
+enum CWorkDirsHistoryScope
+{
+    wdhsShared = 0,
+    wdhsPerTab = 1,
+};
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -195,6 +203,7 @@ struct CConfiguration
         SortDirsByExt,          // emulovat pripony u adresaru (sort by extension + show in separated Ext column)
         SaveHistory,            // ukladat historie do konfigurace?
         SaveWorkDirs,           // ukladat List of Working Directories?
+        WorkDirsHistoryScope,   // rezim historie pracovnich adresaru (sdilena / per-tab)
         EnableCmdLineHistory,   // drzet historii prikazove radky?
         SaveCmdLineHistory,     // ukaladat  historii prikazove radky?
                                 //      LantasticCheck,        // Lantastic 7.0 paranoid-check (porovnani velikosti po Copy)
@@ -290,6 +299,7 @@ struct CConfiguration
     int FullRowSelect;    // v detailed/brief view lze klikat kamkoliv
     int FullRowHighlight; // v detailed view je za focusem jeste podbarven zbytek radku
     int UseIconTincture;  // pro hidden/system/selected/focused polozky
+    int UsePanelTabs;     // pouzivat panelove taby?
     int ShowPanelCaption; // bude v directory line zobrazen barevne panel caption?
     int ShowPanelZoom;    // bude v directory line zobrazeno tlacitko Zoom?
 
@@ -453,6 +463,7 @@ struct CConfiguration
 
     int TitleBarShowPath;                        // budeme v titulku zobrazovat cestu?
     int TitleBarMode;                            // rezim zobrazeni title bar (TITLE_BAR_MODE_xxx)
+    int TabCaptionMode;                          // rezim zobrazeni nazvu tabu (TITLE_BAR_MODE_xxx)
     int UseTitleBarPrefix;                       // zobrazovat prefix v title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix pro title bar
     int UseTitleBarPrefixForced;                 // cmdline varianta, ma prednost a neuklada se
@@ -1138,6 +1149,17 @@ protected:
 //
 // ****************************************************************************
 
+class CCfgPageTabs : public CCommonPropSheetPage
+{
+public:
+    CCfgPageTabs();
+
+    virtual void Transfer(CTransferInfo& ti);
+};
+
+//
+// ****************************************************************************
+
 class CCfgPageHistory : public CCommonPropSheetPage
 {
 public:
@@ -1185,6 +1207,7 @@ public:
     CCfgPageHistory PageHistory;
     CCfgPageChangeDrive PageChangeDrive;
     CCfgPagePanels PagePanels;
+    CCfgPageTabs PageTabs;
     CCfgPageKeyboard PageKeyboard;
     CCfgPageSecurity PageSecurity;
 
@@ -1199,6 +1222,9 @@ public:
     HWND HOldPluginMsgBoxParent;
 
 protected:
+    BOOL TabsPageVisible;
+
+    void EnsureTabsPageVisibility(BOOL showTabs);
     virtual void DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 

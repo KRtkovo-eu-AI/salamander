@@ -1,8 +1,15 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "fileswnd.h"
+#include "cfgdlg.h"
 
 #define HOT_PATHS_COUNT 30
 
@@ -43,6 +50,7 @@ class CMenuBar;
 class CMenuNew;
 class CToolTip;
 class CAnimate;
+class CTabWindow;
 
 //****************************************************************************
 //
@@ -379,6 +387,31 @@ public:
 
     CFilesWindow *LeftPanel,
         *RightPanel;
+    TIndirectArray<CFilesWindow> LeftPanelTabs;
+    TIndirectArray<CFilesWindow> RightPanelTabs;
+    struct SClosedPanelTab
+    {
+        int InsertIndex;
+        std::string GeneralPath;
+        std::string FallbackPath;
+        int ViewTemplateIndex;
+        CSortType SortType;
+        BOOL ReverseSort;
+        BOOL StatusLineVisible;
+        BOOL DirectoryLineVisible;
+        BOOL HeaderLineVisible;
+        bool FilterEnabled;
+        std::string FilterMasks;
+        bool FilterExtendedMode;
+        bool HasCustomColor;
+        COLORREF CustomColor;
+        bool HasCustomPrefix;
+        std::wstring CustomPrefix;
+        bool UserWorkedOnPath;
+        std::unique_ptr<CPathHistory> PathHistory;
+        std::unique_ptr<CPathHistory> WorkDirHistory;
+    };
+    std::vector<SClosedPanelTab> ClosedPanelTabs[2];
     CEditWindow* EditWindow;
     CMainToolBar* TopToolBar;
     CPluginsBar* PluginsBar;
@@ -426,6 +459,9 @@ public:
     BOOL WaitInEndSession;            // TRUE = WM_ENDSESSION should wait for disk operations to finish
     BOOL DisableIdleProcessing;       // TRUE = skip idle processing (the app is shutting down and it would only slow things down)
                                       //    CTipOfTheDayDialog *TipOfTheDayDialog;
+
+    BOOL PanelConfigPathsRestoredLeft;
+    BOOL PanelConfigPathsRestoredRight;
 
     BOOL DragMode;
     int DragSplitX;
@@ -481,6 +517,19 @@ protected:
     BOOL IdleStatesChanged;    // set by the CheckAndSet() method
     BOOL PluginsStatesChanged; // the plugin bar needs to be rebuilt
 
+    CTabWindow* LeftTabWindow;
+    CTabWindow* RightTabWindow;
+    bool PanelTabCrossDragActive;
+    CPanelSide PanelTabCrossDragSourceSide;
+    int PanelTabCrossDragSourceIndex;
+    bool PanelTabCrossDragHasTarget;
+    int PanelTabCrossDragDisplayedInsertIndex;
+    int PanelTabCrossDragDisplayedMarkItem;
+    DWORD PanelTabCrossDragDisplayedMarkFlags;
+    int PanelTabCrossDragStoredInsertIndex;
+    int PanelTabCrossDragStoredMarkItem;
+    DWORD PanelTabCrossDragStoredMarkFlags;
+
 public:
     CMainWindow();
     ~CMainWindow();
@@ -506,11 +555,60 @@ public:
     void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // clears EditMode because focus is put into the panel
     void FocusLeftPanel();                                                  // calls FocusPanel for the left panel
 
+    CFilesWindow* AddPanelTab(CPanelSide side, int index = -1, bool activate = true);
+    bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
+    bool EnsurePanelWindowCreated(CFilesWindow* panel);
+    void SwitchPanelTab(CFilesWindow* panel);
+    void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
+    void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
+    void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
+                                      bool postRefreshMessage = false);
+    void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
+                             bool postRefreshMessage = false);
+    void UpdatePanelTabTitle(CFilesWindow* panel);
+    void UpdatePanelTabColor(CFilesWindow* panel);
+    void OnPanelTabSelected(CPanelSide side, int index);
+    void OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt);
+    void OnPanelTabReordered(CPanelSide side, int from, int to);
+    void OnPanelTabDragStarted(CPanelSide side, int index);
+    bool OnPanelTabDragUpdated(CPanelSide side, int index, POINT screenPt);
+    bool TryCompletePanelTabDrag(CPanelSide side, int index, POINT screenPt);
+    void CancelPanelTabDrag();
+    int GetPanelTabIndex(CPanelSide side, CFilesWindow* panel) const;
+    int GetPanelTabCount(CPanelSide side) const;
+    CFilesWindow* GetPanelTabAt(CPanelSide side, int index) const;
+    void CommandNewTab(CPanelSide side, bool addAtEnd = false);
+    void CommandCloseTab(CPanelSide side);
+    void CommandCloseAllTabsExceptDefault(CPanelSide side);
+    void CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel = NULL);
+    void CommandNextTab(CPanelSide side);
+    void CommandPrevTab(CPanelSide side);
+    void CommandDuplicateTab(CPanelSide side, int index = -1);
+    bool CommandReopenClosedTab(CPanelSide side);
+    void CommandSetPanelTabColor(CFilesWindow* panel);
+    void CommandClearPanelTabColor(CFilesWindow* panel);
+    void CommandSetPanelTabPrefix(CFilesWindow* panel);
+    void CommandClearPanelTabPrefix(CFilesWindow* panel);
+    void CommandDuplicateTabToOtherSide(CPanelSide side, int index);
+    int CommandMoveTabToOtherSide(CPanelSide side, int index, int targetInsertIndex = -1);
+    int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);
+    void CommandLockTab(CFilesWindow* panel);
+    void CommandUnlockTab(CFilesWindow* panel);
+
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
 
     // ensures DirHistory->AddPathUnique is called and correctly updates the panel's SetHistory
-    void DirHistoryAddPathUnique(int type, const char* pathOrArchiveOrFSName,
+    BOOL UsingSharedWorkDirHistory() const;
+    CPathHistory* GetDirHistory(CFilesWindow* panel, BOOL createIfNeeded = FALSE);
+    BOOL HasDirHistory(CFilesWindow* panel) const;
+    void UpdateDirectoryLineHistoryState(CFilesWindow* panel);
+    void UpdateAllDirectoryLineHistoryStates();
+    void HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope);
+    void HandlePanelTabsEnabledChange(BOOL previouslyEnabled);
+    void RebuildSharedDirHistoryFromPanels();
+
+    void DirHistoryAddPathUnique(CFilesWindow* panel, int type, const char* pathOrArchiveOrFSName,
                                  const char* archivePathOrFSUserPart, HICON hIcon,
                                  CPluginFSInterfaceAbstract* pluginFS,
                                  CPluginFSInterfaceEncapsulation* curPluginFS);
@@ -531,8 +629,8 @@ public:
 
     void SaveConfig(HWND parent = NULL); // parent: NULL = MainWindow->HWindow
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
-    void SavePanelConfig(CFilesWindow* panel, HKEY hSalamander, const char* reg);
-    void LoadPanelConfig(char* panelPath, CFilesWindow* panel, HKEY hSalamander, const char* reg);
+    void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
+    void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);
     void DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoImportConfig,
                                  const char* autoImportConfigFromKey, BOOL doNotDeleteImportedCfg);
 
@@ -565,14 +663,14 @@ public:
     HWND GetActivePanelHWND();
     int GetDirectoryLineHeight();
 
-    CFilesWindow* GetOtherPanel(CFilesWindow* panel)
-    {
-        return panel == LeftPanel ? RightPanel : LeftPanel;
-    }
+    CFilesWindow* GetOtherPanel(CFilesWindow* panel);
 
     BOOL EditWindowKnowHWND(HWND hwnd);
     void EditWindowSetDirectory(); // sets the text before the command line and enables/disables it at the same time
     HWND GetEditLineHWND(BOOL disableSkip = FALSE);
+
+    bool HasClosedTab(CPanelSide side) const;
+    void RememberClosedTab(CPanelSide side, CFilesWindow* panel, int insertIndex);
 
     // returns TRUE if the key was handled
     BOOL HandleCtrlLetter(char c); // Ctrl+letter hotkeys
@@ -620,6 +718,7 @@ public:
 
     void MakeFileList();
 
+    static void FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* text, int textSize);
     // helper method for SetTitle; 'text' must be at least 2 * MAX_PATH characters long
     void GetFormatedPathForTitle(char* text);
 
@@ -734,7 +833,24 @@ public:
     CFilesWindow* GetPanel(int panel);
     void PostFocusNameInPanel(int panel, const char* path, const char* name);
 
+private:
+    friend class CStatusWindow;
+
+    void RegisterStatusWindow(CStatusWindow* window);
+    void UnregisterStatusWindow(CStatusWindow* window);
+    bool IsStatusWindowRegistered(const CStatusWindow* window) const;
+    void InvalidateDirectoryLine(CFilesWindow* panel, BOOL update);
+
+    TIndirectArray<CFilesWindow>& GetPanelTabs(CPanelSide side);
+    CTabWindow* GetPanelTabWindow(CPanelSide side) const;
+    void UpdatePanelTabVisibility(CPanelSide side);
+    void RebuildPanelTabs(CPanelSide side);
+    void ClearPanelTabDragTargetIndicator();
+    CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
+
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
+
+    std::vector<CStatusWindow*> StatusWindows;
 };
 
 //

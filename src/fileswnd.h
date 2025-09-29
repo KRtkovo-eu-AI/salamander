@@ -1,13 +1,18 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-#define NUM_OF_CHECKTHREADS 30                   // maximum number of threads for "non-blocking" path accessibility tests
-#define ICONOVR_REFRESH_PERIOD 2000              // minimum interval between icon-overlay refreshes in the panel (see IconOverlaysChangedOnPath)
-#define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimum refresh interval when the main window is inactive
-#define MAX_DELAY_BETWEENINACTIVEREFRESHES 10000 // maximum refresh interval when the main window is inactive
+class CFilesWindow;
+
+#include "plugins.h"
+#include <string>
+
+#define NUM_OF_CHECKTHREADS 30                   // max. pocet threadu pro "neblokujici" testy pristupnosti cest
+#define ICONOVR_REFRESH_PERIOD 2000              // minimalni odstup refreshu icon-overlays v panelu (viz IconOverlaysChangedOnPath)
+#define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimalni odstup refreshu pri neaktivnim hl. okne
+#define MAX_DELAY_BETWEENINACTIVEREFRESHES 10000 // maximalni odstup refreshu pri neaktivnim hl. okne
 
 enum CActionType
 {
@@ -35,6 +40,12 @@ enum CPanelType
     ptDisk,       // current path is "c:\path" or UNC
     ptZIPArchive, // current path is inside an archive (handled either by a plug-in or code supporting external archivers)
     ptPluginFS,   // current path is on a plug-in file system (handled by a plug-in)
+};
+
+enum CPanelSide
+{
+    cpsLeft,
+    cpsRight,
 };
 
 struct CAttrsData // data for atChangeAttrs
@@ -743,6 +754,7 @@ public:
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
+    BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
     BOOL FilesActionInProgress; // is work already being prepared or executed for the Worker?
 
     CDrivesList* OpenedDrivesList; // if the Alt+F1(2) menu is open, this value points to it; otherwise it is NULL
@@ -753,9 +765,51 @@ public:
     CStatusWindow *StatusLine,
         *DirectoryLine;
 
+    CPanelSide PanelSide;
+    bool CustomTabColorValid;
+    COLORREF CustomTabColor;
+    bool CustomTabPrefixValid;
+    std::wstring CustomTabPrefix;
+    bool TabLocked;
+
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
     BOOL HeaderLineVisible;
+
+    struct CPendingPanelSettings
+    {
+        bool HasViewTemplate;
+        int ViewTemplateIndex;
+        bool HasDirectoryLine;
+        bool DirectoryLineVisible;
+        bool HasStatusLine;
+        bool StatusLineVisible;
+        bool HasHeaderLine;
+        bool HeaderLineVisible;
+        bool HasFilter;
+        std::string FilterMasks;
+        bool FilterEnabled;
+
+        CPendingPanelSettings()
+            : HasViewTemplate(false)
+            , ViewTemplateIndex(0)
+            , HasDirectoryLine(false)
+            , DirectoryLineVisible(true)
+            , HasStatusLine(false)
+            , StatusLineVisible(true)
+            , HasHeaderLine(false)
+            , HeaderLineVisible(true)
+            , HasFilter(false)
+            , FilterMasks()
+            , FilterEnabled(false)
+        {
+        }
+    };
+
+    CPendingPanelSettings PendingSettings;
+
+    std::string DeferredConfigPath;
+    bool DeferredConfigRefreshOnActivation;
 
     CMainWindow* Parent;
 
@@ -815,6 +869,7 @@ public:
     int RefreshAfterIconsReadingTime;  // "time" of the latest refresh that arrived while icons were being read
 
     CPathHistory* PathHistory; // browsing history for this panel (for the panel)
+    CPathHistory* WorkDirHistory;   // historie pracovnich adresaru pro tento tab
 
     DWORD HiddenDirsFilesReason; // bit field indicating the reason why files/directories are hidden (HIDDEN_REASON_xxx)
     int HiddenDirsCount,         // number of hidden directories in the panel (number of skipped ones)
@@ -895,8 +950,37 @@ public:
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent);
+    CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
+
+    CPanelSide GetPanelSide() const { return PanelSide; }
+    BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
+    BOOL IsRightPanel() const { return PanelSide == cpsRight; }
+    void SetPanelSide(CPanelSide side);
+    bool HasCustomTabColor() const { return CustomTabColorValid; }
+    COLORREF GetCustomTabColor() const { return CustomTabColor; }
+    void SetCustomTabColor(COLORREF color);
+    void ClearCustomTabColor();
+    bool HasCustomTabPrefix() const { return CustomTabPrefixValid && !CustomTabPrefix.empty(); }
+    const std::wstring& GetCustomTabPrefix() const { return CustomTabPrefix; }
+    void SetCustomTabPrefix(const wchar_t* prefix);
+    void ClearCustomTabPrefix();
+    bool IsTabLocked() const { return TabLocked; }
+    void SetTabLocked(bool locked) { TabLocked = locked; }
+
+    void SetPendingViewTemplate(int templateIndex);
+    void SetPendingDirectoryLineVisible(bool visible);
+    void SetPendingStatusLineVisible(bool visible);
+    void SetPendingHeaderLineVisible(bool visible);
+    void SetPendingFilter(const char* masks, bool enabled);
+    void ApplyPendingSettings();
+
+    void ClearDeferredConfigPath();
+    void SetDeferredConfigPath(const char* path, bool refreshOnActivation);
+    bool HasDeferredConfigPath() const { return !DeferredConfigPath.empty(); }
+    const std::string& GetDeferredConfigPath() const { return DeferredConfigPath; }
+    BOOL ApplyDeferredConfigPath(CMainWindow* mainWnd);
+    BOOL RestorePathFromConfig(CMainWindow* mainWnd, const char* path);
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
@@ -1571,6 +1655,10 @@ public:
 
     // places the full current path on the clipboard (active in the panel)
     BOOL CopyCurrentPathToClipboard();
+
+    CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
+    CPathHistory* EnsureWorkDirHistory();
+    void ClearWorkDirHistory();
 
     void OpenDirHistory();
 
