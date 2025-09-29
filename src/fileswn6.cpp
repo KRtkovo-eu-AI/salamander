@@ -57,7 +57,7 @@ void CFilesWindow::Activate(BOOL shares)
             {
                 if (checkPathRet == ERROR_USER_TERMINATED) // user pressed ESC -> switch to fixed drive
                 {
-                    if (IsLeftPanel())
+                    if (MainWindow->LeftPanel == this)
                     {
                         if (!ChangeLeftPanelToFixedWhenIdleInProgress)
                             ChangeLeftPanelToFixedWhenIdle = TRUE;

@@ -1408,27 +1408,6 @@ int CTreePropDialog::GetCurSel()
     return -1;
 }
 
-HWND CTreePropDialog::GetTreeViewHandle() const
-{
-    return Dialog.HTreeView;
-}
-
-HTREEITEM CTreePropDialog::GetPageTreeItem(const CPropSheetPage* page) const
-{
-    return (page != NULL) ? page->HTreeItem : NULL;
-}
-
-void CTreePropDialog::SetPageTreeItem(CPropSheetPage* page, HTREEITEM item)
-{
-    if (page != NULL)
-        page->HTreeItem = item;
-}
-
-const TCHAR* CTreePropDialog::GetPageTitle(const CPropSheetPage* page) const
-{
-    return (page != NULL) ? page->Title : NULL;
-}
-
 int CTreePropDialog::Add(CPropSheetPage* page, CPropSheetPage* parent, BOOL* expanded)
 {
     int ret = CPropertyDialog::Add(page);

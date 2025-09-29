@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -10,7 +10,6 @@
 #include "fileswnd.h"
 #include "filesbox.h"
 #include "mainwnd.h"
-#include "tabwnd.h"
 #include "editwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
@@ -282,8 +281,7 @@ BOOL CHotPathItems::Load1_52(HKEY hKey)
 // CMainWindow
 //
 
-CMainWindow::CMainWindow()
-    : ChangeNotifArray(3, 5), LeftPanelTabs(1, 1, dtNoDelete), RightPanelTabs(1, 1, dtNoDelete)
+CMainWindow::CMainWindow() : ChangeNotifArray(3, 5)
 {
     HANDLES(InitializeCriticalSection(&DispachChangeNotifCS));
     LastDispachChangeNotifTime = 0;
@@ -316,18 +314,6 @@ CMainWindow::CMainWindow()
     DriveBar = NULL;
     DriveBar2 = NULL;
     BottomToolBar = NULL;
-    LeftTabWindow = NULL;
-    RightTabWindow = NULL;
-    PanelTabCrossDragActive = false;
-    PanelTabCrossDragSourceSide = cpsLeft;
-    PanelTabCrossDragSourceIndex = -1;
-    PanelTabCrossDragHasTarget = false;
-    PanelTabCrossDragDisplayedInsertIndex = -1;
-    PanelTabCrossDragDisplayedMarkItem = -1;
-    PanelTabCrossDragDisplayedMarkFlags = 0;
-    PanelTabCrossDragStoredInsertIndex = -1;
-    PanelTabCrossDragStoredMarkItem = -1;
-    PanelTabCrossDragStoredMarkFlags = 0;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;
@@ -357,9 +343,6 @@ CMainWindow::CMainWindow()
     LockedUI = FALSE;
     LockedUIToolWnd = NULL;
     LockedUIReason = NULL;
-
-    PanelConfigPathsRestoredLeft = FALSE;
-    PanelConfigPathsRestoredRight = FALSE;
 
     ToolTip = new CToolTip(ooStatic);
 
@@ -472,22 +455,7 @@ CMainWindow::~CMainWindow()
         delete ContextMenuNew;
     if (ToolTip != NULL)
         delete ToolTip;
-    if (LeftTabWindow != NULL)
-        delete LeftTabWindow;
-    if (RightTabWindow != NULL)
-        delete RightTabWindow;
-    for (int side = 0; side < 2; ++side)
-    {
-        ClosedPanelTabs[side].clear();
-    }
     MainWindow = NULL;
-}
-
-CFilesWindow* CMainWindow::GetOtherPanel(CFilesWindow* panel)
-{
-    if (panel == NULL)
-        return NULL;
-    return panel->IsLeftPanel() ? RightPanel : LeftPanel;
 }
 
 void CMainWindow::ClearHistory()
@@ -497,16 +465,11 @@ void CMainWindow::ClearHistory()
 
     if (DirHistory != NULL)
         DirHistory->ClearHistory();
-
-    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-    for (int i = 0; i < leftTabs.Count; i++)
-        leftTabs[i]->ClearWorkDirHistory();
-    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-    for (int i = 0; i < rightTabs.Count; i++)
-        rightTabs[i]->ClearWorkDirHistory();
-
-    UpdateAllDirectoryLineHistoryStates();
-    RefreshCommandStates();
+    // hide the little arrows in the DirLine
+    if (LeftPanel != NULL)
+        LeftPanel->DirectoryLine->SetHistory(FALSE);
+    if (RightPanel != NULL)
+        RightPanel->DirectoryLine->SetHistory(FALSE);
 }
 
 void CMainWindow::UpdateDefaultDir(BOOL activePrefered)
@@ -1733,94 +1696,82 @@ void CMainWindow::SetTrayIconText(const char* text)
     Shell_NotifyIcon(NIM_MODIFY, &tnid);
 }
 
-void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* buffer, int bufferSize)
+void CMainWindow::GetFormatedPathForTitle(char* path)
 {
-    if (buffer == NULL || bufferSize <= 0)
-        return;
-
-    buffer[0] = 0;
-
+    path[0] = 0;
+    int titleBarMode = Configuration.TitleBarMode;
+    // a plugin FS without support for retrieving the path for the window title can only display the Full Path
+    CFilesWindow* panel = GetActivePanel();
     if (panel == NULL)
-        return;
-
-    if (panel->HasDeferredConfigPath())
     {
-        const std::string& deferred = panel->GetDeferredConfigPath();
-        lstrcpyn(buffer, deferred.c_str(), bufferSize);
+        path[0] = 0;
         return;
     }
-
-    if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
-        mode = TITLE_BAR_MODE_DIRECTORY;
-
-    CPluginFSInterfaceEncapsulation* pluginFS = NULL;
-    BOOL pluginTitleService = FALSE;
-    if (panel->Is(ptPluginFS))
+    if (panel->Is(ptPluginFS) &&
+        !panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE))
     {
-        pluginFS = panel->GetPluginFS();
-        if (pluginFS != NULL)
-            pluginTitleService = pluginFS->IsServiceSupported(FS_SERVICE_GETPATHFORMAINWNDTITLE);
-
-        if (!pluginTitleService && mode != TITLE_BAR_MODE_FULLPATH)
-            mode = TITLE_BAR_MODE_FULLPATH;
+        titleBarMode = TITLE_BAR_MODE_FULLPATH;
     }
-
-    char generalPath[2 * MAX_PATH];
-    generalPath[0] = 0;
-    panel->GetGeneralPath(generalPath, _countof(generalPath));
-
-    switch (mode)
+    switch (titleBarMode)
     {
     case TITLE_BAR_MODE_COMPOSITE:
     {
-        if (pluginTitleService &&
-            pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), 2, buffer, bufferSize) && buffer[0] != 0)
+        if (!panel->Is(ptPluginFS) ||
+            !panel->GetPluginFS()->GetPathForMainWindowTitle(panel->GetPluginFS()->GetPluginFSName(),
+                                                             2, path, 2 * MAX_PATH))
         {
-            return;
-        }
-
-        lstrcpyn(buffer, generalPath, bufferSize);
-        if (buffer[0] != 0)
-        {
-            const char backslash = 0x5C;  // '\\'
-            char* trimStart = NULL;
-            char* trimEnd = NULL;
-            if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+            // we should display "root\...\current directory"
+            panel->GetGeneralPath(path, 2 * MAX_PATH);
+            if (path[0] != 0)
             {
-                char rootPath[MAX_PATH];
-                GetRootPath(rootPath, buffer);
-                int chars = (int)strlen(rootPath);
-                trimStart = buffer + chars;
-                while (buffer[chars] != 0)
+                char* trimStart = NULL; // place where I insert "...", after which I append 'trimEnd'
+                char* trimEnd = NULL;
+                if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
                 {
-                    if (buffer[chars] == backslash && buffer[chars + 1] != 0)
-                        trimEnd = buffer + chars;
-                    chars++;
-                }
-            }
-            else if (panel->Is(ptPluginFS) && pluginFS != NULL)
-            {
-                int chars = 0;
-                int pathLen = (int)strlen(buffer);
-                if (pluginFS->GetNextDirectoryLineHotPath(buffer, pathLen, chars) && chars < pathLen)
-                {
-                    trimStart = buffer + chars;
-                    int lastChars = chars;
-                    while (pluginFS->GetNextDirectoryLineHotPath(buffer, pathLen, chars))
+                    char rootPath[MAX_PATH];
+                    GetRootPath(rootPath, path);
+                    int chars = (int)strlen(rootPath);
+                    // we isolated the root
+                    trimStart = path + chars;
+                    while (path[chars] != 0)
                     {
-                        if (chars < pathLen)
-                            lastChars = chars;
-                        else
-                            break;
+                        // we are looking for the last component we want to keep
+                        if (path[chars] == '\\' && path[chars + 1] != 0)
+                            trimEnd = path + chars;
+                        chars++;
                     }
-                    trimEnd = buffer + lastChars;
                 }
-            }
-
-            if (trimStart != NULL && trimEnd != NULL && trimEnd > trimStart)
-            {
-                memmove(trimStart + 3, trimEnd, strlen(trimEnd) + 1);
-                memcpy(trimStart, "...", 3);
+                else
+                {
+                    if (panel->Is(ptPluginFS))
+                    {
+                        int chars = 0;
+                        int pathLen = (int)strlen(path);
+                        // if FS does not support FS_SERVICE_GETNEXTDIRLINEHOTPATH, we get FALSE and show the full path
+                        if (panel->GetPluginFS()->GetNextDirectoryLineHotPath(path, pathLen, chars) &&
+                            chars < pathLen) // end of path isn't a point of division; bug in GetNextDirectoryLineHotPath implementation
+                        {
+                            // we isolated the root
+                            trimStart = path + chars;
+                            int lastChars = chars;
+                            while (panel->GetPluginFS()->GetNextDirectoryLineHotPath(path, pathLen, chars))
+                            {
+                                // we are looking for the last component we want to keep
+                                if (chars < pathLen)
+                                    lastChars = chars;
+                                else
+                                    break; // end of path isn't a point of division;bug in GetNextDirectoryLineHotPath implementation
+                            }
+                            trimEnd = path + lastChars;
+                        }
+                    }
+                }
+                // trim the path
+                if (trimStart != NULL && trimEnd != NULL && trimEnd > trimStart)
+                {
+                    memmove(trimStart + 3, trimEnd, strlen(trimEnd) + 1);
+                    memcpy(trimStart, "...", 3);
+                }
             }
         }
         break;
@@ -1828,48 +1779,50 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
 
     case TITLE_BAR_MODE_DIRECTORY:
     {
-        if (pluginTitleService &&
-            pluginFS->GetPathForMainWindowTitle(pluginFS->GetPluginFSName(), 1, buffer, bufferSize) && buffer[0] != 0)
+        if (!panel->Is(ptPluginFS) ||
+            !panel->GetPluginFS()->GetPathForMainWindowTitle(panel->GetPluginFS()->GetPluginFSName(),
+                                                             1, path, MAX_PATH))
         {
-            return;
-        }
-
-        lstrcpyn(buffer, generalPath, bufferSize);
-        if (buffer[0] != 0)
-        {
-            const char backslash = 0x5C;      // '\\'
-            const char forwardSlash = 0x2F;   // '/'
-            if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
+            // we should display only the current directory
+            panel->GetGeneralPath(path, 2 * MAX_PATH);
+            if (path[0] != 0)
             {
-                char rootPath[MAX_PATH];
-                GetRootPath(rootPath, buffer);
-                int chars = (int)strlen(rootPath);
-                char* p = buffer + strlen(buffer);
-                if (*p == backslash)
-                    p--;
-                while (p > buffer && *p != backslash)
-                    p--;
-                if (*(p + 1) != 0 && p + 1 >= buffer + chars)
-                    memmove(buffer, p + 1, strlen(p + 1) + 1);
-            }
-            else if (panel->Is(ptPluginFS) && pluginFS != NULL)
-            {
-                int chars = 0;
-                int pathLen = (int)strlen(buffer);
-                int lastChars = 0;
-                while (pluginFS->GetNextDirectoryLineHotPath(buffer, pathLen, chars))
+                if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
                 {
-                    if (chars < pathLen)
-                        lastChars = chars;
-                    else
-                        break;
+                    char rootPath[MAX_PATH];
+                    GetRootPath(rootPath, path);
+                    int chars = (int)strlen(rootPath);
+                    char* p = path + strlen(path);
+                    if (*p == '\\')
+                        p--;
+                    while (p > path && *p != '\\')
+                        p--;
+                    if (*(p + 1) != 0 && p + 1 >= path + chars)
+                        memmove(path, p + 1, strlen(p + 1) + 1);
                 }
-                if (lastChars > 0)
+                else
                 {
-                    char* p = buffer + lastChars;
-                    if (*p == forwardSlash || *p == backslash)
-                        p++;
-                    memmove(buffer, p, strlen(p) + 1);
+                    if (panel->Is(ptPluginFS))
+                    {
+                        int chars = 0;
+                        int pathLen = (int)strlen(path);
+                        int lastChars = 0;
+                        // if FS does not support FS_SERVICE_GETNEXTDIRLINEHOTPATH, we get FALSE and show the full path
+                        while (panel->GetPluginFS()->GetNextDirectoryLineHotPath(path, pathLen, chars))
+                        {
+                            if (chars < pathLen)
+                                lastChars = chars;
+                            else
+                                break; // end of path isn't a point of division; bug in GetNextDirectoryLineHotPath implementation
+                        }
+                        if (lastChars > 0)
+                        {
+                            char* p = path + lastChars;
+                            if (*p == '/' || *p == '\\')
+                                p++;
+                            memmove(path, p, strlen(p) + 1);
+                        }
+                    }
                 }
             }
         }
@@ -1877,26 +1830,19 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
     }
 
     case TITLE_BAR_MODE_FULLPATH:
-    default:
-        lstrcpyn(buffer, generalPath, bufferSize);
+    {
+        // return the full path
+        panel->GetGeneralPath(path, 2 * MAX_PATH);
         break;
     }
 
-    if (buffer[0] == 0)
-        lstrcpyn(buffer, generalPath, bufferSize);
+    default:
+    {
+        TRACE_E("Configuration.TitleBarMode = " << Configuration.TitleBarMode);
+    }
+    }
 }
 
-void CMainWindow::GetFormatedPathForTitle(char* path)
-{
-    path[0] = 0;
-    CFilesWindow* panel = GetActivePanel();
-    if (panel == NULL)
-    {
-        path[0] = 0;
-        return;
-    }
-    FormatPanelPathForDisplay(panel, Configuration.TitleBarMode, path, 2 * MAX_PATH);
-}
 void CMainWindow::SetWindowTitle(const char* text)
 {
     CALL_STACK_MESSAGE2("CMainWindow::SetWindowTitle(%s)", text);
@@ -2762,39 +2708,6 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     BOOL leftSmartMode = FALSE;
     BOOL rightSmartMode = FALSE;
 
-    BOOL newTab = FALSE;
-    BOOL closeTab = FALSE;
-    BOOL nextTab = FALSE;
-    BOOL prevTab = FALSE;
-    BOOL duplicateTab = FALSE;
-    BOOL leftNewTab = FALSE;
-    BOOL leftCloseTab = FALSE;
-    BOOL leftNextTab = FALSE;
-    BOOL leftPrevTab = FALSE;
-    BOOL leftDuplicateTabSame = FALSE;
-    BOOL rightNewTab = FALSE;
-    BOOL rightCloseTab = FALSE;
-    BOOL rightNextTab = FALSE;
-    BOOL rightPrevTab = FALSE;
-    BOOL rightDuplicateTabSame = FALSE;
-    BOOL leftCloseAllButDefault = FALSE;
-    BOOL leftCloseAllExceptThisAndDefault = FALSE;
-    BOOL rightCloseAllButDefault = FALSE;
-    BOOL rightCloseAllExceptThisAndDefault = FALSE;
-    BOOL leftDuplicateTab = FALSE;
-    BOOL leftMoveTab = FALSE;
-    BOOL rightDuplicateTab = FALSE;
-    BOOL rightMoveTab = FALSE;
-    BOOL reopenTab = FALSE;
-    BOOL lockTab = FALSE;
-    BOOL unlockTab = FALSE;
-    BOOL leftReopenTab = FALSE;
-    BOOL leftLockTab = FALSE;
-    BOOL leftUnlockTab = FALSE;
-    BOOL rightReopenTab = FALSE;
-    BOOL rightLockTab = FALSE;
-    BOOL rightUnlockTab = FALSE;
-
     int selCount = 0;
     int unselCount = 0;
 
@@ -2815,7 +2728,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         targetArchive = nonActivePanel->Is(ptZIPArchive);
         selCount = activePanel->GetSelCount();
         onDisk = activePanel->Is(ptDisk);
-        dirHistory = obj->HasDirHistory(activePanel);
+        dirHistory = obj->DirHistory->HasPaths();
         sortType = activePanel->SortType;
         leftSortType = obj->LeftPanel->SortType;
         rightSortType = obj->RightPanel->SortType;
@@ -2823,113 +2736,6 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         smartMode = obj->GetSmartColumnMode(activePanel);
         leftSmartMode = obj->GetSmartColumnMode(obj->LeftPanel);
         rightSmartMode = obj->GetSmartColumnMode(obj->RightPanel);
-
-        CPanelSide activeSide = activePanel->GetPanelSide();
-        int activeCount = obj->GetPanelTabCount(activeSide);
-        int activeIndex = obj->GetPanelTabIndex(activeSide, activePanel);
-        bool activeLocked = activePanel->IsTabLocked();
-        newTab = TRUE;
-        closeTab = (activeIndex > 0 && !activeLocked);
-        nextTab = (activeCount > 1);
-        prevTab = (activeCount > 1);
-        duplicateTab = (activeIndex >= 0);
-        reopenTab = obj->HasClosedTab(activeSide);
-        lockTab = (activeIndex > 0 && !activeLocked);
-        unlockTab = (activeIndex > 0 && activeLocked);
-
-        int leftCount = obj->GetPanelTabCount(cpsLeft);
-        leftNewTab = (leftCount > 0);
-        CFilesWindow* leftPanel = obj->LeftPanel;
-        int leftIndex = obj->GetPanelTabIndex(cpsLeft, leftPanel);
-        bool leftLocked = (leftPanel != NULL && leftPanel->IsTabLocked());
-        leftCloseTab = (leftIndex > 0 && !leftLocked);
-        leftNextTab = (leftCount > 1);
-        leftPrevTab = (leftCount > 1);
-        leftDuplicateTabSame = (leftIndex >= 0);
-        bool leftHasClosable = FALSE;
-        bool leftHasClosableExcludingCurrent = FALSE;
-        for (int i = 1; i < leftCount; ++i)
-        {
-            CFilesWindow* tabPanel = obj->GetPanelTabAt(cpsLeft, i);
-            if (tabPanel != NULL && !tabPanel->IsTabLocked())
-            {
-                leftHasClosable = TRUE;
-                if (i != leftIndex)
-                    leftHasClosableExcludingCurrent = TRUE;
-            }
-        }
-        leftCloseAllButDefault = leftHasClosable;
-        leftCloseAllExceptThisAndDefault = (leftIndex <= 0) ? leftHasClosable : leftHasClosableExcludingCurrent;
-        leftDuplicateTab = (leftIndex >= 0);
-        leftMoveTab = (leftIndex > 0 && !leftLocked);
-        leftReopenTab = obj->HasClosedTab(cpsLeft);
-        leftLockTab = (leftIndex > 0 && !leftLocked);
-        leftUnlockTab = (leftIndex > 0 && leftLocked);
-
-        int rightCount = obj->GetPanelTabCount(cpsRight);
-        rightNewTab = (rightCount > 0);
-        CFilesWindow* rightPanel = obj->RightPanel;
-        int rightIndex = obj->GetPanelTabIndex(cpsRight, rightPanel);
-        bool rightLocked = (rightPanel != NULL && rightPanel->IsTabLocked());
-        rightCloseTab = (rightIndex > 0 && !rightLocked);
-        rightNextTab = (rightCount > 1);
-        rightPrevTab = (rightCount > 1);
-        rightDuplicateTabSame = (rightIndex >= 0);
-        bool rightHasClosable = FALSE;
-        bool rightHasClosableExcludingCurrent = FALSE;
-        for (int i = 1; i < rightCount; ++i)
-        {
-            CFilesWindow* tabPanel = obj->GetPanelTabAt(cpsRight, i);
-            if (tabPanel != NULL && !tabPanel->IsTabLocked())
-            {
-                rightHasClosable = TRUE;
-                if (i != rightIndex)
-                    rightHasClosableExcludingCurrent = TRUE;
-            }
-        }
-        rightCloseAllButDefault = rightHasClosable;
-        rightCloseAllExceptThisAndDefault = (rightIndex <= 0) ? rightHasClosable : rightHasClosableExcludingCurrent;
-        rightDuplicateTab = (rightIndex >= 0);
-        rightMoveTab = (rightIndex > 0 && !rightLocked);
-        rightReopenTab = obj->HasClosedTab(cpsRight);
-        rightLockTab = (rightIndex > 0 && !rightLocked);
-        rightUnlockTab = (rightIndex > 0 && rightLocked);
-
-        if (!Configuration.UsePanelTabs)
-        {
-            newTab = FALSE;
-            closeTab = FALSE;
-            nextTab = FALSE;
-            prevTab = FALSE;
-            duplicateTab = FALSE;
-            leftNewTab = FALSE;
-            leftCloseTab = FALSE;
-            leftNextTab = FALSE;
-            leftPrevTab = FALSE;
-            leftDuplicateTabSame = FALSE;
-            leftCloseAllButDefault = FALSE;
-            leftCloseAllExceptThisAndDefault = FALSE;
-            rightNewTab = FALSE;
-            rightCloseTab = FALSE;
-            rightNextTab = FALSE;
-            rightPrevTab = FALSE;
-            rightDuplicateTabSame = FALSE;
-            rightCloseAllButDefault = FALSE;
-            rightCloseAllExceptThisAndDefault = FALSE;
-            leftDuplicateTab = FALSE;
-            leftMoveTab = FALSE;
-            rightDuplicateTab = FALSE;
-            rightMoveTab = FALSE;
-            reopenTab = FALSE;
-            lockTab = FALSE;
-            unlockTab = FALSE;
-            leftReopenTab = FALSE;
-            leftLockTab = FALSE;
-            leftUnlockTab = FALSE;
-            rightReopenTab = FALSE;
-            rightLockTab = FALSE;
-            rightUnlockTab = FALSE;
-        }
 
         if (archive)
         {
@@ -3114,38 +2920,6 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
                                                 validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_OPENACTIVEFOLDER)));
     obj->CheckAndSet(&EnablerPermissions, onDisk && files && acls &&
                                               ((containsFile && !containsDir) || (!containsFile && containsDir)));
-    obj->CheckAndSet(&EnablerNewTab, newTab);
-    obj->CheckAndSet(&EnablerCloseTab, closeTab);
-    obj->CheckAndSet(&EnablerNextTab, nextTab);
-    obj->CheckAndSet(&EnablerPrevTab, prevTab);
-    obj->CheckAndSet(&EnablerDuplicateTab, duplicateTab);
-    obj->CheckAndSet(&EnablerReopenTab, reopenTab);
-    obj->CheckAndSet(&EnablerLockTab, lockTab);
-    obj->CheckAndSet(&EnablerUnlockTab, unlockTab);
-    obj->CheckAndSet(&EnablerLeftNewTab, leftNewTab);
-    obj->CheckAndSet(&EnablerLeftCloseTab, leftCloseTab);
-    obj->CheckAndSet(&EnablerLeftNextTab, leftNextTab);
-    obj->CheckAndSet(&EnablerLeftPrevTab, leftPrevTab);
-    obj->CheckAndSet(&EnablerLeftDuplicateTab, leftDuplicateTabSame);
-    obj->CheckAndSet(&EnablerLeftCloseAllButDefault, leftCloseAllButDefault);
-    obj->CheckAndSet(&EnablerLeftCloseAllExceptThisAndDefault, leftCloseAllExceptThisAndDefault);
-    obj->CheckAndSet(&EnablerLeftDuplicateTabToRight, leftDuplicateTab);
-    obj->CheckAndSet(&EnablerLeftMoveTabToRight, leftMoveTab);
-    obj->CheckAndSet(&EnablerLeftReopenTab, leftReopenTab);
-    obj->CheckAndSet(&EnablerLeftLockTab, leftLockTab);
-    obj->CheckAndSet(&EnablerLeftUnlockTab, leftUnlockTab);
-    obj->CheckAndSet(&EnablerRightNewTab, rightNewTab);
-    obj->CheckAndSet(&EnablerRightCloseTab, rightCloseTab);
-    obj->CheckAndSet(&EnablerRightNextTab, rightNextTab);
-    obj->CheckAndSet(&EnablerRightPrevTab, rightPrevTab);
-    obj->CheckAndSet(&EnablerRightDuplicateTab, rightDuplicateTabSame);
-    obj->CheckAndSet(&EnablerRightCloseAllButDefault, rightCloseAllButDefault);
-    obj->CheckAndSet(&EnablerRightCloseAllExceptThisAndDefault, rightCloseAllExceptThisAndDefault);
-    obj->CheckAndSet(&EnablerRightDuplicateTabToLeft, rightDuplicateTab);
-    obj->CheckAndSet(&EnablerRightMoveTabToLeft, rightMoveTab);
-    obj->CheckAndSet(&EnablerRightReopenTab, rightReopenTab);
-    obj->CheckAndSet(&EnablerRightLockTab, rightLockTab);
-    obj->CheckAndSet(&EnablerRightUnlockTab, rightUnlockTab);
 
     if (obj->IdleStatesChanged || IdleForceRefresh)
     {

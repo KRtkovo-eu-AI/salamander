@@ -1665,7 +1665,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             if (controlPressed && shiftPressed && !altPressed)
             {
                 // focusing the focused directory/file in the second panel
-                BOOL leftPanel = IsLeftPanel();
+                BOOL leftPanel = this == MainWindow->LeftPanel;
                 if (wParam == VK_LEFT)
                 {
                     SendMessage(MainWindow->HWindow, WM_COMMAND, leftPanel ? CM_OPEN_IN_OTHER_PANEL : CM_OPEN_IN_OTHER_PANEL_ACT, 0);
@@ -2252,15 +2252,12 @@ BOOL AreTheSameFiles(DWORD validFileData, CPluginDataInterfaceEncapsulation* plu
 void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloadThumbnails, BOOL isInactiveRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::RefreshDirectory()");
-
-    if (!EnsureIconInfrastructure())
-        return;
     //  if (QuickSearchMode) EndQuickSearch();   // We will try to make the quick search mode survive a refresh.
 
 #ifdef _DEBUG
     char t_path[2 * MAX_PATH];
     GetGeneralPath(t_path, 2 * MAX_PATH);
-    TRACE_I("RefreshDirectory: " << (IsLeftPanel() ? "left" : "right") << ": " << t_path);
+    TRACE_I("RefreshDirectory: " << (MainWindow->LeftPanel == this ? "left" : "right") << ": " << t_path);
 #endif // _DEBUG
 
     // show wait cursor

@@ -22,8 +22,8 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
         return;
     if (!Is(ptPluginFS) || !GetPluginFS()->NotEmpty())
         return;
-    int panel = IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
-    CFilesWindow* target = MainWindow->GetOtherPanel(this);
+    int panel = MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT;
+    CFilesWindow* target = (MainWindow->LeftPanel == this ? MainWindow->RightPanel : MainWindow->LeftPanel);
     BOOL unselect = FALSE;
 
     BeginSuspendMode(); // the snooper takes a break

@@ -55,47 +55,6 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory()");
 
-    if (!EnsureIconInfrastructure())
-        return FALSE;
-
-    class CAutoRefreshRestore
-    {
-    public:
-        explicit CAutoRefreshRestore(CFilesWindow* window)
-            : Win(window), RestoreMonitor(FALSE), ResetSuppress(FALSE)
-        {
-        }
-
-        void Suppress(BOOL monitorWasEnabled)
-        {
-            if (monitorWasEnabled)
-                RestoreMonitor = TRUE;
-            ResetSuppress = TRUE;
-        }
-
-        ~CAutoRefreshRestore()
-        {
-            if (Win == NULL)
-                return;
-
-            if (RestoreMonitor && Win->Is(ptDisk))
-            {
-                Win->SetMonitorChanges(TRUE);
-                BOOL registerDevNotification = Win->GetPathDriveType() == DRIVE_REMOVABLE ||
-                                               Win->GetPathDriveType() == DRIVE_FIXED;
-                EnsureWatching(Win, registerDevNotification);
-            }
-
-            if (ResetSuppress)
-                Win->SetSuppressAutoRefresh(FALSE);
-        }
-
-    private:
-        CFilesWindow* Win;
-        BOOL RestoreMonitor;
-        BOOL ResetSuppress;
-    } autoRefreshRestore(this);
-
     //  TRACE_I("ReadDirectory: begin");
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
@@ -457,14 +416,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         {
                             if (resBut == IDNO)
                             {
-                                BOOL monitorWasEnabled = GetMonitorChanges();
-                                if (monitorWasEnabled) // need to suppress monitoring of changes (autorefresh)
+                                if (GetMonitorChanges()) // need to suppress monitoring of changes (autorefresh)
                                 {
                                     DetachDirectory((CFilesWindow*)this);
                                     SetMonitorChanges(FALSE); // the changes won't be monitored anymore
                                 }
 
-                                autoRefreshRestore.Suppress(monitorWasEnabled);
                                 SetSuppressAutoRefresh(TRUE);
                             }
                         }
@@ -1016,7 +973,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             if (PluginData.NotEmpty())
             {
                 CSalamanderView view(this);
-                PluginData.SetupView(IsLeftPanel(), &view, GetZIPPath(),
+                PluginData.SetupView(this == MainWindow->LeftPanel, &view, GetZIPPath(),
                                      GetArchiveDir()->GetUpperDir(GetZIPPath()));
             }
 
@@ -1281,7 +1238,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 if (PluginData.NotEmpty())
                 {
                     CSalamanderView view(this);
-                    PluginData.SetupView(IsLeftPanel(), &view, NULL, NULL);
+                    PluginData.SetupView(this == MainWindow->LeftPanel, &view, NULL, NULL);
                 }
 
                 // setting of icon size for IconCache
@@ -1382,7 +1339,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     DWORD varPlacements[100];
                     int varPlacementsCount = 100;
                     if (PluginData.NotEmpty() &&
-                        PluginData.GetInfoLineContent(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
+                        PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
                                                       NULL, FALSE, 0, 0, TRUE, CQuadWord(0, 0), buff,
                                                       varPlacements, varPlacementsCount))
                     {
@@ -1942,13 +1899,6 @@ BOOL CFilesWindow::ChangeDir(const char* newDir, int suggestedTopIndex, const ch
 {
     CALL_STACK_MESSAGE7("CFilesWindow::ChangeDir(%s, %d, %s, %d, , %d, %d)", newDir, suggestedTopIndex,
                         suggestedFocusName, mode, convertFSPathToInternal, showNewDirPathInErrBoxes);
-
-    if (!EnsureIconInfrastructure())
-    {
-        if (failReason != NULL)
-            *failReason = CHPPFR_INTERNALERROR;
-        return FALSE;
-    }
 
     // backup the string (it could change during execution - e.g. Name from CFileData from panel)
     char backup[MAX_PATH];
@@ -2571,7 +2521,7 @@ void CFilesWindow::ChangeDrive(char drive)
     //--- DefaultDire refresh
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() != this);
     //---  possible disk selection from the dialog
-    CFilesWindow* anotherPanel = Parent->GetOtherPanel(this);
+    CFilesWindow* anotherPanel = (Parent->LeftPanel == this ? Parent->RightPanel : Parent->LeftPanel);
     if (drive == 0)
     {
         CDriveTypeEnum driveType = drvtUnknow; // dummy
@@ -2738,7 +2688,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
     {
         if (!check || CheckPath(FALSE) == ERROR_SUCCESS)
         { // only if the path is accessible
-            if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+            if (DirectoryLine->HWindow != NULL)
             {
                 UINT type = MyGetDriveType(GetPath());
                 char root[MAX_PATH];
@@ -2755,7 +2705,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
     {
         if (Is(ptZIPArchive))
         {
-            if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+            if (DirectoryLine->HWindow != NULL)
             {
                 HICON hIcon = LoadArchiveIcon(IconSizes[ICONSIZE_16], IconSizes[ICONSIZE_16], IconLRFlags);
                 DirectoryLine->SetDriveIcon(hIcon);
@@ -2766,7 +2716,7 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
         {
             if (Is(ptPluginFS))
             {
-                if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+                if (DirectoryLine->HWindow != NULL)
                 {
                     BOOL destroyIcon;
                     HICON icon = GetPluginFS()->GetFSIcon(destroyIcon);

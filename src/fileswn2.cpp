@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -295,7 +295,7 @@ void CFilesWindow::Execute(int index)
                                 s++;
                             if (*s == '\\')
                                 *s = 0;
-                            nethoodPlugin->EnsureShareExistsOnServer(HWindow, IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
+                            nethoodPlugin->EnsureShareExistsOnServer(HWindow, this == MainWindow->LeftPanel ? PANEL_LEFT : PANEL_RIGHT,
                                                                      path + 2, focusName);
                             ChangePathToPluginFS(doublePath, path, -1, focusName);
                             if (Is(ptPluginFS))
@@ -503,7 +503,7 @@ void CFilesWindow::Execute(int index)
                 CPluginInterfaceForFSEncapsulation* ifaceForFS = GetPluginFS()->GetPluginInterfaceForFS();
                 char fsNameBuf[MAX_PATH]; // GetPluginFS() may cease to exist, so we copy fsName to local buffer
                 lstrcpyn(fsNameBuf, GetPluginFS()->GetPluginFSName(), MAX_PATH);
-                ifaceForFS->ExecuteOnFS(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
+                ifaceForFS->ExecuteOnFS(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
                                         GetPluginFS()->GetInterface(), fsNameBuf,
                                         GetPluginFS()->GetPluginFSNameIndex(), *file, isDir);
             }
@@ -907,8 +907,6 @@ void CFilesWindow::ToggleDirectoryLine()
                                    HInstance,
                                    DirectoryLine))
             TRACE_E("Unable to create directory-line.");
-        else
-            DirectoryLine->SetLeftPanel(IsLeftPanel());
         IdleForceRefresh = TRUE;  // we force an update
         IdleRefreshStates = TRUE; // we force state-variable check on next idle
     }
@@ -948,8 +946,6 @@ void CFilesWindow::ToggleStatusLine()
                                 HInstance,
                                 StatusLine))
             TRACE_E("Unable to create information-line.");
-        else
-            StatusLine->SetLeftPanel(IsLeftPanel());
     }
     RECT r;
     GetClientRect(HWindow, &r);
@@ -1080,7 +1076,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         if (PluginData.NotEmpty())
         {
             CSalamanderView view(this);
-            PluginData.SetupView(IsLeftPanel(),
+            PluginData.SetupView(this == MainWindow->LeftPanel,
                                  &view, Is(ptZIPArchive) ? GetZIPPath() : NULL,
                                  Is(ptZIPArchive) ? GetArchiveDir()->GetUpperDir(GetZIPPath()) : NULL);
         }
@@ -1157,7 +1153,7 @@ void CFilesWindow::ItemFocused(int index)
         {
             if (PluginData.NotEmpty())
             {
-                if (PluginData.GetInfoLineContent(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
+                if (PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
                                                   f, index < Dirs->Count, 0, 0, TRUE, CQuadWord(0, 0), buff,
                                                   varPlacements, varPlacementsCount))
                 {
@@ -1256,7 +1252,7 @@ BOOL CFilesWindow::PrepareCloseCurrentPath(HWND parent, BOOL canForce, BOOL canD
             // if edited files might be in the disk cache or this archive isn't open
             // in the other panel, we'll remove its cached files; it will unpack again next time it's opened
             // (the archive might be edited in the meantime)
-            CFilesWindow* another = MainWindow->GetOtherPanel(this);
+            CFilesWindow* another = (MainWindow->LeftPanel == this) ? MainWindow->RightPanel : MainWindow->LeftPanel;
             if (someFilesChanged || !another->Is(ptZIPArchive) || StrICmp(another->GetZIPArchive(), GetZIPArchive()) != 0)
             {
                 StrICpy(buf, GetZIPArchive()); // the disk cache stores the archive name in lowercase (allows case-insensitive comparison of the name from Windows file system)
@@ -1391,7 +1387,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
             {
                 const char* path = GetPath();
                 // HICON hIcon = GetFileOrPathIconAux(path, FALSE, TRUE); // we retrieve the icon
-                MainWindow->DirHistoryAddPathUnique(this, 0, path, NULL, NULL /*hIcon*/, NULL, NULL);
+                MainWindow->DirHistoryAddPathUnique(0, path, NULL, NULL /*hIcon*/, NULL, NULL);
                 if (!newPathIsTheSame)
                     UserWorkedOnThisPath = FALSE;
             }
@@ -1418,7 +1414,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
             {
                 if (UserWorkedOnThisPath)
                 {
-                    MainWindow->DirHistoryAddPathUnique(this, 1, GetZIPArchive(), GetZIPPath(), NULL, NULL, NULL);
+                    MainWindow->DirHistoryAddPathUnique(1, GetZIPArchive(), GetZIPPath(), NULL, NULL, NULL);
                     if (!newPathIsTheSame)
                         UserWorkedOnThisPath = FALSE;
                 }
@@ -1468,7 +1464,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
                     {
                         if (UserWorkedOnThisPath)
                         {
-                            MainWindow->DirHistoryAddPathUnique(this, 2, GetPluginFS()->GetPluginFSName(), buf, NULL,
+                            MainWindow->DirHistoryAddPathUnique(2, GetPluginFS()->GetPluginFSName(), buf, NULL,
                                                                 GetPluginFS()->GetInterface(), GetPluginFS());
                             if (!newPathIsTheSame)
                                 UserWorkedOnThisPath = FALSE;
@@ -2404,7 +2400,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     {
         if (UserWorkedOnThisPath)
         {
-            MainWindow->DirHistoryAddPathUnique(this, 1, GetZIPArchive(), currentPath, NULL, NULL, NULL);
+            MainWindow->DirHistoryAddPathUnique(1, GetZIPArchive(), currentPath, NULL, NULL, NULL);
             UserWorkedOnThisPath = FALSE;
         }
 
@@ -2965,7 +2961,7 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                 {
                     if (UserWorkedOnThisPath)
                     {
-                        MainWindow->DirHistoryAddPathUnique(this, 2, currentPathFSName, currentPath, NULL,
+                        MainWindow->DirHistoryAddPathUnique(2, currentPathFSName, currentPath, NULL,
                                                             GetPluginFS()->GetInterface(), GetPluginFS());
                         UserWorkedOnThisPath = FALSE;
                     }
@@ -3100,7 +3096,7 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                 {
                     if (UserWorkedOnThisPath)
                     {
-                        MainWindow->DirHistoryAddPathUnique(this, 2, currentPathFSName, currentPath, NULL,
+                        MainWindow->DirHistoryAddPathUnique(2, currentPathFSName, currentPath, NULL,
                                                             GetPluginFS()->GetInterface(), GetPluginFS());
                         UserWorkedOnThisPath = FALSE;
                     }
@@ -3446,7 +3442,7 @@ void CFilesWindow::RefreshDiskFreeSpace(BOOL check, BOOL doNotRefreshOtherPanel)
                 // disk-free-space there as well (it is not perfect - ideally we would
                 // test whether both paths are on the same volume, but that would be too slow;
                 // this simplification should be more than enough for normal use)
-                CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
+                CFilesWindow* otherPanel = (MainWindow->LeftPanel == this) ? MainWindow->RightPanel : MainWindow->LeftPanel;
                 if (otherPanel->Is(ptDisk) && HasTheSameRootPath(GetPath(), otherPanel->GetPath()))
                     otherPanel->RefreshDiskFreeSpace(TRUE, TRUE /* otherwise we'd recurse endlessly */);
             }
@@ -4034,7 +4030,7 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
         }
 
         // handle Smart Mode for the Name column
-        BOOL leftPanel = IsLeftPanel();
+        BOOL leftPanel = (MainWindow->LeftPanel == this);
         if (Columns[0].FixedWidth == 0 &&
             (leftPanel && ViewTemplate->LeftSmartMode || !leftPanel && ViewTemplate->RightSmartMode) &&
             ListBox->FilesRect.right - ListBox->FilesRect.left > 0) // only if the files-box has already been initialized

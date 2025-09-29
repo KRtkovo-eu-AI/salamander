@@ -292,7 +292,6 @@
 #define IDD_CFGPAGE_APPEARANCE          595
 #define IDC_NOTHIDDENSYSTEM             596
 #define IDC_USESALOPEN                  597
-#define IDC_PANELS_USETABS              599
 #define IDC_FULLROWHIGHLIGHT            601
 #define IDC_CHD_SHOWMYDOC               602
 #define IDC_QUICKRENAME_SELALL          603
@@ -405,7 +404,6 @@
 #define IDS_CHDHOTPATHS_HINT            1090
 #define IDS_CHDPLUGINS_HINT             1091
 #define IDD_CFGPAGE_PANELS              1105
-#define IDD_CFGPAGE_TABS                1106
 #define IDD_CFGPAGE_KEYBOARD            1110
 #define IDC_KEYBOARD_SHORTCUTS          1111
 #define IDD_CANNOTSETATTRSINFO          1120
@@ -572,8 +570,6 @@
 #define IDC_HISTORY_SAVECMDLINE         2648
 #define IDC_HISTORY_CLEARHISTORY        2649
 #define IDC_HISTORY_WORKDIRS            2650
-#define IDC_HISTORY_WORKDIRS_SHARED     2651
-#define IDC_HISTORY_WORKDIRS_PER_TAB    2652
 #define IDD_LOADSELECTION               2660
 #define IDC_LOADSEL_COPY                2661
 #define IDC_LOADSEL_OR                  2662
@@ -593,8 +589,6 @@
 #define IDC_TITLEBAR_PREFIX_TEXT        2686
 #define IDC_TITLEBAR_ICON               2687
 #define IDC_TITLEBAR_ICON_INDEX         2688
-#define IDC_TABS_MODE                   2689
-#define IDC_TABS_LABEL                  2690
 #define IDD_CFGPAGE_ARCHIVERS           2700
 #define IDC_ARCH_SIMPLEICONS            2701
 #define IDC_ARCH_ANOTHERPANELP          2702

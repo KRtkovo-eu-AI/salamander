@@ -1373,7 +1373,7 @@ void CFilesWindow::EmailFiles()
 
 BOOL CFilesWindow::OpenFocusedInOtherPanel(BOOL activate)
 {
-    CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
+    CFilesWindow* otherPanel = (this == MainWindow->LeftPanel) ? MainWindow->RightPanel : MainWindow->LeftPanel;
     if (otherPanel == NULL)
         return FALSE;
 
@@ -1452,7 +1452,7 @@ BOOL CFilesWindow::OpenFocusedInOtherPanel(BOOL activate)
 
 void CFilesWindow::ChangePathToOtherPanelPath()
 {
-    CFilesWindow* panel = MainWindow->GetOtherPanel(this);
+    CFilesWindow* panel = (this == MainWindow->LeftPanel) ? MainWindow->RightPanel : MainWindow->LeftPanel;
     if (panel == NULL)
         return;
 

@@ -357,7 +357,6 @@ inline BOOL ButtonsContainsYes(DWORD btn)
 // cestu na FS nelze otevrit (neni plugin, odmita svuj load, odmita otevreni FS, fatalni chyba ChangePath)
 #define CHPPFR_INVALIDPATH 1
 #define CHPPFR_INVALIDARCHIVE 2  // soubor neni archiv nebo se jako archiv neda vylistovat
-#define CHPPFR_INTERNALERROR 3   // vnitrni chyba behem zpracovani zmeny cesty
 #define CHPPFR_CANNOTCLOSEPATH 4 // aktualni cestu nelze uzavrit
 // v panelu je zkracena nova cesta,
 // upresneni pro FS: v panelu je bud zkracena nova cesta nebo puvodni cesta nebo zkracena

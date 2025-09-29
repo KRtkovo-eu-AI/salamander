@@ -559,7 +559,6 @@ extern CMenuPopup ArchiveMenu;
 extern CMenuPopup ArchivePanelMenu;
 
 BOOL BuildSalamanderMenus();           // sestavi globalni menu pro Salamandera
-void UpdateTabbedPanelMenuItems(BOOL tabsEnabled);
 BOOL BuildFindMenu(CMenuPopup* popup); // sestavi instanci menu pro find
 
 // Prida do 'popup' polozky vytvorene na zaklade pole 'buttonsID'.

@@ -18,4 +18,8 @@ void TerminateThread();
 void BeginSuspendMode(BOOL debugDoNotTestCaller = FALSE);
 void EndSuspendMode(BOOL debugDoNotTestCaller = FALSE);
 
-void EnsureWatching(CFilesWindow* win, BOOL registerDevNotification);
+typedef TDirectArray<CFilesWindow*> CWindowArray; // (CFilesWindow *)
+typedef TDirectArray<HANDLE> CObjectArray;        // (HANDLE)
+
+extern CWindowArray WindowArray; // shodne indexovana pole
+extern CObjectArray ObjectArray; // k ObjectHandlu patri MainWindow

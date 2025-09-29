@@ -228,12 +228,6 @@ public:
     int Add(CPropSheetPage* page, CPropSheetPage* parent = NULL, BOOL* expanded = NULL);
 
 protected:
-    HWND GetTreeViewHandle() const;
-    HTREEITEM GetPageTreeItem(const CPropSheetPage* page) const;
-    void SetPageTreeItem(CPropSheetPage* page, HTREEITEM item);
-    const TCHAR* GetPageTitle(const CPropSheetPage* page) const;
-
-protected:
     WORD* lpdwAlign(WORD* lpIn);
     int AddItemEx(LPWORD& lpw, const TCHAR* className, WORD id, int x, int y, int cx, int cy,
                   UINT style, UINT exStyle, const TCHAR* text);

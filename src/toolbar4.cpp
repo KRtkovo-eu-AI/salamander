@@ -139,13 +139,8 @@ struct CButtonData
 #define TBBE_SHOW_ALL 96
 #define TBBE_OPEN_MYDOC 97
 #define TBBE_SMART_COLUMN_MODE 98
-#define TBBE_NEW_TAB 99
-#define TBBE_CLOSE_TAB 100
-#define TBBE_NEXT_TAB 101
-#define TBBE_PREV_TAB 102
-#define TBBE_DUPLICATE_TAB 103
 
-#define TBBE_TERMINATOR 104 // terminator
+#define TBBE_TERMINATOR 99 // terminator
 
 #define NIB1(x) x
 #define NIB2(x) x,
@@ -253,11 +248,6 @@ CButtonData ToolBarButtons[TBBE_TERMINATOR] =
         /*TBBE_SHOW_ALL*/ {IDX_TB_SHOW_ALL, 0, IDS_TBTT_SHOW_ALL, CM_SHOW_ALL_NAME, 0, 0, 0, 0, 0, &EnablerHiddenNames, NULL, NULL, "ShowHiddenNames"},
         /*TBBE_OPEN_MYDOC*/ {NIB1(IDX_TB_OPENMYDOC), 21, IDS_TBTT_OPENMYDOC, CM_OPENPERSONAL, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
         /*TBBE_SMART_COLUMN_MODE*/ {IDX_TB_SMART_COLUMN_MODE, 0, IDS_TBTT_SMARTMODE, CM_ACTIVE_SMARTMODE, CM_LEFT_SMARTMODE, CM_RIGHT_SMARTMODE, 0, 0, 0, NULL, NULL, NULL, "SmartColumnMode"},
-        /*TBBE_NEW_TAB*/ {IDX_TB_TABSNEW, 0, IDS_TBTT_NEWTAB, CM_NEWTAB, CM_LEFT_NEWTAB, CM_RIGHT_NEWTAB, 0, 0, 0, &EnablerNewTab, &EnablerLeftNewTab, &EnablerRightNewTab, "TabsNew"},
-        /*TBBE_CLOSE_TAB*/ {IDX_TB_TABSCLOSE, 0, IDS_TBTT_CLOSETAB, CM_CLOSETAB, CM_LEFT_CLOSETAB, CM_RIGHT_CLOSETAB, 0, 0, 0, &EnablerCloseTab, &EnablerLeftCloseTab, &EnablerRightCloseTab, "TabsClose"},
-        /*TBBE_NEXT_TAB*/ {IDX_TB_TABSNEXT, 0, IDS_TBTT_NEXTTAB, CM_NEXTTAB, CM_LEFT_NEXTTAB, CM_RIGHT_NEXTTAB, 0, 0, 0, &EnablerNextTab, &EnablerLeftNextTab, &EnablerRightNextTab, "TabsNext"},
-        /*TBBE_PREV_TAB*/ {IDX_TB_TABSPREV, 0, IDS_TBTT_PREVTAB, CM_PREVTAB, CM_LEFT_PREVTAB, CM_RIGHT_PREVTAB, 0, 0, 0, &EnablerPrevTab, &EnablerLeftPrevTab, &EnablerRightPrevTab, "TabsPrevious"},
-        /*TBBE_DUPLICATE_TAB*/ {IDX_TB_TABSDUPLICATE, 0, IDS_TBTT_DUPLICATETAB, CM_DUPLICATETAB, CM_LEFT_DUPLICATETAB, CM_RIGHT_DUPLICATETAB, 0, 0, 0, &EnablerDuplicateTab, &EnablerLeftDuplicateTab, &EnablerRightDuplicateTab, "TabsDuplicate"},
 
 };
 
@@ -294,11 +284,6 @@ DWORD TopToolBarButtons[] =
         TBBE_REFRESH,
         TBBE_SWAP_PANELS,
         TBBE_SMART_COLUMN_MODE,
-        TBBE_NEW_TAB,
-        TBBE_CLOSE_TAB,
-        TBBE_NEXT_TAB,
-        TBBE_PREV_TAB,
-        TBBE_DUPLICATE_TAB,
 
         TBBE_USER_MENU_DROP,
         TBBE_CMD,
@@ -425,7 +410,6 @@ void GetSVGIconsMainToolbar(CSVGIcon** svgIcons, int* svgIconsCount)
         SVGIcons[i].ImageIndex = ToolBarButtons[i].ImageIndex;
         SVGIcons[i].SVGName = ToolBarButtons[i].SVGName;
     }
-
     *svgIcons = SVGIcons;
     *svgIconsCount = TBBE_TERMINATOR;
 }
@@ -760,8 +744,6 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
 
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16); // small icon size
     int iconCount = 0;
-    int baseIconCount = 0;
-    int iconCountWithoutShell = 0;
 
     // Windows XP a novejsi pouzivaji transparentni ikony; protoze je pomoci masky
     // zobrazime do teto docasne bitmapy a zajistime, aby pod pruhlednou casti byla
@@ -809,20 +791,9 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                 tbbe_BMPCOUNT++;
     }
 
-    baseIconCount = bi.bmiHeader.biWidth / iconSize;
-    iconCountWithoutShell = baseIconCount;
-    if (svgIcons != NULL)
-    {
-        for (int i = 0; i < svgIconsCount; i++)
-        {
-            if (svgIcons[i].SVGName != NULL && svgIcons[i].ImageIndex + 1 > iconCountWithoutShell)
-                iconCountWithoutShell = svgIcons[i].ImageIndex + 1;
-        }
-    }
-
     // pripravim novou bitmapu, do ktere se vejde hSource a ikonky z DLLka
     // prodlouzim delku o ikonky z DLL
-    iconCount = iconCountWithoutShell + tbbe_BMPCOUNT;
+    iconCount = bi.bmiHeader.biWidth / 16 + tbbe_BMPCOUNT;
 
     //  hColorBitmap = HANDLES(CreateBitmap(width, height, bh.bV4Planes, bh.bV4BitCount, NULL));
     //protoze je CreateBitmap() vhodne pouze pro vytvareni B&W bitmap (viz MSDN)
@@ -840,7 +811,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     hOldTmpBitmap = (HBITMAP)SelectObject(hTmpMemDC, hTmpBitmap);
 
     // prenesu do nove bitmapy bitmapu puvodni
-    if (!StretchBlt(hTgtMemDC, 0, 0, baseIconCount * iconSize, iconSize,
+    if (!StretchBlt(hTgtMemDC, 0, 0, (iconCount - tbbe_BMPCOUNT) * iconSize, iconSize,
                     hSrcMemDC, 0, 0, bi.bmiHeader.biWidth, bi.bmiHeader.biHeight,
                     SRCCOPY))
     {

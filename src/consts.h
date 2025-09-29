@@ -1457,7 +1457,6 @@ extern HIMAGELIST HFindSymbolsImageList; // symboly pro find
 extern HIMAGELIST HMenuMarkImageList;    // check marky pro menu
 extern HIMAGELIST HGrayToolBarImageList; // toolbar a menu v sedivem provedeni (pocitano z barevneho)
 extern HIMAGELIST HHotToolBarImageList;  // toolbar a menu v barevnem provedeni
-extern int ToolBarLockImageIndex;        // index ikony zamku v toolbarovych imagelistech
 extern HIMAGELIST HBottomTBImageList;    // bottom toolbar (F1 - F12)
 extern HIMAGELIST HHotBottomTBImageList; // bottom toolbar (F1 - F12)
 
@@ -1930,38 +1929,6 @@ extern DWORD EnablerShowProperties;       // focus|select je na souborech|adresa
 extern DWORD EnablerItemsContextMenu;     // focus|select je na souborech|adresarich && panel je disk nebo FS (s podporou context-menu)
 extern DWORD EnablerOpenActiveFolder;     // panel je disk nebo FS (s podporou open-active-folder)
 extern DWORD EnablerPermissions;          // focus|select je na souborech|adresarich && panel je disk, bezime nejmene na W2K, disk umi ACL (NTFS)
-extern DWORD EnablerNewTab;               // lze vytvorit novy tab v aktivnim panelu?
-extern DWORD EnablerCloseTab;             // lze zavrit aktivni tab?
-extern DWORD EnablerNextTab;              // je dostupny dalsi tab v aktivnim panelu?
-extern DWORD EnablerPrevTab;              // je dostupny predchozi tab v aktivnim panelu?
-extern DWORD EnablerDuplicateTab;         // lze duplikovat aktivni tab na stejnou stranu?
-extern DWORD EnablerReopenTab;            // lze znovu otevrit zavreny tab v aktivnim panelu?
-extern DWORD EnablerLockTab;              // lze zamknout aktivni tab?
-extern DWORD EnablerUnlockTab;            // lze odemknout aktivni tab?
-extern DWORD EnablerLeftNewTab;           // lze vytvorit novy tab v levem panelu?
-extern DWORD EnablerLeftCloseTab;         // lze zavrit tab v levem panelu?
-extern DWORD EnablerLeftNextTab;          // je dostupny dalsi tab v levem panelu?
-extern DWORD EnablerLeftPrevTab;          // je dostupny predchozi tab v levem panelu?
-extern DWORD EnablerLeftCloseAllButDefault; // lze zavrit vsechny taby krome vychoziho v levem panelu?
-extern DWORD EnablerLeftCloseAllExceptThisAndDefault; // lze zavrit vsechny taby krom vychoziho a aktualniho v levem panelu?
-extern DWORD EnablerLeftDuplicateTab;     // lze duplikovat tab v levem panelu na stejnou stranu?
-extern DWORD EnablerLeftDuplicateTabToRight; // lze duplikovat tab na pravou stranu?
-extern DWORD EnablerLeftMoveTabToRight;      // lze presunout tab na pravou stranu?
-extern DWORD EnablerLeftReopenTab;        // lze znovu otevrit zavreny tab v levem panelu?
-extern DWORD EnablerLeftLockTab;          // lze zamknout tab v levem panelu?
-extern DWORD EnablerLeftUnlockTab;        // lze odemknout tab v levem panelu?
-extern DWORD EnablerRightNewTab;          // lze vytvorit novy tab v pravem panelu?
-extern DWORD EnablerRightCloseTab;        // lze zavrit tab v pravem panelu?
-extern DWORD EnablerRightNextTab;         // je dostupny dalsi tab v pravem panelu?
-extern DWORD EnablerRightPrevTab;         // je dostupny predchozi tab v pravem panelu?
-extern DWORD EnablerRightCloseAllButDefault; // lze zavrit vsechny taby krome vychoziho v pravem panelu?
-extern DWORD EnablerRightCloseAllExceptThisAndDefault; // lze zavrit vsechny taby krom vychoziho a aktualniho v pravem panelu?
-extern DWORD EnablerRightDuplicateTab;    // lze duplikovat tab v pravem panelu na stejnou stranu?
-extern DWORD EnablerRightDuplicateTabToLeft; // lze duplikovat tab na levou stranu?
-extern DWORD EnablerRightMoveTabToLeft;      // lze presunout tab na levou stranu?
-extern DWORD EnablerRightReopenTab;       // lze znovu otevrit zavreny tab v pravem panelu?
-extern DWORD EnablerRightLockTab;         // lze zamknout tab v pravem panelu?
-extern DWORD EnablerRightUnlockTab;       // lze odemknout tab v pravem panelu?
 
 //******************************************************************************
 //
@@ -2052,13 +2019,8 @@ extern DWORD EnablerRightUnlockTab;       // lze odemknout tab v pravem panelu?
 #define IDX_TB_HIDE_SELECTED 75     // Hide Selected Names
 #define IDX_TB_SHOW_ALL 76          // Show All Names
 #define IDX_TB_SMART_COLUMN_MODE 77 // Smart Column Mode
-#define IDX_TB_TABSNEW 78           // New Tab
-#define IDX_TB_TABSCLOSE 79         // Close Tab
-#define IDX_TB_TABSNEXT 80          // Next Tab
-#define IDX_TB_TABSPREV 81          // Previous Tab
-#define IDX_TB_TABSDUPLICATE 82     // Duplicate Tab
 
-#define IDX_TB_FD 83 // first "dynamic added" index
+#define IDX_TB_FD 78 // first "dynamic added" index
 // nasledujici ikony budou pridany k bitmape dynamicky
 // a nektere budou nacteny z shell32.dll
 

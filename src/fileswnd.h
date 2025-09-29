@@ -1,18 +1,13 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-class CFilesWindow;
-
-#include "plugins.h"
-#include <string>
-
-#define NUM_OF_CHECKTHREADS 30                   // max. pocet threadu pro "neblokujici" testy pristupnosti cest
-#define ICONOVR_REFRESH_PERIOD 2000              // minimalni odstup refreshu icon-overlays v panelu (viz IconOverlaysChangedOnPath)
-#define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimalni odstup refreshu pri neaktivnim hl. okne
-#define MAX_DELAY_BETWEENINACTIVEREFRESHES 10000 // maximalni odstup refreshu pri neaktivnim hl. okne
+#define NUM_OF_CHECKTHREADS 30                   // maximum number of threads for "non-blocking" path accessibility tests
+#define ICONOVR_REFRESH_PERIOD 2000              // minimum interval between icon-overlay refreshes in the panel (see IconOverlaysChangedOnPath)
+#define MIN_DELAY_BETWEENINACTIVEREFRESHES 2000  // minimum refresh interval when the main window is inactive
+#define MAX_DELAY_BETWEENINACTIVEREFRESHES 10000 // maximum refresh interval when the main window is inactive
 
 enum CActionType
 {
@@ -40,12 +35,6 @@ enum CPanelType
     ptDisk,       // current path is "c:\path" or UNC
     ptZIPArchive, // current path is inside an archive (handled either by a plug-in or code supporting external archivers)
     ptPluginFS,   // current path is on a plug-in file system (handled by a plug-in)
-};
-
-enum CPanelSide
-{
-    cpsLeft,
-    cpsRight,
 };
 
 struct CAttrsData // data for atChangeAttrs
@@ -739,8 +728,6 @@ public:
 
     CIconCache* IconCache;                // cache containing icons directly from files
     BOOL IconCacheValid;                  // is the cache already loaded?
-    bool IconInfrastructureReady;         // TRUE when icon cache helpers/events/thread were initialized
-    bool IconCriticalSectionsInitialized; // TRUE when critical sections for the icon infrastructure were initialized
     BOOL InactWinOptimizedReading;        // TRUE = only icons/thumbnails/overlays from the visible part of the panel are being read (used when the main window is inactive and a refresh is triggered – we try to minimize system load as we're "in the background")
     DWORD WaitBeforeReadingIcons;         // how many milliseconds to wait before the icon reader starts reading icons (used on refresh; while waiting old icons can be pushed into the cache to avoid repeated reading and endless refreshes on network drives)
     DWORD WaitOneTimeBeforeReadingIcons;  // how many milliseconds to wait before starting to read icons, then this value resets (used to catch batches of changes from Tortoise SVN, see IconOverlaysChangedOnPath())
@@ -756,32 +743,7 @@ public:
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
-    BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
     BOOL FilesActionInProgress; // is work already being prepared or executed for the Worker?
-
-    bool DeferredConfigPathValid; // TRUE when a deferred configuration path is cached
-    std::string DeferredConfigPath; // cached path restored on first activation
-
-    struct CPendingPanelSettings
-    {
-        bool HasSettings;
-        int ViewTemplateIndex;
-        BOOL HeaderLineVisible;
-        BOOL DirectoryLineVisible;
-        BOOL StatusLineVisible;
-        BOOL ReverseSort;
-        CSortType SortType;
-        BOOL FilterEnabled;
-        std::string FilterMasks;
-
-        CPendingPanelSettings()
-            : HasSettings(false), ViewTemplateIndex(2), HeaderLineVisible(TRUE), DirectoryLineVisible(TRUE),
-              StatusLineVisible(TRUE), ReverseSort(FALSE), SortType(stName), FilterEnabled(FALSE), FilterMasks()
-        {
-        }
-    };
-
-    CPendingPanelSettings PendingPanelSettings; // cached settings applied when the window is materialized
 
     CDrivesList* OpenedDrivesList; // if the Alt+F1(2) menu is open, this value points to it; otherwise it is NULL
 
@@ -790,13 +752,6 @@ public:
     CFilesBox* ListBox;
     CStatusWindow *StatusLine,
         *DirectoryLine;
-
-    CPanelSide PanelSide;
-    bool CustomTabColorValid;
-    COLORREF CustomTabColor;
-    bool CustomTabPrefixValid;
-    std::wstring CustomTabPrefix;
-    bool TabLocked;
 
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
@@ -860,7 +815,6 @@ public:
     int RefreshAfterIconsReadingTime;  // "time" of the latest refresh that arrived while icons were being read
 
     CPathHistory* PathHistory; // browsing history for this panel (for the panel)
-    CPathHistory* WorkDirHistory;   // historie pracovnich adresaru pro tento tab
 
     DWORD HiddenDirsFilesReason; // bit field indicating the reason why files/directories are hidden (HIDDEN_REASON_xxx)
     int HiddenDirsCount,         // number of hidden directories in the panel (number of skipped ones)
@@ -941,23 +895,8 @@ public:
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent, CPanelSide side);
+    CFilesWindow(CMainWindow* parent);
     ~CFilesWindow();
-
-    CPanelSide GetPanelSide() const { return PanelSide; }
-    BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
-    BOOL IsRightPanel() const { return PanelSide == cpsRight; }
-    void SetPanelSide(CPanelSide side);
-    bool HasCustomTabColor() const { return CustomTabColorValid; }
-    COLORREF GetCustomTabColor() const { return CustomTabColor; }
-    void SetCustomTabColor(COLORREF color);
-    void ClearCustomTabColor();
-    bool HasCustomTabPrefix() const { return CustomTabPrefixValid && !CustomTabPrefix.empty(); }
-    const std::wstring& GetCustomTabPrefix() const { return CustomTabPrefix; }
-    void SetCustomTabPrefix(const wchar_t* prefix);
-    void ClearCustomTabPrefix();
-    bool IsTabLocked() const { return TabLocked; }
-    void SetTabLocked(bool locked) { TabLocked = locked; }
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&
@@ -973,7 +912,6 @@ public:
 
     // suspends or resumes the icon reader-either stops accessing IconCache or starts loading
     // icons into IconCache; both methods can be called repeatedly and the last call wins
-    bool EnsureIconInfrastructure();
     void SleepIconCacheThread();
     void WakeupIconCacheThread();
 
@@ -1633,23 +1571,6 @@ public:
 
     // places the full current path on the clipboard (active in the panel)
     BOOL CopyCurrentPathToClipboard();
-
-    CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
-    CPathHistory* EnsureWorkDirHistory();
-    void ClearWorkDirHistory();
-
-    void SetDeferredConfigPath(const char* path);
-    void ClearDeferredConfigPath();
-    BOOL HasDeferredConfigPath() const;
-    const std::string& GetDeferredConfigPath() const;
-    BOOL ApplyDeferredConfigPath();
-
-    void ClearPendingPanelSettings();
-    void SetPendingPanelSettings(int viewTemplateIndex, BOOL headerVisible, BOOL directoryVisible,
-                                 BOOL statusVisible, BOOL reverseSort, CSortType sortType, BOOL filterEnabled,
-                                 const char* filterMasks);
-    BOOL HasPendingPanelSettings() const;
-    void ApplyPendingPanelSettings();
 
     void OpenDirHistory();
 

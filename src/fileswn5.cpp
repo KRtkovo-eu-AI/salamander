@@ -628,7 +628,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
             // lower the thread priority to "normal" (so the operations don't overload the machine)
             SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
 
-            int panel = IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
+            int panel = MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT;
 
             int count = GetSelCount();
             int selectedDirs = 0;
@@ -676,7 +676,7 @@ void CFilesWindow::FindFile()
     { // try to open Find for the FS in the panel; if it succeeds, there is no point in opening the standard Find dialog
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
         BOOL done = GetPluginFS()->OpenFindDialog(GetPluginFS()->GetPluginFSName(),
-                                                  IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT);
+                                                  this == MainWindow->LeftPanel ? PANEL_LEFT : PANEL_RIGHT);
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
         if (done)
             return;

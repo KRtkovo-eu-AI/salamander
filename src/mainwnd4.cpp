@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -42,256 +42,61 @@ int ImageDragDyHotspot = INT_MAX;
 
 void RecursiveFindAndCopy(char* srcPath, char* dstPath, char** fromBuf, char** toBuf, int* freeBufNames);
 
-static void RemovePanelPathFromHistory(CPathHistory* history, CFilesWindow* panel)
-{
-    if (history == NULL || panel == NULL)
-        return;
-
-    if (panel->Is(ptZIPArchive))
-    {
-        history->RemoveActualPath(1, panel->GetZIPArchive(), panel->GetZIPPath(), NULL, NULL);
-    }
-    else if (panel->Is(ptDisk))
-    {
-        history->RemoveActualPath(0, panel->GetPath(), NULL, NULL, NULL);
-    }
-    else if (panel->Is(ptPluginFS))
-    {
-        CPluginFSInterfaceEncapsulation* pluginFS = panel->GetPluginFS();
-        if (pluginFS != NULL && pluginFS->NotEmpty())
-        {
-            char curPath[MAX_PATH];
-            if (pluginFS->GetCurrentPath(curPath))
-                history->RemoveActualPath(2, pluginFS->GetPluginFSName(), curPath, pluginFS->GetInterface(), pluginFS);
-        }
-    }
-}
-
-CPathHistory* CMainWindow::GetDirHistory(CFilesWindow* panel, BOOL createIfNeeded)
-{
-    if (UsingSharedWorkDirHistory() || panel == NULL)
-        return DirHistory;
-    return createIfNeeded ? panel->EnsureWorkDirHistory() : panel->GetWorkDirHistory();
-}
-
-BOOL CMainWindow::UsingSharedWorkDirHistory() const
-{
-    return Configuration.WorkDirsHistoryScope != wdhsPerTab;
-}
-
-BOOL CMainWindow::HasDirHistory(CFilesWindow* panel) const
-{
-    if (UsingSharedWorkDirHistory())
-        return DirHistory != NULL && DirHistory->HasPaths();
-    if (panel == NULL)
-        return FALSE;
-    CPathHistory* history = panel->GetWorkDirHistory();
-    return history != NULL && history->HasPaths();
-}
-
-void CMainWindow::UpdateDirectoryLineHistoryState(CFilesWindow* panel)
-{
-    if (panel == NULL || panel->DirectoryLine == NULL)
-        return;
-    panel->DirectoryLine->SetHistory(HasDirHistory(panel));
-}
-
-void CMainWindow::UpdateAllDirectoryLineHistoryStates()
-{
-    if (UsingSharedWorkDirHistory())
-    {
-        BOOL hasHistory = DirHistory != NULL && DirHistory->HasPaths();
-        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-        for (int i = 0; i < leftTabs.Count; i++)
-            if (leftTabs[i]->DirectoryLine != NULL)
-                leftTabs[i]->DirectoryLine->SetHistory(hasHistory);
-        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-        for (int i = 0; i < rightTabs.Count; i++)
-            if (rightTabs[i]->DirectoryLine != NULL)
-                rightTabs[i]->DirectoryLine->SetHistory(hasHistory);
-    }
-    else
-    {
-        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-        for (int i = 0; i < leftTabs.Count; i++)
-            UpdateDirectoryLineHistoryState(leftTabs[i]);
-        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-        for (int i = 0; i < rightTabs.Count; i++)
-            UpdateDirectoryLineHistoryState(rightTabs[i]);
-    }
-}
-
-void CMainWindow::RebuildSharedDirHistoryFromPanels()
-{
-    if (DirHistory == NULL)
-        return;
-
-    DirHistory->ClearHistory();
-
-    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-    for (int i = 0; i < leftTabs.Count; i++)
-    {
-        CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
-        if (history != NULL)
-            DirHistory->AppendFrom(*history);
-    }
-
-    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-    for (int i = 0; i < rightTabs.Count; i++)
-    {
-        CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
-        if (history != NULL)
-            DirHistory->AppendFrom(*history);
-    }
-}
-
-void CMainWindow::HandleWorkDirsHistoryScopeChange(CWorkDirsHistoryScope previousScope)
-{
-    CWorkDirsHistoryScope newScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
-    CWorkDirsHistoryScope prevScope = previousScope;
-    if (newScope == prevScope)
-        return;
-
-    if (newScope == wdhsPerTab)
-    {
-        TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-        for (int i = 0; i < leftTabs.Count; i++)
-        {
-            CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
-            if (history == NULL)
-                history = leftTabs[i]->EnsureWorkDirHistory();
-            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
-                continue;
-            if (history != NULL && DirHistory != NULL)
-                history->CopyFrom(*DirHistory);
-        }
-
-        TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-        for (int i = 0; i < rightTabs.Count; i++)
-        {
-            CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
-            if (history == NULL)
-                history = rightTabs[i]->EnsureWorkDirHistory();
-            if (history != NULL && (history->HasPaths() || DirHistory == NULL || !DirHistory->HasPaths()))
-                continue;
-            if (history != NULL && DirHistory != NULL)
-                history->CopyFrom(*DirHistory);
-        }
-    }
-    else
-        RebuildSharedDirHistoryFromPanels();
-
-    UpdateAllDirectoryLineHistoryStates();
-    RefreshCommandStates();
-}
-
 void CMainWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
 {
-    if (DirHistory != NULL)
-        DirHistory->ClearPluginFSFromHistory(fs);
-    TIndirectArray<CFilesWindow>& leftTabs = GetPanelTabs(cpsLeft);
-    for (int i = 0; i < leftTabs.Count; i++)
-    {
-        CPathHistory* history = leftTabs[i]->GetWorkDirHistory();
-        if (history != NULL)
-            history->ClearPluginFSFromHistory(fs);
-    }
-    TIndirectArray<CFilesWindow>& rightTabs = GetPanelTabs(cpsRight);
-    for (int i = 0; i < rightTabs.Count; i++)
-    {
-        CPathHistory* history = rightTabs[i]->GetWorkDirHistory();
-        if (history != NULL)
-            history->ClearPluginFSFromHistory(fs);
-    }
-    UpdateAllDirectoryLineHistoryStates();
+    DirHistory->ClearPluginFSFromHistory(fs);
 }
 
-void CMainWindow::DirHistoryAddPathUnique(CFilesWindow* panel, int type,
-                                          const char* pathOrArchiveOrFSName,
+void CMainWindow::DirHistoryAddPathUnique(int type, const char* pathOrArchiveOrFSName,
                                           const char* archivePathOrFSUserPart, HICON hIcon,
                                           CPluginFSInterfaceAbstract* pluginFS,
                                           CPluginFSInterfaceEncapsulation* curPluginFS)
 {
-    if (!CanAddToDirHistory)
+    if (CanAddToDirHistory)
+    {
+        DirHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
+                                  pluginFS, curPluginFS);
+        if (LeftPanel != NULL)
+            LeftPanel->DirectoryLine->SetHistory(DirHistory->HasPaths());
+        if (RightPanel != NULL)
+            RightPanel->DirectoryLine->SetHistory(DirHistory->HasPaths());
+    }
+    else
     {
         if (hIcon != NULL)
             HANDLES(DestroyIcon(hIcon));
-        return;
     }
-
-    CPathHistory* sharedHistory = DirHistory;
-    CPathHistory* panelHistory = (panel != NULL) ? panel->EnsureWorkDirHistory() : NULL;
-
-    CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
-    CPathHistory* secondaryHistory = NULL;
-    if (UsingSharedWorkDirHistory())
-    {
-        if (panelHistory != NULL && panelHistory != primaryHistory)
-            secondaryHistory = panelHistory;
-    }
-    else if (sharedHistory != NULL && sharedHistory != primaryHistory)
-        secondaryHistory = sharedHistory;
-
-    HICON secondaryIcon = NULL;
-    if (secondaryHistory != NULL && hIcon != NULL)
-    {
-        secondaryIcon = CopyIcon(hIcon);
-        if (secondaryIcon == NULL)
-            TRACE_E(LOW_MEMORY);
-    }
-
-    if (primaryHistory != NULL)
-    {
-        primaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, hIcon,
-                                      pluginFS, curPluginFS);
-        hIcon = NULL;
-    }
-
-    if (secondaryHistory != NULL)
-    {
-        secondaryHistory->AddPathUnique(type, pathOrArchiveOrFSName, archivePathOrFSUserPart, secondaryIcon,
-                                        pluginFS, curPluginFS);
-        secondaryIcon = NULL;
-    }
-
-    if (secondaryIcon != NULL)
-        HANDLES(DestroyIcon(secondaryIcon));
-    if (hIcon != NULL)
-        HANDLES(DestroyIcon(hIcon));
-
-    if (UsingSharedWorkDirHistory())
-        UpdateAllDirectoryLineHistoryStates();
-    else
-        UpdateDirectoryLineHistoryState(panel);
 }
 
 void CMainWindow::DirHistoryRemoveActualPath(CFilesWindow* panel)
 {
-    if (panel == NULL)
-        return;
-
-    CPathHistory* sharedHistory = DirHistory;
-    CPathHistory* panelHistory = panel->GetWorkDirHistory();
-
-    CPathHistory* primaryHistory = UsingSharedWorkDirHistory() ? sharedHistory : panelHistory;
-    CPathHistory* secondaryHistory = NULL;
-    if (UsingSharedWorkDirHistory())
+    if (panel->Is(ptZIPArchive))
     {
-        if (panelHistory != NULL && panelHistory != primaryHistory)
-            secondaryHistory = panelHistory;
+        DirHistory->RemoveActualPath(1, panel->GetZIPArchive(), panel->GetZIPPath(), NULL, NULL);
     }
-    else if (sharedHistory != NULL && sharedHistory != primaryHistory)
-        secondaryHistory = sharedHistory;
-
-    if (primaryHistory != NULL)
-        RemovePanelPathFromHistory(primaryHistory, panel);
-    if (secondaryHistory != NULL)
-        RemovePanelPathFromHistory(secondaryHistory, panel);
-
-    if (UsingSharedWorkDirHistory())
-        UpdateAllDirectoryLineHistoryStates();
     else
-        UpdateDirectoryLineHistoryState(panel);
+    {
+        if (panel->Is(ptDisk))
+        {
+            DirHistory->RemoveActualPath(0, panel->GetPath(), NULL, NULL, NULL);
+        }
+        else
+        {
+            if (panel->Is(ptPluginFS))
+            {
+                char curPath[MAX_PATH];
+                if (panel->GetPluginFS()->NotEmpty() && panel->GetPluginFS()->GetCurrentPath(curPath))
+                {
+                    DirHistory->RemoveActualPath(2, panel->GetPluginFS()->GetPluginFSName(), curPath,
+                                                 panel->GetPluginFS()->GetInterface(), panel->GetPluginFS());
+                }
+            }
+        }
+    }
+    if (LeftPanel != NULL)
+        LeftPanel->DirectoryLine->SetHistory(DirHistory->HasPaths());
+    if (RightPanel != NULL)
+        RightPanel->DirectoryLine->SetHistory(DirHistory->HasPaths());
 }
 
 void CMainWindow::GetSplitRect(RECT& r)
@@ -361,30 +166,9 @@ BOOL CMainWindow::CloseDetachedFS(HWND parent, CPluginFSInterfaceEncapsulation* 
 BOOL CMainWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin)
 {
     CALL_STACK_MESSAGE1("CMainWindow::CanUnloadPlugin()");
-    auto canUnloadFromPanel = [&](CFilesWindow* panel) {
-        return panel == NULL || panel->CanUnloadPlugin(parent, plugin);
-    };
-
-    if (!canUnloadFromPanel(LeftPanel))
+    if (LeftPanel != NULL && !LeftPanel->CanUnloadPlugin(parent, plugin))
         return FALSE;
-    if (!canUnloadFromPanel(RightPanel))
-        return FALSE;
-
-    auto canUnloadFromTabs = [&](TIndirectArray<CFilesWindow>& tabs, CFilesWindow* activePanel) {
-        for (int i = 0; i < tabs.Count; i++)
-        {
-            CFilesWindow* panel = tabs[i];
-            if (panel == activePanel)
-                continue; // already checked above
-            if (panel != NULL && !panel->CanUnloadPlugin(parent, plugin))
-                return FALSE;
-        }
-        return TRUE;
-    };
-
-    if (!canUnloadFromTabs(LeftPanelTabs, LeftPanel))
-        return FALSE;
-    if (!canUnloadFromTabs(RightPanelTabs, RightPanel))
+    if (RightPanel != NULL && !RightPanel->CanUnloadPlugin(parent, plugin))
         return FALSE;
 
     // find detached FS belonging to the plug-in 'plugin' and attempt to close them
@@ -1406,8 +1190,10 @@ void CMainWindow::ChangePanel(BOOL force)
         SetActivePanel(p2);
 
         // ensure the active panel header is redrawn
-        InvalidateDirectoryLine(p1, FALSE);
-        InvalidateDirectoryLine(p2, FALSE);
+        if (p1->DirectoryLine != NULL)
+            p1->DirectoryLine->InvalidateAndUpdate(FALSE);
+        if (p2->DirectoryLine != NULL)
+            p2->DirectoryLine->InvalidateAndUpdate(FALSE);
 
         UpdateDriveBars(); // press the correct drive in the drive bar
 
@@ -1456,18 +1242,11 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
     CFilesWindow* old = GetActivePanel();
     SetActivePanel(focus);
 
-    if (LeftPanel != NULL)
-        LeftPanel->SetPanelSide(cpsLeft);
-    if (RightPanel != NULL)
-        RightPanel->SetPanelSide(cpsRight);
-    focus->SetPanelSide(focus == LeftPanel ? cpsLeft : cpsRight);
-
     UpdateDriveBars(); // press the correct drive in the drive bar
 
     // ensure the active panel header is redrawn
     if (old != focus)
     {
-        focus->UpdateDriveIcon(FALSE);
         // activated a different panel, let it set its enablers
         RefreshCommandStates();
         // fixes a bug (present in 2.5b10) when users had one panel active with focus on UpDir
@@ -1476,8 +1255,10 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
         // see https://forum.altap.cz/viewtopic.php?t=181
 
         // repaint the directory line of both panels
-        InvalidateDirectoryLine(old, FALSE);
-        InvalidateDirectoryLine(focus, FALSE);
+        if (old->DirectoryLine != NULL)
+            old->DirectoryLine->InvalidateAndUpdate(FALSE);
+        if (focus->DirectoryLine != NULL)
+            focus->DirectoryLine->InvalidateAndUpdate(FALSE);
         //    ReleaseMenuNew();
         EditWindowSetDirectory();
         IdleRefreshStates = TRUE; // on the next Idle, force checking of state variables

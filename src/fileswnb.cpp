@@ -177,7 +177,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             //          if (wParam == DBT_DEVICEREMOVEPENDING) TRACE_I("WM_DEVICECHANGE: DBT_DEVICEREMOVEPENDING");
             //          else TRACE_I("WM_DEVICECHANGE: DBT_DEVICEREMOVECOMPLETE");
             DetachDirectory((CFilesWindow*)this, TRUE); // zavreme DeviceNotification
-            if (IsLeftPanel())
+            if (MainWindow->LeftPanel == this)
             {
                 if (!ChangeLeftPanelToFixedWhenIdleInProgress)
                     ChangeLeftPanelToFixedWhenIdle = TRUE;
@@ -247,7 +247,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 else
                     count = 0;
 
-                int panel = IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
+                int panel = MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT;
                 BOOL copy = (operation == SALSHEXT_COPY);
                 BOOL operationMask = FALSE;
                 BOOL cancelOrHandlePath = FALSE;
@@ -940,7 +940,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     if (PluginData.NotEmpty())
                     {
-                        if (PluginData.GetInfoLineContent(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
+                        if (PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
                                                           NULL, FALSE, files, dirs,
                                                           displaySize, selectedSize, buff,
                                                           varPlacements, varPlacementsCount))
@@ -1001,7 +1001,6 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        StatusLine->SetLeftPanel(IsLeftPanel());
         ToggleStatusLine();
         //---  vytvoreni statusliny s informacemi o akt. adresari
         DirectoryLine = new CStatusWindow(this, blTop, ooStatic);
@@ -1010,7 +1009,7 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        DirectoryLine->SetLeftPanel(IsLeftPanel());
+        DirectoryLine->SetLeftPanel(MainWindow->LeftPanel == this);
         ToggleDirectoryLine();
         //---  nahozeni typu viewu + nacteni obsahu adresare
         SetThumbnailSize(Configuration.ThumbnailSize); // musi existovat ListBox
@@ -1322,7 +1321,7 @@ void CFilesWindow::ClearCutToClipFlag(BOOL repaint)
 void CFilesWindow::OpenDirHistory()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::OpenDirHistory()");
-    if (!MainWindow->HasDirHistory(this))
+    if (!MainWindow->DirHistory->HasPaths())
         return;
 
     BeginStopRefresh(); // cmuchal si da pohov
@@ -1343,14 +1342,10 @@ void CFilesWindow::OpenDirHistory()
         }
     }
 
-    CPathHistory* history = MainWindow->GetDirHistory(this, FALSE);
-    if (history == NULL)
-        return;
-
-    history->FillHistoryPopupMenu(&menu, 1, -1, FALSE);
+    MainWindow->DirHistory->FillHistoryPopupMenu(&menu, 1, -1, FALSE);
     DWORD cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_VERTICAL, r.left, y, HWindow, exludeRect ? &r : NULL);
     if (cmd != 0)
-        history->Execute(cmd, FALSE, this, TRUE, FALSE);
+        MainWindow->DirHistory->Execute(cmd, FALSE, this, TRUE, FALSE);
 
     EndStopRefresh(); // ted uz zase cmuchal nastartuje
 }
@@ -1461,7 +1456,7 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
     int leftCmdID[5] = {CM_LEFTNAME, CM_LEFTEXT, CM_LEFTTIME, CM_LEFTSIZE, CM_LEFTATTR};
     int rightCmdID[5] = {CM_RIGHTNAME, CM_RIGHTEXT, CM_RIGHTTIME, CM_RIGHTSIZE, CM_RIGHTATTR};
     int imgIndex[5] = {IDX_TB_SORTBYNAME, IDX_TB_SORTBYEXT, IDX_TB_SORTBYDATE, IDX_TB_SORTBYSIZE, -1};
-    int* cmdID = IsLeftPanel() ? leftCmdID : rightCmdID;
+    int* cmdID = MainWindow->LeftPanel == this ? leftCmdID : rightCmdID;
     MENU_ITEM_INFO mii;
     int i;
     for (i = 0; i < 5; i++)

@@ -69,53 +69,10 @@ BOOL CFilesWindow::ParsePath(char* path, int& type, BOOL& isDir, char*& secondPa
                         Is(ptDisk) || Is(ptZIPArchive), curPath, curArchivePath, error, pathBufSize);
 }
 
-void CFilesWindow::SetPanelSide(CPanelSide side)
-{
-    CALL_STACK_MESSAGE_NONE
-    PanelSide = side;
-    if (StatusLine != NULL)
-        StatusLine->SetLeftPanel(IsLeftPanel());
-    if (DirectoryLine != NULL)
-        DirectoryLine->SetLeftPanel(IsLeftPanel());
-}
-
-void CFilesWindow::SetCustomTabColor(COLORREF color)
-{
-    CALL_STACK_MESSAGE_NONE
-    CustomTabColor = color;
-    CustomTabColorValid = true;
-}
-
-void CFilesWindow::ClearCustomTabColor()
-{
-    CALL_STACK_MESSAGE_NONE
-    CustomTabColorValid = false;
-}
-
-void CFilesWindow::SetCustomTabPrefix(const wchar_t* prefix)
-{
-    CALL_STACK_MESSAGE_NONE
-    if (prefix == NULL)
-    {
-        ClearCustomTabPrefix();
-        return;
-    }
-
-    CustomTabPrefix.assign(prefix);
-    CustomTabPrefixValid = !CustomTabPrefix.empty();
-}
-
-void CFilesWindow::ClearCustomTabPrefix()
-{
-    CALL_STACK_MESSAGE_NONE
-    CustomTabPrefix.clear();
-    CustomTabPrefixValid = false;
-}
-
 int CFilesWindow::GetPanelCode()
 {
     CALL_STACK_MESSAGE_NONE
-    return IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT;
+    return (MainWindow != NULL && MainWindow->LeftPanel == this) ? PANEL_LEFT : PANEL_RIGHT;
 }
 
 void CFilesWindow::ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs)
@@ -1185,7 +1142,7 @@ void CFilesWindow::OfferArchiveUpdateIfNeeded(HWND parent, int textID, BOOL* arc
 
     OfferArchiveUpdateIfNeededAux(parent, textID, archMaybeUpdated);
 
-    CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
+    CFilesWindow* otherPanel = MainWindow->LeftPanel == this ? MainWindow->RightPanel : MainWindow->LeftPanel;
     BOOL otherPanelArchMaybeUpdated = FALSE;
     if (otherPanel->Is(ptZIPArchive) && StrICmp(GetZIPArchive(), otherPanel->GetZIPArchive()) == 0)
     { // the same archive is in the other panel, we must update it as well
@@ -2047,7 +2004,7 @@ BOOL CFilesWindow::BuildColumnsTemplate()
     column.CustomData = 0;
     CColumDataItem* item;
 
-    BOOL leftPanel = IsLeftPanel();
+    BOOL leftPanel = (this == MainWindow->LeftPanel);
 
     // select from the template the views corresponding to the configuration array
     CColumnConfig* colCfg = ViewTemplate->Columns;
@@ -2163,7 +2120,7 @@ void CFilesWindow::OnHeaderLineColWidthChanged()
     CALL_STACK_MESSAGE1("CFilesWindow::OnHeaderLineColWidthChanged()");
     // transfer data from the panel to the template
     BOOL pluginColMaybeChanged = FALSE;
-    BOOL leftPanel = IsLeftPanel();
+    BOOL leftPanel = (this == MainWindow->LeftPanel);
     int i;
     for (i = 0; i < Columns.Count; i++)
     {
