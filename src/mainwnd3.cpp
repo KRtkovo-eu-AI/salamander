@@ -139,6 +139,9 @@ bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
 
     panel->ApplyStoredVisualState();
 
+    panel->SelectViewTemplate(panel->GetViewTemplateIndex(), FALSE, FALSE, VALID_DATA_ALL, TRUE);
+    panel->UpdateFilterSymbol();
+
     if (panel->HWindow != NULL)
         ShowWindow(panel->HWindow, SW_HIDE);
 

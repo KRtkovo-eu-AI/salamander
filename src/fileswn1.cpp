@@ -1835,6 +1835,8 @@ void CFilesWindow::RedrawFocusedIndex()
 void CFilesWindow::DirectoryLineSetText()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::DirectoryLineSetText()");
+    if (DirectoryLine == NULL)
+        return;
     char ZIPbuf[2 * MAX_PATH];
     const char* path = NULL;
     if (Is(ptZIPArchive))

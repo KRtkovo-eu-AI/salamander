@@ -1052,6 +1052,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
 
     if (templateIndex == 0)
         return FALSE;
+
     CViewTemplate* newTemplate = &Parent->ViewTemplates.Items[templateIndex];
     if (lstrlen(newTemplate->Name) == 0)
     {
@@ -1060,10 +1061,12 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         newTemplate = &Parent->ViewTemplates.Items[templateIndex];
     }
 
-    CViewModeEnum oldViewMode = GetViewMode();
+    const bool hasListBox = (ListBox != NULL);
+    CViewModeEnum oldViewMode = hasListBox ? ListBox->ViewMode : ViewTemplate->Mode;
+    CViewModeEnum newViewMode = oldViewMode;
+
     if (!calledFromPluginBeforeListing || ViewTemplate != newTemplate)
     {
-        CViewModeEnum newViewMode;
         switch (templateIndex)
         {
             //      case 0: newViewMode = vmTree; break;
@@ -1083,12 +1086,21 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
             newViewMode = vmDetailed;
             break;
         }
+
         ViewTemplate = newTemplate;
 
-        BOOL headerLine = HeaderLineVisible;
-        if (newViewMode != vmDetailed)
-            headerLine = FALSE;
-        ListBox->SetMode(newViewMode, headerLine);
+        if (hasListBox)
+        {
+            BOOL headerLine = HeaderLineVisible;
+            if (newViewMode != vmDetailed)
+                headerLine = FALSE;
+            ListBox->SetMode(newViewMode, headerLine);
+        }
+        else if (newViewMode != vmDetailed)
+        {
+            // without a list box we cannot toggle the header immediately; remember the desired state
+            HeaderLineVisible = FALSE;
+        }
     }
 
     // we build new columns
@@ -1096,7 +1108,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
     CopyColumnsTemplateToColumns();
     DeleteColumnsWithoutData(columnValidMask);
 
-    if (!calledFromPluginBeforeListing)
+    if (!calledFromPluginBeforeListing && hasListBox)
     {
         if (PluginData.NotEmpty())
         {
@@ -1108,9 +1120,9 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
 
         // once the view mode differs we must refresh (a different icon or thumbnail size is required)
         // the only exception is brief and detailed, which share the same icons
-        BOOL needRefresh = oldViewMode != GetViewMode() &&
-                           (oldViewMode != vmBrief || GetViewMode() != vmDetailed) &&
-                           (oldViewMode != vmDetailed || GetViewMode() != vmBrief);
+        BOOL needRefresh = oldViewMode != newViewMode &&
+                           (oldViewMode != vmBrief || newViewMode != vmDetailed) &&
+                           (oldViewMode != vmDetailed || newViewMode != vmBrief);
         if (canRefreshPath && needRefresh)
         {
             // until ReadDirectory we work with simple icons because the icon geometry changes
@@ -1141,7 +1153,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
     }
 
     // when the panel mode changes we must clear saved top-indices (incompatible data are being stored)
-    if (oldViewMode != GetViewMode())
+    if (oldViewMode != newViewMode)
         TopIndexMem.Clear();
 
     return TRUE;

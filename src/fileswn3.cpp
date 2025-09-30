@@ -2718,12 +2718,16 @@ void CFilesWindow::ChangeDrive(char drive)
 void CFilesWindow::UpdateFilterSymbol()
 {
     CALL_STACK_MESSAGE_NONE
+    if (DirectoryLine == NULL)
+        return;
     DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
 }
 
 void CFilesWindow::UpdateDriveIcon(BOOL check)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::UpdateDriveIcon(%d)", check);
+    if (DirectoryLine == NULL)
+        return;
     if (Is(ptDisk))
     {
         if (!check || CheckPath(FALSE) == ERROR_SUCCESS)
