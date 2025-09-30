@@ -15,6 +15,8 @@
 #include "gui.h"
 #include "menu.h"
 #include "shellib.h"
+#include "consts.h"
+#include "darkmode.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // po dalsim otevreni Plugins manageru vybereme posledni vybranej plugin
 
@@ -35,6 +37,31 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     ShowInBarText[0] = 0;
     ShowInChDrvText[0] = 0;
     InstalledPluginsText[0] = 0;
+}
+
+void CPluginsDlg::ApplyTheme()
+{
+    if (HListView == NULL)
+        return;
+
+    DarkModeApplyTree(HWindow);
+
+    const bool useDark = DarkModeShouldUseDarkColors();
+    const COLORREF text = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF background = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_WINDOW);
+
+    ListView_SetTextColor(HListView, text);
+    ListView_SetTextBkColor(HListView, background);
+    ListView_SetBkColor(HListView, background);
+
+    HWND headerWnd = ListView_GetHeader(HListView);
+    if (headerWnd != NULL)
+        InvalidateRect(headerWnd, NULL, TRUE);
+
+    if (Header != NULL && Header->HWindow != NULL)
+        InvalidateRect(Header->HWindow, NULL, TRUE);
+
+    InvalidateRect(HListView, NULL, TRUE);
 }
 
 void CPluginsDlg::InitColumns()
@@ -147,6 +174,8 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
         }
         OnSelChanged(); // vynutime enablery
     }
+
+    ApplyTheme();
 }
 
 void CPluginsDlg::EnableButtons(CPluginData* plugin)
@@ -525,6 +554,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // vlozime polozky
         RefreshListView(FALSE, 0, lastSelectPluginData, TRUE);
+
+        ApplyTheme();
 
         break;
     }
@@ -912,9 +943,21 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_THEMECHANGED:
+    {
+        ApplyTheme();
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ApplyTheme();
+        break;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        ApplyTheme();
         break;
     }
     }

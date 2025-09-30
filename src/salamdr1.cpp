@@ -3245,6 +3245,17 @@ BOOL PackErrorHandler(HWND parent, const WORD err, ...)
     return ret;
 }
 
+namespace
+{
+BOOL CALLBACK SendThemeChangedToThreadWindows(HWND hwnd, LPARAM lParam)
+{
+    HWND mainWindow = reinterpret_cast<HWND>(lParam);
+    if (hwnd != mainWindow && IsWindow(hwnd))
+        SendMessage(hwnd, WM_THEMECHANGED, 0, 0);
+    return TRUE;
+}
+} // namespace
+
 //
 // ****************************************************************************
 // ColorsChanged
@@ -3262,6 +3273,8 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
         DarkModeApplyTree(MainWindow->HWindow);
         DarkModeRefreshTitleBar(MainWindow->HWindow);
         SendMessage(MainWindow->HWindow, WM_THEMECHANGED, 0, 0);
+        EnumThreadWindows(GetCurrentThreadId(), SendThemeChangedToThreadWindows,
+                          reinterpret_cast<LPARAM>(MainWindow->HWindow));
     }
     // POZOR! fonts musi byt FALSE, aby nedoslo k zmene handlu fontu, o ktere
     // se museji dozvedet toolbary, ktere jej pouzivaji
