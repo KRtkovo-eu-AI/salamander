@@ -719,6 +719,7 @@ public:
     CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
 
     void EnsureHeavyInitialization();
+    void ApplyStoredVisualState();
     bool IsHeavyInitializationPending() const { return HeavyInitializationPending; }
     void SetDeferredInitialPath(const char* path);
     void ClearDeferredInitialPath();

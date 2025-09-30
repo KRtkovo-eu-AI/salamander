@@ -1466,11 +1466,19 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             panel->SortType = (CSortType)value;
         }
         if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->DirectoryLine->HWindow != NULL))
+        {
+            panel->DirectoryLineVisible = value != 0;
+            if (panel->HWindow != NULL &&
+                ((BOOL)value != (panel->DirectoryLine->HWindow != NULL)))
                 panel->ToggleDirectoryLine();
+        }
         if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->StatusLine->HWindow != NULL))
+        {
+            panel->StatusLineVisible = value != 0;
+            if (panel->HWindow != NULL &&
+                ((BOOL)value != (panel->StatusLine->HWindow != NULL)))
                 panel->ToggleStatusLine();
+        }
         GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
 
         char filter[MAX_PATH];
@@ -2714,16 +2722,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         CFilesWindow* panel = AddPanelTab(side, 0, false, true);
         if (panel != NULL)
         {
-            DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-            if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                               style,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               panel))
+            if (!EnsurePanelWindowCreated(panel))
             {
-                TRACE_E("Unable to create panel window while loading configuration");
                 int idx = GetPanelTabIndex(side, panel);
                 if (idx >= 0)
                 {
@@ -2745,37 +2745,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     while (tabs.Count < tabCount)
     {
-        CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
         CFilesWindow* panel = AddPanelTab(side, tabs.Count, false, true);
         if (panel == NULL)
             break;
-
-        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-        if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                           style,
-                           0, 0, 0, 0,
-                           HWindow,
-                           NULL,
-                           HInstance,
-                           panel))
-        {
-            TRACE_E("Unable to create panel window while loading configuration");
-            int idx = GetPanelTabIndex(side, panel);
-            TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
-            if (idx >= 0)
-            {
-                CTabWindow* tabWnd = GetPanelTabWindow(side);
-                if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                    tabWnd->RemoveTab(idx);
-                localTabs.Delete(idx);
-            }
-            delete panel;
-            if (previous != NULL)
-                SwitchPanelTab(previous);
-            else
-                UpdatePanelTabVisibility(side);
-            break;
-        }
     }
 
     TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);

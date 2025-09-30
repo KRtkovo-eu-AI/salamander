@@ -557,6 +557,7 @@ public:
 
     CFilesWindow* AddPanelTab(CPanelSide side, int index = -1, bool activate = true,
                               bool deferInitialization = false);
+    bool EnsurePanelWindowCreated(CFilesWindow* panel);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
     void SwitchPanelTab(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);

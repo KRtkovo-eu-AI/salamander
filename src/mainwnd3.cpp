@@ -113,6 +113,35 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate
     return panel;
 }
 
+bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return false;
+
+    if (panel->HWindow != NULL)
+        return true;
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "",
+                       style,
+                       0, 0, 0, 0,
+                       HWindow,
+                       NULL,
+                       HInstance,
+                       panel))
+    {
+        TRACE_E("Unable to create panel window");
+        return false;
+    }
+
+    panel->ApplyStoredVisualState();
+
+    if (panel->HWindow != NULL)
+        ShowWindow(panel->HWindow, SW_HIDE);
+
+    return true;
+}
+
 bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
 {
     if (panel == NULL)
@@ -224,8 +253,22 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         return;
 
     CPanelSide side = panel->GetPanelSide();
+    CFilesWindow* previousActive = (side == cpsLeft) ? LeftPanel : RightPanel;
     if (GetPanelTabIndex(side, panel) < 0)
         return;
+
+    if (!EnsurePanelWindowCreated(panel))
+    {
+        CTabWindow* tabWnd = GetPanelTabWindow(side);
+        if (tabWnd != NULL && tabWnd->HWindow != NULL && previousActive != NULL)
+        {
+            int prevIndex = GetPanelTabIndex(side, previousActive);
+            if (prevIndex >= 0)
+                tabWnd->SetCurSel(prevIndex);
+        }
+        UpdatePanelTabVisibility(side);
+        return;
+    }
 
     if (side == cpsLeft)
         LeftPanel = panel;
@@ -1344,10 +1387,8 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
     if (panel == NULL)
         return;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
-        TRACE_E("AddPanelTab: Create failed");
         int idx = GetPanelTabIndex(side, panel);
         TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
         if (idx >= 0)
@@ -1585,10 +1626,8 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
     if (newPanel == NULL)
         return NULL;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!newPanel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, newPanel))
+    if (!EnsurePanelWindowCreated(newPanel))
     {
-        TRACE_E("Unable to create panel window while duplicating tab");
         int idx = GetPanelTabIndex(targetSide, newPanel);
         if (idx >= 0)
         {
@@ -1753,8 +1792,7 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         return false;
     }
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
         int idx = GetPanelTabIndex(side, panel);
         if (idx >= 0)
@@ -3054,15 +3092,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        if (!leftPanel->Create(CWINDOW_CLASSNAME2, "",
-                               WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               leftPanel))
+        if (!EnsurePanelWindowCreated(leftPanel))
         {
-            TRACE_E("LeftPanel->Create failed");
             ClosePanelTab(leftPanel, false);
             return -1;
         }
@@ -3075,15 +3106,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        if (!rightPanel->Create(CWINDOW_CLASSNAME2, "",
-                                WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-                                0, 0, 0, 0,
-                                HWindow,
-                                NULL,
-                                HInstance,
-                                rightPanel))
+        if (!EnsurePanelWindowCreated(rightPanel))
         {
-            TRACE_E("RightPanel->Create failed");
             ClosePanelTab(rightPanel, false);
             return -1;
         }
@@ -5135,14 +5159,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_LEFTHEADER:
         {
             LeftPanel->ToggleHeaderLine();
-            LeftPanel->HeaderLineVisible = !LeftPanel->HeaderLineVisible;
             return 0;
         }
 
         case CM_RIGHTHEADER:
         {
             RightPanel->ToggleHeaderLine();
-            RightPanel->HeaderLineVisible = !RightPanel->HeaderLineVisible;
             return 0;
         }
 
