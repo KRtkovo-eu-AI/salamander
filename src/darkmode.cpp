@@ -293,6 +293,7 @@ void ApplyControlTheme(HWND hwnd)
         L"SysHeader32",
         L"SysTabControl32",
         L"ComboBoxEx32",
+        L"ReBarWindow32",
     };
 
     static const wchar_t* const cfdClasses[] = {
@@ -596,5 +597,13 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     }
 
     return false;
+}
+
+HBRUSH DarkModeGetPanelFrameBrush()
+{
+    static HBRUSH brush = NULL;
+    if (brush == NULL)
+        brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
+    return brush;
 }
 

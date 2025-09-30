@@ -2268,8 +2268,10 @@ void CMainWindow::SaveConfig(HWND parent)
 
             if (CreateKey(salamander, SALAMANDER_COLORS_REG, actKey))
             {
-                DWORD scheme = 4; // custom
-                if (CurrentColors == SalamanderColors)
+                DWORD scheme = 5; // custom
+                if (Configuration.UseWindowsDarkMode)
+                    scheme = 4;
+                else if (CurrentColors == SalamanderColors)
                     scheme = 0;
                 else if (CurrentColors == ExplorerColors)
                     scheme = 1;
@@ -2585,13 +2587,39 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     scheme = 4;
 
                 if (scheme == 0)
+                {
                     CurrentColors = SalamanderColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
                 else if (scheme == 1)
+                {
                     CurrentColors = ExplorerColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
                 else if (scheme == 2)
+                {
                     CurrentColors = NortonColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
                 else if (scheme == 3)
+                {
                     CurrentColors = NavigatorColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
+                else if (scheme == 4)
+                {
+                    CurrentColors = UserColors;
+                    if (!Configuration.UseWindowsDarkMode)
+                    {
+                        // Legacy configurations stored "custom" as 4 before the Windows dark mode option existed.
+                        // Leave UseWindowsDarkMode cleared to treat it as a custom scheme.
+                    }
+                }
+                else
+                {
+                    CurrentColors = UserColors;
+                    Configuration.UseWindowsDarkMode = FALSE;
+                }
             }
 
             LoadRGBF(actKey, SALAMANDER_CLR_ITEM_FG_NORMAL_REG, UserColors[ITEM_FG_NORMAL]);

@@ -13,19 +13,9 @@
 #include "stswnd.h"
 #include "shellib.h"
 #include "snooper.h"
+#include "darkmode.h"
 
 const char* CFILESBOX_CLASSNAME = "SalamanderItemsBox";
-
-namespace
-{
-HBRUSH GetDarkPanelBorderBrush()
-{
-    static HBRUSH brush = NULL;
-    if (brush == NULL)
-        brush = HANDLES(CreateSolidBrush(RGB(122, 122, 122)));
-    return brush;
-}
-}
 
 //****************************************************************************
 //
@@ -446,6 +436,12 @@ void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
         ImageDragShow(TRUE);
     if (showDragBox)
         Parent->DrawDragBox(Parent->OldBoxPoint); // show it again
+
+    if (ClientRect.right > FilesRect.right && ClientRect.bottom > FilesRect.bottom)
+    {
+        RECT corner = {FilesRect.right, FilesRect.bottom, ClientRect.right, ClientRect.bottom};
+        FillRect(HPrivateDC, &corner, HDialogBrush);
+    }
 
     if (hUpdateRgn != NULL)
         SelectClipRgn(HPrivateDC, NULL); // remove the clipping region if we set it
@@ -1391,7 +1387,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         r.bottom += 2;
         if (DarkModeShouldUseDarkColors())
         {
-            HBRUSH borderBrush = GetDarkPanelBorderBrush();
+            HBRUSH borderBrush = DarkModeGetPanelFrameBrush();
             if (borderBrush != NULL)
                 FrameRect(hdc, &r, borderBrush);
         }
