@@ -1082,9 +1082,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
 
-        // we do not want visual styles for the rebar
-        // disable them
-        SetWindowTheme(HTopRebar, (L" "), (L" "));
+        // we do not want visual styles for the rebar in light mode
+        if (!DarkModeShouldUseDarkColors())
+            SetWindowTheme(HTopRebar, (L" "), (L" "));
 
         DarkModeApplyWindow(HTopRebar);
         UpdateRebarVisuals();
