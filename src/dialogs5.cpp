@@ -12,6 +12,7 @@
 #include "execute.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "stswnd.h"
 #include "gui.h"
 #include "menu.h"
 #include "shellib.h"
