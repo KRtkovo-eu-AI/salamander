@@ -96,6 +96,7 @@ protected:
     BOOL MouseIsTracked;  // je mys sledovana pomoci TrackMouseEvent?
     DWORD DropDownUpTime; // cas v [ms], kdy byl odmackunt drop down, pro ochranu pred novym zamacknutim
     BOOL HelpMode;        // Salamander je Shift+F1 (ctx help) rezimu a toolbar by mel vysvitit i disabled polozky pod kurzorem
+    BOOL DarkCheckedUseAccent; // pouzivat v dark mode akcent pro zamacknuta tlacitka
 
 public:
     //
@@ -146,6 +147,7 @@ public:
 
     virtual void WINAPI SetPadding(const TOOLBAR_PADDING* padding);
     virtual void WINAPI GetPadding(TOOLBAR_PADDING* padding);
+    void SetDarkCheckedUseAccent(BOOL useAccent);
 
     // obehne vsechny polozky a pokud maji nastaveny ukazatel 'EnablerData'
     // porovna hodnoty (na kterou ukazuje) se skutecnym stavem polozky.

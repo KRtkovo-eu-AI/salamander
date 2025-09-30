@@ -536,26 +536,29 @@ void CToolBar::DrawItem(HDC hDC, int index)
 
             if (bodyDown && (item->State & TLBI_STATE_CHECKED))
             {
-                if (HotIndex != index)
+                if (DarkModeShouldUseDarkColors())
                 {
-                    if (DarkModeShouldUseDarkColors())
+                    RECT fill = {r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
+                    if (DarkCheckedUseAccent)
                     {
-                        RECT fill = {r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
-                        FillRect(CacheBitmap->HMemDC, &fill, HSelectedBkBrush);
+                        if (HotIndex != index)
+                            FillRect(CacheBitmap->HMemDC, &fill, HSelectedBkBrush);
                     }
                     else
-                    {
-                        // ditherovane zamackle pozadi
-                        SetBrushOrgEx(CacheBitmap->HMemDC, 0, r.top, NULL);
-                        HBRUSH hOldBrush = (HBRUSH)SelectObject(CacheBitmap->HMemDC, HDitherBrush);
-                        int oldTextColor = SetTextColor(CacheBitmap->HMemDC, GetSysColor(COLOR_BTNFACE));
-                        int oldBkColor = SetBkColor(CacheBitmap->HMemDC, GetSysColor(COLOR_3DHILIGHT));
-                        PatBlt(CacheBitmap->HMemDC, r.left + 1, r.top + 1,
-                               r.right - r.left - 2, r.bottom - r.top - 2, PATCOPY);
-                        SetTextColor(CacheBitmap->HMemDC, oldTextColor);
-                        SetBkColor(CacheBitmap->HMemDC, oldBkColor);
-                        SelectObject(CacheBitmap->HMemDC, hOldBrush);
-                    }
+                        FillRect(CacheBitmap->HMemDC, &fill, HNormalBkBrush);
+                }
+                else if (HotIndex != index)
+                {
+                    // ditherovane zamackle pozadi
+                    SetBrushOrgEx(CacheBitmap->HMemDC, 0, r.top, NULL);
+                    HBRUSH hOldBrush = (HBRUSH)SelectObject(CacheBitmap->HMemDC, HDitherBrush);
+                    int oldTextColor = SetTextColor(CacheBitmap->HMemDC, GetSysColor(COLOR_BTNFACE));
+                    int oldBkColor = SetBkColor(CacheBitmap->HMemDC, GetSysColor(COLOR_3DHILIGHT));
+                    PatBlt(CacheBitmap->HMemDC, r.left + 1, r.top + 1,
+                           r.right - r.left - 2, r.bottom - r.top - 2, PATCOPY);
+                    SetTextColor(CacheBitmap->HMemDC, oldTextColor);
+                    SetBkColor(CacheBitmap->HMemDC, oldBkColor);
+                    SelectObject(CacheBitmap->HMemDC, hOldBrush);
                 }
                 checked = TRUE;
             }
