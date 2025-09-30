@@ -755,6 +755,7 @@ protected:
     CHighlightMasks* SourceHighlightMasks;
 
     BOOL Dirty;
+    int SelectedSchemeId;
 
 public:
     CCfgPageColors();
@@ -769,6 +770,7 @@ protected:
     void LoadMasks();
     void StoreMasks();
     void EnableControls();
+    void OnSchemeChanged();
 };
 
 //
