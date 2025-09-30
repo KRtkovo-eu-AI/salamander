@@ -379,6 +379,7 @@ CConfiguration::CConfiguration()
     UseIconTincture = TRUE;
     UsePanelTabs = TRUE;
     ShowPanelCaption = TRUE;
+    UseTabColorForActiveCaption = FALSE;
     ShowPanelZoom = TRUE;
     strcpy(InfoLineContent, "$(FileName): $(FileSize), $(FileDate), $(FileTime), $(FileAttributes), $(FileDOSName)");
 

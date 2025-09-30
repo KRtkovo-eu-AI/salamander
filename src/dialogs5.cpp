@@ -3464,6 +3464,9 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
     const int MODE_ITEMS = 3;
     int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
 
+    BOOL oldUseTabColorForCaption = Configuration.UseTabColorForActiveCaption;
+    ti.CheckBox(IDC_TABS_USE_TAB_COLOR_FOR_ACTIVE_CAPTION, Configuration.UseTabColorForActiveCaption);
+
     if (ti.Type == ttDataToWindow)
     {
         int resIDs[MODE_ITEMS] = {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH};
@@ -3503,6 +3506,15 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
                 }
             }
         }
+    }
+
+    if (ti.Type == ttDataFromWindow && oldUseTabColorForCaption != Configuration.UseTabColorForActiveCaption &&
+        MainWindow != NULL)
+    {
+        if (MainWindow->LeftPanel != NULL && MainWindow->LeftPanel->DirectoryLine != NULL)
+            MainWindow->LeftPanel->DirectoryLine->Repaint();
+        if (MainWindow->RightPanel != NULL && MainWindow->RightPanel->DirectoryLine != NULL)
+            MainWindow->RightPanel->DirectoryLine->Repaint();
     }
 }
 

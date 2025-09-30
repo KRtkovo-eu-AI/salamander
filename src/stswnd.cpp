@@ -17,6 +17,29 @@
 // CStatusWindow
 //
 
+static COLORREF GetCaptionBackgroundColor(CFilesWindow* panel, BOOL activeCaption)
+{
+    if (MainWindow != NULL)
+        return MainWindow->ResolvePanelCaptionColor(panel, activeCaption != FALSE);
+    return GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
+}
+
+static void FillCaptionBackground(HDC hdc, const RECT& rect, CFilesWindow* panel, BOOL activeCaption)
+{
+    if (activeCaption && Configuration.UseTabColorForActiveCaption && panel != NULL && panel->HasCustomTabColor())
+    {
+        COLORREF color = GetCaptionBackgroundColor(panel, TRUE);
+        HBRUSH brush = CreateSolidBrush(color);
+        if (brush != NULL)
+        {
+            FillRect(hdc, &rect, brush);
+            DeleteObject(brush);
+            return;
+        }
+    }
+    FillRect(hdc, &rect, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
+}
+
 CStatusWindow::CStatusWindow(CFilesWindow* filesWindow, int border, CObjectOrigin origin) : CWindow(origin), HotTrackItems(10, 5)
 {
     CALL_STACK_MESSAGE_NONE
@@ -656,7 +679,8 @@ void CStatusWindow::FlashText(BOOL hotTrackOnly)
     Repaint(FALSE, hotTrackOnly);
 }
 
-void PaintSymbol(HDC hDC, HDC hMemDC, HBITMAP hBitmap, int xOffset, int width, int height, const RECT* rect, BOOL hot, BOOL activeCaption)
+void PaintSymbol(HDC hDC, HDC hMemDC, HBITMAP hBitmap, int xOffset, int width, int height, const RECT* rect, BOOL hot,
+                 BOOL activeCaption, CFilesWindow* panel)
 {
     HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
     COLORREF textColor;
@@ -676,7 +700,7 @@ void PaintSymbol(HDC hDC, HDC hMemDC, HBITMAP hBitmap, int xOffset, int width, i
     }
     COLORREF bkColor;
     if (Configuration.ShowPanelCaption)
-        bkColor = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
+        bkColor = GetCaptionBackgroundColor(panel, activeCaption);
     else
         bkColor = GetSysColor(COLOR_BTNFACE);
     int oldTextColor = SetTextColor(hDC, textColor);
@@ -697,7 +721,7 @@ void CStatusWindow::PaintThrobber(HDC hDC)
     RECT r = ThrobberRect;
     r.left += 2;
     r.right -= 2;
-    FillRect(hDC, &r, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
+    FillCaptionBackground(hDC, r, FilesWindow, activeCaption);
     int x = (ThrobberRect.left + ThrobberRect.right) / 2 - THROBBER_WIDTH / 2;
     int y = (ThrobberRect.top + ThrobberRect.bottom) / 2 - THROBBER_HEIGHT / 2;
 
@@ -718,7 +742,7 @@ void CStatusWindow::PaintSecurity(HDC hDC)
     RECT r = SecurityRect;
     //  r.left += 2;
     //  r.right -= 2;
-    FillRect(hDC, &r, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
+    FillCaptionBackground(hDC, r, FilesWindow, activeCaption);
     int x = (SecurityRect.left + SecurityRect.right) / 2 - LOCK_WIDTH / 2;
     int y = (SecurityRect.top + SecurityRect.bottom) / 2 - LOCK_HEIGHT / 2 - 1;
 
@@ -783,7 +807,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         textR.top++;
         textR.right--;
         textR.bottom--;
-        FillRect(dc, &textR, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
+        FillCaptionBackground(dc, textR, FilesWindow, activeCaption);
     }
 
     // text
@@ -1133,7 +1157,8 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 zoomed = MainWindow->IsPanelZoomed(TRUE);
             else
                 zoomed = MainWindow->IsPanelZoomed(FALSE);
-            PaintSymbol(dc, hMemDC, HZoomBitmap, zoomed ? ZOOM_WIDTH : 0, ZOOM_WIDTH, ZOOM_HEIGHT, &ZoomRect, HotZoom, activeCaption);
+            PaintSymbol(dc, hMemDC, HZoomBitmap, zoomed ? ZOOM_WIDTH : 0, ZOOM_WIDTH, ZOOM_HEIGHT, &ZoomRect, HotZoom,
+                        activeCaption, FilesWindow);
         }
 
         // disk free
@@ -1177,7 +1202,8 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
         // symbol filtru
         if (HiddenRect.left < HiddenRect.right)
-            PaintSymbol(dc, hMemDC, HFilter, 0, FILTER_WIDTH, FILTER_HEIGHT, &HiddenRect, HotHidden, activeCaption);
+            PaintSymbol(dc, hMemDC, HFilter, 0, FILTER_WIDTH, FILTER_HEIGHT, &HiddenRect, HotHidden, activeCaption,
+                        FilesWindow);
 
         // throbber
         if (ThrobberRect.left < ThrobberRect.right)

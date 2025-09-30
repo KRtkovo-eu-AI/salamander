@@ -595,6 +595,7 @@
 #define IDC_TITLEBAR_ICON_INDEX         2688
 #define IDC_TABS_MODE                   2689
 #define IDC_TABS_LABEL                  2690
+#define IDC_TABS_USE_TAB_COLOR_FOR_ACTIVE_CAPTION 2691
 #define IDD_CFGPAGE_ARCHIVERS           2700
 #define IDC_ARCH_SIMPLEICONS            2701
 #define IDC_ARCH_ANOTHERPANELP          2702

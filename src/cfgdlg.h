@@ -299,9 +299,10 @@ struct CConfiguration
     int FullRowSelect;    // v detailed/brief view lze klikat kamkoliv
     int FullRowHighlight; // v detailed view je za focusem jeste podbarven zbytek radku
     int UseIconTincture;  // pro hidden/system/selected/focused polozky
-    int UsePanelTabs;     // pouzivat panelove taby?
-    int ShowPanelCaption; // bude v directory line zobrazen barevne panel caption?
-    int ShowPanelZoom;    // bude v directory line zobrazeno tlacitko Zoom?
+    int UsePanelTabs;                      // pouzivat panelove taby?
+    int ShowPanelCaption;                  // bude v directory line zobrazen barevne panel caption?
+    int UseTabColorForActiveCaption;       // pouzit barvu tabu pro aktivni titulek panelu?
+    int ShowPanelZoom;                     // bude v directory line zobrazeno tlacitko Zoom?
 
     char InfoLineContent[200];
 

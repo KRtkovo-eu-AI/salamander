@@ -583,6 +583,13 @@ void CMainWindow::UpdatePanelTabColor(CFilesWindow* panel)
         tabWnd->ClearTabColor(index);
 }
 
+COLORREF CMainWindow::ResolvePanelCaptionColor(const CFilesWindow* panel, bool activeCaption) const
+{
+    if (activeCaption && Configuration.UseTabColorForActiveCaption && panel != NULL && panel->HasCustomTabColor())
+        return panel->GetCustomTabColor();
+    return GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
+}
+
 void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
 {
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
@@ -1475,6 +1482,8 @@ void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
     {
         panel->SetCustomTabColor(cc.rgbResult);
         UpdatePanelTabColor(panel);
+        if (Configuration.UseTabColorForActiveCaption && panel->DirectoryLine != NULL)
+            panel->DirectoryLine->Repaint();
     }
 }
 
@@ -1489,6 +1498,8 @@ void CMainWindow::CommandClearPanelTabColor(CFilesWindow* panel)
 
     panel->ClearCustomTabColor();
     UpdatePanelTabColor(panel);
+    if (Configuration.UseTabColorForActiveCaption && panel->DirectoryLine != NULL)
+        panel->DirectoryLine->Repaint();
 }
 
 void CMainWindow::CommandSetPanelTabPrefix(CFilesWindow* panel)
