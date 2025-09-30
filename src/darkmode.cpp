@@ -186,6 +186,61 @@ static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
+const wchar_t* kDarkModeClassicButtonProp = L"Salamander.DarkMode.ClassicButton";
+
+bool ControlHasCaptionButton(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return false;
+
+    if (lstrcmpiW(className, L"Button") != 0)
+        return false;
+
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+
+    switch (type)
+    {
+    case BS_GROUPBOX:
+    case BS_AUTOCHECKBOX:
+    case BS_CHECKBOX:
+    case BS_AUTO3STATE:
+    case BS_3STATE:
+    case BS_AUTORADIOBUTTON:
+    case BS_RADIOBUTTON:
+        return true;
+    }
+
+    return false;
+}
+
+void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
+{
+    if (hwnd == NULL || gSetWindowTheme == nullptr)
+        return;
+
+    HANDLE applied = GetPropW(hwnd, kDarkModeClassicButtonProp);
+
+    if (forceClassic)
+    {
+        if (applied == nullptr)
+        {
+            gSetWindowTheme(hwnd, L"", L"");
+            SetPropW(hwnd, kDarkModeClassicButtonProp, reinterpret_cast<HANDLE>(1));
+            InvalidateRect(hwnd, nullptr, TRUE);
+        }
+    }
+    else if (applied != nullptr)
+    {
+        RemovePropW(hwnd, kDarkModeClassicButtonProp);
+        gSetWindowTheme(hwnd, nullptr, nullptr);
+        InvalidateRect(hwnd, nullptr, TRUE);
+    }
+}
 
 int ComputeLuminance(COLORREF color)
 {
@@ -589,8 +644,18 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     const COLORREF background = DarkModeGetDialogBackgroundColor();
     const bool paletteDark = ComputeLuminance(background) < 128;
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
+    const bool forceClassicButtons = paletteDark && !usingNativeDark;
+
     if (!usingNativeDark && !paletteDark)
+    {
+        if ((message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN) && lParam != 0)
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ControlHasCaptionButton(ctrl))
+                EnsureClassicButtonTheme(ctrl, false);
+        }
         return false;
+    }
 
     HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
     HDC hdc = reinterpret_cast<HDC>(wParam);
@@ -621,24 +686,18 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (ctrl != NULL)
         {
-            wchar_t className[16];
-            if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Button") == 0)
+            if (ControlHasCaptionButton(ctrl))
             {
-                LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-                LONG_PTR type = style & BS_TYPEMASK;
-                if (type == BS_GROUPBOX || type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
-                    type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
-                {
-                    SetTextColor(hdc, textColor);
-                    SetBkColor(hdc, background);
-                    SetBkMode(hdc, TRANSPARENT);
-                    result = reinterpret_cast<LRESULT>(brush);
-                    return true;
-                }
+                EnsureClassicButtonTheme(ctrl, forceClassicButtons);
                 SetTextColor(hdc, textColor);
+                SetBkColor(hdc, background);
+                SetBkMode(hdc, TRANSPARENT);
+                result = reinterpret_cast<LRESULT>(brush);
+                return true;
             }
             else
             {
+                EnsureClassicButtonTheme(ctrl, false);
                 LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
                 if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
                     SetTextColor(hdc, textColor);
@@ -655,9 +714,17 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     }
 
     case WM_CTLCOLORBTN:
+    {
+        HWND ctrl = reinterpret_cast<HWND>(lParam);
+        if (ControlHasCaptionButton(ctrl))
+            EnsureClassicButtonTheme(ctrl, forceClassicButtons);
+        else
+            EnsureClassicButtonTheme(ctrl, false);
+
         setCommonColors(true);
         result = reinterpret_cast<LRESULT>(brush);
         return true;
+    }
 
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:
