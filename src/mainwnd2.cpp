@@ -2846,7 +2846,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             char startupPath[2 * MAX_PATH];
             startupPath[0] = 0;
             LoadPanelSettingsFromKey(panel, actKey, startupPath, _countof(startupPath));
+
             panel->ClearDeferredPanelSettings();
+            panel->ClearDeferredPanelSettingsRegistryKey();
 
             LoadPanelTabMetadataFromKey(panel, actKey);
             UpdatePanelTabColor(panel);
@@ -2861,9 +2863,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                     panel->ClearDeferredWorkDirHistory();
                 }
                 else
-                {
                     panel->SetDeferredWorkDirHistorySubKey(reg);
-                }
             }
             else
             {
@@ -2873,7 +2873,18 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
             if (startupPath[0] != 0)
             {
-                panel->SetDeferredInitialPath(startupPath);
+                BOOL restored = RestorePanelPathFromConfig(panel, startupPath);
+                if (restored)
+                {
+                    if (side == cpsLeft)
+                        PanelConfigPathsRestoredLeft = TRUE;
+                    else
+                        PanelConfigPathsRestoredRight = TRUE;
+                    panel->ClearDeferredInitialPath();
+                }
+                else
+                    panel->SetDeferredInitialPath(startupPath);
+
                 if (panelPath != NULL && IsDiskOrUNCPath(startupPath))
                     lstrcpyn(panelPath, startupPath, MAX_PATH);
             }
@@ -2881,8 +2892,29 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                 panel->ClearDeferredInitialPath();
 
             UpdatePanelTabTitle(panel);
+            UpdatePanelTabVisibility(side);
 
-            AdoptRestoredPanel(panel);
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+            {
+                int index = GetPanelTabIndex(side, panel);
+                if (index >= 0 && tabWnd->GetCurSel() != index)
+                    tabWnd->SetCurSel(index);
+            }
+
+            CFilesWindow* currentActive = GetActivePanel();
+            bool activateSameSide = (currentActive == NULL || currentActive->GetPanelSide() == side);
+            if (activateSameSide)
+            {
+                SetActivePanel(panel);
+                if (Created)
+                    EditWindowSetDirectory();
+            }
+
+            if (UsingSharedWorkDirHistory())
+                UpdateAllDirectoryLineHistoryStates();
+            else
+                UpdateDirectoryLineHistoryState(panel);
         }
 
         CloseKey(actKey);
