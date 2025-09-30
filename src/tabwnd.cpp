@@ -1541,7 +1541,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     {
         int paletteIndex = ITEM_BK_NORMAL;
         if (selected)
-            paletteIndex = ITEM_BK_SELECTED;
+            paletteIndex = ITEM_BK_FOCUSED;
         else if (hot)
             paletteIndex = ITEM_BK_HIGHLIGHT;
 
@@ -1608,7 +1608,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
             {
                 int textIndex = ITEM_FG_NORMAL;
                 if (selected)
-                    textIndex = ITEM_FG_SELECTED;
+                    textIndex = ITEM_FG_FOCUSED;
                 else if (hot)
                     textIndex = ITEM_FG_HIGHLIGHT;
                 textColor = GetCOLORREF(CurrentColors[textIndex]);
