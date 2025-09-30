@@ -1875,7 +1875,12 @@ void CButton::PaintFace(HDC hdc, const RECT* rect, BOOL enabled)
 
         HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
         int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-        int oldTextColor = SetTextColor(hdc, GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
+        const bool useDark = DarkModeShouldUseDarkColors();
+        const COLORREF background = useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+        COLORREF textColor = enabled ? (useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT))
+                                     : GetSysColor(COLOR_GRAYTEXT);
+        textColor = DarkModeEnsureReadableForeground(textColor, background);
+        int oldTextColor = SetTextColor(hdc, textColor);
         RECT r2 = r;
         r2.top--;
         DWORD dtFlags = DT_CENTER | DT_VCENTER | DT_SINGLELINE;

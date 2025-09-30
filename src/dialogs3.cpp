@@ -487,26 +487,30 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
         LRESULT brush;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
 
-        HWND ctrl = reinterpret_cast<HWND>(lParam);
-        if (ctrl != NULL && GetDlgCtrlID(ctrl) == IDS_SUBJECT)
+        if (uMsg == WM_CTLCOLORSTATIC)
         {
-            HDC hdc = reinterpret_cast<HDC>(wParam);
-            if (hdc != NULL)
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ctrl != NULL && GetDlgCtrlID(ctrl) == IDS_SUBJECT)
             {
-                const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-                const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-                const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
-                SetTextColor(hdc, text);
-                SetBkColor(hdc, background);
-                SetBkMode(hdc, TRANSPARENT);
-                return reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush
-                                                                      : GetSysColorBrush(COLOR_BTNFACE));
+                HDC hdc = reinterpret_cast<HDC>(wParam);
+                if (hdc != NULL)
+                {
+                    const COLORREF background = DarkModeGetDialogBackgroundColor();
+                    const COLORREF paletteText = DarkModeGetDialogTextColor();
+                    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                    SetTextColor(hdc, text);
+                    SetBkColor(hdc, background);
+                    SetBkMode(hdc, TRANSPARENT);
+                    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                    return reinterpret_cast<INT_PTR>(dialogBrush);
+                }
             }
         }
         break;
