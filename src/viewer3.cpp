@@ -454,6 +454,34 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             break;
         }
+
+        case WM_THEMECHANGED:
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            if (HToolTip != NULL)
+                DarkModeApplyWindow(HToolTip);
+            ReleaseViewerBrushs();
+            CreateViewerBrushs();
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
+
+        case WM_SETTINGCHANGE:
+        {
+            if (DarkModeHandleSettingChange(uMsg, lParam))
+            {
+                DarkModeApplyTree(HWindow);
+                DarkModeRefreshTitleBar(HWindow);
+                if (HToolTip != NULL)
+                    DarkModeApplyWindow(HToolTip);
+                ReleaseViewerBrushs();
+                CreateViewerBrushs();
+                InvalidateRect(HWindow, NULL, TRUE);
+                return 0;
+            }
+            break;
+        }
         }
         return CWindow::WindowProc(uMsg, wParam, lParam);
     }
@@ -541,6 +569,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   NULL, NULL, HInstance, NULL);
 
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+
         if (HToolTip != NULL)
         {
             TOOLINFO ti;
@@ -555,6 +587,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(HToolTip, TTM_SETDELAYTIME, TTDT_INITIAL, 500);
             SendMessage(HToolTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 10000);
             SetWindowPos(HToolTip, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            DarkModeApplyWindow(HToolTip);
         }
 
         DragAcceptFiles(HWindow, TRUE);
@@ -685,8 +718,40 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CreateViewerBrushs();
         SetViewerFont();
         InvalidateRect(HWindow, NULL, TRUE);
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        if (HToolTip != NULL)
+            DarkModeApplyWindow(HToolTip);
         ConfigHasChanged();
         return 0;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        if (HToolTip != NULL)
+            DarkModeApplyWindow(HToolTip);
+        ReleaseViewerBrushs();
+        CreateViewerBrushs();
+        InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            if (HToolTip != NULL)
+                DarkModeApplyWindow(HToolTip);
+            ReleaseViewerBrushs();
+            CreateViewerBrushs();
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
+        break;
     }
 
     case WM_USER_CLEARHISTORY:
