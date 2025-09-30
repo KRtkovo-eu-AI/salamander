@@ -3205,14 +3205,7 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
     const bool windowsDarkEnabled = Configuration.UseWindowsDarkMode != FALSE;
     DarkModeSetEnabled(windowsDarkEnabled);
 
-    const auto computeLuminance = [](COLORREF color) {
-        return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
-    };
-
-    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    bool useDarkColors = windowsDarkEnabled;
-    if (!useDarkColors)
-        useDarkColors = computeLuminance(paletteBackground) < 128;
+    const bool useDarkColors = windowsDarkEnabled;
 
     WindowsDarkModeUpdatePalette(windowsDarkEnabled);
     UpdateMenuAndDialogBrushes(useDarkColors);
