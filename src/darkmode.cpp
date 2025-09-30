@@ -393,7 +393,7 @@ void ApplyControlTheme(HWND hwnd)
     };
 
     const bool wantDark = ShouldUseDarkColorsInternal();
-    const bool hadTheme = GetPropW(hwnd, kDarkModeThemeProp) != NULL;
+    const wchar_t* const appliedTheme = reinterpret_cast<const wchar_t*>(GetPropW(hwnd, kDarkModeThemeProp));
     const wchar_t* theme = nullptr;
 
     if (wantDark)
@@ -424,12 +424,15 @@ void ApplyControlTheme(HWND hwnd)
 
     if (theme != nullptr)
     {
-        if (gSetWindowTheme)
-            gSetWindowTheme(hwnd, theme, nullptr);
-        SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(1));
-        notifyThemeChanged(hwnd);
+        if (appliedTheme != theme)
+        {
+            SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(const_cast<wchar_t*>(theme)));
+            if (gSetWindowTheme)
+                gSetWindowTheme(hwnd, theme, nullptr);
+            notifyThemeChanged(hwnd);
+        }
     }
-    else if (hadTheme)
+    else if (appliedTheme != nullptr)
     {
         RemovePropW(hwnd, kDarkModeThemeProp);
         if (gSetWindowTheme)
