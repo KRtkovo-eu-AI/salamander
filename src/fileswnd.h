@@ -517,6 +517,7 @@ private:
 protected:
     void PromoteFileArraysToStandardCapacity();
     bool EnsureFileArraysAllocated();
+    bool AreFileArraysInitialized() const { return FileArraysInitialized; }
 
 public:
     // contents of all columns shown in the panel (both basic data and plug-in data for archives and FS)

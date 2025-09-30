@@ -1616,7 +1616,7 @@ CFilesWindow::~CFilesWindow()
 
 bool CFilesWindow::EnsureLightInitialization()
 {
-    if (!LightInitializationPending && FileArraysInitialized && ContextSubmenuNew != NULL && PathHistory != NULL &&
+    if (!LightInitializationPending && AreFileArraysInitialized() && ContextSubmenuNew != NULL && PathHistory != NULL &&
         ExecuteAssocEvent != NULL && ICSleepSectionInitialized && ICSectionUsingIconInitialized &&
         ICSectionUsingThumbInitialized)
     {
