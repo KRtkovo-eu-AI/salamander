@@ -1551,46 +1551,63 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CTabWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
-    case WM_PAINT:
+    case WM_ERASEBKGND:
     {
-        RECT updateRect;
-        BOOL hasUpdate = (HWindow != NULL) ? GetUpdateRect(HWindow, &updateRect, FALSE) : FALSE;
-        LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
-        if (HWindow != NULL)
+        HDC hdc = reinterpret_cast<HDC>(wParam);
+        if (hdc != NULL && HWindow != NULL)
         {
-            bool shouldPaintTabs = true;
-            bool shouldPaintIndicator = DragIndicatorVisible;
-            if (shouldPaintTabs || shouldPaintIndicator)
+            RECT clientRect;
+            if (GetClientRect(HWindow, &clientRect))
             {
-                HDC hdc = GetDC(HWindow);
-                if (hdc != NULL)
+                HBRUSH brush = CreateSolidBrush(ResolveDefaultTabColor());
+                if (brush != NULL)
                 {
-                    int saved = SaveDC(hdc);
-                    if (hasUpdate)
-                        IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
-                    if (shouldPaintTabs)
-                        PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
-                    if (shouldPaintIndicator)
-                        PaintDragIndicator(hdc);
-                    RestoreDC(hdc, saved);
-                    ReleaseDC(HWindow, hdc);
+                    FillRect(hdc, &clientRect, brush);
+                    DeleteObject(brush);
                 }
             }
         }
-        return baseResult;
+        return TRUE;
+    }
+
+    case WM_PAINT:
+    {
+        if (HWindow == NULL)
+            break;
+
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(HWindow, &ps);
+        if (hdc != NULL)
+        {
+            RECT clipRect = ps.rcPaint;
+            bool hasClip = !IsRectEmpty(&clipRect);
+
+            int saved = SaveDC(hdc);
+            if (hasClip)
+                IntersectClipRect(hdc, clipRect.left, clipRect.top, clipRect.right, clipRect.bottom);
+
+            PaintCustomTabs(hdc, hasClip ? &clipRect : NULL);
+            if (DragIndicatorVisible)
+                PaintDragIndicator(hdc);
+
+            RestoreDC(hdc, saved);
+        }
+        EndPaint(HWindow, &ps);
+        return 0;
     }
 
     case WM_PRINTCLIENT:
     {
-        LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
         HDC hdc = reinterpret_cast<HDC>(wParam);
         if (hdc != NULL)
         {
             int saved = SaveDC(hdc);
             PaintCustomTabs(hdc, NULL);
+            if (DragIndicatorVisible)
+                PaintDragIndicator(hdc);
             RestoreDC(hdc, saved);
         }
-        return baseResult;
+        return 0;
     }
 
     case WM_LBUTTONDOWN:
