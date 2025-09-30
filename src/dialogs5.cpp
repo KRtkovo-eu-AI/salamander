@@ -45,6 +45,7 @@ void CPluginsDlg::ApplyTheme()
         return;
 
     DarkModeApplyTree(HWindow);
+    DarkModeRefreshTitleBar(HWindow);
 
     const bool useDark = DarkModeShouldUseDarkColors();
     const COLORREF text = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_WINDOWTEXT);
@@ -56,10 +57,16 @@ void CPluginsDlg::ApplyTheme()
 
     HWND headerWnd = ListView_GetHeader(HListView);
     if (headerWnd != NULL)
+    {
+        DarkModeApplyWindow(headerWnd);
         InvalidateRect(headerWnd, NULL, TRUE);
+    }
 
     if (Header != NULL && Header->HWindow != NULL)
+    {
+        DarkModeApplyWindow(Header->HWindow);
         InvalidateRect(Header->HWindow, NULL, TRUE);
+    }
 
     InvalidateRect(HListView, NULL, TRUE);
 }
@@ -951,7 +958,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SETTINGCHANGE:
     {
-        ApplyTheme();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            ApplyTheme();
         break;
     }
 
