@@ -489,6 +489,10 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CTLCOLORSTATIC:
     {
+        LRESULT brush;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (ctrl != NULL && GetDlgCtrlID(ctrl) == IDS_SUBJECT)
         {
