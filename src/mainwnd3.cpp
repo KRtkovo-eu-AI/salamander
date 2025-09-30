@@ -992,6 +992,26 @@ void CMainWindow::RebuildDriveBarsIfNeeded(BOOL useDrivesMask, DWORD drivesMask,
     }
 }
 
+void CMainWindow::UpdateRebarVisuals()
+{
+    if (HTopRebar == NULL)
+        return;
+
+    DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
+    DWORD desiredStyle = style;
+    if (DarkModeShouldUseDarkColors())
+        desiredStyle &= ~(RBS_BANDBORDERS | WS_BORDER);
+    else
+        desiredStyle |= (RBS_BANDBORDERS | WS_BORDER);
+
+    if (desiredStyle != style)
+    {
+        SetWindowLongPtr(HTopRebar, GWL_STYLE, desiredStyle);
+        SetWindowPos(HTopRebar, NULL, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+}
+
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1047,12 +1067,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                      Configuration.AlwaysOnTop ? HWND_TOPMOST : HWND_NOTOPMOST,
                      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
+        DWORD rebarStyle = WS_VISIBLE | WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
+                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN | RBS_AUTOSIZE;
+        if (!DarkModeShouldUseDarkColors())
+            rebarStyle |= WS_BORDER | RBS_BANDBORDERS;
+
         HTopRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, "",
-                                   WS_VISIBLE | WS_BORDER | WS_CHILD |
-                                       WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                                       RBS_VARHEIGHT | CCS_NODIVIDER |
-                                       RBS_BANDBORDERS | CCS_NOPARENTALIGN |
-                                       RBS_AUTOSIZE,
+                                   rebarStyle,
                                    0, 0, 0, 0, // dummy
                                    HWindow, (HMENU)0, HInstance, NULL);
         if (HTopRebar == NULL)
@@ -1065,12 +1086,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         // disable them
         SetWindowTheme(HTopRebar, (L" "), (L" "));
 
-        // enforce WS_BORDER which somehow "disappeared"
-        DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
-        style |= WS_BORDER;
-        SetWindowLongPtr(HTopRebar, GWL_STYLE, style);
-
         DarkModeApplyWindow(HTopRebar);
+        UpdateRebarVisuals();
 
         MenuBar = new CMenuBar(&MainMenu, HWindow);
         if (MenuBar == NULL)
@@ -1258,6 +1275,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         DarkModeRefreshTitleBar(HWindow);
         if (HTopRebar != NULL)
             SendMessage(HTopRebar, uMsg, wParam, lParam);
+        UpdateRebarVisuals();
         break;
     }
 
@@ -1268,6 +1286,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
+            UpdateRebarVisuals();
         }
 
         if (IgnoreWM_SETTINGCHANGE || LeftPanel == NULL || RightPanel == NULL) // a bug report showed that WM_SETTINGCHANGE was delivered immediately from WM_CREATE of the main window (panels didn't exist yet, causing a NULL access)
