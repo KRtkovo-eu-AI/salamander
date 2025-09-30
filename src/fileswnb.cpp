@@ -1500,20 +1500,23 @@ void CFilesWindow::SetThumbnailSize(int size)
     if (ListBox == NULL)
     {
         TRACE_E("ListBox == NULL");
+        return;
     }
-    else
-    {
-        if (size != ListBox->ThumbnailWidth || size != ListBox->ThumbnailHeight)
-        {
-            // vycisteni icon-cache
-            SleepIconCacheThread();
-            IconCache->Release();
-            EndOfIconReadingTime = GetTickCount() - 10000;
 
-            ListBox->ThumbnailWidth = size;
-            ListBox->ThumbnailHeight = size;
-        }
+    if (size == ListBox->ThumbnailWidth && size == ListBox->ThumbnailHeight)
+        return;
+
+    // vycisteni icon-cache (pokud uz byla pripravena)
+    if (IconCache != NULL)
+    {
+        SleepIconCacheThread();
+        IconCache->Release();
     }
+
+    EndOfIconReadingTime = GetTickCount() - 10000;
+
+    ListBox->ThumbnailWidth = size;
+    ListBox->ThumbnailHeight = size;
 }
 
 int CFilesWindow::GetThumbnailSize()
