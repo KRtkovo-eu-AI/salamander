@@ -871,7 +871,6 @@ void AlterFileName(char* tgtName, char* filename, int filenameLen, int format, i
 void GetFileOverwriteInfo(char* buff, int buffLen, HANDLE file, const char* fileName, FILETIME* fileTime = NULL, BOOL* getTimeFailed = NULL);
 
 void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons);                // volat po zmene barev
-void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
 HICON GetDriveIcon(const char* root, UINT type, BOOL accessible, BOOL large = FALSE); // ikona drivu
 HICON SalLoadIcon(HINSTANCE hDLL, int id, int iconSize);
 
@@ -1273,6 +1272,8 @@ extern SALCOLOR NortonColors[NUMBER_OF_COLORS];     // standardni barvy
 extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standardni barvy
 
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // barvy vieweru
+
+void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
 
 extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // pro standardni color dialog
 
