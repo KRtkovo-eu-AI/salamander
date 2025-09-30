@@ -246,7 +246,7 @@ void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuild
         RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
 }
 
-void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh)
+void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool allowAutomaticRefresh)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
     if (panel == NULL)
@@ -276,10 +276,13 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh)
         else
             UpdateDirectoryLineHistoryState(panel);
 
-        if (requestRefresh)
-            EnsurePanelRefreshAndRequest(panel, true, true);
-        else if (panel->NeedsRefreshOnActivation)
-            EnsurePanelAutomaticRefresh(panel);
+        if (allowAutomaticRefresh)
+        {
+            if (requestRefresh)
+                EnsurePanelRefreshAndRequest(panel, true, true);
+            else if (panel->NeedsRefreshOnActivation)
+                EnsurePanelAutomaticRefresh(panel);
+        }
 
         return;
     }
@@ -306,14 +309,21 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh)
 
     char deferredPath[2 * MAX_PATH];
     bool hadDeferredPath = panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath));
-    panel->EnsureHeavyInitialization();
-    if (hadDeferredPath)
+    if (allowAutomaticRefresh)
     {
-        BOOL restored = RestorePanelPathFromConfig(panel, deferredPath);
-        if (side == cpsLeft && !PanelConfigPathsRestoredLeft)
-            PanelConfigPathsRestoredLeft = restored;
-        else if (side == cpsRight && !PanelConfigPathsRestoredRight)
-            PanelConfigPathsRestoredRight = restored;
+        panel->EnsureHeavyInitialization();
+        if (hadDeferredPath)
+        {
+            BOOL restored = RestorePanelPathFromConfig(panel, deferredPath);
+            if (side == cpsLeft && !PanelConfigPathsRestoredLeft)
+                PanelConfigPathsRestoredLeft = restored;
+            else if (side == cpsRight && !PanelConfigPathsRestoredRight)
+                PanelConfigPathsRestoredRight = restored;
+        }
+    }
+    else if (hadDeferredPath)
+    {
+        panel->SetDeferredInitialPath(deferredPath);
     }
 
     if (UsingSharedWorkDirHistory())
@@ -354,10 +364,13 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh)
     }
 
     bool refreshActive = (panel == GetActivePanel());
-    if (requestRefresh)
-        EnsurePanelRefreshAndRequest(panel, refreshActive, true);
-    else
-        EnsurePanelAutomaticRefresh(panel);
+    if (allowAutomaticRefresh)
+    {
+        if (requestRefresh)
+            EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+        else
+            EnsurePanelAutomaticRefresh(panel);
+    }
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)

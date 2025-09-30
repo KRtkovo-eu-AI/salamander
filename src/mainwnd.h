@@ -559,7 +559,7 @@ public:
                               bool deferInitialization = false);
     bool EnsurePanelWindowCreated(CFilesWindow* panel);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
-    void SwitchPanelTab(CFilesWindow* panel, bool requestRefresh = true);
+    void SwitchPanelTab(CFilesWindow* panel, bool requestRefresh = true, bool allowAutomaticRefresh = true);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
@@ -633,6 +633,7 @@ public:
     void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
     void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);
     BOOL RestorePanelPathFromConfig(CFilesWindow* panel, const char* path);
+    BOOL ApplyDeferredStartupPath(CFilesWindow* panel);
     void DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoImportConfig,
                                  const char* autoImportConfigFromKey, BOOL doNotDeleteImportedCfg);
 

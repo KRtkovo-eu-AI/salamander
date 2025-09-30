@@ -1602,6 +1602,22 @@ BOOL CMainWindow::RestorePanelPathFromConfig(CFilesWindow* panel, const char* pa
     return FALSE;
 }
 
+BOOL CMainWindow::ApplyDeferredStartupPath(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return FALSE;
+
+    char deferredPath[2 * MAX_PATH];
+    if (!panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath)))
+        return FALSE;
+
+    panel->EnsureHeavyInitialization();
+    BOOL restored = RestorePanelPathFromConfig(panel, deferredPath);
+    if (!restored)
+        panel->SetDeferredInitialPath(deferredPath);
+    return restored;
+}
+
 void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg)
 {
     HKEY actKey;
@@ -2760,7 +2776,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     }
     int activeIndex = (int)activeValue;
 
-    BOOL activeRestored = FALSE;
     for (int i = 0; i < localTabs.Count; i++)
     {
         CFilesWindow* panel = localTabs[i];
@@ -2801,19 +2816,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
         UpdatePanelTabColor(panel);
 
-        bool isActiveTab = (i == activeIndex);
-        if (isActiveTab)
-        {
-            panel->EnsureHeavyInitialization();
-            BOOL restored = RestorePanelPathFromConfig(panel, path);
-            activeRestored = restored;
-            if (panelPath != NULL && IsDiskOrUNCPath(path))
-                lstrcpyn(panelPath, path, MAX_PATH);
-        }
-        else
-        {
-            panel->SetDeferredInitialPath(path);
-        }
+        panel->SetDeferredInitialPath(path);
+        if (i == activeIndex && panelPath != NULL && IsDiskOrUNCPath(path))
+            lstrcpyn(panelPath, path, MAX_PATH);
 
         UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
@@ -2828,7 +2833,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel, false);
+        SwitchPanelTab(activePanel, false, false);
         int sel = GetPanelTabIndex(side, activePanel);
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
@@ -2836,11 +2841,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     }
 
     UpdatePanelTabVisibility(side);
-
-    if (side == cpsLeft)
-        PanelConfigPathsRestoredLeft = activeRestored;
-    else
-        PanelConfigPathsRestoredRight = activeRestored;
 
     CloseKey(actKey);
 }
@@ -4416,10 +4416,21 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         BOOL tryNet = TRUE;
         if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
         {
+            BOOL restored = ApplyDeferredStartupPath(LeftPanel);
+            if (restored)
+            {
+                PanelConfigPathsRestoredLeft = TRUE;
+                leftPanelPathSet = TRUE;
+                LeftPanel->RefreshVisibleItemsArray();
+            }
+        }
+        if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
+        {
             if (SalCheckAndRestorePathWithCut(LeftPanel->HWindow, leftPanelPath, tryNet,
                                               err, lastErr, pathInvalid, cut, TRUE))
             {
                 LeftPanel->ChangePathToDisk(LeftPanel->HWindow, leftPanelPath);
+                PanelConfigPathsRestoredLeft = TRUE;
             }
             else
                 LeftPanel->ChangeToRescuePathOrFixedDrive(LeftPanel->HWindow);
@@ -4430,10 +4441,21 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         tryNet = TRUE;
         if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
         {
+            BOOL restored = ApplyDeferredStartupPath(RightPanel);
+            if (restored)
+            {
+                PanelConfigPathsRestoredRight = TRUE;
+                rightPanelPathSet = TRUE;
+                RightPanel->RefreshVisibleItemsArray();
+            }
+        }
+        if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
+        {
             if (SalCheckAndRestorePathWithCut(RightPanel->HWindow, rightPanelPath, tryNet,
                                               err, lastErr, pathInvalid, cut, TRUE))
             {
                 RightPanel->ChangePathToDisk(RightPanel->HWindow, rightPanelPath);
+                PanelConfigPathsRestoredRight = TRUE;
             }
             else
                 RightPanel->ChangeToRescuePathOrFixedDrive(RightPanel->HWindow);
