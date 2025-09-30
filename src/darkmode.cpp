@@ -653,7 +653,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     const COLORREF sysBackground = GetSysColor(COLOR_BTNFACE);
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
     const bool hasCustomPalette = textColor != sysTextColor || background != sysBackground;
-    const bool forceClassicButtons = hasCustomPalette && !usingNativeDark;
+    const bool forceClassicButtons = hasCustomPalette;
 
     if (!usingNativeDark && !hasCustomPalette)
     {
