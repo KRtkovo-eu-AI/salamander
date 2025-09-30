@@ -28,6 +28,27 @@
 #include "tasklist.h"
 #include "pwdmngr.h"
 
+namespace
+{
+class CScopedFlag
+{
+public:
+    explicit CScopedFlag(bool& flag)
+        : Flag(flag)
+    {
+        Flag = true;
+    }
+
+    ~CScopedFlag()
+    {
+        Flag = false;
+    }
+
+private:
+    bool& Flag;
+};
+}
+
 //
 // ConfigVersion - version number of the loaded configuration
 //
@@ -2845,6 +2866,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     if (panelPath != NULL)
         panelPath[0] = 0;
 
+    CScopedFlag restoringFlag(RestoringPanelConfiguration);
+
     HKEY actKey;
     if (!OpenKey(hSalamander, reg, actKey))
         return;
@@ -2938,21 +2961,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (tabs.Count == 0)
     {
-        CFilesWindow* panel = AddPanelTab(side, 0, false, true);
-        if (panel != NULL)
+        if (AddPanelTab(side, 0, false, true) == NULL)
         {
-            if (!EnsurePanelWindowCreated(panel))
-            {
-                int idx = GetPanelTabIndex(side, panel);
-                if (idx >= 0)
-                {
-                    CTabWindow* tabWnd = GetPanelTabWindow(side);
-                    if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                        tabWnd->RemoveTab(idx);
-                    tabs.Delete(idx);
-                }
-                delete panel;
-            }
+            CloseKey(actKey);
+            return;
         }
     }
 

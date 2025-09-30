@@ -360,6 +360,7 @@ CMainWindow::CMainWindow()
 
     PanelConfigPathsRestoredLeft = FALSE;
     PanelConfigPathsRestoredRight = FALSE;
+    RestoringPanelConfiguration = false;
 
     ToolTip = new CToolTip(ooStatic);
 

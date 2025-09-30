@@ -462,6 +462,7 @@ public:
 
     BOOL PanelConfigPathsRestoredLeft;
     BOOL PanelConfigPathsRestoredRight;
+    bool RestoringPanelConfiguration;
 
     BOOL DragMode;
     int DragSplitX;

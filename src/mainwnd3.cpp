@@ -218,6 +218,9 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
     if (panel == NULL)
         return;
 
+    if (RestoringPanelConfiguration)
+        return;
+
     bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
     const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
     const char* path = panel->GetPath();
@@ -239,8 +242,11 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
 }
 
 void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
-                                               bool postRefreshMessage)
+                                              bool postRefreshMessage)
 {
+    if (RestoringPanelConfiguration)
+        return;
+
     EnsurePanelAutomaticRefresh(panel);
     if (panel != NULL && Created)
         RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
@@ -251,6 +257,9 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool 
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
     if (panel == NULL)
         return;
+
+    if (RestoringPanelConfiguration)
+        allowAutomaticRefresh = false;
 
     CPanelSide side = panel->GetPanelSide();
     CFilesWindow* previousActive = (side == cpsLeft) ? LeftPanel : RightPanel;
