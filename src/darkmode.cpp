@@ -356,7 +356,6 @@ void ApplyControlTheme(HWND hwnd)
         return;
 
     static const wchar_t* const explorerClasses[] = {
-        L"Button",
         L"ReBarWindow32",
         L"ToolbarWindow32",
         L"msctls_progress32",
@@ -393,6 +392,11 @@ void ApplyControlTheme(HWND hwnd)
             theme = L"ItemsView";
         else if (MatchesAnyClass(className, darkExplorerClasses, _countof(darkExplorerClasses)))
             theme = L"DarkMode_Explorer";
+        else if (wcscmp(className, L"Button") == 0)
+        {
+            if (GetPropW(hwnd, kDarkModeClassicButtonProp) == NULL)
+                theme = L"Explorer";
+        }
         else if (MatchesAnyClass(className, explorerClasses, _countof(explorerClasses)))
             theme = L"Explorer";
         else if (MatchesAnyClass(className, cfdClasses, _countof(cfdClasses)))
