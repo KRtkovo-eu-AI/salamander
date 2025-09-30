@@ -10,6 +10,7 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "fileswnd.h"
+#include "darkmode.h"
 
 #ifndef TCM_SETINSERTMARK
 #define TCM_SETINSERTMARK (TCM_FIRST + 44)
@@ -77,6 +78,13 @@ namespace
     {
         int luminance = 30 * GetRValue(color) + 59 * GetGValue(color) + 11 * GetBValue(color);
         return luminance < 128 * 100;
+    }
+
+    COLORREF ResolveDefaultTabColor()
+    {
+        if (DarkModeShouldUseDarkColors())
+            return GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        return GetSysColor(COLOR_BTNFACE);
     }
 
     class CSelChangeGuard
@@ -1402,7 +1410,7 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
             // baseColor already resolved
         }
         else
-            baseColor = GetSysColor(COLOR_BTNFACE);
+            baseColor = ResolveDefaultTabColor();
 
         bool isSelected = (i == selected);
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
