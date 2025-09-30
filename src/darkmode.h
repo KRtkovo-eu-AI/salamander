@@ -35,6 +35,9 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam);
 // Installs the dark scrollbar hook (no-op on unsupported systems).
 void DarkModeFixScrollbars();
 
+// Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
+void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
+
 // Handles WM_CTLCOLOR* messages for dark mode aware parents. Returns true when
 // a dark brush was supplied and the caller should stop default processing.
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
