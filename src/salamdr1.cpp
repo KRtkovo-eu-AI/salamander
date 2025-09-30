@@ -324,13 +324,32 @@ static void DestroyDarkModeBrushes()
     gDarkModeBrushesOwned = false;
 }
 
-static void UpdateMenuAndDialogBrushes(bool useDarkColors)
+static bool PalettePrefersDarkColors()
 {
+    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
+    return luminance < 128;
+}
+
+static COLORREF GetPaletteDialogTextColor()
+{
+    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF text = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+    return DarkModeEnsureReadableForeground(text, background);
+}
+
+static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
+{
+    const bool paletteDark = PalettePrefersDarkColors();
+    const bool useDarkColors = preferDarkMode || paletteDark;
+    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF paletteText = GetPaletteDialogTextColor();
+
     if (useDarkColors)
     {
         DestroyDarkModeBrushes();
-        COLORREF panelBg = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-        COLORREF textColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+        COLORREF panelBg = paletteBackground;
+        COLORREF textColor = paletteText;
         COLORREF highlight = LightenColor(panelBg, 24);
         COLORREF gray = DarkenColor(panelBg, 40);
 
@@ -353,8 +372,8 @@ static void UpdateMenuAndDialogBrushes(bool useDarkColors)
         HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
     }
 
-    COLORREF dialogText = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
-    COLORREF dialogBackground = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
+    COLORREF dialogText = useDarkColors ? paletteText : GetSysColor(COLOR_BTNTEXT);
+    COLORREF dialogBackground = useDarkColors ? paletteBackground : GetSysColor(COLOR_BTNFACE);
     DarkModeConfigureDialogColors(dialogText, dialogBackground, HDialogBrush);
 }
 
