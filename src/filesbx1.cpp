@@ -1361,7 +1361,7 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSCROLLBAR:
     case WM_CTLCOLORMSGBOX:
     {
-        LRESULT brush;
+        LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
         break;
