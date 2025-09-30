@@ -442,6 +442,16 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         return;
     }
 
+    if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget == target)
+    {
+        if (memcmp(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup)) != 0)
+        {
+            memcpy(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup));
+            memcpy(gWindowsDarkViewerBackup, ViewerColors, sizeof(gWindowsDarkViewerBackup));
+            gWindowsDarkViewerSaved = true;
+        }
+    }
+
     if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != target)
     {
         if (gWindowsDarkPaletteTarget != NULL)
@@ -3268,11 +3278,20 @@ BOOL CALLBACK SendThemeChangedToThreadWindows(HWND hwnd, LPARAM lParam)
 void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
 {
     CALL_STACK_MESSAGE2("ColorsChanged(%d)", refresh);
-    DarkModeSetEnabled(Configuration.UseWindowsDarkMode != FALSE);
-    bool useDarkColors = Configuration.UseWindowsDarkMode != FALSE;
+
+    const bool windowsDarkEnabled = Configuration.UseWindowsDarkMode != FALSE;
+    DarkModeSetEnabled(windowsDarkEnabled);
+
+    const auto computeLuminance = [](COLORREF color) {
+        return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
+    };
+
+    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    bool useDarkColors = windowsDarkEnabled;
     if (!useDarkColors)
-        useDarkColors = DarkModeShouldUseDarkColors();
-    WindowsDarkModeUpdatePalette(useDarkColors);
+        useDarkColors = computeLuminance(paletteBackground) < 128;
+
+    WindowsDarkModeUpdatePalette(windowsDarkEnabled);
     UpdateMenuAndDialogBrushes(useDarkColors);
     if (MainWindow != NULL && MainWindow->HWindow != NULL)
     {
