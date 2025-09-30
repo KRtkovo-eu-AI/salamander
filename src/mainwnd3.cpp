@@ -260,6 +260,33 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh)
     if (GetPanelTabIndex(side, panel) < 0)
         return;
 
+    bool alreadyActive = (previousActive == panel);
+    if (alreadyActive && panel->HWindow != NULL && !panel->HasDeferredInitialPath())
+    {
+        CTabWindow* tabWnd = GetPanelTabWindow(side);
+        if (tabWnd != NULL && tabWnd->HWindow != NULL)
+        {
+            int index = GetPanelTabIndex(side, panel);
+            if (index >= 0 && tabWnd->GetCurSel() != index)
+                tabWnd->SetCurSel(index);
+        }
+
+        UpdatePanelTabTitle(panel);
+        UpdatePanelTabVisibility(side);
+
+        if (UsingSharedWorkDirHistory())
+            UpdateAllDirectoryLineHistoryStates();
+        else
+            UpdateDirectoryLineHistoryState(panel);
+
+        if (requestRefresh)
+            EnsurePanelRefreshAndRequest(panel, true, true);
+        else if (panel->NeedsRefreshOnActivation)
+            EnsurePanelAutomaticRefresh(panel);
+
+        return;
+    }
+
     if (!EnsurePanelWindowCreated(panel))
     {
         CTabWindow* tabWnd = GetPanelTabWindow(side);
