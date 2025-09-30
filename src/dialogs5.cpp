@@ -39,6 +39,32 @@ bool ShouldUsePluginsDarkPalette()
     int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
     return luminance < 128;
 }
+
+LRESULT HandlePluginsHeaderCustomDraw(const NMCUSTOMDRAW& draw)
+{
+    if (!ShouldUsePluginsDarkPalette())
+        return CDRF_DODEFAULT;
+
+    switch (draw.dwDrawStage)
+    {
+    case CDDS_PREPAINT:
+        return CDRF_NOTIFYITEMDRAW;
+
+    case CDDS_ITEMPREPAINT:
+    {
+        const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+        const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+
+        LPNMCUSTOMDRAW mutableDraw = const_cast<LPNMCUSTOMDRAW>(&draw);
+        mutableDraw->clrText = text;
+        mutableDraw->clrTextBk = background;
+        return CDRF_DODEFAULT;
+    }
+    }
+
+    return CDRF_DODEFAULT;
+}
 }
 
 //
@@ -610,6 +636,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NOTIFY:
     {
+        HWND headerWnd = HListView != NULL ? ListView_GetHeader(HListView) : NULL;
+        if (headerWnd != NULL && ((LPNMHDR)lParam)->hwndFrom == headerWnd && ((LPNMHDR)lParam)->code == NM_CUSTOMDRAW)
+            return HandlePluginsHeaderCustomDraw(*reinterpret_cast<LPNMCUSTOMDRAW>(lParam));
+
         if (wParam == IDL_PLUGINS)
         {
             LPNMHDR nmh = (LPNMHDR)lParam;
@@ -1001,11 +1031,13 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int ctrlId = GetDlgCtrlID(ctrl);
                 auto applyColors = [&](bool transparent) {
                     HDC dc = reinterpret_cast<HDC>(wParam);
-                    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+                    HBRUSH dialogBrush = HDialogBrush;
+                    if (dialogBrush == NULL)
+                        dialogBrush = DarkModeGetCachedBrush(background);
                     if (dc == NULL)
                         return reinterpret_cast<LRESULT>(dialogBrush);
                     const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-                    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
                     const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
                     SetTextColor(dc, text);
                     SetBkColor(dc, background);

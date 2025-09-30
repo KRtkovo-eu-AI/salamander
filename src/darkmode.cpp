@@ -608,20 +608,22 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
     const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
     const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-    const bool paletteDark = ComputeLuminance(paletteBackground) < 128;
-    if (!usingNativeDark && !paletteDark)
+    const bool paletteDark = ComputeLuminance(paletteBackground) < 140;
+    const bool paletteEnabled = DarkModeShouldUseDarkColors() || paletteDark;
+    if (!usingNativeDark && !paletteEnabled)
         return false;
 
-    COLORREF background = usingNativeDark ? DarkModeGetDialogBackgroundColor() : paletteBackground;
+    const COLORREF background = usingNativeDark ? DarkModeGetDialogBackgroundColor() : paletteBackground;
     HBRUSH brush = gDialogBrushHandle;
-    if (brush == NULL)
+    if (brush == NULL || !usingNativeDark)
         brush = GetPaletteBrush(background);
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
 
     const COLORREF paletteAwareText = DarkModeEnsureReadableForeground(paletteText, paletteBackground);
-    const COLORREF textColor = usingNativeDark ? DarkModeGetDialogTextColor() : paletteAwareText;
+    const COLORREF desiredText = usingNativeDark ? DarkModeGetDialogTextColor() : paletteAwareText;
+    const COLORREF textColor = DarkModeEnsureReadableForeground(desiredText, background);
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
@@ -685,5 +687,11 @@ HBRUSH DarkModeGetPanelFrameBrush()
     if (brush == NULL)
         brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
     return brush;
+}
+
+HBRUSH DarkModeGetCachedBrush(COLORREF color)
+{
+    EnsureInitialized();
+    return GetPaletteBrush(color);
 }
 

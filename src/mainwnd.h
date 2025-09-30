@@ -590,6 +590,7 @@ public:
     void ToggleToolBarGrips();
 
     void UpdateRebarVisuals();
+    LRESULT HandleRebarCustomDraw(const NMCUSTOMDRAW& draw);
 
     BOOL InsertMenuBand();
     BOOL CreateAndInsertWorkerBand();

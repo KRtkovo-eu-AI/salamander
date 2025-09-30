@@ -10,6 +10,7 @@
 #include "mainwnd.h"
 #include "codetbl.h"
 #include "consts.h"
+#include "darkmode.h"
 
 namespace
 {
@@ -25,7 +26,15 @@ void ApplyViewerMenuTheme(HWND hwnd)
     info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
 
     if (DarkModeShouldUseDarkColors())
-        info.hbrBack = (HDialogBrush != NULL) ? HDialogBrush : GetSysColorBrush(COLOR_MENU);
+    {
+        if (HDialogBrush != NULL)
+            info.hbrBack = HDialogBrush;
+        else
+        {
+            const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+            info.hbrBack = DarkModeGetCachedBrush(background);
+        }
+    }
     else
         info.hbrBack = GetSysColorBrush(COLOR_MENU);
 

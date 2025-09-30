@@ -40,6 +40,60 @@ extern "C"
 #include "find.h"
 #include "viewer.h"
 
+namespace
+{
+int ClampChannel(int value)
+{
+    if (value < 0)
+        return 0;
+    if (value > 255)
+        return 255;
+    return value;
+}
+
+COLORREF LightenColorClamped(COLORREF color, int amount)
+{
+    return RGB(ClampChannel(GetRValue(color) + amount), ClampChannel(GetGValue(color) + amount),
+               ClampChannel(GetBValue(color) + amount));
+}
+
+COLORREF DarkenColorClamped(COLORREF color, int amount)
+{
+    return RGB(ClampChannel(GetRValue(color) - amount), ClampChannel(GetGValue(color) - amount),
+               ClampChannel(GetBValue(color) - amount));
+}
+
+void PaintRebarGrip(HWND rebar, const NMCUSTOMDRAW& draw, COLORREF background)
+{
+    REBARBANDINFO bandInfo;
+    memset(&bandInfo, 0, sizeof(bandInfo));
+    bandInfo.cbSize = sizeof(bandInfo);
+    bandInfo.fMask = RBBIM_STYLE;
+    if (!SendMessage(rebar, RB_GETBANDINFO, static_cast<WPARAM>(draw.dwItemSpec), reinterpret_cast<LPARAM>(&bandInfo)))
+        return;
+
+    if ((bandInfo.fStyle & RBBS_NOGRIPPER) != 0)
+        return;
+
+    RECT gripRect = draw.rc;
+    const int gripWidth = max(8, GetSystemMetrics(SM_CXHTHUMB) / 2);
+    gripRect.right = min(gripRect.left + gripWidth, gripRect.right);
+    gripRect.left += 4;
+
+    const COLORREF shadow = DarkenColorClamped(background, 48);
+    const COLORREF light = LightenColorClamped(background, 40);
+
+    for (int y = gripRect.top + 4; y <= gripRect.bottom - 4; y += 4)
+    {
+        for (int x = gripRect.left; x <= gripRect.right - 2; x += 4)
+        {
+            SetPixelV(draw.hdc, x, y, shadow);
+            SetPixelV(draw.hdc, x + 1, y + 1, light);
+        }
+    }
+}
+} // namespace
+
 // critical shutdown: the maximum time we can spend in WM_QUERYENDSESSION (after that,
 // KILL comes from Windows). It is 5s (5s with an open message box, 10s without pumping
 // messages). I left a 500ms reserve. Tested on Vista, Win7, Win8, Win10.
@@ -1036,6 +1090,28 @@ void CMainWindow::UpdateRebarVisuals()
         SendMessage(HTopRebar, RB_SETBANDINFO, i, reinterpret_cast<LPARAM>(&bandInfo));
 
     InvalidateRect(HTopRebar, NULL, TRUE);
+}
+
+LRESULT CMainWindow::HandleRebarCustomDraw(const NMCUSTOMDRAW& draw)
+{
+    if (!DarkModeShouldUseDarkColors())
+        return CDRF_DODEFAULT;
+
+    switch (draw.dwDrawStage)
+    {
+    case CDDS_PREPAINT:
+        return CDRF_NOTIFYITEMDRAW;
+
+    case CDDS_ITEMPREPAINT:
+    {
+        const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        FillRect(draw.hdc, &draw.rc, DarkModeGetCachedBrush(background));
+        PaintRebarGrip(HTopRebar, draw, background);
+        return CDRF_SKIPDEFAULT;
+    }
+    }
+
+    return CDRF_DODEFAULT;
 }
 
 LRESULT
@@ -5296,6 +5372,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (HasLockedUI())
             break;
         LPNMHDR lphdr = (LPNMHDR)lParam;
+        if (HTopRebar != NULL && lphdr->hwndFrom == HTopRebar && lphdr->code == NM_CUSTOMDRAW)
+            return HandleRebarCustomDraw(*reinterpret_cast<LPNMCUSTOMDRAW>(lParam));
         if (lphdr->code == TTN_NEEDTEXT && lphdr->hwndFrom == ToolTipWindow.HWindow)
         {
             char* text = ((LPTOOLTIPTEXT)lParam)->szText;
