@@ -1354,6 +1354,60 @@ bool CTabWindow::TryResolveTabColor(int index, COLORREF& color) const
     return false;
 }
 
+void CTabWindow::PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bool paintIndicator)
+{
+    if (hdc == NULL)
+        return;
+
+    LPARAM printFlags = PRF_CLIENT | PRF_ERASEBKGND;
+    if (DefWndProc != NULL)
+        CallWindowProc((WNDPROC)DefWndProc, HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
+    else
+        DefWindowProc(HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
+
+    if (paintTabs)
+        PaintCustomTabs(hdc, clipRect);
+    if (paintIndicator)
+        PaintDragIndicator(hdc);
+}
+
+bool CTabWindow::PaintBuffered(HDC targetDC, const RECT& updateRect, bool paintTabs, bool paintIndicator)
+{
+    if (targetDC == NULL)
+        return false;
+
+    int width = updateRect.right - updateRect.left;
+    int height = updateRect.bottom - updateRect.top;
+    if (width <= 0 || height <= 0)
+        return false;
+
+    HDC bufferDC = CreateCompatibleDC(targetDC);
+    if (bufferDC == NULL)
+        return false;
+
+    HBITMAP bufferBitmap = CreateCompatibleBitmap(targetDC, width, height);
+    if (bufferBitmap == NULL)
+    {
+        DeleteDC(bufferDC);
+        return false;
+    }
+
+    HBITMAP oldBitmap = (HBITMAP)SelectObject(bufferDC, bufferBitmap);
+    POINT oldOrigin = {0, 0};
+    BOOL originChanged = SetViewportOrgEx(bufferDC, -updateRect.left, -updateRect.top, &oldOrigin);
+
+    PaintWithBase(bufferDC, &updateRect, paintTabs, paintIndicator);
+
+    if (originChanged)
+        SetViewportOrgEx(bufferDC, oldOrigin.x, oldOrigin.y, NULL);
+    BitBlt(targetDC, updateRect.left, updateRect.top, width, height, bufferDC, 0, 0, SRCCOPY);
+
+    SelectObject(bufferDC, oldBitmap);
+    DeleteObject(bufferBitmap);
+    DeleteDC(bufferDC);
+    return true;
+}
+
 void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
 {
     if (hdc == NULL)
@@ -1507,44 +1561,42 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_PAINT:
     {
-        RECT updateRect;
-        BOOL hasUpdate = (HWindow != NULL) ? GetUpdateRect(HWindow, &updateRect, FALSE) : FALSE;
-        LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
-        if (HWindow != NULL)
+        if (HWindow == NULL)
+            break;
+
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(HWindow, &ps);
+        if (hdc != NULL)
         {
+            RECT updateRect = ps.rcPaint;
             bool shouldPaintTabs = true;
             bool shouldPaintIndicator = DragIndicatorVisible;
+
+            bool painted = false;
             if (shouldPaintTabs || shouldPaintIndicator)
+                painted = PaintBuffered(hdc, updateRect, shouldPaintTabs, shouldPaintIndicator);
+
+            if (!painted)
             {
-                HDC hdc = GetDC(HWindow);
-                if (hdc != NULL)
-                {
-                    int saved = SaveDC(hdc);
-                    if (hasUpdate)
-                        IntersectClipRect(hdc, updateRect.left, updateRect.top, updateRect.right, updateRect.bottom);
-                    if (shouldPaintTabs)
-                        PaintCustomTabs(hdc, hasUpdate ? &updateRect : NULL);
-                    if (shouldPaintIndicator)
-                        PaintDragIndicator(hdc);
-                    RestoreDC(hdc, saved);
-                    ReleaseDC(HWindow, hdc);
-                }
+                const RECT* clipRect = (shouldPaintTabs || shouldPaintIndicator) ? &updateRect : NULL;
+                PaintWithBase(hdc, clipRect, shouldPaintTabs, shouldPaintIndicator);
             }
+
+            EndPaint(HWindow, &ps);
         }
-        return baseResult;
+        return 0;
     }
 
     case WM_PRINTCLIENT:
     {
-        LRESULT baseResult = CWindow::WindowProc(uMsg, wParam, lParam);
         HDC hdc = reinterpret_cast<HDC>(wParam);
         if (hdc != NULL)
         {
             int saved = SaveDC(hdc);
-            PaintCustomTabs(hdc, NULL);
+            PaintWithBase(hdc, NULL, true, DragIndicatorVisible);
             RestoreDC(hdc, saved);
         }
-        return baseResult;
+        return 0;
     }
 
     case WM_LBUTTONDOWN:
