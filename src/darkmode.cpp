@@ -181,6 +181,10 @@ bool gSupported = false;
 bool gEnabled = false;
 bool gScrollbarsHooked = false;
 
+static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
+static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
+static HBRUSH gDialogBrushHandle = NULL;
+
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
 
 bool IsHighContrast()
@@ -517,19 +521,26 @@ void DarkModeFixScrollbars()
     HookDarkScrollbars();
 }
 
+void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
+{
+    gDialogTextColor = textColor;
+    gDialogBackgroundColor = backgroundColor;
+    gDialogBrushHandle = dialogBrush;
+}
+
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result)
 {
     EnsureInitialized();
     if (!gSupported || !ShouldUseDarkColorsInternal())
         return false;
 
-    HBRUSH brush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+    HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
 
-    const COLORREF textColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF textColor = gDialogTextColor;
+    const COLORREF background = gDialogBackgroundColor;
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
