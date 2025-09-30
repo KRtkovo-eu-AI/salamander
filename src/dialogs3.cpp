@@ -521,9 +521,8 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
-        LRESULT brush;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
 
         if (ShouldUseCopyMoveDarkPalette())
         {
@@ -577,6 +576,8 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+        if (handled)
+            return brush;
         break;
     }
     }
@@ -1089,9 +1090,8 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
-        LRESULT brush;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
 
         if (ShouldUseCopyMoveDarkPalette())
         {
@@ -1125,6 +1125,8 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+        if (handled)
+            return brush;
         break;
     }
 
