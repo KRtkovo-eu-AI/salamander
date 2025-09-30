@@ -2841,51 +2841,72 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel = tabs[0];
 
-        if (panel != NULL && EnsurePanelWindowCreated(panel))
+        if (panel != NULL)
         {
-            if (side == cpsLeft)
-                LeftPanel = panel;
-            else
-                RightPanel = panel;
-
-            panel->SetPanelSide(side);
-
-            LoadPanelSettingsFromKey(panel, actKey, panelPath, panelPath != NULL ? MAX_PATH : 0);
+            char startupPath[2 * MAX_PATH];
+            startupPath[0] = 0;
+            LoadPanelSettingsFromKey(panel, actKey, startupPath, _countof(startupPath));
             panel->ClearDeferredPanelSettings();
-
-            if (Configuration.SaveWorkDirs)
-            {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
-                panel->ClearDeferredWorkDirHistory();
-            }
-            else
-            {
-                panel->ClearWorkDirHistory();
-            }
 
             LoadPanelTabMetadataFromKey(panel, actKey);
             UpdatePanelTabColor(panel);
 
-            char tmpPath[2 * MAX_PATH];
-            tmpPath[0] = 0;
-            const char* startupPath = NULL;
-            if (panelPath != NULL && panelPath[0] != 0)
-                startupPath = panelPath;
-            else if (panelPath == NULL && GetValue(actKey, PANEL_PATH_REG, REG_SZ, tmpPath, _countof(tmpPath)))
-                startupPath = tmpPath;
+            if (Configuration.SaveWorkDirs)
+            {
+                if (panel->HWindow != NULL)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                    panel->ClearDeferredWorkDirHistory();
+                }
+                else
+                {
+                    panel->SetDeferredWorkDirHistorySubKey(reg);
+                }
+            }
+            else
+            {
+                panel->ClearWorkDirHistory();
+                panel->ClearDeferredWorkDirHistory();
+            }
 
-            if (startupPath != NULL)
+            if (startupPath[0] != 0)
+            {
                 panel->SetDeferredInitialPath(startupPath);
+                if (panelPath != NULL && IsDiskOrUNCPath(startupPath))
+                    lstrcpyn(panelPath, startupPath, MAX_PATH);
+            }
             else
                 panel->ClearDeferredInitialPath();
 
+            if (EnsurePanelWindowCreated(panel))
+            {
+                if (side == cpsLeft)
+                    LeftPanel = panel;
+                else
+                    RightPanel = panel;
+
+                panel->SetPanelSide(side);
+                panel->ApplyDeferredPanelSettings();
+                EnsurePanelWorkDirHistoryLoaded(panel);
+
+                BOOL restored = ApplyDeferredStartupPath(panel);
+                if (restored)
+                {
+                    if (side == cpsLeft)
+                        PanelConfigPathsRestoredLeft = TRUE;
+                    else
+                        PanelConfigPathsRestoredRight = TRUE;
+                }
+
+                if (UsingSharedWorkDirHistory())
+                    UpdateAllDirectoryLineHistoryStates();
+                else
+                    UpdateDirectoryLineHistoryState(panel);
+            }
+
             UpdatePanelTabTitle(panel);
-            if (UsingSharedWorkDirHistory())
-                UpdateAllDirectoryLineHistoryStates();
-            else
-                UpdateDirectoryLineHistoryState(panel);
         }
 
         UpdatePanelTabVisibility(side);
