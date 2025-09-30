@@ -16,6 +16,7 @@
 #include "usermenu.h"
 #include "execute.h"
 #include "tasklist.h"
+#include "darkmode.h"
 
 #include <Shlwapi.h>
 
@@ -165,6 +166,8 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
 
     // add this panel to the array of sources for enumerating files in viewers
     EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
+
+    DarkModeUpdateListViewColors(HWindow);
 }
 
 CFoundFilesListView::~CFoundFilesListView()
@@ -880,6 +883,19 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return DLGC_WANTCHARS | DLGC_WANTARROWS;
     }
 
+    case WM_THEMECHANGED:
+    {
+        DarkModeUpdateListViewColors(HWindow);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            DarkModeUpdateListViewColors(HWindow);
+        break;
+    }
+
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
@@ -1289,6 +1305,8 @@ BOOL CFoundFilesListView::InitColumns()
           ListView_GetColumnWidth(HWindow, 5) + GetSystemMetrics(SM_CXHSCROLL) - 1;
     ListView_SetColumnWidth(HWindow, 1, cx);
     ListView_SetImageList(HWindow, HFindSymbolsImageList, LVSIL_SMALL);
+
+    DarkModeUpdateListViewColors(HWindow);
 
     return TRUE;
 }
@@ -3049,6 +3067,23 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return TRUE;
     }
 
+    case WM_THEMECHANGED:
+    {
+        if (FoundFilesListView != NULL && FoundFilesListView->HWindow != NULL)
+            DarkModeUpdateListViewColors(FoundFilesListView->HWindow);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            if (FoundFilesListView != NULL && FoundFilesListView->HWindow != NULL)
+                DarkModeUpdateListViewColors(FoundFilesListView->HWindow);
+        }
+        break;
+    }
+
     case WM_USER_FINDFULLROWSEL:
     {
         DWORD flags = ListView_GetExtendedListViewStyle(FoundFilesListView->HWindow);
@@ -4391,7 +4426,8 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(GetDlgItem(HWindow, IDC_FIND_RESULTS), GetSysColor(COLOR_WINDOW));
+        HWND listView = GetDlgItem(HWindow, IDC_FIND_RESULTS);
+        DarkModeUpdateListViewColors(listView);
         break;
     }
     }

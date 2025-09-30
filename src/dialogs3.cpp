@@ -15,6 +15,36 @@
 #include "codetbl.h"
 #include "worker.h"
 #include "menu.h"
+#include "darkmode.h"
+
+namespace
+{
+bool ShouldUseCopyMoveDarkPalette()
+{
+    if (DarkModeShouldUseDarkColors())
+        return true;
+
+    const COLORREF background = DarkModeGetDialogBackgroundColor();
+    const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
+    return luminance < 128;
+}
+
+LRESULT ApplyCopyMoveDialogColors(WPARAM wParam, bool transparent)
+{
+    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+    HDC dc = reinterpret_cast<HDC>(wParam);
+    if (dc == NULL)
+        return reinterpret_cast<LRESULT>(dialogBrush);
+
+    const COLORREF background = DarkModeGetDialogBackgroundColor();
+    const COLORREF paletteText = DarkModeGetDialogTextColor();
+    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+    SetTextColor(dc, text);
+    SetBkColor(dc, background);
+    SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);
+    return reinterpret_cast<LRESULT>(dialogBrush);
+}
+}
 
 //
 // ****************************************************************************
@@ -487,12 +517,45 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_CTLCOLOREDIT:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
-        LRESULT brush;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+
+        if (ShouldUseCopyMoveDarkPalette())
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ctrl != NULL)
+            {
+                int ctrlId = GetDlgCtrlID(ctrl);
+                switch (ctrlId)
+                {
+                case IDS_SUBJECT:
+                case IDC_CM_STARTONIDLE:
+                case IDC_CM_NEWER:
+                case IDC_CM_SPEEDLIMIT:
+                case IDC_CM_COPYATTRS:
+                case IDC_CM_SECURITY:
+                case IDC_CM_DIRTIME:
+                case IDC_CM_IGNADS:
+                case IDC_CM_EMPTY:
+                case IDC_CM_NAMED:
+                case IDC_CM_ADVANCED:
+                case IDC_FILEMASK_HINT:
+                case IDC_MORE:
+                    return ApplyCopyMoveDialogColors(wParam, true);
+
+                case IDE_CM_SPEEDLIMIT:
+                case IDC_CM_NAMED_MASK:
+                case IDC_CM_ADVANCED_INFO:
+                    if (uMsg == WM_CTLCOLOREDIT)
+                        return ApplyCopyMoveDialogColors(wParam, false);
+                    break;
+                }
+            }
+        }
 
         if (uMsg == WM_CTLCOLORSTATIC)
         {
@@ -513,6 +576,8 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+        if (handled)
+            return brush;
         break;
     }
     }
@@ -1019,6 +1084,50 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         OnDirectoryButton(HWindow, IDE_PATH, PathBufSize, IDB_BROWSE, wParam, lParam);
         return 0;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+
+        if (ShouldUseCopyMoveDarkPalette())
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ctrl != NULL)
+            {
+                int ctrlId = GetDlgCtrlID(ctrl);
+                switch (ctrlId)
+                {
+                case IDS_SUBJECT:
+                case IDC_CM_STARTONIDLE:
+                case IDC_CM_NEWER:
+                case IDC_CM_SPEEDLIMIT:
+                case IDC_CM_COPYATTRS:
+                case IDC_CM_SECURITY:
+                case IDC_CM_DIRTIME:
+                case IDC_CM_IGNADS:
+                case IDC_CM_EMPTY:
+                case IDC_CM_NAMED:
+                case IDC_CM_ADVANCED:
+                case IDC_FILEMASK_HINT:
+                case IDC_MORE:
+                    return ApplyCopyMoveDialogColors(wParam, true);
+
+                case IDE_CM_SPEEDLIMIT:
+                case IDC_CM_NAMED_MASK:
+                case IDC_CM_ADVANCED_INFO:
+                    if (uMsg == WM_CTLCOLOREDIT)
+                        return ApplyCopyMoveDialogColors(wParam, false);
+                    break;
+                }
+            }
+        }
+        if (handled)
+            return brush;
+        break;
     }
 
     case WM_USER_BUTTONDROPDOWN:

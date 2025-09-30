@@ -18,14 +18,6 @@
 #include "consts.h"
 #include "darkmode.h"
 
-#ifndef HDM_SETBKCOLOR
-#define HDM_SETBKCOLOR (HDM_FIRST + 29)
-#endif
-
-#ifndef HDM_SETTEXTCOLOR
-#define HDM_SETTEXTCOLOR (HDM_FIRST + 30)
-#endif
-
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // po dalsim otevreni Plugins manageru vybereme posledni vybranej plugin
 
 namespace
@@ -35,7 +27,7 @@ bool ShouldUsePluginsDarkPalette()
     if (DarkModeShouldUseDarkColors())
         return true;
 
-    COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    COLORREF background = DarkModeGetDialogBackgroundColor();
     int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
     return luminance < 128;
 }
@@ -69,41 +61,19 @@ void CPluginsDlg::ApplyTheme()
     DarkModeRefreshTitleBar(HWindow);
 
     const bool useDark = ShouldUsePluginsDarkPalette();
-    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF paletteText = DarkModeGetDialogTextColor();
+    const COLORREF paletteBackground = DarkModeGetDialogBackgroundColor();
     const COLORREF text = useDark ? DarkModeEnsureReadableForeground(paletteText, paletteBackground)
                                   : GetSysColor(COLOR_WINDOWTEXT);
     const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
 
-    ListView_SetTextColor(HListView, text);
-    ListView_SetTextBkColor(HListView, background);
-    ListView_SetBkColor(HListView, background);
-
-    HWND headerWnd = ListView_GetHeader(HListView);
-    if (headerWnd != NULL)
-    {
-        if (useDark)
-        {
-            SendMessage(headerWnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(text));
-            SendMessage(headerWnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(background));
-        }
-        else
-        {
-            SendMessage(headerWnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
-            SendMessage(headerWnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
-        }
-
-        DarkModeApplyWindow(headerWnd);
-        InvalidateRect(headerWnd, NULL, TRUE);
-    }
+    DarkModeUpdateListViewColors(HListView, text, background, useDark);
 
     if (Header != NULL && Header->HWindow != NULL)
     {
         DarkModeApplyWindow(Header->HWindow);
         InvalidateRect(Header->HWindow, NULL, TRUE);
     }
-
-    InvalidateRect(HListView, NULL, TRUE);
 }
 
 void CPluginsDlg::InitColumns()
@@ -989,9 +959,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
-        LRESULT brush;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
 
         if (ShouldUsePluginsDarkPalette())
         {
@@ -1004,8 +973,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
                     if (dc == NULL)
                         return reinterpret_cast<LRESULT>(dialogBrush);
-                    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-                    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+                    const COLORREF paletteText = DarkModeGetDialogTextColor();
+                    const COLORREF background = DarkModeGetDialogBackgroundColor();
                     const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
                     SetTextColor(dc, text);
                     SetBkColor(dc, background);
@@ -1021,13 +990,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_PLUGINEXTENSIONS:
                 case IDC_PLUGINFSNAME:
                 case IDC_PLUGINFUNCTIONS:
-                    return applyColors(true);
-
+                case IDC_PLUGINHEADER:
                 case IDC_PLUGINSHOWINBAR:
                 case IDC_PLUGINSHOWINCHDRV:
-                    if (uMsg == WM_CTLCOLORBTN)
-                        return applyColors(true);
-                    break;
+                    return applyColors(true);
 
                 case IDC_PLUGINTHUMBNAILS:
                     if (uMsg == WM_CTLCOLOREDIT)
@@ -1036,6 +1002,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+        if (handled)
+            return brush;
         break;
     }
 

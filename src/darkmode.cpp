@@ -6,6 +6,15 @@
 
 #include <delayimp.h>
 #include <uxtheme.h>
+#include <commctrl.h>
+
+#ifndef HDM_SETBKCOLOR
+#define HDM_SETBKCOLOR (HDM_FIRST + 29)
+#endif
+
+#ifndef HDM_SETTEXTCOLOR
+#define HDM_SETTEXTCOLOR (HDM_FIRST + 30)
+#endif
 
 #ifndef LOAD_LIBRARY_SEARCH_SYSTEM32
 #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
@@ -184,8 +193,64 @@ bool gScrollbarsHooked = false;
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
+const wchar_t* kDarkModeClassicButtonProp = L"Salamander.DarkMode.ClassicButton";
+
+bool ControlHasCaptionButton(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return false;
+
+    if (lstrcmpiW(className, L"Button") != 0)
+        return false;
+
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+
+    switch (type)
+    {
+    case BS_GROUPBOX:
+    case BS_AUTOCHECKBOX:
+    case BS_CHECKBOX:
+    case BS_AUTO3STATE:
+    case BS_3STATE:
+    case BS_AUTORADIOBUTTON:
+    case BS_RADIOBUTTON:
+        return true;
+    }
+
+    return false;
+}
+
+void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
+{
+    if (hwnd == NULL || gSetWindowTheme == nullptr)
+        return;
+
+    HANDLE applied = GetPropW(hwnd, kDarkModeClassicButtonProp);
+
+    if (forceClassic)
+    {
+        if (applied == nullptr)
+        {
+            gSetWindowTheme(hwnd, L"", L"");
+            SetPropW(hwnd, kDarkModeClassicButtonProp, reinterpret_cast<HANDLE>(1));
+            InvalidateRect(hwnd, nullptr, TRUE);
+        }
+    }
+    else if (applied != nullptr)
+    {
+        RemovePropW(hwnd, kDarkModeClassicButtonProp);
+        gSetWindowTheme(hwnd, nullptr, nullptr);
+        InvalidateRect(hwnd, nullptr, TRUE);
+    }
+}
 
 int ComputeLuminance(COLORREF color)
 {
@@ -301,7 +366,6 @@ void ApplyControlTheme(HWND hwnd)
         return;
 
     static const wchar_t* const explorerClasses[] = {
-        L"Button",
         L"ReBarWindow32",
         L"ToolbarWindow32",
         L"msctls_progress32",
@@ -329,7 +393,7 @@ void ApplyControlTheme(HWND hwnd)
     };
 
     const bool wantDark = ShouldUseDarkColorsInternal();
-    const bool hadTheme = GetPropW(hwnd, kDarkModeThemeProp) != NULL;
+    const wchar_t* const appliedTheme = reinterpret_cast<const wchar_t*>(GetPropW(hwnd, kDarkModeThemeProp));
     const wchar_t* theme = nullptr;
 
     if (wantDark)
@@ -338,25 +402,42 @@ void ApplyControlTheme(HWND hwnd)
             theme = L"ItemsView";
         else if (MatchesAnyClass(className, darkExplorerClasses, _countof(darkExplorerClasses)))
             theme = L"DarkMode_Explorer";
+        else if (wcscmp(className, L"Button") == 0)
+        {
+            if (GetPropW(hwnd, kDarkModeClassicButtonProp) == NULL)
+                theme = L"Explorer";
+        }
         else if (MatchesAnyClass(className, explorerClasses, _countof(explorerClasses)))
             theme = L"Explorer";
         else if (MatchesAnyClass(className, cfdClasses, _countof(cfdClasses)))
             theme = L"CFD";
     }
 
+    auto notifyThemeChanged = [](HWND target) {
+        if (!gPropagatingThemeChange)
+        {
+            gPropagatingThemeChange = true;
+            SendMessageW(target, WM_THEMECHANGED, 0, 0);
+            gPropagatingThemeChange = false;
+        }
+    };
+
     if (theme != nullptr)
     {
-        if (gSetWindowTheme)
-            gSetWindowTheme(hwnd, theme, nullptr);
-        SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(1));
-        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+        if (appliedTheme != theme)
+        {
+            SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(const_cast<wchar_t*>(theme)));
+            if (gSetWindowTheme)
+                gSetWindowTheme(hwnd, theme, nullptr);
+            notifyThemeChanged(hwnd);
+        }
     }
-    else if (hadTheme)
+    else if (appliedTheme != nullptr)
     {
         RemovePropW(hwnd, kDarkModeThemeProp);
         if (gSetWindowTheme)
             gSetWindowTheme(hwnd, nullptr, nullptr);
-        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+        notifyThemeChanged(hwnd);
     }
 }
 
@@ -380,13 +461,16 @@ void EnsureInitialized()
         }
     }
 
+    gUxTheme = LoadLibraryExW(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (gUxTheme)
+        gSetWindowTheme = reinterpret_cast<fnSetWindowTheme>(GetProcAddress(gUxTheme, "SetWindowTheme"));
+
     if (gBuildNumber < 17763)
     {
         gSupported = false;
         return;
     }
 
-    gUxTheme = LoadLibraryExW(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!gUxTheme)
     {
         gSupported = false;
@@ -401,7 +485,6 @@ void EnsureInitialized()
     gGetIsImmersiveColorUsingHighContrast = reinterpret_cast<fnGetIsImmersiveColorUsingHighContrast>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(106)));
     gShouldSystemUseDarkMode = reinterpret_cast<fnShouldSystemUseDarkMode>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(138)));
     gIsDarkModeAllowedForApp = reinterpret_cast<fnIsDarkModeAllowedForApp>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(139)));
-    gSetWindowTheme = reinterpret_cast<fnSetWindowTheme>(GetProcAddress(gUxTheme, "SetWindowTheme"));
 
     if (gBuildNumber >= 18362)
         gSetPreferredAppMode = reinterpret_cast<fnSetPreferredAppMode>(GetProcAddress(gUxTheme, MAKEINTRESOURCEA(135)));
@@ -581,23 +664,85 @@ COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF backgrou
     return ResolveReadableForeground(foreground, background);
 }
 
+void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)
+{
+    EnsureInitialized();
+
+    if (listView == NULL)
+        return;
+
+    const COLORREF resolvedText = DarkModeEnsureReadableForeground(textColor, backgroundColor);
+    const COLORREF resolvedBackground = backgroundColor;
+
+    DarkModeApplyWindow(listView);
+
+    ListView_SetTextColor(listView, resolvedText);
+    ListView_SetTextBkColor(listView, resolvedBackground);
+    ListView_SetBkColor(listView, resolvedBackground);
+
+    HWND header = ListView_GetHeader(listView);
+    if (header != NULL)
+    {
+        DarkModeApplyWindow(header);
+        if (applyHeaderColors)
+        {
+            SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(resolvedText));
+            SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(resolvedBackground));
+        }
+        else
+        {
+            SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+            SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+        }
+        InvalidateRect(header, NULL, TRUE);
+    }
+
+    InvalidateRect(listView, NULL, TRUE);
+}
+
+void DarkModeUpdateListViewColors(HWND listView)
+{
+    EnsureInitialized();
+
+    if (listView == NULL)
+        return;
+
+    const COLORREF paletteText = DarkModeGetDialogTextColor();
+    const COLORREF paletteBackground = DarkModeGetDialogBackgroundColor();
+    const bool useCustomColors = paletteText != GetSysColor(COLOR_WINDOWTEXT) ||
+                                 paletteBackground != GetSysColor(COLOR_WINDOW);
+
+    DarkModeUpdateListViewColors(listView, paletteText, paletteBackground, useCustomColors);
+}
+
 
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result)
 {
     EnsureInitialized();
 
     const COLORREF background = DarkModeGetDialogBackgroundColor();
-    const bool paletteDark = ComputeLuminance(background) < 128;
+    const COLORREF textColor = DarkModeGetDialogTextColor();
+    const COLORREF sysTextColor = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF sysBackground = GetSysColor(COLOR_BTNFACE);
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
-    if (!usingNativeDark && !paletteDark)
+    const bool hasCustomPalette = textColor != sysTextColor || background != sysBackground;
+    const bool forceClassicButtons = hasCustomPalette;
+
+    if (!usingNativeDark && !hasCustomPalette)
+    {
+        if ((message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN) && lParam != 0)
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ControlHasCaptionButton(ctrl))
+                EnsureClassicButtonTheme(ctrl, false);
+        }
         return false;
+    }
 
     HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
-
-    const COLORREF textColor = DarkModeGetDialogTextColor();
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
@@ -621,9 +766,22 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (ctrl != NULL)
         {
-            LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-            if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+            if (ControlHasCaptionButton(ctrl))
+            {
+                EnsureClassicButtonTheme(ctrl, forceClassicButtons);
                 SetTextColor(hdc, textColor);
+                SetBkColor(hdc, background);
+                SetBkMode(hdc, TRANSPARENT);
+                result = reinterpret_cast<LRESULT>(brush);
+                return true;
+            }
+            else
+            {
+                EnsureClassicButtonTheme(ctrl, false);
+                LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                    SetTextColor(hdc, textColor);
+            }
         }
         else
         {
@@ -636,9 +794,17 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     }
 
     case WM_CTLCOLORBTN:
+    {
+        HWND ctrl = reinterpret_cast<HWND>(lParam);
+        if (ControlHasCaptionButton(ctrl))
+            EnsureClassicButtonTheme(ctrl, forceClassicButtons);
+        else
+            EnsureClassicButtonTheme(ctrl, false);
+
         setCommonColors(true);
         result = reinterpret_cast<LRESULT>(brush);
         return true;
+    }
 
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:
