@@ -183,8 +183,9 @@ void CMenuBar::DrawItem(HDC hDC, int index, int x)
 
     r.top += MENUBAR_TB_MARGIN - 1;
     r.left += MENUBAR_LR_MARGIN;
-    COLORREF textColor = hot ? GetSysColor(COLOR_HIGHLIGHTTEXT)
-                              : (DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT));
+    const bool useDark = DarkModeShouldUseDarkColors();
+    const COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+    const COLORREF textColor = hot ? GetSysColor(COLOR_HIGHLIGHTTEXT) : defaultText;
     SetTextColor(hDC, textColor);
 
     // NOTE: Since Windows Vista Microsoft broke something in the rebar. Resizing
@@ -206,7 +207,8 @@ void CMenuBar::DrawItem(int index)
     HDC hDC = HANDLES(GetDC(HWindow));
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF defaultText = DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
+    const bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
     COLORREF oldTextColor = SetTextColor(hDC, defaultText);
     int x = 0;
     int i;
@@ -224,7 +226,8 @@ void CMenuBar::DrawAllItems(HDC hDC)
     CALL_STACK_MESSAGE1("CMenuBar::DrawAllItems()");
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF defaultText = DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
+    const bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
     COLORREF oldTextColor = SetTextColor(hDC, defaultText);
     int x = 0;
     int i;
