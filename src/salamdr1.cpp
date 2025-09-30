@@ -373,52 +373,56 @@ static void BuildWindowsDarkPalette(SALCOLOR* target)
     const COLORREF inactiveCaptionFg = RGB(190, 190, 190);
     const COLORREF thumbnailFrame = RGB(94, 94, 94);
 
-    SetRGBPart(&target[FOCUS_ACTIVE_NORMAL], accent);
-    SetRGBPart(&target[FOCUS_ACTIVE_SELECTED], accent);
-    SetRGBPart(&target[FOCUS_FG_INACTIVE_NORMAL], dimText);
-    SetRGBPart(&target[FOCUS_FG_INACTIVE_SELECTED], dimText);
-    SetRGBPart(&target[FOCUS_BK_INACTIVE_NORMAL], panelBg);
-    SetRGBPart(&target[FOCUS_BK_INACTIVE_SELECTED], panelBg);
+    auto setColor = [](SALCOLOR& entry, COLORREF color) {
+        entry = RGBF(GetRValue(color), GetGValue(color), GetBValue(color), 0);
+    };
 
-    SetRGBPart(&target[ITEM_FG_NORMAL], text);
-    SetRGBPart(&target[ITEM_FG_SELECTED], accentText);
-    SetRGBPart(&target[ITEM_FG_FOCUSED], text);
-    SetRGBPart(&target[ITEM_FG_FOCSEL], accentText);
-    SetRGBPart(&target[ITEM_FG_HIGHLIGHT], accentText);
+    setColor(target[FOCUS_ACTIVE_NORMAL], accent);
+    setColor(target[FOCUS_ACTIVE_SELECTED], accent);
+    setColor(target[FOCUS_FG_INACTIVE_NORMAL], dimText);
+    setColor(target[FOCUS_FG_INACTIVE_SELECTED], dimText);
+    setColor(target[FOCUS_BK_INACTIVE_NORMAL], panelBg);
+    setColor(target[FOCUS_BK_INACTIVE_SELECTED], panelBg);
 
-    SetRGBPart(&target[ITEM_BK_NORMAL], panelBg);
-    SetRGBPart(&target[ITEM_BK_SELECTED], accent);
-    SetRGBPart(&target[ITEM_BK_FOCUSED], panelAlt);
-    SetRGBPart(&target[ITEM_BK_FOCSEL], accent);
-    SetRGBPart(&target[ITEM_BK_HIGHLIGHT], panelHot);
+    setColor(target[ITEM_FG_NORMAL], text);
+    setColor(target[ITEM_FG_SELECTED], accentText);
+    setColor(target[ITEM_FG_FOCUSED], text);
+    setColor(target[ITEM_FG_FOCSEL], accentText);
+    setColor(target[ITEM_FG_HIGHLIGHT], accentText);
 
-    SetRGBPart(&target[ICON_BLEND_SELECTED], accent);
-    SetRGBPart(&target[ICON_BLEND_FOCUSED], overlay);
-    SetRGBPart(&target[ICON_BLEND_FOCSEL], accent);
+    setColor(target[ITEM_BK_NORMAL], panelBg);
+    setColor(target[ITEM_BK_SELECTED], accent);
+    setColor(target[ITEM_BK_FOCUSED], panelAlt);
+    setColor(target[ITEM_BK_FOCSEL], accent);
+    setColor(target[ITEM_BK_HIGHLIGHT], panelHot);
 
-    SetRGBPart(&target[PROGRESS_FG_NORMAL], accent);
-    SetRGBPart(&target[PROGRESS_FG_SELECTED], accentText);
-    SetRGBPart(&target[PROGRESS_BK_NORMAL], progressBg);
-    SetRGBPart(&target[PROGRESS_BK_SELECTED], accent);
+    setColor(target[ICON_BLEND_SELECTED], accent);
+    setColor(target[ICON_BLEND_FOCUSED], overlay);
+    setColor(target[ICON_BLEND_FOCSEL], accent);
 
-    SetRGBPart(&target[HOT_PANEL], accent);
-    SetRGBPart(&target[HOT_ACTIVE], accent);
-    SetRGBPart(&target[HOT_INACTIVE], accent);
+    setColor(target[PROGRESS_FG_NORMAL], accent);
+    setColor(target[PROGRESS_FG_SELECTED], accentText);
+    setColor(target[PROGRESS_BK_NORMAL], progressBg);
+    setColor(target[PROGRESS_BK_SELECTED], accent);
 
-    SetRGBPart(&target[ACTIVE_CAPTION_FG], accentText);
-    SetRGBPart(&target[ACTIVE_CAPTION_BK], accent);
-    SetRGBPart(&target[INACTIVE_CAPTION_FG], inactiveCaptionFg);
-    SetRGBPart(&target[INACTIVE_CAPTION_BK], inactiveCaptionBg);
+    setColor(target[HOT_PANEL], accent);
+    setColor(target[HOT_ACTIVE], accent);
+    setColor(target[HOT_INACTIVE], accent);
 
-    SetRGBPart(&target[THUMBNAIL_FRAME_NORMAL], thumbnailFrame);
-    SetRGBPart(&target[THUMBNAIL_FRAME_FOCUSED], accent);
-    SetRGBPart(&target[THUMBNAIL_FRAME_SELECTED], accent);
-    SetRGBPart(&target[THUMBNAIL_FRAME_FOCSEL], accent);
+    setColor(target[ACTIVE_CAPTION_FG], accentText);
+    setColor(target[ACTIVE_CAPTION_BK], accent);
+    setColor(target[INACTIVE_CAPTION_FG], inactiveCaptionFg);
+    setColor(target[INACTIVE_CAPTION_BK], inactiveCaptionBg);
 
-    SetRGBPart(&ViewerColors[VIEWER_FG_NORMAL], text);
-    SetRGBPart(&ViewerColors[VIEWER_BK_NORMAL], panelBg);
-    SetRGBPart(&ViewerColors[VIEWER_FG_SELECTED], accentText);
-    SetRGBPart(&ViewerColors[VIEWER_BK_SELECTED], accent);
+    setColor(target[THUMBNAIL_FRAME_NORMAL], thumbnailFrame);
+    setColor(target[THUMBNAIL_FRAME_FOCUSED], accent);
+    setColor(target[THUMBNAIL_FRAME_SELECTED], accent);
+    setColor(target[THUMBNAIL_FRAME_FOCSEL], accent);
+
+    setColor(ViewerColors[VIEWER_FG_NORMAL], text);
+    setColor(ViewerColors[VIEWER_BK_NORMAL], panelBg);
+    setColor(ViewerColors[VIEWER_FG_SELECTED], accentText);
+    setColor(ViewerColors[VIEWER_BK_SELECTED], accent);
 }
 
 static void WindowsDarkModeUpdatePalette(bool useDarkColors)

@@ -3373,8 +3373,9 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < NUMBER_OF_COLORS; i++)
             TmpColors[i] = UserColors[i];
 
-        int schemes[5] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON, IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_CUSTOM};
-        for (i = 0; i < 5; i++)
+        int schemes[6] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON,
+                          IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_WINDARK, IDS_COLORSCHEME_CUSTOM};
+        for (i = 0; i < 6; i++)
             SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[i]));
 
         for (i = 0; i < PAGE7DATA_COUNT; i++)
@@ -3384,8 +3385,10 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < CFG_COLORS_BUTTONS; i++)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
 
-        int index = 4; // custom
-        if (CurrentColors == SalamanderColors)
+        int index = 5; // custom
+        if (Configuration.UseWindowsDarkMode)
+            index = 4;
+        else if (CurrentColors == SalamanderColors)
             index = 0;
         else if (CurrentColors == ExplorerColors)
             index = 1;
@@ -3395,7 +3398,6 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             index = 3;
         SendMessage(HScheme, CB_SETCURSEL, index, 0);
         SendMessage(HItem, CB_SETCURSEL, 0, 0);
-        CheckDlgButton(HWindow, IDC_C_WIN32DARK, Configuration.UseWindowsDarkMode ? BST_CHECKED : BST_UNCHECKED);
 
         // naleju seznam hilight polozek
         for (i = 0; i < HighlightMasks.Count; i++)
@@ -3410,7 +3412,6 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
     }
     else
     {
-        Configuration.UseWindowsDarkMode = (IsDlgButtonChecked(HWindow, IDC_C_WIN32DARK) == BST_CHECKED);
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
         if (index == 0)
             CurrentColors = SalamanderColors;
@@ -3427,6 +3428,8 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             for (i = 0; i < NUMBER_OF_COLORS; i++)
                 UserColors[i] = TmpColors[i];
         }
+
+        Configuration.UseWindowsDarkMode = (index == 4);
 
         ColorsChanged(TRUE, TRUE, FALSE); // sporime cas, nechame zmenit jen barvo-zavisle polozky, neloadime znovu ikony
 

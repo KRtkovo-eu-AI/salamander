@@ -11,6 +11,7 @@
 #include "fileswnd.h"
 #include "shellib.h"
 #include "svg.h"
+#include "darkmode.h"
 
 static COLORREF GetPanelDefaultTextColor()
 {
@@ -794,7 +795,17 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         RECT textR = r;
         textR.top += 2;
         textR.bottom -= 2;
-        DrawEdge(dc, &textR, BDR_SUNKENOUTER, BF_RECT);
+        if (DarkModeShouldUseDarkColors())
+        {
+            HBRUSH borderBrush = DarkModeGetPanelFrameBrush();
+            if (borderBrush != NULL)
+            {
+                RECT frameRect = textR;
+                FrameRect(dc, &frameRect, borderBrush);
+            }
+        }
+        else
+            DrawEdge(dc, &textR, BDR_SUNKENOUTER, BF_RECT);
 
         // vyplnime plochu pod textem (aktivni/neaktivni)
         textR.left++;

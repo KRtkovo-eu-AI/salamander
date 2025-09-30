@@ -42,3 +42,6 @@ void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor,
 // a dark brush was supplied and the caller should stop default processing.
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
 
+// Returns a shared brush used for drawing dark-mode panel frames and borders.
+HBRUSH DarkModeGetPanelFrameBrush();
+

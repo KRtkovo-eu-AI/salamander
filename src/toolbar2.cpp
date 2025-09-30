@@ -6,6 +6,7 @@
 #include "bitmap.h"
 #include "toolbar.h"
 #include "svg.h"
+#include "darkmode.h"
 
 //*****************************************************************************
 //
@@ -564,16 +565,37 @@ void CToolBar::DrawItem(HDC hDC, int index)
             }
 
             // ramecek kolem tela
-            DWORD mode = bodyDown ? BDR_SUNKENOUTER : BDR_RAISEDINNER;
-            DrawEdge(CacheBitmap->HMemDC, &r, mode, BF_RECT);
+            if (DarkModeShouldUseDarkColors())
+            {
+                HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
+                if (frameBrush != NULL)
+                {
+                    RECT frameRect = r;
+                    FrameRect(CacheBitmap->HMemDC, &frameRect, frameBrush);
+                }
+            }
+            else
+            {
+                DWORD mode = bodyDown ? BDR_SUNKENOUTER : BDR_RAISEDINNER;
+                DrawEdge(CacheBitmap->HMemDC, &r, mode, BF_RECT);
+            }
 
             if (HotIndex == index && outterDropPresent)
             {
                 // ramecek kolem drop down
                 r.left = r.right;
                 r.right = width;
-                mode = dropDown ? BDR_SUNKENOUTER : BDR_RAISEDINNER;
-                DrawEdge(CacheBitmap->HMemDC, &r, mode, BF_RECT);
+                if (DarkModeShouldUseDarkColors())
+                {
+                    HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
+                    if (frameBrush != NULL)
+                        FrameRect(CacheBitmap->HMemDC, &r, frameBrush);
+                }
+                else
+                {
+                    DWORD mode = dropDown ? BDR_SUNKENOUTER : BDR_RAISEDINNER;
+                    DrawEdge(CacheBitmap->HMemDC, &r, mode, BF_RECT);
+                }
             }
         }
 
