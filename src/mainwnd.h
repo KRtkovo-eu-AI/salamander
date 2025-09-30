@@ -561,6 +561,7 @@ public:
     bool EnsurePanelWindowCreated(CFilesWindow* panel);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
     void SwitchPanelTab(CFilesWindow* panel, bool requestRefresh = true, bool allowAutomaticRefresh = true);
+    void AdoptRestoredPanel(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,

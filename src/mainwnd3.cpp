@@ -390,6 +390,52 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool 
     }
 }
 
+void CMainWindow::AdoptRestoredPanel(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+
+    CPanelSide side = panel->GetPanelSide();
+    if (!EnsurePanelWindowCreated(panel))
+        return;
+
+    if (side == cpsLeft)
+        LeftPanel = panel;
+    else
+        RightPanel = panel;
+
+    panel->SetPanelSide(side);
+
+    EnsurePanelSettingsLoadedFromRegistry(panel);
+    panel->ApplyDeferredPanelSettings();
+    EnsurePanelWorkDirHistoryLoaded(panel);
+
+    if (UsingSharedWorkDirHistory())
+        UpdateAllDirectoryLineHistoryStates();
+    else
+        UpdateDirectoryLineHistoryState(panel);
+
+    CFilesWindow* currentActive = GetActivePanel();
+    bool activateSameSide = (currentActive == NULL || currentActive->GetPanelSide() == side);
+    if (activateSameSide)
+    {
+        SetActivePanel(panel);
+        if (Created)
+            EditWindowSetDirectory();
+    }
+
+    CTabWindow* tabWnd = GetPanelTabWindow(side);
+    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+    {
+        int index = GetPanelTabIndex(side, panel);
+        if (index >= 0 && tabWnd->GetCurSel() != index)
+            tabWnd->SetCurSel(index);
+    }
+
+    UpdatePanelTabTitle(panel);
+    UpdatePanelTabVisibility(side);
+}
+
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
 {
     CALL_STACK_MESSAGE1("CMainWindow::ClosePanelTab()");

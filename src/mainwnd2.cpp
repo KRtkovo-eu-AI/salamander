@@ -2882,7 +2882,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
             UpdatePanelTabTitle(panel);
 
-            SwitchPanelTab(panel, false, false);
+            AdoptRestoredPanel(panel);
         }
 
         CloseKey(actKey);
@@ -3019,7 +3019,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel, false, false);
+        AdoptRestoredPanel(activePanel);
     }
 
     UpdatePanelTabVisibility(side);
