@@ -2880,39 +2880,11 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             else
                 panel->ClearDeferredInitialPath();
 
-            if (EnsurePanelWindowCreated(panel))
-            {
-                if (side == cpsLeft)
-                    LeftPanel = panel;
-                else
-                    RightPanel = panel;
-
-                panel->SetPanelSide(side);
-                panel->ApplyDeferredPanelSettings();
-                EnsurePanelWorkDirHistoryLoaded(panel);
-
-                BOOL restored = ApplyDeferredStartupPath(panel);
-                if (restored)
-                {
-                    if (side == cpsLeft)
-                        PanelConfigPathsRestoredLeft = TRUE;
-                    else
-                        PanelConfigPathsRestoredRight = TRUE;
-                }
-
-                if (UsingSharedWorkDirHistory())
-                    UpdateAllDirectoryLineHistoryStates();
-                else
-                    UpdateDirectoryLineHistoryState(panel);
-            }
-
             UpdatePanelTabTitle(panel);
+
+            SwitchPanelTab(panel, false, false);
         }
 
-        UpdatePanelTabVisibility(side);
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
-        if (tabWnd != NULL && tabWnd->HWindow != NULL && tabWnd->GetCurSel() != 0)
-            tabWnd->SetCurSel(0);
         CloseKey(actKey);
         return;
     }
@@ -3047,29 +3019,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        if (EnsurePanelWindowCreated(activePanel))
-        {
-            if (side == cpsLeft)
-                LeftPanel = activePanel;
-            else
-                RightPanel = activePanel;
-
-            activePanel->SetPanelSide(side);
-
-            activePanel->ApplyDeferredPanelSettings();
-
-            EnsurePanelWorkDirHistoryLoaded(activePanel);
-
-            if (UsingSharedWorkDirHistory())
-                UpdateAllDirectoryLineHistoryStates();
-            else
-                UpdateDirectoryLineHistoryState(activePanel);
-
-            int sel = GetPanelTabIndex(side, activePanel);
-            CTabWindow* tabWnd = GetPanelTabWindow(side);
-            if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
-                tabWnd->SetCurSel(sel);
-        }
+        SwitchPanelTab(activePanel, false, false);
     }
 
     UpdatePanelTabVisibility(side);
