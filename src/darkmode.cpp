@@ -13,6 +13,25 @@
 
 namespace
 {
+HBRUSH GetPaletteBrush(COLORREF color)
+{
+    static HBRUSH brush = NULL;
+    static COLORREF brushColor = CLR_INVALID;
+
+    if (brush != NULL && brushColor != color)
+    {
+        HANDLES(DeleteObject(brush));
+        brush = NULL;
+    }
+
+    if (brush == NULL)
+    {
+        brush = HANDLES(CreateSolidBrush(color));
+        brushColor = color;
+    }
+
+    return brush;
+}
 // Helpers borrowed from win32-darkmode project (MIT licensed).
 template <typename T, typename T1, typename T2>
 constexpr T RvaToVa(T1 base, T2 rva)
@@ -586,18 +605,23 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
 {
     EnsureInitialized();
 
-    const COLORREF background = DarkModeGetDialogBackgroundColor();
-    const bool paletteDark = ComputeLuminance(background) < 128;
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
+    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+    const bool paletteDark = ComputeLuminance(paletteBackground) < 128;
     if (!usingNativeDark && !paletteDark)
         return false;
 
-    HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
+    COLORREF background = usingNativeDark ? DarkModeGetDialogBackgroundColor() : paletteBackground;
+    HBRUSH brush = gDialogBrushHandle;
+    if (brush == NULL)
+        brush = GetPaletteBrush(background);
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
 
-    const COLORREF textColor = DarkModeGetDialogTextColor();
+    const COLORREF paletteAwareText = DarkModeEnsureReadableForeground(paletteText, paletteBackground);
+    const COLORREF textColor = usingNativeDark ? DarkModeGetDialogTextColor() : paletteAwareText;
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);

@@ -30,6 +30,7 @@
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
+#include "darkmode.h"
 extern "C"
 {
 #include "shexreg.h"
@@ -999,7 +1000,8 @@ void CMainWindow::UpdateRebarVisuals()
 
     DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
     DWORD desiredStyle = style;
-    if (DarkModeShouldUseDarkColors())
+    const bool useDark = DarkModeShouldUseDarkColors();
+    if (useDark)
         desiredStyle &= ~(RBS_BANDBORDERS | WS_BORDER);
     else
         desiredStyle |= (RBS_BANDBORDERS | WS_BORDER);
@@ -1010,6 +1012,30 @@ void CMainWindow::UpdateRebarVisuals()
         SetWindowPos(HTopRebar, NULL, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
+
+    REBARBANDINFO bandInfo;
+    memset(&bandInfo, 0, sizeof(bandInfo));
+    bandInfo.cbSize = sizeof(bandInfo);
+    bandInfo.fMask = RBBIM_COLORS;
+
+    if (useDark)
+    {
+        const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+        bandInfo.clrBack = background;
+        bandInfo.clrFore = DarkModeEnsureReadableForeground(paletteText, background);
+    }
+    else
+    {
+        bandInfo.clrBack = CLR_DEFAULT;
+        bandInfo.clrFore = CLR_DEFAULT;
+    }
+
+    const int bandCount = static_cast<int>(SendMessage(HTopRebar, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < bandCount; ++i)
+        SendMessage(HTopRebar, RB_SETBANDINFO, i, reinterpret_cast<LPARAM>(&bandInfo));
+
+    InvalidateRect(HTopRebar, NULL, TRUE);
 }
 
 LRESULT
