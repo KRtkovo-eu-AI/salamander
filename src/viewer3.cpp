@@ -13,6 +13,38 @@
 
 namespace
 {
+HBRUSH EnsureViewerMenuBrush(COLORREF color, bool enable)
+{
+    static COLORREF cachedColor = CLR_INVALID;
+    static HBRUSH cachedBrush = NULL;
+
+    if (!enable)
+    {
+        if (cachedBrush != NULL)
+        {
+            HANDLES(DeleteObject(cachedBrush));
+            cachedBrush = NULL;
+            cachedColor = CLR_INVALID;
+        }
+        return NULL;
+    }
+
+    if (cachedBrush != NULL && cachedColor != color)
+    {
+        HANDLES(DeleteObject(cachedBrush));
+        cachedBrush = NULL;
+        cachedColor = CLR_INVALID;
+    }
+
+    if (cachedBrush == NULL)
+    {
+        cachedBrush = HANDLES(CreateSolidBrush(color));
+        cachedColor = color;
+    }
+
+    return cachedBrush;
+}
+
 void ApplyViewerMenuTheme(HWND hwnd)
 {
     HMENU menu = GetMenu(hwnd);
@@ -24,10 +56,26 @@ void ApplyViewerMenuTheme(HWND hwnd)
     info.cbSize = sizeof(info);
     info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
 
-    if (DarkModeShouldUseDarkColors())
-        info.hbrBack = (HDialogBrush != NULL) ? HDialogBrush : GetSysColorBrush(COLOR_MENU);
+    const COLORREF background = DarkModeGetDialogBackgroundColor();
+    const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
+    const bool useDarkColors = DarkModeShouldUseDarkColors() || luminance < 128;
+
+    HBRUSH menuBrush = GetSysColorBrush(COLOR_MENU);
+    if (useDarkColors)
+    {
+        HBRUSH brush = HDialogBrush;
+        if (brush == NULL || (!DarkModeShouldUseDarkColors() && luminance < 128))
+        {
+            brush = EnsureViewerMenuBrush(background, true);
+        }
+        menuBrush = (brush != NULL) ? brush : menuBrush;
+    }
     else
-        info.hbrBack = GetSysColorBrush(COLOR_MENU);
+    {
+        EnsureViewerMenuBrush(background, false);
+    }
+
+    info.hbrBack = menuBrush;
 
     SetMenuInfo(menu, &info);
     DrawMenuBar(hwnd);
