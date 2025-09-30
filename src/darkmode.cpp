@@ -621,9 +621,28 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (ctrl != NULL)
         {
-            LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-            if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+            wchar_t className[16];
+            if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Button") == 0)
+            {
+                LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                LONG_PTR type = style & BS_TYPEMASK;
+                if (type == BS_GROUPBOX || type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                    type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+                {
+                    SetTextColor(hdc, textColor);
+                    SetBkColor(hdc, background);
+                    SetBkMode(hdc, TRANSPARENT);
+                    result = reinterpret_cast<LRESULT>(brush);
+                    return true;
+                }
                 SetTextColor(hdc, textColor);
+            }
+            else
+            {
+                LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                    SetTextColor(hdc, textColor);
+            }
         }
         else
         {

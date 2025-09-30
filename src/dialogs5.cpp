@@ -1020,13 +1020,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_PLUGINEXTENSIONS:
                 case IDC_PLUGINFSNAME:
                 case IDC_PLUGINFUNCTIONS:
-                    return applyColors(true);
-
+                case IDC_PLUGINHEADER:
                 case IDC_PLUGINSHOWINBAR:
                 case IDC_PLUGINSHOWINCHDRV:
-                    if (uMsg == WM_CTLCOLORBTN)
-                        return applyColors(true);
-                    break;
+                    return applyColors(true);
 
                 case IDC_PLUGINTHUMBNAILS:
                     if (uMsg == WM_CTLCOLOREDIT)
