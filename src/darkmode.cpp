@@ -577,7 +577,11 @@ COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF backgrou
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result)
 {
     EnsureInitialized();
-    if (!gSupported || !ShouldUseDarkColorsInternal())
+
+    const COLORREF background = DarkModeGetDialogBackgroundColor();
+    const bool paletteDark = ComputeLuminance(background) < 128;
+    const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
+    if (!usingNativeDark && !paletteDark)
         return false;
 
     HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
@@ -586,7 +590,6 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         return false;
 
     const COLORREF textColor = DarkModeGetDialogTextColor();
-    const COLORREF background = DarkModeGetDialogBackgroundColor();
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
