@@ -510,9 +510,13 @@ private:
     CPluginInterfaceAbstract* PluginIface; // use exclusively for locating the plugin in Plugins (not for invoking methods)
     int PluginIfaceLastIndex;              // index of PluginIface in Plugins during the last search, use only to locate the plugin
     bool ReducedFileArrayCapacity;
+    bool FileArraysInitialized;
+    int InitialFilesBase;
+    int InitialFilesDelta;
 
 protected:
     void PromoteFileArraysToStandardCapacity();
+    bool EnsureFileArraysAllocated();
 
 public:
     // contents of all columns shown in the panel (both basic data and plug-in data for archives and FS)

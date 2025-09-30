@@ -34,8 +34,8 @@ namespace
 CFilesWindowAncestor::CFilesWindowAncestor(int filesBase, int filesDelta)
 {
     CALL_STACK_MESSAGE_NONE
-    Files = new CFilesArray(filesBase, filesDelta);
-    Dirs = new CFilesArray(filesBase, filesDelta);
+    Files = NULL;
+    Dirs = NULL;
     SelectedCount = 0;
 
     Path[0] = 0;
@@ -65,6 +65,9 @@ CFilesWindowAncestor::CFilesWindowAncestor(int filesBase, int filesDelta)
 
     PluginIface = NULL;
     PluginIfaceLastIndex = -1;
+    FileArraysInitialized = false;
+    InitialFilesBase = filesBase;
+    InitialFilesDelta = filesDelta;
     ReducedFileArrayCapacity = filesBase < 200 || filesDelta < 800;
 }
 
@@ -82,8 +85,41 @@ CFilesWindowAncestor::~CFilesWindowAncestor()
     }
 }
 
+bool CFilesWindowAncestor::EnsureFileArraysAllocated()
+{
+    if (FileArraysInitialized)
+        return true;
+
+    CFilesArray* newFiles = new CFilesArray(InitialFilesBase, InitialFilesDelta);
+    if (newFiles == NULL || !newFiles->IsGood())
+    {
+        if (newFiles != NULL)
+            delete newFiles;
+        TRACE_E(LOW_MEMORY);
+        return false;
+    }
+
+    CFilesArray* newDirs = new CFilesArray(InitialFilesBase, InitialFilesDelta);
+    if (newDirs == NULL || !newDirs->IsGood())
+    {
+        delete newFiles;
+        if (newDirs != NULL)
+            delete newDirs;
+        TRACE_E(LOW_MEMORY);
+        return false;
+    }
+
+    Files = newFiles;
+    Dirs = newDirs;
+    FileArraysInitialized = true;
+    ReducedFileArrayCapacity = InitialFilesBase < 200 || InitialFilesDelta < 800;
+    return true;
+}
+
 void CFilesWindowAncestor::PromoteFileArraysToStandardCapacity()
 {
+    if (!EnsureFileArraysAllocated())
+        return;
     if (!ReducedFileArrayCapacity)
         return;
 
@@ -120,6 +156,9 @@ void CFilesWindowAncestor::PromoteFileArraysToStandardCapacity()
     Files = newFiles;
     Dirs = newDirs;
     ReducedFileArrayCapacity = false;
+    InitialFilesBase = 200;
+    InitialFilesDelta = 800;
+    FileArraysInitialized = true;
 }
 
 DWORD
@@ -137,6 +176,12 @@ CFilesWindowAncestor::CheckPath(BOOL echo, const char* path, DWORD err, BOOL pos
 void CFilesWindowAncestor::ReleaseListing()
 {
     CALL_STACK_MESSAGE_NONE
+
+    if (!FileArraysInitialized)
+    {
+        SelectedCount = 0;
+        return;
+    }
 
         ((CFilesWindow*)this)
             ->VisibleItemsArray.InvalidateArr();
@@ -1571,13 +1616,17 @@ CFilesWindow::~CFilesWindow()
 
 bool CFilesWindow::EnsureLightInitialization()
 {
-    if (!LightInitializationPending && ContextSubmenuNew != NULL && PathHistory != NULL && ExecuteAssocEvent != NULL &&
-        ICSleepSectionInitialized && ICSectionUsingIconInitialized && ICSectionUsingThumbInitialized)
+    if (!LightInitializationPending && FileArraysInitialized && ContextSubmenuNew != NULL && PathHistory != NULL &&
+        ExecuteAssocEvent != NULL && ICSleepSectionInitialized && ICSectionUsingIconInitialized &&
+        ICSectionUsingThumbInitialized)
     {
         return true;
     }
 
     bool success = true;
+
+    if (!EnsureFileArraysAllocated())
+        success = false;
 
     if (!ICSleepSectionInitialized)
     {
