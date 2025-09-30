@@ -780,7 +780,22 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
     r.bottom = Height;
     FillRect(dc, &r, HDialogBrush);
 
-    GetClientRect(HWindow, &r);
+    RECT clientRect;
+    GetClientRect(HWindow, &clientRect);
+
+    if (DarkModeShouldUseDarkColors() && (Border & blBottom))
+    {
+        HBRUSH borderBrush = DarkModeGetPanelFrameBrush();
+        if (borderBrush != NULL)
+        {
+            RECT frameRect = clientRect;
+            if (frameRect.bottom > frameRect.top)
+                frameRect.top = frameRect.bottom - 1;
+            FillRect(dc, &frameRect, borderBrush);
+        }
+    }
+
+    r = clientRect;
     if (Border & blBottom)
         r.bottom--;
 
