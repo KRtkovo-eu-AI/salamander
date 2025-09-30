@@ -270,6 +270,10 @@ static SALCOLOR* gWindowsDarkPaletteTarget = NULL;
 static SALCOLOR gWindowsDarkPaletteBackup[NUMBER_OF_COLORS];
 static SALCOLOR gWindowsDarkViewerBackup[NUMBER_OF_VIEWERCOLORS];
 static bool gWindowsDarkViewerSaved = false;
+static SALCOLOR gWindowsDarkPaletteApplied[NUMBER_OF_COLORS];
+static SALCOLOR gWindowsDarkViewerApplied[NUMBER_OF_VIEWERCOLORS];
+static bool gWindowsDarkPaletteCustomized = false;
+static bool gWindowsDarkPaletteAppliedInitialized = false;
 
 static COLORREF LightenColor(COLORREF color, int amount)
 {
@@ -369,7 +373,7 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
     DarkModeConfigureDialogColors(dialogText, dialogBackground, HDialogBrush);
 }
 
-static void BuildWindowsDarkPalette(SALCOLOR* target)
+static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
 {
     const COLORREF accent = GetSysColor(COLOR_HIGHLIGHT);
     const COLORREF accentText = GetSysColor(COLOR_HIGHLIGHTTEXT);
@@ -430,10 +434,20 @@ static void BuildWindowsDarkPalette(SALCOLOR* target)
     setColor(target[THUMBNAIL_FRAME_SELECTED], accent);
     setColor(target[THUMBNAIL_FRAME_FOCSEL], accent);
 
-    setColor(ViewerColors[VIEWER_FG_NORMAL], text);
-    setColor(ViewerColors[VIEWER_BK_NORMAL], panelBg);
-    setColor(ViewerColors[VIEWER_FG_SELECTED], accentText);
-    setColor(ViewerColors[VIEWER_BK_SELECTED], accent);
+    if (viewerTarget == NULL)
+        viewerTarget = ViewerColors;
+
+    setColor(viewerTarget[VIEWER_FG_NORMAL], text);
+    setColor(viewerTarget[VIEWER_BK_NORMAL], panelBg);
+    setColor(viewerTarget[VIEWER_FG_SELECTED], accentText);
+    setColor(viewerTarget[VIEWER_BK_SELECTED], accent);
+}
+
+void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors)
+{
+    if (colors == NULL)
+        return;
+    BuildWindowsDarkPalette(colors, viewerColors);
 }
 
 static void WindowsDarkModeUpdatePalette(bool useDarkColors)
@@ -450,17 +464,9 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         gWindowsDarkPaletteActive = false;
         gWindowsDarkPaletteTarget = NULL;
         gWindowsDarkViewerSaved = false;
+        gWindowsDarkPaletteCustomized = false;
+        gWindowsDarkPaletteAppliedInitialized = false;
         return;
-    }
-
-    if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget == target)
-    {
-        if (memcmp(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup)) != 0)
-        {
-            memcpy(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup));
-            memcpy(gWindowsDarkViewerBackup, ViewerColors, sizeof(gWindowsDarkViewerBackup));
-            gWindowsDarkViewerSaved = true;
-        }
     }
 
     if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != target)
@@ -470,6 +476,8 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         gWindowsDarkPaletteActive = false;
         gWindowsDarkPaletteTarget = NULL;
         gWindowsDarkViewerSaved = false;
+        gWindowsDarkPaletteCustomized = false;
+        gWindowsDarkPaletteAppliedInitialized = false;
     }
 
     if (!gWindowsDarkPaletteActive)
@@ -479,10 +487,49 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         memcpy(gWindowsDarkViewerBackup, ViewerColors, sizeof(gWindowsDarkViewerBackup));
         gWindowsDarkViewerSaved = true;
         gWindowsDarkPaletteActive = true;
+        gWindowsDarkPaletteCustomized = false;
+        gWindowsDarkPaletteAppliedInitialized = false;
     }
 
-    memcpy(target, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
-    BuildWindowsDarkPalette(target);
+    SALCOLOR defaultColors[NUMBER_OF_COLORS];
+    SALCOLOR defaultViewer[NUMBER_OF_VIEWERCOLORS];
+    WindowsDarkModeBuildPalette(defaultColors, defaultViewer);
+
+    bool matchesDefault = memcmp(target, defaultColors, sizeof(defaultColors)) == 0 &&
+                          memcmp(ViewerColors, defaultViewer, sizeof(defaultViewer)) == 0;
+
+    if (matchesDefault)
+    {
+        gWindowsDarkPaletteCustomized = false;
+    }
+    else
+    {
+        if (!gWindowsDarkPaletteAppliedInitialized ||
+            memcmp(target, gWindowsDarkPaletteApplied, sizeof(gWindowsDarkPaletteApplied)) != 0 ||
+            memcmp(ViewerColors, gWindowsDarkViewerApplied, sizeof(gWindowsDarkViewerApplied)) != 0)
+        {
+            gWindowsDarkPaletteCustomized = true;
+            memcpy(gWindowsDarkPaletteApplied, target, sizeof(gWindowsDarkPaletteApplied));
+            memcpy(gWindowsDarkViewerApplied, ViewerColors, sizeof(gWindowsDarkViewerApplied));
+            gWindowsDarkPaletteAppliedInitialized = true;
+        }
+    }
+
+    if (gWindowsDarkPaletteCustomized)
+    {
+        if (!gWindowsDarkPaletteAppliedInitialized)
+        {
+            memcpy(gWindowsDarkPaletteApplied, target, sizeof(gWindowsDarkPaletteApplied));
+            memcpy(gWindowsDarkViewerApplied, ViewerColors, sizeof(gWindowsDarkViewerApplied));
+            gWindowsDarkPaletteAppliedInitialized = true;
+        }
+        return;
+    }
+
+    WindowsDarkModeBuildPalette(target, ViewerColors);
+    memcpy(gWindowsDarkPaletteApplied, target, sizeof(gWindowsDarkPaletteApplied));
+    memcpy(gWindowsDarkViewerApplied, ViewerColors, sizeof(gWindowsDarkViewerApplied));
+    gWindowsDarkPaletteAppliedInitialized = true;
 }
 
 
