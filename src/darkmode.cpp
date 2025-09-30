@@ -517,3 +517,73 @@ void DarkModeFixScrollbars()
     HookDarkScrollbars();
 }
 
+bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result)
+{
+    EnsureInitialized();
+    if (!gSupported || !ShouldUseDarkColorsInternal())
+        return false;
+
+    HBRUSH brush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+    HDC hdc = reinterpret_cast<HDC>(wParam);
+    if (hdc == NULL)
+        return false;
+
+    const COLORREF textColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+
+    auto setCommonColors = [&](bool transparent) {
+        SetTextColor(hdc, textColor);
+        SetBkColor(hdc, background);
+        if (transparent)
+            SetBkMode(hdc, TRANSPARENT);
+        else
+            SetBkMode(hdc, OPAQUE);
+    };
+
+    switch (message)
+    {
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+        SetBkColor(hdc, background);
+        result = reinterpret_cast<LRESULT>(brush);
+        return true;
+
+    case WM_CTLCOLORSTATIC:
+    {
+        HWND ctrl = reinterpret_cast<HWND>(lParam);
+        if (ctrl != NULL)
+        {
+            LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+            if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                SetTextColor(hdc, textColor);
+        }
+        else
+        {
+            SetTextColor(hdc, textColor);
+        }
+        SetBkColor(hdc, background);
+        SetBkMode(hdc, TRANSPARENT);
+        result = reinterpret_cast<LRESULT>(brush);
+        return true;
+    }
+
+    case WM_CTLCOLORBTN:
+        setCommonColors(true);
+        result = reinterpret_cast<LRESULT>(brush);
+        return true;
+
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+        setCommonColors(false);
+        result = reinterpret_cast<LRESULT>(brush);
+        return true;
+
+    case WM_CTLCOLORSCROLLBAR:
+        SetBkColor(hdc, background);
+        result = reinterpret_cast<LRESULT>(brush);
+        return true;
+    }
+
+    return false;
+}
+

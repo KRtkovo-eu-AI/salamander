@@ -16,6 +16,17 @@
 
 const char* CFILESBOX_CLASSNAME = "SalamanderItemsBox";
 
+namespace
+{
+HBRUSH GetDarkPanelBorderBrush()
+{
+    static HBRUSH brush = NULL;
+    if (brush == NULL)
+        brush = HANDLES(CreateSolidBrush(RGB(122, 122, 122)));
+    return brush;
+}
+}
+
 //****************************************************************************
 //
 // CFilesBox
@@ -1347,6 +1358,20 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        break;
+    }
+
     case WM_NCPAINT:
     {
         HDC hdc = HANDLES(GetWindowDC(HWindow));
@@ -1364,7 +1389,16 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetClientRect(HWindow, &r);
         r.right += 2;
         r.bottom += 2;
-        DrawEdge(hdc, &r, BDR_SUNKENOUTER, BF_RECT);
+        if (DarkModeShouldUseDarkColors())
+        {
+            HBRUSH borderBrush = GetDarkPanelBorderBrush();
+            if (borderBrush != NULL)
+                FrameRect(hdc, &r, borderBrush);
+        }
+        else
+        {
+            DrawEdge(hdc, &r, BDR_SUNKENOUTER, BF_RECT);
+        }
         if (Parent->StatusLine != NULL && Parent->StatusLine->HWindow != NULL)
         {
             r.left = 0;
