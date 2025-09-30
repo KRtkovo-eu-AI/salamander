@@ -1062,7 +1062,8 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
     }
 
     const bool hasListBox = (ListBox != NULL);
-    CViewModeEnum oldViewMode = hasListBox ? ListBox->ViewMode : ViewTemplate->Mode;
+    CViewModeEnum oldViewMode = hasListBox ? ListBox->ViewMode :
+                                             static_cast<CViewModeEnum>(ViewTemplate->Mode);
     CViewModeEnum newViewMode = oldViewMode;
 
     if (!calledFromPluginBeforeListing || ViewTemplate != newTemplate)
