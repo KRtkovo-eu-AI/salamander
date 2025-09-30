@@ -489,24 +489,20 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CTLCOLORSTATIC:
     {
-        if (DarkModeShouldUseDarkColors())
+        HWND ctrl = reinterpret_cast<HWND>(lParam);
+        if (ctrl != NULL && GetDlgCtrlID(ctrl) == IDS_SUBJECT)
         {
-            HWND ctrl = reinterpret_cast<HWND>(lParam);
-            if (ctrl != NULL && GetDlgCtrlID(ctrl) == IDS_SUBJECT)
+            HDC hdc = reinterpret_cast<HDC>(wParam);
+            if (hdc != NULL)
             {
-                HDC hdc = reinterpret_cast<HDC>(wParam);
-                if (hdc != NULL)
-                {
-                    COLORREF text = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-                    COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-                    if (text == RGB(0, 0, 0))
-                        text = RGB(220, 220, 220);
-                    SetTextColor(hdc, text);
-                    SetBkColor(hdc, background);
-                    SetBkMode(hdc, TRANSPARENT);
-                    return reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush
-                                                                          : GetSysColorBrush(COLOR_BTNFACE));
-                }
+                const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+                const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+                const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                SetTextColor(hdc, text);
+                SetBkColor(hdc, background);
+                SetBkMode(hdc, TRANSPARENT);
+                return reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush
+                                                                      : GetSysColorBrush(COLOR_BTNFACE));
             }
         }
         break;
