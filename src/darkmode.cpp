@@ -193,6 +193,7 @@ bool gScrollbarsHooked = false;
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
 const wchar_t* kDarkModeClassicButtonProp = L"Salamander.DarkMode.ClassicButton";
@@ -412,19 +413,28 @@ void ApplyControlTheme(HWND hwnd)
             theme = L"CFD";
     }
 
+    auto notifyThemeChanged = [](HWND target) {
+        if (!gPropagatingThemeChange)
+        {
+            gPropagatingThemeChange = true;
+            SendMessageW(target, WM_THEMECHANGED, 0, 0);
+            gPropagatingThemeChange = false;
+        }
+    };
+
     if (theme != nullptr)
     {
         if (gSetWindowTheme)
             gSetWindowTheme(hwnd, theme, nullptr);
         SetPropW(hwnd, kDarkModeThemeProp, reinterpret_cast<HANDLE>(1));
-        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+        notifyThemeChanged(hwnd);
     }
     else if (hadTheme)
     {
         RemovePropW(hwnd, kDarkModeThemeProp);
         if (gSetWindowTheme)
             gSetWindowTheme(hwnd, nullptr, nullptr);
-        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+        notifyThemeChanged(hwnd);
     }
 }
 
