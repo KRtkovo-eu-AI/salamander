@@ -463,7 +463,15 @@ void DarkModeSetEnabled(bool enabled)
 bool DarkModeShouldUseDarkColors()
 {
     EnsureInitialized();
-    return ShouldUseDarkColorsInternal();
+
+    if (ShouldUseDarkColorsInternal())
+        return true;
+
+    // Fall back to the configured dialog palette when native dark mode isn't
+    // available (for example on older Windows builds).  Many callers rely on
+    // this helper to decide whether to draw using dark-friendly colors even if
+    // the system APIs cannot provide immersive resources.
+    return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
 void DarkModeApplyWindow(HWND hwnd)
