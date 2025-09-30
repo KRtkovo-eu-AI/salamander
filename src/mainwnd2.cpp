@@ -1455,7 +1455,14 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         {
             if (Configuration.ConfigVersion < 13 && !value)
                 value = 2;
-            panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            if (panel->HWindow != NULL)
+                panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            else
+            {
+                panel->SetStoredViewTemplateIndex(value);
+                if (panel->GetStoredViewMode() != vmDetailed)
+                    panel->HeaderLineVisible = FALSE;
+            }
         }
         if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
             panel->ReverseSort = value;

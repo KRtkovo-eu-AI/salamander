@@ -1089,6 +1089,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         }
 
         ViewTemplate = newTemplate;
+        StoredViewMode = newViewMode;
 
         if (hasListBox)
         {
@@ -1103,6 +1104,8 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
             HeaderLineVisible = FALSE;
         }
     }
+    else
+        StoredViewMode = newViewMode;
 
     // we build new columns
     BuildColumnsTemplate();

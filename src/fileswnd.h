@@ -790,6 +790,7 @@ public:
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
     BOOL HeaderLineVisible;
+    CViewModeEnum StoredViewMode;
 
     CMainWindow* Parent;
 
@@ -1629,6 +1630,9 @@ public:
     CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
     CPathHistory* EnsureWorkDirHistory();
     void ClearWorkDirHistory();
+
+    void SetStoredViewTemplateIndex(int templateIndex);
+    CViewModeEnum GetStoredViewMode() const;
 
     void OpenDirHistory();
 

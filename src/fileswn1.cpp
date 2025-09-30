@@ -1361,6 +1361,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
+    StoredViewMode = vmDetailed;
 
     SortType = stName;
     ReverseSort = FALSE;
@@ -1626,6 +1627,41 @@ void CFilesWindow::SetDeferredInitialPath(const char* path)
     }
     else
         ClearDeferredInitialPath();
+}
+
+void CFilesWindow::SetStoredViewTemplateIndex(int templateIndex)
+{
+    if (!IsViewTemplateValid(templateIndex))
+        templateIndex = 2;
+
+    ViewTemplate = &Parent->ViewTemplates.Items[templateIndex];
+
+    switch (templateIndex)
+    {
+    case 1:
+        StoredViewMode = vmBrief;
+        break;
+    case 3:
+        StoredViewMode = vmIcons;
+        break;
+    case 4:
+        StoredViewMode = vmThumbnails;
+        break;
+    case 5:
+        StoredViewMode = vmTiles;
+        break;
+    default:
+        StoredViewMode = vmDetailed;
+        break;
+    }
+
+    if (StoredViewMode != vmDetailed)
+        HeaderLineVisible = FALSE;
+}
+
+CViewModeEnum CFilesWindow::GetStoredViewMode() const
+{
+    return StoredViewMode;
 }
 
 bool CFilesWindow::ConsumeDeferredInitialPath(char* buffer, int bufferSize)
