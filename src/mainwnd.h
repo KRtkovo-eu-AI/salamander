@@ -559,7 +559,7 @@ public:
                               bool deferInitialization = false);
     bool EnsurePanelWindowCreated(CFilesWindow* panel);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
-    void SwitchPanelTab(CFilesWindow* panel);
+    void SwitchPanelTab(CFilesWindow* panel, bool requestRefresh = true);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,

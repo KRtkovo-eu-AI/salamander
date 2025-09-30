@@ -2828,7 +2828,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel);
+        SwitchPanelTab(activePanel, false);
         int sel = GetPanelTabIndex(side, activePanel);
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)

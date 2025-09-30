@@ -249,7 +249,7 @@ void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuild
         RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
 }
 
-void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
+void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
     if (panel == NULL)
@@ -330,7 +330,10 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     }
 
     bool refreshActive = (panel == GetActivePanel());
-    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+    if (requestRefresh)
+        EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+    else
+        EnsurePanelAutomaticRefresh(panel);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
