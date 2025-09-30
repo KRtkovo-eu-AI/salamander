@@ -1337,9 +1337,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
-    HANDLES(InitializeCriticalSection(&ICSleepSection));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+    ICSleepSectionInitialized = false;
+    ICSectionUsingIconInitialized = false;
+    ICSectionUsingThumbInitialized = false;
     IconCacheThread = NULL;
     IconCache = NULL;
 
@@ -1380,7 +1380,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     SupportACLS = FALSE;
     DeviceNotification = NULL;
     ContextMenu = NULL;
-    ContextSubmenuNew = new CMenuNew;
+    ContextSubmenuNew = NULL;
     UseSystemIcons = FALSE;
     UseThumbnails = FALSE;
     NeedRefreshAfterEndOfSM = FALSE;
@@ -1397,14 +1397,14 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     RefreshAfterIconsReadingTime = 0;
 
     WorkDirHistory = NULL;
-    PathHistory = new CPathHistory();
+    PathHistory = NULL;
 
     DontDrawIndex = -1;
     DrawOnlyIndex = -1;
 
     FocusFirstNewItem = FALSE;
 
-    ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+    ExecuteAssocEvent = NULL;
     AssocUsed = FALSE;
 
     FilterEnabled = FALSE;
@@ -1448,6 +1448,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
 
     GetPluginIconIndex = InternalGetPluginIconIndex;
 
+    LightInitializationPending = true;
     HeavyInitializationPending = true;
     DeferredInitialPathValid = false;
     DeferredInitialPath[0] = 0;
@@ -1491,9 +1492,12 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(IconCacheThread));
     }
 
-    HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
-    HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
-    HANDLES(DeleteCriticalSection(&ICSleepSection));
+    if (ICSectionUsingThumbInitialized)
+        HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
+    if (ICSectionUsingIconInitialized)
+        HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
+    if (ICSleepSectionInitialized)
+        HANDLES(DeleteCriticalSection(&ICSleepSection));
     if (ICEventTerminate != NULL)
         HANDLES(CloseHandle(ICEventTerminate));
     if (ICEventWork != NULL)
@@ -1507,15 +1511,75 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(ExecuteAssocEvent));
 }
 
+bool CFilesWindow::EnsureLightInitialization()
+{
+    if (!LightInitializationPending && ContextSubmenuNew != NULL && PathHistory != NULL && ExecuteAssocEvent != NULL &&
+        ICSleepSectionInitialized && ICSectionUsingIconInitialized && ICSectionUsingThumbInitialized)
+    {
+        return true;
+    }
+
+    bool success = true;
+
+    if (!ICSleepSectionInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSleepSection));
+        ICSleepSectionInitialized = true;
+    }
+    if (!ICSectionUsingIconInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
+        ICSectionUsingIconInitialized = true;
+    }
+    if (!ICSectionUsingThumbInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+        ICSectionUsingThumbInitialized = true;
+    }
+
+    if (ContextSubmenuNew == NULL)
+    {
+        ContextSubmenuNew = new CMenuNew;
+        if (ContextSubmenuNew == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            success = false;
+        }
+    }
+
+    if (PathHistory == NULL)
+    {
+        PathHistory = new CPathHistory();
+        if (PathHistory == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            success = false;
+        }
+    }
+
+    if (ExecuteAssocEvent == NULL)
+    {
+        ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+        if (ExecuteAssocEvent == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            success = false;
+        }
+    }
+
+    if (success)
+        LightInitializationPending = false;
+
+    return success;
+}
+
 void CFilesWindow::EnsureHeavyInitialization()
 {
-    if (!HeavyInitializationPending && IconCacheThread != NULL)
+    if (!HeavyInitializationPending && IconCacheThread != NULL && IconCache != NULL)
         return;
 
-    if (!HeavyInitializationPending && IconCache != NULL)
+    if (!EnsureLightInitialization())
         return;
-
-    HeavyInitializationPending = false;
 
     if (ICEventTerminate == NULL)
         ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
@@ -1536,11 +1600,14 @@ void CFilesWindow::EnsureHeavyInitialization()
             delete IconCache;
             IconCache = NULL;
         }
+        HeavyInitializationPending = true;
         return;
     }
 
     if (IconCache == NULL)
         IconCache = new CIconCache();
+
+    HeavyInitializationPending = (IconCache == NULL);
 }
 
 void CFilesWindow::ClearDeferredInitialPath()
@@ -1620,6 +1687,8 @@ void CFilesWindow::ClearHistory()
 void CFilesWindow::SleepIconCacheThread()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::SleepIconCacheThread()");
+    if (!ICSleepSectionInitialized || ICEventWork == NULL)
+        return;
     ICSleep = TRUE;          // to interrupt the icon-reading loop (ICSleepSection may not be left at all)
     ICStopWork = TRUE;       // to interrupt the icon-reading loop if ICStopWork has already been processed
     ResetEvent(ICEventWork); // to interrupt the icon-reading loop if ICStopWork has not been processed yet
@@ -1632,6 +1701,8 @@ void CFilesWindow::SleepIconCacheThread()
 void CFilesWindow::WakeupIconCacheThread()
 {
     CALL_STACK_MESSAGE_NONE
+    if (!ICSleepSectionInitialized || ICEventWork == NULL)
+        return;
     ICStopWork = FALSE;    // so that the work is not interrupted right from the start
     SetEvent(ICEventWork); // switch to work mode without waiting for a response
     MSG msg;               // remove any WM_USER_ICONREADING_END that would set IconCacheValid = TRUE

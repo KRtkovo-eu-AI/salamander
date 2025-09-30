@@ -718,6 +718,7 @@ class CFilesWindow : public CFilesWindowAncestor
 public:
     CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
 
+    bool EnsureLightInitialization();
     void EnsureHeavyInitialization();
     void ApplyStoredVisualState();
     bool IsHeavyInitializationPending() const { return HeavyInitializationPending; }
@@ -763,6 +764,9 @@ public:
     CRITICAL_SECTION ICSleepSection;      // critical section -> sleep-icon-thread must pass through it
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
+    bool ICSleepSectionInitialized;
+    bool ICSectionUsingIconInitialized;
+    bool ICSectionUsingThumbInitialized;
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
@@ -789,7 +793,6 @@ public:
 
     CMainWindow* Parent;
 
-    bool HeavyInitializationPending;
     bool DeferredInitialPathValid;
     char DeferredInitialPath[2 * MAX_PATH];
 
@@ -928,6 +931,8 @@ public:
     DWORD LastIconOvrRefreshTime;             // GetTickCount() of the last icon-overlay refresh (see IconOverlaysChangedOnPath())
     BOOL IconOvrRefreshTimerSet;              // TRUE if the timer for icon-overlay refresh is running (see IconOverlaysChangedOnPath())
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
+    bool LightInitializationPending;
+    bool HeavyInitializationPending;
 
 public:
     ~CFilesWindow();
