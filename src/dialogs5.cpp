@@ -35,7 +35,7 @@ bool ShouldUsePluginsDarkPalette()
     if (DarkModeShouldUseDarkColors())
         return true;
 
-    COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    COLORREF background = DarkModeGetDialogBackgroundColor();
     int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
     return luminance < 128;
 }
@@ -69,8 +69,8 @@ void CPluginsDlg::ApplyTheme()
     DarkModeRefreshTitleBar(HWindow);
 
     const bool useDark = ShouldUsePluginsDarkPalette();
-    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF paletteText = DarkModeGetDialogTextColor();
+    const COLORREF paletteBackground = DarkModeGetDialogBackgroundColor();
     const COLORREF text = useDark ? DarkModeEnsureReadableForeground(paletteText, paletteBackground)
                                   : GetSysColor(COLOR_WINDOWTEXT);
     const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
@@ -1004,8 +1004,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
                     if (dc == NULL)
                         return reinterpret_cast<LRESULT>(dialogBrush);
-                    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-                    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+                    const COLORREF paletteText = DarkModeGetDialogTextColor();
+                    const COLORREF background = DarkModeGetDialogBackgroundColor();
                     const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
                     SetTextColor(dc, text);
                     SetBkColor(dc, background);
