@@ -71,7 +71,8 @@ void CPluginsDlg::ApplyTheme()
     const bool useDark = ShouldUsePluginsDarkPalette();
     const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
     const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    const COLORREF text = useDark ? paletteText : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF text = useDark ? DarkModeEnsureReadableForeground(paletteText, paletteBackground)
+                                  : GetSysColor(COLOR_WINDOWTEXT);
     const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
 
     ListView_SetTextColor(HListView, text);
@@ -1003,8 +1004,9 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
                     if (dc == NULL)
                         return reinterpret_cast<LRESULT>(dialogBrush);
-                    const COLORREF text = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+                    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
                     const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+                    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
                     SetTextColor(dc, text);
                     SetBkColor(dc, background);
                     SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);

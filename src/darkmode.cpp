@@ -187,6 +187,30 @@ static HBRUSH gDialogBrushHandle = NULL;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
 
+int ComputeLuminance(COLORREF color)
+{
+    return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
+}
+
+COLORREF ResolveReadableForeground(COLORREF foreground, COLORREF background)
+{
+    const int backgroundLum = ComputeLuminance(background);
+    const int foregroundLum = ComputeLuminance(foreground);
+
+    if (backgroundLum < 128)
+    {
+        if (foregroundLum < backgroundLum + 40)
+            return RGB(0xF0, 0xF0, 0xF0);
+    }
+    else
+    {
+        if (foregroundLum > backgroundLum - 40)
+            return RGB(0x20, 0x20, 0x20);
+    }
+
+    return foreground;
+}
+
 bool IsHighContrast()
 {
     HIGHCONTRASTW highContrast = {sizeof(highContrast)};
@@ -527,10 +551,28 @@ void DarkModeFixScrollbars()
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
 {
-    gDialogTextColor = textColor;
+    gDialogTextColor = ResolveReadableForeground(textColor, backgroundColor);
     gDialogBackgroundColor = backgroundColor;
     gDialogBrushHandle = dialogBrush;
 }
+
+COLORREF DarkModeGetDialogTextColor()
+{
+    EnsureInitialized();
+    return ResolveReadableForeground(gDialogTextColor, gDialogBackgroundColor);
+}
+
+COLORREF DarkModeGetDialogBackgroundColor()
+{
+    EnsureInitialized();
+    return gDialogBackgroundColor;
+}
+
+COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background)
+{
+    return ResolveReadableForeground(foreground, background);
+}
+
 
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result)
 {
@@ -543,8 +585,8 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     if (hdc == NULL)
         return false;
 
-    const COLORREF textColor = gDialogTextColor;
-    const COLORREF background = gDialogBackgroundColor;
+    const COLORREF textColor = DarkModeGetDialogTextColor();
+    const COLORREF background = DarkModeGetDialogBackgroundColor();
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
