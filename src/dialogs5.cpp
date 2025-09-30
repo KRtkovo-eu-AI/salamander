@@ -20,6 +20,19 @@
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // po dalsim otevreni Plugins manageru vybereme posledni vybranej plugin
 
+namespace
+{
+bool ShouldUsePluginsDarkPalette()
+{
+    if (DarkModeShouldUseDarkColors())
+        return true;
+
+    COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
+    return luminance < 128;
+}
+}
+
 //
 // ****************************************************************************
 // CPluginsDlg
@@ -47,9 +60,11 @@ void CPluginsDlg::ApplyTheme()
     DarkModeApplyTree(HWindow);
     DarkModeRefreshTitleBar(HWindow);
 
-    const bool useDark = DarkModeShouldUseDarkColors();
-    const COLORREF text = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_WINDOWTEXT);
-    const COLORREF background = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_WINDOW);
+    const bool useDark = ShouldUsePluginsDarkPalette();
+    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+    const COLORREF text = useDark ? paletteText : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
 
     ListView_SetTextColor(HListView, text);
     ListView_SetTextBkColor(HListView, background);
@@ -58,6 +73,17 @@ void CPluginsDlg::ApplyTheme()
     HWND headerWnd = ListView_GetHeader(HListView);
     if (headerWnd != NULL)
     {
+        if (useDark)
+        {
+            SendMessage(headerWnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(text));
+            SendMessage(headerWnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(background));
+        }
+        else
+        {
+            SendMessage(headerWnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+            SendMessage(headerWnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+        }
+
         DarkModeApplyWindow(headerWnd);
         InvalidateRect(headerWnd, NULL, TRUE);
     }
@@ -958,7 +984,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
 
-        if (DarkModeShouldUseDarkColors())
+        if (ShouldUsePluginsDarkPalette())
         {
             HWND ctrl = reinterpret_cast<HWND>(lParam);
             if (ctrl != NULL)
