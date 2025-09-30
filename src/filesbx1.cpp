@@ -2173,6 +2173,8 @@ BOOL CFilesBox::ShowHideChilds()
                          NULL, //HMenu
                          HInstance,
                          &BottomBar);
+        if (BottomBar.HWindow != NULL)
+            DarkModeApplyWindow(BottomBar.HWindow);
         HHScrollBar = CreateWindow("scrollbar", "", WS_CHILD | SBS_HORZ | WS_VISIBLE | WS_CLIPSIBLINGS | SBS_HORZ,
                                    0, 0, 0, 0,
                                    BottomBar.HWindow,
@@ -2180,6 +2182,8 @@ BOOL CFilesBox::ShowHideChilds()
                                    HInstance,
                                    NULL);
         BottomBar.HScrollBar = HHScrollBar;
+        if (HHScrollBar != NULL)
+            DarkModeApplyWindow(HHScrollBar);
         change = TRUE;
     }
 
@@ -2197,6 +2201,8 @@ BOOL CFilesBox::ShowHideChilds()
                                        NULL, //HMenu
                                        HInstance,
                                        NULL);
+            if (HVScrollBar != NULL)
+                DarkModeApplyWindow(HVScrollBar);
             change = TRUE;
         }
     }

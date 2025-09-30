@@ -10,6 +10,7 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "fileswnd.h"
+#include "darkmode.h"
 
 #ifndef TCM_SETINSERTMARK
 #define TCM_SETINSERTMARK (TCM_FIRST + 44)
@@ -77,6 +78,13 @@ namespace
     {
         int luminance = 30 * GetRValue(color) + 59 * GetGValue(color) + 11 * GetBValue(color);
         return luminance < 128 * 100;
+    }
+
+    COLORREF ResolveDefaultTabColor()
+    {
+        if (DarkModeShouldUseDarkColors())
+            return GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        return GetSysColor(COLOR_BTNFACE);
     }
 
     class CSelChangeGuard
@@ -1365,6 +1373,44 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
     if (total <= 0)
         return;
 
+    RECT clientRect;
+    if (GetClientRect(HWindow, &clientRect))
+    {
+        RECT rowRect;
+        if (TabCtrl_GetItemRect(HWindow, 0, &rowRect))
+        {
+            RECT backgroundRect = clientRect;
+            int rowCount = TabCtrl_GetRowCount(HWindow);
+            if (rowCount < 1)
+                rowCount = 1;
+            int rowHeight = rowRect.bottom - rowRect.top;
+            if (rowHeight < 0)
+                rowHeight = 0;
+            backgroundRect.bottom = rowRect.top + rowHeight * rowCount;
+            if (backgroundRect.bottom > clientRect.bottom)
+                backgroundRect.bottom = clientRect.bottom;
+            if (backgroundRect.bottom > backgroundRect.top)
+            {
+                RECT fillRect = backgroundRect;
+                if (clipRect != NULL)
+                {
+                    if (!IntersectRect(&fillRect, &backgroundRect, clipRect))
+                        SetRectEmpty(&fillRect);
+                }
+
+                if (fillRect.right > fillRect.left && fillRect.bottom > fillRect.top)
+                {
+                    HBRUSH backgroundBrush = CreateSolidBrush(ResolveDefaultTabColor());
+                    if (backgroundBrush != NULL)
+                    {
+                        FillRect(hdc, &fillRect, backgroundBrush);
+                        DeleteObject(backgroundBrush);
+                    }
+                }
+            }
+        }
+    }
+
     int selected = TabCtrl_GetCurSel(HWindow);
     int focus = TabCtrl_GetCurFocus(HWindow);
     HWND focusWnd = GetFocus();
@@ -1402,7 +1448,7 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
             // baseColor already resolved
         }
         else
-            baseColor = GetSysColor(COLOR_BTNFACE);
+            baseColor = ResolveDefaultTabColor();
 
         bool isSelected = (i == selected);
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
