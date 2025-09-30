@@ -642,11 +642,14 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     EnsureInitialized();
 
     const COLORREF background = DarkModeGetDialogBackgroundColor();
-    const bool paletteDark = ComputeLuminance(background) < 128;
+    const COLORREF textColor = DarkModeGetDialogTextColor();
+    const COLORREF sysTextColor = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF sysBackground = GetSysColor(COLOR_BTNFACE);
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
-    const bool forceClassicButtons = paletteDark && !usingNativeDark;
+    const bool hasCustomPalette = textColor != sysTextColor || background != sysBackground;
+    const bool forceClassicButtons = hasCustomPalette && !usingNativeDark;
 
-    if (!usingNativeDark && !paletteDark)
+    if (!usingNativeDark && !hasCustomPalette)
     {
         if ((message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN) && lParam != 0)
         {
@@ -661,8 +664,6 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
-
-    const COLORREF textColor = DarkModeGetDialogTextColor();
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
