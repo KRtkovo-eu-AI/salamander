@@ -3113,34 +3113,36 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
 
-        CFilesWindow* leftPanel = AddPanelTab(cpsLeft);
+        CFilesWindow* leftPanel = AddPanelTab(cpsLeft, -1, false, true);
         if (leftPanel == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return -1;
         }
+        LeftPanel = leftPanel;
         if (!EnsurePanelWindowCreated(leftPanel))
         {
+            LeftPanel = NULL;
             ClosePanelTab(leftPanel, false);
             return -1;
         }
         UpdatePanelTabVisibility(cpsLeft);
         SetActivePanel(leftPanel);
         //      ReleaseMenuNew();
-        CFilesWindow* rightPanel = AddPanelTab(cpsRight);
+        CFilesWindow* rightPanel = AddPanelTab(cpsRight, -1, false, true);
         if (rightPanel == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return -1;
         }
+        RightPanel = rightPanel;
         if (!EnsurePanelWindowCreated(rightPanel))
         {
+            RightPanel = NULL;
             ClosePanelTab(rightPanel, false);
             return -1;
         }
         UpdatePanelTabVisibility(cpsRight);
-        LeftPanel = leftPanel;
-        RightPanel = rightPanel;
 
         EditWindow = new CEditWindow;
         if (EditWindow == NULL || !EditWindow->IsGood())
