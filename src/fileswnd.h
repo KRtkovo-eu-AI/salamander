@@ -846,6 +846,8 @@ public:
 
     bool DeferredInitialPathValid;
     char DeferredInitialPath[2 * MAX_PATH];
+    bool PendingConfigPathValid;
+    char PendingConfigPath[2 * MAX_PATH];
     bool DeferredWorkDirHistoryPending;
     std::string DeferredWorkDirHistorySubKey;
     CDeferredPanelSettings DeferredPanelSettings;
@@ -1007,6 +1009,10 @@ public:
     void ClearCustomTabPrefix();
     bool IsTabLocked() const { return TabLocked; }
     void SetTabLocked(bool locked) { TabLocked = locked; }
+    void SetPendingConfigPath(const char* path);
+    void ClearPendingConfigPath();
+    bool HasPendingConfigPath() const { return PendingConfigPathValid; }
+    bool CopyPendingConfigPath(char* buffer, int bufferSize) const;
 
     BOOL IsGood() { return DirectoryLine != NULL &&
                            StatusLine != NULL && ListBox != NULL && Files != NULL && Dirs != NULL &&

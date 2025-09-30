@@ -1747,6 +1747,12 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
     if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
         mode = TITLE_BAR_MODE_DIRECTORY;
 
+    if (panel->HasPendingConfigPath())
+    {
+        if (panel->CopyPendingConfigPath(buffer, bufferSize))
+            return;
+    }
+
     CPluginFSInterfaceEncapsulation* pluginFS = NULL;
     BOOL pluginTitleService = FALSE;
     if (panel->Is(ptPluginFS))

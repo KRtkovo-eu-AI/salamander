@@ -1666,6 +1666,7 @@ BOOL CMainWindow::RestorePanelPathFromConfig(CFilesWindow* panel, const char* pa
 {
     if (panel == NULL)
         return FALSE;
+    panel->ClearPendingConfigPath();
     if (path == NULL || path[0] == 0)
     {
         UpdatePanelTabTitle(panel);
@@ -1709,12 +1710,20 @@ BOOL CMainWindow::ApplyDeferredStartupPath(CFilesWindow* panel)
 
     char deferredPath[2 * MAX_PATH];
     if (!panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath)))
-        return FALSE;
+    {
+        if (!panel->HasPendingConfigPath() ||
+            !panel->CopyPendingConfigPath(deferredPath, _countof(deferredPath)))
+        {
+            return FALSE;
+        }
+    }
 
     panel->EnsureHeavyInitialization();
     BOOL restored = RestorePanelPathFromConfig(panel, deferredPath);
     if (!restored)
         panel->SetDeferredInitialPath(deferredPath);
+    else
+        panel->ClearPendingConfigPath();
     return restored;
 }
 
@@ -2850,6 +2859,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             panel->ClearDeferredPanelSettings();
             panel->ClearDeferredPanelSettingsRegistryKey();
 
+            panel->ClearPendingConfigPath();
+
             LoadPanelTabMetadataFromKey(panel, actKey);
             UpdatePanelTabColor(panel);
 
@@ -2873,6 +2884,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
             if (startupPath[0] != 0)
             {
+                panel->SetPendingConfigPath(startupPath);
+
                 BOOL restored = RestorePanelPathFromConfig(panel, startupPath);
                 if (restored)
                 {
@@ -2881,6 +2894,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                     else
                         PanelConfigPathsRestoredRight = TRUE;
                     panel->ClearDeferredInitialPath();
+                    panel->ClearPendingConfigPath();
                 }
                 else
                     panel->SetDeferredInitialPath(startupPath);
@@ -2889,7 +2903,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                     lstrcpyn(panelPath, startupPath, MAX_PATH);
             }
             else
+            {
                 panel->ClearDeferredInitialPath();
+                panel->ClearPendingConfigPath();
+            }
 
             UpdatePanelTabTitle(panel);
             UpdatePanelTabVisibility(side);
@@ -2956,6 +2973,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     for (int i = 0; i < localTabs.Count; i++)
     {
         CFilesWindow* panel = localTabs[i];
+        panel->ClearPendingConfigPath();
         char tabKeyName[16];
         wsprintf(tabKeyName, "Tab%d", i + 1);
 
@@ -3034,6 +3052,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
         UpdatePanelTabColor(panel);
 
+        panel->SetPendingConfigPath(path);
         panel->SetDeferredInitialPath(path);
         if (i == activeIndex && panelPath != NULL && IsDiskOrUNCPath(path))
             lstrcpyn(panelPath, path, MAX_PATH);

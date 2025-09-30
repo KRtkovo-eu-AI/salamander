@@ -1551,6 +1551,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     HeavyInitializationPending = true;
     DeferredInitialPathValid = false;
     DeferredInitialPath[0] = 0;
+    PendingConfigPathValid = false;
+    PendingConfigPath[0] = 0;
     DeferredWorkDirHistoryPending = false;
     DeferredWorkDirHistorySubKey.clear();
     DeferredPanelSettingsFromRegistry = false;

@@ -270,7 +270,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool 
         return;
 
     bool alreadyActive = (previousActive == panel);
-    if (alreadyActive && panel->HWindow != NULL && !panel->HasDeferredInitialPath())
+    if (alreadyActive && panel->HWindow != NULL && !panel->HasDeferredInitialPath() && !panel->HasPendingConfigPath())
     {
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL)
@@ -326,6 +326,11 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool 
 
     char deferredPath[2 * MAX_PATH];
     bool hadDeferredPath = panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath));
+    if (!hadDeferredPath && panel->HasPendingConfigPath())
+    {
+        if (panel->CopyPendingConfigPath(deferredPath, _countof(deferredPath)))
+            hadDeferredPath = true;
+    }
     if (allowAutomaticRefresh)
     {
         panel->EnsureHeavyInitialization();
@@ -336,6 +341,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool 
                 PanelConfigPathsRestoredLeft = restored;
             else if (side == cpsRight && !PanelConfigPathsRestoredRight)
                 PanelConfigPathsRestoredRight = restored;
+            if (!restored)
+                panel->SetDeferredInitialPath(deferredPath);
         }
     }
     else if (hadDeferredPath)
