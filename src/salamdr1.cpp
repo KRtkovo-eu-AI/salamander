@@ -3269,7 +3269,9 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
 {
     CALL_STACK_MESSAGE2("ColorsChanged(%d)", refresh);
     DarkModeSetEnabled(Configuration.UseWindowsDarkMode != FALSE);
-    bool useDarkColors = DarkModeShouldUseDarkColors();
+    bool useDarkColors = Configuration.UseWindowsDarkMode != FALSE;
+    if (!useDarkColors)
+        useDarkColors = DarkModeShouldUseDarkColors();
     WindowsDarkModeUpdatePalette(useDarkColors);
     UpdateMenuAndDialogBrushes(useDarkColors);
     if (MainWindow != NULL && MainWindow->HWindow != NULL)
