@@ -950,6 +950,59 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ctrl != NULL)
+            {
+                int ctrlId = GetDlgCtrlID(ctrl);
+                auto applyColors = [&](bool transparent) {
+                    HDC dc = reinterpret_cast<HDC>(wParam);
+                    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                    if (dc == NULL)
+                        return reinterpret_cast<LRESULT>(dialogBrush);
+                    const COLORREF text = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+                    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+                    SetTextColor(dc, text);
+                    SetBkColor(dc, background);
+                    SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);
+                    return reinterpret_cast<LRESULT>(dialogBrush);
+                };
+
+                switch (ctrlId)
+                {
+                case IDC_PLUGINDESCRIPTION:
+                case IDC_PLUGINCOPYRIGHT:
+                case IDC_PLUGINWWW:
+                case IDC_PLUGINEXTENSIONS:
+                case IDC_PLUGINFSNAME:
+                case IDC_PLUGINFUNCTIONS:
+                    return applyColors(true);
+
+                case IDC_PLUGINSHOWINBAR:
+                case IDC_PLUGINSHOWINCHDRV:
+                    if (uMsg == WM_CTLCOLORBTN)
+                        return applyColors(true);
+                    break;
+
+                case IDC_PLUGINTHUMBNAILS:
+                    if (uMsg == WM_CTLCOLOREDIT)
+                        return applyColors(false);
+                    break;
+                }
+            }
+        }
+        break;
+    }
+
     case WM_THEMECHANGED:
     {
         ApplyTheme();
