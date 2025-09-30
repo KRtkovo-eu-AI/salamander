@@ -352,6 +352,10 @@ static void UpdateMenuAndDialogBrushes(bool useDarkColors)
         HMenuHilightBrush = GetSysColorBrush(COLOR_3DHILIGHT);
         HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
     }
+
+    COLORREF dialogText = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
+    COLORREF dialogBackground = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
+    DarkModeConfigureDialogColors(dialogText, dialogBackground, HDialogBrush);
 }
 
 static void BuildWindowsDarkPalette(SALCOLOR* target)
