@@ -2691,7 +2691,13 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     clrMap[2].to = RGB(255, 0, 255);
     HBITMAP hBottomTB = HANDLES(CreateMappedBitmap(HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, 3));
     BOOL remapWhite = FALSE;
-    if (GetCurrentBPP() > 8)
+    if (useDark)
+    {
+        clrMap[2].from = RGB(255, 255, 255);
+        clrMap[2].to = LightenColor(toolbarFace, 24);
+        remapWhite = TRUE;
+    }
+    else if (GetCurrentBPP() > 8)
     {
         clrMap[2].from = RGB(255, 255, 255); // bila -> svetle sedivou (at to tak nerve)
         clrMap[2].to = RGB(235, 235, 235);
