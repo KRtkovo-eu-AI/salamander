@@ -324,13 +324,6 @@ static void DestroyDarkModeBrushes()
     gDarkModeBrushesOwned = false;
 }
 
-static bool PalettePrefersDarkColors()
-{
-    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
-    return luminance < 128;
-}
-
 static COLORREF GetPaletteDialogTextColor()
 {
     const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
@@ -340,8 +333,7 @@ static COLORREF GetPaletteDialogTextColor()
 
 static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
 {
-    const bool paletteDark = PalettePrefersDarkColors();
-    const bool useDarkColors = preferDarkMode || paletteDark;
+    const bool useDarkColors = preferDarkMode;
     const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
     const COLORREF paletteText = GetPaletteDialogTextColor();
 
