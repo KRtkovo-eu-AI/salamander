@@ -2881,9 +2881,11 @@ void CToolbarHeader::OnPaint(HDC hDC, BOOL hideAccel, BOOL prefixOnly)
 
     HFONT hOldFont = (HFONT)SelectObject(hDC, (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldColor = SetTextColor(hDC,
-                                     useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
-                                             : GetSysColor(COLOR_BTNTEXT));
+    const COLORREF baseText = useDark
+                                  ? DarkModeEnsureReadableForeground(GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]),
+                                                                     GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]))
+                                  : GetSysColor(COLOR_BTNTEXT);
+    COLORREF oldColor = SetTextColor(hDC, baseText);
 
     DWORD dtFlags = DT_SINGLELINE | DT_LEFT | DT_VCENTER;
     if (hideAccel)
