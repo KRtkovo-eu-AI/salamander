@@ -48,6 +48,9 @@
     <ClCompile Include="..\color.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\darkmode.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\plugins\shared\dbg.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -516,6 +519,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\consts.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\darkmode.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\dialogs.h">
