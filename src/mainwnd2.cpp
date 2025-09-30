@@ -2841,11 +2841,25 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel, false, false);
-        int sel = GetPanelTabIndex(side, activePanel);
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
-        if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
-            tabWnd->SetCurSel(sel);
+        if (EnsurePanelWindowCreated(activePanel))
+        {
+            if (side == cpsLeft)
+                LeftPanel = activePanel;
+            else
+                RightPanel = activePanel;
+
+            activePanel->SetPanelSide(side);
+
+            if (UsingSharedWorkDirHistory())
+                UpdateAllDirectoryLineHistoryStates();
+            else
+                UpdateDirectoryLineHistoryState(activePanel);
+
+            int sel = GetPanelTabIndex(side, activePanel);
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
+                tabWnd->SetCurSel(sel);
+        }
     }
 
     UpdatePanelTabVisibility(side);

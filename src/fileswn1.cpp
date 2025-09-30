@@ -1354,8 +1354,11 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     CustomTabPrefix.clear();
     TabLocked = false;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
-    BuildColumnsTemplate();
-    CopyColumnsTemplateToColumns();
+    if (!deferHeavyInitialization)
+    {
+        BuildColumnsTemplate();
+        CopyColumnsTemplateToColumns();
+    }
     ListBox = NULL;
     StatusLine = NULL;
     DirectoryLine = NULL;
