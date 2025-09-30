@@ -222,15 +222,9 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
     {
         BOOL registerDevNotification = panel->GetPathDriveType() == DRIVE_REMOVABLE ||
                                        panel->GetPathDriveType() == DRIVE_FIXED;
-        if (!panel->GetMonitorChanges())
-        {
-            refreshOnActivate = true;
-        }
-        else
+        if (panel->GetMonitorChanges())
         {
             EnsureWatching(panel, registerDevNotification);
-            if (!panel->AutomaticRefresh)
-                refreshOnActivate = true;
         }
 
         if (refreshOnActivate && panel->HWindow != NULL)
