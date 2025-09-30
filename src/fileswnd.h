@@ -727,6 +727,10 @@ public:
     bool ConsumeDeferredInitialPath(char* buffer, int bufferSize);
     bool HasDeferredInitialPath() const { return DeferredInitialPathValid; }
     BOOL GetStoredGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE) const;
+    void SetDeferredWorkDirHistorySubKey(const char* subKey);
+    bool HasDeferredWorkDirHistory() const { return DeferredWorkDirHistoryPending && !DeferredWorkDirHistorySubKey.empty(); }
+    const std::string& GetDeferredWorkDirHistorySubKey() const { return DeferredWorkDirHistorySubKey; }
+    void ClearDeferredWorkDirHistory();
 
     CViewTemplate* ViewTemplate;            // pointer to the template defining mode, name and visibility
                                             // of the standard Salamander columns VIEW_SHOW_xxxx
@@ -796,6 +800,8 @@ public:
 
     bool DeferredInitialPathValid;
     char DeferredInitialPath[2 * MAX_PATH];
+    bool DeferredWorkDirHistoryPending;
+    std::string DeferredWorkDirHistorySubKey;
 
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()

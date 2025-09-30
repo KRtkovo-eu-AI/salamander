@@ -1457,6 +1457,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     HeavyInitializationPending = true;
     DeferredInitialPathValid = false;
     DeferredInitialPath[0] = 0;
+    DeferredWorkDirHistoryPending = false;
+    DeferredWorkDirHistorySubKey.clear();
 
     if (!deferHeavyInitialization)
         EnsureHeavyInitialization();
@@ -1633,6 +1635,23 @@ void CFilesWindow::SetDeferredInitialPath(const char* path)
         ClearDeferredInitialPath();
 }
 
+void CFilesWindow::SetDeferredWorkDirHistorySubKey(const char* subKey)
+{
+    if (subKey != NULL && subKey[0] != 0)
+    {
+        DeferredWorkDirHistorySubKey = subKey;
+        DeferredWorkDirHistoryPending = true;
+    }
+    else
+        ClearDeferredWorkDirHistory();
+}
+
+void CFilesWindow::ClearDeferredWorkDirHistory()
+{
+    DeferredWorkDirHistorySubKey.clear();
+    DeferredWorkDirHistoryPending = false;
+}
+
 void CFilesWindow::SetStoredViewTemplateIndex(int templateIndex)
 {
     if (!IsViewTemplateValid(templateIndex))
@@ -1712,6 +1731,7 @@ void CFilesWindow::ClearWorkDirHistory()
 {
     if (WorkDirHistory != NULL)
         WorkDirHistory->ClearHistory();
+    ClearDeferredWorkDirHistory();
 }
 
 void CFilesWindow::ClearHistory()

@@ -307,6 +307,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel, bool requestRefresh, bool 
 
     panel->SetPanelSide(side);
 
+    EnsurePanelWorkDirHistoryLoaded(panel);
+
     char deferredPath[2 * MAX_PATH];
     bool hadDeferredPath = panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath));
     if (allowAutomaticRefresh)

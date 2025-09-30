@@ -566,6 +566,7 @@ public:
                                       bool postRefreshMessage = false);
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
                              bool postRefreshMessage = false);
+    void EnsurePanelWorkDirHistoryLoaded(CFilesWindow* panel);
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);
     void OnPanelTabSelected(CPanelSide side, int index);

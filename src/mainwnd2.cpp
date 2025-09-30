@@ -1570,6 +1570,38 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         panel->SetTabLocked(false);
 }
 
+void CMainWindow::EnsurePanelWorkDirHistoryLoaded(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+    if (!Configuration.SaveWorkDirs)
+    {
+        panel->ClearDeferredWorkDirHistory();
+        return;
+    }
+    if (!panel->HasDeferredWorkDirHistory())
+        return;
+    if (SALAMANDER_ROOT_REG == NULL)
+        return;
+
+    HKEY root;
+    if (!OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, root))
+        return;
+
+    const std::string& subKey = panel->GetDeferredWorkDirHistorySubKey();
+    HKEY tabKey;
+    if (OpenKey(root, subKey.c_str(), tabKey))
+    {
+        CPathHistory* history = panel->EnsureWorkDirHistory();
+        if (history != NULL)
+            history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+        CloseKey(tabKey);
+    }
+
+    CloseKey(root);
+    panel->ClearDeferredWorkDirHistory();
+}
+
 BOOL CMainWindow::RestorePanelPathFromConfig(CFilesWindow* panel, const char* path)
 {
     if (panel == NULL)
@@ -2799,12 +2831,26 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
             if (Configuration.SaveWorkDirs)
             {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                if (panel->HWindow != NULL)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                    panel->ClearDeferredWorkDirHistory();
+                }
+                else
+                {
+                    std::string subKey(reg);
+                    subKey.push_back('\\');
+                    subKey.append(tabKeyName);
+                    panel->SetDeferredWorkDirHistorySubKey(subKey.c_str());
+                }
             }
             else
+            {
                 panel->ClearWorkDirHistory();
+                panel->ClearDeferredWorkDirHistory();
+            }
             CloseKey(tabKey);
         }
         else if (i == 0)
@@ -2812,15 +2858,27 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
             if (Configuration.SaveWorkDirs)
             {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                if (panel->HWindow != NULL)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                    panel->ClearDeferredWorkDirHistory();
+                }
+                else
+                    panel->SetDeferredWorkDirHistorySubKey(reg);
             }
             else
+            {
                 panel->ClearWorkDirHistory();
+                panel->ClearDeferredWorkDirHistory();
+            }
         }
         else
+        {
             panel->ClearWorkDirHistory();
+            panel->ClearDeferredWorkDirHistory();
+        }
 
         UpdatePanelTabColor(panel);
 
@@ -2849,6 +2907,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                 RightPanel = activePanel;
 
             activePanel->SetPanelSide(side);
+
+            EnsurePanelWorkDirHistoryLoaded(activePanel);
 
             if (UsingSharedWorkDirHistory())
                 UpdateAllDirectoryLineHistoryStates();
