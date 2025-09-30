@@ -14,6 +14,7 @@
 #include "stswnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "filesbox.h"
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "cfgdlg.h"
@@ -26,6 +27,27 @@
 #include "logo.h"
 #include "tasklist.h"
 #include "pwdmngr.h"
+
+namespace
+{
+class CScopedFlag
+{
+public:
+    explicit CScopedFlag(bool& flag)
+        : Flag(flag)
+    {
+        Flag = true;
+    }
+
+    ~CScopedFlag()
+    {
+        Flag = false;
+    }
+
+private:
+    bool& Flag;
+};
+}
 
 //
 // ConfigVersion - version number of the loaded configuration
@@ -1378,7 +1400,7 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     char path[2 * MAX_PATH];
     if (useGeneralPath)
     {
-        if (!panel->GetGeneralPath(path, _countof(path), TRUE))
+        if (!panel->GetStoredGeneralPath(path, _countof(path), TRUE))
             path[0] = 0;
     }
     else
@@ -1434,6 +1456,7 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
         DeleteValue(key, PANEL_TABLOCKED_REG);
 }
 
+static void LoadPanelTabMetadataFromKey(CFilesWindow* panel, HKEY key);
 static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBuffer, int pathBufferSize)
 {
     if (panel == NULL || key == NULL)
@@ -1455,7 +1478,14 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         {
             if (Configuration.ConfigVersion < 13 && !value)
                 value = 2;
-            panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            if (panel->HWindow != NULL)
+                panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            else
+            {
+                panel->SetStoredViewTemplateIndex(value);
+                if (panel->GetStoredViewMode() != vmDetailed)
+                    panel->HeaderLineVisible = FALSE;
+            }
         }
         if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
             panel->ReverseSort = value;
@@ -1466,11 +1496,19 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             panel->SortType = (CSortType)value;
         }
         if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->DirectoryLine->HWindow != NULL))
+        {
+            panel->DirectoryLineVisible = value != 0;
+            if (panel->HWindow != NULL &&
+                ((BOOL)value != (panel->DirectoryLine->HWindow != NULL)))
                 panel->ToggleDirectoryLine();
+        }
         if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->StatusLine->HWindow != NULL))
+        {
+            panel->StatusLineVisible = value != 0;
+            if (panel->HWindow != NULL &&
+                ((BOOL)value != (panel->StatusLine->HWindow != NULL)))
                 panel->ToggleStatusLine();
+        }
         GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
 
         char filter[MAX_PATH];
@@ -1509,6 +1547,14 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             panel->Filter.PrepareMasks(errPos);
         }
     }
+
+    LoadPanelTabMetadataFromKey(panel, key);
+}
+
+static void LoadPanelTabMetadataFromKey(CFilesWindow* panel, HKEY key)
+{
+    if (panel == NULL || key == NULL)
+        return;
 
     DWORD colorValue;
     if (GetValue(key, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
@@ -1554,21 +1600,81 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         panel->SetTabLocked(false);
 }
 
-static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
+void CMainWindow::EnsurePanelWorkDirHistoryLoaded(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return;
+    if (!Configuration.SaveWorkDirs)
+    {
+        panel->ClearDeferredWorkDirHistory();
+        return;
+    }
+    if (!panel->HasDeferredWorkDirHistory())
+        return;
+    if (SALAMANDER_ROOT_REG == NULL)
+        return;
+
+    HKEY root;
+    if (!OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, root))
+        return;
+
+    const std::string& subKey = panel->GetDeferredWorkDirHistorySubKey();
+    HKEY tabKey;
+    if (OpenKey(root, subKey.c_str(), tabKey))
+    {
+        CPathHistory* history = panel->EnsureWorkDirHistory();
+        if (history != NULL)
+            history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+        CloseKey(tabKey);
+    }
+
+    CloseKey(root);
+    panel->ClearDeferredWorkDirHistory();
+}
+
+void CMainWindow::EnsurePanelSettingsLoadedFromRegistry(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->HasDeferredPanelSettingsRegistryKey())
+        return;
+    if (SALAMANDER_ROOT_REG == NULL)
+        return;
+
+    const std::string& subKey = panel->GetDeferredPanelSettingsRegistryKey();
+    if (subKey.empty())
+        return;
+
+    HKEY root;
+    if (!OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, root))
+        return;
+
+    HKEY tabKey;
+    if (OpenKey(root, subKey.c_str(), tabKey))
+    {
+        LoadPanelSettingsFromKey(panel, tabKey, NULL, 0);
+        CloseKey(tabKey);
+        panel->ClearDeferredPanelSettingsRegistryKey();
+    }
+    else
+    {
+        panel->ClearDeferredPanelSettingsRegistryKey();
+    }
+
+    CloseKey(root);
+}
+
+BOOL CMainWindow::RestorePanelPathFromConfig(CFilesWindow* panel, const char* path)
 {
     if (panel == NULL)
         return FALSE;
     if (path == NULL || path[0] == 0)
     {
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
+        UpdatePanelTabTitle(panel);
         return FALSE;
     }
 
     if (panel->ChangeDirLite(path))
     {
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
+        UpdatePanelTabTitle(panel);
         return TRUE;
     }
 
@@ -1583,20 +1689,33 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
         {
             if (panel->ChangePathToDisk(panel->HWindow, tmp))
             {
-                if (mainWnd != NULL)
-                    mainWnd->UpdatePanelTabTitle(panel);
+                UpdatePanelTabTitle(panel);
                 return TRUE;
             }
         }
         panel->ChangeToRescuePathOrFixedDrive(panel->HWindow);
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
+        UpdatePanelTabTitle(panel);
         return FALSE;
     }
 
-    if (mainWnd != NULL)
-        mainWnd->UpdatePanelTabTitle(panel);
+    UpdatePanelTabTitle(panel);
     return FALSE;
+}
+
+BOOL CMainWindow::ApplyDeferredStartupPath(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return FALSE;
+
+    char deferredPath[2 * MAX_PATH];
+    if (!panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath)))
+        return FALSE;
+
+    panel->EnsureHeavyInitialization();
+    BOOL restored = RestorePanelPathFromConfig(panel, deferredPath);
+    if (!restored)
+        panel->SetDeferredInitialPath(deferredPath);
+    return restored;
 }
 
 void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg)
@@ -2684,6 +2803,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     if (panelPath != NULL)
         panelPath[0] = 0;
 
+    CScopedFlag restoringFlag(RestoringPanelConfiguration);
+
     HKEY actKey;
     if (!OpenKey(hSalamander, reg, actKey))
         return;
@@ -2697,48 +2818,90 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     DWORD tabCountValue = 0;
     if (!GetValue(actKey, PANEL_TABCOUNT_REG, REG_DWORD, &tabCountValue, sizeof(DWORD)) || tabCountValue == 0)
-    {
-        CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
-        if (panel != NULL)
-        {
-            LoadPanelSettingsFromKey(panel, actKey, panelPath, panelPath != NULL ? MAX_PATH : 0);
-            UpdatePanelTabColor(panel);
-        }
-        CloseKey(actKey);
-        return;
-    }
+        tabCountValue = 1;
 
     int tabCount = (int)tabCountValue;
     if (tabCount <= 0)
         tabCount = 1;
+
     if (!Configuration.UsePanelTabs)
         tabCount = 1;
 
+    if (tabCount == 1)
+    {
+        while (tabs.Count > 1)
+        {
+            CFilesWindow* toClose = tabs[tabs.Count - 1];
+            ClosePanelTab(toClose, false);
+        }
+
+        CFilesWindow* panel = NULL;
+        if (tabs.Count == 0)
+            panel = AddPanelTab(side, 0, false, true);
+        else
+            panel = tabs[0];
+
+        if (panel != NULL && EnsurePanelWindowCreated(panel))
+        {
+            if (side == cpsLeft)
+                LeftPanel = panel;
+            else
+                RightPanel = panel;
+
+            panel->SetPanelSide(side);
+
+            LoadPanelSettingsFromKey(panel, actKey, panelPath, panelPath != NULL ? MAX_PATH : 0);
+            panel->ClearDeferredPanelSettings();
+
+            if (Configuration.SaveWorkDirs)
+            {
+                CPathHistory* history = panel->EnsureWorkDirHistory();
+                if (history != NULL)
+                    history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                panel->ClearDeferredWorkDirHistory();
+            }
+            else
+            {
+                panel->ClearWorkDirHistory();
+            }
+
+            LoadPanelTabMetadataFromKey(panel, actKey);
+            UpdatePanelTabColor(panel);
+
+            char tmpPath[2 * MAX_PATH];
+            tmpPath[0] = 0;
+            const char* startupPath = NULL;
+            if (panelPath != NULL && panelPath[0] != 0)
+                startupPath = panelPath;
+            else if (panelPath == NULL && GetValue(actKey, PANEL_PATH_REG, REG_SZ, tmpPath, _countof(tmpPath)))
+                startupPath = tmpPath;
+
+            if (startupPath != NULL)
+                panel->SetDeferredInitialPath(startupPath);
+            else
+                panel->ClearDeferredInitialPath();
+
+            UpdatePanelTabTitle(panel);
+            if (UsingSharedWorkDirHistory())
+                UpdateAllDirectoryLineHistoryStates();
+            else
+                UpdateDirectoryLineHistoryState(panel);
+        }
+
+        UpdatePanelTabVisibility(side);
+        CTabWindow* tabWnd = GetPanelTabWindow(side);
+        if (tabWnd != NULL && tabWnd->HWindow != NULL && tabWnd->GetCurSel() != 0)
+            tabWnd->SetCurSel(0);
+        CloseKey(actKey);
+        return;
+    }
+
     if (tabs.Count == 0)
     {
-        CFilesWindow* panel = AddPanelTab(side, 0);
-        if (panel != NULL)
+        if (AddPanelTab(side, 0, false, true) == NULL)
         {
-            DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-            if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                               style,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               panel))
-            {
-                TRACE_E("Unable to create panel window while loading configuration");
-                int idx = GetPanelTabIndex(side, panel);
-                if (idx >= 0)
-                {
-                    CTabWindow* tabWnd = GetPanelTabWindow(side);
-                    if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                        tabWnd->RemoveTab(idx);
-                    tabs.Delete(idx);
-                }
-                delete panel;
-            }
+            CloseKey(actKey);
+            return;
         }
     }
 
@@ -2750,37 +2913,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     while (tabs.Count < tabCount)
     {
-        CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* panel = AddPanelTab(side, tabs.Count);
+        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false, true);
         if (panel == NULL)
             break;
-
-        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-        if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                           style,
-                           0, 0, 0, 0,
-                           HWindow,
-                           NULL,
-                           HInstance,
-                           panel))
-        {
-            TRACE_E("Unable to create panel window while loading configuration");
-            int idx = GetPanelTabIndex(side, panel);
-            TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
-            if (idx >= 0)
-            {
-                CTabWindow* tabWnd = GetPanelTabWindow(side);
-                if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                    tabWnd->RemoveTab(idx);
-                localTabs.Delete(idx);
-            }
-            delete panel;
-            if (previous != NULL)
-                SwitchPanelTab(previous);
-            else
-                UpdatePanelTabVisibility(side);
-            break;
-        }
     }
 
     TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
@@ -2793,7 +2928,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     }
     int activeIndex = (int)activeValue;
 
-    BOOL activeRestored = FALSE;
     for (int i = 0; i < localTabs.Count; i++)
     {
         CFilesWindow* panel = localTabs[i];
@@ -2804,46 +2938,84 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         path[0] = 0;
 
         HKEY tabKey;
+        bool hasKeyData = false;
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
-            LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
-            if (Configuration.SaveWorkDirs)
-            {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
-            }
-            else
-                panel->ClearWorkDirHistory();
-            CloseKey(tabKey);
+            hasKeyData = true;
         }
         else if (i == 0)
         {
-            LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
-            if (Configuration.SaveWorkDirs)
+            tabKey = actKey;
+            hasKeyData = true;
+        }
+
+        std::string tabSubKey(reg);
+        if (tabKey != actKey)
+        {
+            tabSubKey.push_back('\\');
+            tabSubKey.append(tabKeyName);
+        }
+
+        if (hasKeyData)
+        {
+            if (i == activeIndex)
             {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+                panel->ClearDeferredPanelSettings();
+                panel->ClearDeferredPanelSettingsRegistryKey();
             }
             else
+            {
+                panel->SetDeferredPanelSettingsRegistryKey(tabSubKey.c_str());
+                if (path[0] == 0)
+                    GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+            }
+
+            LoadPanelTabMetadataFromKey(panel, tabKey);
+
+            if (Configuration.SaveWorkDirs)
+            {
+                if (i == activeIndex && panel->HWindow != NULL)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                    panel->ClearDeferredWorkDirHistory();
+                }
+                else
+                {
+                    panel->SetDeferredWorkDirHistorySubKey(tabSubKey.c_str());
+                }
+            }
+            else
+            {
                 panel->ClearWorkDirHistory();
+                panel->ClearDeferredWorkDirHistory();
+            }
+
+            if (tabKey != actKey)
+                CloseKey(tabKey);
         }
         else
+        {
+            panel->ClearDeferredPanelSettings();
+            panel->ClearDeferredPanelSettingsRegistryKey();
             panel->ClearWorkDirHistory();
+            panel->ClearDeferredWorkDirHistory();
+            panel->ClearCustomTabColor();
+            panel->ClearCustomTabPrefix();
+            panel->SetTabLocked(false);
+        }
 
         UpdatePanelTabColor(panel);
+
+        panel->SetDeferredInitialPath(path);
+        if (i == activeIndex && panelPath != NULL && IsDiskOrUNCPath(path))
+            lstrcpyn(panelPath, path, MAX_PATH);
+
         UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
-
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
-        if (i == activeIndex)
-        {
-            activeRestored = restored;
-            if (panelPath != NULL && IsDiskOrUNCPath(path))
-                lstrcpyn(panelPath, path, MAX_PATH);
-        }
     }
 
     CFilesWindow* activePanel = NULL;
@@ -2854,19 +3026,32 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel);
-        int sel = GetPanelTabIndex(side, activePanel);
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
-        if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
-            tabWnd->SetCurSel(sel);
+        if (EnsurePanelWindowCreated(activePanel))
+        {
+            if (side == cpsLeft)
+                LeftPanel = activePanel;
+            else
+                RightPanel = activePanel;
+
+            activePanel->SetPanelSide(side);
+
+            activePanel->ApplyDeferredPanelSettings();
+
+            EnsurePanelWorkDirHistoryLoaded(activePanel);
+
+            if (UsingSharedWorkDirHistory())
+                UpdateAllDirectoryLineHistoryStates();
+            else
+                UpdateDirectoryLineHistoryState(activePanel);
+
+            int sel = GetPanelTabIndex(side, activePanel);
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
+                tabWnd->SetCurSel(sel);
+        }
     }
 
     UpdatePanelTabVisibility(side);
-
-    if (side == cpsLeft)
-        PanelConfigPathsRestoredLeft = activeRestored;
-    else
-        PanelConfigPathsRestoredRight = activeRestored;
 
     CloseKey(actKey);
 }
@@ -4442,10 +4627,21 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         BOOL tryNet = TRUE;
         if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
         {
+            BOOL restored = ApplyDeferredStartupPath(LeftPanel);
+            if (restored)
+            {
+                PanelConfigPathsRestoredLeft = TRUE;
+                leftPanelPathSet = TRUE;
+                LeftPanel->RefreshVisibleItemsArray();
+            }
+        }
+        if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
+        {
             if (SalCheckAndRestorePathWithCut(LeftPanel->HWindow, leftPanelPath, tryNet,
                                               err, lastErr, pathInvalid, cut, TRUE))
             {
                 LeftPanel->ChangePathToDisk(LeftPanel->HWindow, leftPanelPath);
+                PanelConfigPathsRestoredLeft = TRUE;
             }
             else
                 LeftPanel->ChangeToRescuePathOrFixedDrive(LeftPanel->HWindow);
@@ -4456,10 +4652,21 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         tryNet = TRUE;
         if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
         {
+            BOOL restored = ApplyDeferredStartupPath(RightPanel);
+            if (restored)
+            {
+                PanelConfigPathsRestoredRight = TRUE;
+                rightPanelPathSet = TRUE;
+                RightPanel->RefreshVisibleItemsArray();
+            }
+        }
+        if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
+        {
             if (SalCheckAndRestorePathWithCut(RightPanel->HWindow, rightPanelPath, tryNet,
                                               err, lastErr, pathInvalid, cut, TRUE))
             {
                 RightPanel->ChangePathToDisk(RightPanel->HWindow, rightPanelPath);
+                PanelConfigPathsRestoredRight = TRUE;
             }
             else
                 RightPanel->ChangeToRescuePathOrFixedDrive(RightPanel->HWindow);

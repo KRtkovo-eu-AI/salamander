@@ -730,7 +730,8 @@ void CFilesWindow::ChangeFilter(BOOL disable)
         PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, t1);
         UpdateFilterSymbol();
         DirectoryLineSetText();
-        DirectoryLine->InvalidateIfNeeded();
+        if (DirectoryLine != NULL)
+            DirectoryLine->InvalidateIfNeeded();
     }
     UpdateWindow(MainWindow->HWindow);
     EndStopRefresh();

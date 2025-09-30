@@ -10,6 +10,7 @@
 #include "usermenu.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "filesbox.h"
 #include "stswnd.h"
 #include "snooper.h"
 #include "zip.h"
@@ -1309,7 +1310,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1332,30 +1333,16 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     WaitBeforeReadingIcons = 0;
     WaitOneTimeBeforeReadingIcons = 0;
     EndOfIconReadingTime = GetTickCount() - 10000;
-    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    ICEventTerminate = NULL;
+    ICEventWork = NULL;
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
-    HANDLES(InitializeCriticalSection(&ICSleepSection));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
-    DWORD ThreadID;
+    ICSleepSectionInitialized = false;
+    ICSectionUsingIconInitialized = false;
+    ICSectionUsingThumbInitialized = false;
     IconCacheThread = NULL;
-    if (ICEventTerminate != NULL && ICEventWork != NULL)
-        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
-    if (ICEventTerminate == NULL ||
-        ICEventWork == NULL ||
-        IconCacheThread == NULL)
-    {
-        TRACE_E("Unable to start icon-reader thread.");
-        IconCache = NULL;
-    }
-    else
-    {
-        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
-        IconCache = new CIconCache();
-    }
+    IconCache = NULL;
 
     OpenedDrivesList = NULL;
 
@@ -1367,14 +1354,18 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     CustomTabPrefix.clear();
     TabLocked = false;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
-    BuildColumnsTemplate();
-    CopyColumnsTemplateToColumns();
+    if (!deferHeavyInitialization)
+    {
+        BuildColumnsTemplate();
+        CopyColumnsTemplateToColumns();
+    }
     ListBox = NULL;
     StatusLine = NULL;
     DirectoryLine = NULL;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
+    StoredViewMode = vmDetailed;
 
     SortType = stName;
     ReverseSort = FALSE;
@@ -1394,7 +1385,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     SupportACLS = FALSE;
     DeviceNotification = NULL;
     ContextMenu = NULL;
-    ContextSubmenuNew = new CMenuNew;
+    ContextSubmenuNew = NULL;
     UseSystemIcons = FALSE;
     UseThumbnails = FALSE;
     NeedRefreshAfterEndOfSM = FALSE;
@@ -1411,14 +1402,14 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     RefreshAfterIconsReadingTime = 0;
 
     WorkDirHistory = NULL;
-    PathHistory = new CPathHistory();
+    PathHistory = NULL;
 
     DontDrawIndex = -1;
     DrawOnlyIndex = -1;
 
     FocusFirstNewItem = FALSE;
 
-    ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+    ExecuteAssocEvent = NULL;
     AssocUsed = FALSE;
 
     FilterEnabled = FALSE;
@@ -1462,6 +1453,18 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     GetPluginIconIndex = InternalGetPluginIconIndex;
 
+    LightInitializationPending = true;
+    HeavyInitializationPending = true;
+    DeferredInitialPathValid = false;
+    DeferredInitialPath[0] = 0;
+    DeferredWorkDirHistoryPending = false;
+    DeferredWorkDirHistorySubKey.clear();
+    DeferredPanelSettingsFromRegistry = false;
+    DeferredPanelSettingsRegistryKey.clear();
+
+    if (!deferHeavyInitialization)
+        EnsureHeavyInitialization();
+
     EnumFileNamesSourceUID = -1;
 
     TemporarilySimpleIcons = FALSE;
@@ -1498,9 +1501,12 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(IconCacheThread));
     }
 
-    HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
-    HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
-    HANDLES(DeleteCriticalSection(&ICSleepSection));
+    if (ICSectionUsingThumbInitialized)
+        HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
+    if (ICSectionUsingIconInitialized)
+        HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
+    if (ICSleepSectionInitialized)
+        HANDLES(DeleteCriticalSection(&ICSleepSection));
     if (ICEventTerminate != NULL)
         HANDLES(CloseHandle(ICEventTerminate));
     if (ICEventWork != NULL)
@@ -1512,6 +1518,291 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
+}
+
+bool CFilesWindow::EnsureLightInitialization()
+{
+    if (!LightInitializationPending && ContextSubmenuNew != NULL && PathHistory != NULL && ExecuteAssocEvent != NULL &&
+        ICSleepSectionInitialized && ICSectionUsingIconInitialized && ICSectionUsingThumbInitialized)
+    {
+        return true;
+    }
+
+    bool success = true;
+
+    if (!ICSleepSectionInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSleepSection));
+        ICSleepSectionInitialized = true;
+    }
+    if (!ICSectionUsingIconInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
+        ICSectionUsingIconInitialized = true;
+    }
+    if (!ICSectionUsingThumbInitialized)
+    {
+        HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+        ICSectionUsingThumbInitialized = true;
+    }
+
+    if (ContextSubmenuNew == NULL)
+    {
+        ContextSubmenuNew = new CMenuNew;
+        if (ContextSubmenuNew == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            success = false;
+        }
+    }
+
+    if (PathHistory == NULL)
+    {
+        PathHistory = new CPathHistory();
+        if (PathHistory == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            success = false;
+        }
+    }
+
+    if (ExecuteAssocEvent == NULL)
+    {
+        ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+        if (ExecuteAssocEvent == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            success = false;
+        }
+    }
+
+    if (success)
+        LightInitializationPending = false;
+
+    return success;
+}
+
+void CFilesWindow::EnsureHeavyInitialization()
+{
+    if (!HeavyInitializationPending && IconCacheThread != NULL && IconCache != NULL)
+        return;
+
+    if (!EnsureLightInitialization())
+        return;
+
+    if (ICEventTerminate == NULL)
+        ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    if (ICEventWork == NULL)
+        ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+
+    if (IconCacheThread == NULL && ICEventTerminate != NULL && ICEventWork != NULL)
+    {
+        DWORD ThreadID;
+        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
+    }
+
+    if (ICEventTerminate == NULL || ICEventWork == NULL || IconCacheThread == NULL)
+    {
+        TRACE_E("Unable to start icon-reader thread.");
+        if (IconCache != NULL)
+        {
+            delete IconCache;
+            IconCache = NULL;
+        }
+        HeavyInitializationPending = true;
+        return;
+    }
+
+    if (IconCache == NULL)
+        IconCache = new CIconCache();
+
+    HeavyInitializationPending = (IconCache == NULL);
+}
+
+void CFilesWindow::ClearDeferredInitialPath()
+{
+    DeferredInitialPathValid = false;
+    DeferredInitialPath[0] = 0;
+}
+
+void CFilesWindow::SetDeferredInitialPath(const char* path)
+{
+    if (path != NULL && path[0] != 0)
+    {
+        lstrcpyn(DeferredInitialPath, path, _countof(DeferredInitialPath));
+        DeferredInitialPathValid = true;
+        NeedsRefreshOnActivation = TRUE;
+    }
+    else
+        ClearDeferredInitialPath();
+}
+
+void CFilesWindow::SetDeferredWorkDirHistorySubKey(const char* subKey)
+{
+    if (subKey != NULL && subKey[0] != 0)
+    {
+        DeferredWorkDirHistorySubKey = subKey;
+        DeferredWorkDirHistoryPending = true;
+    }
+    else
+        ClearDeferredWorkDirHistory();
+}
+
+void CFilesWindow::ClearDeferredWorkDirHistory()
+{
+    DeferredWorkDirHistorySubKey.clear();
+    DeferredWorkDirHistoryPending = false;
+}
+
+void CFilesWindow::SetDeferredPanelSettings(const CDeferredPanelSettings& settings)
+{
+    ClearDeferredPanelSettingsRegistryKey();
+    DeferredPanelSettings = settings;
+    DeferredPanelSettings.Pending = true;
+}
+
+bool CFilesWindow::HasDeferredPanelSettings() const
+{
+    return DeferredPanelSettings.Pending || HasDeferredPanelSettingsRegistryKey();
+}
+
+void CFilesWindow::ClearDeferredPanelSettings()
+{
+    DeferredPanelSettings.Pending = false;
+    DeferredPanelSettings.FilterString.clear();
+    DeferredPanelSettings.HasFilterString = false;
+    ClearDeferredPanelSettingsRegistryKey();
+}
+
+void CFilesWindow::SetDeferredPanelSettingsRegistryKey(const char* subKey)
+{
+    DeferredPanelSettings.Pending = false;
+    DeferredPanelSettings.FilterString.clear();
+    DeferredPanelSettings.HasFilterString = false;
+    if (subKey != NULL && subKey[0] != 0)
+    {
+        DeferredPanelSettingsRegistryKey = subKey;
+        DeferredPanelSettingsFromRegistry = true;
+    }
+    else
+    {
+        ClearDeferredPanelSettingsRegistryKey();
+    }
+}
+
+void CFilesWindow::ClearDeferredPanelSettingsRegistryKey()
+{
+    DeferredPanelSettingsFromRegistry = false;
+    DeferredPanelSettingsRegistryKey.clear();
+}
+
+bool CFilesWindow::ApplyDeferredPanelSettings()
+{
+    if (!DeferredPanelSettings.Pending)
+        return false;
+
+    const CDeferredPanelSettings& settings = DeferredPanelSettings;
+
+    HeaderLineVisible = settings.HeaderLineVisible;
+    DirectoryLineVisible = settings.DirectoryLineVisible;
+    StatusLineVisible = settings.StatusLineVisible;
+    SortType = settings.SortType;
+    ReverseSort = settings.ReverseSort;
+
+    int templateIndex = settings.ViewTemplateIndex;
+    if (templateIndex <= 0)
+        templateIndex = GetViewTemplateIndex();
+
+    if (HWindow != NULL)
+        SelectViewTemplate(templateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+    else
+        SetStoredViewTemplateIndex(templateIndex);
+
+    if (HWindow != NULL)
+    {
+        if (((BOOL)settings.StatusLineVisible != (StatusLine != NULL && StatusLine->HWindow != NULL)))
+            ToggleStatusLine();
+        if (((BOOL)settings.DirectoryLineVisible != (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)))
+            ToggleDirectoryLine();
+    }
+
+    FilterEnabled = settings.FilterEnabled;
+    if (settings.HasFilterString)
+        Filter.SetMasksString(settings.FilterString.c_str());
+    else
+        Filter.SetMasksString("*.*");
+
+    int errPos;
+    if (!Filter.PrepareMasks(errPos))
+    {
+        Filter.SetMasksString("*.*");
+        Filter.PrepareMasks(errPos);
+    }
+    UpdateFilterSymbol();
+
+    ClearDeferredPanelSettings();
+    return true;
+}
+
+void CFilesWindow::SetStoredViewTemplateIndex(int templateIndex)
+{
+    if (!IsViewTemplateValid(templateIndex))
+        templateIndex = 2;
+
+    ViewTemplate = &Parent->ViewTemplates.Items[templateIndex];
+
+    switch (templateIndex)
+    {
+    case 1:
+        StoredViewMode = vmBrief;
+        break;
+    case 3:
+        StoredViewMode = vmIcons;
+        break;
+    case 4:
+        StoredViewMode = vmThumbnails;
+        break;
+    case 5:
+        StoredViewMode = vmTiles;
+        break;
+    default:
+        StoredViewMode = vmDetailed;
+        break;
+    }
+
+    if (StoredViewMode != vmDetailed)
+        HeaderLineVisible = FALSE;
+}
+
+CViewModeEnum CFilesWindow::GetStoredViewMode() const
+{
+    return StoredViewMode;
+}
+
+bool CFilesWindow::ConsumeDeferredInitialPath(char* buffer, int bufferSize)
+{
+    if (!DeferredInitialPathValid)
+        return false;
+
+    if (buffer != NULL && bufferSize > 0)
+        lstrcpyn(buffer, DeferredInitialPath, bufferSize);
+
+    ClearDeferredInitialPath();
+    return true;
+}
+
+BOOL CFilesWindow::GetStoredGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal) const
+{
+    if (DeferredInitialPathValid)
+    {
+        if (buf != NULL && bufSize > 0)
+        {
+            lstrcpyn(buf, DeferredInitialPath, bufSize);
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return const_cast<CFilesWindow*>(this)->GetGeneralPath(buf, bufSize, convertFSPathToExternal);
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()
@@ -1532,6 +1823,7 @@ void CFilesWindow::ClearWorkDirHistory()
 {
     if (WorkDirHistory != NULL)
         WorkDirHistory->ClearHistory();
+    ClearDeferredWorkDirHistory();
 }
 
 void CFilesWindow::ClearHistory()
@@ -1547,6 +1839,8 @@ void CFilesWindow::ClearHistory()
 void CFilesWindow::SleepIconCacheThread()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::SleepIconCacheThread()");
+    if (!ICSleepSectionInitialized || ICEventWork == NULL)
+        return;
     ICSleep = TRUE;          // to interrupt the icon-reading loop (ICSleepSection may not be left at all)
     ICStopWork = TRUE;       // to interrupt the icon-reading loop if ICStopWork has already been processed
     ResetEvent(ICEventWork); // to interrupt the icon-reading loop if ICStopWork has not been processed yet
@@ -1559,6 +1853,8 @@ void CFilesWindow::SleepIconCacheThread()
 void CFilesWindow::WakeupIconCacheThread()
 {
     CALL_STACK_MESSAGE_NONE
+    if (!ICSleepSectionInitialized || ICEventWork == NULL)
+        return;
     ICStopWork = FALSE;    // so that the work is not interrupted right from the start
     SetEvent(ICEventWork); // switch to work mode without waiting for a response
     MSG msg;               // remove any WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
@@ -1691,6 +1987,8 @@ void CFilesWindow::RedrawFocusedIndex()
 void CFilesWindow::DirectoryLineSetText()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::DirectoryLineSetText()");
+    if (DirectoryLine == NULL)
+        return;
     char ZIPbuf[2 * MAX_PATH];
     const char* path = NULL;
     if (Is(ptZIPArchive))

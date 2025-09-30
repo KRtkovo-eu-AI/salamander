@@ -925,6 +925,8 @@ void CFilesWindow::ToggleDirectoryLine()
     // if the middle toolbar is displayed, give it a chance to position itself
     if (MainWindow->MiddleToolBar != NULL && MainWindow->MiddleToolBar->HWindow != NULL)
         MainWindow->LayoutWindows();
+
+    DirectoryLineVisible = (DirectoryLine->HWindow != NULL);
 }
 
 void CFilesWindow::ToggleStatusLine()
@@ -957,6 +959,8 @@ void CFilesWindow::ToggleStatusLine()
                 MAKELONG(r.right - r.left, r.bottom - r.top));
     if (StatusLine->HWindow != NULL)
         ShowWindow(StatusLine->HWindow, SW_SHOW);
+
+    StatusLineVisible = (StatusLine->HWindow != NULL);
 }
 
 void CFilesWindow::ToggleHeaderLine()
@@ -966,6 +970,23 @@ void CFilesWindow::ToggleHeaderLine()
     if (GetViewMode() == vmBrief)
         headerLine = FALSE;
     ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, headerLine);
+    HeaderLineVisible = headerLine;
+}
+
+void CFilesWindow::ApplyStoredVisualState()
+{
+    if (HWindow == NULL)
+        return;
+
+    if (!!StatusLineVisible != !!(StatusLine != NULL && StatusLine->HWindow != NULL))
+        ToggleStatusLine();
+
+    if (!!DirectoryLineVisible != !!(DirectoryLine != NULL && DirectoryLine->HWindow != NULL))
+        ToggleDirectoryLine();
+
+    BOOL currentHeader = (ListBox != NULL && ListBox->HeaderLineVisible);
+    if (!!HeaderLineVisible != !!currentHeader)
+        ToggleHeaderLine();
 }
 
 int CFilesWindow::GetViewTemplateIndex()
@@ -1031,6 +1052,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
 
     if (templateIndex == 0)
         return FALSE;
+
     CViewTemplate* newTemplate = &Parent->ViewTemplates.Items[templateIndex];
     if (lstrlen(newTemplate->Name) == 0)
     {
@@ -1039,10 +1061,13 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
         newTemplate = &Parent->ViewTemplates.Items[templateIndex];
     }
 
-    CViewModeEnum oldViewMode = GetViewMode();
+    const bool hasListBox = (ListBox != NULL);
+    CViewModeEnum oldViewMode = hasListBox ? ListBox->ViewMode :
+                                             static_cast<CViewModeEnum>(ViewTemplate->Mode);
+    CViewModeEnum newViewMode = oldViewMode;
+
     if (!calledFromPluginBeforeListing || ViewTemplate != newTemplate)
     {
-        CViewModeEnum newViewMode;
         switch (templateIndex)
         {
             //      case 0: newViewMode = vmTree; break;
@@ -1062,20 +1087,32 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
             newViewMode = vmDetailed;
             break;
         }
-        ViewTemplate = newTemplate;
 
-        BOOL headerLine = HeaderLineVisible;
-        if (newViewMode != vmDetailed)
-            headerLine = FALSE;
-        ListBox->SetMode(newViewMode, headerLine);
+        ViewTemplate = newTemplate;
+        StoredViewMode = newViewMode;
+
+        if (hasListBox)
+        {
+            BOOL headerLine = HeaderLineVisible;
+            if (newViewMode != vmDetailed)
+                headerLine = FALSE;
+            ListBox->SetMode(newViewMode, headerLine);
+        }
+        else if (newViewMode != vmDetailed)
+        {
+            // without a list box we cannot toggle the header immediately; remember the desired state
+            HeaderLineVisible = FALSE;
+        }
     }
+    else
+        StoredViewMode = newViewMode;
 
     // we build new columns
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
     DeleteColumnsWithoutData(columnValidMask);
 
-    if (!calledFromPluginBeforeListing)
+    if (!calledFromPluginBeforeListing && hasListBox)
     {
         if (PluginData.NotEmpty())
         {
@@ -1087,9 +1124,9 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
 
         // once the view mode differs we must refresh (a different icon or thumbnail size is required)
         // the only exception is brief and detailed, which share the same icons
-        BOOL needRefresh = oldViewMode != GetViewMode() &&
-                           (oldViewMode != vmBrief || GetViewMode() != vmDetailed) &&
-                           (oldViewMode != vmDetailed || GetViewMode() != vmBrief);
+        BOOL needRefresh = oldViewMode != newViewMode &&
+                           (oldViewMode != vmBrief || newViewMode != vmDetailed) &&
+                           (oldViewMode != vmDetailed || newViewMode != vmBrief);
         if (canRefreshPath && needRefresh)
         {
             // until ReadDirectory we work with simple icons because the icon geometry changes
@@ -1120,7 +1157,7 @@ BOOL CFilesWindow::SelectViewTemplate(int templateIndex, BOOL canRefreshPath,
     }
 
     // when the panel mode changes we must clear saved top-indices (incompatible data are being stored)
-    if (oldViewMode != GetViewMode())
+    if (oldViewMode != newViewMode)
         TopIndexMem.Clear();
 
     return TRUE;

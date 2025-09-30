@@ -3334,10 +3334,7 @@ CViewModeEnum
 CFilesWindow::GetViewMode()
 {
     if (ListBox == NULL)
-    {
-        TRACE_E("ListBox == NULL");
-        return vmDetailed;
-    }
+        return StoredViewMode;
     return ListBox->ViewMode;
 }
 

@@ -716,6 +716,59 @@ enum CViewModeEnum;
 class CFilesWindow : public CFilesWindowAncestor
 {
 public:
+    CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
+
+    bool EnsureLightInitialization();
+    void EnsureHeavyInitialization();
+    void ApplyStoredVisualState();
+    bool IsHeavyInitializationPending() const { return HeavyInitializationPending; }
+    void SetDeferredInitialPath(const char* path);
+    void ClearDeferredInitialPath();
+    bool ConsumeDeferredInitialPath(char* buffer, int bufferSize);
+
+    struct CDeferredPanelSettings
+    {
+        bool Pending;
+        BOOL HeaderLineVisible;
+        BOOL DirectoryLineVisible;
+        BOOL StatusLineVisible;
+        int ViewTemplateIndex;
+        CSortType SortType;
+        BOOL ReverseSort;
+        BOOL FilterEnabled;
+        bool HasFilterString;
+        std::string FilterString;
+
+        CDeferredPanelSettings()
+            : Pending(false),
+              HeaderLineVisible(TRUE),
+              DirectoryLineVisible(TRUE),
+              StatusLineVisible(TRUE),
+              ViewTemplateIndex(0),
+              SortType(stName),
+              ReverseSort(FALSE),
+              FilterEnabled(FALSE),
+              HasFilterString(false),
+              FilterString()
+        {
+        }
+    };
+
+    void SetDeferredPanelSettings(const CDeferredPanelSettings& settings);
+    bool HasDeferredPanelSettings() const;
+    bool ApplyDeferredPanelSettings();
+    void ClearDeferredPanelSettings();
+    void SetDeferredPanelSettingsRegistryKey(const char* subKey);
+    bool HasDeferredPanelSettingsRegistryKey() const { return DeferredPanelSettingsFromRegistry && !DeferredPanelSettingsRegistryKey.empty(); }
+    const std::string& GetDeferredPanelSettingsRegistryKey() const { return DeferredPanelSettingsRegistryKey; }
+    void ClearDeferredPanelSettingsRegistryKey();
+    bool HasDeferredInitialPath() const { return DeferredInitialPathValid; }
+    BOOL GetStoredGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE) const;
+    void SetDeferredWorkDirHistorySubKey(const char* subKey);
+    bool HasDeferredWorkDirHistory() const { return DeferredWorkDirHistoryPending && !DeferredWorkDirHistorySubKey.empty(); }
+    const std::string& GetDeferredWorkDirHistorySubKey() const { return DeferredWorkDirHistorySubKey; }
+    void ClearDeferredWorkDirHistory();
+
     CViewTemplate* ViewTemplate;            // pointer to the template defining mode, name and visibility
                                             // of the standard Salamander columns VIEW_SHOW_xxxx
     BOOL NarrowedNameColumn;                // TRUE = Name column smart mode is enabled and it had to be narrowed
@@ -752,6 +805,9 @@ public:
     CRITICAL_SECTION ICSleepSection;      // critical section -> sleep-icon-thread must pass through it
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
+    bool ICSleepSectionInitialized;
+    bool ICSectionUsingIconInitialized;
+    bool ICSectionUsingThumbInitialized;
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
@@ -775,8 +831,17 @@ public:
     BOOL StatusLineVisible;
     BOOL DirectoryLineVisible;
     BOOL HeaderLineVisible;
+    CViewModeEnum StoredViewMode;
 
     CMainWindow* Parent;
+
+    bool DeferredInitialPathValid;
+    char DeferredInitialPath[2 * MAX_PATH];
+    bool DeferredWorkDirHistoryPending;
+    std::string DeferredWorkDirHistorySubKey;
+    CDeferredPanelSettings DeferredPanelSettings;
+    bool DeferredPanelSettingsFromRegistry;
+    std::string DeferredPanelSettingsRegistryKey;
 
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()
@@ -913,9 +978,10 @@ public:
     DWORD LastIconOvrRefreshTime;             // GetTickCount() of the last icon-overlay refresh (see IconOverlaysChangedOnPath())
     BOOL IconOvrRefreshTimerSet;              // TRUE if the timer for icon-overlay refresh is running (see IconOverlaysChangedOnPath())
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
+    bool LightInitializationPending;
+    bool HeavyInitializationPending;
 
 public:
-    CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
 
     CPanelSide GetPanelSide() const { return PanelSide; }
@@ -1610,6 +1676,9 @@ public:
     CPathHistory* GetWorkDirHistory() const { return WorkDirHistory; }
     CPathHistory* EnsureWorkDirHistory();
     void ClearWorkDirHistory();
+
+    void SetStoredViewTemplateIndex(int templateIndex);
+    CViewModeEnum GetStoredViewMode() const;
 
     void OpenDirHistory();
 
