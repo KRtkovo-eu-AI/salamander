@@ -310,7 +310,9 @@ void ApplyControlTheme(HWND hwnd)
 
     if (wantDark)
     {
-        if (MatchesAnyClass(className, darkExplorerClasses, _countof(darkExplorerClasses)))
+        if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysHeader32") == 0)
+            theme = L"ItemsView";
+        else if (MatchesAnyClass(className, darkExplorerClasses, _countof(darkExplorerClasses)))
             theme = L"DarkMode_Explorer";
         else if (MatchesAnyClass(className, explorerClasses, _countof(explorerClasses)))
             theme = L"Explorer";
