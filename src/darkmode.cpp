@@ -294,6 +294,7 @@ void ApplyControlTheme(HWND hwnd)
         L"SysTabControl32",
         L"ComboBoxEx32",
         L"ReBarWindow32",
+        L"ToolbarWindow32",
     };
 
     static const wchar_t* const cfdClasses[] = {
