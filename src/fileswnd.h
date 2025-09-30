@@ -725,6 +725,39 @@ public:
     void SetDeferredInitialPath(const char* path);
     void ClearDeferredInitialPath();
     bool ConsumeDeferredInitialPath(char* buffer, int bufferSize);
+
+    struct CDeferredPanelSettings
+    {
+        bool Pending;
+        BOOL HeaderLineVisible;
+        BOOL DirectoryLineVisible;
+        BOOL StatusLineVisible;
+        int ViewTemplateIndex;
+        CSortType SortType;
+        BOOL ReverseSort;
+        BOOL FilterEnabled;
+        bool HasFilterString;
+        std::string FilterString;
+
+        CDeferredPanelSettings()
+            : Pending(false),
+              HeaderLineVisible(TRUE),
+              DirectoryLineVisible(TRUE),
+              StatusLineVisible(TRUE),
+              ViewTemplateIndex(0),
+              SortType(stName),
+              ReverseSort(FALSE),
+              FilterEnabled(FALSE),
+              HasFilterString(false),
+              FilterString()
+        {
+        }
+    };
+
+    void SetDeferredPanelSettings(const CDeferredPanelSettings& settings);
+    bool HasDeferredPanelSettings() const;
+    bool ApplyDeferredPanelSettings();
+    void ClearDeferredPanelSettings();
     bool HasDeferredInitialPath() const { return DeferredInitialPathValid; }
     BOOL GetStoredGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE) const;
     void SetDeferredWorkDirHistorySubKey(const char* subKey);
@@ -802,6 +835,7 @@ public:
     char DeferredInitialPath[2 * MAX_PATH];
     bool DeferredWorkDirHistoryPending;
     std::string DeferredWorkDirHistorySubKey;
+    CDeferredPanelSettings DeferredPanelSettings;
 
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()

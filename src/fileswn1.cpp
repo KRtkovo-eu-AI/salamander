@@ -1652,6 +1652,72 @@ void CFilesWindow::ClearDeferredWorkDirHistory()
     DeferredWorkDirHistoryPending = false;
 }
 
+void CFilesWindow::SetDeferredPanelSettings(const CDeferredPanelSettings& settings)
+{
+    DeferredPanelSettings = settings;
+    DeferredPanelSettings.Pending = true;
+}
+
+bool CFilesWindow::HasDeferredPanelSettings() const
+{
+    return DeferredPanelSettings.Pending;
+}
+
+void CFilesWindow::ClearDeferredPanelSettings()
+{
+    DeferredPanelSettings.Pending = false;
+    DeferredPanelSettings.FilterString.clear();
+    DeferredPanelSettings.HasFilterString = false;
+}
+
+bool CFilesWindow::ApplyDeferredPanelSettings()
+{
+    if (!DeferredPanelSettings.Pending)
+        return false;
+
+    const CDeferredPanelSettings& settings = DeferredPanelSettings;
+
+    HeaderLineVisible = settings.HeaderLineVisible;
+    DirectoryLineVisible = settings.DirectoryLineVisible;
+    StatusLineVisible = settings.StatusLineVisible;
+    SortType = settings.SortType;
+    ReverseSort = settings.ReverseSort;
+
+    int templateIndex = settings.ViewTemplateIndex;
+    if (templateIndex <= 0)
+        templateIndex = GetViewTemplateIndex();
+
+    if (HWindow != NULL)
+        SelectViewTemplate(templateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+    else
+        SetStoredViewTemplateIndex(templateIndex);
+
+    if (HWindow != NULL)
+    {
+        if (((BOOL)settings.StatusLineVisible != (StatusLine != NULL && StatusLine->HWindow != NULL)))
+            ToggleStatusLine();
+        if (((BOOL)settings.DirectoryLineVisible != (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)))
+            ToggleDirectoryLine();
+    }
+
+    FilterEnabled = settings.FilterEnabled;
+    if (settings.HasFilterString)
+        Filter.SetMasksString(settings.FilterString.c_str());
+    else
+        Filter.SetMasksString("*.*");
+
+    int errPos;
+    if (!Filter.PrepareMasks(errPos))
+    {
+        Filter.SetMasksString("*.*");
+        Filter.PrepareMasks(errPos);
+    }
+    UpdateFilterSymbol();
+
+    ClearDeferredPanelSettings();
+    return true;
+}
+
 void CFilesWindow::SetStoredViewTemplateIndex(int templateIndex)
 {
     if (!IsViewTemplateValid(templateIndex))

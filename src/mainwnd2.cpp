@@ -1435,6 +1435,7 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
         DeleteValue(key, PANEL_TABLOCKED_REG);
 }
 
+static void LoadPanelTabMetadataFromKey(CFilesWindow* panel, HKEY key);
 static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBuffer, int pathBufferSize)
 {
     if (panel == NULL || key == NULL)
@@ -1526,6 +1527,14 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         }
     }
 
+    LoadPanelTabMetadataFromKey(panel, key);
+}
+
+static void LoadPanelTabMetadataFromKey(CFilesWindow* panel, HKEY key)
+{
+    if (panel == NULL || key == NULL)
+        return;
+
     DWORD colorValue;
     if (GetValue(key, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
         panel->SetCustomTabColor(colorValue);
@@ -1568,6 +1577,99 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
         panel->SetTabLocked(lockedValue != 0);
     else
         panel->SetTabLocked(false);
+}
+
+static void LoadDeferredPanelSettings(CFilesWindow* panel, HKEY key)
+{
+    if (panel == NULL || key == NULL)
+        return;
+
+    CFilesWindow::CDeferredPanelSettings settings;
+
+    DWORD value;
+    if (GetValue(key, PANEL_HEADER_REG, REG_DWORD, &value, sizeof(DWORD)))
+        settings.HeaderLineVisible = value;
+    else
+        settings.HeaderLineVisible = panel->HeaderLineVisible;
+
+    if (GetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        if (Configuration.ConfigVersion < 13 && !value)
+            value = 2;
+        settings.ViewTemplateIndex = (int)value;
+    }
+    else
+        settings.ViewTemplateIndex = panel->GetViewTemplateIndex();
+
+    if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
+        settings.ReverseSort = value;
+    else
+        settings.ReverseSort = panel->ReverseSort;
+
+    if (GetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        if (value > stAttr)
+            value = stName;
+        settings.SortType = (CSortType)value;
+    }
+    else
+        settings.SortType = panel->SortType;
+
+    if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
+        settings.DirectoryLineVisible = value != 0;
+    else
+        settings.DirectoryLineVisible = panel->DirectoryLineVisible;
+
+    if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
+        settings.StatusLineVisible = value != 0;
+    else
+        settings.StatusLineVisible = panel->StatusLineVisible;
+
+    if (GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &value, sizeof(DWORD)))
+        settings.FilterEnabled = value;
+    else
+        settings.FilterEnabled = panel->FilterEnabled;
+
+    char filter[MAX_PATH];
+    if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_PATH))
+    {
+        filter[0] = 0;
+        if (Configuration.ConfigVersion < 22)
+        {
+            char* filterHistory[1];
+            filterHistory[0] = NULL;
+            LoadHistory(key, PANEL_FILTERHISTORY_REG, filterHistory, 1);
+            if (filterHistory[0] != NULL)
+            {
+                DWORD filterInverse = FALSE;
+                if (settings.FilterEnabled && Configuration.ConfigVersion < 14)
+                    GetValue(key, PANEL_FILTER_INVERSE, REG_DWORD, &filterInverse, sizeof(DWORD));
+                if (filterInverse)
+                    strcpy(filter, "|");
+                else
+                    filter[0] = 0;
+                strcat(filter, filterHistory[0]);
+                free(filterHistory[0]);
+            }
+            else
+                settings.FilterEnabled = FALSE;
+        }
+        else
+            settings.FilterEnabled = FALSE;
+    }
+
+    if (filter[0] != 0)
+    {
+        settings.FilterString.assign(filter);
+        settings.HasFilterString = true;
+    }
+    else
+    {
+        settings.FilterString.clear();
+        settings.HasFilterString = false;
+    }
+
+    panel->SetDeferredPanelSettings(settings);
 }
 
 void CMainWindow::EnsurePanelWorkDirHistoryLoaded(CFilesWindow* panel)
@@ -2826,12 +2928,36 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         path[0] = 0;
 
         HKEY tabKey;
+        bool hasKeyData = false;
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
-            LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+            hasKeyData = true;
+        }
+        else if (i == 0)
+        {
+            tabKey = actKey;
+            hasKeyData = true;
+        }
+
+        if (hasKeyData)
+        {
+            if (i == activeIndex)
+            {
+                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+                panel->ClearDeferredPanelSettings();
+            }
+            else
+            {
+                LoadDeferredPanelSettings(panel, tabKey);
+                if (path[0] == 0)
+                    GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+            }
+
+            LoadPanelTabMetadataFromKey(panel, tabKey);
+
             if (Configuration.SaveWorkDirs)
             {
-                if (panel->HWindow != NULL)
+                if (i == activeIndex && panel->HWindow != NULL)
                 {
                     CPathHistory* history = panel->EnsureWorkDirHistory();
                     if (history != NULL)
@@ -2841,8 +2967,11 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                 else
                 {
                     std::string subKey(reg);
-                    subKey.push_back('\\');
-                    subKey.append(tabKeyName);
+                    if (tabKey != actKey)
+                    {
+                        subKey.push_back('\\');
+                        subKey.append(tabKeyName);
+                    }
                     panel->SetDeferredWorkDirHistorySubKey(subKey.c_str());
                 }
             }
@@ -2851,33 +2980,18 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                 panel->ClearWorkDirHistory();
                 panel->ClearDeferredWorkDirHistory();
             }
-            CloseKey(tabKey);
-        }
-        else if (i == 0)
-        {
-            LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
-            if (Configuration.SaveWorkDirs)
-            {
-                if (panel->HWindow != NULL)
-                {
-                    CPathHistory* history = panel->EnsureWorkDirHistory();
-                    if (history != NULL)
-                        history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
-                    panel->ClearDeferredWorkDirHistory();
-                }
-                else
-                    panel->SetDeferredWorkDirHistorySubKey(reg);
-            }
-            else
-            {
-                panel->ClearWorkDirHistory();
-                panel->ClearDeferredWorkDirHistory();
-            }
+
+            if (tabKey != actKey)
+                CloseKey(tabKey);
         }
         else
         {
+            panel->ClearDeferredPanelSettings();
             panel->ClearWorkDirHistory();
             panel->ClearDeferredWorkDirHistory();
+            panel->ClearCustomTabColor();
+            panel->ClearCustomTabPrefix();
+            panel->SetTabLocked(false);
         }
 
         UpdatePanelTabColor(panel);
@@ -2907,6 +3021,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
                 RightPanel = activePanel;
 
             activePanel->SetPanelSide(side);
+
+            activePanel->ApplyDeferredPanelSettings();
 
             EnsurePanelWorkDirHistoryLoaded(activePanel);
 
