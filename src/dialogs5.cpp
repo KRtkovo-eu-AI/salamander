@@ -989,9 +989,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
-        LRESULT brush;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
 
         if (ShouldUsePluginsDarkPalette())
         {
@@ -1036,6 +1035,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
+        if (handled)
+            return brush;
         break;
     }
 
