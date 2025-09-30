@@ -17,6 +17,7 @@
 #include "viewer.h"
 #include "find.h"
 #include "gui.h"
+#include "darkmode.h"
 
 //****************************************************************************
 //
@@ -1419,13 +1420,16 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // prvky dialogu se maji natahovat podle jeho velikosti, nastavime delici controly
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
 
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
+
         break;
     }
 
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
-        ListView_SetBkColor(HListView2, GetSysColor(COLOR_WINDOW));
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
         break;
     }
 
@@ -1997,6 +2001,23 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
                 return 0;
             }
             }
+        }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeUpdateListViewColors(HListView2);
         }
         break;
     }
@@ -3034,6 +3055,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // prvky dialogu se maji natahovat podle jeho velikosti, nastavime delici controly
         ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
 
+        DarkModeUpdateListViewColors(HListView);
+
         break;
     }
 
@@ -3172,6 +3195,19 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             }
         }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeUpdateListViewColors(HListView);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            DarkModeUpdateListViewColors(HListView);
         break;
     }
     }
@@ -3614,6 +3650,15 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         HScheme = GetDlgItem(HWindow, IDC_C_SCHEME);
