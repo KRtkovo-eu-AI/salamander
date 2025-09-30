@@ -18,6 +18,14 @@
 #include "consts.h"
 #include "darkmode.h"
 
+#ifndef HDM_SETBKCOLOR
+#define HDM_SETBKCOLOR (HDM_FIRST + 29)
+#endif
+
+#ifndef HDM_SETTEXTCOLOR
+#define HDM_SETTEXTCOLOR (HDM_FIRST + 30)
+#endif
+
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // po dalsim otevreni Plugins manageru vybereme posledni vybranej plugin
 
 namespace
