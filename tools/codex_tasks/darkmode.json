@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "darkmode-helper",
+      "description": "Add uxtheme-based dark mode helper with window/titlebar/app activation",
+      "pathHints": ["src/darkmode.cpp", "src/darkmode.h", "src/salamdr1.cpp"],
+      "steps": [
+        "Port ordinal loader and helper wrappers from the win32-darkmode sample",
+        "Expose DarkModeInitialize/SetEnabled/ApplyWindow/RefreshTitleBar/HandleSettingChange",
+        "Call DarkModeInitialize() during startup before any top-level HWNDs are created"
+      ],
+      "run": ["ninja", "-C", "build", "salamander"]
+    },
+    {
+      "id": "darkmode-config",
+      "description": "Expose Windows dark mode checkbox on Colors page and persist preference",
+      "pathHints": ["src/dialogs4.cpp", "src/lang/lang.rc", "src/mainwnd2.cpp"],
+      "steps": [
+        "Add UseWindowsDarkMode flag to Configuration defaults and registry IO",
+        "Replace scheme slot with checkbox UI and wire Transfer()/Validate()",
+        "Ensure ColorsChanged() calls DarkModeSetEnabled() based on the new flag"
+      ],
+      "run": ["ninja", "-C", "build", "salamander", "config-dialog-tests"]
+    },
+    {
+      "id": "darkmode-window-tree",
+      "description": "Apply native dark mode to main window, dialogs, menus, and scrollbars",
+      "pathHints": ["src/mainwnd3.cpp", "src/common/winlib.cpp", "src/menu1.cpp"],
+      "steps": [
+        "Call DarkModeApplyWindow/RefreshTitleBar in WM_CREATE/WM_THEMECHANGED",
+        "Hook dialog creation to enable Explorer dark resources on child controls",
+        "Flush menu themes and invoke scrollbar fixer when toggling"
+      ],
+      "run": ["ninja", "-C", "build", "salamander", "ui-smoke-tests"]
+    }
+  ]
+}
