@@ -20,16 +20,22 @@
 #include "geticon.h"
 #include "shiconov.h"
 
+namespace
+{
+    constexpr int kDeferredFileArrayBase = 32;
+    constexpr int kDeferredFileArrayDelta = 128;
+}
+
 //
 // ****************************************************************************
 // CFilesWindowAncestor
 //
 
-CFilesWindowAncestor::CFilesWindowAncestor()
+CFilesWindowAncestor::CFilesWindowAncestor(int filesBase, int filesDelta)
 {
     CALL_STACK_MESSAGE_NONE
-    Files = new CFilesArray;
-    Dirs = new CFilesArray;
+    Files = new CFilesArray(filesBase, filesDelta);
+    Dirs = new CFilesArray(filesBase, filesDelta);
     SelectedCount = 0;
 
     Path[0] = 0;
@@ -59,6 +65,7 @@ CFilesWindowAncestor::CFilesWindowAncestor()
 
     PluginIface = NULL;
     PluginIfaceLastIndex = -1;
+    ReducedFileArrayCapacity = filesBase < 200 || filesDelta < 800;
 }
 
 CFilesWindowAncestor::~CFilesWindowAncestor()
@@ -73,6 +80,46 @@ CFilesWindowAncestor::~CFilesWindowAncestor()
     {
         TRACE_E("Unexpected situation in CFilesWindowAncestor::~CFilesWindowAncestor()");
     }
+}
+
+void CFilesWindowAncestor::PromoteFileArraysToStandardCapacity()
+{
+    if (!ReducedFileArrayCapacity)
+        return;
+
+    if ((Files != NULL && Files->Count != 0) || (Dirs != NULL && Dirs->Count != 0))
+    {
+        ReducedFileArrayCapacity = false;
+        return;
+    }
+
+    CFilesArray* newFiles = new CFilesArray();
+    if (newFiles == NULL || !newFiles->IsGood())
+    {
+        if (newFiles != NULL)
+            delete newFiles;
+        TRACE_E(LOW_MEMORY);
+        return;
+    }
+
+    CFilesArray* newDirs = new CFilesArray();
+    if (newDirs == NULL || !newDirs->IsGood())
+    {
+        delete newFiles;
+        if (newDirs != NULL)
+            delete newDirs;
+        TRACE_E(LOW_MEMORY);
+        return;
+    }
+
+    if (Files != NULL)
+        delete Files;
+    if (Dirs != NULL)
+        delete Dirs;
+
+    Files = newFiles;
+    Dirs = newDirs;
+    ReducedFileArrayCapacity = false;
 }
 
 DWORD
@@ -1311,7 +1358,9 @@ DWORD WINAPI IconThreadThreadF(void* param)
 }
 
 CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization)
-    : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
+    : CFilesWindowAncestor(deferHeavyInitialization ? kDeferredFileArrayBase : 200,
+                           deferHeavyInitialization ? kDeferredFileArrayDelta : 800),
+      Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
     NarrowedNameColumn = FALSE;
@@ -1584,6 +1633,8 @@ bool CFilesWindow::EnsureLightInitialization()
 
 void CFilesWindow::EnsureHeavyInitialization()
 {
+    PromoteFileArraysToStandardCapacity();
+
     if (!HeavyInitializationPending && IconCacheThread != NULL && IconCache != NULL)
         return;
 

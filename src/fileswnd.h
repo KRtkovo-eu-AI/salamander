@@ -509,6 +509,10 @@ private:
     // when viewing an archive listed by a plugin or within a plugin FS
     CPluginInterfaceAbstract* PluginIface; // use exclusively for locating the plugin in Plugins (not for invoking methods)
     int PluginIfaceLastIndex;              // index of PluginIface in Plugins during the last search, use only to locate the plugin
+    bool ReducedFileArrayCapacity;
+
+protected:
+    void PromoteFileArraysToStandardCapacity();
 
 public:
     // contents of all columns shown in the panel (both basic data and plug-in data for archives and FS)
@@ -536,7 +540,7 @@ public:
     CIconCache* NewFSIconCache;             // if not NULL, new empty object for IconCache (not here, in the descendant)
 
 public:
-    CFilesWindowAncestor();
+    CFilesWindowAncestor(int filesBase = 200, int filesDelta = 800);
     ~CFilesWindowAncestor();
 
     // NULL -> Path; echo && err != ERROR_SUCCESS -> only report the error
