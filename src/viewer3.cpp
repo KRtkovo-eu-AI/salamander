@@ -9,6 +9,30 @@
 #include "shellib.h"
 #include "mainwnd.h"
 #include "codetbl.h"
+#include "consts.h"
+
+namespace
+{
+void ApplyViewerMenuTheme(HWND hwnd)
+{
+    HMENU menu = GetMenu(hwnd);
+    if (menu == NULL)
+        return;
+
+    MENUINFO info;
+    memset(&info, 0, sizeof(info));
+    info.cbSize = sizeof(info);
+    info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
+
+    if (DarkModeShouldUseDarkColors())
+        info.hbrBack = (HDialogBrush != NULL) ? HDialogBrush : GetSysColorBrush(COLOR_MENU);
+    else
+        info.hbrBack = GetSysColorBrush(COLOR_MENU);
+
+    SetMenuInfo(menu, &info);
+    DrawMenuBar(hwnd);
+}
+} // namespace
 
 BOOL ViewerActive(HWND hwnd)
 {
@@ -572,6 +596,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyTree(HWindow);
+        ApplyViewerMenuTheme(HWindow);
 
         if (HToolTip != NULL)
         {
@@ -730,6 +755,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DarkModeApplyTree(HWindow);
         DarkModeRefreshTitleBar(HWindow);
+        ApplyViewerMenuTheme(HWindow);
         if (HToolTip != NULL)
             DarkModeApplyWindow(HToolTip);
         ReleaseViewerBrushs();
@@ -744,6 +770,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
+            ApplyViewerMenuTheme(HWindow);
             if (HToolTip != NULL)
                 DarkModeApplyWindow(HToolTip);
             ReleaseViewerBrushs();
@@ -3114,6 +3141,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E("Main window of viewer has no menu?");
         else
         {
+            ApplyViewerMenuTheme(HWindow);
             HMENU subMenu = GetSubMenu(main, VIEWER_FILE_MENU_INDEX);
             if (subMenu != NULL)
             {
