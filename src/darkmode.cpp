@@ -279,6 +279,8 @@ void ApplyControlTheme(HWND hwnd)
         L"msctls_progress32",
         L"msctls_statusbar32",
         L"msctls_trackbar32",
+        L"ScrollBar",
+        L"msctls_scrollbar32",
     };
 
     static const wchar_t* const darkExplorerClasses[] = {
