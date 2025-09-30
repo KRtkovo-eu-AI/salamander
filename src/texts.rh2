@@ -856,6 +856,7 @@
 #define IDS_COLORSCHEME_EXPLORER         10602
 #define IDS_COLORSCHEME_NORTON           10603
 #define IDS_COLORSCHEME_NAVIGATOR        10604
+#define IDS_COLORSCHEME_WINDARK          10605
 
 // ConfigPage5 - HotPaths
 #define IDS_HOTPATH_NAME             10665

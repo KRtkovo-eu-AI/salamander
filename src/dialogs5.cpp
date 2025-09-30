@@ -15,8 +15,23 @@
 #include "gui.h"
 #include "menu.h"
 #include "shellib.h"
+#include "consts.h"
+#include "darkmode.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // po dalsim otevreni Plugins manageru vybereme posledni vybranej plugin
+
+namespace
+{
+bool ShouldUsePluginsDarkPalette()
+{
+    if (DarkModeShouldUseDarkColors())
+        return true;
+
+    COLORREF background = DarkModeGetDialogBackgroundColor();
+    int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
+    return luminance < 128;
+}
+}
 
 //
 // ****************************************************************************
@@ -35,6 +50,30 @@ CPluginsDlg::CPluginsDlg(HWND hParent) : CCommonDialog(HLanguage, IDD_PLUGINS, I
     ShowInBarText[0] = 0;
     ShowInChDrvText[0] = 0;
     InstalledPluginsText[0] = 0;
+}
+
+void CPluginsDlg::ApplyTheme()
+{
+    if (HListView == NULL)
+        return;
+
+    DarkModeApplyTree(HWindow);
+    DarkModeRefreshTitleBar(HWindow);
+
+    const bool useDark = ShouldUsePluginsDarkPalette();
+    const COLORREF paletteText = DarkModeGetDialogTextColor();
+    const COLORREF paletteBackground = DarkModeGetDialogBackgroundColor();
+    const COLORREF text = useDark ? DarkModeEnsureReadableForeground(paletteText, paletteBackground)
+                                  : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
+
+    DarkModeUpdateListViewColors(HListView, text, background, useDark);
+
+    if (Header != NULL && Header->HWindow != NULL)
+    {
+        DarkModeApplyWindow(Header->HWindow);
+        InvalidateRect(Header->HWindow, NULL, TRUE);
+    }
 }
 
 void CPluginsDlg::InitColumns()
@@ -147,6 +186,8 @@ void CPluginsDlg::RefreshListView(BOOL setOnly, int selIndex, const CPluginData*
         }
         OnSelChanged(); // vynutime enablery
     }
+
+    ApplyTheme();
 }
 
 void CPluginsDlg::EnableButtons(CPluginData* plugin)
@@ -525,6 +566,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // vlozime polozky
         RefreshListView(FALSE, 0, lastSelectPluginData, TRUE);
+
+        ApplyTheme();
 
         break;
     }
@@ -912,9 +955,74 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+
+        if (ShouldUsePluginsDarkPalette())
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            if (ctrl != NULL)
+            {
+                int ctrlId = GetDlgCtrlID(ctrl);
+                auto applyColors = [&](bool transparent) {
+                    HDC dc = reinterpret_cast<HDC>(wParam);
+                    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                    if (dc == NULL)
+                        return reinterpret_cast<LRESULT>(dialogBrush);
+                    const COLORREF paletteText = DarkModeGetDialogTextColor();
+                    const COLORREF background = DarkModeGetDialogBackgroundColor();
+                    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                    SetTextColor(dc, text);
+                    SetBkColor(dc, background);
+                    SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);
+                    return reinterpret_cast<LRESULT>(dialogBrush);
+                };
+
+                switch (ctrlId)
+                {
+                case IDC_PLUGINDESCRIPTION:
+                case IDC_PLUGINCOPYRIGHT:
+                case IDC_PLUGINWWW:
+                case IDC_PLUGINEXTENSIONS:
+                case IDC_PLUGINFSNAME:
+                case IDC_PLUGINFUNCTIONS:
+                case IDC_PLUGINHEADER:
+                case IDC_PLUGINSHOWINBAR:
+                case IDC_PLUGINSHOWINCHDRV:
+                    return applyColors(true);
+
+                case IDC_PLUGINTHUMBNAILS:
+                    if (uMsg == WM_CTLCOLOREDIT)
+                        return applyColors(false);
+                    break;
+                }
+            }
+        }
+        if (handled)
+            return brush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyTheme();
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            ApplyTheme();
+        break;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        ApplyTheme();
         break;
     }
     }

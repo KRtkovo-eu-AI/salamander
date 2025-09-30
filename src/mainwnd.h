@@ -686,6 +686,8 @@ public:
 
     void ToggleToolBarGrips();
 
+    void UpdateRebarVisuals();
+
     BOOL InsertMenuBand();
     BOOL CreateAndInsertWorkerBand();
     BOOL InsertTopToolbarBand();

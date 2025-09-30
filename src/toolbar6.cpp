@@ -24,6 +24,7 @@ CDriveBar::CDriveBar(HWND hNotifyWindow, CObjectOrigin origin)
 {
     CALL_STACK_MESSAGE_NONE
     List = NULL;
+    SetDarkCheckedUseAccent(FALSE);
     // tato inicializace je take ve WM_DESTROY, protoze okno se pouze zhasina a rozsveci
     CheckedDrive[0] = 0;
     HDrivesIcons = NULL;

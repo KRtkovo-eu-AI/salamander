@@ -21,6 +21,8 @@
 #include "messages.h"
 #include "handles.h"
 
+#include "../darkmode.h"
+
 #include "array.h"
 
 #include "winlib.h"
@@ -270,6 +272,8 @@ void CWindow::AttachToWindow(HWND hWnd)
     else
         SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)CWindowProc);
 #endif // _UNICODE
+
+    DarkModeApplyWindow(HWindow);
 
     if (DefWndProc == CWindow::CWindowProc
 #ifndef _UNICODE
@@ -696,6 +700,37 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+        }
+        break;
+    }
     }
     return FALSE;
 }
@@ -723,6 +758,8 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 TRACE_ET(_T("Unable to create dialog."));
                 return TRUE;
             }
+            DarkModeApplyTree(hwndDlg);
+            DarkModeRefreshTitleBar(hwndDlg);
             dlg->NotifDlgJustCreated(); // zavedeno jako misto pro upravu layoutu dialogu
         }
         break;
