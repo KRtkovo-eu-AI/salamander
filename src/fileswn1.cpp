@@ -10,6 +10,7 @@
 #include "usermenu.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "filesbox.h"
 #include "stswnd.h"
 #include "snooper.h"
 #include "zip.h"
