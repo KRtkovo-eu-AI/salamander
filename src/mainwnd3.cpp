@@ -94,10 +94,11 @@ namespace
     constexpr size_t kMaxStoredClosedTabs = 10;
 }
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate,
+                                      bool deferInitialization)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
-    CFilesWindow* panel = new CFilesWindow(this, side);
+    CFilesWindow* panel = new CFilesWindow(this, side, deferInitialization);
     if (panel == NULL)
         return NULL;
 
@@ -232,6 +233,18 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         RightPanel = panel;
 
     panel->SetPanelSide(side);
+
+    char deferredPath[2 * MAX_PATH];
+    bool hadDeferredPath = panel->ConsumeDeferredInitialPath(deferredPath, _countof(deferredPath));
+    panel->EnsureHeavyInitialization();
+    if (hadDeferredPath)
+    {
+        BOOL restored = RestorePanelPathFromConfig(panel, deferredPath);
+        if (side == cpsLeft && !PanelConfigPathsRestoredLeft)
+            PanelConfigPathsRestoredLeft = restored;
+        else if (side == cpsRight && !PanelConfigPathsRestoredRight)
+            PanelConfigPathsRestoredRight = restored;
+    }
 
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();
@@ -374,7 +387,7 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
 
     char path[2 * MAX_PATH];
     path[0] = 0;
-    if (panel->GetGeneralPath(path, _countof(path), TRUE))
+    if (panel->GetStoredGeneralPath(path, _countof(path), TRUE))
         info.GeneralPath.assign(path);
     const char* basicPath = panel->GetPath();
     if (basicPath != NULL)
@@ -1645,7 +1658,7 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
 
     char path[2 * MAX_PATH];
     path[0] = 0;
-    if (sourcePanel->GetGeneralPath(path, _countof(path), TRUE))
+    if (sourcePanel->GetStoredGeneralPath(path, _countof(path), TRUE))
         newPanel->ChangeDir(path);
     else
     {

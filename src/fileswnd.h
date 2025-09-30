@@ -716,6 +716,16 @@ enum CViewModeEnum;
 class CFilesWindow : public CFilesWindowAncestor
 {
 public:
+    CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
+
+    void EnsureHeavyInitialization();
+    bool IsHeavyInitializationPending() const { return HeavyInitializationPending; }
+    void SetDeferredInitialPath(const char* path);
+    void ClearDeferredInitialPath();
+    bool ConsumeDeferredInitialPath(char* buffer, int bufferSize);
+    bool HasDeferredInitialPath() const { return DeferredInitialPathValid; }
+    BOOL GetStoredGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE) const;
+
     CViewTemplate* ViewTemplate;            // pointer to the template defining mode, name and visibility
                                             // of the standard Salamander columns VIEW_SHOW_xxxx
     BOOL NarrowedNameColumn;                // TRUE = Name column smart mode is enabled and it had to be narrowed
@@ -777,6 +787,10 @@ public:
     BOOL HeaderLineVisible;
 
     CMainWindow* Parent;
+
+    bool HeavyInitializationPending;
+    bool DeferredInitialPathValid;
+    char DeferredInitialPath[2 * MAX_PATH];
 
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()
@@ -915,7 +929,6 @@ public:
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
 
     CPanelSide GetPanelSide() const { return PanelSide; }

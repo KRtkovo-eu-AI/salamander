@@ -1309,7 +1309,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1332,30 +1332,16 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     WaitBeforeReadingIcons = 0;
     WaitOneTimeBeforeReadingIcons = 0;
     EndOfIconReadingTime = GetTickCount() - 10000;
-    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    ICEventTerminate = NULL;
+    ICEventWork = NULL;
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
     HANDLES(InitializeCriticalSection(&ICSleepSection));
     HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
     HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
-    DWORD ThreadID;
     IconCacheThread = NULL;
-    if (ICEventTerminate != NULL && ICEventWork != NULL)
-        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
-    if (ICEventTerminate == NULL ||
-        ICEventWork == NULL ||
-        IconCacheThread == NULL)
-    {
-        TRACE_E("Unable to start icon-reader thread.");
-        IconCache = NULL;
-    }
-    else
-    {
-        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
-        IconCache = new CIconCache();
-    }
+    IconCache = NULL;
 
     OpenedDrivesList = NULL;
 
@@ -1462,6 +1448,13 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     GetPluginIconIndex = InternalGetPluginIconIndex;
 
+    HeavyInitializationPending = true;
+    DeferredInitialPathValid = false;
+    DeferredInitialPath[0] = 0;
+
+    if (!deferHeavyInitialization)
+        EnsureHeavyInitialization();
+
     EnumFileNamesSourceUID = -1;
 
     TemporarilySimpleIcons = FALSE;
@@ -1512,6 +1505,86 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
+}
+
+void CFilesWindow::EnsureHeavyInitialization()
+{
+    if (!HeavyInitializationPending && IconCacheThread != NULL)
+        return;
+
+    if (!HeavyInitializationPending && IconCache != NULL)
+        return;
+
+    HeavyInitializationPending = false;
+
+    if (ICEventTerminate == NULL)
+        ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    if (ICEventWork == NULL)
+        ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+
+    if (IconCacheThread == NULL && ICEventTerminate != NULL && ICEventWork != NULL)
+    {
+        DWORD ThreadID;
+        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
+    }
+
+    if (ICEventTerminate == NULL || ICEventWork == NULL || IconCacheThread == NULL)
+    {
+        TRACE_E("Unable to start icon-reader thread.");
+        if (IconCache != NULL)
+        {
+            delete IconCache;
+            IconCache = NULL;
+        }
+        return;
+    }
+
+    if (IconCache == NULL)
+        IconCache = new CIconCache();
+}
+
+void CFilesWindow::ClearDeferredInitialPath()
+{
+    DeferredInitialPathValid = false;
+    DeferredInitialPath[0] = 0;
+}
+
+void CFilesWindow::SetDeferredInitialPath(const char* path)
+{
+    if (path != NULL && path[0] != 0)
+    {
+        lstrcpyn(DeferredInitialPath, path, _countof(DeferredInitialPath));
+        DeferredInitialPathValid = true;
+        NeedsRefreshOnActivation = TRUE;
+    }
+    else
+        ClearDeferredInitialPath();
+}
+
+bool CFilesWindow::ConsumeDeferredInitialPath(char* buffer, int bufferSize)
+{
+    if (!DeferredInitialPathValid)
+        return false;
+
+    if (buffer != NULL && bufferSize > 0)
+        lstrcpyn(buffer, DeferredInitialPath, bufferSize);
+
+    ClearDeferredInitialPath();
+    return true;
+}
+
+BOOL CFilesWindow::GetStoredGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal) const
+{
+    if (DeferredInitialPathValid)
+    {
+        if (buf != NULL && bufSize > 0)
+        {
+            lstrcpyn(buf, DeferredInitialPath, bufSize);
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return const_cast<CFilesWindow*>(this)->GetGeneralPath(buf, bufSize, convertFSPathToExternal);
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

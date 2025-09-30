@@ -1760,7 +1760,7 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
 
     char generalPath[2 * MAX_PATH];
     generalPath[0] = 0;
-    panel->GetGeneralPath(generalPath, _countof(generalPath));
+    panel->GetStoredGeneralPath(generalPath, _countof(generalPath));
 
     switch (mode)
     {
