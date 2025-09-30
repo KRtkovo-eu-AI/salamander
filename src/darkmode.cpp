@@ -606,8 +606,8 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     EnsureInitialized();
 
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
-    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+    const COLORREF paletteBackground = gDialogBackgroundColor;
+    const COLORREF paletteText = gDialogTextColor;
     const bool paletteDark = ComputeLuminance(paletteBackground) < 140;
     const bool paletteEnabled = DarkModeShouldUseDarkColors() || paletteDark;
     if (!usingNativeDark && !paletteEnabled)

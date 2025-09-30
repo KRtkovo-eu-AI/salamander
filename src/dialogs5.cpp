@@ -56,9 +56,9 @@ LRESULT HandlePluginsHeaderCustomDraw(const NMCUSTOMDRAW& draw)
         const COLORREF paletteText = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
         const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
 
-        LPNMCUSTOMDRAW mutableDraw = const_cast<LPNMCUSTOMDRAW>(&draw);
-        mutableDraw->clrText = text;
-        mutableDraw->clrTextBk = background;
+        SetTextColor(draw.hdc, text);
+        SetBkColor(draw.hdc, background);
+        SetBkMode(draw.hdc, OPAQUE);
         return CDRF_DODEFAULT;
     }
     }
