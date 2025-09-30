@@ -44,4 +44,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
 
 // Returns a shared brush used for drawing dark-mode panel frames and borders.
 HBRUSH DarkModeGetPanelFrameBrush();
+COLORREF DarkModeGetDialogTextColor();
+COLORREF DarkModeGetDialogBackgroundColor();
+COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
 
