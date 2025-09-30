@@ -1941,22 +1941,6 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
         break;
     }
 
-    case WM_THEMECHANGED:
-    {
-        DarkModeUpdateListViewColors(HListView);
-        DarkModeUpdateListViewColors(HListView2);
-        break;
-    }
-
-    case WM_SETTINGCHANGE:
-    {
-        if (DarkModeHandleSettingChange(uMsg, lParam))
-        {
-            DarkModeUpdateListViewColors(HListView);
-            DarkModeUpdateListViewColors(HListView2);
-        }
-        break;
-    }
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
