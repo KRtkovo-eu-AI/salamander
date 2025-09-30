@@ -18,14 +18,6 @@
 #include "consts.h"
 #include "darkmode.h"
 
-#ifndef HDM_SETBKCOLOR
-#define HDM_SETBKCOLOR (HDM_FIRST + 29)
-#endif
-
-#ifndef HDM_SETTEXTCOLOR
-#define HDM_SETTEXTCOLOR (HDM_FIRST + 30)
-#endif
-
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // po dalsim otevreni Plugins manageru vybereme posledni vybranej plugin
 
 namespace
@@ -75,35 +67,13 @@ void CPluginsDlg::ApplyTheme()
                                   : GetSysColor(COLOR_WINDOWTEXT);
     const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
 
-    ListView_SetTextColor(HListView, text);
-    ListView_SetTextBkColor(HListView, background);
-    ListView_SetBkColor(HListView, background);
-
-    HWND headerWnd = ListView_GetHeader(HListView);
-    if (headerWnd != NULL)
-    {
-        if (useDark)
-        {
-            SendMessage(headerWnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(text));
-            SendMessage(headerWnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(background));
-        }
-        else
-        {
-            SendMessage(headerWnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
-            SendMessage(headerWnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
-        }
-
-        DarkModeApplyWindow(headerWnd);
-        InvalidateRect(headerWnd, NULL, TRUE);
-    }
+    DarkModeUpdateListViewColors(HListView, text, background, useDark);
 
     if (Header != NULL && Header->HWindow != NULL)
     {
         DarkModeApplyWindow(Header->HWindow);
         InvalidateRect(Header->HWindow, NULL, TRUE);
     }
-
-    InvalidateRect(HListView, NULL, TRUE);
 }
 
 void CPluginsDlg::InitColumns()

@@ -47,4 +47,6 @@ HBRUSH DarkModeGetPanelFrameBrush();
 COLORREF DarkModeGetDialogTextColor();
 COLORREF DarkModeGetDialogBackgroundColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
+void DarkModeUpdateListViewColors(HWND listView);
+void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
 

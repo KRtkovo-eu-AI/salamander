@@ -6,6 +6,15 @@
 
 #include <delayimp.h>
 #include <uxtheme.h>
+#include <commctrl.h>
+
+#ifndef HDM_SETBKCOLOR
+#define HDM_SETBKCOLOR (HDM_FIRST + 29)
+#endif
+
+#ifndef HDM_SETTEXTCOLOR
+#define HDM_SETTEXTCOLOR (HDM_FIRST + 30)
+#endif
 
 #ifndef LOAD_LIBRARY_SEARCH_SYSTEM32
 #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
@@ -640,6 +649,57 @@ COLORREF DarkModeGetDialogBackgroundColor()
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background)
 {
     return ResolveReadableForeground(foreground, background);
+}
+
+void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)
+{
+    EnsureInitialized();
+
+    if (listView == NULL)
+        return;
+
+    const COLORREF resolvedText = DarkModeEnsureReadableForeground(textColor, backgroundColor);
+    const COLORREF resolvedBackground = backgroundColor;
+
+    DarkModeApplyWindow(listView);
+
+    ListView_SetTextColor(listView, resolvedText);
+    ListView_SetTextBkColor(listView, resolvedBackground);
+    ListView_SetBkColor(listView, resolvedBackground);
+
+    HWND header = ListView_GetHeader(listView);
+    if (header != NULL)
+    {
+        DarkModeApplyWindow(header);
+        if (applyHeaderColors)
+        {
+            SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(resolvedText));
+            SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(resolvedBackground));
+        }
+        else
+        {
+            SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+            SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+        }
+        InvalidateRect(header, NULL, TRUE);
+    }
+
+    InvalidateRect(listView, NULL, TRUE);
+}
+
+void DarkModeUpdateListViewColors(HWND listView)
+{
+    EnsureInitialized();
+
+    if (listView == NULL)
+        return;
+
+    const COLORREF paletteText = DarkModeGetDialogTextColor();
+    const COLORREF paletteBackground = DarkModeGetDialogBackgroundColor();
+    const bool useCustomColors = paletteText != GetSysColor(COLOR_WINDOWTEXT) ||
+                                 paletteBackground != GetSysColor(COLOR_WINDOW);
+
+    DarkModeUpdateListViewColors(listView, paletteText, paletteBackground, useCustomColors);
 }
 
 
