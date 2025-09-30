@@ -2673,9 +2673,9 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     clrMap[0].from = RGB(255, 0, 255);
     clrMap[0].to = toolbarFace;
     clrMap[1].from = RGB(255, 255, 255);
-    clrMap[1].to = toolbarHighlight;
+    clrMap[1].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : toolbarHighlight;
     clrMap[2].from = RGB(128, 128, 128);
-    clrMap[2].to = toolbarShadow;
+    clrMap[2].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : toolbarShadow;
     HHeaderSort = HANDLES(CreateMappedBitmap(HInstance, IDB_HEADER, 0, clrMap, 3));
     if (HHeaderSort == NULL)
     {
@@ -3209,6 +3209,7 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
     {
         COLORREF rebarColor = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
         SendMessage(MainWindow->HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)rebarColor);
+        MainWindow->UpdateRebarVisuals();
     }
 
     if (refresh && MainWindow != NULL)

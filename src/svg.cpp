@@ -41,6 +41,15 @@ DWORD GetSVGSysColor(int index)
     return ret;
 }
 
+static DWORD ColorRefToARGB(COLORREF color)
+{
+    DWORD argb = 0xFF000000;
+    argb |= GetBValue(color) << 16;
+    argb |= GetGValue(color) << 8;
+    argb |= GetRValue(color);
+    return argb;
+}
+
 //*****************************************************************************
 //
 // RenderSVGImage
@@ -328,22 +337,24 @@ void CSVGSprite::ColorizeSVG(NSVGimage* image, DWORD state)
     if (state == SVGSTATE_ORIGINAL)
         return;
 
-    int sysIndex;
+    DWORD color;
     switch (state)
     {
     case SVGSTATE_ENABLED:
-        sysIndex = COLOR_BTNTEXT;
+        if (DarkModeShouldUseDarkColors())
+            color = ColorRefToARGB(GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]));
+        else
+            color = GetSVGSysColor(COLOR_BTNTEXT);
         break;
 
     case SVGSTATE_DISABLED:
-        sysIndex = COLOR_BTNSHADOW;
+        color = GetSVGSysColor(COLOR_BTNSHADOW);
         break;
 
     default:
-        sysIndex = COLOR_BTNTEXT;
+        color = GetSVGSysColor(COLOR_BTNTEXT);
         TRACE_E("CSVGSprite::ColorizeSVG() unknown state=" << state);
     }
-    DWORD color = GetSVGSysColor(sysIndex);
     NSVGshape* shape = image->shapes;
     while (shape != NULL)
     {
