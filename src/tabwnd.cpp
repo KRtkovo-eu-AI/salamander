@@ -1551,6 +1551,25 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CTabWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_ERASEBKGND:
+    {
+        HDC hdc = reinterpret_cast<HDC>(wParam);
+        if (hdc != NULL && HWindow != NULL)
+        {
+            RECT clientRect;
+            if (GetClientRect(HWindow, &clientRect))
+            {
+                HBRUSH brush = CreateSolidBrush(ResolveDefaultTabColor());
+                if (brush != NULL)
+                {
+                    FillRect(hdc, &clientRect, brush);
+                    DeleteObject(brush);
+                }
+            }
+        }
+        return TRUE;
+    }
+
     case WM_PAINT:
     {
         RECT updateRect;
