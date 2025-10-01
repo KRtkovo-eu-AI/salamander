@@ -834,7 +834,6 @@ protected:
     HFONT HNormalFont;
     HFONT HBoldFont;
     RECT OpenSalR;
-    RECT SamandarinR;
     RECT VersionR;
     RECT CopyrightR;
     RECT StatusR;

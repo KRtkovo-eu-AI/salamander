@@ -19,174 +19,6 @@
 
 #include "versinfo.rh2"
 
-static void DrawSamandarinLabel(HDC hDC, const RECT& rect)
-{
-    if (hDC == NULL || rect.right <= rect.left || rect.bottom <= rect.top)
-        return;
-
-    LOGFONT lf = {};
-
-    HDC hScreenDC = HANDLES(GetDC(NULL));
-    int dpiY = GetDeviceCaps(hScreenDC, LOGPIXELSY);
-    HANDLES(ReleaseDC(NULL, hScreenDC));
-
-    int rectHeight = rect.bottom - rect.top;
-    if (rectHeight <= 0)
-        return;
-
-    int desiredPx = MulDiv(18, dpiY, 72);
-    if (desiredPx > rectHeight)
-        desiredPx = rectHeight;
-    if (desiredPx <= 0)
-        desiredPx = rectHeight;
-
-    lf.lfHeight = -desiredPx;
-    lf.lfWeight = FW_SEMIBOLD;
-    lf.lfCharSet = DEFAULT_CHARSET;
-    lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
-    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-    lf.lfQuality = CLEARTYPE_QUALITY;
-    lf.lfPitchAndFamily = VARIABLE_PITCH | FF_SWISS;
-    strcpy(lf.lfFaceName, "MS Shell Dlg 2");
-
-    HFONT hFont = HANDLES(CreateFontIndirect(&lf));
-    if (hFont == NULL)
-        return;
-
-    HFONT hOldFont = (HFONT)SelectObject(hDC, hFont);
-    int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hDC, RGB(219, 77, 0));
-
-    RECT r = rect;
-    DrawText(hDC, "Samandarin", -1, &r, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX | DT_VCENTER);
-
-    SetTextColor(hDC, oldTextColor);
-    SetBkMode(hDC, oldBkMode);
-    SelectObject(hDC, hOldFont);
-    HANDLES(DeleteObject(hFont));
-}
-
-static void DrawOpenSalamanderTitle(HDC hDC, const RECT& rect)
-{
-    if (hDC == NULL || rect.right <= rect.left || rect.bottom <= rect.top)
-        return;
-
-    const char openText[] = "Open ";
-    const char salamanderText[] = "Salamander";
-
-    LOGFONT lf = {};
-    lf.lfCharSet = DEFAULT_CHARSET;
-    lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
-    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-    lf.lfQuality = CLEARTYPE_QUALITY;
-    lf.lfPitchAndFamily = VARIABLE_PITCH | FF_SWISS;
-    strcpy(lf.lfFaceName, "MS Shell Dlg 2");
-
-    int rectWidth = rect.right - rect.left;
-    int rectHeight = rect.bottom - rect.top;
-    HFONT regularFont = NULL;
-    HFONT boldFont = NULL;
-    SIZE openSize = {};
-    SIZE salamanderSize = {};
-    int textHeight = 0;
-
-    for (int fontPx = rectHeight; fontPx >= 10; --fontPx)
-    {
-        LOGFONT lfRegular = lf;
-        lfRegular.lfHeight = -fontPx;
-        lfRegular.lfWeight = FW_NORMAL;
-
-        HFONT hRegular = HANDLES(CreateFontIndirect(&lfRegular));
-        if (hRegular == NULL)
-            continue;
-
-        LOGFONT lfBold = lfRegular;
-        lfBold.lfWeight = FW_SEMIBOLD;
-        HFONT hBold = HANDLES(CreateFontIndirect(&lfBold));
-        if (hBold == NULL)
-        {
-            HANDLES(DeleteObject(hRegular));
-            continue;
-        }
-
-        HFONT hOldFont = (HFONT)SelectObject(hDC, hRegular);
-        GetTextExtentPoint32(hDC, openText, lstrlenA(openText), &openSize);
-        SelectObject(hDC, hBold);
-        GetTextExtentPoint32(hDC, salamanderText, lstrlenA(salamanderText), &salamanderSize);
-        SelectObject(hDC, hOldFont);
-
-        int totalWidth = openSize.cx + salamanderSize.cx;
-        int maxHeight = openSize.cy > salamanderSize.cy ? openSize.cy : salamanderSize.cy;
-
-        if (totalWidth <= rectWidth && maxHeight <= rectHeight)
-        {
-            regularFont = hRegular;
-            boldFont = hBold;
-            textHeight = maxHeight;
-            break;
-        }
-
-        HANDLES(DeleteObject(hRegular));
-        HANDLES(DeleteObject(hBold));
-    }
-
-    if (regularFont == NULL || boldFont == NULL)
-    {
-        LOGFONT lfRegular = lf;
-        int fallbackPx = rectHeight;
-        if (fallbackPx > 10)
-            fallbackPx = 10;
-        if (fallbackPx <= 0)
-            fallbackPx = 10;
-        lfRegular.lfHeight = -fallbackPx;
-        lfRegular.lfWeight = FW_NORMAL;
-        regularFont = HANDLES(CreateFontIndirect(&lfRegular));
-
-        LOGFONT lfBold = lfRegular;
-        lfBold.lfWeight = FW_SEMIBOLD;
-        boldFont = HANDLES(CreateFontIndirect(&lfBold));
-
-        if (regularFont == NULL || boldFont == NULL)
-        {
-            if (regularFont != NULL)
-                HANDLES(DeleteObject(regularFont));
-            if (boldFont != NULL)
-                HANDLES(DeleteObject(boldFont));
-            return;
-        }
-
-        HFONT hOldFont = (HFONT)SelectObject(hDC, regularFont);
-        GetTextExtentPoint32(hDC, openText, lstrlenA(openText), &openSize);
-        SelectObject(hDC, boldFont);
-        GetTextExtentPoint32(hDC, salamanderText, lstrlenA(salamanderText), &salamanderSize);
-        SelectObject(hDC, hOldFont);
-
-        textHeight = openSize.cy > salamanderSize.cy ? openSize.cy : salamanderSize.cy;
-    }
-
-    int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hDC, RGB(0, 0, 0));
-
-    if (textHeight <= 0)
-        textHeight = rectHeight;
-
-    int top = rect.top + ((rectHeight - textHeight) / 2);
-
-    HFONT hOldFont = (HFONT)SelectObject(hDC, regularFont);
-    TextOut(hDC, rect.left, top, openText, lstrlenA(openText));
-    SelectObject(hDC, boldFont);
-    TextOut(hDC, rect.left + openSize.cx, top, salamanderText, lstrlenA(salamanderText));
-
-    SelectObject(hDC, hOldFont);
-    SetTextColor(hDC, oldTextColor);
-    SetBkMode(hDC, oldBkMode);
-
-    if (regularFont != NULL)
-        HANDLES(DeleteObject(regularFont));
-    if (boldFont != NULL)
-        HANDLES(DeleteObject(boldFont));
-}
-
 void GetDlgItemRectAndDestroy(HWND hWindow, int resID, RECT* r)
 {
     HWND hItem = GetDlgItem(hWindow, resID);
@@ -314,22 +146,23 @@ BOOL CSplashScreen::PrepareBitmap()
     SetBkColor(hDC, RGB(255, 255, 255));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
+    CSVGSprite svgText;
     CSVGSprite svgGrad;
     CSVGSprite svgHand;
     concurrency::parallel_invoke(
+        [&]
+        { svgText.Load(IDB_LOGO_TEXT, OpenSalR.right - OpenSalR.left, OpenSalR.bottom - OpenSalR.top, SVGSTATE_ORIGINAL); },
         [&]
         { svgGrad.Load(IDB_LOGO_GRAD, Width, -1, SVGSTATE_ORIGINAL); },
         [&]
         { svgHand.Load(IDB_LOGO_HAND, -1, Height, SVGSTATE_ORIGINAL); });
 
-    SIZE gradSize, handSize;
+    SIZE textSize, gradSize, handSize;
+    svgText.GetSize(&textSize);
     svgGrad.GetSize(&gradSize);
     svgHand.GetSize(&handSize);
 
-    if (OpenSalR.right > OpenSalR.left && OpenSalR.bottom > OpenSalR.top)
-        DrawOpenSalamanderTitle(hDC, OpenSalR);
-    if (SamandarinR.right > SamandarinR.left && SamandarinR.bottom > SamandarinR.top)
-        DrawSamandarinLabel(hDC, SamandarinR);
+    svgText.AlphaBlend(hDC, OpenSalR.left, OpenSalR.top, textSize.cx, textSize.cy, SVGSTATE_ORIGINAL);
     svgGrad.AlphaBlend(hDC, 0, GradientY, gradSize.cx, Height - GradientY, SVGSTATE_ORIGINAL);
     svgHand.AlphaBlend(hDC, Width - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 
@@ -398,7 +231,6 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         Height = r.bottom - r.top;
 
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_OPENSAL, &OpenSalR);
-        GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_SAMANDARIN, &SamandarinR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_VERSION, &VersionR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_COPYRIGHT, &CopyrightR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_STATUS, &StatusR);
@@ -515,11 +347,9 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
 {
     RECT opensalR;
     RECT logoR;
-    RECT samandarinR;
     RECT gradR;
     GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_OPENSAL, &opensalR);
     GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_LOGO, &logoR);
-    GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_SAMANDARIN, &samandarinR);
     GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_BOTTOM, &gradR);
 
     RECT r;
@@ -542,22 +372,23 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
     SetBkColor(hDC, RGB(255, 255, 255));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
+    CSVGSprite svgText;
     CSVGSprite svgGrad;
     CSVGSprite svgHand;
     concurrency::parallel_invoke(
+        [&]
+        { svgText.Load(IDB_LOGO_TEXT, opensalR.right - opensalR.left, opensalR.bottom - opensalR.top, SVGSTATE_ORIGINAL); },
         [&]
         { svgGrad.Load(IDB_ABOUT_GRAD, r.right - r.left, -1, SVGSTATE_ORIGINAL); },
         [&]
         { svgHand.Load(IDB_LOGO_HAND, logoR.right - logoR.left, logoR.bottom - logoR.top, SVGSTATE_ORIGINAL); });
 
-    SIZE gradSize, handSize;
+    SIZE textSize, gradSize, handSize;
+    svgText.GetSize(&textSize);
     svgGrad.GetSize(&gradSize);
     svgHand.GetSize(&handSize);
 
-    if (opensalR.right > opensalR.left && opensalR.bottom > opensalR.top)
-        DrawOpenSalamanderTitle(hDC, opensalR);
-    if (samandarinR.right > samandarinR.left && samandarinR.bottom > samandarinR.top)
-        DrawSamandarinLabel(hDC, samandarinR);
+    svgText.AlphaBlend(hDC, opensalR.left, opensalR.top, textSize.cx, textSize.cy, SVGSTATE_ORIGINAL);
     svgGrad.AlphaBlend(hDC, 0, gradR.top, gradSize.cx, r.bottom - r.top - gradR.top, SVGSTATE_ORIGINAL);
     svgHand.AlphaBlend(hDC, r.right - r.left - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 

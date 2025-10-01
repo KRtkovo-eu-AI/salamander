@@ -107,7 +107,6 @@
 #define IDC_ABOUT_BOTTOM                286
 #define IDC_ABOUT_OPENSAL               289
 #define IDC_ABOUT_LOGO                  290
-#define IDC_ABOUT_SAMANDARIN            291
 #define IDD_CFGPAGE_GENERAL             300
 #define IDC_AUTOSAVE                    301
 #define IDC_INCLUDEDIRS                 302
