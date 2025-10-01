@@ -535,7 +535,7 @@ CConfiguration::CConfiguration()
     UseTitleBarPrefixForced = FALSE;
     TitleBarPrefixForced[0] = 0;
 
-    MainWindowIconIndex = 0; // default ikona
+    MainWindowIconIndex = MAINWINDOWICON_DEFAULT_INDEX; // default Samandarin icon
     MainWindowIconIndexForced = -1;
 
     ClickQuickRename = TRUE;
@@ -669,7 +669,7 @@ int CConfiguration::GetMainWindowIconIndex()
     if (index >= 0 && index < MAINWINDOWICONS_COUNT)
         return index;
     else
-        return 0; // default
+        return MAINWINDOWICON_DEFAULT_INDEX; // default Samandarin icon
 }
 
 //

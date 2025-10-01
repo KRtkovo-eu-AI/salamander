@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include <time.h>
+#include <stdlib.h>
 //#ifdef MSVC_RUNTIME_CHECKS
 #include <rtcapi.h>
 //#endif // MSVC_RUNTIME_CHECKS
@@ -3445,12 +3446,17 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                 if (i + 1 < p)
                 {
                     char* s = argv[i + 1];
-                    if ((*s == '0' || *s == '1' || *s == '2' || *s == '3') && *(s + 1) == 0) // 0, 1, 2, 3
+                    if (*s != 0)
                     {
-                        Configuration.MainWindowIconIndexForced = (*s - '0');
+                        char* endPtr = NULL;
+                        long parsedIndex = strtol(s, &endPtr, 10);
+                        if (*endPtr == 0 && parsedIndex >= 0 && parsedIndex < MAINWINDOWICONS_COUNT)
+                        {
+                            Configuration.MainWindowIconIndexForced = (int)parsedIndex;
 
-                        cmdLineParams->SetMainWindowIconIndex = TRUE;
-                        cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                            cmdLineParams->SetMainWindowIconIndex = TRUE;
+                            cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                        }
                     }
                     i++;
                     continue;
