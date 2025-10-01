@@ -457,13 +457,16 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
     SALCOLOR* target = CurrentColors;
     if (!useDarkColors)
     {
-        if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != NULL)
-            memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
+        if (gWindowsDarkPaletteActive)
+        {
+            if (gWindowsDarkPaletteTarget != NULL)
+                memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
 
-        if (gWindowsDarkViewerSaved && !gWindowsDarkViewerBackupIsDark)
-            memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
-        else
-            ResetViewerColorsToDefaults();
+            if (gWindowsDarkViewerSaved && !gWindowsDarkViewerBackupIsDark)
+                memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+            else
+                ResetViewerColorsToDefaults();
+        }
 
         gWindowsDarkPaletteActive = false;
         gWindowsDarkPaletteTarget = NULL;
