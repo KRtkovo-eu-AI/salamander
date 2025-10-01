@@ -575,7 +575,7 @@ public:
     {
         LanguageID = 0x0409;
         lstrcpyW(Author, L"Open Salamander");
-        lstrcpyW(Web, L"www.altap.cz");
+        lstrcpyW(Web, L"https://github.com/KRtkovo-eu-AI/salamander");
         lstrcpyW(Comment, L"");
         lstrcpyW(HelpDir, L"");
         lstrcpyW(SLGIncomplete, L"");

@@ -415,14 +415,11 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         new CStaticText(HWindow, IDS_ABOUT_SALAMANDER, STF_BOLD);
         //      new CStaticText(HWindow, IDS_ABOUT_FIRM, STF_BOLD);
 
-        // if the environment is in Czech or in Slovak, show the Czech website automatically
-        BOOL english = LanguageID != 0x405 /* Czech */ && LanguageID != 0x41B /* Slovak */;
-
         hl = new CHyperLink(HWindow, IDC_ABOUT_WWW);
         if (hl != NULL)
         {
-            const char* url = english ? "https://www.altap.cz" : "https://www.altap.cz/cz";
-            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url + 8);
+            const char* url = "https://github.com/KRtkovo-eu-AI/salamander";
+            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url);
             hl->SetActionOpen(url);
         }
 
