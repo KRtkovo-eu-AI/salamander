@@ -984,6 +984,8 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CREATE:
     {
+        EnsureHeavyInitialization();
+
         //---  pridani tohoto panelu do pole zdroju pro enumeraci souboru ve viewerech
         EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
 

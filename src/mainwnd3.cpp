@@ -97,7 +97,8 @@ namespace
 CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
-    CFilesWindow* panel = new CFilesWindow(this, side);
+    bool deferHeavyInitialization = IsRestoringPanelConfiguration();
+    CFilesWindow* panel = new CFilesWindow(this, side, deferHeavyInitialization);
     if (panel == NULL)
         return NULL;
 

@@ -1310,7 +1310,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1333,30 +1333,15 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     WaitBeforeReadingIcons = 0;
     WaitOneTimeBeforeReadingIcons = 0;
     EndOfIconReadingTime = GetTickCount() - 10000;
-    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    ICEventTerminate = NULL;
+    ICEventWork = NULL;
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
-    HANDLES(InitializeCriticalSection(&ICSleepSection));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
-    DWORD ThreadID;
     IconCacheThread = NULL;
-    if (ICEventTerminate != NULL && ICEventWork != NULL)
-        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
-    if (ICEventTerminate == NULL ||
-        ICEventWork == NULL ||
-        IconCacheThread == NULL)
-    {
-        TRACE_E("Unable to start icon-reader thread.");
-        IconCache = NULL;
-    }
-    else
-    {
-        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
-        IconCache = new CIconCache();
-    }
+    IconInfrastructureInitialized = FALSE;
+    HeavyInitializationDeferred = deferHeavyInitialization;
+    IconCache = NULL;
 
     OpenedDrivesList = NULL;
 
@@ -1422,7 +1407,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
 
     FocusFirstNewItem = FALSE;
 
-    ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+    ExecuteAssocEvent = NULL;
     AssocUsed = FALSE;
 
     FilterEnabled = FALSE;
@@ -1474,6 +1459,46 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     NeedIconOvrRefreshAfterIconsReading = FALSE;
     LastIconOvrRefreshTime = GetTickCount() - ICONOVR_REFRESH_PERIOD;
     IconOvrRefreshTimerSet = FALSE;
+
+    if (!HeavyInitializationDeferred)
+        EnsureHeavyInitialization();
+}
+
+void CFilesWindow::EnsureHeavyInitialization()
+{
+    if (IconInfrastructureInitialized)
+        return;
+
+    HeavyInitializationDeferred = FALSE;
+
+    HANDLES(InitializeCriticalSection(&ICSleepSection));
+    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
+    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+
+    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+
+    DWORD threadId;
+    IconCacheThread = NULL;
+    if (ICEventTerminate != NULL && ICEventWork != NULL)
+        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &threadId));
+    if (ICEventTerminate == NULL ||
+        ICEventWork == NULL ||
+        IconCacheThread == NULL)
+    {
+        TRACE_E("Unable to start icon-reader thread.");
+        IconCache = NULL;
+    }
+    else
+    {
+        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
+        IconCache = new CIconCache();
+    }
+
+    if (ExecuteAssocEvent == NULL)
+        ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+
+    IconInfrastructureInitialized = TRUE;
 }
 
 CFilesWindow::~CFilesWindow()
@@ -1502,9 +1527,12 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(IconCacheThread));
     }
 
-    HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
-    HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
-    HANDLES(DeleteCriticalSection(&ICSleepSection));
+    if (IconInfrastructureInitialized)
+    {
+        HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
+        HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
+        HANDLES(DeleteCriticalSection(&ICSleepSection));
+    }
     if (ICEventTerminate != NULL)
         HANDLES(CloseHandle(ICEventTerminate));
     if (ICEventWork != NULL)
