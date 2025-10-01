@@ -1,16 +1,16 @@
 # Open Salamander: Samandarin
 
-Open Salamander: Samandarin is a fast and reliable two-panel file manager for Windows, refreshed in 2025 with features implemented entirely with OpenAI Codex (https://chatgpt.com/codex).
+Open Salamander: Samandarin is a fast and reliable two-panel file manager for Windows, refreshed in 2025 with features implemented entirely with [OpenAI Codex](https://chatgpt.com/codex).
 
 ## Samandarin Fork Overview
 
 ### Author & Motivation
 
-Open Salamander: Samandarin is maintained by Ondřej Kotas (KRtekTM). As a C# coder, QA test engineer, automation and AI specialist—not a traditional C++ developer—Ondřej uses OpenAI Codex to prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.
+**Open Salamander: Samandarin** is introduced by [Ondřej Kotas (KRtekTM)](https://krtkovo.eu/). Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation & AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.
 
 ### Fork Goals
 
-- Keep Samandarin features 100% compatible with Open Salamander 5.0 and its plugin ecosystem so they can be merged upstream once they meet production standards.
+- Keep Samandarin features 100% compatible with [Open Salamander 5.0](https://github.com/OpenSalamander/salamander) and its plugin ecosystem so they can be merged upstream once they meet production standards.
 - Unfreeze development by shipping bold, AI-crafted experiments to adventurous users while transparently acknowledging that bugs may surface.
 
 ### Name Inspiration
@@ -18,7 +18,7 @@ Open Salamander: Samandarin is maintained by Ondřej Kotas (KRtekTM). As a C# co
 The “Samandarin” name is a three-way pun that pays homage to the Salamander legacy:
 
 - **Fire salamander** – the black-and-yellow amphibian that inspired the original project.
-- **Samandarin** – the natural toxin secreted by that salamander, symbolising a daring twist befitting our AI-driven enhancements.
+- **Samandarin** – the natural toxin secreted by that salamander, symbolising a spicy, daring twist — just like our AI-crafted changes.
 - **Mandarin orange** – the vibrant citrus fruit whose fresh color palette inspired the fork logo.
 
 Together they promise the same Salamander DNA with a spicy hint of danger.
@@ -35,7 +35,7 @@ Together they promise the same Salamander DNA with a spicy hint of danger.
 
 ### Installation Notes
 
-Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid clashing with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
+Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
 
 ## Origin
 
@@ -105,6 +105,7 @@ All the source code uses UTF-8-BOM encoding and is formatted with ```clang-forma
 
 ## Resources
 
+- [Open Salamander 5.0](https://github.com/OpenSalamander/salamander) original project
 - [Altap Salamander Website](https://www.altap.cz/)
 - Altap Salamander 4.0 [features](https://www.altap.cz/salamander/features/)
 - Altap Salamander 4.0 [documentation](https://www.altap.cz/salamander/help/)
