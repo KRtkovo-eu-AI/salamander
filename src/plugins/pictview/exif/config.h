@@ -90,7 +90,7 @@
 #define ssize_t int
 
 // static inline not supported by MSVC and not usefull here -> define it out
-#define inline
+#define inline __inline
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

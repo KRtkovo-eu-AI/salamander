@@ -152,7 +152,7 @@ const DWORD THIS_CONFIG_VERSION = 104;
 // !!! Keep the corresponding lines in SalamanderConfigurationVersions up to date
 const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
     {
-        "Software\\Open Salamander\\5.0",
+        "Software\\Open Salamander Samandarin\\5.0",
         "Software\\Altap\\Altap Salamander 4.0",
         "Software\\Altap\\Altap Salamander 4.0 beta 1 (DB177)",
         "Software\\Altap\\Altap Salamander 4.0 beta 1 (DB171)",

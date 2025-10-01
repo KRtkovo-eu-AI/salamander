@@ -162,7 +162,7 @@ STRINGTABLE
  IDS_MENU_HELP_TASKLIST,     "Task &List..."
  IDS_MENU_HELP_FORUM,        "Official Support &Forum"
  IDS_MENU_HELP_ABOUTPLUGINS, "About &Plugin"
- IDS_MENU_HELP_ABOUT,        "&About Open Salamander"
+ IDS_MENU_HELP_ABOUT,        "&About Open Salamander: Samandarin"
 
 //
 // find file menu
