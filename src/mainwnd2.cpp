@@ -3374,8 +3374,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.TitleBarPrefix, TITLE_PREFIX_MAX);
             GetValue(actKey, CONFIG_MAINWINDOWICONINDEX_REG, REG_DWORD,
                      &Configuration.MainWindowIconIndex, sizeof(DWORD));
-            if (Configuration.MainWindowIconIndex < 0 || Configuration.MainWindowIconIndex > MAINWINDOWICONS_COUNT)
-                Configuration.MainWindowIconIndex = 0;
+            if (Configuration.MainWindowIconIndex < 0 || Configuration.MainWindowIconIndex >= MAINWINDOWICONS_COUNT)
+                Configuration.MainWindowIconIndex = MAINWINDOWICON_DEFAULT_INDEX;
             GetValue(actKey, CONFIG_CLICKQUICKRENAME_REG, REG_DWORD,
                      &Configuration.ClickQuickRename, sizeof(DWORD));
             GetValue(actKey, CONFIG_VISIBLEDRIVES_REG, REG_DWORD,
