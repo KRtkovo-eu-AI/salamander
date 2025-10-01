@@ -106,6 +106,7 @@ All the source code uses UTF-8-BOM encoding and is formatted with ```clang-forma
 ## Resources
 
 - [Open Salamander 5.0](https://github.com/OpenSalamander/salamander) original project
+- [Open Salamander SDK 5.0 Unofficial](https://github.com/lejcik/as-sdk4-unofficial)
 - [Altap Salamander Website](https://www.altap.cz/)
 - Altap Salamander 4.0 [features](https://www.altap.cz/salamander/features/)
 - Altap Salamander 4.0 [documentation](https://www.altap.cz/salamander/help/)
