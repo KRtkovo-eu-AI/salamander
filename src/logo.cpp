@@ -19,6 +19,42 @@
 
 #include "versinfo.rh2"
 
+static void DrawSamandarinLabel(HDC hDC, const RECT& rect)
+{
+    if (hDC == NULL || rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    LOGFONT lf = {};
+
+    HDC hScreenDC = HANDLES(GetDC(NULL));
+    lf.lfHeight = -MulDiv(18, GetDeviceCaps(hScreenDC, LOGPIXELSY), 72);
+    HANDLES(ReleaseDC(NULL, hScreenDC));
+
+    lf.lfWeight = FW_SEMIBOLD;
+    lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
+    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+    lf.lfQuality = CLEARTYPE_QUALITY;
+    lf.lfPitchAndFamily = VARIABLE_PITCH | FF_SWISS;
+    strcpy(lf.lfFaceName, "MS Shell Dlg 2");
+
+    HFONT hFont = HANDLES(CreateFontIndirect(&lf));
+    if (hFont == NULL)
+        return;
+
+    HFONT hOldFont = (HFONT)SelectObject(hDC, hFont);
+    int oldBkMode = SetBkMode(hDC, TRANSPARENT);
+    COLORREF oldTextColor = SetTextColor(hDC, RGB(219, 77, 0));
+
+    RECT r = rect;
+    DrawText(hDC, "Samandarin", -1, &r, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX | DT_TOP);
+
+    SetTextColor(hDC, oldTextColor);
+    SetBkMode(hDC, oldBkMode);
+    SelectObject(hDC, hOldFont);
+    HANDLES(DeleteObject(hFont));
+}
+
 void GetDlgItemRectAndDestroy(HWND hWindow, int resID, RECT* r)
 {
     HWND hItem = GetDlgItem(hWindow, resID);
@@ -163,6 +199,8 @@ BOOL CSplashScreen::PrepareBitmap()
     svgHand.GetSize(&handSize);
 
     svgText.AlphaBlend(hDC, OpenSalR.left, OpenSalR.top, textSize.cx, textSize.cy, SVGSTATE_ORIGINAL);
+    if (SamandarinR.right > SamandarinR.left && SamandarinR.bottom > SamandarinR.top)
+        DrawSamandarinLabel(hDC, SamandarinR);
     svgGrad.AlphaBlend(hDC, 0, GradientY, gradSize.cx, Height - GradientY, SVGSTATE_ORIGINAL);
     svgHand.AlphaBlend(hDC, Width - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 
@@ -231,6 +269,7 @@ CSplashScreen::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         Height = r.bottom - r.top;
 
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_OPENSAL, &OpenSalR);
+        GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_SAMANDARIN, &SamandarinR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_VERSION, &VersionR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_COPYRIGHT, &CopyrightR);
         GetDlgItemRectAndDestroy(HWindow, IDC_SPLASH_STATUS, &StatusR);
@@ -347,9 +386,11 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
 {
     RECT opensalR;
     RECT logoR;
+    RECT samandarinR;
     RECT gradR;
     GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_OPENSAL, &opensalR);
     GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_LOGO, &logoR);
+    GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_SAMANDARIN, &samandarinR);
     GetDlgItemRectAndDestroy(hWindow, IDC_ABOUT_BOTTOM, &gradR);
 
     RECT r;
@@ -389,6 +430,7 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
     svgHand.GetSize(&handSize);
 
     svgText.AlphaBlend(hDC, opensalR.left, opensalR.top, textSize.cx, textSize.cy, SVGSTATE_ORIGINAL);
+    DrawSamandarinLabel(hDC, samandarinR);
     svgGrad.AlphaBlend(hDC, 0, gradR.top, gradSize.cx, r.bottom - r.top - gradR.top, SVGSTATE_ORIGINAL);
     svgHand.AlphaBlend(hDC, r.right - r.left - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 
