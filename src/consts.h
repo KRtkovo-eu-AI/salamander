@@ -1274,6 +1274,7 @@ extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standardni barvy
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // barvy vieweru
 
 void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
+void ResetViewerColorsToDefaults();
 
 extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // pro standardni color dialog
 

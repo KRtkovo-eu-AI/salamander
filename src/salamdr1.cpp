@@ -270,6 +270,7 @@ static SALCOLOR* gWindowsDarkPaletteTarget = NULL;
 static SALCOLOR gWindowsDarkPaletteBackup[NUMBER_OF_COLORS];
 static SALCOLOR gWindowsDarkViewerBackup[NUMBER_OF_VIEWERCOLORS];
 static bool gWindowsDarkViewerSaved = false;
+static bool gWindowsDarkViewerBackupIsDark = false;
 static SALCOLOR gWindowsDarkPaletteApplied[NUMBER_OF_COLORS];
 static SALCOLOR gWindowsDarkViewerApplied[NUMBER_OF_VIEWERCOLORS];
 static bool gWindowsDarkPaletteCustomized = false;
@@ -457,14 +458,17 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
     if (!useDarkColors)
     {
         if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != NULL)
-        {
             memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
-            if (gWindowsDarkViewerSaved)
-                memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
-        }
+
+        if (gWindowsDarkViewerSaved && !gWindowsDarkViewerBackupIsDark)
+            memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+        else
+            ResetViewerColorsToDefaults();
+
         gWindowsDarkPaletteActive = false;
         gWindowsDarkPaletteTarget = NULL;
         gWindowsDarkViewerSaved = false;
+        gWindowsDarkViewerBackupIsDark = false;
         gWindowsDarkPaletteCustomized = false;
         gWindowsDarkPaletteAppliedInitialized = false;
         return;
@@ -481,6 +485,7 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         gWindowsDarkPaletteAppliedInitialized = false;
     }
 
+    bool capturedViewerBackup = false;
     if (!gWindowsDarkPaletteActive)
     {
         gWindowsDarkPaletteTarget = target;
@@ -490,11 +495,16 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         gWindowsDarkPaletteActive = true;
         gWindowsDarkPaletteCustomized = false;
         gWindowsDarkPaletteAppliedInitialized = false;
+        capturedViewerBackup = true;
     }
 
     SALCOLOR defaultColors[NUMBER_OF_COLORS];
     SALCOLOR defaultViewer[NUMBER_OF_VIEWERCOLORS];
     WindowsDarkModeBuildPalette(defaultColors, defaultViewer);
+
+    if (capturedViewerBackup)
+        gWindowsDarkViewerBackupIsDark =
+            memcmp(gWindowsDarkViewerBackup, defaultViewer, sizeof(defaultViewer)) == 0;
 
     bool matchesDefault = memcmp(target, defaultColors, sizeof(defaultColors)) == 0 &&
                           memcmp(ViewerColors, defaultViewer, sizeof(defaultViewer)) == 0;
@@ -710,6 +720,14 @@ COLORREF* CurrentColors = SalamanderColors;
 
 COLORREF UserColors[NUMBER_OF_COLORS];
 
+static const SALCOLOR DefaultViewerColors[NUMBER_OF_VIEWERCOLORS] =
+    {
+        RGBF(0, 0, 0, SCF_DEFAULT),       // VIEWER_FG_NORMAL
+        RGBF(255, 255, 255, SCF_DEFAULT), // VIEWER_BK_NORMAL
+        RGBF(255, 255, 255, SCF_DEFAULT), // VIEWER_FG_SELECTED
+        RGBF(0, 0, 0, SCF_DEFAULT),       // VIEWER_BK_SELECTED
+    };
+
 SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS] =
     {
         RGBF(0, 0, 0, SCF_DEFAULT),       // VIEWER_FG_NORMAL
@@ -717,6 +735,11 @@ SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS] =
         RGBF(255, 255, 255, SCF_DEFAULT), // VIEWER_FG_SELECTED
         RGBF(0, 0, 0, SCF_DEFAULT),       // VIEWER_BK_SELECTED
 };
+
+void ResetViewerColorsToDefaults()
+{
+    memcpy(ViewerColors, DefaultViewerColors, sizeof(DefaultViewerColors));
+}
 
 COLORREF SalamanderColors[NUMBER_OF_COLORS] =
     {
