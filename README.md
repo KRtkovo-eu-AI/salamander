@@ -1,6 +1,41 @@
-# Open Salamander
+# Open Salamander: Samandarin
 
-Open Salamander is a fast and reliable two-panel file manager for Windows.
+Open Salamander: Samandarin is a fast and reliable two-panel file manager for Windows, refreshed in 2025 with features implemented entirely with [OpenAI Codex](https://chatgpt.com/codex).
+
+## Samandarin Fork Overview
+
+### Author & Motivation
+
+**Open Salamander: Samandarin** is introduced by [Ondřej Kotas (KRtekTM)](https://krtkovo.eu/). Instead of coming from a traditional C++ background, Ondřej is a C# developer and QA test/automation & AI specialist who uses OpenAI Codex to rapidly prototype and implement new ideas. The fork exists so AI-written code can evolve separately without risking the quality of the upstream project while development practices mature.
+
+### Fork Goals
+
+- Keep Samandarin features 100% compatible with [Open Salamander 5.0](https://github.com/OpenSalamander/salamander) and its plugin ecosystem so they can be merged upstream once they meet production standards.
+- Unfreeze development by shipping bold, AI-crafted experiments to adventurous users while transparently acknowledging that bugs may surface.
+
+### Name Inspiration
+
+The “Samandarin” name is a three-way pun that pays homage to the Salamander legacy:
+
+- **Fire salamander** – the black-and-yellow amphibian that inspired the original project.
+- **Samandarin** – the natural toxin secreted by that salamander, symbolising a spicy, daring twist — just like our AI-crafted changes.
+- **Mandarin orange** – the vibrant citrus fruit whose fresh color palette inspired the fork logo.
+
+Together they promise the same Salamander DNA with a spicy hint of danger.
+
+### Development Approach
+
+- All changes are brewed entirely by AI in collaboration with the fork author.
+- New functionality is iterated in dedicated branches before release:
+  - [Tabbed panels](https://github.com/KRtkovo-eu-AI/salamander/tree/dev_tabs)
+  - [Dark mode](https://github.com/KRtkovo-eu-AI/salamander/tree/darkmode)
+  - [C++ bridge for C# plugins](https://github.com/KRtkovo-eu-AI/salamander/tree/cs_demo_plugin)
+  - [UTF-8 Unicode prototype](https://github.com/KRtkovo-eu-AI/salamander/tree/unicode_support)
+- Releases do **not** bundle every experimental feature, so always read the release notes to see what made the cut.
+
+### Installation Notes
+
+Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
 
 ## Origin
 
@@ -11,6 +46,8 @@ The name Servant Salamander came about when Petr Šolín and his friend Pavel Sc
 Please bear with us as Salamander was our first major project where we learned to program in C++. From a technology standpoint, it does not use [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines), smart pointers, [RAII](https://en.cppreference.com/w/cpp/language/raii), [STL](https://github.com/microsoft/STL), or [WIL](https://github.com/microsoft/wil), all of which were just beginning to evolve during the time Salamander was created. Many of the comments are written in Czech, but this is manageable due to recent progress in AI-powered translation. Salamander is a pure WinAPI application and does not use any frameworks, such as MFC.
 
 We would like to thank [Fine company](https://www.finesoftware.eu/) for making the open sourced Salamander release possible.
+
+The Samandarin fork continues this story by blending the original Salamander DNA with AI-driven enhancements, keeping development moving while inviting adventurous contributors to explore and extend the project.
 
 ## Development
 
@@ -68,6 +105,7 @@ All the source code uses UTF-8-BOM encoding and is formatted with ```clang-forma
 
 ## Resources
 
+- [Open Salamander 5.0](https://github.com/OpenSalamander/salamander) original project
 - [Altap Salamander Website](https://www.altap.cz/)
 - Altap Salamander 4.0 [features](https://www.altap.cz/salamander/features/)
 - Altap Salamander 4.0 [documentation](https://www.altap.cz/salamander/help/)
