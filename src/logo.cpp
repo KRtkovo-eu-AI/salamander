@@ -142,8 +142,8 @@ BOOL CSplashScreen::PrepareBitmap()
     r.right = Width;
     r.bottom = Height;
 
-    // paint the background white
-    SetBkColor(hDC, RGB(255, 255, 255));
+    // paint the background to match the application's dark theme (#212121)
+    SetBkColor(hDC, RGB(33, 33, 33));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
     CSVGSprite svgText;
@@ -368,8 +368,8 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
 
     hDC = bitmap->HMemDC;
 
-    // paint the background white
-    SetBkColor(hDC, RGB(255, 255, 255));
+    // paint the background to match the application's dark theme (#212121)
+    SetBkColor(hDC, RGB(33, 33, 33));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
     CSVGSprite svgText;
@@ -432,17 +432,17 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hdcStatic = (HDC)wParam;
         HWND hwndStatic = (HWND)lParam;
         int resID = GetWindowLong(hwndStatic, GWL_ID);
-        COLORREF textClr = RGB(70, 70, 70);
+        COLORREF textClr = RGB(224, 224, 224);
         switch (resID)
         {
         case IDC_STATIC_6:
         case IDC_STATIC_7:
         case IDC_STATIC_8:
-            textClr = RGB(128, 128, 128);
+            textClr = RGB(160, 160, 160);
             break;
         }
         SetTextColor(hdcStatic, textClr);
-        SetBkColor(hdcStatic, RGB(255, 255, 255));
+        SetBkColor(hdcStatic, RGB(33, 33, 33));
         return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH);
     }
 
