@@ -19,6 +19,7 @@
 #define IDC_SPLASH_VERSION              2492
 #define IDC_SPLASH_COPYRIGHT            2493
 #define IDC_SPLASH_STATUS               2494
+#define IDC_SPLASH_SAMANDARIN           2495
 
 // Next default values for new objects
 // 
