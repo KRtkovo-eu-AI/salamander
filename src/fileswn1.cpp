@@ -222,6 +222,7 @@ void CFilesWindowAncestor::SetPath(const char* path)
     if (SuppressAutoRefresh && (!Is(ptDisk) || !IsTheSamePath(path, Path)))
         SuppressAutoRefresh = FALSE;
     DetachDirectory((CFilesWindow*)this);
+    ((CFilesWindow*)this)->ClearDeferredPath();
     strcpy(Path, path);
 
     if (MainWindow != NULL)
@@ -1413,6 +1414,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     WorkDirHistory = NULL;
     PathHistory = new CPathHistory();
 
+    DeferredPathValid = false;
+    DeferredPath[0] = 0;
+
     DontDrawIndex = -1;
     DrawOnlyIndex = -1;
 
@@ -1512,6 +1516,36 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
+}
+
+void CFilesWindow::SetDeferredPath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+    {
+        DeferredPathValid = false;
+        DeferredPath[0] = 0;
+        return;
+    }
+
+    lstrcpyn(DeferredPath, path, _countof(DeferredPath));
+    DeferredPathValid = true;
+    NeedsRefreshOnActivation = TRUE;
+}
+
+void CFilesWindow::ClearDeferredPath()
+{
+    DeferredPathValid = false;
+    DeferredPath[0] = 0;
+}
+
+bool CFilesWindow::HasDeferredPath() const
+{
+    return DeferredPathValid && DeferredPath[0] != 0;
+}
+
+const char* CFilesWindow::GetDeferredPath() const
+{
+    return HasDeferredPath() ? DeferredPath : "";
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

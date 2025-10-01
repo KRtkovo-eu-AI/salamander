@@ -463,6 +463,8 @@ public:
     BOOL PanelConfigPathsRestoredLeft;
     BOOL PanelConfigPathsRestoredRight;
 
+    bool RestoringPanelConfiguration;
+
     BOOL DragMode;
     int DragSplitX;
 
@@ -593,6 +595,9 @@ public:
     int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);
     void CommandLockTab(CFilesWindow* panel);
     void CommandUnlockTab(CFilesWindow* panel);
+
+    bool IsRestoringPanelConfiguration() const { return RestoringPanelConfiguration; }
+    void EnsurePanelPathRestored(CFilesWindow* panel);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx

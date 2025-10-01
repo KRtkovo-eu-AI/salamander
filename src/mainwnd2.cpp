@@ -1380,6 +1380,8 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
     {
         if (!panel->GetGeneralPath(path, _countof(path), TRUE))
             path[0] = 0;
+        if (path[0] == 0 && panel->HasDeferredPath())
+            lstrcpyn(path, panel->GetDeferredPath(), _countof(path));
     }
     else
         lstrcpyn(path, panel->GetPath(), _countof(path));
@@ -1597,6 +1599,18 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
     if (mainWnd != NULL)
         mainWnd->UpdatePanelTabTitle(panel);
     return FALSE;
+}
+
+void CMainWindow::EnsurePanelPathRestored(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->HasDeferredPath())
+        return;
+
+    char path[2 * MAX_PATH];
+    lstrcpyn(path, panel->GetDeferredPath(), _countof(path));
+    panel->ClearDeferredPath();
+    if (!RestorePanelPathFromConfig(this, panel, path))
+        panel->SetDeferredPath(path);
 }
 
 void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg)
@@ -2688,6 +2702,9 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     if (!OpenKey(hSalamander, reg, actKey))
         return;
 
+    bool previousRestoring = RestoringPanelConfiguration;
+    RestoringPanelConfiguration = true;
+
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = FALSE;
     else
@@ -2705,6 +2722,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             UpdatePanelTabColor(panel);
         }
         CloseKey(actKey);
+        RestoringPanelConfiguration = previousRestoring;
         return;
     }
 
@@ -2832,18 +2850,27 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             panel->ClearWorkDirHistory();
 
+        panel->ClearDeferredPath();
+
+        BOOL restored = FALSE;
+        if (i == activeIndex)
+        {
+            restored = RestorePanelPathFromConfig(this, panel, path);
+            if (!restored)
+                panel->SetDeferredPath(path);
+            if (panelPath != NULL && IsDiskOrUNCPath(path))
+                lstrcpyn(panelPath, path, MAX_PATH);
+            activeRestored = restored;
+        }
+        else
+        {
+            panel->SetDeferredPath(path);
+        }
+
         UpdatePanelTabColor(panel);
         UpdatePanelTabTitle(panel);
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
-
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
-        if (i == activeIndex)
-        {
-            activeRestored = restored;
-            if (panelPath != NULL && IsDiskOrUNCPath(path))
-                lstrcpyn(panelPath, path, MAX_PATH);
-        }
     }
 
     CFilesWindow* activePanel = NULL;
@@ -2851,6 +2878,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         activePanel = localTabs[activeIndex];
     else if (localTabs.Count > 0)
         activePanel = localTabs[0];
+
+    RestoringPanelConfiguration = previousRestoring;
 
     if (activePanel != NULL)
     {

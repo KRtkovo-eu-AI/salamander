@@ -107,7 +107,8 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
         return NULL;
     }
 
-    SwitchPanelTab(panel);
+    if (!IsRestoringPanelConfiguration())
+        SwitchPanelTab(panel);
     return panel;
 }
 
@@ -232,6 +233,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     panel->SetPanelSide(side);
 
+    EnsurePanelPathRestored(panel);
+
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();
     else
@@ -240,6 +243,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CFilesWindow* active = GetActivePanel();
     bool activateSameSide = (active == NULL || active->GetPanelSide() == side);
     bool canFocusNow = (Created && panel->HWindow != NULL);
+    bool restoring = IsRestoringPanelConfiguration();
     if (activateSameSide && !canFocusNow)
     {
         SetActivePanel(panel);
@@ -257,20 +261,23 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    if (canFocusNow)
+    if (canFocusNow && !restoring)
     {
         LayoutWindows();
     }
 
     UpdatePanelTabVisibility(side);
 
-    if (canFocusNow)
+    if (canFocusNow && !restoring)
     {
         FocusPanel(panel);
     }
 
-    bool refreshActive = (panel == GetActivePanel());
-    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+    if (!restoring)
+    {
+        bool refreshActive = (panel == GetActivePanel());
+        EnsurePanelRefreshAndRequest(panel, refreshActive, true);
+    }
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)

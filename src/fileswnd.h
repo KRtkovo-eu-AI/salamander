@@ -914,9 +914,17 @@ public:
     BOOL IconOvrRefreshTimerSet;              // TRUE if the timer for icon-overlay refresh is running (see IconOverlaysChangedOnPath())
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
+    bool DeferredPathValid;          // TRUE when a startup directory is stored for later restore
+    char DeferredPath[2 * MAX_PATH]; // directory loaded from the configuration but not restored yet
+
 public:
     CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
+
+    void SetDeferredPath(const char* path);
+    void ClearDeferredPath();
+    bool HasDeferredPath() const;
+    const char* GetDeferredPath() const;
 
     CPanelSide GetPanelSide() const { return PanelSide; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
