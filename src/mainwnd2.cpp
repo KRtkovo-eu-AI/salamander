@@ -2754,8 +2754,6 @@ void CMainWindow::SaveConfig(HWND parent)
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
     HKEY actKey = NULL;
-    CFilesWindow* refreshPanel = NULL;
-
     bool prevRestoring = RestoringPanelConfig;
     RestoringPanelConfig = TRUE;
 
@@ -2774,131 +2772,132 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         }
     };
 
+    auto chooseInitialPanel = [&](TIndirectArray<CFilesWindow>& tabs) -> CFilesWindow* {
+        CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
+        if (panel != NULL)
+            return panel;
+        if (tabs.Count > 0)
+            return tabs[0];
+        return AddPanelTab(side, 0, false, false);
+    };
+
+    auto markRestoredFlag = [&](BOOL restoredOrDeferred) {
+        if (side == cpsLeft)
+            PanelConfigPathsRestoredLeft = restoredOrDeferred;
+        else
+            PanelConfigPathsRestoredRight = restoredOrDeferred;
+    };
+
+    CFilesWindow* refreshPanel = NULL;
+
     if (!OpenKey(hSalamander, reg, actKey))
     {
         TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
-        CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
-        if (panel == NULL && tabs.Count > 0)
-            panel = tabs[0];
+        CFilesWindow* panel = chooseInitialPanel(tabs);
         if (panel == NULL)
-            panel = AddPanelTab(side, 0, false, false);
-
-        if (panel != NULL)
         {
-            if (panel->HWindow == NULL)
-            {
-                if (!EnsurePanelWindowCreated(panel))
-                {
-                    finalize(NULL);
-                    return;
-                }
-            }
-
-            BOOL restored = FALSE;
-            if (panelPath != NULL && panelPath[0] != 0)
-            {
-                restored = panel->ChangeDirLite(panelPath);
-                if (restored)
-                    UpdatePanelTabTitle(panel);
-            }
-
-            if (side == cpsLeft)
-                PanelConfigPathsRestoredLeft = restored;
-            else
-                PanelConfigPathsRestoredRight = restored;
-
-            if (!restored)
-                EnsurePanelPathRestored(panel);
-
-            if (side == cpsLeft)
-                LeftPanel = panel;
-            else
-                RightPanel = panel;
-
-            SwitchPanelTab(panel);
-            refreshPanel = panel;
+            finalize(NULL);
+            return;
         }
+
+        if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
+        {
+            finalize(NULL);
+            return;
+        }
+
+        panel->ApplyDeferredPanelSettings(true);
+
+        BOOL restored = FALSE;
+        if (panelPath != NULL && panelPath[0] != 0)
+        {
+            panel->SetDeferredPath(panelPath);
+            restored = RestorePanelPathFromConfig(this, panel, panelPath);
+            if (!restored)
+                panel->SetDeferredPath(panelPath);
+        }
+
+        EnsurePanelPathRestored(panel);
+
+        markRestoredFlag(restored || panel->HasDeferredPath());
+
+        if (side == cpsLeft)
+            LeftPanel = panel;
+        else
+            RightPanel = panel;
+
+        SwitchPanelTab(panel);
+
+        refreshPanel = panel->HasDeferredPath() ? panel : NULL;
         finalize(refreshPanel);
         return;
     }
 
-    if (side == cpsLeft)
-        PanelConfigPathsRestoredLeft = FALSE;
-    else
-        PanelConfigPathsRestoredRight = FALSE;
+    markRestoredFlag(FALSE);
 
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
 
     DWORD tabCountValue = 0;
     if (!GetValue(actKey, PANEL_TABCOUNT_REG, REG_DWORD, &tabCountValue, sizeof(DWORD)) || tabCountValue == 0)
     {
-        CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
+        CFilesWindow* panel = chooseInitialPanel(tabs);
         if (panel == NULL)
         {
-            panel = AddPanelTab(side, 0, false, false);
+            finalize(NULL);
+            return;
         }
 
-        if (panel != NULL)
+        char path[2 * MAX_PATH];
+        LoadPanelSettingsFromKey(panel, actKey, path, _countof(path), panel->HWindow == NULL);
+
+        if (Configuration.SaveWorkDirs)
         {
-            char path[2 * MAX_PATH];
-            LoadPanelSettingsFromKey(panel, actKey, path, _countof(path), panel->HWindow == NULL);
+            CPathHistory* history = panel->EnsureWorkDirHistory();
+            if (history != NULL)
+                history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+        }
+        else
+            panel->ClearWorkDirHistory();
 
-            if (Configuration.SaveWorkDirs)
-            {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
-            }
-            else
-                panel->ClearWorkDirHistory();
+        UpdatePanelTabColor(panel);
+        UpdatePanelTabTitle(panel);
+        if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            UpdateDirectoryLineHistoryState(panel);
 
-            UpdatePanelTabColor(panel);
-            UpdatePanelTabTitle(panel);
-            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
-                UpdateDirectoryLineHistoryState(panel);
-
-            BOOL restored = FALSE;
-            if (panel->HWindow != NULL)
-            {
-                restored = RestorePanelPathFromConfig(this, panel, path);
-                if (!restored)
-                    panel->SetDeferredPath(path);
-            }
-            else
-            {
+        BOOL restored = FALSE;
+        if (panel->HWindow != NULL)
+        {
+            restored = RestorePanelPathFromConfig(this, panel, path);
+            if (!restored)
                 panel->SetDeferredPath(path);
-            }
-
-            if (panelPath != NULL && IsDiskOrUNCPath(path))
-                lstrcpyn(panelPath, path, MAX_PATH);
-
-            BOOL restoredOrDeferred = restored || panel->HasDeferredPath();
-
-            if (side == cpsLeft)
-                PanelConfigPathsRestoredLeft = restoredOrDeferred;
-            else
-                PanelConfigPathsRestoredRight = restoredOrDeferred;
-
-            if (panel->HWindow == NULL)
-            {
-                if (!EnsurePanelWindowCreated(panel))
-                {
-                    finalize(NULL);
-                    return;
-                }
-            }
-            else
-                panel->ApplyDeferredPanelSettings(true);
-
-            if (side == cpsLeft)
-                LeftPanel = panel;
-            else
-                RightPanel = panel;
-
-            SwitchPanelTab(panel);
-            refreshPanel = panel;
+        }
+        else
+        {
+            panel->SetDeferredPath(path);
         }
 
+        if (panelPath != NULL && IsDiskOrUNCPath(path))
+            lstrcpyn(panelPath, path, MAX_PATH);
+
+        BOOL restoredOrDeferred = restored || panel->HasDeferredPath();
+        markRestoredFlag(restoredOrDeferred);
+
+        if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
+        {
+            finalize(NULL);
+            return;
+        }
+
+        panel->ApplyDeferredPanelSettings(true);
+
+        if (side == cpsLeft)
+            LeftPanel = panel;
+        else
+            RightPanel = panel;
+
+        SwitchPanelTab(panel);
+
+        refreshPanel = panel->HasDeferredPath() ? panel : NULL;
         finalize(refreshPanel);
         return;
     }
@@ -2917,23 +2916,14 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             ClosePanelTab(toClose, false);
         }
 
-        CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
-        if (panel == NULL)
-        {
-            if (tabs.Count > 0)
-                panel = tabs[0];
-            else
-                panel = AddPanelTab(side, 0, false, false);
-        }
-
+        CFilesWindow* panel = chooseInitialPanel(tabs);
         if (panel == NULL)
         {
             finalize(NULL);
             return;
         }
 
-        char path[2 * MAX_PATH];
-        path[0] = 0;
+        char path[2 * MAX_PATH] = {0};
 
         bool deferSettings = (panel->HWindow == NULL);
 
@@ -2988,21 +2978,15 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             lstrcpyn(panelPath, path, MAX_PATH);
 
         BOOL restoredOrDeferred = restored || panel->HasDeferredPath();
-        if (side == cpsLeft)
-            PanelConfigPathsRestoredLeft = restoredOrDeferred;
-        else
-            PanelConfigPathsRestoredRight = restoredOrDeferred;
+        markRestoredFlag(restoredOrDeferred);
 
-        if (panel->HWindow == NULL)
+        if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
         {
-            if (!EnsurePanelWindowCreated(panel))
-            {
-                finalize(NULL);
-                return;
-            }
+            finalize(NULL);
+            return;
         }
-        else
-            panel->ApplyDeferredPanelSettings(true);
+
+        panel->ApplyDeferredPanelSettings(true);
 
         if (side == cpsLeft)
             LeftPanel = panel;
@@ -3010,8 +2994,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             RightPanel = panel;
 
         SwitchPanelTab(panel);
-        refreshPanel = panel;
 
+        refreshPanel = panel->HasDeferredPath() ? panel : NULL;
         finalize(refreshPanel);
         return;
     }
@@ -3127,16 +3111,13 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        if (activePanel->HWindow == NULL)
+        if (activePanel->HWindow == NULL && !EnsurePanelWindowCreated(activePanel))
         {
-            if (!EnsurePanelWindowCreated(activePanel))
-            {
-                finalize(NULL);
-                return;
-            }
+            finalize(NULL);
+            return;
         }
-        else
-            activePanel->ApplyDeferredPanelSettings(true);
+
+        activePanel->ApplyDeferredPanelSettings(true);
 
         if (side == cpsLeft)
             LeftPanel = activePanel;
@@ -3144,16 +3125,15 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             RightPanel = activePanel;
 
         SwitchPanelTab(activePanel);
-        refreshPanel = activePanel;
+
+        refreshPanel = activePanel->HasDeferredPath() ? activePanel : NULL;
     }
 
-    if (side == cpsLeft)
-        PanelConfigPathsRestoredLeft = activeRestored;
-    else
-        PanelConfigPathsRestoredRight = activeRestored;
+    markRestoredFlag(activeRestored);
 
     finalize(refreshPanel);
 }
+
 
 void LoadIconOvrlsInfo(const char* root)
 {
