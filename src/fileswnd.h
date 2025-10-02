@@ -780,8 +780,6 @@ public:
 
     CMainWindow* Parent;
 
-    void ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady);
-
     struct SDeferredPanelSettings
     {
         bool Valid = false;
@@ -806,6 +804,8 @@ public:
         bool HasCustomPrefix = false;
         std::wstring CustomTabPrefix;
     };
+
+    void ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady);
 
     SDeferredPanelSettings DeferredPanelSettings;
 

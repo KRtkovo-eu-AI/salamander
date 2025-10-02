@@ -10,6 +10,7 @@
 #include "usermenu.h"
 #include "plugins.h"
 #include "fileswnd.h"
+#include "filesbox.h"
 #include "stswnd.h"
 #include "snooper.h"
 #include "zip.h"
@@ -1592,11 +1593,52 @@ void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& sett
     if (!settings.Valid)
         return;
 
+    if (!ensureWindowReady)
+    {
+        DeferredPanelSettings = settings;
+
+        if (settings.ReverseSortSet)
+            ReverseSort = settings.ReverseSort;
+
+        if (settings.SortTypeSet)
+            SortType = settings.SortType;
+
+        if (settings.FilterEnabledSet)
+            FilterEnabled = settings.FilterEnabled;
+
+        if (settings.FilterMasksSet)
+        {
+            if (!settings.FilterMasks.empty())
+                Filter.SetMasksString(settings.FilterMasks.c_str());
+            else
+                Filter.SetMasksString("*.*");
+        }
+
+        if (settings.HasCustomColor)
+            SetCustomTabColor(settings.CustomTabColor);
+        else
+            ClearCustomTabColor();
+
+        if (settings.HasCustomPrefix)
+            SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
+        else
+            ClearCustomTabPrefix();
+
+        if (settings.HeaderLineSet)
+            HeaderLineVisible = settings.HeaderLineVisible;
+        if (settings.DirectoryLineSet)
+            DirectoryLineVisible = settings.DirectoryLineVisible;
+        if (settings.StatusLineSet)
+            StatusLineVisible = settings.StatusLineVisible;
+
+        return;
+    }
+
     if (settings.ViewTemplateSet)
         SelectViewTemplate(settings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
 
     if (settings.ReverseSortSet)
-        ReverseSort = settings.ReverseSort != FALSE;
+        ReverseSort = settings.ReverseSort;
 
     if (settings.SortTypeSet)
         SortType = settings.SortType;
@@ -1633,51 +1675,45 @@ void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& sett
     if (settings.HeaderLineSet)
     {
         HeaderLineVisible = settings.HeaderLineVisible;
-        if (ensureWindowReady && ListBox != NULL)
+        if (ListBox != NULL)
             ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, HeaderLineVisible);
     }
 
-    if (ensureWindowReady)
+    if (settings.DirectoryLineSet && DirectoryLine != NULL)
     {
-        if (settings.DirectoryLineSet)
-        {
-            bool desired = settings.DirectoryLineVisible != FALSE;
-            bool current = DirectoryLine->HWindow != NULL;
-            if (desired != current)
-                ToggleDirectoryLine();
-            DirectoryLineVisible = desired;
-        }
-        else
-            DirectoryLineVisible = DirectoryLine->HWindow != NULL;
-
-        if (settings.StatusLineSet)
-        {
-            bool desired = settings.StatusLineVisible != FALSE;
-            bool current = StatusLine->HWindow != NULL;
-            if (desired != current)
-                ToggleStatusLine();
-            StatusLineVisible = desired;
-        }
-        else
-            StatusLineVisible = StatusLine->HWindow != NULL;
+        BOOL desired = settings.DirectoryLineVisible;
+        BOOL current = DirectoryLine->HWindow != NULL ? TRUE : FALSE;
+        if (desired != current)
+            ToggleDirectoryLine();
+        DirectoryLineVisible = desired;
     }
-    else
+    else if (DirectoryLine != NULL)
     {
-        if (settings.DirectoryLineSet)
-            DirectoryLineVisible = settings.DirectoryLineVisible;
-        if (settings.StatusLineSet)
-            StatusLineVisible = settings.StatusLineVisible;
+        DirectoryLineVisible = DirectoryLine->HWindow != NULL ? TRUE : FALSE;
+    }
+
+    if (settings.StatusLineSet && StatusLine != NULL)
+    {
+        BOOL desired = settings.StatusLineVisible;
+        BOOL current = StatusLine->HWindow != NULL ? TRUE : FALSE;
+        if (desired != current)
+            ToggleStatusLine();
+        StatusLineVisible = desired;
+    }
+    else if (StatusLine != NULL)
+    {
+        StatusLineVisible = StatusLine->HWindow != NULL ? TRUE : FALSE;
     }
 }
 
 void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)
 {
-    if (!DeferredPanelSettings.Valid)
+    if (!DeferredPanelSettings.Valid || !ensureWindowReady)
         return;
 
     SDeferredPanelSettings snapshot = DeferredPanelSettings;
     DeferredPanelSettings = SDeferredPanelSettings();
-    ApplyPanelSettingsSnapshot(snapshot, ensureWindowReady);
+    ApplyPanelSettingsSnapshot(snapshot, true);
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()
