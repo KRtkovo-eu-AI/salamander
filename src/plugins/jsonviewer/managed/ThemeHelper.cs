@@ -115,11 +115,6 @@ namespace EPocalipse.Json.Viewer
                     textBox.ForeColor = palette.InputForeground;
                     textBox.BorderStyle = BorderStyle.FixedSingle;
                     break;
-                case RichTextBox richText:
-                    richText.BackColor = palette.InputBackground;
-                    richText.ForeColor = palette.InputForeground;
-                    richText.BorderStyle = BorderStyle.FixedSingle;
-                    break;
                 case ComboBox comboBox:
                     comboBox.BackColor = palette.InputBackground;
                     comboBox.ForeColor = palette.InputForeground;
@@ -143,11 +138,11 @@ namespace EPocalipse.Json.Viewer
                 case DataGridView dataGrid:
                     ApplyToDataGridView(dataGrid, palette);
                     break;
-                case ToolStrip toolStrip:
-                    ThemeRenderer.Attach(toolStrip, palette);
-                    break;
                 case ContextMenuStrip menu:
                     ThemeRenderer.Attach(menu, palette);
+                    break;
+                case ToolStrip toolStrip when toolStrip is not ContextMenuStrip:
+                    ThemeRenderer.Attach(toolStrip, palette);
                     break;
                 case TabControl tabControl:
                     ApplyToTabControl(tabControl, palette);
