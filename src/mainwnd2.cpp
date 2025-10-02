@@ -2957,20 +2957,88 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         char path[2 * MAX_PATH];
         path[0] = 0;
 
+        bool isActive = (i == activeIndex);
         if (tabKey != NULL)
         {
-            bool isActive = (i == activeIndex);
-            LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), !isActive);
-
-            if (Configuration.SaveWorkDirs && isActive)
+            if (isActive)
             {
-                CPathHistory* history = panel->EnsureWorkDirHistory();
-                if (history != NULL)
-                    history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), false);
+
+                if (Configuration.SaveWorkDirs)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                }
+                else
+                {
+                    panel->ClearWorkDirHistory();
+                }
             }
             else
             {
+                GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+
                 panel->ClearWorkDirHistory();
+
+                DWORD lockedValue = 0;
+                if (GetValue(tabKey, PANEL_TABLOCKED_REG, REG_DWORD, &lockedValue, sizeof(DWORD)))
+                    panel->SetTabLocked(lockedValue != 0);
+                else
+                    panel->SetTabLocked(false);
+
+                DWORD colorValue = 0;
+                if (GetValue(tabKey, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
+                    panel->SetCustomTabColor((COLORREF)colorValue);
+                else
+                    panel->ClearCustomTabColor();
+
+                DWORD prefixSize = 0;
+                if (GetSize(tabKey, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
+                {
+                    std::vector<char> buffer(prefixSize);
+                    if (GetValue(tabKey, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), prefixSize))
+                    {
+                        int needed = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, NULL, 0);
+                        if (needed > 0)
+                        {
+                            std::wstring prefix(needed - 1, L'\0');
+                            int written = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, &prefix[0], needed);
+                            if (written > 0)
+                            {
+                                prefix.resize(written - 1);
+                                if (!prefix.empty())
+                                    panel->SetCustomTabPrefix(prefix.c_str());
+                                else
+                                    panel->ClearCustomTabPrefix();
+                            }
+                            else
+                            {
+                                panel->ClearCustomTabPrefix();
+                            }
+                        }
+                        else
+                        {
+                            panel->ClearCustomTabPrefix();
+                        }
+                    }
+                    else
+                    {
+                        panel->ClearCustomTabPrefix();
+                    }
+                }
+                else
+                {
+                    panel->ClearCustomTabPrefix();
+                }
+
+                std::string relativePath = reg;
+                if (tabKey != actKey)
+                {
+                    relativePath.append("\\");
+                    relativePath.append(tabKeyName);
+                }
+                panel->SetDeferredRegistrySettingsPath(relativePath.c_str());
             }
         }
         else
@@ -2982,7 +3050,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         }
 
         panel->ClearDeferredPath();
-        if (i == activeIndex)
+        if (isActive)
         {
             BOOL restored = RestorePanelPathFromConfig(this, panel, path);
             if (!restored)
@@ -2998,7 +3066,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
         UpdatePanelTabColor(panel);
         UpdatePanelTabTitle(panel);
-        if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+        if (Configuration.WorkDirsHistoryScope == wdhsPerTab && isActive)
             UpdateDirectoryLineHistoryState(panel);
 
         if (closeTabKey)
