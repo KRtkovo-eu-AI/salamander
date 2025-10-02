@@ -109,7 +109,29 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate
     }
 
     if (activate)
+    {
         SwitchPanelTab(panel);
+    }
+    else
+    {
+        CTabWindow* tabWnd = GetPanelTabWindow(side);
+        if (tabWnd != NULL && tabWnd->HWindow != NULL)
+        {
+            int currentSel = tabWnd->GetCurSel();
+            bool needsSelection = (currentSel < 0);
+            if (!needsSelection)
+            {
+                LPARAM selData = tabWnd->GetItemData(currentSel);
+                needsSelection = (selData == (LPARAM)-1);
+            }
+            if (needsSelection)
+            {
+                int index = GetPanelTabIndex(side, panel);
+                if (index >= 0)
+                    tabWnd->SetCurSel(index);
+            }
+        }
+    }
     return panel;
 }
 

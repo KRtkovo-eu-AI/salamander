@@ -1733,6 +1733,96 @@ void CMainWindow::SetTrayIconText(const char* text)
     Shell_NotifyIcon(NIM_MODIFY, &tnid);
 }
 
+static void FormatPathStringForMode(const char* path, int mode, char* buffer, int bufferSize)
+{
+    if (buffer == NULL || bufferSize <= 0)
+        return;
+
+    buffer[0] = 0;
+    if (path == NULL || path[0] == 0)
+        return;
+
+    if (mode == TITLE_BAR_MODE_DIRECTORY)
+    {
+        const char* lastBackslash = strrchr(path, '\\');
+        const char* lastSlash = strrchr(path, '/');
+        if (lastSlash != NULL && (lastBackslash == NULL || lastSlash > lastBackslash))
+            lastBackslash = lastSlash;
+        const char* lastColon = strrchr(path, ':');
+        const char* segment = lastBackslash;
+        if (lastColon != NULL && (segment == NULL || lastColon > segment))
+            segment = lastColon;
+        if (segment != NULL && *(segment + 1) != 0)
+            segment++;
+        else if (segment == NULL)
+            segment = path;
+        else
+            segment = path;
+        lstrcpyn(buffer, segment, bufferSize);
+        return;
+    }
+
+    if (mode == TITLE_BAR_MODE_COMPOSITE)
+    {
+        int len = (int)strlen(path);
+        if (len < bufferSize)
+        {
+            memcpy(buffer, path, len);
+            buffer[len] = 0;
+            return;
+        }
+
+        if (bufferSize <= 1)
+        {
+            buffer[0] = 0;
+            return;
+        }
+
+        int startLen = 3;
+        if (startLen > len)
+            startLen = len;
+
+        int remaining = bufferSize - 1; // reserve space for terminator
+        if (startLen > remaining)
+            startLen = remaining;
+
+        int maxEnd = len - startLen;
+        int ellipsisLen = 3;
+        if (ellipsisLen > remaining - startLen)
+            ellipsisLen = remaining - startLen;
+        if (ellipsisLen < 0)
+            ellipsisLen = 0;
+
+        int endLen = remaining - startLen - ellipsisLen;
+        if (endLen > maxEnd)
+            endLen = maxEnd;
+        if (endLen < 0)
+            endLen = 0;
+
+        char* out = buffer;
+        if (startLen > 0)
+        {
+            memcpy(out, path, startLen);
+            out += startLen;
+        }
+        if (ellipsisLen > 0)
+        {
+            const char ellipsis[] = "...";
+            memcpy(out, ellipsis, ellipsisLen);
+            out += ellipsisLen;
+        }
+        if (endLen > 0)
+        {
+            memcpy(out, path + len - endLen, endLen);
+            out += endLen;
+        }
+        *out = 0;
+        return;
+    }
+
+    lstrcpyn(buffer, path, bufferSize);
+}
+
 void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char* buffer, int bufferSize)
 {
     if (buffer == NULL || bufferSize <= 0)
@@ -1745,6 +1835,12 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
 
     if (mode < TITLE_BAR_MODE_DIRECTORY || mode > TITLE_BAR_MODE_FULLPATH)
         mode = TITLE_BAR_MODE_DIRECTORY;
+
+    if (panel->HWindow == NULL && panel->HasDeferredPath())
+    {
+        FormatPathStringForMode(panel->GetDeferredPath(), mode, buffer, bufferSize);
+        return;
+    }
 
     CPluginFSInterfaceEncapsulation* pluginFS = NULL;
     BOOL pluginTitleService = FALSE;
