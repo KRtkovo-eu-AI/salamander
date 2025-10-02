@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="PrismSharp" Version="1.0.0-beta" />
+    <PackageReference Include="PrismSharp" Version="1.0.0-beta" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
