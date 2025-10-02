@@ -749,6 +749,7 @@ public:
     BOOL ICSleep;                         // TRUE -> leave the icon-reading loop
     BOOL ICWorking;                       // TRUE -> inside the icon-reading loop
     BOOL ICStopWork;                      // TRUE -> do not even start the icon-reading loop
+    bool HeavyInitializationDone;         // TRUE once thread/icon infrastructure has been created
     CRITICAL_SECTION ICSleepSection;      // critical section -> sleep-icon-thread must pass through it
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
@@ -960,8 +961,15 @@ public:
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent, CPanelSide side);
+    CFilesWindow(CMainWindow* parent, CPanelSide side, bool initializeHeavyInfrastructure = true);
     ~CFilesWindow();
+
+    void EnsureHeavyInitialization();
+    bool HasIconInfrastructure() const
+    {
+        return IconCacheThread != NULL && ICEventWork != NULL && ICEventTerminate != NULL;
+    }
+    bool IsHeavyInitializationDone() const { return HeavyInitializationDone; }
 
     CPanelSide GetPanelSide() const { return PanelSide; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }

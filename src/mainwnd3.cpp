@@ -94,10 +94,11 @@ namespace
     constexpr size_t kMaxStoredClosedTabs = 10;
 }
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate,
+                                      bool initializeHeavyInfrastructure)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
-    CFilesWindow* panel = new CFilesWindow(this, side);
+    CFilesWindow* panel = new CFilesWindow(this, side, initializeHeavyInfrastructure);
     if (panel == NULL)
         return NULL;
 
@@ -118,6 +119,8 @@ bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
         return false;
     if (panel->HWindow != NULL)
         return true;
+
+    panel->EnsureHeavyInitialization();
 
     DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     if (!panel->Create(CWINDOW_CLASSNAME2, "",
