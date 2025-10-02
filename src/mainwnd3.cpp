@@ -134,6 +134,7 @@ bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
     }
 
     ShowWindow(panel->HWindow, SW_HIDE);
+    panel->ApplyDeferredSettings();
     return true;
 }
 
@@ -9019,6 +9020,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 CFilesWindow* panel = panels[i];
                 BOOL detachFS;
+                if (panel->HWindow == NULL)
+                {
+                    detachFlags[i] = FALSE;
+                    continue;
+                }
                 if (!panel->PrepareCloseCurrentPath(shutdown ? analysing.HWindow : panel->HWindow, TRUE, FALSE, detachFS,
                                                     FSTRYCLOSE_UNLOADCLOSEFS /* zbytecne - pluginy (i FS) uz jsou unloadle */))
                 {
@@ -9045,11 +9051,14 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             for (int i = 0; i < panels.Count; i++)
             {
                 CFilesWindow* panel = panels[i];
+                if (panel->HWindow == NULL)
+                    continue;
                 if (panel->UseSystemIcons || panel->UseThumbnails)
                     panel->SleepIconCacheThread();
                 panel->CloseCurrentPath(shutdown ? analysing.HWindow : panel->HWindow, FALSE, detachFlags[i], FALSE, FALSE, TRUE);
 
-                panel->ListBox->SetItemsCount(0, 0, 0, TRUE);
+                if (panel->ListBox != NULL)
+                    panel->ListBox->SetItemsCount(0, 0, 0, TRUE);
                 panel->SelectedCount = 0;
                 PostMessage(panel->HWindow, WM_USER_UPDATEPANEL, 0, 0);
             }

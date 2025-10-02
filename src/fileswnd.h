@@ -716,6 +716,44 @@ enum CViewModeEnum;
 class CFilesWindow : public CFilesWindowAncestor
 {
 public:
+    struct SDeferredSettings
+    {
+        bool HasViewTemplate;
+        int ViewTemplateIndex;
+        bool HasStatusLine;
+        BOOL StatusLineVisible;
+        bool HasDirectoryLine;
+        BOOL DirectoryLineVisible;
+        bool HasHeaderLine;
+        BOOL HeaderLineVisible;
+        bool NeedsFilterSymbolUpdate;
+
+        SDeferredSettings()
+            : HasViewTemplate(false), ViewTemplateIndex(0), HasStatusLine(false), StatusLineVisible(TRUE),
+              HasDirectoryLine(false), DirectoryLineVisible(TRUE), HasHeaderLine(false), HeaderLineVisible(TRUE),
+              NeedsFilterSymbolUpdate(false)
+        {
+        }
+
+        void Clear()
+        {
+            HasViewTemplate = false;
+            ViewTemplateIndex = 0;
+            HasStatusLine = false;
+            StatusLineVisible = TRUE;
+            HasDirectoryLine = false;
+            DirectoryLineVisible = TRUE;
+            HasHeaderLine = false;
+            HeaderLineVisible = TRUE;
+            NeedsFilterSymbolUpdate = false;
+        }
+
+        bool HasAny() const
+        {
+            return HasViewTemplate || HasStatusLine || HasDirectoryLine || HasHeaderLine || NeedsFilterSymbolUpdate;
+        }
+    };
+
     const char* PeekDeferredStartupPath() const
     {
         return HasDeferredStartupPath ? DeferredStartupPath : NULL;
@@ -723,6 +761,13 @@ public:
     void SetDeferredStartupPath(const char* path);
     BOOL ConsumeDeferredStartupPath(char* buffer, int bufferSize);
     void ClearDeferredStartupPath();
+    void SetPendingViewTemplate(int templateIndex);
+    void SetPendingStatusLineVisible(BOOL visible);
+    void SetPendingDirectoryLineVisible(BOOL visible);
+    void SetPendingHeaderLineVisible(BOOL visible);
+    void SetPendingFilterSymbolUpdate();
+    void SetPendingFilterMask(const char* filter, BOOL enabled);
+    void ApplyDeferredSettings();
     CViewTemplate* ViewTemplate;            // pointer to the template defining mode, name and visibility
                                             // of the standard Salamander columns VIEW_SHOW_xxxx
     BOOL NarrowedNameColumn;                // TRUE = Name column smart mode is enabled and it had to be narrowed
@@ -857,6 +902,9 @@ public:
 
     CMaskGroup Filter;  // filter for the panel
     BOOL FilterEnabled; // is the filter enabled
+    bool HasDeferredFilterMask;
+    BOOL DeferredFilterEnabled;
+    char DeferredFilterString[MAX_PATH];
 
     BOOL QuickSearchMode;           // Quick Search mode?
     short CaretHeight;              // it is set when measuring the font in CFilesWindow
@@ -917,6 +965,8 @@ public:
     CVisibleItemsArray VisibleItemsArraySurround; // array of items adjacent to the visible part of the panel
 
     BOOL TemporarilySimpleIcons; // use simple icons until the next ReadDirectory()
+
+    SDeferredSettings DeferredSettings;
 
     int NumberOfItemsInCurDir; // only for ptDisk: number of items returned by FindFirstFile+FindNextFile for the current path (used to detect changes on network and unmonitored paths when dropping to the panel via Explorer)
 

@@ -1452,13 +1452,27 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             lstrcpyn(pathBuffer, path, pathBufferSize);
 
         DWORD value;
+        BOOL headerBefore = panel->HeaderLineVisible;
         if (GetValue(key, PANEL_HEADER_REG, REG_DWORD, &value, sizeof(DWORD)))
-            panel->HeaderLineVisible = value;
+        {
+            BOOL desired = value;
+            panel->HeaderLineVisible = desired;
+            if (panel->HWindow != NULL && panel->ListBox != NULL)
+            {
+                if (!!headerBefore != !!desired)
+                    panel->ToggleHeaderLine();
+            }
+            else
+                panel->SetPendingHeaderLineVisible(desired);
+        }
         if (GetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD)))
         {
             if (Configuration.ConfigVersion < 13 && !value)
                 value = 2;
-            panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            if (panel->HWindow != NULL && panel->ListBox != NULL)
+                panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+            else
+                panel->SetPendingViewTemplate(value);
         }
         if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
             panel->ReverseSort = value;
@@ -1469,11 +1483,31 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             panel->SortType = (CSortType)value;
         }
         if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->DirectoryLine->HWindow != NULL))
-                panel->ToggleDirectoryLine();
+        {
+            BOOL desired = value;
+            panel->DirectoryLineVisible = desired;
+            if (panel->HWindow != NULL && panel->DirectoryLine != NULL)
+            {
+                BOOL currentVisible = panel->DirectoryLine->HWindow != NULL;
+                if (!!currentVisible != !!desired)
+                    panel->ToggleDirectoryLine();
+            }
+            else
+                panel->SetPendingDirectoryLineVisible(desired);
+        }
         if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->StatusLine->HWindow != NULL))
-                panel->ToggleStatusLine();
+        {
+            BOOL desired = value;
+            panel->StatusLineVisible = desired;
+            if (panel->HWindow != NULL && panel->StatusLine != NULL)
+            {
+                BOOL currentVisible = panel->StatusLine->HWindow != NULL;
+                if (!!currentVisible != !!desired)
+                    panel->ToggleStatusLine();
+            }
+            else
+                panel->SetPendingStatusLineVisible(desired);
+        }
         GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
 
         char filter[MAX_PATH];
@@ -1501,15 +1535,29 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
             else
                 panel->FilterEnabled = FALSE;
         }
-        if (filter[0] != 0)
-            panel->Filter.SetMasksString(filter);
-
-        panel->UpdateFilterSymbol();
-        int errPos;
-        if (!panel->Filter.PrepareMasks(errPos))
+        if (panel->HWindow != NULL)
         {
-            panel->Filter.SetMasksString("*.*");
-            panel->Filter.PrepareMasks(errPos);
+            if (filter[0] != 0)
+                panel->Filter.SetMasksString(filter);
+            else
+                panel->Filter.SetMasksString("*.*");
+
+            if (panel->DirectoryLine != NULL && panel->DirectoryLine->HWindow != NULL)
+                panel->UpdateFilterSymbol();
+            else
+                panel->SetPendingFilterSymbolUpdate();
+
+            int errPos;
+            if (!panel->Filter.PrepareMasks(errPos))
+            {
+                panel->Filter.SetMasksString("*.*");
+                panel->Filter.PrepareMasks(errPos);
+            }
+        }
+        else
+        {
+            panel->SetPendingFilterMask(filter, panel->FilterEnabled);
+            panel->SetPendingFilterSymbolUpdate();
         }
     }
 

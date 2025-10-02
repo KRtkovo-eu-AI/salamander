@@ -1321,6 +1321,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     UserWorkedOnThisPath = FALSE;
     HasDeferredStartupPath = FALSE;
     DeferredStartupPath[0] = 0;
+    DeferredSettings.Clear();
 
     UnpackedAssocFiles.SetPanel(this);
     QuickRenameWindow.SetPanel(this);
@@ -1412,6 +1413,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     Filter.SetMasksString("*.*");
     int errPos;
     Filter.PrepareMasks(errPos);
+    HasDeferredFilterMask = false;
+    DeferredFilterEnabled = FALSE;
+    DeferredFilterString[0] = 0;
 
     QuickSearchMode = FALSE;
     CaretHeight = 1; // dummy
@@ -1592,6 +1596,139 @@ void CFilesWindow::ClearDeferredStartupPath()
 {
     DeferredStartupPath[0] = 0;
     HasDeferredStartupPath = FALSE;
+}
+
+void CFilesWindow::SetPendingViewTemplate(int templateIndex)
+{
+    if (templateIndex <= 0)
+        return;
+    DeferredSettings.HasViewTemplate = true;
+    DeferredSettings.ViewTemplateIndex = templateIndex;
+}
+
+void CFilesWindow::SetPendingStatusLineVisible(BOOL visible)
+{
+    DeferredSettings.HasStatusLine = true;
+    DeferredSettings.StatusLineVisible = visible;
+}
+
+void CFilesWindow::SetPendingDirectoryLineVisible(BOOL visible)
+{
+    DeferredSettings.HasDirectoryLine = true;
+    DeferredSettings.DirectoryLineVisible = visible;
+}
+
+void CFilesWindow::SetPendingHeaderLineVisible(BOOL visible)
+{
+    DeferredSettings.HasHeaderLine = true;
+    DeferredSettings.HeaderLineVisible = visible;
+}
+
+void CFilesWindow::SetPendingFilterSymbolUpdate()
+{
+    DeferredSettings.NeedsFilterSymbolUpdate = true;
+}
+
+void CFilesWindow::SetPendingFilterMask(const char* filter, BOOL enabled)
+{
+    if (filter != NULL && filter[0] != 0)
+        lstrcpyn(DeferredFilterString, filter, _countof(DeferredFilterString));
+    else
+        DeferredFilterString[0] = 0;
+
+    DeferredFilterEnabled = enabled;
+    HasDeferredFilterMask = true;
+}
+
+void CFilesWindow::ApplyDeferredSettings()
+{
+    if (HWindow == NULL)
+        return;
+
+    if (!DeferredSettings.HasAny())
+        goto applyFilter;
+
+    if (DeferredSettings.HasViewTemplate)
+    {
+        SelectViewTemplate(DeferredSettings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+    }
+
+    if (DeferredSettings.HasStatusLine)
+    {
+        BOOL desired = DeferredSettings.StatusLineVisible;
+        if (StatusLine != NULL)
+        {
+            BOOL currentlyVisible = StatusLine->HWindow != NULL;
+            if (!!currentlyVisible != !!desired)
+                ToggleStatusLine();
+        }
+        StatusLineVisible = desired;
+    }
+
+    if (DeferredSettings.HasDirectoryLine)
+    {
+        BOOL desired = DeferredSettings.DirectoryLineVisible;
+        if (DirectoryLine != NULL)
+        {
+            BOOL currentlyVisible = DirectoryLine->HWindow != NULL;
+            if (!!currentlyVisible != !!desired)
+                ToggleDirectoryLine();
+        }
+        DirectoryLineVisible = desired;
+    }
+
+    if (DeferredSettings.HasHeaderLine)
+    {
+        BOOL desired = DeferredSettings.HeaderLineVisible;
+        if (ListBox != NULL)
+        {
+            BOOL currentlyVisible = HeaderLineVisible;
+            if (!!currentlyVisible != !!desired)
+                ToggleHeaderLine();
+        }
+        HeaderLineVisible = desired;
+    }
+
+    bool pendingFilterSymbolUpdate = DeferredSettings.NeedsFilterSymbolUpdate;
+    bool filterSymbolUpdated = false;
+
+    if (pendingFilterSymbolUpdate && DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+    {
+        UpdateFilterSymbol();
+        filterSymbolUpdated = true;
+    }
+
+    DeferredSettings.Clear();
+    if (pendingFilterSymbolUpdate && !filterSymbolUpdated)
+        DeferredSettings.NeedsFilterSymbolUpdate = true;
+
+applyFilter:
+    if (HasDeferredFilterMask)
+    {
+        if (DeferredFilterString[0] != 0)
+            Filter.SetMasksString(DeferredFilterString);
+        else
+            Filter.SetMasksString("*.*");
+
+        FilterEnabled = DeferredFilterEnabled;
+
+        int errPos;
+        if (!Filter.PrepareMasks(errPos))
+        {
+            Filter.SetMasksString("*.*");
+            Filter.PrepareMasks(errPos);
+        }
+
+        if (!filterSymbolUpdated && DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+        {
+            UpdateFilterSymbol();
+            filterSymbolUpdated = true;
+            DeferredSettings.NeedsFilterSymbolUpdate = false;
+        }
+
+        HasDeferredFilterMask = false;
+        DeferredFilterString[0] = 0;
+    }
 }
 
 void CFilesWindow::ClearWorkDirHistory()
