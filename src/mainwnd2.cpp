@@ -2753,7 +2753,27 @@ void CMainWindow::SaveConfig(HWND parent)
 
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
-    HKEY actKey;
+    HKEY actKey = NULL;
+    CFilesWindow* refreshPanel = NULL;
+
+    bool prevRestoring = RestoringPanelConfig;
+    RestoringPanelConfig = TRUE;
+
+    auto finalize = [&](CFilesWindow* panelToRefresh) {
+        if (actKey != NULL)
+        {
+            CloseKey(actKey);
+            actKey = NULL;
+        }
+
+        RestoringPanelConfig = prevRestoring;
+        if (!RestoringPanelConfig && panelToRefresh != NULL)
+        {
+            bool refreshActive = (panelToRefresh == GetActivePanel());
+            EnsurePanelRefreshAndRequest(panelToRefresh, refreshActive, true);
+        }
+    };
+
     if (!OpenKey(hSalamander, reg, actKey))
     {
         TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
@@ -2766,7 +2786,13 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (panel != NULL)
         {
             if (panel->HWindow == NULL)
-                EnsurePanelWindowCreated(panel);
+            {
+                if (!EnsurePanelWindowCreated(panel))
+                {
+                    finalize(NULL);
+                    return;
+                }
+            }
 
             BOOL restored = FALSE;
             if (panelPath != NULL && panelPath[0] != 0)
@@ -2789,16 +2815,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             else
                 RightPanel = panel;
 
-            CTabWindow* tabWnd = GetPanelTabWindow(side);
-            if (tabWnd != NULL && tabWnd->HWindow != NULL)
-            {
-                int index = GetPanelTabIndex(side, panel);
-                if (index >= 0)
-                    tabWnd->SetCurSel(index);
-            }
-
-            UpdatePanelTabVisibility(side);
+            SwitchPanelTab(panel);
+            refreshPanel = panel;
         }
+        finalize(refreshPanel);
         return;
     }
 
@@ -2863,8 +2883,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             {
                 if (!EnsurePanelWindowCreated(panel))
                 {
-                    UpdatePanelTabVisibility(side);
-                    CloseKey(actKey);
+                    finalize(NULL);
                     return;
                 }
             }
@@ -2876,23 +2895,11 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             else
                 RightPanel = panel;
 
-            CTabWindow* tabWnd = GetPanelTabWindow(side);
-            if (tabWnd != NULL && tabWnd->HWindow != NULL)
-            {
-                int index = GetPanelTabIndex(side, panel);
-                if (index >= 0)
-                    tabWnd->SetCurSel(index);
-            }
-
-            if (UsingSharedWorkDirHistory())
-                UpdateAllDirectoryLineHistoryStates();
-            else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
-                UpdateDirectoryLineHistoryState(panel);
-
-            UpdatePanelTabVisibility(side);
+            SwitchPanelTab(panel);
+            refreshPanel = panel;
         }
 
-        CloseKey(actKey);
+        finalize(refreshPanel);
         return;
     }
 
@@ -2921,7 +2928,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
         if (panel == NULL)
         {
-            CloseKey(actKey);
+            finalize(NULL);
             return;
         }
 
@@ -2990,8 +2997,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         {
             if (!EnsurePanelWindowCreated(panel))
             {
-                UpdatePanelTabVisibility(side);
-                CloseKey(actKey);
+                finalize(NULL);
                 return;
             }
         }
@@ -3003,25 +3009,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             RightPanel = panel;
 
-        if (UsingSharedWorkDirHistory())
-            UpdateAllDirectoryLineHistoryStates();
-        else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
-            UpdateDirectoryLineHistoryState(panel);
+        SwitchPanelTab(panel);
+        refreshPanel = panel;
 
-        if (Configuration.UsePanelTabs)
-        {
-            CTabWindow* tabWnd = GetPanelTabWindow(side);
-            if (tabWnd != NULL && tabWnd->HWindow != NULL)
-            {
-                int index = GetPanelTabIndex(side, panel);
-                if (index >= 0)
-                    tabWnd->SetCurSel(index);
-            }
-        }
-
-        UpdatePanelTabVisibility(side);
-
-        CloseKey(actKey);
+        finalize(refreshPanel);
         return;
     }
 
@@ -3029,7 +3020,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     {
         if (AddPanelTab(side, 0, false, false) == NULL)
         {
-            CloseKey(actKey);
+            finalize(NULL);
             return;
         }
     }
@@ -3140,8 +3131,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         {
             if (!EnsurePanelWindowCreated(activePanel))
             {
-                UpdatePanelTabVisibility(side);
-                CloseKey(actKey);
+                finalize(NULL);
                 return;
             }
         }
@@ -3153,25 +3143,16 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         else
             RightPanel = activePanel;
 
-        if (UsingSharedWorkDirHistory())
-            UpdateAllDirectoryLineHistoryStates();
-        else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
-            UpdateDirectoryLineHistoryState(activePanel);
-
-        int sel = GetPanelTabIndex(side, activePanel);
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
-        if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
-            tabWnd->SetCurSel(sel);
+        SwitchPanelTab(activePanel);
+        refreshPanel = activePanel;
     }
-
-    UpdatePanelTabVisibility(side);
 
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = activeRestored;
     else
         PanelConfigPathsRestoredRight = activeRestored;
 
-    CloseKey(actKey);
+    finalize(refreshPanel);
 }
 
 void LoadIconOvrlsInfo(const char* root)
