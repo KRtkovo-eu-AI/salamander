@@ -16,6 +16,10 @@
     <PackageReference Include="ColorfulCode" Version="1.0.0-preview1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\\..\\..\\..\\src\\res\\viewer.ico" Link="Resources\\viewer.ico" />
+  </ItemGroup>
+
   <Target Name="EnsureRestoreBeforeBuild"
           BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
           Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">

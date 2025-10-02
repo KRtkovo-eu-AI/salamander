@@ -2,3 +2,4 @@ LIBRARY JSONVIEWER.SPL
 
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
+EXPORTS JsonViewer_GetCurrentColor

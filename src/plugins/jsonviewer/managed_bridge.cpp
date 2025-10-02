@@ -203,7 +203,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
     {
         wchar_t message[256];
         StringCchPrintfW(message, _countof(message), L"Failed to execute managed command '%s' (0x%08X).", command, hr);
-        MessageBoxW(parent, message, L"JSON Viewer Plugin", MB_ICONERROR | MB_OK);
+        MessageBoxW(parent, message, L"JSON Viewer .NET Plugin", MB_ICONERROR | MB_OK);
         return false;
     }
 
@@ -212,7 +212,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
 
 void ShowLoadError(HWND parent, const wchar_t* text)
 {
-    MessageBoxW(parent, text, L"JSON Viewer Plugin", MB_ICONERROR | MB_OK);
+    MessageBoxW(parent, text, L"JSON Viewer .NET Plugin", MB_ICONERROR | MB_OK);
 }
 
 } // namespace
@@ -349,4 +349,14 @@ bool ManagedBridge_ViewJsonFile(HWND parent, const char* filePath, const RECT& p
 
     const wchar_t* command = asynchronous ? L"View" : L"ViewSync";
     return ExecuteCommand(command, parent, payload.c_str());
+}
+
+extern "C" __declspec(dllexport) UINT32 __stdcall JsonViewer_GetCurrentColor(int color)
+{
+    if (SalamanderGeneral == nullptr)
+    {
+        return 0;
+    }
+
+    return SalamanderGeneral->GetCurrentColor(color);
 }

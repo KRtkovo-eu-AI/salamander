@@ -29,6 +29,20 @@ namespace EPocalipse.Json.Viewer
         public JsonViewer()
         {
             InitializeComponent();
+            Margin = System.Windows.Forms.Padding.Empty;
+            Padding = System.Windows.Forms.Padding.Empty;
+            tabControl.Margin = System.Windows.Forms.Padding.Empty;
+            tabControl.Padding = System.Drawing.Point.Empty;
+            pageTreeView.Margin = System.Windows.Forms.Padding.Empty;
+            pageTreeView.Padding = System.Windows.Forms.Padding.Empty;
+            pageTextView.Margin = System.Windows.Forms.Padding.Empty;
+            pageTextView.Padding = System.Windows.Forms.Padding.Empty;
+            spcViewer.Margin = System.Windows.Forms.Padding.Empty;
+            spcViewer.Padding = System.Windows.Forms.Padding.Empty;
+            pnlVisualizer.Margin = System.Windows.Forms.Padding.Empty;
+            pnlVisualizer.Padding = System.Windows.Forms.Padding.Empty;
+            pnlFind.Margin = System.Windows.Forms.Padding.Empty;
+            pnlFind.Padding = System.Windows.Forms.Padding.Empty;
             try
             {
                 _pluginsManager.Initialize();
@@ -265,7 +279,16 @@ namespace EPocalipse.Json.Viewer
 
         private void txtFind_TextChanged( object sender, EventArgs e )
         {
-            txtFind.BackColor = SystemColors.Window;
+            if (ThemeHelper.TryGetPalette(out var palette))
+            {
+                txtFind.BackColor = palette.InputBackground;
+                txtFind.ForeColor = palette.InputForeground;
+            }
+            else
+            {
+                txtFind.BackColor = SystemColors.Window;
+                txtFind.ForeColor = SystemColors.WindowText;
+            }
             FindNext( true, true );
         }
 
@@ -277,7 +300,18 @@ namespace EPocalipse.Json.Viewer
         public void FindNext( bool includeSelected, bool fromUI )
         {
             if( !FindNext( includeSelected ) && fromUI )
-                txtFind.BackColor = Color.LightCoral;
+            {
+                if (ThemeHelper.TryGetPalette(out var palette))
+                {
+                    txtFind.BackColor = palette.AccentEmphasis;
+                    txtFind.ForeColor = palette.HighlightForeground;
+                }
+                else
+                {
+                    txtFind.BackColor = Color.LightCoral;
+                    txtFind.ForeColor = SystemColors.WindowText;
+                }
+            }
         }
 
         public bool FindNext( string text, bool includeSelected )
