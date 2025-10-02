@@ -2813,10 +2813,90 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
 
     DWORD storedTabCount = 0;
-    bool hasStoredTabs = GetValue(actKey, PANEL_TABCOUNT_REG, REG_DWORD, &storedTabCount, sizeof(DWORD)) &&
-                         storedTabCount > 1 && Configuration.UsePanelTabs;
+    bool hasTabInfo = GetValue(actKey, PANEL_TABCOUNT_REG, REG_DWORD, &storedTabCount, sizeof(DWORD)) != FALSE;
+    bool allowMultipleTabs = Configuration.UsePanelTabs && hasTabInfo && storedTabCount > 1;
 
-    int desiredTabCount = hasStoredTabs ? (int)storedTabCount : 1;
+    if (!allowMultipleTabs)
+    {
+        while (tabs.Count > 1)
+            ClosePanelTab(tabs[tabs.Count - 1], false);
+
+        if (tabs.Count == 0)
+        {
+            CFilesWindow* panel = AddPanelTab(side, 0);
+            if (panel == NULL)
+            {
+                RestoringPanelConfiguration = previousRestoring;
+                CloseKey(actKey);
+                return;
+            }
+        }
+
+        CFilesWindow* panel = tabs[0];
+        panel->ClearDeferredPanelSettings();
+        panel->ClearDeferredRegistrySettingsPath();
+
+        if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
+        {
+            TRACE_E("Unable to create panel window while loading configuration");
+            RestoringPanelConfiguration = previousRestoring;
+            CloseKey(actKey);
+            return;
+        }
+
+        char path[2 * MAX_PATH];
+        LoadPanelSettingsFromKey(panel, actKey, path, _countof(path), false);
+
+        if (Configuration.SaveWorkDirs)
+        {
+            CPathHistory* history = panel->EnsureWorkDirHistory();
+            if (history != NULL)
+                history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+        }
+        else
+        {
+            panel->ClearWorkDirHistory();
+        }
+
+        UpdatePanelTabColor(panel);
+        UpdatePanelTabTitle(panel);
+        if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            UpdateDirectoryLineHistoryState(panel);
+
+        panel->ClearDeferredPath();
+        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
+        if (!restored)
+            panel->SetDeferredPath(path);
+        if (panelPath != NULL && IsDiskOrUNCPath(path))
+            lstrcpyn(panelPath, path, MAX_PATH);
+
+        if (side == cpsLeft)
+        {
+            LeftPanel = panel;
+            PanelConfigPathsRestoredLeft = restored;
+        }
+        else
+        {
+            RightPanel = panel;
+            PanelConfigPathsRestoredRight = restored;
+        }
+
+        if (GetActivePanel() == NULL || GetActivePanel()->GetPanelSide() == side)
+            SetActivePanel(panel);
+
+        int sel = GetPanelTabIndex(side, panel);
+        CTabWindow* tabWnd = GetPanelTabWindow(side);
+        if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
+            tabWnd->SetCurSel(sel);
+
+        UpdatePanelTabVisibility(side);
+
+        RestoringPanelConfiguration = previousRestoring;
+        CloseKey(actKey);
+        return;
+    }
+
+    int desiredTabCount = (int)storedTabCount;
     if (desiredTabCount < 1)
         desiredTabCount = 1;
 
@@ -2848,7 +2928,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
 
     DWORD activeValue = 0;
-    if (!hasStoredTabs || !GetValue(actKey, PANEL_ACTIVETAB_REG, REG_DWORD, &activeValue, sizeof(DWORD)) ||
+    if (!GetValue(actKey, PANEL_ACTIVETAB_REG, REG_DWORD, &activeValue, sizeof(DWORD)) ||
         activeValue >= (DWORD)localTabs.Count)
     {
         activeValue = 0;
@@ -2866,17 +2946,15 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         HKEY tabKey = NULL;
         bool closeTabKey = false;
         std::string tabRegPath;
-        if (hasStoredTabs)
+
+        char tabKeyName[16];
+        wsprintf(tabKeyName, "Tab%d", i + 1);
+        if (OpenKey(actKey, tabKeyName, tabKey))
         {
-            char tabKeyName[16];
-            wsprintf(tabKeyName, "Tab%d", i + 1);
-            if (OpenKey(actKey, tabKeyName, tabKey))
-            {
-                closeTabKey = true;
-                tabRegPath.assign(reg);
-                tabRegPath.append("\\");
-                tabRegPath.append(tabKeyName);
-            }
+            closeTabKey = true;
+            tabRegPath.assign(reg);
+            tabRegPath.append("\\");
+            tabRegPath.append(tabKeyName);
         }
 
         if (tabKey == NULL && i == 0)
