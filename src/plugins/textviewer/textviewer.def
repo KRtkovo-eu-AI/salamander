@@ -2,3 +2,4 @@ LIBRARY TEXTVIEWER.SPL
 
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
+EXPORTS TextViewer_GetCurrentColor

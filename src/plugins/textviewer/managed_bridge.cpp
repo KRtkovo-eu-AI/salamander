@@ -350,3 +350,13 @@ bool ManagedBridge_ViewTextFile(HWND parent, const char* filePath, const RECT& p
     const wchar_t* command = asynchronous ? L"View" : L"ViewSync";
     return ExecuteCommand(command, parent, payload.c_str());
 }
+
+extern "C" __declspec(dllexport) UINT32 __stdcall TextViewer_GetCurrentColor(int color)
+{
+    if (SalamanderGeneral == NULL)
+    {
+        return 0;
+    }
+
+    return SalamanderGeneral->GetCurrentColor(color);
+}

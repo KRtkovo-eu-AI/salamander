@@ -490,6 +490,8 @@ internal static class ViewerHost
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;
+
+            ThemeHelper.ApplyTheme(this);
         }
 
         public bool TryShow(ViewerSession session)
@@ -558,6 +560,7 @@ internal static class ViewerHost
             };
 
             Controls.Add(viewer);
+            ThemeHelper.ApplyTheme(viewer);
             _browser = viewer;
         }
 
@@ -963,24 +966,77 @@ internal static class ViewerHost
 
         private static string WrapDocument(RenderedContent content, string? caption)
         {
+            ThemeHelper.ThemePalette? palette = ThemeHelper.TryGetPalette(out var value) ? value : null;
+
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
             builder.Append("<html><head><meta charset=\"utf-8\"/><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>");
+            if (palette.HasValue && palette.Value.IsDark)
+            {
+                builder.Append("<meta name=\"color-scheme\" content=\"dark\"/>");
+            }
             builder.Append("<title>");
             builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer" : caption));
             builder.Append("</title>");
-            builder.Append("<style>body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;color:#24292e;}" +
-                           ".code-container{padding:16px;}" +
-                           "pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;");
-            if (!string.IsNullOrEmpty(content.PreStyle))
-            {
-                builder.Append(content.PreStyle);
-            }
-            builder.Append("}</style>");
+            builder.Append("<style>");
+            AppendBaseStyles(builder, palette, content.PreStyle);
+            builder.Append("</style>");
             builder.Append("</head><body><div class=\"code-container\">");
             builder.Append(content.Html);
             builder.Append("</div></body></html>");
             return builder.ToString();
+        }
+
+        private static void AppendBaseStyles(StringBuilder builder, ThemeHelper.ThemePalette? palette, string? preStyle)
+        {
+            if (palette.HasValue)
+            {
+                var colors = palette.Value;
+                builder.Append("body{margin:0;background-color:")
+                    .Append(ToCssColor(colors.Background))
+                    .Append(";font-family:'Segoe UI',sans-serif;color:")
+                    .Append(ToCssColor(colors.Foreground))
+                    .Append(";}");
+                builder.Append(".code-container{padding:16px;background-color:")
+                    .Append(ToCssColor(colors.Background))
+                    .Append(";}");
+                builder.Append("pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;")
+                    .Append("background-color:")
+                    .Append(ToCssColor(colors.ControlBackground))
+                    .Append(";color:")
+                    .Append(ToCssColor(colors.InputForeground))
+                    .Append(';');
+                if (!string.IsNullOrEmpty(preStyle))
+                {
+                    builder.Append(preStyle);
+                }
+                builder.Append("}");
+                builder.Append("code{color:inherit;}");
+                builder.Append("a{color:")
+                    .Append(ToCssColor(colors.Accent))
+                    .Append(";}");
+                builder.Append("::selection{background-color:")
+                    .Append(ToCssColor(colors.HighlightBackground))
+                    .Append(";color:")
+                    .Append(ToCssColor(colors.HighlightForeground))
+                    .Append(";}");
+            }
+            else
+            {
+                builder.Append("body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;color:#24292e;}");
+                builder.Append(".code-container{padding:16px;}");
+                builder.Append("pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;");
+                if (!string.IsNullOrEmpty(preStyle))
+                {
+                    builder.Append(preStyle);
+                }
+                builder.Append("}");
+            }
+        }
+
+        private static string ToCssColor(Color color)
+        {
+            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
 
         private static string BuildPlainTextHtml(string text)
