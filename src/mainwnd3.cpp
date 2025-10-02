@@ -112,6 +112,31 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate
     return panel;
 }
 
+bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return false;
+
+    if (panel->HWindow != NULL)
+        return true;
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "",
+                       style,
+                       0, 0, 0, 0,
+                       HWindow,
+                       NULL,
+                       HInstance,
+                       panel))
+    {
+        TRACE_E("Unable to create panel window");
+        return false;
+    }
+
+    ShowWindow(panel->HWindow, SW_HIDE);
+    return true;
+}
+
 bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
 {
     if (panel == NULL)
@@ -224,6 +249,9 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     CPanelSide side = panel->GetPanelSide();
     if (GetPanelTabIndex(side, panel) < 0)
+        return;
+
+    if (!EnsurePanelWindowCreated(panel))
         return;
 
     panel->EnsureHeavyInitialization();
@@ -1353,10 +1381,8 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
     if (panel == NULL)
         return;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
-        TRACE_E("AddPanelTab: Create failed");
         int idx = GetPanelTabIndex(side, panel);
         TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
         if (idx >= 0)
@@ -1762,8 +1788,7 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         return false;
     }
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
         int idx = GetPanelTabIndex(side, panel);
         if (idx >= 0)

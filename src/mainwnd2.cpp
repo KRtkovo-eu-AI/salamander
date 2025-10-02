@@ -2694,29 +2694,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
         if (panel != NULL)
         {
-            if (panel->HWindow == NULL)
-            {
-                DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-                if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                                   style,
-                                   0, 0, 0, 0,
-                                   HWindow,
-                                   NULL,
-                                   HInstance,
-                                   panel))
-                {
-                    TRACE_E("Unable to create panel window while loading configuration");
-                }
-            }
-
-            if (panel->HWindow != NULL && panelPath != NULL && panelPath[0] != 0)
-                panel->ChangeDirLite(panelPath);
-            panel->ClearDeferredStartupPath();
-
-            if (side == cpsLeft)
-                LeftPanel = panel;
+            if (panelPath != NULL && panelPath[0] != 0)
+                panel->SetDeferredStartupPath(panelPath);
             else
-                RightPanel = panel;
+                panel->ClearDeferredStartupPath();
 
             SwitchPanelTab(panel);
         }
@@ -2757,32 +2738,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         tabCount = 1;
 
     if (tabs.Count == 0)
-    {
-        CFilesWindow* panel = AddPanelTab(side, 0, false, true);
-        if (panel != NULL)
-        {
-            DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-            if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                               style,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               panel))
-            {
-                TRACE_E("Unable to create panel window while loading configuration");
-                int idx = GetPanelTabIndex(side, panel);
-                if (idx >= 0)
-                {
-                    CTabWindow* tabWnd = GetPanelTabWindow(side);
-                    if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                        tabWnd->RemoveTab(idx);
-                    tabs.Delete(idx);
-                }
-                delete panel;
-            }
-        }
-    }
+        AddPanelTab(side, 0, false, true);
 
     while (tabs.Count > tabCount)
     {
@@ -2792,37 +2748,8 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     while (tabs.Count < tabCount)
     {
-        CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false, true);
-        if (panel == NULL)
+        if (AddPanelTab(side, tabs.Count, false, true) == NULL)
             break;
-
-        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-        if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                           style,
-                           0, 0, 0, 0,
-                           HWindow,
-                           NULL,
-                           HInstance,
-                           panel))
-        {
-            TRACE_E("Unable to create panel window while loading configuration");
-            int idx = GetPanelTabIndex(side, panel);
-            TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
-            if (idx >= 0)
-            {
-                CTabWindow* tabWnd = GetPanelTabWindow(side);
-                if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                    tabWnd->RemoveTab(idx);
-                localTabs.Delete(idx);
-            }
-            delete panel;
-            if (previous != NULL)
-                SwitchPanelTab(previous);
-            else
-                UpdatePanelTabVisibility(side);
-            break;
-        }
     }
 
     TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
@@ -2901,6 +2828,12 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         activePanel = localTabs[activeIndex];
     else if (localTabs.Count > 0)
         activePanel = localTabs[0];
+
+    if (activePanel != NULL)
+    {
+        if (!EnsurePanelWindowCreated(activePanel))
+            activePanel = NULL;
+    }
 
     if (activePanel != NULL)
     {
