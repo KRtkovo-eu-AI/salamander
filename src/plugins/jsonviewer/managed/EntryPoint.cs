@@ -64,7 +64,22 @@ public static class EntryPoint
         }
 
         Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
+
+        try
+        {
+            if (!Application.MessageLoop && Application.OpenForms.Count == 0)
+            {
+                Application.SetCompatibleTextRenderingDefault(false);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Another WinForms control has already been created elsewhere in the
+            // process (for example, in a different plugin). At that point it's too
+            // late to change the compatible text rendering default, so we simply
+            // continue with the existing configuration.
+        }
+
         _initialized = true;
     }
 
