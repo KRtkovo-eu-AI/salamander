@@ -702,6 +702,9 @@ internal static class ViewerHost
             _viewer.PropertyChanged += OnViewerPropertyChanged;
             Controls.Add(_viewer);
 
+            ThemeHelper.ApplyTheme(this);
+            ThemeHelper.ApplyTheme(_viewer);
+
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;

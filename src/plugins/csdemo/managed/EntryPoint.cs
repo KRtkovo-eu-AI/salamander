@@ -85,6 +85,7 @@ public static class EntryPoint
         dialog.Controls.Add(okButton);
         dialog.AcceptButton = okButton;
 
+        ThemeHelper.ApplyTheme(dialog);
         ShowDialog(dialog, parent);
         return 0;
     }
@@ -153,6 +154,7 @@ public static class EntryPoint
         dialog.AcceptButton = saveButton;
         dialog.CancelButton = cancelButton;
 
+        ThemeHelper.ApplyTheme(dialog);
         var result = ShowDialog(dialog, parent);
         if (result == DialogResult.OK)
         {
@@ -205,6 +207,7 @@ public static class EntryPoint
         dialog.Controls.Add(okButton);
         dialog.AcceptButton = okButton;
 
+        ThemeHelper.ApplyTheme(dialog);
         ShowDialog(dialog, parent);
         return 0;
     }
