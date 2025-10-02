@@ -559,13 +559,6 @@ public:
     BOOL GetGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE);
 
     const char* GetPath() { return Path; }
-    const char* PeekDeferredStartupPath() const
-    {
-        return HasDeferredStartupPath ? DeferredStartupPath : NULL;
-    }
-    void SetDeferredStartupPath(const char* path);
-    BOOL ConsumeDeferredStartupPath(char* buffer, int bufferSize);
-    void ClearDeferredStartupPath();
     BOOL Is(CPanelType type) { return type == PanelType; }
     CPanelType GetPanelType() { return PanelType; }
     BOOL GetMonitorChanges() { return MonitorChanges; }
@@ -723,6 +716,13 @@ enum CViewModeEnum;
 class CFilesWindow : public CFilesWindowAncestor
 {
 public:
+    const char* PeekDeferredStartupPath() const
+    {
+        return HasDeferredStartupPath ? DeferredStartupPath : NULL;
+    }
+    void SetDeferredStartupPath(const char* path);
+    BOOL ConsumeDeferredStartupPath(char* buffer, int bufferSize);
+    void ClearDeferredStartupPath();
     CViewTemplate* ViewTemplate;            // pointer to the template defining mode, name and visibility
                                             // of the standard Salamander columns VIEW_SHOW_xxxx
     BOOL NarrowedNameColumn;                // TRUE = Name column smart mode is enabled and it had to be narrowed
