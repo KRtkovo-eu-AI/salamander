@@ -2753,9 +2753,6 @@ void CMainWindow::SaveConfig(HWND parent)
 
 void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg)
 {
-    if (panelPath != NULL)
-        panelPath[0] = 0;
-
     HKEY actKey;
     if (!OpenKey(hSalamander, reg, actKey))
     {
