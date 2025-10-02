@@ -415,7 +415,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         new CStaticText(HWindow, IDS_ABOUT_SALAMANDER, STF_BOLD);
         //      new CStaticText(HWindow, IDS_ABOUT_FIRM, STF_BOLD);
 
-        hl = new CHyperLink(HWindow, IDC_ABOUT_WWW);
+        hl = new CHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE);
         if (hl != NULL)
         {
             const char* url = "https://github.com/KRtkovo-eu-AI/salamander";
@@ -435,6 +435,9 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         COLORREF textClr = RGB(224, 224, 224);
         switch (resID)
         {
+        case IDC_ABOUT_WWW:
+            textClr = RGB(86, 156, 214);
+            break;
         case IDC_STATIC_6:
         case IDC_STATIC_7:
         case IDC_STATIC_8:
