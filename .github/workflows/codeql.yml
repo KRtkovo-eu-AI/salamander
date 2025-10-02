@@ -40,6 +40,7 @@ jobs:
         with:
           path: s
           ref: ${{ github.event.inputs['target-ref'] || github.ref }}
+          fetch-depth: 2
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
