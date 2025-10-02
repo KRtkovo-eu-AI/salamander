@@ -470,6 +470,8 @@ namespace EPocalipse.Json.Viewer
                 return;
             }
 
+            e.Graphics.Clear(palette.Value.ControlBackground);
+
             int stripHeight = tabControl.DisplayRectangle.Top;
             if (stripHeight < 0)
             {
@@ -520,6 +522,12 @@ namespace EPocalipse.Json.Viewer
                 bounds = tabRect;
             }
 
+            var textBounds = Rectangle.Inflate(bounds, -8, -2);
+            if (textBounds.Width <= 0 || textBounds.Height <= 0)
+            {
+                textBounds = bounds;
+            }
+
             Color background = isSelected ? palette.TabActiveBackground : palette.TabInactiveBackground;
             Color foreground = isSelected ? palette.TabActiveForeground : palette.TabInactiveForeground;
             if (!tabPage.Enabled)
@@ -537,7 +545,7 @@ namespace EPocalipse.Json.Viewer
                          TextFormatFlags.EndEllipsis |
                          TextFormatFlags.NoPrefix;
             var font = tabPage.Font ?? tabControl.Font;
-            TextRenderer.DrawText(graphics, tabPage.Text, font, bounds, foreground, format);
+            TextRenderer.DrawText(graphics, tabPage.Text, font, textBounds, foreground, format);
 
             using var border = new Pen(palette.TabBorder);
             if (bounds.Width > 0 && bounds.Height > 0)

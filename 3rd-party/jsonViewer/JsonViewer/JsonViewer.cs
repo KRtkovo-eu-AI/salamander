@@ -32,7 +32,7 @@ namespace EPocalipse.Json.Viewer
             Margin = System.Windows.Forms.Padding.Empty;
             Padding = System.Windows.Forms.Padding.Empty;
             tabControl.Margin = System.Windows.Forms.Padding.Empty;
-            tabControl.Padding = new System.Drawing.Point(16, 6);
+            tabControl.Padding = System.Drawing.Point.Empty;
             pageTreeView.Margin = System.Windows.Forms.Padding.Empty;
             pageTreeView.Padding = System.Windows.Forms.Padding.Empty;
             pageTextView.Margin = System.Windows.Forms.Padding.Empty;
