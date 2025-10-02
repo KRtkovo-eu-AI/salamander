@@ -2737,14 +2737,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         CFilesWindow* panel = AddPanelTab(side, 0);
         if (panel != NULL)
         {
-            DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-            if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                               style,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               panel))
+            if (!EnsurePanelWindowCreated(panel))
             {
                 TRACE_E("Unable to create panel window while loading configuration");
                 int idx = GetPanelTabIndex(side, panel);
@@ -2773,31 +2766,27 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (panel == NULL)
             break;
 
-        DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-        if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                           style,
-                           0, 0, 0, 0,
-                           HWindow,
-                           NULL,
-                           HInstance,
-                           panel))
+        if (!IsRestoringPanelConfiguration())
         {
-            TRACE_E("Unable to create panel window while loading configuration");
-            int idx = GetPanelTabIndex(side, panel);
-            TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
-            if (idx >= 0)
+            if (!EnsurePanelWindowCreated(panel))
             {
-                CTabWindow* tabWnd = GetPanelTabWindow(side);
-                if (tabWnd != NULL && tabWnd->HWindow != NULL)
-                    tabWnd->RemoveTab(idx);
-                localTabs.Delete(idx);
+                TRACE_E("Unable to create panel window while loading configuration");
+                int idx = GetPanelTabIndex(side, panel);
+                TIndirectArray<CFilesWindow>& localTabs = GetPanelTabs(side);
+                if (idx >= 0)
+                {
+                    CTabWindow* tabWnd = GetPanelTabWindow(side);
+                    if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                        tabWnd->RemoveTab(idx);
+                    localTabs.Delete(idx);
+                }
+                delete panel;
+                if (previous != NULL)
+                    SwitchPanelTab(previous);
+                else
+                    UpdatePanelTabVisibility(side);
+                break;
             }
-            delete panel;
-            if (previous != NULL)
-                SwitchPanelTab(previous);
-            else
-                UpdatePanelTabVisibility(side);
-            break;
         }
     }
 
@@ -2880,6 +2869,15 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         activePanel = localTabs[0];
 
     RestoringPanelConfiguration = previousRestoring;
+
+    if (activePanel != NULL)
+    {
+        if (activePanel->HWindow == NULL && !EnsurePanelWindowCreated(activePanel))
+        {
+            TRACE_E("Unable to create active panel window while loading configuration");
+            activePanel = NULL;
+        }
+    }
 
     if (activePanel != NULL)
     {

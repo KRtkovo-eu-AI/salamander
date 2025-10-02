@@ -108,9 +108,30 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
         return NULL;
     }
 
-    if (!IsRestoringPanelConfiguration())
-        SwitchPanelTab(panel);
     return panel;
+}
+
+bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return false;
+    if (panel->HWindow != NULL)
+        return true;
+
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "",
+                       style,
+                       0, 0, 0, 0,
+                       HWindow,
+                       NULL,
+                       HInstance,
+                       panel))
+    {
+        TRACE_E("EnsurePanelWindowCreated: Create failed");
+        return false;
+    }
+
+    return true;
 }
 
 bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
@@ -226,6 +247,12 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CPanelSide side = panel->GetPanelSide();
     if (GetPanelTabIndex(side, panel) < 0)
         return;
+
+    if (panel->HWindow == NULL)
+    {
+        if (!EnsurePanelWindowCreated(panel))
+            return;
+    }
 
     if (side == cpsLeft)
         LeftPanel = panel;
@@ -653,7 +680,14 @@ void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
     }
     CFilesWindow* panel = tabs[index];
     if (panel != NULL)
+    {
+        if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
+        {
+            UpdatePanelTabVisibility(side);
+            return;
+        }
         SwitchPanelTab(panel);
+    }
 }
 
 void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt)
@@ -3048,18 +3082,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        if (!leftPanel->Create(CWINDOW_CLASSNAME2, "",
-                               WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-                               0, 0, 0, 0,
-                               HWindow,
-                               NULL,
-                               HInstance,
-                               leftPanel))
+        LeftPanel = leftPanel;
+        if (!EnsurePanelWindowCreated(leftPanel))
         {
             TRACE_E("LeftPanel->Create failed");
+            LeftPanel = NULL;
             ClosePanelTab(leftPanel, false);
             return -1;
         }
+        SwitchPanelTab(leftPanel);
         UpdatePanelTabVisibility(cpsLeft);
         SetActivePanel(leftPanel);
         //      ReleaseMenuNew();
@@ -3069,18 +3100,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        if (!rightPanel->Create(CWINDOW_CLASSNAME2, "",
-                                WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-                                0, 0, 0, 0,
-                                HWindow,
-                                NULL,
-                                HInstance,
-                                rightPanel))
+        RightPanel = rightPanel;
+        if (!EnsurePanelWindowCreated(rightPanel))
         {
             TRACE_E("RightPanel->Create failed");
+            RightPanel = NULL;
             ClosePanelTab(rightPanel, false);
             return -1;
         }
+        SwitchPanelTab(rightPanel);
         UpdatePanelTabVisibility(cpsRight);
         LeftPanel = leftPanel;
         RightPanel = rightPanel;
