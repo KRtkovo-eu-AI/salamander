@@ -1940,6 +1940,8 @@ BOOL CFilesWindow::ChangeDir(const char* newDir, int suggestedTopIndex, const ch
     CALL_STACK_MESSAGE7("CFilesWindow::ChangeDir(%s, %d, %s, %d, , %d, %d)", newDir, suggestedTopIndex,
                         suggestedFocusName, mode, convertFSPathToInternal, showNewDirPathInErrBoxes);
 
+    EnsureHeavyInitialization();
+
     // backup the string (it could change during execution - e.g. Name from CFileData from panel)
     char backup[MAX_PATH];
     if (suggestedFocusName != NULL)

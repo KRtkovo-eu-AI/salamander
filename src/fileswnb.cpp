@@ -1492,6 +1492,7 @@ MENU_TEMPLATE_ITEM SortByMenu[] =
 
 void CFilesWindow::SetThumbnailSize(int size)
 {
+    EnsureHeavyInitialization();
     if (size < THUMBNAIL_SIZE_MIN || size > THUMBNAIL_SIZE_MAX)
     {
         TRACE_E("size=" << size);

@@ -759,6 +759,8 @@ public:
     CRITICAL_SECTION ICSleepSection;      // critical section -> sleep-icon-thread must pass through it
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
+    bool CriticalSectionsInitialized;
+    bool HeavyInitializationPending;
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
@@ -924,8 +926,11 @@ public:
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
 public:
-    CFilesWindow(CMainWindow* parent, CPanelSide side);
+    CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
     ~CFilesWindow();
+
+    void EnsureHeavyInitialization();
+    bool IsHeavyInitializationPending() const { return HeavyInitializationPending; }
 
     CPanelSide GetPanelSide() const { return PanelSide; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }

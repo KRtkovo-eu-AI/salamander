@@ -94,10 +94,10 @@ namespace
     constexpr size_t kMaxStoredClosedTabs = 10;
 }
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate, bool deferHeavyInitialization)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
-    CFilesWindow* panel = new CFilesWindow(this, side);
+    CFilesWindow* panel = new CFilesWindow(this, side, deferHeavyInitialization);
     if (panel == NULL)
         return NULL;
 
@@ -225,6 +225,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CPanelSide side = panel->GetPanelSide();
     if (GetPanelTabIndex(side, panel) < 0)
         return;
+
+    panel->EnsureHeavyInitialization();
 
     char deferredPath[2 * MAX_PATH];
     if (panel->ConsumeDeferredStartupPath(deferredPath, _countof(deferredPath)))

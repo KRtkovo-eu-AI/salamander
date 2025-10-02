@@ -2689,7 +2689,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             if (tabs.Count > 0)
                 panel = tabs[0];
             else
-                panel = AddPanelTab(side, 0, false);
+                panel = AddPanelTab(side, 0, false, true);
         }
 
         if (panel != NULL)
@@ -2758,7 +2758,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (tabs.Count == 0)
     {
-        CFilesWindow* panel = AddPanelTab(side, 0, false);
+        CFilesWindow* panel = AddPanelTab(side, 0, false, true);
         if (panel != NULL)
         {
             DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
@@ -2793,7 +2793,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     while (tabs.Count < tabCount)
     {
         CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false);
+        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false, true);
         if (panel == NULL)
             break;
 

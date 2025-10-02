@@ -1649,6 +1649,8 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                         suggestedTopIndex, suggestedFocusName, refreshListBox, canForce, isRefresh,
                         shorterPathWarning, tryCloseReason);
 
+    EnsureHeavyInitialization();
+
     //TRACE_I("change-to-disk: begin");
 
     if (strlen(path) >= MAX_PATH - 2)
