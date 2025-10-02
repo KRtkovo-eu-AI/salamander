@@ -177,13 +177,6 @@ namespace EPocalipse.Json.Viewer
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
-                case TabPage tabPage:
-                    tabPage.BackColor = palette.Background;
-                    tabPage.ForeColor = palette.Foreground;
-                    tabPage.UseVisualStyleBackColor = false;
-                    backgroundSet = true;
-                    foregroundSet = true;
-                    break;
                 case LinkLabel linkLabel:
                     linkLabel.LinkColor = palette.Accent;
                     linkLabel.ActiveLinkColor = palette.HighlightForeground;
@@ -275,6 +268,35 @@ namespace EPocalipse.Json.Viewer
             tabControl.Paint += TabControlOnPaint;
             tabControl.BackColor = palette.ControlBackground;
             tabControl.ForeColor = palette.Foreground;
+
+            foreach (TabPage tabPage in tabControl.TabPages)
+            {
+                ApplyToTabPage(tabPage, palette);
+            }
+
+            tabControl.ControlAdded -= TabControlOnControlAdded;
+            tabControl.ControlAdded += TabControlOnControlAdded;
+        }
+
+        private static void ApplyToTabPage(TabPage tabPage, ThemePalette palette)
+        {
+            tabPage.UseVisualStyleBackColor = false;
+            tabPage.BackColor = palette.Background;
+            tabPage.ForeColor = palette.Foreground;
+        }
+
+        private static void TabControlOnControlAdded(object? sender, ControlEventArgs e)
+        {
+            if (sender is not TabControl || e.Control is not TabPage tabPage)
+            {
+                return;
+            }
+
+            var palette = GetPalette();
+            if (palette.HasValue)
+            {
+                ApplyToTabPage(tabPage, palette.Value);
+            }
         }
 
         private static void ComboBoxOnDrawItem(object? sender, DrawItemEventArgs e)
