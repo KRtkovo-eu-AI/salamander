@@ -29,4 +29,18 @@
              Targets="Restore"
              Properties="RestoreDuringBuild=true" />
   </Target>
+
+  <Target Name="CopyPrismSharpContent" AfterTargets="Build" Condition="'$(PkgPrismSharp)' != ''">
+    <ItemGroup>
+      <PrismSharpLanguageFiles Include="$(PkgPrismSharp)contentFiles\\data\\languages\\*.json" />
+      <PrismSharpThemeFiles Include="$(PkgPrismSharp)contentFiles\\data\\themes\\*.json" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(PrismSharpLanguageFiles)"
+          DestinationFolder="$(OutputPath)data\\languages\\"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PrismSharpThemeFiles)"
+          DestinationFolder="$(OutputPath)data\\themes\\"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
