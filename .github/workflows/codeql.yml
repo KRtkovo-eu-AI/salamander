@@ -1,0 +1,103 @@
+name: CodeQL Security Scan
+
+on:
+  pull_request:
+    branches: [main, darkmode, dev_tabs, 'release/*']
+  workflow_dispatch:
+    inputs:
+      target-ref:
+        description: 'Branch, tag, or commit SHA to analyze'
+        required: false
+        default: main
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Analyze C++ (MSBuild)
+    runs-on: windows-2022
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: s
+
+    env:
+      BUILD_CONFIGURATION: Release
+      PROJECT_PATH: '.\\src\\vcxproj\\salamand.vcxproj'
+      LOG_DIRECTORY: build_logs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: s
+          ref: ${{ github.event.inputs['target-ref'] || github.ref }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          queries: security-extended
+          ram: 14144
+          threads: 4
+
+      - name: Setup MSBuild in PATH (VS2022)
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup MSVC Developer Command Prompt (x64 toolchain)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Register MSVC problem matcher
+        uses: ammaraskar/msvc-problem-matcher@master
+
+      - name: Build with MSBuild (Release | x64)
+        run: |
+          $logDir = Join-Path (Get-Location) $env:LOG_DIRECTORY
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+
+          $suffix = "codeql-x64-run$($env:GITHUB_RUN_NUMBER)"
+          $txtLog = Join-Path $logDir "msbuild-$($env:BUILD_CONFIGURATION)-$suffix.log"
+
+          Add-Content -Path $env:GITHUB_ENV -Value "LOG_PATH=$txtLog"
+
+          $arguments = @(
+            $env:PROJECT_PATH
+            '/m'
+            '/t:Rebuild'
+            "/p:Configuration=$($env:BUILD_CONFIGURATION)"
+            '/p:Platform=x64'
+            '/p:PreferredToolArchitecture=x64'
+            '/nr:false'
+            '/v:m'
+          )
+
+          msbuild @arguments 2>&1 | Tee-Object -FilePath $txtLog -Encoding UTF8
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "MSBuild failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:cpp'
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-msbuild-logs
+          path: |
+            ${{ env.LOG_PATH }}
+          if-no-files-found: warn
