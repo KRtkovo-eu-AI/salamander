@@ -1497,8 +1497,9 @@ void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)
     if (!DeferredPanelSettings.Valid)
         return;
 
-    ApplyPanelSettingsSnapshot(DeferredPanelSettings, ensureWindowReady);
+    SDeferredPanelSettings settings = DeferredPanelSettings;
     ClearDeferredPanelSettings();
+    ApplyPanelSettingsSnapshot(settings, ensureWindowReady);
 }
 
 void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady)

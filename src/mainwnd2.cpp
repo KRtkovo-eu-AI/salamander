@@ -2773,7 +2773,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
         if (panel == NULL)
         {
-            panel = AddPanelTab(side, 0);
+            panel = AddPanelTab(side, 0, false);
         }
 
         if (panel != NULL)
@@ -2832,7 +2832,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (tabs.Count == 0)
     {
-        if (AddPanelTab(side, 0) == NULL)
+        if (AddPanelTab(side, 0, false) == NULL)
         {
             CloseKey(actKey);
             return;
@@ -2847,7 +2847,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     while (tabs.Count < tabCount)
     {
-        if (AddPanelTab(side, tabs.Count) == NULL)
+        if (AddPanelTab(side, tabs.Count, false) == NULL)
             break;
     }
 
