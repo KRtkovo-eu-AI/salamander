@@ -35,7 +35,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "Unable to parse parameters provided for the JSON viewer.",
-                "JSON Viewer Plugin",
+                "JSON Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -45,7 +45,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "The native host did not provide a synchronization handle for the viewer.",
-                "JSON Viewer Plugin",
+                "JSON Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -60,7 +60,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 $"Unable to prepare the JSON viewer session.\n{ex.Message}",
-                "JSON Viewer Plugin",
+                "JSON Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -79,7 +79,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 $"Unable to initialize the JSON viewer.\n{ex.Message}",
-                "JSON Viewer Plugin",
+                "JSON Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -95,7 +95,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 "Unable to open the JSON viewer window.",
-                "JSON Viewer Plugin",
+                "JSON Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -628,7 +628,7 @@ internal static class ViewerHost
 
         public JsonViewerForm()
         {
-            Text = "JSON Viewer";
+            Text = "JSON Viewer .NET";
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
             MinimizeBox = true;
@@ -679,7 +679,7 @@ internal static class ViewerHost
             {
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
-                    "JSON Viewer Plugin",
+                    "JSON Viewer .NET Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
@@ -836,10 +836,10 @@ internal static class ViewerHost
         {
             if (string.IsNullOrWhiteSpace(caption))
             {
-                return "JSON Viewer";
+                return "JSON Viewer .NET";
             }
 
-            return string.Format(CultureInfo.CurrentCulture, "{0} - JSON Viewer", caption);
+            return string.Format(CultureInfo.CurrentCulture, "{0} - JSON Viewer .NET", caption);
         }
 
         private static void OnViewerPropertyChanged(object? sender, PropertyChangedEventArgs e)

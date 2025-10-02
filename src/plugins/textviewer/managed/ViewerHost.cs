@@ -34,7 +34,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "Unable to parse parameters provided for the text viewer.",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -44,7 +44,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "The native host did not provide a synchronization handle for the viewer.",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -59,7 +59,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 $"Unable to prepare the text viewer session.\n{ex.Message}",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -78,7 +78,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 $"Unable to initialize the text viewer.\n{ex.Message}",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -94,7 +94,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 "Unable to open the text viewer window.",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -478,7 +478,7 @@ internal static class ViewerHost
 
         public TextViewerForm()
         {
-            Text = "Text Viewer";
+            Text = "Text Viewer .NET";
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
             MinimizeBox = true;
@@ -486,6 +486,7 @@ internal static class ViewerHost
             KeyPreview = true;
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(800, 600);
+            Icon = ViewerResources.ViewerIcon;
 
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
@@ -513,7 +514,7 @@ internal static class ViewerHost
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
-                    "Text Viewer Plugin",
+                    "Text Viewer .NET Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
@@ -696,10 +697,10 @@ internal static class ViewerHost
         {
             if (string.IsNullOrWhiteSpace(caption))
             {
-                return "Text Viewer";
+                return "Text Viewer .NET";
             }
 
-            return string.Format(CultureInfo.CurrentCulture, "{0} - Text Viewer", caption);
+            return string.Format(CultureInfo.CurrentCulture, "{0} - Text Viewer .NET", caption);
         }
     }
 
@@ -976,7 +977,7 @@ internal static class ViewerHost
                 builder.Append("<meta name=\"color-scheme\" content=\"dark\"/>");
             }
             builder.Append("<title>");
-            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer" : caption));
+            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer .NET" : caption));
             builder.Append("</title>");
             builder.Append("<style>");
             AppendBaseStyles(builder, palette, content.PreStyle);

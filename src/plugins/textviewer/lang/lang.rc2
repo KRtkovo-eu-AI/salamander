@@ -22,7 +22,7 @@
 
 STRINGTABLE
 {
- IDS_PLUGINNAME,                 "Text Viewer"
+ IDS_PLUGINNAME,                 "Text Viewer .NET"
  IDS_ABOUT,                      "About Plugin"
  IDS_PLUGIN_DESCRIPTION,         "Internal viewer that renders text files with managed syntax highlighting."
  IDS_PLUGIN_HOME,                "https://github.com/KRtkovo-eu-AI/salamander/"
