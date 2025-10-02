@@ -1657,6 +1657,7 @@ void CMainWindow::EnsurePanelPathRestored(CFilesWindow* panel)
     if (panel == NULL || !panel->HasDeferredPath())
         return;
 
+    EnsurePanelSettingsLoadedFromRegistry(panel);
     panel->ApplyDeferredPanelSettings(panel->HWindow != NULL);
 
     char path[2 * MAX_PATH];
@@ -1664,6 +1665,51 @@ void CMainWindow::EnsurePanelPathRestored(CFilesWindow* panel)
     panel->ClearDeferredPath();
     if (!RestorePanelPathFromConfig(this, panel, path))
         panel->SetDeferredPath(path);
+}
+
+void CMainWindow::EnsurePanelSettingsLoadedFromRegistry(CFilesWindow* panel)
+{
+    if (panel == NULL || !panel->HasDeferredRegistrySettingsPath())
+        return;
+
+    if (SALAMANDER_ROOT_REG == NULL)
+    {
+        panel->ClearDeferredRegistrySettingsPath();
+        return;
+    }
+
+    HKEY salamander;
+    if (!OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
+    {
+        panel->ClearDeferredRegistrySettingsPath();
+        return;
+    }
+
+    const std::string& relativePath = panel->GetDeferredRegistrySettingsPath();
+    HKEY panelKey = NULL;
+    if (!OpenKey(salamander, relativePath.c_str(), panelKey))
+    {
+        CloseKey(salamander);
+        panel->ClearDeferredRegistrySettingsPath();
+        return;
+    }
+
+    LoadPanelSettingsFromKey(panel, panelKey, NULL, 0, false);
+
+    if (Configuration.SaveWorkDirs)
+    {
+        CPathHistory* history = panel->EnsureWorkDirHistory();
+        if (history != NULL)
+            history->LoadFromRegistry(panelKey, CONFIG_WORKDIRSHISTORY_REG);
+    }
+    else
+    {
+        panel->ClearWorkDirHistory();
+    }
+
+    CloseKey(panelKey);
+    CloseKey(salamander);
+    panel->ClearDeferredRegistrySettingsPath();
 }
 
 void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg)
@@ -1695,6 +1741,7 @@ void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char*
         HKEY tabKey;
         if (CreateKey(actKey, tabKeyName, tabKey))
         {
+            EnsurePanelSettingsLoadedFromRegistry(tabs[i]);
             SavePanelSettingsToKey(tabs[i], tabKey, TRUE);
             CPathHistory* history = tabs[i]->GetWorkDirHistory();
             BOOL onlyClear = !Configuration.SaveWorkDirs;
@@ -2813,38 +2860,98 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     for (int i = 0; i < localTabs.Count; i++)
     {
         CFilesWindow* panel = localTabs[i];
+        panel->ClearDeferredPanelSettings();
+        panel->ClearDeferredRegistrySettingsPath();
 
         HKEY tabKey = NULL;
         bool closeTabKey = false;
+        std::string tabRegPath;
         if (hasStoredTabs)
         {
             char tabKeyName[16];
             wsprintf(tabKeyName, "Tab%d", i + 1);
             if (OpenKey(actKey, tabKeyName, tabKey))
+            {
                 closeTabKey = true;
+                tabRegPath.assign(reg);
+                tabRegPath.append("\\");
+                tabRegPath.append(tabKeyName);
+            }
         }
 
         if (tabKey == NULL && i == 0)
+        {
             tabKey = actKey;
+            tabRegPath.assign(reg);
+        }
 
         char path[2 * MAX_PATH];
         path[0] = 0;
 
-        LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), i != activeIndex);
-
-        if (Configuration.SaveWorkDirs && tabKey != NULL)
+        if (tabKey != NULL)
         {
-            CPathHistory* history = panel->EnsureWorkDirHistory();
-            if (history != NULL)
-                history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+            if (i == activeIndex)
+            {
+                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), false);
+                panel->ClearDeferredRegistrySettingsPath();
+            }
+            else
+            {
+                GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+
+                DWORD colorValue;
+                if (GetValue(tabKey, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
+                    panel->SetCustomTabColor((COLORREF)colorValue);
+                else
+                    panel->ClearCustomTabColor();
+
+                panel->ClearCustomTabPrefix();
+                DWORD prefixSize = 0;
+                if (GetSize(tabKey, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
+                {
+                    std::vector<char> buffer(prefixSize);
+                    if (GetValue(tabKey, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), prefixSize))
+                    {
+                        int needed = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, NULL, 0);
+                        if (needed > 0)
+                        {
+                            std::wstring prefix(needed - 1, L'\0');
+                            if (MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, &prefix[0], needed) > 0 && !prefix.empty())
+                                panel->SetCustomTabPrefix(prefix.c_str());
+                        }
+                    }
+                }
+
+                DWORD lockedValue = 0;
+                if (GetValue(tabKey, PANEL_TABLOCKED_REG, REG_DWORD, &lockedValue, sizeof(DWORD)))
+                    panel->SetTabLocked(lockedValue != 0);
+                else
+                    panel->SetTabLocked(false);
+
+                if (!tabRegPath.empty())
+                    panel->SetDeferredRegistrySettingsPath(tabRegPath.c_str());
+            }
+
+            if (Configuration.SaveWorkDirs && i == activeIndex)
+            {
+                CPathHistory* history = panel->EnsureWorkDirHistory();
+                if (history != NULL)
+                    history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+            }
+            else
+            {
+                panel->ClearWorkDirHistory();
+            }
         }
         else
         {
+            panel->ClearCustomTabColor();
+            panel->ClearCustomTabPrefix();
+            panel->SetTabLocked(false);
             panel->ClearWorkDirHistory();
         }
 
         panel->ClearDeferredPath();
-
         if (i == activeIndex)
         {
             BOOL restored = RestorePanelPathFromConfig(this, panel, path);
@@ -2885,7 +2992,14 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel);
+        if (side == cpsLeft)
+            LeftPanel = activePanel;
+        else
+            RightPanel = activePanel;
+
+        if (GetActivePanel() == NULL || GetActivePanel()->GetPanelSide() == side)
+            SetActivePanel(activePanel);
+
         int sel = GetPanelTabIndex(side, activePanel);
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)

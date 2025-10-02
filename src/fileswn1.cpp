@@ -1402,7 +1402,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
 
     DeferredPathValid = false;
     DeferredPath[0] = 0;
-    DeferredPanelSettings = SDeferredPanelSettings();
+    ClearDeferredPanelSettings();
+    DeferredRegistrySettingsPending = false;
+    DeferredRegistrySettingsPath.clear();
 
     DontDrawIndex = -1;
     DrawOnlyIndex = -1;
@@ -1704,6 +1706,41 @@ void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& sett
     {
         StatusLineVisible = StatusLine->HWindow != NULL ? TRUE : FALSE;
     }
+}
+
+void CFilesWindow::ClearDeferredPanelSettings()
+{
+    DeferredPanelSettings = SDeferredPanelSettings();
+}
+
+void CFilesWindow::SetDeferredRegistrySettingsPath(const char* relativePath)
+{
+    if (relativePath != NULL && relativePath[0] != 0)
+    {
+        DeferredRegistrySettingsPath = relativePath;
+        DeferredRegistrySettingsPending = true;
+    }
+    else
+    {
+        DeferredRegistrySettingsPath.clear();
+        DeferredRegistrySettingsPending = false;
+    }
+}
+
+void CFilesWindow::ClearDeferredRegistrySettingsPath()
+{
+    DeferredRegistrySettingsPath.clear();
+    DeferredRegistrySettingsPending = false;
+}
+
+bool CFilesWindow::HasDeferredRegistrySettingsPath() const
+{
+    return DeferredRegistrySettingsPending && !DeferredRegistrySettingsPath.empty();
+}
+
+const std::string& CFilesWindow::GetDeferredRegistrySettingsPath() const
+{
+    return DeferredRegistrySettingsPath;
 }
 
 void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)

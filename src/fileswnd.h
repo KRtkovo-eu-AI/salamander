@@ -806,8 +806,15 @@ public:
     };
 
     void ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady);
+    void ClearDeferredPanelSettings();
+    void SetDeferredRegistrySettingsPath(const char* relativePath);
+    void ClearDeferredRegistrySettingsPath();
+    bool HasDeferredRegistrySettingsPath() const;
+    const std::string& GetDeferredRegistrySettingsPath() const;
 
     SDeferredPanelSettings DeferredPanelSettings;
+    bool DeferredRegistrySettingsPending;
+    std::string DeferredRegistrySettingsPath;
 
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()

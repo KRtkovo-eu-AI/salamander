@@ -254,6 +254,7 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             return;
     }
 
+    EnsurePanelSettingsLoadedFromRegistry(panel);
     panel->ApplyDeferredPanelSettings(true);
 
     if (side == cpsLeft)

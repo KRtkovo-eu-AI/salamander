@@ -599,6 +599,7 @@ public:
 
     bool IsRestoringPanelConfiguration() const { return RestoringPanelConfiguration; }
     void EnsurePanelPathRestored(CFilesWindow* panel);
+    void EnsurePanelSettingsLoadedFromRegistry(CFilesWindow* panel);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
