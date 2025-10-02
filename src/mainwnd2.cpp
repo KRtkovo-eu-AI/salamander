@@ -2758,7 +2758,36 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     HKEY actKey;
     if (!OpenKey(hSalamander, reg, actKey))
+    {
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        CFilesWindow* panel = (side == cpsLeft) ? LeftPanel : RightPanel;
+        if (panel == NULL && tabs.Count > 0)
+            panel = tabs[0];
+        if (panel == NULL)
+            panel = AddPanelTab(side, 0, false, true);
+
+        if (panel != NULL)
+        {
+            if (panel->HWindow == NULL)
+                EnsurePanelWindowCreated(panel);
+
+            if (side == cpsLeft)
+                LeftPanel = panel;
+            else
+                RightPanel = panel;
+
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+            {
+                int index = GetPanelTabIndex(side, panel);
+                if (index >= 0)
+                    tabWnd->SetCurSel(index);
+            }
+
+            UpdatePanelTabVisibility(side);
+        }
         return;
+    }
 
     if (side == cpsLeft)
         PanelConfigPathsRestoredLeft = FALSE;
