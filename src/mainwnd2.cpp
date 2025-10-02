@@ -2729,8 +2729,113 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     int tabCount = (int)tabCountValue;
     if (tabCount <= 0)
         tabCount = 1;
-    if (!Configuration.UsePanelTabs)
+    bool multiTabConfiguration = Configuration.UsePanelTabs && tabCount > 1;
+    if (!multiTabConfiguration)
         tabCount = 1;
+
+    if (!multiTabConfiguration)
+    {
+        CFilesWindow* panel = NULL;
+        if (tabs.Count > 0)
+            panel = tabs[0];
+        else
+            panel = AddPanelTab(side, 0);
+
+        BOOL restored = FALSE;
+
+        if (panel != NULL)
+        {
+            while (tabs.Count > 1)
+            {
+                CFilesWindow* toClose = tabs[tabs.Count - 1];
+                ClosePanelTab(toClose, false);
+            }
+
+            if (panel->HWindow == NULL)
+            {
+                if (!EnsurePanelWindowCreated(panel))
+                {
+                    TRACE_E("Unable to create panel window while loading configuration");
+                    CloseKey(actKey);
+                    RestoringPanelConfiguration = previousRestoring;
+                    if (side == cpsLeft)
+                        PanelConfigPathsRestoredLeft = FALSE;
+                    else
+                        PanelConfigPathsRestoredRight = FALSE;
+                    return;
+                }
+            }
+
+            if (side == cpsLeft)
+                LeftPanel = panel;
+            else
+                RightPanel = panel;
+
+            char path[2 * MAX_PATH];
+            path[0] = 0;
+
+            HKEY tabKey;
+            if (OpenKey(actKey, "Tab1", tabKey))
+            {
+                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+                if (Configuration.SaveWorkDirs)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                }
+                else
+                    panel->ClearWorkDirHistory();
+                CloseKey(tabKey);
+            }
+            else
+            {
+                LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
+                if (Configuration.SaveWorkDirs)
+                {
+                    CPathHistory* history = panel->EnsureWorkDirHistory();
+                    if (history != NULL)
+                        history->LoadFromRegistry(actKey, CONFIG_WORKDIRSHISTORY_REG);
+                }
+                else
+                    panel->ClearWorkDirHistory();
+            }
+
+            panel->ClearDeferredPath();
+            restored = RestorePanelPathFromConfig(this, panel, path);
+            if (!restored)
+                panel->SetDeferredPath(path);
+            if (panelPath != NULL && IsDiskOrUNCPath(path))
+                lstrcpyn(panelPath, path, MAX_PATH);
+
+            UpdatePanelTabColor(panel);
+            UpdatePanelTabTitle(panel);
+            if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+                UpdateDirectoryLineHistoryState(panel);
+
+            if (GetActivePanel() == NULL || GetActivePanel()->GetPanelSide() == side)
+            {
+                SetActivePanel(panel);
+                if (Created)
+                    EditWindowSetDirectory();
+            }
+
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->SetCurSel(0);
+
+            UpdatePanelTabVisibility(side);
+        }
+
+        if (side == cpsLeft)
+            PanelConfigPathsRestoredLeft = restored;
+        else
+            PanelConfigPathsRestoredRight = restored;
+
+        CloseKey(actKey);
+        RestoringPanelConfiguration = previousRestoring;
+        return;
+    }
 
     if (tabs.Count == 0)
     {
