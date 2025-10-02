@@ -46,14 +46,14 @@ namespace EPocalipse.Json.Viewer
                 var refreshed = GetPalette();
                 if (refreshed.HasValue)
                 {
-                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.ControlBorder);
+                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.Background);
                     ApplyFormChrome(form, refreshed.Value);
                 }
             };
 
             if (form.IsHandleCreated)
             {
-                NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
+                NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.Background);
             }
         }
 
@@ -240,16 +240,14 @@ namespace EPocalipse.Json.Viewer
 
         private static void ApplyFormChrome(Form form, ThemePalette palette)
         {
-            var desiredPadding = palette.IsDark ? new Padding(1) : Padding.Empty;
-            if (form.Padding != desiredPadding)
+            if (form.Padding != Padding.Empty)
             {
-                form.Padding = desiredPadding;
+                form.Padding = Padding.Empty;
             }
 
-            var chromeColor = palette.IsDark ? palette.ControlBorder : palette.Background;
-            if (form.BackColor != chromeColor)
+            if (form.BackColor != palette.Background)
             {
-                form.BackColor = chromeColor;
+                form.BackColor = palette.Background;
             }
         }
 
@@ -488,13 +486,20 @@ namespace EPocalipse.Json.Viewer
                 stripHeight = 0;
             }
 
-            using (var strip = new SolidBrush(palette.Value.TabInactiveBackground))
+            if (stripHeight > 0)
             {
-                var rect = new Rectangle(0, 0, client.Width, stripHeight);
-                if (rect.Height > 0)
+                using var strip = new SolidBrush(palette.Value.TabInactiveBackground);
+                using var headerRegion = new Region(new Rectangle(0, 0, client.Width, stripHeight));
+                for (int i = 0; i < tabControl.TabPages.Count; i++)
                 {
-                    e.Graphics.FillRectangle(strip, rect);
+                    var tabRect = tabControl.GetTabRect(i);
+                    if (tabRect.IntersectsWith(new Rectangle(0, 0, client.Width, stripHeight)))
+                    {
+                        headerRegion.Exclude(tabRect);
+                    }
                 }
+
+                e.Graphics.FillRegion(strip, headerRegion);
             }
 
             using (var body = new SolidBrush(palette.Value.Background))
