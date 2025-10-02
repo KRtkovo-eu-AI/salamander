@@ -2761,12 +2761,28 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (panel == NULL && tabs.Count > 0)
             panel = tabs[0];
         if (panel == NULL)
-            panel = AddPanelTab(side, 0, false, true);
+            panel = AddPanelTab(side, 0, false, false);
 
         if (panel != NULL)
         {
             if (panel->HWindow == NULL)
                 EnsurePanelWindowCreated(panel);
+
+            BOOL restored = FALSE;
+            if (panelPath != NULL && panelPath[0] != 0)
+            {
+                restored = panel->ChangeDirLite(panelPath);
+                if (restored)
+                    UpdatePanelTabTitle(panel);
+            }
+
+            if (side == cpsLeft)
+                PanelConfigPathsRestoredLeft = restored;
+            else
+                PanelConfigPathsRestoredRight = restored;
+
+            if (!restored)
+                EnsurePanelPathRestored(panel);
 
             if (side == cpsLeft)
                 LeftPanel = panel;
