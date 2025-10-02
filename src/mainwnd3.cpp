@@ -3085,13 +3085,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
         LeftPanel = leftPanel;
-        if (!EnsurePanelWindowCreated(leftPanel))
-        {
-            TRACE_E("LeftPanel->Create failed");
-            LeftPanel = NULL;
-            ClosePanelTab(leftPanel, false);
-            return -1;
-        }
 
         CFilesWindow* rightPanel = AddPanelTab(cpsRight);
         if (rightPanel == NULL)
@@ -3100,29 +3093,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
         RightPanel = rightPanel;
-        if (!EnsurePanelWindowCreated(rightPanel))
-        {
-            TRACE_E("RightPanel->Create failed");
-            RightPanel = NULL;
-            ClosePanelTab(rightPanel, false);
-            return -1;
-        }
 
-        bool originalRestoring = RestoringPanelConfiguration;
-        RestoringPanelConfiguration = true;
-
-        SwitchPanelTab(leftPanel);
-        UpdatePanelTabVisibility(cpsLeft);
         SetActivePanel(leftPanel);
-        //      ReleaseMenuNew();
-
-        SwitchPanelTab(rightPanel);
-        UpdatePanelTabVisibility(cpsRight);
-
-        RestoringPanelConfiguration = originalRestoring;
-
-        LeftPanel = leftPanel;
-        RightPanel = rightPanel;
 
         EditWindow = new CEditWindow;
         if (EditWindow == NULL || !EditWindow->IsGood())
