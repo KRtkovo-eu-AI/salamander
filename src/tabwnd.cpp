@@ -505,7 +505,11 @@ bool CTabWindow::IsReorderableIndex(int index) const
         return false;
     if (IsNewTabButtonIndex(index))
         return false;
-    if (GetTabCount() <= 2)
+    // Allow dragging even if there is only a single non-default tab so that it
+    // can be moved to the opposite panel.  The default tab (index 0) is
+    // already excluded above, therefore the only situation we still need to
+    // filter out is when there are no reorderable tabs at all.
+    if (GetTabCount() <= 1)
         return false;
     TCITEMW item;
     ZeroMemory(&item, sizeof(item));
