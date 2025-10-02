@@ -1791,6 +1791,8 @@ void CMainWindow::EnsurePanelSettingsLoadedFromRegistry(CFilesWindow* panel)
     if (panel == NULL || !panel->HasDeferredRegistrySettingsPath())
         return;
 
+    panel->EnsureLightInitialization();
+
     if (SALAMANDER_ROOT_REG == NULL)
     {
         panel->ClearDeferredRegistrySettingsPath();

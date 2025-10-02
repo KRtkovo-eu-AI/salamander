@@ -753,6 +753,7 @@ public:
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
     bool IconInfrastructureInitialized;   // TRUE if icon-reader structures are ready
+    bool LightInitializationDone;         // TRUE once light initialization runs
     bool HeavyInitializationDeferred;     // TRUE if heavy initialization should run lazily
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
@@ -959,6 +960,7 @@ public:
     CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
     ~CFilesWindow();
 
+    void EnsureLightInitialization();
     void EnsureHeavyInitialization();
 
     void SetDeferredPath(const char* path);

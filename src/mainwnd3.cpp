@@ -118,6 +118,8 @@ bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
     if (panel->HWindow != NULL)
         return true;
 
+    panel->EnsureLightInitialization();
+
     DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     if (!panel->Create(CWINDOW_CLASSNAME2, "",
                        style,
@@ -1375,8 +1377,7 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
     if (panel == NULL)
         return;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
         TRACE_E("AddPanelTab: Create failed");
         int idx = GetPanelTabIndex(side, panel);
@@ -1616,8 +1617,7 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
     if (newPanel == NULL)
         return NULL;
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!newPanel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, newPanel))
+    if (!EnsurePanelWindowCreated(newPanel))
     {
         TRACE_E("Unable to create panel window while duplicating tab");
         int idx = GetPanelTabIndex(targetSide, newPanel);
@@ -1784,8 +1784,7 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         return false;
     }
 
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
+    if (!EnsurePanelWindowCreated(panel))
     {
         int idx = GetPanelTabIndex(side, panel);
         if (idx >= 0)

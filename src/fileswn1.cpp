@@ -1381,7 +1381,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     SupportACLS = FALSE;
     DeviceNotification = NULL;
     ContextMenu = NULL;
-    ContextSubmenuNew = new CMenuNew;
+    ContextSubmenuNew = NULL;
     UseSystemIcons = FALSE;
     UseThumbnails = FALSE;
     NeedRefreshAfterEndOfSM = FALSE;
@@ -1398,7 +1398,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     RefreshAfterIconsReadingTime = 0;
 
     WorkDirHistory = NULL;
-    PathHistory = new CPathHistory();
+    PathHistory = NULL;
 
     DeferredPathValid = false;
     DeferredPath[0] = 0;
@@ -1464,16 +1464,40 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     LastIconOvrRefreshTime = GetTickCount() - ICONOVR_REFRESH_PERIOD;
     IconOvrRefreshTimerSet = FALSE;
 
-    if (!HeavyInitializationDeferred)
+    LightInitializationDone = false;
+
+    if (!deferHeavyInitialization)
+    {
+        EnsureLightInitialization();
         EnsureHeavyInitialization();
+    }
+}
+
+void CFilesWindow::EnsureLightInitialization()
+{
+    if (LightInitializationDone)
+        return;
+
+    LightInitializationDone = true;
+
+    if (ContextSubmenuNew == NULL)
+        ContextSubmenuNew = new CMenuNew;
+
+    if (PathHistory == NULL)
+        PathHistory = new CPathHistory();
+
+    BuildColumnsTemplate();
+    CopyColumnsTemplateToColumns();
 }
 
 void CFilesWindow::EnsureHeavyInitialization()
 {
+    EnsureLightInitialization();
+
     if (IconInfrastructureInitialized)
         return;
 
-    HeavyInitializationDeferred = FALSE;
+    HeavyInitializationDeferred = false;
 
     HANDLES(InitializeCriticalSection(&ICSleepSection));
     HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
@@ -1635,6 +1659,8 @@ void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& sett
 
         return;
     }
+
+    EnsureLightInitialization();
 
     if (settings.ViewTemplateSet)
         SelectViewTemplate(settings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
