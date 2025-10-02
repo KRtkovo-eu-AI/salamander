@@ -9019,6 +9019,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             for (int i = 0; i < panels.Count; i++)
             {
                 CFilesWindow* panel = panels[i];
+                if (panel == NULL)
+                {
+                    detachFlags[i] = FALSE;
+                    continue;
+                }
+
                 BOOL detachFS;
                 if (panel->HWindow == NULL)
                 {
@@ -9051,7 +9057,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             for (int i = 0; i < panels.Count; i++)
             {
                 CFilesWindow* panel = panels[i];
-                if (panel->HWindow == NULL)
+                if (panel == NULL || panel->HWindow == NULL)
                     continue;
                 if (panel->UseSystemIcons || panel->UseThumbnails)
                     panel->SleepIconCacheThread();
