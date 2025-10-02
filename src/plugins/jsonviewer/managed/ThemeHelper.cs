@@ -111,7 +111,7 @@ namespace EPocalipse.Json.Viewer
                     control.BackColor = palette.Background;
                     control.ForeColor = palette.Foreground;
                     break;
-                case Panel panel:
+                case Panel panel when control is not TabPage:
                     panel.BackColor = palette.Background;
                     panel.ForeColor = palette.Foreground;
                     backgroundSet = true;
