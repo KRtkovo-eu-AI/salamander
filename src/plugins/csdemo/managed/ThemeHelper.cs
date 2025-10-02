@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#nullable enable
+
 using System;
 using System.Drawing;
 using System.Resources;
@@ -484,12 +486,12 @@ internal static class ThemeHelper
 
             protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
             {
-                RenderItemBackground(e);
+                PaintItemBackground(e);
             }
 
             protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
             {
-                RenderItemBackground(e);
+                PaintItemBackground(e);
             }
 
             protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
@@ -514,7 +516,7 @@ internal static class ThemeHelper
                 }
             }
 
-            private void RenderItemBackground(ToolStripItemRenderEventArgs e)
+            private void PaintItemBackground(ToolStripItemRenderEventArgs e)
             {
                 var rect = new Rectangle(Point.Empty, e.Item.Size);
                 Color background = e.Item.Selected || e.Item.Pressed

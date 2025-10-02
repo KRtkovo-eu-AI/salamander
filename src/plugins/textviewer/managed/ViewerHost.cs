@@ -1204,15 +1204,17 @@ internal static class ViewerHost
                 return;
             }
 
-            if (value.IndexOf("italic", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            string fontStyle = value!;
+
+            if (fontStyle.IndexOf("italic", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("font-style:italic;");
             }
-            if (value.IndexOf("bold", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (fontStyle.IndexOf("bold", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("font-weight:bold;");
             }
-            if (value.IndexOf("underline", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (fontStyle.IndexOf("underline", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("text-decoration:underline;");
             }
@@ -1399,7 +1401,9 @@ internal static class ViewerHost
                 return;
             }
 
-            var parts = value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            string actual = value!;
+
+            var parts = actual.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 var trimmed = part.Trim();
