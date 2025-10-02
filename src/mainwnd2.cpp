@@ -1607,6 +1607,125 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
     }
 }
 
+static void LegacyApplyPanelSettings(CFilesWindow* panel, HKEY key)
+{
+    if (panel == NULL || key == NULL)
+        return;
+
+    DWORD value;
+    if (GetValue(key, PANEL_HEADER_REG, REG_DWORD, &value, sizeof(DWORD)))
+        panel->HeaderLineVisible = value;
+
+    if (GetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        if (Configuration.ConfigVersion < 13 && !value)
+            value = 2;
+        panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+    }
+
+    if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
+        panel->ReverseSort = value;
+
+    if (GetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        if (value > stAttr)
+            value = stName;
+        panel->SortType = (CSortType)value;
+    }
+
+    if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        BOOL visible = value != 0;
+        BOOL current = panel->DirectoryLine != NULL && panel->DirectoryLine->HWindow != NULL;
+        if (visible != current)
+            panel->ToggleDirectoryLine();
+    }
+
+    if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        BOOL visible = value != 0;
+        BOOL current = panel->StatusLine != NULL && panel->StatusLine->HWindow != NULL;
+        if (visible != current)
+            panel->ToggleStatusLine();
+    }
+
+    GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
+
+    char filter[MAX_PATH];
+    if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_PATH))
+    {
+        filter[0] = 0;
+        if (Configuration.ConfigVersion < 22)
+        {
+            char* history[1] = {NULL};
+            LoadHistory(key, PANEL_FILTERHISTORY_REG, history, 1);
+            if (history[0] != NULL)
+            {
+                DWORD filterInverse = FALSE;
+                if (panel->FilterEnabled && Configuration.ConfigVersion < 14)
+                    GetValue(key, PANEL_FILTER_INVERSE, REG_DWORD, &filterInverse, sizeof(DWORD));
+                if (filterInverse)
+                    strcpy(filter, "|");
+                strcat(filter, history[0]);
+                free(history[0]);
+            }
+        }
+        else
+        {
+            panel->FilterEnabled = FALSE;
+        }
+    }
+
+    if (filter[0] != 0)
+        panel->Filter.SetMasksString(filter);
+    panel->UpdateFilterSymbol();
+    int errPos;
+    if (!panel->Filter.PrepareMasks(errPos))
+    {
+        panel->Filter.SetMasksString("*.*");
+        panel->Filter.PrepareMasks(errPos);
+    }
+
+    DWORD colorValue;
+    if (GetValue(key, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
+        panel->SetCustomTabColor((COLORREF)colorValue);
+    else
+        panel->ClearCustomTabColor();
+
+    DWORD prefixSize = 0;
+    if (GetSize(key, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
+    {
+        std::vector<char> buffer(prefixSize);
+        if (GetValue(key, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), prefixSize))
+        {
+            int needed = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, NULL, 0);
+            if (needed > 0)
+            {
+                std::wstring prefix(needed - 1, L'\0');
+                int written = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, &prefix[0], needed);
+                if (written > 0)
+                {
+                    prefix.resize(written - 1);
+                    if (!prefix.empty())
+                        panel->SetCustomTabPrefix(prefix.c_str());
+                    else
+                        panel->ClearCustomTabPrefix();
+                }
+            }
+        }
+    }
+    else
+    {
+        panel->ClearCustomTabPrefix();
+    }
+
+    DWORD lockedValue = 0;
+    if (GetValue(key, PANEL_TABLOCKED_REG, REG_DWORD, &lockedValue, sizeof(DWORD)))
+        panel->SetTabLocked(lockedValue != 0);
+    else
+        panel->SetTabLocked(FALSE);
+}
+
 static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
 {
     if (panel == NULL)
@@ -2833,9 +2952,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         }
 
         CFilesWindow* panel = tabs[0];
-        panel->ClearDeferredPanelSettings();
-        panel->ClearDeferredRegistrySettingsPath();
-
         if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
         {
             TRACE_E("Unable to create panel window while loading configuration");
@@ -2845,7 +2961,10 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         }
 
         char path[2 * MAX_PATH];
-        LoadPanelSettingsFromKey(panel, actKey, path, _countof(path), false);
+        path[0] = 0;
+        GetValue(actKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+
+        LegacyApplyPanelSettings(panel, actKey);
 
         if (Configuration.SaveWorkDirs)
         {
@@ -2940,8 +3059,6 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     for (int i = 0; i < localTabs.Count; i++)
     {
         CFilesWindow* panel = localTabs[i];
-        panel->ClearDeferredPanelSettings();
-        panel->ClearDeferredRegistrySettingsPath();
 
         HKEY tabKey = NULL;
         bool closeTabKey = false;
@@ -2957,28 +3074,36 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         char path[2 * MAX_PATH];
         path[0] = 0;
 
+        if (tabKey != NULL)
+            GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+
         bool isActive = (i == activeIndex);
         if (tabKey != NULL)
         {
             if (isActive)
             {
-                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), false);
-
-                if (Configuration.SaveWorkDirs)
+                if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
                 {
-                    CPathHistory* history = panel->EnsureWorkDirHistory();
-                    if (history != NULL)
-                        history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                    TRACE_E("Unable to create active panel window while loading configuration");
                 }
                 else
                 {
-                    panel->ClearWorkDirHistory();
+                    LegacyApplyPanelSettings(panel, tabKey);
+
+                    if (Configuration.SaveWorkDirs)
+                    {
+                        CPathHistory* history = panel->EnsureWorkDirHistory();
+                        if (history != NULL)
+                            history->LoadFromRegistry(tabKey, CONFIG_WORKDIRSHISTORY_REG);
+                    }
+                    else
+                    {
+                        panel->ClearWorkDirHistory();
+                    }
                 }
             }
             else
             {
-                GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
-
                 panel->ClearWorkDirHistory();
 
                 DWORD lockedValue = 0;
