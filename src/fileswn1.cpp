@@ -1645,62 +1645,52 @@ void CFilesWindow::ApplyDeferredSettings()
     if (HWindow == NULL)
         return;
 
-    bool pendingFilterSymbolUpdate = DeferredSettings.NeedsFilterSymbolUpdate;
-    bool filterSymbolUpdated = false;
+    const bool hadDeferredSettings = DeferredSettings.HasAny();
+    bool needFilterSymbolUpdate = DeferredSettings.NeedsFilterSymbolUpdate;
 
-    if (DeferredSettings.HasAny())
+    if (DeferredSettings.HasViewTemplate)
     {
-        if (DeferredSettings.HasViewTemplate)
-        {
-            SelectViewTemplate(DeferredSettings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
-        }
-
-        if (DeferredSettings.HasStatusLine)
-        {
-            BOOL desired = DeferredSettings.StatusLineVisible;
-            if (StatusLine != NULL)
-            {
-                BOOL currentlyVisible = StatusLine->HWindow != NULL;
-                if (!!currentlyVisible != !!desired)
-                    ToggleStatusLine();
-            }
-            StatusLineVisible = desired;
-        }
-
-        if (DeferredSettings.HasDirectoryLine)
-        {
-            BOOL desired = DeferredSettings.DirectoryLineVisible;
-            if (DirectoryLine != NULL)
-            {
-                BOOL currentlyVisible = DirectoryLine->HWindow != NULL;
-                if (!!currentlyVisible != !!desired)
-                    ToggleDirectoryLine();
-            }
-            DirectoryLineVisible = desired;
-        }
-
-        if (DeferredSettings.HasHeaderLine)
-        {
-            BOOL desired = DeferredSettings.HeaderLineVisible;
-            if (ListBox != NULL)
-            {
-                BOOL currentlyVisible = HeaderLineVisible;
-                if (!!currentlyVisible != !!desired)
-                    ToggleHeaderLine();
-            }
-            HeaderLineVisible = desired;
-        }
-
-        if (pendingFilterSymbolUpdate && DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
-        {
-            UpdateFilterSymbol();
-            filterSymbolUpdated = true;
-        }
-
-        DeferredSettings.Clear();
-        if (pendingFilterSymbolUpdate && !filterSymbolUpdated)
-            DeferredSettings.NeedsFilterSymbolUpdate = true;
+        SelectViewTemplate(DeferredSettings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
     }
+
+    if (DeferredSettings.HasStatusLine)
+    {
+        BOOL desired = DeferredSettings.StatusLineVisible;
+        if (StatusLine != NULL)
+        {
+            BOOL currentlyVisible = StatusLine->HWindow != NULL;
+            if (!!currentlyVisible != !!desired)
+                ToggleStatusLine();
+        }
+        StatusLineVisible = desired;
+    }
+
+    if (DeferredSettings.HasDirectoryLine)
+    {
+        BOOL desired = DeferredSettings.DirectoryLineVisible;
+        if (DirectoryLine != NULL)
+        {
+            BOOL currentlyVisible = DirectoryLine->HWindow != NULL;
+            if (!!currentlyVisible != !!desired)
+                ToggleDirectoryLine();
+        }
+        DirectoryLineVisible = desired;
+    }
+
+    if (DeferredSettings.HasHeaderLine)
+    {
+        BOOL desired = DeferredSettings.HeaderLineVisible;
+        if (ListBox != NULL)
+        {
+            BOOL currentlyVisible = HeaderLineVisible;
+            if (!!currentlyVisible != !!desired)
+                ToggleHeaderLine();
+        }
+        HeaderLineVisible = desired;
+    }
+
+    if (hadDeferredSettings)
+        DeferredSettings.Clear();
 
     if (HasDeferredFilterMask)
     {
@@ -1718,15 +1708,27 @@ void CFilesWindow::ApplyDeferredSettings()
             Filter.PrepareMasks(errPos);
         }
 
-        if (!filterSymbolUpdated && DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
-        {
-            UpdateFilterSymbol();
-            filterSymbolUpdated = true;
-            DeferredSettings.NeedsFilterSymbolUpdate = false;
-        }
-
         HasDeferredFilterMask = false;
         DeferredFilterString[0] = 0;
+
+        needFilterSymbolUpdate = true;
+    }
+
+    if (needFilterSymbolUpdate)
+    {
+        if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+        {
+            UpdateFilterSymbol();
+            DeferredSettings.NeedsFilterSymbolUpdate = false;
+        }
+        else
+        {
+            DeferredSettings.NeedsFilterSymbolUpdate = true;
+        }
+    }
+    else if (hadDeferredSettings)
+    {
+        DeferredSettings.NeedsFilterSymbolUpdate = false;
     }
 }
 
