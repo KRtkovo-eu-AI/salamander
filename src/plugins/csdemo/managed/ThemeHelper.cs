@@ -391,11 +391,10 @@ internal static class ThemeHelper
     {
         return icon switch
         {
-            MessageBoxIcon.Error => SystemIcons.Error.ToBitmap(),
+            MessageBoxIcon.Hand or MessageBoxIcon.Stop or MessageBoxIcon.Error => SystemIcons.Error.ToBitmap(),
             MessageBoxIcon.Question => SystemIcons.Question.ToBitmap(),
-            MessageBoxIcon.Exclamation => SystemIcons.Warning.ToBitmap(),
-            MessageBoxIcon.Warning => SystemIcons.Warning.ToBitmap(),
-            MessageBoxIcon.Information => SystemIcons.Information.ToBitmap(),
+            MessageBoxIcon.Exclamation or MessageBoxIcon.Warning => SystemIcons.Warning.ToBitmap(),
+            MessageBoxIcon.Asterisk or MessageBoxIcon.Information => SystemIcons.Information.ToBitmap(),
             _ => null,
         };
     }
