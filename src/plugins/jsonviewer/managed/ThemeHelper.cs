@@ -28,7 +28,15 @@ namespace EPocalipse.Json.Viewer
 
             ApplyToControl(form, palette.Value);
 
-            form.HandleCreated += (_, _) => NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark);
+            form.HandleCreated += (_, _) =>
+            {
+                var refreshed = GetPalette();
+                if (refreshed.HasValue)
+                {
+                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark);
+                }
+            };
+
             if (form.IsHandleCreated)
             {
                 NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark);
@@ -92,15 +100,22 @@ namespace EPocalipse.Json.Viewer
 
         private static void ApplyToControl(Control control, ThemePalette palette)
         {
+            bool backgroundSet = false;
+            bool foregroundSet = false;
+
             switch (control)
             {
-                case Form form:
-                    form.BackColor = palette.Background;
-                    form.ForeColor = palette.Foreground;
+                case Form:
+                    backgroundSet = true;
+                    foregroundSet = true;
+                    control.BackColor = palette.Background;
+                    control.ForeColor = palette.Foreground;
                     break;
                 case Panel panel:
                     panel.BackColor = palette.Background;
                     panel.ForeColor = palette.Foreground;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case SplitContainer split:
                     split.BackColor = palette.ControlBackground;
@@ -109,11 +124,15 @@ namespace EPocalipse.Json.Viewer
                     split.Panel1.ForeColor = palette.Foreground;
                     split.Panel2.BackColor = palette.Background;
                     split.Panel2.ForeColor = palette.Foreground;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case TextBoxBase textBox:
                     textBox.BackColor = palette.InputBackground;
                     textBox.ForeColor = palette.InputForeground;
                     textBox.BorderStyle = BorderStyle.FixedSingle;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case ComboBox comboBox:
                     comboBox.BackColor = palette.InputBackground;
@@ -121,48 +140,72 @@ namespace EPocalipse.Json.Viewer
                     comboBox.DrawMode = DrawMode.OwnerDrawFixed;
                     comboBox.DrawItem -= ComboBoxOnDrawItem;
                     comboBox.DrawItem += ComboBoxOnDrawItem;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case ListView listView:
                     listView.BackColor = palette.InputBackground;
                     listView.ForeColor = palette.InputForeground;
                     listView.OwnerDraw = false;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case TreeView treeView:
                     treeView.BackColor = palette.InputBackground;
                     treeView.ForeColor = palette.InputForeground;
                     treeView.LineColor = palette.Accent;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case PropertyGrid grid:
                     ApplyToPropertyGrid(grid, palette);
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case DataGridView dataGrid:
                     ApplyToDataGridView(dataGrid, palette);
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case ContextMenuStrip menu:
                     ThemeRenderer.Attach(menu, palette);
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case ToolStrip toolStrip when toolStrip is not ContextMenuStrip:
                     ThemeRenderer.Attach(toolStrip, palette);
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case TabControl tabControl:
                     ApplyToTabControl(tabControl, palette);
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
                 case LinkLabel linkLabel:
                     linkLabel.LinkColor = palette.Accent;
                     linkLabel.ActiveLinkColor = palette.HighlightForeground;
                     linkLabel.VisitedLinkColor = palette.Accent;
+                    foregroundSet = true;
                     break;
                 case Button button when palette.IsDark:
                     button.FlatStyle = FlatStyle.Flat;
                     button.BackColor = palette.ControlBackground;
                     button.ForeColor = palette.Foreground;
                     button.FlatAppearance.BorderColor = palette.ControlBorder;
+                    backgroundSet = true;
+                    foregroundSet = true;
                     break;
             }
 
-            if (control is not ToolStrip and not ContextMenuStrip)
+            if (!backgroundSet && control is not ToolStrip and not ContextMenuStrip)
             {
                 control.BackColor = palette.Background;
+                backgroundSet = true;
+            }
+
+            if (!foregroundSet)
+            {
                 control.ForeColor = palette.Foreground;
             }
 
@@ -171,9 +214,21 @@ namespace EPocalipse.Json.Viewer
                 ThemeRenderer.Attach(contextual, palette);
             }
 
+            control.ControlAdded -= ControlOnControlAdded;
+            control.ControlAdded += ControlOnControlAdded;
+
             foreach (Control child in control.Controls)
             {
                 ApplyToControl(child, palette);
+            }
+        }
+
+        private static void ControlOnControlAdded(object? sender, ControlEventArgs e)
+        {
+            var palette = GetPalette();
+            if (palette.HasValue)
+            {
+                ApplyToControl(e.Control, palette.Value);
             }
         }
 
@@ -183,8 +238,12 @@ namespace EPocalipse.Json.Viewer
             grid.ForeColor = palette.Foreground;
             grid.ViewBackColor = palette.InputBackground;
             grid.ViewForeColor = palette.InputForeground;
+            grid.ViewBorderColor = palette.ControlBorder;
             grid.HelpBackColor = palette.Background;
             grid.HelpForeColor = palette.Foreground;
+            grid.HelpBorderColor = palette.ControlBorder;
+            grid.CommandsBackColor = palette.ControlBackground;
+            grid.CommandsForeColor = palette.Foreground;
             grid.CategoryForeColor = palette.Accent;
             grid.CategorySplitterColor = palette.ControlBorder;
             grid.LineColor = palette.ControlBorder;
