@@ -32,6 +32,17 @@ namespace EPocalipse.Json.Viewer
             Margin = System.Windows.Forms.Padding.Empty;
             Padding = System.Windows.Forms.Padding.Empty;
             tabControl.Margin = System.Windows.Forms.Padding.Empty;
+            tabControl.Padding = new System.Drawing.Point(16, 6);
+            pageTreeView.Margin = System.Windows.Forms.Padding.Empty;
+            pageTreeView.Padding = System.Windows.Forms.Padding.Empty;
+            pageTextView.Margin = System.Windows.Forms.Padding.Empty;
+            pageTextView.Padding = System.Windows.Forms.Padding.Empty;
+            spcViewer.Margin = System.Windows.Forms.Padding.Empty;
+            spcViewer.Padding = System.Windows.Forms.Padding.Empty;
+            pnlVisualizer.Margin = System.Windows.Forms.Padding.Empty;
+            pnlVisualizer.Padding = System.Windows.Forms.Padding.Empty;
+            pnlFind.Margin = System.Windows.Forms.Padding.Empty;
+            pnlFind.Padding = System.Windows.Forms.Padding.Empty;
             try
             {
                 _pluginsManager.Initialize();

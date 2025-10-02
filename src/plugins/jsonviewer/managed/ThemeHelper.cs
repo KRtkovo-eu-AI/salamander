@@ -240,21 +240,48 @@ namespace EPocalipse.Json.Viewer
 
         private static void ApplyFormChrome(Form form, ThemePalette palette)
         {
-            var desiredPadding = new Padding(1);
-            if (form.Padding != desiredPadding)
+            if (form.Padding != Padding.Empty)
             {
-                form.Padding = desiredPadding;
+                form.Padding = Padding.Empty;
             }
 
-            if (form.BackColor != palette.ControlBorder)
+            if (form.BackColor != palette.Background)
             {
-                form.BackColor = palette.ControlBorder;
+                form.BackColor = palette.Background;
             }
 
             if (form.ForeColor != palette.Foreground)
             {
                 form.ForeColor = palette.Foreground;
             }
+
+            form.Paint -= FormOnPaint;
+            form.Paint += FormOnPaint;
+        }
+
+        private static void FormOnPaint(object? sender, PaintEventArgs e)
+        {
+            if (sender is not Form form)
+            {
+                return;
+            }
+
+            var palette = GetPalette();
+            if (!palette.HasValue)
+            {
+                form.Paint -= FormOnPaint;
+                return;
+            }
+
+            var size = form.ClientSize;
+            if (size.Width <= 1 || size.Height <= 1)
+            {
+                return;
+            }
+
+            var bounds = new Rectangle(0, 0, size.Width - 1, size.Height - 1);
+            using var border = new Pen(palette.Value.ControlBorder);
+            e.Graphics.DrawRectangle(border, bounds);
         }
 
         private static void PrepareTabControl(TabControl tabControl)
