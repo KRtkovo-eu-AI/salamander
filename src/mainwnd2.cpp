@@ -2945,72 +2945,24 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
         HKEY tabKey = NULL;
         bool closeTabKey = false;
-        std::string tabRegPath;
 
         char tabKeyName[16];
         wsprintf(tabKeyName, "Tab%d", i + 1);
         if (OpenKey(actKey, tabKeyName, tabKey))
-        {
             closeTabKey = true;
-            tabRegPath.assign(reg);
-            tabRegPath.append("\\");
-            tabRegPath.append(tabKeyName);
-        }
 
         if (tabKey == NULL && i == 0)
-        {
             tabKey = actKey;
-            tabRegPath.assign(reg);
-        }
 
         char path[2 * MAX_PATH];
         path[0] = 0;
 
         if (tabKey != NULL)
         {
-            if (i == activeIndex)
-            {
-                LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), false);
-                panel->ClearDeferredRegistrySettingsPath();
-            }
-            else
-            {
-                GetValue(tabKey, PANEL_PATH_REG, REG_SZ, path, _countof(path));
+            bool isActive = (i == activeIndex);
+            LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), !isActive);
 
-                DWORD colorValue;
-                if (GetValue(tabKey, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
-                    panel->SetCustomTabColor((COLORREF)colorValue);
-                else
-                    panel->ClearCustomTabColor();
-
-                panel->ClearCustomTabPrefix();
-                DWORD prefixSize = 0;
-                if (GetSize(tabKey, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
-                {
-                    std::vector<char> buffer(prefixSize);
-                    if (GetValue(tabKey, PANEL_TABPREFIX_REG, REG_SZ, buffer.data(), prefixSize))
-                    {
-                        int needed = MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, NULL, 0);
-                        if (needed > 0)
-                        {
-                            std::wstring prefix(needed - 1, L'\0');
-                            if (MultiByteToWideChar(CP_ACP, 0, buffer.data(), -1, &prefix[0], needed) > 0 && !prefix.empty())
-                                panel->SetCustomTabPrefix(prefix.c_str());
-                        }
-                    }
-                }
-
-                DWORD lockedValue = 0;
-                if (GetValue(tabKey, PANEL_TABLOCKED_REG, REG_DWORD, &lockedValue, sizeof(DWORD)))
-                    panel->SetTabLocked(lockedValue != 0);
-                else
-                    panel->SetTabLocked(false);
-
-                if (!tabRegPath.empty())
-                    panel->SetDeferredRegistrySettingsPath(tabRegPath.c_str());
-            }
-
-            if (Configuration.SaveWorkDirs && i == activeIndex)
+            if (Configuration.SaveWorkDirs && isActive)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
                 if (history != NULL)
