@@ -462,7 +462,6 @@ public:
 
     BOOL PanelConfigPathsRestoredLeft;
     BOOL PanelConfigPathsRestoredRight;
-    BOOL RestoringPanelConfig;
 
     BOOL DragMode;
     int DragSplitX;
@@ -556,12 +555,9 @@ public:
     void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // clears EditMode because focus is put into the panel
     void FocusLeftPanel();                                                  // calls FocusPanel for the left panel
 
-    CFilesWindow* AddPanelTab(CPanelSide side, int index = -1, bool activate = true,
-                              bool initializeHeavyInfrastructure = true);
-    bool EnsurePanelWindowCreated(CFilesWindow* panel);
+    CFilesWindow* AddPanelTab(CPanelSide side, int index = -1);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
     void SwitchPanelTab(CFilesWindow* panel);
-    void EnsurePanelPathRestored(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,

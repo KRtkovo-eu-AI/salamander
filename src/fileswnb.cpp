@@ -1049,8 +1049,6 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // srovname nastaveni promenne AutomaticRefresh a directory-liny
         SetAutomaticRefresh(AutomaticRefresh, TRUE);
 
-        ApplyDeferredPanelSettings(TRUE);
-
         return 0;
     }
 

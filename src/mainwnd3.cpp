@@ -94,11 +94,10 @@ namespace
     constexpr size_t kMaxStoredClosedTabs = 10;
 }
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate,
-                                      bool initializeHeavyInfrastructure)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
-    CFilesWindow* panel = new CFilesWindow(this, side, initializeHeavyInfrastructure);
+    CFilesWindow* panel = new CFilesWindow(this, side);
     if (panel == NULL)
         return NULL;
 
@@ -108,61 +107,8 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate
         return NULL;
     }
 
-    if (activate)
-    {
-        SwitchPanelTab(panel);
-    }
-    else
-    {
-        CTabWindow* tabWnd = GetPanelTabWindow(side);
-        if (tabWnd != NULL && tabWnd->HWindow != NULL)
-        {
-            int currentSel = tabWnd->GetCurSel();
-            bool needsSelection = (currentSel < 0);
-            if (!needsSelection)
-            {
-                LPARAM selData = tabWnd->GetItemData(currentSel);
-                needsSelection = (selData == (LPARAM)-1);
-            }
-            if (needsSelection)
-            {
-                int index = GetPanelTabIndex(side, panel);
-                if (index >= 0)
-                    tabWnd->SetCurSel(index);
-            }
-        }
-    }
+    SwitchPanelTab(panel);
     return panel;
-}
-
-bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
-{
-    if (panel == NULL)
-        return false;
-    if (panel->HWindow != NULL)
-        return true;
-
-    panel->EnsureHeavyInitialization();
-
-    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    if (!panel->Create(CWINDOW_CLASSNAME2, "",
-                       style,
-                       0, 0, 0, 0,
-                       HWindow,
-                       NULL,
-                       HInstance,
-                       panel))
-    {
-        TRACE_E("EnsurePanelWindowCreated: Create failed");
-        return false;
-    }
-
-    panel->ApplyDeferredPanelSettings(true);
-    EnsurePanelPathRestored(panel);
-    UpdatePanelTabColor(panel);
-    UpdatePanelTabTitle(panel);
-
-    return true;
 }
 
 bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState)
@@ -235,12 +181,6 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
     if (panel == NULL)
         return;
 
-    if (RestoringPanelConfig)
-    {
-        panel->NeedsRefreshOnActivation = TRUE;
-        return;
-    }
-
     bool refreshOnActivate = panel->NeedsRefreshOnActivation != FALSE;
     const bool isDiskLike = panel->Is(ptDisk) || panel->Is(ptZIPArchive);
     const char* path = panel->GetPath();
@@ -270,17 +210,8 @@ void CMainWindow::EnsurePanelAutomaticRefresh(CFilesWindow* panel)
 void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
                                                bool postRefreshMessage)
 {
-    if (panel == NULL)
-        return;
-
-    if (RestoringPanelConfig)
-    {
-        panel->NeedsRefreshOnActivation = TRUE;
-        return;
-    }
-
     EnsurePanelAutomaticRefresh(panel);
-    if (Created)
+    if (panel != NULL && Created)
         RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
 }
 
@@ -293,18 +224,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CPanelSide side = panel->GetPanelSide();
     if (GetPanelTabIndex(side, panel) < 0)
         return;
-
-    if (panel->HWindow == NULL)
-    {
-        if (!EnsurePanelWindowCreated(panel))
-        {
-            UpdatePanelTabVisibility(side);
-            return;
-        }
-    }
-
-    panel->ApplyDeferredPanelSettings(true);
-    EnsurePanelPathRestored(panel);
 
     if (side == cpsLeft)
         LeftPanel = panel;
@@ -726,14 +645,7 @@ void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
     }
     CFilesWindow* panel = tabs[index];
     if (panel != NULL)
-    {
-        if (panel->HWindow == NULL && !EnsurePanelWindowCreated(panel))
-        {
-            UpdatePanelTabVisibility(side);
-            return;
-        }
         SwitchPanelTab(panel);
-    }
 }
 
 void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt)
@@ -1414,13 +1326,24 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 
-    CFilesWindow* panel = AddPanelTab(side, insertIndex, false);
+    CFilesWindow* panel = AddPanelTab(side, insertIndex);
     if (panel == NULL)
         return;
 
-    if (!EnsurePanelWindowCreated(panel))
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
     {
-        ClosePanelTab(panel, false);
+        TRACE_E("AddPanelTab: Create failed");
+        int idx = GetPanelTabIndex(side, panel);
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        if (idx >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(idx);
+            tabs.Delete(idx);
+        }
+        delete panel;
         if (previous != NULL)
             SwitchPanelTab(previous);
         else
@@ -1644,14 +1567,23 @@ CFilesWindow* CMainWindow::CreateDuplicatePanelTab(CPanelSide targetSide, CFiles
 
     CFilesWindow* previousTarget = (targetSide == cpsLeft) ? LeftPanel : RightPanel;
 
-    CFilesWindow* newPanel = AddPanelTab(targetSide, insertIndex, false);
+    CFilesWindow* newPanel = AddPanelTab(targetSide, insertIndex);
     if (newPanel == NULL)
         return NULL;
 
-    if (!EnsurePanelWindowCreated(newPanel))
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!newPanel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, newPanel))
     {
         TRACE_E("Unable to create panel window while duplicating tab");
-        ClosePanelTab(newPanel, false);
+        int idx = GetPanelTabIndex(targetSide, newPanel);
+        if (idx >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(targetSide);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(idx);
+            targetTabs.Delete(idx);
+        }
+        delete newPanel;
         if (previousTarget != NULL)
             SwitchPanelTab(previousTarget);
         else
@@ -1798,7 +1730,7 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
 
     CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
 
-    CFilesWindow* panel = AddPanelTab(side, insertIndex, false);
+    CFilesWindow* panel = AddPanelTab(side, insertIndex);
     if (panel == NULL)
     {
         ClosedPanelTabs[vectorIndex].push_back(std::move(entry));
@@ -1807,9 +1739,18 @@ bool CMainWindow::CommandReopenClosedTab(CPanelSide side)
         return false;
     }
 
-    if (!EnsurePanelWindowCreated(panel))
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    if (!panel->Create(CWINDOW_CLASSNAME2, "", style, 0, 0, 0, 0, HWindow, NULL, HInstance, panel))
     {
-        ClosePanelTab(panel, false);
+        int idx = GetPanelTabIndex(side, panel);
+        if (idx >= 0)
+        {
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+                tabWnd->RemoveTab(idx);
+            tabs.Delete(idx);
+        }
+        delete panel;
         if (previous != NULL)
             SwitchPanelTab(previous);
         else
@@ -3093,34 +3034,48 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
 
-        CFilesWindow* leftPanel = AddPanelTab(cpsLeft, -1, false);
+        CFilesWindow* leftPanel = AddPanelTab(cpsLeft);
         if (leftPanel == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        if (!EnsurePanelWindowCreated(leftPanel))
+        if (!leftPanel->Create(CWINDOW_CLASSNAME2, "",
+                               WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                               0, 0, 0, 0,
+                               HWindow,
+                               NULL,
+                               HInstance,
+                               leftPanel))
         {
             TRACE_E("LeftPanel->Create failed");
             ClosePanelTab(leftPanel, false);
             return -1;
         }
-        CFilesWindow* rightPanel = AddPanelTab(cpsRight, -1, false);
+        UpdatePanelTabVisibility(cpsLeft);
+        SetActivePanel(leftPanel);
+        //      ReleaseMenuNew();
+        CFilesWindow* rightPanel = AddPanelTab(cpsRight);
         if (rightPanel == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        if (!EnsurePanelWindowCreated(rightPanel))
+        if (!rightPanel->Create(CWINDOW_CLASSNAME2, "",
+                                WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                                0, 0, 0, 0,
+                                HWindow,
+                                NULL,
+                                HInstance,
+                                rightPanel))
         {
             TRACE_E("RightPanel->Create failed");
             ClosePanelTab(rightPanel, false);
             return -1;
         }
+        UpdatePanelTabVisibility(cpsRight);
         LeftPanel = leftPanel;
         RightPanel = rightPanel;
-
-        SetActivePanel(leftPanel);
 
         EditWindow = new CEditWindow;
         if (EditWindow == NULL || !EditWindow->IsGood())

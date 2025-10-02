@@ -10,7 +10,6 @@
 #include "usermenu.h"
 #include "plugins.h"
 #include "fileswnd.h"
-#include "filesbox.h"
 #include "stswnd.h"
 #include "snooper.h"
 #include "zip.h"
@@ -1310,7 +1309,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool initializeHeavyInfrastructure)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1333,17 +1332,30 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool initialize
     WaitBeforeReadingIcons = 0;
     WaitOneTimeBeforeReadingIcons = 0;
     EndOfIconReadingTime = GetTickCount() - 10000;
-    ICEventTerminate = NULL;
-    ICEventWork = NULL;
+    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
     HANDLES(InitializeCriticalSection(&ICSleepSection));
     HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
     HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+    DWORD ThreadID;
     IconCacheThread = NULL;
-    HeavyInitializationDone = FALSE;
-    IconCache = NULL;
+    if (ICEventTerminate != NULL && ICEventWork != NULL)
+        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
+    if (ICEventTerminate == NULL ||
+        ICEventWork == NULL ||
+        IconCacheThread == NULL)
+    {
+        TRACE_E("Unable to start icon-reader thread.");
+        IconCache = NULL;
+    }
+    else
+    {
+        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
+        IconCache = new CIconCache();
+    }
 
     OpenedDrivesList = NULL;
 
@@ -1406,7 +1418,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool initialize
 
     FocusFirstNewItem = FALSE;
 
-    ExecuteAssocEvent = NULL;
+    ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
     AssocUsed = FALSE;
 
     FilterEnabled = FALSE;
@@ -1458,202 +1470,6 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool initialize
     NeedIconOvrRefreshAfterIconsReading = FALSE;
     LastIconOvrRefreshTime = GetTickCount() - ICONOVR_REFRESH_PERIOD;
     IconOvrRefreshTimerSet = FALSE;
-
-    DeferredPathValid = false;
-    DeferredPath[0] = 0;
-    ClearDeferredPanelSettings();
-
-    if (initializeHeavyInfrastructure)
-        EnsureHeavyInitialization();
-}
-
-void CFilesWindow::EnsureHeavyInitialization()
-{
-    if (HeavyInitializationDone)
-        return;
-
-    CALL_STACK_MESSAGE1("CFilesWindow::EnsureHeavyInitialization()");
-
-    DWORD threadID = 0;
-    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    IconCacheThread = NULL;
-
-    if (ICEventTerminate != NULL && ICEventWork != NULL)
-        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &threadID));
-
-    if (ICEventTerminate == NULL || ICEventWork == NULL || IconCacheThread == NULL)
-    {
-        TRACE_E("Unable to start icon-reader thread.");
-
-        if (IconCacheThread != NULL)
-        {
-            HANDLES(CloseHandle(IconCacheThread));
-            IconCacheThread = NULL;
-        }
-        if (ICEventTerminate != NULL)
-        {
-            HANDLES(CloseHandle(ICEventTerminate));
-            ICEventTerminate = NULL;
-        }
-        if (ICEventWork != NULL)
-        {
-            HANDLES(CloseHandle(ICEventWork));
-            ICEventWork = NULL;
-        }
-
-        IconCache = NULL;
-    }
-    else
-    {
-        IconCache = new CIconCache();
-    }
-
-    if (ExecuteAssocEvent == NULL)
-        ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
-
-    HeavyInitializationDone = TRUE;
-}
-
-void CFilesWindow::ClearDeferredPanelSettings()
-{
-    DeferredPanelSettings = SDeferredPanelSettings();
-}
-
-void CFilesWindow::SetDeferredPanelSettings(const SDeferredPanelSettings& settings)
-{
-    DeferredPanelSettings = settings;
-}
-
-bool CFilesWindow::HasDeferredPanelSettings() const
-{
-    return DeferredPanelSettings.Valid;
-}
-
-void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)
-{
-    if (!DeferredPanelSettings.Valid)
-        return;
-
-    SDeferredPanelSettings settings = DeferredPanelSettings;
-    ClearDeferredPanelSettings();
-    ApplyPanelSettingsSnapshot(settings, ensureWindowReady);
-}
-
-void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady)
-{
-    if (!settings.Valid)
-        return;
-
-    if (settings.HasCustomColor)
-        SetCustomTabColor(settings.CustomTabColor);
-    else
-        ClearCustomTabColor();
-
-    if (settings.HasCustomPrefix)
-        SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
-    else
-        ClearCustomTabPrefix();
-
-    if (settings.ReverseSortSet)
-        ReverseSort = settings.ReverseSort;
-
-    if (settings.SortTypeSet)
-        SortType = settings.SortType;
-
-    if (settings.FilterEnabledSet)
-        FilterEnabled = settings.FilterEnabled;
-
-    if (settings.FilterMasksSet)
-    {
-        if (!settings.FilterMasks.empty())
-            Filter.SetMasksString(settings.FilterMasks.c_str());
-        else
-            Filter.SetMasksString("*.*");
-    }
-
-    if (settings.HeaderLineSet)
-        HeaderLineVisible = settings.HeaderLineVisible;
-    if (settings.StatusLineSet)
-        StatusLineVisible = settings.StatusLineVisible;
-    if (settings.DirectoryLineSet)
-        DirectoryLineVisible = settings.DirectoryLineVisible;
-
-    if (settings.ViewTemplateSet)
-    {
-        if (ensureWindowReady && ListBox != NULL)
-            SelectViewTemplate(settings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
-        else
-            ViewTemplate = &Parent->ViewTemplates.Items[settings.ViewTemplateIndex];
-    }
-
-    if (ensureWindowReady)
-    {
-        if (settings.HeaderLineSet && ListBox != NULL)
-            ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, HeaderLineVisible);
-
-        if (settings.DirectoryLineSet && DirectoryLine != NULL && HWindow != NULL)
-        {
-            BOOL current = DirectoryLine->HWindow != NULL ? TRUE : FALSE;
-            if (current != DirectoryLineVisible)
-                ToggleDirectoryLine();
-        }
-
-        if (settings.StatusLineSet && StatusLine != NULL && HWindow != NULL)
-        {
-            BOOL current = StatusLine->HWindow != NULL ? TRUE : FALSE;
-            if (current != StatusLineVisible)
-                ToggleStatusLine();
-        }
-
-        if (DirectoryLine != NULL)
-            UpdateFilterSymbol();
-
-        int errPos;
-        if (!Filter.PrepareMasks(errPos))
-        {
-            Filter.SetMasksString("*.*");
-            Filter.PrepareMasks(errPos);
-        }
-    }
-    else
-    {
-        int errPos;
-        if (!Filter.PrepareMasks(errPos))
-        {
-            Filter.SetMasksString("*.*");
-            Filter.PrepareMasks(errPos);
-        }
-    }
-}
-
-void CFilesWindow::SetDeferredPath(const char* path)
-{
-    if (path != NULL && path[0] != 0)
-    {
-        lstrcpyn(DeferredPath, path, _countof(DeferredPath));
-        DeferredPathValid = true;
-    }
-    else
-    {
-        ClearDeferredPath();
-    }
-}
-
-void CFilesWindow::ClearDeferredPath()
-{
-    DeferredPathValid = false;
-    DeferredPath[0] = 0;
-}
-
-bool CFilesWindow::HasDeferredPath() const
-{
-    return DeferredPathValid;
-}
-
-const char* CFilesWindow::GetDeferredPath() const
-{
-    return DeferredPathValid ? DeferredPath : NULL;
 }
 
 CFilesWindow::~CFilesWindow()
@@ -1731,8 +1547,6 @@ void CFilesWindow::ClearHistory()
 void CFilesWindow::SleepIconCacheThread()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::SleepIconCacheThread()");
-    if (!HasIconInfrastructure())
-        return;
     ICSleep = TRUE;          // to interrupt the icon-reading loop (ICSleepSection may not be left at all)
     ICStopWork = TRUE;       // to interrupt the icon-reading loop if ICStopWork has already been processed
     ResetEvent(ICEventWork); // to interrupt the icon-reading loop if ICStopWork has not been processed yet
@@ -1745,8 +1559,6 @@ void CFilesWindow::SleepIconCacheThread()
 void CFilesWindow::WakeupIconCacheThread()
 {
     CALL_STACK_MESSAGE_NONE
-    if (!HasIconInfrastructure())
-        return;
     ICStopWork = FALSE;    // so that the work is not interrupted right from the start
     SetEvent(ICEventWork); // switch to work mode without waiting for a response
     MSG msg;               // remove any WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
