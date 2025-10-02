@@ -3092,10 +3092,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             ClosePanelTab(leftPanel, false);
             return -1;
         }
-        SwitchPanelTab(leftPanel);
-        UpdatePanelTabVisibility(cpsLeft);
-        SetActivePanel(leftPanel);
-        //      ReleaseMenuNew();
+
         CFilesWindow* rightPanel = AddPanelTab(cpsRight);
         if (rightPanel == NULL)
         {
@@ -3110,8 +3107,20 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             ClosePanelTab(rightPanel, false);
             return -1;
         }
+
+        bool originalRestoring = RestoringPanelConfiguration;
+        RestoringPanelConfiguration = true;
+
+        SwitchPanelTab(leftPanel);
+        UpdatePanelTabVisibility(cpsLeft);
+        SetActivePanel(leftPanel);
+        //      ReleaseMenuNew();
+
         SwitchPanelTab(rightPanel);
         UpdatePanelTabVisibility(cpsRight);
+
+        RestoringPanelConfiguration = originalRestoring;
+
         LeftPanel = leftPanel;
         RightPanel = rightPanel;
 
