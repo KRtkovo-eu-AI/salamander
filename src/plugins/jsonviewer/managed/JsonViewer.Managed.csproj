@@ -21,6 +21,7 @@
     <Compile Include="ViewerHost.cs" />
     <Compile Include="WindowInterop.cs" />
     <Compile Include="ThemeHelper.cs" />
+    <Compile Include="JsonViewer.ThemeAdapter.cs" />
 
     <Compile Include="..\..\..\..\3rd-party\jsonViewer\JsonViewer\GridVisualizer.cs">
       <Link>JsonViewer\GridVisualizer.cs</Link>
