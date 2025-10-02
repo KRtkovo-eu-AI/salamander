@@ -265,7 +265,16 @@ namespace EPocalipse.Json.Viewer
 
         private void txtFind_TextChanged( object sender, EventArgs e )
         {
-            txtFind.BackColor = SystemColors.Window;
+            if (ThemeHelper.TryGetPalette(out var palette))
+            {
+                txtFind.BackColor = palette.InputBackground;
+                txtFind.ForeColor = palette.InputForeground;
+            }
+            else
+            {
+                txtFind.BackColor = SystemColors.Window;
+                txtFind.ForeColor = SystemColors.WindowText;
+            }
             FindNext( true, true );
         }
 
@@ -277,7 +286,18 @@ namespace EPocalipse.Json.Viewer
         public void FindNext( bool includeSelected, bool fromUI )
         {
             if( !FindNext( includeSelected ) && fromUI )
-                txtFind.BackColor = Color.LightCoral;
+            {
+                if (ThemeHelper.TryGetPalette(out var palette))
+                {
+                    txtFind.BackColor = palette.AccentEmphasis;
+                    txtFind.ForeColor = palette.HighlightForeground;
+                }
+                else
+                {
+                    txtFind.BackColor = Color.LightCoral;
+                    txtFind.ForeColor = SystemColors.WindowText;
+                }
+            }
         }
 
         public bool FindNext( string text, bool includeSelected )

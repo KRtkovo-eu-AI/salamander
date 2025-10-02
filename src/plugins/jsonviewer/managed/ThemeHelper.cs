@@ -3,6 +3,7 @@
 
 using System;
 using System.Drawing;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -15,8 +16,6 @@ namespace EPocalipse.Json.Viewer
         private const int SALCOL_ITEM_BK_NORMAL = 11;
         private const int SALCOL_ITEM_BK_SELECTED = 12;
         private const int SALCOL_HOT_PANEL = 23;
-
-        private static ThemePalette? s_cachedPalette;
 
         public static bool TryGetPalette(out ThemePalette palette)
         {
@@ -69,11 +68,6 @@ namespace EPocalipse.Json.Viewer
 
         private static ThemePalette? GetPalette()
         {
-            if (s_cachedPalette.HasValue)
-            {
-                return s_cachedPalette.Value;
-            }
-
             try
             {
                 uint background = NativeMethods.GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
@@ -84,7 +78,7 @@ namespace EPocalipse.Json.Viewer
 
                 if (background == 0 && foreground == 0)
                 {
-                    return s_cachedPalette = new ThemePalette(SystemColors.Control,
+                    return new ThemePalette(SystemColors.Control,
                         SystemColors.ControlText,
                         SystemColors.Highlight,
                         SystemColors.HighlightText,
@@ -98,7 +92,6 @@ namespace EPocalipse.Json.Viewer
                     highlightForeground != 0 ? ColorTranslator.FromWin32(unchecked((int)highlightForeground)) : SystemColors.HighlightText,
                     accent != 0 ? ColorTranslator.FromWin32(unchecked((int)accent)) : SystemColors.HotTrack);
 
-                s_cachedPalette = palette;
                 return palette;
             }
             catch (DllNotFoundException)
@@ -108,7 +101,7 @@ namespace EPocalipse.Json.Viewer
             {
             }
 
-            return s_cachedPalette = null;
+            return null;
         }
 
         private static void ApplyToControl(Control control, ThemePalette palette)
@@ -192,6 +185,7 @@ namespace EPocalipse.Json.Viewer
                     foregroundSet = true;
                     break;
                 case TabControl tabControl:
+                    PrepareTabControl(tabControl);
                     ApplyToTabControl(tabControl, palette);
                     backgroundSet = true;
                     foregroundSet = true;
@@ -234,6 +228,27 @@ namespace EPocalipse.Json.Viewer
             foreach (Control child in control.Controls)
             {
                 ApplyToControl(child, palette);
+            }
+        }
+
+        private static void PrepareTabControl(TabControl tabControl)
+        {
+            var setStyle = typeof(Control).GetMethod("SetStyle", BindingFlags.Instance | BindingFlags.NonPublic);
+            var updateStyles = typeof(Control).GetMethod("UpdateStyles", BindingFlags.Instance | BindingFlags.NonPublic);
+            var doubleBuffered = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            const ControlStyles styles = ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer;
+
+            setStyle?.Invoke(tabControl, new object[] { styles, true });
+            doubleBuffered?.SetValue(tabControl, true, null);
+            updateStyles?.Invoke(tabControl, null);
+
+            tabControl.HandleCreated -= TabControlOnHandleCreatedApplyTheme;
+            tabControl.HandleCreated += TabControlOnHandleCreatedApplyTheme;
+
+            if (tabControl.IsHandleCreated)
+            {
+                NativeMethods.DisableVisualStyles(tabControl.Handle);
             }
         }
 
@@ -316,6 +331,16 @@ namespace EPocalipse.Json.Viewer
             {
                 ApplyToTabPage(tabPage, palette.Value);
             }
+        }
+
+        private static void TabControlOnHandleCreatedApplyTheme(object? sender, EventArgs e)
+        {
+            if (sender is not TabControl tabControl)
+            {
+                return;
+            }
+
+            NativeMethods.DisableVisualStyles(tabControl.Handle);
         }
 
         private static void ComboBoxOnDrawItem(object? sender, DrawItemEventArgs e)
@@ -467,6 +492,14 @@ namespace EPocalipse.Json.Viewer
             return Color.FromArgb(Clamp(r), Clamp(g), Clamp(b));
         }
 
+        private static Color Blend(Color from, Color to, double amount)
+        {
+            int r = from.R + (int)((to.R - from.R) * amount);
+            int g = from.G + (int)((to.G - from.G) * amount);
+            int b = from.B + (int)((to.B - from.B) * amount);
+            return Color.FromArgb(Clamp(r), Clamp(g), Clamp(b));
+        }
+
         private static int Clamp(int value)
         {
             if (value < 0)
@@ -496,6 +529,7 @@ namespace EPocalipse.Json.Viewer
                 ControlBorder = IsDark ? Lighten(background, 0.16) : Darken(background, 0.16);
                 InputBackground = IsDark ? Lighten(background, 0.12) : SystemColors.Window;
                 InputForeground = IsDark ? foreground : SystemColors.WindowText;
+                AccentEmphasis = Blend(background, accent, IsDark ? 0.45 : 0.2);
             }
 
             public Color Background { get; }
@@ -517,6 +551,8 @@ namespace EPocalipse.Json.Viewer
             public Color InputForeground { get; }
 
             public bool IsDark { get; }
+
+            public Color AccentEmphasis { get; }
         }
 
         private static class ThemeRenderer
@@ -646,6 +682,9 @@ namespace EPocalipse.Json.Viewer
             [DllImport("dwmapi.dll", PreserveSig = true)]
             private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
+            [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+            private static extern int SetWindowTheme(IntPtr hwnd, string? appName, string? idList);
+
             public static uint GetCurrentColor(int color)
             {
                 try
@@ -689,6 +728,25 @@ namespace EPocalipse.Json.Viewer
                 {
                     int border = enable ? ColorTranslator.ToWin32(borderColor) : -1;
                     DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
+                }
+            }
+
+            public static void DisableVisualStyles(IntPtr handle)
+            {
+                if (handle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    SetWindowTheme(handle, string.Empty, string.Empty);
+                }
+                catch (DllNotFoundException)
+                {
+                }
+                catch (EntryPointNotFoundException)
+                {
                 }
             }
         }

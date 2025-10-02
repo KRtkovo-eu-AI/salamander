@@ -363,26 +363,13 @@ internal static class ViewerHost
     private sealed class JsonViewerApplicationContext : ApplicationContext
     {
         private readonly Control _dispatcher;
-        private readonly JsonViewerForm _form;
-        private readonly Queue<ViewerSession> _pendingSessions = new();
-        private readonly object _pendingLock = new();
-        private volatile bool _dispatcherReady;
+        private readonly List<JsonViewerForm> _openForms = new();
+        private readonly object _lock = new();
 
         public JsonViewerApplicationContext()
         {
             _dispatcher = new Control();
-            _dispatcher.HandleCreated += OnDispatcherHandleCreated;
-            _dispatcher.HandleDestroyed += OnDispatcherHandleDestroyed;
             _dispatcher.CreateControl();
-
-            if (_dispatcher.IsHandleCreated)
-            {
-                OnDispatcherHandleCreated(_dispatcher, EventArgs.Empty);
-            }
-
-            _form = new JsonViewerForm();
-            _form.FormClosed += OnFormClosed;
-            MainForm = _form;
         }
 
         public bool TryShow(ViewerSession session)
@@ -392,14 +379,9 @@ internal static class ViewerHost
                 return false;
             }
 
-            if (!_dispatcherReady)
-            {
-                return EnqueuePending(session);
-            }
-
             try
             {
-                _dispatcher.BeginInvoke(new MethodInvoker(() => _form.ShowSession(session)));
+                _dispatcher.BeginInvoke(new MethodInvoker(() => ShowInternal(session)));
                 return true;
             }
             catch (ObjectDisposedException)
@@ -408,33 +390,26 @@ internal static class ViewerHost
             }
             catch (InvalidOperationException)
             {
-                return EnqueuePending(session);
+                return false;
             }
         }
 
         public bool TryClose(TimeSpan timeout)
         {
-            if (!_dispatcher.IsHandleCreated || _dispatcher.IsDisposed)
-            {
-                return true;
-            }
-
             using var completion = new ManualResetEventSlim(false);
+
             try
             {
                 _dispatcher.BeginInvoke(new MethodInvoker(() =>
                 {
-                    try
+                    foreach (var form in SnapshotForms())
                     {
-                        if (!_form.IsDisposed)
-                        {
-                            _form.ForceClose();
-                        }
+                        form.AllowClose();
+                        form.Close();
                     }
-                    finally
-                    {
-                        completion.Set();
-                    }
+
+                    completion.Set();
+                    ExitThread();
                 }));
             }
             catch (ObjectDisposedException)
@@ -449,82 +424,48 @@ internal static class ViewerHost
             return completion.Wait(timeout);
         }
 
-        private bool EnqueuePending(ViewerSession session)
+        private void ShowInternal(ViewerSession session)
         {
             if (_dispatcher.IsDisposed)
             {
-                return false;
+                session.MarkStartupFailed();
+                session.Complete();
+                return;
             }
 
-            bool shouldFlush;
-            lock (_pendingLock)
+            var form = new JsonViewerForm();
+            form.FormClosed += (_, _) => OnFormClosed(form, session);
+
+            if (!form.TryShow(session))
             {
-                if (_dispatcher.IsDisposed)
-                {
-                    return false;
-                }
-
-                _pendingSessions.Enqueue(session);
-                shouldFlush = _dispatcherReady;
+                form.Dispose();
+                session.MarkStartupFailed();
+                session.Complete();
+                return;
             }
 
-            if (shouldFlush)
+            lock (_lock)
             {
-                try
-                {
-                    _dispatcher.BeginInvoke(new MethodInvoker(FlushPendingSessions));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return false;
-                }
-                catch (InvalidOperationException)
-                {
-                    return false;
-                }
+                _openForms.Add(form);
             }
-
-            return true;
         }
 
-        private void FlushPendingSessions()
+        private void OnFormClosed(JsonViewerForm form, ViewerSession session)
         {
-            while (true)
+            lock (_lock)
             {
-                ViewerSession? next;
-                lock (_pendingLock)
-                {
-                    if (_pendingSessions.Count == 0)
-                    {
-                        return;
-                    }
-
-                    next = _pendingSessions.Dequeue();
-                }
-
-                if (next is null)
-                {
-                    continue;
-                }
-
-                _form.ShowSession(next);
+                _openForms.Remove(form);
             }
+
+            session.Complete();
         }
 
-        private void OnDispatcherHandleCreated(object? sender, EventArgs e)
+        private JsonViewerForm[] SnapshotForms()
         {
-            _dispatcherReady = true;
-            FlushPendingSessions();
-        }
-
-        private void OnDispatcherHandleDestroyed(object? sender, EventArgs e)
-        {
-            _dispatcherReady = false;
-        }
-
-        private void OnFormClosed(object? sender, FormClosedEventArgs e)
-        {
-            ExitThread();
+            lock (_lock)
+            {
+                return _openForms.ToArray();
+            }
         }
     }
 
@@ -680,11 +621,10 @@ internal static class ViewerHost
     {
         private readonly JsonViewerControl _viewer;
         private ViewerSession? _session;
-        private bool _jsonLoaded;
-        private IntPtr _ownerRestore;
-        private bool _ownerAttached;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
+        private IntPtr _ownerRestore;
+        private bool _ownerAttached;
 
         public JsonViewerForm()
         {
@@ -695,6 +635,9 @@ internal static class ViewerHost
             MaximizeBox = true;
             KeyPreview = true;
             Icon = JsonViewerResources.JsonViewerIcon;
+
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            DoubleBuffered = true;
 
             _viewer = new JsonViewerControl
             {
@@ -709,22 +652,12 @@ internal static class ViewerHost
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;
+            FormClosed += OnFormClosed;
         }
 
-        public void ShowSession(ViewerSession session)
+        public bool TryShow(ViewerSession session)
         {
-            if (!IsHandleCreated)
-            {
-                CreateControl();
-            }
-
-            if (_session is not null && !ReferenceEquals(_session, session))
-            {
-                _session.Complete();
-            }
-
             _session = session;
-            _jsonLoaded = false;
             _allowClose = false;
 
             Text = BuildCaption(session.Payload.Caption);
@@ -740,36 +673,23 @@ internal static class ViewerHost
                 string json = File.ReadAllText(session.Payload.FilePath);
                 _viewer.ShowTab(ViewerTabs.Viewer);
                 _viewer.refreshFromString(json);
-                _jsonLoaded = true;
+                ThemeHelper.ApplyTheme(_viewer);
             }
             catch (Exception ex)
             {
-                session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
                     "JSON Viewer Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                HideSession(session);
-                return;
+                return false;
             }
 
-            if (!Visible)
-            {
-                ShowInTaskbar = true;
-                Show();
-                Activate();
-            }
-            else
-            {
-                if (!ShowInTaskbar)
-                {
-                    ShowInTaskbar = true;
-                }
-                Activate();
-            }
-
+            ShowInTaskbar = true;
+            Show();
+            Activate();
             NativeMethods.SetForegroundWindow(Handle);
+            return true;
         }
 
         public void AllowClose()
@@ -777,32 +697,11 @@ internal static class ViewerHost
             _allowClose = true;
         }
 
-        public void ForceClose()
-        {
-            _allowClose = true;
-            var activeSession = _session;
-            if (activeSession is not null)
-            {
-                HideSession(activeSession);
-            }
-
-            if (!IsDisposed)
-            {
-                try
-                {
-                    Close();
-                }
-                catch (InvalidOperationException)
-                {
-                }
-            }
-        }
-
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == Keys.Escape)
             {
-                HideSession(_session);
+                Close();
                 return true;
             }
 
@@ -825,16 +724,21 @@ internal static class ViewerHost
         {
             if (!_allowClose)
             {
-                e.Cancel = true;
-                if (!_jsonLoaded)
-                {
-                    _session?.MarkStartupFailed();
-                }
-                HideSession(_session);
-                return;
+                _allowClose = true;
             }
 
-            HideSession(null);
+            _session?.SignalClosed();
+        }
+
+        private void OnFormClosed(object? sender, FormClosedEventArgs e)
+        {
+            var owner = _session?.Parent ?? IntPtr.Zero;
+            _session = null;
+
+            if (owner != IntPtr.Zero)
+            {
+                NativeMethods.SetForegroundWindow(owner);
+            }
         }
 
         private void ApplyPlacement(ViewCommandPayload payload)
@@ -844,7 +748,7 @@ internal static class ViewerHost
             {
                 Bounds = bounds;
             }
-            else if (!Visible)
+            else
             {
                 StartPosition = FormStartPosition.CenterScreen;
             }
@@ -898,54 +802,9 @@ internal static class ViewerHost
             }
         }
 
-        private void HideSession(ViewerSession? target)
-        {
-            if (target is not null && !ReferenceEquals(_session, target))
-            {
-                return;
-            }
-
-            if (_session is null)
-            {
-                if (Visible)
-                {
-                    ShowInTaskbar = false;
-                    Hide();
-                }
-                return;
-            }
-
-            IntPtr owner = _session.Parent;
-
-            if (Visible)
-            {
-                ShowInTaskbar = false;
-                Hide();
-            }
-            else if (ShowInTaskbar)
-            {
-                ShowInTaskbar = false;
-            }
-
-            _session.Complete();
-            _session = null;
-            _jsonLoaded = false;
-            DetachOwner();
-
-            if (owner != IntPtr.Zero)
-            {
-                NativeMethods.SetForegroundWindow(owner);
-            }
-        }
-
         private void EnsureTaskbarVisibility()
         {
-            if (!IsHandleCreated)
-            {
-                return;
-            }
-
-            if (_taskbarStyleApplied)
+            if (!IsHandleCreated || _taskbarStyleApplied)
             {
                 return;
             }
@@ -979,6 +838,7 @@ internal static class ViewerHost
             {
                 return "JSON Viewer";
             }
+
             return string.Format(CultureInfo.CurrentCulture, "{0} - JSON Viewer", caption);
         }
 
