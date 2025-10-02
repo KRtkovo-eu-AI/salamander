@@ -1120,6 +1120,18 @@ internal static class ViewerHost
             return $"<pre><code>{encoded}</code></pre>";
         }
 
+        private readonly struct RenderedContent
+        {
+            public RenderedContent(string html, string? preStyle)
+            {
+                Html = html;
+                PreStyle = preStyle;
+            }
+
+            public string Html { get; }
+            public string? PreStyle { get; }
+        }
+
         private readonly struct HighlightResult
         {
             public HighlightResult(string html, string? preStyle)
@@ -1151,9 +1163,9 @@ internal static class ViewerHost
                 _builder.Append("<pre><code");
                 if (!string.IsNullOrEmpty(language))
                 {
-                    _builder.Append(" class="language-")
+                    _builder.Append(" class=\"language-")
                         .Append(WebUtility.HtmlEncode(language))
-                        .Append(""");
+                        .Append("\"");
                 }
                 _builder.Append(">");
                 return docStyle;
@@ -1308,19 +1320,5 @@ internal static class ViewerHost
                 return Math.Abs(left.A - right.A) < 0.0001 && left.R == right.R && left.G == right.G && left.B == right.B;
             }
         }
-    }
-
-        private readonly struct RenderedContent
-        {
-            public RenderedContent(string html, string? preStyle)
-            {
-                Html = html;
-                PreStyle = preStyle;
-            }
-
-            public string Html { get; }
-            public string? PreStyle { get; }
-        }
-
     }
 }
