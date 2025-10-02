@@ -167,15 +167,13 @@ namespace EPocalipse.Json.Viewer
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
+                case ContextMenuStrip menu:
+                    ThemeRenderer.Attach(menu, palette);
+                    backgroundSet = true;
+                    foregroundSet = true;
+                    break;
                 case ToolStrip toolStrip:
-                    if (toolStrip is ContextMenuStrip menu)
-                    {
-                        ThemeRenderer.Attach(menu, palette);
-                    }
-                    else
-                    {
-                        ThemeRenderer.Attach(toolStrip, palette);
-                    }
+                    ThemeRenderer.Attach(toolStrip, palette);
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
