@@ -732,6 +732,9 @@ internal static class ViewerHost
             ApplyPlacement(session.Payload);
             EnsureTaskbarVisibility();
 
+            ThemeHelper.ApplyTheme(this);
+            ThemeHelper.ApplyTheme(_viewer);
+
             try
             {
                 string json = File.ReadAllText(session.Payload.FilePath);
@@ -755,6 +758,7 @@ internal static class ViewerHost
             {
                 ShowInTaskbar = true;
                 Show();
+                Activate();
             }
             else
             {
@@ -905,20 +909,33 @@ internal static class ViewerHost
             {
                 if (Visible)
                 {
+                    ShowInTaskbar = false;
                     Hide();
                 }
                 return;
             }
 
+            IntPtr owner = _session.Parent;
+
             if (Visible)
             {
+                ShowInTaskbar = false;
                 Hide();
+            }
+            else if (ShowInTaskbar)
+            {
+                ShowInTaskbar = false;
             }
 
             _session.Complete();
             _session = null;
             _jsonLoaded = false;
             DetachOwner();
+
+            if (owner != IntPtr.Zero)
+            {
+                NativeMethods.SetForegroundWindow(owner);
+            }
         }
 
         private void EnsureTaskbarVisibility()

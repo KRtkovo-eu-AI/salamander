@@ -18,6 +18,19 @@ namespace EPocalipse.Json.Viewer
 
         private static ThemePalette? s_cachedPalette;
 
+        public static bool TryGetPalette(out ThemePalette palette)
+        {
+            var current = GetPalette();
+            if (current.HasValue)
+            {
+                palette = current.Value;
+                return true;
+            }
+
+            palette = default;
+            return false;
+        }
+
         public static void ApplyTheme(Form form)
         {
             var palette = GetPalette();
@@ -468,7 +481,7 @@ namespace EPocalipse.Json.Viewer
             return value;
         }
 
-        private readonly struct ThemePalette
+        internal readonly struct ThemePalette
         {
             public ThemePalette(Color background, Color foreground, Color highlightBackground, Color highlightForeground, Color accent)
             {
