@@ -12,6 +12,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using EPocalipse.Json.Viewer;
 using Microsoft.Win32.SafeHandles;
 using JsonViewerControl = EPocalipse.Json.Viewer.JsonViewer;
 using ViewerTabs = EPocalipse.Json.Viewer.Tabs;
