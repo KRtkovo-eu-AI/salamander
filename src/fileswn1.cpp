@@ -1401,6 +1401,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
 
     DeferredPathValid = false;
     DeferredPath[0] = 0;
+    DeferredPanelSettings = SDeferredPanelSettings();
 
     DontDrawIndex = -1;
     DrawOnlyIndex = -1;
@@ -1574,6 +1575,109 @@ bool CFilesWindow::HasDeferredPath() const
 const char* CFilesWindow::GetDeferredPath() const
 {
     return HasDeferredPath() ? DeferredPath : "";
+}
+
+void CFilesWindow::SetDeferredPanelSettings(const SDeferredPanelSettings& settings)
+{
+    DeferredPanelSettings = settings;
+}
+
+bool CFilesWindow::HasDeferredPanelSettings() const
+{
+    return DeferredPanelSettings.Valid;
+}
+
+void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady)
+{
+    if (!settings.Valid)
+        return;
+
+    if (settings.ViewTemplateSet)
+        SelectViewTemplate(settings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+
+    if (settings.ReverseSortSet)
+        ReverseSort = settings.ReverseSort != FALSE;
+
+    if (settings.SortTypeSet)
+        SortType = settings.SortType;
+
+    if (settings.FilterEnabledSet)
+        FilterEnabled = settings.FilterEnabled;
+
+    if (settings.FilterMasksSet)
+    {
+        if (!settings.FilterMasks.empty())
+            Filter.SetMasksString(settings.FilterMasks.c_str());
+        else
+            Filter.SetMasksString("*.*");
+    }
+
+    UpdateFilterSymbol();
+    int errPos;
+    if (!Filter.PrepareMasks(errPos))
+    {
+        Filter.SetMasksString("*.*");
+        Filter.PrepareMasks(errPos);
+    }
+
+    if (settings.HasCustomColor)
+        SetCustomTabColor(settings.CustomTabColor);
+    else
+        ClearCustomTabColor();
+
+    if (settings.HasCustomPrefix)
+        SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
+    else
+        ClearCustomTabPrefix();
+
+    if (settings.HeaderLineSet)
+    {
+        HeaderLineVisible = settings.HeaderLineVisible;
+        if (ensureWindowReady && ListBox != NULL)
+            ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, HeaderLineVisible);
+    }
+
+    if (ensureWindowReady)
+    {
+        if (settings.DirectoryLineSet)
+        {
+            bool desired = settings.DirectoryLineVisible != FALSE;
+            bool current = DirectoryLine->HWindow != NULL;
+            if (desired != current)
+                ToggleDirectoryLine();
+            DirectoryLineVisible = desired;
+        }
+        else
+            DirectoryLineVisible = DirectoryLine->HWindow != NULL;
+
+        if (settings.StatusLineSet)
+        {
+            bool desired = settings.StatusLineVisible != FALSE;
+            bool current = StatusLine->HWindow != NULL;
+            if (desired != current)
+                ToggleStatusLine();
+            StatusLineVisible = desired;
+        }
+        else
+            StatusLineVisible = StatusLine->HWindow != NULL;
+    }
+    else
+    {
+        if (settings.DirectoryLineSet)
+            DirectoryLineVisible = settings.DirectoryLineVisible;
+        if (settings.StatusLineSet)
+            StatusLineVisible = settings.StatusLineVisible;
+    }
+}
+
+void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)
+{
+    if (!DeferredPanelSettings.Valid)
+        return;
+
+    SDeferredPanelSettings snapshot = DeferredPanelSettings;
+    DeferredPanelSettings = SDeferredPanelSettings();
+    ApplyPanelSettingsSnapshot(snapshot, ensureWindowReady);
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

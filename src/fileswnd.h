@@ -780,6 +780,35 @@ public:
 
     CMainWindow* Parent;
 
+    void ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady);
+
+    struct SDeferredPanelSettings
+    {
+        bool Valid = false;
+        bool HeaderLineSet = false;
+        BOOL HeaderLineVisible = FALSE;
+        bool StatusLineSet = false;
+        BOOL StatusLineVisible = FALSE;
+        bool DirectoryLineSet = false;
+        BOOL DirectoryLineVisible = FALSE;
+        bool ViewTemplateSet = false;
+        DWORD ViewTemplateIndex = 0;
+        bool ReverseSortSet = false;
+        BOOL ReverseSort = FALSE;
+        bool SortTypeSet = false;
+        CSortType SortType = stName;
+        bool FilterEnabledSet = false;
+        BOOL FilterEnabled = FALSE;
+        bool FilterMasksSet = false;
+        std::string FilterMasks;
+        bool HasCustomColor = false;
+        COLORREF CustomTabColor = RGB(0, 0, 0);
+        bool HasCustomPrefix = false;
+        std::wstring CustomTabPrefix;
+    };
+
+    SDeferredPanelSettings DeferredPanelSettings;
+
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()
 
@@ -942,6 +971,9 @@ public:
     const std::wstring& GetCustomTabPrefix() const { return CustomTabPrefix; }
     void SetCustomTabPrefix(const wchar_t* prefix);
     void ClearCustomTabPrefix();
+    void SetDeferredPanelSettings(const SDeferredPanelSettings& settings);
+    bool HasDeferredPanelSettings() const;
+    void ApplyDeferredPanelSettings(bool ensureWindowReady);
     bool IsTabLocked() const { return TabLocked; }
     void SetTabLocked(bool locked) { TabLocked = locked; }
 

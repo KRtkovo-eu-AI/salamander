@@ -1436,7 +1436,8 @@ static void SavePanelSettingsToKey(CFilesWindow* panel, HKEY key, BOOL useGenera
         DeleteValue(key, PANEL_TABLOCKED_REG);
 }
 
-static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBuffer, int pathBufferSize)
+static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBuffer, int pathBufferSize,
+                                     bool deferSettings = false)
 {
     if (panel == NULL || key == NULL)
         return;
@@ -1449,74 +1450,102 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
     {
         if (pathBuffer != NULL && pathBufferSize > 0)
             lstrcpyn(pathBuffer, path, pathBufferSize);
+    }
 
-        DWORD value;
-        if (GetValue(key, PANEL_HEADER_REG, REG_DWORD, &value, sizeof(DWORD)))
-            panel->HeaderLineVisible = value;
-        if (GetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD)))
-        {
-            if (Configuration.ConfigVersion < 13 && !value)
-                value = 2;
-            panel->SelectViewTemplate(value, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
-        }
-        if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            panel->ReverseSort = value;
-        if (GetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD)))
-        {
-            if (value > stAttr)
-                value = stName;
-            panel->SortType = (CSortType)value;
-        }
-        if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->DirectoryLine->HWindow != NULL))
-                panel->ToggleDirectoryLine();
-        if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
-            if ((BOOL)value != (panel->StatusLine->HWindow != NULL))
-                panel->ToggleStatusLine();
-        GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &panel->FilterEnabled, sizeof(DWORD));
+    CFilesWindow::SDeferredPanelSettings settings;
+    settings.Valid = true;
 
-        char filter[MAX_PATH];
-        if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_PATH))
+    DWORD value;
+    if (GetValue(key, PANEL_HEADER_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        settings.HeaderLineSet = true;
+        settings.HeaderLineVisible = value;
+    }
+
+    if (GetValue(key, PANEL_VIEW_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        if (Configuration.ConfigVersion < 13 && !value)
+            value = 2;
+        settings.ViewTemplateSet = true;
+        settings.ViewTemplateIndex = value;
+    }
+
+    if (GetValue(key, PANEL_REVERSE_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        settings.ReverseSortSet = true;
+        settings.ReverseSort = value;
+    }
+
+    if (GetValue(key, PANEL_SORT_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        if (value > stAttr)
+            value = stName;
+        settings.SortTypeSet = true;
+        settings.SortType = (CSortType)value;
+    }
+
+    if (GetValue(key, PANEL_DIRLINE_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        settings.DirectoryLineSet = true;
+        settings.DirectoryLineVisible = value;
+    }
+
+    if (GetValue(key, PANEL_STATUS_REG, REG_DWORD, &value, sizeof(DWORD)))
+    {
+        settings.StatusLineSet = true;
+        settings.StatusLineVisible = value;
+    }
+
+    DWORD filterEnabledValue = panel->FilterEnabled;
+    if (!GetValue(key, PANEL_FILTER_ENABLE, REG_DWORD, &filterEnabledValue, sizeof(DWORD)))
+        filterEnabledValue = panel->FilterEnabled;
+    settings.FilterEnabledSet = true;
+    settings.FilterEnabled = filterEnabledValue;
+
+    char filter[MAX_PATH];
+    filter[0] = 0;
+    if (!GetValue(key, PANEL_FILTER, REG_SZ, filter, MAX_PATH))
+    {
+        if (Configuration.ConfigVersion < 22)
         {
-            filter[0] = 0;
-            if (Configuration.ConfigVersion < 22)
+            char* filterHistory[1];
+            filterHistory[0] = NULL;
+            LoadHistory(key, PANEL_FILTERHISTORY_REG, filterHistory, 1);
+            if (filterHistory[0] != NULL)
             {
-                char* filterHistory[1];
-                filterHistory[0] = NULL;
-                LoadHistory(key, PANEL_FILTERHISTORY_REG, filterHistory, 1);
-                if (filterHistory[0] != NULL)
-                {
-                    DWORD filterInverse = FALSE;
-                    if (panel->FilterEnabled && Configuration.ConfigVersion < 14)
-                        GetValue(key, PANEL_FILTER_INVERSE, REG_DWORD, &filterInverse, sizeof(DWORD));
-                    if (filterInverse)
-                        strcpy(filter, "|");
-                    else
-                        filter[0] = 0;
-                    strcat(filter, filterHistory[0]);
-                    free(filterHistory[0]);
-                }
+                DWORD filterInverse = FALSE;
+                if (settings.FilterEnabled && Configuration.ConfigVersion < 14)
+                    GetValue(key, PANEL_FILTER_INVERSE, REG_DWORD, &filterInverse, sizeof(DWORD));
+                if (filterInverse)
+                    strcpy(filter, "|");
+                else
+                    filter[0] = 0;
+                strcat(filter, filterHistory[0]);
+                free(filterHistory[0]);
             }
-            else
-                panel->FilterEnabled = FALSE;
         }
-        if (filter[0] != 0)
-            panel->Filter.SetMasksString(filter);
-
-        panel->UpdateFilterSymbol();
-        int errPos;
-        if (!panel->Filter.PrepareMasks(errPos))
+        else
         {
-            panel->Filter.SetMasksString("*.*");
-            panel->Filter.PrepareMasks(errPos);
+            settings.FilterEnabled = FALSE;
         }
     }
 
+    settings.FilterMasksSet = true;
+    if (filter[0] != 0)
+        settings.FilterMasks.assign(filter);
+    else
+        settings.FilterMasks.clear();
+
     DWORD colorValue;
     if (GetValue(key, PANEL_TABCOLOR_REG, REG_DWORD, &colorValue, sizeof(DWORD)))
-        panel->SetCustomTabColor(colorValue);
+    {
+        settings.HasCustomColor = true;
+        settings.CustomTabColor = (COLORREF)colorValue;
+    }
     else
-        panel->ClearCustomTabColor();
+    {
+        settings.HasCustomColor = false;
+    }
 
     DWORD prefixSize = 0;
     if (GetSize(key, PANEL_TABPREFIX_REG, REG_SZ, prefixSize) && prefixSize > 1)
@@ -1533,27 +1562,49 @@ static void LoadPanelSettingsFromKey(CFilesWindow* panel, HKEY key, char* pathBu
                 {
                     prefix.resize(written - 1);
                     if (!prefix.empty())
-                        panel->SetCustomTabPrefix(prefix.c_str());
+                    {
+                        settings.HasCustomPrefix = true;
+                        settings.CustomTabPrefix = prefix;
+                    }
                     else
-                        panel->ClearCustomTabPrefix();
+                        settings.HasCustomPrefix = false;
                 }
                 else
-                    panel->ClearCustomTabPrefix();
+                    settings.HasCustomPrefix = false;
             }
             else
-                panel->ClearCustomTabPrefix();
+                settings.HasCustomPrefix = false;
         }
         else
-            panel->ClearCustomTabPrefix();
+            settings.HasCustomPrefix = false;
     }
     else
-        panel->ClearCustomTabPrefix();
+    {
+        settings.HasCustomPrefix = false;
+    }
 
     DWORD lockedValue = 0;
     if (GetValue(key, PANEL_TABLOCKED_REG, REG_DWORD, &lockedValue, sizeof(DWORD)))
         panel->SetTabLocked(lockedValue != 0);
     else
         panel->SetTabLocked(false);
+
+    if (deferSettings)
+    {
+        panel->SetDeferredPanelSettings(settings);
+        if (settings.HasCustomColor)
+            panel->SetCustomTabColor(settings.CustomTabColor);
+        else
+            panel->ClearCustomTabColor();
+        if (settings.HasCustomPrefix)
+            panel->SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
+        else
+            panel->ClearCustomTabPrefix();
+    }
+    else
+    {
+        panel->ApplyPanelSettingsSnapshot(settings, panel->HWindow != NULL);
+    }
 }
 
 static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
@@ -1605,6 +1656,8 @@ void CMainWindow::EnsurePanelPathRestored(CFilesWindow* panel)
 {
     if (panel == NULL || !panel->HasDeferredPath())
         return;
+
+    panel->ApplyDeferredPanelSettings(panel->HWindow != NULL);
 
     char path[2 * MAX_PATH];
     lstrcpyn(path, panel->GetDeferredPath(), _countof(path));
@@ -2918,7 +2971,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         HKEY tabKey;
         if (OpenKey(actKey, tabKeyName, tabKey))
         {
-            LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path));
+            LoadPanelSettingsFromKey(panel, tabKey, path, _countof(path), i != activeIndex);
             if (Configuration.SaveWorkDirs)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
@@ -2931,7 +2984,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         }
         else if (i == 0)
         {
-            LoadPanelSettingsFromKey(panel, actKey, path, _countof(path));
+            LoadPanelSettingsFromKey(panel, actKey, path, _countof(path), i != activeIndex);
             if (Configuration.SaveWorkDirs)
             {
                 CPathHistory* history = panel->EnsureWorkDirHistory();
