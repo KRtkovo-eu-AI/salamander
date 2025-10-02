@@ -94,7 +94,7 @@ namespace
     constexpr size_t kMaxStoredClosedTabs = 10;
 }
 
-CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
+CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index, bool activate)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
     CFilesWindow* panel = new CFilesWindow(this, side);
@@ -107,7 +107,8 @@ CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
         return NULL;
     }
 
-    SwitchPanelTab(panel);
+    if (activate)
+        SwitchPanelTab(panel);
     return panel;
 }
 
@@ -224,6 +225,10 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CPanelSide side = panel->GetPanelSide();
     if (GetPanelTabIndex(side, panel) < 0)
         return;
+
+    char deferredPath[2 * MAX_PATH];
+    if (panel->ConsumeDeferredStartupPath(deferredPath, _countof(deferredPath)))
+        RestorePanelPathFromConfig(panel, deferredPath);
 
     if (side == cpsLeft)
         LeftPanel = panel;
@@ -371,13 +376,22 @@ void CMainWindow::RememberClosedTab(CPanelSide side, CFilesWindow* panel, int in
     SClosedPanelTab info;
     info.InsertIndex = insertIndex;
 
-    char path[2 * MAX_PATH];
-    path[0] = 0;
-    if (panel->GetGeneralPath(path, _countof(path), TRUE))
-        info.GeneralPath.assign(path);
-    const char* basicPath = panel->GetPath();
-    if (basicPath != NULL)
-        info.FallbackPath.assign(basicPath);
+    const char* deferredPath = panel->PeekDeferredStartupPath();
+    if (deferredPath != NULL && deferredPath[0] != 0)
+    {
+        info.GeneralPath.assign(deferredPath);
+        info.FallbackPath.assign(deferredPath);
+    }
+    else
+    {
+        char path[2 * MAX_PATH];
+        path[0] = 0;
+        if (panel->GetGeneralPath(path, _countof(path), TRUE))
+            info.GeneralPath.assign(path);
+        const char* basicPath = panel->GetPath();
+        if (basicPath != NULL)
+            info.FallbackPath.assign(basicPath);
+    }
 
     info.ViewTemplateIndex = panel->GetViewTemplateIndex();
     info.SortType = panel->SortType;
@@ -476,6 +490,13 @@ static void BuildTabCaption(CFilesWindow* panel, char* buffer, int bufferSize)
     buffer[0] = 0;
     if (panel == NULL)
         return;
+
+    const char* deferredPath = panel->PeekDeferredStartupPath();
+    if (deferredPath != NULL && deferredPath[0] != 0)
+    {
+        lstrcpyn(buffer, deferredPath, bufferSize);
+        return;
+    }
 
     int mode = Configuration.TabCaptionMode;
     CMainWindow::FormatPanelPathForDisplay(panel, mode, buffer, bufferSize);

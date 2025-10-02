@@ -559,6 +559,13 @@ public:
     BOOL GetGeneralPath(char* buf, int bufSize, BOOL convertFSPathToExternal = FALSE);
 
     const char* GetPath() { return Path; }
+    const char* PeekDeferredStartupPath() const
+    {
+        return HasDeferredStartupPath ? DeferredStartupPath : NULL;
+    }
+    void SetDeferredStartupPath(const char* path);
+    BOOL ConsumeDeferredStartupPath(char* buffer, int bufferSize);
+    void ClearDeferredStartupPath();
     BOOL Is(CPanelType type) { return type == PanelType; }
     CPanelType GetPanelType() { return PanelType; }
     BOOL GetMonitorChanges() { return MonitorChanges; }
@@ -787,6 +794,8 @@ public:
     BOOL SortedWithDetectNum; // used to monitor changes of the global variable Configuration.SortDetectNumbers
 
     char DropPath[2 * MAX_PATH];  // buffer for the current directory used in a drop operation
+    BOOL HasDeferredStartupPath;
+    char DeferredStartupPath[2 * MAX_PATH];
     char NextFocusName[MAX_PATH]; // the name that will receive focus on the next refresh
     BOOL DontClearNextFocusName;  // TRUE = do not clear NextFocusName when the main Salamander window is activated
     BOOL FocusFirstNewItem;       // refresh: should the newly added item be selected? (for system New)

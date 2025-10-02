@@ -1319,6 +1319,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     ColumnsTemplateIsForDisk = FALSE; // just initialization; set later in BuildColumnsTemplate()
     StopThumbnailLoading = FALSE;
     UserWorkedOnThisPath = FALSE;
+    HasDeferredStartupPath = FALSE;
+    DeferredStartupPath[0] = 0;
 
     UnpackedAssocFiles.SetPanel(this);
     QuickRenameWindow.SetPanel(this);
@@ -1526,6 +1528,39 @@ CPathHistory* CFilesWindow::EnsureWorkDirHistory()
         }
     }
     return WorkDirHistory;
+}
+
+void CFilesWindow::SetDeferredStartupPath(const char* path)
+{
+    if (path != NULL && path[0] != 0)
+    {
+        lstrcpyn(DeferredStartupPath, path, _countof(DeferredStartupPath));
+        HasDeferredStartupPath = TRUE;
+    }
+    else
+    {
+        DeferredStartupPath[0] = 0;
+        HasDeferredStartupPath = FALSE;
+    }
+}
+
+BOOL CFilesWindow::ConsumeDeferredStartupPath(char* buffer, int bufferSize)
+{
+    if (!HasDeferredStartupPath)
+        return FALSE;
+
+    if (buffer != NULL && bufferSize > 0)
+        lstrcpyn(buffer, DeferredStartupPath, bufferSize);
+
+    DeferredStartupPath[0] = 0;
+    HasDeferredStartupPath = FALSE;
+    return TRUE;
+}
+
+void CFilesWindow::ClearDeferredStartupPath()
+{
+    DeferredStartupPath[0] = 0;
+    HasDeferredStartupPath = FALSE;
 }
 
 void CFilesWindow::ClearWorkDirHistory()
