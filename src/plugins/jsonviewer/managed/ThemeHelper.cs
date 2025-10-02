@@ -792,7 +792,7 @@ namespace EPocalipse.Json.Viewer
 
                 if (version.Build >= 22000)
                 {
-                    int border = enable ? ColorTranslator.ToWin32(borderColor) : -1;
+                    int border = enable ? borderColor.ToArgb() : -1;
                     DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
                 }
             }

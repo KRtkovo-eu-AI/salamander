@@ -29,6 +29,9 @@ namespace EPocalipse.Json.Viewer
         public JsonViewer()
         {
             InitializeComponent();
+            Margin = System.Windows.Forms.Padding.Empty;
+            Padding = System.Windows.Forms.Padding.Empty;
+            tabControl.Margin = System.Windows.Forms.Padding.Empty;
             try
             {
                 _pluginsManager.Initialize();
