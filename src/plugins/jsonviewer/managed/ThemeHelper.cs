@@ -167,12 +167,7 @@ namespace EPocalipse.Json.Viewer
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
-                case ContextMenuStrip menu:
-                    ThemeRenderer.Attach(menu, palette);
-                    backgroundSet = true;
-                    foregroundSet = true;
-                    break;
-                case ToolStrip toolStrip when toolStrip is not ContextMenuStrip:
+                case ToolStrip toolStrip:
                     ThemeRenderer.Attach(toolStrip, palette);
                     backgroundSet = true;
                     foregroundSet = true;
@@ -205,7 +200,7 @@ namespace EPocalipse.Json.Viewer
                     break;
             }
 
-            if (!backgroundSet && control is not ToolStrip and not ContextMenuStrip)
+            if (!backgroundSet && control is not ToolStrip)
             {
                 control.BackColor = palette.Background;
                 backgroundSet = true;
