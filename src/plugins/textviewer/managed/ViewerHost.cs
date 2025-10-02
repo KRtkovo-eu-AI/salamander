@@ -34,7 +34,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "Unable to parse parameters provided for the text viewer.",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -44,7 +44,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "The native host did not provide a synchronization handle for the viewer.",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -59,7 +59,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 $"Unable to prepare the text viewer session.\n{ex.Message}",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -78,7 +78,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 $"Unable to initialize the text viewer.\n{ex.Message}",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -94,7 +94,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 "Unable to open the text viewer window.",
-                "Text Viewer Plugin",
+                "Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -478,7 +478,7 @@ internal static class ViewerHost
 
         public TextViewerForm()
         {
-            Text = "Text Viewer";
+            Text = "Text Viewer .NET";
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
             MinimizeBox = true;
@@ -486,10 +486,13 @@ internal static class ViewerHost
             KeyPreview = true;
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(800, 600);
+            Icon = ViewerResources.ViewerIcon;
 
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;
+
+            ThemeHelper.ApplyTheme(this);
         }
 
         public bool TryShow(ViewerSession session)
@@ -511,7 +514,7 @@ internal static class ViewerHost
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
-                    "Text Viewer Plugin",
+                    "Text Viewer .NET Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
@@ -558,6 +561,7 @@ internal static class ViewerHost
             };
 
             Controls.Add(viewer);
+            ThemeHelper.ApplyTheme(viewer);
             _browser = viewer;
         }
 
@@ -693,10 +697,10 @@ internal static class ViewerHost
         {
             if (string.IsNullOrWhiteSpace(caption))
             {
-                return "Text Viewer";
+                return "Text Viewer .NET";
             }
 
-            return string.Format(CultureInfo.CurrentCulture, "{0} - Text Viewer", caption);
+            return string.Format(CultureInfo.CurrentCulture, "{0} - Text Viewer .NET", caption);
         }
     }
 
@@ -963,24 +967,77 @@ internal static class ViewerHost
 
         private static string WrapDocument(RenderedContent content, string? caption)
         {
+            ThemeHelper.ThemePalette? palette = ThemeHelper.TryGetPalette(out var value) ? value : null;
+
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
             builder.Append("<html><head><meta charset=\"utf-8\"/><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>");
-            builder.Append("<title>");
-            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer" : caption));
-            builder.Append("</title>");
-            builder.Append("<style>body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;color:#24292e;}" +
-                           ".code-container{padding:16px;}" +
-                           "pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;");
-            if (!string.IsNullOrEmpty(content.PreStyle))
+            if (palette.HasValue && palette.Value.IsDark)
             {
-                builder.Append(content.PreStyle);
+                builder.Append("<meta name=\"color-scheme\" content=\"dark\"/>");
             }
-            builder.Append("}</style>");
+            builder.Append("<title>");
+            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer .NET" : caption));
+            builder.Append("</title>");
+            builder.Append("<style>");
+            AppendBaseStyles(builder, palette, content.PreStyle);
+            builder.Append("</style>");
             builder.Append("</head><body><div class=\"code-container\">");
             builder.Append(content.Html);
             builder.Append("</div></body></html>");
             return builder.ToString();
+        }
+
+        private static void AppendBaseStyles(StringBuilder builder, ThemeHelper.ThemePalette? palette, string? preStyle)
+        {
+            if (palette.HasValue)
+            {
+                var colors = palette.Value;
+                builder.Append("body{margin:0;background-color:")
+                    .Append(ToCssColor(colors.Background))
+                    .Append(";font-family:'Segoe UI',sans-serif;color:")
+                    .Append(ToCssColor(colors.Foreground))
+                    .Append(";}");
+                builder.Append(".code-container{padding:16px;background-color:")
+                    .Append(ToCssColor(colors.Background))
+                    .Append(";}");
+                builder.Append("pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;")
+                    .Append("background-color:")
+                    .Append(ToCssColor(colors.ControlBackground))
+                    .Append(";color:")
+                    .Append(ToCssColor(colors.InputForeground))
+                    .Append(';');
+                if (!string.IsNullOrEmpty(preStyle))
+                {
+                    builder.Append(preStyle);
+                }
+                builder.Append("}");
+                builder.Append("code{color:inherit;}");
+                builder.Append("a{color:")
+                    .Append(ToCssColor(colors.Accent))
+                    .Append(";}");
+                builder.Append("::selection{background-color:")
+                    .Append(ToCssColor(colors.HighlightBackground))
+                    .Append(";color:")
+                    .Append(ToCssColor(colors.HighlightForeground))
+                    .Append(";}");
+            }
+            else
+            {
+                builder.Append("body{margin:0;background-color:#f6f8fa;font-family:'Segoe UI',sans-serif;color:#24292e;}");
+                builder.Append(".code-container{padding:16px;}");
+                builder.Append("pre{margin:0;font-family:'Consolas','Courier New',monospace;font-size:13px;white-space:pre;");
+                if (!string.IsNullOrEmpty(preStyle))
+                {
+                    builder.Append(preStyle);
+                }
+                builder.Append("}");
+            }
+        }
+
+        private static string ToCssColor(Color color)
+        {
+            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
 
         private static string BuildPlainTextHtml(string text)
@@ -1147,15 +1204,17 @@ internal static class ViewerHost
                 return;
             }
 
-            if (value.IndexOf("italic", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            string fontStyle = value!;
+
+            if (fontStyle.IndexOf("italic", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("font-style:italic;");
             }
-            if (value.IndexOf("bold", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (fontStyle.IndexOf("bold", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("font-weight:bold;");
             }
-            if (value.IndexOf("underline", 0, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (fontStyle.IndexOf("underline", 0, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 builder.Append("text-decoration:underline;");
             }
@@ -1342,7 +1401,9 @@ internal static class ViewerHost
                 return;
             }
 
-            var parts = value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            string actual = value!;
+
+            var parts = actual.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 var trimmed = part.Trim();

@@ -22,7 +22,7 @@
 
 STRINGTABLE
 {
- IDS_PLUGINNAME,                 "JSON Viewer"
+ IDS_PLUGINNAME,                 "JSON Viewer .NET"
  IDS_ABOUT,                      "About Plugin"
  IDS_PLUGIN_DESCRIPTION,         "Internal viewer that displays JSON documents using a managed WinForms UI."
  IDS_PLUGIN_HOME,                "https://github.com/KRtkovo-eu-AI/salamander/"

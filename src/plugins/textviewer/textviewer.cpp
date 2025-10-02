@@ -17,7 +17,7 @@ CPluginInterface PluginInterface;
 CPluginInterfaceForViewer InterfaceForViewer;
 
 // globalni data
-const char* PluginNameEN = "Text Viewer";      // neprekladane jmeno pluginu
+const char* PluginNameEN = "Text Viewer .NET"; // neprekladane jmeno pluginu
 const char* PluginNameShort = "TEXTVIEWER";    // jmeno pluginu (kratce, bez mezer)
 
 HINSTANCE DLLInstance = NULL; // handle k SPL-ku - jazykove nezavisle resourcy

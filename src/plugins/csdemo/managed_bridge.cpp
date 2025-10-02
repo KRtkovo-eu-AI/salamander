@@ -190,3 +190,13 @@ bool ManagedBridge_RunMenuCommand(HWND parent, const char* command)
     std::wstring payload = ToWide(command);
     return ExecuteCommand(L"Menu", parent, payload.c_str());
 }
+
+extern "C" __declspec(dllexport) UINT32 __stdcall CSDemo_GetCurrentColor(int color)
+{
+    if (SalamanderGeneral == nullptr)
+    {
+        return 0;
+    }
+
+    return SalamanderGeneral->GetCurrentColor(color);
+}
