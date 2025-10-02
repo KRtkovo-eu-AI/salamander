@@ -2718,7 +2718,8 @@ void CFilesWindow::ChangeDrive(char drive)
 void CFilesWindow::UpdateFilterSymbol()
 {
     CALL_STACK_MESSAGE_NONE
-    DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
+    if (DirectoryLine != NULL)
+        DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
 }
 
 void CFilesWindow::UpdateDriveIcon(BOOL check)

@@ -97,8 +97,7 @@ namespace
 CFilesWindow* CMainWindow::AddPanelTab(CPanelSide side, int index)
 {
     CALL_STACK_MESSAGE2("CMainWindow::AddPanelTab(%d)", side);
-    bool deferHeavyInitialization = IsRestoringPanelConfiguration();
-    CFilesWindow* panel = new CFilesWindow(this, side, deferHeavyInitialization);
+    CFilesWindow* panel = new CFilesWindow(this, side);
     if (panel == NULL)
         return NULL;
 
@@ -117,8 +116,6 @@ bool CMainWindow::EnsurePanelWindowCreated(CFilesWindow* panel)
         return false;
     if (panel->HWindow != NULL)
         return true;
-
-    panel->EnsureLightInitialization();
 
     DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     if (!panel->Create(CWINDOW_CLASSNAME2, "",
@@ -256,8 +253,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
             return;
     }
 
-    EnsurePanelSettingsLoadedFromRegistry(panel);
     panel->ApplyDeferredPanelSettings(true);
+    EnsurePanelPathRestored(panel);
 
     if (side == cpsLeft)
         LeftPanel = panel;
@@ -265,8 +262,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         RightPanel = panel;
 
     panel->SetPanelSide(side);
-
-    EnsurePanelPathRestored(panel);
 
     if (UsingSharedWorkDirHistory())
         UpdateAllDirectoryLineHistoryStates();
@@ -276,7 +271,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     CFilesWindow* active = GetActivePanel();
     bool activateSameSide = (active == NULL || active->GetPanelSide() == side);
     bool canFocusNow = (Created && panel->HWindow != NULL);
-    bool restoring = IsRestoringPanelConfiguration();
     if (activateSameSide && !canFocusNow)
     {
         SetActivePanel(panel);
@@ -294,23 +288,20 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
-    if (canFocusNow && !restoring)
+    if (canFocusNow)
     {
         LayoutWindows();
     }
 
     UpdatePanelTabVisibility(side);
 
-    if (canFocusNow && !restoring)
+    if (canFocusNow)
     {
         FocusPanel(panel);
     }
 
-    if (!restoring)
-    {
-        bool refreshActive = (panel == GetActivePanel());
-        EnsurePanelRefreshAndRequest(panel, refreshActive, true);
-    }
+    bool refreshActive = (panel == GetActivePanel());
+    EnsurePanelRefreshAndRequest(panel, refreshActive, true);
 }
 
 void CMainWindow::ClosePanelTab(CFilesWindow* panel, bool storeForReopen)
@@ -1379,7 +1370,6 @@ void CMainWindow::CommandNewTab(CPanelSide side, bool addAtEnd)
 
     if (!EnsurePanelWindowCreated(panel))
     {
-        TRACE_E("AddPanelTab: Create failed");
         int idx = GetPanelTabIndex(side, panel);
         TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
         if (idx >= 0)
@@ -3084,14 +3074,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             TRACE_E(LOW_MEMORY);
             return -1;
         }
-        LeftPanel = leftPanel;
-
         CFilesWindow* rightPanel = AddPanelTab(cpsRight);
         if (rightPanel == NULL)
         {
             TRACE_E(LOW_MEMORY);
             return -1;
         }
+        LeftPanel = leftPanel;
         RightPanel = rightPanel;
 
         SetActivePanel(leftPanel);

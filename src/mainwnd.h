@@ -463,8 +463,6 @@ public:
     BOOL PanelConfigPathsRestoredLeft;
     BOOL PanelConfigPathsRestoredRight;
 
-    bool RestoringPanelConfiguration;
-
     BOOL DragMode;
     int DragSplitX;
 
@@ -561,6 +559,7 @@ public:
     bool EnsurePanelWindowCreated(CFilesWindow* panel);
     bool InsertPanelTabInstance(CPanelSide side, int index, CFilesWindow* panel, bool preserveLockState);
     void SwitchPanelTab(CFilesWindow* panel);
+    void EnsurePanelPathRestored(CFilesWindow* panel);
     void ClosePanelTab(CFilesWindow* panel, bool storeForReopen = true);
     void EnsurePanelAutomaticRefresh(CFilesWindow* panel);
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
@@ -596,10 +595,6 @@ public:
     int CommandMoveTabToOtherSide(CPanelSide side, CFilesWindow* panel, int targetInsertIndex = -1);
     void CommandLockTab(CFilesWindow* panel);
     void CommandUnlockTab(CFilesWindow* panel);
-
-    bool IsRestoringPanelConfiguration() const { return RestoringPanelConfiguration; }
-    void EnsurePanelPathRestored(CFilesWindow* panel);
-    void EnsurePanelSettingsLoadedFromRegistry(CFilesWindow* panel);
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx

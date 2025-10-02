@@ -10,7 +10,6 @@
 #include "usermenu.h"
 #include "plugins.h"
 #include "fileswnd.h"
-#include "filesbox.h"
 #include "stswnd.h"
 #include "snooper.h"
 #include "zip.h"
@@ -223,7 +222,6 @@ void CFilesWindowAncestor::SetPath(const char* path)
     if (SuppressAutoRefresh && (!Is(ptDisk) || !IsTheSamePath(path, Path)))
         SuppressAutoRefresh = FALSE;
     DetachDirectory((CFilesWindow*)this);
-    ((CFilesWindow*)this)->ClearDeferredPath();
     strcpy(Path, path);
 
     if (MainWindow != NULL)
@@ -1311,7 +1309,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1334,15 +1332,30 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     WaitBeforeReadingIcons = 0;
     WaitOneTimeBeforeReadingIcons = 0;
     EndOfIconReadingTime = GetTickCount() - 10000;
-    ICEventTerminate = NULL;
-    ICEventWork = NULL;
+    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
+    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
     ICSleep = FALSE;
     ICWorking = FALSE;
     ICStopWork = FALSE;
+    HANDLES(InitializeCriticalSection(&ICSleepSection));
+    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
+    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
+    DWORD ThreadID;
     IconCacheThread = NULL;
-    IconInfrastructureInitialized = FALSE;
-    HeavyInitializationDeferred = deferHeavyInitialization;
-    IconCache = NULL;
+    if (ICEventTerminate != NULL && ICEventWork != NULL)
+        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &ThreadID));
+    if (ICEventTerminate == NULL ||
+        ICEventWork == NULL ||
+        IconCacheThread == NULL)
+    {
+        TRACE_E("Unable to start icon-reader thread.");
+        IconCache = NULL;
+    }
+    else
+    {
+        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
+        IconCache = new CIconCache();
+    }
 
     OpenedDrivesList = NULL;
 
@@ -1381,7 +1394,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     SupportACLS = FALSE;
     DeviceNotification = NULL;
     ContextMenu = NULL;
-    ContextSubmenuNew = NULL;
+    ContextSubmenuNew = new CMenuNew;
     UseSystemIcons = FALSE;
     UseThumbnails = FALSE;
     NeedRefreshAfterEndOfSM = FALSE;
@@ -1398,20 +1411,14 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     RefreshAfterIconsReadingTime = 0;
 
     WorkDirHistory = NULL;
-    PathHistory = NULL;
-
-    DeferredPathValid = false;
-    DeferredPath[0] = 0;
-    ClearDeferredPanelSettings();
-    DeferredRegistrySettingsPending = false;
-    DeferredRegistrySettingsPath.clear();
+    PathHistory = new CPathHistory();
 
     DontDrawIndex = -1;
     DrawOnlyIndex = -1;
 
     FocusFirstNewItem = FALSE;
 
-    ExecuteAssocEvent = NULL;
+    ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
     AssocUsed = FALSE;
 
     FilterEnabled = FALSE;
@@ -1464,69 +1471,149 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavy
     LastIconOvrRefreshTime = GetTickCount() - ICONOVR_REFRESH_PERIOD;
     IconOvrRefreshTimerSet = FALSE;
 
-    LightInitializationDone = false;
+    DeferredPathValid = false;
+    DeferredPath[0] = 0;
+    ClearDeferredPanelSettings();
+}
 
-    if (!deferHeavyInitialization)
+void CFilesWindow::ClearDeferredPanelSettings()
+{
+    DeferredPanelSettings = SDeferredPanelSettings();
+}
+
+void CFilesWindow::SetDeferredPanelSettings(const SDeferredPanelSettings& settings)
+{
+    DeferredPanelSettings = settings;
+}
+
+bool CFilesWindow::HasDeferredPanelSettings() const
+{
+    return DeferredPanelSettings.Valid;
+}
+
+void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)
+{
+    if (!DeferredPanelSettings.Valid)
+        return;
+
+    ApplyPanelSettingsSnapshot(DeferredPanelSettings, ensureWindowReady);
+    ClearDeferredPanelSettings();
+}
+
+void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady)
+{
+    if (!settings.Valid)
+        return;
+
+    if (settings.HasCustomColor)
+        SetCustomTabColor(settings.CustomTabColor);
+    else
+        ClearCustomTabColor();
+
+    if (settings.HasCustomPrefix)
+        SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
+    else
+        ClearCustomTabPrefix();
+
+    if (settings.ReverseSortSet)
+        ReverseSort = settings.ReverseSort;
+
+    if (settings.SortTypeSet)
+        SortType = settings.SortType;
+
+    if (settings.FilterEnabledSet)
+        FilterEnabled = settings.FilterEnabled;
+
+    if (settings.FilterMasksSet)
     {
-        EnsureLightInitialization();
-        EnsureHeavyInitialization();
+        if (!settings.FilterMasks.empty())
+            Filter.SetMasksString(settings.FilterMasks.c_str());
+        else
+            Filter.SetMasksString("*.*");
     }
-}
 
-void CFilesWindow::EnsureLightInitialization()
-{
-    if (LightInitializationDone)
-        return;
+    if (settings.HeaderLineSet)
+        HeaderLineVisible = settings.HeaderLineVisible;
+    if (settings.StatusLineSet)
+        StatusLineVisible = settings.StatusLineVisible;
+    if (settings.DirectoryLineSet)
+        DirectoryLineVisible = settings.DirectoryLineVisible;
 
-    LightInitializationDone = true;
-
-    if (ContextSubmenuNew == NULL)
-        ContextSubmenuNew = new CMenuNew;
-
-    if (PathHistory == NULL)
-        PathHistory = new CPathHistory();
-
-    BuildColumnsTemplate();
-    CopyColumnsTemplateToColumns();
-}
-
-void CFilesWindow::EnsureHeavyInitialization()
-{
-    EnsureLightInitialization();
-
-    if (IconInfrastructureInitialized)
-        return;
-
-    HeavyInitializationDeferred = false;
-
-    HANDLES(InitializeCriticalSection(&ICSleepSection));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingIcon));
-    HANDLES(InitializeCriticalSection(&ICSectionUsingThumb));
-
-    ICEventTerminate = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-    ICEventWork = HANDLES(CreateEvent(NULL, FALSE, FALSE, NULL));
-
-    DWORD threadId;
-    IconCacheThread = NULL;
-    if (ICEventTerminate != NULL && ICEventWork != NULL)
-        IconCacheThread = HANDLES(CreateThread(NULL, 0, IconThreadThreadF, this, 0, &threadId));
-    if (ICEventTerminate == NULL ||
-        ICEventWork == NULL ||
-        IconCacheThread == NULL)
+    if (settings.ViewTemplateSet)
     {
-        TRACE_E("Unable to start icon-reader thread.");
-        IconCache = NULL;
+        if (ensureWindowReady && ListBox != NULL)
+            SelectViewTemplate(settings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
+        else
+            ViewTemplate = &Parent->ViewTemplates.Items[settings.ViewTemplateIndex];
+    }
+
+    if (ensureWindowReady)
+    {
+        if (settings.HeaderLineSet && ListBox != NULL)
+            ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, HeaderLineVisible);
+
+        if (settings.DirectoryLineSet && DirectoryLine != NULL && HWindow != NULL)
+        {
+            BOOL current = DirectoryLine->HWindow != NULL ? TRUE : FALSE;
+            if (current != DirectoryLineVisible)
+                ToggleDirectoryLine();
+        }
+
+        if (settings.StatusLineSet && StatusLine != NULL && HWindow != NULL)
+        {
+            BOOL current = StatusLine->HWindow != NULL ? TRUE : FALSE;
+            if (current != StatusLineVisible)
+                ToggleStatusLine();
+        }
+
+        if (DirectoryLine != NULL)
+            UpdateFilterSymbol();
+
+        int errPos;
+        if (!Filter.PrepareMasks(errPos))
+        {
+            Filter.SetMasksString("*.*");
+            Filter.PrepareMasks(errPos);
+        }
     }
     else
     {
-        //    SetThreadPriority(IconCacheThread, THREAD_PRIORITY_IDLE); // loading then fails
-        IconCache = new CIconCache();
+        int errPos;
+        if (!Filter.PrepareMasks(errPos))
+        {
+            Filter.SetMasksString("*.*");
+            Filter.PrepareMasks(errPos);
+        }
     }
+}
 
-    if (ExecuteAssocEvent == NULL)
-        ExecuteAssocEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL));
+void CFilesWindow::SetDeferredPath(const char* path)
+{
+    if (path != NULL && path[0] != 0)
+    {
+        lstrcpyn(DeferredPath, path, _countof(DeferredPath));
+        DeferredPathValid = true;
+    }
+    else
+    {
+        ClearDeferredPath();
+    }
+}
 
-    IconInfrastructureInitialized = TRUE;
+void CFilesWindow::ClearDeferredPath()
+{
+    DeferredPathValid = false;
+    DeferredPath[0] = 0;
+}
+
+bool CFilesWindow::HasDeferredPath() const
+{
+    return DeferredPathValid;
+}
+
+const char* CFilesWindow::GetDeferredPath() const
+{
+    return DeferredPathValid ? DeferredPath : NULL;
 }
 
 CFilesWindow::~CFilesWindow()
@@ -1555,12 +1642,9 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(IconCacheThread));
     }
 
-    if (IconInfrastructureInitialized)
-    {
-        HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
-        HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
-        HANDLES(DeleteCriticalSection(&ICSleepSection));
-    }
+    HANDLES(DeleteCriticalSection(&ICSectionUsingThumb));
+    HANDLES(DeleteCriticalSection(&ICSectionUsingIcon));
+    HANDLES(DeleteCriticalSection(&ICSleepSection));
     if (ICEventTerminate != NULL)
         HANDLES(CloseHandle(ICEventTerminate));
     if (ICEventWork != NULL)
@@ -1572,211 +1656,6 @@ CFilesWindow::~CFilesWindow()
         delete ContextSubmenuNew;
     if (ExecuteAssocEvent != NULL)
         HANDLES(CloseHandle(ExecuteAssocEvent));
-}
-
-void CFilesWindow::SetDeferredPath(const char* path)
-{
-    if (path == NULL || path[0] == 0)
-    {
-        DeferredPathValid = false;
-        DeferredPath[0] = 0;
-        return;
-    }
-
-    lstrcpyn(DeferredPath, path, _countof(DeferredPath));
-    DeferredPathValid = true;
-    NeedsRefreshOnActivation = TRUE;
-}
-
-void CFilesWindow::ClearDeferredPath()
-{
-    DeferredPathValid = false;
-    DeferredPath[0] = 0;
-}
-
-bool CFilesWindow::HasDeferredPath() const
-{
-    return DeferredPathValid && DeferredPath[0] != 0;
-}
-
-const char* CFilesWindow::GetDeferredPath() const
-{
-    return HasDeferredPath() ? DeferredPath : "";
-}
-
-void CFilesWindow::SetDeferredPanelSettings(const SDeferredPanelSettings& settings)
-{
-    DeferredPanelSettings = settings;
-}
-
-bool CFilesWindow::HasDeferredPanelSettings() const
-{
-    return DeferredPanelSettings.Valid;
-}
-
-void CFilesWindow::ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady)
-{
-    if (!settings.Valid)
-        return;
-
-    if (!ensureWindowReady)
-    {
-        DeferredPanelSettings = settings;
-
-        if (settings.ReverseSortSet)
-            ReverseSort = settings.ReverseSort;
-
-        if (settings.SortTypeSet)
-            SortType = settings.SortType;
-
-        if (settings.FilterEnabledSet)
-            FilterEnabled = settings.FilterEnabled;
-
-        if (settings.FilterMasksSet)
-        {
-            if (!settings.FilterMasks.empty())
-                Filter.SetMasksString(settings.FilterMasks.c_str());
-            else
-                Filter.SetMasksString("*.*");
-        }
-
-        if (settings.HasCustomColor)
-            SetCustomTabColor(settings.CustomTabColor);
-        else
-            ClearCustomTabColor();
-
-        if (settings.HasCustomPrefix)
-            SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
-        else
-            ClearCustomTabPrefix();
-
-        if (settings.HeaderLineSet)
-            HeaderLineVisible = settings.HeaderLineVisible;
-        if (settings.DirectoryLineSet)
-            DirectoryLineVisible = settings.DirectoryLineVisible;
-        if (settings.StatusLineSet)
-            StatusLineVisible = settings.StatusLineVisible;
-
-        return;
-    }
-
-    EnsureLightInitialization();
-
-    if (settings.ViewTemplateSet)
-        SelectViewTemplate(settings.ViewTemplateIndex, FALSE, FALSE, VALID_DATA_ALL, FALSE, TRUE);
-
-    if (settings.ReverseSortSet)
-        ReverseSort = settings.ReverseSort;
-
-    if (settings.SortTypeSet)
-        SortType = settings.SortType;
-
-    if (settings.FilterEnabledSet)
-        FilterEnabled = settings.FilterEnabled;
-
-    if (settings.FilterMasksSet)
-    {
-        if (!settings.FilterMasks.empty())
-            Filter.SetMasksString(settings.FilterMasks.c_str());
-        else
-            Filter.SetMasksString("*.*");
-    }
-
-    UpdateFilterSymbol();
-    int errPos;
-    if (!Filter.PrepareMasks(errPos))
-    {
-        Filter.SetMasksString("*.*");
-        Filter.PrepareMasks(errPos);
-    }
-
-    if (settings.HasCustomColor)
-        SetCustomTabColor(settings.CustomTabColor);
-    else
-        ClearCustomTabColor();
-
-    if (settings.HasCustomPrefix)
-        SetCustomTabPrefix(settings.CustomTabPrefix.c_str());
-    else
-        ClearCustomTabPrefix();
-
-    if (settings.HeaderLineSet)
-    {
-        HeaderLineVisible = settings.HeaderLineVisible;
-        if (ListBox != NULL)
-            ListBox->SetMode(GetViewMode() == vmBrief ? vmBrief : vmDetailed, HeaderLineVisible);
-    }
-
-    if (settings.DirectoryLineSet && DirectoryLine != NULL)
-    {
-        BOOL desired = settings.DirectoryLineVisible;
-        BOOL current = DirectoryLine->HWindow != NULL ? TRUE : FALSE;
-        if (desired != current)
-            ToggleDirectoryLine();
-        DirectoryLineVisible = desired;
-    }
-    else if (DirectoryLine != NULL)
-    {
-        DirectoryLineVisible = DirectoryLine->HWindow != NULL ? TRUE : FALSE;
-    }
-
-    if (settings.StatusLineSet && StatusLine != NULL)
-    {
-        BOOL desired = settings.StatusLineVisible;
-        BOOL current = StatusLine->HWindow != NULL ? TRUE : FALSE;
-        if (desired != current)
-            ToggleStatusLine();
-        StatusLineVisible = desired;
-    }
-    else if (StatusLine != NULL)
-    {
-        StatusLineVisible = StatusLine->HWindow != NULL ? TRUE : FALSE;
-    }
-}
-
-void CFilesWindow::ClearDeferredPanelSettings()
-{
-    DeferredPanelSettings = SDeferredPanelSettings();
-}
-
-void CFilesWindow::SetDeferredRegistrySettingsPath(const char* relativePath)
-{
-    if (relativePath != NULL && relativePath[0] != 0)
-    {
-        DeferredRegistrySettingsPath = relativePath;
-        DeferredRegistrySettingsPending = true;
-    }
-    else
-    {
-        DeferredRegistrySettingsPath.clear();
-        DeferredRegistrySettingsPending = false;
-    }
-}
-
-void CFilesWindow::ClearDeferredRegistrySettingsPath()
-{
-    DeferredRegistrySettingsPath.clear();
-    DeferredRegistrySettingsPending = false;
-}
-
-bool CFilesWindow::HasDeferredRegistrySettingsPath() const
-{
-    return DeferredRegistrySettingsPending && !DeferredRegistrySettingsPath.empty();
-}
-
-const std::string& CFilesWindow::GetDeferredRegistrySettingsPath() const
-{
-    return DeferredRegistrySettingsPath;
-}
-
-void CFilesWindow::ApplyDeferredPanelSettings(bool ensureWindowReady)
-{
-    if (!DeferredPanelSettings.Valid || !ensureWindowReady)
-        return;
-
-    SDeferredPanelSettings snapshot = DeferredPanelSettings;
-    DeferredPanelSettings = SDeferredPanelSettings();
-    ApplyPanelSettingsSnapshot(snapshot, true);
 }
 
 CPathHistory* CFilesWindow::EnsureWorkDirHistory()

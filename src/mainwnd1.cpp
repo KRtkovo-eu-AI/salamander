@@ -360,7 +360,6 @@ CMainWindow::CMainWindow()
 
     PanelConfigPathsRestoredLeft = FALSE;
     PanelConfigPathsRestoredRight = FALSE;
-    RestoringPanelConfiguration = false;
 
     ToolTip = new CToolTip(ooStatic);
 
@@ -1762,8 +1761,6 @@ void CMainWindow::FormatPanelPathForDisplay(CFilesWindow* panel, int mode, char*
     char generalPath[2 * MAX_PATH];
     generalPath[0] = 0;
     panel->GetGeneralPath(generalPath, _countof(generalPath));
-    if (generalPath[0] == 0 && panel->HasDeferredPath())
-        lstrcpyn(generalPath, panel->GetDeferredPath(), _countof(generalPath));
 
     switch (mode)
     {

@@ -752,9 +752,6 @@ public:
     CRITICAL_SECTION ICSleepSection;      // critical section -> sleep-icon-thread must pass through it
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
-    bool IconInfrastructureInitialized;   // TRUE if icon-reader structures are ready
-    bool LightInitializationDone;         // TRUE once light initialization runs
-    bool HeavyInitializationDeferred;     // TRUE if heavy initialization should run lazily
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
@@ -783,39 +780,48 @@ public:
 
     struct SDeferredPanelSettings
     {
-        bool Valid = false;
-        bool HeaderLineSet = false;
-        BOOL HeaderLineVisible = FALSE;
-        bool StatusLineSet = false;
-        BOOL StatusLineVisible = FALSE;
-        bool DirectoryLineSet = false;
-        BOOL DirectoryLineVisible = FALSE;
-        bool ViewTemplateSet = false;
-        DWORD ViewTemplateIndex = 0;
-        bool ReverseSortSet = false;
-        BOOL ReverseSort = FALSE;
-        bool SortTypeSet = false;
-        CSortType SortType = stName;
-        bool FilterEnabledSet = false;
-        BOOL FilterEnabled = FALSE;
-        bool FilterMasksSet = false;
+        bool Valid;
+        bool HeaderLineSet;
+        BOOL HeaderLineVisible;
+        bool StatusLineSet;
+        BOOL StatusLineVisible;
+        bool DirectoryLineSet;
+        BOOL DirectoryLineVisible;
+        bool ViewTemplateSet;
+        int ViewTemplateIndex;
+        bool ReverseSortSet;
+        BOOL ReverseSort;
+        bool SortTypeSet;
+        CSortType SortType;
+        bool FilterEnabledSet;
+        BOOL FilterEnabled;
+        bool FilterMasksSet;
         std::string FilterMasks;
-        bool HasCustomColor = false;
-        COLORREF CustomTabColor = RGB(0, 0, 0);
-        bool HasCustomPrefix = false;
+        bool HasCustomColor;
+        COLORREF CustomTabColor;
+        bool HasCustomPrefix;
         std::wstring CustomTabPrefix;
+
+        SDeferredPanelSettings()
+            : Valid(false), HeaderLineSet(false), HeaderLineVisible(FALSE), StatusLineSet(false), StatusLineVisible(FALSE),
+              DirectoryLineSet(false), DirectoryLineVisible(FALSE), ViewTemplateSet(false), ViewTemplateIndex(0),
+              ReverseSortSet(false), ReverseSort(FALSE), SortTypeSet(false), SortType(stName), FilterEnabledSet(false),
+              FilterEnabled(FALSE), FilterMasksSet(false), HasCustomColor(false), CustomTabColor(RGB(0, 0, 0)),
+              HasCustomPrefix(false)
+        {
+        }
     };
 
     void ApplyPanelSettingsSnapshot(const SDeferredPanelSettings& settings, bool ensureWindowReady);
     void ClearDeferredPanelSettings();
-    void SetDeferredRegistrySettingsPath(const char* relativePath);
-    void ClearDeferredRegistrySettingsPath();
-    bool HasDeferredRegistrySettingsPath() const;
-    const std::string& GetDeferredRegistrySettingsPath() const;
+    void SetDeferredPanelSettings(const SDeferredPanelSettings& settings);
+    bool HasDeferredPanelSettings() const;
+    void ApplyDeferredPanelSettings(bool ensureWindowReady);
 
     SDeferredPanelSettings DeferredPanelSettings;
-    bool DeferredRegistrySettingsPending;
-    std::string DeferredRegistrySettingsPath;
+
+    bool DeferredPathValid;
+    char DeferredPath[2 * MAX_PATH];
 
     //CPanelViewModeEnum ViewMode;      // thumbnails / brief / detailed look of the panel
     DWORD ValidFileData; // it determines which CFileData variables are valid, see VALID_DATA_XXX constants; set via SetValidFileData()
@@ -953,20 +959,9 @@ public:
     BOOL IconOvrRefreshTimerSet;              // TRUE if the timer for icon-overlay refresh is running (see IconOverlaysChangedOnPath())
     DWORD NextIconOvrRefreshTime;             // time when tracking icon-overlay changes makes sense again for this panel (see IconOverlaysChangedOnPath())
 
-    bool DeferredPathValid;          // TRUE when a startup directory is stored for later restore
-    char DeferredPath[2 * MAX_PATH]; // directory loaded from the configuration but not restored yet
-
 public:
-    CFilesWindow(CMainWindow* parent, CPanelSide side, bool deferHeavyInitialization = false);
+    CFilesWindow(CMainWindow* parent, CPanelSide side);
     ~CFilesWindow();
-
-    void EnsureLightInitialization();
-    void EnsureHeavyInitialization();
-
-    void SetDeferredPath(const char* path);
-    void ClearDeferredPath();
-    bool HasDeferredPath() const;
-    const char* GetDeferredPath() const;
 
     CPanelSide GetPanelSide() const { return PanelSide; }
     BOOL IsLeftPanel() const { return PanelSide == cpsLeft; }
@@ -980,9 +975,6 @@ public:
     const std::wstring& GetCustomTabPrefix() const { return CustomTabPrefix; }
     void SetCustomTabPrefix(const wchar_t* prefix);
     void ClearCustomTabPrefix();
-    void SetDeferredPanelSettings(const SDeferredPanelSettings& settings);
-    bool HasDeferredPanelSettings() const;
-    void ApplyDeferredPanelSettings(bool ensureWindowReady);
     bool IsTabLocked() const { return TabLocked; }
     void SetTabLocked(bool locked) { TabLocked = locked; }
 
@@ -1262,6 +1254,11 @@ public:
     void RefreshDiskFreeSpace(BOOL check = TRUE, BOOL doNotRefreshOtherPanel = FALSE);
 
     void UpdateFilterSymbol(); // ensures the status bar is updated
+
+    void SetDeferredPath(const char* path);
+    void ClearDeferredPath();
+    bool HasDeferredPath() const;
+    const char* GetDeferredPath() const;
 
     // called when closing an FS - the history stores FS interfaces which must be set to NULL
     // after closing (to avoid accidental matches caused by allocating FS interfaces at the same address)
