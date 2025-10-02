@@ -2817,7 +2817,37 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
             else
                 PanelConfigPathsRestoredRight = restoredOrDeferred;
 
-            SwitchPanelTab(panel);
+            if (panel->HWindow == NULL)
+            {
+                if (!EnsurePanelWindowCreated(panel))
+                {
+                    UpdatePanelTabVisibility(side);
+                    CloseKey(actKey);
+                    return;
+                }
+            }
+            else
+                panel->ApplyDeferredPanelSettings(true);
+
+            if (side == cpsLeft)
+                LeftPanel = panel;
+            else
+                RightPanel = panel;
+
+            CTabWindow* tabWnd = GetPanelTabWindow(side);
+            if (tabWnd != NULL && tabWnd->HWindow != NULL)
+            {
+                int index = GetPanelTabIndex(side, panel);
+                if (index >= 0)
+                    tabWnd->SetCurSel(index);
+            }
+
+            if (UsingSharedWorkDirHistory())
+                UpdateAllDirectoryLineHistoryStates();
+            else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+                UpdateDirectoryLineHistoryState(panel);
+
+            UpdatePanelTabVisibility(side);
         }
 
         CloseKey(actKey);
@@ -2941,7 +2971,28 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (activePanel != NULL)
     {
-        SwitchPanelTab(activePanel);
+        if (activePanel->HWindow == NULL)
+        {
+            if (!EnsurePanelWindowCreated(activePanel))
+            {
+                UpdatePanelTabVisibility(side);
+                CloseKey(actKey);
+                return;
+            }
+        }
+        else
+            activePanel->ApplyDeferredPanelSettings(true);
+
+        if (side == cpsLeft)
+            LeftPanel = activePanel;
+        else
+            RightPanel = activePanel;
+
+        if (UsingSharedWorkDirHistory())
+            UpdateAllDirectoryLineHistoryStates();
+        else if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
+            UpdateDirectoryLineHistoryState(activePanel);
+
         int sel = GetPanelTabIndex(side, activePanel);
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL && sel >= 0)
