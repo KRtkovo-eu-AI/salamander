@@ -46,14 +46,14 @@ namespace EPocalipse.Json.Viewer
                 var refreshed = GetPalette();
                 if (refreshed.HasValue)
                 {
-                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.Background);
+                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.ControlBorder);
                     ApplyFormChrome(form, refreshed.Value);
                 }
             };
 
             if (form.IsHandleCreated)
             {
-                NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.Background);
+                NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
             }
         }
 
@@ -240,14 +240,20 @@ namespace EPocalipse.Json.Viewer
 
         private static void ApplyFormChrome(Form form, ThemePalette palette)
         {
-            if (form.Padding != Padding.Empty)
+            var desiredPadding = new Padding(1);
+            if (form.Padding != desiredPadding)
             {
-                form.Padding = Padding.Empty;
+                form.Padding = desiredPadding;
             }
 
-            if (form.BackColor != palette.Background)
+            if (form.BackColor != palette.ControlBorder)
             {
-                form.BackColor = palette.Background;
+                form.BackColor = palette.ControlBorder;
+            }
+
+            if (form.ForeColor != palette.Foreground)
+            {
+                form.ForeColor = palette.Foreground;
             }
         }
 
@@ -321,10 +327,10 @@ namespace EPocalipse.Json.Viewer
             {
                 tabControl.Padding = desiredPadding;
             }
-            tabControl.DrawItem -= TabControlOnDrawItem;
-            tabControl.DrawItem += TabControlOnDrawItem;
             tabControl.Paint -= TabControlOnPaint;
             tabControl.Paint += TabControlOnPaint;
+            tabControl.SelectedIndexChanged -= TabControlOnSelectedIndexChanged;
+            tabControl.SelectedIndexChanged += TabControlOnSelectedIndexChanged;
             tabControl.BackColor = palette.ControlBackground;
             tabControl.ForeColor = palette.Foreground;
 
@@ -356,6 +362,18 @@ namespace EPocalipse.Json.Viewer
             if (palette.HasValue)
             {
                 ApplyToTabPage(tabPage, palette.Value);
+                if (sender is TabControl tabControl)
+                {
+                    tabControl.Invalidate();
+                }
+            }
+        }
+
+        private static void TabControlOnSelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (sender is TabControl tabControl)
+            {
+                tabControl.Invalidate();
             }
         }
 
@@ -404,61 +422,6 @@ namespace EPocalipse.Json.Viewer
             e.DrawFocusRectangle();
         }
 
-        private static void TabControlOnDrawItem(object? sender, DrawItemEventArgs e)
-        {
-            if (sender is not TabControl tabControl)
-            {
-                return;
-            }
-
-            var palette = GetPalette();
-            if (palette is null)
-            {
-                tabControl.DrawMode = TabDrawMode.Normal;
-                return;
-            }
-
-            if (e.Index < 0 || e.Index >= tabControl.TabPages.Count)
-            {
-                return;
-            }
-
-            bool isSelected = (e.State & DrawItemState.Selected) != 0;
-            bool isDisabled = (e.State & DrawItemState.Disabled) != 0 || !tabControl.TabPages[e.Index].Enabled;
-
-            Color background = isSelected ? palette.Value.TabActiveBackground : palette.Value.TabInactiveBackground;
-            Color foreground = isSelected ? palette.Value.TabActiveForeground : palette.Value.TabInactiveForeground;
-            if (isDisabled)
-            {
-                foreground = ControlPaint.Light(foreground);
-            }
-
-            Rectangle fill = e.Bounds;
-            fill.Inflate(-1, -1);
-            if (fill.Width <= 0 || fill.Height <= 0)
-            {
-                fill = e.Bounds;
-            }
-
-            using (var brush = new SolidBrush(background))
-            {
-                e.Graphics.FillRectangle(brush, fill);
-            }
-
-            var format = TextFormatFlags.HorizontalCenter |
-                         TextFormatFlags.VerticalCenter |
-                         TextFormatFlags.EndEllipsis |
-                         TextFormatFlags.NoPrefix;
-            TextRenderer.DrawText(e.Graphics, tabControl.TabPages[e.Index].Text, tabControl.Font, fill, foreground, format);
-
-            using var border = new Pen(palette.Value.ControlBorder);
-            var outline = fill;
-            if (outline.Width > 0 && outline.Height > 0)
-            {
-                e.Graphics.DrawRectangle(border, outline);
-            }
-        }
-
         private static void TabControlOnPaint(object? sender, PaintEventArgs e)
         {
             if (sender is not TabControl tabControl)
@@ -480,7 +443,7 @@ namespace EPocalipse.Json.Viewer
                 return;
             }
 
-            var stripHeight = tabControl.DisplayRectangle.Top;
+            int stripHeight = tabControl.DisplayRectangle.Top;
             if (stripHeight < 0)
             {
                 stripHeight = 0;
@@ -488,18 +451,20 @@ namespace EPocalipse.Json.Viewer
 
             if (stripHeight > 0)
             {
-                using var strip = new SolidBrush(palette.Value.TabInactiveBackground);
-                using var headerRegion = new Region(new Rectangle(0, 0, client.Width, stripHeight));
-                for (int i = 0; i < tabControl.TabPages.Count; i++)
+                using var strip = new SolidBrush(palette.Value.TabStripBackground);
+                e.Graphics.FillRectangle(strip, new Rectangle(0, 0, client.Width, stripHeight));
+            }
+
+            for (int i = 0; i < tabControl.TabPages.Count; i++)
+            {
+                var tabPage = tabControl.TabPages[i];
+                var tabRect = tabControl.GetTabRect(i);
+                if (tabRect.Width <= 0 || tabRect.Height <= 0)
                 {
-                    var tabRect = tabControl.GetTabRect(i);
-                    if (tabRect.IntersectsWith(new Rectangle(0, 0, client.Width, stripHeight)))
-                    {
-                        headerRegion.Exclude(tabRect);
-                    }
+                    continue;
                 }
 
-                e.Graphics.FillRegion(strip, headerRegion);
+                DrawTab(e.Graphics, tabControl, tabPage, tabRect, palette.Value, i == tabControl.SelectedIndex);
             }
 
             using (var body = new SolidBrush(palette.Value.Background))
@@ -513,9 +478,44 @@ namespace EPocalipse.Json.Viewer
                 }
             }
 
-            using (var border = new Pen(palette.Value.ControlBorder))
+            using (var border = new Pen(palette.Value.TabBorder))
             {
                 e.Graphics.DrawRectangle(border, new Rectangle(0, 0, client.Width - 1, client.Height - 1));
+            }
+        }
+
+        private static void DrawTab(Graphics graphics, TabControl tabControl, TabPage tabPage, Rectangle tabRect, ThemePalette palette, bool isSelected)
+        {
+            var bounds = tabRect;
+            bounds.Inflate(-1, -1);
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                bounds = tabRect;
+            }
+
+            Color background = isSelected ? palette.TabActiveBackground : palette.TabInactiveBackground;
+            Color foreground = isSelected ? palette.TabActiveForeground : palette.TabInactiveForeground;
+            if (!tabPage.Enabled)
+            {
+                foreground = ControlPaint.Light(foreground);
+            }
+
+            using (var brush = new SolidBrush(background))
+            {
+                graphics.FillRectangle(brush, bounds);
+            }
+
+            var format = TextFormatFlags.HorizontalCenter |
+                         TextFormatFlags.VerticalCenter |
+                         TextFormatFlags.EndEllipsis |
+                         TextFormatFlags.NoPrefix;
+            var font = tabPage.Font ?? tabControl.Font;
+            TextRenderer.DrawText(graphics, tabPage.Text, font, bounds, foreground, format);
+
+            using var border = new Pen(palette.TabBorder);
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                graphics.DrawRectangle(border, bounds);
             }
         }
 
@@ -578,10 +578,12 @@ namespace EPocalipse.Json.Viewer
                 InputBackground = IsDark ? Lighten(background, 0.12) : SystemColors.Window;
                 InputForeground = IsDark ? foreground : SystemColors.WindowText;
                 AccentEmphasis = Blend(background, accent, IsDark ? 0.45 : 0.2);
+                TabStripBackground = ControlBackground;
                 TabInactiveBackground = ControlBackground;
                 TabInactiveForeground = foreground;
-                TabActiveBackground = AccentEmphasis;
+                TabActiveBackground = HighlightBackground;
                 TabActiveForeground = HighlightForeground;
+                TabBorder = ControlBorder;
             }
 
             public Color Background { get; }
@@ -606,6 +608,8 @@ namespace EPocalipse.Json.Viewer
 
             public Color AccentEmphasis { get; }
 
+            public Color TabStripBackground { get; }
+
             public Color TabInactiveBackground { get; }
 
             public Color TabInactiveForeground { get; }
@@ -613,6 +617,8 @@ namespace EPocalipse.Json.Viewer
             public Color TabActiveBackground { get; }
 
             public Color TabActiveForeground { get; }
+
+            public Color TabBorder { get; }
         }
 
         private static class ThemeRenderer
