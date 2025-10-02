@@ -3,6 +3,7 @@
 
 using System;
 using System.Drawing;
+using System.Resources;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -20,20 +21,160 @@ internal static class ThemeHelper
 
     public static void ApplyTheme(Form form)
     {
-        var palette = GetPalette();
-        if (palette is null)
+        if (!TryGetPalette(out var palette))
         {
             return;
         }
 
-        ApplyPalette(form, palette.Value);
+        ApplyPalette(form, palette);
 
         if (form.IsHandleCreated)
         {
-            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark);
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark, palette.ControlBorder);
         }
 
-        form.HandleCreated += (_, _) => NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark);
+        form.HandleCreated += (_, _) =>
+        {
+            if (TryGetPalette(out var refreshed))
+            {
+                NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.IsDark, refreshed.ControlBorder);
+            }
+        };
+    }
+
+    public static DialogResult ShowMessageBox(IWin32Window? owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+    {
+        if (!TryGetPalette(out _))
+        {
+            return MessageBox.Show(owner, text, caption, buttons, icon);
+        }
+
+        using var dialog = new Form
+        {
+            Text = caption,
+            StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(12),
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 2,
+            Margin = Padding.Empty,
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        bool hasIcon = false;
+
+        if (icon != MessageBoxIcon.None)
+        {
+            var image = GetMessageBoxIcon(icon);
+            if (image is not null)
+            {
+                var picture = new PictureBox
+                {
+                    Image = image,
+                    SizeMode = PictureBoxSizeMode.AutoSize,
+                    Margin = new Padding(0, 0, 12, 0),
+                };
+                layout.Controls.Add(picture, 0, 0);
+                hasIcon = true;
+            }
+        }
+
+        var textLabel = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(480, 0),
+            Margin = Padding.Empty,
+            Text = text,
+        };
+        var textColumn = hasIcon ? 1 : 0;
+        layout.Controls.Add(textLabel, textColumn, 0);
+        if (!hasIcon)
+        {
+            layout.SetColumnSpan(textLabel, 2);
+        }
+
+        var buttonsPanel = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.RightToLeft,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Fill,
+            Padding = Padding.Empty,
+            Margin = new Padding(0, 12, 0, 0),
+            WrapContents = false,
+        };
+        layout.Controls.Add(buttonsPanel, 0, 1);
+        layout.SetColumnSpan(buttonsPanel, 2);
+
+        Button? defaultButton = null;
+        Button? cancelButton = null;
+        foreach (var definition in GetButtonDefinitions(buttons))
+        {
+            var button = new Button
+            {
+                Text = definition.text,
+                DialogResult = definition.result,
+                AutoSize = true,
+            };
+            button.Margin = buttonsPanel.Controls.Count == 0 ? Padding.Empty : new Padding(6, 0, 0, 0);
+            buttonsPanel.Controls.Add(button);
+
+            if (definition.isDefault && defaultButton is null)
+            {
+                defaultButton = button;
+            }
+
+            if (definition.isCancel)
+            {
+                cancelButton = button;
+            }
+        }
+
+        dialog.AcceptButton = defaultButton;
+        if (cancelButton is not null)
+        {
+            dialog.CancelButton = cancelButton;
+        }
+
+        dialog.Controls.Add(layout);
+        ApplyTheme(dialog);
+
+        var ownerWindow = owner;
+        ownerWindow ??= Form.ActiveForm;
+        if (ownerWindow is null && Application.OpenForms.Count > 0)
+        {
+            ownerWindow = Application.OpenForms[0];
+        }
+
+        return ownerWindow is null ? dialog.ShowDialog() : dialog.ShowDialog(ownerWindow);
+    }
+
+    private static bool TryGetPalette(out ThemePalette palette)
+    {
+        var current = GetPalette();
+        if (current.HasValue)
+        {
+            palette = current.Value;
+            return true;
+        }
+
+        palette = default;
+        return false;
     }
 
     private static ThemePalette? GetPalette()
@@ -244,6 +385,75 @@ internal static class ThemeHelper
         public bool IsDark { get; }
     }
 
+    private static readonly ResourceManager s_resourceManager = new("System.Windows.Forms.SR", typeof(MessageBox).Assembly);
+
+    private static Image? GetMessageBoxIcon(MessageBoxIcon icon)
+    {
+        return icon switch
+        {
+            MessageBoxIcon.Error => SystemIcons.Error.ToBitmap(),
+            MessageBoxIcon.Question => SystemIcons.Question.ToBitmap(),
+            MessageBoxIcon.Exclamation => SystemIcons.Warning.ToBitmap(),
+            MessageBoxIcon.Warning => SystemIcons.Warning.ToBitmap(),
+            MessageBoxIcon.Information => SystemIcons.Information.ToBitmap(),
+            _ => null,
+        };
+    }
+
+    private static (DialogResult result, string text, bool isDefault, bool isCancel)[] GetButtonDefinitions(MessageBoxButtons buttons)
+    {
+        return buttons switch
+        {
+            MessageBoxButtons.OK => new[]
+            {
+                (DialogResult.OK, GetString("DialogResultOK", "OK"), true, true),
+            },
+            MessageBoxButtons.OKCancel => new[]
+            {
+                (DialogResult.Cancel, GetString("DialogResultCancel", "Cancel"), false, true),
+                (DialogResult.OK, GetString("DialogResultOK", "OK"), true, false),
+            },
+            MessageBoxButtons.YesNo => new[]
+            {
+                (DialogResult.No, GetString("DialogResultNo", "No"), false, true),
+                (DialogResult.Yes, GetString("DialogResultYes", "Yes"), true, false),
+            },
+            MessageBoxButtons.YesNoCancel => new[]
+            {
+                (DialogResult.Cancel, GetString("DialogResultCancel", "Cancel"), false, true),
+                (DialogResult.No, GetString("DialogResultNo", "No"), false, false),
+                (DialogResult.Yes, GetString("DialogResultYes", "Yes"), true, false),
+            },
+            MessageBoxButtons.RetryCancel => new[]
+            {
+                (DialogResult.Cancel, GetString("DialogResultCancel", "Cancel"), false, true),
+                (DialogResult.Retry, GetString("DialogResultRetry", "Retry"), true, false),
+            },
+            MessageBoxButtons.AbortRetryIgnore => new[]
+            {
+                (DialogResult.Ignore, GetString("DialogResultIgnore", "Ignore"), false, true),
+                (DialogResult.Retry, GetString("DialogResultRetry", "Retry"), false, false),
+                (DialogResult.Abort, GetString("DialogResultAbort", "Abort"), true, false),
+            },
+            _ => new[]
+            {
+                (DialogResult.OK, GetString("DialogResultOK", "OK"), true, true),
+            },
+        };
+    }
+
+    private static string GetString(string name, string fallback)
+    {
+        try
+        {
+            return s_resourceManager.GetString(name) ?? fallback;
+        }
+        catch (MissingManifestResourceException)
+        {
+            return fallback;
+        }
+    }
+
     private static class ThemeRenderer
     {
         public static void Attach(ToolStrip dropDown, ThemePalette palette)
@@ -355,6 +565,7 @@ internal static class ThemeHelper
     {
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20 = 19;
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+        private const int DWMWA_BORDER_COLOR = 34;
 
         [DllImport("CSDemo.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint CSDemo_GetCurrentColor(int color);
@@ -378,9 +589,9 @@ internal static class ThemeHelper
             }
         }
 
-        public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable)
+        public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable, Color borderColor)
         {
-            if (handle == IntPtr.Zero || !enable)
+            if (handle == IntPtr.Zero)
             {
                 return;
             }
@@ -399,6 +610,12 @@ internal static class ThemeHelper
             else
             {
                 DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20, ref useDark, sizeof(int));
+            }
+
+            if (version.Build >= 22000)
+            {
+                int border = enable ? ColorTranslator.ToWin32(borderColor) : -1;
+                DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
             }
         }
     }

@@ -160,7 +160,7 @@ public static class EntryPoint
         {
             // In a real plugin the value would be forwarded to the native layer
             // or persisted via Salamander's registry helpers.
-            MessageBox.Show(new WindowHandleWrapper(parent),
+            ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent),
                 $"Managed sample saved:\n{textBox.Text}",
                 "C# Demo Plugin",
                 MessageBoxButtons.OK,
@@ -230,7 +230,7 @@ public static class EntryPoint
 
     private static void ShowError(string caption, Exception ex)
     {
-        MessageBox.Show(
+        ThemeHelper.ShowMessageBox(
             null,
             $"{caption}\n{ex.Message}",
             "C# Demo Plugin",

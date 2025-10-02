@@ -33,13 +33,13 @@ namespace EPocalipse.Json.Viewer
                 var refreshed = GetPalette();
                 if (refreshed.HasValue)
                 {
-                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark);
+                    NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.Value.IsDark, refreshed.Value.ControlBorder);
                 }
             };
 
             if (form.IsHandleCreated)
             {
-                NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark);
+                NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
             }
         }
 
@@ -182,6 +182,13 @@ namespace EPocalipse.Json.Viewer
                     backgroundSet = true;
                     foregroundSet = true;
                     break;
+                case TabPage tabPage:
+                    tabPage.BackColor = palette.Background;
+                    tabPage.ForeColor = palette.Foreground;
+                    tabPage.UseVisualStyleBackColor = false;
+                    backgroundSet = true;
+                    foregroundSet = true;
+                    break;
                 case LinkLabel linkLabel:
                     linkLabel.LinkColor = palette.Accent;
                     linkLabel.ActiveLinkColor = palette.HighlightForeground;
@@ -269,6 +276,8 @@ namespace EPocalipse.Json.Viewer
             tabControl.SizeMode = TabSizeMode.Normal;
             tabControl.DrawItem -= TabControlOnDrawItem;
             tabControl.DrawItem += TabControlOnDrawItem;
+            tabControl.Paint -= TabControlOnPaint;
+            tabControl.Paint += TabControlOnPaint;
             tabControl.BackColor = palette.ControlBackground;
             tabControl.ForeColor = palette.Foreground;
         }
@@ -345,6 +354,59 @@ namespace EPocalipse.Json.Viewer
                 rect.Width -= 1;
                 rect.Height -= 1;
                 e.Graphics.DrawRectangle(border, rect);
+            }
+        }
+
+        private static void TabControlOnPaint(object? sender, PaintEventArgs e)
+        {
+            if (sender is not TabControl tabControl)
+            {
+                return;
+            }
+
+            var palette = GetPalette();
+            if (palette is null)
+            {
+                tabControl.Paint -= TabControlOnPaint;
+                tabControl.Invalidate();
+                return;
+            }
+
+            var client = tabControl.ClientRectangle;
+            if (client.Width <= 0 || client.Height <= 0)
+            {
+                return;
+            }
+
+            var stripHeight = tabControl.DisplayRectangle.Top;
+            if (stripHeight < 0)
+            {
+                stripHeight = 0;
+            }
+
+            using (var strip = new SolidBrush(palette.Value.ControlBackground))
+            {
+                var rect = new Rectangle(0, 0, client.Width, stripHeight);
+                if (rect.Height > 0)
+                {
+                    e.Graphics.FillRectangle(strip, rect);
+                }
+            }
+
+            using (var body = new SolidBrush(palette.Value.Background))
+            {
+                var rect = tabControl.DisplayRectangle;
+                rect.Inflate(1, 1);
+                rect.Intersect(new Rectangle(0, 0, client.Width, client.Height));
+                if (rect.Width > 0 && rect.Height > 0)
+                {
+                    e.Graphics.FillRectangle(body, rect);
+                }
+            }
+
+            using (var border = new Pen(palette.Value.ControlBorder))
+            {
+                e.Graphics.DrawRectangle(border, new Rectangle(0, 0, client.Width - 1, client.Height - 1));
             }
         }
 
@@ -540,6 +602,7 @@ namespace EPocalipse.Json.Viewer
         {
             private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20 = 19;
             private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+            private const int DWMWA_BORDER_COLOR = 34;
 
             [DllImport("JsonViewer.Spl", CallingConvention = CallingConvention.StdCall)]
             public static extern uint JsonViewer_GetCurrentColor(int color);
@@ -563,9 +626,9 @@ namespace EPocalipse.Json.Viewer
                 }
             }
 
-            public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable)
+            public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable, Color borderColor)
             {
-                if (handle == IntPtr.Zero || !enable)
+                if (handle == IntPtr.Zero)
                 {
                     return;
                 }
@@ -584,6 +647,12 @@ namespace EPocalipse.Json.Viewer
                 else
                 {
                     DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20, ref useDark, sizeof(int));
+                }
+
+                if (version.Build >= 22000)
+                {
+                    int border = enable ? ColorTranslator.ToWin32(borderColor) : -1;
+                    DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
                 }
             }
         }
