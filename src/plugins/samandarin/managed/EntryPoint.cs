@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -131,11 +132,14 @@ internal static class UpdateCoordinator
     private static readonly TimeSpan MinimumDelay = TimeSpan.FromSeconds(10);
     private static readonly string SettingsFilePath;
     private static readonly HttpClient HttpClient;
+    private static readonly object UiThreadLock = new();
 
     private static SynchronizationContext? SyncContext;
     private static UpdateSettings Settings;
     private static string CurrentVersion = string.Empty;
     private static Timer? UpdateTimer;
+    private static BlockingCollection<Action>? UiQueue;
+    private static Thread? UiThread;
 
     static UpdateCoordinator()
     {
@@ -259,6 +263,8 @@ internal static class UpdateCoordinator
 
         CheckSemaphore.Wait();
         CheckSemaphore.Release();
+
+        StopUiThread();
     }
 
     private static async Task<string?> FetchLatestVersionAsync()
@@ -419,11 +425,41 @@ internal static class UpdateCoordinator
         var context = SyncContext;
         if (context is null)
         {
-            action();
+            EnsureUiThread();
+
+            var queue = UiQueue;
+            if (queue is null)
+            {
+                action();
+                return;
+            }
+
+            if (Thread.CurrentThread == UiThread)
+            {
+                action();
+                return;
+            }
+
+            try
+            {
+                queue.Add(action);
+            }
+            catch (InvalidOperationException)
+            {
+                // The queue has been marked complete during shutdown; run inline as a best effort.
+                action();
+            }
         }
         else
         {
-            context.Post(_ => action(), null);
+            if (ReferenceEquals(SynchronizationContext.Current, context))
+            {
+                action();
+            }
+            else
+            {
+                context.Post(static state => ((Action)state!)(), action);
+            }
         }
     }
 
@@ -438,6 +474,78 @@ internal static class UpdateCoordinator
     private static void SaveSettings_NoLock()
     {
         Settings.Save(SettingsFilePath);
+    }
+
+    private static void EnsureUiThread()
+    {
+        if (UiQueue is not null)
+        {
+            return;
+        }
+
+        lock (UiThreadLock)
+        {
+            if (UiQueue is not null)
+            {
+                return;
+            }
+
+            var queue = new BlockingCollection<Action>();
+            var thread = new Thread(() => UiThreadLoop(queue))
+            {
+                IsBackground = true,
+                Name = "Samandarin UI Thread",
+            };
+            thread.SetApartmentState(ApartmentState.STA);
+
+            UiQueue = queue;
+            UiThread = thread;
+            thread.Start();
+        }
+    }
+
+    private static void UiThreadLoop(BlockingCollection<Action> queue)
+    {
+        foreach (var action in queue.GetConsumingEnumerable())
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Samandarin UI thread action failed: {ex}");
+            }
+        }
+    }
+
+    private static void StopUiThread()
+    {
+        BlockingCollection<Action>? queue;
+        Thread? thread;
+
+        lock (UiThreadLock)
+        {
+            queue = UiQueue;
+            thread = UiThread;
+            UiQueue = null;
+            UiThread = null;
+            queue?.CompleteAdding();
+        }
+
+        if (thread is not null)
+        {
+            try
+            {
+                thread.Join(TimeSpan.FromSeconds(2));
+            }
+            catch (ThreadStateException)
+            {
+                // The thread was never started or has already terminated.
+            }
+        }
+
+        queue?.Dispose();
     }
 }
 
