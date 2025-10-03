@@ -30,17 +30,34 @@
              Properties="RestoreDuringBuild=true" />
   </Target>
 
-  <Target Name="CopyPrismSharpContent" AfterTargets="Build" Condition="'$(PkgPrismSharp)' != ''">
+  <Target Name="CopyPrismSharpContent" AfterTargets="Build">
     <ItemGroup>
-      <PrismSharpLanguageFiles Include="$(PkgPrismSharp)contentFiles\\data\\languages\\*.json" />
-      <PrismSharpThemeFiles Include="$(PkgPrismSharp)contentFiles\\data\\themes\\*.json" />
+      <PrismSharpReference Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'PrismSharp'">
+        <ContentRoot>$([System.IO.Path]::GetFullPath('%(RootDir)%(Directory)..\\..\\contentFiles\\data\\'))</ContentRoot>
+      </PrismSharpReference>
+    </ItemGroup>
+
+    <PropertyGroup>
+      <PrismSharpContentRoot></PrismSharpContentRoot>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <PrismSharpContentRoot Condition="'$(PrismSharpContentRoot)' == '' and '%(PrismSharpReference.ContentRoot)' != ''">%(PrismSharpReference.ContentRoot)</PrismSharpContentRoot>
+    </PropertyGroup>
+
+    <ItemGroup Condition="Exists('$(PrismSharpContentRoot)languages\\languages.json')">
+      <PrismSharpLanguageFiles Include="$(PrismSharpContentRoot)languages\\*.json" />
+      <PrismSharpThemeFiles Include="$(PrismSharpContentRoot)themes\\*.json" />
     </ItemGroup>
 
     <Copy SourceFiles="@(PrismSharpLanguageFiles)"
           DestinationFolder="$(OutputPath)data\\languages\\"
-          SkipUnchangedFiles="true" />
+          SkipUnchangedFiles="true"
+          Condition="@(PrismSharpLanguageFiles) != ''" />
     <Copy SourceFiles="@(PrismSharpThemeFiles)"
           DestinationFolder="$(OutputPath)data\\themes\\"
-          SkipUnchangedFiles="true" />
+          SkipUnchangedFiles="true"
+          Condition="@(PrismSharpThemeFiles) != ''" />
   </Target>
 </Project>
