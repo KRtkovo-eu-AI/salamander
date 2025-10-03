@@ -10,6 +10,8 @@
 
 #pragma comment(lib, "mscoree.lib")
 
+extern HINSTANCE DLLInstance;
+
 namespace
 {
 ICLRRuntimeHost* gRuntimeHost = nullptr;

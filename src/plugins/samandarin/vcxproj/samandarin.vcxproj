@@ -142,8 +142,6 @@
     </ClCompile>
     <ClCompile Include="..\managed_bridge.cpp">
     </ClCompile>
-    <ClCompile Include="..\menu.cpp">
-    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -165,8 +163,6 @@
     <ClInclude Include="..\..\shared\spl_gen.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_gui.h">
-    </ClInclude>
-    <ClInclude Include="..\..\shared\spl_menu.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_thum.h">
     </ClInclude>

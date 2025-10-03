@@ -18,9 +18,6 @@
     <ClCompile Include="..\samandarin.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
-    <ClCompile Include="..\menu.cpp">
-      <Filter>cpp</Filter>
-    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -60,9 +57,6 @@
       <Filter>shared</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_gui.h">
-      <Filter>shared</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\shared\spl_menu.h">
       <Filter>shared</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_thum.h">

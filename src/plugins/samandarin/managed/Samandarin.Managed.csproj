@@ -19,4 +19,8 @@
              Targets="Restore"
              Properties="RestoreDuringBuild=true" />
   </Target>
+
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
 </Project>

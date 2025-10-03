@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Timer = System.Threading.Timer;
 
 namespace OpenSalamander.Samandarin;
 
@@ -134,7 +135,7 @@ internal static class UpdateCoordinator
     private static SynchronizationContext? SyncContext;
     private static UpdateSettings Settings;
     private static string CurrentVersion = string.Empty;
-    private static Timer? Timer;
+    private static Timer? UpdateTimer;
 
     static UpdateCoordinator()
     {
@@ -252,8 +253,8 @@ internal static class UpdateCoordinator
     {
         lock (SyncRoot)
         {
-            Timer?.Dispose();
-            Timer = null;
+            UpdateTimer?.Dispose();
+            UpdateTimer = null;
         }
 
         CheckSemaphore.Wait();
@@ -294,8 +295,8 @@ internal static class UpdateCoordinator
 
     private static void ScheduleTimer_NoLock()
     {
-        Timer?.Dispose();
-        Timer = null;
+        UpdateTimer?.Dispose();
+        UpdateTimer = null;
 
         if (Settings.Frequency == UpdateFrequency.Disabled)
         {
@@ -324,7 +325,7 @@ internal static class UpdateCoordinator
             due = MinimumDelay;
         }
 
-        Timer = new Timer(_ => TimerCallback(), null, due, Timeout.InfiniteTimeSpan);
+        UpdateTimer = new Timer(_ => TimerCallback(), null, due, Timeout.InfiniteTimeSpan);
     }
 
     private static void TimerCallback()
