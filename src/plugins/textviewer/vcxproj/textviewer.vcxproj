@@ -225,6 +225,7 @@ if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (
 )
 set "MANAGED_DATA_DIR="
 for %%I in ("%MANAGED_DIR%TextViewer.Managed.dll") do if not defined MANAGED_DATA_DIR set "MANAGED_DATA_DIR=%%~dpIdata"
+if not exist "%MANAGED_DATA_DIR%\languages\languages.json" if exist "$(ProjectDir)..\managed\data\languages\languages.json" set "MANAGED_DATA_DIR=$(ProjectDir)..\managed\data"
 if not defined MANAGED_DATA_DIR (
   echo Failed to resolve PrismSharp data directory from %MANAGED_DIR%.
   exit /B 1

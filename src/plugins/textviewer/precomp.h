@@ -49,6 +49,7 @@
 #include "textviewer.rh"
 #include "textviewer.rh2"
 #include "lang\lang.rh"
+#include "../../cfgdlg.h"
 
 #ifdef __BORLANDC__
 #define min(a, b) (((a) < (b)) ? (a) : (b))
