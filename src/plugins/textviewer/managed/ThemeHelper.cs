@@ -335,27 +335,36 @@ internal static class ThemeHelper
 
         string scheme = palette.IsDark ? "dark" : "light";
 
-        if (document.DocumentElement is HtmlElement root)
+        HtmlElement? root = TryGetDocumentElement(document);
+        if (root is not null)
         {
             root.SetAttribute("data-theme", scheme);
             ApplyCssDeclaration(root, "color-scheme", scheme);
+            ApplyScrollbarTheme(root, palette);
+        }
+
+        if (document.Body is HtmlElement body)
+        {
+            ApplyScrollbarTheme(body, palette);
         }
 
         EnsureColorSchemeMeta(document, palette.IsDark);
     }
 
-    private static void ApplyCssDeclaration(HtmlElement element, string propertyName, string propertyValue)
+    private static void ApplyCssDeclaration(HtmlElement element, string propertyName, string? propertyValue)
     {
         string current = element.GetAttribute("style");
         string updated = UpdateCssDeclaration(current, propertyName, propertyValue);
         element.SetAttribute("style", updated);
     }
 
-    private static string UpdateCssDeclaration(string? style, string propertyName, string propertyValue)
+    private static string UpdateCssDeclaration(string? style, string propertyName, string? propertyValue)
     {
+        bool hasValue = !string.IsNullOrWhiteSpace(propertyValue);
+
         if (string.IsNullOrWhiteSpace(style))
         {
-            return propertyName + ":" + propertyValue + ";";
+            return hasValue ? propertyName + ":" + propertyValue + ";" : string.Empty;
         }
 
         var builder = new StringBuilder();
@@ -379,24 +388,83 @@ internal static class ThemeHelper
 
             if (string.Equals(name, propertyName, StringComparison.OrdinalIgnoreCase))
             {
-                if (!replaced)
+                if (!replaced && hasValue)
                 {
                     builder.Append(propertyName).Append(':').Append(propertyValue).Append(';');
-                    replaced = true;
                 }
+
+                replaced = true;
+                continue;
             }
-            else
-            {
-                builder.Append(name).Append(':').Append(value).Append(';');
-            }
+
+            builder.Append(name).Append(':').Append(value).Append(';');
         }
 
-        if (!replaced)
+        if (!replaced && hasValue)
         {
             builder.Append(propertyName).Append(':').Append(propertyValue).Append(';');
         }
 
         return builder.ToString();
+    }
+
+    private static HtmlElement? TryGetDocumentElement(HtmlDocument document)
+    {
+        HtmlElementCollection elements = document.GetElementsByTagName("html");
+        if (elements.Count > 0)
+        {
+            return elements[0];
+        }
+
+        if (document.Body is HtmlElement body)
+        {
+            return body.Parent ?? body;
+        }
+
+        return null;
+    }
+
+    private static void ApplyScrollbarTheme(HtmlElement? element, ThemePalette palette)
+    {
+        if (element is null)
+        {
+            return;
+        }
+
+        if (!palette.IsDark)
+        {
+            ApplyCssDeclaration(element, "scrollbar-base-color", null);
+            ApplyCssDeclaration(element, "scrollbar-face-color", null);
+            ApplyCssDeclaration(element, "scrollbar-track-color", null);
+            ApplyCssDeclaration(element, "scrollbar-arrow-color", null);
+            ApplyCssDeclaration(element, "scrollbar-highlight-color", null);
+            ApplyCssDeclaration(element, "scrollbar-3dlight-color", null);
+            ApplyCssDeclaration(element, "scrollbar-shadow-color", null);
+            ApplyCssDeclaration(element, "scrollbar-darkshadow-color", null);
+            return;
+        }
+
+        Color face = palette.ControlBackground;
+        Color track = palette.Background;
+        Color arrow = palette.InputForeground;
+        Color highlight = Lighten(face, 0.2);
+        Color light = Lighten(face, 0.35);
+        Color shadow = Darken(face, 0.25);
+        Color darkShadow = Darken(face, 0.45);
+
+        ApplyCssDeclaration(element, "scrollbar-base-color", ToCssColor(face));
+        ApplyCssDeclaration(element, "scrollbar-face-color", ToCssColor(face));
+        ApplyCssDeclaration(element, "scrollbar-track-color", ToCssColor(track));
+        ApplyCssDeclaration(element, "scrollbar-arrow-color", ToCssColor(arrow));
+        ApplyCssDeclaration(element, "scrollbar-highlight-color", ToCssColor(highlight));
+        ApplyCssDeclaration(element, "scrollbar-3dlight-color", ToCssColor(light));
+        ApplyCssDeclaration(element, "scrollbar-shadow-color", ToCssColor(shadow));
+        ApplyCssDeclaration(element, "scrollbar-darkshadow-color", ToCssColor(darkShadow));
+    }
+
+    private static string ToCssColor(Color color)
+    {
+        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
     }
 
     private static void EnsureColorSchemeMeta(HtmlDocument document, bool dark)
