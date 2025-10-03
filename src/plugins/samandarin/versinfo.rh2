@@ -23,7 +23,7 @@
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "Copyleft 2025 Ondřej Kotas (KRtekTM)"
+#define VERSINFO_COPYRIGHT   "Copyleft 2025 Ondrej Kotas (KRtekTM)"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Samandarin update notification plugin for Open Salamander"
