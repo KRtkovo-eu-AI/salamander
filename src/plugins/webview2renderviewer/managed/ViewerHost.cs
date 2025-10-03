@@ -12,7 +12,6 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using Markdig;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -585,13 +584,13 @@ internal static class ViewerHost
         {
             _currentFilePath = path;
 
-            string caption = _session?.Payload.Caption;
+            string caption = _session?.Payload.Caption ?? string.Empty;
             if (string.IsNullOrWhiteSpace(caption))
             {
-                caption = Path.GetFileName(path);
+                caption = Path.GetFileName(path) ?? string.Empty;
             }
 
-            _currentView = DocumentView.Create(path, caption ?? string.Empty);
+            _currentView = DocumentView.Create(path, caption);
             RenderCurrentDocument();
         }
 
@@ -1129,37 +1128,11 @@ internal static class ViewerHost
 
     private static class MarkdownRenderer
     {
-        private static readonly Lazy<MarkdownPipeline> s_pipeline = new Lazy<MarkdownPipeline>(CreatePipeline, LazyThreadSafetyMode.ExecutionAndPublication);
+        private const string MarkdownContainerId = "markdown-root";
 
         public static string BuildHtml(string markdown, string sourcePath, string caption)
         {
-            MarkdownPipeline pipeline;
-            try
-            {
-                pipeline = s_pipeline.Value;
-            }
-            catch (InvalidOperationException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Unable to initialize the Markdown renderer.", ex);
-            }
-
-            string htmlBody;
-            try
-            {
-                htmlBody = Markdig.Markdown.ToHtml(markdown ?? string.Empty, pipeline);
-            }
-            catch (InvalidOperationException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Unable to render the Markdown content.", ex);
-            }
+            string markdownText = markdown ?? string.Empty;
             ThemeHelper.ThemePalette? palette = ThemeHelper.TryGetPalette(out var value) ? value : null;
 
             string? baseUrl = null;
@@ -1184,6 +1157,9 @@ internal static class ViewerHost
                 baseUrl = null;
             }
 
+            string markedScript = ViewerResources.MarkedScript.Replace("</script>", "<\\/script>");
+            string encodedMarkdown = Convert.ToBase64String(Encoding.UTF8.GetBytes(markdownText));
+
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
             builder.Append("<html><head><meta charset=\"utf-8\"/>");
@@ -1204,11 +1180,22 @@ internal static class ViewerHost
                 .Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "WebView2 Render Viewer .NET" : caption))
                 .Append("</title>");
             builder.Append("<script>").Append(EscapeScript).Append("</script>");
+            builder.Append("<script>").Append(markedScript).Append("</script>");
             builder.Append("<style>");
             AppendStyles(builder, palette);
             builder.Append("</style>");
             builder.Append("</head><body>");
-            builder.Append(htmlBody);
+            builder.Append("<div id=\"")
+                .Append(MarkdownContainerId)
+                .Append("\" class=\"markdown-body\"></div>");
+            builder.Append("<script>(()=>{try{const data=\"")
+                .Append(encodedMarkdown)
+                .Append("\";const bytes=Uint8Array.from(atob(data),c=>c.charCodeAt(0));");
+            builder.Append("const decoder=typeof TextDecoder==='function'?new TextDecoder('utf-8'):{decode:function(arr){var result='';for(var i=0;i<arr.length;i++){result+=String.fromCharCode(arr[i]);}return decodeURIComponent(escape(result));}};");
+            builder.Append("const markdown=decoder.decode(bytes);if(typeof marked==='function'){marked.setOptions({mangle:false,headerIds:false});const target=document.getElementById('\"")
+                .Append(MarkdownContainerId)
+                .Append("\"');if(target){target.innerHTML=marked.parse(markdown);}}}");
+            builder.Append("catch(err){document.body.innerHTML='<pre style=\\"white-space:pre-wrap;font-family:Consolas,\\\\'Courier New\\\\',monospace;\\">'+(err&&err.message?err.message:err)+'</pre>';}})();</script>");
             builder.Append("</body></html>");
             return builder.ToString();
         }
@@ -1259,22 +1246,7 @@ internal static class ViewerHost
 
         private static string ColorToCss(Color color)
         {
-            return string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                                 "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
-        }
-
-        private static MarkdownPipeline CreatePipeline()
-        {
-            try
-            {
-                return new MarkdownPipelineBuilder()
-                    .UseAdvancedExtensions()
-                    .Build();
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Unable to initialize the Markdown renderer.", ex);
-            }
+            return string.Format(CultureInfo.InvariantCulture, "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
         }
     }
 }

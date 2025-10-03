@@ -7,7 +7,6 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Windows.Forms;
 
 namespace OpenSalamander.WebView2RenderViewer;
@@ -118,7 +117,6 @@ public static class EntryPoint
                     }
                 }
 
-                TryRegisterCodePageProvider();
             }
             catch (IOException)
             {
@@ -131,42 +129,6 @@ public static class EntryPoint
             }
 
             s_resolutionInitialized = true;
-        }
-    }
-
-    private static void TryRegisterCodePageProvider()
-    {
-        try
-        {
-            const string providerTypeName = "System.Text.CodePagesEncodingProvider, System.Text.Encoding.CodePages";
-            var providerType = Type.GetType(providerTypeName, throwOnError: false);
-            if (providerType == null)
-            {
-                return;
-            }
-
-            var instanceProperty = providerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-            if (instanceProperty == null)
-            {
-                return;
-            }
-
-            if (instanceProperty.GetValue(null) is EncodingProvider provider)
-            {
-                Encoding.RegisterProvider(provider);
-            }
-        }
-        catch (MissingMemberException)
-        {
-        }
-        catch (TypeLoadException)
-        {
-        }
-        catch (TargetInvocationException)
-        {
-        }
-        catch (NotSupportedException)
-        {
         }
     }
 

@@ -24,7 +24,6 @@ if not exist "%MANAGED_DIR%WebView2RenderViewer.Managed.dll" (
   exit /B 1
 )
 
-call :require "%MANAGED_DIR%Markdig.dll" "Markdig.dll was not found next to WebView2RenderViewer.Managed.dll in %MANAGED_DIR%."
 call :require "%MANAGED_DIR%Microsoft.Web.WebView2.WinForms.dll" "Microsoft.Web.WebView2.WinForms.dll was not found next to WebView2RenderViewer.Managed.dll in %MANAGED_DIR%."
 call :require "%MANAGED_DIR%Microsoft.Web.WebView2.Core.dll" "Microsoft.Web.WebView2.Core.dll was not found next to WebView2RenderViewer.Managed.dll in %MANAGED_DIR%."
 
@@ -46,14 +45,12 @@ if not exist "%MANAGED_DIR%%WEBVIEW2_LOADER%" (
 call :require "%MANAGED_DIR%%WEBVIEW2_LOADER%" "WebView2Loader.dll was not found in %MANAGED_DIR% or its architecture subdirectories."
 
 copy /Y "%MANAGED_DIR%WebView2RenderViewer.Managed.dll" "%TARGET_DIR%WebView2RenderViewer.Managed.dll" >nul
-copy /Y "%MANAGED_DIR%Markdig.dll" "%TARGET_DIR%Markdig.dll" >nul
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.WinForms.dll" "%TARGET_DIR%Microsoft.Web.WebView2.WinForms.dll" >nul
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.Core.dll" "%TARGET_DIR%Microsoft.Web.WebView2.Core.dll" >nul
 copy /Y "%MANAGED_DIR%%WEBVIEW2_LOADER%" "%TARGET_DIR%WebView2Loader.dll" >nul
-if exist "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" copy /Y "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" "%TARGET_DIR%System.Text.Encoding.CodePages.dll" >nul
 
-rem Copy any additional assemblies (for example, System.Memory) that Markdig
-rem depends on so the runtime can load the Markdown renderer successfully.
+rem Copy any additional assemblies that the managed viewer depends on
+rem so the runtime can load the WebView2 control successfully.
 pushd "%MANAGED_DIR%" >nul 2>&1
 if not errorlevel 1 (
   for %%F in (*.dll) do (

@@ -15,15 +15,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" GeneratePathProperty="true" />
-    <PackageReference Include="Markdig" Version="0.36.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="..\\..\\..\\..\\src\\res\\viewer.ico" Link="Resources\\viewer.ico" />
+    <EmbeddedResource Include="Resources\\marked.min.js" Link="Resources\\marked.min.js" />
   </ItemGroup>
 
   <Target Name="EnsureRestoreBeforeBuild"
@@ -47,23 +43,9 @@
           Condition="@(_WebView2Assemblies) != ''" />
 
     <ItemGroup>
-      <_MarkdownAssemblies Include="@(ReferenceCopyLocalPaths)"
-                           Condition="'%(FileName)' == 'Markdig'" />
-      <_EncodingAssemblies Include="@(ReferenceCopyLocalPaths)"
-                           Condition="'%(FileName)' == 'System.Text.Encoding.CodePages'" />
       <_WebView2Loader Include="$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll"
                        Condition="'$(PkgMicrosoft_Web_WebView2)' != '' and Exists('$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll')" />
     </ItemGroup>
-    <Copy SourceFiles="@(_MarkdownAssemblies)"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true"
-          Condition="@(_MarkdownAssemblies) != ''" />
-
-    <Copy SourceFiles="@(_EncodingAssemblies)"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true"
-          Condition="@(_EncodingAssemblies) != ''" />
-
     <Copy SourceFiles="@(_WebView2Loader)"
           DestinationFolder="$(OutputPath)"
           SkipUnchangedFiles="true"
