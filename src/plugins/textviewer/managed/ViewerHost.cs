@@ -479,7 +479,7 @@ internal static class ViewerHost
 
         private ViewerSession? _session;
         private WebView2? _browser;
-        private CoreWebView2Controller? _browserController;
+        private CoreWebView2? _browserCore;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
@@ -628,11 +628,15 @@ internal static class ViewerHost
                 core.Settings.AreDevToolsEnabled = true;
             }
 
-            _browserController?.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
-            _browserController = browser.CoreWebView2Controller;
-            if (_browserController is not null)
+            if (_browserCore is not null)
             {
-                _browserController.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
+                _browserCore.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
+            }
+
+            _browserCore = browser.CoreWebView2;
+            if (_browserCore is not null)
+            {
+                _browserCore.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
             }
 
             ThemeHelper.ApplyTheme(browser);
@@ -715,10 +719,10 @@ internal static class ViewerHost
                 _allowClose = true;
             }
 
-            if (_browserController is not null)
+            if (_browserCore is not null)
             {
-                _browserController.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
-                _browserController = null;
+                _browserCore.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
+                _browserCore = null;
             }
 
             _session?.SignalClosed();
