@@ -278,16 +278,16 @@ internal static class UpdateCoordinator
             return null;
         }
 
-        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var segments = uri.AbsolutePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
         if (segments.Length == 0)
         {
             return null;
         }
 
-        var candidate = segments[^1];
+        var candidate = segments[segments.Length - 1];
         if (candidate.Equals("latest", StringComparison.OrdinalIgnoreCase) && segments.Length > 1)
         {
-            candidate = segments[^2];
+            candidate = segments[segments.Length - 2];
         }
 
         return Uri.UnescapeDataString(candidate);
