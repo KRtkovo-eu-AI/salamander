@@ -343,7 +343,119 @@ internal static class UpdateCoordinator
             candidate = segments[segments.Length - 2];
         }
 
-        return Uri.UnescapeDataString(candidate);
+        candidate = Uri.UnescapeDataString(candidate).Trim();
+        return IsRecognizedReleaseTag(candidate) ? candidate : null;
+    }
+
+    private static bool IsRecognizedReleaseTag(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        var segments = value.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length < 3)
+        {
+            return false;
+        }
+
+        int markerIndex = -1;
+        for (int i = 0; i < segments.Length; i++)
+        {
+            if (segments[i].Equals("samandarin", StringComparison.OrdinalIgnoreCase))
+            {
+                markerIndex = i;
+                break;
+            }
+        }
+
+        if (markerIndex <= 0 || markerIndex == segments.Length - 1)
+        {
+            return false;
+        }
+
+        bool hasNumericPrefix = false;
+        for (int i = 0; i < markerIndex; i++)
+        {
+            if (!IsNumericVersionComponent(segments[i]))
+            {
+                return false;
+            }
+
+            hasNumericPrefix = true;
+        }
+
+        if (!hasNumericPrefix)
+        {
+            return false;
+        }
+
+        string versionSegment = segments[markerIndex + 1];
+        for (int i = markerIndex + 2; i < segments.Length; i++)
+        {
+            versionSegment += "-" + segments[i];
+        }
+
+        return IsNumericVersion(versionSegment);
+    }
+
+    private static bool IsNumericVersion(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        var parts = value.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (var part in parts)
+        {
+            if (part.Length == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < part.Length; i++)
+            {
+                if (!char.IsDigit(part[i]))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsNumericVersionComponent(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        bool hasDigit = false;
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            if (char.IsDigit(c))
+            {
+                hasDigit = true;
+                continue;
+            }
+
+            if (c != '.')
+            {
+                return false;
+            }
+        }
+
+        return hasDigit;
     }
 
     private static void ScheduleTimer_NoLock()
