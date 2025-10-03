@@ -7,6 +7,7 @@ using System;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 
 namespace OpenSalamander.TextViewer;
@@ -244,6 +245,7 @@ internal static class ThemeHelper
         var state = s_browserThemeStates.GetValue(browser, static _ => new BrowserThemeState());
         state.Attach(browser);
         state.Apply(browser);
+        UpdateBrowserDocumentTheme(browser, palette);
     }
 
     private sealed class BrowserThemeState
@@ -278,6 +280,10 @@ internal static class ThemeHelper
             if (browser.IsHandleCreated)
             {
                 NativeMethods.ApplyDarkModeTree(browser.Handle);
+                if (TryGetPalette(out var palette))
+                {
+                    UpdateBrowserDocumentTheme(browser, palette);
+                }
             }
         }
 
@@ -294,6 +300,10 @@ internal static class ThemeHelper
             if (sender is WebBrowser browser)
             {
                 NativeMethods.ApplyDarkModeTree(browser.Handle);
+                if (TryGetPalette(out var palette))
+                {
+                    UpdateBrowserDocumentTheme(browser, palette);
+                }
             }
         }
 
@@ -314,6 +324,111 @@ internal static class ThemeHelper
     private static int ComputeLuminance(Color color)
     {
         return (color.R * 30 + color.G * 59 + color.B * 11) / 100;
+    }
+
+    private static void UpdateBrowserDocumentTheme(WebBrowser browser, ThemePalette palette)
+    {
+        if (browser.Document is not HtmlDocument document)
+        {
+            return;
+        }
+
+        string scheme = palette.IsDark ? "dark" : "light";
+
+        if (document.DocumentElement is HtmlElement root)
+        {
+            root.SetAttribute("data-theme", scheme);
+            ApplyCssDeclaration(root, "color-scheme", scheme);
+        }
+
+        EnsureColorSchemeMeta(document, palette.IsDark);
+    }
+
+    private static void ApplyCssDeclaration(HtmlElement element, string propertyName, string propertyValue)
+    {
+        string current = element.GetAttribute("style");
+        string updated = UpdateCssDeclaration(current, propertyName, propertyValue);
+        element.SetAttribute("style", updated);
+    }
+
+    private static string UpdateCssDeclaration(string? style, string propertyName, string propertyValue)
+    {
+        if (string.IsNullOrWhiteSpace(style))
+        {
+            return propertyName + ":" + propertyValue + ";";
+        }
+
+        var builder = new StringBuilder();
+        bool replaced = false;
+        string[] declarations = style.Split(';');
+        foreach (string declaration in declarations)
+        {
+            if (string.IsNullOrWhiteSpace(declaration))
+            {
+                continue;
+            }
+
+            int separatorIndex = declaration.IndexOf(':');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            string name = declaration.Substring(0, separatorIndex).Trim();
+            string value = declaration.Substring(separatorIndex + 1).Trim();
+
+            if (string.Equals(name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!replaced)
+                {
+                    builder.Append(propertyName).Append(':').Append(propertyValue).Append(';');
+                    replaced = true;
+                }
+            }
+            else
+            {
+                builder.Append(name).Append(':').Append(value).Append(';');
+            }
+        }
+
+        if (!replaced)
+        {
+            builder.Append(propertyName).Append(':').Append(propertyValue).Append(';');
+        }
+
+        return builder.ToString();
+    }
+
+    private static void EnsureColorSchemeMeta(HtmlDocument document, bool dark)
+    {
+        string content = dark ? "dark light" : "light dark";
+        HtmlElementCollection metas = document.GetElementsByTagName("meta");
+        for (int i = 0; i < metas.Count; i++)
+        {
+            HtmlElement meta = metas[i];
+            if (string.Equals(meta.GetAttribute("name"), "color-scheme", StringComparison.OrdinalIgnoreCase))
+            {
+                meta.SetAttribute("content", content);
+                return;
+            }
+        }
+
+        HtmlElementCollection heads = document.GetElementsByTagName("head");
+        if (heads.Count == 0)
+        {
+            return;
+        }
+
+        HtmlElement head = heads[0];
+        HtmlElement newMeta = document.CreateElement("meta");
+        if (newMeta is null)
+        {
+            return;
+        }
+
+        newMeta.SetAttribute("name", "color-scheme");
+        newMeta.SetAttribute("content", content);
+        head.AppendChild(newMeta);
     }
 
     private static Color Lighten(Color color, double amount)

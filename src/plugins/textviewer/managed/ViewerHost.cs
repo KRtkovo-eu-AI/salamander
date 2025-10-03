@@ -1121,9 +1121,20 @@ internal static class ViewerHost
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
             builder.Append("<html><head><meta charset=\"utf-8\"/><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>");
-            if (palette.HasValue && palette.Value.IsDark)
+            if (palette.HasValue)
             {
-                builder.Append("<meta name=\"color-scheme\" content=\"dark\"/>");
+                string scheme = palette.Value.IsDark ? "dark" : "light";
+                string fallback = palette.Value.IsDark ? "light" : "dark";
+                builder.Append("<meta name=\"color-scheme\" content=\"")
+                    .Append(scheme)
+                    .Append(' ')
+                    .Append(fallback)
+                    .Append("\"/>");
+                builder.Append("<script>(function(){var doc=document.documentElement;if(doc){doc.setAttribute('data-theme','")
+                    .Append(scheme)
+                    .Append("');doc.style.colorScheme='")
+                    .Append(scheme)
+                    .Append("';}})();</script>");
             }
             builder.Append("<title>");
             builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer .NET" : caption));
