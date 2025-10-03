@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -145,7 +146,17 @@ internal static class UpdateCoordinator
     {
         SettingsFilePath = Path.Combine(AppContext.BaseDirectory ?? Environment.CurrentDirectory, "Samandarin.UpdateNotifier.config");
         Settings = UpdateSettings.Load(SettingsFilePath);
-        HttpClient = new HttpClient
+        EnableModernTlsProtocols();
+
+        var handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.All,
+            UseProxy = true,
+            Proxy = WebRequest.DefaultWebProxy,
+        };
+
+        HttpClient = new HttpClient(handler, disposeHandler: true)
         {
             Timeout = TimeSpan.FromSeconds(15),
         };
@@ -202,7 +213,7 @@ internal static class UpdateCoordinator
             }
             catch (Exception ex)
             {
-                errorMessage = ex.Message;
+                errorMessage = BuildErrorMessage(ex);
             }
 
             bool notify = false;
@@ -267,6 +278,24 @@ internal static class UpdateCoordinator
         StopUiThread();
     }
 
+    private static void EnableModernTlsProtocols()
+    {
+        try
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
+            const SecurityProtocolType tls13 = (SecurityProtocolType)0x00003000;
+            if (Enum.IsDefined(typeof(SecurityProtocolType), tls13))
+            {
+                ServicePointManager.SecurityProtocol |= tls13;
+            }
+        }
+        catch (NotSupportedException)
+        {
+            // Older platforms may not allow overriding protocol settings; ignore.
+        }
+    }
+
     private static async Task<string?> FetchLatestVersionAsync()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesUri);
@@ -275,6 +304,24 @@ internal static class UpdateCoordinator
 
         var finalUri = response.RequestMessage?.RequestUri ?? ReleasesUri;
         return ExtractVersionFromUri(finalUri);
+    }
+
+    private static string BuildErrorMessage(Exception exception)
+    {
+        var builder = new StringBuilder();
+        var current = exception;
+        while (current is not null)
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append(" → ");
+            }
+
+            builder.Append(current.Message);
+            current = current.InnerException;
+        }
+
+        return builder.Length > 0 ? builder.ToString() : exception.Message;
     }
 
     private static string? ExtractVersionFromUri(Uri? uri)
