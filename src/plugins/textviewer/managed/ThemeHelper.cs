@@ -7,15 +7,13 @@ using System;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows.Forms;
 
 namespace OpenSalamander.TextViewer;
 
 internal static class ThemeHelper
 {
-    private static readonly ConditionalWeakTable<WebBrowser, BrowserScrollbarState> s_browserScrollbarStates = new();
-    private static readonly NativeMethods.EnumChildProc s_darkScrollbarCallback = ApplyDarkScrollbarsRecursive;
+    private static readonly ConditionalWeakTable<WebBrowser, BrowserThemeState> s_browserThemeStates = new();
 
     private const int SALCOL_ITEM_FG_NORMAL = 6;
     private const int SALCOL_ITEM_FG_SELECTED = 7;
@@ -237,94 +235,24 @@ internal static class ThemeHelper
         browser.BackColor = palette.Background;
         browser.ForeColor = palette.Foreground;
 
-        var state = s_browserScrollbarStates.GetValue(browser, static _ => new BrowserScrollbarState());
+        var state = s_browserThemeStates.GetValue(browser, static _ => new BrowserThemeState());
         state.Attach(browser);
-        state.DarkScrollbars = palette.IsDark;
         state.Apply(browser);
     }
 
-    private static void ApplyDarkScrollbars(IntPtr handle, bool enable)
-    {
-        if (handle == IntPtr.Zero)
-        {
-            return;
-        }
-
-        ApplyDarkScrollbarTheme(handle, enable);
-        NativeMethods.EnumChildWindows(handle, s_darkScrollbarCallback, enable ? new IntPtr(1) : IntPtr.Zero);
-    }
-
-    private static bool ApplyDarkScrollbarsRecursive(IntPtr handle, IntPtr parameter)
-    {
-        ApplyDarkScrollbarTheme(handle, parameter != IntPtr.Zero);
-        NativeMethods.EnumChildWindows(handle, s_darkScrollbarCallback, parameter);
-        return true;
-    }
-
-    private static void ApplyDarkScrollbarTheme(IntPtr handle, bool enable)
-    {
-        if (handle == IntPtr.Zero)
-        {
-            return;
-        }
-
-        string? className = GetWindowClassName(handle);
-        if (className is null)
-        {
-            return;
-        }
-
-        if (!ShouldApplyDarkScrollbarTheme(className))
-        {
-            return;
-        }
-
-        TrySetWindowTheme(handle, enable ? "DarkMode_Explorer" : null);
-    }
-
-    private static string? GetWindowClassName(IntPtr handle)
-    {
-        var buffer = new StringBuilder(256);
-        return NativeMethods.GetClassName(handle, buffer, buffer.Capacity) == 0 ? null : buffer.ToString();
-    }
-
-    private static bool ShouldApplyDarkScrollbarTheme(string className)
-    {
-        return string.Equals(className, "ScrollBar", StringComparison.Ordinal)
-               || string.Equals(className, "msctls_scrollbar32", StringComparison.Ordinal)
-               || string.Equals(className, "Shell DocObject View", StringComparison.Ordinal)
-               || string.Equals(className, "Internet Explorer_Server", StringComparison.Ordinal);
-    }
-
-    private static void TrySetWindowTheme(IntPtr handle, string? theme)
-    {
-        try
-        {
-            NativeMethods.SetWindowTheme(handle, theme, null);
-        }
-        catch (DllNotFoundException)
-        {
-        }
-        catch (EntryPointNotFoundException)
-        {
-        }
-    }
-
-    private sealed class BrowserScrollbarState
+    private sealed class BrowserThemeState
     {
         private readonly EventHandler _handleCreatedHandler;
         private readonly WebBrowserDocumentCompletedEventHandler _documentCompletedHandler;
         private readonly EventHandler _disposedHandler;
         private bool _attached;
 
-        public BrowserScrollbarState()
+        public BrowserThemeState()
         {
             _handleCreatedHandler = OnHandleCreated;
             _documentCompletedHandler = OnDocumentCompleted;
             _disposedHandler = OnDisposed;
         }
-
-        public bool DarkScrollbars { get; set; }
 
         public void Attach(WebBrowser browser)
         {
@@ -343,7 +271,7 @@ internal static class ThemeHelper
         {
             if (browser.IsHandleCreated)
             {
-                ApplyDarkScrollbars(browser.Handle, DarkScrollbars);
+                NativeMethods.ApplyDarkModeTree(browser.Handle);
             }
         }
 
@@ -351,7 +279,7 @@ internal static class ThemeHelper
         {
             if (sender is WebBrowser browser)
             {
-                ApplyDarkScrollbars(browser.Handle, DarkScrollbars);
+                NativeMethods.ApplyDarkModeTree(browser.Handle);
             }
         }
 
@@ -359,7 +287,7 @@ internal static class ThemeHelper
         {
             if (sender is WebBrowser browser)
             {
-                ApplyDarkScrollbars(browser.Handle, DarkScrollbars);
+                NativeMethods.ApplyDarkModeTree(browser.Handle);
             }
         }
 
@@ -373,7 +301,7 @@ internal static class ThemeHelper
             browser.HandleCreated -= _handleCreatedHandler;
             browser.DocumentCompleted -= _documentCompletedHandler;
             browser.Disposed -= _disposedHandler;
-            s_browserScrollbarStates.Remove(browser);
+            s_browserThemeStates.Remove(browser);
         }
     }
 
@@ -583,17 +511,8 @@ internal static class ThemeHelper
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
-        public delegate bool EnumChildProc(IntPtr hwnd, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnumChildWindows(IntPtr hwndParent, EnumChildProc lpEnumFunc, IntPtr lParam);
-
-        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern int GetClassName(IntPtr hwnd, StringBuilder lpClassName, int nMaxCount);
-
-        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern int SetWindowTheme(IntPtr hwnd, string? appName, string? idList);
+        [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void TextViewer_ApplyDarkModeTree(IntPtr hwnd);
 
         public static uint GetCurrentColor(int color)
         {
@@ -638,6 +557,25 @@ internal static class ThemeHelper
             {
                 int border = enable ? borderColor.ToArgb() : -1;
                 DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
+            }
+        }
+
+        public static void ApplyDarkModeTree(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                TextViewer_ApplyDarkModeTree(handle);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
             }
         }
     }
