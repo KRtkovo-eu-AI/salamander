@@ -943,7 +943,7 @@ void DoRemoveWERLocalDump(const char* exeName)
     // http://msdn.microsoft.com/en-us/library/windows/desktop/aa384129%28v=vs.85%29.aspx
     // Pozor, obchazeni redirectoru se tyka i modulu doinst.c!
     HKEY hKey;
-    DWORD altapRefCount = 0xffffffff;
+    DWORD samandarinRefCount = 0xffffffff;
     BOOL delExeKey = FALSE;
     REGSAM samDesired = 0;
     if (RemoveIsWow64())
@@ -955,14 +955,14 @@ void DoRemoveWERLocalDump(const char* exeName)
         if (RegOpenKeyEx(hKey, exeName, 0, samDesired | KEY_READ | KEY_WRITE, &hExeKey) == ERROR_SUCCESS)
         {
             DWORD dwType;
-            DWORD size = sizeof(altapRefCount);
-            const char* dumpFolder = "%LOCALAPPDATA%\\Altap\\Open Salamander";
+            DWORD size = sizeof(samandarinRefCount);
+            const char* dumpFolder = "%LOCALAPPDATA%\\Open Salamander Samandarin";
             dwType = REG_DWORD;
-            if (RegQueryValueEx(hExeKey, "AltapRefCount", 0, &dwType, (BYTE*)&altapRefCount, &size) == ERROR_SUCCESS && dwType == REG_DWORD)
+            if (RegQueryValueEx(hExeKey, "SamandarinRefCount", 0, &dwType, (BYTE*)&samandarinRefCount, &size) == ERROR_SUCCESS && dwType == REG_DWORD)
             {
-                if (altapRefCount != 0xffffffff && altapRefCount > 0)
-                    altapRefCount--;
-                if (altapRefCount == 0)
+                if (samandarinRefCount != 0xffffffff && samandarinRefCount > 0)
+                    samandarinRefCount--;
+                if (samandarinRefCount == 0)
                 {
                     // po zavreni cely klic smazeme
                     delExeKey = TRUE;
@@ -971,7 +971,7 @@ void DoRemoveWERLocalDump(const char* exeName)
                 {
                     // ulozime novy RefCount
                     dwType = REG_DWORD;
-                    RegSetValueEx(hExeKey, "AltapRefCount", 0, dwType, (const BYTE*)&altapRefCount, sizeof(altapRefCount));
+                    RegSetValueEx(hExeKey, "SamandarinRefCount", 0, dwType, (const BYTE*)&samandarinRefCount, sizeof(samandarinRefCount));
                 }
             }
             RegCloseKey(hExeKey);
