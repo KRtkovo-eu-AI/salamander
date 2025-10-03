@@ -504,7 +504,6 @@ internal static class ViewerHost
 
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
-            EnsureTaskbarVisibility();
             EnsureBrowser();
 
             ThemeHelper.ApplyTheme(this);
@@ -530,21 +529,6 @@ internal static class ViewerHost
             }
             ShowInTaskbar = true;
             Show();
-
-            if (session.Payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
-            {
-                WindowState = FormWindowState.Minimized;
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWMINIMIZED);
-            }
-            else if (session.Payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
-            {
-                WindowState = FormWindowState.Maximized;
-            }
-            else if (WindowState == FormWindowState.Minimized)
-            {
-                WindowState = FormWindowState.Normal;
-            }
-
             Activate();
             NativeMethods.SetForegroundWindow(Handle);
             return true;
@@ -823,11 +807,17 @@ internal static class ViewerHost
 
         private void ApplyPlacement(ViewCommandPayload payload)
         {
-            if (payload.Bounds.Width > 0 && payload.Bounds.Height > 0)
+            Rectangle bounds = payload.Bounds;
+            if (bounds.Width > 0 && bounds.Height > 0)
             {
-                Bounds = payload.Bounds;
+                Bounds = bounds;
+            }
+            else if (!Visible)
+            {
+                StartPosition = FormStartPosition.CenterScreen;
             }
 
+            WindowState = FormWindowState.Normal;
             if (payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
             {
                 WindowState = FormWindowState.Maximized;
@@ -837,37 +827,43 @@ internal static class ViewerHost
                 WindowState = FormWindowState.Minimized;
             }
 
-            if (payload.AlwaysOnTop)
-            {
-                TopMost = true;
-            }
+            TopMost = payload.AlwaysOnTop;
         }
 
         private void ApplyOwner(IntPtr parent)
         {
-            if (parent == IntPtr.Zero || !IsHandleCreated)
+            if (!IsHandleCreated)
             {
                 return;
             }
 
             if (_ownerAttached)
             {
-                return;
+                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _ownerRestore);
+                _ownerRestore = IntPtr.Zero;
+                _ownerAttached = false;
             }
 
-            _ownerRestore = NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, parent);
-            _ownerAttached = true;
+            if (parent != IntPtr.Zero)
+            {
+                _ownerRestore = NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, parent);
+                _ownerAttached = true;
+            }
         }
 
         private void DetachOwner()
         {
-            if (!_ownerAttached || !IsHandleCreated)
+            if (!IsHandleCreated)
             {
                 return;
             }
 
-            NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _ownerRestore);
-            _ownerAttached = false;
+            if (_ownerAttached)
+            {
+                NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_HWNDPARENT, _ownerRestore);
+                _ownerRestore = IntPtr.Zero;
+                _ownerAttached = false;
+            }
         }
 
         private void EnsureTaskbarVisibility()
