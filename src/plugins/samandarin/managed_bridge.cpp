@@ -200,6 +200,16 @@ void ManagedBridge_NotifyColorsChanged()
     ExecuteCommand(L"ColorsChanged", nullptr, nullptr);
 }
 
+bool ManagedBridge_CheckNow(HWND parent)
+{
+    if (!ManagedBridge_EnsureInitialized(parent))
+    {
+        return false;
+    }
+
+    return ExecuteCommand(L"CheckNow", parent, gCurrentVersion.c_str());
+}
+
 extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int color)
 {
     if (SalamanderGeneral == nullptr)
