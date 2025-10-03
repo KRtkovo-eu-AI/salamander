@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="Raccoom.Windows.Forms.TreeViewFolderBrowser">
+    <Position X="0.5" Y="0.5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>DgAEAEoDAABkSgIEAIAAAAACAEAAAAADAAACQCKAhQE=</HashCode>
+      <FileName>TreeViewFolderBrowser.cs</FileName>
+    </TypeIdentifier>
+    <ShowAsAssociation>
+      <Field Name="_nodeFactory" />
+      <Property Name="DataSource" />
+    </ShowAsAssociation>
+  </Class>
+  <Class Name="Raccoom.Windows.Forms.TreeViewFolderBrowserNodeFactory">
+    <Position X="4.25" Y="0.5" Width="2.75" />
+    <Compartments>
+      <Compartment Name="Fields" Collapsed="true" />
+      <Compartment Name="Methods" Collapsed="true" />
+    </Compartments>
+    <NestedTypes>
+      <Delegate Name="Raccoom.Windows.Forms.TreeViewFolderBrowserNodeFactory.CreateTreeNodeDelegate" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>TreeViewFolderBrowserHelper.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Delegate>
+      <Delegate Name="Raccoom.Windows.Forms.TreeViewFolderBrowserNodeFactory.HandleWaitCursorDelegate" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>TreeViewFolderBrowserHelper.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Delegate>
+      <Delegate Name="Raccoom.Windows.Forms.TreeViewFolderBrowserNodeFactory.ExpandNodeDelegate" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>TreeViewFolderBrowserHelper.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Delegate>
+    </NestedTypes>
+    <TypeIdentifier>
+      <HashCode>AAAgAAAAAAAAAAAAAAAAAIAAAAAAAFAAAAAAAAIAAAA=</HashCode>
+      <FileName>TreeViewFolderBrowserNodeFactory.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Raccoom.Windows.Forms.TreeStrategyDataProviderBase">
+    <Position X="4.25" Y="3.25" Width="2.75" />
+    <Compartments>
+      <Compartment Name="Fields" Collapsed="true" />
+    </Compartments>
+    <TypeIdentifier>
+      <HashCode>BABAAAAEAAAIAAIAAAAAAgAAAIAAAAAAgAAgAAAAAAA=</HashCode>
+      <FileName>TreeStrategyDataProvider.cs</FileName>
+    </TypeIdentifier>
+    <ShowAsAssociation>
+      <Property Name="Helper" />
+    </ShowAsAssociation>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Interface Name="Raccoom.Windows.Forms.ITreeStrategyDataProvider">
+    <Position X="4.25" Y="6" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>BAAAAAAEAAAIAAIAAAAAAgAAAIAAAAAAgAAAAAAAAAA=</HashCode>
+      <FileName>TreeStrategyDataProvider.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>
