@@ -109,8 +109,8 @@ BOOL CMenuSharedResources::Create(HWND hParent, int width, int height)
         COLORREF panelBg = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
         NormalBkColor = panelBg;
         SelectedBkColor = GetSysColor(COLOR_HIGHLIGHT);
-        SelectedTextColor = GetSysColor(COLOR_HIGHLIGHTTEXT);
         NormalTextColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+        SelectedTextColor = GetSysColor(COLOR_HIGHLIGHTTEXT);
         HilightColor = LightenColor(panelBg, 24);
         GrayTextColor = DarkenColor(panelBg, 40);
     }

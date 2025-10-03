@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -387,7 +387,6 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
     const COLORREF progressBg = RGB(64, 64, 64);
     const COLORREF inactiveCaptionBg = RGB(45, 45, 48);
     const COLORREF inactiveCaptionFg = RGB(190, 190, 190);
-    const COLORREF hotActive = RGB(0, 0, 0);
     const COLORREF thumbnailFrame = RGB(94, 94, 94);
 
     auto setColor = [](SALCOLOR& entry, COLORREF color) {
@@ -423,7 +422,7 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
     setColor(target[PROGRESS_BK_SELECTED], accent);
 
     setColor(target[HOT_PANEL], accent);
-    setColor(target[HOT_ACTIVE], hotActive);
+    setColor(target[HOT_ACTIVE], accent);
     setColor(target[HOT_INACTIVE], accent);
 
     setColor(target[ACTIVE_CAPTION_FG], accentText);

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -10,6 +10,8 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "fileswnd.h"
+#include "consts.h"
+#include "darkmode.h"
 
 #ifndef TCM_SETINSERTMARK
 #define TCM_SETINSERTMARK (TCM_FIRST + 44)
@@ -505,11 +507,7 @@ bool CTabWindow::IsReorderableIndex(int index) const
         return false;
     if (IsNewTabButtonIndex(index))
         return false;
-    // Allow dragging even if there is only a single non-default tab so that it
-    // can be moved to the opposite panel.  The default tab (index 0) is
-    // already excluded above, therefore the only situation we still need to
-    // filter out is when there are no reorderable tabs at all.
-    if (GetTabCount() <= 1)
+    if (GetTabCount() <= 2)
         return false;
     TCITEMW item;
     ZeroMemory(&item, sizeof(item));
@@ -832,9 +830,19 @@ void CTabWindow::PaintDragIndicator(HDC hdc) const
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
-    COLORREF baseColor = GetSysColor(COLOR_HIGHLIGHT);
-    COLORREF fillColor = LightenColor(baseColor, 96);
-    COLORREF borderColor = DarkenColor(baseColor, 64);
+    const bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF baseColor;
+    if (useDark)
+    {
+        if (CurrentColors != NULL)
+            baseColor = GetCOLORREF(CurrentColors[ITEM_BK_SELECTED]);
+        else
+            baseColor = DarkModeGetDialogTextColor();
+    }
+    else
+        baseColor = GetSysColor(COLOR_HIGHLIGHT);
+    COLORREF fillColor = LightenColor(baseColor, useDark ? 48 : 96);
+    COLORREF borderColor = DarkenColor(baseColor, useDark ? 32 : 64);
 
     HBRUSH fillBrush = CreateSolidBrush(fillColor);
     if (fillBrush != NULL)
@@ -1363,11 +1371,40 @@ void CTabWindow::PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bo
     if (hdc == NULL)
         return;
 
-    LPARAM printFlags = PRF_CLIENT | PRF_ERASEBKGND;
-    if (DefWndProc != NULL)
-        CallWindowProc((WNDPROC)DefWndProc, HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
+    if (DarkModeShouldUseDarkColors())
+    {
+        RECT clientRect = {0, 0, 0, 0};
+        if (HWindow != NULL)
+            GetClientRect(HWindow, &clientRect);
+
+        RECT fillRect = clientRect;
+        if (clipRect != NULL)
+        {
+            if (!IntersectRect(&fillRect, &clientRect, clipRect))
+                SetRectEmpty(&fillRect);
+        }
+
+        HBRUSH backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+        if (!IsRectEmpty(&fillRect))
+            FillRect(hdc, &fillRect, backgroundBrush);
+
+        HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
+        if (frameBrush != NULL && clientRect.bottom > clientRect.top)
+        {
+            RECT borderRect = clientRect;
+            borderRect.top = borderRect.bottom - 1;
+            if (borderRect.top < borderRect.bottom)
+                FillRect(hdc, &borderRect, frameBrush);
+        }
+    }
     else
-        DefWindowProc(HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
+    {
+        LPARAM printFlags = PRF_CLIENT | PRF_ERASEBKGND;
+        if (DefWndProc != NULL)
+            CallWindowProc((WNDPROC)DefWndProc, HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
+        else
+            DefWindowProc(HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
+    }
 
     if (paintTabs)
         PaintCustomTabs(hdc, clipRect);
@@ -1426,6 +1463,17 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
     int selected = TabCtrl_GetCurSel(HWindow);
     int focus = TabCtrl_GetCurFocus(HWindow);
     HWND focusWnd = GetFocus();
+    const bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF defaultBaseColor;
+    if (useDark)
+    {
+        if (CurrentColors != NULL)
+            defaultBaseColor = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        else
+            defaultBaseColor = DarkModeGetDialogBackgroundColor();
+    }
+    else
+        defaultBaseColor = GetSysColor(COLOR_BTNFACE);
 
     for (int i = 0; i < total; ++i)
     {
@@ -1454,25 +1502,22 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
 
         bool isNewTab = IsNewTabButtonIndex(i);
 
-        COLORREF baseColor;
+        COLORREF baseColor = defaultBaseColor;
+        bool hasCustomColor = false;
         if (!isNewTab && TryResolveTabColor(i, baseColor))
-        {
-            // baseColor already resolved
-        }
-        else
-            baseColor = GetSysColor(COLOR_BTNFACE);
+            hasCustomColor = true;
 
         bool isSelected = (i == selected);
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
         bool hasFocus = (focus == i) && (focusWnd == HWindow);
 
         const wchar_t* drawText = isNewTab ? kNewTabButtonText : textBuffer;
-        DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus);
+        DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus, hasCustomColor);
     }
 }
 
 void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
-                                bool selected, bool hot, bool hasFocus) const
+                                bool selected, bool hot, bool hasFocus, bool hasCustomColor) const
 {
     if (hdc == NULL)
         return;
@@ -1490,11 +1535,28 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
             fillRect = rect;
     }
 
+    const bool useDark = DarkModeShouldUseDarkColors();
     COLORREF fillColor = baseColor;
-    if (selected)
-        fillColor = LightenColor(fillColor, 96);
-    else if (hot)
-        fillColor = LightenColor(fillColor, 48);
+    if (useDark && !hasCustomColor)
+    {
+        int paletteIndex = ITEM_BK_NORMAL;
+        if (selected)
+            paletteIndex = ITEM_BK_FOCUSED;
+        else if (hot)
+            paletteIndex = ITEM_BK_HIGHLIGHT;
+
+        if (CurrentColors != NULL)
+            fillColor = GetCOLORREF(CurrentColors[paletteIndex]);
+        else
+            fillColor = DarkModeGetDialogBackgroundColor();
+    }
+    else
+    {
+        if (selected)
+            fillColor = LightenColor(fillColor, 96);
+        else if (hot)
+            fillColor = LightenColor(fillColor, 48);
+    }
 
     HBRUSH brush = CreateSolidBrush(fillColor);
     if (fillRect.right <= fillRect.left)
@@ -1537,7 +1599,30 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     if (EnvFont != NULL)
         oldFont = (HFONT)SelectObject(hdc, EnvFont);
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-    COLORREF textColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
+    COLORREF textColor;
+    if (useDark)
+    {
+        if (!hasCustomColor)
+        {
+            if (CurrentColors != NULL)
+            {
+                int textIndex = ITEM_FG_NORMAL;
+                if (selected)
+                    textIndex = ITEM_FG_FOCUSED;
+                else if (hot)
+                    textIndex = ITEM_FG_HIGHLIGHT;
+                textColor = GetCOLORREF(CurrentColors[textIndex]);
+            }
+            else
+                textColor = DarkModeGetDialogTextColor();
+        }
+        else
+            textColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
+
+        textColor = DarkModeEnsureReadableForeground(textColor, fillColor);
+    }
+    else
+        textColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
     COLORREF oldTextColor = SetTextColor(hdc, textColor);
 
     const wchar_t* drawText = (text != NULL) ? text : L"";
