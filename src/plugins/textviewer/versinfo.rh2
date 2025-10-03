@@ -23,7 +23,7 @@
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "2025 tkubec, KRtekTM"
+#define VERSINFO_COPYRIGHT   "Copyleft 2025 Ondøej Kotas, Tomáš Kubec"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "PrismSharp Text Viewer .NET plugin for Open Salamander"
