@@ -749,7 +749,8 @@ BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)
 
     static const char* const kExtensions[] = {
         ".txt", ".log", ".ini", ".cfg", ".json", ".yaml", ".yml", ".xml", ".html", ".htm", ".md",
-        ".csv", ".cs", ".cpp", ".c", ".h", ".hpp", ".py", ".js", ".ts", ".css", ".sql", ".bat", ".ps1"
+        ".csv", ".cs", ".cpp", ".c", ".h", ".hpp", ".py", ".js", ".ts", ".css", ".sql", ".bat", ".ps1",
+        ".php"
     };
 
     for (size_t i = 0; i < _countof(kExtensions); ++i)
