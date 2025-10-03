@@ -9,7 +9,7 @@ namespace OpenSalamander.WebView2RenderViewer;
 
 internal static class ViewerResources
 {
-    private const string ViewerIconResourceName = "OpenSalamander.WebView2RenderViewer.Resources.viewer.ico";
+    private const string ViewerIconResourceName = "OpenSalamander.WebView2RenderViewer.Resources.msedge.ico";
     private static Icon? s_viewerIcon;
 
     public static Icon ViewerIcon
