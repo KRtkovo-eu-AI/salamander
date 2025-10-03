@@ -30,6 +30,10 @@ The WebView2 Render Viewer rounds out the reading stack by pairing the .NET Fram
 
 The new Samandarin plugin runs a managed update-notification service: it bootstraps a WinForms host, exposes commands to initialize, configure, trigger checks, respond to palette changes, and shut down cleanly, and surfaces polished error handling when anything goes wrong. UpdateCoordinator persists user preferences, schedules timers, honours start-up checks, and reaches out to the fork's GitHub releases feed with TLS 1.2+ support to detect fresh builds without overwhelming the servers. When a new tag appears it offers to open the download page; if you're already current it reports the latest known release, and if connectivity fails it conveys detailed error chains—all while marshalling UI updates back onto the correct thread.
 
+### Plugin availability notes
+
+Several legacy viewers remain on the roadmap for a later drop: the PictView, UnRAR, and Encrypt plugins are absent from this bundle. In addition, the FTP client plugin currently lacks the OpenSSL libraries it needs for secure transfers; install them separately from [openssl.org](https://www.openssl.org/) if you need encrypted connectivity.
+
 ## Getting started
 
 Set up your development workstation with Windows 11, Visual Studio 2022, and the Desktop development with C++ workload (plus optional Git, PowerShell, and HTMLHelp Workshop), then build `src\vcxproj\salamand.sln` or run the helper scripts to populate a runnable directory. Once installed, the Samandarin registry hive keeps experiments isolated, letting you explore the new plugin lineup without disturbing stable Open Salamander deployments.
