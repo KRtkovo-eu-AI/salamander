@@ -1,0 +1,31 @@
+//****************************************************************************
+//
+// Copyright (c) 2023-2024 Open Salamander Authors
+//
+// This is a part of the Open Salamander SDK library.
+//
+//****************************************************************************
+
+//
+// lang.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// Add manually edited resources here...
+
+#include "..\versinfo.rh2"
+#include "versinfo.rc2"
+
+STRINGTABLE
+{
+ IDS_PLUGINNAME,                 "WebView2 Render Viewer .NET"
+ IDS_ABOUT,                      "About Plugin"
+ IDS_PLUGIN_DESCRIPTION,         "Viewer that displays rendered HTML, Markdown, and web documents using WebView2."
+ IDS_PLUGIN_HOME,                "https://github.com/KRtkovo-eu-AI/salamander/"
+ IDS_VIEWER_CREATE_EVENT_FAILED, "Unable to prepare synchronization event required by the viewer."
+ IDS_FILE_TOO_LARGE,             "The selected file is too large to open. Files larger than 32 MB are not supported."
+}
