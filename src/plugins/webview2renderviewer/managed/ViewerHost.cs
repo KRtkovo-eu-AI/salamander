@@ -585,7 +585,7 @@ internal static class ViewerHost
         {
             _currentFilePath = path;
 
-            string caption = _session?.Payload.Caption;
+            string caption = _session?.Payload.Caption ?? string.Empty;
             if (string.IsNullOrWhiteSpace(caption))
             {
                 caption = Path.GetFileName(path);

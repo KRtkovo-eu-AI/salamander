@@ -109,4 +109,6 @@ jsonviewer      0x000001002a000000
 lang_jsonviewer 0x000001003a000000
 textviewer      0x000001002a100000
 lang_textviewer 0x000001003a100000
+webview2renderviewer 0x000001002a200000
+lang_webview2renderviewer 0x000001003a200000
 
