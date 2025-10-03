@@ -502,11 +502,9 @@ internal static class ViewerHost
 
             Text = BuildCaption(session.Payload.Caption);
 
-            int showCommand = GetShowCommand(session.Payload);
-            PrepareForShow();
-
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
+            EnsureTaskbarVisibility();
             EnsureBrowser();
 
             ThemeHelper.ApplyTheme(this);
@@ -530,9 +528,25 @@ internal static class ViewerHost
                     MessageBoxIcon.Error);
                 return false;
             }
+            ShowInTaskbar = true;
+            Show();
 
-            ShowWindow(showCommand);
+            if (session.Payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
+            {
+                WindowState = FormWindowState.Minimized;
+                NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWMINIMIZED);
+            }
+            else if (session.Payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
+            {
+                WindowState = FormWindowState.Maximized;
+            }
+            else if (WindowState == FormWindowState.Minimized)
+            {
+                WindowState = FormWindowState.Normal;
+            }
 
+            Activate();
+            NativeMethods.SetForegroundWindow(Handle);
             return true;
         }
 
@@ -760,54 +774,6 @@ internal static class ViewerHost
             }
         }
 
-        private void PrepareForShow()
-        {
-            if (!IsHandleCreated)
-            {
-                CreateControl();
-            }
-        }
-
-        private void ShowWindow(int showCommand)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            EnsureTaskbarVisibility();
-            ShowInTaskbar = true;
-
-            if (!IsHandleCreated)
-            {
-                return;
-            }
-
-            if (!Visible)
-            {
-                Show();
-            }
-
-            if (showCommand == NativeMethods.SW_SHOWMINIMIZED)
-            {
-                WindowState = FormWindowState.Minimized;
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWMINIMIZED);
-                return;
-            }
-
-            if (showCommand == NativeMethods.SW_SHOWMAXIMIZED)
-            {
-                WindowState = FormWindowState.Maximized;
-            }
-            else if (WindowState == FormWindowState.Minimized)
-            {
-                WindowState = FormWindowState.Normal;
-            }
-
-            Activate();
-            NativeMethods.SetForegroundWindow(Handle);
-        }
-
         private void RenderCurrentDocument()
         {
             if (_browser is null)
@@ -965,20 +931,6 @@ internal static class ViewerHost
             }));
         }
 
-        private static int GetShowCommand(ViewCommandPayload payload)
-        {
-            if (payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
-            {
-                return NativeMethods.SW_SHOWMAXIMIZED;
-            }
-
-            if (payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
-            {
-                return NativeMethods.SW_SHOWMINIMIZED;
-            }
-
-            return NativeMethods.SW_RESTORE;
-        }
     }
 
     private sealed class ViewCommandPayload
