@@ -604,23 +604,51 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 
     if (!extensions.empty())
     {
-        std::string pattern;
-        pattern.reserve(extensions.size() * 6);
+        // Salamander limits the length of a single pattern registration string in the
+        // configuration UI, so split the extensions across multiple AddViewer calls.
+        constexpr size_t kMaxPatternLength = 200; // conservative chunk to keep entries editable
 
-        bool first = true;
+        std::string pattern;
+        pattern.reserve(kMaxPatternLength);
+
+        auto flushPattern = [&]() {
+            if (!pattern.empty())
+            {
+                salamander->AddViewer(pattern.c_str(), FALSE);
+                pattern.clear();
+            }
+        };
+
         for (const std::string& ext : extensions)
         {
-            if (!first)
+            const std::string token = std::string("*.") + ext;
+            const size_t separator = pattern.empty() ? 0 : 1; // semicolon when appending
+
+            if (!pattern.empty() && (pattern.size() + separator + token.size()) > kMaxPatternLength)
+            {
+                flushPattern();
+            }
+
+            if (!pattern.empty())
             {
                 pattern.push_back(';');
             }
-            first = false;
 
-            pattern.append("*.");
-            pattern.append(ext);
+            // If the token itself would exceed the chunk size, still register it alone.
+            if (!pattern.empty() && (pattern.size() + token.size()) > kMaxPatternLength)
+            {
+                flushPattern();
+            }
+
+            pattern.append(token);
+
+            if (pattern.size() >= kMaxPatternLength)
+            {
+                flushPattern();
+            }
         }
 
-        salamander->AddViewer(pattern.c_str(), FALSE);
+        flushPattern();
     }
 
     if (SalamanderGUI != NULL)
