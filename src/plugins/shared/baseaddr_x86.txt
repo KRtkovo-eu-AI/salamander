@@ -109,6 +109,8 @@ jsonviewer      0x2a000000
 lang_jsonviewer 0x3a000000
 textviewer      0x2a100000
 lang_textviewer 0x3a100000
+samandarin      0x2a200000
+lang_samandarin 0x3a200000
 webview2renderviewer 0x2a200000
 lang_webview2renderviewer 0x3a200000
 
