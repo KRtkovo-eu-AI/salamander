@@ -203,7 +203,47 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(TextViewerPluginDir)" mkdir "$(TextViewerPluginDir)"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" (&#x0D;&#x0A;  echo TextViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\$(Configuration)" or its net48 subfolder.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;if not exist "%MANAGED_DIR%ColorfulCode.dll" (&#x0D;&#x0A;  echo ColorfulCode.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;copy /Y "%MANAGED_DIR%TextViewer.Managed.dll" "$(TextViewerPluginDir)TextViewer.Managed.dll"&#x0D;&#x0A;copy /Y "%MANAGED_DIR%ColorfulCode.dll" "$(TextViewerPluginDir)ColorfulCode.dll"</Command>
+      <Command><![CDATA[
+if not exist "$(TextViewerPluginDir)" mkdir "$(TextViewerPluginDir)"
+set "MANAGED_CONFIG=$(Configuration)"
+set "MANAGED_TRIMMED=%MANAGED_CONFIG:_x64=%"
+set "MANAGED_TRIMMED=%MANAGED_TRIMMED:_Win32=%"
+set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%\"
+if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_CONFIG%\"
+if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"
+if not exist "%MANAGED_DIR%TextViewer.Managed.dll" (
+  echo TextViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%" or the alternate paths checked.
+  exit /B 1
+)
+if not exist "%MANAGED_DIR%PrismSharp.dll" (
+  echo PrismSharp.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.
+  exit /B 1
+)
+if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (
+  echo Newtonsoft.Json.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.
+  exit /B 1
+)
+set "MANAGED_DATA_DIR="
+for %%I in ("%MANAGED_DIR%TextViewer.Managed.dll") do if not defined MANAGED_DATA_DIR set "MANAGED_DATA_DIR=%%~dpIdata"
+if not exist "%MANAGED_DATA_DIR%\languages\languages.json" if exist "$(ProjectDir)..\managed\data\languages\languages.json" set "MANAGED_DATA_DIR=$(ProjectDir)..\managed\data"
+if not defined MANAGED_DATA_DIR (
+  echo Failed to resolve PrismSharp data directory from %MANAGED_DIR%.
+  exit /B 1
+)
+if not exist "%MANAGED_DATA_DIR%\languages\languages.json" (
+  echo PrismSharp data files were not found under %MANAGED_DATA_DIR%.
+  exit /B 1
+)
+if not exist "$(TextViewerPluginDir)data\" mkdir "$(TextViewerPluginDir)data\"
+xcopy /E /I /Y "%MANAGED_DATA_DIR%\*" "$(TextViewerPluginDir)data\" >nul
+if errorlevel 4 (
+  echo Failed to copy PrismSharp data files from %MANAGED_DATA_DIR%.
+  exit /B 1
+)
+copy /Y "%MANAGED_DIR%TextViewer.Managed.dll" "$(TextViewerPluginDir)TextViewer.Managed.dll"
+copy /Y "%MANAGED_DIR%PrismSharp.dll" "$(TextViewerPluginDir)PrismSharp.dll"
+copy /Y "%MANAGED_DIR%Newtonsoft.Json.dll" "$(TextViewerPluginDir)Newtonsoft.Json.dll"
+]]></Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">

@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ColorfulCode" Version="1.0.0-preview1" />
+    <PackageReference Include="PrismSharp" Version="1.0.0-beta" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,4 +29,10 @@
              Targets="Restore"
              Properties="RestoreDuringBuild=true" />
   </Target>
+
+  <ItemGroup>
+    <Content Include="data\\**\\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
