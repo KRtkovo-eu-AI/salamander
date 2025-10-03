@@ -630,13 +630,13 @@ internal static class ViewerHost
 
             if (_browserCore is not null)
             {
-                _browserCore.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
+                _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
             }
 
             _browserCore = browser.CoreWebView2;
             if (_browserCore is not null)
             {
-                _browserCore.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
+                _browserCore.WebMessageReceived += OnBrowserWebMessageReceived;
             }
 
             ThemeHelper.ApplyTheme(browser);
@@ -656,25 +656,17 @@ internal static class ViewerHost
             }
         }
 
-        private void OnBrowserAcceleratorKeyPressed(object? sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
+        private void OnBrowserWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
             if (e is null)
             {
                 return;
             }
 
-            if (e.KeyEventKind != CoreWebView2KeyEventKind.KeyDown &&
-                e.KeyEventKind != CoreWebView2KeyEventKind.SystemKeyDown)
+            if (!string.Equals(e.TryGetWebMessageAsString(), "escape", StringComparison.Ordinal))
             {
                 return;
             }
-
-            if (e.VirtualKey != (int)Keys.Escape)
-            {
-                return;
-            }
-
-            e.Handled = true;
 
             BeginInvoke(new MethodInvoker(() =>
             {
@@ -721,7 +713,7 @@ internal static class ViewerHost
 
             if (_browserCore is not null)
             {
-                _browserCore.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
+                _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
                 _browserCore = null;
             }
 
@@ -1256,6 +1248,7 @@ internal static class ViewerHost
                     .Append(scheme)
                     .Append("';}})();</script>");
             }
+            builder.Append("<script>(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();</script>");
             builder.Append("<title>");
             builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer .NET" : caption));
             builder.Append("</title>");
