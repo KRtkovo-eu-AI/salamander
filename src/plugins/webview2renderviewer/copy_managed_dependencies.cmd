@@ -52,6 +52,18 @@ copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.Core.dll" "%TARGET_DIR%Microsoft.We
 copy /Y "%MANAGED_DIR%%WEBVIEW2_LOADER%" "%TARGET_DIR%WebView2Loader.dll" >nul
 if exist "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" copy /Y "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" "%TARGET_DIR%System.Text.Encoding.CodePages.dll" >nul
 
+rem Copy any additional assemblies (for example, System.Memory) that Markdig
+rem depends on so the runtime can load the Markdown renderer successfully.
+pushd "%MANAGED_DIR%" >nul 2>&1
+if not errorlevel 1 (
+  for %%F in (*.dll) do (
+    if /I not "%%~nxF"=="WebView2Loader.dll" (
+      copy /Y "%%~fF" "%TARGET_DIR%%%~nxF" >nul
+    )
+  )
+  popd >nul
+)
+
 endlocal
 exit /B 0
 
