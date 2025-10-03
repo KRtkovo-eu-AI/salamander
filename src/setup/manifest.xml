@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
 <assemblyIdentity
-    name="Open.Salamander.Setup"
+    name="Open.Salamander.Samandarin.Setup"
     processorArchitecture="*"
     type="win32"
     version="1.70.0.0">
 </assemblyIdentity>
-<description>Open Salamander Setup</description>
+<description>Open Salamander: Samandarin Setup</description>
 <dependency>
     <dependentAssembly>
         <assemblyIdentity

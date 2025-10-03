@@ -48,10 +48,10 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Open Salamander"
-            VALUE "FileDescription", "Open Salamander Setup"
+            VALUE "CompanyName", "Open Salamander Samandarin"
+            VALUE "FileDescription", "Open Salamander: Samandarin Setup"
             VALUE "FileVersion", "1.70.0.0"
-            VALUE "InternalName", "Open Salamander Installer"
+            VALUE "InternalName", "Open Salamander: Samandarin Installer"
             VALUE "OriginalFilename", "setup.exe"
             VALUE "LegalCopyright", "Copyright © 1997-2025 Open Salamander Authors"
         END
@@ -70,7 +70,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-EXE_ICON                ICON                    "res\\setup.ico"
+EXE_ICON                ICON                    "..\\res\\samandarin.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -375,13 +375,13 @@ BEGIN
     IDS_WZR_INSTALL         "&Instalovat"
     IDS_INSTFAILED          "Instalace není kompletní. Program %s není nainstalován.\n\nInstalační program můžete spustit později a instalaci dokončit."
     ERROR_CMDLINE           "Použití:\nSETUP [/?] [/s] [/d dest_dir] [/id <y,n>] [/is <y,n>] [/au <y,n>]\n\n[x] znamená, že je parametr x nepovinný.\n<y,n> znamená, že jsou parametry y nebo n povinné.\n\n/? -- Zobrazí tuto zprávu o použití.\n/s -- Tichá instalace.\n/d -- Cílový adresář.\n/id -- Nainstalovat zástupce na plochu.\n/is -- Nainstalovat zástupce do nabídky Start.\n/au -- Společné složky všech uživatelů."
-    IDS_CONFLICTWITHNEWER   "Adresář '%s' již obsahuje novější verzi instalovaného programu.\n\nPro instalaci do tohoto adresáře napřed odinstalujte existující Open Salamander.\n\nPřípadně můžete zvolit jiný adresář."
+    IDS_CONFLICTWITHNEWER   "Adresář '%s' již obsahuje novější verzi instalovaného programu.\n\nPro instalaci do tohoto adresáře napřed odinstalujte existující Open Salamander: Samandarin.\n\nPřípadně můžete zvolit jiný adresář."
     IDS_INSTNEEDRESTART     "Instalace nebyla dokončena. Pro dokončení instalace je potřeba provést restart Windows, po kterém se odinstalují shell extensions.\n\nRestartujte prosím Windows a spusťte tento instalační program znovu pro dokončení instalace."
     IDS_TARGETDIRUPGRADE    "Cílový adresář (upgrade)"
     IDS_CONFLICTPRIOR       "Adresář '%s' již obsahuje starší verzi instalovaného programu.\n\nStiskněte OK pro jeho upgrade.\nStiskněte Storno pro instalaci do jiného adresáře."
     IDS_CONFLICTSAME        "Adresář '%s' již obsahuje stejnou verzi instalovaného programu.\n\nStiskněte OK pro jeho opravu.\nStiskněte Storno pro instalaci do jiného adresáře."
-    IDS_PREVIEWBUILDWARNING "Toto je PREVIEW BUILD programu Open Salamander, uvolněný v Early Access Programu. Tato verze by neměla být používána v produkčním prostředí. Používejte ji pouze pro testování. Těšíme se na Vaše připomínky a náměty, které vkládejte do Early Access Program sekce na forum.altap.cz.\nPoznámka: tato verze je časově omezená."
-    IDS_BETAWARNING         "Toto je BETA verze programu Open Salamander. Tato verze by neměla být používána v produkčním prostředí. Používejte ji pouze pro testování. Těšíme se na Vaše připomínky a náměty, které vkládejte na forum.altap.cz.\nPoznámka: tato verze je časově omezená."
+    IDS_PREVIEWBUILDWARNING "Toto je PREVIEW BUILD programu Open Salamander: Samandarin, uvolněný v Early Access Programu. Tato verze by neměla být používána v produkčním prostředí. Používejte ji pouze pro testování. Těšíme se na Vaše připomínky a náměty, které vkládejte do Early Access Program sekce na forum.altap.cz.\nPoznámka: tato verze je časově omezená."
+    IDS_BETAWARNING         "Toto je BETA verze programu Open Salamander: Samandarin. Tato verze by neměla být používána v produkčním prostředí. Používejte ji pouze pro testování. Těšíme se na Vaše připomínky a náměty, které vkládejte na forum.altap.cz.\nPoznámka: tato verze je časově omezená."
 END
 
 STRINGTABLE 
@@ -657,13 +657,13 @@ BEGIN
     IDS_WZR_INSTALL         "&Installieren"
     IDS_INSTFAILED          "Das Setup ist noch nicht abgeschlossen. Die Anwendung %s wurde nicht installiert.\n\nSie können das Setup zu einem späteren Zeitpunkt nochmals ausführen, um die Installation zu vervollständigen."
     ERROR_CMDLINE           "Verwendung:\nSETUP [/?] [/s] [/d Ziel_Verz] [/id <y,n>] [/is <y,n>] [/au <y,n>]\n\n[x] bedeutet, dass der Parameter x optional ist.\n<y,n> bedeutet, dass der Parameter y oder n benötigt wird.\n\n/? -- Generiert diesen Nutzungshinweis.\n/s -- Automatische unbeaufsichtigte Installation.\n/d -- Zielverzeichnis.\n/id -- Installiert Desktop-Verknüpfung.\n/is -- Installiert Startmenü-Verknüpfung.\n/au -- Für alle Benutzer gemeinsame Ordner."
-    IDS_CONFLICTWITHNEWER   "Das Verzeichnis '%s' enthält bereits eine neuere Version der installierten Anwendung.\n\nUm in dieses Verzeichnis zu installieren, müssen Sie die jetzige Version entfernen. Anschließend können Sie diese Version von Open Salamander installieren.\n\nAlternativ können Sie auch ein anderes Verzeichnis wählen."
+    IDS_CONFLICTWITHNEWER   "Das Verzeichnis '%s' enthält bereits eine neuere Version der installierten Anwendung.\n\nUm in dieses Verzeichnis zu installieren, müssen Sie die jetzige Version entfernen. Anschließend können Sie diese Version von Open Salamander: Samandarin installieren.\n\nAlternativ können Sie auch ein anderes Verzeichnis wählen."
     IDS_INSTNEEDRESTART     "Das Setup ist noch nicht abgeschlossen. Ein Windows-Neustart ist nötig um die verwendeten Shell-Erweiterungen zu deinstallieren.\n\nBitte starten Sie Windows neu und führen Sie das Setup nochmals aus um die Installation zu vervollständigen."
     IDS_TARGETDIRUPGRADE    "Zielverzeichnis (Aktualisierung)"
     IDS_CONFLICTPRIOR       "Das Verzeichnis '%s' enthält bereits eine frühere Version der installierten Anwendung.\n\nDrücken Sie ""OK"", um diese zu aktualisieren.\nDrücken Sie auf ""Abbrechen"", um sie in ein anderes Verzeichnis zu installieren."
     IDS_CONFLICTSAME        "Das Verzeichnis '%s' enthält bereits die selbe Version der installierten Anwendung.\n\nDrücken Sie ""OK"", um diese zu reparieren.\nDrücken Sie auf ""Abbrechen"", um sie in ein anderes Verzeichnis zu installieren."
-    IDS_PREVIEWBUILDWARNING "Dies ist eine Vorabversion von Open Salamander, veröffentlicht im Early Access Programm. Sie sollte NICHT in Produktionsumgebungen verwendet werden. Benutzen Sie diese nur für Testzwecke. Wir freuen uns auf Ihre Meinung in der ""Early Access Program Section"" im forum.altap.cz.\nHinweis: diese Version ist zeitlich begrenzt."
-    IDS_BETAWARNING         "Dies ist eine BETA Version von Open Salamander. Sie sollte NICHT in Produktionsumgebungen verwendet werden. Benutzen Sie diese nur für Testzwecke. Wir freuen uns auf Ihre Meinung im forum.altap.cz.\nHinweis: diese Version ist zeitlich begrenzt."
+    IDS_PREVIEWBUILDWARNING "Dies ist eine Vorabversion von Open Salamander: Samandarin, veröffentlicht im Early Access Programm. Sie sollte NICHT in Produktionsumgebungen verwendet werden. Benutzen Sie diese nur für Testzwecke. Wir freuen uns auf Ihre Meinung in der ""Early Access Program Section"" im forum.altap.cz.\nHinweis: diese Version ist zeitlich begrenzt."
+    IDS_BETAWARNING         "Dies ist eine BETA Version von Open Salamander: Samandarin. Sie sollte NICHT in Produktionsumgebungen verwendet werden. Benutzen Sie diese nur für Testzwecke. Wir freuen uns auf Ihre Meinung im forum.altap.cz.\nHinweis: diese Version ist zeitlich begrenzt."
 END
 
 STRINGTABLE 
@@ -939,13 +939,13 @@ BEGIN
     IDS_WZR_INSTALL         "&Install"
     IDS_INSTFAILED          "Setup is not complete. Application %s is not installed.\n\nYou may run the Setup program at a later time to complete the installation."
     ERROR_CMDLINE           "Usage:\nSETUP [/?] [/s] [/d dest_dir] [/id <y,n>] [/is <y,n>] [/au <y,n>]\n\n[x] means that parameter x is optional.\n<y,n> means that parameter y or n is required.\n\n/? -- Generates this Usage message.\n/s -- Silent unattended install.\n/d -- Destination directory.\n/id -- Install Desktop Shortcut.\n/is -- Install Start Menu Shortcut.\n/au -- All users common folders."
-    IDS_CONFLICTWITHNEWER   "The directory '%s' already contains newer version of installed application.\n\nTo install to this directory, uninstall the existing Open Salamander. Then you can install this version of Open Salamander.\n\nOtherwise you can choose another directory."
+    IDS_CONFLICTWITHNEWER   "The directory '%s' already contains newer version of installed application.\n\nTo install to this directory, uninstall the existing Open Salamander: Samandarin. Then you can install this version of Open Salamander: Samandarin.\n\nOtherwise you can choose another directory."
     IDS_INSTNEEDRESTART     "Setup is not complete. Windows restart is needed to finish uninstalling shell extensions that are in use.\n\nPlease restart your Windows and run the Setup program again to complete the installation."
     IDS_TARGETDIRUPGRADE    "Target directory (Upgrade)"
     IDS_CONFLICTPRIOR       "The directory '%s' already contains a prior version of the installed application.\n\nPress OK to upgrade it.\nPress Cancel to install to another directory."
     IDS_CONFLICTSAME        "The directory '%s' already contains the same version of the installed application.\n\nPress OK to repair it.\nPress Cancel to install to another directory."
-    IDS_PREVIEWBUILDWARNING "This is PREVIEW BUILD of Open Salamander, released in Early Access Program. It should NOT be used in production environments. Use it for testing only. We are looking for your feedback at Early Access Program section on forum.altap.cz.\nNote: this version is time limited."
-    IDS_BETAWARNING         "This is BETA version of Open Salamander. It should NOT be used in production environments. Use it for testing purpose only. We are looking for your feedback on forum.altap.cz.\nNote: this version is time limited."
+    IDS_PREVIEWBUILDWARNING "This is PREVIEW BUILD of Open Salamander: Samandarin, released in Early Access Program. It should NOT be used in production environments. Use it for testing only. We are looking for your feedback at Early Access Program section on forum.altap.cz.\nNote: this version is time limited."
+    IDS_BETAWARNING         "This is BETA version of Open Salamander: Samandarin. It should NOT be used in production environments. Use it for testing purpose only. We are looking for your feedback on forum.altap.cz.\nNote: this version is time limited."
 END
 
 STRINGTABLE 
