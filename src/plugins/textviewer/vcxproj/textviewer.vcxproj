@@ -203,7 +203,75 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(TextViewerPluginDir)" mkdir "$(TextViewerPluginDir)"&#x0D;&#x0A;set "MANAGED_CONFIG=$(Configuration)"&#x0D;&#x0A;set "MANAGED_TRIMMED=%MANAGED_CONFIG:_x64=%"&#x0D;&#x0A;set "MANAGED_TRIMMED=%MANAGED_TRIMMED:_Win32=%"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_CONFIG%\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" (&#x0D;&#x0A;  echo TextViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%" or the alternate paths checked.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;if not exist "%MANAGED_DIR%PrismSharp.dll" (&#x0D;&#x0A;  echo PrismSharp.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (&#x0D;&#x0A;  echo Newtonsoft.Json.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;set "PRISM_PACKAGE_DIR=$(PkgPrismSharp)"&#x0D;&#x0A;set "COPY_SOURCE_ROOT="&#x0D;&#x0A;set "COPY_SOURCE_FOLDER=data"&#x0D;&#x0A;pushd "%MANAGED_DIR%" >nul 2>&1&#x0D;&#x0A;if errorlevel 1 (&#x0D;&#x0A;  echo Failed to access %MANAGED_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;if exist "%COPY_SOURCE_FOLDER%\languages\languages.json" (&#x0D;&#x0A;  set "COPY_SOURCE_ROOT=%CD%"&#x0D;&#x0A;)&#x0D;&#x0A;popd&#x0D;&#x0A;if not defined COPY_SOURCE_ROOT if not "%PRISM_PACKAGE_DIR%"=="" (&#x0D;&#x0A;  for %%D in ("%PRISM_PACKAGE_DIR%contentFiles\data") do (&#x0D;&#x0A;    if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;      set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;      set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;  if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;    for /d %%D in ("%PRISM_PACKAGE_DIR%contentFiles\*\data") do (&#x0D;&#x0A;      if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;        set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;        set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;      )&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;)&#x0D;&#x0A;if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;  for /d %%D in ("$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\data") do (&#x0D;&#x0A;    if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;      set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;      set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;  if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;    for /d %%D in ("$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\*\data") do (&#x0D;&#x0A;      if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;        set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;        set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;      )&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;)&#x0D;&#x0A;if not defined COPY_SOURCE_ROOT if not "%NUGET_PACKAGES%"=="" (&#x0D;&#x0A;  for /d %%D in ("%NUGET_PACKAGES%\prismsharp\*\contentFiles\data") do (&#x0D;&#x0A;    if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;      set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;      set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;  if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;    for /d %%D in ("%NUGET_PACKAGES%\prismsharp\*\contentFiles\*\data") do (&#x0D;&#x0A;      if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;        set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;        set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;      )&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;)&#x0D;&#x0A;if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;  for /d %%D in ("%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\data") do (&#x0D;&#x0A;    if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;      set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;      set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;  if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;    for /d %%D in ("%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\*\data") do (&#x0D;&#x0A;      if not defined COPY_SOURCE_ROOT if exist "%%~fD\languages\languages.json" (&#x0D;&#x0A;        set "COPY_SOURCE_ROOT=%%~fD"&#x0D;&#x0A;        set "COPY_SOURCE_FOLDER=."&#x0D;&#x0A;      )&#x0D;&#x0A;    )&#x0D;&#x0A;  )&#x0D;&#x0A;)&#x0D;&#x0A;if not defined COPY_SOURCE_ROOT (&#x0D;&#x0A;  echo PrismSharp data files were not found in the managed output or the PrismSharp package contents.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;copy /Y "%MANAGED_DIR%TextViewer.Managed.dll" "$(TextViewerPluginDir)TextViewer.Managed.dll"&#x0D;&#x0A;copy /Y "%MANAGED_DIR%PrismSharp.dll" "$(TextViewerPluginDir)PrismSharp.dll"&#x0D;&#x0A;copy /Y "%MANAGED_DIR%Newtonsoft.Json.dll" "$(TextViewerPluginDir)Newtonsoft.Json.dll"&#x0D;&#x0A;set "TARGET_DATA_DIR=$(TextViewerPluginDir)data\"&#x0D;&#x0A;if not exist "%TARGET_DATA_DIR%" mkdir "%TARGET_DATA_DIR%"&#x0D;&#x0A;if /I "%COPY_SOURCE_FOLDER%"=="." (&#x0D;&#x0A;  xcopy /E /I /Y "%COPY_SOURCE_ROOT%\*" "%TARGET_DATA_DIR%" >nul&#x0D;&#x0A;  if errorlevel 4 (&#x0D;&#x0A;    echo Failed to copy PrismSharp data files from %COPY_SOURCE_ROOT%.&#x0D;&#x0A;    exit /B 1&#x0D;&#x0A;  )&#x0D;&#x0A;) else (&#x0D;&#x0A;  pushd "%COPY_SOURCE_ROOT%" >nul 2>&1&#x0D;&#x0A;  if errorlevel 1 (&#x0D;&#x0A;    echo Failed to access PrismSharp data under %COPY_SOURCE_ROOT%.&#x0D;&#x0A;    exit /B 1&#x0D;&#x0A;  )&#x0D;&#x0A;  xcopy /E /I /Y "%COPY_SOURCE_FOLDER%" "%TARGET_DATA_DIR%" >nul&#x0D;&#x0A;  set "COPY_STATUS=%errorlevel%"&#x0D;&#x0A;  popd&#x0D;&#x0A;  if %COPY_STATUS% GEQ 4 (&#x0D;&#x0A;    echo Failed to copy PrismSharp data files from %COPY_SOURCE_ROOT%\%COPY_SOURCE_FOLDER%.&#x0D;&#x0A;    exit /B 1&#x0D;&#x0A;  )&#x0D;&#x0A;)&#x0D;&#x0A;</Command>
+      <Command><![CDATA[
+if not exist "$(TextViewerPluginDir)" mkdir "$(TextViewerPluginDir)"
+set "MANAGED_CONFIG=$(Configuration)"
+set "MANAGED_TRIMMED=%MANAGED_CONFIG:_x64=%"
+set "MANAGED_TRIMMED=%MANAGED_TRIMMED:_Win32=%"
+set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%\"
+if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_CONFIG%\"
+if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"
+if not exist "%MANAGED_DIR%TextViewer.Managed.dll" (
+  echo TextViewer.Managed.dll was not found in "%MANAGED_DIR%".
+  exit /B 1
+)
+if not exist "%MANAGED_DIR%PrismSharp.dll" (
+  echo PrismSharp.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.
+  exit /B 1
+)
+if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (
+  echo Newtonsoft.Json.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.
+  exit /B 1
+)
+set "PRISM_DATA_DIR="
+set "PRISM_PACKAGE_DIR=$(PkgPrismSharp)"
+pushd "%MANAGED_DIR%" >nul 2>&1
+if errorlevel 1 (
+  echo Failed to access %MANAGED_DIR%.
+  exit /B 1
+)
+if exist "data\languages\languages.json" set "PRISM_DATA_DIR=%CD%\data"
+popd
+if not defined PRISM_DATA_DIR if not "%PRISM_PACKAGE_DIR%"=="" (
+  call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\data"
+  call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\*\data"
+)
+if not defined PRISM_DATA_DIR call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\data"
+if not defined PRISM_DATA_DIR call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\*\data"
+if not defined PRISM_DATA_DIR if not "%NUGET_PACKAGES%"=="" (
+  call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\data"
+  call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\*\data"
+)
+if not defined PRISM_DATA_DIR (
+  call :TryPrismData "%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\data"
+  call :TryPrismData "%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\*\data"
+)
+if not defined PRISM_DATA_DIR (
+  echo PrismSharp data files were not found.
+  exit /B 1
+)
+if not exist "%PRISM_DATA_DIR%\languages\languages.json" (
+  echo PrismSharp data directory "%PRISM_DATA_DIR%" is missing languages.json.
+  exit /B 1
+)
+if not exist "$(TextViewerPluginDir)data\" mkdir "$(TextViewerPluginDir)data\"
+xcopy /E /I /Y "%PRISM_DATA_DIR%\*" "$(TextViewerPluginDir)data\" >nul
+if errorlevel 4 (
+  echo Failed to copy PrismSharp data files from "%PRISM_DATA_DIR%".
+  exit /B 1
+)
+copy /Y "%MANAGED_DIR%TextViewer.Managed.dll" "$(TextViewerPluginDir)TextViewer.Managed.dll"
+copy /Y "%MANAGED_DIR%PrismSharp.dll" "$(TextViewerPluginDir)PrismSharp.dll"
+copy /Y "%MANAGED_DIR%Newtonsoft.Json.dll" "$(TextViewerPluginDir)Newtonsoft.Json.dll"
+goto :EOF
+
+:TryPrismData
+if "%~1"=="" exit /B 0
+for /d %%D in ("%~1") do (
+  if not defined PRISM_DATA_DIR if exist "%%~fD\languages\languages.json" set "PRISM_DATA_DIR=%%~fD"
+)
+exit /B 0
+]]></Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
