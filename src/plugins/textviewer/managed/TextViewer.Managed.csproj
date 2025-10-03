@@ -30,7 +30,7 @@
              Properties="RestoreDuringBuild=true" />
   </Target>
 
-  <Target Name="CopyPrismSharpContent" AfterTargets="Build">
+  <Target Name="CopyPrismSharpContent" AfterTargets="Build" DependsOnTargets="ResolveReferences">
     <ItemGroup Condition="'$(PkgPrismSharp)' != ''">
       <PrismSharpDataRoot Include="$(PkgPrismSharp)contentFiles\**\data\"
                            Condition="Exists('%(Identity)languages\languages.json')" />
@@ -46,11 +46,11 @@
     </ItemGroup>
 
     <Copy SourceFiles="@(PrismSharpLanguageFiles)"
-          DestinationFolder="$(OutputPath)data\languages\"
+          DestinationFolder="$(TargetDir)data\languages\"
           SkipUnchangedFiles="true"
           Condition="@(PrismSharpLanguageFiles) != ''" />
     <Copy SourceFiles="@(PrismSharpThemeFiles)"
-          DestinationFolder="$(OutputPath)data\themes\"
+          DestinationFolder="$(TargetDir)data\themes\"
           SkipUnchangedFiles="true"
           Condition="@(PrismSharpThemeFiles) != ''" />
   </Target>
