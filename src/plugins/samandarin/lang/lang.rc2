@@ -26,4 +26,5 @@ STRINGTABLE
  IDS_ABOUT,                  "About Samandarin Update Notifier"
  IDS_PLUGIN_DESCRIPTION,     "Checks GitHub releases and offers to open the latest Samandarin build."
  IDS_PLUGIN_HOME,            "https://github.com/KRtkovo-eu-AI/salamander/releases"
+ IDS_MENU_CHECKNOW,          "Check updates now"
 }

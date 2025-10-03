@@ -20,6 +20,19 @@ extern CSalamanderGeneralAbstract* SalamanderGeneral;
 
 char* LoadStr(int resID);
 
+// prikazy pluginoveho menu
+#define MENUCMD_CHECKNOW 1
+
+class CPluginInterfaceForMenuExt : public CPluginInterfaceForMenuExtAbstract
+{
+public:
+    virtual DWORD WINAPI GetMenuItemState(int id, DWORD eventMask) { return 0; }
+    virtual BOOL WINAPI ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
+                                        int id, DWORD eventMask);
+    virtual BOOL WINAPI HelpForMenuItem(HWND parent, int id);
+    virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander) {}
+};
+
 class CPluginInterface : public CPluginInterfaceAbstract
 {
 public:
@@ -37,7 +50,7 @@ public:
 
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
     virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer() { return NULL; }
-    virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt() { return NULL; }
+    virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt();
     virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() { return NULL; }
     virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 
@@ -50,5 +63,6 @@ public:
 
 // rozhrani pluginu poskytnute Salamanderovi
 extern CPluginInterface PluginInterface;
+extern CPluginInterfaceForMenuExt InterfaceForMenuExt;
 
 void ShowInitializationError(HWND parent);

@@ -13,6 +13,7 @@
 
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
+CPluginInterfaceForMenuExt InterfaceForMenuExt;
 
 // globalni data
 const char* PluginNameEN = "Samandarin Update Notifier";    // neprekladane jmeno pluginu, pouziti pred loadem jazykoveho modulu + pro debug veci
@@ -65,6 +66,38 @@ void ShowInitializationError(HWND parent)
                                      "Unable to initialize the Samandarin managed helper.\n"
                                      "Verify that Samandarin.Managed.dll is located next to the plugin.",
                                      LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+}
+
+BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander,
+                                                        HWND parent, int id, DWORD eventMask)
+{
+    (void)salamander;
+    (void)eventMask;
+
+    switch (id)
+    {
+    case MENUCMD_CHECKNOW:
+        if (!ManagedBridge_CheckNow(parent))
+        {
+            SalamanderGeneral->SalMessageBox(parent,
+                                             "Unable to trigger the managed update check.",
+                                             LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+        }
+        break;
+
+    default:
+        SalamanderGeneral->SalMessageBox(parent, "Unknown command.", LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+        break;
+    }
+
+    return FALSE;
+}
+
+BOOL WINAPI CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
+{
+    (void)parent;
+    (void)id;
+    return FALSE;
 }
 
 //
@@ -164,6 +197,9 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_CHECKNOW), 0, MENUCMD_CHECKNOW, FALSE,
+                            MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+
     if (!ManagedBridge_EnsureInitialized(parent))
     {
         ShowInitializationError(parent);
@@ -203,4 +239,9 @@ void WINAPI CPluginInterface::Event(int event, DWORD /*param*/)
     {
         ManagedBridge_NotifyColorsChanged();
     }
+}
+
+CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt()
+{
+    return &InterfaceForMenuExt;
 }

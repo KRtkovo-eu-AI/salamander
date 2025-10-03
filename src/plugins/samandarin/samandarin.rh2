@@ -18,4 +18,5 @@
 #define IDS_ABOUT                47
 #define IDS_PLUGIN_DESCRIPTION   48
 #define IDS_PLUGIN_HOME          49
+#define IDS_MENU_CHECKNOW        50
 #endif // __SAMANDARIN_RH2

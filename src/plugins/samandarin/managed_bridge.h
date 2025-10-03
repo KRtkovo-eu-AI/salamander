@@ -9,4 +9,5 @@ bool ManagedBridge_EnsureInitialized(HWND parent);
 void ManagedBridge_Shutdown();
 bool ManagedBridge_ShowConfiguration(HWND parent);
 void ManagedBridge_NotifyColorsChanged();
+bool ManagedBridge_CheckNow(HWND parent);
 

@@ -205,11 +205,12 @@ internal static class UpdateCoordinator
         try
         {
             string? latestVersion = null;
+            bool noPublishedReleases = false;
             string? errorMessage = null;
 
             try
             {
-                latestVersion = await FetchLatestVersionAsync().ConfigureAwait(false);
+                (latestVersion, noPublishedReleases) = await FetchLatestVersionAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -218,6 +219,7 @@ internal static class UpdateCoordinator
 
             bool notify = false;
             bool showCurrentMessage = false;
+            string? latestVersionForMessage = null;
 
             lock (SyncRoot)
             {
@@ -235,6 +237,21 @@ internal static class UpdateCoordinator
                     else if (comparison <= 0 && showIfCurrent)
                     {
                         showCurrentMessage = true;
+                        latestVersionForMessage = latestVersion;
+                    }
+                }
+                else if (showIfCurrent && string.IsNullOrEmpty(errorMessage))
+                {
+                    var storedVersion = Settings.LastKnownRemoteVersion;
+                    if (noPublishedReleases)
+                    {
+                        showCurrentMessage = true;
+                        latestVersionForMessage = storedVersion;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(storedVersion) && VersionComparer.Compare(storedVersion, CurrentVersion) <= 0)
+                    {
+                        showCurrentMessage = true;
+                        latestVersionForMessage = storedVersion;
                     }
                 }
 
@@ -242,20 +259,25 @@ internal static class UpdateCoordinator
                 ScheduleTimer_NoLock();
             }
 
-            if (!string.IsNullOrEmpty(latestVersion))
+            if (latestVersion is string latestVersionValue && latestVersionValue.Length > 0)
             {
                 if (notify)
                 {
-                    await ShowUpdateAvailableAsync(parent, latestVersion).ConfigureAwait(false);
+                    await ShowUpdateAvailableAsync(parent, latestVersionValue).ConfigureAwait(false);
                 }
-                else if (showIfCurrent)
+                else if (showCurrentMessage)
                 {
-                    await ShowUpToDateAsync(parent, latestVersion).ConfigureAwait(false);
+                    var versionToShow = latestVersionForMessage ?? latestVersionValue;
+                    await ShowUpToDateAsync(parent, versionToShow).ConfigureAwait(false);
                 }
             }
             else if (errorMessage is not null && userInitiated)
             {
                 await ShowErrorAsync(parent, errorMessage).ConfigureAwait(false);
+            }
+            else if (showCurrentMessage && userInitiated)
+            {
+                await ShowUpToDateAsync(parent, latestVersionForMessage).ConfigureAwait(false);
             }
         }
         finally
@@ -296,14 +318,16 @@ internal static class UpdateCoordinator
         }
     }
 
-    private static async Task<string?> FetchLatestVersionAsync()
+    private static async Task<(string? Version, bool NoPublishedReleases)> FetchLatestVersionAsync()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesUri);
         using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var finalUri = response.RequestMessage?.RequestUri ?? ReleasesUri;
-        return ExtractVersionFromUri(finalUri);
+        string finalPath = finalUri.AbsolutePath.TrimEnd('/');
+        bool noPublishedReleases = finalPath.EndsWith("/releases", StringComparison.OrdinalIgnoreCase);
+        return (ExtractVersionFromUri(finalUri), noPublishedReleases);
     }
 
     private static string BuildErrorMessage(Exception exception)
@@ -527,12 +551,12 @@ internal static class UpdateCoordinator
         }
     }
 
-    private static Task ShowUpToDateAsync(IntPtr parent, string latestVersion)
+    private static Task ShowUpToDateAsync(IntPtr parent, string? latestVersion)
     {
         string current = GetCurrentVersion();
-        string message = string.IsNullOrWhiteSpace(latestVersion)
-            ? $"Samandarin {current} is the latest version available."
-            : $"Samandarin {current} is the latest version available.{Environment.NewLine}Latest release: {latestVersion}.";
+        string message = latestVersion is { Length: > 0 }
+            ? $"Samandarin {current} is already up to date.{Environment.NewLine}Latest release: {latestVersion}."
+            : $"Samandarin {current} is already up to date.{Environment.NewLine}No newer release is currently available.";
         return ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Information));
     }
 
