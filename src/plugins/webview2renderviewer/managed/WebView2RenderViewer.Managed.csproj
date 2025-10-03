@@ -16,10 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" GeneratePathProperty="true" />
     <PackageReference Include="Markdig" Version="0.36.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Text.Encoding.CodePages" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.7.1" />
   </ItemGroup>
 
   <ItemGroup>
