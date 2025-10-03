@@ -119,12 +119,20 @@
 // priklady ("x86" je pro 32-bit verzi, "x64" pro 64-bit verzi, v nasledujicich prikladech jsou
 // x86/x64 zamenne): " (x86)" (pro release verze), " beta 2 (x64)", " beta 2 (SDK x86)",
 // " RC1 (x64)", " beta 2 (IB21 x86)", " beta 2 (DB21 x64)", " beta 2 (PB21 x86)"
-#define VERSINFO_BETAVERSION_TXT VERSINFO_SAMANDARIN_SUFFIX " (" SAL_VER_PLATFORM ")"
-#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM VERSINFO_SAMANDARIN_SUFFIX // kopie radku vyse + smazat SAL_VER_PLATFORM + je-li zavorka prazdna, smazat ji + smazat nadbytecne mezery
+#ifdef INSIDE_SALAMANDER
+#define VERSINFO_BUILD_SUFFIX VERSINFO_SAMANDARIN_SUFFIX
+#define VERSINFO_BUILD_SHORT_SUFFIX VERSINFO_SAMANDARIN_SHORT
+#else
+#define VERSINFO_BUILD_SUFFIX ""
+#define VERSINFO_BUILD_SHORT_SUFFIX ""
+#endif
+
+#define VERSINFO_BETAVERSION_TXT VERSINFO_BUILD_SUFFIX " (" SAL_VER_PLATFORM ")"
+#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM VERSINFO_BUILD_SUFFIX // kopie radku vyse + smazat SAL_VER_PLATFORM + je-li zavorka prazdna, smazat ji + smazat nadbytecne mezery
 
 // priklady (x86/x64 viz predchozi odstavec): "x86" (pro release verze), "B2x64", "B2SDKx86",
 // "RC1x64", "B2IB21x86", "B2DB21x64", "B2PB21x86"
-#define VERSINFO_BETAVERSIONSHORT_TXT VERSINFO_SAMANDARIN_SHORT SAL_VER_PLATFORM
+#define VERSINFO_BETAVERSIONSHORT_TXT VERSINFO_BUILD_SHORT_SUFFIX SAL_VER_PLATFORM
 
 // LAST_VERSION_OF_SALAMANDER:
 //
