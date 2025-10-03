@@ -19,4 +19,4 @@
 #include "versinfo.rh2"
 #include "versinfo.rc2"
 
-IDI_WEBVIEW2RENDERVIEWER ICON "..\\..\\..\\src\\res\\viewer.ico"
+IDI_WEBVIEW2RENDERVIEWER ICON "msedge.ico"
