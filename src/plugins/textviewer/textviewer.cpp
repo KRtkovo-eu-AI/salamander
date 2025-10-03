@@ -38,7 +38,7 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
 // maximum file size (in bytes) allowed for the managed viewer
-static const ULONGLONG kMaxTextFileSize = 4ULL * 1024ULL * 1024ULL; // 4 MB
+static const ULONGLONG kMaxTextFileSize = 16ULL * 1024ULL * 1024ULL; // 16 MB
 
 // definice promenne pro "spl_com.h"
 int SalamanderVersion = 0;
