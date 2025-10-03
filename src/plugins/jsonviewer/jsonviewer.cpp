@@ -170,7 +170,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    salamander->AddViewer("*.json", FALSE);
+    salamander->AddViewer("*.json;*.pc;*.jbeam", FALSE);
 
     if (SalamanderGUI != NULL)
     {
