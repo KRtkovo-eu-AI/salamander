@@ -6,7 +6,7 @@
 using System;
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using System.Runtime.InteropServices; // Required for DllImport/MarshalAs attributes used below
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
