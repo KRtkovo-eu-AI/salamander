@@ -118,7 +118,7 @@ public static class EntryPoint
                     }
                 }
 
-                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                TryRegisterCodePageProvider();
             }
             catch (IOException)
             {
@@ -131,6 +131,42 @@ public static class EntryPoint
             }
 
             s_resolutionInitialized = true;
+        }
+    }
+
+    private static void TryRegisterCodePageProvider()
+    {
+        try
+        {
+            const string providerTypeName = "System.Text.CodePagesEncodingProvider, System.Text.Encoding.CodePages";
+            var providerType = Type.GetType(providerTypeName, throwOnError: false);
+            if (providerType == null)
+            {
+                return;
+            }
+
+            var instanceProperty = providerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            if (instanceProperty == null)
+            {
+                return;
+            }
+
+            if (instanceProperty.GetValue(null) is EncodingProvider provider)
+            {
+                Encoding.RegisterProvider(provider);
+            }
+        }
+        catch (MissingMemberException)
+        {
+        }
+        catch (TypeLoadException)
+        {
+        }
+        catch (TargetInvocationException)
+        {
+        }
+        catch (NotSupportedException)
+        {
         }
     }
 

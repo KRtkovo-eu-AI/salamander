@@ -35,6 +35,14 @@ if not exist "%MANAGED_DIR%%WEBVIEW2_LOADER%" (
 if not exist "%MANAGED_DIR%%WEBVIEW2_LOADER%" (
   if exist "%MANAGED_DIR%x86\WebView2Loader.dll" set "WEBVIEW2_LOADER=x86\WebView2Loader.dll"
 )
+if not exist "%MANAGED_DIR%%WEBVIEW2_LOADER%" (
+  set "RUNTIME_ARCH=%PLATFORM%"
+  if /I "%RUNTIME_ARCH%"=="Win32" set "RUNTIME_ARCH=x86"
+  if /I "%RUNTIME_ARCH%"=="AnyCPU" set "RUNTIME_ARCH=x86"
+  if /I "%RUNTIME_ARCH%"=="x86" set "RUNTIME_ARCH=x86"
+  if /I "%RUNTIME_ARCH%"=="x64" set "RUNTIME_ARCH=x64"
+  if exist "%MANAGED_DIR%runtimes\win-%RUNTIME_ARCH%\native\WebView2Loader.dll" set "WEBVIEW2_LOADER=runtimes\win-%RUNTIME_ARCH%\native\WebView2Loader.dll"
+)
 call :require "%MANAGED_DIR%%WEBVIEW2_LOADER%" "WebView2Loader.dll was not found in %MANAGED_DIR% or its architecture subdirectories."
 
 copy /Y "%MANAGED_DIR%WebView2RenderViewer.Managed.dll" "%TARGET_DIR%WebView2RenderViewer.Managed.dll" >nul
