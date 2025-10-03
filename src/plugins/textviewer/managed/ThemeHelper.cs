@@ -353,11 +353,13 @@ internal static class ThemeHelper
             return "''";
         }
 
-        return "'" + value
-            .Replace("\\", "\\\\", StringComparison.Ordinal)
-            .Replace("'", "\\'", StringComparison.Ordinal)
-            .Replace("\r", "\\r", StringComparison.Ordinal)
-            .Replace("\n", "\\n", StringComparison.Ordinal) + "'";
+        string escaped = value
+            .Replace("\\", "\\\\")
+            .Replace("'", "\\'")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
+
+        return "'" + escaped + "'";
     }
 
     private static int ComputeLuminance(Color color)
