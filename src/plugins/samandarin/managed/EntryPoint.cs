@@ -218,6 +218,7 @@ internal static class UpdateCoordinator
 
             bool notify = false;
             bool showCurrentMessage = false;
+            string? latestVersionForMessage = null;
 
             lock (SyncRoot)
             {
@@ -235,6 +236,16 @@ internal static class UpdateCoordinator
                     else if (comparison <= 0 && showIfCurrent)
                     {
                         showCurrentMessage = true;
+                        latestVersionForMessage = latestVersion;
+                    }
+                }
+                else if (showIfCurrent && string.IsNullOrEmpty(errorMessage))
+                {
+                    var storedVersion = Settings.LastKnownRemoteVersion;
+                    if (!string.IsNullOrWhiteSpace(storedVersion) && VersionComparer.Compare(storedVersion, CurrentVersion) <= 0)
+                    {
+                        showCurrentMessage = true;
+                        latestVersionForMessage = storedVersion;
                     }
                 }
 
@@ -250,12 +261,17 @@ internal static class UpdateCoordinator
                 }
                 else if (showCurrentMessage)
                 {
-                    await ShowUpToDateAsync(parent, latestVersionValue).ConfigureAwait(false);
+                    var versionToShow = latestVersionForMessage ?? latestVersionValue;
+                    await ShowUpToDateAsync(parent, versionToShow).ConfigureAwait(false);
                 }
             }
             else if (errorMessage is not null && userInitiated)
             {
                 await ShowErrorAsync(parent, errorMessage).ConfigureAwait(false);
+            }
+            else if (showCurrentMessage && userInitiated)
+            {
+                await ShowUpToDateAsync(parent, latestVersionForMessage).ConfigureAwait(false);
             }
         }
         finally
@@ -527,12 +543,12 @@ internal static class UpdateCoordinator
         }
     }
 
-    private static Task ShowUpToDateAsync(IntPtr parent, string latestVersion)
+    private static Task ShowUpToDateAsync(IntPtr parent, string? latestVersion)
     {
         string current = GetCurrentVersion();
-        string message = string.IsNullOrWhiteSpace(latestVersion)
-            ? $"Samandarin {current} is the latest version available."
-            : $"Samandarin {current} is the latest version available.{Environment.NewLine}Latest release: {latestVersion}.";
+        string message = latestVersion is { Length: > 0 }
+            ? $"Samandarin {current} is already up to date.{Environment.NewLine}Latest release: {latestVersion}."
+            : $"Samandarin {current} is already up to date.{Environment.NewLine}No newer release is currently available.";
         return ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Information));
     }
 
