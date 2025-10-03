@@ -242,15 +242,15 @@ internal static class UpdateCoordinator
                 ScheduleTimer_NoLock();
             }
 
-            if (!string.IsNullOrEmpty(latestVersion))
+            if (latestVersion is string latestVersionValue && latestVersionValue.Length > 0)
             {
                 if (notify)
                 {
-                    await ShowUpdateAvailableAsync(parent, latestVersion).ConfigureAwait(false);
+                    await ShowUpdateAvailableAsync(parent, latestVersionValue).ConfigureAwait(false);
                 }
-                else if (showIfCurrent)
+                else if (showCurrentMessage)
                 {
-                    await ShowUpToDateAsync(parent, latestVersion).ConfigureAwait(false);
+                    await ShowUpToDateAsync(parent, latestVersionValue).ConfigureAwait(false);
                 }
             }
             else if (errorMessage is not null && userInitiated)
