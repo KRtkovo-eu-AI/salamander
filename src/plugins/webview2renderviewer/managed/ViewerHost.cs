@@ -498,8 +498,6 @@ internal static class ViewerHost
         private DocumentView? _currentView;
         private Uri? _pendingNavigationUri;
         private string? _pendingHtmlContent;
-        private bool _pendingShow;
-        private int _pendingShowCommand = NativeMethods.SW_RESTORE;
 
         public RenderViewerForm()
         {
@@ -539,7 +537,7 @@ internal static class ViewerHost
             Text = BuildCaption(session.Payload.Caption);
 
             int showCommand = GetShowCommand(session.Payload);
-            PrepareForShow(showCommand);
+            PrepareForShow();
 
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
@@ -558,7 +556,6 @@ internal static class ViewerHost
             }
             catch (Exception ex)
             {
-                _pendingShow = false;
                 _session = null;
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
@@ -568,6 +565,8 @@ internal static class ViewerHost
                     MessageBoxIcon.Error);
                 return false;
             }
+
+            ShowWindow(showCommand);
 
             return true;
         }
@@ -701,13 +700,10 @@ internal static class ViewerHost
                 ThemeHelper.ApplyTheme(browser);
                 RevealBrowser();
             }
-
-            CompletePendingShow();
         }
 
         private void HandleBrowserInitializationFailure(Exception exception)
         {
-            _pendingShow = false;
             _session?.MarkStartupFailed();
             MessageBox.Show(this,
                 $"Unable to initialize the embedded browser.\n{exception.Message}",
@@ -805,17 +801,12 @@ internal static class ViewerHost
             }
         }
 
-        private void PrepareForShow(int showCommand)
+        private void PrepareForShow()
         {
-            _pendingShowCommand = showCommand;
-            _pendingShow = true;
-
             if (!IsHandleCreated)
             {
                 CreateControl();
             }
-
-            HideBrowser();
 
             if (Visible)
             {
@@ -841,21 +832,15 @@ internal static class ViewerHost
             }
         }
 
-        private void CompletePendingShow()
+        private void ShowWindow(int showCommand)
         {
-            if (!_pendingShow || IsDisposed || _session is null)
+            if (IsDisposed)
             {
                 return;
             }
 
-            _pendingShow = false;
-
             EnsureTaskbarVisibility();
-            RevealBrowser();
             ShowInTaskbar = true;
-
-            int showCommand = _pendingShowCommand;
-            _pendingShowCommand = NativeMethods.SW_RESTORE;
 
             if (!IsHandleCreated)
             {
@@ -1054,7 +1039,6 @@ internal static class ViewerHost
                 return;
             }
 
-            _pendingShow = false;
             HideBrowser();
             ShowInTaskbar = false;
 
