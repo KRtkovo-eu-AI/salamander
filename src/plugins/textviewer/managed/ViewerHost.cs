@@ -625,6 +625,7 @@ internal static class ViewerHost
                 core.Settings.AreDefaultContextMenusEnabled = true;
                 core.Settings.AreDefaultScriptDialogsEnabled = true;
                 core.Settings.AreDevToolsEnabled = true;
+                core.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
             }
 
             ThemeHelper.ApplyTheme(browser);
@@ -642,6 +643,35 @@ internal static class ViewerHost
             {
                 ThemeHelper.ApplyTheme(browser);
             }
+        }
+
+        private void OnBrowserAcceleratorKeyPressed(object? sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
+        {
+            if (e is null)
+            {
+                return;
+            }
+
+            if (e.KeyEventKind != CoreWebView2KeyEventKind.KeyDown &&
+                e.KeyEventKind != CoreWebView2KeyEventKind.SystemKeyDown)
+            {
+                return;
+            }
+
+            if (e.VirtualKey != (int)Keys.Escape)
+            {
+                return;
+            }
+
+            e.Handled = true;
+
+            BeginInvoke(new MethodInvoker(() =>
+            {
+                if (!IsDisposed)
+                {
+                    Close();
+                }
+            }));
         }
 
         private void HandleBrowserInitializationFailure(Exception exception)
@@ -676,6 +706,11 @@ internal static class ViewerHost
             if (!_allowClose)
             {
                 _allowClose = true;
+            }
+
+            if (_browser?.CoreWebView2 is CoreWebView2 core)
+            {
+                core.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
             }
 
             _session?.SignalClosed();
