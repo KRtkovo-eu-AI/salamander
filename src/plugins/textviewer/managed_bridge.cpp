@@ -3,7 +3,6 @@
 
 #include "precomp.h"
 #include "managed_bridge.h"
-#include "cfgdlg.h"
 
 #include <metahost.h>
 #include <mscoree.h>
