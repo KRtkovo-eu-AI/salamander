@@ -530,6 +530,10 @@ internal static class ViewerHost
             ClientSize = new Size(800, 600);
             Icon = ViewerResources.ViewerIcon;
 
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw, true);
+            UpdateStyles();
+
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;
@@ -577,7 +581,19 @@ internal static class ViewerHost
             }
 
             ShowInTaskbar = true;
-            Show();
+
+            int showCommand = GetShowCommand(session.Payload);
+
+            if (!IsHandleCreated)
+            {
+                Show();
+                NativeMethods.ShowWindow(Handle, showCommand);
+            }
+            else
+            {
+                NativeMethods.ShowWindow(Handle, showCommand);
+            }
+
             Activate();
             NativeMethods.SetForegroundWindow(Handle);
             return true;
@@ -976,14 +992,26 @@ internal static class ViewerHost
 
             ShowInTaskbar = false;
 
+            if (!Visible)
+            {
+                CompleteSession();
+                return;
+            }
+
             var session = _session;
             if (session is null)
             {
+                NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
                 Hide();
                 return;
             }
 
             var owner = session.Parent;
+
+            if (IsHandleCreated)
+            {
+                NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
+            }
 
             Hide();
             CompleteSession();
@@ -992,6 +1020,21 @@ internal static class ViewerHost
             {
                 NativeMethods.SetForegroundWindow(owner);
             }
+        }
+
+        private static int GetShowCommand(ViewCommandPayload payload)
+        {
+            if (payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
+            {
+                return NativeMethods.SW_SHOWMAXIMIZED;
+            }
+
+            if (payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
+            {
+                return NativeMethods.SW_SHOWMINIMIZED;
+            }
+
+            return NativeMethods.SW_RESTORE;
         }
     }
 

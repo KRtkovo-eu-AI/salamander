@@ -42,6 +42,7 @@ copy /Y "%MANAGED_DIR%Markdig.dll" "%TARGET_DIR%Markdig.dll" >nul
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.WinForms.dll" "%TARGET_DIR%Microsoft.Web.WebView2.WinForms.dll" >nul
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.Core.dll" "%TARGET_DIR%Microsoft.Web.WebView2.Core.dll" >nul
 copy /Y "%MANAGED_DIR%%WEBVIEW2_LOADER%" "%TARGET_DIR%WebView2Loader.dll" >nul
+if exist "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" copy /Y "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" "%TARGET_DIR%System.Text.Encoding.CodePages.dll" >nul
 
 endlocal
 exit /B 0

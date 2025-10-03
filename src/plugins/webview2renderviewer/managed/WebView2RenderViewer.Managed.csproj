@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="System.Text.Encoding.CodePages" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="..\\..\\..\\..\\src\\res\\viewer.ico" Link="Resources\\viewer.ico" />
   </ItemGroup>
 
@@ -43,9 +47,23 @@
           Condition="@(_WebView2Assemblies) != ''" />
 
     <ItemGroup>
+      <_MarkdownAssemblies Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'Markdig'" />
+      <_EncodingAssemblies Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'System.Text.Encoding.CodePages'" />
       <_WebView2Loader Include="$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll"
                        Condition="'$(PkgMicrosoft_Web_WebView2)' != '' and Exists('$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll')" />
     </ItemGroup>
+    <Copy SourceFiles="@(_MarkdownAssemblies)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_MarkdownAssemblies) != ''" />
+
+    <Copy SourceFiles="@(_EncodingAssemblies)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_EncodingAssemblies) != ''" />
+
     <Copy SourceFiles="@(_WebView2Loader)"
           DestinationFolder="$(OutputPath)"
           SkipUnchangedFiles="true"
