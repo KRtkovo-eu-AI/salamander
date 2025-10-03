@@ -26,6 +26,7 @@ internal static class ViewerHost
     private static readonly HashSet<ViewerSession> s_activeSessions = new();
     private static readonly ManualResetEventSlim s_sessionsDrained = new(true);
     private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(5);
+    private const string EscapeScript = "(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();";
 
     public static int Launch(IntPtr parent, string payload, bool asynchronous)
     {
@@ -487,6 +488,7 @@ internal static class ViewerHost
 
         private ViewerSession? _session;
         private WebView2? _browser;
+        private CoreWebView2? _browserCore;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
@@ -571,7 +573,15 @@ internal static class ViewerHost
         {
             if (keyData == Keys.Escape)
             {
-                Close();
+                if (_allowClose)
+                {
+                    Close();
+                }
+                else
+                {
+                    HideForReuse();
+                }
+
                 return true;
             }
 
@@ -642,6 +652,15 @@ internal static class ViewerHost
                 core.Settings.AreDefaultContextMenusEnabled = true;
                 core.Settings.AreDefaultScriptDialogsEnabled = true;
                 core.Settings.AreDevToolsEnabled = true;
+
+                if (_browserCore is not null)
+                {
+                    _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
+                }
+
+                _browserCore = core;
+                _browserCore.WebMessageReceived += OnBrowserWebMessageReceived;
+                _ = _browserCore.AddScriptToExecuteOnDocumentCreatedAsync(EscapeScript);
             }
 
             ThemeHelper.ApplyTheme(browser);
@@ -699,17 +718,14 @@ internal static class ViewerHost
             if (!_allowClose)
             {
                 e.Cancel = true;
-                var owner = _session?.Parent ?? IntPtr.Zero;
-                ShowInTaskbar = false;
-                Hide();
-                CompleteSession();
-
-                if (owner != IntPtr.Zero)
-                {
-                    NativeMethods.SetForegroundWindow(owner);
-                }
-
+                BeginInvoke(new MethodInvoker(HideForReuse));
                 return;
+            }
+
+            if (_browserCore is not null)
+            {
+                _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
+                _browserCore = null;
             }
 
             CompleteSession();
@@ -916,6 +932,60 @@ internal static class ViewerHost
             _session = null;
             session.SignalClosed();
             session.Complete();
+        }
+
+        private void OnBrowserWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            if (e is null)
+            {
+                return;
+            }
+
+            if (!string.Equals(e.TryGetWebMessageAsString(), "escape", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            BeginInvoke(new MethodInvoker(HideForReuse));
+        }
+
+        private void HideForReuse()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(HideForReuse));
+                return;
+            }
+
+            if (_allowClose)
+            {
+                Close();
+                return;
+            }
+
+            ShowInTaskbar = false;
+
+            var session = _session;
+            if (session is null)
+            {
+                Hide();
+                return;
+            }
+
+            var owner = session.Parent;
+
+            Hide();
+            CompleteSession();
+
+            if (owner != IntPtr.Zero)
+            {
+                NativeMethods.SetForegroundWindow(owner);
+            }
         }
     }
 
@@ -1169,6 +1239,7 @@ internal static class ViewerHost
             builder.Append("<title>")
                 .Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "WebView2 Render Viewer .NET" : caption))
                 .Append("</title>");
+            builder.Append("<script>").Append(EscapeScript).Append("</script>");
             builder.Append("<style>");
             AppendStyles(builder, palette);
             builder.Append("</style>");

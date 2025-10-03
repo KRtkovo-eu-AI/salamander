@@ -592,7 +592,15 @@ internal static class ViewerHost
         {
             if (keyData == Keys.Escape)
             {
-                Close();
+                if (_allowClose)
+                {
+                    Close();
+                }
+                else
+                {
+                    HideForReuse();
+                }
+
                 return true;
             }
 
@@ -714,7 +722,7 @@ internal static class ViewerHost
             {
                 if (!IsDisposed)
                 {
-                    Close();
+                    HideForReuse();
                 }
             }));
         }
@@ -751,16 +759,7 @@ internal static class ViewerHost
             if (!_allowClose)
             {
                 e.Cancel = true;
-                var owner = _session?.Parent ?? IntPtr.Zero;
-                ShowInTaskbar = false;
-                Hide();
-                CompleteSession();
-
-                if (owner != IntPtr.Zero)
-                {
-                    NativeMethods.SetForegroundWindow(owner);
-                }
-
+                BeginInvoke(new MethodInvoker(HideForReuse));
                 return;
             }
 
@@ -957,6 +956,45 @@ internal static class ViewerHost
             _session = null;
             session.SignalClosed();
             session.Complete();
+        }
+
+        private void HideForReuse()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(HideForReuse));
+                return;
+            }
+
+            if (_allowClose)
+            {
+                Close();
+                return;
+            }
+
+            ShowInTaskbar = false;
+
+            var session = _session;
+            if (session is null)
+            {
+                Hide();
+                return;
+            }
+
+            var owner = session.Parent;
+
+            Hide();
+            CompleteSession();
+
+            if (owner != IntPtr.Zero)
+            {
+                NativeMethods.SetForegroundWindow(owner);
+            }
         }
     }
 
