@@ -192,6 +192,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         "xml",
         "html",
         "htm",
+        "php",
         "md",
         "markdown",
         "csv",
