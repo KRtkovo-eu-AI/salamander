@@ -170,7 +170,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    salamander->AddViewer("*.json", FALSE);
+    salamander->AddViewer("*.json;*.pc;*.jbeam", FALSE);
 
     if (SalamanderGUI != NULL)
     {
@@ -267,7 +267,8 @@ BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)
     if (extension == NULL)
         return FALSE;
 
-    if (_stricmp(extension, ".json") == 0)
+    if (_stricmp(extension, ".json") == 0 || _stricmp(extension, ".pc") == 0 ||
+        _stricmp(extension, ".jbeam") == 0)
         return TRUE;
 
     return FALSE;

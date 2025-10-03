@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>WebView2RenderViewer.Managed</AssemblyName>
+    <RootNamespace>OpenSalamander.WebView2RenderViewer</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <ProjectGuid>{025C488C-8A97-446A-B36B-872E59BD566D}</ProjectGuid>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" GeneratePathProperty="true" />
+    <PackageReference Include="Markdig" Version="0.36.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Text.Encoding.CodePages" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\\msedge.ico" Link="Resources\\msedge.ico" />
+  </ItemGroup>
+
+  <Target Name="EnsureRestoreBeforeBuild"
+          BeforeTargets="CollectPackageReferences;CollectPackageReferencesDesignTime;ResolveReferences;PrepareForBuild"
+          Condition="'$(RestoreDuringBuild)' != 'true' and '$(ProjectAssetsFile)' != '' and !Exists('$(ProjectAssetsFile)')">
+    <Message Text="Running implicit restore for $(MSBuildProjectName) (missing $(ProjectAssetsFile))."
+             Importance="High" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore"
+             Properties="RestoreDuringBuild=true" />
+  </Target>
+
+  <Target Name="CopyWebView2Dependencies" AfterTargets="Build">
+    <ItemGroup>
+      <_WebView2Assemblies Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'Microsoft.Web.WebView2.Core' or '%(FileName)' == 'Microsoft.Web.WebView2.WinForms'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WebView2Assemblies)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_WebView2Assemblies) != ''" />
+
+    <ItemGroup>
+      <_MarkdownAssemblies Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'Markdig'" />
+      <_EncodingAssemblies Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'System.Text.Encoding.CodePages'" />
+      <_WebView2Loader Include="$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll"
+                       Condition="'$(PkgMicrosoft_Web_WebView2)' != '' and Exists('$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_MarkdownAssemblies)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_MarkdownAssemblies) != ''" />
+
+    <Copy SourceFiles="@(_EncodingAssemblies)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_EncodingAssemblies) != ''" />
+
+    <Copy SourceFiles="@(_WebView2Loader)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_WebView2Loader) != ''" />
+  </Target>
+</Project>

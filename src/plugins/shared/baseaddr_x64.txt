@@ -111,4 +111,6 @@ textviewer      0x000001002a100000
 lang_textviewer 0x000001003a100000
 samandarin      0x000001002a200000
 lang_samandarin 0x000001003a200000
+webview2renderviewer 0x000001002a200000
+lang_webview2renderviewer 0x000001003a200000
 

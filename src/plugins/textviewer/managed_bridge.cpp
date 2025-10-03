@@ -4,6 +4,8 @@
 #include "precomp.h"
 #include "managed_bridge.h"
 
+#include "../../darkmode.h"
+
 #include <metahost.h>
 #include <mscoree.h>
 #include <strsafe.h>
@@ -203,7 +205,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
     {
         wchar_t message[256];
         StringCchPrintfW(message, _countof(message), L"Failed to execute managed command '%s' (0x%08X).", command, hr);
-        MessageBoxW(parent, message, L"Text Viewer .NET Plugin", MB_ICONERROR | MB_OK);
+        MessageBoxW(parent, message, L"PrismSharp Text Viewer .NET Plugin", MB_ICONERROR | MB_OK);
         return false;
     }
 
@@ -212,7 +214,7 @@ bool ExecuteCommand(const wchar_t* command, HWND parent, const wchar_t* payload)
 
 void ShowLoadError(HWND parent, const wchar_t* text)
 {
-    MessageBoxW(parent, text, L"Text Viewer .NET Plugin", MB_ICONERROR | MB_OK);
+    MessageBoxW(parent, text, L"PrismSharp Text Viewer .NET Plugin", MB_ICONERROR | MB_OK);
 }
 
 } // namespace
@@ -359,4 +361,18 @@ extern "C" __declspec(dllexport) UINT32 __stdcall TextViewer_GetCurrentColor(int
     }
 
     return SalamanderGeneral->GetCurrentColor(color);
+}
+
+extern "C" __declspec(dllexport) void __stdcall TextViewer_SetDarkModeState(BOOL enabled)
+{
+    DarkModeSetEnabled(enabled != FALSE);
+    if (enabled)
+    {
+        DarkModeFixScrollbars();
+    }
+}
+
+extern "C" __declspec(dllexport) void __stdcall TextViewer_ApplyDarkModeTree(HWND hwnd)
+{
+    DarkModeApplyTree(hwnd);
 }

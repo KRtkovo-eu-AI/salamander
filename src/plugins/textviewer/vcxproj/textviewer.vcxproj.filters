@@ -30,6 +30,9 @@
     <ClCompile Include="..\..\shared\mhandles.cpp">
       <Filter>shared</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\textviewer.h">

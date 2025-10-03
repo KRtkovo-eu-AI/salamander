@@ -41,14 +41,14 @@ public static class EntryPoint
             {
                 MessageBox.Show(new WindowHandleWrapper(parent),
                     $"Unexpected managed exception:\n{ex.Message}",
-                    "Text Viewer .NET Plugin",
+                    "PrismSharp Text Viewer .NET Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
             else
             {
                 MessageBox.Show($"Unexpected managed exception:\n{ex.Message}",
-                    "Text Viewer .NET Plugin",
+                    "PrismSharp Text Viewer .NET Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }

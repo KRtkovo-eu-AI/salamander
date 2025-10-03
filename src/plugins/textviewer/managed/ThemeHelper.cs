@@ -5,20 +5,23 @@
 
 using System;
 using System.Drawing;
-using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices; // Required for DllImport/MarshalAs attributes used below
 using System.Windows.Forms;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace OpenSalamander.TextViewer;
 
 internal static class ThemeHelper
 {
+    private static readonly ConditionalWeakTable<WebView2, WebView2ThemeState> s_webViewThemeStates = new();
+
     private const int SALCOL_ITEM_FG_NORMAL = 6;
     private const int SALCOL_ITEM_FG_SELECTED = 7;
     private const int SALCOL_ITEM_BK_NORMAL = 11;
     private const int SALCOL_ITEM_BK_SELECTED = 12;
     private const int SALCOL_HOT_PANEL = 23;
-
-    private static ThemePalette? s_cachedPalette;
 
     public static bool TryGetPalette(out ThemePalette palette)
     {
@@ -37,50 +40,39 @@ internal static class ThemeHelper
     {
         if (!TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(false);
             return;
         }
 
+        NativeMethods.SetDarkModeEnabled(palette.IsDark);
         ApplyPalette(form, palette);
 
-        form.ControlAdded += (_, e) =>
-        {
-            if (TryGetPalette(out var refreshed))
-            {
-                ApplyPalette(e.Control, refreshed);
-            }
-        };
+        form.ControlAdded -= FormOnControlAddedApplyPalette;
+        form.ControlAdded += FormOnControlAddedApplyPalette;
 
         if (form.IsHandleCreated)
         {
-            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark);
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark, palette.ControlBorder);
         }
 
-        form.HandleCreated += (_, _) =>
-        {
-            if (TryGetPalette(out var refreshed))
-            {
-                NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.IsDark);
-            }
-        };
+        form.HandleCreated -= OnFormHandleCreatedApplyDarkMode;
+        form.HandleCreated += OnFormHandleCreatedApplyDarkMode;
     }
 
     public static void ApplyTheme(Control control)
     {
         if (!TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(false);
             return;
         }
 
+        NativeMethods.SetDarkModeEnabled(palette.IsDark);
         ApplyPalette(control, palette);
     }
 
     private static ThemePalette? GetPalette()
     {
-        if (s_cachedPalette.HasValue)
-        {
-            return s_cachedPalette.Value;
-        }
-
         try
         {
             uint background = NativeMethods.GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
@@ -91,7 +83,7 @@ internal static class ThemeHelper
 
             if (background == 0 && foreground == 0)
             {
-                return s_cachedPalette = new ThemePalette(SystemColors.Control,
+                return new ThemePalette(SystemColors.Control,
                     SystemColors.ControlText,
                     SystemColors.Highlight,
                     SystemColors.HighlightText,
@@ -105,7 +97,6 @@ internal static class ThemeHelper
                 highlightForeground != 0 ? ColorTranslator.FromWin32(unchecked((int)highlightForeground)) : SystemColors.HighlightText,
                 accent != 0 ? ColorTranslator.FromWin32(unchecked((int)accent)) : SystemColors.HotTrack);
 
-            s_cachedPalette = palette;
             return palette;
         }
         catch (DllNotFoundException)
@@ -115,7 +106,30 @@ internal static class ThemeHelper
         {
         }
 
-        return s_cachedPalette = null;
+        return null;
+    }
+
+    private static void FormOnControlAddedApplyPalette(object? sender, ControlEventArgs e)
+    {
+        if (TryGetPalette(out var palette))
+        {
+            NativeMethods.SetDarkModeEnabled(palette.IsDark);
+            ApplyPalette(e.Control, palette);
+        }
+    }
+
+    private static void OnFormHandleCreatedApplyDarkMode(object? sender, EventArgs e)
+    {
+        if (sender is not Form form)
+        {
+            return;
+        }
+
+        var palette = GetPalette();
+        if (palette.HasValue)
+        {
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
+        }
     }
 
     private static void ApplyPalette(Form form, ThemePalette palette)
@@ -167,6 +181,10 @@ internal static class ThemeHelper
                 break;
             case ToolStrip toolStrip:
                 ThemeRenderer.Attach(toolStrip, palette);
+                break;
+            case WebView2 webView:
+                NativeMethods.SetDarkModeEnabled(palette.IsDark);
+                ApplyWebView2Theme(webView, palette);
                 break;
         }
 
@@ -220,6 +238,130 @@ internal static class ThemeHelper
         }
     }
 
+    private static void ApplyWebView2Theme(WebView2 webView, ThemePalette palette)
+    {
+        webView.BackColor = palette.Background;
+        webView.ForeColor = palette.Foreground;
+
+        var state = s_webViewThemeStates.GetValue(webView, static _ => new WebView2ThemeState());
+        state.Attach(webView);
+        state.Apply(webView, palette);
+    }
+
+    private sealed class WebView2ThemeState
+    {
+        private readonly EventHandler<CoreWebView2InitializationCompletedEventArgs> _initializationCompletedHandler;
+        private readonly EventHandler<CoreWebView2NavigationCompletedEventArgs> _navigationCompletedHandler;
+        private readonly EventHandler _disposedHandler;
+        private ThemePalette? _palette;
+        private bool _attached;
+
+        public WebView2ThemeState()
+        {
+            _initializationCompletedHandler = OnInitializationCompleted;
+            _navigationCompletedHandler = OnNavigationCompleted;
+            _disposedHandler = OnDisposed;
+        }
+
+        public void Attach(WebView2 webView)
+        {
+            if (_attached)
+            {
+                return;
+            }
+
+            webView.CoreWebView2InitializationCompleted += _initializationCompletedHandler;
+            webView.NavigationCompleted += _navigationCompletedHandler;
+            webView.Disposed += _disposedHandler;
+            _attached = true;
+        }
+
+        public void Apply(WebView2 webView, ThemePalette palette)
+        {
+            _palette = palette;
+            UpdateTheme(webView, palette);
+        }
+
+        private void OnInitializationCompleted(object? sender, CoreWebView2InitializationCompletedEventArgs e)
+        {
+            if (sender is not WebView2 webView || !e.IsSuccess)
+            {
+                return;
+            }
+
+            if (_palette.HasValue)
+            {
+                UpdateTheme(webView, _palette.Value);
+            }
+        }
+
+        private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (sender is not WebView2 webView || !_palette.HasValue)
+            {
+                return;
+            }
+
+            if (webView.CoreWebView2 is CoreWebView2 core)
+            {
+                ApplyDocumentTheme(core, _palette.Value);
+            }
+        }
+
+        private void OnDisposed(object? sender, EventArgs e)
+        {
+            if (sender is not WebView2 webView)
+            {
+                return;
+            }
+
+            webView.CoreWebView2InitializationCompleted -= _initializationCompletedHandler;
+            webView.NavigationCompleted -= _navigationCompletedHandler;
+            webView.Disposed -= _disposedHandler;
+            s_webViewThemeStates.Remove(webView);
+        }
+
+        private void UpdateTheme(WebView2 webView, ThemePalette palette)
+        {
+            if (webView.IsHandleCreated)
+            {
+                NativeMethods.ApplyDarkModeTree(webView.Handle);
+            }
+
+            webView.DefaultBackgroundColor = palette.Background;
+
+            if (webView.CoreWebView2 is CoreWebView2 core)
+            {
+                ApplyDocumentTheme(core, palette);
+            }
+        }
+
+        private static void ApplyDocumentTheme(CoreWebView2 core, ThemePalette palette)
+        {
+            string scheme = palette.IsDark ? "dark" : "light";
+            string fallback = palette.IsDark ? "light" : "dark";
+            string content = scheme + " " + fallback;
+            string script = $"(function(){{try{{var doc=document.documentElement;if(doc){{doc.setAttribute('data-theme',{ToJavaScriptStringLiteral(scheme)});doc.style.colorScheme={ToJavaScriptStringLiteral(scheme)};}}var meta=document.querySelector('meta[name=\"color-scheme\"]');if(meta){{meta.setAttribute('content',{ToJavaScriptStringLiteral(content)});}}}}catch(e){{}}}})();";
+            _ = core.ExecuteScriptAsync(script);
+        }
+    }
+
+    private static string ToJavaScriptStringLiteral(string value)
+    {
+        if (value is null)
+        {
+            return "''";
+        }
+
+        string escaped = value
+            .Replace("\\", "\\\\")
+            .Replace("'", "\\'")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
+
+        return "'" + escaped + "'";
+    }
+
     private static int ComputeLuminance(Color color)
     {
         return (color.R * 30 + color.G * 59 + color.B * 11) / 100;
@@ -230,6 +372,14 @@ internal static class ThemeHelper
         int r = color.R + (int)((255 - color.R) * amount);
         int g = color.G + (int)((255 - color.G) * amount);
         int b = color.B + (int)((255 - color.B) * amount);
+        return Color.FromArgb(Clamp(r), Clamp(g), Clamp(b));
+    }
+
+    private static Color Darken(Color color, double amount)
+    {
+        int r = color.R - (int)(color.R * amount);
+        int g = color.G - (int)(color.G * amount);
+        int b = color.B - (int)(color.B * amount);
         return Color.FromArgb(Clamp(r), Clamp(g), Clamp(b));
     }
 
@@ -259,8 +409,8 @@ internal static class ThemeHelper
             Accent = accent;
 
             IsDark = ComputeLuminance(background) < 128;
-            ControlBackground = IsDark ? Lighten(background, 0.08) : SystemColors.Control;
-            ControlBorder = IsDark ? Lighten(background, 0.16) : SystemColors.ControlDark;
+            ControlBackground = IsDark ? Lighten(background, 0.08) : Darken(background, 0.06);
+            ControlBorder = IsDark ? Lighten(background, 0.16) : Darken(background, 0.16);
             InputBackground = IsDark ? Lighten(background, 0.12) : SystemColors.Window;
             InputForeground = IsDark ? foreground : SystemColors.WindowText;
         }
@@ -410,12 +560,33 @@ internal static class ThemeHelper
     {
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20 = 19;
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+        private const int DWMWA_BORDER_COLOR = 34;
 
         [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint TextViewer_GetCurrentColor(int color);
 
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void TextViewer_ApplyDarkModeTree(IntPtr hwnd);
+
+        [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void TextViewer_SetDarkModeState([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+        public static void SetDarkModeEnabled(bool enabled)
+        {
+            try
+            {
+                TextViewer_SetDarkModeState(enabled);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
 
         public static uint GetCurrentColor(int color)
         {
@@ -433,7 +604,7 @@ internal static class ThemeHelper
             }
         }
 
-        public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable)
+        public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable, Color borderColor)
         {
             if (handle == IntPtr.Zero)
             {
@@ -454,6 +625,31 @@ internal static class ThemeHelper
             else
             {
                 DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20, ref useDark, sizeof(int));
+            }
+
+            if (version.Build >= 22000)
+            {
+                int border = enable ? borderColor.ToArgb() : -1;
+                DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
+            }
+        }
+
+        public static void ApplyDarkModeTree(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                TextViewer_ApplyDarkModeTree(handle);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
             }
         }
     }

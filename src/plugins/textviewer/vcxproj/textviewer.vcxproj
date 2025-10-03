@@ -138,6 +138,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\textviewer.cpp">
     </ClCompile>
     <ClCompile Include="..\managed_bridge.cpp">
@@ -203,7 +205,10 @@
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(TextViewerPluginDir)" mkdir "$(TextViewerPluginDir)"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\$(Configuration)\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%TextViewer.Managed.dll" (&#x0D;&#x0A;  echo TextViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\$(Configuration)" or its net48 subfolder.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;if not exist "%MANAGED_DIR%ColorfulCode.dll" (&#x0D;&#x0A;  echo ColorfulCode.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;copy /Y "%MANAGED_DIR%TextViewer.Managed.dll" "$(TextViewerPluginDir)TextViewer.Managed.dll"&#x0D;&#x0A;copy /Y "%MANAGED_DIR%ColorfulCode.dll" "$(TextViewerPluginDir)ColorfulCode.dll"</Command>
+      <Command><![CDATA[
+call "$(ProjectDir)..\copy_managed_dependencies.cmd" "$(ProjectDir)..\" "$(Configuration)" "$(Platform)" "$(TextViewerPluginDir)"
+if errorlevel 1 exit /B 1
+]]></Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
