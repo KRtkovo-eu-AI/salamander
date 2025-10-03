@@ -151,7 +151,7 @@ internal static class UpdateCoordinator
         var handler = new HttpClientHandler
         {
             AllowAutoRedirect = true,
-            AutomaticDecompression = DecompressionMethods.All,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             UseProxy = true,
             Proxy = WebRequest.DefaultWebProxy,
         };
