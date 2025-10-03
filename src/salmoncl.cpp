@@ -35,7 +35,7 @@ HANDLE GetBugReporterRegistryMutex()
 
 BOOL SalmonGetBugReportUID(DWORD64* uid)
 {
-    const char* BUG_REPORTER_KEY = "Software\\Open Salamander\\Bug Reporter";
+    const char* BUG_REPORTER_KEY = "Software\\Open Salamander Samandarin\\Bug Reporter";
     const char* BUG_REPORTER_UID = "ID";
 
     // tato sekce se pousti pri startu Salamandera a teoreticky muze dojit k soucasnemu ctani/zapisu registry
