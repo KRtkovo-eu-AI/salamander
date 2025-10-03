@@ -64,6 +64,8 @@ copy /Y "%MANAGED_DIR%Newtonsoft.Json.dll" "%TARGET_DIR%Newtonsoft.Json.dll" >nu
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.WinForms.dll" "%TARGET_DIR%Microsoft.Web.WebView2.WinForms.dll" >nul
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.Core.dll" "%TARGET_DIR%Microsoft.Web.WebView2.Core.dll" >nul
 copy /Y "%MANAGED_DIR%%WEBVIEW2_LOADER%" "%TARGET_DIR%WebView2Loader.dll" >nul
+if exist "%PLUGIN_ROOT%DEPENDENCIES.md" copy /Y "%PLUGIN_ROOT%DEPENDENCIES.md" "%TARGET_DIR%DEPENDENCIES.md" >nul
+if exist "%PLUGIN_ROOT%SUPPORTED_FILE_TYPES.md" copy /Y "%PLUGIN_ROOT%SUPPORTED_FILE_TYPES.md" "%TARGET_DIR%SUPPORTED_FILE_TYPES.md" >nul
 
 endlocal
 exit /B 0

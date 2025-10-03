@@ -51,6 +51,8 @@ copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.WinForms.dll" "%TARGET_DIR%Microsof
 copy /Y "%MANAGED_DIR%Microsoft.Web.WebView2.Core.dll" "%TARGET_DIR%Microsoft.Web.WebView2.Core.dll" >nul
 copy /Y "%MANAGED_DIR%%WEBVIEW2_LOADER%" "%TARGET_DIR%WebView2Loader.dll" >nul
 if exist "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" copy /Y "%MANAGED_DIR%System.Text.Encoding.CodePages.dll" "%TARGET_DIR%System.Text.Encoding.CodePages.dll" >nul
+if exist "%PLUGIN_ROOT%DEPENDENCIES.md" copy /Y "%PLUGIN_ROOT%DEPENDENCIES.md" "%TARGET_DIR%DEPENDENCIES.md" >nul
+if exist "%PLUGIN_ROOT%SUPPORTED_FILE_TYPES.md" copy /Y "%PLUGIN_ROOT%SUPPORTED_FILE_TYPES.md" "%TARGET_DIR%SUPPORTED_FILE_TYPES.md" >nul
 
 rem Copy any additional assemblies (for example, System.Memory) that Markdig
 rem depends on so the runtime can load the Markdown renderer successfully.
