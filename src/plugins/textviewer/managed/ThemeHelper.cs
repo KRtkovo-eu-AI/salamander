@@ -7,7 +7,6 @@ using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using Microsoft.Win32;
 
 namespace OpenSalamander.TextViewer;
 
@@ -18,25 +17,6 @@ internal static class ThemeHelper
     private const int SALCOL_ITEM_BK_NORMAL = 11;
     private const int SALCOL_ITEM_BK_SELECTED = 12;
     private const int SALCOL_HOT_PANEL = 23;
-
-    private static ThemePalette? s_cachedPalette;
-
-    public static event EventHandler? PaletteChanged;
-
-    static ThemeHelper()
-    {
-        try
-        {
-            SystemEvents.UserPreferenceChanged += OnSystemEventsPaletteChanged;
-            SystemEvents.UserPreferenceChanging += OnSystemEventsPaletteChanged;
-        }
-        catch
-        {
-            // The SystemEvents class can throw if the underlying system event
-            // infrastructure is unavailable. In that case we simply skip the
-            // automatic palette invalidation and rely on explicit refreshes.
-        }
-    }
 
     public static bool TryGetPalette(out ThemePalette palette)
     {
@@ -82,18 +62,8 @@ internal static class ThemeHelper
         ApplyPalette(control, palette);
     }
 
-    public static void InvalidatePalette()
-    {
-        InvalidatePaletteInternal(raiseEvent: false);
-    }
-
     private static ThemePalette? GetPalette()
     {
-        if (s_cachedPalette.HasValue)
-        {
-            return s_cachedPalette.Value;
-        }
-
         try
         {
             uint background = NativeMethods.GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
@@ -104,7 +74,7 @@ internal static class ThemeHelper
 
             if (background == 0 && foreground == 0)
             {
-                return s_cachedPalette = new ThemePalette(SystemColors.Control,
+                return new ThemePalette(SystemColors.Control,
                     SystemColors.ControlText,
                     SystemColors.Highlight,
                     SystemColors.HighlightText,
@@ -118,7 +88,6 @@ internal static class ThemeHelper
                 highlightForeground != 0 ? ColorTranslator.FromWin32(unchecked((int)highlightForeground)) : SystemColors.HighlightText,
                 accent != 0 ? ColorTranslator.FromWin32(unchecked((int)accent)) : SystemColors.HotTrack);
 
-            s_cachedPalette = palette;
             return palette;
         }
         catch (DllNotFoundException)
@@ -128,12 +97,7 @@ internal static class ThemeHelper
         {
         }
 
-        return s_cachedPalette = null;
-    }
-
-    private static void OnSystemEventsPaletteChanged(object? sender, EventArgs e)
-    {
-        InvalidatePaletteInternal(raiseEvent: true);
+        return null;
     }
 
     private static void FormOnControlAddedApplyPalette(object? sender, ControlEventArgs e)
@@ -155,16 +119,6 @@ internal static class ThemeHelper
         if (palette.HasValue)
         {
             NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
-        }
-    }
-
-    private static void InvalidatePaletteInternal(bool raiseEvent)
-    {
-        s_cachedPalette = null;
-
-        if (raiseEvent)
-        {
-            PaletteChanged?.Invoke(null, EventArgs.Empty);
         }
     }
 

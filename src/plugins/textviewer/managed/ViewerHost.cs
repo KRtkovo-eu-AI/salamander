@@ -503,7 +503,6 @@ internal static class ViewerHost
             FormClosing += OnFormClosing;
 
             ThemeHelper.ApplyTheme(this);
-            ThemeHelper.PaletteChanged += OnThemeHelperPaletteChanged;
         }
 
         public bool TryShow(ViewerSession session)
@@ -711,7 +710,6 @@ internal static class ViewerHost
         {
             if (disposing)
             {
-                ThemeHelper.PaletteChanged -= OnThemeHelperPaletteChanged;
             }
 
             base.Dispose(disposing);
@@ -733,23 +731,6 @@ internal static class ViewerHost
             }
         }
 
-        private void OnThemeHelperPaletteChanged(object? sender, EventArgs e)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            if (InvokeRequired)
-            {
-                BeginInvoke(new MethodInvoker(HandleThemeChanged));
-            }
-            else
-            {
-                HandleThemeChanged();
-            }
-        }
-
         private void HandleThemeChanged()
         {
             if (_handlingThemeUpdate)
@@ -761,7 +742,6 @@ internal static class ViewerHost
 
             try
             {
-                ThemeHelper.InvalidatePalette();
                 ThemeHelper.ApplyTheme(this);
 
                 if (_browser is not null)
