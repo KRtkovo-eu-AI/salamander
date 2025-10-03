@@ -424,31 +424,59 @@ internal static class ViewerHost
                 return;
             }
 
-            var form = new RenderViewerForm();
-            form.FormClosed += (_, _) => OnFormClosed(form, session);
+            RenderViewerForm? form = GetAvailableForm();
+
+            if (form is null)
+            {
+                form = CreateForm();
+                lock (_lock)
+                {
+                    _openForms.Add(form);
+                }
+            }
 
             if (!form.TryShow(session))
             {
-                form.Dispose();
                 session.MarkStartupFailed();
                 session.Complete();
                 return;
             }
-
-            lock (_lock)
-            {
-                _openForms.Add(form);
-            }
         }
 
-        private void OnFormClosed(RenderViewerForm form, ViewerSession session)
+        private RenderViewerForm CreateForm()
+        {
+            var form = new RenderViewerForm();
+            form.FormClosed += (_, _) => OnFormClosed(form);
+            return form;
+        }
+
+        private RenderViewerForm? GetAvailableForm()
+        {
+            lock (_lock)
+            {
+                foreach (var form in _openForms)
+                {
+                    if (!form.IsDisposed && form.IsAvailable)
+                    {
+                        return form;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private void OnFormClosed(RenderViewerForm form)
+        {
+            RemoveForm(form);
+        }
+
+        private void RemoveForm(RenderViewerForm form)
         {
             lock (_lock)
             {
                 _openForms.Remove(form);
             }
-
-            session.Complete();
         }
     }
 
@@ -488,8 +516,15 @@ internal static class ViewerHost
             ThemeHelper.ApplyTheme(this);
         }
 
+        public bool IsAvailable => _session is null;
+
         public bool TryShow(ViewerSession session)
         {
+            if (_session is not null)
+            {
+                return false;
+            }
+
             _session = session;
             _allowClose = false;
 
@@ -498,12 +533,19 @@ internal static class ViewerHost
             ApplyPlacement(session.Payload);
             EnsureBrowser();
 
+            ThemeHelper.ApplyTheme(this);
+            if (_browser is not null)
+            {
+                ThemeHelper.ApplyTheme(_browser);
+            }
+
             try
             {
                 LoadFile(session.Payload.FilePath);
             }
             catch (Exception ex)
             {
+                _session = null;
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
@@ -656,16 +698,27 @@ internal static class ViewerHost
         {
             if (!_allowClose)
             {
-                _allowClose = true;
+                e.Cancel = true;
+                var owner = _session?.Parent ?? IntPtr.Zero;
+                ShowInTaskbar = false;
+                Hide();
+                CompleteSession();
+
+                if (owner != IntPtr.Zero)
+                {
+                    NativeMethods.SetForegroundWindow(owner);
+                }
+
+                return;
             }
 
-            _session?.SignalClosed();
+            CompleteSession();
         }
 
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
-            _session?.Complete();
+            CompleteSession();
         }
 
         protected override void OnSystemColorsChanged(EventArgs e)
@@ -850,6 +903,19 @@ internal static class ViewerHost
             }
 
             return string.Format(CultureInfo.CurrentCulture, "{0} - WebView2 Render Viewer .NET", caption);
+        }
+
+        private void CompleteSession()
+        {
+            var session = _session;
+            if (session is null)
+            {
+                return;
+            }
+
+            _session = null;
+            session.SignalClosed();
+            session.Complete();
         }
     }
 

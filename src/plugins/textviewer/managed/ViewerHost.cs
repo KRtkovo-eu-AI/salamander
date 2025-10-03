@@ -436,21 +436,46 @@ internal static class ViewerHost
                 return;
             }
 
-            var form = new TextViewerForm();
-            form.FormClosed += (_, _) => OnFormClosed(form, session);
+            TextViewerForm? form = GetAvailableForm();
+
+            if (form is null)
+            {
+                form = CreateForm();
+                lock (_lock)
+                {
+                    _openForms.Add(form);
+                }
+            }
 
             if (!form.TryShow(session))
             {
-                form.Dispose();
                 session.MarkStartupFailed();
                 session.Complete();
                 return;
             }
+        }
 
+        private TextViewerForm CreateForm()
+        {
+            var form = new TextViewerForm();
+            form.FormClosed += (_, _) => OnFormClosed(form);
+            return form;
+        }
+
+        private TextViewerForm? GetAvailableForm()
+        {
             lock (_lock)
             {
-                _openForms.Add(form);
+                foreach (var form in _openForms)
+                {
+                    if (!form.IsDisposed && form.IsAvailable)
+                    {
+                        return form;
+                    }
+                }
             }
+
+            return null;
         }
 
         private void OnDispatcherHandleCreated(object? sender, EventArgs e)
@@ -461,14 +486,17 @@ internal static class ViewerHost
         {
         }
 
-        private void OnFormClosed(TextViewerForm form, ViewerSession session)
+        private void OnFormClosed(TextViewerForm form)
+        {
+            RemoveForm(form);
+        }
+
+        private void RemoveForm(TextViewerForm form)
         {
             lock (_lock)
             {
                 _openForms.Remove(form);
             }
-
-            session.Complete();
         }
     }
 
@@ -509,8 +537,15 @@ internal static class ViewerHost
             ThemeHelper.ApplyTheme(this);
         }
 
+        public bool IsAvailable => _session is null;
+
         public bool TryShow(ViewerSession session)
         {
+            if (_session is not null)
+            {
+                return false;
+            }
+
             _session = session;
             _allowClose = false;
 
@@ -519,12 +554,19 @@ internal static class ViewerHost
             ApplyPlacement(session.Payload);
             EnsureBrowser();
 
+            ThemeHelper.ApplyTheme(this);
+            if (_browser is not null)
+            {
+                ThemeHelper.ApplyTheme(_browser);
+            }
+
             try
             {
                 LoadFile(session.Payload.FilePath);
             }
             catch (Exception ex)
             {
+                _session = null;
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
@@ -708,7 +750,18 @@ internal static class ViewerHost
         {
             if (!_allowClose)
             {
-                _allowClose = true;
+                e.Cancel = true;
+                var owner = _session?.Parent ?? IntPtr.Zero;
+                ShowInTaskbar = false;
+                Hide();
+                CompleteSession();
+
+                if (owner != IntPtr.Zero)
+                {
+                    NativeMethods.SetForegroundWindow(owner);
+                }
+
+                return;
             }
 
             if (_browserCore is not null)
@@ -717,7 +770,7 @@ internal static class ViewerHost
                 _browserCore = null;
             }
 
-            _session?.SignalClosed();
+            CompleteSession();
         }
 
         private void ApplyPlacement(ViewCommandPayload payload)
@@ -891,6 +944,19 @@ internal static class ViewerHost
             }
 
             return string.Format(CultureInfo.CurrentCulture, "{0} - PrismSharp Text Viewer .NET", caption);
+        }
+
+        private void CompleteSession()
+        {
+            var session = _session;
+            if (session is null)
+            {
+                return;
+            }
+
+            _session = null;
+            session.SignalClosed();
+            session.Complete();
         }
     }
 
