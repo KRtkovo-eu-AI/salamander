@@ -138,6 +138,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\textviewer.cpp">
     </ClCompile>
     <ClCompile Include="..\managed_bridge.cpp">
