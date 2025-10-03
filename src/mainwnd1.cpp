@@ -3172,6 +3172,8 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
         BottomToolBar->OnColorsChanged();
     }
 
+    UpdateRebarVisuals();
+
     // main menu
     MainMenu.SetImageList(HGrayToolBarImageList, TRUE);
     MainMenu.SetHotImageList(HHotToolBarImageList, TRUE);

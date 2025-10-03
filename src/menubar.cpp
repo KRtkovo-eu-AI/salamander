@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -6,6 +6,7 @@
 
 #include "menu.h"
 #include "mainwnd.h"
+#include "darkmode.h"
 
 //*****************************************************************************
 //
@@ -169,21 +170,23 @@ void CMenuBar::DrawItem(HDC hDC, int index, int x)
     int stringLen = item->ColumnL1Len;
 
     // fill the stripe above and below (for Windows Vista rebar)
+    bool hot = (HotIndex == index && !Closing);
     RECT r2 = r;
     r2.top = 0;
     r2.bottom = 1;
-    FillRect(hDC, &r2, (HBRUSH)(COLOR_BTNFACE + 1));
+    FillRect(hDC, &r2, HDialogBrush);
     r2.top = Height - 1;
     r2.bottom = Height;
-    FillRect(hDC, &r2, (HBRUSH)(COLOR_BTNFACE + 1));
+    FillRect(hDC, &r2, HDialogBrush);
 
-    int bkColor = (HotIndex == index && !Closing) ? COLOR_HIGHLIGHT : COLOR_BTNFACE;
-    int textColor = (HotIndex == index && !Closing) ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT;
-    FillRect(hDC, &r, (HBRUSH)(UINT_PTR)(bkColor + 1));
+    FillRect(hDC, &r, hot ? HMenuSelectedBkBrush : HDialogBrush);
 
     r.top += MENUBAR_TB_MARGIN - 1;
     r.left += MENUBAR_LR_MARGIN;
-    SetTextColor(hDC, GetSysColor(textColor));
+    const bool useDark = DarkModeShouldUseDarkColors();
+    const COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+    const COLORREF textColor = hot ? GetSysColor(COLOR_HIGHLIGHTTEXT) : defaultText;
+    SetTextColor(hDC, textColor);
 
     // NOTE: Since Windows Vista Microsoft broke something in the rebar. Resizing
     // the window leads to redrawing all bands, as a result, the entire menu is redrawn and sometimes flickers
@@ -204,7 +207,9 @@ void CMenuBar::DrawItem(int index)
     HDC hDC = HANDLES(GetDC(HWindow));
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_BTNTEXT));
+    const bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+    COLORREF oldTextColor = SetTextColor(hDC, defaultText);
     int x = 0;
     int i;
     for (i = 0; i < index; i++)
@@ -221,7 +226,9 @@ void CMenuBar::DrawAllItems(HDC hDC)
     CALL_STACK_MESSAGE1("CMenuBar::DrawAllItems()");
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_BTNTEXT));
+    const bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF defaultText = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+    COLORREF oldTextColor = SetTextColor(hDC, defaultText);
     int x = 0;
     int i;
     for (i = 0; i < Menu->Items.Count; i++)

@@ -55,6 +55,7 @@
 #include "heap.h"
 #include "array.h"
 #include "winlib.h"
+#include "darkmode.h"
 #include "multimon.h"
 #include "sheets.h"
 #include "strutils.h"

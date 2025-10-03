@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /* config.h.in.  Generated from configure.in by autoheader.  */
@@ -89,7 +89,7 @@
 
 #define ssize_t int
 
-// static inline not supported by MSVC and not usefull here -> define it out
+// make the generic inline keyword available even for C sources built by MSVC
 #define inline __inline
 
 #ifndef M_PI
