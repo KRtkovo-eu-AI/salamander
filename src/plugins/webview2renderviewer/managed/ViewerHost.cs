@@ -498,6 +498,8 @@ internal static class ViewerHost
         private DocumentView? _currentView;
         private Uri? _pendingNavigationUri;
         private string? _pendingHtmlContent;
+        private bool _pendingShow;
+        private int _pendingShowCommand = NativeMethods.SW_RESTORE;
 
         public RenderViewerForm()
         {
@@ -535,9 +537,14 @@ internal static class ViewerHost
             _allowClose = false;
 
             Text = BuildCaption(session.Payload.Caption);
+
+            int showCommand = GetShowCommand(session.Payload);
+            PrepareForShow(showCommand);
+
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
             EnsureBrowser();
+            HideBrowser();
 
             ThemeHelper.ApplyTheme(this);
             if (_browser is not null)
@@ -551,6 +558,7 @@ internal static class ViewerHost
             }
             catch (Exception ex)
             {
+                _pendingShow = false;
                 _session = null;
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
@@ -561,22 +569,6 @@ internal static class ViewerHost
                 return false;
             }
 
-            ShowInTaskbar = true;
-
-            int showCommand = GetShowCommand(session.Payload);
-
-            if (!IsHandleCreated)
-            {
-                Show();
-                NativeMethods.ShowWindow(Handle, showCommand);
-            }
-            else
-            {
-                NativeMethods.ShowWindow(Handle, showCommand);
-            }
-
-            Activate();
-            NativeMethods.SetForegroundWindow(Handle);
             return true;
         }
 
@@ -618,7 +610,7 @@ internal static class ViewerHost
             };
 
             viewer.CoreWebView2InitializationCompleted += OnBrowserInitializationCompleted;
-            viewer.NavigationCompleted += (_, _) => ThemeHelper.ApplyTheme(viewer);
+            viewer.NavigationCompleted += OnBrowserNavigationCompleted;
 
             Controls.Add(viewer);
             ThemeHelper.ApplyTheme(viewer);
@@ -702,8 +694,20 @@ internal static class ViewerHost
             }
         }
 
+        private void OnBrowserNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (sender is WebView2 browser)
+            {
+                ThemeHelper.ApplyTheme(browser);
+                RevealBrowser();
+            }
+
+            CompletePendingShow();
+        }
+
         private void HandleBrowserInitializationFailure(Exception exception)
         {
+            _pendingShow = false;
             _session?.MarkStartupFailed();
             MessageBox.Show(this,
                 $"Unable to initialize the embedded browser.\n{exception.Message}",
@@ -798,6 +802,72 @@ internal static class ViewerHost
             finally
             {
                 _handlingThemeUpdate = false;
+            }
+        }
+
+        private void PrepareForShow(int showCommand)
+        {
+            _pendingShowCommand = showCommand;
+            _pendingShow = true;
+
+            if (!IsHandleCreated)
+            {
+                CreateControl();
+            }
+
+            HideBrowser();
+
+            if (Visible)
+            {
+                base.Hide();
+            }
+
+            ShowInTaskbar = false;
+        }
+
+        private void HideBrowser()
+        {
+            if (_browser is Control browser && browser.Visible)
+            {
+                browser.Visible = false;
+            }
+        }
+
+        private void RevealBrowser()
+        {
+            if (_browser is Control browser && !browser.Visible)
+            {
+                browser.Visible = true;
+            }
+        }
+
+        private void CompletePendingShow()
+        {
+            if (!_pendingShow || IsDisposed || _session is null)
+            {
+                return;
+            }
+
+            _pendingShow = false;
+
+            EnsureTaskbarVisibility();
+            RevealBrowser();
+            ShowInTaskbar = true;
+
+            int showCommand = _pendingShowCommand;
+            _pendingShowCommand = NativeMethods.SW_RESTORE;
+
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            NativeMethods.ShowWindow(Handle, showCommand);
+
+            if (showCommand != NativeMethods.SW_SHOWMINIMIZED)
+            {
+                Activate();
+                NativeMethods.SetForegroundWindow(Handle);
             }
         }
 
@@ -984,6 +1054,8 @@ internal static class ViewerHost
                 return;
             }
 
+            _pendingShow = false;
+            HideBrowser();
             ShowInTaskbar = false;
 
             if (!Visible)
@@ -992,22 +1064,13 @@ internal static class ViewerHost
                 return;
             }
 
-            var session = _session;
-            if (session is null)
+            var owner = _session?.Parent ?? IntPtr.Zero;
+
+            if (Visible)
             {
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
                 Hide();
-                return;
             }
 
-            var owner = session.Parent;
-
-            if (IsHandleCreated)
-            {
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
-            }
-
-            Hide();
             CompleteSession();
 
             if (owner != IntPtr.Zero)
@@ -1232,13 +1295,37 @@ internal static class ViewerHost
 
     private static class MarkdownRenderer
     {
-        private static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder()
-            .UseAdvancedExtensions()
-            .Build();
+        private static readonly Lazy<MarkdownPipeline> s_pipeline = new Lazy<MarkdownPipeline>(CreatePipeline, LazyThreadSafetyMode.ExecutionAndPublication);
 
         public static string BuildHtml(string markdown, string sourcePath, string caption)
         {
-            string htmlBody = Markdig.Markdown.ToHtml(markdown ?? string.Empty, s_pipeline);
+            MarkdownPipeline pipeline;
+            try
+            {
+                pipeline = s_pipeline.Value;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Unable to initialize the Markdown renderer.", ex);
+            }
+
+            string htmlBody;
+            try
+            {
+                htmlBody = Markdig.Markdown.ToHtml(markdown ?? string.Empty, pipeline);
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Unable to render the Markdown content.", ex);
+            }
             ThemeHelper.ThemePalette? palette = ThemeHelper.TryGetPalette(out var value) ? value : null;
 
             string? baseUrl = null;
@@ -1340,6 +1427,20 @@ internal static class ViewerHost
         {
             return string.Format(System.Globalization.CultureInfo.InvariantCulture,
                                  "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
+        }
+
+        private static MarkdownPipeline CreatePipeline()
+        {
+            try
+            {
+                return new MarkdownPipelineBuilder()
+                    .UseAdvancedExtensions()
+                    .Build();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Unable to initialize the Markdown renderer.", ex);
+            }
         }
     }
 }

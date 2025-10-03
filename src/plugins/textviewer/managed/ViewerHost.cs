@@ -517,6 +517,8 @@ internal static class ViewerHost
         private string? _currentDocumentCaption;
         private bool _handlingThemeUpdate;
         private string? _pendingDocumentHtml;
+        private bool _pendingShow;
+        private int _pendingShowCommand = NativeMethods.SW_RESTORE;
 
         public TextViewerForm()
         {
@@ -554,9 +556,14 @@ internal static class ViewerHost
             _allowClose = false;
 
             Text = BuildCaption(session.Payload.Caption);
+
+            int showCommand = GetShowCommand(session.Payload);
+            PrepareForShow(showCommand);
+
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
             EnsureBrowser();
+            HideBrowser();
 
             ThemeHelper.ApplyTheme(this);
             if (_browser is not null)
@@ -570,6 +577,7 @@ internal static class ViewerHost
             }
             catch (Exception ex)
             {
+                _pendingShow = false;
                 _session = null;
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
@@ -580,22 +588,6 @@ internal static class ViewerHost
                 return false;
             }
 
-            ShowInTaskbar = true;
-
-            int showCommand = GetShowCommand(session.Payload);
-
-            if (!IsHandleCreated)
-            {
-                Show();
-                NativeMethods.ShowWindow(Handle, showCommand);
-            }
-            else
-            {
-                NativeMethods.ShowWindow(Handle, showCommand);
-            }
-
-            Activate();
-            NativeMethods.SetForegroundWindow(Handle);
             return true;
         }
 
@@ -719,7 +711,10 @@ internal static class ViewerHost
             if (sender is WebView2 browser)
             {
                 ThemeHelper.ApplyTheme(browser);
+                RevealBrowser();
             }
+
+            CompletePendingShow();
         }
 
         private void OnBrowserWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -742,6 +737,7 @@ internal static class ViewerHost
 
         private void HandleBrowserInitializationFailure(Exception exception)
         {
+            _pendingShow = false;
             _session?.MarkStartupFailed();
             MessageBox.Show(this,
                 $"Unable to initialize the embedded browser.\n{exception.Message}",
@@ -927,6 +923,72 @@ internal static class ViewerHost
             }
         }
 
+        private void PrepareForShow(int showCommand)
+        {
+            _pendingShowCommand = showCommand;
+            _pendingShow = true;
+
+            if (!IsHandleCreated)
+            {
+                CreateControl();
+            }
+
+            HideBrowser();
+
+            if (Visible)
+            {
+                base.Hide();
+            }
+
+            ShowInTaskbar = false;
+        }
+
+        private void HideBrowser()
+        {
+            if (_browser is Control browser && browser.Visible)
+            {
+                browser.Visible = false;
+            }
+        }
+
+        private void RevealBrowser()
+        {
+            if (_browser is Control browser && !browser.Visible)
+            {
+                browser.Visible = true;
+            }
+        }
+
+        private void CompletePendingShow()
+        {
+            if (!_pendingShow || IsDisposed || _session is null)
+            {
+                return;
+            }
+
+            _pendingShow = false;
+
+            EnsureTaskbarVisibility();
+            RevealBrowser();
+            ShowInTaskbar = true;
+
+            int showCommand = _pendingShowCommand;
+            _pendingShowCommand = NativeMethods.SW_RESTORE;
+
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            NativeMethods.ShowWindow(Handle, showCommand);
+
+            if (showCommand != NativeMethods.SW_SHOWMINIMIZED)
+            {
+                Activate();
+                NativeMethods.SetForegroundWindow(Handle);
+            }
+        }
+
         private void RenderCurrentDocument()
         {
             if (_currentDocumentText is null)
@@ -990,6 +1052,8 @@ internal static class ViewerHost
                 return;
             }
 
+            _pendingShow = false;
+            HideBrowser();
             ShowInTaskbar = false;
 
             if (!Visible)
@@ -998,22 +1062,13 @@ internal static class ViewerHost
                 return;
             }
 
-            var session = _session;
-            if (session is null)
+            var owner = _session?.Parent ?? IntPtr.Zero;
+
+            if (Visible)
             {
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
                 Hide();
-                return;
             }
 
-            var owner = session.Parent;
-
-            if (IsHandleCreated)
-            {
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
-            }
-
-            Hide();
             CompleteSession();
 
             if (owner != IntPtr.Zero)
