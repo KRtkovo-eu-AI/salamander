@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Microsoft.mshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="..\\..\\..\\..\\src\\res\\viewer.ico" Link="Resources\\viewer.ico" />
   </ItemGroup>
 

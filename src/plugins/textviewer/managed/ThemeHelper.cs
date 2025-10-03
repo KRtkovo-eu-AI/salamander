@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using mshtml;
 
 namespace OpenSalamander.TextViewer;
 
@@ -340,15 +341,16 @@ internal static class ThemeHelper
         {
             root.SetAttribute("data-theme", scheme);
             ApplyCssDeclaration(root, "color-scheme", scheme);
-            ApplyScrollbarTheme(root, palette);
+            ApplyScrollbarThemeCss(root, palette);
         }
 
         if (document.Body is HtmlElement body)
         {
-            ApplyScrollbarTheme(body, palette);
+            ApplyScrollbarThemeCss(body, palette);
         }
 
         EnsureColorSchemeMeta(document, palette.IsDark);
+        ApplyScrollbarThemeCom(document, palette);
     }
 
     private static void ApplyCssDeclaration(HtmlElement element, string propertyName, string? propertyValue)
@@ -424,7 +426,7 @@ internal static class ThemeHelper
         return null;
     }
 
-    private static void ApplyScrollbarTheme(HtmlElement? element, ThemePalette palette)
+    private static void ApplyScrollbarThemeCss(HtmlElement? element, ThemePalette palette)
     {
         if (element is null)
         {
@@ -460,6 +462,83 @@ internal static class ThemeHelper
         ApplyCssDeclaration(element, "scrollbar-3dlight-color", ToCssColor(light));
         ApplyCssDeclaration(element, "scrollbar-shadow-color", ToCssColor(shadow));
         ApplyCssDeclaration(element, "scrollbar-darkshadow-color", ToCssColor(darkShadow));
+    }
+
+    private static void ApplyScrollbarThemeCom(HtmlDocument document, ThemePalette palette)
+    {
+        try
+        {
+            if (document.DomDocument is not IHTMLDocument2 doc2)
+            {
+                return;
+            }
+
+            ApplyScrollbarThemeCom(doc2.documentElement, palette);
+            ApplyScrollbarThemeCom(doc2.body, palette);
+        }
+        catch (COMException)
+        {
+        }
+        catch (InvalidCastException)
+        {
+        }
+    }
+
+    private static void ApplyScrollbarThemeCom(IHTMLElement? element, ThemePalette palette)
+    {
+        if (element is null)
+        {
+            return;
+        }
+
+        IHTMLStyle? style = element.style;
+        if (style is null)
+        {
+            return;
+        }
+
+        if (!palette.IsDark)
+        {
+            ClearScrollbarTheme(style);
+            return;
+        }
+
+        Color face = palette.ControlBackground;
+        Color track = palette.Background;
+        Color arrow = palette.InputForeground;
+        Color highlight = Lighten(face, 0.2);
+        Color light = Lighten(face, 0.35);
+        Color shadow = Darken(face, 0.25);
+        Color darkShadow = Darken(face, 0.45);
+
+        string faceColor = ToCssColor(face);
+        string trackColor = ToCssColor(track);
+        string arrowColor = ToCssColor(arrow);
+        string highlightColor = ToCssColor(highlight);
+        string lightColor = ToCssColor(light);
+        string shadowColor = ToCssColor(shadow);
+        string darkShadowColor = ToCssColor(darkShadow);
+
+        style.scrollbarBaseColor = faceColor;
+        style.scrollbarFaceColor = faceColor;
+        style.scrollbarTrackColor = trackColor;
+        style.scrollbarArrowColor = arrowColor;
+        style.scrollbarHighlightColor = highlightColor;
+        style.scrollbar3dLightColor = lightColor;
+        style.scrollbarShadowColor = shadowColor;
+        style.scrollbarDarkShadowColor = darkShadowColor;
+    }
+
+    private static void ClearScrollbarTheme(IHTMLStyle style)
+    {
+        style.scrollbarBaseColor = string.Empty;
+        style.scrollbarFaceColor = string.Empty;
+        style.scrollbarTrackColor = string.Empty;
+        style.scrollbarArrowColor = string.Empty;
+        style.scrollbarHighlightColor = string.Empty;
+        style.scrollbar3dLightColor = string.Empty;
+        style.scrollbarShadowColor = string.Empty;
+        style.scrollbarDarkShadowColor = string.Empty;
     }
 
     private static string ToCssColor(Color color)
