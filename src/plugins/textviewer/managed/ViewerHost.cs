@@ -472,12 +472,19 @@ internal static class ViewerHost
 
     private sealed class TextViewerForm : Form
     {
+        private const int WM_THEMECHANGED = 0x031A;
+        private const int WM_SETTINGCHANGE = 0x001A;
+
         private ViewerSession? _session;
         private WebBrowser? _browser;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
         private bool _ownerAttached;
+        private string? _currentDocumentText;
+        private string? _currentDocumentLanguage;
+        private string? _currentDocumentCaption;
+        private bool _handlingThemeUpdate;
 
         public TextViewerForm()
         {
@@ -496,6 +503,7 @@ internal static class ViewerHost
             FormClosing += OnFormClosing;
 
             ThemeHelper.ApplyTheme(this);
+            ThemeHelper.PaletteChanged += OnThemeHelperPaletteChanged;
         }
 
         public bool TryShow(ViewerSession session)
@@ -579,8 +587,11 @@ internal static class ViewerHost
             string extension = LanguageGuesser.FromFileName(path);
             string caption = Path.GetFileName(path);
 
-            string html = PrismSharpRenderer.BuildDocument(text, extension, caption);
-            _browser.DocumentText = html;
+            _currentDocumentText = text;
+            _currentDocumentLanguage = extension;
+            _currentDocumentCaption = caption;
+
+            RenderCurrentDocument();
         }
 
         private void OnHandleCreated(object? sender, EventArgs e)
@@ -694,6 +705,90 @@ internal static class ViewerHost
             }
 
             _taskbarStyleApplied = true;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ThemeHelper.PaletteChanged -= OnThemeHelperPaletteChanged;
+            }
+
+            base.Dispose(disposing);
+        }
+
+        protected override void OnSystemColorsChanged(EventArgs e)
+        {
+            base.OnSystemColorsChanged(e);
+            HandleThemeChanged();
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+
+            if (m.Msg == WM_THEMECHANGED || m.Msg == WM_SETTINGCHANGE)
+            {
+                HandleThemeChanged();
+            }
+        }
+
+        private void OnThemeHelperPaletteChanged(object? sender, EventArgs e)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(HandleThemeChanged));
+            }
+            else
+            {
+                HandleThemeChanged();
+            }
+        }
+
+        private void HandleThemeChanged()
+        {
+            if (_handlingThemeUpdate)
+            {
+                return;
+            }
+
+            _handlingThemeUpdate = true;
+
+            try
+            {
+                ThemeHelper.InvalidatePalette();
+                ThemeHelper.ApplyTheme(this);
+
+                if (_browser is not null)
+                {
+                    ThemeHelper.ApplyTheme(_browser);
+                }
+
+                RenderCurrentDocument();
+            }
+            finally
+            {
+                _handlingThemeUpdate = false;
+            }
+        }
+
+        private void RenderCurrentDocument()
+        {
+            if (_browser is null || _currentDocumentText is null)
+            {
+                return;
+            }
+
+            string language = _currentDocumentLanguage ?? string.Empty;
+            string caption = _currentDocumentCaption ?? string.Empty;
+
+            string html = PrismSharpRenderer.BuildDocument(_currentDocumentText, language, caption);
+            _browser.DocumentText = html;
         }
 
         private static string BuildCaption(string caption)

@@ -7,6 +7,7 @@ using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace OpenSalamander.TextViewer;
 
@@ -19,6 +20,23 @@ internal static class ThemeHelper
     private const int SALCOL_HOT_PANEL = 23;
 
     private static ThemePalette? s_cachedPalette;
+
+    public static event EventHandler? PaletteChanged;
+
+    static ThemeHelper()
+    {
+        try
+        {
+            SystemEvents.UserPreferenceChanged += OnSystemEventsPaletteChanged;
+            SystemEvents.UserPreferenceChanging += OnSystemEventsPaletteChanged;
+        }
+        catch
+        {
+            // The SystemEvents class can throw if the underlying system event
+            // infrastructure is unavailable. In that case we simply skip the
+            // automatic palette invalidation and rely on explicit refreshes.
+        }
+    }
 
     public static bool TryGetPalette(out ThemePalette palette)
     {
@@ -42,13 +60,8 @@ internal static class ThemeHelper
 
         ApplyPalette(form, palette);
 
-        form.ControlAdded += (_, e) =>
-        {
-            if (TryGetPalette(out var refreshed))
-            {
-                ApplyPalette(e.Control, refreshed);
-            }
-        };
+        form.ControlAdded -= FormOnControlAddedApplyPalette;
+        form.ControlAdded += FormOnControlAddedApplyPalette;
 
         if (form.IsHandleCreated)
         {
@@ -72,6 +85,11 @@ internal static class ThemeHelper
         }
 
         ApplyPalette(control, palette);
+    }
+
+    public static void InvalidatePalette()
+    {
+        InvalidatePaletteInternal(raiseEvent: false);
     }
 
     private static ThemePalette? GetPalette()
@@ -116,6 +134,29 @@ internal static class ThemeHelper
         }
 
         return s_cachedPalette = null;
+    }
+
+    private static void OnSystemEventsPaletteChanged(object? sender, EventArgs e)
+    {
+        InvalidatePaletteInternal(raiseEvent: true);
+    }
+
+    private static void FormOnControlAddedApplyPalette(object? sender, ControlEventArgs e)
+    {
+        if (TryGetPalette(out var palette))
+        {
+            ApplyPalette(e.Control, palette);
+        }
+    }
+
+    private static void InvalidatePaletteInternal(bool raiseEvent)
+    {
+        s_cachedPalette = null;
+
+        if (raiseEvent)
+        {
+            PaletteChanged?.Invoke(null, EventArgs.Empty);
+        }
     }
 
     private static void ApplyPalette(Form form, ThemePalette palette)
