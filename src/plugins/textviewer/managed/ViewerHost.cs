@@ -718,13 +718,10 @@ internal static class ViewerHost
                 return;
             }
 
-            BeginInvoke(new MethodInvoker(() =>
+            if (!IsDisposed)
             {
-                if (!IsDisposed)
-                {
-                    HideForReuse();
-                }
-            }));
+                HideForReuse();
+            }
         }
 
         private void HandleBrowserInitializationFailure(Exception exception)
@@ -759,7 +756,7 @@ internal static class ViewerHost
             if (!_allowClose)
             {
                 e.Cancel = true;
-                BeginInvoke(new MethodInvoker(HideForReuse));
+                HideForReuse();
                 return;
             }
 
@@ -967,7 +964,7 @@ internal static class ViewerHost
 
             if (InvokeRequired)
             {
-                BeginInvoke(new MethodInvoker(HideForReuse));
+                Invoke(new MethodInvoker(HideForReuse));
                 return;
             }
 

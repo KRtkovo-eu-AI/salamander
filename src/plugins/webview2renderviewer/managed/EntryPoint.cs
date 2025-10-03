@@ -5,6 +5,9 @@
 
 using System;
 using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Text;
 using System.Windows.Forms;
 
 namespace OpenSalamander.WebView2RenderViewer;
@@ -12,6 +15,9 @@ namespace OpenSalamander.WebView2RenderViewer;
 public static class EntryPoint
 {
     private static bool _initialized;
+    private static readonly object s_resolutionLock = new();
+    private static bool s_resolutionInitialized;
+    private static string? s_baseDirectory;
 
     [STAThread]
     public static int Dispatch(string? argument)
@@ -63,6 +69,8 @@ public static class EntryPoint
             return;
         }
 
+        EnsureAssemblyResolution();
+
         Application.EnableVisualStyles();
 
         try
@@ -81,6 +89,84 @@ public static class EntryPoint
         }
 
         _initialized = true;
+    }
+
+    private static void EnsureAssemblyResolution()
+    {
+        if (s_resolutionInitialized)
+        {
+            return;
+        }
+
+        lock (s_resolutionLock)
+        {
+            if (s_resolutionInitialized)
+            {
+                return;
+            }
+
+            try
+            {
+                string? location = typeof(EntryPoint).Assembly.Location;
+                if (!string.IsNullOrEmpty(location))
+                {
+                    string? directory = Path.GetDirectoryName(location);
+                    if (!string.IsNullOrEmpty(directory))
+                    {
+                        s_baseDirectory = directory;
+                        AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
+                    }
+                }
+
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (PlatformNotSupportedException)
+            {
+            }
+
+            s_resolutionInitialized = true;
+        }
+    }
+
+    private static Assembly? OnAssemblyResolve(object? sender, ResolveEventArgs args)
+    {
+        var baseDirectory = s_baseDirectory;
+        if (string.IsNullOrEmpty(baseDirectory))
+        {
+            return null;
+        }
+
+        try
+        {
+            var assemblyName = new AssemblyName(args.Name);
+            var simpleName = assemblyName.Name;
+            if (string.IsNullOrEmpty(simpleName))
+            {
+                return null;
+            }
+
+            var candidatePath = Path.Combine(baseDirectory, simpleName + ".dll");
+            if (!File.Exists(candidatePath))
+            {
+                return null;
+            }
+
+            return Assembly.LoadFrom(candidatePath);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
     }
 
     private static IntPtr ParseHandle(string text)

@@ -718,7 +718,7 @@ internal static class ViewerHost
             if (!_allowClose)
             {
                 e.Cancel = true;
-                BeginInvoke(new MethodInvoker(HideForReuse));
+                HideForReuse();
                 return;
             }
 
@@ -946,7 +946,7 @@ internal static class ViewerHost
                 return;
             }
 
-            BeginInvoke(new MethodInvoker(HideForReuse));
+            HideForReuse();
         }
 
         private void HideForReuse()
@@ -958,7 +958,7 @@ internal static class ViewerHost
 
             if (InvokeRequired)
             {
-                BeginInvoke(new MethodInvoker(HideForReuse));
+                Invoke(new MethodInvoker(HideForReuse));
                 return;
             }
 
