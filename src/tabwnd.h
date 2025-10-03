@@ -81,6 +81,8 @@ private:
     STabColor* GetTabColor(int index);
     const STabColor* GetTabColor(int index) const;
     bool TryResolveTabColor(int index, COLORREF& color) const;
+    void PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bool paintIndicator);
+    bool PaintBuffered(HDC targetDC, const RECT& updateRect, bool paintTabs, bool paintIndicator);
     void PaintCustomTabs(HDC hdc, const RECT* clipRect) const;
     void DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
                         bool selected, bool hot, bool hasFocus) const;
