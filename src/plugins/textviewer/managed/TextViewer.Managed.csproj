@@ -30,28 +30,26 @@
              Properties="RestoreDuringBuild=true" />
   </Target>
 
-  <Target Name="CopyPrismSharpContent" AfterTargets="Build" DependsOnTargets="ResolveReferences">
-    <ItemGroup Condition="'$(PkgPrismSharp)' != ''">
-      <PrismSharpDataRoot Include="$(PkgPrismSharp)contentFiles\**\data\"
-                           Condition="Exists('%(Identity)languages\languages.json')" />
-    </ItemGroup>
+  <ItemGroup Condition="'$(PkgPrismSharp)' != ''">
+    <PrismSharpLanguage Include="$(PkgPrismSharp)contentFiles\**\languages\*.json" />
+    <PrismSharpTheme Include="$(PkgPrismSharp)contentFiles\**\themes\*.json" />
+  </ItemGroup>
 
-    <PropertyGroup>
-      <PrismSharpContentRoot Condition="'@(PrismSharpDataRoot)' != ''">@(PrismSharpDataRoot->'%(Identity)')</PrismSharpContentRoot>
-    </PropertyGroup>
+  <ItemGroup Condition="'@(PrismSharpLanguage)' != ''">
+    <None Include="@(PrismSharpLanguage)">
+      <Link>data\languages\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>data\languages\%(Filename)%(Extension)</TargetPath>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
 
-    <ItemGroup Condition="'$(PrismSharpContentRoot)' != ''">
-      <PrismSharpLanguageFiles Include="$(PrismSharpContentRoot)languages\*.json" />
-      <PrismSharpThemeFiles Include="$(PrismSharpContentRoot)themes\*.json" />
-    </ItemGroup>
-
-    <Copy SourceFiles="@(PrismSharpLanguageFiles)"
-          DestinationFolder="$(TargetDir)data\languages\"
-          SkipUnchangedFiles="true"
-          Condition="@(PrismSharpLanguageFiles) != ''" />
-    <Copy SourceFiles="@(PrismSharpThemeFiles)"
-          DestinationFolder="$(TargetDir)data\themes\"
-          SkipUnchangedFiles="true"
-          Condition="@(PrismSharpThemeFiles) != ''" />
-  </Target>
+  <ItemGroup Condition="'@(PrismSharpTheme)' != ''">
+    <None Include="@(PrismSharpTheme)">
+      <Link>data\themes\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>data\themes\%(Filename)%(Extension)</TargetPath>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
 </Project>
