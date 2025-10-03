@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" GeneratePathProperty="true" />
     <PackageReference Include="PrismSharp" Version="1.0.0-beta" />
   </ItemGroup>
 
@@ -37,4 +37,24 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <Target Name="CopyWebView2Dependencies" AfterTargets="Build">
+    <ItemGroup>
+      <_WebView2Assemblies Include="@(ReferenceCopyLocalPaths)"
+                           Condition="'%(FileName)' == 'Microsoft.Web.WebView2.Core' or '%(FileName)' == 'Microsoft.Web.WebView2.WinForms'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WebView2Assemblies)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_WebView2Assemblies) != ''" />
+
+    <ItemGroup>
+      <_WebView2Loader Include="$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll"
+                       Condition="'$(PkgMicrosoft_Web_WebView2)' != '' and Exists('$(PkgMicrosoft_Web_WebView2)runtimes\\win-x64\\native\\WebView2Loader.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WebView2Loader)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="@(_WebView2Loader) != ''" />
+  </Target>
 </Project>
