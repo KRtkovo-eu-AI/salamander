@@ -5,13 +5,18 @@
 
 using System;
 using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 
 namespace OpenSalamander.TextViewer;
 
 internal static class ThemeHelper
 {
+    private static readonly ConditionalWeakTable<WebBrowser, BrowserScrollbarState> s_browserScrollbarStates = new();
+    private static readonly NativeMethods.EnumChildProc s_darkScrollbarCallback = ApplyDarkScrollbarsRecursive;
+
     private const int SALCOL_ITEM_FG_NORMAL = 6;
     private const int SALCOL_ITEM_FG_SELECTED = 7;
     private const int SALCOL_ITEM_BK_NORMAL = 11;
@@ -172,6 +177,9 @@ internal static class ThemeHelper
             case ToolStrip toolStrip:
                 ThemeRenderer.Attach(toolStrip, palette);
                 break;
+            case WebBrowser webBrowser:
+                ApplyWebBrowserTheme(webBrowser, palette);
+                break;
         }
 
         if (control is not Button)
@@ -221,6 +229,151 @@ internal static class ThemeHelper
         using (var textBrush = new SolidBrush(foreground))
         {
             e.Graphics.DrawString(text, comboBox.Font, textBrush, e.Bounds);
+        }
+    }
+
+    private static void ApplyWebBrowserTheme(WebBrowser browser, ThemePalette palette)
+    {
+        browser.BackColor = palette.Background;
+        browser.ForeColor = palette.Foreground;
+
+        var state = s_browserScrollbarStates.GetValue(browser, static _ => new BrowserScrollbarState());
+        state.Attach(browser);
+        state.DarkScrollbars = palette.IsDark;
+        state.Apply(browser);
+    }
+
+    private static void ApplyDarkScrollbars(IntPtr handle, bool enable)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        ApplyDarkScrollbarTheme(handle, enable);
+        NativeMethods.EnumChildWindows(handle, s_darkScrollbarCallback, enable ? new IntPtr(1) : IntPtr.Zero);
+    }
+
+    private static bool ApplyDarkScrollbarsRecursive(IntPtr handle, IntPtr parameter)
+    {
+        ApplyDarkScrollbarTheme(handle, parameter != IntPtr.Zero);
+        NativeMethods.EnumChildWindows(handle, s_darkScrollbarCallback, parameter);
+        return true;
+    }
+
+    private static void ApplyDarkScrollbarTheme(IntPtr handle, bool enable)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        string? className = GetWindowClassName(handle);
+        if (className is null)
+        {
+            return;
+        }
+
+        if (!ShouldApplyDarkScrollbarTheme(className))
+        {
+            return;
+        }
+
+        TrySetWindowTheme(handle, enable ? "DarkMode_Explorer" : null);
+    }
+
+    private static string? GetWindowClassName(IntPtr handle)
+    {
+        var buffer = new StringBuilder(256);
+        return NativeMethods.GetClassName(handle, buffer, buffer.Capacity) == 0 ? null : buffer.ToString();
+    }
+
+    private static bool ShouldApplyDarkScrollbarTheme(string className)
+    {
+        return string.Equals(className, "ScrollBar", StringComparison.Ordinal)
+               || string.Equals(className, "msctls_scrollbar32", StringComparison.Ordinal)
+               || string.Equals(className, "Shell DocObject View", StringComparison.Ordinal)
+               || string.Equals(className, "Internet Explorer_Server", StringComparison.Ordinal);
+    }
+
+    private static void TrySetWindowTheme(IntPtr handle, string? theme)
+    {
+        try
+        {
+            NativeMethods.SetWindowTheme(handle, theme, null);
+        }
+        catch (DllNotFoundException)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+    }
+
+    private sealed class BrowserScrollbarState
+    {
+        private readonly EventHandler _handleCreatedHandler;
+        private readonly WebBrowserDocumentCompletedEventHandler _documentCompletedHandler;
+        private readonly EventHandler _disposedHandler;
+        private bool _attached;
+
+        public BrowserScrollbarState()
+        {
+            _handleCreatedHandler = OnHandleCreated;
+            _documentCompletedHandler = OnDocumentCompleted;
+            _disposedHandler = OnDisposed;
+        }
+
+        public bool DarkScrollbars { get; set; }
+
+        public void Attach(WebBrowser browser)
+        {
+            if (_attached)
+            {
+                return;
+            }
+
+            browser.HandleCreated += _handleCreatedHandler;
+            browser.DocumentCompleted += _documentCompletedHandler;
+            browser.Disposed += _disposedHandler;
+            _attached = true;
+        }
+
+        public void Apply(WebBrowser browser)
+        {
+            if (browser.IsHandleCreated)
+            {
+                ApplyDarkScrollbars(browser.Handle, DarkScrollbars);
+            }
+        }
+
+        private void OnHandleCreated(object? sender, EventArgs e)
+        {
+            if (sender is WebBrowser browser)
+            {
+                ApplyDarkScrollbars(browser.Handle, DarkScrollbars);
+            }
+        }
+
+        private void OnDocumentCompleted(object? sender, WebBrowserDocumentCompletedEventArgs e)
+        {
+            if (sender is WebBrowser browser)
+            {
+                ApplyDarkScrollbars(browser.Handle, DarkScrollbars);
+            }
+        }
+
+        private void OnDisposed(object? sender, EventArgs e)
+        {
+            if (sender is not WebBrowser browser)
+            {
+                return;
+            }
+
+            browser.HandleCreated -= _handleCreatedHandler;
+            browser.DocumentCompleted -= _documentCompletedHandler;
+            browser.Disposed -= _disposedHandler;
+            s_browserScrollbarStates.Remove(browser);
         }
     }
 
@@ -429,6 +582,18 @@ internal static class ThemeHelper
 
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        public delegate bool EnumChildProc(IntPtr hwnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool EnumChildWindows(IntPtr hwndParent, EnumChildProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int GetClassName(IntPtr hwnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int SetWindowTheme(IntPtr hwnd, string? appName, string? idList);
 
         public static uint GetCurrentColor(int color)
         {
