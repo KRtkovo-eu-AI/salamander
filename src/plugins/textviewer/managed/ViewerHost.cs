@@ -13,7 +13,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -437,46 +436,21 @@ internal static class ViewerHost
                 return;
             }
 
-            TextViewerForm? form = GetAvailableForm();
-
-            if (form is null)
-            {
-                form = CreateForm();
-                lock (_lock)
-                {
-                    _openForms.Add(form);
-                }
-            }
+            var form = new TextViewerForm();
+            form.FormClosed += (_, _) => OnFormClosed(form, session);
 
             if (!form.TryShow(session))
             {
+                form.Dispose();
                 session.MarkStartupFailed();
                 session.Complete();
                 return;
             }
-        }
 
-        private TextViewerForm CreateForm()
-        {
-            var form = new TextViewerForm();
-            form.FormClosed += (_, _) => OnFormClosed(form);
-            return form;
-        }
-
-        private TextViewerForm? GetAvailableForm()
-        {
             lock (_lock)
             {
-                foreach (var form in _openForms)
-                {
-                    if (!form.IsDisposed && form.IsAvailable)
-                    {
-                        return form;
-                    }
-                }
+                _openForms.Add(form);
             }
-
-            return null;
         }
 
         private void OnDispatcherHandleCreated(object? sender, EventArgs e)
@@ -487,17 +461,14 @@ internal static class ViewerHost
         {
         }
 
-        private void OnFormClosed(TextViewerForm form)
-        {
-            RemoveForm(form);
-        }
-
-        private void RemoveForm(TextViewerForm form)
+        private void OnFormClosed(TextViewerForm form, ViewerSession session)
         {
             lock (_lock)
             {
                 _openForms.Remove(form);
             }
+
+            session.Complete();
         }
     }
 
@@ -531,10 +502,6 @@ internal static class ViewerHost
             ClientSize = new Size(800, 600);
             Icon = ViewerResources.ViewerIcon;
 
-            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.ResizeRedraw, true);
-            UpdateStyles();
-
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;
@@ -542,32 +509,15 @@ internal static class ViewerHost
             ThemeHelper.ApplyTheme(this);
         }
 
-        public bool IsAvailable => _session is null;
-
         public bool TryShow(ViewerSession session)
         {
-            if (_session is not null)
-            {
-                return false;
-            }
-
             _session = session;
             _allowClose = false;
 
             Text = BuildCaption(session.Payload.Caption);
-
-            int showCommand = GetShowCommand(session.Payload);
-            PrepareForShow();
-
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
             EnsureBrowser();
-
-            ThemeHelper.ApplyTheme(this);
-            if (_browser is not null)
-            {
-                ThemeHelper.ApplyTheme(_browser);
-            }
 
             try
             {
@@ -575,7 +525,6 @@ internal static class ViewerHost
             }
             catch (Exception ex)
             {
-                _session = null;
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
@@ -585,8 +534,10 @@ internal static class ViewerHost
                 return false;
             }
 
-            ShowWindow(showCommand);
-
+            ShowInTaskbar = true;
+            Show();
+            Activate();
+            NativeMethods.SetForegroundWindow(Handle);
             return true;
         }
 
@@ -599,15 +550,7 @@ internal static class ViewerHost
         {
             if (keyData == Keys.Escape)
             {
-                if (_allowClose)
-                {
-                    Close();
-                }
-                else
-                {
-                    HideForReuse();
-                }
-
+                Close();
                 return true;
             }
 
@@ -725,10 +668,13 @@ internal static class ViewerHost
                 return;
             }
 
-            if (!IsDisposed)
+            BeginInvoke(new MethodInvoker(() =>
             {
-                HideForReuse();
-            }
+                if (!IsDisposed)
+                {
+                    Close();
+                }
+            }));
         }
 
         private void HandleBrowserInitializationFailure(Exception exception)
@@ -762,9 +708,7 @@ internal static class ViewerHost
         {
             if (!_allowClose)
             {
-                e.Cancel = true;
-                HideForReuse();
-                return;
+                _allowClose = true;
             }
 
             if (_browserCore is not null)
@@ -773,7 +717,7 @@ internal static class ViewerHost
                 _browserCore = null;
             }
 
-            CompleteSession();
+            _session?.SignalClosed();
         }
 
         private void ApplyPlacement(ViewCommandPayload payload)
@@ -918,58 +862,6 @@ internal static class ViewerHost
             }
         }
 
-        private void PrepareForShow()
-        {
-            if (!IsHandleCreated)
-            {
-                CreateControl();
-            }
-
-            // Leave visibility management to the show/hide helpers so we mirror
-            // the JSON viewer's behaviour and avoid re-entrant Hide/Show cycles
-            // that caused the window to stall.
-        }
-
-        private void ShowWindow(int showCommand)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            EnsureTaskbarVisibility();
-            ShowInTaskbar = true;
-
-            if (!IsHandleCreated)
-            {
-                return;
-            }
-
-            if (!Visible)
-            {
-                Show();
-            }
-
-            if (showCommand == NativeMethods.SW_SHOWMINIMIZED)
-            {
-                WindowState = FormWindowState.Minimized;
-                NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWMINIMIZED);
-                return;
-            }
-
-            if (showCommand == NativeMethods.SW_SHOWMAXIMIZED)
-            {
-                WindowState = FormWindowState.Maximized;
-            }
-            else if (WindowState == FormWindowState.Minimized)
-            {
-                WindowState = FormWindowState.Normal;
-            }
-
-            Activate();
-            NativeMethods.SetForegroundWindow(Handle);
-        }
-
         private void RenderCurrentDocument()
         {
             if (_currentDocumentText is null)
@@ -999,100 +891,6 @@ internal static class ViewerHost
             }
 
             return string.Format(CultureInfo.CurrentCulture, "{0} - PrismSharp Text Viewer .NET", caption);
-        }
-
-        private void CompleteSession()
-        {
-            var session = _session;
-            if (session is null)
-            {
-                return;
-            }
-
-            _session = null;
-            session.SignalClosed();
-            session.Complete();
-        }
-
-        private void HideForReuse()
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            if (InvokeRequired)
-            {
-                Invoke(new MethodInvoker(HideForReuse));
-                return;
-            }
-
-            if (_allowClose)
-            {
-                Close();
-                return;
-            }
-
-            ShowInTaskbar = false;
-
-            ClearBrowser();
-
-            if (!Visible)
-            {
-                CompleteSession();
-                return;
-            }
-
-            var owner = _session?.Parent ?? IntPtr.Zero;
-
-            Hide();
-
-            CompleteSession();
-
-            if (owner != IntPtr.Zero)
-            {
-                NativeMethods.SetForegroundWindow(owner);
-            }
-        }
-
-        private void ClearBrowser()
-        {
-            _currentDocumentText = null;
-            _currentDocumentLanguage = null;
-            _currentDocumentCaption = null;
-            _pendingDocumentHtml = null;
-
-            var core = _browserCore ?? _browser?.CoreWebView2;
-            if (core is null)
-            {
-                return;
-            }
-
-            try
-            {
-                core.NavigateToString("<html><head><meta charset=\"utf-8\"></head><body></body></html>");
-            }
-            catch (InvalidOperationException)
-            {
-            }
-            catch (COMException)
-            {
-            }
-        }
-
-        private static int GetShowCommand(ViewCommandPayload payload)
-        {
-            if (payload.ShowCommand == NativeMethods.SW_SHOWMAXIMIZED)
-            {
-                return NativeMethods.SW_SHOWMAXIMIZED;
-            }
-
-            if (payload.ShowCommand == NativeMethods.SW_SHOWMINIMIZED)
-            {
-                return NativeMethods.SW_SHOWMINIMIZED;
-            }
-
-            return NativeMethods.SW_RESTORE;
         }
     }
 

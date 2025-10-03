@@ -9,7 +9,6 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -426,59 +425,31 @@ internal static class ViewerHost
                 return;
             }
 
-            RenderViewerForm? form = GetAvailableForm();
-
-            if (form is null)
-            {
-                form = CreateForm();
-                lock (_lock)
-                {
-                    _openForms.Add(form);
-                }
-            }
+            var form = new RenderViewerForm();
+            form.FormClosed += (_, _) => OnFormClosed(form, session);
 
             if (!form.TryShow(session))
             {
+                form.Dispose();
                 session.MarkStartupFailed();
                 session.Complete();
                 return;
             }
-        }
 
-        private RenderViewerForm CreateForm()
-        {
-            var form = new RenderViewerForm();
-            form.FormClosed += (_, _) => OnFormClosed(form);
-            return form;
-        }
-
-        private RenderViewerForm? GetAvailableForm()
-        {
             lock (_lock)
             {
-                foreach (var form in _openForms)
-                {
-                    if (!form.IsDisposed && form.IsAvailable)
-                    {
-                        return form;
-                    }
-                }
+                _openForms.Add(form);
             }
-
-            return null;
         }
 
-        private void OnFormClosed(RenderViewerForm form)
-        {
-            RemoveForm(form);
-        }
-
-        private void RemoveForm(RenderViewerForm form)
+        private void OnFormClosed(RenderViewerForm form, ViewerSession session)
         {
             lock (_lock)
             {
                 _openForms.Remove(form);
             }
+
+            session.Complete();
         }
     }
 
@@ -519,19 +490,13 @@ internal static class ViewerHost
             HandleCreated += OnHandleCreated;
             HandleDestroyed += OnHandleDestroyed;
             FormClosing += OnFormClosing;
+            FormClosed += OnFormClosed;
 
             ThemeHelper.ApplyTheme(this);
         }
 
-        public bool IsAvailable => _session is null;
-
         public bool TryShow(ViewerSession session)
         {
-            if (_session is not null)
-            {
-                return false;
-            }
-
             _session = session;
             _allowClose = false;
 
@@ -580,15 +545,7 @@ internal static class ViewerHost
         {
             if (keyData == Keys.Escape)
             {
-                if (_allowClose)
-                {
-                    Close();
-                }
-                else
-                {
-                    HideForReuse();
-                }
-
+                Close();
                 return true;
             }
 
@@ -732,9 +689,7 @@ internal static class ViewerHost
         {
             if (!_allowClose)
             {
-                e.Cancel = true;
-                HideForReuse();
-                return;
+                _allowClose = true;
             }
 
             if (_browserCore is not null)
@@ -743,13 +698,18 @@ internal static class ViewerHost
                 _browserCore = null;
             }
 
-            CompleteSession();
+            _session?.SignalClosed();
         }
 
-        protected override void OnClosed(EventArgs e)
+        private void OnFormClosed(object? sender, FormClosedEventArgs e)
         {
-            base.OnClosed(e);
-            CompleteSession();
+            var owner = _session?.Parent ?? IntPtr.Zero;
+            _session = null;
+
+            if (owner != IntPtr.Zero)
+            {
+                NativeMethods.SetForegroundWindow(owner);
+            }
         }
 
         protected override void OnSystemColorsChanged(EventArgs e)
@@ -806,9 +766,6 @@ internal static class ViewerHost
             {
                 CreateControl();
             }
-
-            // Mirror the JSON viewer's show/hide sequencing to avoid flicker and
-            // hangs caused by redundant Hide/Show pairs during reuse.
         }
 
         private void ShowWindow(int showCommand)
@@ -987,19 +944,6 @@ internal static class ViewerHost
             return string.Format(CultureInfo.CurrentCulture, "{0} - WebView2 Render Viewer .NET", caption);
         }
 
-        private void CompleteSession()
-        {
-            var session = _session;
-            if (session is null)
-            {
-                return;
-            }
-
-            _session = null;
-            session.SignalClosed();
-            session.Complete();
-        }
-
         private void OnBrowserWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
             if (e is null)
@@ -1012,73 +956,13 @@ internal static class ViewerHost
                 return;
             }
 
-            HideForReuse();
-        }
-
-        private void HideForReuse()
-        {
-            if (IsDisposed)
+            BeginInvoke(new MethodInvoker(() =>
             {
-                return;
-            }
-
-            if (InvokeRequired)
-            {
-                Invoke(new MethodInvoker(HideForReuse));
-                return;
-            }
-
-            if (_allowClose)
-            {
-                Close();
-                return;
-            }
-
-            ShowInTaskbar = false;
-
-            ClearBrowser();
-
-            if (!Visible)
-            {
-                CompleteSession();
-                return;
-            }
-
-            var owner = _session?.Parent ?? IntPtr.Zero;
-
-            Hide();
-
-            CompleteSession();
-
-            if (owner != IntPtr.Zero)
-            {
-                NativeMethods.SetForegroundWindow(owner);
-            }
-        }
-
-        private void ClearBrowser()
-        {
-            _currentFilePath = null;
-            _currentView = null;
-            _pendingNavigationUri = null;
-            _pendingHtmlContent = null;
-
-            var core = _browserCore ?? _browser?.CoreWebView2;
-            if (core is null)
-            {
-                return;
-            }
-
-            try
-            {
-                core.NavigateToString("<html><head><meta charset=\"utf-8\"></head><body></body></html>");
-            }
-            catch (InvalidOperationException)
-            {
-            }
-            catch (COMException)
-            {
-            }
+                if (!IsDisposed)
+                {
+                    Close();
+                }
+            }));
         }
 
         private static int GetShowCommand(ViewCommandPayload payload)
