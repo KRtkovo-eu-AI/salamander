@@ -8,7 +8,7 @@
 
 #include "config.h"
 
-const char* DB_ROOT_KEY = "Software\\Open Salamander\\Bug Reporter";
+const char* DB_ROOT_KEY = "Software\\Open Salamander Samandarin\\Bug Reporter";
 const char* CONFIG_EMAIL_REG = "Email";
 
 CConfiguration Config;
