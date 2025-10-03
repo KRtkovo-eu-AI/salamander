@@ -39,7 +39,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "Unable to parse parameters provided for the text viewer.",
-                "Text Viewer .NET Plugin",
+                "PrismSharp Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -49,7 +49,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 "The native host did not provide a synchronization handle for the viewer.",
-                "Text Viewer .NET Plugin",
+                "PrismSharp Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -64,7 +64,7 @@ internal static class ViewerHost
         {
             MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
                 $"Unable to prepare the text viewer session.\n{ex.Message}",
-                "Text Viewer .NET Plugin",
+                "PrismSharp Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 1;
@@ -83,7 +83,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 $"Unable to initialize the text viewer.\n{ex.Message}",
-                "Text Viewer .NET Plugin",
+                "PrismSharp Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -99,7 +99,7 @@ internal static class ViewerHost
             session.Complete();
             MessageBox.Show(session.OwnerWindow,
                 "Unable to open the text viewer window.",
-                "Text Viewer .NET Plugin",
+                "PrismSharp Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             if (!asynchronous)
@@ -492,7 +492,7 @@ internal static class ViewerHost
 
         public TextViewerForm()
         {
-            Text = "Text Viewer .NET";
+            Text = "PrismSharp Text Viewer .NET";
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
             MinimizeBox = true;
@@ -528,7 +528,7 @@ internal static class ViewerHost
                 session.MarkStartupFailed();
                 MessageBox.Show(session.OwnerWindow,
                     $"Unable to open the selected file.\n{ex.Message}",
-                    "Text Viewer .NET Plugin",
+                    "PrismSharp Text Viewer .NET Plugin",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
@@ -682,7 +682,7 @@ internal static class ViewerHost
             _session?.MarkStartupFailed();
             MessageBox.Show(this,
                 $"Unable to initialize the embedded browser.\n{exception.Message}",
-                "Text Viewer .NET Plugin",
+                "PrismSharp Text Viewer .NET Plugin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             BeginInvoke(new MethodInvoker(() =>
@@ -887,10 +887,10 @@ internal static class ViewerHost
         {
             if (string.IsNullOrWhiteSpace(caption))
             {
-                return "Text Viewer .NET";
+                return "PrismSharp Text Viewer .NET";
             }
 
-            return string.Format(CultureInfo.CurrentCulture, "{0} - Text Viewer .NET", caption);
+            return string.Format(CultureInfo.CurrentCulture, "{0} - PrismSharp Text Viewer .NET", caption);
         }
     }
 
@@ -1250,7 +1250,7 @@ internal static class ViewerHost
             }
             builder.Append("<script>(function(){if(window.chrome&&window.chrome.webview&&document){document.addEventListener('keydown',function(ev){if(ev&&ev.key==='Escape'){ev.preventDefault();try{window.chrome.webview.postMessage('escape');}catch(e){}}});}})();</script>");
             builder.Append("<title>");
-            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer .NET" : caption));
+            builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "PrismSharp Text Viewer .NET" : caption));
             builder.Append("</title>");
             builder.Append("<style>");
             AppendBaseStyles(builder, palette, content.PreStyle);
