@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}</ProjectGuid>
+    <ProjectGuid>{83B6607E-0476-4AC8-BD46-CCF17C1F31D4}</ProjectGuid>
     <RootNamespace>lang_webview2renderviewer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <Keyword>Win32Proj</Keyword>

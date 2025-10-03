@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{340CB50A-0325-4FAD-9C57-06FCC80E4482}</ProjectGuid>
+    <ProjectGuid>{EAD529CD-9A84-474B-B8EA-32B0F5954045}</ProjectGuid>
     <RootNamespace>webview2renderviewer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -195,11 +195,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="lang_webview2renderviewer.vcxproj">
-      <Project>{1DE1C48D-BFB7-4401-9E4C-3EF9FC3D3407}</Project>
+      <Project>{83B6607E-0476-4AC8-BD46-CCF17C1F31D4}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
     <ProjectReference Include="..\managed\WebView2RenderViewer.Managed.csproj">
-      <Project>{755CF63D-31EB-43B6-8402-2BB9D7D3E53F}</Project>
+      <Project>{025C488C-8A97-446A-B36B-872E59BD566D}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
