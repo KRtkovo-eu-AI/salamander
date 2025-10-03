@@ -55,6 +55,44 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory()");
 
+    class CAutoRefreshRestore
+    {
+    public:
+        explicit CAutoRefreshRestore(CFilesWindow* window)
+            : Win(window), RestoreMonitor(FALSE), ResetSuppress(FALSE)
+        {
+        }
+
+        void Suppress(BOOL monitorWasEnabled)
+        {
+            if (monitorWasEnabled)
+                RestoreMonitor = TRUE;
+            ResetSuppress = TRUE;
+        }
+
+        ~CAutoRefreshRestore()
+        {
+            if (Win == NULL)
+                return;
+
+            if (RestoreMonitor && Win->Is(ptDisk))
+            {
+                Win->SetMonitorChanges(TRUE);
+                BOOL registerDevNotification = Win->GetPathDriveType() == DRIVE_REMOVABLE ||
+                                               Win->GetPathDriveType() == DRIVE_FIXED;
+                EnsureWatching(Win, registerDevNotification);
+            }
+
+            if (ResetSuppress)
+                Win->SetSuppressAutoRefresh(FALSE);
+        }
+
+    private:
+        CFilesWindow* Win;
+        BOOL RestoreMonitor;
+        BOOL ResetSuppress;
+    } autoRefreshRestore(this);
+
     //  TRACE_I("ReadDirectory: begin");
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
@@ -416,12 +454,14 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         {
                             if (resBut == IDNO)
                             {
-                                if (GetMonitorChanges()) // need to suppress monitoring of changes (autorefresh)
+                                BOOL monitorWasEnabled = GetMonitorChanges();
+                                if (monitorWasEnabled) // need to suppress monitoring of changes (autorefresh)
                                 {
                                     DetachDirectory((CFilesWindow*)this);
                                     SetMonitorChanges(FALSE); // the changes won't be monitored anymore
                                 }
 
+                                autoRefreshRestore.Suppress(monitorWasEnabled);
                                 SetSuppressAutoRefresh(TRUE);
                             }
                         }
@@ -973,7 +1013,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             if (PluginData.NotEmpty())
             {
                 CSalamanderView view(this);
-                PluginData.SetupView(this == MainWindow->LeftPanel, &view, GetZIPPath(),
+                PluginData.SetupView(IsLeftPanel(), &view, GetZIPPath(),
                                      GetArchiveDir()->GetUpperDir(GetZIPPath()));
             }
 
@@ -1238,7 +1278,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 if (PluginData.NotEmpty())
                 {
                     CSalamanderView view(this);
-                    PluginData.SetupView(this == MainWindow->LeftPanel, &view, NULL, NULL);
+                    PluginData.SetupView(IsLeftPanel(), &view, NULL, NULL);
                 }
 
                 // setting of icon size for IconCache
@@ -1339,7 +1379,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     DWORD varPlacements[100];
                     int varPlacementsCount = 100;
                     if (PluginData.NotEmpty() &&
-                        PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
+                        PluginData.GetInfoLineContent(IsLeftPanel() ? PANEL_LEFT : PANEL_RIGHT,
                                                       NULL, FALSE, 0, 0, TRUE, CQuadWord(0, 0), buff,
                                                       varPlacements, varPlacementsCount))
                     {
@@ -2521,7 +2561,7 @@ void CFilesWindow::ChangeDrive(char drive)
     //--- DefaultDire refresh
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() != this);
     //---  possible disk selection from the dialog
-    CFilesWindow* anotherPanel = (Parent->LeftPanel == this ? Parent->RightPanel : Parent->LeftPanel);
+    CFilesWindow* anotherPanel = Parent->GetOtherPanel(this);
     if (drive == 0)
     {
         CDriveTypeEnum driveType = drvtUnknow; // dummy
