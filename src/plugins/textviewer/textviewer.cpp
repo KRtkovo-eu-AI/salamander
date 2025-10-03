@@ -11,13 +11,20 @@
 
 #include "precomp.h"
 
+#include <algorithm>
+#include <cctype>
+#include <string>
+#include <utility>
+#include <unordered_set>
+#include <vector>
+
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
 // cast interfacu CPluginInterface pro viewer
 CPluginInterfaceForViewer InterfaceForViewer;
 
 // globalni data
-const char* PluginNameEN = "Text Viewer .NET"; // neprekladane jmeno pluginu
+const char* PluginNameEN = "PrismSharp Text Viewer .NET"; // neprekladane jmeno pluginu
 const char* PluginNameShort = "TEXTVIEWER";    // jmeno pluginu (kratce, bez mezer)
 
 HINSTANCE DLLInstance = NULL; // handle k SPL-ku - jazykove nezavisle resourcy
@@ -31,7 +38,7 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 
 // maximum file size (in bytes) allowed for the managed viewer
-static const ULONGLONG kMaxTextFileSize = 4ULL * 1024ULL * 1024ULL; // 4 MB
+static const ULONGLONG kMaxTextFileSize = 16ULL * 1024ULL * 1024ULL; // 16 MB
 
 // definice promenne pro "spl_com.h"
 int SalamanderVersion = 0;
@@ -170,7 +177,480 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    salamander->AddViewer("*.txt;*.log;*.ini;*.cfg;*.json;*.yaml;*.yml;*.xml;*.html;*.htm;*.md;*.csv;*.cs;*.cpp;*.c;*.h;*.hpp;*.py;*.js;*.ts;*.css;*.sql;*.bat;*.ps1", FALSE);
+    static const char* const kBaseExtensions[] = {
+        "txt",
+        "log",
+        "ini",
+        "cfg",
+        "conf",
+        "config",
+        "json",
+        "jsonc",
+        "json5",
+        "yaml",
+        "yml",
+        "xml",
+        "html",
+        "htm",
+        "php",
+        "md",
+        "markdown",
+        "csv",
+        "bat",
+        "cmd",
+        "ps1",
+        "psd1",
+        "psm1",
+        "cs",
+        "cpp",
+        "c",
+        "cxx",
+        "h",
+        "hh",
+        "hpp",
+        "hxx",
+        "csproj",
+        "fsproj",
+        "vbproj",
+        "vcxproj",
+        "vcproj",
+        "axaml",
+        "xaml",
+        "xlf",
+        "nuspec",
+        "plist",
+        "props",
+        "storyboard",
+        "targets"
+    };
+
+    static const char* const kPrismExtensions[] = {
+        "abap",
+        "abnf",
+        "actionscript",
+        "ada",
+        "adoc",
+        "agda",
+        "al",
+        "antlr4",
+        "apacheconf",
+        "apex",
+        "apl",
+        "applescript",
+        "aql",
+        "arduino",
+        "arff",
+        "asciidoc",
+        "asm6502",
+        "asmatmel",
+        "aspnet",
+        "atom",
+        "autohotkey",
+        "autoit",
+        "avdl",
+        "avisynth",
+        "avs",
+        "bash",
+        "basic",
+        "batch",
+        "bbcode",
+        "bicep",
+        "birb",
+        "bison",
+        "bnf",
+        "brainfuck",
+        "brightscript",
+        "bro",
+        "bsl",
+        "c",
+        "cfc",
+        "cfscript",
+        "chaiscript",
+        "cil",
+        "clike",
+        "clojure",
+        "cmake",
+        "cobol",
+        "coffee",
+        "coffeescript",
+        "conc",
+        "concurnas",
+        "context",
+        "coq",
+        "cpp",
+        "crystal",
+        "cs",
+        "csharp",
+        "cshtml",
+        "csp",
+        "css",
+        "csv",
+        "cypher",
+        "d",
+        "dart",
+        "dataweave",
+        "dax",
+        "dhall",
+        "diff",
+        "django",
+        "docker",
+        "dockerfile",
+        "dot",
+        "dotnet",
+        "ebnf",
+        "editorconfig",
+        "eiffel",
+        "ejs",
+        "elisp",
+        "elixir",
+        "elm",
+        "emacs",
+        "erb",
+        "erlang",
+        "eta",
+        "etlua",
+        "factor",
+        "false",
+        "flow",
+        "fortran",
+        "fsharp",
+        "ftl",
+        "g4",
+        "gamemakerlanguage",
+        "gap",
+        "gcode",
+        "gdscript",
+        "gedcom",
+        "gherkin",
+        "git",
+        "gitignore",
+        "glsl",
+        "gml",
+        "gn",
+        "gni",
+        "go",
+        "graphql",
+        "groovy",
+        "gv",
+        "haml",
+        "handlebars",
+        "haskell",
+        "haxe",
+        "hbs",
+        "hcl",
+        "hgignore",
+        "hlsl",
+        "hoon",
+        "hpkp",
+        "hs",
+        "hsts",
+        "html",
+        "http",
+        "ichigojam",
+        "icon",
+        "idr",
+        "idris",
+        "iecst",
+        "ignore",
+        "inform7",
+        "ini",
+        "ino",
+        "io",
+        "j",
+        "java",
+        "javadoc",
+        "javadoclike",
+        "javascript",
+        "javastacktrace",
+        "jexl",
+        "jinja2",
+        "jolie",
+        "jq",
+        "js",
+        "jsdoc",
+        "json",
+        "json5",
+        "jsonp",
+        "jsstacktrace",
+        "jsx",
+        "julia",
+        "keepalived",
+        "keyman",
+        "kotlin",
+        "kt",
+        "kts",
+        "kum",
+        "kumir",
+        "kusto",
+        "latex",
+        "latte",
+        "less",
+        "lilypond",
+        "liquid",
+        "lisp",
+        "livescript",
+        "llvm",
+        "log",
+        "lolcode",
+        "lua",
+        "ly",
+        "magma",
+        "makefile",
+        "markdown",
+        "markup",
+        "mathematica",
+        "mathml",
+        "matlab",
+        "maxscript",
+        "md",
+        "mel",
+        "mermaid",
+        "mizar",
+        "mongodb",
+        "monkey",
+        "moon",
+        "moonscript",
+        "mscript",
+        "n1ql",
+        "n4js",
+        "n4jsd",
+        "nani",
+        "naniscript",
+        "nasm",
+        "nb",
+        "neon",
+        "nevod",
+        "nginx",
+        "nim",
+        "nix",
+        "npmignore",
+        "nsis",
+        "objc",
+        "objectivec",
+        "objectpascal",
+        "ocaml",
+        "opencl",
+        "openqasm",
+        "oscript",
+        "oz",
+        "parigp",
+        "parser",
+        "pascal",
+        "pascaligo",
+        "pbfasm",
+        "pcaxis",
+        "pcode",
+        "peoplecode",
+        "perl",
+        "php",
+        "phpdoc",
+        "plsql",
+        "powerquery",
+        "powershell",
+        "pq",
+        "processing",
+        "prolog",
+        "promql",
+        "properties",
+        "protobuf",
+        "psl",
+        "pug",
+        "puppet",
+        "pure",
+        "purebasic",
+        "purescript",
+        "purs",
+        "px",
+        "py",
+        "python",
+        "q",
+        "qasm",
+        "qml",
+        "qore",
+        "qs",
+        "qsharp",
+        "r",
+        "racket",
+        "razor",
+        "rb",
+        "rbnf",
+        "reason",
+        "regex",
+        "rego",
+        "renpy",
+        "rest",
+        "rip",
+        "rkt",
+        "roboconf",
+        "robot",
+        "robotframework",
+        "rpy",
+        "rq",
+        "rss",
+        "ruby",
+        "rust",
+        "sas",
+        "sass",
+        "scala",
+        "scheme",
+        "scss",
+        "shell",
+        "shellsession",
+        "shortcode",
+        "sln",
+        "smali",
+        "smalltalk",
+        "smarty",
+        "sml",
+        "smlnj",
+        "sol",
+        "solidity",
+        "soy",
+        "sparql",
+        "sqf",
+        "sql",
+        "squirrel",
+        "ssml",
+        "stan",
+        "stylus",
+        "svg",
+        "swift",
+        "systemd",
+        "t4",
+        "tap",
+        "tcl",
+        "tex",
+        "textile",
+        "toml",
+        "tremor",
+        "trickle",
+        "trig",
+        "troy",
+        "ts",
+        "tsconfig",
+        "tsx",
+        "tt2",
+        "turtle",
+        "twig",
+        "typescript",
+        "typoscript",
+        "uc",
+        "unrealscript",
+        "uri",
+        "url",
+        "uscript",
+        "v",
+        "vala",
+        "vb",
+        "vba",
+        "vbnet",
+        "velocity",
+        "verilog",
+        "vhdl",
+        "vim",
+        "warpscript",
+        "wasm",
+        "webidl",
+        "webmanifest",
+        "wiki",
+        "wl",
+        "wolfram",
+        "wren",
+        "xeora",
+        "xeoracube",
+        "xls",
+        "xlsx",
+        "xml",
+        "xojo",
+        "xquery",
+        "yaml",
+        "yang",
+        "yml",
+        "zig"
+    };
+
+    std::vector<std::string> extensions;
+    const size_t totalCapacity = (sizeof(kBaseExtensions) / sizeof(kBaseExtensions[0])) +
+                                 (sizeof(kPrismExtensions) / sizeof(kPrismExtensions[0]));
+    extensions.reserve(totalCapacity);
+    std::unordered_set<std::string> seen;
+    seen.reserve(totalCapacity);
+
+    auto addExtension = [&extensions, &seen](const char* ext) {
+        if (ext == nullptr || *ext == '\0')
+        {
+            return;
+        }
+
+        std::string normalized(ext);
+        std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+
+        if (seen.insert(normalized).second)
+        {
+            extensions.push_back(std::move(normalized));
+        }
+    };
+
+    for (const char* ext : kBaseExtensions)
+    {
+        addExtension(ext);
+    }
+
+    for (const char* ext : kPrismExtensions)
+    {
+        addExtension(ext);
+    }
+
+    if (!extensions.empty())
+    {
+        // Salamander limits the length of a single pattern registration string in the
+        // configuration UI, so split the extensions across multiple AddViewer calls.
+        constexpr size_t kMaxPatternLength = 200; // conservative chunk to keep entries editable
+
+        std::string pattern;
+        pattern.reserve(kMaxPatternLength);
+
+        auto flushPattern = [&]() {
+            if (!pattern.empty())
+            {
+                salamander->AddViewer(pattern.c_str(), FALSE);
+                pattern.clear();
+            }
+        };
+
+        for (const std::string& ext : extensions)
+        {
+            const std::string token = std::string("*.") + ext;
+            const size_t separator = pattern.empty() ? 0 : 1; // semicolon when appending
+
+            if (!pattern.empty() && (pattern.size() + separator + token.size()) > kMaxPatternLength)
+            {
+                flushPattern();
+            }
+
+            if (!pattern.empty())
+            {
+                pattern.push_back(';');
+            }
+
+            // If the token itself would exceed the chunk size, still register it alone.
+            if (!pattern.empty() && (pattern.size() + token.size()) > kMaxPatternLength)
+            {
+                flushPattern();
+            }
+
+            pattern.append(token);
+
+            if (pattern.size() >= kMaxPatternLength)
+            {
+                flushPattern();
+            }
+        }
+
+        flushPattern();
+    }
 
     if (SalamanderGUI != NULL)
     {
