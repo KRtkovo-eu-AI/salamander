@@ -1179,7 +1179,7 @@ internal static class ViewerHost
 
             protected override ThemeStyle BeginContainer(Token token, ThemeStyle style, ThemeStyle parentStyle)
             {
-                var effective = CombineStyles(style, parentStyle);
+                var effective = CombineStyles(style, parentStyle) ?? parentStyle ?? style ?? new ThemeStyle();
                 var css = BuildCss(effective, parentStyle);
                 if (!string.IsNullOrEmpty(css))
                 {
