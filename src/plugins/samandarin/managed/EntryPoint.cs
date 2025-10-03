@@ -205,11 +205,12 @@ internal static class UpdateCoordinator
         try
         {
             string? latestVersion = null;
+            bool noPublishedReleases = false;
             string? errorMessage = null;
 
             try
             {
-                latestVersion = await FetchLatestVersionAsync().ConfigureAwait(false);
+                (latestVersion, noPublishedReleases) = await FetchLatestVersionAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -242,7 +243,12 @@ internal static class UpdateCoordinator
                 else if (showIfCurrent && string.IsNullOrEmpty(errorMessage))
                 {
                     var storedVersion = Settings.LastKnownRemoteVersion;
-                    if (!string.IsNullOrWhiteSpace(storedVersion) && VersionComparer.Compare(storedVersion, CurrentVersion) <= 0)
+                    if (noPublishedReleases)
+                    {
+                        showCurrentMessage = true;
+                        latestVersionForMessage = storedVersion;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(storedVersion) && VersionComparer.Compare(storedVersion, CurrentVersion) <= 0)
                     {
                         showCurrentMessage = true;
                         latestVersionForMessage = storedVersion;
@@ -312,14 +318,16 @@ internal static class UpdateCoordinator
         }
     }
 
-    private static async Task<string?> FetchLatestVersionAsync()
+    private static async Task<(string? Version, bool NoPublishedReleases)> FetchLatestVersionAsync()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesUri);
         using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var finalUri = response.RequestMessage?.RequestUri ?? ReleasesUri;
-        return ExtractVersionFromUri(finalUri);
+        string finalPath = finalUri.AbsolutePath.TrimEnd('/');
+        bool noPublishedReleases = finalPath.EndsWith("/releases", StringComparison.OrdinalIgnoreCase);
+        return (ExtractVersionFromUri(finalUri), noPublishedReleases);
     }
 
     private static string BuildErrorMessage(Exception exception)
