@@ -944,6 +944,9 @@ void DoRemoveWERLocalDump(const char* exeName)
     // Pozor, obchazeni redirectoru se tyka i modulu doinst.c!
     HKEY hKey;
     DWORD samandarinRefCount = 0xffffffff;
+    DWORD altapRefCount = 0xffffffff;
+    BOOL hasSamandarinRefCount = FALSE;
+    BOOL hasAltapRefCount = FALSE;
     BOOL delExeKey = FALSE;
     REGSAM samDesired = 0;
     if (RemoveIsWow64())
@@ -959,20 +962,38 @@ void DoRemoveWERLocalDump(const char* exeName)
             const char* dumpFolder = "%LOCALAPPDATA%\\Open Salamander Samandarin";
             dwType = REG_DWORD;
             if (RegQueryValueEx(hExeKey, "SamandarinRefCount", 0, &dwType, (BYTE*)&samandarinRefCount, &size) == ERROR_SUCCESS && dwType == REG_DWORD)
+                hasSamandarinRefCount = TRUE;
+            else
+                samandarinRefCount = 0;
+
+            size = sizeof(altapRefCount);
+            dwType = REG_DWORD;
+            if (RegQueryValueEx(hExeKey, "AltapRefCount", 0, &dwType, (BYTE*)&altapRefCount, &size) == ERROR_SUCCESS && dwType == REG_DWORD)
+                hasAltapRefCount = TRUE;
+            else
+                altapRefCount = 0;
+
+            // Prefer the legacy Altap counter if it exists so we keep counts shared
+            // with pre-rebrand builds in sync.
+            if (hasAltapRefCount)
+                samandarinRefCount = altapRefCount;
+            else if (!hasSamandarinRefCount)
+                samandarinRefCount = 0;
+
+            if (samandarinRefCount != 0xffffffff && samandarinRefCount > 0)
+                samandarinRefCount--;
+
+            if (samandarinRefCount == 0)
             {
-                if (samandarinRefCount != 0xffffffff && samandarinRefCount > 0)
-                    samandarinRefCount--;
-                if (samandarinRefCount == 0)
-                {
-                    // po zavreni cely klic smazeme
-                    delExeKey = TRUE;
-                }
-                else
-                {
-                    // ulozime novy RefCount
-                    dwType = REG_DWORD;
-                    RegSetValueEx(hExeKey, "SamandarinRefCount", 0, dwType, (const BYTE*)&samandarinRefCount, sizeof(samandarinRefCount));
-                }
+                // po zavreni cely klic smazeme
+                delExeKey = TRUE;
+            }
+            else
+            {
+                // ulozime novy RefCount
+                dwType = REG_DWORD;
+                RegSetValueEx(hExeKey, "SamandarinRefCount", 0, dwType, (const BYTE*)&samandarinRefCount, sizeof(samandarinRefCount));
+                RegSetValueEx(hExeKey, "AltapRefCount", 0, dwType, (const BYTE*)&samandarinRefCount, sizeof(samandarinRefCount));
             }
             RegCloseKey(hExeKey);
             if (delExeKey)
