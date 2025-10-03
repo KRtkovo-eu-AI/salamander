@@ -363,6 +363,15 @@ extern "C" __declspec(dllexport) UINT32 __stdcall TextViewer_GetCurrentColor(int
     return SalamanderGeneral->GetCurrentColor(color);
 }
 
+extern "C" __declspec(dllexport) void __stdcall TextViewer_SetDarkModeState(BOOL enabled)
+{
+    DarkModeSetEnabled(enabled != FALSE);
+    if (enabled)
+    {
+        DarkModeFixScrollbars();
+    }
+}
+
 extern "C" __declspec(dllexport) void __stdcall TextViewer_ApplyDarkModeTree(HWND hwnd)
 {
     DarkModeApplyTree(hwnd);

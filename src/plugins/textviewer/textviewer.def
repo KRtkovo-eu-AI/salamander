@@ -3,4 +3,5 @@ LIBRARY TEXTVIEWER.SPL
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
 EXPORTS TextViewer_GetCurrentColor
+EXPORTS TextViewer_SetDarkModeState
 EXPORTS TextViewer_ApplyDarkModeTree

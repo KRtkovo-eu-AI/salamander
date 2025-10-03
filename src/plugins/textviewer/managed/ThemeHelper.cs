@@ -38,9 +38,11 @@ internal static class ThemeHelper
     {
         if (!TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(false);
             return;
         }
 
+        NativeMethods.SetDarkModeEnabled(palette.IsDark);
         ApplyPalette(form, palette);
 
         form.ControlAdded -= FormOnControlAddedApplyPalette;
@@ -59,9 +61,11 @@ internal static class ThemeHelper
     {
         if (!TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(false);
             return;
         }
 
+        NativeMethods.SetDarkModeEnabled(palette.IsDark);
         ApplyPalette(control, palette);
     }
 
@@ -107,6 +111,7 @@ internal static class ThemeHelper
     {
         if (TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(palette.IsDark);
             ApplyPalette(e.Control, palette);
         }
     }
@@ -176,6 +181,7 @@ internal static class ThemeHelper
                 ThemeRenderer.Attach(toolStrip, palette);
                 break;
             case WebBrowser webBrowser:
+                NativeMethods.SetDarkModeEnabled(palette.IsDark);
                 ApplyWebBrowserTheme(webBrowser, palette);
                 break;
         }
@@ -513,6 +519,23 @@ internal static class ThemeHelper
 
         [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
         private static extern void TextViewer_ApplyDarkModeTree(IntPtr hwnd);
+
+        [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void TextViewer_SetDarkModeState([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+        public static void SetDarkModeEnabled(bool enabled)
+        {
+            try
+            {
+                TextViewer_SetDarkModeState(enabled);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
 
         public static uint GetCurrentColor(int color)
         {
