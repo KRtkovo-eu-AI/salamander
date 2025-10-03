@@ -224,25 +224,21 @@ if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (
   exit /B 1
 )
 set "PRISM_DATA_DIR="
-set "PRISM_PACKAGE_DIR=$(PkgPrismSharp)"
-pushd "%MANAGED_DIR%" >nul 2>&1
-if errorlevel 1 (
-  echo Failed to access %MANAGED_DIR%.
-  exit /B 1
-)
-if exist "data\languages\languages.json" set "PRISM_DATA_DIR=%CD%\data"
-popd
-if not defined PRISM_DATA_DIR if not "%PRISM_PACKAGE_DIR%"=="" (
-  call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\data"
-  call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\*\data"
-)
-if not defined PRISM_DATA_DIR call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\data"
-if not defined PRISM_DATA_DIR call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\*\data"
-if not defined PRISM_DATA_DIR if not "%NUGET_PACKAGES%"=="" (
-  call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\data"
-  call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\*\data"
+for %%I in ("%MANAGED_DIR%.") do if not defined PRISM_DATA_DIR (
+  if exist "%%~fI\data\languages\languages.json" set "PRISM_DATA_DIR=%%~fI\data"
 )
 if not defined PRISM_DATA_DIR (
+  set "PRISM_PACKAGE_DIR=$(PkgPrismSharp)"
+  if not "%PRISM_PACKAGE_DIR%"=="" (
+    call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\data"
+    call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\*\data"
+  )
+  call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\data"
+  call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\*\data"
+  if not "%NUGET_PACKAGES%"=="" (
+    call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\data"
+    call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\*\data"
+  )
   call :TryPrismData "%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\data"
   call :TryPrismData "%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\*\data"
 )

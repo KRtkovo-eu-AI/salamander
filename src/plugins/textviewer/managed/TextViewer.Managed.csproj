@@ -31,25 +31,15 @@
   </Target>
 
   <ItemGroup Condition="'$(PkgPrismSharp)' != ''">
-    <PrismSharpLanguage Include="$(PkgPrismSharp)contentFiles\**\languages\*.json" />
-    <PrismSharpTheme Include="$(PkgPrismSharp)contentFiles\**\themes\*.json" />
+    <PrismSharpContent Include="$(PkgPrismSharp)contentFiles\data\**\*.json" />
   </ItemGroup>
 
-  <ItemGroup Condition="'@(PrismSharpLanguage)' != ''">
-    <None Include="@(PrismSharpLanguage)">
-      <Link>data\languages\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <TargetPath>data\languages\%(Filename)%(Extension)</TargetPath>
-      <Visible>false</Visible>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup Condition="'@(PrismSharpTheme)' != ''">
-    <None Include="@(PrismSharpTheme)">
-      <Link>data\themes\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <TargetPath>data\themes\%(Filename)%(Extension)</TargetPath>
-      <Visible>false</Visible>
-    </None>
-  </ItemGroup>
+  <Target Name="CopyPrismSharpContent"
+          AfterTargets="Build"
+          Condition="'@(PrismSharpContent)' != ''">
+    <MakeDir Directories="@(PrismSharpContent->'$(OutputPath)data\%(RecursiveDir)')" />
+    <Copy SourceFiles="@(PrismSharpContent)"
+          DestinationFiles="@(PrismSharpContent->'$(OutputPath)data\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
