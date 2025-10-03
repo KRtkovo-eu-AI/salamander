@@ -1126,7 +1126,7 @@ internal static class ViewerHost
 
         private static ThemeNames SelectThemeName()
         {
-            if (ThemeHelper.TryGetPalette(out var palette) && palette.IsDark)
+            if (ThemeHelper.IsWindowsDarkModeEnabled())
             {
                 return ThemeNames.OneDark;
             }

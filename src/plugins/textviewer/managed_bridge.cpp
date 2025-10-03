@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "managed_bridge.h"
+#include "cfgdlg.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -359,4 +360,9 @@ extern "C" __declspec(dllexport) UINT32 __stdcall TextViewer_GetCurrentColor(int
     }
 
     return SalamanderGeneral->GetCurrentColor(color);
+}
+
+extern "C" __declspec(dllexport) int __stdcall TextViewer_IsWindowsDarkModeEnabled()
+{
+    return Configuration.UseWindowsDarkMode != FALSE;
 }

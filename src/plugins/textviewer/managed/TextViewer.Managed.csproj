@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="PrismSharp" Version="1.0.0-beta" GeneratePathProperty="true" />
+    <PackageReference Include="PrismSharp" Version="1.0.0-beta" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,16 +30,9 @@
              Properties="RestoreDuringBuild=true" />
   </Target>
 
-  <ItemGroup Condition="'$(PkgPrismSharp)' != ''">
-    <PrismSharpContent Include="$(PkgPrismSharp)contentFiles\data\**\*.json" />
+  <ItemGroup>
+    <Content Include="data\\**\\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
-
-  <Target Name="CopyPrismSharpContent"
-          AfterTargets="Build"
-          Condition="'@(PrismSharpContent)' != ''">
-    <MakeDir Directories="@(PrismSharpContent->'$(OutputPath)data\%(RecursiveDir)')" />
-    <Copy SourceFiles="@(PrismSharpContent)"
-          DestinationFiles="@(PrismSharpContent->'$(OutputPath)data\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-  </Target>
 </Project>

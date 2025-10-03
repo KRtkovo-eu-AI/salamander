@@ -212,7 +212,7 @@ set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%\"
 if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_CONFIG%\"
 if not exist "%MANAGED_DIR%TextViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"
 if not exist "%MANAGED_DIR%TextViewer.Managed.dll" (
-  echo TextViewer.Managed.dll was not found in "%MANAGED_DIR%".
+  echo TextViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%" or the alternate paths checked.
   exit /B 1
 )
 if not exist "%MANAGED_DIR%PrismSharp.dll" (
@@ -223,50 +223,25 @@ if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (
   echo Newtonsoft.Json.dll was not found next to TextViewer.Managed.dll in %MANAGED_DIR%.
   exit /B 1
 )
-set "PRISM_DATA_DIR="
-for %%I in ("%MANAGED_DIR%.") do if not defined PRISM_DATA_DIR (
-  if exist "%%~fI\data\languages\languages.json" set "PRISM_DATA_DIR=%%~fI\data"
-)
-if not defined PRISM_DATA_DIR (
-  set "PRISM_PACKAGE_DIR=$(PkgPrismSharp)"
-  if not "%PRISM_PACKAGE_DIR%"=="" (
-    call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\data"
-    call :TryPrismData "%PRISM_PACKAGE_DIR%contentFiles\*\data"
-  )
-  call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\data"
-  call :TryPrismData "$(ProjectDir)..\..\..\..\packages\PrismSharp.*\contentFiles\*\data"
-  if not "%NUGET_PACKAGES%"=="" (
-    call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\data"
-    call :TryPrismData "%NUGET_PACKAGES%\prismsharp\*\contentFiles\*\data"
-  )
-  call :TryPrismData "%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\data"
-  call :TryPrismData "%USERPROFILE%\.nuget\packages\prismsharp\*\contentFiles\*\data"
-)
-if not defined PRISM_DATA_DIR (
-  echo PrismSharp data files were not found.
+set "MANAGED_DATA_DIR="
+for %%I in ("%MANAGED_DIR%TextViewer.Managed.dll") do if not defined MANAGED_DATA_DIR set "MANAGED_DATA_DIR=%%~dpIdata"
+if not defined MANAGED_DATA_DIR (
+  echo Failed to resolve PrismSharp data directory from %MANAGED_DIR%.
   exit /B 1
 )
-if not exist "%PRISM_DATA_DIR%\languages\languages.json" (
-  echo PrismSharp data directory "%PRISM_DATA_DIR%" is missing languages.json.
+if not exist "%MANAGED_DATA_DIR%\languages\languages.json" (
+  echo PrismSharp data files were not found under %MANAGED_DATA_DIR%.
   exit /B 1
 )
 if not exist "$(TextViewerPluginDir)data\" mkdir "$(TextViewerPluginDir)data\"
-xcopy /E /I /Y "%PRISM_DATA_DIR%\*" "$(TextViewerPluginDir)data\" >nul
+xcopy /E /I /Y "%MANAGED_DATA_DIR%\*" "$(TextViewerPluginDir)data\" >nul
 if errorlevel 4 (
-  echo Failed to copy PrismSharp data files from "%PRISM_DATA_DIR%".
+  echo Failed to copy PrismSharp data files from %MANAGED_DATA_DIR%.
   exit /B 1
 )
 copy /Y "%MANAGED_DIR%TextViewer.Managed.dll" "$(TextViewerPluginDir)TextViewer.Managed.dll"
 copy /Y "%MANAGED_DIR%PrismSharp.dll" "$(TextViewerPluginDir)PrismSharp.dll"
 copy /Y "%MANAGED_DIR%Newtonsoft.Json.dll" "$(TextViewerPluginDir)Newtonsoft.Json.dll"
-goto :EOF
-
-:TryPrismData
-if "%~1"=="" exit /B 0
-for /d %%D in ("%~1") do (
-  if not defined PRISM_DATA_DIR if exist "%%~fD\languages\languages.json" set "PRISM_DATA_DIR=%%~fD"
-)
-exit /B 0
 ]]></Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

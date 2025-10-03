@@ -51,6 +51,11 @@ internal static class ThemeHelper
         return false;
     }
 
+    public static bool IsWindowsDarkModeEnabled()
+    {
+        return NativeMethods.IsWindowsDarkModeEnabled();
+    }
+
     public static void ApplyTheme(Form form)
     {
         if (!TryGetPalette(out var palette))
@@ -63,17 +68,16 @@ internal static class ThemeHelper
         form.ControlAdded -= FormOnControlAddedApplyPalette;
         form.ControlAdded += FormOnControlAddedApplyPalette;
 
+        bool useWindowsDarkMode = IsWindowsDarkModeEnabled();
+
         if (form.IsHandleCreated)
         {
-            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark);
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, useWindowsDarkMode);
         }
 
         form.HandleCreated += (_, _) =>
         {
-            if (TryGetPalette(out var refreshed))
-            {
-                NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.IsDark);
-            }
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, IsWindowsDarkModeEnabled());
         };
     }
 
@@ -299,11 +303,13 @@ internal static class ThemeHelper
             HighlightForeground = highlightForeground;
             Accent = accent;
 
-            IsDark = ComputeLuminance(background) < 128;
-            ControlBackground = IsDark ? Lighten(background, 0.08) : SystemColors.Control;
-            ControlBorder = IsDark ? Lighten(background, 0.16) : SystemColors.ControlDark;
-            InputBackground = IsDark ? Lighten(background, 0.12) : SystemColors.Window;
-            InputForeground = IsDark ? foreground : SystemColors.WindowText;
+            bool useWindowsDarkMode = NativeMethods.IsWindowsDarkModeEnabled();
+
+            IsDark = useWindowsDarkMode;
+            ControlBackground = useWindowsDarkMode ? Lighten(background, 0.08) : SystemColors.Control;
+            ControlBorder = useWindowsDarkMode ? Lighten(background, 0.16) : SystemColors.ControlDark;
+            InputBackground = useWindowsDarkMode ? Lighten(background, 0.12) : SystemColors.Window;
+            InputForeground = useWindowsDarkMode ? foreground : SystemColors.WindowText;
         }
 
         public Color Background { get; }
@@ -455,6 +461,9 @@ internal static class ThemeHelper
         [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint TextViewer_GetCurrentColor(int color);
 
+        [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern int TextViewer_IsWindowsDarkModeEnabled();
+
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
@@ -471,6 +480,22 @@ internal static class ThemeHelper
             catch (EntryPointNotFoundException)
             {
                 return 0;
+            }
+        }
+
+        public static bool IsWindowsDarkModeEnabled()
+        {
+            try
+            {
+                return TextViewer_IsWindowsDarkModeEnabled() != 0;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
             }
         }
 
