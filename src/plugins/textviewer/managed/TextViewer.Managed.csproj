@@ -31,11 +31,16 @@
   </Target>
 
   <Target Name="CopyPrismSharpContent" AfterTargets="Build">
+    <ItemGroup Condition="'$(PkgPrismSharp)' != ''">
+      <PrismSharpDataRoot Include="$(PkgPrismSharp)contentFiles\**\data\"
+                           Condition="Exists('%(Identity)languages\languages.json')" />
+    </ItemGroup>
+
     <PropertyGroup>
-      <PrismSharpContentRoot Condition="'$(PkgPrismSharp)' != ''">$(PkgPrismSharp)contentFiles\data\</PrismSharpContentRoot>
+      <PrismSharpContentRoot Condition="'@(PrismSharpDataRoot)' != ''">@(PrismSharpDataRoot->'%(Identity)')</PrismSharpContentRoot>
     </PropertyGroup>
 
-    <ItemGroup Condition="Exists('$(PrismSharpContentRoot)languages\languages.json')">
+    <ItemGroup Condition="'$(PrismSharpContentRoot)' != ''">
       <PrismSharpLanguageFiles Include="$(PrismSharpContentRoot)languages\*.json" />
       <PrismSharpThemeFiles Include="$(PrismSharpContentRoot)themes\*.json" />
     </ItemGroup>
