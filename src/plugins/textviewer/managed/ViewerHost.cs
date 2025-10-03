@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -561,7 +562,6 @@ internal static class ViewerHost
             ApplyOwner(session.Parent);
             ApplyPlacement(session.Payload);
             EnsureBrowser();
-            HideBrowser();
 
             ThemeHelper.ApplyTheme(this);
             if (_browser is not null)
@@ -710,7 +710,6 @@ internal static class ViewerHost
             if (sender is WebView2 browser)
             {
                 ThemeHelper.ApplyTheme(browser);
-                RevealBrowser();
             }
         }
 
@@ -931,22 +930,6 @@ internal static class ViewerHost
             // that caused the window to stall.
         }
 
-        private void HideBrowser()
-        {
-            if (_browser is Control browser && browser.Visible)
-            {
-                browser.Visible = false;
-            }
-        }
-
-        private void RevealBrowser()
-        {
-            if (_browser is Control browser && !browser.Visible)
-            {
-                browser.Visible = true;
-            }
-        }
-
         private void ShowWindow(int showCommand)
         {
             if (IsDisposed)
@@ -1050,8 +1033,9 @@ internal static class ViewerHost
                 return;
             }
 
-            HideBrowser();
             ShowInTaskbar = false;
+
+            ClearBrowser();
 
             if (!Visible)
             {
@@ -1061,16 +1045,38 @@ internal static class ViewerHost
 
             var owner = _session?.Parent ?? IntPtr.Zero;
 
-            if (Visible)
-            {
-                Hide();
-            }
+            Hide();
 
             CompleteSession();
 
             if (owner != IntPtr.Zero)
             {
                 NativeMethods.SetForegroundWindow(owner);
+            }
+        }
+
+        private void ClearBrowser()
+        {
+            _currentDocumentText = null;
+            _currentDocumentLanguage = null;
+            _currentDocumentCaption = null;
+            _pendingDocumentHtml = null;
+
+            var core = _browserCore ?? _browser?.CoreWebView2;
+            if (core is null)
+            {
+                return;
+            }
+
+            try
+            {
+                core.NavigateToString("<html><head><meta charset=\"utf-8\"></head><body></body></html>");
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (COMException)
+            {
             }
         }
 
