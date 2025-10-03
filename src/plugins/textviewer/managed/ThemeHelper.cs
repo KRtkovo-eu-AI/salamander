@@ -7,6 +7,7 @@ using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace OpenSalamander.TextViewer;
 
@@ -19,6 +20,23 @@ internal static class ThemeHelper
     private const int SALCOL_HOT_PANEL = 23;
 
     private static ThemePalette? s_cachedPalette;
+
+    public static event EventHandler? PaletteChanged;
+
+    static ThemeHelper()
+    {
+        try
+        {
+            SystemEvents.UserPreferenceChanged += OnSystemEventsPaletteChanged;
+            SystemEvents.UserPreferenceChanging += OnSystemEventsPaletteChanged;
+        }
+        catch
+        {
+            // The SystemEvents class can throw if the underlying system event
+            // infrastructure is unavailable. In that case we simply skip the
+            // automatic palette invalidation and rely on explicit refreshes.
+        }
+    }
 
     public static bool TryGetPalette(out ThemePalette palette)
     {
@@ -42,26 +60,16 @@ internal static class ThemeHelper
 
         ApplyPalette(form, palette);
 
-        form.ControlAdded += (_, e) =>
-        {
-            if (TryGetPalette(out var refreshed))
-            {
-                ApplyPalette(e.Control, refreshed);
-            }
-        };
+        form.ControlAdded -= FormOnControlAddedApplyPalette;
+        form.ControlAdded += FormOnControlAddedApplyPalette;
 
         if (form.IsHandleCreated)
         {
-            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark);
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark, palette.ControlBorder);
         }
 
-        form.HandleCreated += (_, _) =>
-        {
-            if (TryGetPalette(out var refreshed))
-            {
-                NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.IsDark);
-            }
-        };
+        form.HandleCreated -= OnFormHandleCreatedApplyDarkMode;
+        form.HandleCreated += OnFormHandleCreatedApplyDarkMode;
     }
 
     public static void ApplyTheme(Control control)
@@ -72,6 +80,11 @@ internal static class ThemeHelper
         }
 
         ApplyPalette(control, palette);
+    }
+
+    public static void InvalidatePalette()
+    {
+        InvalidatePaletteInternal(raiseEvent: false);
     }
 
     private static ThemePalette? GetPalette()
@@ -116,6 +129,43 @@ internal static class ThemeHelper
         }
 
         return s_cachedPalette = null;
+    }
+
+    private static void OnSystemEventsPaletteChanged(object? sender, EventArgs e)
+    {
+        InvalidatePaletteInternal(raiseEvent: true);
+    }
+
+    private static void FormOnControlAddedApplyPalette(object? sender, ControlEventArgs e)
+    {
+        if (TryGetPalette(out var palette))
+        {
+            ApplyPalette(e.Control, palette);
+        }
+    }
+
+    private static void OnFormHandleCreatedApplyDarkMode(object? sender, EventArgs e)
+    {
+        if (sender is not Form form)
+        {
+            return;
+        }
+
+        var palette = GetPalette();
+        if (palette.HasValue)
+        {
+            NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.Value.IsDark, palette.Value.ControlBorder);
+        }
+    }
+
+    private static void InvalidatePaletteInternal(bool raiseEvent)
+    {
+        s_cachedPalette = null;
+
+        if (raiseEvent)
+        {
+            PaletteChanged?.Invoke(null, EventArgs.Empty);
+        }
     }
 
     private static void ApplyPalette(Form form, ThemePalette palette)
@@ -233,6 +283,14 @@ internal static class ThemeHelper
         return Color.FromArgb(Clamp(r), Clamp(g), Clamp(b));
     }
 
+    private static Color Darken(Color color, double amount)
+    {
+        int r = color.R - (int)(color.R * amount);
+        int g = color.G - (int)(color.G * amount);
+        int b = color.B - (int)(color.B * amount);
+        return Color.FromArgb(Clamp(r), Clamp(g), Clamp(b));
+    }
+
     private static int Clamp(int value)
     {
         if (value < 0)
@@ -259,8 +317,8 @@ internal static class ThemeHelper
             Accent = accent;
 
             IsDark = ComputeLuminance(background) < 128;
-            ControlBackground = IsDark ? Lighten(background, 0.08) : SystemColors.Control;
-            ControlBorder = IsDark ? Lighten(background, 0.16) : SystemColors.ControlDark;
+            ControlBackground = IsDark ? Lighten(background, 0.08) : Darken(background, 0.06);
+            ControlBorder = IsDark ? Lighten(background, 0.16) : Darken(background, 0.16);
             InputBackground = IsDark ? Lighten(background, 0.12) : SystemColors.Window;
             InputForeground = IsDark ? foreground : SystemColors.WindowText;
         }
@@ -410,6 +468,7 @@ internal static class ThemeHelper
     {
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20 = 19;
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+        private const int DWMWA_BORDER_COLOR = 34;
 
         [DllImport("TextViewer.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint TextViewer_GetCurrentColor(int color);
@@ -433,7 +492,7 @@ internal static class ThemeHelper
             }
         }
 
-        public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable)
+        public static void ApplyImmersiveDarkMode(IntPtr handle, bool enable, Color borderColor)
         {
             if (handle == IntPtr.Zero)
             {
@@ -454,6 +513,12 @@ internal static class ThemeHelper
             else
             {
                 DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20, ref useDark, sizeof(int));
+            }
+
+            if (version.Build >= 22000)
+            {
+                int border = enable ? borderColor.ToArgb() : -1;
+                DwmSetWindowAttribute(handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
             }
         }
     }

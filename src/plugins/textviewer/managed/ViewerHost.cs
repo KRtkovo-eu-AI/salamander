@@ -5,17 +5,20 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
-using ColorfulCode;
+using Orionsoft.PrismSharp.Highlighters.Abstract;
+using Orionsoft.PrismSharp.Themes;
+using Orionsoft.PrismSharp.Tokenizing;
 
 namespace OpenSalamander.TextViewer;
 
@@ -469,12 +472,19 @@ internal static class ViewerHost
 
     private sealed class TextViewerForm : Form
     {
+        private const int WM_THEMECHANGED = 0x031A;
+        private const int WM_SETTINGCHANGE = 0x001A;
+
         private ViewerSession? _session;
         private WebBrowser? _browser;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
         private bool _ownerAttached;
+        private string? _currentDocumentText;
+        private string? _currentDocumentLanguage;
+        private string? _currentDocumentCaption;
+        private bool _handlingThemeUpdate;
 
         public TextViewerForm()
         {
@@ -493,6 +503,7 @@ internal static class ViewerHost
             FormClosing += OnFormClosing;
 
             ThemeHelper.ApplyTheme(this);
+            ThemeHelper.PaletteChanged += OnThemeHelperPaletteChanged;
         }
 
         public bool TryShow(ViewerSession session)
@@ -576,8 +587,11 @@ internal static class ViewerHost
             string extension = LanguageGuesser.FromFileName(path);
             string caption = Path.GetFileName(path);
 
-            string html = ColorfulCodeRenderer.BuildDocument(text, extension, caption);
-            _browser.DocumentText = html;
+            _currentDocumentText = text;
+            _currentDocumentLanguage = extension;
+            _currentDocumentCaption = caption;
+
+            RenderCurrentDocument();
         }
 
         private void OnHandleCreated(object? sender, EventArgs e)
@@ -691,6 +705,90 @@ internal static class ViewerHost
             }
 
             _taskbarStyleApplied = true;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ThemeHelper.PaletteChanged -= OnThemeHelperPaletteChanged;
+            }
+
+            base.Dispose(disposing);
+        }
+
+        protected override void OnSystemColorsChanged(EventArgs e)
+        {
+            base.OnSystemColorsChanged(e);
+            HandleThemeChanged();
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+
+            if (m.Msg == WM_THEMECHANGED || m.Msg == WM_SETTINGCHANGE)
+            {
+                HandleThemeChanged();
+            }
+        }
+
+        private void OnThemeHelperPaletteChanged(object? sender, EventArgs e)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(HandleThemeChanged));
+            }
+            else
+            {
+                HandleThemeChanged();
+            }
+        }
+
+        private void HandleThemeChanged()
+        {
+            if (_handlingThemeUpdate)
+            {
+                return;
+            }
+
+            _handlingThemeUpdate = true;
+
+            try
+            {
+                ThemeHelper.InvalidatePalette();
+                ThemeHelper.ApplyTheme(this);
+
+                if (_browser is not null)
+                {
+                    ThemeHelper.ApplyTheme(_browser);
+                }
+
+                RenderCurrentDocument();
+            }
+            finally
+            {
+                _handlingThemeUpdate = false;
+            }
+        }
+
+        private void RenderCurrentDocument()
+        {
+            if (_browser is null || _currentDocumentText is null)
+            {
+                return;
+            }
+
+            string language = _currentDocumentLanguage ?? string.Empty;
+            string caption = _currentDocumentCaption ?? string.Empty;
+
+            string html = PrismSharpRenderer.BuildDocument(_currentDocumentText, language, caption);
+            _browser.DocumentText = html;
         }
 
         private static string BuildCaption(string caption)
@@ -866,11 +964,42 @@ internal static class ViewerHost
         }
     }
 
-    private static class ColorfulCodeRenderer
+    private static class PrismSharpRenderer
     {
-        private const string DefaultThemeName = "InspiredGitHub";
-        private static readonly Lazy<SyntaxSet> s_syntaxSet = new(() => SyntaxSet.LoadDefaults());
-        private static readonly Lazy<ThemeSet> s_themeSet = new(() => ThemeSet.LoadDefaults());
+        private static readonly Lazy<Tokenizer> s_tokenizer = new(() => new Tokenizer());
+        private static readonly ConcurrentDictionary<ThemeNames, Theme> s_themeCache = new();
+        private static readonly object s_highlightLock = new();
+        private static readonly IReadOnlyDictionary<string, string> s_extensionOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["axaml"] = "xml",
+            ["cmd"] = "batch",
+            ["config"] = "xml",
+            ["csproj"] = "xml",
+            ["cxx"] = "cpp",
+            ["fsproj"] = "xml",
+            ["h"] = "c",
+            ["hh"] = "cpp",
+            ["hpp"] = "cpp",
+            ["hxx"] = "cpp",
+            ["htm"] = "html",
+            ["jsonc"] = "json",
+            ["json5"] = "json",
+            ["markdown"] = "md",
+            ["nuspec"] = "xml",
+            ["plist"] = "xml",
+            ["props"] = "xml",
+            ["ps1"] = "powershell",
+            ["psd1"] = "powershell",
+            ["psm1"] = "powershell",
+            ["storyboard"] = "xml",
+            ["targets"] = "xml",
+            ["vcxproj"] = "xml",
+            ["vcproj"] = "xml",
+            ["vbproj"] = "xml",
+            ["xaml"] = "xml",
+            ["xlf"] = "xml",
+            ["yml"] = "yaml"
+        };
 
         public static string BuildDocument(string text, string extension, string? caption)
         {
@@ -882,49 +1011,112 @@ internal static class ViewerHost
         {
             try
             {
-                var syntax = GetSyntax(extension);
                 var theme = GetTheme();
-
-                if (syntax is not null && theme is not null)
+                if (theme is null)
                 {
-                    var highlighted = syntax.HighlightToHtml(text, theme);
-                    if (!string.IsNullOrEmpty(highlighted))
+                    return new RenderedContent(BuildPlainTextHtml(text), null);
+                }
+
+                foreach (var language in GetLanguageCandidates(extension))
+                {
+                    try
                     {
-                        var styled = ApplyThemeStyles(highlighted, theme, out var globalStyle);
-                        return new RenderedContent(styled, globalStyle);
+                        var result = Highlight(text, language, theme);
+                        if (!string.IsNullOrEmpty(result.Html))
+                        {
+                            return new RenderedContent(result.Html, result.PreStyle);
+                        }
+                    }
+                    catch (FileNotFoundException)
+                    {
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                    }
+                    catch (KeyNotFoundException)
+                    {
+                    }
+                    catch
+                    {
+                        break;
                     }
                 }
             }
             catch
             {
-                // fall back to plain text
             }
 
             return new RenderedContent(BuildPlainTextHtml(text), null);
         }
 
-        private static Syntax? GetSyntax(string extension)
+        private static HighlightResult Highlight(string text, string language, Theme theme)
         {
-            var syntaxSet = s_syntaxSet.Value;
-
-            if (!string.IsNullOrEmpty(extension))
+            if (string.IsNullOrEmpty(language))
             {
-                try
-                {
-                    var syntax = syntaxSet.FindByExtension(extension);
-                    if (syntax is not null)
-                    {
-                        return syntax;
-                    }
-                }
-                catch
-                {
-                }
+                return default;
             }
 
+            var tokenizer = s_tokenizer.Value;
+            lock (s_highlightLock)
+            {
+                var highlighter = new InlineStyleHtmlHighlighter(tokenizer, theme);
+                return highlighter.Highlight(text, language);
+            }
+        }
+
+        private static IEnumerable<string> GetLanguageCandidates(string extension)
+        {
+            if (string.IsNullOrEmpty(extension))
+            {
+                return Array.Empty<string>();
+            }
+
+            var candidates = new List<string>();
+
+            if (s_extensionOverrides.TryGetValue(extension, out var mapped))
+            {
+                candidates.Add(mapped);
+            }
+
+            candidates.Add(extension);
+
+            if (extension.EndsWith("config", StringComparison.OrdinalIgnoreCase))
+            {
+                candidates.Add("xml");
+            }
+
+            if (extension.EndsWith("proj", StringComparison.OrdinalIgnoreCase))
+            {
+                candidates.Add("xml");
+            }
+
+            if (extension.EndsWith("json", StringComparison.OrdinalIgnoreCase))
+            {
+                candidates.Add("json");
+            }
+
+            if (extension.EndsWith("yaml", StringComparison.OrdinalIgnoreCase))
+            {
+                candidates.Add("yaml");
+            }
+
+            if (extension.EndsWith("md", StringComparison.OrdinalIgnoreCase))
+            {
+                candidates.Add("markdown");
+            }
+
+            return candidates
+                .Where(candidate => !string.IsNullOrEmpty(candidate))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static Theme? GetTheme()
+        {
             try
             {
-                return syntaxSet.FindByExtension("txt");
+                var name = SelectThemeName();
+                return s_themeCache.GetOrAdd(name, static themeName => Theme.Load(themeName));
             }
             catch
             {
@@ -932,37 +1124,14 @@ internal static class ViewerHost
             }
         }
 
-        private static Theme? GetTheme()
+        private static ThemeNames SelectThemeName()
         {
-            var themeSet = s_themeSet.Value;
-
-            try
+            if (ThemeHelper.TryGetPalette(out var palette) && palette.IsDark)
             {
-                return themeSet[DefaultThemeName];
-            }
-            catch
-            {
+                return ThemeNames.OneDark;
             }
 
-            try
-            {
-                var valuesProperty = themeSet.GetType().GetProperty("Values");
-                if (valuesProperty?.GetValue(themeSet) is IEnumerable values)
-                {
-                    foreach (var value in values)
-                    {
-                        if (value is Theme theme)
-                        {
-                            return theme;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-            return null;
+            return ThemeNames.Ghcolors;
         }
 
         private static string WrapDocument(RenderedContent content, string? caption)
@@ -1043,375 +1212,7 @@ internal static class ViewerHost
         private static string BuildPlainTextHtml(string text)
         {
             var encoded = WebUtility.HtmlEncode(text ?? string.Empty);
-            return $"<pre>{encoded}</pre>";
-        }
-        private static string ApplyThemeStyles(string html, Theme theme, out string? globalPreStyle)
-        {
-            var styleMap = BuildClassStyleMap(theme, out globalPreStyle);
-            if (styleMap.Count == 0)
-            {
-                return html;
-            }
-
-            return Regex.Replace(html,
-                "(<[^>]+?\\sclass\\s*=\\s*)([\"'])([^\"'>]+)(\\2[^>]*>)",
-                match =>
-                {
-                    var before = match.Groups[1].Value;
-                    var quote = match.Groups[2].Value;
-                    var classValue = match.Groups[3].Value;
-                    var after = match.Groups[4].Value;
-
-                    var fullTag = match.Value;
-                    if (fullTag.IndexOf("style=", 0, StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        return fullTag;
-                    }
-
-                    var style = BuildStyleForClasses(classValue, styleMap);
-                    if (string.IsNullOrEmpty(style))
-                    {
-                        return fullTag;
-                    }
-
-                    var suffix = after.Length > 0 ? after.Substring(1) : string.Empty;
-                    return $"{before}{quote}{classValue}{quote} style=\"{style}\"{suffix}";
-                }, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        }
-
-        private static IReadOnlyDictionary<string, string> BuildClassStyleMap(Theme theme, out string? globalPreStyle)
-        {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            string? global = null;
-
-            foreach (var rule in EnumerateThemeRules(theme))
-            {
-                var declaration = BuildCssDeclaration(rule.Settings);
-                if (string.IsNullOrEmpty(declaration))
-                {
-                    continue;
-                }
-
-                if (rule.ScopeNames.Count == 0)
-                {
-                    global ??= declaration;
-                    continue;
-                }
-
-                foreach (var scope in rule.ScopeNames)
-                {
-                    if (string.IsNullOrWhiteSpace(scope))
-                    {
-                        continue;
-                    }
-
-                    var trimmed = scope.Trim();
-                    AddStyleMapping(map, trimmed, declaration);
-
-                    foreach (var part in trimmed.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        AddStyleMapping(map, part, declaration);
-
-                        foreach (var token in part.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries))
-                        {
-                            AddStyleMapping(map, token, declaration);
-                        }
-                    }
-                }
-            }
-
-            globalPreStyle = global;
-            return map;
-        }
-
-        private static void AddStyleMapping(IDictionary<string, string> map, string key, string value)
-        {
-            if (string.IsNullOrEmpty(key) || map.ContainsKey(key))
-            {
-                return;
-            }
-
-            map[key] = value;
-        }
-
-        private static string BuildStyleForClasses(string classValue, IReadOnlyDictionary<string, string> styleMap)
-        {
-            if (string.IsNullOrWhiteSpace(classValue))
-            {
-                return string.Empty;
-            }
-
-            var builder = new StringBuilder();
-            var tokens = classValue.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var token in tokens)
-            {
-                AppendStyleForToken(builder, token, styleMap);
-            }
-
-            return builder.ToString();
-        }
-
-        private static void AppendStyleForToken(StringBuilder builder, string token, IReadOnlyDictionary<string, string> styleMap)
-        {
-            if (styleMap.TryGetValue(token, out var style))
-            {
-                builder.Append(style);
-            }
-
-            if (token.IndexOf('.') >= 0)
-            {
-                var parts = token.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var part in parts)
-                {
-                    if (styleMap.TryGetValue(part, out var partStyle))
-                    {
-                        builder.Append(partStyle);
-                    }
-                }
-            }
-        }
-
-        private static string BuildCssDeclaration(object settings)
-        {
-            var builder = new StringBuilder();
-
-            AppendColor(builder, settings, "Foreground", "color");
-            AppendColor(builder, settings, "Background", "background-color");
-
-            AppendFontStyle(builder, settings);
-            AppendFontWeight(builder, settings);
-
-            return builder.ToString();
-        }
-
-        private static void AppendColor(StringBuilder builder, object settings, string propertyName, string cssProperty)
-        {
-            var color = GetColor(settings, propertyName);
-            if (!string.IsNullOrEmpty(color))
-            {
-                builder.Append(cssProperty);
-                builder.Append(':');
-                builder.Append(color);
-                builder.Append(';');
-            }
-        }
-
-        private static void AppendFontStyle(StringBuilder builder, object settings)
-        {
-            var value = GetString(settings, "FontStyle");
-            if (string.IsNullOrEmpty(value))
-            {
-                return;
-            }
-
-            string fontStyle = value!;
-
-            if (fontStyle.IndexOf("italic", 0, StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                builder.Append("font-style:italic;");
-            }
-            if (fontStyle.IndexOf("bold", 0, StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                builder.Append("font-weight:bold;");
-            }
-            if (fontStyle.IndexOf("underline", 0, StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                builder.Append("text-decoration:underline;");
-            }
-        }
-
-        private static void AppendFontWeight(StringBuilder builder, object settings)
-        {
-            var weight = GetString(settings, "FontWeight");
-            if (string.IsNullOrEmpty(weight))
-            {
-                return;
-            }
-
-            if (int.TryParse(weight, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) && numeric > 0)
-            {
-                builder.Append("font-weight:");
-                builder.Append(numeric.ToString(CultureInfo.InvariantCulture));
-                builder.Append(';');
-                return;
-            }
-
-            builder.Append("font-weight:");
-            builder.Append(weight);
-            builder.Append(';');
-        }
-
-        private static string? GetColor(object settings, string propertyName)
-        {
-            object? value = GetMember(settings, propertyName);
-            if (value is null)
-            {
-                return null;
-            }
-
-            if (value is string str)
-            {
-                return NormalizeColor(str);
-            }
-
-            if (value is Color color)
-            {
-                return ColorTranslator.ToHtml(color);
-            }
-
-            var toString = value.ToString();
-            if (!string.IsNullOrEmpty(toString))
-            {
-                return NormalizeColor(toString);
-            }
-
-            return null;
-        }
-
-        private static string? NormalizeColor(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return null;
-            }
-
-            value = value.Trim();
-            if (value.StartsWith("#", StringComparison.Ordinal))
-            {
-                return value;
-            }
-
-            if (uint.TryParse(value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var numeric))
-            {
-                if (value.Length <= 6)
-                {
-                    return "#" + value.PadLeft(6, '0');
-                }
-
-                return "#" + numeric.ToString("X8", CultureInfo.InvariantCulture);
-            }
-
-            return value;
-        }
-
-        private static string? GetString(object settings, string propertyName)
-        {
-            object? value = GetMember(settings, propertyName);
-            return value switch
-            {
-                null => null,
-                string str => string.IsNullOrWhiteSpace(str) ? null : str,
-                _ => value.ToString(),
-            };
-        }
-
-        private static object? GetMember(object instance, string memberName)
-        {
-            if (instance is null)
-            {
-                return null;
-            }
-
-            var type = instance.GetType();
-
-            var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (property is not null)
-            {
-                return property.GetValue(instance);
-            }
-
-            var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (field is not null)
-            {
-                return field.GetValue(instance);
-            }
-
-            return null;
-        }
-
-        private static IEnumerable<ThemeRule> EnumerateThemeRules(Theme theme)
-        {
-            var themeType = theme.GetType();
-            var candidates = new[] { "Settings", "Scopes", "Rules" };
-            foreach (var candidate in candidates)
-            {
-                if (TryGetEnumerable(theme, candidate, out var values))
-                {
-                    foreach (var setting in values)
-                    {
-                        if (setting is null)
-                        {
-                            continue;
-                        }
-
-                        var style = GetMember(setting, "Settings") ?? GetMember(setting, "Style") ?? GetMember(setting, "SettingsValue");
-                        if (style is null)
-                        {
-                            continue;
-                        }
-
-                        var scopes = ExtractScopes(setting);
-                        yield return new ThemeRule(scopes, style);
-                    }
-                    yield break;
-                }
-            }
-        }
-
-        private static bool TryGetEnumerable(object instance, string memberName, out IEnumerable values)
-        {
-            values = Array.Empty<object>();
-            var member = GetMember(instance, memberName);
-            if (member is IEnumerable enumerable)
-            {
-                values = enumerable;
-                return true;
-            }
-
-            return false;
-        }
-
-        private static IReadOnlyCollection<string> ExtractScopes(object setting)
-        {
-            var scopes = new List<string>();
-
-            object? scopeValue = GetMember(setting, "Scope") ?? GetMember(setting, "Scopes");
-            if (scopeValue is string scopeString)
-            {
-                AddScopes(scopes, scopeString);
-            }
-            else if (scopeValue is IEnumerable enumerable)
-            {
-                foreach (var item in enumerable)
-                {
-                    if (item is string s)
-                    {
-                        AddScopes(scopes, s);
-                    }
-                }
-            }
-
-            return scopes;
-        }
-
-        private static void AddScopes(ICollection<string> target, string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return;
-            }
-
-            string actual = value!;
-
-            var parts = actual.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var part in parts)
-            {
-                var trimmed = part.Trim();
-                if (!string.IsNullOrEmpty(trimmed))
-                {
-                    target.Add(trimmed);
-                }
-            }
+            return $"<pre><code>{encoded}</code></pre>";
         }
 
         private readonly struct RenderedContent
@@ -1426,16 +1227,193 @@ internal static class ViewerHost
             public string? PreStyle { get; }
         }
 
-        private readonly struct ThemeRule
+        private readonly struct HighlightResult
         {
-            public ThemeRule(IReadOnlyCollection<string> scopeNames, object settings)
+            public HighlightResult(string html, string? preStyle)
             {
-                ScopeNames = scopeNames;
-                Settings = settings;
+                Html = html;
+                PreStyle = preStyle;
             }
 
-            public IReadOnlyCollection<string> ScopeNames { get; }
-            public object Settings { get; }
+            public string Html { get; }
+            public string? PreStyle { get; }
+        }
+
+        private sealed class InlineStyleHtmlHighlighter : AbstractHighlighter<HighlightResult>
+        {
+            private readonly StringBuilder _builder = new();
+            private readonly Stack<bool> _openTags = new();
+            private string? _documentStyle;
+
+            public InlineStyleHtmlHighlighter(Tokenizer tokenizer, Theme theme)
+            {
+                Construct(tokenizer, theme);
+            }
+
+            protected override ThemeStyle BeginDocument(string language, ThemeStyle docStyle)
+            {
+                _builder.Clear();
+                _openTags.Clear();
+                _documentStyle = BuildCss(docStyle, null);
+                _builder.Append("<pre><code");
+                if (!string.IsNullOrEmpty(language))
+                {
+                    _builder.Append(" class=\"language-")
+                        .Append(WebUtility.HtmlEncode(language))
+                        .Append("\"");
+                }
+                _builder.Append(">");
+                return docStyle;
+            }
+
+            protected override void EndDocument()
+            {
+                _builder.Append("</code></pre>");
+                Result = new HighlightResult(_builder.ToString(), _documentStyle);
+            }
+
+            protected override ThemeStyle BeginContainer(Token token, ThemeStyle style, ThemeStyle parentStyle)
+            {
+                var effective = CombineStyles(style, parentStyle) ?? parentStyle ?? style ?? new ThemeStyle();
+                var css = BuildCss(effective, parentStyle);
+                if (!string.IsNullOrEmpty(css))
+                {
+                    _builder.Append("<span style=\"")
+                        .Append(css)
+                        .Append("\">");
+                    _openTags.Push(true);
+                }
+                else if (style is not null)
+                {
+                    _builder.Append("<span>");
+                    _openTags.Push(true);
+                }
+                else
+                {
+                    _openTags.Push(false);
+                }
+
+                return effective;
+            }
+
+            protected override void EndContainer()
+            {
+                if (_openTags.Count > 0 && _openTags.Pop())
+                {
+                    _builder.Append("</span>");
+                }
+            }
+
+            protected override void AddSpan(string text, Token token, ThemeStyle style, ThemeStyle parentStyle)
+            {
+                if (string.IsNullOrEmpty(text))
+                {
+                    return;
+                }
+
+                var effective = CombineStyles(style, parentStyle);
+                var css = BuildCss(effective, parentStyle);
+                if (!string.IsNullOrEmpty(css))
+                {
+                    _builder.Append("<span style=\"")
+                        .Append(css)
+                        .Append("\">")
+                        .Append(WebUtility.HtmlEncode(text))
+                        .Append("</span>");
+                }
+                else if (style is not null)
+                {
+                    _builder.Append("<span>")
+                        .Append(WebUtility.HtmlEncode(text))
+                        .Append("</span>");
+                }
+                else
+                {
+                    _builder.Append(WebUtility.HtmlEncode(text));
+                }
+            }
+
+            private static ThemeStyle? CombineStyles(ThemeStyle? style, ThemeStyle? parentStyle)
+            {
+                if (style is null)
+                {
+                    return parentStyle;
+                }
+
+                if (parentStyle is null)
+                {
+                    return style;
+                }
+
+                return style.MergeWith(parentStyle);
+            }
+
+            private static string? BuildCss(ThemeStyle? style, ThemeStyle? parentStyle)
+            {
+                if (style is null)
+                {
+                    return null;
+                }
+
+                var builder = new StringBuilder();
+
+                AppendColor(builder, style.Color, parentStyle?.Color, "color");
+                AppendColor(builder, style.Background, parentStyle?.Background, "background-color");
+                AppendFont(builder, style.Bold, parentStyle?.Bold, "font-weight", "bold", "normal");
+                AppendFont(builder, style.Italic, parentStyle?.Italic, "font-style", "italic", "normal");
+                AppendFont(builder, style.Underline, parentStyle?.Underline, "text-decoration", "underline", "none");
+
+                return builder.Length == 0 ? null : builder.ToString();
+            }
+
+            private static void AppendColor(StringBuilder builder, RgbaColor? color, RgbaColor? parent, string property)
+            {
+                if (color is null)
+                {
+                    return;
+                }
+
+                if (parent is not null && ColorsEqual(color!, parent))
+                {
+                    return;
+                }
+
+                builder.Append(property)
+                    .Append(':')
+                    .Append(color.ToColorString())
+                    .Append(';');
+            }
+
+            private static void AppendFont(StringBuilder builder, bool? value, bool? parentValue, string property, string enabledValue, string disabledValue)
+            {
+                if (!value.HasValue)
+                {
+                    return;
+                }
+
+                if (value.Value)
+                {
+                    if (parentValue != true)
+                    {
+                        builder.Append(property)
+                            .Append(':')
+                            .Append(enabledValue)
+                            .Append(';');
+                    }
+                }
+                else if (parentValue == true)
+                {
+                    builder.Append(property)
+                        .Append(':')
+                        .Append(disabledValue)
+                        .Append(';');
+                }
+            }
+
+            private static bool ColorsEqual(RgbaColor left, RgbaColor right)
+            {
+                return Math.Abs(left.A - right.A) < 0.0001 && left.R == right.R && left.G == right.G && left.B == right.B;
+            }
         }
     }
 }
