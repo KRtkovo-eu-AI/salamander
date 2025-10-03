@@ -16,6 +16,8 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 using Orionsoft.PrismSharp.Highlighters.Abstract;
 using Orionsoft.PrismSharp.Themes;
 using Orionsoft.PrismSharp.Tokenizing;
@@ -476,7 +478,7 @@ internal static class ViewerHost
         private const int WM_SETTINGCHANGE = 0x001A;
 
         private ViewerSession? _session;
-        private WebBrowser? _browser;
+        private WebView2? _browser;
         private bool _allowClose;
         private bool _taskbarStyleApplied;
         private IntPtr _ownerRestore;
@@ -485,6 +487,7 @@ internal static class ViewerHost
         private string? _currentDocumentLanguage;
         private string? _currentDocumentCaption;
         private bool _handlingThemeUpdate;
+        private string? _pendingDocumentHtml;
 
         public TextViewerForm()
         {
@@ -503,7 +506,6 @@ internal static class ViewerHost
             FormClosing += OnFormClosing;
 
             ThemeHelper.ApplyTheme(this);
-            ThemeHelper.PaletteChanged += OnThemeHelperPaletteChanged;
         }
 
         public bool TryShow(ViewerSession session)
@@ -561,19 +563,28 @@ internal static class ViewerHost
                 return;
             }
 
-            var viewer = new WebBrowser
+            var viewer = new WebView2
             {
                 Dock = DockStyle.Fill,
-                AllowWebBrowserDrop = false,
-                AllowNavigation = false,
-                IsWebBrowserContextMenuEnabled = true,
-                WebBrowserShortcutsEnabled = true,
-                ScriptErrorsSuppressed = true,
+                AllowExternalDrop = false,
             };
+
+            viewer.CoreWebView2InitializationCompleted += OnBrowserInitializationCompleted;
+            viewer.NavigationCompleted += OnBrowserNavigationCompleted;
 
             Controls.Add(viewer);
             ThemeHelper.ApplyTheme(viewer);
+
             _browser = viewer;
+
+            try
+            {
+                _ = viewer.EnsureCoreWebView2Async();
+            }
+            catch (Exception ex)
+            {
+                HandleBrowserInitializationFailure(ex);
+            }
         }
 
         private void LoadFile(string path)
@@ -592,6 +603,60 @@ internal static class ViewerHost
             _currentDocumentCaption = caption;
 
             RenderCurrentDocument();
+        }
+
+        private void OnBrowserInitializationCompleted(object? sender, CoreWebView2InitializationCompletedEventArgs e)
+        {
+            if (sender is not WebView2 browser)
+            {
+                return;
+            }
+
+            if (!e.IsSuccess)
+            {
+                HandleBrowserInitializationFailure(e.InitializationException ?? new InvalidOperationException("WebView2 initialization failed."));
+                return;
+            }
+
+            var core = browser.CoreWebView2;
+            if (core is not null)
+            {
+                core.Settings.IsStatusBarEnabled = false;
+                core.Settings.AreDefaultContextMenusEnabled = true;
+                core.Settings.AreDefaultScriptDialogsEnabled = true;
+                core.Settings.AreDevToolsEnabled = true;
+            }
+
+            ThemeHelper.ApplyTheme(browser);
+
+            if (_pendingDocumentHtml is not null && core is not null)
+            {
+                core.NavigateToString(_pendingDocumentHtml);
+                _pendingDocumentHtml = null;
+            }
+        }
+
+        private void OnBrowserNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (sender is WebView2 browser)
+            {
+                ThemeHelper.ApplyTheme(browser);
+            }
+        }
+
+        private void HandleBrowserInitializationFailure(Exception exception)
+        {
+            _session?.MarkStartupFailed();
+            MessageBox.Show(this,
+                $"Unable to initialize the embedded browser.\n{exception.Message}",
+                "Text Viewer .NET Plugin",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            BeginInvoke(new MethodInvoker(() =>
+            {
+                _allowClose = true;
+                Close();
+            }));
         }
 
         private void OnHandleCreated(object? sender, EventArgs e)
@@ -711,7 +776,6 @@ internal static class ViewerHost
         {
             if (disposing)
             {
-                ThemeHelper.PaletteChanged -= OnThemeHelperPaletteChanged;
             }
 
             base.Dispose(disposing);
@@ -733,23 +797,6 @@ internal static class ViewerHost
             }
         }
 
-        private void OnThemeHelperPaletteChanged(object? sender, EventArgs e)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            if (InvokeRequired)
-            {
-                BeginInvoke(new MethodInvoker(HandleThemeChanged));
-            }
-            else
-            {
-                HandleThemeChanged();
-            }
-        }
-
         private void HandleThemeChanged()
         {
             if (_handlingThemeUpdate)
@@ -761,7 +808,6 @@ internal static class ViewerHost
 
             try
             {
-                ThemeHelper.InvalidatePalette();
                 ThemeHelper.ApplyTheme(this);
 
                 if (_browser is not null)
@@ -779,7 +825,7 @@ internal static class ViewerHost
 
         private void RenderCurrentDocument()
         {
-            if (_browser is null || _currentDocumentText is null)
+            if (_currentDocumentText is null)
             {
                 return;
             }
@@ -788,7 +834,14 @@ internal static class ViewerHost
             string caption = _currentDocumentCaption ?? string.Empty;
 
             string html = PrismSharpRenderer.BuildDocument(_currentDocumentText, language, caption);
-            _browser.DocumentText = html;
+            _pendingDocumentHtml = html;
+
+            if (_browser?.CoreWebView2 is CoreWebView2 core)
+            {
+                core.NavigateToString(html);
+                _pendingDocumentHtml = null;
+                ThemeHelper.ApplyTheme(_browser);
+            }
         }
 
         private static string BuildCaption(string caption)
@@ -1141,9 +1194,20 @@ internal static class ViewerHost
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
             builder.Append("<html><head><meta charset=\"utf-8\"/><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>");
-            if (palette.HasValue && palette.Value.IsDark)
+            if (palette.HasValue)
             {
-                builder.Append("<meta name=\"color-scheme\" content=\"dark\"/>");
+                string scheme = palette.Value.IsDark ? "dark" : "light";
+                string fallback = palette.Value.IsDark ? "light" : "dark";
+                builder.Append("<meta name=\"color-scheme\" content=\"")
+                    .Append(scheme)
+                    .Append(' ')
+                    .Append(fallback)
+                    .Append("\"/>");
+                builder.Append("<script>(function(){var doc=document.documentElement;if(doc){doc.setAttribute('data-theme','")
+                    .Append(scheme)
+                    .Append("');doc.style.colorScheme='")
+                    .Append(scheme)
+                    .Append("';}})();</script>");
             }
             builder.Append("<title>");
             builder.Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "Text Viewer .NET" : caption));
