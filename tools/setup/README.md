@@ -1,25 +1,25 @@
 # setup.inf helper scripts
 
-Instalátor z projektu `setup.sln` čte svůj obsah pouze ze souboru
-`setup.inf`.  Proto je potřeba každou novou sadu pluginových souborů
-ručně přidat do sekcí `[CopyFiles]` a `[CreateDirs]`.  Správa rozsáhlých
-managed pluginů (TextViewer, WebView2RenderViewer) je v ruce snadno
-chybová, protože obsahují desítky až stovky podpůrných souborů.
+The installer produced by `setup.sln` gets all of its content from
+`setup.inf`. Every new set of plugin files therefore has to be added by
+hand to the `[CopyFiles]` and `[CreateDirs]` sections. Maintaining large
+managed plugins (TextViewer, WebView2RenderViewer) manually is error
+prone, because they contain dozens or even hundreds of supporting files.
 
-Skript `update_setup_inf.py` tento krok automatizuje – projde staging v
-`%OPENSAL_BUILD_DIR%\salamander\Release_{x86,x64}\plugins` a vytvoří
-položky pro pluginy `jsonviewer`, `textviewer`, `webview2renderviewer`
-a `samandarin`.
+The `update_setup_inf.py` script automates this step: it scans the
+staging tree at `%OPENSAL_BUILD_DIR%\salamander\Release_{x86,x64}\plugins`
+and generates entries for the `jsonviewer`, `textviewer`,
+`webview2renderviewer`, and `samandarin` plugins.
 
-## Použití
+## Usage
 
-1. Sestavte Salamandera (ideálně obě architektury) tak, aby v
-   `%OPENSAL_BUILD_DIR%\salamander\Release_x64\plugins` a
-   `%OPENSAL_BUILD_DIR%\salamander\Release_x86\plugins` ležely
-   zabalitelné soubory pluginů.
-2. Připravte `setup.inf` – můžete začít z oficiálního INF a upravit
-   sekce `[Private]`, `[CopyFiles]` atd. podle potřeby.
-3. Spusťte skript:
+1. Build Salamander (ideally for both architectures) so that the
+   packageable plugin files are available at
+   `%OPENSAL_BUILD_DIR%\salamander\Release_x64\plugins` and
+   `%OPENSAL_BUILD_DIR%\salamander\Release_x86\plugins`.
+2. Prepare `setup.inf`—you can start from the official INF and adjust
+   the `[Private]`, `[CopyFiles]`, and other sections as needed.
+3. Run the script:
 
    ```powershell
    python tools\setup\update_setup_inf.py \` \
@@ -27,18 +27,19 @@ a `samandarin`.
        --setup-inf "$env:OPENSAL_BUILD_DIR\setup\Release_x64\setup.inf"
    ```
 
-   Pokud držíte separátní `setup.inf` i pro x86 instalátor, spusťte
-   skript znovu s odpovídající cestou (a případně jiným `--build-root`).
+   If you maintain a separate `setup.inf` for the x86 installer, run the
+   script again with the appropriate path (and a different `--build-root`
+   if required).
 
-Skript:
+The script:
 
-- odstraní staré řádky týkající se výše uvedených pluginů,
-- doplní nové páry zdroj → cíl do `[CopyFiles]` včetně komentáře
-  s architekturou,
-- v `[CreateDirs]` založí všechny potřebné podadresáře,
-- při prvním zápisu vytvoří zálohu `setup.inf.bak` (pokud nepoužijete
+- removes the existing lines related to the plugins listed above,
+- adds new source → destination pairs to `[CopyFiles]` including an
+  architecture comment,
+- ensures all required subdirectories are created in `[CreateDirs]`,
+- creates a `setup.inf.bak` backup on the first write (unless you use
   `--no-backup`).
 
-Výsledný `setup.inf` stačí zkopírovat vedle `setup.exe`/`remove.exe`
-a instalátor bude obsahovat nové pluginy včetně jejich managed
-závislostí.
+Copy the resulting `setup.inf` next to `setup.exe`/`remove.exe` and the
+installer will include the new plugins together with their managed
+dependencies.
