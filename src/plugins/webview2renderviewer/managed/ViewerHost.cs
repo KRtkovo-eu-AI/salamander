@@ -1224,18 +1224,8 @@ internal static class ViewerHost
 
         private static string ColorToCss(Color color)
         {
-            return string.Create(7, color, static (span, value) =>
-            {
-                span[0] = '#';
-                span[1] = GetHex((value.R >> 4) & 0xF);
-                span[2] = GetHex(value.R & 0xF);
-                span[3] = GetHex((value.G >> 4) & 0xF);
-                span[4] = GetHex(value.G & 0xF);
-                span[5] = GetHex((value.B >> 4) & 0xF);
-                span[6] = GetHex(value.B & 0xF);
-            });
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                                 "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
         }
-
-        private static char GetHex(int value) => (char)(value < 10 ? '0' + value : 'A' + (value - 10));
     }
 }

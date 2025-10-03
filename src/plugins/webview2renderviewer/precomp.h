@@ -44,10 +44,10 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
-#include "textviewer.h"
+#include "webview2renderviewer.h"
 #include "managed_bridge.h"
-#include "textviewer.rh"
-#include "textviewer.rh2"
+#include "webview2renderviewer.rh"
+#include "webview2renderviewer.rh2"
 #include "lang\lang.rh"
 
 #ifdef __BORLANDC__
