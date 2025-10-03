@@ -808,12 +808,8 @@ internal static class ViewerHost
                 CreateControl();
             }
 
-            if (Visible)
-            {
-                base.Hide();
-            }
-
-            ShowInTaskbar = false;
+            // Mirror the JSON viewer's show/hide sequencing to avoid flicker and
+            // hangs caused by redundant Hide/Show pairs during reuse.
         }
 
         private void HideBrowser()
@@ -847,13 +843,29 @@ internal static class ViewerHost
                 return;
             }
 
-            NativeMethods.ShowWindow(Handle, showCommand);
-
-            if (showCommand != NativeMethods.SW_SHOWMINIMIZED)
+            if (!Visible)
             {
-                Activate();
-                NativeMethods.SetForegroundWindow(Handle);
+                Show();
             }
+
+            if (showCommand == NativeMethods.SW_SHOWMINIMIZED)
+            {
+                WindowState = FormWindowState.Minimized;
+                NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWMINIMIZED);
+                return;
+            }
+
+            if (showCommand == NativeMethods.SW_SHOWMAXIMIZED)
+            {
+                WindowState = FormWindowState.Maximized;
+            }
+            else if (WindowState == FormWindowState.Minimized)
+            {
+                WindowState = FormWindowState.Normal;
+            }
+
+            Activate();
+            NativeMethods.SetForegroundWindow(Handle);
         }
 
         private void RenderCurrentDocument()
