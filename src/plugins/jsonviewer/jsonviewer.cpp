@@ -267,7 +267,8 @@ BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)
     if (extension == NULL)
         return FALSE;
 
-    if (_stricmp(extension, ".json") == 0 || _stricmp(extension, ".pc") == 0)
+    if (_stricmp(extension, ".json") == 0 || _stricmp(extension, ".pc") == 0 ||
+        _stricmp(extension, ".jbeam") == 0)
         return TRUE;
 
     return FALSE;

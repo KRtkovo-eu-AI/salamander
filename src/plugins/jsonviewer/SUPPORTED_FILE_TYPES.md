@@ -2,6 +2,6 @@
 
 | Description | Extensions |
 | --- | --- |
-| JSON data interchange files | `.json`, `.pc` |
+| JSON data interchange files | `.json`, `.pc`, `.jbeam` |
 
-The viewer accepts case-insensitive matches for the `.json` and `.pc` extensions.
+The viewer accepts case-insensitive matches for the `.json`, `.pc`, and `.jbeam` extensions.
