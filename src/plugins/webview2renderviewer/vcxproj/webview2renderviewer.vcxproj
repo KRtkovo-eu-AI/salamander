@@ -20,8 +20,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{67D7283F-BB9D-4E98-A411-CC8073230730}</ProjectGuid>
-    <RootNamespace>jsonviewer</RootNamespace>
+    <ProjectGuid>{EAD529CD-9A84-474B-B8EA-32B0F5954045}</ProjectGuid>
+    <RootNamespace>webview2renderviewer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props">
@@ -59,7 +59,7 @@
     </Import>
     <Import Project="..\..\shared\vcxproj\plugin_release.props">
     </Import>
-    <Import Project="jsonviewer.props">
+    <Import Project="webview2renderviewer.props">
     </Import>
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
@@ -71,7 +71,7 @@
     </Import>
     <Import Project="..\..\shared\vcxproj\plugin_debug.props">
     </Import>
-    <Import Project="jsonviewer.props">
+    <Import Project="webview2renderviewer.props">
     </Import>
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
@@ -83,7 +83,7 @@
     </Import>
     <Import Project="..\..\shared\vcxproj\plugin_release.props">
     </Import>
-    <Import Project="jsonviewer.props">
+    <Import Project="webview2renderviewer.props">
     </Import>
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
@@ -95,18 +95,18 @@
     </Import>
     <Import Project="..\..\shared\vcxproj\plugin_debug.props">
     </Import>
-    <Import Project="jsonviewer.props">
+    <Import Project="webview2renderviewer.props">
     </Import>
   </ImportGroup>
   <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'!=''">
-    <JsonViewerBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</JsonViewerBuildRoot>
+    <RenderViewerBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</RenderViewerBuildRoot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'==''">
-    <JsonViewerBuildRoot>$(ProjectDir)..\..\..\..\build\salamander\</JsonViewerBuildRoot>
+    <RenderViewerBuildRoot>$(ProjectDir)..\..\..\..\build\salamander\</RenderViewerBuildRoot>
   </PropertyGroup>
   <PropertyGroup>
-    <JsonViewerPluginDir>$(JsonViewerBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\jsonviewer\</JsonViewerPluginDir>
-    <OutDir>$(JsonViewerPluginDir)</OutDir>
+    <RenderViewerPluginDir>$(RenderViewerBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\webview2renderviewer\</RenderViewerPluginDir>
+    <OutDir>$(RenderViewerPluginDir)</OutDir>
     <IntDir>$(OutDir)Intermediate\</IntDir>
   </PropertyGroup>
   <PropertyGroup Label="UserMacros">
@@ -138,7 +138,9 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp">
     </ClCompile>
-    <ClCompile Include="..\jsonviewer.cpp">
+    <ClCompile Include="..\..\..\darkmode.cpp">
+    </ClCompile>
+    <ClCompile Include="..\webview2renderviewer.cpp">
     </ClCompile>
     <ClCompile Include="..\managed_bridge.cpp">
     </ClCompile>
@@ -166,7 +168,7 @@
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_vers.h">
     </ClInclude>
-    <ClInclude Include="..\jsonviewer.h">
+    <ClInclude Include="..\webview2renderviewer.h">
     </ClInclude>
     <ClInclude Include="..\managed_bridge.h">
     </ClInclude>
@@ -174,13 +176,13 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\jsonviewer.def">
+    <None Include="..\webview2renderviewer.def">
     </None>
-    <None Include="..\jsonviewer.rc2">
+    <None Include="..\webview2renderviewer.rc2">
     </None>
-    <None Include="..\jsonviewer.rh">
+    <None Include="..\webview2renderviewer.rh">
     </None>
-    <None Include="..\jsonviewer.rh2">
+    <None Include="..\webview2renderviewer.rh2">
     </None>
     <None Include="..\lang\lang.rh">
     </None>
@@ -188,22 +190,25 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="..\jsonviewer.rc">
+    <ResourceCompile Include="..\webview2renderviewer.rc">
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="lang_jsonviewer.vcxproj">
-      <Project>{2F454B19-3A83-4717-8A57-AF3C4876DC1F}</Project>
+    <ProjectReference Include="lang_webview2renderviewer.vcxproj">
+      <Project>{83B6607E-0476-4AC8-BD46-CCF17C1F31D4}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\managed\JsonViewer.Managed.csproj">
-      <Project>{FAA575FC-812E-4C0F-A39A-543115FDC31F}</Project>
+    <ProjectReference Include="..\managed\WebView2RenderViewer.Managed.csproj">
+      <Project>{025C488C-8A97-446A-B36B-872E59BD566D}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>if not exist "$(JsonViewerPluginDir)" mkdir "$(JsonViewerPluginDir)"&#x0D;&#x0A;set "MANAGED_CONFIG=$(Configuration)"&#x0D;&#x0A;set "MANAGED_TRIMMED=%MANAGED_CONFIG:_x64=%"&#x0D;&#x0A;set "MANAGED_TRIMMED=%MANAGED_TRIMMED:_Win32=%"&#x0D;&#x0A;set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%JsonViewer.Managed.dll" set "MANAGED_DIR=$(ProjectDir)..\managed\bin\%MANAGED_CONFIG%\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%JsonViewer.Managed.dll" set "MANAGED_DIR=%MANAGED_DIR%net48\"&#x0D;&#x0A;if not exist "%MANAGED_DIR%JsonViewer.Managed.dll" (&#x0D;&#x0A;  echo JsonViewer.Managed.dll was not found in "$(ProjectDir)..\managed\bin\%MANAGED_TRIMMED%" or the alternate paths checked.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;if not exist "%MANAGED_DIR%Newtonsoft.Json.dll" (&#x0D;&#x0A;  echo Newtonsoft.Json.dll was not found next to JsonViewer.Managed.dll in %MANAGED_DIR%.&#x0D;&#x0A;  exit /B 1&#x0D;&#x0A;)&#x0D;&#x0A;copy /Y "%MANAGED_DIR%JsonViewer.Managed.dll" "$(JsonViewerPluginDir)JsonViewer.Managed.dll"&#x0D;&#x0A;copy /Y "%MANAGED_DIR%Newtonsoft.Json.dll" "$(JsonViewerPluginDir)Newtonsoft.Json.dll"&#x0D;&#x0A;if exist "$(ProjectDir)..\DEPENDENCIES.md" copy /Y "$(ProjectDir)..\DEPENDENCIES.md" "$(JsonViewerPluginDir)DEPENDENCIES.md"&#x0D;&#x0A;if exist "$(ProjectDir)..\SUPPORTED_FILE_TYPES.md" copy /Y "$(ProjectDir)..\SUPPORTED_FILE_TYPES.md" "$(JsonViewerPluginDir)SUPPORTED_FILE_TYPES.md"</Command>
+      <Command><![CDATA[
+call "$(ProjectDir)..\copy_managed_dependencies.cmd" "$(ProjectDir)..\" "$(Configuration)" "$(Platform)" "$(RenderViewerPluginDir)"
+if errorlevel 1 exit /B 1
+]]></Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
