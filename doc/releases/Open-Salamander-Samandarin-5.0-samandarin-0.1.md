@@ -2,7 +2,7 @@
 
 ## Why this release matters
 
-Open Salamander: Samandarin continues to deliver a fast, two-panel file manager for Windows that evolves the original project with AI-crafted enhancements while staying compatible with the upstream plugin ecosystem. This release keeps the playful spirit behind the Samandarin name—mixing legacy, daring experimentation, and a fresh identity—while reaffirming the fork's commitment to transparent, adventurous development. For a deeper look at the fork's background, goals, and build instructions, see the [README](../../README.md).
+Open Salamander: Samandarin remains an intentionally experimental fork—its AI-implemented features are actively evolving, may surface unexpected issues, and are best explored by advanced, adventurous users who can tolerate work-in-progress behavior. Open Salamander: Samandarin continues to deliver a fast, two-panel file manager for Windows that evolves the original project with AI-crafted enhancements while staying compatible with the upstream plugin ecosystem. This release keeps the playful spirit behind the Samandarin name—mixing legacy, daring experimentation, and a fresh identity—while reaffirming the fork's commitment to transparent, adventurous development. For a deeper look at the fork's background, goals, and build instructions, see the [README](../../README.md).
 
 ## Release highlights
 
@@ -33,6 +33,10 @@ The new Samandarin plugin runs a managed update-notification service: it bootstr
 ### Plugin availability notes
 
 Several legacy viewers remain on the roadmap for a later drop: the PictView, UnRAR, and Encrypt plugins are absent from this bundle. In addition, the FTP client plugin currently lacks the OpenSSL libraries it needs for secure transfers; install them separately from [openssl.org](https://www.openssl.org/) if you need encrypted connectivity.
+
+### Language availability
+
+Samandarin currently ships with an English-only interface; localization files are not yet available, so the UI and documentation remain untranslated.
 
 ## Getting started
 
