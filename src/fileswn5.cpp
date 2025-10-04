@@ -2797,11 +2797,24 @@ void CFilesWindow::QuickRenameBegin(int index, const RECT* labelRect)
     }
     if (selectionEndForControl >= 0)
     {
-        SendMessage(hWnd, EM_SETSEL, selectionEndForControl, (LPARAM)-1);
-        SendMessage(hWnd, EM_SETSEL, 0, selectionEndForControl);
+        if (unicodeEdit)
+        {
+            SendMessageW(hWnd, EM_SETSEL, selectionEndForControl, (LPARAM)-1);
+            SendMessageW(hWnd, EM_SETSEL, 0, selectionEndForControl);
+        }
+        else
+        {
+            SendMessage(hWnd, EM_SETSEL, selectionEndForControl, (LPARAM)-1);
+            SendMessage(hWnd, EM_SETSEL, 0, selectionEndForControl);
+        }
     }
     else
-        SendMessage(hWnd, EM_SETSEL, 0, (LPARAM)-1);
+    {
+        if (unicodeEdit)
+            SendMessageW(hWnd, EM_SETSEL, 0, (LPARAM)-1);
+        else
+            SendMessage(hWnd, EM_SETSEL, 0, (LPARAM)-1);
+    }
 
     ShowWindow(hWnd, SW_SHOW);
     SetFocus(hWnd);
