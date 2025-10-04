@@ -1213,6 +1213,7 @@ internal static class NativeConfiguration
             return string.Empty;
         }
 
-        return value.Length >= MaxVersionLength ? value.Substring(0, MaxVersionLength - 1) : value;
+        var sanitized = value!;
+        return sanitized.Length >= MaxVersionLength ? sanitized.Substring(0, MaxVersionLength - 1) : sanitized;
     }
 }
