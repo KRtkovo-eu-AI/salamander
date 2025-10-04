@@ -671,6 +671,17 @@ BOOL MyCopyFile(const char* sFileName, const char* tFileName,
     {
         // nepovedlo se - utecu pryc
         DWORD error = GetLastError();
+        
+        if ((error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
+        {
+            const char* ext = MyRStrChr(sFileName, '.');
+            if (ext != NULL && lstrcmpi(ext, ".slg") == 0)
+            {
+                *options = COPYFILEOPTIONS_SKIP;
+                return TRUE;
+            }
+        }
+
         wsprintf(buff, LoadStr(ERROR_CF_OPENFILE), sFileName);
         HandleErrorM(IDS_MAINWINDOWTITLE, buff, error);
         return FALSE;
