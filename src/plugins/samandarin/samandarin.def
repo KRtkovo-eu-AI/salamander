@@ -3,3 +3,5 @@ LIBRARY SAMANDARIN.SPL
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
 EXPORTS Samandarin_GetCurrentColor
+EXPORTS Samandarin_LoadSettings
+EXPORTS Samandarin_SaveSettings
