@@ -562,8 +562,13 @@
 %0\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll,%1\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll
 %0\plugins\webview2renderviewer\Markdig.dll,%1\plugins\webview2renderviewer\Markdig.dll
 %0\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll
+%0\plugins\webview2renderviewer\Microsoft.Web.WebView2.Wpf.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.Wpf.dll
 %0\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll
 %0\plugins\webview2renderviewer\WebView2Loader.dll,%1\plugins\webview2renderviewer\WebView2Loader.dll
+%0\plugins\webview2renderviewer\System.Buffers.dll,%1\plugins\webview2renderviewer\System.Buffers.dll
+%0\plugins\webview2renderviewer\System.Memory.dll,%1\plugins\webview2renderviewer\System.Memory.dll
+%0\plugins\webview2renderviewer\System.Numerics.Vectors.dll,%1\plugins\webview2renderviewer\System.Numerics.Vectors.dll
+%0\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll,%1\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll
 %0\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll,%1\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll
 %0\plugins\webview2renderviewer\DEPENDENCIES.md,%1\plugins\webview2renderviewer\DEPENDENCIES.md
 %0\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md,%1\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md
@@ -573,9 +578,75 @@
 %0\plugins\zip\zip.spl,%1\plugins\zip\zip.spl
 %0\plugins\zip\lang\%SLG,%1\plugins\zip\lang\%SLG
 %0\plugins\zip\zip2sfx\readme.txt,%1\plugins\zip\zip2sfx\readme.txt
-%0\plugins\zip\zip2sfx\sam_cz.set,%1\plugins\zip\zip2sfx\sam_cz.set
 %0\plugins\zip\zip2sfx\sample.set,%1\plugins\zip\zip2sfx\sample.set
 %0\plugins\zip\zip2sfx\zip2sfx.exe,%1\plugins\zip\zip2sfx\zip2sfx.exe
+%0\toolbars\CalculateDirectorySizes.svg,%1\toolbars\CalculateDirectorySizes.svg
+%0\toolbars\CalculateOccupiedSpace.svg,%1\toolbars\CalculateOccupiedSpace.svg
+%0\toolbars\CilpboardCut.svg,%1\toolbars\CilpboardCut.svg
+%0\toolbars\ClipboardCopy.svg,%1\toolbars\ClipboardCopy.svg
+%0\toolbars\ClipboardPaste.svg,%1\toolbars\ClipboardPaste.svg
+%0\toolbars\CommandShell.svg,%1\toolbars\CommandShell.svg
+%0\toolbars\CompareDirectories.svg,%1\toolbars\CompareDirectories.svg
+%0\toolbars\Configuration.svg,%1\toolbars\Configuration.svg
+%0\toolbars\ConnectNetworkDrive.svg,%1\toolbars\ConnectNetworkDrive.svg
+%0\toolbars\Convert.svg,%1\toolbars\Convert.svg
+%0\toolbars\Copy.svg,%1\toolbars\Copy.svg
+%0\toolbars\CreateDirectory.svg,%1\toolbars\CreateDirectory.svg
+%0\toolbars\Delete.svg,%1\toolbars\Delete.svg
+%0\toolbars\Disconnect.svg,%1\toolbars\Disconnect.svg
+%0\toolbars\DriveInformation.svg,%1\toolbars\DriveInformation.svg
+%0\toolbars\Edit.svg,%1\toolbars\Edit.svg
+%0\toolbars\EditNewFile.svg,%1\toolbars\EditNewFile.svg
+%0\toolbars\Email.svg,%1\toolbars\Email.svg
+%0\toolbars\Filter.svg,%1\toolbars\Filter.svg
+%0\toolbars\FindFilesAndDirectories.svg,%1\toolbars\FindFilesAndDirectories.svg
+%0\toolbars\FocusNameInOtherPanel.svg,%1\toolbars\FocusNameInOtherPanel.svg
+%0\toolbars\Forward.svg,%1\toolbars\Forward.svg
+%0\toolbars\GoToHotPath.svg,%1\toolbars\GoToHotPath.svg
+%0\toolbars\GoToPathfromOtherPanel.svg,%1\toolbars\GoToPathfromOtherPanel.svg
+%0\toolbars\GoToShortcutTarget.svg,%1\toolbars\GoToShortcutTarget.svg
+%0\toolbars\HelpContents.svg,%1\toolbars\HelpContents.svg
+%0\toolbars\HideSelectedNames.svg,%1\toolbars\HideSelectedNames.svg
+%0\toolbars\HideUnselectedNames.svg,%1\toolbars\HideUnselectedNames.svg
+%0\toolbars\ChangeAttributes.svg,%1\toolbars\ChangeAttributes.svg
+%0\toolbars\ChangeCase.svg,%1\toolbars\ChangeCase.svg
+%0\toolbars\ChangeDirectory.svg,%1\toolbars\ChangeDirectory.svg
+%0\toolbars\Modify.svg,%1\toolbars\Modify.svg
+%0\toolbars\Move.svg,%1\toolbars\Move.svg
+%0\toolbars\MoveItemDown.svg,%1\toolbars\MoveItemDown.svg
+%0\toolbars\MoveItemUp.svg,%1\toolbars\MoveItemUp.svg
+%0\toolbars\New.svg,%1\toolbars\New.svg
+%0\toolbars\NTFSCompress.svg,%1\toolbars\NTFSCompress.svg
+%0\toolbars\NTFSUncompress.svg,%1\toolbars\NTFSUncompress.svg
+%0\toolbars\OpenFolder.svg,%1\toolbars\OpenFolder.svg
+%0\toolbars\OpenNameinOtherPanel.svg,%1\toolbars\OpenNameinOtherPanel.svg
+%0\toolbars\Pack.svg,%1\toolbars\Pack.svg
+%0\toolbars\ParentDirectory.svg,%1\toolbars\ParentDirectory.svg
+%0\toolbars\PasteShortcut.svg,%1\toolbars\PasteShortcut.svg
+%0\toolbars\Properties.svg,%1\toolbars\Properties.svg
+%0\toolbars\QuickRename.svg,%1\toolbars\QuickRename.svg
+%0\toolbars\Refresh.svg,%1\toolbars\Refresh.svg
+%0\toolbars\RootDirectory.svg,%1\toolbars\RootDirectory.svg
+%0\toolbars\Security.svg,%1\toolbars\Security.svg
+%0\toolbars\SharedDirectories.svg,%1\toolbars\SharedDirectories.svg
+%0\toolbars\ShowHiddenNames.svg,%1\toolbars\ShowHiddenNames.svg
+%0\toolbars\SmartColumnMode.svg,%1\toolbars\SmartColumnMode.svg
+%0\toolbars\SortByAttributes.svg,%1\toolbars\SortByAttributes.svg
+%0\toolbars\SortByDate.svg,%1\toolbars\SortByDate.svg
+%0\toolbars\SortByExtension.svg,%1\toolbars\SortByExtension.svg
+%0\toolbars\SortByName.svg,%1\toolbars\SortByName.svg
+%0\toolbars\SortBySize.svg,%1\toolbars\SortBySize.svg
+%0\toolbars\SwapPanels.svg,%1\toolbars\SwapPanels.svg
+%0\toolbars\TabsClose.svg,%1\toolbars\TabsClose.svg
+%0\toolbars\TabsDuplicate.svg,%1\toolbars\TabsDuplicate.svg
+%0\toolbars\TabsNew.svg,%1\toolbars\TabsNew.svg
+%0\toolbars\TabsNext.svg,%1\toolbars\TabsNext.svg
+%0\toolbars\TabsPrevious.svg,%1\toolbars\TabsPrevious.svg
+%0\toolbars\Unpack.svg,%1\toolbars\Unpack.svg
+%0\toolbars\UserMenu.svg,%1\toolbars\UserMenu.svg
+%0\toolbars\View.svg,%1\toolbars\View.svg
+%0\toolbars\Views.svg,%1\toolbars\Views.svg
+%0\toolbars\WhatIsThis.svg,%1\toolbars\WhatIsThis.svg
 %0\remove\remove.exe,%1\remove\remove.exe,5
 
 [CreateDirs]
@@ -667,7 +738,7 @@
 
 [AddRegistryKeys]
 HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86)
-HKCU,Software\Open Salamander Samandarin\Open Salamander 5.0-samandarin-0.1
+HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.1
 
 [AddRegistryValues]
 HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),DisplayName,1,Open Salamander 5.0-samandarin-0.1 (x86)
@@ -701,5 +772,5 @@ IncrementFileContentDst=%1\plugins\plugins.ver,winscp\winscp.spl,jsonviewer\json
 SaveRemoveLog=%1\remove\remove.rlg
 AutoImportConfig=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.1,AutoImportConfig
 DisplayWelcomeWarning=0
-SLGLanguages=czech.slg,english.slg,german.slg,hungarian.slg,romanian.slg,slovak.slg,spanish.slg,french.slg,russian.slg,dutch.slg,chinesesimplified.slg
+SLGLanguages=english.slg
 WERLocalDumps=salamand.exe,salmon.exe,salopen.exe,salspawn.exe,fcremote.exe,salpvenv.exe
