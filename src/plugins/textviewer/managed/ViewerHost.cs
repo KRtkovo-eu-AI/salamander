@@ -570,6 +570,19 @@ internal static class ViewerHost
                 AllowExternalDrop = false,
             };
 
+            try
+            {
+                viewer.CreationProperties = CreateBrowserCreationProperties();
+            }
+            catch (Exception ex)
+            {
+                viewer.Dispose();
+                HandleBrowserInitializationFailure(new InvalidOperationException(
+                    $"Unable to prepare the browser data directory.\n{ex.Message}",
+                    ex));
+                return;
+            }
+
             viewer.CoreWebView2InitializationCompleted += OnBrowserInitializationCompleted;
             viewer.NavigationCompleted += OnBrowserNavigationCompleted;
 
@@ -586,6 +599,28 @@ internal static class ViewerHost
             {
                 HandleBrowserInitializationFailure(ex);
             }
+        }
+
+        private static CoreWebView2CreationProperties CreateBrowserCreationProperties()
+        {
+            string userDataFolder = GetBrowserUserDataFolder();
+            return new CoreWebView2CreationProperties
+            {
+                UserDataFolder = userDataFolder,
+            };
+        }
+
+        private static string GetBrowserUserDataFolder()
+        {
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrEmpty(localAppData))
+            {
+                throw new InvalidOperationException("Unable to determine the local application data directory for the current user.");
+            }
+
+            string path = Path.Combine(localAppData, "Open Salamander", "PrismSharp Text Viewer", "WebView2");
+            Directory.CreateDirectory(path);
+            return path;
         }
 
         private void LoadFile(string path)
