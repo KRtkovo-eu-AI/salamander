@@ -5,13 +5,13 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
 using Timer = System.Threading.Timer;
 
 namespace OpenSalamander.Samandarin;
@@ -131,7 +131,6 @@ internal static class UpdateCoordinator
     private static readonly Uri ReleasesUri = new("https://github.com/KRtkovo-eu-AI/salamander/releases/latest");
     private static readonly SemaphoreSlim CheckSemaphore = new(1, 1);
     private static readonly TimeSpan MinimumDelay = TimeSpan.FromSeconds(10);
-    private static readonly string SettingsFilePath;
     private static readonly HttpClient HttpClient;
     private static readonly object UiThreadLock = new();
 
@@ -144,8 +143,7 @@ internal static class UpdateCoordinator
 
     static UpdateCoordinator()
     {
-        SettingsFilePath = Path.Combine(AppContext.BaseDirectory ?? Environment.CurrentDirectory, "Samandarin.UpdateNotifier.config");
-        Settings = UpdateSettings.Load(SettingsFilePath);
+        Settings = UpdateSettings.Load();
         EnableModernTlsProtocols();
 
         var handler = new HttpClientHandler
@@ -656,7 +654,7 @@ internal static class UpdateCoordinator
 
     private static void SaveSettings_NoLock()
     {
-        Settings.Save(SettingsFilePath);
+        Settings.Save();
     }
 
     private static void EnsureUiThread()
@@ -1050,89 +1048,14 @@ internal sealed class UpdateSettings
         };
     }
 
-    public static UpdateSettings Load(string path)
+    public static UpdateSettings Load()
     {
-        var settings = new UpdateSettings();
-        if (!File.Exists(path))
-        {
-            return settings;
-        }
-
-        try
-        {
-            foreach (var line in File.ReadAllLines(path))
-            {
-                var trimmed = line.Trim();
-                if (trimmed.Length == 0 || trimmed.StartsWith("#", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                int separator = trimmed.IndexOf('=');
-                if (separator <= 0)
-                {
-                    continue;
-                }
-
-                var key = trimmed.Substring(0, separator).Trim();
-                var value = trimmed.Substring(separator + 1).Trim();
-
-                switch (key)
-                {
-                    case "checkOnStartup":
-                        if (bool.TryParse(value, out var check))
-                        {
-                            settings.CheckOnStartup = check;
-                        }
-                        break;
-                    case "frequency":
-                        if (Enum.TryParse(value, true, out UpdateFrequency frequency))
-                        {
-                            settings.Frequency = frequency;
-                        }
-                        break;
-                    case "lastCheckUtc":
-                        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp))
-                        {
-                            settings.LastCheckUtc = timestamp;
-                        }
-                        break;
-                    case "lastPromptedVersion":
-                        settings.LastPromptedVersion = value;
-                        break;
-                    case "lastKnownRemoteVersion":
-                        settings.LastKnownRemoteVersion = value;
-                        break;
-                }
-            }
-        }
-        catch
-        {
-            return new UpdateSettings();
-        }
-
-        return settings;
+        return NativeConfiguration.LoadOrDefault();
     }
 
-    public void Save(string path)
+    public void Save()
     {
-        var builder = new StringBuilder();
-        builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "checkOnStartup={0}", CheckOnStartup));
-        builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "frequency={0}", Frequency));
-        if (LastCheckUtc.HasValue)
-        {
-            builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "lastCheckUtc={0:o}", LastCheckUtc.Value.ToUniversalTime()));
-        }
-        if (!string.IsNullOrWhiteSpace(LastPromptedVersion))
-        {
-            builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "lastPromptedVersion={0}", LastPromptedVersion));
-        }
-        if (!string.IsNullOrWhiteSpace(LastKnownRemoteVersion))
-        {
-            builder.AppendLine(string.Format(CultureInfo.InvariantCulture, "lastKnownRemoteVersion={0}", LastKnownRemoteVersion));
-        }
-
-        File.WriteAllText(path, builder.ToString(), Encoding.UTF8);
+        NativeConfiguration.Save(this);
     }
 }
 
@@ -1156,4 +1079,140 @@ internal sealed class WindowHandleWrapper : IWin32Window
     }
 
     public IntPtr Handle { get; }
+}
+
+internal static class NativeConfiguration
+{
+    private const int MaxVersionLength = 128;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    private struct NativeUpdateSettings
+    {
+        public int CheckOnStartup;
+        public UpdateFrequency Frequency;
+        public int HasLastCheckUtc;
+        public long LastCheckUtcTicks;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MaxVersionLength)]
+        public string LastPromptedVersion;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MaxVersionLength)]
+        public string LastKnownRemoteVersion;
+    }
+
+    [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
+    private static extern int Samandarin_LoadSettings(out NativeUpdateSettings settings);
+
+    [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
+    private static extern int Samandarin_SaveSettings(ref NativeUpdateSettings settings);
+
+    public static UpdateSettings LoadOrDefault()
+    {
+        if (TryLoad(out var native))
+        {
+            return ToManaged(native);
+        }
+
+        return new UpdateSettings();
+    }
+
+    public static void Save(UpdateSettings settings)
+    {
+        var native = ToNative(settings);
+        TrySave(ref native);
+    }
+
+    private static bool TryLoad(out NativeUpdateSettings settings)
+    {
+        try
+        {
+            return Samandarin_LoadSettings(out settings) != 0;
+        }
+        catch (DllNotFoundException)
+        {
+            settings = default;
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            settings = default;
+            return false;
+        }
+    }
+
+    private static bool TrySave(ref NativeUpdateSettings settings)
+    {
+        try
+        {
+            return Samandarin_SaveSettings(ref settings) != 0;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private static UpdateSettings ToManaged(NativeUpdateSettings native)
+    {
+        var result = new UpdateSettings
+        {
+            CheckOnStartup = native.CheckOnStartup != 0,
+            Frequency = Enum.IsDefined(typeof(UpdateFrequency), (int)native.Frequency)
+                ? native.Frequency
+                : UpdateFrequency.Weekly,
+        };
+
+        if (native.HasLastCheckUtc != 0)
+        {
+            try
+            {
+                result.LastCheckUtc = new DateTimeOffset(native.LastCheckUtcTicks, TimeSpan.Zero);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                result.LastCheckUtc = null;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(native.LastPromptedVersion))
+        {
+            result.LastPromptedVersion = native.LastPromptedVersion;
+        }
+
+        if (!string.IsNullOrWhiteSpace(native.LastKnownRemoteVersion))
+        {
+            result.LastKnownRemoteVersion = native.LastKnownRemoteVersion;
+        }
+
+        return result;
+    }
+
+    private static NativeUpdateSettings ToNative(UpdateSettings settings)
+    {
+        var native = new NativeUpdateSettings
+        {
+            CheckOnStartup = settings.CheckOnStartup ? 1 : 0,
+            Frequency = settings.Frequency,
+            HasLastCheckUtc = settings.LastCheckUtc.HasValue ? 1 : 0,
+            LastCheckUtcTicks = settings.LastCheckUtc?.ToUniversalTime().UtcTicks ?? 0,
+            LastPromptedVersion = Sanitize(settings.LastPromptedVersion),
+            LastKnownRemoteVersion = Sanitize(settings.LastKnownRemoteVersion),
+        };
+
+        return native;
+    }
+
+    private static string Sanitize(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        return value.Length >= MaxVersionLength ? value.Substring(0, MaxVersionLength - 1) : value;
+    }
 }

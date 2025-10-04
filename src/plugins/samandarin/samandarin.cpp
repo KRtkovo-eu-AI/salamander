@@ -10,6 +10,7 @@
 //****************************************************************************
 
 #include "precomp.h"
+#include <stdlib.h>
 
 // objekt interfacu pluginu, jeho metody se volaji ze Salamandera
 CPluginInterface PluginInterface;
@@ -244,4 +245,167 @@ void WINAPI CPluginInterface::Event(int event, DWORD /*param*/)
 CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenuExt()
 {
     return &InterfaceForMenuExt;
+}
+
+namespace
+{
+    enum class NativeUpdateFrequency
+    {
+        Disabled = 0,
+        Daily = 1,
+        Weekly = 2,
+        Monthly = 3,
+    };
+
+    struct NativeUpdateSettings
+    {
+        int CheckOnStartup;
+        int Frequency;
+        int HasLastCheckUtc;
+        LONGLONG LastCheckUtcTicks;
+        char LastPromptedVersion[128];
+        char LastKnownRemoteVersion[128];
+    };
+
+    const char* const kConfigCheckOnStartup = "CheckOnStartup";
+    const char* const kConfigFrequency = "Frequency";
+    const char* const kConfigLastCheckUtcTicks = "LastCheckUtcTicks";
+    const char* const kConfigLastPromptedVersion = "LastPromptedVersion";
+    const char* const kConfigLastKnownRemoteVersion = "LastKnownRemoteVersion";
+
+    void InitializeDefaults(NativeUpdateSettings* settings)
+    {
+        if (settings == nullptr)
+        {
+            return;
+        }
+
+        settings->CheckOnStartup = TRUE;
+        settings->Frequency = static_cast<int>(NativeUpdateFrequency::Weekly);
+        settings->HasLastCheckUtc = FALSE;
+        settings->LastCheckUtcTicks = 0;
+        settings->LastPromptedVersion[0] = '\0';
+        settings->LastKnownRemoteVersion[0] = '\0';
+    }
+
+    void WINAPI LoadOrSaveSettingsCallback(BOOL load, HKEY regKey, CSalamanderRegistryAbstract* registry, void* param)
+    {
+        auto* settings = reinterpret_cast<NativeUpdateSettings*>(param);
+        if (load)
+        {
+            InitializeDefaults(settings);
+            if (settings == nullptr || regKey == NULL)
+            {
+                return;
+            }
+
+            DWORD checkOnStartup = 0;
+            if (registry->GetValue(regKey, kConfigCheckOnStartup, REG_DWORD, &checkOnStartup, sizeof(checkOnStartup)))
+            {
+                settings->CheckOnStartup = checkOnStartup != 0 ? TRUE : FALSE;
+            }
+
+            DWORD frequency = static_cast<DWORD>(NativeUpdateFrequency::Weekly);
+            if (registry->GetValue(regKey, kConfigFrequency, REG_DWORD, &frequency, sizeof(frequency)) &&
+                frequency <= static_cast<DWORD>(NativeUpdateFrequency::Monthly))
+            {
+                settings->Frequency = static_cast<int>(frequency);
+            }
+
+            char ticksBuffer[64];
+            ticksBuffer[0] = '\0';
+            if (registry->GetValue(regKey, kConfigLastCheckUtcTicks, REG_SZ, ticksBuffer, sizeof(ticksBuffer)))
+            {
+                ticksBuffer[sizeof(ticksBuffer) - 1] = '\0';
+                char* end = nullptr;
+                LONGLONG ticks = _strtoi64(ticksBuffer, &end, 10);
+                if (end != ticksBuffer)
+                {
+                    settings->LastCheckUtcTicks = ticks;
+                    settings->HasLastCheckUtc = TRUE;
+                }
+            }
+
+            settings->LastPromptedVersion[0] = '\0';
+            if (registry->GetValue(regKey, kConfigLastPromptedVersion, REG_SZ,
+                                    settings->LastPromptedVersion, sizeof(settings->LastPromptedVersion)))
+            {
+                settings->LastPromptedVersion[sizeof(settings->LastPromptedVersion) - 1] = '\0';
+            }
+
+            settings->LastKnownRemoteVersion[0] = '\0';
+            if (registry->GetValue(regKey, kConfigLastKnownRemoteVersion, REG_SZ,
+                                    settings->LastKnownRemoteVersion, sizeof(settings->LastKnownRemoteVersion)))
+            {
+                settings->LastKnownRemoteVersion[sizeof(settings->LastKnownRemoteVersion) - 1] = '\0';
+            }
+        }
+        else
+        {
+            if (settings == nullptr || regKey == NULL)
+            {
+                return;
+            }
+
+            DWORD checkOnStartup = settings->CheckOnStartup != 0 ? 1U : 0U;
+            registry->SetValue(regKey, kConfigCheckOnStartup, REG_DWORD, &checkOnStartup, sizeof(checkOnStartup));
+
+            DWORD frequency = static_cast<DWORD>(settings->Frequency);
+            registry->SetValue(regKey, kConfigFrequency, REG_DWORD, &frequency, sizeof(frequency));
+
+            if (settings->HasLastCheckUtc != 0)
+            {
+                char buffer[64];
+                _snprintf_s(buffer, _TRUNCATE, "%lld", settings->LastCheckUtcTicks);
+                registry->SetValue(regKey, kConfigLastCheckUtcTicks, REG_SZ, buffer, -1);
+            }
+            else
+            {
+                registry->DeleteValue(regKey, kConfigLastCheckUtcTicks);
+            }
+
+            if (settings->LastPromptedVersion[0] != '\0')
+            {
+                registry->SetValue(regKey, kConfigLastPromptedVersion, REG_SZ,
+                                   settings->LastPromptedVersion, -1);
+            }
+            else
+            {
+                registry->DeleteValue(regKey, kConfigLastPromptedVersion);
+            }
+
+            if (settings->LastKnownRemoteVersion[0] != '\0')
+            {
+                registry->SetValue(regKey, kConfigLastKnownRemoteVersion, REG_SZ,
+                                   settings->LastKnownRemoteVersion, -1);
+            }
+            else
+            {
+                registry->DeleteValue(regKey, kConfigLastKnownRemoteVersion);
+            }
+        }
+    }
+} // namespace
+
+extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_LoadSettings(NativeUpdateSettings* settings)
+{
+    if (settings == nullptr || SalamanderGeneral == NULL)
+    {
+        return FALSE;
+    }
+
+    SalamanderGeneral->CallLoadOrSaveConfiguration(TRUE, LoadOrSaveSettingsCallback, settings);
+    return TRUE;
+}
+
+extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_SaveSettings(const NativeUpdateSettings* settings)
+{
+    if (settings == nullptr || SalamanderGeneral == NULL)
+    {
+        return FALSE;
+    }
+
+    NativeUpdateSettings localCopy = *settings;
+    SalamanderGeneral->CallLoadOrSaveConfiguration(FALSE, LoadOrSaveSettingsCallback, &localCopy);
+    return TRUE;
 }
