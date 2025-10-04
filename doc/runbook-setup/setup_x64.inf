@@ -568,8 +568,8 @@
 %0\plugins\webview2renderviewer\WebView2Loader.dll,%1\plugins\webview2renderviewer\WebView2Loader.dll
 %0\plugins\webview2renderviewer\System.Buffers.dll,%1\plugins\webview2renderviewer\System.Buffers.dll
 %0\plugins\webview2renderviewer\System.Memory.dll,%1\plugins\webview2renderviewer\System.Memory.dll
-%0\plugins\webview2renderviewer\System.Numeric.Vectors.dll,%1\plugins\webview2renderviewer\System.Numeric.Vectors.dll
-%0\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe,%1\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe
+%0\plugins\webview2renderviewer\System.Numerics.Vectors.dll,%1\plugins\webview2renderviewer\System.Numerics.Vectors.dll
+%0\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll,%1\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll
 %0\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll,%1\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll
 %0\plugins\webview2renderviewer\DEPENDENCIES.md,%1\plugins\webview2renderviewer\DEPENDENCIES.md
 %0\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md,%1\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md
