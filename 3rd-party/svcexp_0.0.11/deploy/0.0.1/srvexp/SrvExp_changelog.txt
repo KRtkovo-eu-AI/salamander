@@ -1,0 +1,17 @@
+=============================================================
+Service Explorer (Altap Salamander Plugin) - Changelog
+=============================================================
+
+Version 0.0.1 (28.08.2009)
+-------------------------
+First public release.
+
+Version 0.1.0 (18.3.2009)
+-------------------------
+First public release.
+
+Legend
+------
+[*] Change
+[-] Bugfix
+[+] New feature, enhancement

@@ -1,0 +1,4 @@
+LIBRARY svcexp.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer

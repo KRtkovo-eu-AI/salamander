@@ -1,0 +1,17 @@
+=============================================================
+Service Explorer (Altap Salamander Plugin) - Changelog
+=============================================================
+
+Version 0.0.2 (28.08.2009)
+-------------------------
+- fixed a debug "Error" message in the "About" dialog (thx @thomas)
+
+Version 0.0.1 (28.08.2009)
+-------------------------
+First public release.
+
+Legend
+------
+[*] Change
+[-] Bugfix
+[+] New feature, enhancement
