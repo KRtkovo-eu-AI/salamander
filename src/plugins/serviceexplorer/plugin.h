@@ -258,6 +258,9 @@ class CPluginFSInterface: public CPluginFSInterfaceAbstract
     virtual BOOL WINAPI OpenFindDialog(const char *fsName, int panel) {return FALSE;}
     virtual void WINAPI OpenActiveFolder(const char *fsName, HWND parent) {}
     virtual void WINAPI GetAllowedDropEffects(int mode, const char *tgtFSPath, DWORD *allowedEffects) {}
+    virtual BOOL WINAPI GetNoItemsInPanelText(char *textBuf, int textBufSize) {return FALSE;}
+    virtual void WINAPI ShowSecurityInfo(HWND parent) {}
+    virtual void WINAPI EnsureShareExistsOnServer(int panel, const char *server, const char *share) {}
 };
 class CPluginInterfaceForThumbLoader: public CPluginInterfaceForThumbLoaderAbstract
 {
