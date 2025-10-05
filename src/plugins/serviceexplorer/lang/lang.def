@@ -1,0 +1,6 @@
+; tento soubor je spolecny LANG souborum Salamandera a vsech pluginu
+; z nepochopitelneho duvodu jeho existenci (existenci english.lib)
+; vyzaduje linker behem prekladu modulu SALAMAND, pokud je nastavena
+; jeho dependence na projektu LANG
+
+LIBRARY ENGLISH.SLG

@@ -1,0 +1,91 @@
+//
+// lang.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+#include "..\\versinfo.rh2"
+#include "..\\shared\\versinfo.rc2"
+
+/////////////////////////////////////////////////////////////////////////////
+// Dialog
+/////////////////////////////////////////////////////////////////////////////
+
+IDD_CFGPAGEFIRST DIALOGEX 66, 53, 268, 212
+STYLE DS_SETFONT | DS_3DLOOK | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
+CAPTION "General"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    EDITTEXT        IDC_STATIC_CFG_SERVICENAMET,60,8,198,14,ES_AUTOHSCROLL | ES_READONLY
+    EDITTEXT        IDC_STATIC_CFG_DISPLAYNAME,60,30,198,14,ES_AUTOHSCROLL | ES_READONLY | WS_GROUP
+    EDITTEXT        IDC_STATIC_CFG_DESCRIPTION,60,54,198,42,ES_MULTILINE | ES_READONLY | WS_VSCROLL
+    EDITTEXT        IDC_STATIC_CFG_EXECUTEABLEPATH,4,111,252,14,ES_AUTOHSCROLL | ES_READONLY
+    COMBOBOX        IDC_STATIC_CFG_STARTUPTYPE,60,136,198,50,CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP
+    PUSHBUTTON      "&Start",IDC_BUTTON_SERVICE_START,6,181,54,15
+    PUSHBUTTON      "S&top",IDC_BUTTON_SERVICE_STOP,72,181,54,15
+    PUSHBUTTON      "&Pause",IDC_BUTTON_SERVICE_PAUSE,138,181,54,15
+    PUSHBUTTON      "&Resume",IDC_BUTTON_SERVICE_RESUME,204,181,54,15
+    LTEXT           "Service name:",IDC_STATIC_1,6,12,46,8
+    LTEXT           "Display &name:",IDC_STATIC_2,6,30,46,8
+    LTEXT           "Description:",IDC_STATIC_5,6,54,52,8
+    LTEXT           "Path to executeable:",IDC_STATIC_6,4,100,111,8
+    LTEXT           "Servicename",IDC_STATIC_CFG_SERVICENAME,6,72,46,8,NOT WS_VISIBLE
+    LTEXT           "Startup type:",IDC_STATIC,6,136,44,8
+    LTEXT           "Service status:",IDC_STATIC,6,160,49,8
+    LTEXT           "Servicestatus",IDC_STATIC_CFG_STATUS,60,160,198,8
+END
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_CFGPAGEFIRST, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 197
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// String Table
+/////////////////////////////////////////////////////////////////////////////
+
+STRINGTABLE
+BEGIN
+    IDS_PLUGIN_DESCRIPTION  "Browse and configure services."
+    IDS_ABOUT               "About Plugin"
+    IDS_COLUMN_CAPTION_STATUS "Status"
+    IDS_COLUMN_CAPTION_STARTUPTYPE "Startup Type"
+    IDS_COLUMN_CAPTION_LOGONAS "Log on As"
+    IDS_COLUMN_CAPTION_DESCRIPTION "Description"
+    IDS_SERVICE_START_BOOT  "Boot"
+    IDS_SERVICE_START_SYSTEM "System"
+    IDS_SERVICE_START_AUTO  "Auto"
+    IDS_SERVICE_START_ONDEMAND "Manual"
+    IDS_SERVICE_START_DISABLED "Disabled"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_SERVICE_STATUS_STOPPED " "
+    IDS_SERVICE_STATUS_STARTING "Starting"
+    IDS_SERVICE_STATUS_STOPPING "Stopping"
+    IDS_SERVICE_STATUS_RUNNING "Started"
+    IDS_SERVICE_STATUS_CONTINUE_PENDING "Continue Pending"
+    IDS_SEVICE_STATUS_PAUSE_PENDING "Pause Pending"
+    IDS_SERVICE_STATUS_PAUSED "Paused"
+    IDS_SERVICE_ERROR_OPERATION "The operation you attempted was not successfull."
+    IDS_SEVICE_ERROR_CODE   "Errorcode"
+    IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS "Access is denied."
+    IDS_SERVICE_ERROR_UNKNOWN "Unknown."
+    IDS_SERVICE_STATUS_STOPPED2 "Stopped"
+    IDS_SERVICE_DELETE_CONFIRMATION "Do you really want to delete the '%s' service?"
+    IDS_IDS_SERVICE_DELETE_DLG_CAPTION "Delete '%s'?"
+    IDS_SERVICE_ERROR_MARKEDFORDELETION "The service is marked for deletion."
+END

@@ -1,0 +1,13 @@
+//
+// serviceexplorer.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+#include "versinfo.rh2"
+#include "../shared/versinfo.rc2"
+
+IDB_SVC BITMAP "res\\svc.bmp"
+IDI_DIR ICON "res\\dir.ico"
