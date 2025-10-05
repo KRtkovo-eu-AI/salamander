@@ -17,6 +17,7 @@
 
 #include <windows.h>
 #include <shlobj.h>
+#include <CommDlg.h>
 #ifdef _MSC_VER
 #include <crtdbg.h>
 #endif // _MSC_VER

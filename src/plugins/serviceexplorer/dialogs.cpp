@@ -15,7 +15,7 @@ CCommonDialog::CCommonDialog(HINSTANCE hInstance, int resID, int helpID, HWND hP
 {
 }
 
-BOOL CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   switch (uMsg)
   {
@@ -196,7 +196,7 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
 }
 
 
-BOOL CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	DWORD returnstate=0;
   switch (uMsg)

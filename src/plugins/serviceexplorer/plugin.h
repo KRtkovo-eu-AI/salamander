@@ -89,6 +89,7 @@ class CPluginInterface: public CPluginInterfaceAbstract
     virtual void WINAPI Event(int event, DWORD param);
     virtual void WINAPI ClearHistory(HWND parent);
     virtual void WINAPI AcceptChangeOnPathNotification(const char *path, BOOL includingSubdirs) {}
+    virtual void WINAPI PasswordManagerEvent(HWND parent, int event) {}
 
     virtual BOOL WINAPI UninstallUnregisteredComponents(HWND parent, char *componentsDescr, BOOL *uninstallSPL,
                                                         BOOL *uninstallLangDir, const char *pluginDir,

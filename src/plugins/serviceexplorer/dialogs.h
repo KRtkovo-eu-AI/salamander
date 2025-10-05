@@ -9,7 +9,7 @@ class CCommonDialog: public CDialog
     CCommonDialog(HINSTANCE hInstance, int resID, int helpID, HWND hParent, CObjectOrigin origin = ooStandard);
 
   protected:
-    BOOL DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 
@@ -26,8 +26,8 @@ class CConfigPageFirst: public CPropSheetPage
 		void EnableButtonStates();
 		
 
-	protected:
-		virtual BOOL DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+        protected:
+                virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 
