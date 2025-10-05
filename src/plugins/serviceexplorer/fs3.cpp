@@ -171,19 +171,19 @@ CPluginFSDataInterface::GetPluginIcon(const CFileData *file, int iconSize, BOOL 
 	//return ImageList_GetIcon(DFSImageList,0,ILC_MASK | SalamanderGeneral->GetImageListColorFlags());
 
   lstrcpyn(Name, file->Name, MAX_PATH - (Name - Path));
-  SHFILEINFO shi;
-  if (!SalamanderGeneral->GetFileIcon(Path, FALSE, &shi.hIcon, iconSize))
-    shi.hIcon = NULL;
-  //Presli jsme na vlastni implementaci (mensi pametova narocnost, fungujici XOR ikonky)
-  if (!SHGetFileInfo(Path, 0, &shi, sizeof(shi),
-                     SHGFI_ICON | SHGFI_SMALLICON | SHGFI_SHELLICONSIZE))
+  BOOL isDir = (file->Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+  SHFILEINFO shi = {};
+  if (!SalamanderGeneral->GetFileIcon(Path, FALSE, &shi.hIcon, iconSize, TRUE, isDir))
   {
-    shi.hIcon = NULL;   // failure
+    if (!SHGetFileInfo(Path, 0, &shi, sizeof(shi),
+                       SHGFI_ICON | SHGFI_SMALLICON | SHGFI_SHELLICONSIZE))
+    {
+      shi.hIcon = NULL;   // failure
+    }
   }
   destroyIcon = TRUE;
   return shi.hIcon;   // icon or NULL (failure)
-
-  return NULL;   
 }
 
 void WINAPI CPluginFSDataInterface::SetupView(BOOL leftPanel, CSalamanderViewAbstract *view, const char *archivePath,

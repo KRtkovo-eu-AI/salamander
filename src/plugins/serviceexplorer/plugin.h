@@ -117,7 +117,8 @@ class CPluginInterfaceForArchiver: public CPluginInterfaceForArchiverAbstract
                                           CPluginDataInterfaceAbstract *pluginData, const char *archiveRoot,
                                           SalEnumSelection next, void *nextParam);
     virtual BOOL WINAPI UnpackWholeArchive(CSalamanderForOperationsAbstract *salamander, const char *fileName,
-                                           const char *mask, const char *targetDir);
+                                           const char *mask, const char *targetDir, BOOL delArchiveWhenDone,
+                                           CDynamicString *archiveVolumes);
     virtual BOOL WINAPI CanCloseArchive(CSalamanderForOperationsAbstract *salamander, const char *fileName,
                                         BOOL force, int panel);
 
@@ -143,6 +144,7 @@ class CPluginInterfaceForMenuExt: public CPluginInterfaceForMenuExtAbstract
     virtual BOOL WINAPI ExecuteMenuItem(CSalamanderForOperationsAbstract *salamander, HWND parent,
                                         int id, DWORD eventMask);
     virtual BOOL WINAPI HelpForMenuItem(HWND parent, int id);
+    virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract *salamander);
 };
 
 class CPluginInterfaceForFS: public CPluginInterfaceForFSAbstract
@@ -157,13 +159,13 @@ class CPluginInterfaceForFS: public CPluginInterfaceForFSAbstract
     virtual CPluginFSInterfaceAbstract * WINAPI OpenFS(const char *fsName, int fsNameIndex);
     virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract *fs);
 
-    virtual void WINAPI ExecuteChangeDriveMenuItem();
-    virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int x, int y,
+    virtual void WINAPI ExecuteChangeDriveMenuItem(int panel);
+    virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y,
                                                        CPluginFSInterfaceAbstract *pluginFS,
                                                        const char *pluginFSName, int pluginFSNameIndex,
                                                        BOOL isDetachedFS, BOOL &refreshMenu,
                                                        BOOL &closeMenu, int &postCmd, void *&postCmdParam);
-    virtual void WINAPI ExecuteChangeDrivePostCommand(int postCmd, void *postCmdParam);
+    virtual void WINAPI ExecuteChangeDrivePostCommand(int panel, int postCmd, void *postCmdParam);
     virtual void WINAPI ExecuteOnFS(int panel, CPluginFSInterfaceAbstract *pluginFS,
                                     const char *pluginFSName, int pluginFSNameIndex,
                                     CFileData &file, int isDir);

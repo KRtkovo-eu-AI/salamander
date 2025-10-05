@@ -255,7 +255,7 @@ HICON WINAPI CPluginFSInterface::GetFSIcon(BOOL &destroyIcon)
   SalamanderGeneral->GetRootPath(root, Path);
 
   HICON icon;
-  if (!SalamanderGeneral->GetFileIcon(root, FALSE, &icon, SALICONSIZE_16))
+  if (!SalamanderGeneral->GetFileIcon(root, FALSE, &icon, SALICONSIZE_16, TRUE, TRUE))
     icon = NULL;
 
   destroyIcon = TRUE;

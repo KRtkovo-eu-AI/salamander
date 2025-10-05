@@ -18,11 +18,11 @@
 #error this file is not editable by Microsoft Visual C++
 #endif // defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
 
-#include "spl_vers.h" // vytahneme cisla verzi + buildu
-
 #define VERSINFO_MAJOR       0
 #define VERSINFO_MINORA      0
 #define VERSINFO_MINORB      12
+
+#include "spl_vers.h" // vytahneme cisla verzi + buildu
 
 #define VERSINFO_COPYRIGHT   "Copyright  2009 MJ"
 #define VERSINFO_COMPANY     "ALTAP"

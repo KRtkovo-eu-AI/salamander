@@ -25,3 +25,9 @@ BOOL WINAPI CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
 {
   return TRUE;
 }
+
+void WINAPI CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract *salamander)
+{
+  (void)parent;
+  (void)salamander;
+}

@@ -60,8 +60,15 @@ BOOL WINAPI CPluginInterfaceForArchiver::DeleteFromArchive(CSalamanderForOperati
 }
 BOOL WINAPI CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbstract *salamander,
                                                 const char *fileName, const char *mask,
-                                                const char *targetDir)
+                                                const char *targetDir, BOOL delArchiveWhenDone,
+                                                CDynamicString *archiveVolumes)
 {
+  (void)salamander;
+  (void)fileName;
+  (void)mask;
+  (void)targetDir;
+  (void)delArchiveWhenDone;
+  (void)archiveVolumes;
   return TRUE;
 }
 
@@ -73,7 +80,13 @@ BOOL WINAPI CPluginInterfaceForArchiver::CanCloseArchive(CSalamanderForOperation
 
 BOOL WINAPI CPluginInterfaceForArchiver::GetCacheInfo(char *tempPath, BOOL *ownDelete, BOOL *cacheCopies)
 {
-  return TRUE;
+  if (tempPath != NULL)
+    tempPath[0] = '\0';
+  if (ownDelete != NULL)
+    *ownDelete = FALSE;
+  if (cacheCopies != NULL)
+    *cacheCopies = TRUE;
+  return FALSE;
 }
 
 void ClearTEMPIfNeeded(HWND parent)
@@ -82,9 +95,13 @@ void ClearTEMPIfNeeded(HWND parent)
 
 void WINAPI CPluginInterfaceForArchiver::DeleteTmpCopy(const char *fileName, BOOL firstFile)
 {
+  (void)fileName;
+  (void)firstFile;
 }
 
 BOOL WINAPI CPluginInterfaceForArchiver::PrematureDeleteTmpCopy(HWND parent, int copiesCount)
 {
-	return TRUE;
+        (void)parent;
+        (void)copiesCount;
+        return TRUE;
 }

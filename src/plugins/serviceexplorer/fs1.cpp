@@ -68,31 +68,34 @@ void WINAPI CPluginInterfaceForFS::CloseFS(CPluginFSInterfaceAbstract *fs)
   if (dfsFS != NULL) delete dfsFS;
 }
 
-void WINAPI CPluginInterfaceForFS::ExecuteChangeDriveMenuItem()
+void WINAPI CPluginInterfaceForFS::ExecuteChangeDriveMenuItem(int panel)
 {
-	
-	SalamanderGeneral->GetStdHistoryValues(SALHIST_CHANGEDIR, &History, &HistoryCount);
-	UpdateWindow(SalamanderGeneral->GetMainWindowHWND());
+        (void)panel;
+
+        SalamanderGeneral->GetStdHistoryValues(SALHIST_CHANGEDIR, &History, &HistoryCount);
+        UpdateWindow(SalamanderGeneral->GetMainWindowHWND());
 
 	int failReason;
     BOOL changeRes = SalamanderGeneral->ChangePanelPathToPluginFS(PANEL_SOURCE, AssignedFSName, "", &failReason);
   OutputDebugString("fs1-ExecuteChangeDriveMenuItem");
 }
 
-BOOL WINAPI CPluginInterfaceForFS::ChangeDriveMenuItemContextMenu(HWND parent, int x, int y,
+BOOL WINAPI CPluginInterfaceForFS::ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y,
                                                       CPluginFSInterfaceAbstract *pluginFS,
                                                       const char *pluginFSName, int pluginFSNameIndex,
                                                       BOOL isDetachedFS, BOOL &refreshMenu,
                                                       BOOL &closeMenu, int &postCmd, void *&postCmdParam)
 {
-	OutputDebugString("ChangeDriveMenuItemContextMenu");
-	return FALSE;  
+        (void)panel;
+        OutputDebugString("ChangeDriveMenuItemContextMenu");
+        return FALSE;
 }
 
-void WINAPI CPluginInterfaceForFS::ExecuteChangeDrivePostCommand(int postCmd, void *postCmdParam)
+void WINAPI CPluginInterfaceForFS::ExecuteChangeDrivePostCommand(int panel, int postCmd, void *postCmdParam)
 {
-	OutputDebugString("ExecuteChangeDrivePostCommand");
-	
+        (void)panel;
+        OutputDebugString("ExecuteChangeDrivePostCommand");
+
 }
 
 BOOL WINAPI CPluginInterfaceForFS::DisconnectFS(HWND parent, BOOL isInPanel, int panel,

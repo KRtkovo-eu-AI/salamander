@@ -108,14 +108,14 @@ DWORD SStartService(char *cSvcName)
     if (schService == NULL)
 			return GetLastError();
 		if (!QueryServiceStatus(schService,&ssStatus) )
-			OutputDebugStr("QueryServiceStatus failed.");
+                    OutputDebugString("QueryServiceStatus failed.");
 
     if (!StartService(schService,0,NULL) )
-			OutputDebugStr("servicemanager-tStartService");
+                    OutputDebugString("servicemanager-tStartService");
     else
-			OutputDebugStr("servicemanager tStartServicepending.");
+                    OutputDebugString("servicemanager tStartServicepending.");
     if (!QueryServiceStatus(schService,&ssStatus) )
-			OutputDebugStr("QueryServiceStatus failed.");
+                    OutputDebugString("QueryServiceStatus failed.");
     dwStartTickCount = GetTickCount();
     dwOldCheckPoint = ssStatus.dwCheckPoint;
     while (ssStatus.dwCurrentState == SERVICE_START_PENDING || SERVICE_STOP_PENDING)
