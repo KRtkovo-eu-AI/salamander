@@ -35,8 +35,8 @@
 #include "versinfo.rh2"
 
 #include "spl_com.h"
-#include "spl_arc.h"
 #include "spl_base.h"
+#include "spl_arc.h"
 #include "spl_gen.h"
 #include "spl_fs.h"
 #include "spl_menu.h"
