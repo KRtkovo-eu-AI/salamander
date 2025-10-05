@@ -177,6 +177,9 @@ class CPluginInterfaceForFS: public CPluginInterfaceForFSAbstract
                                               char *fsUserPart) {}
     virtual void WINAPI ConvertPathToExternal(const char *fsName, int fsNameIndex,
                                               char *fsUserPart) {}
+    virtual BOOL WINAPI GetNoItemsInPanelText(char *textBuf, int textBufSize) {return FALSE;}
+    virtual void WINAPI ShowSecurityInfo(HWND parent) {}
+    virtual void WINAPI EnsureShareExistsOnServer(int panel, const char *server, const char *share) {}
 };
 
 
@@ -251,9 +254,9 @@ class CPluginFSInterface: public CPluginFSInterfaceAbstract
                                        int selectedFiles, int selectedDirs);
     virtual void WINAPI ContextMenu(const char *fsName, HWND parent, int menuX, int menuY, int type,
                                     int panel, int selectedFiles, int selectedDirs);
-    virtual BOOL WINAPI HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam) {return FALSE;}
+    virtual BOOL WINAPI HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT *plResult) {return FALSE;}
     virtual BOOL WINAPI OpenFindDialog(const char *fsName, int panel) {return FALSE;}
-    virtual void WINAPI OpenActiveFolder(const char *fsName, HWND parent, BOOL useOpenNotExplore) {}
+    virtual void WINAPI OpenActiveFolder(const char *fsName, HWND parent) {}
     virtual void WINAPI GetAllowedDropEffects(int mode, const char *tgtFSPath, DWORD *allowedEffects) {}
 };
 class CPluginInterfaceForThumbLoader: public CPluginInterfaceForThumbLoaderAbstract
