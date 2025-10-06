@@ -160,21 +160,16 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
         return hr;
     }
 
-    Microsoft::WRL::ComPtr<IWICComponentFactory> componentFactory;
-    hr = factory->QueryInterface(IID_PPV_ARGS(&componentFactory));
+    Microsoft::WRL::ComPtr<IWICColorTransform> transform;
+    static const GUID kCLSID_WICColorTransform =
+        {0xB66F034F, 0xD0E2, 0x40AB, {0xB4, 0x36, 0x6D, 0xE3, 0x9E, 0x32, 0x1A, 0x94}};
+    hr = CoCreateInstance(kCLSID_WICColorTransform, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&transform));
     if (FAILED(hr))
     {
-        if (hr == E_NOINTERFACE)
+        if (hr == REGDB_E_CLASSNOTREG)
         {
             return WINCODEC_ERR_UNSUPPORTEDOPERATION;
         }
-        return hr;
-    }
-
-    Microsoft::WRL::ComPtr<IWICColorTransform> transform;
-    hr = componentFactory->CreateColorTransform(&transform);
-    if (FAILED(hr))
-    {
         return hr;
     }
 
