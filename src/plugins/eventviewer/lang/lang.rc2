@@ -1,0 +1,62 @@
+//
+// lang.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+#ifndef EVENTVIEWER_LANG_FALLBACK
+#include "..\versinfo.rh2"
+#include "..\shared\versinfo.rc2"
+#endif
+#include "lang.rh"
+
+STRINGTABLE
+BEGIN
+    IDS_PLUGINNAME,                  "Event Viewer"
+    IDS_PLUGIN_DESCRIPTION,          "Browse Windows Event Logs directly from Salamander."
+    IDS_PLUGIN_HOME,                 "https://github.com/open-salamander"
+    IDS_ABOUT,                       "About Event Viewer"
+    IDS_EVENT_VIEWER_MENU,           "&Event Viewer"
+    IDS_EVENT_VIEWER_CREATE_FAILED,  "Unable to create the Event Viewer window."
+    IDS_NO_CONFIGURATION,            "This plugin has no configurable options."
+END
+
+STRINGTABLE
+BEGIN
+    IDS_LEVEL_CRITICAL,              "Critical"
+    IDS_LEVEL_ERROR,                 "Error"
+    IDS_LEVEL_WARNING,               "Warning"
+    IDS_LEVEL_INFORMATION,           "Information"
+    IDS_LEVEL_VERBOSE,               "Verbose"
+    IDS_LEVEL_UNKNOWN,               "Unknown"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_COLUMN_LEVEL,                "Level"
+    IDS_COLUMN_TIME,                 "Date and Time"
+    IDS_COLUMN_SOURCE,               "Source"
+    IDS_COLUMN_EVENTID,              "Event ID"
+    IDS_COLUMN_TASK,                 "Task Category"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_STATUS_READY,                "Ready."
+    IDS_STATUS_SELECT_LOG,           "Select a log to view events."
+    IDS_STATUS_UPDATED,              "Event list updated."
+    IDS_STATUS_ERROR,                "Unable to load events."
+    IDS_EVENT_DETAILS_NOT_AVAILABLE, "The event details could not be retrieved."
+END
+
+STRINGTABLE
+BEGIN
+    IDS_TREE_WINDOWS_LOGS,           "Windows Logs"
+    IDS_LOG_APPLICATION,             "Application"
+    IDS_LOG_SECURITY,                "Security"
+    IDS_LOG_SETUP,                   "Setup"
+    IDS_LOG_SYSTEM,                  "System"
+    IDS_LOG_FORWARD,                 "Forwarded Events"
+END

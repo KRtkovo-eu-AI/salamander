@@ -1,0 +1,4 @@
+LIBRARY EventViewer.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer

@@ -1,0 +1,6 @@
+In Project, Properties, under C++, Code Generation, select the Runtime
+Library you prefer. Choice /MT (or /MTd in debug) statically links the
+runtime library. 
+
+RELEASE:
+Aktuell: /MT

@@ -1,0 +1,37 @@
+//****************************************************************************
+//
+// Event Viewer plugin version information
+//
+//****************************************************************************
+
+#ifndef __EVENTVIEWER_VERSINFO_RH2
+#define __EVENTVIEWER_VERSINFO_RH2
+
+#if defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
+#error this file is not editable by Microsoft Visual C++
+#endif
+
+#define VERSINFO_MAJOR       1
+#define VERSINFO_MINORA      0
+#define VERSINFO_MINORB      0
+
+#include "spl_vers.h"
+
+#define VERSINFO_COPYRIGHT   "Copyright 2025 Open Salamander Authors"
+#define VERSINFO_COMPANY     "Open Salamander"
+
+#define VERSINFO_PLUGINNAME  "Event Viewer"
+#define VERSINFO_DESCRIPTION "Browse Windows Event Logs."
+
+#ifdef _LANG
+#define VERSINFO_INTERNAL    "ENGLISH"
+#define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SLG"
+#else
+#define VERSINFO_INTERNAL    "EVENTVIEWER"
+#define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
+#endif
+
+#define VERSINFO_SLG_WEB     "https://github.com/open-salamander"
+#define VERSINFO_SLG_COMMENT "English resources"
+
+#endif // __EVENTVIEWER_VERSINFO_RH2

@@ -1,0 +1,30 @@
+//
+// eventviewer.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+#include "versinfo.rh2"
+#include "../shared/versinfo.rc2"
+#include "lang/lang.rh"
+#include "plugin.rh"
+
+IDD_EVENT_VIEWER DIALOGEX 0, 0, 540, 360
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Event Viewer"
+FONT 9, "Segoe UI"
+BEGIN
+    CONTROL         "", IDC_EVENT_TREE, "SysTreeView32", WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASLINES |
+                    TVS_LINESATROOT | TVS_SHOWSELALWAYS, 6, 6, 160, 300
+    CONTROL         "", IDC_EVENT_LIST, "SysListView32", WS_CHILD | WS_VISIBLE | WS_BORDER | LVS_REPORT |
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS, 172, 6, 362, 190
+    EDITTEXT        IDC_EVENT_DETAILS, 172, 200, 362, 106, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY |
+                    ES_NOHIDESEL | WS_VSCROLL | WS_BORDER
+    LTEXT           "", IDC_EVENT_STATUS, 6, 314, 528, 20, SS_LEFT | WS_BORDER | WS_CHILD | WS_VISIBLE
+END
+
+#define EVENTVIEWER_LANG_FALLBACK
+#include "lang/lang.rc2"
+#undef EVENTVIEWER_LANG_FALLBACK

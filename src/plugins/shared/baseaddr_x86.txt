@@ -115,4 +115,6 @@ webview2renderviewer 0x2a200000
 lang_webview2renderviewer 0x3a200000
 serviceexplorer 0x2a300000
 lang_serviceexplorer 0x3a300000
+eventviewer    0x2a400000
+lang_eventviewer 0x3a400000
 
