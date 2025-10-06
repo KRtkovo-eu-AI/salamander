@@ -504,8 +504,11 @@ BOOL WINAPI CEventViewerFSInterface::ChangePath(int currentFSNameIndex, char* fs
             int required = MultiByteToWideChar(CP_ACP, 0, trimmed, -1, NULL, 0);
             if (required > 0)
             {
-                newLog.resize(static_cast<size_t>(required - 1));
-                MultiByteToWideChar(CP_ACP, 0, trimmed, -1, &newLog[0], required);
+                std::vector<wchar_t> buffer(static_cast<size_t>(required));
+                if (MultiByteToWideChar(CP_ACP, 0, trimmed, -1, buffer.data(), required) > 0)
+                {
+                    newLog.assign(buffer.data());
+                }
             }
         }
     }
