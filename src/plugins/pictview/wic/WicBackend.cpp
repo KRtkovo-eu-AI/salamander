@@ -1198,7 +1198,7 @@ std::wstring Utf8ToWide(const char* path)
     {
         return std::wstring();
     }
-    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, nullptr, 0);
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, nullptr, 0);
     if (len <= 0)
     {
         len = MultiByteToWideChar(CP_ACP, 0, path, -1, nullptr, 0);
@@ -1206,8 +1206,7 @@ std::wstring Utf8ToWide(const char* path)
         {
             return std::wstring();
         }
-        std::wstring wide;
-        wide.resize(static_cast<size_t>(len));
+        std::wstring wide(static_cast<size_t>(len), L'\0');
         MultiByteToWideChar(CP_ACP, 0, path, -1, wide.data(), len);
         if (!wide.empty() && wide.back() == L'\0')
         {
@@ -1215,9 +1214,8 @@ std::wstring Utf8ToWide(const char* path)
         }
         return wide;
     }
-    std::wstring wide;
-    wide.resize(static_cast<size_t>(len));
-    MultiByteToWideChar(CP_UTF8, 0, path, -1, wide.data(), len);
+    std::wstring wide(static_cast<size_t>(len), L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, wide.data(), len);
     if (!wide.empty() && wide.back() == L'\0')
     {
         wide.pop_back();
