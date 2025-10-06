@@ -395,10 +395,7 @@ class CPluginFSDataInterface: public CPluginDataInterfaceAbstract
     virtual BOOL WINAPI HasSimplePluginIcon(CFileData &file, BOOL isDir); 
     virtual HICON WINAPI GetPluginIcon(const CFileData *file, int iconSize, BOOL &destroyIcon);
 
-    virtual int WINAPI CompareFilesFromFS(const CFileData *file1, const CFileData *file2)
-    {
-      return strcmp(file1->Name, file2->Name);
-    }
+    virtual int WINAPI CompareFilesFromFS(const CFileData *file1, const CFileData *file2);
 
     virtual void WINAPI SetupView(BOOL leftPanel, CSalamanderViewAbstract *view, const char *archivePath,
                                   const CFileData *upperDir);

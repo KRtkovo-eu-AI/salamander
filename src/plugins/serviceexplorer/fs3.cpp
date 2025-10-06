@@ -117,7 +117,7 @@ void AddStartupTypeColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
   column.GetText = GetStartupTypeText;
   column.CustomData = 2;
 	column.LeftAlignment = 1;
-	column.SupportSorting = 0;
+        column.SupportSorting = 1;
   column.ID = COLUMN_ID_CUSTOM;
   column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
   column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
@@ -135,7 +135,7 @@ void AddStatusColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
   column.GetText = GetStatusTypeText;
   column.CustomData = 3;
 	column.LeftAlignment = 1;
-	column.SupportSorting = 0;
+        column.SupportSorting = 1;
   column.ID = COLUMN_ID_CUSTOM;
   column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
   column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
@@ -153,7 +153,7 @@ void AddLogOnAsColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
   column.GetText = GetLogonAsText;
   column.CustomData = 4;
 	column.LeftAlignment = 1;
-	column.SupportSorting = 0;
+        column.SupportSorting = 1;
   column.ID = COLUMN_ID_CUSTOM;
   column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
   column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
@@ -175,9 +175,9 @@ HIMAGELIST WINAPI CPluginFSDataInterface::GetSimplePluginIcons(int iconSize)
 	return DFSImageList;
 }
 
-BOOL WINAPI CPluginFSDataInterface::HasSimplePluginIcon(CFileData &file, BOOL isDir) 
+BOOL WINAPI CPluginFSDataInterface::HasSimplePluginIcon(CFileData &file, BOOL isDir)
 {
-	return TRUE;
+        return TRUE;
 }
 
 HICON WINAPI
@@ -205,6 +205,59 @@ CPluginFSDataInterface::GetPluginIcon(const CFileData *file, int iconSize, BOOL 
   }
   destroyIcon = TRUE;
   return shi.hIcon;   // icon or NULL (failure)
+}
+
+int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, const CFileData *file2)
+{
+  if (file1 == NULL || file2 == NULL)
+    return 0;
+
+  DWORD custom = (TransferActCustomData != NULL) ? *TransferActCustomData : 0;
+  const CFSData *data1 = reinterpret_cast<const CFSData *>(file1->PluginData);
+  const CFSData *data2 = reinterpret_cast<const CFSData *>(file2->PluginData);
+
+  int result = 0;
+  switch (custom)
+  {
+  case 2: // Startup Type
+    if (data1 != NULL && data2 != NULL)
+    {
+      if (data1->StartupType < data2->StartupType)
+        result = -1;
+      else if (data1->StartupType > data2->StartupType)
+        result = 1;
+    }
+    break;
+  case 3: // Status
+    if (data1 != NULL && data2 != NULL)
+    {
+      if (data1->Status < data2->Status)
+        result = -1;
+      else if (data1->Status > data2->Status)
+        result = 1;
+    }
+    break;
+  case 4: // Log on As
+    if (SalamanderGeneral != NULL)
+    {
+      const char *left = (data1 != NULL && data1->LogOnAs != NULL) ? data1->LogOnAs : "";
+      const char *right = (data2 != NULL && data2->LogOnAs != NULL) ? data2->LogOnAs : "";
+      result = SalamanderGeneral->StrICmp(left, right);
+    }
+    break;
+  default:
+    break;
+  }
+
+  if (result == 0)
+  {
+    if (SalamanderGeneral != NULL)
+      result = SalamanderGeneral->StrICmp(file1->Name, file2->Name);
+    else
+      result = strcmp(file1->Name, file2->Name);
+  }
+
+  return result;
 }
 
 void WINAPI CPluginFSDataInterface::SetupView(BOOL leftPanel, CSalamanderViewAbstract *view, const char *archivePath,

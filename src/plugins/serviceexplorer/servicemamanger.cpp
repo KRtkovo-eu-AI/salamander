@@ -1,117 +1,10 @@
 #include "precomp.h"
 #include "servicemanager.h"
 
+#include <string>
+
 namespace
 {
-
-class CServiceActionProgressDialog : public CDialog
-{
-public:
-    explicit CServiceActionProgressDialog(HWND parent)
-        : CDialog(DLLInstance, IDD_SERVICE_ACTION_PROGRESS, parent)
-        , ProgressBar(NULL)
-    {
-        PendingText[0] = 0;
-    }
-
-    bool Show(const char* message)
-    {
-        SetMessageInternal(message);
-        if (Create() == NULL)
-            return false;
-        ShowWindow(HWindow, SW_SHOWNORMAL);
-        UpdateWindow(HWindow);
-        return true;
-    }
-
-    void SetMessage(const char* message)
-    {
-        SetMessageInternal(message);
-        if (HWindow != NULL)
-            SetDlgItemText(HWindow, IDC_SERVICE_PROGRESS_MESSAGE, PendingText);
-        if (ProgressBar != NULL)
-        {
-            ProgressBar->SetSelfMoveTime(0xFFFFFFFF);
-            ProgressBar->SetProgress(-1, NULL);
-        }
-    }
-
-    void Pump()
-    {
-        MSG msg;
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            if (HWindow == NULL || !IsDialogMessage(HWindow, &msg))
-            {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-        }
-    }
-
-    void Close()
-    {
-        if (HWindow != NULL)
-        {
-            DestroyWindow(HWindow);
-            HWindow = NULL;
-        }
-        ProgressBar = NULL;
-    }
-
-    HWND GetHWND() const { return HWindow; }
-
-protected:
-    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam) override
-    {
-        switch (uMsg)
-        {
-        case WM_INITDIALOG:
-        {
-            if (PendingText[0] != 0)
-                SetDlgItemText(HWindow, IDC_SERVICE_PROGRESS_MESSAGE, PendingText);
-            if (SalamanderGUI != NULL)
-            {
-                ProgressBar = SalamanderGUI->AttachProgressBar(HWindow, IDC_SERVICE_PROGRESS);
-                if (ProgressBar != NULL)
-                {
-                    ProgressBar->SetSelfMoveTime(0xFFFFFFFF);
-                    ProgressBar->SetProgress(-1, NULL);
-                }
-            }
-            const char* caption = LoadStr(IDS_SERVICE_PROGRESS_CAPTION);
-            if (caption != NULL)
-                SetWindowText(HWindow, caption);
-            if (Parent != NULL)
-                SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-            return TRUE;
-        }
-        case WM_CLOSE:
-            return TRUE;
-        case WM_COMMAND:
-            if (LOWORD(wParam) == IDCANCEL)
-                return TRUE;
-            break;
-        }
-        return CDialog::DialogProc(uMsg, wParam, lParam);
-    }
-
-private:
-    void SetMessageInternal(const char* message)
-    {
-        if (message == NULL)
-            PendingText[0] = 0;
-        else
-        {
-            lstrcpyn(PendingText, message, ARRAYSIZE(PendingText));
-            PendingText[ARRAYSIZE(PendingText) - 1] = 0;
-        }
-    }
-
-    CGUIProgressBarAbstract* ProgressBar;
-    char PendingText[512];
-};
-
 struct ServiceActionInfo
 {
     ServiceActionKind Action;
@@ -123,6 +16,145 @@ struct ServiceActionInfo
     int FailureTextRes;
     int AlreadyTextRes;
 };
+
+struct ServiceActionOutcome
+{
+    ServiceActionOutcome()
+        : ErrorCode(ERROR_SUCCESS)
+        , ServiceSpecific(0)
+        , ShowAlreadyMessage(FALSE)
+        , Info(NULL)
+    {
+    }
+
+    DWORD ErrorCode;
+    DWORD ServiceSpecific;
+    BOOL ShowAlreadyMessage;
+    const ServiceActionInfo* Info;
+};
+
+struct ServiceActionWorkerContext
+{
+    ServiceActionWorkerContext(const char* service, const char* display, ServiceActionKind actionKind)
+        : ServiceName(service != NULL ? service : "")
+        , DisplayName(display != NULL ? display : "")
+        , Action(actionKind)
+        , CompletionEvent(CreateEvent(NULL, TRUE, FALSE, NULL))
+        , Success(FALSE)
+    {
+    }
+
+    ~ServiceActionWorkerContext()
+    {
+        if (CompletionEvent != NULL)
+            CloseHandle(CompletionEvent);
+    }
+
+    std::string ServiceName;
+    std::string DisplayName;
+    ServiceActionKind Action;
+    HANDLE CompletionEvent;
+    ServiceActionOutcome Outcome;
+    BOOL Success;
+};
+
+typedef HRESULT(WINAPI* PFN_TaskDialogIndirect)(const TASKDIALOGCONFIG*, int*, int*, BOOL*);
+
+PFN_TaskDialogIndirect ResolveTaskDialog()
+{
+    static PFN_TaskDialogIndirect taskDialog = NULL;
+    static bool resolved = false;
+    if (!resolved)
+    {
+        resolved = true;
+        HMODULE module = LoadLibraryW(L"comctl32.dll");
+        if (module != NULL)
+            taskDialog = reinterpret_cast<PFN_TaskDialogIndirect>(GetProcAddress(module, "TaskDialogIndirect"));
+    }
+    return taskDialog;
+}
+
+std::wstring AnsiToWide(const char* text)
+{
+    if (text == NULL)
+        return std::wstring();
+    int len = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+    if (len <= 0)
+        return std::wstring();
+    std::wstring wide(static_cast<size_t>(len) - 1, L'\0');
+    if (!wide.empty())
+        MultiByteToWideChar(CP_ACP, 0, text, -1, &wide[0], len);
+    return wide;
+}
+
+struct TaskDialogContext
+{
+    explicit TaskDialogContext(HANDLE completion)
+        : Completion(completion)
+        , CanClose(FALSE)
+    {
+    }
+
+    HANDLE Completion;
+    BOOL CanClose;
+};
+
+HRESULT CALLBACK ServiceActionTaskDialogCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, LONG_PTR refData)
+{
+    TaskDialogContext* ctx = reinterpret_cast<TaskDialogContext*>(refData);
+    switch (msg)
+    {
+    case TDN_CREATED:
+        SendMessage(hwnd, TDM_SET_PROGRESS_BAR_MARQUEE, TRUE, 0);
+        SendMessage(hwnd, TDM_ENABLE_BUTTON, IDCANCEL, FALSE);
+        break;
+    case TDN_TIMER:
+        if (ctx != NULL && ctx->Completion != NULL && WaitForSingleObject(ctx->Completion, 0) == WAIT_OBJECT_0)
+        {
+            ctx->CanClose = TRUE;
+            SendMessage(hwnd, TDM_CLICK_BUTTON, IDCANCEL, 0);
+        }
+        break;
+    case TDN_BUTTON_CLICKED:
+        if (!ctx->CanClose)
+            return S_FALSE;
+        break;
+    }
+    return S_OK;
+}
+
+void PumpMessageLoopUntil(HANDLE completionEvent)
+{
+    if (completionEvent == NULL)
+        return;
+    HANDLE handles[1] = {completionEvent};
+    while (true)
+    {
+        DWORD wait = MsgWaitForMultipleObjects(1, handles, FALSE, INFINITE, QS_ALLINPUT);
+        if (wait == WAIT_OBJECT_0)
+            break;
+        if (wait == WAIT_OBJECT_0 + 1)
+        {
+            MSG msg;
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT)
+                {
+                    PostQuitMessage(static_cast<int>(msg.wParam));
+                }
+                else
+                {
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
+                }
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+}
 
 const ServiceActionInfo ServiceActions[] = {
     {ServiceActionStart, SERVICE_RUNNING, SERVICE_START_PENDING, 0, SERVICE_START | SERVICE_QUERY_STATUS, IDS_SERVICE_PROGRESS_STARTING, IDS_SERVICE_ERROR_START_FAILED, IDS_SERVICE_ALREADY_RUNNING},
@@ -187,7 +219,7 @@ BOOL QueryStatus(SC_HANDLE service, SERVICE_STATUS_PROCESS& status)
     return TRUE;
 }
 
-DWORD WaitForServiceState(SC_HANDLE service, const ServiceActionInfo& info, CServiceActionProgressDialog* dialog, DWORD& serviceSpecific)
+DWORD WaitForServiceState(SC_HANDLE service, const ServiceActionInfo& info, DWORD& serviceSpecific)
 {
     serviceSpecific = 0;
     SERVICE_STATUS_PROCESS status;
@@ -202,16 +234,12 @@ DWORD WaitForServiceState(SC_HANDLE service, const ServiceActionInfo& info, CSer
 
     while (status.dwCurrentState == info.PendingState)
     {
-        if (dialog != NULL)
-            dialog->Pump();
         DWORD waitTime = status.dwWaitHint / 10;
         if (waitTime < 1000)
             waitTime = 1000;
         else if (waitTime > 10000)
             waitTime = 10000;
         Sleep(waitTime);
-        if (dialog != NULL)
-            dialog->Pump();
         if (!QueryStatus(service, status))
             return GetLastError();
         if (status.dwCurrentState == info.DesiredState)
@@ -310,32 +338,35 @@ const ServiceActionInfo* FindServiceAction(ServiceActionKind action)
     return NULL;
 }
 
-BOOL PerformSingleServiceAction(HWND parent, const char* serviceName, const char* displayName, const ServiceActionInfo& info, BOOL silentIfSatisfied, CServiceActionProgressDialog* sharedDialog)
+BOOL PerformSingleServiceActionCore(const char* serviceName, const char* displayName, const ServiceActionInfo& info,
+                                    BOOL silentIfSatisfied, ServiceActionOutcome& outcome)
 {
+    outcome.Info = &info;
+    outcome.ErrorCode = ERROR_SUCCESS;
+    outcome.ServiceSpecific = 0;
+    outcome.ShowAlreadyMessage = FALSE;
+
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
     if (scm == NULL)
     {
-        DWORD err = GetLastError();
-        ShowServiceOperationError(parent, displayName, info, err, 0);
+        outcome.ErrorCode = GetLastError();
         return FALSE;
     }
 
     SC_HANDLE service = OpenServiceA(scm, serviceName, info.AccessMask | SERVICE_QUERY_STATUS);
     if (service == NULL)
     {
-        DWORD err = GetLastError();
+        outcome.ErrorCode = GetLastError();
         CloseServiceHandle(scm);
-        ShowServiceOperationError(parent, displayName, info, err, 0);
         return FALSE;
     }
 
     SERVICE_STATUS_PROCESS status;
     if (!QueryStatus(service, status))
     {
-        DWORD err = GetLastError();
+        outcome.ErrorCode = GetLastError();
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
-        ShowServiceOperationError(parent, displayName, info, err, 0);
         return FALSE;
     }
 
@@ -344,37 +375,8 @@ BOOL PerformSingleServiceAction(HWND parent, const char* serviceName, const char
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
         if (!silentIfSatisfied && info.AlreadyTextRes != 0)
-        {
-            char text[512];
-            FormatActionString(info.AlreadyTextRes, displayName, text, ARRAYSIZE(text));
-            SalamanderGeneral->SalMessageBox(parent != NULL ? parent : SalamanderGeneral->GetMsgBoxParent(), text, VERSINFO_PLUGINNAME, MB_OK | MB_ICONINFORMATION);
-        }
+            outcome.ShowAlreadyMessage = TRUE;
         return TRUE;
-    }
-
-    char progressText[512];
-    FormatActionString(info.ProgressTextRes, displayName, progressText, ARRAYSIZE(progressText));
-
-    CServiceActionProgressDialog localDialog(parent);
-    CServiceActionProgressDialog* dialogPtr = sharedDialog;
-    bool createdLocalDialog = false;
-    if (dialogPtr != NULL)
-    {
-        if (dialogPtr->GetHWND() == NULL)
-        {
-            if (!dialogPtr->Show(progressText))
-                dialogPtr = NULL;
-        }
-        else
-            dialogPtr->SetMessage(progressText);
-    }
-    if (dialogPtr == NULL)
-    {
-        if (localDialog.Show(progressText))
-        {
-            dialogPtr = &localDialog;
-            createdLocalDialog = true;
-        }
     }
 
     DWORD operationError = ERROR_SUCCESS;
@@ -401,24 +403,67 @@ BOOL PerformSingleServiceAction(HWND parent, const char* serviceName, const char
     }
 
     if (operationError == ERROR_SUCCESS)
-        operationError = WaitForServiceState(service, info, dialogPtr, serviceSpecific);
-
-    if (dialogPtr != NULL)
-        dialogPtr->Pump();
+        operationError = WaitForServiceState(service, info, serviceSpecific);
 
     CloseServiceHandle(service);
     CloseServiceHandle(scm);
 
-    if (createdLocalDialog)
-        localDialog.Close();
+    outcome.ErrorCode = operationError;
+    outcome.ServiceSpecific = serviceSpecific;
 
-    if (operationError != ERROR_SUCCESS)
+    return operationError == ERROR_SUCCESS;
+}
+
+BOOL ExecuteServiceActionSequence(ServiceActionWorkerContext& ctx)
+{
+    const char* serviceName = ctx.ServiceName.c_str();
+    const char* friendlyName = ctx.DisplayName.c_str();
+
+    if (ctx.Action == ServiceActionRestart)
     {
-        ShowServiceOperationError(parent, displayName, info, operationError, serviceSpecific);
-        return FALSE;
+        const ServiceActionInfo* stopInfo = FindServiceAction(ServiceActionStop);
+        const ServiceActionInfo* startInfo = FindServiceAction(ServiceActionStart);
+        if (stopInfo == NULL || startInfo == NULL)
+            return FALSE;
+
+        ServiceActionOutcome stopOutcome;
+        if (!PerformSingleServiceActionCore(serviceName, friendlyName, *stopInfo, TRUE, stopOutcome))
+        {
+            ctx.Outcome = stopOutcome;
+            return FALSE;
+        }
+
+        ServiceActionOutcome startOutcome;
+        if (!PerformSingleServiceActionCore(serviceName, friendlyName, *startInfo, TRUE, startOutcome))
+        {
+            ctx.Outcome = startOutcome;
+            return FALSE;
+        }
+
+        ctx.Outcome = startOutcome;
+        return TRUE;
     }
 
-    return TRUE;
+    const ServiceActionInfo* info = FindServiceAction(ctx.Action);
+    if (info == NULL)
+        return FALSE;
+
+    ServiceActionOutcome outcome;
+    BOOL success = PerformSingleServiceActionCore(serviceName, friendlyName, *info, FALSE, outcome);
+    ctx.Outcome = outcome;
+    return success;
+}
+
+unsigned __stdcall ServiceActionThreadProc(void* param)
+{
+    ServiceActionWorkerContext* ctx = reinterpret_cast<ServiceActionWorkerContext*>(param);
+    if (ctx != NULL)
+    {
+        ctx->Success = ExecuteServiceActionSequence(*ctx);
+        if (ctx->CompletionEvent != NULL)
+            SetEvent(ctx->CompletionEvent);
+    }
+    return 0;
 }
 
 } // namespace
@@ -430,29 +475,94 @@ BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayN
 
     const char* friendlyName = (displayName != NULL && displayName[0] != 0) ? displayName : serviceName;
 
-    if (action == ServiceActionRestart)
-    {
-        const ServiceActionInfo* stopInfo = FindServiceAction(ServiceActionStop);
-        const ServiceActionInfo* startInfo = FindServiceAction(ServiceActionStart);
-        if (stopInfo == NULL || startInfo == NULL)
-            return FALSE;
-
-        CServiceActionProgressDialog dialog(parent);
-        if (!PerformSingleServiceAction(parent, serviceName, friendlyName, *stopInfo, TRUE, &dialog))
-        {
-            dialog.Close();
-            return FALSE;
-        }
-        BOOL restartResult = PerformSingleServiceAction(parent, serviceName, friendlyName, *startInfo, TRUE, &dialog);
-        dialog.Close();
-        return restartResult;
-    }
-
-    const ServiceActionInfo* info = FindServiceAction(action);
-    if (info == NULL)
+    ServiceActionWorkerContext context(serviceName, friendlyName, action);
+    if (context.CompletionEvent == NULL)
         return FALSE;
 
-    return PerformSingleServiceAction(parent, serviceName, friendlyName, *info, FALSE, NULL);
+    HANDLE threadHandle = reinterpret_cast<HANDLE>(_beginthreadex(NULL, 0, ServiceActionThreadProc, &context, 0, NULL));
+    if (threadHandle == NULL)
+    {
+        context.Success = ExecuteServiceActionSequence(context);
+        if (context.CompletionEvent != NULL)
+            SetEvent(context.CompletionEvent);
+    }
+    else
+    {
+        if (WaitForSingleObject(context.CompletionEvent, 0) != WAIT_OBJECT_0)
+        {
+            char progressText[512];
+            progressText[0] = 0;
+
+            std::wstring captionW = AnsiToWide(LoadStr(IDS_SERVICE_PROGRESS_CAPTION));
+            std::wstring messageW;
+
+            if (action == ServiceActionRestart)
+            {
+                const char* restartFmt = LoadStr(IDS_SERVICE_PROGRESS_RESTARTING);
+                if (restartFmt == NULL)
+                    restartFmt = "Restarting '%s'...";
+                _snprintf(progressText, ARRAYSIZE(progressText), restartFmt, friendlyName);
+                progressText[ARRAYSIZE(progressText) - 1] = 0;
+                messageW = AnsiToWide(progressText);
+            }
+            else
+            {
+                const ServiceActionInfo* info = FindServiceAction(action);
+                if (info != NULL)
+                {
+                    FormatActionString(info->ProgressTextRes, friendlyName, progressText, ARRAYSIZE(progressText));
+                    messageW = AnsiToWide(progressText);
+                }
+            }
+
+            if (messageW.empty())
+                messageW = AnsiToWide(friendlyName);
+
+            PFN_TaskDialogIndirect taskDialog = ResolveTaskDialog();
+            if (taskDialog != NULL)
+            {
+                TaskDialogContext dialogContext(context.CompletionEvent);
+                TASKDIALOGCONFIG config = {};
+                config.cbSize = sizeof(config);
+                config.hwndParent = parent;
+                config.dwFlags = TDF_SHOW_MARQUEE_PROGRESS_BAR | TDF_CALLBACK_TIMER | TDF_POSITION_RELATIVE_TO_WINDOW;
+                config.dwCommonButtons = TDCBF_CANCEL_BUTTON;
+                config.pszWindowTitle = captionW.empty() ? NULL : captionW.c_str();
+                config.pszContent = messageW.c_str();
+                config.pfCallback = ServiceActionTaskDialogCallback;
+                config.lpCallbackData = reinterpret_cast<LONG_PTR>(&dialogContext);
+                taskDialog(&config, NULL, NULL, NULL);
+            }
+            else
+            {
+                PumpMessageLoopUntil(context.CompletionEvent);
+            }
+        }
+
+        WaitForSingleObject(threadHandle, INFINITE);
+        CloseHandle(threadHandle);
+    }
+
+    if (context.CompletionEvent != NULL)
+        WaitForSingleObject(context.CompletionEvent, INFINITE);
+
+    const ServiceActionInfo* info = context.Outcome.Info;
+    if (!context.Success)
+    {
+        if (info != NULL)
+            ShowServiceOperationError(parent, friendlyName, *info, context.Outcome.ErrorCode, context.Outcome.ServiceSpecific);
+        return FALSE;
+    }
+
+    if (context.Outcome.ShowAlreadyMessage && info != NULL && info->AlreadyTextRes != 0)
+    {
+        char text[512];
+        FormatActionString(info->AlreadyTextRes, friendlyName, text, ARRAYSIZE(text));
+        SalamanderGeneral->SalMessageBox(parent != NULL ? parent : SalamanderGeneral->GetMsgBoxParent(), text,
+                                         VERSINFO_PLUGINNAME, MB_OK | MB_ICONINFORMATION);
+    }
+
+    return TRUE;
 }
 
 //---------------------------------------------------------------------------

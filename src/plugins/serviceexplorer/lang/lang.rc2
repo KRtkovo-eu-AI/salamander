@@ -89,6 +89,7 @@ BEGIN
     IDS_SERVICE_PROGRESS_STOPPING "Stopping '%s'..."
     IDS_SERVICE_PROGRESS_PAUSING "Pausing '%s'..."
     IDS_SERVICE_PROGRESS_RESUMING "Resuming '%s'..."
+    IDS_SERVICE_PROGRESS_RESTARTING "Restarting '%s'..."
     IDS_SERVICE_ERROR_START_FAILED "Windows could not start the '%s' service."
     IDS_SERVICE_ERROR_STOP_FAILED "Windows could not stop the '%s' service."
     IDS_SERVICE_ERROR_PAUSE_FAILED "Windows could not pause the '%s' service."
