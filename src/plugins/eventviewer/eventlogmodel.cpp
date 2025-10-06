@@ -99,7 +99,7 @@ bool EventLogReader::Query(const wchar_t* logName, size_t maxRecords, std::vecto
         return false;
     }
 
-    const EVT_SYSTEM_PROPERTY_ID systemProperties[] = {
+    EVT_SYSTEM_PROPERTY_ID systemProperties[] = {
         EvtSystemLevel,
         EvtSystemTimeCreated,
         EvtSystemProviderName,
@@ -108,7 +108,7 @@ bool EventLogReader::Query(const wchar_t* logName, size_t maxRecords, std::vecto
     };
 
     EVT_HANDLE renderContext = EvtCreateRenderContext(_countof(systemProperties),
-                                                     reinterpret_cast<const LPCWSTR*>(systemProperties),
+                                                     reinterpret_cast<LPCWSTR*>(systemProperties),
                                                      EvtRenderContextSystem);
     if (renderContext == NULL)
     {
