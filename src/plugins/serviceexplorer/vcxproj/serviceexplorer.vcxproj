@@ -78,6 +78,12 @@
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup />
   <ItemGroup>
+    <ClCompile Include="..\..\shared\auxtools.cpp" />
+    <ClCompile Include="..\..\shared\dbg.cpp" />
+    <ClCompile Include="..\..\shared\mhandles.cpp" />
+    <ClCompile Include="..\..\shared\winliblt.cpp" />
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="..\archiver.cpp" />
     <ClCompile Include="..\dialogs.cpp" />
     <ClCompile Include="..\fs1.cpp" />
@@ -91,6 +97,23 @@
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\shared\arraylt.h" />
+    <ClInclude Include="..\..\shared\auxtools.h" />
+    <ClInclude Include="..\..\shared\dbg.h" />
+    <ClInclude Include="..\..\shared\mhandles.h" />
+    <ClInclude Include="..\..\shared\spl_arc.h" />
+    <ClInclude Include="..\..\shared\spl_base.h" />
+    <ClInclude Include="..\..\shared\spl_com.h" />
+    <ClInclude Include="..\..\shared\spl_fs.h" />
+    <ClInclude Include="..\..\shared\spl_gen.h" />
+    <ClInclude Include="..\..\shared\spl_gui.h" />
+    <ClInclude Include="..\..\shared\spl_menu.h" />
+    <ClInclude Include="..\..\shared\spl_thum.h" />
+    <ClInclude Include="..\..\shared\spl_view.h" />
+    <ClInclude Include="..\..\shared\spl_vers.h" />
+    <ClInclude Include="..\..\shared\winliblt.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\dialogs.h" />
