@@ -2,6 +2,7 @@
 #include "servicemanager.h"
 
 #include <string>
+#include <cstring>
 
 namespace
 {
@@ -581,6 +582,114 @@ BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayN
                                          VERSINFO_PLUGINNAME, MB_OK | MB_ICONINFORMATION);
     }
 
+    return TRUE;
+}
+
+BOOL RegisterNewService(HWND parent)
+{
+    RegisterServiceConfig config;
+    config.StartType = SERVICE_DEMAND_START;
+    config.Account = RegisterServiceConfig::AccountLocalSystem;
+    config.StartAfterCreate = TRUE;
+
+    if (!ShowRegisterServiceDialog(parent, config))
+        return FALSE;
+
+    HWND hostParent = NormalizeDialogParent(parent);
+
+    std::string commandLine;
+    commandLine.reserve(strlen(config.BinaryPath) + strlen(config.Arguments) + 4);
+    commandLine.push_back('"');
+    commandLine.append(config.BinaryPath);
+    commandLine.push_back('"');
+    if (config.Arguments[0] != 0)
+    {
+        commandLine.push_back(' ');
+        commandLine.append(config.Arguments);
+    }
+
+    SC_HANDLE manager = OpenSCManagerA(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+    if (manager == NULL)
+    {
+        DWORD error = GetLastError();
+        char errorText[512];
+        FormatSystemErrorString(error, errorText, ARRAYSIZE(errorText));
+
+        char message[1024];
+        const char* format = LoadStr(IDS_REGISTER_ERROR_OPEN_SCM);
+        if (format == NULL)
+            format = "Unable to open the Service Control Manager.\n\n%s";
+        _snprintf(message, ARRAYSIZE(message), format, errorText);
+        message[ARRAYSIZE(message) - 1] = 0;
+        SalamanderGeneral->SalMessageBox(hostParent, message, VERSINFO_PLUGINNAME, MB_OK | MB_ICONERROR);
+        return FALSE;
+    }
+
+    const char* displayName = (config.DisplayName[0] != 0) ? config.DisplayName : config.ServiceName;
+
+    const char* accountName = NULL;
+    const char* password = NULL;
+    switch (config.Account)
+    {
+    case RegisterServiceConfig::AccountLocalSystem:
+        accountName = NULL;
+        password = NULL;
+        break;
+    case RegisterServiceConfig::AccountLocalService:
+        accountName = "NT AUTHORITY\\LocalService";
+        password = NULL;
+        break;
+    case RegisterServiceConfig::AccountNetworkService:
+        accountName = "NT AUTHORITY\\NetworkService";
+        password = NULL;
+        break;
+    case RegisterServiceConfig::AccountCustom:
+    default:
+        accountName = config.CustomAccount;
+        password = config.Password;
+        break;
+    }
+
+    SC_HANDLE service = CreateServiceA(manager, config.ServiceName, displayName, SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
+                                       config.StartType, SERVICE_ERROR_NORMAL, commandLine.c_str(), NULL, NULL, NULL,
+                                       accountName, password);
+    if (service == NULL)
+    {
+        DWORD error = GetLastError();
+        char errorText[512];
+        FormatSystemErrorString(error, errorText, ARRAYSIZE(errorText));
+
+        char message[1024];
+        const char* format = LoadStr(IDS_REGISTER_ERROR_CREATE_FAILED);
+        if (format == NULL)
+            format = "Failed to create the '%s' service.\n\n%s";
+        _snprintf(message, ARRAYSIZE(message), format, displayName, errorText);
+        message[ARRAYSIZE(message) - 1] = 0;
+        SalamanderGeneral->SalMessageBox(hostParent, message, VERSINFO_PLUGINNAME, MB_OK | MB_ICONERROR);
+        CloseServiceHandle(manager);
+        return FALSE;
+    }
+
+    CloseServiceHandle(service);
+    CloseServiceHandle(manager);
+
+    BOOL startSucceeded = TRUE;
+    if (config.StartAfterCreate)
+        startSucceeded = RunServiceAction(hostParent, config.ServiceName, displayName, ServiceActionStart);
+
+    char successMessage[512];
+    UINT flags = startSucceeded ? (MB_OK | MB_ICONINFORMATION) : (MB_OK | MB_ICONWARNING);
+    const char* format = LoadStr(startSucceeded ? IDS_REGISTER_SUCCESS : IDS_REGISTER_SUCCESS_WITH_WARNING);
+    if (format == NULL)
+    {
+        format = startSucceeded ? "Service '%s' was created successfully." :
+                                  "Service '%s' was created, but starting it failed.";
+    }
+    _snprintf(successMessage, ARRAYSIZE(successMessage), format, displayName);
+    successMessage[ARRAYSIZE(successMessage) - 1] = 0;
+    SalamanderGeneral->SalMessageBox(hostParent, successMessage, VERSINFO_PLUGINNAME, flags);
+
+    SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
     return TRUE;
 }
 

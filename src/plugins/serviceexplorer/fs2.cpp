@@ -599,10 +599,29 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fState = STOP_State; //MFS_DISABLED;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
-				// Pause
-				strcpy(nameBuf, "Pa&use");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
+                                // Register new service
+                                strcpy(nameBuf, "Register &New Service...");
+                                memset(&mi, 0, sizeof(mi));
+                                mi.cbSize = sizeof(mi);
+                                mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                                mi.fType = MFT_STRING;
+                                mi.wID = MENUCMD_REGISTER;
+                                mi.dwTypeData = nameBuf;
+                                mi.cch = static_cast<UINT>(strlen(nameBuf));
+                                mi.fState = MFS_ENABLED;
+                                InsertMenuItem(menu, i++, TRUE, &mi);
+
+                                // Seperator
+                                memset(&mi, 0, sizeof(mi));
+                                mi.cbSize = sizeof(mi);
+                                mi.fMask = MIIM_TYPE;
+                                mi.fType = MFT_SEPARATOR;
+                                InsertMenuItem(menu, i++, TRUE, &mi);
+
+                                // Pause
+                                strcpy(nameBuf, "Pa&use");
+                                memset(&mi, 0, sizeof(mi));
+                                mi.cbSize = sizeof(mi);
 				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_PAUSE;
@@ -729,6 +748,10 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
                                         {
                                                 switch (cmd)
                                                 {
+                                                        case MENUCMD_REGISTER:
+                                                                if (RegisterNewService(parent))
+                                                                        refreshPanel = true;
+                                                                break;
                                                         case MENUCMD_START:
                                                                 if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionStart))
                                                                         refreshPanel = true;

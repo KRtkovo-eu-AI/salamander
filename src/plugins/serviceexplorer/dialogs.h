@@ -43,9 +43,12 @@ class CConfigDialog: public CPropertyDialog
 {
   protected:
     CConfigPageFirst PageFirst;
-		CConfigPageViewer PageViewer;
-		CFSData *FSIdata;
+                CConfigPageViewer PageViewer;
+                CFSData *FSIdata;
 public:
     CConfigDialog(HWND parent,CFSData *FSITdata);
 };
+
+struct RegisterServiceConfig;
+bool ShowRegisterServiceDialog(HWND parent, RegisterServiceConfig &config);
 #endif //__DIALOGS_H

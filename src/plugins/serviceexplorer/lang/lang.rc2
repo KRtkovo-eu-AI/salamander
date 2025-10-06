@@ -48,6 +48,33 @@ BEGIN
     CONTROL         "",IDC_SERVICE_PROGRESS,"Static",WS_BORDER,7,36,216,12
 END
 
+IDD_REGISTER_SERVICE DIALOGEX 0, 0, 306, 180
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Register New Service"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    LTEXT           "Display name:",IDC_STATIC,7,9,60,8
+    EDITTEXT        IDC_REGISTER_DISPLAYNAME,70,7,229,12,ES_AUTOHSCROLL
+    LTEXT           "Service name:",IDC_STATIC,7,26,60,8
+    EDITTEXT        IDC_REGISTER_SERVICENAME,70,24,229,12,ES_AUTOHSCROLL
+    LTEXT           "Executable:",IDC_STATIC,7,43,60,8
+    EDITTEXT        IDC_REGISTER_BINARY_PATH,70,41,189,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...",IDC_REGISTER_BROWSE,263,40,39,14
+    LTEXT           "Arguments:",IDC_STATIC,7,60,60,8
+    EDITTEXT        IDC_REGISTER_ARGUMENTS,70,58,229,12,ES_AUTOHSCROLL
+    LTEXT           "Startup type:",IDC_STATIC,7,79,60,8
+    COMBOBOX        IDC_REGISTER_STARTTYPE,70,77,120,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Log on as:",IDC_STATIC,7,96,60,8
+    COMBOBOX        IDC_REGISTER_ACCOUNT,70,94,120,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Account name:",IDC_REGISTER_ACCOUNT_LABEL,7,113,60,8
+    EDITTEXT        IDC_REGISTER_ACCOUNT_NAME,70,111,229,12,ES_AUTOHSCROLL
+    LTEXT           "Password:",IDC_REGISTER_PASSWORD_LABEL,7,130,60,8
+    EDITTEXT        IDC_REGISTER_PASSWORD,70,128,229,12,ES_PASSWORD | ES_AUTOHSCROLL
+    CONTROL         "Start service after creating",IDC_REGISTER_START_IMMEDIATELY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,146,140,10
+    DEFPUSHBUTTON   "OK",IDOK,200,159,44,14
+    PUSHBUTTON      "Cancel",IDCANCEL,252,159,44,14
+END
+
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -118,4 +145,18 @@ BEGIN
     IDS_SERVICE_DELETE_CONFIRMATION "Do you really want to delete the '%s' service?"
     IDS_IDS_SERVICE_DELETE_DLG_CAPTION "Delete '%s'?"
     IDS_SERVICE_ERROR_MARKEDFORDELETION "The service is marked for deletion."
+    IDS_REGISTER_ERROR_NO_SERVICE_NAME "Please enter a service name."
+    IDS_REGISTER_ERROR_NO_BINARY "Please select an executable to run as a service."
+    IDS_REGISTER_ERROR_INVALID_BINARY "The specified executable could not be found."
+    IDS_REGISTER_ERROR_NO_ACCOUNT "Please enter the account name."
+    IDS_REGISTER_ERROR_NO_PASSWORD "Please enter the account password."
+    IDS_REGISTER_ERROR_OPEN_SCM "Unable to open the Service Control Manager.\n\n%s"
+    IDS_REGISTER_ERROR_CREATE_FAILED "Failed to create the '%s' service.\n\n%s"
+    IDS_REGISTER_SUCCESS "Service '%s' was created successfully."
+    IDS_REGISTER_SUCCESS_WITH_WARNING "Service '%s' was created, but starting it failed."
+    IDS_REGISTER_BROWSE_TITLE "Select Service Executable"
+    IDS_REGISTER_ACCOUNT_LOCALSYSTEM "Local System account"
+    IDS_REGISTER_ACCOUNT_LOCALSERVICE "Local Service"
+    IDS_REGISTER_ACCOUNT_NETWORKSERVICE "Network Service"
+    IDS_REGISTER_ACCOUNT_CUSTOM "This account"
 END

@@ -34,6 +34,7 @@ BOOL InitFS();
 #define MENUCMD_PROPERTIES								6
 #define MENUCMD_SCM												7
 #define MENUCMD_DELETE										8
+#define MENUCMD_REGISTER										9
 // Sub Interfaces
 // -----------------------------------------------------------------------------------------
 #define TOP_INDEX_MEM_SIZE 50    // pamatovanych number of top-index (level), at least 1
