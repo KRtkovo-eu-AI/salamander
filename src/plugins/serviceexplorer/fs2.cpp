@@ -635,31 +635,35 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fState = RESTART_State;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
-				// Seperator
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE;
-				mi.fType = MFT_SEPARATOR;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                                // Seperator
+                                memset(&mi, 0, sizeof(mi));
+                                mi.cbSize = sizeof(mi);
+                                mi.fMask = MIIM_TYPE;
+                                mi.fType = MFT_SEPARATOR;
+                                InsertMenuItem(menu, i++, TRUE, &mi);
 
-				// Delete
-				strcpy(nameBuf, "&Delete");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_DELETE;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = MFS_ENABLED;
-				InsertMenuItem(menu, i++, TRUE, &mi);
-				
-				// Seperator
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE;
-				mi.fType = MFT_SEPARATOR;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                                const bool showDelete = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+                                if (showDelete)
+                                {
+                                        // Delete
+                                        strcpy(nameBuf, "&Delete");
+                                        memset(&mi, 0, sizeof(mi));
+                                        mi.cbSize = sizeof(mi);
+                                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                                        mi.fType = MFT_STRING;
+                                        mi.wID = MENUCMD_DELETE;
+                                        mi.dwTypeData = nameBuf;
+                                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                                        mi.fState = MFS_ENABLED;
+                                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                                        // Seperator
+                                        memset(&mi, 0, sizeof(mi));
+                                        mi.cbSize = sizeof(mi);
+                                        mi.fMask = MIIM_TYPE;
+                                        mi.fType = MFT_SEPARATOR;
+                                        InsertMenuItem(menu, i++, TRUE, &mi);
+                                }
 
 				// Properties
 				strcpy(nameBuf, "P&roperties");
@@ -746,6 +750,10 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
                                                                         refreshPanel = true;
                                                                 break;
                                                         case MENUCMD_DELETE:
+                                                                if (!((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0))
+                                                                {
+                                                                        break;
+                                                                }
                                                                 _snprintf(buf, 100, LoadStr(IDS_SERVICE_DELETE_CONFIRMATION),FSIdata->DisplayName);
                                                                 _snprintf(bufcaption, 100, LoadStr(IDS_IDS_SERVICE_DELETE_DLG_CAPTION),FSIdata->DisplayName);
                                                                 messagereturn = SalamanderGeneral->SalMessageBox(parent, buf, bufcaption, MB_YESNO | MB_ICONQUESTION);
@@ -755,8 +763,9 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 										returnstate=DoDeleteSvc(FSIdata->ServiceName);
 										SalamanderGeneral->ToLowerCase(FSIdata->ServiceName);
 										SalamanderGeneral->RemoveOneFileFromCache(FSIdata->ServiceName);
-										SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
-										break;
+                                                                                SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
+                                                                                refreshPanel = (returnstate == 0);
+                                                                                break;
 									case IDNO:
 										//SalamanderGeneral->ToLowerCase(FSIdata->ServiceName);
 										//SalamanderGeneral->RemoveOneFileFromCache(FSIdata->ServiceName);

@@ -14,12 +14,15 @@ int              *TransferLen = NULL;
 DWORD            *TransferRowData = NULL;
 CPluginDataInterfaceAbstract **TransferPluginDataIface = NULL;
 DWORD            *TransferActCustomData = NULL;
+static DWORD g_LastSortCustomData = 0;
 // -----------------------------------------------------------------------------------------------------------
 // Callback Functions
 // -----------------------------------------------------------------------------------------------------------
 void WINAPI GetTypeText()
 {
         FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        if (TransferActCustomData != NULL)
+            g_LastSortCustomData = *TransferActCustomData;
         const char *description = FSdata->Description != NULL ? FSdata->Description : "";
         const size_t len = strlen(description);
         *TransferLen = static_cast<int>(len > static_cast<size_t>(INT_MAX) ? INT_MAX : len);
@@ -28,6 +31,8 @@ void WINAPI GetTypeText()
 void WINAPI GetStartupTypeText()
 {
         FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        if (TransferActCustomData != NULL)
+            g_LastSortCustomData = *TransferActCustomData;
         char StartupTyp[200];
         switch ( FSdata->StartupType)
   {
@@ -49,6 +54,8 @@ void WINAPI GetStartupTypeText()
 void WINAPI GetStatusTypeText()
 {
         FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        if (TransferActCustomData != NULL)
+            g_LastSortCustomData = *TransferActCustomData;
         char Status[200]="";
 
         switch ( FSdata->Status)
@@ -68,6 +75,8 @@ void WINAPI GetStatusTypeText()
 void WINAPI GetLogonAsText()
 {
         FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        if (TransferActCustomData != NULL)
+            g_LastSortCustomData = *TransferActCustomData;
         if (FSdata->LogOnAs !=NULL)
         {
                 const size_t len = strlen(FSdata->LogOnAs);
@@ -212,7 +221,11 @@ int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, co
   if (file1 == NULL || file2 == NULL)
     return 0;
 
-  DWORD custom = (TransferActCustomData != NULL) ? *TransferActCustomData : 0;
+  DWORD custom = 0;
+  if (TransferActCustomData != NULL)
+    custom = *TransferActCustomData;
+  else
+    custom = g_LastSortCustomData;
   const CFSData *data1 = reinterpret_cast<const CFSData *>(file1->PluginData);
   const CFSData *data2 = reinterpret_cast<const CFSData *>(file2->PluginData);
 
@@ -263,8 +276,9 @@ int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, co
 void WINAPI CPluginFSDataInterface::SetupView(BOOL leftPanel, CSalamanderViewAbstract *view, const char *archivePath,
                                   const CFileData *upperDir)
 {
-	view->GetTransferVariables(TransferFileData, TransferIsDir, TransferBuffer, TransferLen, TransferRowData,
-														 TransferPluginDataIface, TransferActCustomData);
+        g_LastSortCustomData = 0;
+        view->GetTransferVariables(TransferFileData, TransferIsDir, TransferBuffer, TransferLen, TransferRowData,
+                                                                                                                TransferPluginDataIface, TransferActCustomData);
 	
 	view->SetPluginSimpleIconCallback(PluginSimpleIconCallback);
 

@@ -468,12 +468,31 @@ unsigned __stdcall ServiceActionThreadProc(void* param)
 
 } // namespace
 
+namespace
+{
+
+HWND NormalizeDialogParent(HWND parent)
+{
+    HWND host = parent;
+    if (host != NULL)
+    {
+        if ((GetWindowLongPtr(host, GWL_STYLE) & WS_CHILD) != 0)
+            host = GetAncestor(host, GA_ROOT);
+    }
+    if (host == NULL)
+        host = SalamanderGeneral->GetMsgBoxParent();
+    return host;
+}
+
+}
+
 BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayName, ServiceActionKind action)
 {
     if (serviceName == NULL || serviceName[0] == 0)
         return FALSE;
 
     const char* friendlyName = (displayName != NULL && displayName[0] != 0) ? displayName : serviceName;
+    HWND hostParent = NormalizeDialogParent(parent);
 
     ServiceActionWorkerContext context(serviceName, friendlyName, action);
     if (context.CompletionEvent == NULL)
@@ -524,7 +543,7 @@ BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayN
                 TaskDialogContext dialogContext(context.CompletionEvent);
                 TASKDIALOGCONFIG config = {};
                 config.cbSize = sizeof(config);
-                config.hwndParent = parent;
+                config.hwndParent = hostParent;
                 config.dwFlags = TDF_SHOW_MARQUEE_PROGRESS_BAR | TDF_CALLBACK_TIMER | TDF_POSITION_RELATIVE_TO_WINDOW;
                 config.dwCommonButtons = TDCBF_CANCEL_BUTTON;
                 config.pszWindowTitle = captionW.empty() ? NULL : captionW.c_str();
@@ -550,7 +569,7 @@ BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayN
     if (!context.Success)
     {
         if (info != NULL)
-            ShowServiceOperationError(parent, friendlyName, *info, context.Outcome.ErrorCode, context.Outcome.ServiceSpecific);
+            ShowServiceOperationError(hostParent, friendlyName, *info, context.Outcome.ErrorCode, context.Outcome.ServiceSpecific);
         return FALSE;
     }
 
@@ -558,7 +577,7 @@ BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayN
     {
         char text[512];
         FormatActionString(info->AlreadyTextRes, friendlyName, text, ARRAYSIZE(text));
-        SalamanderGeneral->SalMessageBox(parent != NULL ? parent : SalamanderGeneral->GetMsgBoxParent(), text,
+        SalamanderGeneral->SalMessageBox(hostParent, text,
                                          VERSINFO_PLUGINNAME, MB_OK | MB_ICONINFORMATION);
     }
 
