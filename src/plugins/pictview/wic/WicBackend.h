@@ -37,6 +37,7 @@ struct FrameData
     std::vector<RGBQUAD> palette;
     BITMAPINFOHEADER bmi{};
     HBITMAP hbitmap = nullptr;
+    DWORD delayMs = 0;
     bool decoded = false;
 };
 

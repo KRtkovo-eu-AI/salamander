@@ -196,6 +196,132 @@ bool FrameContainsExif(IWICBitmapFrameDecode* frame)
     return false;
 }
 
+bool TryExtractDelayHundredths(const PROPVARIANT& value, UINT& hundredths)
+{
+    switch (value.vt)
+    {
+    case VT_UI1:
+        hundredths = value.bVal;
+        return true;
+    case VT_UI2:
+        hundredths = value.uiVal;
+        return true;
+    case VT_UI4:
+        hundredths = static_cast<UINT>(value.ulVal);
+        return true;
+    case VT_UI8:
+        hundredths = static_cast<UINT>(std::min<ULONGLONG>(value.ullVal, std::numeric_limits<UINT>::max()));
+        return true;
+    case VT_UINT:
+        hundredths = value.uintVal;
+        return true;
+    case VT_R4:
+        hundredths = static_cast<UINT>(value.fltVal);
+        return true;
+    case VT_R8:
+        hundredths = static_cast<UINT>(value.dblVal);
+        return true;
+    case (VT_VECTOR | VT_UI1):
+        if (value.caub.cElems > 0 && value.caub.pElems)
+        {
+            hundredths = value.caub.pElems[0];
+            return true;
+        }
+        break;
+    case (VT_VECTOR | VT_UI2):
+        if (value.caui.cElems > 0 && value.caui.pElems)
+        {
+            hundredths = value.caui.pElems[0];
+            return true;
+        }
+        break;
+    case (VT_VECTOR | VT_UI4):
+        if (value.caul.cElems > 0 && value.caul.pElems)
+        {
+            hundredths = static_cast<UINT>(value.caul.pElems[0]);
+            return true;
+        }
+        break;
+    case (VT_VECTOR | VT_UI8):
+        if (value.cauh.cElems > 0 && value.cauh.pElems)
+        {
+            hundredths = static_cast<UINT>(std::min<ULONGLONG>(value.cauh.pElems[0], std::numeric_limits<UINT>::max()));
+            return true;
+        }
+        break;
+    case (VT_VECTOR | VT_UINT):
+        if (value.cauint.cElems > 0 && value.cauint.pElems)
+        {
+            hundredths = value.cauint.pElems[0];
+            return true;
+        }
+        break;
+    default:
+        break;
+    }
+    return false;
+}
+
+bool TryReadDelayHundredths(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& hundredths)
+{
+    if (!reader || !name)
+    {
+        return false;
+    }
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    const HRESULT hr = reader->GetMetadataByName(name, &value);
+    if (FAILED(hr))
+    {
+        PropVariantClear(&value);
+        return false;
+    }
+    const bool extracted = TryExtractDelayHundredths(value, hundredths);
+    PropVariantClear(&value);
+    return extracted;
+}
+
+DWORD ClampDelayHundredthsToMilliseconds(UINT hundredths)
+{
+    if (hundredths == 0)
+    {
+        hundredths = 10; // default to 100 ms when delay is unspecified
+    }
+    const ULONGLONG delayMs64 = static_cast<ULONGLONG>(hundredths) * 10ull;
+    return delayMs64 > std::numeric_limits<DWORD>::max() ? std::numeric_limits<DWORD>::max()
+                                                         : static_cast<DWORD>(delayMs64);
+}
+
+DWORD GetFrameDelayMilliseconds(IWICBitmapFrameDecode* frame)
+{
+    if (!frame)
+    {
+        return 0;
+    }
+    ComPtr<IWICMetadataQueryReader> query;
+    if (FAILED(frame->GetMetadataQueryReader(&query)) || !query)
+    {
+        return 0;
+    }
+
+    UINT hundredths = 0;
+    static constexpr const wchar_t* kDelayPaths[] = {
+        L"/grctlext/DelayTime",            // GIF frame delay
+        L"/ifd/{ushort=0x5100}",           // TIFF/PropertyTagFrameDelay
+        L"/xmp/GIF:DelayTime",             // XMP GIF namespace (fallback)
+        L"/xmp/MM:FrameDelay",             // Additional XMP metadata some encoders emit
+        L"/xmp/extensibility/Animation/FrameDelay"
+    };
+    for (const auto* path : kDelayPaths)
+    {
+        if (TryReadDelayHundredths(query.Get(), path, hundredths))
+        {
+            return ClampDelayHundredthsToMilliseconds(hundredths);
+        }
+    }
+    return 0;
+}
+
 const char* LookupError(DWORD code)
 {
     std::lock_guard<std::mutex> lock(g_errorMutex);
@@ -659,8 +785,23 @@ HRESULT DecodeUnsupportedPixelFormat(FrameData& frame)
 
 bool IsConverterFormatFailure(HRESULT hr)
 {
-    return hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT || hr == WINCODEC_ERR_INVALIDPARAMETER ||
-           hr == WINCODEC_ERR_UNSUPPORTEDOPERATION;
+    if (hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT)
+    {
+        return true;
+    }
+#if defined(WINCODEC_ERR_INVALIDPARAMETER)
+    if (hr == WINCODEC_ERR_INVALIDPARAMETER)
+    {
+        return true;
+    }
+#endif
+#if defined(WINCODEC_ERR_UNSUPPORTEDOPERATION)
+    if (hr == WINCODEC_ERR_UNSUPPORTEDOPERATION)
+    {
+        return true;
+    }
+#endif
+    return false;
 }
 
 HRESULT EnsureConverter(ImageHandle& handle, size_t index)
@@ -753,29 +894,33 @@ PVCODE HResultToPvCode(HRESULT hr)
     {
         return PVC_OK;
     }
-    switch (hr)
+    if (hr == E_OUTOFMEMORY)
     {
-    case E_OUTOFMEMORY:
         return PVC_OUT_OF_MEMORY;
-    case E_INVALIDARG:
+    }
+    if (hr == E_INVALIDARG
 #if defined(WINCODEC_ERR_INVALIDPARAMETER)
-#if WINCODEC_ERR_INVALIDPARAMETER != E_INVALIDARG
-    case WINCODEC_ERR_INVALIDPARAMETER:
-#endif
+        || hr == WINCODEC_ERR_INVALIDPARAMETER
 #endif
 #if defined(WINCODEC_ERR_VALUEOUTOFRANGE)
-#if WINCODEC_ERR_VALUEOUTOFRANGE != E_INVALIDARG
-    case WINCODEC_ERR_VALUEOUTOFRANGE:
+        || hr == WINCODEC_ERR_VALUEOUTOFRANGE
 #endif
-#endif
+    )
+    {
         return PVC_INVALID_DIMENSIONS;
-    case WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT:
-    case WINCODEC_ERR_COMPONENTNOTFOUND:
-    case WINCODEC_ERR_UNSUPPORTEDOPERATION:
-        return PVC_UNSUP_FILE_TYPE;
-    default:
-        return PVC_EXCEPTION;
     }
+    if (hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT
+#if defined(WINCODEC_ERR_COMPONENTNOTFOUND)
+        || hr == WINCODEC_ERR_COMPONENTNOTFOUND
+#endif
+#if defined(WINCODEC_ERR_UNSUPPORTEDOPERATION)
+        || hr == WINCODEC_ERR_UNSUPPORTEDOPERATION
+#endif
+    )
+    {
+        return PVC_UNSUP_FILE_TYPE;
+    }
+    return PVC_EXCEPTION;
 }
 
 std::wstring Utf8ToWide(const char* path)
@@ -888,6 +1033,11 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         {
             return hr;
         }
+        data.delayMs = GetFrameDelayMilliseconds(data.frame.Get());
+        if (frameCount > 1 && data.delayMs == 0)
+        {
+            data.delayMs = 100;
+        }
         if (!hasExif && FrameContainsExif(data.frame.Get()))
         {
             hasExif = true;
@@ -901,6 +1051,10 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     if (hasExif)
     {
         handle.baseInfo.Flags |= PVFF_EXIF;
+    }
+    if (frameCount > 1)
+    {
+        handle.baseInfo.Flags |= PVFF_IMAGESEQUENCE;
     }
     return S_OK;
 }
@@ -1048,7 +1202,7 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
         node->Rect.top = 0;
         node->Rect.right = frame.width;
         node->Rect.bottom = frame.height;
-        node->Delay = 0;
+        node->Delay = frame.delayMs;
         node->DisposalMethod = PVDM_UNDEFINED;
         node->ImgHandle = frame.hbitmap;
         node->TransparentHandle = nullptr;
