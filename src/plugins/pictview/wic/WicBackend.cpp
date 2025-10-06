@@ -210,7 +210,8 @@ bool TryExtractDelayHundredths(const PROPVARIANT& value, UINT& hundredths)
         hundredths = static_cast<UINT>(value.ulVal);
         return true;
     case VT_UI8:
-        hundredths = static_cast<UINT>(std::min<ULONGLONG>(value.ullVal, std::numeric_limits<UINT>::max()));
+        hundredths = static_cast<UINT>(std::min<ULONGLONG>(value.uhVal.QuadPart,
+                                                           static_cast<ULONGLONG>(std::numeric_limits<UINT>::max())));
         return true;
     case VT_UINT:
         hundredths = value.uintVal;
@@ -245,14 +246,8 @@ bool TryExtractDelayHundredths(const PROPVARIANT& value, UINT& hundredths)
     case (VT_VECTOR | VT_UI8):
         if (value.cauh.cElems > 0 && value.cauh.pElems)
         {
-            hundredths = static_cast<UINT>(std::min<ULONGLONG>(value.cauh.pElems[0], std::numeric_limits<UINT>::max()));
-            return true;
-        }
-        break;
-    case (VT_VECTOR | VT_UINT):
-        if (value.cauint.cElems > 0 && value.cauint.pElems)
-        {
-            hundredths = value.cauint.pElems[0];
+            hundredths = static_cast<UINT>(std::min<ULONGLONG>(value.cauh.pElems[0].QuadPart,
+                                                               static_cast<ULONGLONG>(std::numeric_limits<UINT>::max())));
             return true;
         }
         break;
