@@ -18,6 +18,8 @@ extern HINSTANCE HLanguage;    // handle @ SLG
 HINSTANCE GetLanguageResourceHandle();
 
 extern HIMAGELIST DFSImageList ;
+int IconSizeToPixels(int iconSize);
+BOOL EnsureServiceImageList(int iconSize);
 
 BOOL InitFS();
 

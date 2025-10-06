@@ -27,26 +27,28 @@ HBITMAP CreateServiceBitmap()
 
   void *bits = NULL;
   HBITMAP bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
-  if (bitmap != NULL && bits != NULL)
+  if (bitmap == NULL)
+    return NULL;
+
+  HDC dc = CreateCompatibleDC(NULL);
+  if (dc == NULL)
   {
-    DWORD *pixel = static_cast<DWORD *>(bits);
-    const DWORD accent = 0xFF000000 | RGB(0, 120, 215);
-    const DWORD background = 0xFF000000 | RGB(240, 240, 240);
-    for (int y = 0; y < 16; ++y)
-    {
-      for (int x = 0; x < 16; ++x)
-      {
-        const bool isBorder = (x == 0 || x == 15 || y == 0 || y == 15);
-        const bool isDiagonal = (x == y) || (x + y == 15);
-        pixel[y * 16 + x] = (isBorder || isDiagonal) ? accent : background;
-      }
-    }
+    DeleteObject(bitmap);
+    return NULL;
   }
 
-  if (bitmap == NULL)
+  HGDIOBJ old = SelectObject(dc, bitmap);
+  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR));
+  if (icon != NULL)
   {
-    bitmap = CreateBitmap(16, 16, 1, 1, NULL);
+    DrawIconEx(dc, 0, 0, icon, 16, 16, 0, NULL, DI_NORMAL);
+    HANDLES(DestroyIcon(icon));
   }
+
+  if (old != NULL)
+    SelectObject(dc, old);
+  DeleteDC(dc);
 
   return bitmap;
 }

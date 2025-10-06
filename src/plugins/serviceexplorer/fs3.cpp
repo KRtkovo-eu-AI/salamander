@@ -16,18 +16,13 @@ CPluginDataInterfaceAbstract **TransferPluginDataIface = NULL;
 DWORD            *TransferActCustomData = NULL;
 static DWORD g_LastSortCustomData = 0;
 
-namespace
+enum ColumnSortId : DWORD
 {
-constexpr DWORD MakeColumnTag(char a, char b, char c, char d)
-{
-    return (static_cast<DWORD>(a) << 24) | (static_cast<DWORD>(b) << 16) |
-           (static_cast<DWORD>(c) << 8) | static_cast<DWORD>(d);
-}
-
-constexpr DWORD kColumnIdStatus = MakeColumnTag('S', 'T', 'A', 'T');
-constexpr DWORD kColumnIdStartupType = MakeColumnTag('S', 'T', 'R', 'T');
-constexpr DWORD kColumnIdLogOnAs = MakeColumnTag('L', 'O', 'G', 'N');
-}
+    kColumnIdDescription = 1,
+    kColumnIdStatus = 2,
+    kColumnIdStartupType = 3,
+    kColumnIdLogOnAs = 4,
+};
 // -----------------------------------------------------------------------------------------------------------
 // Callback Functions
 // -----------------------------------------------------------------------------------------------------------
@@ -119,7 +114,7 @@ void AddDescriptionColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
         strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_DESCRIPTION));
         strcpy(column.Description, LoadStr(IDS_COLUMN_CAPTION_DESCRIPTION));
         column.GetText = GetTypeText;
-        column.CustomData = MakeColumnTag('D', 'E', 'S', 'C');
+        column.CustomData = kColumnIdDescription;
         column.LeftAlignment = 1;
         column.ID = COLUMN_ID_CUSTOM;
         column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
@@ -193,7 +188,8 @@ CPluginFSDataInterface::CPluginFSDataInterface(const char *path)
 
 HIMAGELIST WINAPI CPluginFSDataInterface::GetSimplePluginIcons(int iconSize)
 {
-	return DFSImageList;
+        EnsureServiceImageList(iconSize);
+        return DFSImageList;
 }
 
 BOOL WINAPI CPluginFSDataInterface::HasSimplePluginIcon(CFileData &file, BOOL isDir)
@@ -207,25 +203,24 @@ CPluginFSDataInterface::GetPluginIcon(const CFileData *file, int iconSize, BOOL 
 	////ImageList_GetIcon(DFSImageList,1,ILD_TRANSPARENT);
 	//return ImageList_GetIcon(DFSImageList,0,ILC_MASK | SalamanderGeneral->GetImageListColorFlags());
 
-  const ptrdiff_t offset = Name - Path;
-  const ptrdiff_t remaining = MAX_PATH - offset;
-  int copyLen = remaining > 0 ? static_cast<int>(remaining) : MAX_PATH;
-  if (copyLen <= 0)
-    copyLen = MAX_PATH;
-  lstrcpyn(Name, file->Name, copyLen);
-  BOOL isDir = (file->Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
-
-  SHFILEINFO shi = {};
-  if (!SalamanderGeneral->GetFileIcon(Path, FALSE, &shi.hIcon, iconSize, TRUE, isDir))
+  (void)file;
+  const int pixels = IconSizeToPixels(iconSize);
+  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, pixels, pixels, LR_DEFAULTCOLOR));
+  if (icon != NULL)
   {
-    if (!SHGetFileInfo(Path, 0, &shi, sizeof(shi),
-                       SHGFI_ICON | SHGFI_SMALLICON | SHGFI_SHELLICONSIZE))
-    {
-      shi.hIcon = NULL;   // failure
-    }
+    destroyIcon = TRUE;
+    return icon;
   }
-  destroyIcon = TRUE;
-  return shi.hIcon;   // icon or NULL (failure)
+
+  if (EnsureServiceImageList(iconSize) && DFSImageList != NULL)
+  {
+    destroyIcon = TRUE;
+    return ImageList_GetIcon(DFSImageList, 0, ILC_MASK | SalamanderGeneral->GetImageListColorFlags());
+  }
+
+  destroyIcon = FALSE;
+  return NULL;
 }
 
 int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, const CFileData *file2)

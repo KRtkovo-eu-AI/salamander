@@ -9,6 +9,9 @@
 #include "versinfo.rh2"
 #include "../shared/versinfo.rc2"
 #include "lang/lang.rh"
+#include "plugin.rh"
+
+IDI_SERVICEEXPLORER_DIR ICON "res\\dir.ico"
 
 #define SERVICEEXPLORER_LANG_FALLBACK
 #include "lang/lang.rc2"

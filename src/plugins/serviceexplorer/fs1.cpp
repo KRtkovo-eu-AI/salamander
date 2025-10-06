@@ -2,6 +2,56 @@
 
 // image-list for simple icons FS
 HIMAGELIST DFSImageList = NULL;
+static int g_CurrentImageListSize = 0;
+
+int IconSizeToPixels(int iconSize)
+{
+  switch (iconSize)
+  {
+  case SALICONSIZE_48:
+    return 48;
+  case SALICONSIZE_32:
+    return 32;
+  default:
+    return 16;
+  }
+}
+
+BOOL EnsureServiceImageList(int iconSize)
+{
+  if (DFSImageList != NULL && g_CurrentImageListSize == iconSize)
+    return TRUE;
+
+  if (DFSImageList != NULL)
+  {
+    ImageList_Destroy(DFSImageList);
+    DFSImageList = NULL;
+    g_CurrentImageListSize = 0;
+  }
+
+  const int pixels = IconSizeToPixels(iconSize);
+  HIMAGELIST list = ImageList_Create(pixels, pixels,
+                                     ILC_COLOR32 | ILC_MASK, 1, 0);
+  if (list == NULL)
+    return FALSE;
+
+  ImageList_SetImageCount(list, 1);
+  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, pixels, pixels, LR_DEFAULTCOLOR));
+  if (icon == NULL)
+  {
+    ImageList_Destroy(list);
+    return FALSE;
+  }
+
+  ImageList_ReplaceIcon(list, 0, icon);
+  HANDLES(DestroyIcon(icon));
+  ImageList_SetBkColor(list, SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL));
+
+  DFSImageList = list;
+  g_CurrentImageListSize = iconSize;
+  return TRUE;
+}
 
 char **History = NULL;
 int HistoryCount = 0;
@@ -24,43 +74,24 @@ BOOL InitFS()
 {
 	OutputDebugString ("InitFS");
 
-  DFSImageList = ImageList_Create(16, 16, ILC_MASK | SalamanderGeneral->GetImageListColorFlags(), 2, 0);
-  if (DFSImageList == NULL)
+  if (!EnsureServiceImageList(SALICONSIZE_16))
   {
-    TRACE_E("Unable to create image list.");
+    TRACE_E("Unable to create service explorer icon list.");
     return FALSE;
   }
-  ImageList_SetImageCount(DFSImageList, 2); // Initialization
-  ImageList_SetBkColor(DFSImageList, SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL));
 
-// Icons are different on various Windows, query a small folder icon dynamically.
-  HICON dirIcon = NULL;
-  if (SalamanderGeneral->GetFileIcon("C:\\", FALSE, &dirIcon, SALICONSIZE_16, TRUE, TRUE) && dirIcon != NULL)
-  {
-    ImageList_ReplaceIcon(DFSImageList, 0, dirIcon);
-    HANDLES(DestroyIcon(dirIcon));
-  }
-  else
-  {
-    HICON shared = HANDLES(LoadIcon(NULL, IDI_APPLICATION));
-    if (shared != NULL)
-    {
-      HICON copy = HANDLES(CopyIcon(shared));
-      if (copy != NULL)
-      {
-        ImageList_ReplaceIcon(DFSImageList, 0, copy);
-        HANDLES(DestroyIcon(copy));
-      }
-    }
-  }
-
-        return TRUE;
+  return TRUE;
 }
 
 void ReleaseFS()
 {
-	OutputDebugString("fs2-ReleaseFS");
-	ImageList_Destroy(DFSImageList);
+        OutputDebugString("fs2-ReleaseFS");
+        if (DFSImageList != NULL)
+        {
+                ImageList_Destroy(DFSImageList);
+                DFSImageList = NULL;
+                g_CurrentImageListSize = 0;
+        }
 }
 
 // ****************************************************************************
