@@ -335,6 +335,10 @@ ULONGLONG AbsoluteDimension(LONGLONG value)
     {
         return static_cast<ULONGLONG>(value);
     }
+    if (value == std::numeric_limits<LONGLONG>::min())
+    {
+        return static_cast<ULONGLONG>(std::numeric_limits<LONGLONG>::max()) + 1ull;
+    }
     return static_cast<ULONGLONG>(-(value + 1)) + 1;
 }
 
@@ -1623,7 +1627,7 @@ PVCODE WINAPI Backend::sPVSetStretchParameters(LPPVHandle Img, DWORD width, DWOR
         return PVC_INVALID_HANDLE;
     }
     const auto convert = [](DWORD value) -> LONG {
-        if (value == 0)
+        if (value == 0 || value == 0x80000000u)
         {
             return 0;
         }
