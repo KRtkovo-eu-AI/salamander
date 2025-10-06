@@ -18,9 +18,15 @@ static DWORD g_LastSortCustomData = 0;
 
 namespace
 {
-constexpr DWORD kColumnIdStatus = 1;
-constexpr DWORD kColumnIdStartupType = 2;
-constexpr DWORD kColumnIdLogOnAs = 3;
+constexpr DWORD MakeColumnTag(char a, char b, char c, char d)
+{
+    return (static_cast<DWORD>(a) << 24) | (static_cast<DWORD>(b) << 16) |
+           (static_cast<DWORD>(c) << 8) | static_cast<DWORD>(d);
+}
+
+constexpr DWORD kColumnIdStatus = MakeColumnTag('S', 'T', 'A', 'T');
+constexpr DWORD kColumnIdStartupType = MakeColumnTag('S', 'T', 'R', 'T');
+constexpr DWORD kColumnIdLogOnAs = MakeColumnTag('L', 'O', 'G', 'N');
 }
 // -----------------------------------------------------------------------------------------------------------
 // Callback Functions
@@ -109,71 +115,70 @@ void AddDescriptionColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
 	int DFSTypeFixedWidth = 0;
 	BOOL error=false;
 
-	CColumn column;
-  //strcpy(column.Name, "Description");
-	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_DESCRIPTION));
-  column.GetText = GetTypeText;
-  column.CustomData = 1;
-	column.LeftAlignment = 1;
-  column.ID = COLUMN_ID_CUSTOM;
-  column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
-  column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
-  error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
+        CColumn column = {};
+        strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_DESCRIPTION));
+        strcpy(column.Description, LoadStr(IDS_COLUMN_CAPTION_DESCRIPTION));
+        column.GetText = GetTypeText;
+        column.CustomData = MakeColumnTag('D', 'E', 'S', 'C');
+        column.LeftAlignment = 1;
+        column.ID = COLUMN_ID_CUSTOM;
+        column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
+        column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
+        error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
 }
 void AddStartupTypeColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
 {
-	int DFSTypeWidth = 30;
-	int DFSTypeFixedWidth = 30;
-	BOOL error=false;
+        int DFSTypeWidth = 30;
+        int DFSTypeFixedWidth = 30;
+        BOOL error=false;
 
-
-  CColumn column;
-  //strcpy(column.Name, "Startup Type");
-	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_STARTUPTYPE));
-  column.GetText = GetStartupTypeText;
-  column.CustomData = kColumnIdStartupType;
-	column.LeftAlignment = 1;
+        CColumn column = {};
+        strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_STARTUPTYPE));
+        strcpy(column.Description, LoadStr(IDS_COLUMN_CAPTION_STARTUPTYPE));
+        column.GetText = GetStartupTypeText;
+        column.CustomData = kColumnIdStartupType;
+        column.LeftAlignment = 1;
         column.SupportSorting = 1;
-  column.ID = COLUMN_ID_CUSTOM;
-  column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
-  column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
-  error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
+        column.ID = COLUMN_ID_CUSTOM;
+        column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
+        column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
+        error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
 }
 void AddStatusColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
 {
-	int DFSTypeWidth = 0;
-	int DFSTypeFixedWidth = 0;
-	BOOL error=false;
+        int DFSTypeWidth = 0;
+        int DFSTypeFixedWidth = 0;
+        BOOL error=false;
 
-	CColumn column;
-  //strcpy(column.Name, "Status");
-	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_STATUS));
-  column.GetText = GetStatusTypeText;
-  column.CustomData = kColumnIdStatus;
-	column.LeftAlignment = 1;
+        CColumn column = {};
+        strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_STATUS));
+        strcpy(column.Description, LoadStr(IDS_COLUMN_CAPTION_STATUS));
+        column.GetText = GetStatusTypeText;
+        column.CustomData = kColumnIdStatus;
+        column.LeftAlignment = 1;
         column.SupportSorting = 1;
-  column.ID = COLUMN_ID_CUSTOM;
-  column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
-  column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
-  error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
+        column.ID = COLUMN_ID_CUSTOM;
+        column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
+        column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
+        error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
 }
 void AddLogOnAsColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
 {
-	int DFSTypeWidth = 0;
-	int DFSTypeFixedWidth = 0;
-	BOOL error=false;
+        int DFSTypeWidth = 0;
+        int DFSTypeFixedWidth = 0;
+        BOOL error=false;
 
-	CColumn column;
-  //strcpy(column.Name, "Log On As");
-	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_LOGONAS));
-  column.GetText = GetLogonAsText;
-  column.CustomData = kColumnIdLogOnAs;
-	column.LeftAlignment = 1;
+        CColumn column = {};
+        strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_LOGONAS));
+        strcpy(column.Description, LoadStr(IDS_COLUMN_CAPTION_LOGONAS));
+        column.GetText = GetLogonAsText;
+        column.CustomData = kColumnIdLogOnAs;
+        column.LeftAlignment = 1;
         column.SupportSorting = 1;
-  column.ID = COLUMN_ID_CUSTOM;
-  column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
-  column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
-  error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
+        column.ID = COLUMN_ID_CUSTOM;
+        column.Width = leftPanel ? LOWORD(DFSTypeWidth) : HIWORD(DFSTypeWidth);
+        column.FixedWidth = leftPanel ? LOWORD(DFSTypeFixedWidth) : HIWORD(DFSTypeFixedWidth);
+        error = view->InsertColumn(++i, &column);  // vlozime nas sloupec Type za originalni sloupec Type
 }
 // -----------------------------------------------------------------------------------------------------------
 // CPluginFSDataInterface
@@ -230,9 +235,14 @@ int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, co
 
   DWORD custom = 0;
   if (TransferActCustomData != NULL)
+  {
     custom = *TransferActCustomData;
+    g_LastSortCustomData = custom;
+  }
   else
+  {
     custom = g_LastSortCustomData;
+  }
   const CFSData *data1 = reinterpret_cast<const CFSData *>(file1->PluginData);
   const CFSData *data2 = reinterpret_cast<const CFSData *>(file2->PluginData);
 
