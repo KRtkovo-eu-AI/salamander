@@ -695,10 +695,40 @@ DWORD WINAPI CEventViewerFSInterface::GetSupportedServices()
 BOOL WINAPI CEventViewerFSInterface::GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon,
                                                                     BOOL& destroyIcon)
 {
-    UNREFERENCED_PARAMETER(fsName);
-    title = LoadStr(IDS_EVENT_VIEWER_MENU);
-    icon = reinterpret_cast<HICON>(LoadImage(NULL, MAKEINTRESOURCE(IDI_INFORMATION), IMAGE_ICON, 16, 16, LR_SHARED));
-    destroyIcon = FALSE;
+    if (SalamanderGeneral == NULL || fsName == NULL)
+        return FALSE;
+
+    char text[2 * MAX_PATH + 32];
+    text[0] = '\t';
+    lstrcpynA(text + 1, fsName, _countof(text) - 1);
+
+    if (Path[0] != '\0')
+    {
+        size_t currentLength = strlen(text);
+        if (currentLength < _countof(text) - 1)
+        {
+            text[currentLength++] = ':';
+            text[currentLength] = '\0';
+        }
+
+        size_t remaining = _countof(text) - currentLength;
+        if (remaining > 0)
+        {
+            int copyLimit = remaining > static_cast<size_t>(INT_MAX) ? INT_MAX : static_cast<int>(remaining);
+            lstrcpynA(text + currentLength, Path, copyLimit);
+        }
+    }
+
+    SalamanderGeneral->DuplicateAmpersands(text, _countof(text));
+
+    title = SalamanderGeneral->DupStr(text);
+    if (title == NULL)
+        return FALSE;
+
+    icon = GetFSIcon(destroyIcon);
+    if (icon == NULL)
+        destroyIcon = FALSE;
+
     return TRUE;
 }
 
