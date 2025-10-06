@@ -1198,7 +1198,7 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
             return PVC_CANCELED;
         }
 
-        const int batch = std::min(32, targetHeight - processedRows);
+        const int batch = std::min<int>(32, targetHeight - processedRows);
         BYTE* chunk = const_cast<BYTE*>(source + static_cast<size_t>(processedRows) * rowBytes);
         thumbMaker->ProcessBuffer(chunk, batch);
         processedRows += batch;
