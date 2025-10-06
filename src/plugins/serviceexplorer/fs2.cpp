@@ -1,5 +1,7 @@
 #include "precomp.h"
 
+#include <climits>
+
 namespace
 {
 char *DupStringOrEmpty(const char *text)
@@ -300,22 +302,64 @@ DWORD WINAPI CPluginFSInterface::GetSupportedServices()
 
 BOOL WINAPI CPluginFSInterface::GetChangeDriveOrDisconnectItem(const char *fsName, char *&title, HICON &icon, BOOL &destroyIcon)
 {
-	OutputDebugString("fs2-GetChangeDriveOrDisconnectItem"); 
+  OutputDebugString("fs2-GetChangeDriveOrDisconnectItem");
+
+  char text[2 * MAX_PATH + 32];
+  text[0] = '\t';
+  lstrcpynA(text + 1, fsName, _countof(text) - 1);
+
+  if (Path[0] != '\0')
+  {
+    size_t currentLength = strlen(text);
+    if (currentLength < _countof(text) - 1)
+    {
+      text[currentLength++] = ':';
+      text[currentLength] = '\0';
+    }
+    size_t remaining = _countof(text) - currentLength;
+    int copyLimit = remaining > static_cast<size_t>(INT_MAX) ? INT_MAX : static_cast<int>(remaining);
+    lstrcpynA(text + currentLength, Path, copyLimit);
+  }
+
+  SalamanderGeneral->DuplicateAmpersands(text, _countof(text));
+
+  title = SalamanderGeneral->DupStr(text);
+  if (title == NULL)
+    return FALSE;
+
+  icon = GetFSIcon(destroyIcon);
+  if (icon == NULL)
+    destroyIcon = FALSE;
+
   return TRUE;
 }
 
 HICON WINAPI CPluginFSInterface::GetFSIcon(BOOL &destroyIcon)
 {
-  char root[MAX_PATH];
-  SalamanderGeneral->GetRootPath(root, Path);
+  UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags()
+                                             : (LR_DEFAULTCOLOR | LR_LOADTRANSPARENT);
+  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                IMAGE_ICON, 16, 16, loadFlags));
+  if (icon != NULL)
+  {
+    destroyIcon = TRUE;
+    return icon;
+  }
 
-  HICON icon;
-  if (!SalamanderGeneral->GetFileIcon(root, FALSE, &icon, SALICONSIZE_16, TRUE, TRUE))
-    icon = NULL;
+  if (SalamanderGeneral != NULL)
+  {
+    char root[MAX_PATH];
+    SalamanderGeneral->GetRootPath(root, Path);
 
-  destroyIcon = TRUE;
-  return icon;
-	//return NULL;
+    if (SalamanderGeneral->GetFileIcon(root, FALSE, &icon, SALICONSIZE_16, TRUE, TRUE))
+    {
+      destroyIcon = TRUE;
+      return icon;
+    }
+  }
+
+  destroyIcon = FALSE;
+  return NULL;
 }
 
 void WINAPI CPluginFSInterface::GetDropEffect(const char *srcFSPath, const char *tgtFSPath,

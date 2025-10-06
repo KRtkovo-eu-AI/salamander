@@ -13,6 +13,10 @@ CPluginInterfaceForThumbLoader InterfaceForThumbLoader;
 HINSTANCE DLLInstance = NULL; // handle @ SPL
 HINSTANCE HLanguage = NULL;   // handle @ SLG
 
+CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+CSalamanderDebugAbstract* SalamanderDebug = NULL;
+CSalamanderGUIAbstract* SalamanderGUI = NULL;
+
 namespace
 {
 HBITMAP CreateServiceBitmap()
@@ -51,8 +55,10 @@ HBITMAP CreateServiceBitmap()
   }
 
   HGDIOBJ old = SelectObject(dc, bitmap);
+  UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags()
+                                             : (LR_DEFAULTCOLOR | LR_LOADTRANSPARENT);
   HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
-                                                 IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR));
+                                                 IMAGE_ICON, 16, 16, loadFlags));
   if (icon != NULL)
   {
     DrawIconEx(dc, 0, 0, icon, 16, 16, 0, NULL, DI_NORMAL);
@@ -65,16 +71,43 @@ HBITMAP CreateServiceBitmap()
 
   return bitmap;
 }
+
+bool SetServiceExplorerIconList(CSalamanderConnectAbstract* salamander)
+{
+  if (SalamanderGUI == NULL)
+    return false;
+
+  CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
+  if (iconList == NULL)
+    return false;
+
+  if (!iconList->Create(16, 16, 1))
+  {
+    SalamanderGUI->DestroyIconList(iconList);
+    return false;
+  }
+
+  UINT loadFlags = SalamanderGeneral != NULL ? SalamanderGeneral->GetIconLRFlags()
+                                             : (LR_DEFAULTCOLOR | LR_LOADTRANSPARENT);
+  HICON icon = reinterpret_cast<HICON>(LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SERVICEEXPLORER_DIR),
+                                                 IMAGE_ICON, 16, 16, loadFlags));
+  if (icon == NULL)
+  {
+    SalamanderGUI->DestroyIconList(iconList);
+    return false;
+  }
+
+  iconList->ReplaceIcon(0, icon);
+  HANDLES(DestroyIcon(icon));
+  salamander->SetIconListForGUI(iconList);
+  return true;
+}
 }
 
 HINSTANCE GetLanguageResourceHandle()
 {
   return HLanguage != NULL ? HLanguage : DLLInstance;
 }
-
-CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
-CSalamanderDebugAbstract* SalamanderDebug = NULL;
-CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
 int SalamanderVersion = 0;
 
@@ -177,15 +210,21 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract *s
 {
         salamander->SetChangeDriveMenuItem("\tWindows Services", 0);
 
-        HBITMAP hBmp = CreateServiceBitmap();
-        if (hBmp != NULL)
+        bool iconsSet = SetServiceExplorerIconList(salamander);
+        if (!iconsSet)
         {
-          salamander->SetBitmapWithIcons(hBmp);
-          HANDLES(DeleteObject(hBmp));
-        }
-        else
-        {
-          salamander->SetBitmapWithIcons(NULL);
+          HBITMAP hBmp = CreateServiceBitmap();
+          if (hBmp != NULL)
+          {
+            salamander->SetBitmapWithIcons(hBmp);
+            HANDLES(DeleteObject(hBmp));
+            iconsSet = true;
+          }
+          else if (SalamanderDebug != NULL)
+          {
+            SalamanderDebug->TraceI(__FILE__, __LINE__,
+                                    "ServiceExplorer: unable to load toolbar bitmap; using default icon.");
+          }
         }
 
         salamander->SetPluginIcon(0);
