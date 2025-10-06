@@ -78,13 +78,9 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
-    <ClCompile Include="..\lang\lang.c" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="..\lang\lang.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\lang\lang.def" />
     <None Include="..\lang\lang.rh" />
     <None Include="..\lang\lang.rc2" />
   </ItemGroup>

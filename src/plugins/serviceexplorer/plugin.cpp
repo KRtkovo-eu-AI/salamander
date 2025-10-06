@@ -13,6 +13,45 @@ CPluginInterfaceForThumbLoader InterfaceForThumbLoader;
 HINSTANCE DLLInstance = NULL; // handle @ SPL
 HINSTANCE HLanguage = NULL;   // handle @ SLG
 
+namespace
+{
+HBITMAP CreateServiceBitmap()
+{
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+  bmi.bmiHeader.biWidth = 16;
+  bmi.bmiHeader.biHeight = -16;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+
+  void *bits = NULL;
+  HBITMAP bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
+  if (bitmap != NULL && bits != NULL)
+  {
+    DWORD *pixel = static_cast<DWORD *>(bits);
+    const DWORD accent = 0xFF000000 | RGB(0, 120, 215);
+    const DWORD background = 0xFF000000 | RGB(240, 240, 240);
+    for (int y = 0; y < 16; ++y)
+    {
+      for (int x = 0; x < 16; ++x)
+      {
+        const bool isBorder = (x == 0 || x == 15 || y == 0 || y == 15);
+        const bool isDiagonal = (x == y) || (x + y == 15);
+        pixel[y * 16 + x] = (isBorder || isDiagonal) ? accent : background;
+      }
+    }
+  }
+
+  if (bitmap == NULL)
+  {
+    bitmap = CreateBitmap(16, 16, 1, 1, NULL);
+  }
+
+  return bitmap;
+}
+}
+
 HINSTANCE GetLanguageResourceHandle()
 {
   return HLanguage != NULL ? HLanguage : DLLInstance;
@@ -121,15 +160,21 @@ void WINAPI CPluginInterface::Configuration(HWND parent)
 
 void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract *salamander)
 {
-	salamander->SetChangeDriveMenuItem("\tWindows Services", 0);
-	
-	//IDB_FILEMGMT
-	HBITMAP hBmp = (HBITMAP)HANDLES(LoadImage(DLLInstance, MAKEINTRESOURCE(IDB_SVC), IMAGE_BITMAP, 16, 16, LR_DEFAULTCOLOR));
-	salamander->SetBitmapWithIcons(hBmp);
-	HANDLES(DeleteObject(hBmp));
+        salamander->SetChangeDriveMenuItem("\tWindows Services", 0);
 
-	salamander->SetPluginIcon(0);
-	salamander->SetPluginMenuAndToolbarIcon(0);
+        HBITMAP hBmp = CreateServiceBitmap();
+        if (hBmp != NULL)
+        {
+          salamander->SetBitmapWithIcons(hBmp);
+          HANDLES(DeleteObject(hBmp));
+        }
+        else
+        {
+          salamander->SetBitmapWithIcons(NULL);
+        }
+
+        salamander->SetPluginIcon(0);
+        salamander->SetPluginMenuAndToolbarIcon(0);
 
 
 	  if (!InitializeWinLib(VERSINFO_PLUGINNAME, DLLInstance)) 

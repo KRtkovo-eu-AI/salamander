@@ -159,7 +159,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 				
 
 
-				file.PluginData = (DWORD)extData;		//extData holds the information about the service
+				file.PluginData = reinterpret_cast<DWORD_PTR>(extData);		//extData holds the information about the service
 
 				// ADD the Item
 				dir->AddFile(NULL, file, pluginData);
@@ -176,7 +176,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 
 BOOL CALLBACK ConnectDlgProc(HWND HWindow, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  CALL_STACK_MESSAGE4("ConnectDlgProc(, 0x%X, 0x%X, 0x%X)", uMsg, wParam, lParam);
+  CALL_STACK_MESSAGE4("ConnectDlgProc(, 0x%X, %p, %p)", uMsg, wParam, lParam);
   switch (uMsg)
   {
     case WM_INITDIALOG:
@@ -532,7 +532,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_START;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = START_State;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
@@ -544,7 +544,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_STOP;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = STOP_State; //MFS_DISABLED;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
@@ -556,7 +556,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_PAUSE;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = PAUSE_State;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
@@ -568,7 +568,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_RESUME;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = RESUME_State;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
@@ -580,7 +580,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_RESTART;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = RESTART_State;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
@@ -599,7 +599,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_DELETE;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = MFS_ENABLED;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 				
@@ -618,7 +618,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_PROPERTIES;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = MFS_ENABLED|MFS_DEFAULT; // |MFS_HILITE;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 
@@ -637,7 +637,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 				mi.fType = MFT_STRING;
 				mi.wID = MENUCMD_SCM;
 				mi.dwTypeData = nameBuf;
-				mi.cch = strlen(nameBuf);
+				mi.cch = static_cast<UINT>(strlen(nameBuf));
 				mi.fState = MFS_ENABLED;
 				InsertMenuItem(menu, i++, TRUE, &mi);
 

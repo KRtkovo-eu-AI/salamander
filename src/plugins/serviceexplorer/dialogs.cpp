@@ -40,7 +40,7 @@ void CConfigPageFirst::Validate(CTransferInfo &ti)
 	if (ti.GetControl(hWnd, IDC_STATIC_CFG_STARTUPTYPE))
 	{
 		int SelectedComboItem_CFG_PAGE1_old = SelectedComboItem_CFG_PAGE1;
-		SelectedComboItem_CFG_PAGE1 = SendMessage(hWnd, CB_GETCURSEL, 0, 0);
+		SelectedComboItem_CFG_PAGE1 = static_cast<int>(SendMessage(hWnd, CB_GETCURSEL, 0, 0));
 
 		if (SelectedComboItem_CFG_PAGE1_old!=SelectedComboItem_CFG_PAGE1)
 		{
@@ -116,7 +116,7 @@ void CConfigPageFirst::EnableButtonStates(CTransferInfo &ti)
 		case SERVICE_PAUSED:              strcpy(Status, LoadStr(IDS_SERVICE_STATUS_PAUSED)); break;
 		default:strcpy(Status, LoadStr(IDS_SERVICE_STATUS_STOPPED2));		break;
 	}
-	ti.EditLine(IDC_STATIC_CFG_STATUS, Status, strlen(Status));
+	ti.EditLine(IDC_STATIC_CFG_STATUS, Status, static_cast<int>(strlen(Status)));
 }
 
 void CConfigPageFirst::EnableButtonStates()
@@ -131,10 +131,10 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
 
 	EnableButtonStates(ti);
 	//tiG = ti;
-	ti.EditLine(IDC_STATIC_CFG_SERVICENAME, FSIGdata->ServiceName, strlen(FSIGdata->ServiceName));
-	ti.EditLine(IDC_STATIC_CFG_SERVICENAMET, FSIGdata->ServiceName, strlen(FSIGdata->ServiceName));
-	ti.EditLine(IDC_STATIC_CFG_DISPLAYNAME, FSIGdata->DisplayName, strlen(FSIGdata->DisplayName));
-	ti.EditLine(IDC_STATIC_CFG_EXECUTEABLEPATH, FSIGdata->ExecuteablePath, strlen(FSIGdata->ExecuteablePath));
+	ti.EditLine(IDC_STATIC_CFG_SERVICENAME, FSIGdata->ServiceName, static_cast<int>(strlen(FSIGdata->ServiceName)));
+	ti.EditLine(IDC_STATIC_CFG_SERVICENAMET, FSIGdata->ServiceName, static_cast<int>(strlen(FSIGdata->ServiceName)));
+	ti.EditLine(IDC_STATIC_CFG_DISPLAYNAME, FSIGdata->DisplayName, static_cast<int>(strlen(FSIGdata->DisplayName)));
+	ti.EditLine(IDC_STATIC_CFG_EXECUTEABLEPATH, FSIGdata->ExecuteablePath, static_cast<int>(strlen(FSIGdata->ExecuteablePath)));
 
 	char description[1000];
 	char dependencies[1000];
@@ -146,7 +146,7 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
 	DoQuerySvc(FSIGdata->ServiceName, description,dependencies) ;
 
 	if (strlen(description)>0)
-		ti.EditLine(IDC_STATIC_CFG_DESCRIPTION, description, strlen(description));
+		ti.EditLine(IDC_STATIC_CFG_DESCRIPTION, description, static_cast<int>(strlen(description)));
 	
 
 	char Status[100];
@@ -161,7 +161,7 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
 		case SERVICE_PAUSED:              strcpy(Status, LoadStr(IDS_SERVICE_STATUS_PAUSED)); break;
 		default:strcpy(Status, LoadStr(IDS_SERVICE_STATUS_STOPPED2));		break;
 	}
-	ti.EditLine(IDC_STATIC_CFG_STATUS, Status, strlen(Status));
+	ti.EditLine(IDC_STATIC_CFG_STATUS, Status, static_cast<int>(strlen(Status)));
 	HWND hWnd;
 	switch (FSIGdata->StartupType)
 	{
@@ -190,7 +190,7 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
     }
     else   // ttDataFromWindow; Transfer() volany pri stisku OK (okno -> data)
     {
-      SelectedComboItem_CFG_PAGE1 = SendMessage(hWnd, CB_GETCURSEL, 0, 0);
+      SelectedComboItem_CFG_PAGE1 = static_cast<int>(SendMessage(hWnd, CB_GETCURSEL, 0, 0));
     }
   }
 }

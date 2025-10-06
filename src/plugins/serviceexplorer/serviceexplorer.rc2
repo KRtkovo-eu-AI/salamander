@@ -13,6 +13,3 @@
 #define SERVICEEXPLORER_LANG_FALLBACK
 #include "lang/lang.rc2"
 #undef SERVICEEXPLORER_LANG_FALLBACK
-
-IDB_SVC BITMAP "res\\svc.bmp"
-IDI_DIR ICON "res\\dir.ico"

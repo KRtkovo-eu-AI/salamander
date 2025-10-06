@@ -33,12 +33,28 @@ BOOL InitFS()
   ImageList_SetImageCount(DFSImageList, 2); // Initialization
   ImageList_SetBkColor(DFSImageList, SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL));
 
-// Icons are different on various Windows, it is best to get it dynamically (eg icon directory
-// From the system directory), there simply use one version of the icon (for example, sits on W2K)
-  ImageList_ReplaceIcon(DFSImageList, 0, HANDLES(LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_DIR))));
-  //ImageList_ReplaceIcon(DFSImageList, 1, HANDLES(LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_FILE))));
+// Icons are different on various Windows, query a small folder icon dynamically.
+  HICON dirIcon = NULL;
+  if (SalamanderGeneral->GetFileIcon("C:\\", FALSE, &dirIcon, SALICONSIZE_16, TRUE, TRUE) && dirIcon != NULL)
+  {
+    ImageList_ReplaceIcon(DFSImageList, 0, dirIcon);
+    HANDLES(DestroyIcon(dirIcon));
+  }
+  else
+  {
+    HICON shared = HANDLES(LoadIcon(NULL, IDI_APPLICATION));
+    if (shared != NULL)
+    {
+      HICON copy = HANDLES(CopyIcon(shared));
+      if (copy != NULL)
+      {
+        ImageList_ReplaceIcon(DFSImageList, 0, copy);
+        HANDLES(DestroyIcon(copy));
+      }
+    }
+  }
 
-	return TRUE;
+        return TRUE;
 }
 
 void ReleaseFS()

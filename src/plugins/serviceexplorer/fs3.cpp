@@ -1,5 +1,6 @@
 #include "precomp.h"
 #include "dbg.h"
+#include <limits.h>
 
 
 //Customize the Columns
@@ -18,33 +19,39 @@ DWORD            *TransferActCustomData = NULL;
 // -----------------------------------------------------------------------------------------------------------
 void WINAPI GetTypeText()
 {
-	FSdata = (CFSData *)((*TransferFileData)->PluginData);
-	memcpy(TransferBuffer, FSdata->Description, (*TransferLen = strlen(FSdata->Description)));
+        FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        const char *description = FSdata->Description != NULL ? FSdata->Description : "";
+        const size_t len = strlen(description);
+        *TransferLen = static_cast<int>(len > static_cast<size_t>(INT_MAX) ? INT_MAX : len);
+        memcpy(TransferBuffer, description, static_cast<size_t>(*TransferLen));
 }
 void WINAPI GetStartupTypeText()
 {
-	FSdata = (CFSData *)((*TransferFileData)->PluginData);
-	char StartupTyp[200];
-	switch ( FSdata->StartupType)
+        FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        char StartupTyp[200];
+        switch ( FSdata->StartupType)
   {
     case SERVICE_BOOT_START:        strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_BOOT)); break;
     case SERVICE_SYSTEM_START:      strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_SYSTEM)); break;
     case SERVICE_AUTO_START:        strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_AUTO)); break;
-    case SERVICE_DEMAND_START:			strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_ONDEMAND)); break;
-    case SERVICE_DISABLED:					strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_DISABLED)); break;
-	default:
-		strcpy(StartupTyp, "\0");
-		break;
+    case SERVICE_DEMAND_START:                  strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_ONDEMAND)); break;
+    case SERVICE_DISABLED:                                      strcpy(StartupTyp, LoadStr(IDS_SERVICE_START_DISABLED)); break;
+        default:
+                StartupTyp[0] = 0;
+                StartupTyp[1] = 0;
+                break;
   }
-  memcpy(TransferBuffer, StartupTyp, (*TransferLen = strlen(StartupTyp)));
+  const size_t len = strlen(StartupTyp);
+  *TransferLen = static_cast<int>(len > static_cast<size_t>(INT_MAX) ? INT_MAX : len);
+  memcpy(TransferBuffer, StartupTyp, static_cast<size_t>(*TransferLen));
 }
 
 void WINAPI GetStatusTypeText()
 {
-	FSdata = (CFSData *)((*TransferFileData)->PluginData);
-	char Status[200]="\0";
+        FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        char Status[200]="";
 
-	switch ( FSdata->Status)
+        switch ( FSdata->Status)
   {
     case SERVICE_STOPPED:             strcpy(Status, LoadStr(IDS_SERVICE_STATUS_STOPPED)); break;
     case SERVICE_START_PENDING:       strcpy(Status, LoadStr(IDS_SERVICE_STATUS_STARTING)); break;
@@ -54,14 +61,23 @@ void WINAPI GetStatusTypeText()
     case SERVICE_PAUSE_PENDING:       strcpy(Status, LoadStr(IDS_SEVICE_STATUS_PAUSE_PENDING)); break;
     case SERVICE_PAUSED:              strcpy(Status, LoadStr(IDS_SERVICE_STATUS_PAUSED)); break;
   }
- 	int i = strlen(Status);
-	memcpy(TransferBuffer, Status, (*TransferLen = strlen(Status)));
+        const size_t len = strlen(Status);
+        *TransferLen = static_cast<int>(len > static_cast<size_t>(INT_MAX) ? INT_MAX : len);
+        memcpy(TransferBuffer, Status, static_cast<size_t>(*TransferLen));
 }
 void WINAPI GetLogonAsText()
 {
-	FSdata = (CFSData *)((*TransferFileData)->PluginData);
-	if (FSdata->LogOnAs !=NULL)
-		memcpy(TransferBuffer, FSdata->LogOnAs, (*TransferLen = strlen(FSdata->LogOnAs)));
+        FSdata = (CFSData *)((*TransferFileData)->PluginData);
+        if (FSdata->LogOnAs !=NULL)
+        {
+                const size_t len = strlen(FSdata->LogOnAs);
+                *TransferLen = static_cast<int>(len > static_cast<size_t>(INT_MAX) ? INT_MAX : len);
+                memcpy(TransferBuffer, FSdata->LogOnAs, static_cast<size_t>(*TransferLen));
+        }
+        else
+        {
+                *TransferLen = 0;
+        }
 }
 int WINAPI PluginSimpleIconCallback()
 {
@@ -170,7 +186,12 @@ CPluginFSDataInterface::GetPluginIcon(const CFileData *file, int iconSize, BOOL 
 	////ImageList_GetIcon(DFSImageList,1,ILD_TRANSPARENT);
 	//return ImageList_GetIcon(DFSImageList,0,ILC_MASK | SalamanderGeneral->GetImageListColorFlags());
 
-  lstrcpyn(Name, file->Name, MAX_PATH - (Name - Path));
+  const ptrdiff_t offset = Name - Path;
+  const ptrdiff_t remaining = MAX_PATH - offset;
+  int copyLen = remaining > 0 ? static_cast<int>(remaining) : MAX_PATH;
+  if (copyLen <= 0)
+    copyLen = MAX_PATH;
+  lstrcpyn(Name, file->Name, copyLen);
   BOOL isDir = (file->Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
 
   SHFILEINFO shi = {};

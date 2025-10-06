@@ -491,9 +491,7 @@ DWORD DoDeleteSvc(char *szSvcName)
     SC_HANDLE schSCManager;
     SC_HANDLE schService;
 		DWORD returnvalue=0;
-    SERVICE_STATUS ssStatus; 
-
-    // Get a handle to the SCM database. 
+    // Get a handle to the SCM database.
  
     schSCManager = OpenSCManager( 
         NULL,                    // local computer
