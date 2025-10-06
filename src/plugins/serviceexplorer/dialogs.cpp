@@ -4,9 +4,22 @@
 #include <cstring>
 
 CFSData *FSIGdata=NULL;
-CTransferInfo tiG(NULL,ttDataToWindow);
 int SelectedComboItem_CFG_PAGE1 = 0;
 DWORD LastCfgPage = 0;   // start page (sheet) in configuration dialog
+
+namespace
+{
+CTransferInfo &SharedTransferInfo()
+{
+    static CTransferInfo transferInfo(NULL, ttDataToWindow);
+    return transferInfo;
+}
+}
+
+void EnsureTransferInfoStorage()
+{
+    (void)SharedTransferInfo();
+}
 
 CCommonDialog::CCommonDialog(HINSTANCE hInstance, int resID, HWND hParent, CObjectOrigin origin)
 : CDialog(hInstance, resID, hParent, origin)
@@ -146,11 +159,11 @@ void CConfigPageFirst::EnableButtonStates()
 }
 void CConfigPageFirst::Transfer(CTransferInfo &ti)
 {
-	//SetWindowText ( HWindow, "New text here" );
-	tiG = ti;
+        //SetWindowText ( HWindow, "New text here" );
+        SharedTransferInfo() = ti;
 
-	EnableButtonStates(ti);
-	//tiG = ti;
+        EnableButtonStates(ti);
+        //SharedTransferInfo() = ti;
         const char *serviceName = FSIGdata->ServiceName != NULL ? FSIGdata->ServiceName : "";
         const char *displayNamePtr = FSIGdata->DisplayName != NULL ? FSIGdata->DisplayName : "";
         const char *executablePath = FSIGdata->ExecuteablePath != NULL ? FSIGdata->ExecuteablePath : "";
@@ -231,19 +244,19 @@ INT_PTR CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
                                 case IDC_BUTTON_SERVICE_START:
                                         if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStart))
-                                                EnableButtonStates(tiG);
+                                                EnableButtonStates(SharedTransferInfo());
                                         break;
                                 case IDC_BUTTON_SERVICE_STOP:
                                         if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStop))
-                                                EnableButtonStates(tiG);
+                                                EnableButtonStates(SharedTransferInfo());
                                         break;
                                 case IDC_BUTTON_SERVICE_PAUSE:
                                         if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionPause))
-                                                EnableButtonStates(tiG);
+                                                EnableButtonStates(SharedTransferInfo());
                                         break;
                                 case IDC_BUTTON_SERVICE_RESUME:
                                         if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionResume))
-                                                EnableButtonStates(tiG);
+                                                EnableButtonStates(SharedTransferInfo());
                                         break;
                                 case IDC_BUTTON_SERVICE_DELETE:
                                         if(SalamanderGeneral->SalMessageBox(HWindow, "Do you really want to delete the current service?", VERSINFO_PLUGINNAME, MB_YESNOCANCEL | MB_ICONQUESTION)==IDYES)
@@ -251,7 +264,7 @@ INT_PTR CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                 SetCursor(LoadCursor(NULL,IDC_WAIT));
                                                 ShowCursor(TRUE);
                                                 DWORD returnstate=DoDeleteSvc(FSIGdata->ServiceName);
-                                                EnableButtonStates(tiG);
+                                                EnableButtonStates(SharedTransferInfo());
                                                 ShowCursor(FALSE);
                                                 SetCursor(LoadCursor(NULL,IDC_ARROW));
                                                 if (returnstate>0)

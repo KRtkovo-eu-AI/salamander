@@ -51,4 +51,5 @@ public:
 
 struct RegisterServiceConfig;
 bool ShowRegisterServiceDialog(HWND parent, RegisterServiceConfig &config);
+void EnsureTransferInfoStorage();
 #endif //__DIALOGS_H

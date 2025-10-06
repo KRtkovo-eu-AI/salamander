@@ -177,11 +177,12 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract *s
         salamander->SetPluginMenuAndToolbarIcon(0);
 
 
-	  if (!InitializeWinLib(VERSINFO_PLUGINNAME, DLLInstance)) 
-		{
-			//return FALSE;
-		}
-  SetWinLibStrings("Invalid number!", VERSINFO_PLUGINNAME);
+        if (!InitializeWinLib(VERSINFO_PLUGINNAME, DLLInstance))
+        {
+                //return FALSE;
+        }
+        SetWinLibStrings("Invalid number!", VERSINFO_PLUGINNAME);
+        EnsureTransferInfoStorage();
   //SetupWinLibHelp(HTMLHelpCallback);
   //return TRUE;
 
