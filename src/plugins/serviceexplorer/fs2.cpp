@@ -176,7 +176,10 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 
 BOOL CALLBACK ConnectDlgProc(HWND HWindow, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  CALL_STACK_MESSAGE4("ConnectDlgProc(, 0x%X, %p, %p)", uMsg, wParam, lParam);
+  CALL_STACK_MESSAGE4("ConnectDlgProc(, 0x%X, %p, %p)",
+                      uMsg,
+                      reinterpret_cast<void*>(static_cast<UINT_PTR>(wParam)),
+                      reinterpret_cast<void*>(static_cast<UINT_PTR>(lParam)));
   switch (uMsg)
   {
     case WM_INITDIALOG:

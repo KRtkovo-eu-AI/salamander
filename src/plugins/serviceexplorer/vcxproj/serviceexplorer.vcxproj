@@ -132,6 +132,12 @@
     <None Include="..\lang\lang.rc2" />
     <None Include="..\lang\lang.rh" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="lang_serviceexplorer.vcxproj">
+      <Project>{D3017193-6B9A-4FEE-9CEC-D15D281C1D6E}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
