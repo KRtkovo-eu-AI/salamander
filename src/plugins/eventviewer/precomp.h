@@ -19,10 +19,13 @@
 #include <commctrl.h>
 #include <strsafe.h>
 #include <winevt.h>
+#include <commdlg.h>
 #include <vector>
 #include <string>
 #include <map>
 #include <memory>
+#include <ostream>
+#include <streambuf>
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
