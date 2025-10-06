@@ -16,6 +16,7 @@
 #include <objbase.h>
 #include <shlwapi.h>
 #include <strsafe.h>
+#include <wincodecsdk.h>
 
 #include "../Thumbnailer.h"
 
@@ -159,8 +160,19 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
         return hr;
     }
 
+    Microsoft::WRL::ComPtr<IWICComponentFactory> componentFactory;
+    hr = factory->QueryInterface(IID_PPV_ARGS(&componentFactory));
+    if (FAILED(hr))
+    {
+        if (hr == E_NOINTERFACE)
+        {
+            return WINCODEC_ERR_UNSUPPORTEDOPERATION;
+        }
+        return hr;
+    }
+
     Microsoft::WRL::ComPtr<IWICColorTransform> transform;
-    hr = CoCreateInstance(CLSID_WICColorTransform, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&transform));
+    hr = componentFactory->CreateColorTransform(&transform);
     if (FAILED(hr))
     {
         return hr;
