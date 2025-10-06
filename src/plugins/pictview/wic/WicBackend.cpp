@@ -38,6 +38,8 @@ constexpr UINT kMaxGdiDimension = static_cast<UINT>(std::numeric_limits<int>::ma
 
 HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
 HRESULT FinalizeDecodedFrame(FrameData& frame);
+PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
+                         DWORD previousImageIndex, int currentImage);
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -1157,20 +1159,19 @@ std::wstring Utf8ToWide(const char* path)
     return wide;
 }
 
-PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, int currentImage)
+PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
+                         DWORD previousImageIndex, int currentImage)
 {
     if (!info)
     {
         return PVC_INVALID_HANDLE;
     }
-    if (info->cbSize < sizeof(PVImageInfo))
+    if (bufferSize < sizeof(PVImageInfo))
     {
         return PVC_INVALID_HANDLE;
     }
 
-    const DWORD originalSize = info->cbSize;
-    const DWORD previousImageIndex = info->CurrentImage;
-    const DWORD bytesToClear = std::min<DWORD>(originalSize, static_cast<DWORD>(sizeof(PVImageInfo)));
+    const DWORD bytesToClear = std::min<DWORD>(bufferSize, static_cast<DWORD>(sizeof(PVImageInfo)));
     ZeroMemory(info, bytesToClear);
     info->cbSize = sizeof(PVImageInfo);
     info->FileSize = handle.baseInfo.FileSize;
@@ -1195,13 +1196,9 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, int currentIma
     }
 
     size_t fallbackIndex = 0;
-    if (previousImageIndex < info->NumOfImages && info->NumOfImages > 0)
+    if (!handle.frames.empty() && hasPreviousImage)
     {
-        fallbackIndex = static_cast<size_t>(previousImageIndex);
-    }
-    else if (info->NumOfImages > 0)
-    {
-        fallbackIndex = info->NumOfImages - 1;
+        fallbackIndex = std::min(static_cast<size_t>(previousImageIndex), handle.frames.size() - 1);
     }
 
     const size_t normalized = NormalizeFrameIndex(handle, currentImage, fallbackIndex);
@@ -1800,7 +1797,8 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 
     if (pImgInfo)
     {
-        PopulateImageInfo(*image, pImgInfo, 0);
+        const DWORD bufferSize = size > 0 ? static_cast<DWORD>(size) : 0;
+        PopulateImageInfo(*image, pImgInfo, bufferSize, false, 0, 0);
     }
 
     *Img = reinterpret_cast<LPPVHandle>(image.release());
@@ -1931,7 +1929,7 @@ PVCODE WINAPI Backend::sPVLoadFromClipboard(LPPVHandle* /*Img*/, LPPVImageInfo /
     return PVC_UNSUP_FILE_TYPE;
 }
 
-PVCODE WINAPI Backend::sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, int /*size*/, int imageIndex)
+PVCODE WINAPI Backend::sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, int size, int imageIndex)
 {
     auto handle = FromHandle(Img);
     if (!handle || !pImgInfo)
@@ -1943,7 +1941,14 @@ PVCODE WINAPI Backend::sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, i
     {
         return PVC_EXCEPTION;
     }
-    const DWORD previousIndex = pImgInfo ? pImgInfo->CurrentImage : 0;
+    const DWORD bufferSize = size > 0 ? static_cast<DWORD>(size) : 0;
+    DWORD previousIndex = 0;
+    bool hasPreviousIndex = false;
+    if (bufferSize >= sizeof(PVImageInfo) && pImgInfo->cbSize == sizeof(PVImageInfo))
+    {
+        previousIndex = pImgInfo->CurrentImage;
+        hasPreviousIndex = true;
+    }
     size_t fallbackIndex = 0;
     if (!handle->frames.empty())
     {
@@ -1960,7 +1965,7 @@ PVCODE WINAPI Backend::sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, i
     {
         return HResultToPvCode(hr);
     }
-    return PopulateImageInfo(*handle, pImgInfo, imageIndex);
+    return PopulateImageInfo(*handle, pImgInfo, bufferSize, hasPreviousIndex, previousIndex, imageIndex);
 }
 
 PVCODE WINAPI Backend::sPVSetParam(LPPVHandle /*Img*/)
