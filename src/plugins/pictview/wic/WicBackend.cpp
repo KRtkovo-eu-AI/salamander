@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "../precomp.h"
+#include "precomp.h"
 #include "WicBackend.h"
 
 #include <algorithm>
@@ -125,7 +125,7 @@ HRESULT EnsureConverter(ImageHandle& handle, size_t index)
     {
         return hr;
     }
-    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
                                WICBitmapPaletteTypeCustom);
     if (FAILED(hr))
     {
@@ -449,10 +449,15 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     {
         return HResultToPvCode(hr);
     }
-    hr = frameEncode->SetPixelFormat(const_cast<GUID*>(&mapping.pixelFormat));
+    GUID pixelFormat = mapping.pixelFormat;
+    hr = frameEncode->SetPixelFormat(&pixelFormat);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
+    }
+    if (pixelFormat != mapping.pixelFormat)
+    {
+        return PVC_UNSUP_FILE_TYPE;
     }
 
     if (mapping.pixelFormat == GUID_WICPixelFormat24bppBGR)
@@ -471,6 +476,62 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
         hr = frameEncode->WritePixels(frame.height, stride, static_cast<UINT>(rgb.size()), rgb.data());
+    }
+    else if (mapping.pixelFormat == GUID_WICPixelFormat8bppIndexed)
+    {
+        Microsoft::WRL::ComPtr<IWICBitmap> bitmap;
+        hr = handle.backend->Factory()->CreateBitmapFromMemory(frame.width, frame.height,
+                                                               GUID_WICPixelFormat32bppBGRA, frame.stride,
+                                                               static_cast<UINT>(frame.pixels.size()),
+                                                               frame.pixels.data(), &bitmap);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        Microsoft::WRL::ComPtr<IWICPalette> palette;
+        hr = handle.backend->Factory()->CreatePalette(&palette);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        hr = palette->InitializeFromBitmap(bitmap.Get(), 256, FALSE);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        hr = frameEncode->SetPalette(palette.Get());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        Microsoft::WRL::ComPtr<IWICFormatConverter> gifConverter;
+        hr = handle.backend->Factory()->CreateFormatConverter(&gifConverter);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        hr = gifConverter->Initialize(bitmap.Get(), GUID_WICPixelFormat8bppIndexed, WICBitmapDitherTypeErrorDiffusion,
+                                      palette.Get(), 0.0, WICBitmapPaletteTypeCustom);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        const UINT stride = frame.width;
+        std::vector<BYTE> indexed(static_cast<size_t>(stride) * frame.height);
+        WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
+        hr = gifConverter->CopyPixels(&rect, stride, static_cast<UINT>(indexed.size()), indexed.data());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        hr = frameEncode->WritePixels(frame.height, stride, static_cast<UINT>(indexed.size()), indexed.data());
     }
     else
     {
@@ -509,16 +570,17 @@ DWORD MapPixelFormatToColors(const GUID& guid)
 
 ScopedCoInit::ScopedCoInit()
     : m_hr(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))
+    , m_needUninit(false)
 {
-    if (m_hr == RPC_E_CHANGED_MODE)
+    if (m_hr == S_OK || m_hr == S_FALSE)
     {
-        m_hr = S_FALSE;
+        m_needUninit = true;
     }
 }
 
 ScopedCoInit::~ScopedCoInit()
 {
-    if (m_hr == S_OK || m_hr == S_FALSE)
+    if (m_needUninit)
     {
         CoUninitialize();
     }

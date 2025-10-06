@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <objbase.h>
 #include <wincodec.h>
 #include <wrl/client.h>
 
@@ -35,10 +36,14 @@ public:
     ScopedCoInit& operator=(const ScopedCoInit&) = delete;
     ~ScopedCoInit();
 
-    bool Succeeded() const { return SUCCEEDED(m_hr); }
+    bool Succeeded() const
+    {
+        return m_hr == S_OK || m_hr == S_FALSE || m_hr == RPC_E_CHANGED_MODE;
+    }
 
 private:
     HRESULT m_hr;
+    bool m_needUninit;
 };
 
 class Backend
