@@ -786,7 +786,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
                                                         refreshPanel = true;
                                                 break;
                                         case MENUCMD_DELETE:
-                                                if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0)
+                                                if (!showDelete)
                                                         break;
                                                 _snprintf(buf, 100, LoadStr(IDS_SERVICE_DELETE_CONFIRMATION),
                                                           FSIdata->DisplayName);

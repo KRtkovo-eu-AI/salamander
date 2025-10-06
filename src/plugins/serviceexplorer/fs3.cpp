@@ -18,9 +18,9 @@ static DWORD g_LastSortCustomData = 0;
 
 namespace
 {
-constexpr DWORD kColumnOffsetStatus = static_cast<DWORD>(offsetof(CFSData, Status));
-constexpr DWORD kColumnOffsetStartupType = static_cast<DWORD>(offsetof(CFSData, StartupType));
-constexpr DWORD kColumnOffsetLogOnAs = static_cast<DWORD>(offsetof(CFSData, LogOnAs));
+constexpr DWORD kColumnIdStatus = 1;
+constexpr DWORD kColumnIdStartupType = 2;
+constexpr DWORD kColumnIdLogOnAs = 3;
 }
 // -----------------------------------------------------------------------------------------------------------
 // Callback Functions
@@ -131,7 +131,7 @@ void AddStartupTypeColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
   //strcpy(column.Name, "Startup Type");
 	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_STARTUPTYPE));
   column.GetText = GetStartupTypeText;
-  column.CustomData = kColumnOffsetStartupType;
+  column.CustomData = kColumnIdStartupType;
 	column.LeftAlignment = 1;
         column.SupportSorting = 1;
   column.ID = COLUMN_ID_CUSTOM;
@@ -149,7 +149,7 @@ void AddStatusColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
   //strcpy(column.Name, "Status");
 	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_STATUS));
   column.GetText = GetStatusTypeText;
-  column.CustomData = kColumnOffsetStatus;
+  column.CustomData = kColumnIdStatus;
 	column.LeftAlignment = 1;
         column.SupportSorting = 1;
   column.ID = COLUMN_ID_CUSTOM;
@@ -167,7 +167,7 @@ void AddLogOnAsColumn(BOOL leftPanel, CSalamanderViewAbstract *view, int &i)
   //strcpy(column.Name, "Log On As");
 	strcpy(column.Name, LoadStr(IDS_COLUMN_CAPTION_LOGONAS));
   column.GetText = GetLogonAsText;
-  column.CustomData = kColumnOffsetLogOnAs;
+  column.CustomData = kColumnIdLogOnAs;
 	column.LeftAlignment = 1;
         column.SupportSorting = 1;
   column.ID = COLUMN_ID_CUSTOM;
@@ -239,7 +239,7 @@ int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, co
   int result = 0;
   switch (custom)
   {
-  case kColumnOffsetStartupType: // Startup Type
+  case kColumnIdStartupType: // Startup Type
     if (data1 != NULL && data2 != NULL)
     {
       if (data1->StartupType < data2->StartupType)
@@ -248,7 +248,7 @@ int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, co
         result = 1;
     }
     break;
-  case kColumnOffsetStatus: // Status
+  case kColumnIdStatus: // Status
     if (data1 != NULL && data2 != NULL)
     {
       if (data1->Status < data2->Status)
@@ -257,7 +257,7 @@ int WINAPI CPluginFSDataInterface::CompareFilesFromFS(const CFileData *file1, co
         result = 1;
     }
     break;
-  case kColumnOffsetLogOnAs: // Log on As
+  case kColumnIdLogOnAs: // Log on As
     if (SalamanderGeneral != NULL)
     {
       const char *left = (data1 != NULL && data1->LogOnAs != NULL) ? data1->LogOnAs : "";
