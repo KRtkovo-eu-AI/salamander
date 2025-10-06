@@ -1,6 +1,6 @@
 #include "precomp.h"
 
-#include <limits>
+#include <climits>
 
 namespace
 {
@@ -317,9 +317,7 @@ BOOL WINAPI CPluginFSInterface::GetChangeDriveOrDisconnectItem(const char *fsNam
       text[currentLength] = '\0';
     }
     size_t remaining = _countof(text) - currentLength;
-    int copyLimit = remaining > static_cast<size_t>(std::numeric_limits<int>::max())
-                        ? std::numeric_limits<int>::max()
-                        : static_cast<int>(remaining);
+    int copyLimit = remaining > static_cast<size_t>(INT_MAX) ? INT_MAX : static_cast<int>(remaining);
     lstrcpynA(text + currentLength, Path, copyLimit);
   }
 
