@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <limits>
 
 #include <objbase.h>
 #include <shlwapi.h>
@@ -30,6 +31,8 @@ namespace PictView::Wic
 namespace
 {
 constexpr DWORD kBackendVersion = PV_VERSION_156;
+constexpr UINT kBytesPerPixel = 4;
+constexpr UINT kMaxGdiDimension = static_cast<UINT>(std::numeric_limits<int>::max());
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -53,6 +56,73 @@ const char* LookupError(DWORD code)
     }
     static std::string fallback = "Unknown WIC error.";
     return fallback.c_str();
+}
+
+ULONGLONG AbsoluteDimension(LONGLONG value)
+{
+    if (value >= 0)
+    {
+        return static_cast<ULONGLONG>(value);
+    }
+    return static_cast<ULONGLONG>(-(value + 1)) + 1;
+}
+
+HRESULT AllocateBuffer(std::vector<BYTE>& buffer, size_t size)
+{
+    try
+    {
+        buffer.resize(size);
+    }
+    catch (const std::bad_alloc&)
+    {
+        buffer.clear();
+        return E_OUTOFMEMORY;
+    }
+    return S_OK;
+}
+
+HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height)
+{
+    if (width == 0 || height == 0)
+    {
+        return WINCODEC_ERR_INVALIDPARAMETER;
+    }
+    if (width > kMaxGdiDimension || height > kMaxGdiDimension)
+    {
+        return WINCODEC_ERR_INVALIDPARAMETER;
+    }
+
+    const ULONGLONG stride64 = static_cast<ULONGLONG>(width) * kBytesPerPixel;
+    if (stride64 > std::numeric_limits<UINT>::max())
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    const ULONGLONG buffer64 = stride64 * static_cast<ULONGLONG>(height);
+    if (height != 0 && buffer64 / height != stride64)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (buffer64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (buffer64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    frame.width = width;
+    frame.height = height;
+    frame.stride = static_cast<UINT>(stride64);
+
+    HRESULT hr = AllocateBuffer(frame.pixels, static_cast<size_t>(buffer64));
+    if (FAILED(hr))
+    {
+        frame.stride = 0;
+        return hr;
+    }
+    return S_OK;
 }
 
 struct GuidMapping
@@ -195,21 +265,27 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
         return E_POINTER;
     }
 
-    HRESULT hr = source->GetSize(&frame.width, &frame.height);
+    UINT width = 0;
+    UINT height = 0;
+    HRESULT hr = source->GetSize(&width, &height);
     if (FAILED(hr))
     {
         return hr;
     }
 
-    frame.stride = frame.width * 4;
-    const size_t bufferSize = static_cast<size_t>(frame.stride) * static_cast<size_t>(frame.height);
-    frame.pixels.resize(bufferSize);
+    hr = AllocatePixelStorage(frame, width, height);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
 
-    WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
-    hr = source->CopyPixels(&rect, frame.stride, static_cast<UINT>(frame.pixels.size()), frame.pixels.data());
+    WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
+    const UINT bufferSize = static_cast<UINT>(frame.pixels.size());
+    hr = source->CopyPixels(&rect, frame.stride, bufferSize, frame.pixels.data());
     if (FAILED(hr))
     {
         frame.pixels.clear();
+        frame.stride = 0;
         return hr;
     }
 
@@ -218,7 +294,21 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
 
 HRESULT FinalizeDecodedFrame(FrameData& frame)
 {
-    frame.linePointers.resize(frame.height);
+    const size_t lineCount = static_cast<size_t>(frame.height);
+    if (lineCount > frame.linePointers.max_size())
+    {
+        return E_OUTOFMEMORY;
+    }
+    try
+    {
+        frame.linePointers.resize(lineCount);
+    }
+    catch (const std::bad_alloc&)
+    {
+        frame.linePointers.clear();
+        return E_OUTOFMEMORY;
+    }
+
     for (UINT y = 0; y < frame.height; ++y)
     {
         frame.linePointers[y] = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
@@ -231,7 +321,9 @@ HRESULT FinalizeDecodedFrame(FrameData& frame)
     frame.bmi.biPlanes = 1;
     frame.bmi.biBitCount = 32;
     frame.bmi.biCompression = BI_RGB;
-    frame.bmi.biSizeImage = static_cast<DWORD>(frame.pixels.size());
+    const size_t pixelBytes = frame.pixels.size();
+    frame.bmi.biSizeImage = pixelBytes > std::numeric_limits<DWORD>::max() ? 0
+                                                                         : static_cast<DWORD>(pixelBytes);
     frame.bmi.biXPelsPerMeter = 0;
     frame.bmi.biYPelsPerMeter = 0;
 
@@ -249,7 +341,7 @@ HRESULT FinalizeDecodedFrame(FrameData& frame)
     {
         return E_OUTOFMEMORY;
     }
-    if (bits)
+    if (bits && !frame.pixels.empty())
     {
         memcpy(bits, frame.pixels.data(), frame.pixels.size());
     }
@@ -282,23 +374,50 @@ HRESULT DecodeUnsupportedPixelFormat(FrameData& frame)
 
     if (pixelFormat == GUID_WICPixelFormat32bppCMYK)
     {
-        hr = frame.frame->GetSize(&frame.width, &frame.height);
+        UINT width = 0;
+        UINT height = 0;
+        hr = frame.frame->GetSize(&width, &height);
         if (FAILED(hr))
         {
             return hr;
         }
 
-        const UINT sourceStride = frame.width * 4;
-        std::vector<BYTE> cmyk(static_cast<size_t>(sourceStride) * frame.height);
-        WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
+        const ULONGLONG sourceStride64 = static_cast<ULONGLONG>(width) * 4ull;
+        if (sourceStride64 > std::numeric_limits<UINT>::max())
+        {
+            return E_OUTOFMEMORY;
+        }
+        const UINT sourceStride = static_cast<UINT>(sourceStride64);
+        const ULONGLONG sourceSize64 = sourceStride64 * static_cast<ULONGLONG>(height);
+        if (height != 0 && sourceSize64 / height != sourceStride64)
+        {
+            return E_OUTOFMEMORY;
+        }
+        if (sourceSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()) ||
+            sourceSize64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+        {
+            return E_OUTOFMEMORY;
+        }
+
+        std::vector<BYTE> cmyk;
+        hr = AllocateBuffer(cmyk, static_cast<size_t>(sourceSize64));
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
         hr = frame.frame->CopyPixels(&rect, sourceStride, static_cast<UINT>(cmyk.size()), cmyk.data());
         if (FAILED(hr))
         {
             return hr;
         }
 
-        frame.stride = frame.width * 4;
-        frame.pixels.resize(static_cast<size_t>(frame.stride) * frame.height);
+        hr = AllocatePixelStorage(frame, width, height);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
 
         for (UINT y = 0; y < frame.height; ++y)
         {
@@ -321,23 +440,50 @@ HRESULT DecodeUnsupportedPixelFormat(FrameData& frame)
 
     if (pixelFormat == GUID_WICPixelFormat64bppCMYK)
     {
-        hr = frame.frame->GetSize(&frame.width, &frame.height);
+        UINT width = 0;
+        UINT height = 0;
+        hr = frame.frame->GetSize(&width, &height);
         if (FAILED(hr))
         {
             return hr;
         }
 
-        const UINT sourceStride = frame.width * 8;
-        std::vector<BYTE> cmyk(static_cast<size_t>(sourceStride) * frame.height);
-        WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
+        const ULONGLONG sourceStride64 = static_cast<ULONGLONG>(width) * 8ull;
+        if (sourceStride64 > std::numeric_limits<UINT>::max())
+        {
+            return E_OUTOFMEMORY;
+        }
+        const UINT sourceStride = static_cast<UINT>(sourceStride64);
+        const ULONGLONG sourceSize64 = sourceStride64 * static_cast<ULONGLONG>(height);
+        if (height != 0 && sourceSize64 / height != sourceStride64)
+        {
+            return E_OUTOFMEMORY;
+        }
+        if (sourceSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()) ||
+            sourceSize64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+        {
+            return E_OUTOFMEMORY;
+        }
+
+        std::vector<BYTE> cmyk;
+        hr = AllocateBuffer(cmyk, static_cast<size_t>(sourceSize64));
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
         hr = frame.frame->CopyPixels(&rect, sourceStride, static_cast<UINT>(cmyk.size()), cmyk.data());
         if (FAILED(hr))
         {
             return hr;
         }
 
-        frame.stride = frame.width * 4;
-        frame.pixels.resize(static_cast<size_t>(frame.stride) * frame.height);
+        hr = AllocatePixelStorage(frame, width, height);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
 
         for (UINT y = 0; y < frame.height; ++y)
         {
@@ -461,6 +607,10 @@ PVCODE HResultToPvCode(HRESULT hr)
     {
     case E_OUTOFMEMORY:
         return PVC_OUT_OF_MEMORY;
+    case E_INVALIDARG:
+    case WINCODEC_ERR_INVALIDPARAMETER:
+    case WINCODEC_ERR_VALUEOUTOFRANGE:
+        return PVC_INVALID_DIMENSIONS;
     case WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT:
     case WINCODEC_ERR_COMPONENTNOTFOUND:
     case WINCODEC_ERR_UNSUPPORTEDOPERATION:
@@ -525,10 +675,18 @@ PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo in
     info->ColorModel = PVCM_RGB;
     info->NumOfImages = static_cast<DWORD>(handle.frames.size());
     info->CurrentImage = 0;
-    const DWORD stretchedWidth = handle.stretchWidth ? handle.stretchWidth : frame.width;
-    const DWORD stretchedHeight = handle.stretchHeight ? handle.stretchHeight : frame.height;
-    info->StretchedWidth = stretchedWidth;
-    info->StretchedHeight = stretchedHeight;
+    const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
+                                                            : static_cast<LONGLONG>(frame.width);
+    const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
+                                                              : static_cast<LONGLONG>(frame.height);
+    const ULONGLONG stretchWidthAbs = AbsoluteDimension(stretchWidthSigned);
+    const ULONGLONG stretchHeightAbs = AbsoluteDimension(stretchHeightSigned);
+    info->StretchedWidth = stretchWidthAbs > std::numeric_limits<DWORD>::max()
+                               ? std::numeric_limits<DWORD>::max()
+                               : static_cast<DWORD>(stretchWidthAbs);
+    info->StretchedHeight = stretchHeightAbs > std::numeric_limits<DWORD>::max()
+                                 ? std::numeric_limits<DWORD>::max()
+                                 : static_cast<DWORD>(stretchHeightAbs);
     info->StretchMode = handle.stretchMode;
     StringCchCopyA(info->Info1, PV_MAX_INFO_LEN, "WIC");
     info->TotalBitDepth = 32;
@@ -585,22 +743,40 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         return PVC_OK;
     }
 
-    const LONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONG>(handle.stretchWidth)
-                                                        : static_cast<LONG>(frame.width);
-    const LONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONG>(handle.stretchHeight)
-                                                          : static_cast<LONG>(frame.height);
-    const LONG stretchWidth = stretchWidthSigned >= 0 ? stretchWidthSigned : -stretchWidthSigned;
-    const LONG stretchHeight = stretchHeightSigned >= 0 ? stretchHeightSigned : -stretchHeightSigned;
-    if (stretchWidth == 0 || stretchHeight == 0)
+    const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
+                                                            : static_cast<LONGLONG>(frame.width);
+    const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
+                                                              : static_cast<LONGLONG>(frame.height);
+    const ULONGLONG stretchWidthAbs = AbsoluteDimension(stretchWidthSigned);
+    const ULONGLONG stretchHeightAbs = AbsoluteDimension(stretchHeightSigned);
+    if (stretchWidthAbs == 0 || stretchHeightAbs == 0)
     {
         return PVC_OK;
+    }
+
+    if (stretchWidthAbs > static_cast<ULONGLONG>(std::numeric_limits<int>::max()) ||
+        stretchHeightAbs > static_cast<ULONGLONG>(std::numeric_limits<int>::max()))
+    {
+        return PVC_INVALID_DIMENSIONS;
+    }
+    if (frame.width > static_cast<UINT>(std::numeric_limits<int>::max()) ||
+        frame.height > static_cast<UINT>(std::numeric_limits<int>::max()))
+    {
+        return PVC_INVALID_DIMENSIONS;
     }
 
     RECT imageRect;
     imageRect.left = x;
     imageRect.top = y;
-    imageRect.right = x + stretchWidth;
-    imageRect.bottom = y + stretchHeight;
+    const LONGLONG imageRight = static_cast<LONGLONG>(x) + static_cast<LONGLONG>(stretchWidthAbs);
+    const LONGLONG imageBottom = static_cast<LONGLONG>(y) + static_cast<LONGLONG>(stretchHeightAbs);
+    if (imageRight > std::numeric_limits<LONG>::max() || imageRight < std::numeric_limits<LONG>::min() ||
+        imageBottom > std::numeric_limits<LONG>::max() || imageBottom < std::numeric_limits<LONG>::min())
+    {
+        return PVC_INVALID_DIMENSIONS;
+    }
+    imageRect.right = static_cast<LONG>(imageRight);
+    imageRect.bottom = static_cast<LONG>(imageBottom);
 
     RECT clipRect = imageRect;
     if (rect)
@@ -653,8 +829,10 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
 
     const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
     const int destY = stretchHeightSigned >= 0 ? imageRect.top : imageRect.bottom - 1;
-    const int destWidth = stretchWidthSigned >= 0 ? static_cast<int>(stretchWidth) : -static_cast<int>(stretchWidth);
-    const int destHeight = stretchHeightSigned >= 0 ? static_cast<int>(stretchHeight) : -static_cast<int>(stretchHeight);
+    const int destWidth = stretchWidthSigned >= 0 ? static_cast<int>(stretchWidthAbs)
+                                                  : -static_cast<int>(stretchWidthAbs);
+    const int destHeight = stretchHeightSigned >= 0 ? static_cast<int>(stretchHeightAbs)
+                                                    : -static_cast<int>(stretchHeightAbs);
 
     const int result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, frame.width, frame.height,
                                      frame.pixels.data(), &bmi, DIB_RGB_COLORS, SRCCOPY);
@@ -1126,8 +1304,25 @@ PVCODE WINAPI Backend::sPVSetStretchParameters(LPPVHandle Img, DWORD width, DWOR
     {
         return PVC_INVALID_HANDLE;
     }
-    handle->stretchWidth = width;
-    handle->stretchHeight = height;
+    const auto convert = [](DWORD value) -> LONG {
+        if (value == 0)
+        {
+            return 0;
+        }
+        const LONG signedValue = static_cast<LONG>(value);
+        if ((value & 0x80000000u) != 0u)
+        {
+            return signedValue;
+        }
+        if (value > static_cast<DWORD>(std::numeric_limits<LONG>::max()))
+        {
+            return std::numeric_limits<LONG>::max();
+        }
+        return signedValue;
+    };
+
+    handle->stretchWidth = convert(width);
+    handle->stretchHeight = convert(height);
     handle->stretchMode = mode;
     return PVC_OK;
 }

@@ -46,8 +46,8 @@ struct ImageHandle
     std::wstring fileName;
     DWORD openFlags = 0;
     std::vector<FrameData> frames;
-    DWORD stretchWidth = 0;
-    DWORD stretchHeight = 0;
+    LONG stretchWidth = 0;
+    LONG stretchHeight = 0;
     DWORD stretchMode = PV_STRETCH_NO;
     COLORREF background = RGB(0, 0, 0);
     PVImageInfo baseInfo{};
