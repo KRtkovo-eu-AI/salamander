@@ -11,6 +11,7 @@
 #include <new>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <objbase.h>
 #include <shlwapi.h>
@@ -87,8 +88,12 @@ bool IsIgnorableColorProfileError(HRESULT hr)
     case WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT:
     case WINCODEC_ERR_PROPERTYNOTSUPPORTED:
     case WINCODEC_ERR_UNSUPPORTEDVERSION:
+#ifdef WINCODEC_ERR_PROFILENOTASSOCIATED
     case WINCODEC_ERR_PROFILENOTASSOCIATED:
+#endif
+#ifdef WINCODEC_ERR_PROFILEINVALID
     case WINCODEC_ERR_PROFILEINVALID:
+#endif
     case E_NOTIMPL:
         return true;
     default:
@@ -155,7 +160,7 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
     }
 
     Microsoft::WRL::ComPtr<IWICColorTransform> transform;
-    hr = factory->CreateColorTransform(&transform);
+    hr = CoCreateInstance(CLSID_WICColorTransform, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&transform));
     if (FAILED(hr))
     {
         return hr;
