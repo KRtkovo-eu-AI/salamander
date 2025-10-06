@@ -88,7 +88,8 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 	if (sc != NULL)
 	{
 		//Successfully opened SCM
-		ENUM_SERVICE_STATUS service_data, *lpservice;
+		ENUM_SERVICE_STATUS service_data;
+		ENUM_SERVICE_STATUS *lpservice = &service_data;
 		BOOL retVal;
 		DWORD bytesNeeded,resumeHandle = 0,srvType, srvState;
 		DWORD srvCount=0;
@@ -107,7 +108,7 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 			 DWORD dwBytes = bytesNeeded + sizeof(ENUM_SERVICE_STATUS);
 			 lpservice = new ENUM_SERVICE_STATUS [dwBytes];
 			 EnumServicesStatus (sc,srvType,srvState,lpservice,dwBytes,
-							 &bytesNeeded,&srvCount,&resumeHandle);
+                                                        &bytesNeeded,&srvCount,&resumeHandle);
 		}
 		for(int i=0;i<(int)srvCount;i++)
 		{
@@ -145,8 +146,8 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 				}
 				//DoQuerySvc(lpservice[i].lpServiceName);
 
-				CFSData *extData;
-				extData = new CFSData();
+                               CFSData *extData;
+                               extData = new CFSData();
 				extData->Description = "WeDon'tUseThisCurrently";
 				extData->StartupType = 1;
 				extData->ServiceName = lpservice[i].lpServiceName;
@@ -164,7 +165,11 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 				dir->AddFile(NULL, file, pluginData);
 
     }
-	}
+		if (lpservice != &service_data)
+		{
+			delete [] lpservice;
+		}
+        }
 	CloseServiceHandle(sc);
   return TRUE;
 }
@@ -763,8 +768,10 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 		case fscmPanel:
 			break;
 	}
-	// Refresh all open panels --> ::AcceptChangeOnPathNotification
-	SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
+        DestroyMenu(menu);
+
+        // Refresh all open panels --> ::AcceptChangeOnPathNotification
+        SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
 	if (returnstate>0)
 	{
 		
