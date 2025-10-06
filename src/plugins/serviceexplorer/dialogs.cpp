@@ -131,17 +131,21 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
 
 	EnableButtonStates(ti);
 	//tiG = ti;
-	ti.EditLine(IDC_STATIC_CFG_SERVICENAME, FSIGdata->ServiceName, static_cast<int>(strlen(FSIGdata->ServiceName)));
-	ti.EditLine(IDC_STATIC_CFG_SERVICENAMET, FSIGdata->ServiceName, static_cast<int>(strlen(FSIGdata->ServiceName)));
-	ti.EditLine(IDC_STATIC_CFG_DISPLAYNAME, FSIGdata->DisplayName, static_cast<int>(strlen(FSIGdata->DisplayName)));
-	ti.EditLine(IDC_STATIC_CFG_EXECUTEABLEPATH, FSIGdata->ExecuteablePath, static_cast<int>(strlen(FSIGdata->ExecuteablePath)));
+        const char *serviceName = FSIGdata->ServiceName != NULL ? FSIGdata->ServiceName : "";
+        const char *displayNamePtr = FSIGdata->DisplayName != NULL ? FSIGdata->DisplayName : "";
+        const char *executablePath = FSIGdata->ExecuteablePath != NULL ? FSIGdata->ExecuteablePath : "";
+
+        ti.EditLine(IDC_STATIC_CFG_SERVICENAME, serviceName, static_cast<int>(strlen(serviceName)));
+        ti.EditLine(IDC_STATIC_CFG_SERVICENAMET, serviceName, static_cast<int>(strlen(serviceName)));
+        ti.EditLine(IDC_STATIC_CFG_DISPLAYNAME, displayNamePtr, static_cast<int>(strlen(displayNamePtr)));
+        ti.EditLine(IDC_STATIC_CFG_EXECUTEABLEPATH, executablePath, static_cast<int>(strlen(executablePath)));
 
 	char description[1000];
 	char dependencies[1000];
 	char displayname[1000];
 	strcpy(description,"\0");
 	strcpy(dependencies,"\0");
-	strcpy(displayname,FSIGdata->DisplayName);
+        strcpy(displayname,displayNamePtr);
 
 	DoQuerySvc(FSIGdata->ServiceName, description,dependencies) ;
 

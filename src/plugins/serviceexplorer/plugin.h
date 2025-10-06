@@ -327,16 +327,42 @@ class CArcPluginDataInterface: public CPluginDataInterfaceAbstract
 
 struct CFSData
 {
-	char *Description;
-	int Status;
-	int StartupType;
-	char *LogOnAs;
-	char *ServiceName;
-	char *DisplayName;
-	char *ExecuteablePath;
-	//CFSData (const char *Description, const int &Status, const int &StartupType);
-	//~CFSData();
+        CFSData()
+            : Description(NULL)
+            , Status(0)
+            , StartupType(0)
+            , LogOnAs(NULL)
+            , ServiceName(NULL)
+            , DisplayName(NULL)
+            , ExecuteablePath(NULL)
+        {
+        }
 
+        ~CFSData()
+        {
+            FreeString(Description);
+            FreeString(LogOnAs);
+            FreeString(ServiceName);
+            FreeString(DisplayName);
+            FreeString(ExecuteablePath);
+        }
+
+        void FreeString(char *&ptr)
+        {
+            if (ptr != NULL)
+            {
+                SalamanderGeneral->Free(ptr);
+                ptr = NULL;
+            }
+        }
+
+        char *Description;
+        int Status;
+        int StartupType;
+        char *LogOnAs;
+        char *ServiceName;
+        char *DisplayName;
+        char *ExecuteablePath;
 };
 
 
@@ -354,7 +380,12 @@ class CPluginFSDataInterface: public CPluginDataInterfaceAbstract
 
     virtual void WINAPI ReleasePluginData(CFileData &file, BOOL isDir)
     {
-      //delete ((CFSData *)file.PluginData);
+      (void)isDir;
+      if (file.PluginData != 0)
+      {
+        delete reinterpret_cast<CFSData *>(file.PluginData);
+        file.PluginData = 0;
+      }
     }
 
     virtual void WINAPI GetFileDataForUpDir(const char *archivePath, CFileData &upDir) {}

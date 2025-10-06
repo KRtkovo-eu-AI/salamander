@@ -1,4 +1,56 @@
 #include "precomp.h"
+
+namespace
+{
+char *DupStringOrEmpty(const char *text)
+{
+  const char *source = (text != NULL) ? text : "";
+  char *dup = SalamanderGeneral->DupStr(source);
+  if (dup == NULL && source[0] != '\0')
+  {
+    dup = SalamanderGeneral->DupStr("");
+  }
+  return dup;
+}
+
+void PopulateServiceConfiguration(const char *serviceName, int &startupType, char *&logOnAs, char *&executablePath)
+{
+  startupType = 99;
+  logOnAs = NULL;
+  executablePath = NULL;
+
+  SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
+  if (scm == NULL)
+  {
+    return;
+  }
+
+  SC_HANDLE service = OpenService(scm, serviceName, SERVICE_QUERY_CONFIG);
+  if (service == NULL)
+  {
+    CloseServiceHandle(scm);
+    return;
+  }
+
+  DWORD bytesNeeded = 0;
+  if (!QueryServiceConfig(service, NULL, 0, &bytesNeeded) && GetLastError() == ERROR_INSUFFICIENT_BUFFER && bytesNeeded != 0)
+  {
+    std::vector<BYTE> buffer(bytesNeeded);
+    QUERY_SERVICE_CONFIG *config = reinterpret_cast<QUERY_SERVICE_CONFIG *>(buffer.data());
+    if (QueryServiceConfig(service, config, bytesNeeded, &bytesNeeded))
+    {
+      startupType = static_cast<int>(config->dwStartType);
+
+      logOnAs = DupStringOrEmpty(config->lpServiceStartName);
+      executablePath = DupStringOrEmpty(config->lpBinaryPathName);
+    }
+  }
+
+  CloseServiceHandle(service);
+  CloseServiceHandle(scm);
+}
+} // namespace
+
 // ****************************************************************************
 // CPluginFSInterface
 // ****************************************************************************
@@ -127,35 +179,30 @@ BOOL WINAPI CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract *di
 				file.IsOffline = 0;
 				file.Hidden =0;
 				file.Attr = 0;
-				DWORD ServiceStatus = GetServiceStatus(lpservice[i].lpServiceName);
-				QUERY_SERVICE_CONFIG *sc = GetQueryServiceConfig(lpservice[i].lpServiceName);
-					DWORD ServiceStartupType;
-				char *LogOnAs=NULL;
-				char *ExecuteablePath=NULL;
-				if (sc!=NULL)
-				{
-					ServiceStartupType = sc->dwStartType;
-					LogOnAs = sc->lpServiceStartName;
-					ExecuteablePath=sc->lpBinaryPathName;
-				}
-				else
-				{
-					ServiceStartupType = 99;
-					LogOnAs = "Unknown\0";
-					ExecuteablePath="Unknown\0";
-				}
+                                DWORD ServiceStatus = GetServiceStatus(lpservice[i].lpServiceName);
+                                int ServiceStartupType = 99;
+                                char *LogOnAs = NULL;
+                                char *ExecuteablePath = NULL;
+                                PopulateServiceConfiguration(lpservice[i].lpServiceName, ServiceStartupType, LogOnAs, ExecuteablePath);
+                                if (LogOnAs == NULL)
+                                {
+                                        LogOnAs = DupStringOrEmpty("");
+                                }
+                                if (ExecuteablePath == NULL)
+                                {
+                                        ExecuteablePath = DupStringOrEmpty("");
+                                }
 				//DoQuerySvc(lpservice[i].lpServiceName);
 
                                CFSData *extData;
                                extData = new CFSData();
-				extData->Description = "WeDon'tUseThisCurrently";
-				extData->StartupType = 1;
-				extData->ServiceName = lpservice[i].lpServiceName;
-				extData->Status = ServiceStatus;
-				extData->StartupType = ServiceStartupType;
-				extData->LogOnAs = LogOnAs;
-				extData->ExecuteablePath = ExecuteablePath;
-				extData->DisplayName = file.Name;
+                                extData->Description = DupStringOrEmpty("WeDon'tUseThisCurrently");
+                                extData->Status = static_cast<int>(ServiceStatus);
+                                extData->StartupType = ServiceStartupType;
+                                extData->ServiceName = DupStringOrEmpty(lpservice[i].lpServiceName);
+                                extData->LogOnAs = LogOnAs;
+                                extData->ExecuteablePath = ExecuteablePath;
+                                extData->DisplayName = DupStringOrEmpty(file.Name);
 				
 
 
