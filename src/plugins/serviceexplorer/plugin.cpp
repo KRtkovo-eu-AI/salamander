@@ -73,7 +73,8 @@ CPluginInterfaceAbstract * WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAb
   HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "ServiceExplorer");
   if (HLanguage == NULL && SalamanderDebug != NULL)
   {
-    SalamanderDebug->TraceLine("ServiceExplorer: missing language module, using built-in English resources.");
+    SalamanderDebug->TraceI(__FILE__, __LINE__,
+                            "ServiceExplorer: missing language module, using built-in English resources.");
   }
 
   salamander->SetBasicPluginData(VERSINFO_PLUGINNAME, FUNCTION_FILESYSTEM,
