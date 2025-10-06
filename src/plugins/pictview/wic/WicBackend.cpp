@@ -6,13 +6,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cwchar>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <limits>
 
 #include <objbase.h>
 #include <shlwapi.h>
@@ -46,6 +47,23 @@ std::unordered_map<DWORD, std::string> g_errorTexts = {
     {PVC_CANCELED, "Operation canceled."},
     {PVC_GDI_ERROR, "A GDI call failed."},
 };
+
+bool PathLooksLikeExif(LPCWSTR path)
+{
+    if (!path)
+    {
+        return false;
+    }
+    if (wcsstr(path, L"exif") != nullptr)
+    {
+        return true;
+    }
+    if (wcsstr(path, L"{ushort=34665}") != nullptr)
+    {
+        return true;
+    }
+    return false;
+}
 
 bool QueryReaderContainsExif(IWICMetadataQueryReader* query)
 {
@@ -93,6 +111,54 @@ bool QueryReaderContainsExif(IWICMetadataQueryReader* query)
     else
     {
         PropVariantClear(&value);
+    }
+
+    ComPtr<IEnumString> names;
+    if (SUCCEEDED(query->GetEnumerator(&names)) && names)
+    {
+        LPOLESTR rawName = nullptr;
+        ULONG fetched = 0;
+        while (names->Next(1, &rawName, &fetched) == S_OK)
+        {
+            if (rawName)
+            {
+                const bool looksLikeExif = PathLooksLikeExif(rawName);
+                if (looksLikeExif)
+                {
+                    PROPVARIANT enumValue;
+                    PropVariantInit(&enumValue);
+                    const HRESULT hr = query->GetMetadataByName(rawName, &enumValue);
+                    bool hasExif = false;
+                    if (SUCCEEDED(hr))
+                    {
+                        if (enumValue.vt == VT_UNKNOWN && enumValue.punkVal)
+                        {
+                            ComPtr<IWICMetadataQueryReader> nested;
+                            if (SUCCEEDED(enumValue.punkVal->QueryInterface(IID_PPV_ARGS(&nested))) && nested)
+                            {
+                                hasExif = QueryReaderContainsExif(nested.Get());
+                            }
+                        }
+                        else
+                        {
+                            hasExif = true;
+                        }
+                    }
+                    PropVariantClear(&enumValue);
+                    CoTaskMemFree(rawName);
+                    rawName = nullptr;
+                    if (hasExif)
+                    {
+                        return true;
+                    }
+                }
+                if (rawName)
+                {
+                    CoTaskMemFree(rawName);
+                    rawName = nullptr;
+                }
+            }
+        }
     }
 
     return false;
@@ -340,6 +406,139 @@ ULONGLONG AbsoluteDimension(LONGLONG value)
         return static_cast<ULONGLONG>(std::numeric_limits<LONGLONG>::max()) + 1ull;
     }
     return static_cast<ULONGLONG>(-(value + 1)) + 1;
+}
+
+DWORD ClampToDword(ULONGLONG value)
+{
+    return value > static_cast<ULONGLONG>(std::numeric_limits<DWORD>::max())
+               ? std::numeric_limits<DWORD>::max()
+               : static_cast<DWORD>(value);
+}
+
+DWORD QueryFileSize(const std::wstring& path)
+{
+    if (path.empty())
+    {
+        return 0;
+    }
+
+    WIN32_FILE_ATTRIBUTE_DATA attributes{};
+    if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attributes))
+    {
+        return 0;
+    }
+
+    ULARGE_INTEGER size;
+    size.LowPart = attributes.nFileSizeLow;
+    size.HighPart = attributes.nFileSizeHigh;
+    return ClampToDword(size.QuadPart);
+}
+
+size_t NormalizeFrameIndex(const ImageHandle& handle, int requestedIndex, size_t fallbackIndex = 0)
+{
+    if (handle.frames.empty())
+    {
+        return 0;
+    }
+
+    size_t index = fallbackIndex;
+    if (index >= handle.frames.size())
+    {
+        index = handle.frames.size() - 1;
+    }
+
+    if (requestedIndex >= 0)
+    {
+        index = static_cast<size_t>(requestedIndex);
+        if (index >= handle.frames.size())
+        {
+            index = handle.frames.size() - 1;
+        }
+    }
+
+    return index;
+}
+
+HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
+{
+    if (!bitmap)
+    {
+        return E_INVALIDARG;
+    }
+
+    DIBSECTION dib{};
+    const int objectSize = GetObjectW(bitmap, sizeof(dib), &dib);
+    if (objectSize == 0)
+    {
+        const DWORD error = GetLastError();
+        return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_INVALID_DATA);
+    }
+
+    const LONG widthLong = dib.dsBm.bmWidth;
+    const LONG heightLong = dib.dsBm.bmHeight;
+    if (widthLong <= 0 || heightLong == 0)
+    {
+        return WINCODEC_ERR_INVALIDPARAMETER;
+    }
+
+    const UINT width = static_cast<UINT>(widthLong);
+    const UINT height = static_cast<UINT>(heightLong < 0 ? -heightLong : heightLong);
+
+    HRESULT hr = AllocatePixelStorage(frame, width, height);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = static_cast<LONG>(width);
+    bmi.bmiHeader.biHeight = -static_cast<LONG>(height);
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    HDC dc = CreateCompatibleDC(nullptr);
+    if (!dc)
+    {
+        const DWORD error = GetLastError();
+        frame.pixels.clear();
+        frame.stride = 0;
+        return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
+    }
+
+    HGDIOBJ oldBitmap = SelectObject(dc, bitmap);
+    const int lines = GetDIBits(dc, bitmap, 0, height, frame.pixels.data(), &bmi, DIB_RGB_COLORS);
+    if (oldBitmap)
+    {
+        SelectObject(dc, oldBitmap);
+    }
+    DeleteDC(dc);
+
+    if (lines == 0)
+    {
+        const DWORD error = GetLastError();
+        frame.pixels.clear();
+        frame.stride = 0;
+        return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_INVALID_DATA);
+    }
+
+    if (dib.dsBm.bmBitsPixel < 32)
+    {
+        BYTE* pixels = frame.pixels.data();
+        const size_t pixelCount = static_cast<size_t>(width) * height;
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            pixels[i * 4 + 3] = 255;
+        }
+    }
+
+    hr = FinalizeDecodedFrame(frame);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return S_OK;
 }
 
 HRESULT AllocateBuffer(std::vector<BYTE>& buffer, size_t size)
@@ -955,7 +1154,7 @@ std::wstring Utf8ToWide(const char* path)
     return wide;
 }
 
-PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo info)
+PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, int currentImage)
 {
     if (!info)
     {
@@ -966,17 +1165,50 @@ PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo in
         return PVC_INVALID_HANDLE;
     }
 
-    memset(info, 0, sizeof(PVImageInfo));
+    const DWORD originalSize = info->cbSize;
+    const DWORD previousImageIndex = info->CurrentImage;
+    const DWORD bytesToClear = std::min<DWORD>(originalSize, static_cast<DWORD>(sizeof(PVImageInfo)));
+    ZeroMemory(info, bytesToClear);
     info->cbSize = sizeof(PVImageInfo);
-    info->Width = frame.width;
-    info->Height = frame.height;
-    info->BytesPerLine = frame.stride;
+    info->FileSize = handle.baseInfo.FileSize;
     info->Colors = PV_COLOR_TC32;
     info->Format = handle.baseInfo.Format;
     info->Flags = handle.baseInfo.Flags;
     info->ColorModel = PVCM_RGB;
     info->NumOfImages = static_cast<DWORD>(handle.frames.size());
-    info->CurrentImage = 0;
+    info->StretchMode = handle.stretchMode;
+    StringCchCopyA(info->Info1, PV_MAX_INFO_LEN, "WIC");
+    info->TotalBitDepth = 32;
+
+    if (handle.frames.empty())
+    {
+        info->CurrentImage = 0;
+        info->Width = 0;
+        info->Height = 0;
+        info->BytesPerLine = 0;
+        info->StretchedWidth = 0;
+        info->StretchedHeight = 0;
+        return PVC_OK;
+    }
+
+    size_t fallbackIndex = 0;
+    if (previousImageIndex < info->NumOfImages && info->NumOfImages > 0)
+    {
+        fallbackIndex = static_cast<size_t>(previousImageIndex);
+    }
+    else if (info->NumOfImages > 0)
+    {
+        fallbackIndex = info->NumOfImages - 1;
+    }
+
+    const size_t normalized = NormalizeFrameIndex(handle, currentImage, fallbackIndex);
+    const FrameData& frame = handle.frames[normalized];
+
+    info->CurrentImage = static_cast<DWORD>(normalized);
+    info->Width = frame.width;
+    info->Height = frame.height;
+    info->BytesPerLine = frame.stride;
+
     const LONGLONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONGLONG>(handle.stretchWidth)
                                                             : static_cast<LONGLONG>(frame.width);
     const LONGLONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONGLONG>(handle.stretchHeight)
@@ -989,9 +1221,6 @@ PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo in
     info->StretchedHeight = stretchHeightAbs > std::numeric_limits<DWORD>::max()
                                  ? std::numeric_limits<DWORD>::max()
                                  : static_cast<DWORD>(stretchHeightAbs);
-    info->StretchMode = handle.stretchMode;
-    StringCchCopyA(info->Info1, PV_MAX_INFO_LEN, "WIC");
-    info->TotalBitDepth = 32;
     return PVC_OK;
 }
 
@@ -1024,6 +1253,14 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     }
     handle.frames.resize(frameCount);
     bool hasExif = SourceContainsExif(decoder);
+    if (!hasExif)
+    {
+        Microsoft::WRL::ComPtr<IWICMetadataQueryReader> decoderQuery;
+        if (SUCCEEDED(decoder->GetMetadataQueryReader(&decoderQuery)) && decoderQuery)
+        {
+            hasExif = QueryReaderContainsExif(decoderQuery.Get());
+        }
+    }
     for (UINT i = 0; i < frameCount; ++i)
     {
         FrameData data;
@@ -1032,6 +1269,19 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         {
             return hr;
         }
+        UINT width = 0;
+        UINT height = 0;
+        hr = data.frame->GetSize(&width, &height);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        if (width == 0 || height == 0)
+        {
+            return WINCODEC_ERR_INVALIDPARAMETER;
+        }
+        data.width = width;
+        data.height = height;
         data.delayMs = GetFrameDelayMilliseconds(data.frame.Get());
         if (frameCount > 1 && data.delayMs == 0)
         {
@@ -1047,6 +1297,7 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     decoder->GetContainerFormat(&container);
     handle.baseInfo.Format = MapFormatToPvFormat(container);
     handle.baseInfo.NumOfImages = frameCount;
+    handle.baseInfo.FileSize = QueryFileSize(handle.fileName);
     if (hasExif)
     {
         handle.baseInfo.Flags |= PVFF_EXIF;
@@ -1215,12 +1466,13 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
 PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const GuidMapping& mapping,
                  LPPVSaveImageInfo info)
 {
-    if (imageIndex < 0 || static_cast<size_t>(imageIndex) >= handle.frames.size())
+    if (handle.frames.empty())
     {
         return PVC_INVALID_HANDLE;
     }
-    FrameData& frame = handle.frames[static_cast<size_t>(imageIndex)];
-    HRESULT hr = DecodeFrame(handle, static_cast<size_t>(imageIndex));
+    const size_t normalizedIndex = NormalizeFrameIndex(handle, imageIndex, 0);
+    FrameData& frame = handle.frames[normalizedIndex];
+    HRESULT hr = DecodeFrame(handle, normalizedIndex);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
@@ -1487,10 +1739,26 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
     image->backend = &backend;
     image->openFlags = pOpenExInfo->Flags;
 
-    Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
     if (pOpenExInfo->Flags & PVOF_ATTACH_TO_HANDLE)
     {
-        return PVC_UNSUP_FILE_TYPE;
+        HBITMAP bitmap = reinterpret_cast<HBITMAP>(pOpenExInfo->Handle);
+        if (!bitmap)
+        {
+            return PVC_INVALID_HANDLE;
+        }
+
+        FrameData frame;
+        HRESULT hr = PopulateFrameFromBitmapHandle(frame, bitmap);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        image->frames.push_back(std::move(frame));
+        image->baseInfo.Format = PVF_BMP;
+        image->baseInfo.Flags = 0;
+        image->baseInfo.NumOfImages = 1;
+        image->baseInfo.FileSize = 0;
     }
     else
     {
@@ -1499,6 +1767,9 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
         {
             return PVC_CANNOT_OPEN_FILE;
         }
+        image->baseInfo.FileSize = QueryFileSize(image->fileName);
+
+        Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
         HRESULT hr = CreateDecoder(backend, image->fileName, &decoder);
         if (FAILED(hr))
         {
@@ -1516,6 +1787,8 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
         return PVC_UNSUP_FILE_TYPE;
     }
 
+    image->baseInfo.NumOfImages = static_cast<DWORD>(image->frames.size());
+
     HRESULT hr = DecodeFrame(*image, 0);
     if (FAILED(hr))
     {
@@ -1524,7 +1797,7 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
 
     if (pImgInfo)
     {
-        PopulateImageInfo(*image, image->frames[0], pImgInfo);
+        PopulateImageInfo(*image, pImgInfo, 0);
     }
 
     *Img = reinterpret_cast<LPPVHandle>(image.release());
@@ -1565,16 +1838,17 @@ PVCODE WINAPI Backend::sPVReadImage2(LPPVHandle Img, HDC paintDC, RECT* dRect, T
     {
         return PVC_EXCEPTION;
     }
-    if (imageIndex < 0 || static_cast<size_t>(imageIndex) >= handle->frames.size())
+    if (handle->frames.empty())
     {
         return PVC_INVALID_HANDLE;
     }
-    HRESULT hr = DecodeFrame(*handle, static_cast<size_t>(imageIndex));
+    const size_t normalizedIndex = NormalizeFrameIndex(*handle, imageIndex, 0);
+    HRESULT hr = DecodeFrame(*handle, normalizedIndex);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
     }
-    return DrawFrame(*handle, handle->frames[static_cast<size_t>(imageIndex)], paintDC, dRect ? dRect->left : 0,
+    return DrawFrame(*handle, handle->frames[normalizedIndex], paintDC, dRect ? dRect->left : 0,
                      dRect ? dRect->top : 0, dRect);
 }
 
@@ -1666,16 +1940,24 @@ PVCODE WINAPI Backend::sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, i
     {
         return PVC_EXCEPTION;
     }
-    if (imageIndex < 0 || static_cast<size_t>(imageIndex) >= handle->frames.size())
+    const DWORD previousIndex = pImgInfo ? pImgInfo->CurrentImage : 0;
+    size_t fallbackIndex = 0;
+    if (!handle->frames.empty())
+    {
+        const size_t lastIndex = handle->frames.size() - 1;
+        fallbackIndex = std::min(static_cast<size_t>(previousIndex), lastIndex);
+    }
+    else
     {
         return PVC_INVALID_HANDLE;
     }
-    HRESULT hr = DecodeFrame(*handle, static_cast<size_t>(imageIndex));
+    const size_t normalizedIndex = NormalizeFrameIndex(*handle, imageIndex, fallbackIndex);
+    HRESULT hr = DecodeFrame(*handle, normalizedIndex);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
     }
-    return PopulateImageInfo(*handle, handle->frames[static_cast<size_t>(imageIndex)], pImgInfo);
+    return PopulateImageInfo(*handle, pImgInfo, imageIndex);
 }
 
 PVCODE WINAPI Backend::sPVSetParam(LPPVHandle /*Img*/)
@@ -1969,16 +2251,17 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
     {
         return PVC_EXCEPTION;
     }
-    if (imageIndex < 0 || static_cast<size_t>(imageIndex) >= handle->frames.size())
+    if (handle->frames.empty())
     {
         return PVC_INVALID_HANDLE;
     }
-    HRESULT hr = DecodeFrame(*handle, static_cast<size_t>(imageIndex));
+    const size_t normalizedIndex = NormalizeFrameIndex(*handle, imageIndex, 0);
+    HRESULT hr = DecodeFrame(*handle, normalizedIndex);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
     }
-    FrameData& frame = handle->frames[static_cast<size_t>(imageIndex)];
+    FrameData& frame = handle->frames[normalizedIndex];
 
     int targetWidth = thumbWidth > 0 ? thumbWidth : static_cast<int>(frame.width);
     int targetHeight = thumbHeight > 0 ? thumbHeight : static_cast<int>(frame.height);
