@@ -36,6 +36,9 @@ constexpr DWORD kBackendVersion = PV_VERSION_156;
 constexpr UINT kBytesPerPixel = 4;
 constexpr UINT kMaxGdiDimension = static_cast<UINT>(std::numeric_limits<int>::max());
 
+HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
+HRESULT FinalizeDecodedFrame(FrameData& frame);
+
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
     {PVC_OK, "OK"},
