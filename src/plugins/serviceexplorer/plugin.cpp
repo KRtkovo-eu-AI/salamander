@@ -30,6 +30,13 @@ HBITMAP CreateServiceBitmap()
   if (bitmap == NULL)
     return NULL;
 
+  if (bits != NULL)
+  {
+    DWORD* pixel = static_cast<DWORD*>(bits);
+    for (int i = 0; i < 16 * 16; ++i)
+      pixel[i] = 0x00FF00FF;
+  }
+
   HDC dc = CreateCompatibleDC(NULL);
   if (dc == NULL)
   {
