@@ -1,5 +1,7 @@
 #include "precomp.h"
 
+#include <limits>
+
 namespace
 {
 char *DupStringOrEmpty(const char *text)
@@ -314,7 +316,11 @@ BOOL WINAPI CPluginFSInterface::GetChangeDriveOrDisconnectItem(const char *fsNam
       text[currentLength++] = ':';
       text[currentLength] = '\0';
     }
-    lstrcpynA(text + currentLength, Path, _countof(text) - currentLength);
+    size_t remaining = _countof(text) - currentLength;
+    int copyLimit = remaining > static_cast<size_t>(std::numeric_limits<int>::max())
+                        ? std::numeric_limits<int>::max()
+                        : static_cast<int>(remaining);
+    lstrcpynA(text + currentLength, Path, copyLimit);
   }
 
   SalamanderGeneral->DuplicateAmpersands(text, _countof(text));
