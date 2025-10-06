@@ -13,6 +13,11 @@ CPluginInterfaceForThumbLoader InterfaceForThumbLoader;
 HINSTANCE DLLInstance = NULL; // handle @ SPL
 HINSTANCE HLanguage = NULL;   // handle @ SLG
 
+HINSTANCE GetLanguageResourceHandle()
+{
+  return HLanguage != NULL ? HLanguage : DLLInstance;
+}
+
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
@@ -21,7 +26,11 @@ int SalamanderVersion = 0;
 
 char* LoadStr(int resID)
 {
-  return SalamanderGeneral != NULL ? SalamanderGeneral->LoadStr(HLanguage, resID) : (char*)"";
+  if (SalamanderGeneral == NULL)
+    return (char*)"";
+
+  char* text = SalamanderGeneral->LoadStr(GetLanguageResourceHandle(), resID);
+  return text != NULL ? text : (char*)"";
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
@@ -62,8 +71,10 @@ CPluginInterfaceAbstract * WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAb
   SalamanderGUI = salamander->GetSalamanderGUI();
 
   HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "ServiceExplorer");
-  if (HLanguage == NULL)
-    return NULL;
+  if (HLanguage == NULL && SalamanderDebug != NULL)
+  {
+    SalamanderDebug->TraceLine("ServiceExplorer: missing language module, using built-in English resources.");
+  }
 
   salamander->SetBasicPluginData(VERSINFO_PLUGINNAME, FUNCTION_FILESYSTEM,
                                  VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,

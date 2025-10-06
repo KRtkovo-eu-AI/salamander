@@ -29,7 +29,7 @@ INT_PTR CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
   return CDialog::DialogProc(uMsg, wParam, lParam);
 }
 CConfigPageFirst::CConfigPageFirst()
-  : CPropSheetPage(NULL, HLanguage, IDD_CFGPAGEFIRST, IDD_CFGPAGEFIRST, PSP_HASHELP, NULL)
+  : CPropSheetPage(NULL, GetLanguageResourceHandle(), IDD_CFGPAGEFIRST, IDD_CFGPAGEFIRST, PSP_HASHELP, NULL)
 {
 }
 
@@ -279,7 +279,7 @@ INT_PTR CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
 CConfigPageViewer::CConfigPageViewer()
-  : CPropSheetPage(NULL, HLanguage, IDD_CFGPAGEVIEWER, IDD_CFGPAGEVIEWER, PSP_HASHELP, NULL)
+  : CPropSheetPage(NULL, GetLanguageResourceHandle(), IDD_CFGPAGEVIEWER, IDD_CFGPAGEVIEWER, PSP_HASHELP, NULL)
 {
 }
 
@@ -365,7 +365,7 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
 }
 
 CConfigDialog::CConfigDialog(HWND parent,CFSData *FSITdata)
-           : CPropertyDialog(parent, HLanguage, "Properties",
+           : CPropertyDialog(parent, GetLanguageResourceHandle(), "Properties",
                              LastCfgPage, PSH_USECALLBACK | PSH_NOAPPLYNOW ,
                              NULL, &LastCfgPage, CenterCallback)
 {

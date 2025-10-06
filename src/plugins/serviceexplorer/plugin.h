@@ -15,6 +15,8 @@ extern int  AssignedFSNameLen;
 extern HINSTANCE DLLInstance;  // handle @ SPL
 extern HINSTANCE HLanguage;    // handle @ SLG
 
+HINSTANCE GetLanguageResourceHandle();
+
 extern HIMAGELIST DFSImageList ;
 
 BOOL InitFS();
