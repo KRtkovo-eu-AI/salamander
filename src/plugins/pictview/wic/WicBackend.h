@@ -13,6 +13,7 @@
 #include <wrl/client.h>
 #include <windows.h>
 
+#include "../lib/PVW32DLL.h"
 #include "../pictview.h"
 
 namespace PictView::Wic
@@ -31,6 +32,8 @@ struct FrameData
     UINT height = 0;
     UINT stride = 0;
     std::vector<BYTE> pixels;
+    std::vector<BYTE*> linePointers;
+    std::vector<RGBQUAD> palette;
     BITMAPINFOHEADER bmi{};
     HBITMAP hbitmap = nullptr;
     bool decoded = false;
@@ -47,6 +50,7 @@ struct ImageHandle
     DWORD stretchMode = PV_STRETCH_NO;
     COLORREF background = RGB(0, 0, 0);
     PVImageInfo baseInfo{};
+    PVImageHandles handles{};
 };
 
 /**

@@ -12,6 +12,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <algorithm>
+#include <type_traits>
 #include <crtdbg.h>
 #include <ostream>
 #include <commctrl.h>
@@ -60,15 +61,31 @@
 #define GET_X_LPARAM(x) LOWORD(x)
 #endif
 
-#if !defined(INT32) && !defined(_INT32_DEFINED)
-typedef int INT32;
-typedef unsigned int UINT32;
-#define _INT32_DEFINED
-#define _UINT32_DEFINED
+#ifdef min
+#undef min
 #endif
 
-using std::max;
-using std::min;
+#ifdef max
+#undef max
+#endif
+
+template <typename T, typename U>
+inline constexpr auto min(T a, U b) -> typename std::common_type<T, U>::type
+{
+    using R = typename std::common_type<T, U>::type;
+    const R ra = static_cast<R>(a);
+    const R rb = static_cast<R>(b);
+    return (rb < ra) ? rb : ra;
+}
+
+template <typename T, typename U>
+inline constexpr auto max(T a, U b) -> typename std::common_type<T, U>::type
+{
+    using R = typename std::common_type<T, U>::type;
+    const R ra = static_cast<R>(a);
+    const R rb = static_cast<R>(b);
+    return (ra < rb) ? rb : ra;
+}
 
 #ifndef SetWindowLongPtr
 // compiling on VC6 w/o reasonably new SDK

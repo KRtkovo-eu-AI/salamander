@@ -146,6 +146,13 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return hr;
     }
 
+    frame.linePointers.resize(frame.height);
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        frame.linePointers[y] = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+    }
+    frame.palette.clear();
+
     frame.bmi.biSize = sizeof(BITMAPINFOHEADER);
     frame.bmi.biWidth = static_cast<LONG>(frame.width);
     frame.bmi.biHeight = -static_cast<LONG>(frame.height);
@@ -241,7 +248,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo in
     info->Width = frame.width;
     info->Height = frame.height;
     info->BytesPerLine = frame.stride;
-    info->Colors = 0;
+    info->Colors = PV_COLOR_TC32;
     info->Format = handle.baseInfo.Format;
     info->Flags = 0;
     info->ColorModel = PVCM_RGB;
@@ -836,10 +843,15 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
         return HResultToPvCode(hr);
     }
     auto& frame = handle->frames[0];
-    memset(pHandles, 0, sizeof(PVImageHandles));
-    pHandles->TransparentHandle = frame.hbitmap;
-    pHandles->StretchedHandle = frame.hbitmap;
-    pHandles->StretchedTransparentHandle = frame.hbitmap;
+    PVImageHandles& handles = handle->handles;
+    ZeroMemory(&handles, sizeof(PVImageHandles));
+    handles.TransparentHandle = frame.hbitmap;
+    handles.TransparentBackgroundHandle = frame.hbitmap;
+    handles.StretchedHandle = frame.hbitmap;
+    handles.StretchedTransparentHandle = frame.hbitmap;
+    handles.Palette = frame.palette.empty() ? nullptr : frame.palette.data();
+    handles.pLines = frame.linePointers.empty() ? nullptr : frame.linePointers.data();
+    *pHandles = &handles;
     return PVC_OK;
 }
 
