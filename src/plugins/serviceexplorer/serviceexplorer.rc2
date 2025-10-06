@@ -12,6 +12,7 @@
 #include "plugin.rh"
 
 IDI_SERVICEEXPLORER_DIR ICON "res\\dir.ico"
+IDB_SERVICEEXPLORER_TOOLBAR BITMAP "res\\svc.bmp"
 
 #define SERVICEEXPLORER_LANG_FALLBACK
 #include "lang/lang.rc2"
