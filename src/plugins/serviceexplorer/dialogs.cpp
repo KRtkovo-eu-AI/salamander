@@ -33,6 +33,24 @@ CConfigPageFirst::CConfigPageFirst()
 {
 }
 
+namespace
+{
+void SetReadOnlyText(CTransferInfo &ti, int ctrlID, const char *text)
+{
+    if (ti.Type != ttDataToWindow)
+    {
+        return;
+    }
+
+    HWND hWnd;
+    if (ti.GetControl(hWnd, ctrlID))
+    {
+        const char *resolved = text != NULL ? text : "";
+        SetWindowTextA(hWnd, resolved);
+    }
+}
+}
+
 void CConfigPageFirst::Validate(CTransferInfo &ti)
 {
 	DWORD returnstate=0;
@@ -135,10 +153,10 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
         const char *displayNamePtr = FSIGdata->DisplayName != NULL ? FSIGdata->DisplayName : "";
         const char *executablePath = FSIGdata->ExecuteablePath != NULL ? FSIGdata->ExecuteablePath : "";
 
-        ti.EditLine(IDC_STATIC_CFG_SERVICENAME, serviceName, static_cast<int>(strlen(serviceName)));
-        ti.EditLine(IDC_STATIC_CFG_SERVICENAMET, serviceName, static_cast<int>(strlen(serviceName)));
-        ti.EditLine(IDC_STATIC_CFG_DISPLAYNAME, displayNamePtr, static_cast<int>(strlen(displayNamePtr)));
-        ti.EditLine(IDC_STATIC_CFG_EXECUTEABLEPATH, executablePath, static_cast<int>(strlen(executablePath)));
+        SetReadOnlyText(ti, IDC_STATIC_CFG_SERVICENAME, serviceName);
+        SetReadOnlyText(ti, IDC_STATIC_CFG_SERVICENAMET, serviceName);
+        SetReadOnlyText(ti, IDC_STATIC_CFG_DISPLAYNAME, displayNamePtr);
+        SetReadOnlyText(ti, IDC_STATIC_CFG_EXECUTEABLEPATH, executablePath);
 
 	char description[1000];
 	char dependencies[1000];
