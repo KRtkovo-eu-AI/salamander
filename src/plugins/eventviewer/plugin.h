@@ -38,6 +38,9 @@ public:
     virtual void WINAPI ClearHistory(HWND parent);
     virtual void WINAPI AcceptChangeOnPathNotification(const char* path, BOOL includingSubdirs) {}
     virtual void WINAPI PasswordManagerEvent(HWND parent, int event) {}
+    virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract* pluginData) {}
+    virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
+    virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer() { return NULL; }
     virtual BOOL WINAPI UninstallUnregisteredComponents(HWND parent, char* componentsDescr, BOOL* uninstallSPL,
                                                         BOOL* uninstallLangDir, const char* pluginDir,
                                                         CDynamicString* deleteFileList)
@@ -46,6 +49,8 @@ public:
     }
 
     virtual CPluginInterfaceForMenuExtAbstract* WINAPI GetInterfaceForMenuExt();
+    virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() { return NULL; }
+    virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 };
 
 class CPluginInterfaceForMenuExt : public CPluginInterfaceForMenuExtAbstract

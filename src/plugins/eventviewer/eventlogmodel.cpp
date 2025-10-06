@@ -3,9 +3,12 @@
 
 namespace
 {
-std::string FormatFileTime(const FILETIME& fileTime)
+std::string FormatFileTime(ULONGLONG fileTime)
 {
-    return FormatEventTime(fileTime);
+    FILETIME ft;
+    ft.dwLowDateTime = static_cast<DWORD>(fileTime & 0xFFFFFFFF);
+    ft.dwHighDateTime = static_cast<DWORD>(fileTime >> 32);
+    return FormatEventTime(ft);
 }
 
 std::string UnsignedToString(ULONG value)
@@ -96,7 +99,7 @@ bool EventLogReader::Query(const wchar_t* logName, size_t maxRecords, std::vecto
         return false;
     }
 
-    DWORD systemProperties[] = {
+    const EVT_SYSTEM_PROPERTY_ID systemProperties[] = {
         EvtSystemLevel,
         EvtSystemTimeCreated,
         EvtSystemProviderName,
@@ -104,7 +107,9 @@ bool EventLogReader::Query(const wchar_t* logName, size_t maxRecords, std::vecto
         EvtSystemTask,
     };
 
-    EVT_HANDLE renderContext = EvtCreateRenderContext(_countof(systemProperties), systemProperties, EvtRenderContextSystem);
+    EVT_HANDLE renderContext = EvtCreateRenderContext(_countof(systemProperties),
+                                                     reinterpret_cast<const LPCWSTR*>(systemProperties),
+                                                     EvtRenderContextSystem);
     if (renderContext == NULL)
     {
         errorMessage = FormatSystemError(GetLastError());

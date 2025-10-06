@@ -122,10 +122,8 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 
 void WINAPI CPluginInterface::Event(int event, DWORD param)
 {
-    if (event == PLUGINEVENT_SHUTDOWN)
-    {
-        EnsureEventViewerWindowClosed();
-    }
+    UNREFERENCED_PARAMETER(event);
+    UNREFERENCED_PARAMETER(param);
 }
 
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
@@ -161,8 +159,9 @@ CPluginInterfaceForMenuExtAbstract* WINAPI CPluginInterface::GetInterfaceForMenu
 
 DWORD WINAPI CPluginInterfaceForMenuExt::GetMenuItemState(int id, DWORD eventMask)
 {
+    UNREFERENCED_PARAMETER(eventMask);
     if (id == MENUCMD_EVENT_VIEWER)
-        return MENU_STATE_ENABLED;
+        return 0;
     return 0;
 }
 
