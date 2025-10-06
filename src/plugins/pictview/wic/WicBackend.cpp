@@ -1156,8 +1156,41 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
         targetHeight = static_cast<int>(frame.height);
     }
 
-    CSalamanderThumbnailMaker::CalculateThumbnailSize(static_cast<int>(imgWidth), static_cast<int>(imgHeight), targetWidth,
-                                                      targetHeight, targetWidth, targetHeight);
+    const auto calculateThumbnailSize = [](int originalWidth, int originalHeight, int maxWidth, int maxHeight,
+                                          int& thumbWidth, int& thumbHeight) {
+        if (originalWidth <= maxWidth && originalHeight <= maxHeight)
+        {
+            thumbWidth = originalWidth;
+            thumbHeight = originalHeight;
+            return false;
+        }
+
+        const double aspect = static_cast<double>(originalWidth) / static_cast<double>(originalHeight);
+        const double bounds = static_cast<double>(maxWidth) / static_cast<double>(maxHeight);
+        if (bounds < aspect)
+        {
+            thumbWidth = maxWidth;
+            thumbHeight = static_cast<int>(static_cast<double>(maxWidth) / aspect);
+        }
+        else
+        {
+            thumbHeight = maxHeight;
+            thumbWidth = static_cast<int>(static_cast<double>(maxHeight) * aspect);
+        }
+
+        if (thumbWidth < 1)
+        {
+            thumbWidth = 1;
+        }
+        if (thumbHeight < 1)
+        {
+            thumbHeight = 1;
+        }
+        return true;
+    };
+
+    calculateThumbnailSize(static_cast<int>(imgWidth), static_cast<int>(imgHeight), targetWidth, targetHeight, targetWidth,
+                           targetHeight);
 
     if (!thumbMaker->SetParameters(targetWidth, targetHeight, thumbFlags))
     {
