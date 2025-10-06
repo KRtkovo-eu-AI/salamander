@@ -4,6 +4,8 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <wchar.h>
 #include <crtdbg.h>
 
 #include "exif.h"
@@ -11,6 +13,10 @@
 #include <libexif/exif-loader.h>
 #include <libexif/exif-utils.h>
 #include <libjpeg/jpeg-data.h>
+
+#ifndef ARRAYSIZE
+#define ARRAYSIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
 
 #pragma warning(push)
 #pragma warning(disable : 4267) // FIXME_X64 - docasne potlacen warning, vyresit
@@ -63,33 +69,17 @@ show_ifd(ExifContent* content, void* data)
     exif_content_foreach_entry(content, show_entry, data);
 }
 
-DWORD WINAPI
-EXIFGetVersion()
+static BOOL
+enumerate_exif_data(ExifData* ed, EXIFENUMPROC enumFunc, LPARAM lParam)
 {
-    return EXIF_DLL_VERSION;
-}
+    if (!ed)
+        return FALSE;
 
-BOOL WINAPI
-EXIFGetInfo(const char* fileName, int dataLen, EXIFENUMPROC enumFunc, LPARAM lParam)
-{
-    ExifData* ed;
-    ExifMnoteData* md;
+    ExifMnoteData* md = exif_data_get_mnote_data(ed);
 
     struct CEnumData data;
     data.EnumFunc = enumFunc;
     data.LParam = lParam;
-
-    if (dataLen)
-    {
-        ed = exif_data_new_from_data(fileName, dataLen);
-    }
-    else
-    {
-        ed = exif_data_new_from_file(fileName);
-    }
-    if (ed == NULL)
-        return FALSE;
-    md = exif_data_get_mnote_data(ed);
 
     exif_data_foreach_content(ed, show_ifd, &data);
 
@@ -129,9 +119,129 @@ EXIFGetInfo(const char* fileName, int dataLen, EXIFENUMPROC enumFunc, LPARAM lPa
             }
         }
     }
+
     exif_data_unref(ed);
 
     return TRUE;
+}
+
+static wchar_t*
+duplicate_extended_length_path(const wchar_t* path)
+{
+    if (!path || !*path)
+        return NULL;
+
+    if ((wcslen(path) >= 4) && (wcsncmp(path, L"\\\\?\\", 4) == 0))
+        return _wcsdup(path);
+
+    size_t length = wcslen(path);
+    if (length < MAX_PATH)
+        return _wcsdup(path);
+
+    if ((length >= 2) && (wcsncmp(path, L"\\\\", 2) == 0))
+    {
+        const wchar_t prefix[] = L"\\\\?\\UNC\\";
+        size_t prefixLen = ARRAYSIZE(prefix) - 1;
+        size_t total = prefixLen + length - 2 + 1;
+        wchar_t* extended = (wchar_t*)malloc(total * sizeof(wchar_t));
+        if (!extended)
+            return NULL;
+        wcscpy(extended, prefix);
+        wcscat(extended, path + 2);
+        return extended;
+    }
+
+    const wchar_t prefix[] = L"\\\\?\\";
+    size_t prefixLen = ARRAYSIZE(prefix) - 1;
+    size_t total = prefixLen + length + 1;
+    wchar_t* extended = (wchar_t*)malloc(total * sizeof(wchar_t));
+    if (!extended)
+        return NULL;
+
+    wcscpy(extended, prefix);
+    wcscat(extended, path);
+    return extended;
+}
+
+static ExifData*
+exif_data_new_from_file_w(const wchar_t* fileName)
+{
+    if (!fileName)
+        return NULL;
+
+    ExifLoader* loader = exif_loader_new();
+    if (!loader)
+        return NULL;
+
+    wchar_t* extended = duplicate_extended_length_path(fileName);
+    const wchar_t* pathToOpen = extended ? extended : fileName;
+
+    HANDLE file = CreateFileW(pathToOpen,
+                              GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              NULL,
+                              OPEN_EXISTING,
+                              FILE_FLAG_SEQUENTIAL_SCAN,
+                              NULL);
+    if (extended)
+        free(extended);
+
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        exif_loader_unref(loader);
+        return NULL;
+    }
+
+    unsigned char buffer[1024];
+    DWORD bytesRead = 0;
+    while (ReadFile(file, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0)
+    {
+        if (!exif_loader_write(loader, buffer, bytesRead))
+            break;
+    }
+
+    CloseHandle(file);
+
+    ExifData* ed = exif_loader_get_data(loader);
+    exif_loader_unref(loader);
+    return ed;
+}
+
+DWORD WINAPI
+EXIFGetVersion()
+{
+    return EXIF_DLL_VERSION;
+}
+
+BOOL WINAPI
+EXIFGetInfo(const char* fileName, int dataLen, EXIFENUMPROC enumFunc, LPARAM lParam)
+{
+    if (dataLen)
+    {
+        return enumerate_exif_data(exif_data_new_from_data(fileName, dataLen), enumFunc, lParam);
+    }
+    else
+    {
+        return enumerate_exif_data(exif_data_new_from_file(fileName), enumFunc, lParam);
+    }
+}
+
+BOOL WINAPI
+EXIFGetInfoW(const wchar_t* fileName, int dataLen, EXIFENUMPROC enumFunc, LPARAM lParam)
+{
+    if (dataLen)
+        return FALSE;
+
+    return enumerate_exif_data(exif_data_new_from_file_w(fileName), enumFunc, lParam);
+}
+
+BOOL WINAPI
+EXIFGetInfoFromData(const unsigned char* data, unsigned int dataLen, EXIFENUMPROC enumFunc, LPARAM lParam)
+{
+    if (!data || !dataLen)
+        return FALSE;
+
+    return enumerate_exif_data(exif_data_new_from_data(data, dataLen), enumFunc, lParam);
 }
 
 // Loads exif data without forced fixup of entries
@@ -346,22 +456,39 @@ static void orient_enum_ifd(ExifContent* content, void* data)
     exif_content_foreach_entry(content, orient_enum_entry, data);
 }
 
-BOOL WINAPI EXIFGetOrientationInfo(const char* fileName, PThumbExifInfo pInfo)
+static BOOL
+populate_orientation_info(ExifData* ed, PThumbExifInfo pInfo)
 {
-    ExifData* ed;
+    if (!ed)
+        return FALSE;
 
     pInfo->Orient = pInfo->flags = 0;
-
-    ed = exif_data_new_from_file(fileName);
-
-    if (ed == NULL)
-        return FALSE;
 
     exif_data_foreach_content(ed, orient_enum_ifd, pInfo);
 
     exif_data_unref(ed);
 
     return TRUE;
+}
+
+BOOL WINAPI EXIFGetOrientationInfo(const char* fileName, PThumbExifInfo pInfo)
+{
+    return populate_orientation_info(exif_data_new_from_file(fileName), pInfo);
+}
+
+BOOL WINAPI EXIFGetOrientationInfoW(const wchar_t* fileName, PThumbExifInfo pInfo)
+{
+    return populate_orientation_info(exif_data_new_from_file_w(fileName), pInfo);
+}
+
+BOOL WINAPI EXIFGetOrientationInfoFromData(const unsigned char* buffer,
+                                           unsigned int dataLen,
+                                           PThumbExifInfo pInfo)
+{
+    if (!buffer || !dataLen)
+        return FALSE;
+
+    return populate_orientation_info(exif_data_new_from_data(buffer, dataLen), pInfo);
 }
 
 #pragma warning(pop) // FIXME_X64 - docasne potlacen warning, vyresit

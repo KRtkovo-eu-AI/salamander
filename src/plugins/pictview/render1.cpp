@@ -1583,7 +1583,7 @@ LRESULT CRendererWindow::OnPaint()
             LoadingDC = dc;
             XStartLoading = XStart;
             YStartLoading = YStart;
-            if (pvii.Flags & PVFF_IMAGESEQUENCE)
+            if ((pvii.Flags & PVFF_IMAGESEQUENCE) && pvii.Format == PVF_GIF)
             {
                 code = PVW32DLL.PVReadImageSequence(PVHandle, &PVSequence);
                 if (code == PVC_OK)
@@ -1609,13 +1609,80 @@ LRESULT CRendererWindow::OnPaint()
                     (pvii.Flags & PVFF_EXIF) && G.AutoRotate && InitEXIF(NULL, TRUE))
                 {
                     EXIFGETORIENTATIONINFO getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfo");
+#ifdef _UNICODE
+                    EXIFGETORIENTATIONINFOW getInfoW = (EXIFGETORIENTATIONINFOW)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoW");
+#endif
+                    EXIFGETORIENTATIONINFOFROMDATA getInfoFromData =
+                        (EXIFGETORIENTATIONINFOFROMDATA)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoFromData");
 
-                    if (getInfo)
+                    CExifFileBuffer exifBuffer;
+                    bool bufferLoaded = false;
+
+                    SThumbExifInfo info;
+                    ZeroMemory(&info, sizeof(info));
+                    BOOL gotInfo = FALSE;
+
+                    if (getInfoFromData)
                     {
-                        SThumbExifInfo info;
+                        bufferLoaded = exifBuffer.LoadFromFile(FileName);
+                        if (bufferLoaded)
+                        {
+                            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                            if (!gotInfo || !(info.flags & TEI_ORIENT))
+                            {
+                                gotInfo = FALSE;
+                                ZeroMemory(&info, sizeof(info));
+                            }
+                        }
+                    }
+
+#ifdef _UNICODE
+                    if (!gotInfo && getInfoW)
+                    {
+                        gotInfo = getInfoW(FileName, &info);
+                        if (gotInfo && !(info.flags & TEI_ORIENT))
+                        {
+                            gotInfo = FALSE;
+                            ZeroMemory(&info, sizeof(info));
+                        }
+                    }
+#endif
+                    if (!gotInfo && getInfo)
+                    {
+#ifdef _UNICODE
+                        CExifAnsiPath ansiPath;
+                        if (ansiPath.PrepareFromFile(FileName))
+                        {
+                            gotInfo = getInfo(ansiPath.GetPath(), &info);
+                        }
+#else
+                        gotInfo = getInfo(FileName, &info);
+#endif
+                        if (gotInfo && !(info.flags & TEI_ORIENT))
+                        {
+                            gotInfo = FALSE;
+                            ZeroMemory(&info, sizeof(info));
+                        }
+                    }
+
+                    if (!gotInfo && getInfoFromData && !bufferLoaded)
+                    {
+                        bufferLoaded = exifBuffer.LoadFromFile(FileName);
+                        if (bufferLoaded)
+                        {
+                            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                            if (!gotInfo || !(info.flags & TEI_ORIENT))
+                            {
+                                gotInfo = FALSE;
+                                ZeroMemory(&info, sizeof(info));
+                            }
+                        }
+                    }
+
+                    if (gotInfo)
+                    {
                         int cmd;
 
-                        getInfo(FileName, &info);
                         if ((info.flags & (TEI_WIDTH | TEI_HEIGHT)) == (TEI_WIDTH | TEI_HEIGHT))
                         {
                             if (((DWORD)info.Width != pvii.Width) || ((DWORD)info.Height != pvii.Height) || (info.Width < info.Height))
@@ -1645,7 +1712,6 @@ LRESULT CRendererWindow::OnPaint()
                         cmd = 0;
                         switch (info.Orient)
                         {
-                            //                  case 1/*normal case*/"
                         case 2:
                             cmd = CMD_MIRROR_HOR;
                             break;
@@ -2458,7 +2524,7 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HScroll(SB_THUMBPOSITION, GetScrollPos(HWindow, SB_HORZ) + pt.x - r.right / 2);
                     VScroll(SB_THUMBPOSITION, GetScrollPos(HWindow, SB_VERT) + pt.y - r.bottom / 2);
                     // NT4: Desktop icons may get repainted as a response to this
-                    // LockWindowUpdate(NULL) if a zoomed image is cached by PVW32Cnv.dll
+                    // LockWindowUpdate(NULL) if a zoomed image is cached by the backend
                     LockWindowUpdate(NULL);
                 }
             }

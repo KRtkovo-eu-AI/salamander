@@ -9,7 +9,7 @@
 // Version 6: 2007.05.15: ConvertUTF8ToUCS2 is exported
 
 // NOTE: the version also needs to be increased in the exif.def file
-#define EXIF_DLL_VERSION 8
+#define EXIF_DLL_VERSION 9
 
 #ifndef RC_INVOKED
 
@@ -38,6 +38,16 @@ typedef BOOL(WINAPI* EXIFGETINFO)(const char* fileName,
                                   EXIFENUMPROC enumFunc,
                                   LPARAM lParam);
 
+typedef BOOL(WINAPI* EXIFGETINFOFROMDATA)(const unsigned char* data,
+                                          unsigned int dataLen,
+                                          EXIFENUMPROC enumFunc,
+                                          LPARAM lParam);
+
+typedef BOOL(WINAPI* EXIFGETINFOW)(const wchar_t* fileName,
+                                   int dataLen,
+                                   EXIFENUMPROC enumFunc,
+                                   LPARAM lParam);
+
 typedef BOOL(WINAPI* EXIFREPLACETHUMBNAIL)(char* fileName, char* newFile,
                                            unsigned char* pData, int size);
 
@@ -61,6 +71,12 @@ typedef struct _thumbExifInfo
 } SThumbExifInfo, *PThumbExifInfo;
 
 typedef BOOL(WINAPI* EXIFGETORIENTATIONINFO)(const char* filename, PThumbExifInfo pInfo);
+
+typedef BOOL(WINAPI* EXIFGETORIENTATIONINFOW)(const wchar_t* filename, PThumbExifInfo pInfo);
+
+typedef BOOL(WINAPI* EXIFGETORIENTATIONINFOFROMDATA)(const unsigned char* data,
+                                                     unsigned int dataLen,
+                                                     PThumbExifInfo pInfo);
 
 #ifdef __cplusplus
 extern "C"

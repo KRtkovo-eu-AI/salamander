@@ -124,7 +124,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetDlgItemText(HWindow, IDC_ABOUT_PVW32, buff, 1000);
         wsprintf(buff2, buff, PVW32DLL.Version);
         SetDlgItemText(HWindow, IDC_ABOUT_PVW32, buff2);
-        // PVW32 will be bold
+        // Highlight the backend line in bold
         SalamanderGUI->AttachStaticText(HWindow, IDC_ABOUT_PVW32, STF_BOLD);
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_EMAIL, STF_UNDERLINE | STF_HYPERLINK_COLOR);
@@ -1592,7 +1592,13 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         EXIFGETVERSION getVer = (EXIFGETVERSION)GetProcAddress(EXIFLibrary, "EXIFGetVersion");
         EXIFGETINFO getInfo = (EXIFGETINFO)GetProcAddress(EXIFLibrary, "EXIFGetInfo");
-        if (getVer != NULL && getInfo != NULL)
+        EXIFGETINFOW getInfoW = NULL;
+        EXIFGETINFOFROMDATA getInfoFromData =
+            (EXIFGETINFOFROMDATA)GetProcAddress(EXIFLibrary, "EXIFGetInfoFromData");
+#ifdef _UNICODE
+        getInfoW = (EXIFGETINFOW)GetProcAddress(EXIFLibrary, "EXIFGetInfoW");
+#endif
+        if (getVer != NULL && (getInfo != NULL || getInfoW != NULL))
         {
             DWORD exifVer = getVer();
             CALL_STACK_MESSAGE2("EXIFGetInfo() EXIF.DLL version %u", exifVer);
@@ -1624,15 +1630,75 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
             {
-#ifdef _UNICODE
-                char FileNameA[_MAX_PATH];
+                BOOL gotExif = FALSE;
+                CExifFileBuffer exifBuffer;
+                bool bufferLoaded = false;
 
-                WideCharToMultiByte(CP_ACP, 0, FileName, -1, FileNameA, sizeof(FileNameA), NULL, NULL);
-                FileNameA[sizeof(FileNameA) - 1] = 0;
-                getInfo(FileNameA, 0, ExifEnumProc, (LPARAM)this);
-#else
-                getInfo(FileName, 0, ExifEnumProc, (LPARAM)this);
+                if (getInfoFromData)
+                {
+                    bufferLoaded = exifBuffer.LoadFromFile(FileName);
+                    if (bufferLoaded)
+                    {
+                        int previousCount = Items.Count;
+                        gotExif = getInfoFromData(exifBuffer.GetExifData(),
+                                                   exifBuffer.GetExifSize(),
+                                                   ExifEnumProc,
+                                                   (LPARAM)this);
+                        if (gotExif && Items.Count == previousCount)
+                        {
+                            gotExif = FALSE;
+                        }
+                    }
+                }
+#ifdef _UNICODE
+                if (!gotExif && getInfoW)
+                {
+                    int previousCount = Items.Count;
+                    gotExif = getInfoW(FileName, 0, ExifEnumProc, (LPARAM)this);
+                    if (gotExif && Items.Count == previousCount)
+                    {
+                        gotExif = FALSE;
+                    }
+                }
 #endif
+                if (!gotExif && getInfo)
+                {
+#ifdef _UNICODE
+                    CExifAnsiPath ansiPath;
+                    if (ansiPath.PrepareFromFile(FileName))
+                    {
+                        int previousCount = Items.Count;
+                        gotExif = getInfo(ansiPath.GetPath(), 0, ExifEnumProc, (LPARAM)this);
+                        if (gotExif && Items.Count == previousCount)
+                        {
+                            gotExif = FALSE;
+                        }
+                    }
+#else
+                    int previousCount = Items.Count;
+                    gotExif = getInfo(FileName, 0, ExifEnumProc, (LPARAM)this);
+                    if (gotExif && Items.Count == previousCount)
+                    {
+                        gotExif = FALSE;
+                    }
+#endif
+                }
+                if (!gotExif && getInfoFromData && !bufferLoaded)
+                {
+                    bufferLoaded = exifBuffer.LoadFromFile(FileName);
+                    if (bufferLoaded)
+                    {
+                        int previousCount = Items.Count;
+                        gotExif = getInfoFromData(exifBuffer.GetExifData(),
+                                                   exifBuffer.GetExifSize(),
+                                                   ExifEnumProc,
+                                                   (LPARAM)this);
+                        if (gotExif && Items.Count == previousCount)
+                        {
+                            gotExif = FALSE;
+                        }
+                    }
+                }
             }
             DisableNotification = FALSE;
             FillListView();

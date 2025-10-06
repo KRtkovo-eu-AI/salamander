@@ -145,11 +145,7 @@
     </ClCompile>
     <ClCompile Include="..\print.cpp">
     </ClCompile>
-    <ClCompile Include="..\PVEXEWrapper.cpp">
-    </ClCompile>
-    <ClCompile Include="..\PVMessage.cpp">
-    </ClCompile>
-    <ClCompile Include="..\PVMessageWrapper.cpp">
+    <ClCompile Include="..\wic\WicBackend.cpp">
     </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
     </ClCompile>
@@ -211,9 +207,7 @@
     </ClInclude>
     <ClInclude Include="..\precomp.h">
     </ClInclude>
-    <ClInclude Include="..\PVEXEWrapper.h">
-    </ClInclude>
-    <ClInclude Include="..\PVMessage.h">
+    <ClInclude Include="..\wic\WicBackend.h">
     </ClInclude>
     <ClInclude Include="..\pvtwain.h">
     </ClInclude>
@@ -253,10 +247,6 @@
     </ProjectReference>
     <ProjectReference Include="lang_pictview.vcxproj">
       <Project>{bc2e9ea5-ebc4-4fdf-b064-e2bbbbcba1d3}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
-    <ProjectReference Include="salpvenv.vcxproj">
-      <Project>{17cf5e05-f29c-4e5d-ba41-83254e342e0b}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>

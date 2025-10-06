@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*****************************************************************************
- * PVW32DLL.H - C Interface to PVW32.DLL and PVW32Cnv.DLL
+ * PVW32DLL.H - Compatibility interface mirroring the legacy PVW32Cnv API
  * 
  * Version 1.56
  *

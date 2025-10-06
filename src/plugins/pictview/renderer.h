@@ -87,7 +87,7 @@ class CRendererWindow : public CWindow
 public:
     CViewerWindow* Viewer;
 
-    // variables for PVW32
+    // variables for the imaging backend
     LPPVHandle PVHandle; // image handle
     LPPVImageSequence PVSequence, PVCurImgInSeq;
     BOOL ImageLoaded;
