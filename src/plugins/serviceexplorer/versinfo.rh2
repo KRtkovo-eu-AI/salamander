@@ -1,0 +1,46 @@
+//****************************************************************************
+//
+// Copyright (c) ALTAP, spol. s r.o. All rights reserved.
+//
+// This is a part of the Altap Salamander SDK library.
+//
+// The SDK is provided "AS IS" and without warranty of any kind and
+// ALTAP EXPRESSLY DISCLAIMS ALL WARRANTIES, EXPRESS AND IMPLIED, INCLUDING,
+// BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+// FOR A PARTICULAR PURPOSE and NON-INFRINGEMENT.
+//
+//****************************************************************************
+
+#ifndef __SERVICEEXPLORER_VERSINFO_RH2
+#define __SERVICEEXPLORER_VERSINFO_RH2
+
+#if defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
+#error this file is not editable by Microsoft Visual C++
+#endif // defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
+
+#define VERSINFO_MAJOR       0
+#define VERSINFO_MINORA      0
+#define VERSINFO_MINORB      12
+
+#include "spl_vers.h" // vytahneme cisla verzi + buildu
+
+#define VERSINFO_COPYRIGHT   "Copyright  2009 MJ"
+#define VERSINFO_COMPANY     "ALTAP"
+
+#define VERSINFO_PLUGINNAME  "Service Explorer"
+#define VERSINFO_DESCRIPTION "Browse and configure services."
+
+#ifdef _LANG
+#define VERSINFO_INTERNAL    "ENGLISH"
+#define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SLG"
+#else
+#define VERSINFO_INTERNAL    "SVCEXPL"
+#define VERSINFO_ORIGINAL    VERSINFO_INTERNAL ".SPL"
+#endif
+
+// for SLG translators
+#define VERSINFO_SLG_EMAIL   "imap@jamik.de"
+#define VERSINFO_SLG_WEB     "http://www.jamik.de"
+#define VERSINFO_SLG_COMMENT "Original English resources."
+
+#endif // __SERVICEEXPLORER_VERSINFO_RH2
