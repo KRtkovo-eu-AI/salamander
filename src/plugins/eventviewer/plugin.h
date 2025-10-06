@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+#include "spl_base.h"
+#include "spl_fs.h"
+
 struct EventLogRecord;
 class EventLogReader;
 
