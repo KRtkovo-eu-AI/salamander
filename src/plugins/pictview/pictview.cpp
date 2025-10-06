@@ -3,6 +3,12 @@
 
 #include "precomp.h"
 
+#include <share.h>
+#include <string>
+#include <limits>
+#include <cstddef>
+#include <cwchar>
+
 #include "lib/pvw32dll.h"
 #include "pictview.h"
 #include "dialogs.h"
@@ -18,7 +24,7 @@
 #include "pictview.rh2"
 #include "lang/lang.rh"
 #include "histwnd.h"
-#include "PVEXEWrapper.h"
+#include "wic/WicBackend.h"
 #include "PixelAccess.h"
 
 // plugin interface object; its methods are called from Salamander
@@ -449,7 +455,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         DLLInstance = hinstDLL;
     }
 
-    if (fdwReason == DLL_PROCESS_DETACH) // shutdown (unload) PVW32.SPL
+    if (fdwReason == DLL_PROCESS_DETACH) // shutdown (unload) PictView.spl
     {
         if (EXIFLibrary != NULL)
         {
@@ -457,7 +463,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             EXIFLibrary = NULL;
         }
         if (PVW32DLL.Handle != NULL)
-            FreeLibrary(PVW32DLL.Handle); // release PVW32.DLL as well
+            FreeLibrary(PVW32DLL.Handle); // release the imaging backend module as well
         if (G.HAccel != NULL)
             DestroyAcceleratorTable(G.HAccel);
         if (G.CaptureAtomID != 0)
@@ -527,7 +533,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    _T("PictView") /* do not translate! */);
 
     // set the plugin home page URL
-    salamander->SetPluginHomePageURL("www.pictview.com/salamander");
+    salamander->SetPluginHomePageURL("www.opensalamander.org");
 
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.
@@ -535,7 +541,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     TCHAR exceptInfo[512];
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
     _tcsncat(exceptInfo, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - _tcslen(exceptInfo));
-    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@pictview.com");
+    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@opensalamander.org");
     return &PluginInterface;
 }
 
@@ -1358,59 +1364,12 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 BOOL LoadPictViewDll(HWND hParentWnd)
 {
-    TCHAR path[_MAX_PATH];
-
-    if (!GetModuleFileName(DLLInstance, path, SizeOf(path)))
+    if (!PictView::Wic::Backend::Instance().Populate(PVW32DLL))
     {
-        TRACE_E("GetModuleFileName failed");
+        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
+                                         MB_ICONSTOP | MB_OK);
         return FALSE;
     }
-    _tcsrchr(path, '\\')[0] = 0;
-#ifndef PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    _tcscat(path, _T("\\PVW32Cnv.dll"));
-    PVW32DLL.Handle = LoadLibrary(path); // load PVW32Cnv.dll
-    if (!PVW32DLL.Handle)
-    {
-        TRACE_E("LoadLibrary(PVW32Cnv.dll) failed");
-        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND),
-                                         LoadStr(IDS_ERRORTITLE), MB_ICONSTOP | MB_OK);
-        return FALSE;
-    }
-    PVW32DLL.PVReadImage2 = (TPVReadImage2)GetProcAddress(PVW32DLL.Handle, "PVReadImage2");
-    PVW32DLL.PVCloseImage = (TPVCloseImage)GetProcAddress(PVW32DLL.Handle, "PVCloseImage");
-    PVW32DLL.PVDrawImage = (TPVDrawImage)GetProcAddress(PVW32DLL.Handle, "PVDrawImage");
-    PVW32DLL.PVGetErrorText = (TPVGetErrorText)GetProcAddress(PVW32DLL.Handle, "PVGetErrorText");
-    PVW32DLL.PVOpenImageEx = (TPVOpenImageEx)GetProcAddress(PVW32DLL.Handle, "PVOpenImageEx");
-    PVW32DLL.PVSetBkHandle = (TPVSetBkHandle)GetProcAddress(PVW32DLL.Handle, "PVSetBkHandle");
-    PVW32DLL.PVGetDLLVersion = (TPVGetDLLVersion)GetProcAddress(PVW32DLL.Handle, "PVGetDLLVersion");
-    PVW32DLL.PVSetStretchParameters = (TPVSetStretchParameters)GetProcAddress(PVW32DLL.Handle, "PVSetStretchParameters");
-    PVW32DLL.PVLoadFromClipboard = (TPVLoadFromClipboard)GetProcAddress(PVW32DLL.Handle, "PVLoadFromClipboard");
-    PVW32DLL.PVGetImageInfo = (TPVGetImageInfo)GetProcAddress(PVW32DLL.Handle, "PVGetImageInfo");
-    PVW32DLL.PVSetParam = (TPVSetParam)GetProcAddress(PVW32DLL.Handle, "PVSetParam");
-    PVW32DLL.PVGetHandles2 = (TPVGetHandles2)GetProcAddress(PVW32DLL.Handle, "PVGetHandles2");
-    PVW32DLL.PVSaveImage = (TPVSaveImage)GetProcAddress(PVW32DLL.Handle, "PVSaveImage");
-    PVW32DLL.PVChangeImage = (TPVChangeImage)GetProcAddress(PVW32DLL.Handle, "PVChangeImage");
-    PVW32DLL.PVIsOutCombSupported = (TPVIsOutCombSupported)GetProcAddress(PVW32DLL.Handle, "PVIsOutCombSupported");
-    PVW32DLL.PVReadImageSequence = (TPVReadImageSequence)GetProcAddress(PVW32DLL.Handle, "PVReadImageSequence");
-    PVW32DLL.PVCropImage = (TPVCropImage)GetProcAddress(PVW32DLL.Handle, "PVCropImage");
-    PVW32DLL.GetRGBAtCursor = GetRGBAtCursor;
-    PVW32DLL.CalculateHistogram = CalculateHistogram;
-    PVW32DLL.CreateThumbnail = CreateThumbnail;
-    PVW32DLL.SimplifyImageSequence = SimplifyImageSequence;
-
-    if (!PVW32DLL.PVReadImage2 || !PVW32DLL.PVIsOutCombSupported || !PVW32DLL.PVChangeImage || !PVW32DLL.PVSetParam || !PVW32DLL.PVGetHandles2 || !PVW32DLL.PVCropImage)
-    {
-        TRACE_E("PVW32Cnv was not compiled for Salamander or an old version was found");
-        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_WRONG_VERSION),
-                                         LoadStr(IDS_ERRORTITLE), MB_ICONSTOP | MB_OK);
-        return FALSE;
-    }
-#else  // PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    if (!InitPVEXEWrapper(hParentWnd, path))
-    {
-        return FALSE;
-    }
-#endif // PICTVIEW_DLL_IN_SEPARATE_PROCESS
     return TRUE;
 }
 
@@ -1459,7 +1418,8 @@ BOOL InitViewer(HWND hParentWnd)
     }
     i = PVW32DLL.PVGetDLLVersion();
 
-    sprintf(PVW32DLL.Version, "PVW32Cnv.dll %d.%#02d.%d", i >> 16, i & 255, (i >> 8) & 255);
+    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "WIC backend %u.%02u",
+                static_cast<unsigned>(PV_VERSION_MAJOR(i)), static_cast<unsigned>(PV_VERSION_MINOR(i)));
 
     PVW32DLL.PVSetParam(GetExtText);
 
@@ -1541,11 +1501,571 @@ BOOL InitEXIF(HWND hParent, BOOL bSilent)
     return TRUE;
 }
 
+bool ConvertPathToExifEncoding(LPCTSTR path, char* buffer, int bufferSize)
+{
+#ifdef _UNICODE
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+
+    buffer[0] = '\0';
+
+    if (path == NULL)
+        return false;
+
+    BOOL usedDefaultChar = FALSE;
+    int result = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path, -1, buffer, bufferSize, NULL, &usedDefaultChar);
+    if (result > 0 && !usedDefaultChar)
+        return true;
+
+    TCHAR shortPath[MAX_PATH];
+    DWORD shortLen = GetShortPathName(path, shortPath, SizeOf(shortPath));
+    if (shortLen > 0 && shortLen < SizeOf(shortPath))
+    {
+        usedDefaultChar = FALSE;
+        result = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, shortPath, -1, buffer, bufferSize, NULL, &usedDefaultChar);
+        if (result > 0 && !usedDefaultChar)
+            return true;
+    }
+
+    WideCharToMultiByte(CP_ACP, 0, path, -1, buffer, bufferSize, NULL, NULL);
+    return false;
+#else
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+
+    if (path == NULL)
+    {
+        buffer[0] = '\0';
+        return false;
+    }
+
+    lstrcpyn(buffer, path, bufferSize);
+    return true;
+#endif
+}
+
+#ifdef _UNICODE
+static std::wstring BuildExtendedLengthPath(LPCTSTR path)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+
+    if (_tcsncmp(path, _T("\\\\?\\"), 4) == 0)
+        return std::wstring(path);
+
+    size_t length = _tcslen(path);
+    if (length < MAX_PATH)
+        return std::wstring();
+
+    if (_tcsncmp(path, _T("\\\\"), 2) == 0)
+        return std::wstring(_T("\\\\?\\UNC\\")) + (path + 2);
+
+    return std::wstring(_T("\\\\?\\")) + path;
+}
+#else
+static std::wstring BuildExtendedLengthPathWide(const wchar_t* path)
+{
+    if (path == NULL || *path == L'\0')
+        return std::wstring();
+
+    if (wcsncmp(path, L"\\\\?\\", 4) == 0)
+        return std::wstring(path);
+
+    size_t length = wcslen(path);
+    if (length < MAX_PATH)
+        return std::wstring();
+
+    if (wcsncmp(path, L"\\\\", 2) == 0)
+        return std::wstring(L"\\\\?\\UNC\\") + (path + 2);
+
+    return std::wstring(L"\\\\?\\") + path;
+}
+#endif
+
+namespace
+{
+    bool ReadExact(HANDLE file, void* buffer, DWORD bytes)
+    {
+        if (bytes == 0)
+            return true;
+
+        BYTE* out = static_cast<BYTE*>(buffer);
+        DWORD remaining = bytes;
+        while (remaining > 0)
+        {
+            DWORD chunk = 0;
+            if (!ReadFile(file, out, remaining, &chunk, NULL) || chunk == 0)
+                return false;
+
+            out += chunk;
+            remaining -= chunk;
+        }
+
+        return true;
+    }
+
+    bool SkipBytes(HANDLE file, size_t bytes)
+    {
+        LARGE_INTEGER distance;
+        distance.QuadPart = static_cast<LONGLONG>(bytes);
+        return SetFilePointerEx(file, distance, NULL, FILE_CURRENT) != 0;
+    }
+
+    bool LoadExifFromJpegStream(HANDLE file,
+                                size_t maxBytes,
+                                std::vector<unsigned char>& buffer,
+                                const unsigned char*& exifData,
+                                unsigned int& exifSize)
+    {
+        LARGE_INTEGER zero = {};
+        if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN))
+            return false;
+
+        BYTE header[2];
+        DWORD read = 0;
+        if (!ReadFile(file, header, 2, &read, NULL) || read != 2)
+            return false;
+
+        if (header[0] != 0xFF || header[1] != 0xD8)
+            return false;
+
+        buffer.clear();
+
+        for (;;)
+        {
+            BYTE prefix = 0;
+            do
+            {
+                if (!ReadFile(file, &prefix, 1, &read, NULL) || read != 1)
+                    return false;
+            } while (prefix != 0xFF);
+
+            BYTE marker = 0;
+            do
+            {
+                if (!ReadFile(file, &marker, 1, &read, NULL) || read != 1)
+                    return false;
+            } while (marker == 0xFF);
+
+            if (marker == 0x00)
+                continue;
+            if (marker == 0xD8)
+                continue;
+            if (marker == 0xD9 || marker == 0xDA)
+                break;
+            if (marker == 0x01)
+                continue;
+            if (marker >= 0xD0 && marker <= 0xD7)
+                continue;
+
+            BYTE lengthBytes[2];
+            if (!ReadFile(file, lengthBytes, 2, &read, NULL) || read != 2)
+                return false;
+
+            unsigned int segmentLength = (lengthBytes[0] << 8) | lengthBytes[1];
+            if (segmentLength < 2)
+                return false;
+
+            unsigned int payloadLength = segmentLength - 2;
+
+            if (marker == 0xE1)
+            {
+                if (payloadLength < 6)
+                {
+                    if (!SkipBytes(file, payloadLength))
+                        return false;
+                    continue;
+                }
+
+                if (payloadLength > maxBytes)
+                {
+                    if (!SkipBytes(file, payloadLength))
+                        return false;
+                    continue;
+                }
+
+                buffer.resize(payloadLength);
+                if (!ReadExact(file, buffer.data(), payloadLength))
+                {
+                    buffer.clear();
+                    return false;
+                }
+
+                if (memcmp(buffer.data(), "Exif\0\0", 6) == 0)
+                {
+                    exifData = buffer.data();
+                    exifSize = payloadLength;
+                    return true;
+                }
+
+                buffer.clear();
+                continue;
+            }
+
+            if (!SkipBytes(file, payloadLength))
+                return false;
+        }
+
+        buffer.clear();
+        return false;
+    }
+
+    bool LoadExifByScanning(HANDLE file,
+                            size_t maxBytes,
+                            std::vector<unsigned char>& buffer,
+                            const unsigned char*& exifData,
+                            unsigned int& exifSize)
+    {
+        LARGE_INTEGER zero = {};
+        if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN))
+            return false;
+
+        buffer.clear();
+
+        const size_t chunkSize = 64 * 1024;
+        size_t totalRead = 0;
+        size_t searchStart = 0;
+        const unsigned char signature[] = {'E', 'x', 'i', 'f', 0, 0};
+        size_t foundOffset = SIZE_MAX;
+        size_t declaredLength = 0;
+        bool haveDeclaredLength = false;
+
+        while (totalRead < maxBytes)
+        {
+            size_t toRead = chunkSize;
+            if (toRead > maxBytes - totalRead)
+                toRead = maxBytes - totalRead;
+            if (toRead == 0)
+                break;
+
+            size_t start = buffer.size();
+            buffer.resize(start + toRead);
+
+            DWORD bytesRead = 0;
+            if (!ReadFile(file, &buffer[start], static_cast<DWORD>(toRead), &bytesRead, NULL))
+            {
+                buffer.resize(start);
+                return false;
+            }
+
+            if (bytesRead == 0)
+            {
+                buffer.resize(start);
+                break;
+            }
+
+            buffer.resize(start + bytesRead);
+            totalRead += bytesRead;
+
+            size_t searchLimit = 0;
+            if (buffer.size() >= sizeof(signature))
+                searchLimit = buffer.size() - sizeof(signature) + 1;
+
+            for (size_t i = searchStart; i < searchLimit; i++)
+            {
+                if (memcmp(&buffer[i], signature, sizeof(signature)) == 0)
+                {
+                    foundOffset = i;
+                    if (i >= 4 && buffer[i - 4] == 0xFF && buffer[i - 3] == 0xE1)
+                    {
+                        size_t declared = (static_cast<size_t>(buffer[i - 2]) << 8) | buffer[i - 1];
+                        if (declared >= 2)
+                        {
+                            declaredLength = declared - 2; // payload length excludes the length bytes themselves
+                            haveDeclaredLength = true;
+                        }
+                        else
+                        {
+                            declaredLength = 0;
+                            haveDeclaredLength = false;
+                        }
+                    }
+                    else
+                    {
+                        declaredLength = 0;
+                        haveDeclaredLength = false;
+                    }
+                    break;
+                }
+            }
+
+            if (foundOffset != SIZE_MAX)
+                break;
+
+            searchStart = (buffer.size() > 5) ? buffer.size() - 5 : 0;
+
+            if (bytesRead < toRead)
+                break;
+        }
+
+        if (foundOffset == SIZE_MAX)
+        {
+            buffer.clear();
+            return false;
+        }
+
+        if (haveDeclaredLength && declaredLength > 0)
+        {
+            size_t required = foundOffset + declaredLength;
+            while (buffer.size() < required && totalRead < maxBytes)
+            {
+                size_t toRead = chunkSize;
+                if (toRead > maxBytes - totalRead)
+                    toRead = maxBytes - totalRead;
+                if (toRead == 0)
+                    break;
+
+                size_t start = buffer.size();
+                buffer.resize(start + toRead);
+
+                DWORD bytesRead = 0;
+                if (!ReadFile(file, &buffer[start], static_cast<DWORD>(toRead), &bytesRead, NULL))
+                {
+                    buffer.resize(start);
+                    break;
+                }
+
+                if (bytesRead == 0)
+                {
+                    buffer.resize(start);
+                    break;
+                }
+
+                buffer.resize(start + bytesRead);
+                totalRead += bytesRead;
+
+                if (bytesRead < toRead)
+                    break;
+            }
+        }
+
+        size_t available = buffer.size() - foundOffset;
+        size_t finalLength = available;
+        if (haveDeclaredLength)
+        {
+            if (declaredLength > available)
+            {
+                buffer.clear();
+                return false;
+            }
+            finalLength = declaredLength;
+        }
+
+        if (finalLength == 0)
+        {
+            buffer.clear();
+            return false;
+        }
+
+        if (finalLength > static_cast<size_t>(std::numeric_limits<unsigned int>::max()))
+            finalLength = std::numeric_limits<unsigned int>::max();
+
+        exifData = &buffer[foundOffset];
+        exifSize = static_cast<unsigned int>(finalLength);
+        return exifSize != 0;
+    }
+}
+
+CExifAnsiPath::CExifAnsiPath()
+{
+    Path[0] = '\0';
+#ifdef _UNICODE
+    TempFile[0] = '\0';
+    UsingTempCopy = false;
+#endif
+}
+
+CExifAnsiPath::~CExifAnsiPath()
+{
+#ifdef _UNICODE
+    if (UsingTempCopy && TempFile[0])
+    {
+        std::wstring extendedTemp = BuildExtendedLengthPath(TempFile);
+        LPCTSTR deletePath = extendedTemp.empty() ? TempFile : extendedTemp.c_str();
+        DeleteFile(deletePath);
+        TempFile[0] = '\0';
+        UsingTempCopy = false;
+    }
+#endif
+}
+
+bool CExifAnsiPath::PrepareFromFile(LPCTSTR sourcePath)
+{
+    Path[0] = '\0';
+#ifdef _UNICODE
+    if (UsingTempCopy && TempFile[0])
+    {
+        std::wstring extendedTemp = BuildExtendedLengthPath(TempFile);
+        LPCTSTR deletePath = extendedTemp.empty() ? TempFile : extendedTemp.c_str();
+        DeleteFile(deletePath);
+    }
+    UsingTempCopy = false;
+    TempFile[0] = '\0';
+#endif
+
+    if (sourcePath == NULL)
+        return false;
+
+    if (ConvertPathToExifEncoding(sourcePath, Path, sizeof(Path)))
+        return true;
+
+#ifdef _UNICODE
+    TCHAR tempDir[MAX_PATH];
+    if (!GetTempPath(SizeOf(tempDir), tempDir))
+        return false;
+
+    TCHAR tempFile[MAX_PATH];
+    if (!GetTempFileName(tempDir, _T("pvx"), 0, tempFile))
+        return false;
+
+    std::wstring sourceExtended = BuildExtendedLengthPath(sourcePath);
+    LPCTSTR copySource = sourceExtended.empty() ? sourcePath : sourceExtended.c_str();
+    std::wstring tempExtended = BuildExtendedLengthPath(tempFile);
+    LPCTSTR copyDest = tempExtended.empty() ? tempFile : tempExtended.c_str();
+
+    if (!CopyFile(copySource, copyDest, FALSE))
+    {
+        DeleteFile(copyDest);
+        return false;
+    }
+
+    if (!ConvertPathToExifEncoding(tempFile, Path, sizeof(Path)))
+    {
+        DeleteFile(copyDest);
+        return false;
+    }
+
+    lstrcpyn(TempFile, tempFile, SizeOf(TempFile));
+    UsingTempCopy = true;
+    return true;
+#else
+    return false;
+#endif
+}
+
+CExifFileBuffer::CExifFileBuffer()
+{
+    ExifData = NULL;
+    ExifSize = 0;
+}
+
+bool CExifFileBuffer::LoadFromFile(LPCTSTR sourcePath, size_t maxBytes)
+{
+    ExifData = NULL;
+    ExifSize = 0;
+    Buffer.clear();
+
+    if (!sourcePath || maxBytes == 0)
+        return false;
+
+    HANDLE file;
+#ifdef _UNICODE
+    std::wstring extendedPath = BuildExtendedLengthPath(sourcePath);
+    LPCTSTR openPath = extendedPath.empty() ? sourcePath : extendedPath.c_str();
+    file = CreateFileW(openPath,
+                       GENERIC_READ,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NULL,
+                       OPEN_EXISTING,
+                       FILE_FLAG_SEQUENTIAL_SCAN,
+                       NULL);
+#else
+    file = CreateFileA(sourcePath,
+                       GENERIC_READ,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NULL,
+                       OPEN_EXISTING,
+                       FILE_FLAG_SEQUENTIAL_SCAN,
+                       NULL);
+#endif
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+
+    const unsigned char* data = NULL;
+    unsigned int size = 0;
+
+    bool success = LoadExifFromJpegStream(file, maxBytes, Buffer, data, size);
+    if (!success)
+    {
+        success = LoadExifByScanning(file, maxBytes, Buffer, data, size);
+    }
+
+    CloseHandle(file);
+
+    if (!success)
+    {
+        Buffer.clear();
+        return false;
+    }
+
+    ExifData = data;
+    ExifSize = size;
+    return true;
+}
+
+#ifndef _UNICODE
+bool CExifFileBuffer::LoadFromWideFile(const wchar_t* sourcePath, size_t maxBytes)
+{
+    ExifData = NULL;
+    ExifSize = 0;
+    Buffer.clear();
+
+    if (!sourcePath || maxBytes == 0)
+        return false;
+
+    std::wstring extendedPath = BuildExtendedLengthPathWide(sourcePath);
+    LPCWSTR openPath = extendedPath.empty() ? sourcePath : extendedPath.c_str();
+
+    HANDLE file = CreateFileW(openPath,
+                               GENERIC_READ,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               NULL,
+                               OPEN_EXISTING,
+                               FILE_FLAG_SEQUENTIAL_SCAN,
+                               NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+
+    const unsigned char* data = NULL;
+    unsigned int size = 0;
+
+    bool success = LoadExifFromJpegStream(file, maxBytes, Buffer, data, size);
+    if (!success)
+    {
+        success = LoadExifByScanning(file, maxBytes, Buffer, data, size);
+    }
+
+    CloseHandle(file);
+
+    if (!success)
+    {
+        Buffer.clear();
+        return false;
+    }
+
+    ExifData = data;
+    ExifSize = size;
+    return true;
+}
+#endif
+
+bool CExifFileBuffer::HasExifData() const
+{
+    return ExifData != NULL && ExifSize != 0;
+}
+
+const unsigned char* CExifFileBuffer::GetExifData() const
+{
+    return ExifData;
+}
+
+unsigned int CExifFileBuffer::GetExifSize() const
+{
+    return ExifSize;
+}
+
 void ReleaseViewer()
 {
-#ifdef PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    ReleasePVEXEWrapper();
-#endif
     if (!UnregisterClass(TIP_WINDOW_CLASSNAME, DLLInstance))
         TRACE_E("UnregisterClass(TIP_WINDOW_CLASSNAME) has failed");
     ReleaseWinLib(DLLInstance);
@@ -1639,7 +2159,7 @@ public:
 /*
 unsigned WINAPI ViewerThreadBody(void *param)
 {
-  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s backend %hs"), VERSINFO_VERSION, PVW32DLL.Version);
   SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
   TRACE_I("Begin");
   RECT    r;
@@ -1758,7 +2278,7 @@ unsigned __stdcall ViewerThread(void *param)
 unsigned
 CViewerThread::Body()
 {
-    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s backend %hs"), VERSINFO_VERSION, PVW32DLL.Version);
     SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
     TRACE_I("Begin");
 

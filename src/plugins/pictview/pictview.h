@@ -25,7 +25,7 @@ typedef DWORD(WINAPI* TPVIsOutCombSupported)(int Fmt, int Compr, int Colors, int
 typedef PVCODE(WINAPI* TPVReadImageSequence)(LPPVHandle Img, LPPVImageSequence* ppSeq);
 typedef PVCODE(WINAPI* TPVCropImage)(LPPVHandle Img, int Left, int Top, int Width, int Height);
 
-// Internal functions, not directly imported from PVW32Cnv.dll
+// Internal helper entry points provided by the in-process imaging backend
 typedef bool (*TPVGetRGBAtCursor)(LPPVHandle Img, DWORD Colors, int x, int y, RGBQUAD* pRGB, int* pIndex);
 typedef PVCODE (*TPVCalculateHistogram)(LPPVHandle PVHandle, const LPPVImageInfo pvii, LPDWORD luminosity, LPDWORD red, LPDWORD green, LPDWORD blue, LPDWORD rgb);
 typedef PVCODE (*TPVCreateThumbnail)(LPPVHandle hPVImage, LPPVSaveImageInfo pSii, int imageIndex, DWORD imgWidth, DWORD imgHeight,
@@ -60,7 +60,7 @@ struct CPVW32DLL
     TPVCalculateHistogram CalculateHistogram;
     TPVCreateThumbnail CreateThumbnail;
     TPVSimplifyImageSequence SimplifyImageSequence;
-    HMODULE Handle;   // handle of the opened PVW32Cnv.DLL library
+    HMODULE Handle;   // handle of the active imaging backend module
     char Version[28]; // initialized together with Handle in DllMain on DLL_PROCESS_ATTACH
 };
 
@@ -451,6 +451,49 @@ WCHAR* LoadStrW(int resID);
 BOOL InitViewer(HWND hParentWnd);
 void ReleaseViewer();
 BOOL InitEXIF(HWND hParent, BOOL bSilent);
+bool ConvertPathToExifEncoding(LPCTSTR path, char* buffer, int bufferSize);
+
+#ifndef RC_INVOKED
+#include <vector>
+#endif
+
+class CExifAnsiPath
+{
+public:
+    CExifAnsiPath();
+    ~CExifAnsiPath();
+
+    bool PrepareFromFile(LPCTSTR sourcePath);
+    const char* GetPath() const { return Path; }
+
+private:
+    char Path[_MAX_PATH];
+#ifdef _UNICODE
+    TCHAR TempFile[MAX_PATH];
+    bool UsingTempCopy;
+#endif
+};
+
+#ifndef RC_INVOKED
+class CExifFileBuffer
+{
+public:
+    CExifFileBuffer();
+
+    bool LoadFromFile(LPCTSTR sourcePath, size_t maxBytes = 16 * 1024 * 1024);
+#ifndef _UNICODE
+    bool LoadFromWideFile(const wchar_t* sourcePath, size_t maxBytes = 16 * 1024 * 1024);
+#endif
+    bool HasExifData() const;
+    const unsigned char* GetExifData() const;
+    unsigned int GetExifSize() const;
+
+private:
+    std::vector<unsigned char> Buffer;
+    const unsigned char* ExifData;
+    unsigned int ExifSize;
+};
+#endif
 void OnConfiguration(HWND hParent);
 BOOL MultipleMonitors(RECT* boundingRect);
 

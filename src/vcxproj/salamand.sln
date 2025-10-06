@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34310.174
@@ -162,8 +162,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "7zwrapper", "..\plugins\7zip\vcxproj\7zwrapper\7zwrapper.vcxproj", "{509D1C83-66E9-49BF-8343-6D54EFAA2875}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fcremote", "..\plugins\filecomp\vcxproj\fcremote\fcremote.vcxproj", "{89CD2440-2844-4C0B-9CDE-1045334E9EC0}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "salpvenv", "..\plugins\pictview\vcxproj\salpvenv.vcxproj", "{17CF5E05-F29C-4E5D-BA41-83254E342E0B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sqlite", "sqlite\sqlite.vcxproj", "{49D6CEED-804F-4EA6-BD12-2D825E13DAE3}"
 EndProject
@@ -618,16 +616,18 @@ Global
 		{BDD8F231-0C97-46D1-8DFC-7649741B7028}.Release|x64.Build.0 = Release|x64
 		{BDD8F231-0C97-46D1-8DFC-7649741B7028}.Utils (Release)|Win32.ActiveCfg = Release|Win32
 		{BDD8F231-0C97-46D1-8DFC-7649741B7028}.Utils (Release)|x64.ActiveCfg = Release|x64
-		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|Win32.ActiveCfg = Debug|Win32
-		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|Win32.Build.0 = Debug|Win32
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|Win32.ActiveCfg = Debug|x64
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|Win32.Build.0 = Debug|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|x64.ActiveCfg = Debug|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Debug|x64.Build.0 = Debug|x64
-		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Release|Win32.ActiveCfg = Release|Win32
-		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Release|Win32.Build.0 = Release|Win32
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Release|Win32.ActiveCfg = Release|x64
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Release|Win32.Build.0 = Release|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Release|x64.ActiveCfg = Release|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Release|x64.Build.0 = Release|x64
-		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|Win32.ActiveCfg = Release|Win32
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|Win32.ActiveCfg = Release|x64
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|Win32.Build.0 = Release|x64
 		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|x64.ActiveCfg = Release|x64
+		{17CF5E04-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|x64.Build.0 = Release|x64
 		{C3D5458E-BF71-4C7D-AF45-F502A14EB528}.Debug|Win32.ActiveCfg = Debug|Win32
 		{C3D5458E-BF71-4C7D-AF45-F502A14EB528}.Debug|Win32.Build.0 = Debug|Win32
 		{C3D5458E-BF71-4C7D-AF45-F502A14EB528}.Debug|x64.ActiveCfg = Debug|x64
@@ -988,12 +988,6 @@ Global
 		{89CD2440-2844-4C0B-9CDE-1045334E9EC0}.Release|x64.Build.0 = Release|x64
 		{89CD2440-2844-4C0B-9CDE-1045334E9EC0}.Utils (Release)|Win32.ActiveCfg = Release|Win32
 		{89CD2440-2844-4C0B-9CDE-1045334E9EC0}.Utils (Release)|x64.ActiveCfg = Release|x64
-		{17CF5E05-F29C-4E5D-BA41-83254E342E0B}.Debug|Win32.ActiveCfg = Debug|Win32
-		{17CF5E05-F29C-4E5D-BA41-83254E342E0B}.Debug|x64.ActiveCfg = Debug|Win32
-		{17CF5E05-F29C-4E5D-BA41-83254E342E0B}.Release|Win32.ActiveCfg = Release|Win32
-		{17CF5E05-F29C-4E5D-BA41-83254E342E0B}.Release|x64.ActiveCfg = Release|Win32
-		{17CF5E05-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|Win32.ActiveCfg = Release|Win32
-		{17CF5E05-F29C-4E5D-BA41-83254E342E0B}.Utils (Release)|x64.ActiveCfg = Release|Win32
 		{49D6CEED-804F-4EA6-BD12-2D825E13DAE3}.Debug|Win32.ActiveCfg = Debug|Win32
 		{49D6CEED-804F-4EA6-BD12-2D825E13DAE3}.Debug|Win32.Build.0 = Debug|Win32
 		{49D6CEED-804F-4EA6-BD12-2D825E13DAE3}.Debug|x64.ActiveCfg = Debug|x64

@@ -825,6 +825,10 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
     unsigned char* thumbData;
     DWORD pictureFlags = 0;
 
+    char filenameA[_MAX_PATH];
+    bool hasExactExifPath = ConvertPathToExifEncoding(filename, filenameA, sizeof(filenameA));
+    const char* filenameForExif = filenameA;
+
     pvoi.DataSize = ExtractWinThumbnail(filename, &thumbData);
     for (;;)
     {
@@ -832,16 +836,7 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         /* PVFF_FAST: Discard/do not alloc all unnecessary info */
         //     pvoi.Flags  = PVFF_FAST | (G.IgnoreThumbnails ? 0 : PVOF_THUMBNAIL);
         pvoi.Flags = PVFF_FAST | (G.IgnoreThumbnails ? 0 : (fastThumbnail ? PVOF_THUMBNAIL : 0));
-
-#ifdef _UNICODE
-        char filenameA[_MAX_PATH];
-
-        WideCharToMultiByte(CP_ACP, 0, filename, -1, filenameA, sizeof(filenameA), NULL, NULL);
-        filenameA[sizeof(filenameA) - 1] = 0;
-        pvoi.FileName = filenameA;
-#else
-        pvoi.FileName = filename;
-#endif
+        pvoi.FileName = filenameForExif;
         if (pvoi.DataSize)
         {
             pvoi.Flags |= PVOF_USERDEFINED_INPUT;
@@ -909,11 +904,100 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         if (EXIFLibrary)
         {
             EXIFGETORIENTATIONINFO getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfo");
-            if (getInfo)
-            {
-                SThumbExifInfo info;
+#ifdef _UNICODE
+            EXIFGETORIENTATIONINFOW getInfoW = (EXIFGETORIENTATIONINFOW)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoW");
+#endif
+            EXIFGETORIENTATIONINFOFROMDATA getInfoFromData =
+                (EXIFGETORIENTATIONINFOFROMDATA)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoFromData");
+            CExifFileBuffer exifBuffer;
+            bool bufferLoaded = false;
+            SThumbExifInfo info;
+            ZeroMemory(&info, sizeof(info));
+            BOOL gotInfo = FALSE;
 
-                getInfo(filename, &info);
+#ifdef _UNICODE
+            if (getInfoFromData)
+            {
+                bufferLoaded = exifBuffer.LoadFromFile(filename);
+                if (bufferLoaded)
+                {
+                    gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                    if (!gotInfo || !(info.flags & TEI_ORIENT))
+                    {
+                        gotInfo = FALSE;
+                        ZeroMemory(&info, sizeof(info));
+                    }
+                }
+            }
+
+            if (!gotInfo && getInfoW)
+            {
+                gotInfo = getInfoW(filename, &info);
+                if (gotInfo && !(info.flags & TEI_ORIENT))
+                {
+                    gotInfo = FALSE;
+                    ZeroMemory(&info, sizeof(info));
+                }
+            }
+            if (!gotInfo && getInfo)
+            {
+                if (hasExactExifPath)
+                {
+                    gotInfo = getInfo(filenameForExif, &info);
+                }
+                else
+                {
+                    CExifAnsiPath ansiPath;
+                    if (ansiPath.PrepareFromFile(filename))
+                    {
+                        gotInfo = getInfo(ansiPath.GetPath(), &info);
+                    }
+                }
+                if (gotInfo && !(info.flags & TEI_ORIENT))
+                {
+                    gotInfo = FALSE;
+                    ZeroMemory(&info, sizeof(info));
+                }
+            }
+#else
+            if (getInfoFromData)
+            {
+                bufferLoaded = exifBuffer.LoadFromFile(filename);
+                if (bufferLoaded)
+                {
+                    gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                    if (!gotInfo || !(info.flags & TEI_ORIENT))
+                    {
+                        gotInfo = FALSE;
+                        ZeroMemory(&info, sizeof(info));
+                    }
+                }
+            }
+            if (!gotInfo && getInfo)
+            {
+                gotInfo = getInfo(filename, &info);
+                if (gotInfo && !(info.flags & TEI_ORIENT))
+                {
+                    gotInfo = FALSE;
+                    ZeroMemory(&info, sizeof(info));
+                }
+            }
+#endif
+            if (!gotInfo && getInfoFromData && !bufferLoaded)
+            {
+                bufferLoaded = exifBuffer.LoadFromFile(filename);
+                if (bufferLoaded)
+                {
+                    gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                    if (!gotInfo || !(info.flags & TEI_ORIENT))
+                    {
+                        gotInfo = FALSE;
+                        ZeroMemory(&info, sizeof(info));
+                    }
+                }
+            }
+            if (gotInfo)
+            {
                 if ((info.flags & (TEI_WIDTH | TEI_HEIGHT)) == (TEI_WIDTH | TEI_HEIGHT))
                 {
                     if (((DWORD)info.Width != pvii.Width) || ((DWORD)info.Height != pvii.Height) || (info.Width < info.Height))
