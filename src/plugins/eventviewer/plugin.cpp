@@ -316,8 +316,10 @@ void WINAPI CPluginInterfaceForFS::CloseFS(CPluginFSInterfaceAbstract* fs)
 
 void WINAPI CPluginInterfaceForFS::ExecuteChangeDriveMenuItem(int panel)
 {
+    UNREFERENCED_PARAMETER(panel);
+
     int failReason = 0;
-    SalamanderGeneral->ChangePanelPathToPluginFS(panel, AssignedFSName, "", &failReason);
+    SalamanderGeneral->ChangePanelPathToPluginFS(PANEL_SOURCE, AssignedFSName, "", &failReason);
 }
 
 BOOL WINAPI CPluginInterfaceForFS::ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y,
