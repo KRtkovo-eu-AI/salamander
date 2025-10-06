@@ -20,7 +20,6 @@
 #endif
 
 #ifdef _WIN64
-#define PICTVIEW_DLL_IN_SEPARATE_PROCESS // the x64 version of PictView uses the 32-bit pvw32cnv.dll via IPC (inter-process communication) with salpvenv.exe
 #define ENABLE_WIA                       // the x64 version of PictView uses WIA 1.0 for scanning
 #else                                    // _WIN64
 #define ENABLE_TWAIN32                   // the x86 version of PictView uses TWAIN 1.x for scanning (which internally also supports WIA)

@@ -145,11 +145,7 @@
     </ClCompile>
     <ClCompile Include="..\print.cpp">
     </ClCompile>
-    <ClCompile Include="..\PVEXEWrapper.cpp">
-    </ClCompile>
-    <ClCompile Include="..\PVMessage.cpp">
-    </ClCompile>
-    <ClCompile Include="..\PVMessageWrapper.cpp">
+    <ClCompile Include="..\wic\WicBackend.cpp">
     </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
     </ClCompile>
@@ -211,9 +207,7 @@
     </ClInclude>
     <ClInclude Include="..\precomp.h">
     </ClInclude>
-    <ClInclude Include="..\PVEXEWrapper.h">
-    </ClInclude>
-    <ClInclude Include="..\PVMessage.h">
+    <ClInclude Include="..\wic\WicBackend.h">
     </ClInclude>
     <ClInclude Include="..\pvtwain.h">
     </ClInclude>

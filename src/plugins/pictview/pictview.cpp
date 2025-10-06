@@ -18,7 +18,7 @@
 #include "pictview.rh2"
 #include "lang/lang.rh"
 #include "histwnd.h"
-#include "PVEXEWrapper.h"
+#include "wic/WicBackend.h"
 #include "PixelAccess.h"
 
 // plugin interface object; its methods are called from Salamander
@@ -1358,59 +1358,12 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 BOOL LoadPictViewDll(HWND hParentWnd)
 {
-    TCHAR path[_MAX_PATH];
-
-    if (!GetModuleFileName(DLLInstance, path, SizeOf(path)))
+    if (!PictView::Wic::Backend::Instance().Populate(PVW32DLL))
     {
-        TRACE_E("GetModuleFileName failed");
+        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
+                                         MB_ICONSTOP | MB_OK);
         return FALSE;
     }
-    _tcsrchr(path, '\\')[0] = 0;
-#ifndef PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    _tcscat(path, _T("\\PVW32Cnv.dll"));
-    PVW32DLL.Handle = LoadLibrary(path); // load PVW32Cnv.dll
-    if (!PVW32DLL.Handle)
-    {
-        TRACE_E("LoadLibrary(PVW32Cnv.dll) failed");
-        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND),
-                                         LoadStr(IDS_ERRORTITLE), MB_ICONSTOP | MB_OK);
-        return FALSE;
-    }
-    PVW32DLL.PVReadImage2 = (TPVReadImage2)GetProcAddress(PVW32DLL.Handle, "PVReadImage2");
-    PVW32DLL.PVCloseImage = (TPVCloseImage)GetProcAddress(PVW32DLL.Handle, "PVCloseImage");
-    PVW32DLL.PVDrawImage = (TPVDrawImage)GetProcAddress(PVW32DLL.Handle, "PVDrawImage");
-    PVW32DLL.PVGetErrorText = (TPVGetErrorText)GetProcAddress(PVW32DLL.Handle, "PVGetErrorText");
-    PVW32DLL.PVOpenImageEx = (TPVOpenImageEx)GetProcAddress(PVW32DLL.Handle, "PVOpenImageEx");
-    PVW32DLL.PVSetBkHandle = (TPVSetBkHandle)GetProcAddress(PVW32DLL.Handle, "PVSetBkHandle");
-    PVW32DLL.PVGetDLLVersion = (TPVGetDLLVersion)GetProcAddress(PVW32DLL.Handle, "PVGetDLLVersion");
-    PVW32DLL.PVSetStretchParameters = (TPVSetStretchParameters)GetProcAddress(PVW32DLL.Handle, "PVSetStretchParameters");
-    PVW32DLL.PVLoadFromClipboard = (TPVLoadFromClipboard)GetProcAddress(PVW32DLL.Handle, "PVLoadFromClipboard");
-    PVW32DLL.PVGetImageInfo = (TPVGetImageInfo)GetProcAddress(PVW32DLL.Handle, "PVGetImageInfo");
-    PVW32DLL.PVSetParam = (TPVSetParam)GetProcAddress(PVW32DLL.Handle, "PVSetParam");
-    PVW32DLL.PVGetHandles2 = (TPVGetHandles2)GetProcAddress(PVW32DLL.Handle, "PVGetHandles2");
-    PVW32DLL.PVSaveImage = (TPVSaveImage)GetProcAddress(PVW32DLL.Handle, "PVSaveImage");
-    PVW32DLL.PVChangeImage = (TPVChangeImage)GetProcAddress(PVW32DLL.Handle, "PVChangeImage");
-    PVW32DLL.PVIsOutCombSupported = (TPVIsOutCombSupported)GetProcAddress(PVW32DLL.Handle, "PVIsOutCombSupported");
-    PVW32DLL.PVReadImageSequence = (TPVReadImageSequence)GetProcAddress(PVW32DLL.Handle, "PVReadImageSequence");
-    PVW32DLL.PVCropImage = (TPVCropImage)GetProcAddress(PVW32DLL.Handle, "PVCropImage");
-    PVW32DLL.GetRGBAtCursor = GetRGBAtCursor;
-    PVW32DLL.CalculateHistogram = CalculateHistogram;
-    PVW32DLL.CreateThumbnail = CreateThumbnail;
-    PVW32DLL.SimplifyImageSequence = SimplifyImageSequence;
-
-    if (!PVW32DLL.PVReadImage2 || !PVW32DLL.PVIsOutCombSupported || !PVW32DLL.PVChangeImage || !PVW32DLL.PVSetParam || !PVW32DLL.PVGetHandles2 || !PVW32DLL.PVCropImage)
-    {
-        TRACE_E("PVW32Cnv was not compiled for Salamander or an old version was found");
-        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_WRONG_VERSION),
-                                         LoadStr(IDS_ERRORTITLE), MB_ICONSTOP | MB_OK);
-        return FALSE;
-    }
-#else  // PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    if (!InitPVEXEWrapper(hParentWnd, path))
-    {
-        return FALSE;
-    }
-#endif // PICTVIEW_DLL_IN_SEPARATE_PROCESS
     return TRUE;
 }
 
@@ -1543,9 +1496,6 @@ BOOL InitEXIF(HWND hParent, BOOL bSilent)
 
 void ReleaseViewer()
 {
-#ifdef PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    ReleasePVEXEWrapper();
-#endif
     if (!UnregisterClass(TIP_WINDOW_CLASSNAME, DLLInstance))
         TRACE_E("UnregisterClass(TIP_WINDOW_CLASSNAME) has failed");
     ReleaseWinLib(DLLInstance);
