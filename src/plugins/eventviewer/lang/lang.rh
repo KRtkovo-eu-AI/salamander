@@ -1,0 +1,44 @@
+//{{NO_DEPENDENCIES}}
+// Microsoft Visual C++ generated include file.
+// Used by lang.rc
+
+#define IDS_PLUGINNAME                  100
+#define IDS_PLUGIN_DESCRIPTION          101
+#define IDS_PLUGIN_HOME                 102
+#define IDS_ABOUT                       103
+#define IDS_EVENT_VIEWER_MENU           104
+#define IDS_EVENT_VIEWER_CREATE_FAILED  105
+#define IDS_NO_CONFIGURATION            106
+#define IDS_LEVEL_CRITICAL              120
+#define IDS_LEVEL_ERROR                 121
+#define IDS_LEVEL_WARNING               122
+#define IDS_LEVEL_INFORMATION           123
+#define IDS_LEVEL_VERBOSE               124
+#define IDS_LEVEL_UNKNOWN               125
+#define IDS_COLUMN_LEVEL                140
+#define IDS_COLUMN_TIME                 141
+#define IDS_COLUMN_SOURCE               142
+#define IDS_COLUMN_EVENTID              143
+#define IDS_COLUMN_TASK                 144
+#define IDS_STATUS_READY                160
+#define IDS_STATUS_SELECT_LOG           161
+#define IDS_STATUS_UPDATED              162
+#define IDS_STATUS_ERROR                163
+#define IDS_EVENT_DETAILS_NOT_AVAILABLE 180
+#define IDS_TREE_WINDOWS_LOGS           200
+#define IDS_LOG_APPLICATION             201
+#define IDS_LOG_SECURITY                202
+#define IDS_LOG_SETUP                   203
+#define IDS_LOG_SYSTEM                  204
+#define IDS_LOG_FORWARD                 205
+
+// Next default values for new objects
+//
+#ifdef APSTUDIO_INVOKED
+#ifndef APSTUDIO_READONLY_SYMBOLS
+#define _APS_NEXT_RESOURCE_VALUE        8500
+#define _APS_NEXT_COMMAND_VALUE         40001
+#define _APS_NEXT_CONTROL_VALUE         8700
+#define _APS_NEXT_SYMED_VALUE           101
+#endif
+#endif

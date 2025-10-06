@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{61A9ABF2-DDB5-4B69-98B7-073870CBC04A}</ProjectGuid>
+    <RootNamespace>eventviewer</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="eventviewer.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x86.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="eventviewer.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_release.props" />
+    <Import Project="eventviewer.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\shared\vcxproj\x64.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_base.props" />
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props" />
+    <Import Project="eventviewer.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup />
+  <ItemGroup>
+    <ClCompile Include="..\..\shared\auxtools.cpp" />
+    <ClCompile Include="..\..\shared\dbg.cpp" />
+    <ClCompile Include="..\..\shared\mhandles.cpp" />
+    <ClCompile Include="..\..\shared\winliblt.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\eventlogmodel.cpp" />
+    <ClCompile Include="..\eventviewerwindow.cpp" />
+    <ClCompile Include="..\plugin.cpp" />
+    <ClCompile Include="..\precomp.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\shared\arraylt.h" />
+    <ClInclude Include="..\..\shared\auxtools.h" />
+    <ClInclude Include="..\..\shared\dbg.h" />
+    <ClInclude Include="..\..\shared\mhandles.h" />
+    <ClInclude Include="..\..\shared\spl_arc.h" />
+    <ClInclude Include="..\..\shared\spl_base.h" />
+    <ClInclude Include="..\..\shared\spl_com.h" />
+    <ClInclude Include="..\..\shared\spl_fs.h" />
+    <ClInclude Include="..\..\shared\spl_gen.h" />
+    <ClInclude Include="..\..\shared\spl_gui.h" />
+    <ClInclude Include="..\..\shared\spl_menu.h" />
+    <ClInclude Include="..\..\shared\spl_thum.h" />
+    <ClInclude Include="..\..\shared\spl_view.h" />
+    <ClInclude Include="..\..\shared\spl_vers.h" />
+    <ClInclude Include="..\..\shared\winliblt.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\eventlogmodel.h" />
+    <ClInclude Include="..\eventviewerwindow.h" />
+    <ClInclude Include="..\plugin.h" />
+    <ClInclude Include="..\precomp.h" />
+    <ClInclude Include="..\plugin.rh" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\plugin.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Info.txt" />
+    <None Include="..\eventviewer.def" />
+    <None Include="..\eventviewer.rc2" />
+    <None Include="..\lang\lang.rc2" />
+    <None Include="..\lang\lang.rh" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="lang_eventviewer.vcxproj">
+      <Project>{365463CE-186A-47B5-817B-E9239CF7E196}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

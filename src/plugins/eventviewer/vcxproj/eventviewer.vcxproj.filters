@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="cpp">
+      <UniqueIdentifier>{dc4f5a35-2b2f-4b1d-8ef0-4fbb2af335b5}</UniqueIdentifier>
+      <Extensions>cpp</Extensions>
+    </Filter>
+    <Filter Include="h">
+      <UniqueIdentifier>{f542d9f9-3fb2-4c04-8a65-ffae3399ef12}</UniqueIdentifier>
+      <Extensions>h</Extensions>
+    </Filter>
+    <Filter Include="rc">
+      <UniqueIdentifier>{1a67f5f3-0aa9-459d-a7f4-9071c9a3c1c0}</UniqueIdentifier>
+      <Extensions>rc;rh</Extensions>
+    </Filter>
+    <Filter Include="misc">
+      <UniqueIdentifier>{6909ac9d-457a-43b9-9d11-1c6d012b955c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\eventlogmodel.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\eventviewerwindow.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\plugin.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\precomp.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\eventlogmodel.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\eventviewerwindow.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\plugin.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\precomp.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\plugin.rh">
+      <Filter>rc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\plugin.rc">
+      <Filter>rc</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Info.txt">
+      <Filter>misc</Filter>
+    </None>
+    <None Include="..\eventviewer.def">
+      <Filter>misc</Filter>
+    </None>
+    <None Include="..\eventviewer.rc2">
+      <Filter>rc</Filter>
+    </None>
+    <None Include="..\lang\lang.rc2">
+      <Filter>rc</Filter>
+    </None>
+    <None Include="..\lang\lang.rh">
+      <Filter>rc</Filter>
+    </None>
+  </ItemGroup>
+</Project>
