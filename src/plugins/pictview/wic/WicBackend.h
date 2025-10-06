@@ -71,7 +71,7 @@ public:
 
     bool Succeeded() const
     {
-        return m_hr == S_OK || m_hr == S_FALSE || m_hr == RPC_E_CHANGED_MODE;
+        return m_hr == S_OK || m_hr == S_FALSE;
     }
 
 private:

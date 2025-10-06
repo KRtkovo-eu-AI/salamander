@@ -51,6 +51,9 @@ std::unordered_map<DWORD, std::string> g_errorTexts = {
     {PVC_INVALID_DIMENSIONS, "Requested dimensions are invalid."},
     {PVC_CANCELED, "Operation canceled."},
     {PVC_GDI_ERROR, "A GDI call failed."},
+    {PVC_READING_ERROR, "The image file appears to be corrupt or unreadable."},
+    {PVC_WRITING_ERROR, "The image could not be written."},
+    {PVC_UNEXPECTED_EOF, "The image data ended unexpectedly."},
 };
 
 bool PathLooksLikeExif(LPCWSTR path)
@@ -1097,9 +1100,22 @@ PVCODE HResultToPvCode(HRESULT hr)
     {
         return PVC_OK;
     }
-    if (hr == E_OUTOFMEMORY)
+    if (hr == E_OUTOFMEMORY
+#if defined(WINCODEC_ERR_OUTOFMEMORY)
+        || hr == WINCODEC_ERR_OUTOFMEMORY
+#endif
+#if defined(WINCODEC_ERR_INSUFFICIENTBUFFER)
+        || hr == WINCODEC_ERR_INSUFFICIENTBUFFER
+#endif
+    )
     {
         return PVC_OUT_OF_MEMORY;
+    }
+    if (hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) || hr == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND) ||
+        hr == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) || hr == STG_E_FILENOTFOUND ||
+        hr == STG_E_ACCESSDENIED)
+    {
+        return PVC_CANNOT_OPEN_FILE;
     }
     if (hr == E_INVALIDARG
 #if defined(WINCODEC_ERR_INVALIDPARAMETER)
@@ -1112,12 +1128,62 @@ PVCODE HResultToPvCode(HRESULT hr)
     {
         return PVC_INVALID_DIMENSIONS;
     }
+    if (
+#if defined(WINCODEC_ERR_BADHEADER)
+        hr == WINCODEC_ERR_BADHEADER ||
+#endif
+#if defined(WINCODEC_ERR_BADIMAGE)
+        hr == WINCODEC_ERR_BADIMAGE ||
+#endif
+#if defined(WINCODEC_ERR_BADMETADATAHEADER)
+        hr == WINCODEC_ERR_BADMETADATAHEADER ||
+#endif
+#if defined(WINCODEC_ERR_BADSTREAMDATA)
+        hr == WINCODEC_ERR_BADSTREAMDATA ||
+#endif
+#if defined(WINCODEC_ERR_STREAMREAD)
+        hr == WINCODEC_ERR_STREAMREAD ||
+#endif
+#if defined(WINCODEC_ERR_STREAMWRITE)
+        hr == WINCODEC_ERR_STREAMWRITE ||
+#endif
+#if defined(WINCODEC_ERR_STREAMNOTAVAILABLE)
+        hr == WINCODEC_ERR_STREAMNOTAVAILABLE ||
+#endif
+#if defined(WINCODEC_ERR_UNEXPECTEDMETADATAFORM)
+        hr == WINCODEC_ERR_UNEXPECTEDMETADATAFORM ||
+#endif
+#if defined(WINCODEC_ERR_INTERNALERROR)
+        hr == WINCODEC_ERR_INTERNALERROR ||
+#endif
+#if defined(WINCODEC_ERR_INVALIDPROGRESSIVELEVEL)
+        hr == WINCODEC_ERR_INVALIDPROGRESSIVELEVEL ||
+#endif
+#if defined(WINCODEC_ERR_UNSUPPORTEDVERSION)
+        hr == WINCODEC_ERR_UNSUPPORTEDVERSION ||
+#endif
+        hr == HRESULT_FROM_WIN32(ERROR_HANDLE_EOF) || hr == HRESULT_FROM_WIN32(ERROR_CRC) || hr == E_FAIL)
+    {
+        return (hr == HRESULT_FROM_WIN32(ERROR_HANDLE_EOF)) ? PVC_UNEXPECTED_EOF : PVC_READING_ERROR;
+    }
     if (hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT
 #if defined(WINCODEC_ERR_COMPONENTNOTFOUND)
         || hr == WINCODEC_ERR_COMPONENTNOTFOUND
 #endif
 #if defined(WINCODEC_ERR_UNSUPPORTEDOPERATION)
         || hr == WINCODEC_ERR_UNSUPPORTEDOPERATION
+#endif
+#if defined(WINCODEC_ERR_CODECNOTFOUND)
+        || hr == WINCODEC_ERR_CODECNOTFOUND
+#endif
+#if defined(WINCODEC_ERR_DECODERNOTFOUND)
+        || hr == WINCODEC_ERR_DECODERNOTFOUND
+#endif
+#if defined(WINCODEC_ERR_UNKNOWNIMAGEFORMAT)
+        || hr == WINCODEC_ERR_UNKNOWNIMAGEFORMAT
+#endif
+#if defined(WINCODEC_ERR_PROPERTYNOTSUPPORTED)
+        || hr == WINCODEC_ERR_PROPERTYNOTSUPPORTED
 #endif
     )
     {
@@ -1645,6 +1711,10 @@ ScopedCoInit::ScopedCoInit()
     : m_hr(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))
     , m_needUninit(false)
 {
+    if (m_hr == RPC_E_CHANGED_MODE)
+    {
+        m_hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    }
     if (m_hr == S_OK || m_hr == S_FALSE)
     {
         m_needUninit = true;
