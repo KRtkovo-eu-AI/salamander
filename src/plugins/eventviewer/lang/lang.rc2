@@ -6,8 +6,10 @@
 #error this file is not editable by Microsoft Visual C++
 #endif //APSTUDIO_INVOKED
 
+#ifndef EVENTVIEWER_LANG_FALLBACK
 #include "..\versinfo.rh2"
 #include "..\shared\versinfo.rc2"
+#endif
 #include "lang.rh"
 
 STRINGTABLE
