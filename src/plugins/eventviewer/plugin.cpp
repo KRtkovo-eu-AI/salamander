@@ -106,6 +106,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     return &PluginInterface;
 }
 
+int WINAPI SalamanderPluginGetReqVer()
+{
+    return LAST_VERSION_OF_SALAMANDER;
+}
+
 void WINAPI CPluginInterface::About(HWND parent)
 {
     char buf[1024];
