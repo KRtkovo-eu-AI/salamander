@@ -188,6 +188,185 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
     return hr;
 }
 
+HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
+{
+    if (!source)
+    {
+        return E_POINTER;
+    }
+
+    HRESULT hr = source->GetSize(&frame.width, &frame.height);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    frame.stride = frame.width * 4;
+    const size_t bufferSize = static_cast<size_t>(frame.stride) * static_cast<size_t>(frame.height);
+    frame.pixels.resize(bufferSize);
+
+    WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
+    hr = source->CopyPixels(&rect, frame.stride, static_cast<UINT>(frame.pixels.size()), frame.pixels.data());
+    if (FAILED(hr))
+    {
+        frame.pixels.clear();
+        return hr;
+    }
+
+    return S_OK;
+}
+
+HRESULT FinalizeDecodedFrame(FrameData& frame)
+{
+    frame.linePointers.resize(frame.height);
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        frame.linePointers[y] = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+    }
+    frame.palette.clear();
+
+    frame.bmi.biSize = sizeof(BITMAPINFOHEADER);
+    frame.bmi.biWidth = static_cast<LONG>(frame.width);
+    frame.bmi.biHeight = -static_cast<LONG>(frame.height);
+    frame.bmi.biPlanes = 1;
+    frame.bmi.biBitCount = 32;
+    frame.bmi.biCompression = BI_RGB;
+    frame.bmi.biSizeImage = static_cast<DWORD>(frame.pixels.size());
+    frame.bmi.biXPelsPerMeter = 0;
+    frame.bmi.biYPelsPerMeter = 0;
+
+    if (frame.hbitmap)
+    {
+        DeleteObject(frame.hbitmap);
+        frame.hbitmap = nullptr;
+    }
+
+    void* bits = nullptr;
+    BITMAPINFO bmi{};
+    bmi.bmiHeader = frame.bmi;
+    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!frame.hbitmap)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (bits)
+    {
+        memcpy(bits, frame.pixels.data(), frame.pixels.size());
+    }
+
+    frame.decoded = true;
+    return S_OK;
+}
+
+inline BYTE CombineCmykChannel(BYTE component, BYTE black)
+{
+    const int c = 255 - component;
+    const int k = 255 - black;
+    const int value = c * k + 127;
+    return static_cast<BYTE>(value / 255);
+}
+
+inline BYTE ToByteFromWord(UINT16 value)
+{
+    return static_cast<BYTE>((static_cast<unsigned int>(value) + 128u) / 257u);
+}
+
+HRESULT DecodeUnsupportedPixelFormat(FrameData& frame)
+{
+    GUID pixelFormat{};
+    HRESULT hr = frame.frame->GetPixelFormat(&pixelFormat);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (pixelFormat == GUID_WICPixelFormat32bppCMYK)
+    {
+        hr = frame.frame->GetSize(&frame.width, &frame.height);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        const UINT sourceStride = frame.width * 4;
+        std::vector<BYTE> cmyk(static_cast<size_t>(sourceStride) * frame.height);
+        WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
+        hr = frame.frame->CopyPixels(&rect, sourceStride, static_cast<UINT>(cmyk.size()), cmyk.data());
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        frame.stride = frame.width * 4;
+        frame.pixels.resize(static_cast<size_t>(frame.stride) * frame.height);
+
+        for (UINT y = 0; y < frame.height; ++y)
+        {
+            const BYTE* src = cmyk.data() + static_cast<size_t>(y) * sourceStride;
+            BYTE* dst = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+            for (UINT x = 0; x < frame.width; ++x)
+            {
+                const BYTE c = src[x * 4 + 0];
+                const BYTE m = src[x * 4 + 1];
+                const BYTE yComp = src[x * 4 + 2];
+                const BYTE k = src[x * 4 + 3];
+                dst[x * 4 + 0] = CombineCmykChannel(yComp, k);
+                dst[x * 4 + 1] = CombineCmykChannel(m, k);
+                dst[x * 4 + 2] = CombineCmykChannel(c, k);
+                dst[x * 4 + 3] = 255;
+            }
+        }
+        return S_OK;
+    }
+
+    if (pixelFormat == GUID_WICPixelFormat64bppCMYK)
+    {
+        hr = frame.frame->GetSize(&frame.width, &frame.height);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        const UINT sourceStride = frame.width * 8;
+        std::vector<BYTE> cmyk(static_cast<size_t>(sourceStride) * frame.height);
+        WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
+        hr = frame.frame->CopyPixels(&rect, sourceStride, static_cast<UINT>(cmyk.size()), cmyk.data());
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        frame.stride = frame.width * 4;
+        frame.pixels.resize(static_cast<size_t>(frame.stride) * frame.height);
+
+        for (UINT y = 0; y < frame.height; ++y)
+        {
+            const UINT16* src = reinterpret_cast<const UINT16*>(cmyk.data() + static_cast<size_t>(y) * sourceStride);
+            BYTE* dst = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+            for (UINT x = 0; x < frame.width; ++x)
+            {
+                const BYTE c = ToByteFromWord(src[x * 4 + 0]);
+                const BYTE m = ToByteFromWord(src[x * 4 + 1]);
+                const BYTE yComp = ToByteFromWord(src[x * 4 + 2]);
+                const BYTE k = ToByteFromWord(src[x * 4 + 3]);
+                dst[x * 4 + 0] = CombineCmykChannel(yComp, k);
+                dst[x * 4 + 1] = CombineCmykChannel(m, k);
+                dst[x * 4 + 2] = CombineCmykChannel(c, k);
+                dst[x * 4 + 3] = 255;
+            }
+        }
+        return S_OK;
+    }
+
+    return WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT;
+}
+
+bool IsConverterFormatFailure(HRESULT hr)
+{
+    return hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT || hr == WINCODEC_ERR_INVALIDPARAMETER ||
+           hr == WINCODEC_ERR_UNSUPPORTEDOPERATION;
+}
+
 HRESULT EnsureConverter(ImageHandle& handle, size_t index)
 {
     if (index >= handle.frames.size())
@@ -205,44 +384,21 @@ HRESULT EnsureConverter(ImageHandle& handle, size_t index)
         return E_FAIL;
     }
 
-    Microsoft::WRL::ComPtr<IWICBitmapSource> source;
-    if (frame.colorConvertedSource)
-    {
-        source = frame.colorConvertedSource;
-    }
-    else
-    {
-        HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
-        if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
-        {
-            source = frame.colorConvertedSource;
-        }
-        else
-        {
-            source = frame.frame;
-            if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
-            {
-                return profileHr;
-            }
-        }
-    }
-
     Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
     HRESULT hr = factory->CreateFormatConverter(&converter);
     if (FAILED(hr))
     {
         return hr;
     }
-    hr = converter->Initialize(source.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
                                WICBitmapPaletteTypeCustom);
-    if (hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT && !frame.colorConvertedSource)
+    if (FAILED(hr) && IsConverterFormatFailure(hr))
     {
         HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
         if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
         {
-            source = frame.colorConvertedSource;
-            hr = converter->Initialize(source.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
-                                       WICBitmapPaletteTypeCustom);
+            hr = converter->Initialize(frame.colorConvertedSource.Get(), GUID_WICPixelFormat32bppBGRA,
+                                       WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
         }
         else if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
         {
@@ -273,58 +429,26 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
     HRESULT hr = EnsureConverter(handle, index);
     if (FAILED(hr))
     {
+        if (IsConverterFormatFailure(hr))
+        {
+            hr = DecodeUnsupportedPixelFormat(frame);
+            if (FAILED(hr))
+            {
+                return hr;
+            }
+            hr = FinalizeDecodedFrame(frame);
+            return hr;
+        }
         return hr;
     }
 
-    hr = frame.frame->GetSize(&frame.width, &frame.height);
+    hr = CopyBgraFromSource(frame, frame.converter.Get());
     if (FAILED(hr))
     {
         return hr;
     }
-    frame.stride = frame.width * 4;
-    const size_t bufferSize = static_cast<size_t>(frame.stride) * static_cast<size_t>(frame.height);
-    frame.pixels.resize(bufferSize);
 
-    WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
-    hr = frame.converter->CopyPixels(&rect, frame.stride, static_cast<UINT>(frame.pixels.size()), frame.pixels.data());
-    if (FAILED(hr))
-    {
-        frame.pixels.clear();
-        return hr;
-    }
-
-    frame.linePointers.resize(frame.height);
-    for (UINT y = 0; y < frame.height; ++y)
-    {
-        frame.linePointers[y] = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
-    }
-    frame.palette.clear();
-
-    frame.bmi.biSize = sizeof(BITMAPINFOHEADER);
-    frame.bmi.biWidth = static_cast<LONG>(frame.width);
-    frame.bmi.biHeight = -static_cast<LONG>(frame.height);
-    frame.bmi.biPlanes = 1;
-    frame.bmi.biBitCount = 32;
-    frame.bmi.biCompression = BI_RGB;
-    frame.bmi.biSizeImage = static_cast<DWORD>(frame.pixels.size());
-    frame.bmi.biXPelsPerMeter = 0;
-    frame.bmi.biYPelsPerMeter = 0;
-
-    void* bits = nullptr;
-    BITMAPINFO bmi{};
-    bmi.bmiHeader = frame.bmi;
-    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!frame.hbitmap)
-    {
-        return E_OUTOFMEMORY;
-    }
-    if (bits)
-    {
-        memcpy(bits, frame.pixels.data(), frame.pixels.size());
-    }
-
-    frame.decoded = true;
-    return S_OK;
+    return FinalizeDecodedFrame(frame);
 }
 
 PVCODE HResultToPvCode(HRESULT hr)
