@@ -28,6 +28,7 @@ struct FrameData
 {
     ComPtr<IWICBitmapFrameDecode> frame;
     ComPtr<IWICFormatConverter> converter;
+    ComPtr<IWICBitmapSource> colorConvertedSource;
     UINT width = 0;
     UINT height = 0;
     UINT stride = 0;

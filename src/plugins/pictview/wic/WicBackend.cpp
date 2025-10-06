@@ -79,6 +79,103 @@ HRESULT CreateDecoder(Backend& backend, const std::wstring& path, IWICBitmapDeco
     return factory->CreateDecoderFromFilename(path.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder);
 }
 
+bool IsIgnorableColorProfileError(HRESULT hr)
+{
+    switch (hr)
+    {
+    case WINCODEC_ERR_UNSUPPORTEDOPERATION:
+    case WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT:
+    case WINCODEC_ERR_PROPERTYNOTSUPPORTED:
+    case WINCODEC_ERR_UNSUPPORTEDVERSION:
+    case WINCODEC_ERR_PROFILENOTASSOCIATED:
+    case WINCODEC_ERR_PROFILEINVALID:
+    case E_NOTIMPL:
+        return true;
+    default:
+        return false;
+    }
+}
+
+HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
+{
+    if (frame.colorConvertedSource)
+    {
+        return S_OK;
+    }
+
+    IWICImagingFactory* factory = handle.backend->Factory();
+    if (!factory)
+    {
+        return E_POINTER;
+    }
+
+    UINT contextCount = 0;
+    HRESULT hr = frame.frame->GetColorContexts(0, nullptr, &contextCount);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (contextCount == 0)
+    {
+        return WINCODEC_ERR_UNSUPPORTEDOPERATION;
+    }
+
+    std::vector<Microsoft::WRL::ComPtr<IWICColorContext>> sourceContexts(contextCount);
+    std::vector<IWICColorContext*> rawContexts(contextCount);
+    for (UINT i = 0; i < contextCount; ++i)
+    {
+        hr = factory->CreateColorContext(&sourceContexts[i]);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        rawContexts[i] = sourceContexts[i].Get();
+    }
+
+    hr = frame.frame->GetColorContexts(contextCount, rawContexts.data(), &contextCount);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (contextCount == 0)
+    {
+        return WINCODEC_ERR_UNSUPPORTEDOPERATION;
+    }
+
+    Microsoft::WRL::ComPtr<IWICColorContext> destinationContext;
+    hr = factory->CreateColorContext(&destinationContext);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    hr = destinationContext->InitializeFromExifColorSpace(0x1); // sRGB
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    Microsoft::WRL::ComPtr<IWICColorTransform> transform;
+    hr = factory->CreateColorTransform(&transform);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (rawContexts.empty())
+    {
+        return WINCODEC_ERR_UNSUPPORTEDOPERATION;
+    }
+    IWICColorContext* sourceContext = rawContexts[0];
+    hr = transform->Initialize(frame.frame.Get(), sourceContext, destinationContext.Get(), GUID_WICPixelFormat32bppBGRA);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = transform.As(&frame.colorConvertedSource);
+    return hr;
+}
+
 HRESULT EnsureConverter(ImageHandle& handle, size_t index)
 {
     if (index >= handle.frames.size())
@@ -90,23 +187,61 @@ HRESULT EnsureConverter(ImageHandle& handle, size_t index)
     {
         return S_OK;
     }
-    Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
     IWICImagingFactory* factory = handle.backend->Factory();
     if (!factory)
     {
         return E_FAIL;
     }
+
+    Microsoft::WRL::ComPtr<IWICBitmapSource> source;
+    if (frame.colorConvertedSource)
+    {
+        source = frame.colorConvertedSource;
+    }
+    else
+    {
+        HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
+        if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
+        {
+            source = frame.colorConvertedSource;
+        }
+        else
+        {
+            source = frame.frame;
+            if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
+            {
+                return profileHr;
+            }
+        }
+    }
+
+    Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
     HRESULT hr = factory->CreateFormatConverter(&converter);
     if (FAILED(hr))
     {
         return hr;
     }
-    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+    hr = converter->Initialize(source.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
                                WICBitmapPaletteTypeCustom);
+    if (hr == WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT && !frame.colorConvertedSource)
+    {
+        HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
+        if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
+        {
+            source = frame.colorConvertedSource;
+            hr = converter->Initialize(source.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+                                       WICBitmapPaletteTypeCustom);
+        }
+        else if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
+        {
+            return profileHr;
+        }
+    }
     if (FAILED(hr))
     {
         return hr;
     }
+
     frame.converter = converter;
     return S_OK;
 }
@@ -702,6 +837,8 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
     }
     for (auto& frame : handle->frames)
     {
+        frame.converter.Reset();
+        frame.colorConvertedSource.Reset();
         if (frame.hbitmap)
         {
             DeleteObject(frame.hbitmap);
@@ -912,6 +1049,8 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     {
         return HResultToPvCode(hr);
     }
+    frame.converter.Reset();
+    frame.colorConvertedSource.Reset();
     if (!(flags & (PVCF_ROTATE90CW | PVCF_ROTATE90CCW)))
     {
         return PVC_OK;
@@ -1002,6 +1141,8 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     {
         return HResultToPvCode(hr);
     }
+    frame.converter.Reset();
+    frame.colorConvertedSource.Reset();
     if (left < 0 || top < 0 || width <= 0 || height <= 0 || left + width > static_cast<int>(frame.width) ||
         top + height > static_cast<int>(frame.height))
     {
@@ -1205,13 +1346,31 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
     std::vector<BYTE> scaled;
     if (desiredWidth != frame.width || desiredHeight != frame.height)
     {
+        Microsoft::WRL::ComPtr<IWICBitmapSource> scaleSource;
+        if (frame.converter)
+        {
+            scaleSource = frame.converter;
+        }
+        else
+        {
+            Microsoft::WRL::ComPtr<IWICBitmap> bitmap;
+            hr = handle->backend->Factory()->CreateBitmapFromMemory(frame.width, frame.height, GUID_WICPixelFormat32bppBGRA,
+                                                                    frame.stride, static_cast<UINT>(frame.pixels.size()),
+                                                                    frame.pixels.data(), &bitmap);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+            scaleSource = bitmap;
+        }
+
         Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
         hr = handle->backend->Factory()->CreateBitmapScaler(&scaler);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
-        hr = scaler->Initialize(frame.converter.Get(), desiredWidth, desiredHeight, WICBitmapInterpolationModeFant);
+        hr = scaler->Initialize(scaleSource.Get(), desiredWidth, desiredHeight, WICBitmapInterpolationModeFant);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
