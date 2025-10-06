@@ -389,8 +389,9 @@ BOOL WINAPI CPluginFSInterface::Delete(const char *fsName, int mode, HWND parent
 	char buf[100];
 	char bufcaption[100];
 
-	DWORD returnstate=0;
-	DWORD messagereturn=0;
+                                DWORD returnstate=0;
+                                DWORD messagereturn=0;
+                                bool refreshPanel = false;
 	while (1)
 	{
 			if (focused) f = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
@@ -719,40 +720,34 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 
 						SalamanderGeneral->PostSalamanderCommand(cmd - 1000);
 					}
-					else   // nas vlastni prikaz
-					{
-						HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
-						switch (cmd)
-						{
-							case MENUCMD_START:
-								returnstate = SStartService(FSIdata->ServiceName);
-								break;
-							case MENUCMD_STOP:
-								returnstate= SetStatus(FSIdata->ServiceName,Stop);
-								break;
-							case MENUCMD_PAUSE:
-								returnstate=SetStatus(FSIdata->ServiceName,Pause);
-								break;
-							case MENUCMD_RESUME: 
-								returnstate=SetStatus(FSIdata->ServiceName,Continue);
-								break;
-							case MENUCMD_RESTART:
-								returnstate=SetStatus(FSIdata->ServiceName,Stop);
-								SalamanderGeneral->PostRefreshPanelFS(this);
-								if (returnstate>0)
-									break;
-								while (SGetStatus(FSIdata->ServiceName)!=SERVICE_STOPPED)
-								{
-									Sleep(100);
-								}
-								SalamanderGeneral->PostRefreshPanelFS(this);
-								SStartService(FSIdata->ServiceName);
-								SalamanderGeneral->PostRefreshPanelFS(this);
-								break;
-							case MENUCMD_DELETE:
-								_snprintf(buf, 100, LoadStr(IDS_SERVICE_DELETE_CONFIRMATION),FSIdata->DisplayName);
-								_snprintf(bufcaption, 100, LoadStr(IDS_IDS_SERVICE_DELETE_DLG_CAPTION),FSIdata->DisplayName);
-								messagereturn = SalamanderGeneral->SalMessageBox(parent, buf, bufcaption, MB_YESNO | MB_ICONQUESTION);
+                                        else   // nas vlastni prikaz
+                                        {
+                                                switch (cmd)
+                                                {
+                                                        case MENUCMD_START:
+                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionStart))
+                                                                        refreshPanel = true;
+                                                                break;
+                                                        case MENUCMD_STOP:
+                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionStop))
+                                                                        refreshPanel = true;
+                                                                break;
+                                                        case MENUCMD_PAUSE:
+                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionPause))
+                                                                        refreshPanel = true;
+                                                                break;
+                                                        case MENUCMD_RESUME:
+                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionResume))
+                                                                        refreshPanel = true;
+                                                                break;
+                                                        case MENUCMD_RESTART:
+                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionRestart))
+                                                                        refreshPanel = true;
+                                                                break;
+                                                        case MENUCMD_DELETE:
+                                                                _snprintf(buf, 100, LoadStr(IDS_SERVICE_DELETE_CONFIRMATION),FSIdata->DisplayName);
+                                                                _snprintf(bufcaption, 100, LoadStr(IDS_IDS_SERVICE_DELETE_DLG_CAPTION),FSIdata->DisplayName);
+                                                                messagereturn = SalamanderGeneral->SalMessageBox(parent, buf, bufcaption, MB_YESNO | MB_ICONQUESTION);
 								switch (messagereturn)
 								{
 									case IDYES:
@@ -793,25 +788,26 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 								// TODO lhh????
 								// TODO: It is even possible to add comments at the end.
 								strcpy(sbackupname,FSIdata->DisplayName);
-								if (dlg.Execute() == IDOK)
-								{
-									strcpy(FSIdata->DisplayName,sbackupname);
-									SalamanderGeneral->PostRefreshPanelFS(this);
-								}
+                                                                if (dlg.Execute() == IDOK)
+                                                                {
+                                                                        strcpy(FSIdata->DisplayName,sbackupname);
+                                                                        refreshPanel = true;
+                                                                }
 								else
 								{
 								}
 
 								break;
-							case MENUCMD_SCM:
-								ShellExecute(0,"open","services.msc","","", SW_SHOW ); 	
-								break;
-						}
-						SalamanderGeneral->PostRefreshPanelFS(this);
-						//SalamanderGeneral->PostMenuExtCommand(cmd, TRUE);  // spusti se az v "sal-idle"
-					}
-				}
-			}
+                                                        case MENUCMD_SCM:
+                                                                ShellExecute(0,"open","services.msc","","", SW_SHOW );
+                                                                break;
+                                                }
+                                                if (refreshPanel)
+                                                        SalamanderGeneral->PostRefreshPanelFS(this);
+                                                //SalamanderGeneral->PostMenuExtCommand(cmd, TRUE);  // spusti se az v "sal-idle"
+                                        }
+                                }
+                        }
 			break;
 		case fscmPathInPanel:
 			break;

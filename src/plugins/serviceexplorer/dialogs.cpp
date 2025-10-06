@@ -220,83 +220,69 @@ void CConfigPageFirst::Transfer(CTransferInfo &ti)
 
 INT_PTR CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	DWORD returnstate=0;
   switch (uMsg)
   {
-	  break;
+          break;
     case WM_COMMAND:
     {
 			switch (LOWORD (wParam))
       {
-				case IDC_BUTTON_SERVICE_START:
-					SetCursor(LoadCursor(NULL,IDC_WAIT));
-					ShowCursor(TRUE);
-					returnstate = SStartService(FSIGdata->ServiceName);
-					EnableButtonStates(tiG);
-					ShowCursor(FALSE);
-					SetCursor(LoadCursor(NULL,IDC_ARROW));
-					break;
-				case IDC_BUTTON_SERVICE_STOP:
-					SetCursor(LoadCursor(NULL,IDC_WAIT));
-					ShowCursor(TRUE);
-					returnstate= SetStatus(FSIGdata->ServiceName,Stop);
-					EnableButtonStates(tiG);
-					ShowCursor(FALSE);
-					SetCursor(LoadCursor(NULL,IDC_ARROW));
-					break;
-				case IDC_BUTTON_SERVICE_PAUSE:
-					SetCursor(LoadCursor(NULL,IDC_WAIT));
-					ShowCursor(TRUE);
-					returnstate=SetStatus(FSIGdata->ServiceName,Pause);
-					EnableButtonStates(tiG);
-					ShowCursor(FALSE);
-					SetCursor(LoadCursor(NULL,IDC_ARROW));
-					break;
-				case IDC_BUTTON_SERVICE_RESUME:
-					SetCursor(LoadCursor(NULL,IDC_WAIT));
-					ShowCursor(TRUE);
-					returnstate=SetStatus(FSIGdata->ServiceName,Continue);
-					EnableButtonStates(tiG);
-					ShowCursor(FALSE);
-					SetCursor(LoadCursor(NULL,IDC_ARROW));
-					break;
-				case IDC_BUTTON_SERVICE_DELETE:
-					if(SalamanderGeneral->SalMessageBox(HWindow, "Do you really want to delete the current service?", VERSINFO_PLUGINNAME, MB_YESNOCANCEL | MB_ICONQUESTION)==IDYES)
-					{
-						SetCursor(LoadCursor(NULL,IDC_WAIT));
-						ShowCursor(TRUE);
-						returnstate=DoDeleteSvc(FSIGdata->ServiceName);
-						EnableButtonStates(tiG);
-						ShowCursor(FALSE);
-						SetCursor(LoadCursor(NULL,IDC_ARROW));
-					}
-					break;
+                                case IDC_BUTTON_SERVICE_START:
+                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStart))
+                                                EnableButtonStates(tiG);
+                                        break;
+                                case IDC_BUTTON_SERVICE_STOP:
+                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStop))
+                                                EnableButtonStates(tiG);
+                                        break;
+                                case IDC_BUTTON_SERVICE_PAUSE:
+                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionPause))
+                                                EnableButtonStates(tiG);
+                                        break;
+                                case IDC_BUTTON_SERVICE_RESUME:
+                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionResume))
+                                                EnableButtonStates(tiG);
+                                        break;
+                                case IDC_BUTTON_SERVICE_DELETE:
+                                        if(SalamanderGeneral->SalMessageBox(HWindow, "Do you really want to delete the current service?", VERSINFO_PLUGINNAME, MB_YESNOCANCEL | MB_ICONQUESTION)==IDYES)
+                                        {
+                                                SetCursor(LoadCursor(NULL,IDC_WAIT));
+                                                ShowCursor(TRUE);
+                                                DWORD returnstate=DoDeleteSvc(FSIGdata->ServiceName);
+                                                EnableButtonStates(tiG);
+                                                ShowCursor(FALSE);
+                                                SetCursor(LoadCursor(NULL,IDC_ARROW));
+                                                if (returnstate>0)
+                                                {
+
+                                                        char errormessage[100];
+                                                        switch (returnstate)
+                                                        {
+                                                                case 5:
+                                                                        strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
+                                                                        break;
+                                                                case 1072:
+                                                                        strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_MARKEDFORDELETION));
+                                                                        break;
+                                                                default:
+                                                                        strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
+                                                        }
+                                                        char buf[500];
+                                                        buf[499] = 0;
+                                                        _snprintf(buf, 500,
+                                                                        "%s\n\n"
+                                                                        "%s %d: %s",LoadStr(IDS_SERVICE_ERROR_OPERATION),LoadStr(IDS_SEVICE_ERROR_CODE) ,returnstate,errormessage);
+                                                        SalamanderGeneral->SalMessageBox(HWindow, buf, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
+                                                }
+                                        }
+                                        break;
 
       }
 
       break; // chci focus od DefDlgProc
     }
   }
-	if (returnstate>0)
-	{
-		
-		char errormessage[100];
-		switch (returnstate)
-		{
-			case 5:
-				strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
-				break;
-			default:
-				strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
-		}
-		char buf[500];
-		buf[499] = 0;
-	  _snprintf(buf, 500, 
-        "%s\n\n" 
-				"%s %d: %s",LoadStr(IDS_SERVICE_ERROR_OPERATION),LoadStr(IDS_SEVICE_ERROR_CODE) ,returnstate,errormessage);
-			SalamanderGeneral->SalMessageBox(HWindow, buf, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
-	}
-	return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+        return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
 

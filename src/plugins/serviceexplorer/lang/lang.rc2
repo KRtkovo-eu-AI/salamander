@@ -39,6 +39,15 @@ BEGIN
     LTEXT           "Servicestatus",IDC_STATIC_CFG_STATUS,60,160,198,8
 END
 
+IDD_SERVICE_ACTION_PROGRESS DIALOGEX 0, 0, 230, 70
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Service Control"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    LTEXT           "",IDC_SERVICE_PROGRESS_MESSAGE,7,7,216,24
+    CONTROL         "",IDC_SERVICE_PROGRESS,"Static",WS_BORDER,7,36,216,12
+END
+
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -71,6 +80,24 @@ BEGIN
     IDS_SERVICE_START_AUTO  "Auto"
     IDS_SERVICE_START_ONDEMAND "Manual"
     IDS_SERVICE_START_DISABLED "Disabled"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_SERVICE_PROGRESS_CAPTION "Service Control"
+    IDS_SERVICE_PROGRESS_STARTING "Starting '%s'..."
+    IDS_SERVICE_PROGRESS_STOPPING "Stopping '%s'..."
+    IDS_SERVICE_PROGRESS_PAUSING "Pausing '%s'..."
+    IDS_SERVICE_PROGRESS_RESUMING "Resuming '%s'..."
+    IDS_SERVICE_ERROR_START_FAILED "Windows could not start the '%s' service."
+    IDS_SERVICE_ERROR_STOP_FAILED "Windows could not stop the '%s' service."
+    IDS_SERVICE_ERROR_PAUSE_FAILED "Windows could not pause the '%s' service."
+    IDS_SERVICE_ERROR_RESUME_FAILED "Windows could not resume the '%s' service."
+    IDS_SERVICE_ALREADY_RUNNING "The '%s' service is already running."
+    IDS_SERVICE_ALREADY_STOPPED "The '%s' service is already stopped."
+    IDS_SERVICE_ALREADY_PAUSED "The '%s' service is already paused."
+    IDS_SERVICE_SPECIFIC_ERROR_FMT "Service-specific error %lu: %s"
+    IDS_SERVICE_ERROR_CODE_FMT "Error %lu: %s"
 END
 
 STRINGTABLE

@@ -1,6 +1,460 @@
 #include "precomp.h"
 #include "servicemanager.h"
 
+namespace
+{
+
+class CServiceActionProgressDialog : public CDialog
+{
+public:
+    explicit CServiceActionProgressDialog(HWND parent)
+        : CDialog(DLLInstance, IDD_SERVICE_ACTION_PROGRESS, parent)
+        , ProgressBar(NULL)
+    {
+        PendingText[0] = 0;
+    }
+
+    bool Show(const char* message)
+    {
+        SetMessageInternal(message);
+        if (Create() == NULL)
+            return false;
+        ShowWindow(HWindow, SW_SHOWNORMAL);
+        UpdateWindow(HWindow);
+        return true;
+    }
+
+    void SetMessage(const char* message)
+    {
+        SetMessageInternal(message);
+        if (HWindow != NULL)
+            SetDlgItemText(HWindow, IDC_SERVICE_PROGRESS_MESSAGE, PendingText);
+        if (ProgressBar != NULL)
+        {
+            ProgressBar->SetSelfMoveTime(0xFFFFFFFF);
+            ProgressBar->SetProgress(-1, NULL);
+        }
+    }
+
+    void Pump()
+    {
+        MSG msg;
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            if (HWindow == NULL || !IsDialogMessage(HWindow, &msg))
+            {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }
+    }
+
+    void Close()
+    {
+        if (HWindow != NULL)
+        {
+            DestroyWindow(HWindow);
+            HWindow = NULL;
+        }
+        ProgressBar = NULL;
+    }
+
+    HWND GetHWND() const { return HWindow; }
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam) override
+    {
+        switch (uMsg)
+        {
+        case WM_INITDIALOG:
+        {
+            if (PendingText[0] != 0)
+                SetDlgItemText(HWindow, IDC_SERVICE_PROGRESS_MESSAGE, PendingText);
+            if (SalamanderGUI != NULL)
+            {
+                ProgressBar = SalamanderGUI->AttachProgressBar(HWindow, IDC_SERVICE_PROGRESS);
+                if (ProgressBar != NULL)
+                {
+                    ProgressBar->SetSelfMoveTime(0xFFFFFFFF);
+                    ProgressBar->SetProgress(-1, NULL);
+                }
+            }
+            const char* caption = LoadStr(IDS_SERVICE_PROGRESS_CAPTION);
+            if (caption != NULL)
+                SetWindowText(HWindow, caption);
+            if (Parent != NULL)
+                SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
+            return TRUE;
+        }
+        case WM_CLOSE:
+            return TRUE;
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDCANCEL)
+                return TRUE;
+            break;
+        }
+        return CDialog::DialogProc(uMsg, wParam, lParam);
+    }
+
+private:
+    void SetMessageInternal(const char* message)
+    {
+        if (message == NULL)
+            PendingText[0] = 0;
+        else
+        {
+            lstrcpyn(PendingText, message, ARRAYSIZE(PendingText));
+            PendingText[ARRAYSIZE(PendingText) - 1] = 0;
+        }
+    }
+
+    CGUIProgressBarAbstract* ProgressBar;
+    char PendingText[512];
+};
+
+struct ServiceActionInfo
+{
+    ServiceActionKind Action;
+    DWORD DesiredState;
+    DWORD PendingState;
+    DWORD ControlCode;
+    DWORD AccessMask;
+    int ProgressTextRes;
+    int FailureTextRes;
+    int AlreadyTextRes;
+};
+
+const ServiceActionInfo ServiceActions[] = {
+    {ServiceActionStart, SERVICE_RUNNING, SERVICE_START_PENDING, 0, SERVICE_START | SERVICE_QUERY_STATUS, IDS_SERVICE_PROGRESS_STARTING, IDS_SERVICE_ERROR_START_FAILED, IDS_SERVICE_ALREADY_RUNNING},
+    {ServiceActionStop, SERVICE_STOPPED, SERVICE_STOP_PENDING, SERVICE_CONTROL_STOP, SERVICE_STOP | SERVICE_QUERY_STATUS, IDS_SERVICE_PROGRESS_STOPPING, IDS_SERVICE_ERROR_STOP_FAILED, IDS_SERVICE_ALREADY_STOPPED},
+    {ServiceActionPause, SERVICE_PAUSED, SERVICE_PAUSE_PENDING, SERVICE_CONTROL_PAUSE, SERVICE_PAUSE_CONTINUE | SERVICE_QUERY_STATUS, IDS_SERVICE_PROGRESS_PAUSING, IDS_SERVICE_ERROR_PAUSE_FAILED, IDS_SERVICE_ALREADY_PAUSED},
+    {ServiceActionResume, SERVICE_RUNNING, SERVICE_CONTINUE_PENDING, SERVICE_CONTROL_CONTINUE, SERVICE_PAUSE_CONTINUE | SERVICE_QUERY_STATUS, IDS_SERVICE_PROGRESS_RESUMING, IDS_SERVICE_ERROR_RESUME_FAILED, IDS_SERVICE_ALREADY_RUNNING}
+};
+
+void TrimTrailingWhitespace(char* text)
+{
+    if (text == NULL)
+        return;
+    size_t len = strlen(text);
+    while (len > 0 && (text[len - 1] == '\r' || text[len - 1] == '\n' || text[len - 1] == ' ' || text[len - 1] == '\t'))
+    {
+        text[len - 1] = 0;
+        len--;
+    }
+}
+
+void FormatSystemErrorString(DWORD error, char* buffer, size_t bufferSize)
+{
+    if (bufferSize == 0)
+        return;
+    buffer[0] = 0;
+    LPSTR local = NULL;
+    DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+    DWORD len = FormatMessageA(flags, NULL, error, 0, reinterpret_cast<LPSTR>(&local), 0, NULL);
+    if (len == 0)
+    {
+        HMODULE netMsg = LoadLibraryExA("netmsg.dll", NULL, DONT_RESOLVE_DLL_REFERENCES);
+        if (netMsg != NULL)
+        {
+            len = FormatMessageA(flags | FORMAT_MESSAGE_FROM_HMODULE, netMsg, error, 0, reinterpret_cast<LPSTR>(&local), 0, NULL);
+            FreeLibrary(netMsg);
+        }
+    }
+    if (len != 0 && local != NULL)
+    {
+        lstrcpyn(buffer, local, static_cast<int>(bufferSize));
+        buffer[bufferSize - 1] = 0;
+        TrimTrailingWhitespace(buffer);
+        LocalFree(local);
+    }
+}
+
+void FormatActionString(int resID, const char* displayName, char* buffer, size_t bufferSize)
+{
+    const char* format = LoadStr(resID);
+    if (format == NULL)
+        format = "%s";
+    const char* name = (displayName != NULL && displayName[0] != 0) ? displayName : "";
+    _snprintf(buffer, bufferSize, format, name);
+    buffer[bufferSize - 1] = 0;
+}
+
+BOOL QueryStatus(SC_HANDLE service, SERVICE_STATUS_PROCESS& status)
+{
+    DWORD bytesNeeded = 0;
+    if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, reinterpret_cast<BYTE*>(&status), sizeof(status), &bytesNeeded))
+        return FALSE;
+    return TRUE;
+}
+
+DWORD WaitForServiceState(SC_HANDLE service, const ServiceActionInfo& info, CServiceActionProgressDialog* dialog, DWORD& serviceSpecific)
+{
+    serviceSpecific = 0;
+    SERVICE_STATUS_PROCESS status;
+    if (!QueryStatus(service, status))
+        return GetLastError();
+
+    if (status.dwCurrentState == info.DesiredState)
+        return ERROR_SUCCESS;
+
+    DWORD startTick = GetTickCount();
+    DWORD oldCheckPoint = status.dwCheckPoint;
+
+    while (status.dwCurrentState == info.PendingState)
+    {
+        if (dialog != NULL)
+            dialog->Pump();
+        DWORD waitTime = status.dwWaitHint / 10;
+        if (waitTime < 1000)
+            waitTime = 1000;
+        else if (waitTime > 10000)
+            waitTime = 10000;
+        Sleep(waitTime);
+        if (dialog != NULL)
+            dialog->Pump();
+        if (!QueryStatus(service, status))
+            return GetLastError();
+        if (status.dwCurrentState == info.DesiredState)
+            return ERROR_SUCCESS;
+        if (status.dwCheckPoint > oldCheckPoint)
+        {
+            oldCheckPoint = status.dwCheckPoint;
+            startTick = GetTickCount();
+        }
+        else if (GetTickCount() - startTick > status.dwWaitHint)
+            break;
+    }
+
+    if (status.dwCurrentState == info.DesiredState)
+        return ERROR_SUCCESS;
+
+    if (status.dwWin32ExitCode == ERROR_SERVICE_SPECIFIC_ERROR && status.dwServiceSpecificExitCode != 0)
+        serviceSpecific = status.dwServiceSpecificExitCode;
+    else if (status.dwServiceSpecificExitCode != 0 && status.dwWin32ExitCode == ERROR_SUCCESS)
+        serviceSpecific = status.dwServiceSpecificExitCode;
+
+    if (status.dwWin32ExitCode != ERROR_SUCCESS)
+        return status.dwWin32ExitCode;
+
+    if (status.dwCurrentState == info.PendingState)
+        return ERROR_SERVICE_REQUEST_TIMEOUT;
+
+    if (status.dwCurrentState == SERVICE_STOPPED && info.DesiredState != SERVICE_STOPPED && status.dwWin32ExitCode != ERROR_SUCCESS)
+        return status.dwWin32ExitCode;
+
+    return ERROR_SERVICE_REQUEST_TIMEOUT;
+}
+
+void ShowServiceOperationError(HWND parent, const char* displayName, const ServiceActionInfo& info, DWORD errorCode, DWORD serviceSpecific)
+{
+    char header[512];
+    FormatActionString(info.FailureTextRes, displayName, header, ARRAYSIZE(header));
+
+    char errorText[512];
+    FormatSystemErrorString(errorCode, errorText, ARRAYSIZE(errorText));
+
+    char errorLine[512];
+    if (errorText[0] != 0)
+    {
+        const char* fmt = LoadStr(IDS_SERVICE_ERROR_CODE_FMT);
+        if (fmt != NULL)
+            _snprintf(errorLine, ARRAYSIZE(errorLine), fmt, errorCode, errorText);
+        else
+            _snprintf(errorLine, ARRAYSIZE(errorLine), "Error %lu: %s", errorCode, errorText);
+    }
+    else
+    {
+        _snprintf(errorLine, ARRAYSIZE(errorLine), "Error %lu.", errorCode);
+    }
+    errorLine[ARRAYSIZE(errorLine) - 1] = 0;
+
+    char specificLine[512];
+    specificLine[0] = 0;
+    if (errorCode == ERROR_SERVICE_SPECIFIC_ERROR && serviceSpecific != 0)
+    {
+        char specificText[512];
+        FormatSystemErrorString(serviceSpecific, specificText, ARRAYSIZE(specificText));
+        if (specificText[0] != 0)
+        {
+            const char* fmt = LoadStr(IDS_SERVICE_SPECIFIC_ERROR_FMT);
+            if (fmt != NULL)
+                _snprintf(specificLine, ARRAYSIZE(specificLine), fmt, serviceSpecific, specificText);
+            else
+                _snprintf(specificLine, ARRAYSIZE(specificLine), "Service-specific error %lu: %s", serviceSpecific, specificText);
+        }
+        else
+        {
+            _snprintf(specificLine, ARRAYSIZE(specificLine), "Service-specific error %lu.", serviceSpecific);
+        }
+        specificLine[ARRAYSIZE(specificLine) - 1] = 0;
+    }
+
+    char message[1024];
+    if (specificLine[0] != 0)
+        _snprintf(message, ARRAYSIZE(message), "%s\n\n%s\n%s", header, errorLine, specificLine);
+    else
+        _snprintf(message, ARRAYSIZE(message), "%s\n\n%s", header, errorLine);
+    message[ARRAYSIZE(message) - 1] = 0;
+
+    HWND owner = parent != NULL ? parent : SalamanderGeneral->GetMsgBoxParent();
+    SalamanderGeneral->SalMessageBox(owner, message, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
+}
+
+const ServiceActionInfo* FindServiceAction(ServiceActionKind action)
+{
+    for (size_t i = 0; i < ARRAYSIZE(ServiceActions); ++i)
+    {
+        if (ServiceActions[i].Action == action)
+            return &ServiceActions[i];
+    }
+    return NULL;
+}
+
+BOOL PerformSingleServiceAction(HWND parent, const char* serviceName, const char* displayName, const ServiceActionInfo& info, BOOL silentIfSatisfied, CServiceActionProgressDialog* sharedDialog)
+{
+    SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
+    if (scm == NULL)
+    {
+        DWORD err = GetLastError();
+        ShowServiceOperationError(parent, displayName, info, err, 0);
+        return FALSE;
+    }
+
+    SC_HANDLE service = OpenServiceA(scm, serviceName, info.AccessMask | SERVICE_QUERY_STATUS);
+    if (service == NULL)
+    {
+        DWORD err = GetLastError();
+        CloseServiceHandle(scm);
+        ShowServiceOperationError(parent, displayName, info, err, 0);
+        return FALSE;
+    }
+
+    SERVICE_STATUS_PROCESS status;
+    if (!QueryStatus(service, status))
+    {
+        DWORD err = GetLastError();
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        ShowServiceOperationError(parent, displayName, info, err, 0);
+        return FALSE;
+    }
+
+    if (status.dwCurrentState == info.DesiredState)
+    {
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        if (!silentIfSatisfied && info.AlreadyTextRes != 0)
+        {
+            char text[512];
+            FormatActionString(info.AlreadyTextRes, displayName, text, ARRAYSIZE(text));
+            SalamanderGeneral->SalMessageBox(parent != NULL ? parent : SalamanderGeneral->GetMsgBoxParent(), text, VERSINFO_PLUGINNAME, MB_OK | MB_ICONINFORMATION);
+        }
+        return TRUE;
+    }
+
+    char progressText[512];
+    FormatActionString(info.ProgressTextRes, displayName, progressText, ARRAYSIZE(progressText));
+
+    CServiceActionProgressDialog localDialog(parent);
+    CServiceActionProgressDialog* dialogPtr = sharedDialog;
+    bool createdLocalDialog = false;
+    if (dialogPtr != NULL)
+    {
+        if (dialogPtr->GetHWND() == NULL)
+        {
+            if (!dialogPtr->Show(progressText))
+                dialogPtr = NULL;
+        }
+        else
+            dialogPtr->SetMessage(progressText);
+    }
+    if (dialogPtr == NULL)
+    {
+        if (localDialog.Show(progressText))
+        {
+            dialogPtr = &localDialog;
+            createdLocalDialog = true;
+        }
+    }
+
+    DWORD operationError = ERROR_SUCCESS;
+    DWORD serviceSpecific = 0;
+
+    if (info.Action == ServiceActionStart)
+    {
+        if (!StartService(service, 0, NULL))
+        {
+            operationError = GetLastError();
+            if (operationError == ERROR_SERVICE_ALREADY_RUNNING)
+                operationError = ERROR_SUCCESS;
+        }
+    }
+    else
+    {
+        SERVICE_STATUS dummy;
+        if (!ControlService(service, info.ControlCode, &dummy))
+        {
+            operationError = GetLastError();
+            if (info.Action == ServiceActionStop && operationError == ERROR_SERVICE_NOT_ACTIVE)
+                operationError = ERROR_SUCCESS;
+        }
+    }
+
+    if (operationError == ERROR_SUCCESS)
+        operationError = WaitForServiceState(service, info, dialogPtr, serviceSpecific);
+
+    if (dialogPtr != NULL)
+        dialogPtr->Pump();
+
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+
+    if (createdLocalDialog)
+        localDialog.Close();
+
+    if (operationError != ERROR_SUCCESS)
+    {
+        ShowServiceOperationError(parent, displayName, info, operationError, serviceSpecific);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+} // namespace
+
+BOOL RunServiceAction(HWND parent, const char* serviceName, const char* displayName, ServiceActionKind action)
+{
+    if (serviceName == NULL || serviceName[0] == 0)
+        return FALSE;
+
+    const char* friendlyName = (displayName != NULL && displayName[0] != 0) ? displayName : serviceName;
+
+    if (action == ServiceActionRestart)
+    {
+        const ServiceActionInfo* stopInfo = FindServiceAction(ServiceActionStop);
+        const ServiceActionInfo* startInfo = FindServiceAction(ServiceActionStart);
+        if (stopInfo == NULL || startInfo == NULL)
+            return FALSE;
+
+        CServiceActionProgressDialog dialog(parent);
+        if (!PerformSingleServiceAction(parent, serviceName, friendlyName, *stopInfo, TRUE, &dialog))
+        {
+            dialog.Close();
+            return FALSE;
+        }
+        BOOL restartResult = PerformSingleServiceAction(parent, serviceName, friendlyName, *startInfo, TRUE, &dialog);
+        dialog.Close();
+        return restartResult;
+    }
+
+    const ServiceActionInfo* info = FindServiceAction(action);
+    if (info == NULL)
+        return FALSE;
+
+    return PerformSingleServiceAction(parent, serviceName, friendlyName, *info, FALSE, NULL);
+}
+
 //---------------------------------------------------------------------------
 // LASTERRORMESSAGE
 //---------------------------------------------------------------------------
