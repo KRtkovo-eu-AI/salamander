@@ -99,17 +99,7 @@ bool EventLogReader::Query(const wchar_t* logName, size_t maxRecords, std::vecto
         return false;
     }
 
-    EVT_SYSTEM_PROPERTY_ID systemProperties[] = {
-        EvtSystemLevel,
-        EvtSystemTimeCreated,
-        EvtSystemProviderName,
-        EvtSystemEventID,
-        EvtSystemTask,
-    };
-
-    EVT_HANDLE renderContext = EvtCreateRenderContext(_countof(systemProperties),
-                                                     reinterpret_cast<LPCWSTR*>(systemProperties),
-                                                     EvtRenderContextSystem);
+    EVT_HANDLE renderContext = EvtCreateRenderContext(0, NULL, EvtRenderContextSystem);
     if (renderContext == NULL)
     {
         errorMessage = FormatSystemError(GetLastError());
@@ -162,19 +152,20 @@ bool EventLogReader::Query(const wchar_t* logName, size_t maxRecords, std::vecto
             }
 
             PEVT_VARIANT values = reinterpret_cast<PEVT_VARIANT>(valueBuffer.data());
-            if (propertyCount < _countof(systemProperties))
+            if (propertyCount <= EvtSystemTask)
             {
                 EvtClose(eventHandle);
                 continue;
             }
 
             EventLogRecord record;
-            record.Level = FormatEventLevel(values[0].ByteVal);
-            record.TimeCreated = FormatFileTime(values[1].FileTimeVal);
-            std::wstring providerName = values[2].StringVal != NULL ? values[2].StringVal : L"";
+            record.Level = FormatEventLevel(values[EvtSystemLevel].ByteVal);
+            record.TimeCreated = FormatFileTime(values[EvtSystemTimeCreated].FileTimeVal);
+            std::wstring providerName =
+                values[EvtSystemProviderName].StringVal != NULL ? values[EvtSystemProviderName].StringVal : L"";
             record.Source = WideToAnsi(providerName);
-            record.EventId = UnsignedToString(values[3].UInt16Val);
-            record.TaskCategory = UnsignedToString(values[4].UInt16Val);
+            record.EventId = UnsignedToString(values[EvtSystemEventID].UInt16Val);
+            record.TaskCategory = UnsignedToString(values[EvtSystemTask].UInt16Val);
 
             std::wstring message;
             if (!providerName.empty() && FormatEventMessage(eventHandle, providerName, message))
