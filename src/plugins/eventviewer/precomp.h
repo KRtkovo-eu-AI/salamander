@@ -16,6 +16,7 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h>
+#include <oleidl.h>
 #include <commctrl.h>
 #include <strsafe.h>
 #include <winevt.h>
