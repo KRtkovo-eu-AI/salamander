@@ -707,6 +707,7 @@ void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int
 
 				DWORD returnstate=0;
 				DWORD messagereturn=0;
+				bool refreshPanel = false;
 
 				if (cmd != 0)  // user selected the menu command
 				{
