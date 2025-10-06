@@ -632,6 +632,7 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
     {
         return PVC_INVALID_HANDLE;
     }
+    *Img = nullptr;
     if (!(pOpenExInfo->Flags & PVOF_ATTACH_TO_HANDLE) && !pOpenExInfo->FileName)
     {
         return PVC_UNSUP_FILE_TYPE;
