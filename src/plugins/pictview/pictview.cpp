@@ -533,7 +533,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    _T("PictView") /* do not translate! */);
 
     // set the plugin home page URL
-    salamander->SetPluginHomePageURL("www.opensalamander.org");
+    salamander->SetPluginHomePageURL("www.pictview.com/salamander");
 
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.
@@ -541,7 +541,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     TCHAR exceptInfo[512];
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
     _tcsncat(exceptInfo, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - _tcslen(exceptInfo));
-    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@opensalamander.org");
+    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@pictview.com");
     return &PluginInterface;
 }
 
