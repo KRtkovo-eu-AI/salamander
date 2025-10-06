@@ -25,7 +25,7 @@ typedef DWORD(WINAPI* TPVIsOutCombSupported)(int Fmt, int Compr, int Colors, int
 typedef PVCODE(WINAPI* TPVReadImageSequence)(LPPVHandle Img, LPPVImageSequence* ppSeq);
 typedef PVCODE(WINAPI* TPVCropImage)(LPPVHandle Img, int Left, int Top, int Width, int Height);
 
-// Internal functions, not directly imported from PVW32Cnv.dll
+// Internal helper entry points provided by the in-process imaging backend
 typedef bool (*TPVGetRGBAtCursor)(LPPVHandle Img, DWORD Colors, int x, int y, RGBQUAD* pRGB, int* pIndex);
 typedef PVCODE (*TPVCalculateHistogram)(LPPVHandle PVHandle, const LPPVImageInfo pvii, LPDWORD luminosity, LPDWORD red, LPDWORD green, LPDWORD blue, LPDWORD rgb);
 typedef PVCODE (*TPVCreateThumbnail)(LPPVHandle hPVImage, LPPVSaveImageInfo pSii, int imageIndex, DWORD imgWidth, DWORD imgHeight,
@@ -60,7 +60,7 @@ struct CPVW32DLL
     TPVCalculateHistogram CalculateHistogram;
     TPVCreateThumbnail CreateThumbnail;
     TPVSimplifyImageSequence SimplifyImageSequence;
-    HMODULE Handle;   // handle of the opened PVW32Cnv.DLL library
+    HMODULE Handle;   // handle of the active imaging backend module
     char Version[28]; // initialized together with Handle in DllMain on DLL_PROCESS_ATTACH
 };
 

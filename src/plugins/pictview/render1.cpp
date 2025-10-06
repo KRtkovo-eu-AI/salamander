@@ -2458,7 +2458,7 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HScroll(SB_THUMBPOSITION, GetScrollPos(HWindow, SB_HORZ) + pt.x - r.right / 2);
                     VScroll(SB_THUMBPOSITION, GetScrollPos(HWindow, SB_VERT) + pt.y - r.bottom / 2);
                     // NT4: Desktop icons may get repainted as a response to this
-                    // LockWindowUpdate(NULL) if a zoomed image is cached by PVW32Cnv.dll
+                    // LockWindowUpdate(NULL) if a zoomed image is cached by the backend
                     LockWindowUpdate(NULL);
                 }
             }

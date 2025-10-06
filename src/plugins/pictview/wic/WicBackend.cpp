@@ -17,6 +17,7 @@
 #include <objbase.h>
 #include <shlwapi.h>
 #include <strsafe.h>
+#include <propvarutil.h>
 #include <wincodecsdk.h>
 
 #include "../Thumbnailer.h"
@@ -45,6 +46,155 @@ std::unordered_map<DWORD, std::string> g_errorTexts = {
     {PVC_CANCELED, "Operation canceled."},
     {PVC_GDI_ERROR, "A GDI call failed."},
 };
+
+bool QueryReaderContainsExif(IWICMetadataQueryReader* query)
+{
+    if (!query)
+    {
+        return false;
+    }
+    static const wchar_t* kProbePaths[] = {
+        L"/ifd/exif:ExifVersion",
+        L"/ifd/{ushort=34665}",
+        L"/app1/ifd/exif:ExifVersion",
+        L"/app1/{ushort=34665}"
+    };
+    PROPVARIANT value;
+    for (const auto* path : kProbePaths)
+    {
+        PropVariantInit(&value);
+        const HRESULT hr = query->GetMetadataByName(path, &value);
+        PropVariantClear(&value);
+        if (SUCCEEDED(hr))
+        {
+            return true;
+        }
+    }
+
+    PropVariantInit(&value);
+    const HRESULT ifdHr = query->GetMetadataByName(L"/ifd", &value);
+    if (SUCCEEDED(ifdHr))
+    {
+        bool hasExif = true;
+        if (value.vt == VT_UNKNOWN && value.punkVal)
+        {
+            ComPtr<IWICMetadataQueryReader> nested;
+            if (SUCCEEDED(value.punkVal->QueryInterface(IID_PPV_ARGS(&nested))) && nested)
+            {
+                hasExif = QueryReaderContainsExif(nested.Get());
+            }
+        }
+        PropVariantClear(&value);
+        if (hasExif)
+        {
+            return true;
+        }
+    }
+    else
+    {
+        PropVariantClear(&value);
+    }
+
+    return false;
+}
+
+bool ReaderContainsExif(IWICMetadataReader* reader)
+{
+    if (!reader)
+    {
+        return false;
+    }
+    GUID format = {};
+    if (SUCCEEDED(reader->GetMetadataFormat(&format)))
+    {
+        if (format == GUID_MetadataFormatExif || format == GUID_MetadataFormatIfd)
+        {
+            return true;
+        }
+    }
+
+    ComPtr<IWICMetadataQueryReader> query;
+    if (SUCCEEDED(reader->QueryInterface(IID_PPV_ARGS(&query))) && query)
+    {
+        if (QueryReaderContainsExif(query.Get()))
+        {
+            return true;
+        }
+    }
+
+    ComPtr<IWICMetadataBlockReader> blockReader;
+    if (SUCCEEDED(reader->QueryInterface(IID_PPV_ARGS(&blockReader))) && blockReader)
+    {
+        UINT count = 0;
+        if (SUCCEEDED(blockReader->GetCount(&count)))
+        {
+            for (UINT i = 0; i < count; ++i)
+            {
+                ComPtr<IWICMetadataReader> child;
+                if (SUCCEEDED(blockReader->GetReaderByIndex(i, &child)) && child)
+                {
+                    if (ReaderContainsExif(child.Get()))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+bool SourceContainsExif(IUnknown* source)
+{
+    if (!source)
+    {
+        return false;
+    }
+    ComPtr<IWICMetadataBlockReader> blockReader;
+    if (FAILED(source->QueryInterface(IID_PPV_ARGS(&blockReader))) || !blockReader)
+    {
+        return false;
+    }
+    UINT count = 0;
+    if (FAILED(blockReader->GetCount(&count)))
+    {
+        return false;
+    }
+    for (UINT i = 0; i < count; ++i)
+    {
+        ComPtr<IWICMetadataReader> reader;
+        if (SUCCEEDED(blockReader->GetReaderByIndex(i, &reader)) && reader)
+        {
+            if (ReaderContainsExif(reader.Get()))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool FrameContainsExif(IWICBitmapFrameDecode* frame)
+{
+    if (!frame)
+    {
+        return false;
+    }
+    if (SourceContainsExif(frame))
+    {
+        return true;
+    }
+    ComPtr<IWICMetadataQueryReader> query;
+    if (SUCCEEDED(frame->GetMetadataQueryReader(&query)) && query)
+    {
+        if (QueryReaderContainsExif(query.Get()))
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
 const char* LookupError(DWORD code)
 {
@@ -675,7 +825,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo in
     info->BytesPerLine = frame.stride;
     info->Colors = PV_COLOR_TC32;
     info->Format = handle.baseInfo.Format;
-    info->Flags = 0;
+    info->Flags = handle.baseInfo.Flags;
     info->ColorModel = PVCM_RGB;
     info->NumOfImages = static_cast<DWORD>(handle.frames.size());
     info->CurrentImage = 0;
@@ -717,12 +867,15 @@ DWORD MapFormatToPvFormat(const GUID& container)
 HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle& handle)
 {
     UINT frameCount = 0;
+    handle.baseInfo.Flags = 0;
+
     HRESULT hr = decoder->GetFrameCount(&frameCount);
     if (FAILED(hr))
     {
         return hr;
     }
     handle.frames.resize(frameCount);
+    bool hasExif = SourceContainsExif(decoder);
     for (UINT i = 0; i < frameCount; ++i)
     {
         FrameData data;
@@ -731,12 +884,20 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         {
             return hr;
         }
+        if (!hasExif && FrameContainsExif(data.frame.Get()))
+        {
+            hasExif = true;
+        }
         handle.frames[i] = std::move(data);
     }
     GUID container = {};
     decoder->GetContainerFormat(&container);
     handle.baseInfo.Format = MapFormatToPvFormat(container);
     handle.baseInfo.NumOfImages = frameCount;
+    if (hasExif)
+    {
+        handle.baseInfo.Flags |= PVFF_EXIF;
+    }
     return S_OK;
 }
 

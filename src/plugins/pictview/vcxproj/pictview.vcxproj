@@ -249,10 +249,6 @@
       <Project>{bc2e9ea5-ebc4-4fdf-b064-e2bbbbcba1d3}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="salpvenv.vcxproj">
-      <Project>{17cf5e05-f29c-4e5d-ba41-83254e342e0b}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
   </Import>

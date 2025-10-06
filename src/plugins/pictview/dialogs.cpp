@@ -124,16 +124,16 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetDlgItemText(HWindow, IDC_ABOUT_PVW32, buff, 1000);
         wsprintf(buff2, buff, PVW32DLL.Version);
         SetDlgItemText(HWindow, IDC_ABOUT_PVW32, buff2);
-        // PVW32 will be bold
+        // Highlight the backend line in bold
         SalamanderGUI->AttachStaticText(HWindow, IDC_ABOUT_PVW32, STF_BOLD);
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_EMAIL, STF_UNDERLINE | STF_HYPERLINK_COLOR);
         if (hl != NULL)
-            hl->SetActionOpen("mailto:support@pictview.com");
+            hl->SetActionOpen("mailto:support@opensalamander.org");
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE | STF_HYPERLINK_COLOR);
         if (hl != NULL)
-            hl->SetActionOpen("http://www.pictview.com/salamander");
+            hl->SetActionOpen("https://www.opensalamander.org/");
 
         break;
     }

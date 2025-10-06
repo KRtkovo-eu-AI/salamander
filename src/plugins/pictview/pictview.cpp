@@ -449,7 +449,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         DLLInstance = hinstDLL;
     }
 
-    if (fdwReason == DLL_PROCESS_DETACH) // shutdown (unload) PVW32.SPL
+    if (fdwReason == DLL_PROCESS_DETACH) // shutdown (unload) PictView.spl
     {
         if (EXIFLibrary != NULL)
         {
@@ -457,7 +457,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             EXIFLibrary = NULL;
         }
         if (PVW32DLL.Handle != NULL)
-            FreeLibrary(PVW32DLL.Handle); // release PVW32.DLL as well
+            FreeLibrary(PVW32DLL.Handle); // release the imaging backend module as well
         if (G.HAccel != NULL)
             DestroyAcceleratorTable(G.HAccel);
         if (G.CaptureAtomID != 0)
@@ -527,7 +527,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    _T("PictView") /* do not translate! */);
 
     // set the plugin home page URL
-    salamander->SetPluginHomePageURL("www.pictview.com/salamander");
+    salamander->SetPluginHomePageURL("www.opensalamander.org");
 
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.
@@ -535,7 +535,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     TCHAR exceptInfo[512];
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
     _tcsncat(exceptInfo, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - _tcslen(exceptInfo));
-    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@pictview.com");
+    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@opensalamander.org");
     return &PluginInterface;
 }
 
@@ -1412,7 +1412,8 @@ BOOL InitViewer(HWND hParentWnd)
     }
     i = PVW32DLL.PVGetDLLVersion();
 
-    sprintf(PVW32DLL.Version, "PVW32Cnv.dll %d.%#02d.%d", i >> 16, i & 255, (i >> 8) & 255);
+    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "WIC backend %u.%02u",
+                static_cast<unsigned>(PV_VERSION_MAJOR(i)), static_cast<unsigned>(PV_VERSION_MINOR(i)));
 
     PVW32DLL.PVSetParam(GetExtText);
 
@@ -1589,7 +1590,7 @@ public:
 /*
 unsigned WINAPI ViewerThreadBody(void *param)
 {
-  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s backend %hs"), VERSINFO_VERSION, PVW32DLL.Version);
   SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
   TRACE_I("Begin");
   RECT    r;
@@ -1708,7 +1709,7 @@ unsigned __stdcall ViewerThread(void *param)
 unsigned
 CViewerThread::Body()
 {
-    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s backend %hs"), VERSINFO_VERSION, PVW32DLL.Version);
     SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
     TRACE_I("Begin");
 

@@ -462,7 +462,7 @@
 #define IDS_EXCEPT_INFO1           2306
 #define IDS_EXCEPT_INFO2           2307
 
-// Texts for PVW32Cnv.dll - reserved IDs 4000-4999 !!!
+// Legacy PVW32Cnv.dll text identifiers reserved for translator compatibility (4000-4999)
 #define IDS_DLL         4000
 
 // IDcka stranek v html helpu
