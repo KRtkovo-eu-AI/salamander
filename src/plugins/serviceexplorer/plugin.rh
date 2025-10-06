@@ -4,6 +4,7 @@
 //
 
 #define IDI_SERVICEEXPLORER_DIR         1
+#define IDB_SERVICEEXPLORER_TOOLBAR     2
 
 // Next default values for new objects
 //

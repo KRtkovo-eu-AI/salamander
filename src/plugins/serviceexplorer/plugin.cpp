@@ -17,6 +17,12 @@ namespace
 {
 HBITMAP CreateServiceBitmap()
 {
+  HBITMAP bitmap = reinterpret_cast<HBITMAP>(
+    LoadImage(DLLInstance, MAKEINTRESOURCE(IDB_SERVICEEXPLORER_TOOLBAR), IMAGE_BITMAP,
+              0, 0, LR_CREATEDIBSECTION));
+  if (bitmap != NULL)
+    return bitmap;
+
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
   bmi.bmiHeader.biWidth = 16;
@@ -26,9 +32,16 @@ HBITMAP CreateServiceBitmap()
   bmi.bmiHeader.biCompression = BI_RGB;
 
   void *bits = NULL;
-  HBITMAP bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
+  bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
   if (bitmap == NULL)
     return NULL;
+
+  if (bits != NULL)
+  {
+    DWORD* pixel = static_cast<DWORD*>(bits);
+    for (int i = 0; i < 16 * 16; ++i)
+      pixel[i] = 0x00FF00FF;
+  }
 
   HDC dc = CreateCompatibleDC(NULL);
   if (dc == NULL)
