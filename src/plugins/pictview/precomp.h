@@ -11,6 +11,7 @@
 #include <tchar.h>
 #include <windows.h>
 #include <windowsx.h>
+#include <algorithm>
 #include <crtdbg.h>
 #include <ostream>
 #include <commctrl.h>
@@ -59,10 +60,15 @@
 #define GET_X_LPARAM(x) LOWORD(x)
 #endif
 
-#ifndef INT32
-#define INT32 int
-#define UINT32 unsigned int
+#if !defined(INT32) && !defined(_INT32_DEFINED)
+typedef int INT32;
+typedef unsigned int UINT32;
+#define _INT32_DEFINED
+#define _UINT32_DEFINED
 #endif
+
+using std::max;
+using std::min;
 
 #ifndef SetWindowLongPtr
 // compiling on VC6 w/o reasonably new SDK
