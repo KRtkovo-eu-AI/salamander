@@ -11,6 +11,7 @@
 #include <objbase.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+#include <windows.h>
 
 #include "../pictview.h"
 
@@ -21,6 +22,32 @@ class Backend;
 struct ImageHandle;
 
 using Microsoft::WRL::ComPtr;
+
+struct FrameData
+{
+    ComPtr<IWICBitmapFrameDecode> frame;
+    ComPtr<IWICFormatConverter> converter;
+    UINT width = 0;
+    UINT height = 0;
+    UINT stride = 0;
+    std::vector<BYTE> pixels;
+    BITMAPINFOHEADER bmi{};
+    HBITMAP hbitmap = nullptr;
+    bool decoded = false;
+};
+
+struct ImageHandle
+{
+    Backend* backend = nullptr;
+    std::wstring fileName;
+    DWORD openFlags = 0;
+    std::vector<FrameData> frames;
+    DWORD stretchWidth = 0;
+    DWORD stretchHeight = 0;
+    DWORD stretchMode = PV_STRETCH_NO;
+    COLORREF background = RGB(0, 0, 0);
+    PVImageInfo baseInfo{};
+};
 
 /**
  * Lightweight RAII helper around CoInitialize/CoUninitialize.  The viewer

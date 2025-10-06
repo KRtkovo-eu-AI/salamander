@@ -16,6 +16,8 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 
+#include "../Thumbnailer.h"
+
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "shlwapi.lib")
 
@@ -26,32 +28,6 @@ namespace PictView::Wic
 namespace
 {
 constexpr DWORD kBackendVersion = PV_VERSION_156;
-
-struct FrameData
-{
-    Microsoft::WRL::ComPtr<IWICBitmapFrameDecode> frame;
-    Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
-    UINT width = 0;
-    UINT height = 0;
-    UINT stride = 0;
-    std::vector<BYTE> pixels;
-    BITMAPINFOHEADER bmi{};
-    HBITMAP hbitmap = nullptr;
-    bool decoded = false;
-};
-
-struct ImageHandle
-{
-    Backend* backend = nullptr;
-    std::wstring fileName;
-    DWORD openFlags = 0;
-    std::vector<FrameData> frames;
-    DWORD stretchWidth = 0;
-    DWORD stretchHeight = 0;
-    DWORD stretchMode = PV_STRETCH_NO;
-    COLORREF background = RGB(0, 0, 0);
-    PVImageInfo baseInfo{};
-};
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -1134,7 +1110,7 @@ PVCODE Backend::sCalculateHistogram(LPPVHandle Img, const LPPVImageInfo /*info*/
 
 PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int imageIndex, DWORD imgWidth, DWORD imgHeight,
                                   int thumbWidth, int thumbHeight, CSalamanderThumbnailMakerAbstract* thumbMaker,
-                                  DWORD /*thumbFlags*/, TProgressProc progressProc, void* progressProcArg)
+                                  DWORD thumbFlags, TProgressProc progressProc, void* progressProcArg)
 {
     auto handle = FromHandle(Img);
     if (!handle || !thumbMaker)
@@ -1156,27 +1132,54 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
         return HResultToPvCode(hr);
     }
     FrameData& frame = handle->frames[static_cast<size_t>(imageIndex)];
-    const UINT width = thumbWidth > 0 ? static_cast<UINT>(thumbWidth) : frame.width;
-    const UINT height = thumbHeight > 0 ? static_cast<UINT>(thumbHeight) : frame.height;
 
-    Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
-    hr = handle->backend->Factory()->CreateBitmapScaler(&scaler);
-    if (FAILED(hr))
+    int targetWidth = thumbWidth > 0 ? thumbWidth : static_cast<int>(frame.width);
+    int targetHeight = thumbHeight > 0 ? thumbHeight : static_cast<int>(frame.height);
+    if (targetWidth <= 0)
     {
-        return HResultToPvCode(hr);
+        targetWidth = static_cast<int>(frame.width);
     }
-    hr = scaler->Initialize(frame.converter.Get(), width, height, WICBitmapInterpolationModeFant);
-    if (FAILED(hr))
+    if (targetHeight <= 0)
     {
-        return HResultToPvCode(hr);
+        targetHeight = static_cast<int>(frame.height);
     }
 
-    std::vector<BYTE> buffer(width * height * 4);
-    WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
-    hr = scaler->CopyPixels(&rect, width * 4, static_cast<UINT>(buffer.size()), buffer.data());
-    if (FAILED(hr))
+    CSalamanderThumbnailMaker::CalculateThumbnailSize(static_cast<int>(imgWidth), static_cast<int>(imgHeight), targetWidth,
+                                                      targetHeight, targetWidth, targetHeight);
+
+    if (!thumbMaker->SetParameters(targetWidth, targetHeight, thumbFlags))
     {
-        return HResultToPvCode(hr);
+        return PVC_OUT_OF_MEMORY;
+    }
+
+    const UINT desiredWidth = static_cast<UINT>(targetWidth);
+    const UINT desiredHeight = static_cast<UINT>(targetHeight);
+
+    const BYTE* source = frame.pixels.data();
+    std::vector<BYTE> scaled;
+    if (desiredWidth != frame.width || desiredHeight != frame.height)
+    {
+        Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
+        hr = handle->backend->Factory()->CreateBitmapScaler(&scaler);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+        hr = scaler->Initialize(frame.converter.Get(), desiredWidth, desiredHeight, WICBitmapInterpolationModeFant);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        scaled.resize(static_cast<size_t>(desiredWidth) * static_cast<size_t>(desiredHeight) * 4);
+        WICRect rect{0, 0, static_cast<INT>(desiredWidth), static_cast<INT>(desiredHeight)};
+        hr = scaler->CopyPixels(&rect, desiredWidth * 4, static_cast<UINT>(scaled.size()), scaled.data());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        source = scaled.data();
     }
 
     if (progressProc && !progressProc(100, progressProcArg))
@@ -1184,7 +1187,22 @@ PVCODE Backend::sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo /*sii*/, int 
         return PVC_CANCELED;
     }
 
-    thumbMaker->StoreBitmap(width, height, reinterpret_cast<const RGBQUAD*>(buffer.data()), width * sizeof(RGBQUAD));
+    // The thumbnail maker expects rows in top-down order; feed them in manageable batches
+    // so it can honour cancellation requests.
+    const size_t rowBytes = static_cast<size_t>(desiredWidth) * 4;
+    int processedRows = 0;
+    while (processedRows < targetHeight)
+    {
+        if (thumbMaker->GetCancelProcessing())
+        {
+            return PVC_CANCELED;
+        }
+
+        const int batch = std::min(32, targetHeight - processedRows);
+        BYTE* chunk = const_cast<BYTE*>(source + static_cast<size_t>(processedRows) * rowBytes);
+        thumbMaker->ProcessBuffer(chunk, batch);
+        processedRows += batch;
+    }
     return PVC_OK;
 }
 
