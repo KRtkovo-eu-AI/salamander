@@ -24,7 +24,7 @@
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "Copyright  2009 MJ"
+#define VERSINFO_COPYRIGHT   "Copyright 2009 MJ, 2025 KRtekTM"
 #define VERSINFO_COMPANY     "ALTAP"
 
 #define VERSINFO_PLUGINNAME  "Service Explorer"
