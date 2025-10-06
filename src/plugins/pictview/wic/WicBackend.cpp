@@ -525,6 +525,11 @@ PVCODE PopulateImageInfo(ImageHandle& handle, FrameData& frame, LPPVImageInfo in
     info->ColorModel = PVCM_RGB;
     info->NumOfImages = static_cast<DWORD>(handle.frames.size());
     info->CurrentImage = 0;
+    const DWORD stretchedWidth = handle.stretchWidth ? handle.stretchWidth : frame.width;
+    const DWORD stretchedHeight = handle.stretchHeight ? handle.stretchHeight : frame.height;
+    info->StretchedWidth = stretchedWidth;
+    info->StretchedHeight = stretchedHeight;
+    info->StretchMode = handle.stretchMode;
     StringCchCopyA(info->Info1, PV_MAX_INFO_LEN, "WIC");
     info->TotalBitDepth = 32;
     return PVC_OK;
@@ -573,37 +578,99 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     return S_OK;
 }
 
-PVCODE DrawFrame(FrameData& frame, HDC dc, int x, int y, LPRECT rect)
+PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LPRECT rect)
 {
     if (!dc)
     {
         return PVC_OK;
     }
 
-    RECT dest{};
-    if (rect)
-    {
-        dest = *rect;
-    }
-    else
-    {
-        dest.left = x;
-        dest.top = y;
-        dest.right = x + static_cast<int>(frame.width);
-        dest.bottom = y + static_cast<int>(frame.height);
-    }
-
-    const int destWidth = dest.right - dest.left;
-    const int destHeight = dest.bottom - dest.top;
-    if (destWidth <= 0 || destHeight <= 0)
+    const LONG stretchWidthSigned = handle.stretchWidth ? static_cast<LONG>(handle.stretchWidth)
+                                                        : static_cast<LONG>(frame.width);
+    const LONG stretchHeightSigned = handle.stretchHeight ? static_cast<LONG>(handle.stretchHeight)
+                                                          : static_cast<LONG>(frame.height);
+    const LONG stretchWidth = stretchWidthSigned >= 0 ? stretchWidthSigned : -stretchWidthSigned;
+    const LONG stretchHeight = stretchHeightSigned >= 0 ? stretchHeightSigned : -stretchHeightSigned;
+    if (stretchWidth == 0 || stretchHeight == 0)
     {
         return PVC_OK;
     }
 
+    RECT imageRect;
+    imageRect.left = x;
+    imageRect.top = y;
+    imageRect.right = x + stretchWidth;
+    imageRect.bottom = y + stretchHeight;
+
+    RECT clipRect = imageRect;
+    if (rect)
+    {
+        if (!IntersectRect(&clipRect, &imageRect, rect))
+        {
+            return PVC_OK;
+        }
+    }
+
+    int savedState = 0;
+    bool resetClip = false;
+    if (rect)
+    {
+        savedState = SaveDC(dc);
+        if (savedState == 0)
+        {
+            resetClip = true;
+        }
+        const int clipResult = IntersectClipRect(dc, clipRect.left, clipRect.top, clipRect.right, clipRect.bottom);
+        if (clipResult == ERROR)
+        {
+            if (savedState > 0)
+            {
+                RestoreDC(dc, savedState);
+            }
+            else if (resetClip)
+            {
+                SelectClipRgn(dc, nullptr);
+            }
+            return PVC_GDI_ERROR;
+        }
+        if (clipResult == NULLREGION)
+        {
+            if (savedState > 0)
+            {
+                RestoreDC(dc, savedState);
+            }
+            else if (resetClip)
+            {
+                SelectClipRgn(dc, nullptr);
+            }
+            return PVC_OK;
+        }
+    }
+
+    int previousMode = SetStretchBltMode(dc, handle.stretchMode ? static_cast<int>(handle.stretchMode) : COLORONCOLOR);
     BITMAPINFO bmi{};
     bmi.bmiHeader = frame.bmi;
-    int result = StretchDIBits(dc, dest.left, dest.top, destWidth, destHeight, 0, 0, frame.width, frame.height,
-                               frame.pixels.data(), &bmi, DIB_RGB_COLORS, SRCCOPY);
+
+    const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
+    const int destY = stretchHeightSigned >= 0 ? imageRect.top : imageRect.bottom - 1;
+    const int destWidth = stretchWidthSigned >= 0 ? static_cast<int>(stretchWidth) : -static_cast<int>(stretchWidth);
+    const int destHeight = stretchHeightSigned >= 0 ? static_cast<int>(stretchHeight) : -static_cast<int>(stretchHeight);
+
+    const int result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, frame.width, frame.height,
+                                     frame.pixels.data(), &bmi, DIB_RGB_COLORS, SRCCOPY);
+
+    if (previousMode > 0)
+    {
+        SetStretchBltMode(dc, previousMode);
+    }
+    if (savedState > 0)
+    {
+        RestoreDC(dc, savedState);
+    }
+    else if (resetClip)
+    {
+        SelectClipRgn(dc, nullptr);
+    }
     if (result == GDI_ERROR)
     {
         return PVC_GDI_ERROR;
@@ -1007,7 +1074,7 @@ PVCODE WINAPI Backend::sPVReadImage2(LPPVHandle Img, HDC paintDC, RECT* dRect, T
     {
         return HResultToPvCode(hr);
     }
-    return DrawFrame(handle->frames[static_cast<size_t>(imageIndex)], paintDC, dRect ? dRect->left : 0,
+    return DrawFrame(*handle, handle->frames[static_cast<size_t>(imageIndex)], paintDC, dRect ? dRect->left : 0,
                      dRect ? dRect->top : 0, dRect);
 }
 
@@ -1028,7 +1095,7 @@ PVCODE WINAPI Backend::sPVDrawImage(LPPVHandle Img, HDC paintDC, int x, int y, L
     {
         return HResultToPvCode(hr);
     }
-    return DrawFrame(handle->frames[0], paintDC, x, y, rect);
+    return DrawFrame(*handle, handle->frames[0], paintDC, x, y, rect);
 }
 
 const char* WINAPI Backend::sPVGetErrorText(DWORD errorCode)
@@ -1210,24 +1277,10 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     frame.height = newHeight;
     frame.stride = frame.width * 4;
     frame.pixels.swap(rotated);
-    frame.bmi.biWidth = static_cast<LONG>(frame.width);
-    frame.bmi.biHeight = -static_cast<LONG>(frame.height);
-
-    if (frame.hbitmap)
+    HRESULT finalizeHr = FinalizeDecodedFrame(frame);
+    if (FAILED(finalizeHr))
     {
-        DeleteObject(frame.hbitmap);
-    }
-    void* bits = nullptr;
-    BITMAPINFO bmi{};
-    bmi.bmiHeader = frame.bmi;
-    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!frame.hbitmap)
-    {
-        return PVC_GDI_ERROR;
-    }
-    if (bits)
-    {
-        memcpy(bits, frame.pixels.data(), frame.pixels.size());
+        return HResultToPvCode(finalizeHr);
     }
     return PVC_OK;
 }
@@ -1292,27 +1345,14 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
         BYTE* dst = cropped.data() + y * newStride;
         memcpy(dst, src, newStride);
     }
-    frame.width = width;
-    frame.height = height;
+    frame.width = static_cast<UINT>(width);
+    frame.height = static_cast<UINT>(height);
     frame.stride = newStride;
     frame.pixels.swap(cropped);
-    frame.bmi.biWidth = width;
-    frame.bmi.biHeight = -height;
-    if (frame.hbitmap)
+    HRESULT finalizeHr = FinalizeDecodedFrame(frame);
+    if (FAILED(finalizeHr))
     {
-        DeleteObject(frame.hbitmap);
-    }
-    void* bits = nullptr;
-    BITMAPINFO bmi{};
-    bmi.bmiHeader = frame.bmi;
-    frame.hbitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!frame.hbitmap)
-    {
-        return PVC_GDI_ERROR;
-    }
-    if (bits)
-    {
-        memcpy(bits, frame.pixels.data(), frame.pixels.size());
+        return HResultToPvCode(finalizeHr);
     }
     return PVC_OK;
 }
