@@ -495,381 +495,367 @@ void WINAPI CPluginFSInterface::ShowProperties(const char *fsName, HWND parent, 
 void WINAPI CPluginFSInterface::ContextMenu(const char *fsName, HWND parent, int menuX, int menuY, int type,
                                 int panel, int selectedFiles, int selectedDirs)
 {
-	OutputDebugString("fs2-ContextMenu"); 
+        OutputDebugString("fs2-ContextMenu");
 
-	// get current selected service
-	const CFileData *f = NULL; // pointer to the file / directory in the panel to be processed
-	BOOL isDir = FALSE;  // TRUE if the 'f' is a directory
-	BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-	int index = 0;
+        const CFileData *f = NULL; // pointer to the file / directory in the panel to be processed
+        BOOL isDir = FALSE;  // TRUE if the 'f' is a directory
+        int index = 0;
 
-	if (focused) f = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
-	else f = SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+        if (type == fscmItemsInPanel)
+        {
+                if (selectedFiles == 0 && selectedDirs == 0)
+                        f = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
+                else
+                        f = SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+        }
 
-	const CFileData **ItemFileData = NULL;
-	CFSData *FSIdata;
-	FSIdata = (CFSData*)(f->PluginData);	//Plugin Item Data
+        CFSData *FSIdata = (f != NULL) ? (CFSData *)(f->PluginData) : NULL;    //Plugin Item Data
+        DWORD returnstate = 0;
 
-	// get current state of service
-	int CurrentState= FSIdata->Status;
-	int StartupType = FSIdata->StartupType;
-	
+        if (type != fscmItemsInPanel || FSIdata == NULL)
+        {
+                HMENU menu = CreatePopupMenu();
+                if (menu == NULL)
+                        return;
 
-	
-	UINT START_State		= MFS_DISABLED; 
-	UINT STOP_State			= MFS_DISABLED;
-	UINT PAUSE_State		= MFS_DISABLED;
-	UINT RESUME_State		= MFS_DISABLED;
-	UINT RESTART_State		= MFS_DISABLED;
-	
-	if (StartupType!=SERVICE_DISABLED)
-	{
-		// enable/disable menu entries (enabled/disabled)
-		switch (CurrentState)
-		{
-			case SERVICE_STOPPED:
-			{
-				START_State = MFS_ENABLED;
-				break;
-			}
-			case SERVICE_START_PENDING:      
-				break;
-			case SERVICE_STOP_PENDING:        
-				break;
-			case SERVICE_RUNNING:
-					STOP_State	  = MFS_ENABLED;
-					RESTART_State = MFS_ENABLED;
-					//PAUSE_State		= MFS_ENABLED;
-				break;
-			case SERVICE_CONTINUE_PENDING:    
-				break;
-			case SERVICE_PAUSE_PENDING:       
-				break;
-			case SERVICE_PAUSED:              
-				break;
-		}
-	}
-	else if (StartupType==SERVICE_DISABLED)
-	{
-		switch (CurrentState)
-		{
-			case SERVICE_RUNNING:
-				STOP_State	  = MFS_ENABLED;
-				break;
-		}
-	}
+                MENUITEMINFO mi;
+                char nameBuf[200];
+                int insertIndex = 0;
 
-	HMENU menu = CreatePopupMenu();
-	if (menu==NULL)
-	{//Error creating menu
-		return;
-	}
+                strcpy(nameBuf, "Register &New Service...");
+                memset(&mi, 0, sizeof(mi));
+                mi.cbSize = sizeof(mi);
+                mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                mi.fType = MFT_STRING;
+                mi.wID = MENUCMD_REGISTER;
+                mi.dwTypeData = nameBuf;
+                mi.cch = static_cast<UINT>(strlen(nameBuf));
+                mi.fState = MFS_ENABLED;
+                InsertMenuItem(menu, insertIndex++, TRUE, &mi);
 
+                strcpy(nameBuf, "&Launch Service Control Manager");
+                memset(&mi, 0, sizeof(mi));
+                mi.cbSize = sizeof(mi);
+                mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                mi.fType = MFT_STRING;
+                mi.wID = MENUCMD_SCM;
+                mi.dwTypeData = nameBuf;
+                mi.cch = static_cast<UINT>(strlen(nameBuf));
+                mi.fState = MFS_ENABLED;
+                InsertMenuItem(menu, insertIndex++, TRUE, &mi);
 
-	MENUITEMINFO mi;
-	char nameBuf[200];
-	DWORD returnstate=0;
-	switch (type)
-  {
-		
-		case fscmItemsInPanel:
-			{
-				int i = 0;
+                DWORD cmd = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                                             menuX, menuY, parent, NULL);
 
-				strcpy(nameBuf, "&Start");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_START;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = START_State;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                if (cmd == MENUCMD_REGISTER)
+                {
+                        if (RegisterNewService(parent))
+                                SalamanderGeneral->PostRefreshPanelFS(this);
+                }
+                else if (cmd == MENUCMD_SCM)
+                {
+                        ShellExecute(0, "open", "services.msc", "", "", SW_SHOW);
+                }
 
-				// Stop
-				strcpy(nameBuf, "S&top");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_STOP;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = STOP_State; //MFS_DISABLED;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                DestroyMenu(menu);
+                SalamanderGeneral->PostChangeOnPathNotification("svc\\", false);
+                return;
+        }
 
-                                // Register new service
-                                strcpy(nameBuf, "Register &New Service...");
+        int CurrentState = FSIdata->Status;
+        int StartupType = FSIdata->StartupType;
+
+        UINT START_State                = MFS_DISABLED;
+        UINT STOP_State                 = MFS_DISABLED;
+        UINT PAUSE_State                = MFS_DISABLED;
+        UINT RESUME_State               = MFS_DISABLED;
+        UINT RESTART_State              = MFS_DISABLED;
+
+        if (StartupType != SERVICE_DISABLED)
+        {
+                switch (CurrentState)
+                {
+                        case SERVICE_STOPPED:
+                                START_State = MFS_ENABLED;
+                                break;
+                        case SERVICE_RUNNING:
+                                STOP_State = MFS_ENABLED;
+                                RESTART_State = MFS_ENABLED;
+                                break;
+                        default:
+                                break;
+                }
+        }
+        else if (CurrentState == SERVICE_RUNNING)
+        {
+                STOP_State = MFS_ENABLED;
+        }
+
+        HMENU menu = CreatePopupMenu();
+        if (menu == NULL)
+                return;
+
+        MENUITEMINFO mi;
+        char nameBuf[200];
+
+        switch (type)
+        {
+        case fscmItemsInPanel:
+                {
+                        int i = 0;
+
+                        strcpy(nameBuf, "&Start");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_START;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = START_State;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        strcpy(nameBuf, "S&top");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_STOP;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = STOP_State;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        strcpy(nameBuf, "Register &New Service...");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_REGISTER;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = MFS_ENABLED;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE;
+                        mi.fType = MFT_SEPARATOR;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        strcpy(nameBuf, "Pa&use");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_PAUSE;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = PAUSE_State;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        strcpy(nameBuf, "Resu&me");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_RESUME;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = RESUME_State;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        strcpy(nameBuf, "R&estart");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_RESTART;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = RESTART_State;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE;
+                        mi.fType = MFT_SEPARATOR;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
+
+                        const bool showDelete = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+                        if (showDelete)
+                        {
+                                strcpy(nameBuf, "&Delete");
                                 memset(&mi, 0, sizeof(mi));
                                 mi.cbSize = sizeof(mi);
                                 mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
                                 mi.fType = MFT_STRING;
-                                mi.wID = MENUCMD_REGISTER;
+                                mi.wID = MENUCMD_DELETE;
                                 mi.dwTypeData = nameBuf;
                                 mi.cch = static_cast<UINT>(strlen(nameBuf));
                                 mi.fState = MFS_ENABLED;
                                 InsertMenuItem(menu, i++, TRUE, &mi);
 
-                                // Seperator
                                 memset(&mi, 0, sizeof(mi));
                                 mi.cbSize = sizeof(mi);
                                 mi.fMask = MIIM_TYPE;
                                 mi.fType = MFT_SEPARATOR;
                                 InsertMenuItem(menu, i++, TRUE, &mi);
+                        }
 
-                                // Pause
-                                strcpy(nameBuf, "Pa&use");
-                                memset(&mi, 0, sizeof(mi));
-                                mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_PAUSE;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = PAUSE_State;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                        strcpy(nameBuf, "P&roperties");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_PROPERTIES;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = MFS_ENABLED | MFS_DEFAULT;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
 
-				// Resume
-				strcpy(nameBuf, "Resu&me");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_RESUME;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = RESUME_State;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE;
+                        mi.fType = MFT_SEPARATOR;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
 
-				// Restart
-				strcpy(nameBuf, "R&estart");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_RESTART;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = RESTART_State;
-				InsertMenuItem(menu, i++, TRUE, &mi);
+                        strcpy(nameBuf, "&Launch Service Control Manager");
+                        memset(&mi, 0, sizeof(mi));
+                        mi.cbSize = sizeof(mi);
+                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
+                        mi.fType = MFT_STRING;
+                        mi.wID = MENUCMD_SCM;
+                        mi.dwTypeData = nameBuf;
+                        mi.cch = static_cast<UINT>(strlen(nameBuf));
+                        mi.fState = MFS_ENABLED;
+                        InsertMenuItem(menu, i++, TRUE, &mi);
 
-                                // Seperator
-                                memset(&mi, 0, sizeof(mi));
-                                mi.cbSize = sizeof(mi);
-                                mi.fMask = MIIM_TYPE;
-                                mi.fType = MFT_SEPARATOR;
-                                InsertMenuItem(menu, i++, TRUE, &mi);
+                        CConfigDialog dlg(parent, FSIdata);
+                        DWORD cmd = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                                                     menuX, menuY, parent, NULL);
 
-                                const bool showDelete = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-                                if (showDelete)
+                        char buf[100];
+                        char bufcaption[100];
+                        DWORD messagereturn = 0;
+                        bool refreshPanel = false;
+
+                        if (cmd != 0)
+                        {
+                                if (cmd >= 1000)
                                 {
-                                        // Delete
-                                        strcpy(nameBuf, "&Delete");
-                                        memset(&mi, 0, sizeof(mi));
-                                        mi.cbSize = sizeof(mi);
-                                        mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-                                        mi.fType = MFT_STRING;
-                                        mi.wID = MENUCMD_DELETE;
-                                        mi.dwTypeData = nameBuf;
-                                        mi.cch = static_cast<UINT>(strlen(nameBuf));
-                                        mi.fState = MFS_ENABLED;
-                                        InsertMenuItem(menu, i++, TRUE, &mi);
-
-                                        // Seperator
-                                        memset(&mi, 0, sizeof(mi));
-                                        mi.cbSize = sizeof(mi);
-                                        mi.fMask = MIIM_TYPE;
-                                        mi.fType = MFT_SEPARATOR;
-                                        InsertMenuItem(menu, i++, TRUE, &mi);
-                                }
-
-				// Properties
-				strcpy(nameBuf, "P&roperties");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_PROPERTIES;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = MFS_ENABLED|MFS_DEFAULT; // |MFS_HILITE;
-				InsertMenuItem(menu, i++, TRUE, &mi);
-
-				// Seperator
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE;
-				mi.fType = MFT_SEPARATOR;
-				InsertMenuItem(menu, i++, TRUE, &mi);
-
-				// Launch Service Control Manager
-				strcpy(nameBuf, "&Launch Service Control Manager");
-				memset(&mi, 0, sizeof(mi));
-				mi.cbSize = sizeof(mi);
-				mi.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-				mi.fType = MFT_STRING;
-				mi.wID = MENUCMD_SCM;
-				mi.dwTypeData = nameBuf;
-				mi.cch = static_cast<UINT>(strlen(nameBuf));
-				mi.fState = MFS_ENABLED;
-				InsertMenuItem(menu, i++, TRUE, &mi);
-
-				int index = 0;
-				//int salCmd;
-				BOOL enabled;
-				int type, lastType = sctyUnknown;
-				char sbackupname[100];
-
-				CConfigDialog dlg(parent,FSIdata);
-				DWORD cmd = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
-																		 menuX, menuY, parent, NULL);
-
-				char buf[100];
-				char bufcaption[100];
-
-				DWORD returnstate=0;
-				DWORD messagereturn=0;
-				bool refreshPanel = false;
-
-				if (cmd != 0)  // user selected the menu command
-				{
-					if (cmd >= 1000)
-					{
-						if (SalamanderGeneral->GetSalamanderCommand(cmd - 1000, nameBuf, 200, &enabled, &type))
-						{
-							// Execute Salamander Commandos
-							//MessageBox(NULL, "GetSalamanderCommand", "Information", MB_OK | MB_ICONERROR);
-						}
-
-						SalamanderGeneral->PostSalamanderCommand(cmd - 1000);
-					}
-                                        else   // nas vlastni prikaz
+                                        BOOL enabled;
+                                        int salamanderCmdType;
+                                        if (SalamanderGeneral->GetSalamanderCommand(cmd - 1000, nameBuf, 200, &enabled,
+                                                                                     &salamanderCmdType))
                                         {
-                                                switch (cmd)
+                                                SalamanderGeneral->PostSalamanderCommand(cmd - 1000);
+                                        }
+                                }
+                                else
+                                {
+                                        switch (cmd)
+                                        {
+                                        case MENUCMD_REGISTER:
+                                                if (RegisterNewService(parent))
+                                                        refreshPanel = true;
+                                                break;
+                                        case MENUCMD_START:
+                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName,
+                                                                     ServiceActionStart))
+                                                        refreshPanel = true;
+                                                break;
+                                        case MENUCMD_STOP:
+                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName,
+                                                                     ServiceActionStop))
+                                                        refreshPanel = true;
+                                                break;
+                                        case MENUCMD_PAUSE:
+                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName,
+                                                                     ServiceActionPause))
+                                                        refreshPanel = true;
+                                                break;
+                                        case MENUCMD_RESUME:
+                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName,
+                                                                     ServiceActionResume))
+                                                        refreshPanel = true;
+                                                break;
+                                        case MENUCMD_RESTART:
+                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName,
+                                                                     ServiceActionRestart))
+                                                        refreshPanel = true;
+                                                break;
+                                        case MENUCMD_DELETE:
+                                                if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0)
+                                                        break;
+                                                _snprintf(buf, 100, LoadStr(IDS_SERVICE_DELETE_CONFIRMATION),
+                                                          FSIdata->DisplayName);
+                                                _snprintf(bufcaption, 100, LoadStr(IDS_IDS_SERVICE_DELETE_DLG_CAPTION),
+                                                          FSIdata->DisplayName);
+                                                messagereturn = SalamanderGeneral->SalMessageBox(parent, buf, bufcaption,
+                                                                                                MB_YESNO | MB_ICONQUESTION);
+                                                if (messagereturn == IDYES)
                                                 {
-                                                        case MENUCMD_REGISTER:
-                                                                if (RegisterNewService(parent))
-                                                                        refreshPanel = true;
-                                                                break;
-                                                        case MENUCMD_START:
-                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionStart))
-                                                                        refreshPanel = true;
-                                                                break;
-                                                        case MENUCMD_STOP:
-                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionStop))
-                                                                        refreshPanel = true;
-                                                                break;
-                                                        case MENUCMD_PAUSE:
-                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionPause))
-                                                                        refreshPanel = true;
-                                                                break;
-                                                        case MENUCMD_RESUME:
-                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionResume))
-                                                                        refreshPanel = true;
-                                                                break;
-                                                        case MENUCMD_RESTART:
-                                                                if (RunServiceAction(parent, FSIdata->ServiceName, FSIdata->DisplayName, ServiceActionRestart))
-                                                                        refreshPanel = true;
-                                                                break;
-                                                        case MENUCMD_DELETE:
-                                                                if (!showDelete)
+                                                        returnstate = DoDeleteSvc(FSIdata->ServiceName);
+                                                        SalamanderGeneral->ToLowerCase(FSIdata->ServiceName);
+                                                        SalamanderGeneral->RemoveOneFileFromCache(FSIdata->ServiceName);
+                                                        SalamanderGeneral->PostChangeOnPathNotification("svc\\", false);
+                                                        refreshPanel = (returnstate == 0);
+                                                        if (returnstate > 0)
+                                                        {
+                                                                char errormessage[100];
+                                                                switch (returnstate)
                                                                 {
+                                                                case 5:
+                                                                        strcpy(errormessage, LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
                                                                         break;
+                                                                case 1072:
+                                                                        strcpy(errormessage, LoadStr(IDS_SERVICE_ERROR_MARKEDFORDELETION));
+                                                                        break;
+                                                                default:
+                                                                        strcpy(errormessage, LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
                                                                 }
-                                                                _snprintf(buf, 100, LoadStr(IDS_SERVICE_DELETE_CONFIRMATION),FSIdata->DisplayName);
-                                                                _snprintf(bufcaption, 100, LoadStr(IDS_IDS_SERVICE_DELETE_DLG_CAPTION),FSIdata->DisplayName);
-                                                                messagereturn = SalamanderGeneral->SalMessageBox(parent, buf, bufcaption, MB_YESNO | MB_ICONQUESTION);
-								switch (messagereturn)
-								{
-									case IDYES:
-										returnstate=DoDeleteSvc(FSIdata->ServiceName);
-										SalamanderGeneral->ToLowerCase(FSIdata->ServiceName);
-										SalamanderGeneral->RemoveOneFileFromCache(FSIdata->ServiceName);
-                                                                                SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
-                                                                                refreshPanel = (returnstate == 0);
-                                                                                break;
-									case IDNO:
-										//SalamanderGeneral->ToLowerCase(FSIdata->ServiceName);
-										//SalamanderGeneral->RemoveOneFileFromCache(FSIdata->ServiceName);
-										break;
-								}
-								if (returnstate>0)
-								{
-									char errormessage[100];
-									switch (returnstate)
-									{
-										case 5:
-											strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
-											break;
-										case 1072:
-											strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_MARKEDFORDELETION));
-											break;
-										default:
-											strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
-									}
-									char buf[500];
-									buf[499] = 0;
-									_snprintf(buf, 500, 
-											"%s\n\n" 
-											"%s %d: %s",LoadStr(IDS_SERVICE_ERROR_OPERATION),LoadStr(IDS_SEVICE_ERROR_CODE) ,returnstate,errormessage);
-									SalamanderGeneral->SalMessageBox(parent, buf, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
-									returnstate = 0;
-								}
-								break;
-							case MENUCMD_PROPERTIES:
-								// TODO lhh????
-								// TODO: It is even possible to add comments at the end.
-								strcpy(sbackupname,FSIdata->DisplayName);
-                                                                if (dlg.Execute() == IDOK)
-                                                                {
-                                                                        strcpy(FSIdata->DisplayName,sbackupname);
-                                                                        refreshPanel = true;
-                                                                }
-								else
-								{
-								}
-
-								break;
-                                                        case MENUCMD_SCM:
-                                                                ShellExecute(0,"open","services.msc","","", SW_SHOW );
-                                                                break;
+                                                                char errBuf[500];
+                                                                errBuf[499] = 0;
+                                                                _snprintf(errBuf, 500, "%s\n\n%s %d: %s",
+                                                                          LoadStr(IDS_SERVICE_ERROR_OPERATION),
+                                                                          LoadStr(IDS_SEVICE_ERROR_CODE), returnstate,
+                                                                          errormessage);
+                                                                SalamanderGeneral->SalMessageBox(parent, errBuf,
+                                                                                                  VERSINFO_PLUGINNAME,
+                                                                                                  MB_OK | MB_ICONWARNING);
+                                                                returnstate = 0;
+                                                        }
                                                 }
-                                                if (refreshPanel)
-                                                        SalamanderGeneral->PostRefreshPanelFS(this);
-                                                //SalamanderGeneral->PostMenuExtCommand(cmd, TRUE);  // spusti se az v "sal-idle"
+                                                break;
+                                        case MENUCMD_PROPERTIES:
+                                                {
+                                                        char sbackupname[100];
+                                                        strcpy(sbackupname, FSIdata->DisplayName);
+                                                        if (dlg.Execute() == IDOK)
+                                                        {
+                                                                strcpy(FSIdata->DisplayName, sbackupname);
+                                                                refreshPanel = true;
+                                                        }
+                                                }
+                                                break;
+                                        case MENUCMD_SCM:
+                                                ShellExecute(0, "open", "services.msc", "", "", SW_SHOW);
+                                                break;
                                         }
                                 }
                         }
-			break;
-		case fscmPathInPanel:
-			break;
-		case fscmPanel:
-			break;
-	}
+
+                        if (refreshPanel)
+                                SalamanderGeneral->PostRefreshPanelFS(this);
+                }
+                break;
+        default:
+                break;
+        }
+
         DestroyMenu(menu);
 
-        // Refresh all open panels --> ::AcceptChangeOnPathNotification
-        SalamanderGeneral->PostChangeOnPathNotification("svc:\\", false);
-	if (returnstate>0)
-	{
-		
-		char errormessage[100];
-		switch (returnstate)
-		{
-			case 5:
-				strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
-				break;
-			default:
-				strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
-		}
-		char buf[500];
-		buf[499] = 0;
-	  _snprintf(buf, 500, 
-        "%s\n\n" 
-				"%s %d: %s",LoadStr(IDS_SERVICE_ERROR_OPERATION),LoadStr(IDS_SEVICE_ERROR_CODE) ,returnstate,errormessage);
-			SalamanderGeneral->SalMessageBox(parent, buf, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
-	}
-	
-
+        SalamanderGeneral->PostChangeOnPathNotification("svc\\", false);
 }
+
