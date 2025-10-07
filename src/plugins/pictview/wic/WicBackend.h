@@ -37,8 +37,12 @@ struct FrameData
     std::vector<RGBQUAD> palette;
     BITMAPINFOHEADER bmi{};
     HBITMAP hbitmap = nullptr;
+    HBITMAP transparencyMask = nullptr;
     DWORD delayMs = 0;
+    RECT rect{};
+    DWORD disposal = PVDM_UNDEFINED;
     bool decoded = false;
+    bool hasTransparency = false;
 };
 
 struct ImageHandle
@@ -53,6 +57,10 @@ struct ImageHandle
     COLORREF background = RGB(0, 0, 0);
     PVImageInfo baseInfo{};
     PVImageHandles handles{};
+    PVFormatSpecificInfo formatInfo{};
+    bool hasFormatSpecificInfo = false;
+    LONG canvasWidth = 0;
+    LONG canvasHeight = 0;
 };
 
 /**

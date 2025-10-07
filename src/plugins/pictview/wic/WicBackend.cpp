@@ -26,6 +26,7 @@
 
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "propsys.lib")
 
 using namespace std::string_literals;
 
@@ -41,6 +42,10 @@ HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
 HRESULT FinalizeDecodedFrame(FrameData& frame);
 PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
                          DWORD previousImageIndex, int currentImage);
+bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& value);
+DWORD MapGifDisposalToPv(UINT disposal);
+LONG ClampUnsignedToLong(ULONGLONG value);
+HRESULT EnsureTransparencyMask(FrameData& frame);
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -351,6 +356,34 @@ bool TryReadDelayHundredths(IWICMetadataQueryReader* reader, LPCWSTR name, UINT&
     return extracted;
 }
 
+bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& value)
+{
+    if (!reader || !name)
+    {
+        return false;
+    }
+
+    PROPVARIANT rawValue;
+    PropVariantInit(&rawValue);
+    const HRESULT hr = reader->GetMetadataByName(name, &rawValue);
+    if (FAILED(hr))
+    {
+        PropVariantClear(&rawValue);
+        return false;
+    }
+
+    UINT extracted = 0;
+    const HRESULT convertHr = PropVariantToUInt32(rawValue, &extracted);
+    PropVariantClear(&rawValue);
+    if (FAILED(convertHr))
+    {
+        return false;
+    }
+
+    value = extracted;
+    return true;
+}
+
 DWORD ClampDelayHundredthsToMilliseconds(UINT hundredths)
 {
     if (hundredths == 0)
@@ -392,6 +425,21 @@ DWORD GetFrameDelayMilliseconds(IWICBitmapFrameDecode* frame)
     return 0;
 }
 
+DWORD MapGifDisposalToPv(UINT disposal)
+{
+    switch (disposal & 0x7u)
+    {
+    case 1:
+        return PVDM_UNMODIFIED;
+    case 2:
+        return PVDM_BACKGROUND;
+    case 3:
+        return PVDM_PREVIOUS;
+    default:
+        return PVDM_UNDEFINED;
+    }
+}
+
 const char* LookupError(DWORD code)
 {
     std::lock_guard<std::mutex> lock(g_errorMutex);
@@ -415,6 +463,13 @@ ULONGLONG AbsoluteDimension(LONGLONG value)
         return static_cast<ULONGLONG>(std::numeric_limits<LONGLONG>::max()) + 1ull;
     }
     return static_cast<ULONGLONG>(-(value + 1)) + 1;
+}
+
+LONG ClampUnsignedToLong(ULONGLONG value)
+{
+    return value > static_cast<ULONGLONG>(std::numeric_limits<LONG>::max())
+               ? std::numeric_limits<LONG>::max()
+               : static_cast<LONG>(value);
 }
 
 DWORD ClampToDword(ULONGLONG value)
@@ -541,6 +596,12 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
             pixels[i * 4 + 3] = 255;
         }
     }
+
+    frame.rect.left = 0;
+    frame.rect.top = 0;
+    frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(width));
+    frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(height));
+    frame.disposal = PVDM_UNDEFINED;
 
     hr = FinalizeDecodedFrame(frame);
     if (FAILED(hr))
@@ -775,12 +836,136 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
     return S_OK;
 }
 
+HRESULT EnsureTransparencyMask(FrameData& frame)
+{
+    if (frame.transparencyMask)
+    {
+        DeleteObject(frame.transparencyMask);
+        frame.transparencyMask = nullptr;
+    }
+    frame.hasTransparency = false;
+
+    if (frame.pixels.empty() || frame.width == 0 || frame.height == 0)
+    {
+        return S_OK;
+    }
+
+    bool hasTransparentPixel = false;
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * 4;
+            if (pixel[3] < 128)
+            {
+                hasTransparentPixel = true;
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                pixel[3] = 0;
+            }
+            else
+            {
+                pixel[3] = 255;
+            }
+        }
+    }
+
+    if (!hasTransparentPixel)
+    {
+        return S_OK;
+    }
+
+    const ULONGLONG unalignedStride = (static_cast<ULONGLONG>(frame.width) + 7ull) / 8ull;
+    const ULONGLONG alignedStride = (unalignedStride + 3ull) & ~3ull;
+    if (alignedStride > std::numeric_limits<UINT>::max())
+    {
+        return E_OUTOFMEMORY;
+    }
+    const UINT maskStride = static_cast<UINT>(alignedStride);
+    const ULONGLONG maskSize64 = alignedStride * static_cast<ULONGLONG>(frame.height);
+    if (frame.height != 0 && maskSize64 / frame.height != alignedStride)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (maskSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> maskBuffer;
+    HRESULT hr = AllocateBuffer(maskBuffer, static_cast<size_t>(maskSize64));
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        BYTE* dstRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            if (srcRow[static_cast<size_t>(x) * 4 + 3] == 0)
+            {
+                dstRow[x / 8] |= static_cast<BYTE>(0x80u >> (x % 8));
+            }
+        }
+    }
+
+    BITMAPINFO maskInfo{};
+    maskInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    maskInfo.bmiHeader.biWidth = static_cast<LONG>(frame.width);
+    maskInfo.bmiHeader.biHeight = -static_cast<LONG>(frame.height);
+    maskInfo.bmiHeader.biPlanes = 1;
+    maskInfo.bmiHeader.biBitCount = 1;
+    maskInfo.bmiHeader.biCompression = BI_RGB;
+    maskInfo.bmiHeader.biSizeImage = maskSize64 > std::numeric_limits<DWORD>::max()
+                                         ? 0
+                                         : static_cast<DWORD>(maskSize64);
+    maskInfo.bmiHeader.biXPelsPerMeter = 0;
+    maskInfo.bmiHeader.biYPelsPerMeter = 0;
+    maskInfo.bmiHeader.biClrUsed = 2;
+    maskInfo.bmiHeader.biClrImportant = 2;
+    maskInfo.bmiColors[0].rgbBlue = 0;
+    maskInfo.bmiColors[0].rgbGreen = 0;
+    maskInfo.bmiColors[0].rgbRed = 0;
+    maskInfo.bmiColors[0].rgbReserved = 0;
+    maskInfo.bmiColors[1].rgbBlue = 255;
+    maskInfo.bmiColors[1].rgbGreen = 255;
+    maskInfo.bmiColors[1].rgbRed = 255;
+    maskInfo.bmiColors[1].rgbReserved = 0;
+
+    void* bits = nullptr;
+    HBITMAP mask = CreateDIBSection(nullptr, &maskInfo, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!mask || !bits)
+    {
+        if (mask)
+        {
+            DeleteObject(mask);
+        }
+        return E_OUTOFMEMORY;
+    }
+
+    memcpy(bits, maskBuffer.data(), maskBuffer.size());
+
+    frame.transparencyMask = mask;
+    frame.hasTransparency = true;
+    return S_OK;
+}
+
 HRESULT FinalizeDecodedFrame(FrameData& frame)
 {
     const size_t lineCount = static_cast<size_t>(frame.height);
     if (lineCount > frame.linePointers.max_size())
     {
         return E_OUTOFMEMORY;
+    }
+    HRESULT maskHr = EnsureTransparencyMask(frame);
+    if (FAILED(maskHr))
+    {
+        return maskHr;
     }
     try
     {
@@ -1247,6 +1432,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     info->NumOfImages = static_cast<DWORD>(handle.frames.size());
     info->StretchMode = handle.stretchMode;
     info->TotalBitDepth = 32;
+    info->FSI = handle.hasFormatSpecificInfo ? &handle.formatInfo : nullptr;
 
     struct FormatLabel
     {
@@ -1370,15 +1556,111 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         return hr;
     }
     handle.frames.resize(frameCount);
-    bool hasExif = SourceContainsExif(decoder);
-    if (!hasExif)
+    handle.hasFormatSpecificInfo = false;
+    handle.formatInfo = {};
+    handle.formatInfo.cbSize = sizeof(PVFormatSpecificInfo);
+    handle.formatInfo.GIF.DisposalMethod = PVDM_UNDEFINED;
+    handle.baseInfo.FSI = nullptr;
+    handle.canvasWidth = 0;
+    handle.canvasHeight = 0;
+
+    ComPtr<IWICMetadataQueryReader> decoderQuery;
+    if (FAILED(decoder->GetMetadataQueryReader(&decoderQuery)))
     {
-        Microsoft::WRL::ComPtr<IWICMetadataQueryReader> decoderQuery;
-        if (SUCCEEDED(decoder->GetMetadataQueryReader(&decoderQuery)) && decoderQuery)
+        decoderQuery = nullptr;
+    }
+
+    bool hasExif = SourceContainsExif(decoder);
+    if (!hasExif && decoderQuery)
+    {
+        hasExif = QueryReaderContainsExif(decoderQuery.Get());
+    }
+
+    UINT logicalScreenWidth = 0;
+    UINT logicalScreenHeight = 0;
+    bool hasLogicalScreenWidth = false;
+    bool hasLogicalScreenHeight = false;
+    UINT backgroundIndex = 0;
+    bool hasBackgroundIndex = false;
+    if (decoderQuery)
+    {
+        UINT value = 0;
+        if (TryReadUnsignedMetadata(decoderQuery.Get(), L"/logscrdesc/Width", value))
         {
-            hasExif = QueryReaderContainsExif(decoderQuery.Get());
+            logicalScreenWidth = value;
+            hasLogicalScreenWidth = true;
+        }
+        if (TryReadUnsignedMetadata(decoderQuery.Get(), L"/logscrdesc/Height", value))
+        {
+            logicalScreenHeight = value;
+            hasLogicalScreenHeight = true;
+        }
+        if (TryReadUnsignedMetadata(decoderQuery.Get(), L"/logscrdesc/BackgroundColorIndex", value))
+        {
+            backgroundIndex = value;
+            hasBackgroundIndex = true;
         }
     }
+
+    COLORREF backgroundColor = RGB(0, 0, 0);
+    if (hasBackgroundIndex)
+    {
+        ComPtr<IWICPalette> palette;
+        if (SUCCEEDED(backend.Factory()->CreatePalette(&palette)) && palette)
+        {
+            if (SUCCEEDED(decoder->CopyPalette(palette.Get())))
+            {
+                UINT paletteCount = 0;
+                if (SUCCEEDED(palette->GetColorCount(&paletteCount)) && paletteCount > backgroundIndex)
+                {
+                    std::vector<WICColor> colors(paletteCount);
+                    UINT actualCount = paletteCount;
+                    if (SUCCEEDED(palette->GetColors(paletteCount, colors.data(), &actualCount)) &&
+                        actualCount > backgroundIndex)
+                    {
+                        const WICColor color = colors[backgroundIndex];
+                        const BYTE r = static_cast<BYTE>((color >> 16) & 0xFF);
+                        const BYTE g = static_cast<BYTE>((color >> 8) & 0xFF);
+                        const BYTE b = static_cast<BYTE>(color & 0xFF);
+                        backgroundColor = RGB(r, g, b);
+                    }
+                }
+            }
+        }
+    }
+
+    if (hasLogicalScreenWidth)
+    {
+        handle.canvasWidth = ClampUnsignedToLong(logicalScreenWidth);
+    }
+    if (hasLogicalScreenHeight)
+    {
+        handle.canvasHeight = ClampUnsignedToLong(logicalScreenHeight);
+    }
+
+    const auto clampEdge = [](LONG origin, LONG extent, LONG limit) -> LONG {
+        if (extent <= 0)
+        {
+            return origin;
+        }
+        LONGLONG sum = static_cast<LONGLONG>(origin) + static_cast<LONGLONG>(extent);
+        if (limit > 0)
+        {
+            if (origin >= limit)
+            {
+                return limit;
+            }
+            if (sum > limit)
+            {
+                sum = limit;
+            }
+        }
+        if (sum > static_cast<LONGLONG>(std::numeric_limits<LONG>::max()))
+        {
+            sum = std::numeric_limits<LONG>::max();
+        }
+        return static_cast<LONG>(sum);
+    };
     for (UINT i = 0; i < frameCount; ++i)
     {
         FrameData data;
@@ -1405,17 +1687,114 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         {
             data.delayMs = 100;
         }
+        data.rect.left = 0;
+        data.rect.top = 0;
+        data.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(width));
+        data.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(height));
+        data.disposal = PVDM_UNDEFINED;
+
+        ULONGLONG left64 = 0;
+        ULONGLONG top64 = 0;
+        bool leftSpecified = false;
+        bool topSpecified = false;
+        ULONGLONG rectWidth64 = static_cast<ULONGLONG>(width);
+        ULONGLONG rectHeight64 = static_cast<ULONGLONG>(height);
+        ComPtr<IWICMetadataQueryReader> frameQuery;
+        if (SUCCEEDED(data.frame->GetMetadataQueryReader(&frameQuery)) && frameQuery)
+        {
+            UINT value = 0;
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Left", value))
+            {
+                left64 = value;
+                leftSpecified = true;
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Top", value))
+            {
+                top64 = value;
+                topSpecified = true;
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Width", value) && value > 0)
+            {
+                rectWidth64 = value;
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Height", value) && value > 0)
+            {
+                rectHeight64 = value;
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/Disposal", value))
+            {
+                data.disposal = MapGifDisposalToPv(value);
+            }
+        }
+        LONG rectLeft = ClampUnsignedToLong(leftSpecified ? left64 : 0ull);
+        LONG rectTop = ClampUnsignedToLong(topSpecified ? top64 : 0ull);
+        if (handle.canvasWidth > 0)
+        {
+            if (rectLeft < 0)
+            {
+                rectLeft = 0;
+            }
+            else if (rectLeft > handle.canvasWidth)
+            {
+                rectLeft = handle.canvasWidth;
+            }
+        }
+        if (handle.canvasHeight > 0)
+        {
+            if (rectTop < 0)
+            {
+                rectTop = 0;
+            }
+            else if (rectTop > handle.canvasHeight)
+            {
+                rectTop = handle.canvasHeight;
+            }
+        }
+        data.rect.left = rectLeft;
+        data.rect.top = rectTop;
+        const LONG rectWidthLong = ClampUnsignedToLong(rectWidth64);
+        const LONG rectHeightLong = ClampUnsignedToLong(rectHeight64);
+        data.rect.right = clampEdge(rectLeft, rectWidthLong, handle.canvasWidth);
+        data.rect.bottom = clampEdge(rectTop, rectHeightLong, handle.canvasHeight);
         if (!hasExif && FrameContainsExif(data.frame.Get()))
         {
             hasExif = true;
         }
         handle.frames[i] = std::move(data);
     }
+    if (handle.canvasWidth <= 0 && !handle.frames.empty())
+    {
+        handle.canvasWidth = ClampUnsignedToLong(static_cast<ULONGLONG>(handle.frames[0].width));
+    }
+    if (handle.canvasHeight <= 0 && !handle.frames.empty())
+    {
+        handle.canvasHeight = ClampUnsignedToLong(static_cast<ULONGLONG>(handle.frames[0].height));
+    }
     GUID container = {};
     decoder->GetContainerFormat(&container);
     handle.baseInfo.Format = MapFormatToPvFormat(container);
     handle.baseInfo.NumOfImages = frameCount;
     handle.baseInfo.FileSize = QueryFileSize(handle.fileName);
+
+    if (handle.baseInfo.Format == PVF_GIF)
+    {
+        handle.hasFormatSpecificInfo = true;
+        const LONG screenWidth = std::max<LONG>(0, handle.canvasWidth);
+        const LONG screenHeight = std::max<LONG>(0, handle.canvasHeight);
+        handle.formatInfo.GIF.ScreenWidth = static_cast<unsigned>(screenWidth);
+        handle.formatInfo.GIF.ScreenHeight = static_cast<unsigned>(screenHeight);
+        handle.formatInfo.GIF.XPosition = 0;
+        handle.formatInfo.GIF.YPosition = 0;
+        handle.formatInfo.GIF.Delay = 0;
+        handle.formatInfo.GIF.TranspIndex = 0;
+        handle.formatInfo.GIF.BgColor = backgroundColor;
+        handle.baseInfo.FSI = &handle.formatInfo;
+    }
+    else
+    {
+        handle.hasFormatSpecificInfo = false;
+        handle.baseInfo.FSI = nullptr;
+    }
 
     if (!hasExif && handle.baseInfo.Format == PVF_JPG)
     {
@@ -1581,14 +1960,34 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
         }
         auto node = std::make_unique<PVImageSequence>();
         node->pNext = nullptr;
-        node->Rect.left = 0;
-        node->Rect.top = 0;
-        node->Rect.right = frame.width;
-        node->Rect.bottom = frame.height;
+        node->Rect = frame.rect;
         node->Delay = frame.delayMs;
-        node->DisposalMethod = PVDM_UNDEFINED;
-        node->ImgHandle = frame.hbitmap;
+        node->DisposalMethod = frame.disposal;
+        node->ImgHandle = nullptr;
         node->TransparentHandle = nullptr;
+        if (frame.hbitmap)
+        {
+            HBITMAP frameCopy = static_cast<HBITMAP>(CopyImage(frame.hbitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
+            if (!frameCopy)
+            {
+                return PVC_GDI_ERROR;
+            }
+            node->ImgHandle = frameCopy;
+        }
+        if (frame.transparencyMask)
+        {
+            HBITMAP maskCopy = static_cast<HBITMAP>(CopyImage(frame.transparencyMask, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
+            if (!maskCopy)
+            {
+                if (node->ImgHandle)
+                {
+                    DeleteObject(node->ImgHandle);
+                    node->ImgHandle = nullptr;
+                }
+                return PVC_GDI_ERROR;
+            }
+            node->TransparentHandle = maskCopy;
+        }
         *tail = node.release();
         tail = &((*tail)->pNext);
     }
@@ -1958,6 +2357,11 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
             DeleteObject(frame.hbitmap);
             frame.hbitmap = nullptr;
         }
+        if (frame.transparencyMask)
+        {
+            DeleteObject(frame.transparencyMask);
+            frame.transparencyMask = nullptr;
+        }
     }
     delete handle;
     return PVC_OK;
@@ -2130,7 +2534,7 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     auto& frame = handle->frames[0];
     PVImageHandles& handles = handle->handles;
     ZeroMemory(&handles, sizeof(PVImageHandles));
-    handles.TransparentHandle = frame.hbitmap;
+    handles.TransparentHandle = frame.hasTransparency ? frame.transparencyMask : nullptr;
     handles.TransparentBackgroundHandle = frame.hbitmap;
     handles.StretchedHandle = frame.hbitmap;
     handles.StretchedTransparentHandle = frame.hbitmap;
@@ -2226,6 +2630,11 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     {
         return HResultToPvCode(finalizeHr);
     }
+    frame.rect.left = 0;
+    frame.rect.top = 0;
+    frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.width));
+    frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.height));
+    frame.disposal = PVDM_UNDEFINED;
     return PVC_OK;
 }
 
@@ -2298,6 +2707,11 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     {
         return HResultToPvCode(finalizeHr);
     }
+    frame.rect.left = 0;
+    frame.rect.top = 0;
+    frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.width));
+    frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.height));
+    frame.disposal = PVDM_UNDEFINED;
     return PVC_OK;
 }
 
