@@ -55,6 +55,10 @@ struct ImageHandle
     COLORREF background = RGB(0, 0, 0);
     PVImageInfo baseInfo{};
     PVImageHandles handles{};
+    PVFormatSpecificInfo formatInfo{};
+    bool hasFormatSpecificInfo = false;
+    LONG canvasWidth = 0;
+    LONG canvasHeight = 0;
 };
 
 /**

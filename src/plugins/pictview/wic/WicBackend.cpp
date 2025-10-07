@@ -1307,6 +1307,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     info->NumOfImages = static_cast<DWORD>(handle.frames.size());
     info->StretchMode = handle.stretchMode;
     info->TotalBitDepth = 32;
+    info->FSI = handle.hasFormatSpecificInfo ? &handle.formatInfo : nullptr;
 
     struct FormatLabel
     {
@@ -1430,15 +1431,111 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         return hr;
     }
     handle.frames.resize(frameCount);
-    bool hasExif = SourceContainsExif(decoder);
-    if (!hasExif)
+    handle.hasFormatSpecificInfo = false;
+    handle.formatInfo = {};
+    handle.formatInfo.cbSize = sizeof(PVFormatSpecificInfo);
+    handle.formatInfo.GIF.DisposalMethod = PVDM_UNDEFINED;
+    handle.baseInfo.FSI = nullptr;
+    handle.canvasWidth = 0;
+    handle.canvasHeight = 0;
+
+    ComPtr<IWICMetadataQueryReader> decoderQuery;
+    if (FAILED(decoder->GetMetadataQueryReader(&decoderQuery)))
     {
-        Microsoft::WRL::ComPtr<IWICMetadataQueryReader> decoderQuery;
-        if (SUCCEEDED(decoder->GetMetadataQueryReader(&decoderQuery)) && decoderQuery)
+        decoderQuery = nullptr;
+    }
+
+    bool hasExif = SourceContainsExif(decoder);
+    if (!hasExif && decoderQuery)
+    {
+        hasExif = QueryReaderContainsExif(decoderQuery.Get());
+    }
+
+    UINT logicalScreenWidth = 0;
+    UINT logicalScreenHeight = 0;
+    bool hasLogicalScreenWidth = false;
+    bool hasLogicalScreenHeight = false;
+    UINT backgroundIndex = 0;
+    bool hasBackgroundIndex = false;
+    if (decoderQuery)
+    {
+        UINT value = 0;
+        if (TryReadUnsignedMetadata(decoderQuery.Get(), L"/logscrdesc/Width", value))
         {
-            hasExif = QueryReaderContainsExif(decoderQuery.Get());
+            logicalScreenWidth = value;
+            hasLogicalScreenWidth = true;
+        }
+        if (TryReadUnsignedMetadata(decoderQuery.Get(), L"/logscrdesc/Height", value))
+        {
+            logicalScreenHeight = value;
+            hasLogicalScreenHeight = true;
+        }
+        if (TryReadUnsignedMetadata(decoderQuery.Get(), L"/logscrdesc/BackgroundColorIndex", value))
+        {
+            backgroundIndex = value;
+            hasBackgroundIndex = true;
         }
     }
+
+    COLORREF backgroundColor = RGB(0, 0, 0);
+    if (hasBackgroundIndex)
+    {
+        ComPtr<IWICPalette> palette;
+        if (SUCCEEDED(backend.Factory()->CreatePalette(&palette)) && palette)
+        {
+            if (SUCCEEDED(decoder->CopyPalette(palette.Get())))
+            {
+                UINT paletteCount = 0;
+                if (SUCCEEDED(palette->GetColorCount(&paletteCount)) && paletteCount > backgroundIndex)
+                {
+                    std::vector<WICColor> colors(paletteCount);
+                    UINT actualCount = paletteCount;
+                    if (SUCCEEDED(palette->GetColors(paletteCount, colors.data(), &actualCount)) &&
+                        actualCount > backgroundIndex)
+                    {
+                        const WICColor color = colors[backgroundIndex];
+                        const BYTE r = static_cast<BYTE>((color >> 16) & 0xFF);
+                        const BYTE g = static_cast<BYTE>((color >> 8) & 0xFF);
+                        const BYTE b = static_cast<BYTE>(color & 0xFF);
+                        backgroundColor = RGB(r, g, b);
+                    }
+                }
+            }
+        }
+    }
+
+    if (hasLogicalScreenWidth)
+    {
+        handle.canvasWidth = ClampUnsignedToLong(logicalScreenWidth);
+    }
+    if (hasLogicalScreenHeight)
+    {
+        handle.canvasHeight = ClampUnsignedToLong(logicalScreenHeight);
+    }
+
+    const auto clampEdge = [](LONG origin, LONG extent, LONG limit) -> LONG {
+        if (extent <= 0)
+        {
+            return origin;
+        }
+        LONGLONG sum = static_cast<LONGLONG>(origin) + static_cast<LONGLONG>(extent);
+        if (limit > 0)
+        {
+            if (origin >= limit)
+            {
+                return limit;
+            }
+            if (sum > limit)
+            {
+                sum = limit;
+            }
+        }
+        if (sum > static_cast<LONGLONG>(std::numeric_limits<LONG>::max()))
+        {
+            sum = std::numeric_limits<LONG>::max();
+        }
+        return static_cast<LONG>(sum);
+    };
     for (UINT i = 0; i < frameCount; ++i)
     {
         FrameData data;
@@ -1475,6 +1572,8 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         ULONGLONG top64 = 0;
         bool leftSpecified = false;
         bool topSpecified = false;
+        ULONGLONG rectWidth64 = static_cast<ULONGLONG>(width);
+        ULONGLONG rectHeight64 = static_cast<ULONGLONG>(height);
         ComPtr<IWICMetadataQueryReader> frameQuery;
         if (SUCCEEDED(data.frame->GetMetadataQueryReader(&frameQuery)) && frameQuery)
         {
@@ -1483,34 +1582,94 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
             {
                 left64 = value;
                 leftSpecified = true;
-                data.rect.left = ClampUnsignedToLong(left64);
             }
             if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Top", value))
             {
                 top64 = value;
                 topSpecified = true;
-                data.rect.top = ClampUnsignedToLong(top64);
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Width", value) && value > 0)
+            {
+                rectWidth64 = value;
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Height", value) && value > 0)
+            {
+                rectHeight64 = value;
             }
             if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/Disposal", value))
             {
                 data.disposal = MapGifDisposalToPv(value);
             }
         }
-        const ULONGLONG right64 = (leftSpecified ? left64 : 0ull) + static_cast<ULONGLONG>(data.width);
-        const ULONGLONG bottom64 = (topSpecified ? top64 : 0ull) + static_cast<ULONGLONG>(data.height);
-        data.rect.right = ClampUnsignedToLong(right64);
-        data.rect.bottom = ClampUnsignedToLong(bottom64);
+        LONG rectLeft = ClampUnsignedToLong(leftSpecified ? left64 : 0ull);
+        LONG rectTop = ClampUnsignedToLong(topSpecified ? top64 : 0ull);
+        if (handle.canvasWidth > 0)
+        {
+            if (rectLeft < 0)
+            {
+                rectLeft = 0;
+            }
+            else if (rectLeft > handle.canvasWidth)
+            {
+                rectLeft = handle.canvasWidth;
+            }
+        }
+        if (handle.canvasHeight > 0)
+        {
+            if (rectTop < 0)
+            {
+                rectTop = 0;
+            }
+            else if (rectTop > handle.canvasHeight)
+            {
+                rectTop = handle.canvasHeight;
+            }
+        }
+        data.rect.left = rectLeft;
+        data.rect.top = rectTop;
+        const LONG rectWidthLong = ClampUnsignedToLong(rectWidth64);
+        const LONG rectHeightLong = ClampUnsignedToLong(rectHeight64);
+        data.rect.right = clampEdge(rectLeft, rectWidthLong, handle.canvasWidth);
+        data.rect.bottom = clampEdge(rectTop, rectHeightLong, handle.canvasHeight);
         if (!hasExif && FrameContainsExif(data.frame.Get()))
         {
             hasExif = true;
         }
         handle.frames[i] = std::move(data);
     }
+    if (handle.canvasWidth <= 0 && !handle.frames.empty())
+    {
+        handle.canvasWidth = ClampUnsignedToLong(static_cast<ULONGLONG>(handle.frames[0].width));
+    }
+    if (handle.canvasHeight <= 0 && !handle.frames.empty())
+    {
+        handle.canvasHeight = ClampUnsignedToLong(static_cast<ULONGLONG>(handle.frames[0].height));
+    }
     GUID container = {};
     decoder->GetContainerFormat(&container);
     handle.baseInfo.Format = MapFormatToPvFormat(container);
     handle.baseInfo.NumOfImages = frameCount;
     handle.baseInfo.FileSize = QueryFileSize(handle.fileName);
+
+    if (handle.baseInfo.Format == PVF_GIF)
+    {
+        handle.hasFormatSpecificInfo = true;
+        const LONG screenWidth = std::max<LONG>(0, handle.canvasWidth);
+        const LONG screenHeight = std::max<LONG>(0, handle.canvasHeight);
+        handle.formatInfo.GIF.ScreenWidth = static_cast<unsigned>(screenWidth);
+        handle.formatInfo.GIF.ScreenHeight = static_cast<unsigned>(screenHeight);
+        handle.formatInfo.GIF.XPosition = 0;
+        handle.formatInfo.GIF.YPosition = 0;
+        handle.formatInfo.GIF.Delay = 0;
+        handle.formatInfo.GIF.TranspIndex = 0;
+        handle.formatInfo.GIF.BgColor = backgroundColor;
+        handle.baseInfo.FSI = &handle.formatInfo;
+    }
+    else
+    {
+        handle.hasFormatSpecificInfo = false;
+        handle.baseInfo.FSI = nullptr;
+    }
 
     if (!hasExif && handle.baseInfo.Format == PVF_JPG)
     {
@@ -2318,6 +2477,11 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     {
         return HResultToPvCode(finalizeHr);
     }
+    frame.rect.left = 0;
+    frame.rect.top = 0;
+    frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.width));
+    frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.height));
+    frame.disposal = PVDM_UNDEFINED;
     return PVC_OK;
 }
 
@@ -2390,6 +2554,11 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     {
         return HResultToPvCode(finalizeHr);
     }
+    frame.rect.left = 0;
+    frame.rect.top = 0;
+    frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.width));
+    frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(frame.height));
+    frame.disposal = PVDM_UNDEFINED;
     return PVC_OK;
 }
 
