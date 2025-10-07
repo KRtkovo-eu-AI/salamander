@@ -39,6 +39,13 @@ constexpr DWORD kBackendVersion = PV_VERSION_156;
 constexpr UINT kBytesPerPixel = 4;
 constexpr UINT kMaxGdiDimension = static_cast<UINT>(std::numeric_limits<int>::max());
 
+struct GuidMapping
+{
+    DWORD format;
+    GUID container;
+    GUID pixelFormat;
+};
+
 HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
 HRESULT FinalizeDecodedFrame(FrameData& frame);
 PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
@@ -56,120 +63,6 @@ struct PixelFormatSelection
     bool isIndexed;
     bool isGray;
 };
-
-std::optional<PixelFormatSelection> DeterminePixelFormat(const GuidMapping& mapping, LPPVSaveImageInfo info)
-{
-    PixelFormatSelection selection{};
-    selection.pixelFormat = mapping.pixelFormat;
-    selection.paletteEntries = MapPixelFormatToColors(mapping.pixelFormat);
-    selection.isIndexed = selection.paletteEntries > 0;
-    selection.isGray = false;
-
-    if (!info)
-    {
-        return selection;
-    }
-
-    auto chooseIndexed = [&](UINT colorCount) {
-        UINT clamped = std::max<UINT>(colorCount, 2u);
-        UINT bits = 0;
-        while (((1u << bits) < clamped) && bits < 8)
-        {
-            ++bits;
-        }
-        if (bits == 0)
-        {
-            bits = 1;
-        }
-        if (bits <= 1)
-        {
-            selection.pixelFormat = GUID_WICPixelFormat1bppIndexed;
-            selection.paletteEntries = 2;
-        }
-        else if (bits <= 4)
-        {
-            selection.pixelFormat = GUID_WICPixelFormat4bppIndexed;
-            selection.paletteEntries = 1u << 4;
-        }
-        else
-        {
-            selection.pixelFormat = GUID_WICPixelFormat8bppIndexed;
-            selection.paletteEntries = 1u << bits;
-            if (selection.paletteEntries > 256)
-            {
-                selection.paletteEntries = 256;
-            }
-        }
-        selection.isIndexed = true;
-    };
-
-    const DWORD colors = info->Colors;
-    if (info->ColorModel == PVCM_GRAYS)
-    {
-        if (colors == 2)
-        {
-            chooseIndexed(2);
-        }
-        else
-        {
-            selection.pixelFormat = GUID_WICPixelFormat8bppGray;
-            selection.paletteEntries = 0;
-            selection.isIndexed = false;
-        }
-        selection.isGray = true;
-        return selection;
-    }
-
-    if (colors != 0 && colors <= 256)
-    {
-        chooseIndexed(colors);
-        return selection;
-    }
-
-    switch (colors)
-    {
-    case PV_COLOR_HC15:
-        selection.pixelFormat = GUID_WICPixelFormat16bppBGR555;
-        selection.paletteEntries = 0;
-        selection.isIndexed = false;
-        return selection;
-    case PV_COLOR_HC16:
-        selection.pixelFormat = GUID_WICPixelFormat16bppBGR565;
-        selection.paletteEntries = 0;
-        selection.isIndexed = false;
-        return selection;
-    case PV_COLOR_TC24:
-        selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
-        selection.paletteEntries = 0;
-        selection.isIndexed = false;
-        return selection;
-    case PV_COLOR_TC32:
-        if (mapping.container == GUID_ContainerFormatJpeg)
-        {
-            selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
-        }
-        else
-        {
-            selection.pixelFormat = GUID_WICPixelFormat32bppBGRA;
-        }
-        selection.paletteEntries = 0;
-        selection.isIndexed = false;
-        return selection;
-    default:
-        break;
-    }
-
-    if (mapping.container == GUID_ContainerFormatJpeg)
-    {
-        selection.pixelFormat = info->ColorModel == PVCM_GRAYS ? GUID_WICPixelFormat8bppGray : GUID_WICPixelFormat24bppBGR;
-        selection.isGray = info->ColorModel == PVCM_GRAYS;
-        selection.paletteEntries = 0;
-        selection.isIndexed = false;
-        return selection;
-    }
-
-    return selection;
-}
 
 std::wstring ExtractComment(LPPVSaveImageInfo info)
 {
@@ -1247,13 +1140,6 @@ HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height)
     return S_OK;
 }
 
-struct GuidMapping
-{
-    DWORD format;
-    GUID container;
-    GUID pixelFormat;
-};
-
 const GuidMapping kEncoderMappings[] = {
     {PVF_BMP, GUID_ContainerFormatBmp, GUID_WICPixelFormat32bppBGRA},
     {PVF_PNG, GUID_ContainerFormatPng, GUID_WICPixelFormat32bppBGRA},
@@ -1262,6 +1148,120 @@ const GuidMapping kEncoderMappings[] = {
     {PVF_GIF, GUID_ContainerFormatGif, GUID_WICPixelFormat8bppIndexed},
     {PVF_ICO, GUID_ContainerFormatIco, GUID_WICPixelFormat32bppBGRA},
 };
+
+std::optional<PixelFormatSelection> DeterminePixelFormat(const GuidMapping& mapping, LPPVSaveImageInfo info)
+{
+    PixelFormatSelection selection{};
+    selection.pixelFormat = mapping.pixelFormat;
+    selection.paletteEntries = MapPixelFormatToColors(mapping.pixelFormat);
+    selection.isIndexed = selection.paletteEntries > 0;
+    selection.isGray = false;
+
+    if (!info)
+    {
+        return selection;
+    }
+
+    auto chooseIndexed = [&](UINT colorCount) {
+        UINT clamped = std::max<UINT>(colorCount, 2u);
+        UINT bits = 0;
+        while (((1u << bits) < clamped) && bits < 8)
+        {
+            ++bits;
+        }
+        if (bits == 0)
+        {
+            bits = 1;
+        }
+        if (bits <= 1)
+        {
+            selection.pixelFormat = GUID_WICPixelFormat1bppIndexed;
+            selection.paletteEntries = 2;
+        }
+        else if (bits <= 4)
+        {
+            selection.pixelFormat = GUID_WICPixelFormat4bppIndexed;
+            selection.paletteEntries = 1u << 4;
+        }
+        else
+        {
+            selection.pixelFormat = GUID_WICPixelFormat8bppIndexed;
+            selection.paletteEntries = 1u << bits;
+            if (selection.paletteEntries > 256)
+            {
+                selection.paletteEntries = 256;
+            }
+        }
+        selection.isIndexed = true;
+    };
+
+    const DWORD colors = info->Colors;
+    if (info->ColorModel == PVCM_GRAYS)
+    {
+        if (colors == 2)
+        {
+            chooseIndexed(2);
+        }
+        else
+        {
+            selection.pixelFormat = GUID_WICPixelFormat8bppGray;
+            selection.paletteEntries = 0;
+            selection.isIndexed = false;
+        }
+        selection.isGray = true;
+        return selection;
+    }
+
+    if (colors != 0 && colors <= 256)
+    {
+        chooseIndexed(colors);
+        return selection;
+    }
+
+    switch (colors)
+    {
+    case PV_COLOR_HC15:
+        selection.pixelFormat = GUID_WICPixelFormat16bppBGR555;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    case PV_COLOR_HC16:
+        selection.pixelFormat = GUID_WICPixelFormat16bppBGR565;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    case PV_COLOR_TC24:
+        selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    case PV_COLOR_TC32:
+        if (mapping.container == GUID_ContainerFormatJpeg)
+        {
+            selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
+        }
+        else
+        {
+            selection.pixelFormat = GUID_WICPixelFormat32bppBGRA;
+        }
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    default:
+        break;
+    }
+
+    if (mapping.container == GUID_ContainerFormatJpeg)
+    {
+        selection.pixelFormat = info->ColorModel == PVCM_GRAYS ? GUID_WICPixelFormat8bppGray : GUID_WICPixelFormat24bppBGR;
+        selection.isGray = info->ColorModel == PVCM_GRAYS;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    }
+
+    return selection;
+}
 
 HRESULT CreateDecoder(Backend& backend, const std::wstring& path, IWICBitmapDecoder** decoder)
 {
@@ -3047,7 +3047,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         UINT desiredEntries = selection.paletteEntries > 0 ? selection.paletteEntries : 256;
         if (useUniformPalette)
         {
-            hr = palette->InitializePredefined(WICBitmapPaletteTypeWebPalette, FALSE);
+            hr = palette->InitializePredefined(WICBitmapPaletteTypeFixedWebPalette, FALSE);
         }
         else
         {
@@ -3201,7 +3201,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             {
                 return HResultToPvCode(hr);
             }
-            const WICBitmapPaletteType paletteType = selection.isGray ? WICBitmapPaletteTypeGray256 : WICBitmapPaletteTypeCustom;
+            const WICBitmapPaletteType paletteType = selection.isGray ? WICBitmapPaletteTypeFixedGray256 : WICBitmapPaletteTypeCustom;
             hr = converter->Initialize(source.Get(), selection.pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0, paletteType);
             if (FAILED(hr))
             {
