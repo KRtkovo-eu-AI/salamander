@@ -2339,8 +2339,173 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
-    UINT targetWidth = frame.width;
-    UINT targetHeight = frame.height;
+    UINT processedWidth = frame.width;
+    UINT processedHeight = frame.height;
+    UINT processedStride = frame.stride;
+    const BYTE* pixelData = frame.pixels.data();
+    std::vector<BYTE> workingPixels;
+
+    const DWORD flags = info ? info->Flags : 0;
+
+    if (info && info->CropWidth != 0 && info->CropHeight != 0)
+    {
+        if (info->CropLeft >= processedWidth || info->CropTop >= processedHeight)
+        {
+            return PVC_UNSUP_OUT_PARAMS;
+        }
+
+        const UINT maxCropWidth = processedWidth - info->CropLeft;
+        const UINT maxCropHeight = processedHeight - info->CropTop;
+        UINT cropWidth = std::min(info->CropWidth, maxCropWidth);
+        UINT cropHeight = std::min(info->CropHeight, maxCropHeight);
+        if (cropWidth == 0 || cropHeight == 0)
+        {
+            return PVC_UNSUP_OUT_PARAMS;
+        }
+
+        std::vector<BYTE> cropped;
+        const size_t rowBytes = static_cast<size_t>(cropWidth) * kBytesPerPixel;
+        const size_t totalBytes = rowBytes * cropHeight;
+        try
+        {
+            cropped.resize(totalBytes);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        for (UINT y = 0; y < cropHeight; ++y)
+        {
+            const BYTE* src = pixelData + (static_cast<size_t>(info->CropTop + y) * processedStride) +
+                              static_cast<size_t>(info->CropLeft) * kBytesPerPixel;
+            BYTE* dst = cropped.data() + static_cast<size_t>(y) * rowBytes;
+            memcpy(dst, src, rowBytes);
+        }
+
+        workingPixels.swap(cropped);
+        pixelData = workingPixels.data();
+        processedWidth = cropWidth;
+        processedHeight = cropHeight;
+        processedStride = cropWidth * kBytesPerPixel;
+    }
+
+    auto ensureMutablePixels = [&]() -> BYTE* {
+        if (workingPixels.empty())
+        {
+            const size_t totalBytes = static_cast<size_t>(processedStride) * processedHeight;
+            try
+            {
+                workingPixels.assign(pixelData, pixelData + totalBytes);
+            }
+            catch (const std::bad_alloc&)
+            {
+                return nullptr;
+            }
+            pixelData = workingPixels.data();
+        }
+        return workingPixels.data();
+    };
+
+    if (flags & PVSF_ROTATE90)
+    {
+        const UINT newWidth = processedHeight;
+        const UINT newHeight = processedWidth;
+        std::vector<BYTE> rotated;
+        const size_t totalBytes = static_cast<size_t>(newWidth) * newHeight * kBytesPerPixel;
+        try
+        {
+            rotated.resize(totalBytes);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        for (UINT y = 0; y < processedHeight; ++y)
+        {
+            for (UINT x = 0; x < processedWidth; ++x)
+            {
+                const BYTE* src = pixelData + static_cast<size_t>(y) * processedStride +
+                                  static_cast<size_t>(x) * kBytesPerPixel;
+                const UINT dstX = newWidth - 1 - y;
+                const UINT dstY = x;
+                BYTE* dst = rotated.data() +
+                            (static_cast<size_t>(dstY) * newWidth + dstX) * kBytesPerPixel;
+                memcpy(dst, src, kBytesPerPixel);
+            }
+        }
+
+        workingPixels.swap(rotated);
+        pixelData = workingPixels.data();
+        processedWidth = newWidth;
+        processedHeight = newHeight;
+        processedStride = newWidth * kBytesPerPixel;
+    }
+
+    if (flags & PVSF_FLIP_VERT)
+    {
+        BYTE* mutablePixels = ensureMutablePixels();
+        if (!mutablePixels)
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        const size_t rowBytes = static_cast<size_t>(processedWidth) * kBytesPerPixel;
+        for (UINT y = 0; y < processedHeight / 2; ++y)
+        {
+            BYTE* top = mutablePixels + static_cast<size_t>(y) * processedStride;
+            BYTE* bottom = mutablePixels + static_cast<size_t>(processedHeight - 1 - y) * processedStride;
+            for (size_t i = 0; i < rowBytes; ++i)
+            {
+                std::swap(top[i], bottom[i]);
+            }
+        }
+    }
+
+    if (flags & PVSF_FLIP_HOR)
+    {
+        BYTE* mutablePixels = ensureMutablePixels();
+        if (!mutablePixels)
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        for (UINT y = 0; y < processedHeight; ++y)
+        {
+            BYTE* row = mutablePixels + static_cast<size_t>(y) * processedStride;
+            for (UINT x = 0; x < processedWidth / 2; ++x)
+            {
+                BYTE* left = row + static_cast<size_t>(x) * kBytesPerPixel;
+                BYTE* right = row + static_cast<size_t>(processedWidth - 1 - x) * kBytesPerPixel;
+                for (UINT c = 0; c < kBytesPerPixel; ++c)
+                {
+                    std::swap(left[c], right[c]);
+                }
+            }
+        }
+    }
+
+    if (flags & PVSF_INVERT)
+    {
+        BYTE* mutablePixels = ensureMutablePixels();
+        if (!mutablePixels)
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        const size_t pixelCount = static_cast<size_t>(processedWidth) * processedHeight;
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            BYTE* pixel = mutablePixels + i * kBytesPerPixel;
+            pixel[0] = static_cast<BYTE>(0xFFu - pixel[0]);
+            pixel[1] = static_cast<BYTE>(0xFFu - pixel[1]);
+            pixel[2] = static_cast<BYTE>(0xFFu - pixel[2]);
+        }
+    }
+
+    UINT targetWidth = processedWidth;
+    UINT targetHeight = processedHeight;
     if (info && info->Width != 0 && info->Height != 0)
     {
         targetWidth = info->Width;
@@ -2440,10 +2605,16 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
+    const size_t processedBufferSize = static_cast<size_t>(processedStride) * processedHeight;
+    if (processedBufferSize > std::numeric_limits<UINT>::max())
+    {
+        return PVC_OUT_OF_MEMORY;
+    }
+
     Microsoft::WRL::ComPtr<IWICBitmap> bitmap;
-    hr = handle.backend->Factory()->CreateBitmapFromMemory(frame.width, frame.height, GUID_WICPixelFormat32bppBGRA,
-                                                           frame.stride, static_cast<UINT>(frame.pixels.size()),
-                                                           frame.pixels.data(), &bitmap);
+    hr = handle.backend->Factory()->CreateBitmapFromMemory(
+        processedWidth, processedHeight, GUID_WICPixelFormat32bppBGRA, processedStride,
+        static_cast<UINT>(processedBufferSize), const_cast<BYTE*>(pixelData), &bitmap);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
@@ -2456,7 +2627,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
-    if ((targetWidth != frame.width || targetHeight != frame.height) && source)
+    if ((targetWidth != processedWidth || targetHeight != processedHeight) && source)
     {
         Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
         hr = handle.backend->Factory()->CreateBitmapScaler(&scaler);
