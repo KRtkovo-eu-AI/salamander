@@ -857,12 +857,13 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
         for (UINT x = 0; x < frame.width; ++x)
         {
             BYTE* pixel = row + static_cast<size_t>(x) * 4;
-            if (pixel[3] == 0)
+            if (pixel[3] < 128)
             {
                 hasTransparentPixel = true;
                 pixel[0] = 0;
                 pixel[1] = 0;
                 pixel[2] = 0;
+                pixel[3] = 0;
             }
             else
             {
@@ -893,10 +894,30 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
         return E_OUTOFMEMORY;
     }
 
+    std::vector<BYTE> maskBuffer;
+    HRESULT hr = AllocateBuffer(maskBuffer, static_cast<size_t>(maskSize64));
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        BYTE* dstRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            if (srcRow[static_cast<size_t>(x) * 4 + 3] == 0)
+            {
+                dstRow[x / 8] |= static_cast<BYTE>(0x80u >> (x % 8));
+            }
+        }
+    }
+
     BITMAPINFO maskInfo{};
     maskInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     maskInfo.bmiHeader.biWidth = static_cast<LONG>(frame.width);
-    maskInfo.bmiHeader.biHeight = static_cast<LONG>(frame.height);
+    maskInfo.bmiHeader.biHeight = -static_cast<LONG>(frame.height);
     maskInfo.bmiHeader.biPlanes = 1;
     maskInfo.bmiHeader.biBitCount = 1;
     maskInfo.bmiHeader.biCompression = BI_RGB;
@@ -905,12 +926,16 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
                                          : static_cast<DWORD>(maskSize64);
     maskInfo.bmiHeader.biXPelsPerMeter = 0;
     maskInfo.bmiHeader.biYPelsPerMeter = 0;
+    maskInfo.bmiHeader.biClrUsed = 2;
+    maskInfo.bmiHeader.biClrImportant = 2;
     maskInfo.bmiColors[0].rgbBlue = 0;
     maskInfo.bmiColors[0].rgbGreen = 0;
     maskInfo.bmiColors[0].rgbRed = 0;
+    maskInfo.bmiColors[0].rgbReserved = 0;
     maskInfo.bmiColors[1].rgbBlue = 255;
     maskInfo.bmiColors[1].rgbGreen = 255;
     maskInfo.bmiColors[1].rgbRed = 255;
+    maskInfo.bmiColors[1].rgbReserved = 0;
 
     void* bits = nullptr;
     HBITMAP mask = CreateDIBSection(nullptr, &maskInfo, DIB_RGB_COLORS, &bits, nullptr, 0);
@@ -923,23 +948,7 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
         return E_OUTOFMEMORY;
     }
 
-    BYTE* maskData = static_cast<BYTE*>(bits);
-    const size_t maskSize = static_cast<size_t>(maskSize64);
-    memset(maskData, 0xFF, maskSize);
-
-    for (UINT y = 0; y < frame.height; ++y)
-    {
-        const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
-        const size_t invertedRow = static_cast<size_t>(frame.height - 1 - y);
-        BYTE* dstRow = maskData + invertedRow * maskStride;
-        for (UINT x = 0; x < frame.width; ++x)
-        {
-            if (srcRow[static_cast<size_t>(x) * 4 + 3] != 0)
-            {
-                dstRow[x / 8] &= static_cast<BYTE>(~(0x80u >> (x % 8)));
-            }
-        }
-    }
+    memcpy(bits, maskBuffer.data(), maskBuffer.size());
 
     frame.transparencyMask = mask;
     frame.hasTransparency = true;
