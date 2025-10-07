@@ -45,6 +45,7 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
 bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& value);
 DWORD MapGifDisposalToPv(UINT disposal);
 LONG ClampUnsignedToLong(ULONGLONG value);
+HRESULT EnsureTransparencyMask(FrameData& frame);
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -835,12 +836,124 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
     return S_OK;
 }
 
+HRESULT EnsureTransparencyMask(FrameData& frame)
+{
+    if (frame.transparencyMask)
+    {
+        DeleteObject(frame.transparencyMask);
+        frame.transparencyMask = nullptr;
+    }
+    frame.hasTransparency = false;
+
+    if (frame.pixels.empty() || frame.width == 0 || frame.height == 0)
+    {
+        return S_OK;
+    }
+
+    bool hasTransparentPixel = false;
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * 4;
+            if (pixel[3] == 0)
+            {
+                hasTransparentPixel = true;
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+            }
+            else
+            {
+                pixel[3] = 255;
+            }
+        }
+    }
+
+    if (!hasTransparentPixel)
+    {
+        return S_OK;
+    }
+
+    const ULONGLONG unalignedStride = (static_cast<ULONGLONG>(frame.width) + 7ull) / 8ull;
+    const ULONGLONG alignedStride = (unalignedStride + 3ull) & ~3ull;
+    if (alignedStride > std::numeric_limits<UINT>::max())
+    {
+        return E_OUTOFMEMORY;
+    }
+    const UINT maskStride = static_cast<UINT>(alignedStride);
+    const ULONGLONG maskSize64 = alignedStride * static_cast<ULONGLONG>(frame.height);
+    if (frame.height != 0 && maskSize64 / frame.height != alignedStride)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (maskSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    BITMAPINFO maskInfo{};
+    maskInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    maskInfo.bmiHeader.biWidth = static_cast<LONG>(frame.width);
+    maskInfo.bmiHeader.biHeight = -static_cast<LONG>(frame.height);
+    maskInfo.bmiHeader.biPlanes = 1;
+    maskInfo.bmiHeader.biBitCount = 1;
+    maskInfo.bmiHeader.biCompression = BI_RGB;
+    maskInfo.bmiHeader.biSizeImage = maskSize64 > std::numeric_limits<DWORD>::max()
+                                         ? 0
+                                         : static_cast<DWORD>(maskSize64);
+    maskInfo.bmiColors[0].rgbBlue = 0;
+    maskInfo.bmiColors[0].rgbGreen = 0;
+    maskInfo.bmiColors[0].rgbRed = 0;
+    maskInfo.bmiColors[1].rgbBlue = 255;
+    maskInfo.bmiColors[1].rgbGreen = 255;
+    maskInfo.bmiColors[1].rgbRed = 255;
+
+    void* bits = nullptr;
+    HBITMAP mask = CreateDIBSection(nullptr, &maskInfo, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!mask || !bits)
+    {
+        if (mask)
+        {
+            DeleteObject(mask);
+        }
+        return E_OUTOFMEMORY;
+    }
+
+    BYTE* maskData = static_cast<BYTE*>(bits);
+    const size_t maskSize = static_cast<size_t>(maskSize64);
+    memset(maskData, 0xFF, maskSize);
+
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        BYTE* dstRow = maskData + static_cast<size_t>(y) * maskStride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            if (srcRow[static_cast<size_t>(x) * 4 + 3] != 0)
+            {
+                dstRow[x / 8] &= static_cast<BYTE>(~(0x80u >> (x % 8)));
+            }
+        }
+    }
+
+    frame.transparencyMask = mask;
+    frame.hasTransparency = true;
+    return S_OK;
+}
+
 HRESULT FinalizeDecodedFrame(FrameData& frame)
 {
     const size_t lineCount = static_cast<size_t>(frame.height);
     if (lineCount > frame.linePointers.max_size())
     {
         return E_OUTOFMEMORY;
+    }
+    HRESULT maskHr = EnsureTransparencyMask(frame);
+    if (FAILED(maskHr))
+    {
+        return maskHr;
     }
     try
     {
@@ -1838,8 +1951,31 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
         node->Rect = frame.rect;
         node->Delay = frame.delayMs;
         node->DisposalMethod = frame.disposal;
-        node->ImgHandle = frame.hbitmap;
+        node->ImgHandle = nullptr;
         node->TransparentHandle = nullptr;
+        if (frame.hbitmap)
+        {
+            HBITMAP frameCopy = static_cast<HBITMAP>(CopyImage(frame.hbitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
+            if (!frameCopy)
+            {
+                return PVC_GDI_ERROR;
+            }
+            node->ImgHandle = frameCopy;
+        }
+        if (frame.transparencyMask)
+        {
+            HBITMAP maskCopy = static_cast<HBITMAP>(CopyImage(frame.transparencyMask, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
+            if (!maskCopy)
+            {
+                if (node->ImgHandle)
+                {
+                    DeleteObject(node->ImgHandle);
+                    node->ImgHandle = nullptr;
+                }
+                return PVC_GDI_ERROR;
+            }
+            node->TransparentHandle = maskCopy;
+        }
         *tail = node.release();
         tail = &((*tail)->pNext);
     }
@@ -2209,6 +2345,11 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
             DeleteObject(frame.hbitmap);
             frame.hbitmap = nullptr;
         }
+        if (frame.transparencyMask)
+        {
+            DeleteObject(frame.transparencyMask);
+            frame.transparencyMask = nullptr;
+        }
     }
     delete handle;
     return PVC_OK;
@@ -2381,7 +2522,7 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     auto& frame = handle->frames[0];
     PVImageHandles& handles = handle->handles;
     ZeroMemory(&handles, sizeof(PVImageHandles));
-    handles.TransparentHandle = frame.hbitmap;
+    handles.TransparentHandle = frame.hasTransparency ? frame.transparencyMask : nullptr;
     handles.TransparentBackgroundHandle = frame.hbitmap;
     handles.StretchedHandle = frame.hbitmap;
     handles.StretchedTransparentHandle = frame.hbitmap;
