@@ -330,7 +330,13 @@ std::optional<BYTE> MapTiffCompression(DWORD compression)
     case PVCS_DEFLATE:
         return static_cast<BYTE>(WICTiffCompressionZIP);
     case PVCS_JPEG_HUFFMAN:
+#if defined(WICTiffCompressionJPEG)
         return static_cast<BYTE>(WICTiffCompressionJPEG);
+#elif defined(WICTiffCompressionJPEGYCBCR)
+        return static_cast<BYTE>(WICTiffCompressionJPEGYCBCR);
+#else
+        return std::nullopt;
+#endif
     default:
         return std::nullopt;
     }
