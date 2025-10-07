@@ -38,6 +38,8 @@ struct FrameData
     BITMAPINFOHEADER bmi{};
     HBITMAP hbitmap = nullptr;
     DWORD delayMs = 0;
+    RECT rect{};
+    DWORD disposal = PVDM_UNDEFINED;
     bool decoded = false;
 };
 

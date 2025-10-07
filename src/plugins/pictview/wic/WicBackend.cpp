@@ -26,6 +26,7 @@
 
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "propsys.lib")
 
 using namespace std::string_literals;
 
@@ -41,6 +42,9 @@ HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
 HRESULT FinalizeDecodedFrame(FrameData& frame);
 PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
                          DWORD previousImageIndex, int currentImage);
+bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& value);
+DWORD MapGifDisposalToPv(UINT disposal);
+LONG ClampUnsignedToLong(ULONGLONG value);
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -351,6 +355,34 @@ bool TryReadDelayHundredths(IWICMetadataQueryReader* reader, LPCWSTR name, UINT&
     return extracted;
 }
 
+bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& value)
+{
+    if (!reader || !name)
+    {
+        return false;
+    }
+
+    PROPVARIANT rawValue;
+    PropVariantInit(&rawValue);
+    const HRESULT hr = reader->GetMetadataByName(name, &rawValue);
+    if (FAILED(hr))
+    {
+        PropVariantClear(&rawValue);
+        return false;
+    }
+
+    UINT extracted = 0;
+    const HRESULT convertHr = PropVariantToUInt32(rawValue, &extracted);
+    PropVariantClear(&rawValue);
+    if (FAILED(convertHr))
+    {
+        return false;
+    }
+
+    value = extracted;
+    return true;
+}
+
 DWORD ClampDelayHundredthsToMilliseconds(UINT hundredths)
 {
     if (hundredths == 0)
@@ -392,6 +424,21 @@ DWORD GetFrameDelayMilliseconds(IWICBitmapFrameDecode* frame)
     return 0;
 }
 
+DWORD MapGifDisposalToPv(UINT disposal)
+{
+    switch (disposal & 0x7u)
+    {
+    case 1:
+        return PVDM_UNMODIFIED;
+    case 2:
+        return PVDM_BACKGROUND;
+    case 3:
+        return PVDM_PREVIOUS;
+    default:
+        return PVDM_UNDEFINED;
+    }
+}
+
 const char* LookupError(DWORD code)
 {
     std::lock_guard<std::mutex> lock(g_errorMutex);
@@ -415,6 +462,13 @@ ULONGLONG AbsoluteDimension(LONGLONG value)
         return static_cast<ULONGLONG>(std::numeric_limits<LONGLONG>::max()) + 1ull;
     }
     return static_cast<ULONGLONG>(-(value + 1)) + 1;
+}
+
+LONG ClampUnsignedToLong(ULONGLONG value)
+{
+    return value > static_cast<ULONGLONG>(std::numeric_limits<LONG>::max())
+               ? std::numeric_limits<LONG>::max()
+               : static_cast<LONG>(value);
 }
 
 DWORD ClampToDword(ULONGLONG value)
@@ -541,6 +595,12 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
             pixels[i * 4 + 3] = 255;
         }
     }
+
+    frame.rect.left = 0;
+    frame.rect.top = 0;
+    frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(width));
+    frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(height));
+    frame.disposal = PVDM_UNDEFINED;
 
     hr = FinalizeDecodedFrame(frame);
     if (FAILED(hr))
@@ -1405,6 +1465,41 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         {
             data.delayMs = 100;
         }
+        data.rect.left = 0;
+        data.rect.top = 0;
+        data.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(width));
+        data.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(height));
+        data.disposal = PVDM_UNDEFINED;
+
+        ULONGLONG left64 = 0;
+        ULONGLONG top64 = 0;
+        bool leftSpecified = false;
+        bool topSpecified = false;
+        ComPtr<IWICMetadataQueryReader> frameQuery;
+        if (SUCCEEDED(data.frame->GetMetadataQueryReader(&frameQuery)) && frameQuery)
+        {
+            UINT value = 0;
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Left", value))
+            {
+                left64 = value;
+                leftSpecified = true;
+                data.rect.left = ClampUnsignedToLong(left64);
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/imgdesc/Top", value))
+            {
+                top64 = value;
+                topSpecified = true;
+                data.rect.top = ClampUnsignedToLong(top64);
+            }
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/Disposal", value))
+            {
+                data.disposal = MapGifDisposalToPv(value);
+            }
+        }
+        const ULONGLONG right64 = (leftSpecified ? left64 : 0ull) + static_cast<ULONGLONG>(data.width);
+        const ULONGLONG bottom64 = (topSpecified ? top64 : 0ull) + static_cast<ULONGLONG>(data.height);
+        data.rect.right = ClampUnsignedToLong(right64);
+        data.rect.bottom = ClampUnsignedToLong(bottom64);
         if (!hasExif && FrameContainsExif(data.frame.Get()))
         {
             hasExif = true;
@@ -1581,12 +1676,9 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
         }
         auto node = std::make_unique<PVImageSequence>();
         node->pNext = nullptr;
-        node->Rect.left = 0;
-        node->Rect.top = 0;
-        node->Rect.right = frame.width;
-        node->Rect.bottom = frame.height;
+        node->Rect = frame.rect;
         node->Delay = frame.delayMs;
-        node->DisposalMethod = PVDM_UNDEFINED;
+        node->DisposalMethod = frame.disposal;
         node->ImgHandle = frame.hbitmap;
         node->TransparentHandle = nullptr;
         *tail = node.release();
