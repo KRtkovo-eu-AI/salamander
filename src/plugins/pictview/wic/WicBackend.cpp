@@ -2614,14 +2614,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
-    Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frameEncode;
-    Microsoft::WRL::ComPtr<IPropertyBag2> bag;
-    hr = encoder->CreateNewFrame(&frameEncode, &bag);
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
-    }
-
     UINT processedWidth = frame.width;
     UINT processedHeight = frame.height;
     UINT processedStride = frame.stride;
@@ -2856,53 +2848,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    hr = bagWriter.Write(bag.Get());
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
-    }
-
-    hr = frameEncode->Initialize(bag.Get());
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
-    }
-
-    hr = frameEncode->SetSize(targetWidth, targetHeight);
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
-    }
-
-    GUID pixelFormat = selection.pixelFormat;
-    hr = frameEncode->SetPixelFormat(&pixelFormat);
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
-    }
-    if (pixelFormat != selection.pixelFormat)
-    {
-        return PVC_UNSUP_OUT_PARAMS;
-    }
-
-    double sourceDpiX = 0.0;
-    double sourceDpiY = 0.0;
-    if (frame.frame)
-    {
-        frame.frame->GetResolution(&sourceDpiX, &sourceDpiY);
-    }
-
-    const DWORD requestedDpiX = info ? info->HorDPI : 0;
-    const DWORD requestedDpiY = info ? info->VerDPI : 0;
-    const double dpiX = ResolveDpiValue(requestedDpiX, sourceDpiX, 96.0);
-    const double dpiY = ResolveDpiValue(requestedDpiY, sourceDpiY, 96.0);
-
-    hr = frameEncode->SetResolution(dpiX, dpiY);
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
-    }
-
     UINT bitsPerPixel = 0;
     {
         Microsoft::WRL::ComPtr<IWICComponentInfo> componentInfo;
@@ -2958,20 +2903,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
-    Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
-    if (FAILED(frameEncode->GetMetadataQueryWriter(&metadataWriter)))
-    {
-        metadataWriter.Reset();
-    }
-    if (metadataWriter)
-    {
-        HRESULT metaHr = ApplyCommentMetadata(mapping.container, metadataWriter.Get(), comment);
-        if (FAILED(metaHr))
-        {
-            return HResultToPvCode(metaHr);
-        }
-    }
-
     if ((targetWidth != processedWidth || targetHeight != processedHeight) && source)
     {
         Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
@@ -2996,44 +2927,10 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         source = scaledSource;
     }
 
-    if (metadataWriter && mapping.container == GUID_ContainerFormatTiff && info)
-    {
-        UINT rowsPerStrip = 0;
-        if ((info->Flags & PVSF_DO_NOT_STRIP) != 0)
-        {
-            rowsPerStrip = targetHeight;
-        }
-        else if (info->Misc.TIFF.StripSize != 0 && encodedStride != 0)
-        {
-            const ULONGLONG stripBytes = static_cast<ULONGLONG>(info->Misc.TIFF.StripSize) * 1024ull;
-            if (stripBytes > 0)
-            {
-                ULONGLONG rows = stripBytes / encodedStride;
-                if (rows == 0)
-                {
-                    rows = 1;
-                }
-                if (rows > targetHeight)
-                {
-                    rows = targetHeight;
-                }
-                rowsPerStrip = static_cast<UINT>(rows);
-            }
-        }
-        if (rowsPerStrip > 0)
-        {
-            PROPVARIANT prop;
-            PropVariantInit(&prop);
-            prop.vt = VT_UI4;
-            prop.ulVal = rowsPerStrip;
-            HRESULT metaHr = metadataWriter->SetMetadataByName(L"/ifd/{ushort=278}", &prop);
-            PropVariantClear(&prop);
-            if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
-            {
-                return HResultToPvCode(metaHr);
-            }
-        }
-    }
+    Microsoft::WRL::ComPtr<IWICPalette> framePalette;
+    Microsoft::WRL::ComPtr<IWICBitmapSource> frameSource = source;
+    std::optional<BYTE> gifTransparencyIndex;
+    bool gifTransparencyEnabled = false;
 
     if (selection.isIndexed)
     {
@@ -3095,13 +2992,13 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
 
-        std::optional<BYTE> transparencyIndex;
         if (mapping.container == GUID_ContainerFormatGif)
         {
-            transparencyIndex = DetermineGifTransparency(info, colors, source.Get());
+            gifTransparencyIndex = DetermineGifTransparency(info, colors, source.Get());
+            gifTransparencyEnabled = gifTransparencyIndex.has_value();
             for (size_t i = 0; i < colors.size(); ++i)
             {
-                const bool isTransparent = transparencyIndex.has_value() && i == transparencyIndex.value();
+                const bool isTransparent = gifTransparencyEnabled && i == gifTransparencyIndex.value();
                 const WICColor rgb = colors[i] & 0x00FFFFFFu;
                 colors[i] = rgb | (isTransparent ? 0x00000000u : 0xFF000000u);
             }
@@ -3130,39 +3027,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
 
-        hr = frameEncode->SetPalette(palette.Get());
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-
-        if (metadataWriter && mapping.container == GUID_ContainerFormatGif)
-        {
-            PROPVARIANT prop;
-            PropVariantInit(&prop);
-            prop.vt = VT_BOOL;
-            prop.boolVal = transparencyIndex.has_value() ? VARIANT_TRUE : VARIANT_FALSE;
-            HRESULT metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparencyFlag", &prop);
-            PropVariantClear(&prop);
-            if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
-            {
-                return HResultToPvCode(metaHr);
-            }
-
-            if (transparencyIndex.has_value())
-            {
-                PropVariantInit(&prop);
-                prop.vt = VT_UI1;
-                prop.bVal = static_cast<BYTE>(transparencyIndex.value());
-                metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparentColorIndex", &prop);
-                PropVariantClear(&prop);
-                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
-                {
-                    return HResultToPvCode(metaHr);
-                }
-            }
-        }
-
         Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
         hr = handle.backend->Factory()->CreateFormatConverter(&converter);
         if (FAILED(hr))
@@ -3184,7 +3048,157 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        hr = frameEncode->WriteSource(indexedSource.Get(), nullptr);
+        framePalette = palette;
+        frameSource = indexedSource;
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frameEncode;
+    Microsoft::WRL::ComPtr<IPropertyBag2> bag;
+    hr = encoder->CreateNewFrame(&frameEncode, &bag);
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    hr = bagWriter.Write(bag.Get());
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    hr = frameEncode->Initialize(bag.Get());
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    hr = frameEncode->SetSize(targetWidth, targetHeight);
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    GUID pixelFormat = selection.pixelFormat;
+    hr = frameEncode->SetPixelFormat(&pixelFormat);
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+    if (pixelFormat != selection.pixelFormat)
+    {
+        return PVC_UNSUP_OUT_PARAMS;
+    }
+
+    if (selection.isIndexed && framePalette)
+    {
+        hr = frameEncode->SetPalette(framePalette.Get());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+
+    double sourceDpiX = 0.0;
+    double sourceDpiY = 0.0;
+    if (frame.frame)
+    {
+        frame.frame->GetResolution(&sourceDpiX, &sourceDpiY);
+    }
+
+    const DWORD requestedDpiX = info ? info->HorDPI : 0;
+    const DWORD requestedDpiY = info ? info->VerDPI : 0;
+    const double dpiX = ResolveDpiValue(requestedDpiX, sourceDpiX, 96.0);
+    const double dpiY = ResolveDpiValue(requestedDpiY, sourceDpiY, 96.0);
+
+    hr = frameEncode->SetResolution(dpiX, dpiY);
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
+    if (FAILED(frameEncode->GetMetadataQueryWriter(&metadataWriter)))
+    {
+        metadataWriter.Reset();
+    }
+    if (metadataWriter)
+    {
+        HRESULT metaHr = ApplyCommentMetadata(mapping.container, metadataWriter.Get(), comment);
+        if (FAILED(metaHr))
+        {
+            return HResultToPvCode(metaHr);
+        }
+
+        if (mapping.container == GUID_ContainerFormatGif)
+        {
+            PROPVARIANT prop;
+            PropVariantInit(&prop);
+            prop.vt = VT_BOOL;
+            prop.boolVal = gifTransparencyEnabled ? VARIANT_TRUE : VARIANT_FALSE;
+            metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparencyFlag", &prop);
+            PropVariantClear(&prop);
+            if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+            {
+                return HResultToPvCode(metaHr);
+            }
+
+            if (gifTransparencyIndex.has_value())
+            {
+                PropVariantInit(&prop);
+                prop.vt = VT_UI1;
+                prop.bVal = static_cast<BYTE>(gifTransparencyIndex.value());
+                metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparentColorIndex", &prop);
+                PropVariantClear(&prop);
+                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                {
+                    return HResultToPvCode(metaHr);
+                }
+            }
+        }
+
+        if (mapping.container == GUID_ContainerFormatTiff && info)
+        {
+            UINT rowsPerStrip = 0;
+            if ((info->Flags & PVSF_DO_NOT_STRIP) != 0)
+            {
+                rowsPerStrip = targetHeight;
+            }
+            else if (info->Misc.TIFF.StripSize != 0 && encodedStride != 0)
+            {
+                const ULONGLONG stripBytes = static_cast<ULONGLONG>(info->Misc.TIFF.StripSize) * 1024ull;
+                if (stripBytes > 0)
+                {
+                    ULONGLONG rows = stripBytes / encodedStride;
+                    if (rows == 0)
+                    {
+                        rows = 1;
+                    }
+                    if (rows > targetHeight)
+                    {
+                        rows = targetHeight;
+                    }
+                    rowsPerStrip = static_cast<UINT>(rows);
+                }
+            }
+            if (rowsPerStrip > 0)
+            {
+                PROPVARIANT prop;
+                PropVariantInit(&prop);
+                prop.vt = VT_UI4;
+                prop.ulVal = rowsPerStrip;
+                metaHr = metadataWriter->SetMetadataByName(L"/ifd/{ushort=278}", &prop);
+                PropVariantClear(&prop);
+                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                {
+                    return HResultToPvCode(metaHr);
+                }
+            }
+        }
+    }
+
+    if (selection.isIndexed)
+    {
+        hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
@@ -3201,6 +3215,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             {
                 return HResultToPvCode(hr);
             }
+
             const WICBitmapPaletteType paletteType = selection.isGray ? WICBitmapPaletteTypeFixedGray256 : WICBitmapPaletteTypeCustom;
             hr = converter->Initialize(source.Get(), selection.pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0, paletteType);
             if (FAILED(hr))
