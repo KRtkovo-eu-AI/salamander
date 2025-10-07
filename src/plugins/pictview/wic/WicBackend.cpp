@@ -3225,25 +3225,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        Microsoft::WRL::ComPtr<IWICBitmap> indexedBitmap;
-        hr = handle.backend->Factory()->CreateBitmapFromMemory(targetWidth, targetHeight, selection.pixelFormat,
-                                                               encodedStride, static_cast<UINT>(encodedBufferSize),
-                                                               indexedPixels.data(), &indexedBitmap);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-
-        if (framePalette)
-        {
-            hr = indexedBitmap->SetPalette(framePalette.Get());
-            if (FAILED(hr))
-            {
-                return HResultToPvCode(hr);
-            }
-        }
-
-        hr = frameEncode->WriteSource(indexedBitmap.Get(), nullptr);
+        hr = frameEncode->WritePixels(targetHeight, encodedStride, static_cast<UINT>(encodedBufferSize),
+                                      indexedPixels.data());
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
