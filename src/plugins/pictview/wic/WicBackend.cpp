@@ -896,13 +896,15 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
     BITMAPINFO maskInfo{};
     maskInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     maskInfo.bmiHeader.biWidth = static_cast<LONG>(frame.width);
-    maskInfo.bmiHeader.biHeight = -static_cast<LONG>(frame.height);
+    maskInfo.bmiHeader.biHeight = static_cast<LONG>(frame.height);
     maskInfo.bmiHeader.biPlanes = 1;
     maskInfo.bmiHeader.biBitCount = 1;
     maskInfo.bmiHeader.biCompression = BI_RGB;
     maskInfo.bmiHeader.biSizeImage = maskSize64 > std::numeric_limits<DWORD>::max()
                                          ? 0
                                          : static_cast<DWORD>(maskSize64);
+    maskInfo.bmiHeader.biXPelsPerMeter = 0;
+    maskInfo.bmiHeader.biYPelsPerMeter = 0;
     maskInfo.bmiColors[0].rgbBlue = 0;
     maskInfo.bmiColors[0].rgbGreen = 0;
     maskInfo.bmiColors[0].rgbRed = 0;
@@ -928,7 +930,8 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
     for (UINT y = 0; y < frame.height; ++y)
     {
         const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
-        BYTE* dstRow = maskData + static_cast<size_t>(y) * maskStride;
+        const size_t invertedRow = static_cast<size_t>(frame.height - 1 - y);
+        BYTE* dstRow = maskData + invertedRow * maskStride;
         for (UINT x = 0; x < frame.width; ++x)
         {
             if (srcRow[static_cast<size_t>(x) * 4 + 3] != 0)
