@@ -2356,8 +2356,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
 
         const UINT maxCropWidth = processedWidth - info->CropLeft;
         const UINT maxCropHeight = processedHeight - info->CropTop;
-        UINT cropWidth = std::min(info->CropWidth, maxCropWidth);
-        UINT cropHeight = std::min(info->CropHeight, maxCropHeight);
+        const UINT cropWidth = std::min<UINT>(static_cast<UINT>(info->CropWidth), maxCropWidth);
+        const UINT cropHeight = std::min<UINT>(static_cast<UINT>(info->CropHeight), maxCropHeight);
         if (cropWidth == 0 || cropHeight == 0)
         {
             return PVC_UNSUP_OUT_PARAMS;
