@@ -2796,6 +2796,13 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     const std::wstring comment = ExtractComment(info);
     const bool useUniformPalette = info && (info->Flags & PVSF_UNIFORM_PALETTE) != 0;
 
+    std::vector<WICColor> paletteColors;
+    Microsoft::WRL::ComPtr<IWICPalette> palette;
+    std::optional<BYTE> gifTransparencyIndex;
+    bool gifTransparencyEnabled = false;
+    const WICBitmapDitherType paletteDither =
+        useUniformPalette ? WICBitmapDitherTypeNone : WICBitmapDitherTypeErrorDiffusion;
+
     PropertyBagWriter bagWriter;
     if (info)
     {
@@ -2848,39 +2855,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    UINT bitsPerPixel = 0;
-    {
-        Microsoft::WRL::ComPtr<IWICComponentInfo> componentInfo;
-        hr = handle.backend->Factory()->CreateComponentInfo(selection.pixelFormat, &componentInfo);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-        Microsoft::WRL::ComPtr<IWICPixelFormatInfo> pixelInfo;
-        hr = componentInfo.As(&pixelInfo);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-        hr = pixelInfo->GetBitsPerPixel(&bitsPerPixel);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-    }
-
-    if (bitsPerPixel == 0)
-    {
-        return PVC_UNSUP_OUT_PARAMS;
-    }
-    const ULONGLONG bitsPerRow = static_cast<ULONGLONG>(targetWidth) * bitsPerPixel;
-    const ULONGLONG stride64 = (bitsPerRow + 7ull) / 8ull;
-    if (stride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
-    {
-        return PVC_OUT_OF_MEMORY;
-    }
-    const UINT encodedStride = static_cast<UINT>(stride64);
-
     const size_t processedBufferSize = static_cast<size_t>(processedStride) * processedHeight;
     if (processedBufferSize > std::numeric_limits<UINT>::max())
     {
@@ -2927,14 +2901,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         source = scaledSource;
     }
 
-    Microsoft::WRL::ComPtr<IWICPalette> framePalette;
-    Microsoft::WRL::ComPtr<IWICBitmapSource> frameSource = source;
-    std::optional<BYTE> gifTransparencyIndex;
-    bool gifTransparencyEnabled = false;
-
     if (selection.isIndexed)
     {
-        Microsoft::WRL::ComPtr<IWICPalette> palette;
         hr = handle.backend->Factory()->CreatePalette(&palette);
         if (FAILED(hr))
         {
@@ -3017,39 +2985,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 return HResultToPvCode(hr);
             }
         }
-
-        if (mapping.container == GUID_ContainerFormatGif)
-        {
-            hr = encoder->SetPalette(palette.Get());
-            if (FAILED(hr))
-            {
-                return HResultToPvCode(hr);
-            }
-        }
-
-        Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
-        hr = handle.backend->Factory()->CreateFormatConverter(&converter);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-
-        const WICBitmapDitherType dither = useUniformPalette ? WICBitmapDitherTypeNone : WICBitmapDitherTypeErrorDiffusion;
-        hr = converter->Initialize(source.Get(), selection.pixelFormat, dither, palette.Get(), 0.0, WICBitmapPaletteTypeCustom);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-
-        Microsoft::WRL::ComPtr<IWICBitmapSource> indexedSource;
-        hr = converter.As(&indexedSource);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-
-        framePalette = palette;
-        frameSource = indexedSource;
+        paletteColors = std::move(colors);
     }
 
     Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frameEncode;
@@ -3084,12 +3020,183 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     {
         return HResultToPvCode(hr);
     }
-    if (pixelFormat != selection.pixelFormat)
+    const bool encoderIsIndexed = MapPixelFormatToColors(pixelFormat) > 0;
+    if (selection.isIndexed && !encoderIsIndexed)
     {
         return PVC_UNSUP_OUT_PARAMS;
     }
 
-    if (selection.isIndexed && framePalette)
+    UINT bitsPerPixel = 0;
+    {
+        Microsoft::WRL::ComPtr<IWICComponentInfo> componentInfo;
+        hr = handle.backend->Factory()->CreateComponentInfo(pixelFormat, &componentInfo);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+        Microsoft::WRL::ComPtr<IWICPixelFormatInfo> pixelInfo;
+        hr = componentInfo.As(&pixelInfo);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+        hr = pixelInfo->GetBitsPerPixel(&bitsPerPixel);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+
+    if (bitsPerPixel == 0)
+    {
+        return PVC_UNSUP_OUT_PARAMS;
+    }
+    const ULONGLONG bitsPerRow = static_cast<ULONGLONG>(targetWidth) * bitsPerPixel;
+    const ULONGLONG stride64 = (bitsPerRow + 7ull) / 8ull;
+    if (stride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        return PVC_OUT_OF_MEMORY;
+    }
+    const UINT encodedStride = static_cast<UINT>(stride64);
+
+    Microsoft::WRL::ComPtr<IWICBitmapSource> frameSource = source;
+    Microsoft::WRL::ComPtr<IWICPalette> framePalette = palette;
+
+    if (encoderIsIndexed)
+    {
+        UINT encoderPaletteEntries = MapPixelFormatToColors(pixelFormat);
+        if (!framePalette)
+        {
+            hr = handle.backend->Factory()->CreatePalette(&framePalette);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+        }
+
+        if (encoderPaletteEntries > 0)
+        {
+            if (paletteColors.empty())
+            {
+                UINT paletteCount = 0;
+                hr = framePalette->GetColorCount(&paletteCount);
+                if (FAILED(hr))
+                {
+                    return HResultToPvCode(hr);
+                }
+                if (paletteCount > 0)
+                {
+                    paletteColors.resize(paletteCount);
+                    UINT actual = paletteCount;
+                    hr = framePalette->GetColors(paletteCount, paletteColors.data(), &actual);
+                    if (FAILED(hr))
+                    {
+                        return HResultToPvCode(hr);
+                    }
+                    paletteColors.resize(actual);
+                }
+            }
+
+            if (paletteColors.empty())
+            {
+                paletteColors.resize(encoderPaletteEntries, 0);
+            }
+            if (paletteColors.size() < encoderPaletteEntries)
+            {
+                const WICColor fill = paletteColors.empty() ? 0 : paletteColors.back();
+                paletteColors.resize(encoderPaletteEntries, fill);
+            }
+            else if (paletteColors.size() > encoderPaletteEntries)
+            {
+                paletteColors.resize(encoderPaletteEntries);
+            }
+
+            if (gifTransparencyIndex.has_value())
+            {
+                if (paletteColors.empty())
+                {
+                    gifTransparencyIndex.reset();
+                }
+                else if (gifTransparencyIndex.value() >= paletteColors.size())
+                {
+                    const BYTE newIndex = static_cast<BYTE>(paletteColors.size() - 1);
+                    gifTransparencyIndex = newIndex;
+                    paletteColors[newIndex] &= 0x00FFFFFFu;
+                }
+            }
+
+            if (!paletteColors.empty())
+            {
+                hr = framePalette->InitializeCustom(paletteColors.data(), static_cast<UINT>(paletteColors.size()));
+                if (FAILED(hr))
+                {
+                    return HResultToPvCode(hr);
+                }
+            }
+        }
+
+        if (mapping.container == GUID_ContainerFormatGif && framePalette)
+        {
+            hr = encoder->SetPalette(framePalette.Get());
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+        }
+
+        Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+        hr = handle.backend->Factory()->CreateFormatConverter(&converter);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        const WICBitmapPaletteType paletteType =
+            useUniformPalette ? WICBitmapPaletteTypeFixedWebPalette : WICBitmapPaletteTypeCustom;
+        hr = converter->Initialize(source.Get(), pixelFormat, paletteDither, framePalette.Get(), 0.0, paletteType);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        hr = converter.As(&frameSource);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+    else
+    {
+        framePalette.Reset();
+        if (pixelFormat != GUID_WICPixelFormat32bppBGRA)
+        {
+            Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+            hr = handle.backend->Factory()->CreateFormatConverter(&converter);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+
+            const bool encoderIsGray = (pixelFormat == GUID_WICPixelFormat8bppGray);
+            const WICBitmapPaletteType paletteType =
+                encoderIsGray ? WICBitmapPaletteTypeFixedGray256 : WICBitmapPaletteTypeCustom;
+            hr = converter->Initialize(source.Get(), pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0, paletteType);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+
+            hr = converter.As(&frameSource);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+        }
+    }
+
+    gifTransparencyEnabled = gifTransparencyIndex.has_value();
+
+    if (encoderIsIndexed && framePalette)
     {
         hr = frameEncode->SetPalette(framePalette.Get());
         if (FAILED(hr))
@@ -3196,7 +3303,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    if (selection.isIndexed)
+    if (encoderIsIndexed)
     {
         if (encodedStride == 0)
         {
@@ -3234,32 +3341,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     }
     else
     {
-        Microsoft::WRL::ComPtr<IWICBitmapSource> finalSource = source;
-        if (selection.pixelFormat != GUID_WICPixelFormat32bppBGRA)
-        {
-            Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
-            hr = handle.backend->Factory()->CreateFormatConverter(&converter);
-            if (FAILED(hr))
-            {
-                return HResultToPvCode(hr);
-            }
-
-            const WICBitmapPaletteType paletteType = selection.isGray ? WICBitmapPaletteTypeFixedGray256
-                                                                       : WICBitmapPaletteTypeCustom;
-            hr = converter->Initialize(source.Get(), selection.pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0,
-                                       paletteType);
-            if (FAILED(hr))
-            {
-                return HResultToPvCode(hr);
-            }
-            hr = converter.As(&finalSource);
-            if (FAILED(hr))
-            {
-                return HResultToPvCode(hr);
-            }
-        }
-
-        hr = frameEncode->WriteSource(finalSource.Get(), nullptr);
+        hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
