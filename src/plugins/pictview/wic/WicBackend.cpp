@@ -2996,6 +2996,18 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
+    if (mapping.container == GUID_ContainerFormatGif && palette)
+    {
+        // The GIF encoder expects its global palette to be registered before the frame is
+        // initialized so it can negotiate pixel formats correctly. Set it up immediately after
+        // creating the frame to avoid WRONGSTATE errors when writing indexed data later on.
+        hr = encoder->SetPalette(palette.Get());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+
     hr = bagWriter.Write(bag.Get());
     if (FAILED(hr))
     {
@@ -3132,15 +3144,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 {
                     return HResultToPvCode(hr);
                 }
-            }
-        }
-
-        if (mapping.container == GUID_ContainerFormatGif && framePalette)
-        {
-            hr = encoder->SetPalette(framePalette.Get());
-            if (FAILED(hr))
-            {
-                return HResultToPvCode(hr);
             }
         }
 
