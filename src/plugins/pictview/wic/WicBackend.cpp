@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -46,6 +47,294 @@ bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT
 DWORD MapGifDisposalToPv(UINT disposal);
 LONG ClampUnsignedToLong(ULONGLONG value);
 HRESULT EnsureTransparencyMask(FrameData& frame);
+
+class PropertyBagWriter
+{
+public:
+    void AddFloat(const wchar_t* name, float value)
+    {
+        PROPBAG2 option{};
+        option.pstrName = const_cast<LPOLESTR>(name);
+        option.dwType = PROPBAG2_TYPE_DATA;
+        option.vt = VT_R4;
+        m_options.push_back(option);
+
+        VARIANT var;
+        VariantInit(&var);
+        var.vt = VT_R4;
+        var.fltVal = value;
+        m_values.push_back(var);
+    }
+
+    void AddUInt8(const wchar_t* name, BYTE value)
+    {
+        PROPBAG2 option{};
+        option.pstrName = const_cast<LPOLESTR>(name);
+        option.dwType = PROPBAG2_TYPE_DATA;
+        option.vt = VT_UI1;
+        m_options.push_back(option);
+
+        VARIANT var;
+        VariantInit(&var);
+        var.vt = VT_UI1;
+        var.bVal = static_cast<UCHAR>(value);
+        m_values.push_back(var);
+    }
+
+    void AddBool(const wchar_t* name, bool value)
+    {
+        PROPBAG2 option{};
+        option.pstrName = const_cast<LPOLESTR>(name);
+        option.dwType = PROPBAG2_TYPE_DATA;
+        option.vt = VT_BOOL;
+        m_options.push_back(option);
+
+        VARIANT var;
+        VariantInit(&var);
+        var.vt = VT_BOOL;
+        var.boolVal = value ? VARIANT_TRUE : VARIANT_FALSE;
+        m_values.push_back(var);
+    }
+
+    HRESULT Write(IPropertyBag2* bag)
+    {
+        if (!bag || m_options.empty())
+        {
+            return S_OK;
+        }
+
+        HRESULT hr = bag->Write(static_cast<ULONG>(m_options.size()), m_options.data(), m_values.data());
+        if (hr == WINCODEC_ERR_PROPERTYNOTSUPPORTED)
+        {
+            return S_OK;
+        }
+        return hr;
+    }
+
+    ~PropertyBagWriter()
+    {
+        for (auto& value : m_values)
+        {
+            VariantClear(&value);
+        }
+    }
+
+private:
+    std::vector<PROPBAG2> m_options;
+    std::vector<VARIANT> m_values;
+};
+
+float ClampQualityToFactor(DWORD quality)
+{
+    if (quality == 0)
+    {
+        return 0.0f;
+    }
+    const DWORD clamped = std::min<DWORD>(100, std::max<DWORD>(1, quality));
+    return static_cast<float>(clamped) / 100.0f;
+}
+
+std::optional<BYTE> MapSubsamplingToWic(DWORD subsampling)
+{
+    switch (subsampling)
+    {
+    case 0:
+        return static_cast<BYTE>(WICJpegYCrCbSubsampling422);
+    case 1:
+        return static_cast<BYTE>(WICJpegYCrCbSubsampling444);
+    default:
+        return std::nullopt;
+    }
+}
+
+std::optional<RGBQUAD> FindTransparentPixel(IWICBitmapSource* source)
+{
+    if (!source)
+    {
+        return std::nullopt;
+    }
+
+    UINT width = 0;
+    UINT height = 0;
+    HRESULT hr = source->GetSize(&width, &height);
+    if (FAILED(hr) || width == 0 || height == 0)
+    {
+        return std::nullopt;
+    }
+
+    const size_t stride = static_cast<size_t>(width) * 4u;
+    if (stride > std::numeric_limits<UINT>::max())
+    {
+        return std::nullopt;
+    }
+    const size_t bufferSize = stride * static_cast<size_t>(height);
+    if (bufferSize > std::numeric_limits<UINT>::max())
+    {
+        return std::nullopt;
+    }
+
+    std::vector<BYTE> pixels(bufferSize);
+    hr = source->CopyPixels(nullptr, static_cast<UINT>(stride), static_cast<UINT>(pixels.size()), pixels.data());
+    if (FAILED(hr))
+    {
+        return std::nullopt;
+    }
+
+    for (size_t y = 0; y < height; ++y)
+    {
+        const BYTE* row = pixels.data() + y * stride;
+        for (size_t x = 0; x < width; ++x)
+        {
+            const BYTE* pixel = row + x * 4u;
+            if (pixel[3] == 0)
+            {
+                RGBQUAD color{};
+                color.rgbBlue = pixel[0];
+                color.rgbGreen = pixel[1];
+                color.rgbRed = pixel[2];
+                color.rgbReserved = 0;
+                return color;
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+BYTE FindClosestPaletteIndex(const std::vector<WICColor>& colors, BYTE red, BYTE green, BYTE blue)
+{
+    if (colors.empty())
+    {
+        return 0;
+    }
+
+    BYTE bestIndex = 0;
+    unsigned int bestDistance = std::numeric_limits<unsigned int>::max();
+
+    for (size_t i = 0; i < colors.size(); ++i)
+    {
+        const WICColor color = colors[i];
+        const BYTE paletteRed = static_cast<BYTE>((color >> 16) & 0xFF);
+        const BYTE paletteGreen = static_cast<BYTE>((color >> 8) & 0xFF);
+        const BYTE paletteBlue = static_cast<BYTE>(color & 0xFF);
+
+        const int dr = static_cast<int>(paletteRed) - static_cast<int>(red);
+        const int dg = static_cast<int>(paletteGreen) - static_cast<int>(green);
+        const int db = static_cast<int>(paletteBlue) - static_cast<int>(blue);
+
+        const unsigned int distance = static_cast<unsigned int>(dr * dr + dg * dg + db * db);
+        if (distance < bestDistance)
+        {
+            bestDistance = distance;
+            bestIndex = static_cast<BYTE>(i);
+        }
+    }
+
+    return bestIndex;
+}
+
+std::optional<BYTE> DetermineGifTransparency(const PVSaveImageInfo* info, std::vector<WICColor>& colors,
+                                             IWICBitmapSource* source)
+{
+    if (!info)
+    {
+        for (size_t i = 0; i < colors.size(); ++i)
+        {
+            if (((colors[i] >> 24) & 0xFFu) == 0)
+            {
+                return static_cast<BYTE>(i);
+            }
+        }
+        return std::nullopt;
+    }
+
+    switch (info->Transp.Flags)
+    {
+    case PVTF_NONE:
+        return std::nullopt;
+    case PVTF_INDEX:
+        if (info->Transp.Value.Index < colors.size())
+        {
+            return info->Transp.Value.Index;
+        }
+        return std::nullopt;
+    case PVTF_RGB:
+    {
+        if (colors.empty())
+        {
+            return std::nullopt;
+        }
+        const BYTE red = info->Transp.Value.RGB.Red;
+        const BYTE green = info->Transp.Value.RGB.Green;
+        const BYTE blue = info->Transp.Value.RGB.Blue;
+        const BYTE index = FindClosestPaletteIndex(colors, red, green, blue);
+        colors[index] = (static_cast<WICColor>(red) << 16) | (static_cast<WICColor>(green) << 8) |
+                        static_cast<WICColor>(blue);
+        return index;
+    }
+    case PVTF_ORIGINAL:
+    {
+        auto transparentPixel = FindTransparentPixel(source);
+        if (!transparentPixel)
+        {
+            for (size_t i = 0; i < colors.size(); ++i)
+            {
+                if (((colors[i] >> 24) & 0xFFu) == 0)
+                {
+                    return static_cast<BYTE>(i);
+                }
+            }
+            return std::nullopt;
+        }
+        const BYTE index = FindClosestPaletteIndex(colors, transparentPixel->rgbRed, transparentPixel->rgbGreen,
+                                                   transparentPixel->rgbBlue);
+        colors[index] = (static_cast<WICColor>(transparentPixel->rgbRed) << 16) |
+                        (static_cast<WICColor>(transparentPixel->rgbGreen) << 8) |
+                        static_cast<WICColor>(transparentPixel->rgbBlue);
+        return index;
+    }
+    default:
+        return std::nullopt;
+    }
+}
+
+double ResolveDpiValue(DWORD requested, double fallback, double defaultValue)
+{
+    if (requested > 0)
+    {
+        return static_cast<double>(requested);
+    }
+    if (std::isfinite(fallback) && fallback > 0.0)
+    {
+        return fallback;
+    }
+    return defaultValue;
+}
+
+std::optional<BYTE> MapTiffCompression(DWORD compression)
+{
+    switch (compression)
+    {
+    case PVCS_DEFAULT:
+        return std::nullopt;
+    case PVCS_NO_COMPRESSION:
+        return static_cast<BYTE>(WICTiffCompressionNone);
+    case PVCS_CCITT_3:
+        return static_cast<BYTE>(WICTiffCompressionCCITT3);
+    case PVCS_CCITT_4:
+        return static_cast<BYTE>(WICTiffCompressionCCITT4);
+    case PVCS_LZW:
+        return static_cast<BYTE>(WICTiffCompressionLZW);
+    case PVCS_RLE:
+        return static_cast<BYTE>(WICTiffCompressionRLE);
+    case PVCS_DEFLATE:
+        return static_cast<BYTE>(WICTiffCompressionZIP);
+    case PVCS_JPEG_HUFFMAN:
+        return static_cast<BYTE>(WICTiffCompressionJPEG);
+    default:
+        return std::nullopt;
+    }
+}
 
 std::mutex g_errorMutex;
 std::unordered_map<DWORD, std::string> g_errorTexts = {
@@ -2044,16 +2333,78 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
+    UINT targetWidth = frame.width;
+    UINT targetHeight = frame.height;
+    if (info && info->Width != 0 && info->Height != 0)
+    {
+        targetWidth = info->Width;
+        targetHeight = info->Height;
+    }
+
+    PropertyBagWriter bagWriter;
+    if (info)
+    {
+        if (mapping.container == GUID_ContainerFormatJpeg)
+        {
+            const float quality = ClampQualityToFactor(info->Misc.JPEG.Quality);
+            if (quality > 0.0f)
+            {
+                bagWriter.AddFloat(L"ImageQuality", quality);
+            }
+            if (const auto subsampling = MapSubsamplingToWic(info->Misc.JPEG.SubSampling))
+            {
+                bagWriter.AddUInt8(L"JpegYCrCbSubsampling", *subsampling);
+            }
+        }
+        else if (mapping.container == GUID_ContainerFormatGif)
+        {
+            bagWriter.AddBool(L"InterlaceOption", (info->Flags & PVSF_INTERLACE) != 0);
+        }
+        else if (mapping.container == GUID_ContainerFormatTiff)
+        {
+            if (info->Compression == PVCS_JPEG_HUFFMAN)
+            {
+                const float quality = ClampQualityToFactor(info->Misc.TIFF.JPEGQuality);
+                if (quality > 0.0f)
+                {
+                    bagWriter.AddFloat(L"ImageQuality", quality);
+                }
+                if (const auto subsampling = MapSubsamplingToWic(info->Misc.TIFF.JPEGSubSampling))
+                {
+                    bagWriter.AddUInt8(L"JpegYCrCbSubsampling", *subsampling);
+                }
+            }
+
+            const std::optional<BYTE> compressionOption = MapTiffCompression(info->Compression);
+            if (!compressionOption.has_value() && info->Compression != PVCS_DEFAULT)
+            {
+                return PVC_UNSUP_OUT_PARAMS;
+            }
+            if (compressionOption.has_value())
+            {
+                bagWriter.AddUInt8(L"TiffCompressionMethod", compressionOption.value());
+            }
+        }
+    }
+
+    hr = bagWriter.Write(bag.Get());
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
     hr = frameEncode->Initialize(bag.Get());
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
     }
-    hr = frameEncode->SetSize(frame.width, frame.height);
+
+    hr = frameEncode->SetSize(targetWidth, targetHeight);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
     }
+
     GUID pixelFormat = mapping.pixelFormat;
     hr = frameEncode->SetPixelFormat(&pixelFormat);
     if (FAILED(hr))
@@ -2065,35 +2416,66 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return PVC_UNSUP_FILE_TYPE;
     }
 
-    if (mapping.pixelFormat == GUID_WICPixelFormat24bppBGR)
+    double sourceDpiX = 0.0;
+    double sourceDpiY = 0.0;
+    if (frame.frame)
     {
-        const UINT stride = frame.width * 3;
-        std::vector<BYTE> rgb(stride * frame.height);
-        for (UINT y = 0; y < frame.height; ++y)
-        {
-            const BYTE* src = frame.pixels.data() + y * frame.stride;
-            BYTE* dst = rgb.data() + y * stride;
-            for (UINT x = 0; x < frame.width; ++x)
-            {
-                dst[x * 3 + 0] = src[x * 4 + 0];
-                dst[x * 3 + 1] = src[x * 4 + 1];
-                dst[x * 3 + 2] = src[x * 4 + 2];
-            }
-        }
-        hr = frameEncode->WritePixels(frame.height, stride, static_cast<UINT>(rgb.size()), rgb.data());
+        frame.frame->GetResolution(&sourceDpiX, &sourceDpiY);
     }
-    else if (mapping.pixelFormat == GUID_WICPixelFormat8bppIndexed)
+
+    const DWORD requestedDpiX = info ? info->HorDPI : 0;
+    const DWORD requestedDpiY = info ? info->VerDPI : 0;
+    const double dpiX = ResolveDpiValue(requestedDpiX, sourceDpiX, 96.0);
+    const double dpiY = ResolveDpiValue(requestedDpiY, sourceDpiY, 96.0);
+
+    hr = frameEncode->SetResolution(dpiX, dpiY);
+    if (FAILED(hr))
     {
-        Microsoft::WRL::ComPtr<IWICBitmap> bitmap;
-        hr = handle.backend->Factory()->CreateBitmapFromMemory(frame.width, frame.height,
-                                                               GUID_WICPixelFormat32bppBGRA, frame.stride,
-                                                               static_cast<UINT>(frame.pixels.size()),
-                                                               frame.pixels.data(), &bitmap);
+        return HResultToPvCode(hr);
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmap> bitmap;
+    hr = handle.backend->Factory()->CreateBitmapFromMemory(frame.width, frame.height, GUID_WICPixelFormat32bppBGRA,
+                                                           frame.stride, static_cast<UINT>(frame.pixels.size()),
+                                                           frame.pixels.data(), &bitmap);
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapSource> source;
+    hr = bitmap.As(&source);
+    if (FAILED(hr))
+    {
+        return HResultToPvCode(hr);
+    }
+
+    if ((targetWidth != frame.width || targetHeight != frame.height) && source)
+    {
+        Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
+        hr = handle.backend->Factory()->CreateBitmapScaler(&scaler);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
+        hr = scaler->Initialize(source.Get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        Microsoft::WRL::ComPtr<IWICBitmapSource> scaledSource;
+        hr = scaler.As(&scaledSource);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+        source = scaledSource;
+    }
+
+    if (mapping.pixelFormat == GUID_WICPixelFormat8bppIndexed)
+    {
         Microsoft::WRL::ComPtr<IWICPalette> palette;
         hr = handle.backend->Factory()->CreatePalette(&palette);
         if (FAILED(hr))
@@ -2101,10 +2483,47 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        hr = palette->InitializeFromBitmap(bitmap.Get(), 256, FALSE);
+        hr = palette->InitializeFromBitmap(source.Get(), 256, FALSE);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
+        }
+
+        UINT paletteCount = 0;
+        hr = palette->GetColorCount(&paletteCount);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        std::vector<WICColor> colors(paletteCount);
+        if (paletteCount > 0)
+        {
+            UINT actual = paletteCount;
+            hr = palette->GetColors(paletteCount, colors.data(), &actual);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+            colors.resize(actual);
+        }
+
+        const std::optional<BYTE> transparencyIndex = DetermineGifTransparency(info, colors, source.Get());
+
+        for (size_t i = 0; i < colors.size(); ++i)
+        {
+            const bool isTransparent = transparencyIndex.has_value() && i == transparencyIndex.value();
+            const WICColor rgb = colors[i] & 0x00FFFFFFu;
+            colors[i] = rgb | (isTransparent ? 0x00000000u : 0xFF000000u);
+        }
+
+        if (!colors.empty())
+        {
+            hr = palette->InitializeCustom(colors.data(), static_cast<UINT>(colors.size()));
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
         }
 
         hr = frameEncode->SetPalette(palette.Get());
@@ -2113,35 +2532,63 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        Microsoft::WRL::ComPtr<IWICFormatConverter> gifConverter;
-        hr = handle.backend->Factory()->CreateFormatConverter(&gifConverter);
+        Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+        hr = handle.backend->Factory()->CreateFormatConverter(&converter);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
-        hr = gifConverter->Initialize(bitmap.Get(), GUID_WICPixelFormat8bppIndexed, WICBitmapDitherTypeErrorDiffusion,
-                                      palette.Get(), 0.0, WICBitmapPaletteTypeCustom);
+        hr = converter->Initialize(source.Get(), GUID_WICPixelFormat8bppIndexed, WICBitmapDitherTypeErrorDiffusion,
+                                   palette.Get(), 0.0, WICBitmapPaletteTypeCustom);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
-        const UINT stride = frame.width;
-        std::vector<BYTE> indexed(static_cast<size_t>(stride) * frame.height);
-        WICRect rect{0, 0, static_cast<INT>(frame.width), static_cast<INT>(frame.height)};
-        hr = gifConverter->CopyPixels(&rect, stride, static_cast<UINT>(indexed.size()), indexed.data());
+        const UINT stride = targetWidth;
+        std::vector<BYTE> indexed(static_cast<size_t>(stride) * targetHeight);
+        if (!indexed.empty())
+        {
+            hr = converter->CopyPixels(nullptr, stride, static_cast<UINT>(indexed.size()), indexed.data());
+        }
+        else
+        {
+            hr = converter->CopyPixels(nullptr, stride, 0, nullptr);
+        }
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
-        hr = frameEncode->WritePixels(frame.height, stride, static_cast<UINT>(indexed.size()), indexed.data());
+        Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
+        if (SUCCEEDED(frameEncode->GetMetadataQueryWriter(&metadataWriter)) && metadataWriter)
+        {
+            PROPVARIANT prop;
+            PropVariantInit(&prop);
+            prop.vt = VT_BOOL;
+            prop.boolVal = transparencyIndex.has_value() ? VARIANT_TRUE : VARIANT_FALSE;
+            metadataWriter->SetMetadataByName(L"/grctlext/TransparencyFlag", &prop);
+            PropVariantClear(&prop);
+
+            if (transparencyIndex.has_value())
+            {
+                PropVariantInit(&prop);
+                prop.vt = VT_UI2;
+                prop.uiVal = transparencyIndex.value();
+                metadataWriter->SetMetadataByName(L"/grctlext/TransparentColorIndex", &prop);
+                PropVariantClear(&prop);
+            }
+        }
+
+        hr = frameEncode->WritePixels(targetHeight, stride, static_cast<UINT>(indexed.size()),
+                                      indexed.empty() ? nullptr : indexed.data());
     }
     else
     {
-        hr = frameEncode->WritePixels(frame.height, frame.stride, static_cast<UINT>(frame.pixels.size()), frame.pixels.data());
+        hr = frameEncode->WriteSource(source.Get(), nullptr);
     }
+
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
