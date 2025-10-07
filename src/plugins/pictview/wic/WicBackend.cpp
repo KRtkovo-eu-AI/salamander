@@ -3121,6 +3121,15 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
 
+        if (mapping.container == GUID_ContainerFormatGif)
+        {
+            hr = encoder->SetPalette(palette.Get());
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+        }
+
         hr = frameEncode->SetPalette(palette.Get());
         if (FAILED(hr))
         {
