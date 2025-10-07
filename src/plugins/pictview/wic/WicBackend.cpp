@@ -3168,23 +3168,14 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        const size_t bufferSize = static_cast<size_t>(encodedStride) * targetHeight;
-        std::vector<BYTE> indexed(bufferSize);
-        if (!indexed.empty())
-        {
-            hr = converter->CopyPixels(nullptr, encodedStride, static_cast<UINT>(indexed.size()), indexed.data());
-        }
-        else
-        {
-            hr = converter->CopyPixels(nullptr, encodedStride, 0, nullptr);
-        }
+        Microsoft::WRL::ComPtr<IWICBitmapSource> indexedSource;
+        hr = converter.As(&indexedSource);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
-        hr = frameEncode->WritePixels(targetHeight, encodedStride, indexed.empty() ? 0 : static_cast<UINT>(indexed.size()),
-                                      indexed.empty() ? nullptr : indexed.data());
+        hr = frameEncode->WriteSource(indexedSource.Get(), nullptr);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
