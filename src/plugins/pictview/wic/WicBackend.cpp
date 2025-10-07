@@ -47,6 +47,249 @@ bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT
 DWORD MapGifDisposalToPv(UINT disposal);
 LONG ClampUnsignedToLong(ULONGLONG value);
 HRESULT EnsureTransparencyMask(FrameData& frame);
+DWORD MapPixelFormatToColors(const GUID& guid);
+
+struct PixelFormatSelection
+{
+    GUID pixelFormat;
+    UINT paletteEntries;
+    bool isIndexed;
+    bool isGray;
+};
+
+std::optional<PixelFormatSelection> DeterminePixelFormat(const GuidMapping& mapping, LPPVSaveImageInfo info)
+{
+    PixelFormatSelection selection{};
+    selection.pixelFormat = mapping.pixelFormat;
+    selection.paletteEntries = MapPixelFormatToColors(mapping.pixelFormat);
+    selection.isIndexed = selection.paletteEntries > 0;
+    selection.isGray = false;
+
+    if (!info)
+    {
+        return selection;
+    }
+
+    auto chooseIndexed = [&](UINT colorCount) {
+        UINT clamped = std::max<UINT>(colorCount, 2u);
+        UINT bits = 0;
+        while (((1u << bits) < clamped) && bits < 8)
+        {
+            ++bits;
+        }
+        if (bits == 0)
+        {
+            bits = 1;
+        }
+        if (bits <= 1)
+        {
+            selection.pixelFormat = GUID_WICPixelFormat1bppIndexed;
+            selection.paletteEntries = 2;
+        }
+        else if (bits <= 4)
+        {
+            selection.pixelFormat = GUID_WICPixelFormat4bppIndexed;
+            selection.paletteEntries = 1u << 4;
+        }
+        else
+        {
+            selection.pixelFormat = GUID_WICPixelFormat8bppIndexed;
+            selection.paletteEntries = 1u << bits;
+            if (selection.paletteEntries > 256)
+            {
+                selection.paletteEntries = 256;
+            }
+        }
+        selection.isIndexed = true;
+    };
+
+    const DWORD colors = info->Colors;
+    if (info->ColorModel == PVCM_GRAYS)
+    {
+        if (colors == 2)
+        {
+            chooseIndexed(2);
+        }
+        else
+        {
+            selection.pixelFormat = GUID_WICPixelFormat8bppGray;
+            selection.paletteEntries = 0;
+            selection.isIndexed = false;
+        }
+        selection.isGray = true;
+        return selection;
+    }
+
+    if (colors != 0 && colors <= 256)
+    {
+        chooseIndexed(colors);
+        return selection;
+    }
+
+    switch (colors)
+    {
+    case PV_COLOR_HC15:
+        selection.pixelFormat = GUID_WICPixelFormat16bppBGR555;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    case PV_COLOR_HC16:
+        selection.pixelFormat = GUID_WICPixelFormat16bppBGR565;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    case PV_COLOR_TC24:
+        selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    case PV_COLOR_TC32:
+        if (mapping.container == GUID_ContainerFormatJpeg)
+        {
+            selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
+        }
+        else
+        {
+            selection.pixelFormat = GUID_WICPixelFormat32bppBGRA;
+        }
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    default:
+        break;
+    }
+
+    if (mapping.container == GUID_ContainerFormatJpeg)
+    {
+        selection.pixelFormat = info->ColorModel == PVCM_GRAYS ? GUID_WICPixelFormat8bppGray : GUID_WICPixelFormat24bppBGR;
+        selection.isGray = info->ColorModel == PVCM_GRAYS;
+        selection.paletteEntries = 0;
+        selection.isIndexed = false;
+        return selection;
+    }
+
+    return selection;
+}
+
+std::wstring ExtractComment(LPPVSaveImageInfo info)
+{
+    if (!info || !info->Comment || info->CommentSize == 0)
+    {
+        return std::wstring();
+    }
+
+    size_t length = static_cast<size_t>(info->CommentSize);
+    if (length == 0)
+    {
+        return std::wstring();
+    }
+    if (info->Comment[length - 1] == '\0')
+    {
+        --length;
+    }
+    if (length == 0)
+    {
+        return std::wstring();
+    }
+
+    int required = MultiByteToWideChar(CP_ACP, 0, info->Comment, static_cast<int>(length), nullptr, 0);
+    if (required <= 0)
+    {
+        return std::wstring();
+    }
+    std::wstring result(static_cast<size_t>(required), L'\0');
+    MultiByteToWideChar(CP_ACP, 0, info->Comment, static_cast<int>(length), result.data(), required);
+    return result;
+}
+
+HRESULT TrySetMetadataString(IWICMetadataQueryWriter* writer, LPCWSTR name, const std::wstring& value)
+{
+    if (!writer || value.empty())
+    {
+        return S_OK;
+    }
+    PROPVARIANT prop;
+    PropVariantInit(&prop);
+    prop.vt = VT_BSTR;
+    prop.bstrVal = SysAllocStringLen(value.data(), static_cast<UINT>(value.size()));
+    if (!prop.bstrVal)
+    {
+        return E_OUTOFMEMORY;
+    }
+    HRESULT hr = writer->SetMetadataByName(name, &prop);
+    PropVariantClear(&prop);
+    if (hr == WINCODEC_ERR_PROPERTYNOTSUPPORTED || hr == WINCODEC_ERR_PROPERTYNOTFOUND)
+    {
+        return S_OK;
+    }
+    return hr;
+}
+
+HRESULT ApplyCommentMetadata(const GUID& container, IWICMetadataQueryWriter* writer, const std::wstring& comment)
+{
+    if (!writer || comment.empty())
+    {
+        return S_OK;
+    }
+
+    if (container == GUID_ContainerFormatGif)
+    {
+        HRESULT hr = TrySetMetadataString(writer, L"/commentext/{str=Comment}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    else if (container == GUID_ContainerFormatPng)
+    {
+        HRESULT hr = TrySetMetadataString(writer, L"/tEXt/{str=Comment}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        hr = TrySetMetadataString(writer, L"/tEXt/{str=Description}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    else if (container == GUID_ContainerFormatJpeg)
+    {
+        HRESULT hr = TrySetMetadataString(writer, L"/comment", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        hr = TrySetMetadataString(writer, L"/ifd/{ushort=270}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        hr = TrySetMetadataString(writer, L"/app1/ifd/{ushort=270}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    else if (container == GUID_ContainerFormatTiff)
+    {
+        HRESULT hr = TrySetMetadataString(writer, L"/ifd/{ushort=270}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    else if (container == GUID_ContainerFormatBmp)
+    {
+        HRESULT hr = TrySetMetadataString(writer, L"/ifd/{ushort=270}", comment);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+    return S_OK;
+}
+
 
 class PropertyBagWriter
 {
@@ -93,6 +336,46 @@ public:
         VariantInit(&var);
         var.vt = VT_BOOL;
         var.boolVal = value ? VARIANT_TRUE : VARIANT_FALSE;
+        m_values.push_back(var);
+    }
+
+    void AddUInt32(const wchar_t* name, UINT value)
+    {
+        PROPBAG2 option{};
+        option.pstrName = const_cast<LPOLESTR>(name);
+        option.dwType = PROPBAG2_TYPE_DATA;
+        option.vt = VT_UI4;
+        m_options.push_back(option);
+
+        VARIANT var;
+        VariantInit(&var);
+        var.vt = VT_UI4;
+        var.ulVal = value;
+        m_values.push_back(var);
+    }
+
+    void AddString(const wchar_t* name, const std::wstring& value)
+    {
+        if (value.empty())
+        {
+            return;
+        }
+
+        PROPBAG2 option{};
+        option.pstrName = const_cast<LPOLESTR>(name);
+        option.dwType = PROPBAG2_TYPE_DATA;
+        option.vt = VT_BSTR;
+        m_options.push_back(option);
+
+        VARIANT var;
+        VariantInit(&var);
+        var.vt = VT_BSTR;
+        var.bstrVal = SysAllocStringLen(value.data(), static_cast<UINT>(value.size()));
+        if (!var.bstrVal)
+        {
+            m_options.pop_back();
+            return;
+        }
         m_values.push_back(var);
     }
 
@@ -2512,6 +2795,15 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         targetHeight = info->Height;
     }
 
+    const auto selectionOpt = DeterminePixelFormat(mapping, info);
+    if (!selectionOpt)
+    {
+        return PVC_UNSUP_OUT_PARAMS;
+    }
+    const PixelFormatSelection& selection = *selectionOpt;
+    const std::wstring comment = ExtractComment(info);
+    const bool useUniformPalette = info && (info->Flags & PVSF_UNIFORM_PALETTE) != 0;
+
     PropertyBagWriter bagWriter;
     if (info)
     {
@@ -2530,6 +2822,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         else if (mapping.container == GUID_ContainerFormatGif)
         {
             bagWriter.AddBool(L"InterlaceOption", (info->Flags & PVSF_INTERLACE) != 0);
+            bagWriter.AddString(L"Version", (info->Flags & PVSF_GIF89) != 0 ? L"89a" : L"87a");
         }
         else if (mapping.container == GUID_ContainerFormatTiff)
         {
@@ -2556,6 +2849,11 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 bagWriter.AddUInt8(L"TiffCompressionMethod", compressionOption.value());
             }
         }
+
+        if (!comment.empty())
+        {
+            bagWriter.AddString(L"Comment", comment);
+        }
     }
 
     hr = bagWriter.Write(bag.Get());
@@ -2576,15 +2874,15 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return HResultToPvCode(hr);
     }
 
-    GUID pixelFormat = mapping.pixelFormat;
+    GUID pixelFormat = selection.pixelFormat;
     hr = frameEncode->SetPixelFormat(&pixelFormat);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
     }
-    if (pixelFormat != mapping.pixelFormat)
+    if (pixelFormat != selection.pixelFormat)
     {
-        return PVC_UNSUP_FILE_TYPE;
+        return PVC_UNSUP_OUT_PARAMS;
     }
 
     double sourceDpiX = 0.0;
@@ -2604,6 +2902,39 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     {
         return HResultToPvCode(hr);
     }
+
+    UINT bitsPerPixel = 0;
+    {
+        Microsoft::WRL::ComPtr<IWICComponentInfo> componentInfo;
+        hr = handle.backend->Factory()->CreateComponentInfo(selection.pixelFormat, &componentInfo);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+        Microsoft::WRL::ComPtr<IWICPixelFormatInfo> pixelInfo;
+        hr = componentInfo.As(&pixelInfo);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+        hr = pixelInfo->GetBitsPerPixel(&bitsPerPixel);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+
+    if (bitsPerPixel == 0)
+    {
+        return PVC_UNSUP_OUT_PARAMS;
+    }
+    const ULONGLONG bitsPerRow = static_cast<ULONGLONG>(targetWidth) * bitsPerPixel;
+    const ULONGLONG stride64 = (bitsPerRow + 7ull) / 8ull;
+    if (stride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        return PVC_OUT_OF_MEMORY;
+    }
+    const UINT encodedStride = static_cast<UINT>(stride64);
 
     const size_t processedBufferSize = static_cast<size_t>(processedStride) * processedHeight;
     if (processedBufferSize > std::numeric_limits<UINT>::max())
@@ -2625,6 +2956,20 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
+    }
+
+    Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
+    if (FAILED(frameEncode->GetMetadataQueryWriter(&metadataWriter)))
+    {
+        metadataWriter.Reset();
+    }
+    if (metadataWriter)
+    {
+        HRESULT metaHr = ApplyCommentMetadata(mapping.container, metadataWriter.Get(), comment);
+        if (FAILED(metaHr))
+        {
+            return HResultToPvCode(metaHr);
+        }
     }
 
     if ((targetWidth != processedWidth || targetHeight != processedHeight) && source)
@@ -2651,7 +2996,46 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         source = scaledSource;
     }
 
-    if (mapping.pixelFormat == GUID_WICPixelFormat8bppIndexed)
+    if (metadataWriter && mapping.container == GUID_ContainerFormatTiff && info)
+    {
+        UINT rowsPerStrip = 0;
+        if ((info->Flags & PVSF_DO_NOT_STRIP) != 0)
+        {
+            rowsPerStrip = targetHeight;
+        }
+        else if (info->Misc.TIFF.StripSize != 0 && encodedStride != 0)
+        {
+            const ULONGLONG stripBytes = static_cast<ULONGLONG>(info->Misc.TIFF.StripSize) * 1024ull;
+            if (stripBytes > 0)
+            {
+                ULONGLONG rows = stripBytes / encodedStride;
+                if (rows == 0)
+                {
+                    rows = 1;
+                }
+                if (rows > targetHeight)
+                {
+                    rows = targetHeight;
+                }
+                rowsPerStrip = static_cast<UINT>(rows);
+            }
+        }
+        if (rowsPerStrip > 0)
+        {
+            PROPVARIANT prop;
+            PropVariantInit(&prop);
+            prop.vt = VT_UI4;
+            prop.ulVal = rowsPerStrip;
+            HRESULT metaHr = metadataWriter->SetMetadataByName(L"/ifd/{ushort=278}", &prop);
+            PropVariantClear(&prop);
+            if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+            {
+                return HResultToPvCode(metaHr);
+            }
+        }
+    }
+
+    if (selection.isIndexed)
     {
         Microsoft::WRL::ComPtr<IWICPalette> palette;
         hr = handle.backend->Factory()->CreatePalette(&palette);
@@ -2660,7 +3044,15 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        hr = palette->InitializeFromBitmap(source.Get(), 256, FALSE);
+        UINT desiredEntries = selection.paletteEntries > 0 ? selection.paletteEntries : 256;
+        if (useUniformPalette)
+        {
+            hr = palette->InitializePredefined(WICBitmapPaletteTypeWebPalette, FALSE);
+        }
+        else
+        {
+            hr = palette->InitializeFromBitmap(source.Get(), desiredEntries, FALSE);
+        }
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
@@ -2685,13 +3077,39 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             colors.resize(actual);
         }
 
-        const std::optional<BYTE> transparencyIndex = DetermineGifTransparency(info, colors, source.Get());
-
-        for (size_t i = 0; i < colors.size(); ++i)
+        const UINT requiredEntries = selection.paletteEntries > 0 ? selection.paletteEntries : static_cast<UINT>(colors.size());
+        if (requiredEntries > 0)
         {
-            const bool isTransparent = transparencyIndex.has_value() && i == transparencyIndex.value();
-            const WICColor rgb = colors[i] & 0x00FFFFFFu;
-            colors[i] = rgb | (isTransparent ? 0x00000000u : 0xFF000000u);
+            if (colors.empty())
+            {
+                colors.resize(requiredEntries, 0);
+            }
+            if (colors.size() < requiredEntries)
+            {
+                const WICColor fill = colors.empty() ? 0 : colors.back();
+                colors.resize(requiredEntries, fill);
+            }
+            else if (colors.size() > requiredEntries)
+            {
+                colors.resize(requiredEntries);
+            }
+        }
+
+        std::optional<BYTE> transparencyIndex;
+        if (mapping.container == GUID_ContainerFormatGif)
+        {
+            transparencyIndex = DetermineGifTransparency(info, colors, source.Get());
+            for (size_t i = 0; i < colors.size(); ++i)
+            {
+                const bool isTransparent = transparencyIndex.has_value() && i == transparencyIndex.value();
+                const WICColor rgb = colors[i] & 0x00FFFFFFu;
+                colors[i] = rgb | (isTransparent ? 0x00000000u : 0xFF000000u);
+            }
+        }
+        else if (selection.isGray && requiredEntries == 2 && colors.size() >= 2)
+        {
+            colors[0] = 0xFF000000u;
+            colors[1] = 0xFFFFFFFFu;
         }
 
         if (!colors.empty())
@@ -2709,6 +3127,33 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
+        if (metadataWriter && mapping.container == GUID_ContainerFormatGif)
+        {
+            PROPVARIANT prop;
+            PropVariantInit(&prop);
+            prop.vt = VT_BOOL;
+            prop.boolVal = transparencyIndex.has_value() ? VARIANT_TRUE : VARIANT_FALSE;
+            HRESULT metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparencyFlag", &prop);
+            PropVariantClear(&prop);
+            if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+            {
+                return HResultToPvCode(metaHr);
+            }
+
+            if (transparencyIndex.has_value())
+            {
+                PropVariantInit(&prop);
+                prop.vt = VT_UI2;
+                prop.uiVal = transparencyIndex.value();
+                metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparentColorIndex", &prop);
+                PropVariantClear(&prop);
+                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                {
+                    return HResultToPvCode(metaHr);
+                }
+            }
+        }
+
         Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
         hr = handle.backend->Factory()->CreateFormatConverter(&converter);
         if (FAILED(hr))
@@ -2716,59 +3161,64 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             return HResultToPvCode(hr);
         }
 
-        hr = converter->Initialize(source.Get(), GUID_WICPixelFormat8bppIndexed, WICBitmapDitherTypeErrorDiffusion,
-                                   palette.Get(), 0.0, WICBitmapPaletteTypeCustom);
+        const WICBitmapDitherType dither = useUniformPalette ? WICBitmapDitherTypeNone : WICBitmapDitherTypeErrorDiffusion;
+        hr = converter->Initialize(source.Get(), selection.pixelFormat, dither, palette.Get(), 0.0, WICBitmapPaletteTypeCustom);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
-        const UINT stride = targetWidth;
-        std::vector<BYTE> indexed(static_cast<size_t>(stride) * targetHeight);
+        const size_t bufferSize = static_cast<size_t>(encodedStride) * targetHeight;
+        std::vector<BYTE> indexed(bufferSize);
         if (!indexed.empty())
         {
-            hr = converter->CopyPixels(nullptr, stride, static_cast<UINT>(indexed.size()), indexed.data());
+            hr = converter->CopyPixels(nullptr, encodedStride, static_cast<UINT>(indexed.size()), indexed.data());
         }
         else
         {
-            hr = converter->CopyPixels(nullptr, stride, 0, nullptr);
+            hr = converter->CopyPixels(nullptr, encodedStride, 0, nullptr);
         }
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
         }
 
-        Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
-        if (SUCCEEDED(frameEncode->GetMetadataQueryWriter(&metadataWriter)) && metadataWriter)
-        {
-            PROPVARIANT prop;
-            PropVariantInit(&prop);
-            prop.vt = VT_BOOL;
-            prop.boolVal = transparencyIndex.has_value() ? VARIANT_TRUE : VARIANT_FALSE;
-            metadataWriter->SetMetadataByName(L"/grctlext/TransparencyFlag", &prop);
-            PropVariantClear(&prop);
-
-            if (transparencyIndex.has_value())
-            {
-                PropVariantInit(&prop);
-                prop.vt = VT_UI2;
-                prop.uiVal = transparencyIndex.value();
-                metadataWriter->SetMetadataByName(L"/grctlext/TransparentColorIndex", &prop);
-                PropVariantClear(&prop);
-            }
-        }
-
-        hr = frameEncode->WritePixels(targetHeight, stride, static_cast<UINT>(indexed.size()),
+        hr = frameEncode->WritePixels(targetHeight, encodedStride, indexed.empty() ? 0 : static_cast<UINT>(indexed.size()),
                                       indexed.empty() ? nullptr : indexed.data());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
     }
     else
     {
-        hr = frameEncode->WriteSource(source.Get(), nullptr);
-    }
+        Microsoft::WRL::ComPtr<IWICBitmapSource> finalSource = source;
+        if (selection.pixelFormat != GUID_WICPixelFormat32bppBGRA)
+        {
+            Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+            hr = handle.backend->Factory()->CreateFormatConverter(&converter);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+            const WICBitmapPaletteType paletteType = selection.isGray ? WICBitmapPaletteTypeGray256 : WICBitmapPaletteTypeCustom;
+            hr = converter->Initialize(source.Get(), selection.pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0, paletteType);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+            hr = converter.As(&finalSource);
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+        }
 
-    if (FAILED(hr))
-    {
-        return HResultToPvCode(hr);
+        hr = frameEncode->WriteSource(finalSource.Get(), nullptr);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
     }
 
     hr = frameEncode->Commit();
