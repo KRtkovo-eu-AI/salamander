@@ -3143,8 +3143,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             if (transparencyIndex.has_value())
             {
                 PropVariantInit(&prop);
-                prop.vt = VT_UI2;
-                prop.uiVal = transparencyIndex.value();
+                prop.vt = VT_UI1;
+                prop.bVal = static_cast<BYTE>(transparencyIndex.value());
                 metaHr = metadataWriter->SetMetadataByName(L"/grctlext/TransparentColorIndex", &prop);
                 PropVariantClear(&prop);
                 if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
