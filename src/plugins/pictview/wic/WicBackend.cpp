@@ -2988,24 +2988,25 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         paletteColors = std::move(colors);
     }
 
+    if (mapping.container == GUID_ContainerFormatGif && palette)
+    {
+        // The GIF encoder expects its global palette to be registered before any frames are
+        // negotiated so that the encoder advertises an indexed pixel format compatible with the
+        // chosen palette. Register it now, before creating the frame, to keep subsequent
+        // WritePixels calls from failing with WRONGSTATE.
+        hr = encoder->SetPalette(palette.Get());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+
     Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frameEncode;
     Microsoft::WRL::ComPtr<IPropertyBag2> bag;
     hr = encoder->CreateNewFrame(&frameEncode, &bag);
     if (FAILED(hr))
     {
         return HResultToPvCode(hr);
-    }
-
-    if (mapping.container == GUID_ContainerFormatGif && palette)
-    {
-        // The GIF encoder expects its global palette to be registered before the frame is
-        // initialized so it can negotiate pixel formats correctly. Set it up immediately after
-        // creating the frame to avoid WRONGSTATE errors when writing indexed data later on.
-        hr = encoder->SetPalette(palette.Get());
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
     }
 
     hr = bagWriter.Write(bag.Get());
