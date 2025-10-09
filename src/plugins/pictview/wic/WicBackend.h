@@ -32,6 +32,9 @@ struct FrameData
     UINT width = 0;
     UINT height = 0;
     UINT stride = 0;
+    UINT rawWidth = 0;
+    UINT rawHeight = 0;
+    UINT rawStride = 0;
     std::vector<BYTE> pixels;
     std::vector<BYTE> compositedPixels;
     std::vector<BYTE*> linePointers;
@@ -42,7 +45,15 @@ struct FrameData
     HBITMAP transparencyMask = nullptr;
     DWORD delayMs = 0;
     RECT rect{};
+    RECT gifFrameRect{};
     DWORD disposal = PVDM_UNDEFINED;
+    GUID sourcePixelFormat{};
+    DWORD reportedColors = PV_COLOR_TC32;
+    DWORD reportedBitDepth = 32;
+    DWORD colorModel = PVCM_RGB;
+    UINT paletteColorCount = 0;
+    UINT bitsPerPixel = 0;
+    bool hasGifFrameRect = false;
     bool decoded = false;
     bool hasTransparency = false;
 };
