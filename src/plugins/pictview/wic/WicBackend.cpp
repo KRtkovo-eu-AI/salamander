@@ -49,8 +49,6 @@ struct GuidMapping
     GUID pixelFormat;
 };
 
-class Backend;
-
 HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
 HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame);
 PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
