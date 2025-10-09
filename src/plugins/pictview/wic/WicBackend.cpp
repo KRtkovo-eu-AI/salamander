@@ -63,6 +63,7 @@ void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYT
 void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
                      BYTE a);
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
+void BlendStraightAlphaPixel(BYTE* dest, const BYTE* src);
 
 struct PixelFormatSelection
 {
@@ -1576,27 +1577,40 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     const LONG destTop = std::clamp(frame.rect.top, 0L, maxY);
     const LONG destRight = std::clamp(frame.rect.right, destLeft, maxX);
     const LONG destBottom = std::clamp(frame.rect.bottom, destTop, maxY);
-    const UINT copyWidth = std::min<UINT>(sourceWidth, destRight > destLeft ? static_cast<UINT>(destRight - destLeft) : 0u);
-    const UINT copyHeight =
-        std::min<UINT>(sourceHeight, destBottom > destTop ? static_cast<UINT>(destBottom - destTop) : 0u);
+    const LONG destWidthLong = destRight - destLeft;
+    const LONG destHeightLong = destBottom - destTop;
+    const UINT destWidth = destWidthLong > 0 ? static_cast<UINT>(destWidthLong) : 0u;
+    const UINT destHeight = destHeightLong > 0 ? static_cast<UINT>(destHeightLong) : 0u;
 
-    for (UINT y = 0; y < copyHeight; ++y)
+    if (sourceWidth > 0 && sourceHeight > 0 && destWidth > 0 && destHeight > 0)
     {
-        BYTE* destRow = handle.gifComposeCanvas.data() + (static_cast<size_t>(destTop) + y) * canvasStride +
-                        static_cast<size_t>(destLeft) * kBytesPerPixel;
-        const BYTE* srcRow = raw.data() + static_cast<size_t>(y) * sourceStride;
-        for (UINT x = 0; x < copyWidth; ++x)
+        const UINT srcXOffset =
+            (sourceWidth > destWidth)
+                ? std::min<UINT>(static_cast<UINT>(std::max<LONG>(0, frame.rect.left)), sourceWidth - destWidth)
+                : 0u;
+        const UINT srcYOffset =
+            (sourceHeight > destHeight)
+                ? std::min<UINT>(static_cast<UINT>(std::max<LONG>(0, frame.rect.top)), sourceHeight - destHeight)
+                : 0u;
+        const UINT copyWidth = std::min<UINT>(destWidth, sourceWidth - srcXOffset);
+        const UINT copyHeight = std::min<UINT>(destHeight, sourceHeight - srcYOffset);
+
+        for (UINT y = 0; y < copyHeight; ++y)
         {
-            const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
-            if (srcPixel[3] == 0)
+            BYTE* destRow = handle.gifComposeCanvas.data() + (static_cast<size_t>(destTop) + y) * canvasStride +
+                            static_cast<size_t>(destLeft) * kBytesPerPixel;
+            const BYTE* srcRow = raw.data() + (static_cast<size_t>(y) + srcYOffset) * sourceStride +
+                                 static_cast<size_t>(srcXOffset) * kBytesPerPixel;
+            for (UINT x = 0; x < copyWidth; ++x)
             {
-                continue;
+                const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
+                if (srcPixel[3] == 0)
+                {
+                    continue;
+                }
+                BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
+                BlendStraightAlphaPixel(destPixel, srcPixel);
             }
-            BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
-            destPixel[0] = srcPixel[0];
-            destPixel[1] = srcPixel[1];
-            destPixel[2] = srcPixel[2];
-            destPixel[3] = 255;
         }
     }
 
@@ -1820,6 +1834,67 @@ void ZeroTransparentPixels(std::vector<BYTE>& buffer)
             pixel[2] = 0;
         }
     }
+}
+
+void BlendStraightAlphaPixel(BYTE* dest, const BYTE* src)
+{
+    const BYTE srcAlpha = src[3];
+    if (srcAlpha == 0)
+    {
+        return;
+    }
+
+    if (srcAlpha == 255)
+    {
+        dest[0] = src[0];
+        dest[1] = src[1];
+        dest[2] = src[2];
+        dest[3] = 255;
+        return;
+    }
+
+    const BYTE destAlpha = dest[3];
+    if (destAlpha == 0)
+    {
+        dest[0] = src[0];
+        dest[1] = src[1];
+        dest[2] = src[2];
+        dest[3] = srcAlpha;
+        return;
+    }
+
+    const UINT invAlpha = 255u - static_cast<UINT>(srcAlpha);
+    const UINT srcBluePremult = static_cast<UINT>(src[0]) * srcAlpha;
+    const UINT srcGreenPremult = static_cast<UINT>(src[1]) * srcAlpha;
+    const UINT srcRedPremult = static_cast<UINT>(src[2]) * srcAlpha;
+
+    const UINT destBluePremult = static_cast<UINT>(dest[0]) * destAlpha;
+    const UINT destGreenPremult = static_cast<UINT>(dest[1]) * destAlpha;
+    const UINT destRedPremult = static_cast<UINT>(dest[2]) * destAlpha;
+
+    const UINT blendedBluePremult = srcBluePremult + (destBluePremult * invAlpha + 127u) / 255u;
+    const UINT blendedGreenPremult = srcGreenPremult + (destGreenPremult * invAlpha + 127u) / 255u;
+    const UINT blendedRedPremult = srcRedPremult + (destRedPremult * invAlpha + 127u) / 255u;
+
+    UINT blendedAlpha = srcAlpha + (destAlpha * invAlpha + 127u) / 255u;
+    if (blendedAlpha > 255u)
+    {
+        blendedAlpha = 255u;
+    }
+
+    if (blendedAlpha == 0)
+    {
+        dest[0] = 0;
+        dest[1] = 0;
+        dest[2] = 0;
+        dest[3] = 0;
+        return;
+    }
+
+    dest[0] = static_cast<BYTE>((blendedBluePremult + blendedAlpha / 2u) / blendedAlpha);
+    dest[1] = static_cast<BYTE>((blendedGreenPremult + blendedAlpha / 2u) / blendedAlpha);
+    dest[2] = static_cast<BYTE>((blendedRedPremult + blendedAlpha / 2u) / blendedAlpha);
+    dest[3] = static_cast<BYTE>(blendedAlpha);
 }
 
 HRESULT FinalizeDecodedFrame(FrameData& frame)
