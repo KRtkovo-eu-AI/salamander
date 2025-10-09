@@ -3325,6 +3325,38 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             {
                 if (gifMetadataWriter)
                 {
+                    if (gifMetadataWriter.Get() == encoderMetadataWriter.Get())
+                    {
+                        const UINT gifMaxDimension = static_cast<UINT>(std::numeric_limits<USHORT>::max());
+                        if (targetWidth > gifMaxDimension || targetHeight > gifMaxDimension)
+                        {
+                            return recordFailure(WINCODEC_ERR_INVALIDPARAMETER, "GIF Logical Screen too large");
+                        }
+
+                        PROPVARIANT prop;
+                        PropVariantInit(&prop);
+                        prop.vt = VT_UI2;
+                        prop.uiVal = static_cast<USHORT>(targetWidth);
+                        metaHr = gifMetadataWriter->SetMetadataByName(L"/logscrdesc/Width", &prop);
+                        PropVariantClear(&prop);
+                        if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
+                            metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                        {
+                            return recordFailure(metaHr, "Set GIF LogicalScreenWidth");
+                        }
+
+                        PropVariantInit(&prop);
+                        prop.vt = VT_UI2;
+                        prop.uiVal = static_cast<USHORT>(targetHeight);
+                        metaHr = gifMetadataWriter->SetMetadataByName(L"/logscrdesc/Height", &prop);
+                        PropVariantClear(&prop);
+                        if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
+                            metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                        {
+                            return recordFailure(metaHr, "Set GIF LogicalScreenHeight");
+                        }
+                    }
+
                     PROPVARIANT prop;
                     PropVariantInit(&prop);
                     prop.vt = VT_BSTR;
