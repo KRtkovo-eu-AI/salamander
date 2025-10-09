@@ -1480,35 +1480,20 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
 
     UINT targetWidth = width;
     UINT targetHeight = height;
-    WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
-
-    if (frame.rawWidth > 0 && frame.rawHeight > 0 &&
-        (frame.rawWidth <= width && frame.rawHeight <= height))
+    if (frame.rawWidth > 0 && frame.rawWidth <= width)
     {
         targetWidth = frame.rawWidth;
+    }
+    if (frame.rawHeight > 0 && frame.rawHeight <= height)
+    {
         targetHeight = frame.rawHeight;
-        rect.Width = static_cast<INT>(targetWidth);
-        rect.Height = static_cast<INT>(targetHeight);
     }
 
-    if (frame.hasGifFrameRect)
-    {
-        const LONG clampedLeft = std::clamp(frame.gifFrameRect.left, 0L, static_cast<LONG>(width));
-        const LONG clampedTop = std::clamp(frame.gifFrameRect.top, 0L, static_cast<LONG>(height));
-        const LONG clampedRight = std::clamp(frame.gifFrameRect.right, clampedLeft, static_cast<LONG>(width));
-        const LONG clampedBottom = std::clamp(frame.gifFrameRect.bottom, clampedTop, static_cast<LONG>(height));
-        const LONG rectWidth = std::max<LONG>(0, clampedRight - clampedLeft);
-        const LONG rectHeight = std::max<LONG>(0, clampedBottom - clampedTop);
-        if (rectWidth > 0 && rectHeight > 0)
-        {
-            rect.X = static_cast<INT>(clampedLeft);
-            rect.Y = static_cast<INT>(clampedTop);
-            rect.Width = static_cast<INT>(rectWidth);
-            rect.Height = static_cast<INT>(rectHeight);
-            targetWidth = static_cast<UINT>(rectWidth);
-            targetHeight = static_cast<UINT>(rectHeight);
-        }
-    }
+    WICRect rect{};
+    rect.X = 0;
+    rect.Y = 0;
+    rect.Width = static_cast<INT>(targetWidth);
+    rect.Height = static_cast<INT>(targetHeight);
 
     hr = AllocatePixelStorage(frame, targetWidth, targetHeight);
     if (FAILED(hr))
@@ -1703,6 +1688,15 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
 
     frame.rect = compositedRect;
+    if (frame.hasGifFrameRect)
+    {
+        frame.gifFrameRect = compositedRect;
+    }
+    else
+    {
+        frame.gifFrameRect = compositedRect;
+        frame.hasGifFrameRect = true;
+    }
 
     frame.width = canvasWidth;
     frame.height = canvasHeight;
