@@ -35,6 +35,7 @@ struct FrameData
     std::vector<BYTE> pixels;
     std::vector<BYTE*> linePointers;
     std::vector<RGBQUAD> palette;
+    std::vector<BYTE> disposalBuffer;
     BITMAPINFOHEADER bmi{};
     HBITMAP hbitmap = nullptr;
     HBITMAP transparencyMask = nullptr;
@@ -61,6 +62,7 @@ struct ImageHandle
     bool hasFormatSpecificInfo = false;
     LONG canvasWidth = 0;
     LONG canvasHeight = 0;
+    bool gifHasBackgroundColor = false;
 };
 
 /**

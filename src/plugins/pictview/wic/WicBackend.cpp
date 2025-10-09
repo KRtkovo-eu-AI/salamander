@@ -58,6 +58,10 @@ DWORD MapGifDisposalToPv(UINT disposal);
 LONG ClampUnsignedToLong(ULONGLONG value);
 HRESULT EnsureTransparencyMask(FrameData& frame);
 DWORD MapPixelFormatToColors(const GUID& guid);
+HRESULT CompositeGifFrame(ImageHandle& handle, size_t index);
+void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYTE r, BYTE g, BYTE b, BYTE a);
+void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
+                     BYTE a);
 
 struct PixelFormatSelection
 {
@@ -1455,6 +1459,163 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
     return S_OK;
 }
 
+HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
+{
+    if (index >= handle.frames.size())
+    {
+        return E_INVALIDARG;
+    }
+
+    FrameData& frame = handle.frames[index];
+    const LONG canvasWidthLong = handle.canvasWidth > 0 ? handle.canvasWidth : static_cast<LONG>(frame.width);
+    const LONG canvasHeightLong = handle.canvasHeight > 0 ? handle.canvasHeight : static_cast<LONG>(frame.height);
+    if (canvasWidthLong <= 0 || canvasHeightLong <= 0)
+    {
+        return WINCODEC_ERR_INVALIDPARAMETER;
+    }
+
+    const UINT canvasWidth = static_cast<UINT>(canvasWidthLong);
+    const UINT canvasHeight = static_cast<UINT>(canvasHeightLong);
+    const size_t canvasStride = static_cast<size_t>(canvasWidth) * kBytesPerPixel;
+    const size_t canvasBytes = canvasStride * static_cast<size_t>(canvasHeight);
+
+    std::vector<BYTE> composed;
+    if (index > 0)
+    {
+        FrameData& previous = handle.frames[index - 1];
+        if (!previous.decoded)
+        {
+            return E_FAIL;
+        }
+        try
+        {
+            composed = previous.pixels;
+        }
+        catch (const std::bad_alloc&)
+        {
+            return E_OUTOFMEMORY;
+        }
+
+        if (previous.disposal == PVDM_PREVIOUS)
+        {
+            if (!previous.disposalBuffer.empty())
+            {
+                try
+                {
+                    composed = previous.disposalBuffer;
+                }
+                catch (const std::bad_alloc&)
+                {
+                    return E_OUTOFMEMORY;
+                }
+            }
+            else
+            {
+                composed.clear();
+            }
+        }
+        else if (previous.disposal == PVDM_BACKGROUND)
+        {
+            if (composed.size() != canvasBytes)
+            {
+                HRESULT hr = AllocateBuffer(composed, canvasBytes);
+                if (FAILED(hr))
+                {
+                    return hr;
+                }
+                FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
+                                    GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
+                                    handle.gifHasBackgroundColor ? 255 : 0);
+            }
+            ClearBufferRect(composed, canvasWidth, canvasHeight, previous.rect,
+                            GetRValue(handle.formatInfo.GIF.BgColor), GetGValue(handle.formatInfo.GIF.BgColor),
+                            GetBValue(handle.formatInfo.GIF.BgColor), handle.gifHasBackgroundColor ? 255 : 0);
+        }
+
+        if (composed.size() != canvasBytes)
+        {
+            HRESULT hr = AllocateBuffer(composed, canvasBytes);
+            if (FAILED(hr))
+            {
+                return hr;
+            }
+            FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
+                                GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
+                                handle.gifHasBackgroundColor ? 255 : 0);
+        }
+    }
+    else
+    {
+        HRESULT hr = AllocateBuffer(composed, canvasBytes);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+        FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
+                            GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
+                            handle.gifHasBackgroundColor ? 255 : 0);
+    }
+
+    const UINT sourceWidth = frame.width;
+    const UINT sourceHeight = frame.height;
+    const UINT sourceStride = frame.stride;
+    std::vector<BYTE> raw;
+    raw.swap(frame.pixels);
+
+    if (frame.disposal == PVDM_PREVIOUS)
+    {
+        try
+        {
+            frame.disposalBuffer = composed;
+        }
+        catch (const std::bad_alloc&)
+        {
+            return E_OUTOFMEMORY;
+        }
+    }
+    else
+    {
+        frame.disposalBuffer.clear();
+    }
+
+    const LONG maxX = static_cast<LONG>(canvasWidth);
+    const LONG maxY = static_cast<LONG>(canvasHeight);
+    const LONG destLeft = std::clamp(frame.rect.left, 0L, maxX);
+    const LONG destTop = std::clamp(frame.rect.top, 0L, maxY);
+    const LONG destRight = std::clamp(frame.rect.right, destLeft, maxX);
+    const LONG destBottom = std::clamp(frame.rect.bottom, destTop, maxY);
+    const UINT copyWidth = std::min<UINT>(sourceWidth, destRight > destLeft ? static_cast<UINT>(destRight - destLeft) : 0u);
+    const UINT copyHeight =
+        std::min<UINT>(sourceHeight, destBottom > destTop ? static_cast<UINT>(destBottom - destTop) : 0u);
+
+    const size_t destStride = canvasStride;
+    for (UINT y = 0; y < copyHeight; ++y)
+    {
+        BYTE* destRow = composed.data() + (static_cast<size_t>(destTop) + y) * destStride +
+                        static_cast<size_t>(destLeft) * kBytesPerPixel;
+        const BYTE* srcRow = raw.data() + static_cast<size_t>(y) * sourceStride;
+        for (UINT x = 0; x < copyWidth; ++x)
+        {
+            const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
+            if (srcPixel[3] == 0)
+            {
+                continue;
+            }
+            BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
+            destPixel[0] = srcPixel[0];
+            destPixel[1] = srcPixel[1];
+            destPixel[2] = srcPixel[2];
+            destPixel[3] = srcPixel[3];
+        }
+    }
+
+    frame.width = canvasWidth;
+    frame.height = canvasHeight;
+    frame.stride = static_cast<UINT>(canvasStride);
+    frame.pixels.swap(composed);
+    return S_OK;
+}
+
 HRESULT EnsureTransparencyMask(FrameData& frame)
 {
     if (frame.transparencyMask)
@@ -1572,6 +1733,61 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
     frame.transparencyMask = mask;
     frame.hasTransparency = true;
     return S_OK;
+}
+
+void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYTE r, BYTE g, BYTE b, BYTE a)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+    const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = buffer.data() + static_cast<size_t>(y) * stride;
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * 4;
+            pixel[0] = b;
+            pixel[1] = g;
+            pixel[2] = r;
+            pixel[3] = a;
+        }
+    }
+}
+
+void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
+                     BYTE a)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    const LONG maxX = static_cast<LONG>(width);
+    const LONG maxY = static_cast<LONG>(height);
+    const LONG left = std::clamp(rect.left, 0L, maxX);
+    const LONG top = std::clamp(rect.top, 0L, maxY);
+    const LONG right = std::clamp(rect.right, left, maxX);
+    const LONG bottom = std::clamp(rect.bottom, top, maxY);
+    if (right <= left || bottom <= top)
+    {
+        return;
+    }
+
+    const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
+    for (LONG y = top; y < bottom; ++y)
+    {
+        BYTE* row = buffer.data() + static_cast<size_t>(y) * stride + static_cast<size_t>(left) * 4;
+        for (LONG x = left; x < right; ++x)
+        {
+            row[0] = b;
+            row[1] = g;
+            row[2] = r;
+            row[3] = a;
+            row += 4;
+        }
+    }
 }
 
 HRESULT FinalizeDecodedFrame(FrameData& frame)
@@ -1874,6 +2090,15 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return S_OK;
     }
 
+    if (handle.baseInfo.Format == PVF_GIF && index > 0)
+    {
+        HRESULT previousHr = DecodeFrame(handle, index - 1);
+        if (FAILED(previousHr))
+        {
+            return previousHr;
+        }
+    }
+
     HRESULT hr = EnsureConverter(handle, index);
     if (FAILED(hr))
     {
@@ -1894,6 +2119,15 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
     if (FAILED(hr))
     {
         return hr;
+    }
+
+    if (handle.baseInfo.Format == PVF_GIF)
+    {
+        hr = CompositeGifFrame(handle, index);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
     }
 
     return FinalizeDecodedFrame(frame);
@@ -2222,6 +2456,7 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     }
 
     COLORREF backgroundColor = RGB(0, 0, 0);
+    handle.gifHasBackgroundColor = false;
     if (hasBackgroundIndex)
     {
         ComPtr<IWICPalette> palette;
@@ -2242,6 +2477,7 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
                         const BYTE g = static_cast<BYTE>((color >> 8) & 0xFF);
                         const BYTE b = static_cast<BYTE>(color & 0xFF);
                         backgroundColor = RGB(r, g, b);
+                        handle.gifHasBackgroundColor = true;
                     }
                 }
             }
@@ -3996,6 +4232,7 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     frame.height = newHeight;
     frame.stride = frame.width * 4;
     frame.pixels.swap(rotated);
+    frame.disposalBuffer.clear();
     HRESULT finalizeHr = FinalizeDecodedFrame(frame);
     if (FAILED(finalizeHr))
     {
@@ -4073,6 +4310,7 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     frame.height = static_cast<UINT>(height);
     frame.stride = newStride;
     frame.pixels.swap(cropped);
+    frame.disposalBuffer.clear();
     HRESULT finalizeHr = FinalizeDecodedFrame(frame);
     if (FAILED(finalizeHr))
     {
