@@ -64,6 +64,7 @@ struct FrameData
     bool hasTransparency = false;
     bool useIndexedPixels = false;
     bool allowIndexedDisplay = true;
+    bool realizePalette = false;
 };
 
 struct ImageHandle

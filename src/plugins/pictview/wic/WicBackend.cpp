@@ -1138,6 +1138,7 @@ HRESULT PopulateFrameFromBitmapHandle(Backend& backend, FrameData& frame, HBITMA
     frame.colorModel = PVCM_RGB;
     frame.reportedColors = DetermineColorCount(frame.sourcePixelFormat, frame.bitsPerPixel, frame.paletteColorCount,
                                               frame.colorModel);
+    frame.realizePalette = false;
     frame.hasGifFrameRect = false;
     frame.gifFrameRect.left = 0;
     frame.gifFrameRect.top = 0;
@@ -1733,17 +1734,11 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         frame.indexedPixels.clear();
         frame.indexedStride = 0;
         frame.indexedBmi = BITMAPINFOHEADER{};
-        frame.bitsPerPixel = 32;
-        frame.reportedBitDepth = 32;
-        frame.reportedColors = PV_COLOR_TC32;
-        frame.colorModel = PVCM_RGB;
-        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
-        frame.paletteColorCount = 0;
-        frame.palette.clear();
-        if (frame.paletteHandle)
+        frame.displayBmi = BITMAPINFOHEADER{};
+        frame.displayStride = 0;
+        if (frame.paletteColorCount > 0)
         {
-            DeleteObject(frame.paletteHandle);
-            frame.paletteHandle = nullptr;
+            frame.realizePalette = true;
         }
     }
     return S_OK;
@@ -2126,12 +2121,12 @@ private:
 
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
 {
-    frame.palette.clear();
     if (frame.paletteHandle)
     {
         DeleteObject(frame.paletteHandle);
         frame.paletteHandle = nullptr;
     }
+    frame.palette.clear();
 
     frame.useIndexedPixels = false;
     frame.indexedPixels.clear();
@@ -2140,23 +2135,23 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
     frame.displayBmi = BITMAPINFOHEADER{};
     frame.displayStride = 0;
 
-    if (!frame.allowIndexedDisplay)
+    const bool needPalette = frame.allowIndexedDisplay || frame.realizePalette;
+    if (!needPalette)
     {
         frame.paletteColorCount = 0;
-        frame.reportedColors = PV_COLOR_TC32;
-        frame.reportedBitDepth = 32;
-        frame.bitsPerPixel = 32;
-        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
         return S_OK;
     }
 
     if (!factory || !frame.frame)
     {
+        frame.paletteColorCount = 0;
+        frame.realizePalette = false;
         return S_OK;
     }
 
     if (frame.paletteColorCount == 0 && frame.bitsPerPixel > 8)
     {
+        frame.realizePalette = false;
         return S_OK;
     }
 
@@ -2173,6 +2168,7 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
         if (IsPaletteUnavailable(hr))
         {
             frame.paletteColorCount = 0;
+            frame.realizePalette = false;
             return S_OK;
         }
         return hr;
@@ -2187,6 +2183,7 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
     if (colorCount == 0)
     {
         frame.paletteColorCount = 0;
+        frame.realizePalette = false;
         return S_OK;
     }
 
@@ -2234,11 +2231,14 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
             return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
         }
     }
+
     if (frame.bitsPerPixel > 0)
     {
         frame.reportedColors =
             DetermineColorCount(frame.sourcePixelFormat, frame.bitsPerPixel, frame.paletteColorCount, frame.colorModel);
     }
+
+    frame.realizePalette = frame.realizePalette && frame.paletteColorCount > 0;
     return S_OK;
 }
 
@@ -3663,6 +3663,7 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
                                                  data.colorModel);
         const bool palettedSource = (data.bitsPerPixel > 0 && data.bitsPerPixel <= 8 && data.paletteColorCount > 0);
         data.allowIndexedDisplay = palettedSource;
+        data.realizePalette = palettedSource;
 
         data.delayMs = GetFrameDelayMilliseconds(data.frame.Get());
         if (frameCount > 1 && data.delayMs == 0)
@@ -3934,7 +3935,8 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         bmiPtr = &bmi;
     }
 
-    PaletteSelector paletteScope(dc, frame.paletteHandle, useIndexed);
+    const bool realizePalette = useIndexed || (frame.realizePalette && frame.paletteHandle);
+    PaletteSelector paletteScope(dc, frame.paletteHandle, realizePalette);
 
     const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
     const int destY = stretchHeightSigned >= 0 ? imageRect.top : imageRect.bottom - 1;
@@ -5358,12 +5360,13 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     PVImageHandles& handles = handle->handles;
     ZeroMemory(&handles, sizeof(PVImageHandles));
     const bool hasIndexedPixels = frame.useIndexedPixels && !frame.indexedPixels.empty();
+    const bool providePaletteHandle = hasIndexedPixels || (frame.realizePalette && frame.paletteHandle);
 
     handles.TransparentHandle = frame.hasTransparency ? frame.transparencyMask : nullptr;
     handles.TransparentBackgroundHandle = frame.hbitmap;
     handles.StretchedHandle = frame.hbitmap;
     handles.StretchedTransparentHandle = frame.hbitmap;
-    handles.HPal = hasIndexedPixels ? frame.paletteHandle : nullptr;
+    handles.HPal = providePaletteHandle ? frame.paletteHandle : nullptr;
     handles.Palette = frame.palette.empty() ? nullptr : frame.palette.data();
     handles.pLines = frame.linePointers.empty() ? nullptr : frame.linePointers.data();
     *pHandles = &handles;
