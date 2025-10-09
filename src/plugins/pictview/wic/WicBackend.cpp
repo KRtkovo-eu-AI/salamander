@@ -1571,43 +1571,42 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     std::vector<BYTE> raw;
     raw.swap(frame.pixels);
 
-    const LONG maxX = static_cast<LONG>(canvasWidth);
-    const LONG maxY = static_cast<LONG>(canvasHeight);
-    const LONG destLeft = std::clamp(frame.rect.left, 0L, maxX);
-    const LONG destTop = std::clamp(frame.rect.top, 0L, maxY);
-    const LONG destRight = std::clamp(frame.rect.right, destLeft, maxX);
-    const LONG destBottom = std::clamp(frame.rect.bottom, destTop, maxY);
-    const LONG destWidthLong = destRight - destLeft;
-    const LONG destHeightLong = destBottom - destTop;
-    const UINT destWidth = destWidthLong > 0 ? static_cast<UINT>(destWidthLong) : 0u;
-    const UINT destHeight = destHeightLong > 0 ? static_cast<UINT>(destHeightLong) : 0u;
+    const LONGLONG destLeft64 = static_cast<LONGLONG>(frame.rect.left);
+    const LONGLONG destTop64 = static_cast<LONGLONG>(frame.rect.top);
+    const LONGLONG destRight64 = destLeft64 + static_cast<LONGLONG>(sourceWidth);
+    const LONGLONG destBottom64 = destTop64 + static_cast<LONGLONG>(sourceHeight);
 
-    if (sourceWidth > 0 && sourceHeight > 0 && destWidth > 0 && destHeight > 0)
+    const LONGLONG canvasWidth64 = static_cast<LONGLONG>(canvasWidth);
+    const LONGLONG canvasHeight64 = static_cast<LONGLONG>(canvasHeight);
+
+    const LONGLONG startX64 = std::max<LONGLONG>(0, destLeft64);
+    const LONGLONG startY64 = std::max<LONGLONG>(0, destTop64);
+    const LONGLONG endX64 = std::min<LONGLONG>(canvasWidth64, destRight64);
+    const LONGLONG endY64 = std::min<LONGLONG>(canvasHeight64, destBottom64);
+
+    if (sourceWidth > 0 && sourceHeight > 0 && startX64 < endX64 && startY64 < endY64)
     {
-        const UINT srcXOffset =
-            (sourceWidth > destWidth)
-                ? std::min<UINT>(static_cast<UINT>(std::max<LONG>(0, frame.rect.left)), sourceWidth - destWidth)
-                : 0u;
-        const UINT srcYOffset =
-            (sourceHeight > destHeight)
-                ? std::min<UINT>(static_cast<UINT>(std::max<LONG>(0, frame.rect.top)), sourceHeight - destHeight)
-                : 0u;
-        const UINT copyWidth = std::min<UINT>(destWidth, sourceWidth - srcXOffset);
-        const UINT copyHeight = std::min<UINT>(destHeight, sourceHeight - srcYOffset);
+        const LONG startX = static_cast<LONG>(startX64);
+        const LONG startY = static_cast<LONG>(startY64);
+        const LONG endX = static_cast<LONG>(endX64);
+        const LONG endY = static_cast<LONG>(endY64);
 
-        for (UINT y = 0; y < copyHeight; ++y)
+        for (LONG y = startY; y < endY; ++y)
         {
-            BYTE* destRow = handle.gifComposeCanvas.data() + (static_cast<size_t>(destTop) + y) * canvasStride +
-                            static_cast<size_t>(destLeft) * kBytesPerPixel;
-            const BYTE* srcRow = raw.data() + (static_cast<size_t>(y) + srcYOffset) * sourceStride +
-                                 static_cast<size_t>(srcXOffset) * kBytesPerPixel;
-            for (UINT x = 0; x < copyWidth; ++x)
+            const size_t destYOffset = static_cast<size_t>(y) * canvasStride;
+            const size_t srcY = static_cast<size_t>(static_cast<LONGLONG>(y) - destTop64);
+            const BYTE* srcRow = raw.data() + srcY * sourceStride;
+            BYTE* destRow = handle.gifComposeCanvas.data() + destYOffset;
+
+            for (LONG x = startX; x < endX; ++x)
             {
-                const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
+                const size_t srcX = static_cast<size_t>(static_cast<LONGLONG>(x) - destLeft64);
+                const BYTE* srcPixel = srcRow + srcX * kBytesPerPixel;
                 if (srcPixel[3] == 0)
                 {
                     continue;
                 }
+
                 BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
                 BlendStraightAlphaPixel(destPixel, srcPixel);
             }
