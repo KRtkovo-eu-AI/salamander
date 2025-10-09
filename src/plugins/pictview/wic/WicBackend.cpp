@@ -1531,11 +1531,12 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
                 }
                 FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
                                     GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
-                                    handle.gifHasBackgroundColor ? 255 : 0);
+                                    handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
             }
             ClearBufferRect(composed, canvasWidth, canvasHeight, previous.rect,
                             GetRValue(handle.formatInfo.GIF.BgColor), GetGValue(handle.formatInfo.GIF.BgColor),
-                            GetBValue(handle.formatInfo.GIF.BgColor), handle.gifHasBackgroundColor ? 255 : 0);
+                            GetBValue(handle.formatInfo.GIF.BgColor),
+                            handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
         }
 
         if (composed.size() != canvasBytes)
@@ -1547,7 +1548,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
             }
             FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
                                 GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
-                                handle.gifHasBackgroundColor ? 255 : 0);
+                                handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
         }
     }
     else
@@ -1559,7 +1560,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         }
         FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
                             GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
-                            handle.gifHasBackgroundColor ? 255 : 0);
+                            handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
     }
 
     const UINT sourceWidth = frame.width;
@@ -2473,6 +2474,7 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
 
     COLORREF backgroundColor = RGB(0, 0, 0);
     handle.gifHasBackgroundColor = false;
+    handle.gifBackgroundAlpha = 0;
     if (hasBackgroundIndex)
     {
         ComPtr<IWICPalette> palette;
@@ -2489,11 +2491,13 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
                         actualCount > backgroundIndex)
                     {
                         const WICColor color = colors[backgroundIndex];
+                        const BYTE a = static_cast<BYTE>((color >> 24) & 0xFF);
                         const BYTE r = static_cast<BYTE>((color >> 16) & 0xFF);
                         const BYTE g = static_cast<BYTE>((color >> 8) & 0xFF);
                         const BYTE b = static_cast<BYTE>(color & 0xFF);
                         backgroundColor = RGB(r, g, b);
                         handle.gifHasBackgroundColor = true;
+                        handle.gifBackgroundAlpha = a;
                     }
                 }
             }

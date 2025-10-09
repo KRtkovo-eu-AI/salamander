@@ -64,6 +64,7 @@ struct ImageHandle
     LONG canvasWidth = 0;
     LONG canvasHeight = 0;
     bool gifHasBackgroundColor = false;
+    BYTE gifBackgroundAlpha = 0;
 };
 
 /**
