@@ -2171,10 +2171,6 @@ HRESULT BuildIndexedPixelBuffer(FrameData& frame)
     frame.indexedStride = 0;
     frame.indexedBmi = BITMAPINFOHEADER{};
 
-    if (frame.paletteColorCount == 0 || frame.palette.empty())
-    {
-        return S_FALSE;
-    }
     if (frame.bitsPerPixel > 8)
     {
         return S_FALSE;
@@ -2201,58 +2197,91 @@ HRESULT BuildIndexedPixelBuffer(FrameData& frame)
     }
 
     std::unordered_map<DWORD, BYTE> colorToIndex;
-    colorToIndex.reserve(frame.palette.size());
-    int transparentIndex = -1;
-    for (size_t i = 0; i < frame.palette.size(); ++i)
-    {
-        const RGBQUAD& quad = frame.palette[i];
-        const BYTE alpha = quad.rgbReserved >= 128 ? 0xFF : 0x00;
-        const DWORD key = (static_cast<DWORD>(alpha) << 24) | (static_cast<DWORD>(quad.rgbRed) << 16) |
-                          (static_cast<DWORD>(quad.rgbGreen) << 8) | static_cast<DWORD>(quad.rgbBlue);
-        if (colorToIndex.find(key) == colorToIndex.end())
-        {
-            colorToIndex.emplace(key, static_cast<BYTE>(i));
-        }
-        if (alpha == 0 && transparentIndex < 0)
-        {
-            transparentIndex = static_cast<int>(i);
-        }
-    }
+    colorToIndex.reserve(std::min<size_t>(frame.paletteColorCount != 0 ? frame.paletteColorCount : 256u, 256u));
+    std::vector<RGBQUAD> paletteFromPixels;
+    paletteFromPixels.reserve(256);
 
-    const size_t sourceStride = frame.stride;
+    const BYTE* srcBase = frame.pixels.data();
     for (UINT y = 0; y < frame.height; ++y)
     {
-        const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * sourceStride;
+        const BYTE* srcRow = srcBase + static_cast<size_t>(y) * frame.stride;
         BYTE* dstRow = frame.indexedPixels.data() + static_cast<size_t>(y) * alignedStride;
         for (UINT x = 0; x < frame.width; ++x)
         {
             const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
-            const BYTE alpha = srcPixel[3] >= 128 ? 0xFF : 0x00;
+            const BYTE alpha = srcPixel[3];
             const DWORD key = (static_cast<DWORD>(alpha) << 24) | (static_cast<DWORD>(srcPixel[2]) << 16) |
                               (static_cast<DWORD>(srcPixel[1]) << 8) | static_cast<DWORD>(srcPixel[0]);
+
+            BYTE paletteIndex = 0;
             auto it = colorToIndex.find(key);
             if (it == colorToIndex.end())
             {
-                if (alpha == 0 && transparentIndex >= 0)
-                {
-                    dstRow[x] = static_cast<BYTE>(transparentIndex);
-                }
-                else
+                if (colorToIndex.size() >= 256)
                 {
                     frame.indexedPixels.clear();
                     frame.indexedStride = 0;
                     return S_FALSE;
                 }
+
+                paletteIndex = static_cast<BYTE>(colorToIndex.size());
+                colorToIndex.emplace(key, paletteIndex);
+
+                RGBQUAD quad{};
+                quad.rgbBlue = srcPixel[0];
+                quad.rgbGreen = srcPixel[1];
+                quad.rgbRed = srcPixel[2];
+                quad.rgbReserved = alpha;
+                paletteFromPixels.push_back(quad);
             }
             else
             {
-                dstRow[x] = it->second;
+                paletteIndex = it->second;
             }
+
+            dstRow[x] = paletteIndex;
         }
+
         if (alignedStride > static_cast<size_t>(frame.width))
         {
             memset(dstRow + frame.width, 0, alignedStride - static_cast<size_t>(frame.width));
         }
+    }
+
+    if (!paletteFromPixels.empty())
+    {
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+
+        frame.palette = paletteFromPixels;
+        frame.paletteColorCount = static_cast<UINT>(frame.palette.size());
+
+        HPALETTE newPaletteHandle = CreateGdiPalette(frame.palette);
+        if (!frame.palette.empty() && !newPaletteHandle)
+        {
+            const DWORD error = GetLastError();
+            return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
+        }
+        frame.paletteHandle = newPaletteHandle;
+    }
+    else
+    {
+        frame.palette.clear();
+        frame.paletteColorCount = 0;
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+    }
+
+    if (frame.bitsPerPixel > 0)
+    {
+        frame.reportedColors =
+            DetermineColorCount(frame.sourcePixelFormat, frame.bitsPerPixel, frame.paletteColorCount, frame.colorModel);
     }
 
     frame.useIndexedPixels = true;
@@ -2273,6 +2302,7 @@ HRESULT BuildIndexedPixelBuffer(FrameData& frame)
     frame.indexedBmi.biClrImportant = paletteUsed;
     return S_OK;
 }
+
 
 HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap)
 {
