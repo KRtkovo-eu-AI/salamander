@@ -3307,10 +3307,51 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
-    if (FAILED(hr))
+    if (encoderIsIndexed)
     {
-        return HResultToPvCode(hr);
+        if (encodedStride == 0)
+        {
+            return PVC_INVALID_DIMENSIONS;
+        }
+
+        const size_t totalSize = static_cast<size_t>(encodedStride) * targetHeight;
+        if (totalSize / encodedStride != targetHeight ||
+            totalSize > static_cast<size_t>(std::numeric_limits<UINT>::max()))
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        std::vector<BYTE> indexedPixels;
+        try
+        {
+            indexedPixels.resize(totalSize);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return PVC_OUT_OF_MEMORY;
+        }
+
+        hr = frameSource->CopyPixels(nullptr, encodedStride, static_cast<UINT>(indexedPixels.size()),
+                                      indexedPixels.data());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+
+        hr = frameEncode->WritePixels(targetHeight, encodedStride, static_cast<UINT>(indexedPixels.size()),
+                                      indexedPixels.data());
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
+    }
+    else
+    {
+        hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
+        if (FAILED(hr))
+        {
+            return HResultToPvCode(hr);
+        }
     }
 
     hr = frameEncode->Commit();
