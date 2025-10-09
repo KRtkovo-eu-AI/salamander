@@ -64,6 +64,7 @@ void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const R
                      BYTE a);
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
 void BlendStraightPixel(BYTE* dest, const BYTE* src);
+HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap);
 DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel);
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
@@ -1986,6 +1987,169 @@ void BlendStraightPixel(BYTE* dest, const BYTE* src)
     dest[3] = static_cast<BYTE>(std::min<unsigned int>(outAlpha, 255u));
 }
 
+HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap)
+{
+    colorBitmap = nullptr;
+    maskBitmap = nullptr;
+
+    if (frame.pixels.empty() || frame.stride == 0 || frame.width == 0 || frame.height == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    const LONG maxWidth = static_cast<LONG>(frame.width);
+    const LONG maxHeight = static_cast<LONG>(frame.height);
+
+    const LONG left = std::clamp(rect.left, 0L, maxWidth);
+    const LONG top = std::clamp(rect.top, 0L, maxHeight);
+    const LONG right = std::clamp(rect.right, left, maxWidth);
+    const LONG bottom = std::clamp(rect.bottom, top, maxHeight);
+
+    const LONG visibleWidth = right - left;
+    const LONG visibleHeight = bottom - top;
+    const LONG bitmapWidth = std::max<LONG>(visibleWidth, 1);
+    const LONG bitmapHeight = std::max<LONG>(visibleHeight, 1);
+
+    const size_t dstStride = static_cast<size_t>(bitmapWidth) * kBytesPerPixel;
+    const size_t bitmapSize = dstStride * static_cast<size_t>(bitmapHeight);
+
+    BITMAPINFO colorInfo{};
+    colorInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    colorInfo.bmiHeader.biWidth = bitmapWidth;
+    colorInfo.bmiHeader.biHeight = -bitmapHeight;
+    colorInfo.bmiHeader.biPlanes = 1;
+    colorInfo.bmiHeader.biBitCount = 32;
+    colorInfo.bmiHeader.biCompression = BI_RGB;
+    colorInfo.bmiHeader.biSizeImage = bitmapSize > std::numeric_limits<DWORD>::max() ? 0
+                                                                               : static_cast<DWORD>(bitmapSize);
+
+    void* colorBits = nullptr;
+    HBITMAP color = CreateDIBSection(nullptr, &colorInfo, DIB_RGB_COLORS, &colorBits, nullptr, 0);
+    if (!color || !colorBits)
+    {
+        if (color)
+        {
+            DeleteObject(color);
+        }
+        return E_OUTOFMEMORY;
+    }
+
+    BYTE* dstBase = reinterpret_cast<BYTE*>(colorBits);
+    memset(dstBase, 0, bitmapSize);
+
+    if (visibleWidth > 0 && visibleHeight > 0)
+    {
+        for (LONG y = 0; y < visibleHeight; ++y)
+        {
+            const BYTE* srcRow = frame.pixels.data() +
+                                 (static_cast<size_t>(top + y) * frame.stride) +
+                                 static_cast<size_t>(left) * kBytesPerPixel;
+            BYTE* dstRow = dstBase + static_cast<size_t>(y) * dstStride;
+            memcpy(dstRow, srcRow, static_cast<size_t>(visibleWidth) * kBytesPerPixel);
+        }
+    }
+
+    const ULONGLONG maskStride64 = ((static_cast<ULONGLONG>(bitmapWidth) + 7ull) / 8ull + 3ull) & ~3ull;
+    if (maskStride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        DeleteObject(color);
+        return E_OUTOFMEMORY;
+    }
+    const UINT maskStride = static_cast<UINT>(maskStride64);
+    const ULONGLONG maskSize64 = maskStride64 * static_cast<ULONGLONG>(bitmapHeight);
+    if (bitmapHeight != 0 && maskSize64 / bitmapHeight != maskStride64)
+    {
+        DeleteObject(color);
+        return E_OUTOFMEMORY;
+    }
+    if (maskSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        DeleteObject(color);
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> maskBuffer;
+    HRESULT hr = AllocateBuffer(maskBuffer, static_cast<size_t>(maskSize64));
+    if (FAILED(hr))
+    {
+        DeleteObject(color);
+        return hr;
+    }
+    memset(maskBuffer.data(), 0, maskBuffer.size());
+
+    bool hasTransparency = false;
+    if (visibleWidth > 0 && visibleHeight > 0)
+    {
+        for (LONG y = 0; y < visibleHeight; ++y)
+        {
+            const BYTE* srcRow = frame.pixels.data() +
+                                 (static_cast<size_t>(top + y) * frame.stride) +
+                                 static_cast<size_t>(left) * kBytesPerPixel;
+            BYTE* maskRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
+            for (LONG x = 0; x < visibleWidth; ++x)
+            {
+                if (srcRow[static_cast<size_t>(x) * 4 + 3] == 0)
+                {
+                    maskRow[x / 8] |= static_cast<BYTE>(0x80u >> (x % 8));
+                    hasTransparency = true;
+                }
+            }
+        }
+    }
+    else
+    {
+        if (bitmapWidth > 0 && bitmapHeight > 0)
+        {
+            for (LONG y = 0; y < bitmapHeight; ++y)
+            {
+                BYTE* maskRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
+                maskRow[0] = 0xFF;
+            }
+            hasTransparency = true;
+        }
+    }
+
+    HBITMAP mask = nullptr;
+    if (hasTransparency)
+    {
+        BITMAPINFO maskInfo{};
+        maskInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        maskInfo.bmiHeader.biWidth = bitmapWidth;
+        maskInfo.bmiHeader.biHeight = -bitmapHeight;
+        maskInfo.bmiHeader.biPlanes = 1;
+        maskInfo.bmiHeader.biBitCount = 1;
+        maskInfo.bmiHeader.biCompression = BI_RGB;
+        maskInfo.bmiHeader.biSizeImage = maskSize64 > std::numeric_limits<DWORD>::max()
+                                             ? 0
+                                             : static_cast<DWORD>(maskSize64);
+        maskInfo.bmiColors[0].rgbBlue = 0;
+        maskInfo.bmiColors[0].rgbGreen = 0;
+        maskInfo.bmiColors[0].rgbRed = 0;
+        maskInfo.bmiColors[0].rgbReserved = 0;
+        maskInfo.bmiColors[1].rgbBlue = 255;
+        maskInfo.bmiColors[1].rgbGreen = 255;
+        maskInfo.bmiColors[1].rgbRed = 255;
+        maskInfo.bmiColors[1].rgbReserved = 0;
+
+        void* maskBits = nullptr;
+        mask = CreateDIBSection(nullptr, &maskInfo, DIB_RGB_COLORS, &maskBits, nullptr, 0);
+        if (!mask || !maskBits)
+        {
+            if (mask)
+            {
+                DeleteObject(mask);
+            }
+            DeleteObject(color);
+            return E_OUTOFMEMORY;
+        }
+        memcpy(maskBits, maskBuffer.data(), maskBuffer.size());
+    }
+
+    colorBitmap = color;
+    maskBitmap = mask;
+    return S_OK;
+}
+
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat)
 {
     if (IsEqualGUID(pixelFormat, GUID_WICPixelFormatBlackWhite) ||
@@ -3333,29 +3497,23 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
         node->DisposalMethod = frame.disposal;
         node->ImgHandle = nullptr;
         node->TransparentHandle = nullptr;
-        if (frame.hbitmap)
+        HBITMAP subFrame = nullptr;
+        HBITMAP subMask = nullptr;
+        hr = CreateSequenceBitmaps(frame, frame.rect, subFrame, subMask);
+        if (FAILED(hr))
         {
-            HBITMAP frameCopy = static_cast<HBITMAP>(CopyImage(frame.hbitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
-            if (!frameCopy)
+            if (subFrame)
             {
-                return PVC_GDI_ERROR;
+                DeleteObject(subFrame);
             }
-            node->ImgHandle = frameCopy;
-        }
-        if (frame.transparencyMask)
-        {
-            HBITMAP maskCopy = static_cast<HBITMAP>(CopyImage(frame.transparencyMask, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
-            if (!maskCopy)
+            if (subMask)
             {
-                if (node->ImgHandle)
-                {
-                    DeleteObject(node->ImgHandle);
-                    node->ImgHandle = nullptr;
-                }
-                return PVC_GDI_ERROR;
+                DeleteObject(subMask);
             }
-            node->TransparentHandle = maskCopy;
+            return HResultToPvCode(hr);
         }
+        node->ImgHandle = subFrame;
+        node->TransparentHandle = subMask;
         *tail = node.release();
         tail = &((*tail)->pNext);
     }
