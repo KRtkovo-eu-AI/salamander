@@ -3376,7 +3376,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                     }
                     PropVariantClear(&prop);
                     if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
-                        metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                        metaHr != WINCODEC_ERR_PROPERTYNOTFOUND && metaHr != E_INVALIDARG &&
+                        metaHr != HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER))
                     {
                         return recordFailure(metaHr, "Set GIF Version");
                     }
