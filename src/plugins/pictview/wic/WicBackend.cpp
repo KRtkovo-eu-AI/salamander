@@ -3148,6 +3148,17 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
 
+        if (framePalette && mapping.container == GUID_ContainerFormatGif)
+        {
+            // The GIF encoder caches the palette when SetPalette is called. Re-register the palette
+            // after aligning it with the negotiated pixel format so the encoder sees the final colors.
+            hr = encoder->SetPalette(framePalette.Get());
+            if (FAILED(hr))
+            {
+                return HResultToPvCode(hr);
+            }
+        }
+
         Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
         hr = handle.backend->Factory()->CreateFormatConverter(&converter);
         if (FAILED(hr))
