@@ -4048,7 +4048,9 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
             if (IsEqualGUID(pixelFormat, GUID_WICPixelFormat32bppCMYK))
             {
-                hr = ConvertBgraSourceToCmyk(handle.backend->Factory(), baseSource.Get(), &frameSource);
+                frameSource.Reset();
+                hr = ConvertBgraSourceToCmyk(handle.backend->Factory(), baseSource.Get(),
+                                             frameSource.ReleaseAndGetAddressOf());
                 if (FAILED(hr))
                 {
                     return recordFailure(hr, "ConvertBgraSourceToCmyk");
