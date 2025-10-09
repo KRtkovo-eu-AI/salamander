@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <cwchar>
 #include <iomanip>
 #include <limits>
@@ -3359,11 +3360,14 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
 
                     PROPVARIANT prop;
                     PropVariantInit(&prop);
-                    prop.vt = VT_BSTR;
-                    const wchar_t* version = (info->Flags & PVSF_GIF89) != 0 ? L"89a" : L"87a";
-                    prop.bstrVal = SysAllocString(version);
-                    if (prop.bstrVal)
+                    prop.vt = VT_UI1 | VT_VECTOR;
+                    prop.caub.cElems = 3;
+                    prop.caub.pElems =
+                        static_cast<BYTE*>(CoTaskMemAlloc(prop.caub.cElems * sizeof(BYTE)));
+                    if (prop.caub.pElems)
                     {
+                        const char* version = (info->Flags & PVSF_GIF89) != 0 ? "89a" : "87a";
+                        memcpy(prop.caub.pElems, version, prop.caub.cElems);
                         metaHr = gifMetadataWriter->SetMetadataByName(L"/logscrdesc/Version", &prop);
                     }
                     else
