@@ -1562,7 +1562,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     {
         FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG, backgroundB,
                             backgroundA);
-        ZeroTransparentPixels(handle.gifComposeCanvas);
         handle.gifCanvasInitialized = true;
         handle.gifSavedCanvas.clear();
     }
@@ -1575,7 +1574,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         case PVDM_BACKGROUND:
             ClearBufferRect(handle.gifComposeCanvas, canvasWidth, canvasHeight, previousLogicalRect, backgroundR,
                             backgroundG, backgroundB, backgroundA);
-            ZeroTransparentPixels(handle.gifComposeCanvas);
             handle.gifSavedCanvas.clear();
             break;
         case PVDM_PREVIOUS:
@@ -1595,11 +1593,9 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
                 FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG,
                                     backgroundB, backgroundA);
             }
-            ZeroTransparentPixels(handle.gifComposeCanvas);
             handle.gifSavedCanvas.clear();
             break;
         default:
-            ZeroTransparentPixels(handle.gifComposeCanvas);
             handle.gifSavedCanvas.clear();
             break;
         }
@@ -1615,7 +1611,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         {
             return E_OUTOFMEMORY;
         }
-        ZeroTransparentPixels(handle.gifSavedCanvas);
     }
     else
     {
@@ -1707,8 +1702,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
     frame.disposalBuffer.clear();
-
-    ZeroTransparentPixels(handle.gifComposeCanvas);
 
     try
     {
@@ -1851,9 +1844,9 @@ void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYT
     {
         return;
     }
-    const BYTE fillR = (a == 0) ? 0 : r;
-    const BYTE fillG = (a == 0) ? 0 : g;
-    const BYTE fillB = (a == 0) ? 0 : b;
+    const BYTE fillR = r;
+    const BYTE fillG = g;
+    const BYTE fillB = b;
     const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
     for (UINT y = 0; y < height; ++y)
     {
@@ -1888,9 +1881,9 @@ void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const R
         return;
     }
 
-    const BYTE fillR = (a == 0) ? 0 : r;
-    const BYTE fillG = (a == 0) ? 0 : g;
-    const BYTE fillB = (a == 0) ? 0 : b;
+    const BYTE fillR = r;
+    const BYTE fillG = g;
+    const BYTE fillB = b;
     const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
     for (LONG y = top; y < bottom; ++y)
     {
