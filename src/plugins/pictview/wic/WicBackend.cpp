@@ -1562,6 +1562,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     {
         FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG, backgroundB,
                             backgroundA);
+        ZeroTransparentPixels(handle.gifComposeCanvas);
         handle.gifCanvasInitialized = true;
         handle.gifSavedCanvas.clear();
     }
@@ -1574,6 +1575,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         case PVDM_BACKGROUND:
             ClearBufferRect(handle.gifComposeCanvas, canvasWidth, canvasHeight, previousLogicalRect, backgroundR,
                             backgroundG, backgroundB, backgroundA);
+            ZeroTransparentPixels(handle.gifComposeCanvas);
             handle.gifSavedCanvas.clear();
             break;
         case PVDM_PREVIOUS:
@@ -1593,9 +1595,11 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
                 FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG,
                                     backgroundB, backgroundA);
             }
+            ZeroTransparentPixels(handle.gifComposeCanvas);
             handle.gifSavedCanvas.clear();
             break;
         default:
+            ZeroTransparentPixels(handle.gifComposeCanvas);
             handle.gifSavedCanvas.clear();
             break;
         }
@@ -1611,6 +1615,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         {
             return E_OUTOFMEMORY;
         }
+        ZeroTransparentPixels(handle.gifSavedCanvas);
     }
     else
     {
@@ -1702,6 +1707,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
     frame.disposalBuffer.clear();
+
+    ZeroTransparentPixels(handle.gifComposeCanvas);
 
     try
     {
