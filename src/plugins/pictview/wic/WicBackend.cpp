@@ -2873,7 +2873,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         else if (mapping.container == GUID_ContainerFormatGif)
         {
             bagWriter.AddBool(L"InterlaceOption", (info->Flags & PVSF_INTERLACE) != 0);
-            bagWriter.AddString(L"Version", (info->Flags & PVSF_GIF89) != 0 ? L"89a" : L"87a");
         }
         else if (mapping.container == GUID_ContainerFormatTiff)
         {
@@ -2901,10 +2900,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
 
-        if (!comment.empty())
-        {
-            bagWriter.AddString(L"Comment", comment);
-        }
     }
 
     const size_t processedBufferSize = static_cast<size_t>(processedStride) * processedHeight;
@@ -3308,6 +3303,29 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
 
         if (mapping.container == GUID_ContainerFormatGif)
         {
+            if (info)
+            {
+                PROPVARIANT prop;
+                PropVariantInit(&prop);
+                prop.vt = VT_BSTR;
+                const wchar_t* version = (info->Flags & PVSF_GIF89) != 0 ? L"89a" : L"87a";
+                prop.bstrVal = SysAllocString(version);
+                if (prop.bstrVal)
+                {
+                    metaHr = metadataWriter->SetMetadataByName(L"/logscrdesc/Version", &prop);
+                }
+                else
+                {
+                    metaHr = E_OUTOFMEMORY;
+                }
+                PropVariantClear(&prop);
+                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
+                    metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                {
+                    return recordFailure(metaHr, "Set GIF Version");
+                }
+            }
+
             PROPVARIANT prop;
             PropVariantInit(&prop);
             prop.vt = VT_BOOL;
