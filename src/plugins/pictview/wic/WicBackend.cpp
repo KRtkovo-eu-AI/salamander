@@ -1524,6 +1524,15 @@ HRESULT CopyPalettedPixels(Backend& backend, FrameData& frame, UINT targetWidth,
         return E_FAIL;
     }
 
+    if (frame.gifHasTransparentColor)
+    {
+        const size_t transparent = static_cast<size_t>(frame.gifTransparentIndex);
+        if (transparent < colors.size())
+        {
+            colors[transparent] = 0u;
+        }
+    }
+
     const UINT bitsPerPixel = frame.bitsPerPixel > 0 ? frame.bitsPerPixel : 8;
     if (bitsPerPixel == 0 || bitsPerPixel > 8)
     {
@@ -2362,6 +2371,15 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
         return hr;
     }
     colors.resize(actual);
+
+    if (frame.gifHasTransparentColor)
+    {
+        const size_t transparent = static_cast<size_t>(frame.gifTransparentIndex);
+        if (transparent < colors.size())
+        {
+            colors[transparent] = 0u;
+        }
+    }
 
     try
     {
@@ -3849,6 +3867,8 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         bool topSpecified = false;
         ULONGLONG rectWidth64 = static_cast<ULONGLONG>(width);
         ULONGLONG rectHeight64 = static_cast<ULONGLONG>(height);
+        data.gifHasTransparentColor = false;
+        data.gifTransparentIndex = 0;
         ComPtr<IWICMetadataQueryReader> frameQuery;
         if (SUCCEEDED(data.frame->GetMetadataQueryReader(&frameQuery)) && frameQuery)
         {
@@ -3874,6 +3894,26 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
             if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/Disposal", value))
             {
                 data.disposal = MapGifDisposalToPv(value);
+            }
+            bool transparencySpecified = false;
+            bool transparencyFlag = false;
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/TransparentColorFlag", value) ||
+                TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/TransparencyFlag", value))
+            {
+                transparencySpecified = true;
+                transparencyFlag = (value != 0);
+            }
+            UINT transparentIndex = 0;
+            bool hasTransparentIndex = false;
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/TransparentColorIndex", value))
+            {
+                transparentIndex = value;
+                hasTransparentIndex = true;
+            }
+            if (hasTransparentIndex && (!transparencySpecified || transparencyFlag))
+            {
+                data.gifHasTransparentColor = true;
+                data.gifTransparentIndex = static_cast<BYTE>(transparentIndex & 0xFFu);
             }
         }
         LONG rectLeft = ClampUnsignedToLong(leftSpecified ? left64 : 0ull);

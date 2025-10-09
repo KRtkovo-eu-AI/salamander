@@ -65,6 +65,8 @@ struct FrameData
     bool useIndexedPixels = false;
     bool allowIndexedDisplay = true;
     bool realizePalette = false;
+    bool gifHasTransparentColor = false;
+    BYTE gifTransparentIndex = 0;
 };
 
 struct ImageHandle
