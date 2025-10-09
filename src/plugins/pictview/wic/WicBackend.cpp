@@ -1816,23 +1816,16 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
     }
 
     bool hasTransparentPixel = false;
-    for (UINT y = 0; y < frame.height; ++y)
+    for (UINT y = 0; y < frame.height && !hasTransparentPixel; ++y)
     {
-        BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        const BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
         for (UINT x = 0; x < frame.width; ++x)
         {
-            BYTE* pixel = row + static_cast<size_t>(x) * 4;
-            if (pixel[3] < 128)
+            const BYTE alpha = row[static_cast<size_t>(x) * 4 + 3];
+            if (alpha < 128)
             {
                 hasTransparentPixel = true;
-                pixel[0] = 0;
-                pixel[1] = 0;
-                pixel[2] = 0;
-                pixel[3] = 0;
-            }
-            else
-            {
-                pixel[3] = 255;
+                break;
             }
         }
     }
@@ -1866,13 +1859,16 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
         return hr;
     }
 
+    std::fill(maskBuffer.begin(), maskBuffer.end(), 0);
+
     for (UINT y = 0; y < frame.height; ++y)
     {
         const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
         BYTE* dstRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
         for (UINT x = 0; x < frame.width; ++x)
         {
-            if (srcRow[static_cast<size_t>(x) * 4 + 3] == 0)
+            const BYTE alpha = srcRow[static_cast<size_t>(x) * 4 + 3];
+            if (alpha < 128)
             {
                 dstRow[x / 8] |= static_cast<BYTE>(0x80u >> (x % 8));
             }
