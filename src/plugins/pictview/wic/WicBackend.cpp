@@ -2851,6 +2851,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
 
     std::vector<WICColor> paletteColors;
     Microsoft::WRL::ComPtr<IWICPalette> palette;
+    Microsoft::WRL::ComPtr<IWICBitmapSource> quantizedPaletteSource;
     std::optional<BYTE> gifTransparencyIndex;
     bool gifTransparencyEnabled = false;
     const WICBitmapDitherType paletteDither =
@@ -3040,6 +3041,28 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             }
         }
         paletteColors = std::move(colors);
+
+        Microsoft::WRL::ComPtr<IWICFormatConverter> paletteQuantizer;
+        hr = handle.backend->Factory()->CreateFormatConverter(&paletteQuantizer);
+        if (FAILED(hr))
+        {
+            return recordFailure(hr, "CreateFormatConverter (palette quantize)");
+        }
+
+        const WICBitmapPaletteType quantizePaletteType =
+            useUniformPalette ? WICBitmapPaletteTypeFixedWebPalette : WICBitmapPaletteTypeCustom;
+        hr = paletteQuantizer->Initialize(source.Get(), selection.pixelFormat, paletteDither, palette.Get(), 0.0,
+                                          quantizePaletteType);
+        if (FAILED(hr))
+        {
+            return recordFailure(hr, "FormatConverter::Initialize (palette quantize)");
+        }
+
+        hr = paletteQuantizer.As(&quantizedPaletteSource);
+        if (FAILED(hr))
+        {
+            return recordFailure(hr, "FormatConverter::As (palette quantize)");
+        }
     }
 
     Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> encoderMetadataWriter;
@@ -3097,10 +3120,6 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         return recordFailure(hr, "FrameEncode::SetPixelFormat");
     }
     const bool encoderIsIndexed = MapPixelFormatToColors(pixelFormat) > 0;
-    if (selection.isIndexed && !encoderIsIndexed)
-    {
-        return PVC_UNSUP_OUT_PARAMS;
-    }
 
     UINT bitsPerPixel = 0;
     {
@@ -3135,7 +3154,9 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     }
     const UINT encodedStride = static_cast<UINT>(stride64);
 
-    Microsoft::WRL::ComPtr<IWICBitmapSource> frameSource = source;
+    Microsoft::WRL::ComPtr<IWICBitmapSource> baseSource =
+        (selection.isIndexed && quantizedPaletteSource) ? quantizedPaletteSource : source;
+    Microsoft::WRL::ComPtr<IWICBitmapSource> frameSource = baseSource;
     Microsoft::WRL::ComPtr<IWICPalette> framePalette = palette;
 
     if (encoderIsIndexed)
@@ -3231,7 +3252,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
 
         const WICBitmapPaletteType paletteType =
             useUniformPalette ? WICBitmapPaletteTypeFixedWebPalette : WICBitmapPaletteTypeCustom;
-        hr = converter->Initialize(source.Get(), pixelFormat, paletteDither, framePalette.Get(), 0.0, paletteType);
+        hr = converter->Initialize(baseSource.Get(), pixelFormat, paletteDither, framePalette.Get(), 0.0, paletteType);
         if (FAILED(hr))
         {
             return recordFailure(hr, "FormatConverter::Initialize (indexed)");
@@ -3246,7 +3267,19 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     else
     {
         framePalette.Reset();
-        if (pixelFormat != GUID_WICPixelFormat32bppBGRA)
+
+        WICPixelFormatGUID baseFormat{};
+        hr = baseSource->GetPixelFormat(&baseFormat);
+        if (FAILED(hr))
+        {
+            return recordFailure(hr, "BaseSource::GetPixelFormat");
+        }
+
+        if (IsEqualGUID(baseFormat, pixelFormat))
+        {
+            frameSource = baseSource;
+        }
+        else
         {
             Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
             hr = handle.backend->Factory()->CreateFormatConverter(&converter);
@@ -3258,7 +3291,13 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             const bool encoderIsGray = (pixelFormat == GUID_WICPixelFormat8bppGray);
             const WICBitmapPaletteType paletteType =
                 encoderIsGray ? WICBitmapPaletteTypeFixedGray256 : WICBitmapPaletteTypeCustom;
-            hr = converter->Initialize(source.Get(), pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0, paletteType);
+            IWICPalette* conversionPalette = nullptr;
+            if (selection.isIndexed && palette)
+            {
+                conversionPalette = palette.Get();
+            }
+            hr = converter->Initialize(baseSource.Get(), pixelFormat, WICBitmapDitherTypeNone, conversionPalette, 0.0,
+                                      paletteType);
             if (FAILED(hr))
             {
                 return recordFailure(hr, "FormatConverter::Initialize (non-indexed)");
