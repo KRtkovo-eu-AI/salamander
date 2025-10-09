@@ -2056,6 +2056,53 @@ HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries)
     return CreatePalette(logPalette);
 }
 
+class PaletteSelector
+{
+public:
+    PaletteSelector(HDC dc, HPALETTE palette, bool enable)
+        : m_dc(dc)
+        , m_previous(nullptr)
+        , m_active(false)
+    {
+        if (!enable || !m_dc || !palette)
+        {
+            return;
+        }
+
+        if ((GetDeviceCaps(m_dc, RASTERCAPS) & RC_PALETTE) == 0)
+        {
+            return;
+        }
+
+        m_previous = SelectPalette(m_dc, palette, FALSE);
+        RealizePalette(m_dc);
+        m_active = true;
+    }
+
+    PaletteSelector(const PaletteSelector&) = delete;
+    PaletteSelector& operator=(const PaletteSelector&) = delete;
+
+    ~PaletteSelector()
+    {
+        if (!m_active || !m_dc)
+        {
+            return;
+        }
+
+        HPALETTE restore = m_previous ? m_previous : static_cast<HPALETTE>(GetStockObject(DEFAULT_PALETTE));
+        if (restore)
+        {
+            SelectPalette(m_dc, restore, TRUE);
+            RealizePalette(m_dc);
+        }
+    }
+
+private:
+    HDC m_dc;
+    HPALETTE m_previous;
+    bool m_active;
+};
+
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
 {
     frame.palette.clear();
@@ -2176,11 +2223,21 @@ HRESULT BuildIndexedPixelBuffer(FrameData& frame)
         return S_FALSE;
     }
 
+    if (frame.hasTransparency)
+    {
+        return S_FALSE;
+    }
+
     if (frame.bitsPerPixel > 8)
     {
         return S_FALSE;
     }
     if (frame.width == 0 || frame.height == 0)
+    {
+        return S_FALSE;
+    }
+
+    if (frame.paletteColorCount == 0)
     {
         return S_FALSE;
     }
@@ -2774,6 +2831,31 @@ HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
     if (bits && !frame.pixels.empty())
     {
         memcpy(bits, frame.pixels.data(), frame.pixels.size());
+        if (frame.hasTransparency)
+        {
+            BYTE* target = static_cast<BYTE*>(bits);
+            const size_t pixelCount = frame.pixels.size() / kBytesPerPixel;
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                BYTE* pixel = target + i * kBytesPerPixel;
+                const BYTE alpha = pixel[3];
+                if (alpha == 0)
+                {
+                    pixel[0] = 0;
+                    pixel[1] = 0;
+                    pixel[2] = 0;
+                    continue;
+                }
+                if (alpha == 255)
+                {
+                    continue;
+                }
+                const unsigned int a = alpha;
+                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+            }
+        }
     }
 
     frame.decoded = true;
@@ -3548,7 +3630,8 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         }
         data.reportedColors = DetermineColorCount(data.sourcePixelFormat, data.bitsPerPixel, data.paletteColorCount,
                                                  data.colorModel);
-        data.allowIndexedDisplay = !(isGifContainer && frameCount > 1);
+        const bool palettedSource = (data.bitsPerPixel > 0 && data.bitsPerPixel <= 8 && data.paletteColorCount > 0);
+        data.allowIndexedDisplay = palettedSource;
 
         data.delayMs = GetFrameDelayMilliseconds(data.frame.Get());
         if (frameCount > 1 && data.delayMs == 0)
@@ -3819,6 +3902,8 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         bmi.bmiHeader = frame.bmi;
         bmiPtr = &bmi;
     }
+
+    PaletteSelector paletteScope(dc, frame.paletteHandle, useIndexed);
 
     const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
     const int destY = stretchHeightSigned >= 0 ? imageRect.top : imageRect.bottom - 1;
