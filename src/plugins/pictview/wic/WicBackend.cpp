@@ -1529,6 +1529,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
 
     FrameData& frame = handle.frames[index];
+    const bool multiFrameAnimation = handle.frames.size() > 1;
     const LONG canvasWidthLong = handle.canvasWidth > 0 ? handle.canvasWidth : static_cast<LONG>(frame.width);
     const LONG canvasHeightLong = handle.canvasHeight > 0 ? handle.canvasHeight : static_cast<LONG>(frame.height);
     if (canvasWidthLong <= 0 || canvasHeightLong <= 0)
@@ -1725,7 +1726,26 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
 
     ZeroTransparentPixels(frame.pixels);
-    frame.allowIndexedDisplay = false;
+    if (multiFrameAnimation)
+    {
+        frame.allowIndexedDisplay = false;
+        frame.useIndexedPixels = false;
+        frame.indexedPixels.clear();
+        frame.indexedStride = 0;
+        frame.indexedBmi = BITMAPINFOHEADER{};
+        frame.bitsPerPixel = 32;
+        frame.reportedBitDepth = 32;
+        frame.reportedColors = PV_COLOR_TC32;
+        frame.colorModel = PVCM_RGB;
+        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
+        frame.paletteColorCount = 0;
+        frame.palette.clear();
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+    }
     return S_OK;
 }
 
@@ -2119,6 +2139,16 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
     frame.indexedBmi = BITMAPINFOHEADER{};
     frame.displayBmi = BITMAPINFOHEADER{};
     frame.displayStride = 0;
+
+    if (!frame.allowIndexedDisplay)
+    {
+        frame.paletteColorCount = 0;
+        frame.reportedColors = PV_COLOR_TC32;
+        frame.reportedBitDepth = 32;
+        frame.bitsPerPixel = 32;
+        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
+        return S_OK;
+    }
 
     if (!factory || !frame.frame)
     {
