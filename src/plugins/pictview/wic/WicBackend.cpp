@@ -2171,6 +2171,11 @@ HRESULT BuildIndexedPixelBuffer(FrameData& frame)
     frame.indexedStride = 0;
     frame.indexedBmi = BITMAPINFOHEADER{};
 
+    if (!frame.allowIndexedDisplay)
+    {
+        return S_FALSE;
+    }
+
     if (frame.bitsPerPixel > 8)
     {
         return S_FALSE;
@@ -3543,6 +3548,7 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         }
         data.reportedColors = DetermineColorCount(data.sourcePixelFormat, data.bitsPerPixel, data.paletteColorCount,
                                                  data.colorModel);
+        data.allowIndexedDisplay = !(isGifContainer && frameCount > 1);
 
         data.delayMs = GetFrameDelayMilliseconds(data.frame.Get());
         if (frameCount > 1 && data.delayMs == 0)
