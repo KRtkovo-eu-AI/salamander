@@ -1738,10 +1738,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         frame.indexedBmi = BITMAPINFOHEADER{};
         frame.displayBmi = BITMAPINFOHEADER{};
         frame.displayStride = 0;
-        if (frame.paletteColorCount > 0)
-        {
-            frame.realizePalette = true;
-        }
+        frame.realizePalette = false;
     }
     return S_OK;
 }
@@ -3968,7 +3965,7 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         bmiPtr = &bmi;
     }
 
-    const bool realizePalette = useIndexed || (frame.realizePalette && frame.paletteHandle);
+    const bool realizePalette = useIndexed && frame.paletteHandle;
     PaletteSelector paletteScope(dc, frame.paletteHandle, realizePalette);
 
     const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
