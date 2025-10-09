@@ -1584,12 +1584,23 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     const LONGLONG endX64 = std::min<LONGLONG>(canvasWidth64, destRight64);
     const LONGLONG endY64 = std::min<LONGLONG>(canvasHeight64, destBottom64);
 
+    RECT compositedRect{};
+    compositedRect.left = static_cast<LONG>(std::clamp(destLeft64, 0ll, canvasWidth64));
+    compositedRect.top = static_cast<LONG>(std::clamp(destTop64, 0ll, canvasHeight64));
+    compositedRect.right = static_cast<LONG>(std::clamp(destRight64, 0ll, canvasWidth64));
+    compositedRect.bottom = static_cast<LONG>(std::clamp(destBottom64, 0ll, canvasHeight64));
+
     if (sourceWidth > 0 && sourceHeight > 0 && startX64 < endX64 && startY64 < endY64)
     {
         const LONG startX = static_cast<LONG>(startX64);
         const LONG startY = static_cast<LONG>(startY64);
         const LONG endX = static_cast<LONG>(endX64);
         const LONG endY = static_cast<LONG>(endY64);
+
+        compositedRect.left = startX;
+        compositedRect.top = startY;
+        compositedRect.right = endX;
+        compositedRect.bottom = endY;
 
         for (LONG y = startY; y < endY; ++y)
         {
@@ -1612,6 +1623,17 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
             }
         }
     }
+
+    if (compositedRect.right < compositedRect.left)
+    {
+        compositedRect.right = compositedRect.left;
+    }
+    if (compositedRect.bottom < compositedRect.top)
+    {
+        compositedRect.bottom = compositedRect.top;
+    }
+
+    frame.rect = compositedRect;
 
     frame.width = canvasWidth;
     frame.height = canvasHeight;
