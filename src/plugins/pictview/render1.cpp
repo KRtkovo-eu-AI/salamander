@@ -2266,14 +2266,6 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_RBUTTONDOWN:
-    {
-        POINT p;
-        GetCursorPos(&p);
-        OnContextMenu(&p);
-        break;
-    }
-
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
@@ -2335,6 +2327,28 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ScreenToClient(HWindow, &p);
         if (PtInRect(&ClientRect, p))
             OnSetCursor(HTCLIENT);
+        break;
+    }
+
+    case WM_CONTEXTMENU:
+    {
+        if ((HWND)wParam == HWindow)
+        {
+            POINT p;
+            if ((int)lParam == -1)
+            {
+                DWORD pos = GetMessagePos();
+                p.x = GET_X_LPARAM(pos);
+                p.y = GET_Y_LPARAM(pos);
+            }
+            else
+            {
+                p.x = GET_X_LPARAM(lParam);
+                p.y = GET_Y_LPARAM(lParam);
+            }
+            OnContextMenu(&p);
+            return 0;
+        }
         break;
     }
 
