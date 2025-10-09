@@ -1620,23 +1620,35 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
                 continue;
             }
 
-            const BYTE destAlpha = destPixel[3];
+            const UINT destAlpha = destPixel[3];
             const UINT inverseAlpha = 255u - static_cast<UINT>(srcAlpha);
             const UINT blendedAlpha = static_cast<UINT>(srcAlpha) +
                                       (static_cast<UINT>(destAlpha) * inverseAlpha + 127u) / 255u;
-            const UINT blendedB = (static_cast<UINT>(srcPixel[0]) * srcAlpha +
-                                   static_cast<UINT>(destPixel[0]) * inverseAlpha + 127u) /
-                                  255u;
-            const UINT blendedG = (static_cast<UINT>(srcPixel[1]) * srcAlpha +
-                                   static_cast<UINT>(destPixel[1]) * inverseAlpha + 127u) /
-                                  255u;
-            const UINT blendedR = (static_cast<UINT>(srcPixel[2]) * srcAlpha +
-                                   static_cast<UINT>(destPixel[2]) * inverseAlpha + 127u) /
-                                  255u;
-            destPixel[0] = static_cast<BYTE>(std::min(blendedB, 255u));
-            destPixel[1] = static_cast<BYTE>(std::min(blendedG, 255u));
-            destPixel[2] = static_cast<BYTE>(std::min(blendedR, 255u));
-            destPixel[3] = static_cast<BYTE>(std::min(blendedAlpha, 255u));
+            const UINT srcBPremul = static_cast<UINT>(srcPixel[0]) * static_cast<UINT>(srcAlpha);
+            const UINT srcGPremul = static_cast<UINT>(srcPixel[1]) * static_cast<UINT>(srcAlpha);
+            const UINT srcRPremul = static_cast<UINT>(srcPixel[2]) * static_cast<UINT>(srcAlpha);
+            const UINT destBPremul = static_cast<UINT>(destPixel[0]) * static_cast<UINT>(destAlpha);
+            const UINT destGPremul = static_cast<UINT>(destPixel[1]) * static_cast<UINT>(destAlpha);
+            const UINT destRPremul = static_cast<UINT>(destPixel[2]) * static_cast<UINT>(destAlpha);
+            const UINT destContributionB = (destBPremul * inverseAlpha + 127u) / 255u;
+            const UINT destContributionG = (destGPremul * inverseAlpha + 127u) / 255u;
+            const UINT destContributionR = (destRPremul * inverseAlpha + 127u) / 255u;
+            const UINT blendedBPremul = srcBPremul + destContributionB;
+            const UINT blendedGPremul = srcGPremul + destContributionG;
+            const UINT blendedRPremul = srcRPremul + destContributionR;
+            if (blendedAlpha > 0)
+            {
+                destPixel[0] = static_cast<BYTE>((blendedBPremul + blendedAlpha / 2u) / blendedAlpha);
+                destPixel[1] = static_cast<BYTE>((blendedGPremul + blendedAlpha / 2u) / blendedAlpha);
+                destPixel[2] = static_cast<BYTE>((blendedRPremul + blendedAlpha / 2u) / blendedAlpha);
+            }
+            else
+            {
+                destPixel[0] = 0;
+                destPixel[1] = 0;
+                destPixel[2] = 0;
+            }
+            destPixel[3] = static_cast<BYTE>(blendedAlpha);
         }
     }
 
