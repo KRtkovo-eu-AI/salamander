@@ -70,7 +70,9 @@ DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
                                 IWICBitmapSource** convertedSource);
 bool IsPaletteUnavailable(HRESULT hr);
-HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source);
+HRESULT CopyBgraFromSource(Backend* backend, FrameData& frame, IWICBitmapSource* source);
+HRESULT CopyIndexedFramePixels(Backend* backend, FrameData& frame, const WICRect& rect, UINT targetWidth,
+                               UINT targetHeight);
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame);
 HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries);
 HRESULT BuildIndexedPixelBuffer(FrameData& frame);
@@ -1470,7 +1472,96 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
     return hr;
 }
 
-HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
+HRESULT CopyIndexedFramePixels(Backend* backend, FrameData& frame, const WICRect& rect, UINT targetWidth,
+                               UINT targetHeight)
+{
+    if (!backend || !backend->Factory() || !frame.frame)
+    {
+        return E_POINTER;
+    }
+
+    Microsoft::WRL::ComPtr<IWICPalette> palette;
+    HRESULT hr = backend->Factory()->CreatePalette(&palette);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = frame.frame->CopyPalette(palette.Get());
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    UINT colorCount = 0;
+    hr = palette->GetColorCount(&colorCount);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (colorCount == 0)
+    {
+        return WINCODEC_ERR_UNSUPPORTEDOPERATION;
+    }
+
+    std::vector<WICColor> colors(colorCount);
+    UINT actualColors = colorCount;
+    hr = palette->GetColors(colorCount, colors.data(), &actualColors);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    colors.resize(actualColors);
+
+    if (frame.gifHasTransparentColor)
+    {
+        const size_t transparent = static_cast<size_t>(frame.gifTransparentIndex);
+        if (transparent < colors.size())
+        {
+            colors[transparent] &= 0x00FFFFFFu;
+        }
+    }
+
+    const size_t rowStride = static_cast<size_t>(targetWidth);
+    const size_t totalIndices = rowStride * static_cast<size_t>(targetHeight);
+    if (totalIndices > static_cast<size_t>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> indices;
+    hr = AllocateBuffer(indices, totalIndices);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = frame.frame->CopyPixels(&rect, static_cast<UINT>(targetWidth), static_cast<UINT>(indices.size()),
+                                 indices.data());
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    for (UINT y = 0; y < targetHeight; ++y)
+    {
+        const BYTE* srcRow = indices.data() + static_cast<size_t>(y) * rowStride;
+        BYTE* dstRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        for (UINT x = 0; x < targetWidth; ++x)
+        {
+            const BYTE index = srcRow[x];
+            WICColor color = index < colors.size() ? colors[index] : 0;
+            dstRow[static_cast<size_t>(x) * 4 + 0] = static_cast<BYTE>(color & 0xFFu);
+            dstRow[static_cast<size_t>(x) * 4 + 1] = static_cast<BYTE>((color >> 8) & 0xFFu);
+            dstRow[static_cast<size_t>(x) * 4 + 2] = static_cast<BYTE>((color >> 16) & 0xFFu);
+            dstRow[static_cast<size_t>(x) * 4 + 3] = static_cast<BYTE>((color >> 24) & 0xFFu);
+        }
+    }
+
+    return S_OK;
+}
+
+HRESULT CopyBgraFromSource(Backend* backend, FrameData& frame, IWICBitmapSource* source)
 {
     if (!source)
     {
@@ -1509,6 +1600,19 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
     }
 
     const UINT bufferSize = static_cast<UINT>(frame.pixels.size());
+    const bool canUseIndexedCopy = (frame.bitsPerPixel == 8 && frame.paletteColorCount > 0);
+    if (canUseIndexedCopy)
+    {
+        HRESULT indexedHr = CopyIndexedFramePixels(backend, frame, rect, targetWidth, targetHeight);
+        if (SUCCEEDED(indexedHr))
+        {
+            frame.rawWidth = targetWidth;
+            frame.rawHeight = targetHeight;
+            frame.rawStride = frame.stride;
+            return S_OK;
+        }
+    }
+
     hr = source->CopyPixels(&rect, frame.stride, bufferSize, frame.pixels.data());
     if (FAILED(hr))
     {
@@ -3163,7 +3267,7 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return hr;
     }
 
-    hr = CopyBgraFromSource(frame, frame.converter.Get());
+    hr = CopyBgraFromSource(handle.backend, frame, frame.converter.Get());
     if (FAILED(hr))
     {
         return hr;
