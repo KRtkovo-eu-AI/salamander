@@ -33,6 +33,7 @@ struct FrameData
     UINT height = 0;
     UINT stride = 0;
     std::vector<BYTE> pixels;
+    std::vector<BYTE> compositedPixels;
     std::vector<BYTE*> linePointers;
     std::vector<RGBQUAD> palette;
     std::vector<BYTE> disposalBuffer;

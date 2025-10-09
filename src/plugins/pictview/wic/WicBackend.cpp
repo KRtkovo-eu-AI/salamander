@@ -1083,6 +1083,7 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
     {
         const DWORD error = GetLastError();
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         frame.stride = 0;
         return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
     }
@@ -1099,6 +1100,7 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
     {
         const DWORD error = GetLastError();
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         frame.stride = 0;
         return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_INVALID_DATA);
     }
@@ -1175,6 +1177,7 @@ HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height)
     frame.width = width;
     frame.height = height;
     frame.stride = static_cast<UINT>(stride64);
+    frame.compositedPixels.clear();
 
     HRESULT hr = AllocateBuffer(frame.pixels, static_cast<size_t>(buffer64));
     if (FAILED(hr))
@@ -1452,6 +1455,7 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
     if (FAILED(hr))
     {
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         frame.stride = 0;
         return hr;
     }
@@ -1487,9 +1491,11 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         {
             return E_FAIL;
         }
+        const std::vector<BYTE>& previousPixels = !previous.compositedPixels.empty() ? previous.compositedPixels
+                                                                                      : previous.pixels;
         try
         {
-            composed = previous.pixels;
+            composed = previousPixels;
         }
         catch (const std::bad_alloc&)
         {
@@ -1612,6 +1618,16 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.width = canvasWidth;
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
+
+    try
+    {
+        frame.compositedPixels = composed;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return E_OUTOFMEMORY;
+    }
+
     frame.pixels.swap(composed);
     return S_OK;
 }
@@ -4233,6 +4249,7 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     frame.stride = frame.width * 4;
     frame.pixels.swap(rotated);
     frame.disposalBuffer.clear();
+    frame.compositedPixels.clear();
     HRESULT finalizeHr = FinalizeDecodedFrame(frame);
     if (FAILED(finalizeHr))
     {
@@ -4311,6 +4328,7 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     frame.stride = newStride;
     frame.pixels.swap(cropped);
     frame.disposalBuffer.clear();
+    frame.compositedPixels.clear();
     HRESULT finalizeHr = FinalizeDecodedFrame(frame);
     if (FAILED(finalizeHr))
     {
