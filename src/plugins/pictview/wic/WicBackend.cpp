@@ -1782,6 +1782,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     if (multiFrameAnimation)
     {
         frame.useIndexedPixels = false;
+        frame.allowIndexedDisplay = false;
+        frame.realizePalette = false;
         frame.indexedPixels.clear();
         frame.indexedStride = 0;
         frame.indexedBmi = BITMAPINFOHEADER{};
