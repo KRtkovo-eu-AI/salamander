@@ -921,7 +921,8 @@ DWORD GetFrameDelayMilliseconds(IWICBitmapFrameDecode* frame)
 
     UINT hundredths = 0;
     static constexpr const wchar_t* kDelayPaths[] = {
-        L"/grctlext/DelayTime",            // GIF frame delay
+        L"/grctlext/DelayTime",            // Some decoders expose DelayTime
+        L"/grctlext/Delay",                // WIC animated GIF sample uses Delay
         L"/ifd/{ushort=0x5100}",           // TIFF/PropertyTagFrameDelay
         L"/xmp/GIF:DelayTime",             // XMP GIF namespace (fallback)
         L"/xmp/MM:FrameDelay",             // Additional XMP metadata some encoders emit
@@ -1483,33 +1484,51 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     const UINT canvasHeight = static_cast<UINT>(canvasHeightLong);
     const size_t canvasStride = static_cast<size_t>(canvasWidth) * kBytesPerPixel;
     const size_t canvasBytes = canvasStride * static_cast<size_t>(canvasHeight);
-
-    std::vector<BYTE> composed;
-    if (index > 0)
+    if (canvasStride > static_cast<size_t>(std::numeric_limits<UINT>::max()))
     {
-        FrameData& previous = handle.frames[index - 1];
-        if (!previous.decoded)
-        {
-            return E_FAIL;
-        }
-        const std::vector<BYTE>& previousPixels = !previous.compositedPixels.empty() ? previous.compositedPixels
-                                                                                      : previous.pixels;
+        return E_OUTOFMEMORY;
+    }
+
+    if (handle.gifComposeCanvas.size() != canvasBytes)
+    {
         try
         {
-            composed = previousPixels;
+            handle.gifComposeCanvas.resize(canvasBytes);
         }
         catch (const std::bad_alloc&)
         {
             return E_OUTOFMEMORY;
         }
+    }
 
-        if (previous.disposal == PVDM_PREVIOUS)
+    const BYTE backgroundR = GetRValue(handle.formatInfo.GIF.BgColor);
+    const BYTE backgroundG = GetGValue(handle.formatInfo.GIF.BgColor);
+    const BYTE backgroundB = GetBValue(handle.formatInfo.GIF.BgColor);
+    const BYTE backgroundA = handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0;
+
+    if (index == 0 || !handle.gifCanvasInitialized)
+    {
+        FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG, backgroundB,
+                            backgroundA);
+        handle.gifCanvasInitialized = true;
+        handle.gifSavedCanvas.clear();
+    }
+    else
+    {
+        FrameData& previous = handle.frames[index - 1];
+        switch (previous.disposal)
         {
-            if (!previous.disposalBuffer.empty())
+        case PVDM_BACKGROUND:
+            ClearBufferRect(handle.gifComposeCanvas, canvasWidth, canvasHeight, previous.rect, backgroundR, backgroundG,
+                            backgroundB, backgroundA);
+            handle.gifSavedCanvas.clear();
+            break;
+        case PVDM_PREVIOUS:
+            if (handle.gifSavedCanvas.size() == canvasBytes)
             {
                 try
                 {
-                    composed = previous.disposalBuffer;
+                    handle.gifComposeCanvas = handle.gifSavedCanvas;
                 }
                 catch (const std::bad_alloc&)
                 {
@@ -1518,63 +1537,22 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
             }
             else
             {
-                composed.clear();
+                FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG,
+                                    backgroundB, backgroundA);
             }
-        }
-        else if (previous.disposal == PVDM_BACKGROUND)
-        {
-            if (composed.size() != canvasBytes)
-            {
-                HRESULT hr = AllocateBuffer(composed, canvasBytes);
-                if (FAILED(hr))
-                {
-                    return hr;
-                }
-                FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
-                                    GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
-                                    handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
-            }
-            ClearBufferRect(composed, canvasWidth, canvasHeight, previous.rect,
-                            GetRValue(handle.formatInfo.GIF.BgColor), GetGValue(handle.formatInfo.GIF.BgColor),
-                            GetBValue(handle.formatInfo.GIF.BgColor),
-                            handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
-        }
-
-        if (composed.size() != canvasBytes)
-        {
-            HRESULT hr = AllocateBuffer(composed, canvasBytes);
-            if (FAILED(hr))
-            {
-                return hr;
-            }
-            FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
-                                GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
-                                handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
+            handle.gifSavedCanvas.clear();
+            break;
+        default:
+            handle.gifSavedCanvas.clear();
+            break;
         }
     }
-    else
-    {
-        HRESULT hr = AllocateBuffer(composed, canvasBytes);
-        if (FAILED(hr))
-        {
-            return hr;
-        }
-        FillBufferWithColor(composed, canvasWidth, canvasHeight, GetRValue(handle.formatInfo.GIF.BgColor),
-                            GetGValue(handle.formatInfo.GIF.BgColor), GetBValue(handle.formatInfo.GIF.BgColor),
-                            handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0);
-    }
-
-    const UINT sourceWidth = frame.width;
-    const UINT sourceHeight = frame.height;
-    const UINT sourceStride = frame.stride;
-    std::vector<BYTE> raw;
-    raw.swap(frame.pixels);
 
     if (frame.disposal == PVDM_PREVIOUS)
     {
         try
         {
-            frame.disposalBuffer = composed;
+            handle.gifSavedCanvas = handle.gifComposeCanvas;
         }
         catch (const std::bad_alloc&)
         {
@@ -1583,8 +1561,14 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
     else
     {
-        frame.disposalBuffer.clear();
+        handle.gifSavedCanvas.clear();
     }
+
+    const UINT sourceWidth = frame.width;
+    const UINT sourceHeight = frame.height;
+    const UINT sourceStride = frame.stride;
+    std::vector<BYTE> raw;
+    raw.swap(frame.pixels);
 
     const LONG maxX = static_cast<LONG>(canvasWidth);
     const LONG maxY = static_cast<LONG>(canvasHeight);
@@ -1596,78 +1580,44 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     const UINT copyHeight =
         std::min<UINT>(sourceHeight, destBottom > destTop ? static_cast<UINT>(destBottom - destTop) : 0u);
 
-    const size_t destStride = canvasStride;
     for (UINT y = 0; y < copyHeight; ++y)
     {
-        BYTE* destRow = composed.data() + (static_cast<size_t>(destTop) + y) * destStride +
+        BYTE* destRow = handle.gifComposeCanvas.data() + (static_cast<size_t>(destTop) + y) * canvasStride +
                         static_cast<size_t>(destLeft) * kBytesPerPixel;
         const BYTE* srcRow = raw.data() + static_cast<size_t>(y) * sourceStride;
         for (UINT x = 0; x < copyWidth; ++x)
         {
             const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
-            const BYTE srcAlpha = srcPixel[3];
-            if (srcAlpha == 0)
+            if (srcPixel[3] == 0)
             {
                 continue;
             }
             BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
-            if (srcAlpha >= 255)
-            {
-                destPixel[0] = srcPixel[0];
-                destPixel[1] = srcPixel[1];
-                destPixel[2] = srcPixel[2];
-                destPixel[3] = 255;
-                continue;
-            }
-
-            const UINT destAlpha = destPixel[3];
-            const UINT inverseAlpha = 255u - static_cast<UINT>(srcAlpha);
-            const UINT blendedAlpha = static_cast<UINT>(srcAlpha) +
-                                      (static_cast<UINT>(destAlpha) * inverseAlpha + 127u) / 255u;
-            const UINT srcBPremul = static_cast<UINT>(srcPixel[0]) * static_cast<UINT>(srcAlpha);
-            const UINT srcGPremul = static_cast<UINT>(srcPixel[1]) * static_cast<UINT>(srcAlpha);
-            const UINT srcRPremul = static_cast<UINT>(srcPixel[2]) * static_cast<UINT>(srcAlpha);
-            const UINT destBPremul = static_cast<UINT>(destPixel[0]) * static_cast<UINT>(destAlpha);
-            const UINT destGPremul = static_cast<UINT>(destPixel[1]) * static_cast<UINT>(destAlpha);
-            const UINT destRPremul = static_cast<UINT>(destPixel[2]) * static_cast<UINT>(destAlpha);
-            const UINT destContributionB = (destBPremul * inverseAlpha + 127u) / 255u;
-            const UINT destContributionG = (destGPremul * inverseAlpha + 127u) / 255u;
-            const UINT destContributionR = (destRPremul * inverseAlpha + 127u) / 255u;
-            const UINT blendedBPremul = srcBPremul + destContributionB;
-            const UINT blendedGPremul = srcGPremul + destContributionG;
-            const UINT blendedRPremul = srcRPremul + destContributionR;
-            if (blendedAlpha > 0)
-            {
-                destPixel[0] = static_cast<BYTE>((blendedBPremul + blendedAlpha / 2u) / blendedAlpha);
-                destPixel[1] = static_cast<BYTE>((blendedGPremul + blendedAlpha / 2u) / blendedAlpha);
-                destPixel[2] = static_cast<BYTE>((blendedRPremul + blendedAlpha / 2u) / blendedAlpha);
-            }
-            else
-            {
-                destPixel[0] = 0;
-                destPixel[1] = 0;
-                destPixel[2] = 0;
-            }
-            destPixel[3] = static_cast<BYTE>(blendedAlpha);
+            destPixel[0] = srcPixel[0];
+            destPixel[1] = srcPixel[1];
+            destPixel[2] = srcPixel[2];
+            destPixel[3] = 255;
         }
     }
 
     frame.width = canvasWidth;
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
+    frame.disposalBuffer.clear();
 
     try
     {
-        frame.compositedPixels = composed;
+        frame.compositedPixels = handle.gifComposeCanvas;
+        frame.pixels = frame.compositedPixels;
     }
     catch (const std::bad_alloc&)
     {
+        frame.compositedPixels.clear();
+        frame.pixels.clear();
         return E_OUTOFMEMORY;
     }
 
-    ZeroTransparentPixels(composed);
-
-    frame.pixels.swap(composed);
+    ZeroTransparentPixels(frame.pixels);
     return S_OK;
 }
 
@@ -2498,6 +2448,9 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     handle.baseInfo.FSI = nullptr;
     handle.canvasWidth = 0;
     handle.canvasHeight = 0;
+    handle.gifComposeCanvas.clear();
+    handle.gifSavedCanvas.clear();
+    handle.gifCanvasInitialized = false;
 
     ComPtr<IWICMetadataQueryReader> decoderQuery;
     if (FAILED(decoder->GetMetadataQueryReader(&decoderQuery)))
@@ -4319,6 +4272,9 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     frame.pixels.swap(rotated);
     frame.disposalBuffer.clear();
     frame.compositedPixels.clear();
+    handle->gifComposeCanvas.clear();
+    handle->gifSavedCanvas.clear();
+    handle->gifCanvasInitialized = false;
     HRESULT finalizeHr = FinalizeDecodedFrame(frame);
     if (FAILED(finalizeHr))
     {
@@ -4398,6 +4354,9 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     frame.pixels.swap(cropped);
     frame.disposalBuffer.clear();
     frame.compositedPixels.clear();
+    handle->gifComposeCanvas.clear();
+    handle->gifSavedCanvas.clear();
+    handle->gifCanvasInitialized = false;
     HRESULT finalizeHr = FinalizeDecodedFrame(frame);
     if (FAILED(finalizeHr))
     {
