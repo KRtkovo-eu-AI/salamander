@@ -8,11 +8,13 @@
 #include <array>
 #include <cmath>
 #include <cwchar>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -533,6 +535,39 @@ std::unordered_map<DWORD, std::string> g_errorTexts = {
     {PVC_UNEXPECTED_EOF, "The image data ended unexpectedly."},
 };
 
+std::unordered_map<DWORD, std::string> g_customErrorTexts;
+
+void ClearCustomErrorText(DWORD code)
+{
+    std::lock_guard<std::mutex> lock(g_errorMutex);
+    g_customErrorTexts.erase(code);
+}
+
+void RecordDetailedError(DWORD code, HRESULT hr, const char* stage)
+{
+    std::lock_guard<std::mutex> lock(g_errorMutex);
+    std::string baseText = "Unknown WIC error.";
+    const auto baseIt = g_errorTexts.find(code);
+    if (baseIt != g_errorTexts.end())
+    {
+        baseText = baseIt->second;
+    }
+
+    std::ostringstream stream;
+    stream << baseText;
+    if (stage && stage[0] != '\0')
+    {
+        stream << " (stage: " << stage;
+    }
+    else
+    {
+        stream << " (stage: unknown";
+    }
+    stream << ", hr=0x" << std::uppercase << std::setfill('0') << std::setw(8)
+           << static_cast<unsigned long>(static_cast<DWORD>(hr)) << ')';
+    g_customErrorTexts[code] = stream.str();
+}
+
 bool PathLooksLikeExif(LPCWSTR path)
 {
     if (!path)
@@ -914,6 +949,11 @@ DWORD MapGifDisposalToPv(UINT disposal)
 const char* LookupError(DWORD code)
 {
     std::lock_guard<std::mutex> lock(g_errorMutex);
+    const auto customIt = g_customErrorTexts.find(code);
+    if (customIt != g_customErrorTexts.end())
+    {
+        return customIt->second.c_str();
+    }
     const auto it = g_errorTexts.find(code);
     if (it != g_errorTexts.end())
     {
@@ -2580,38 +2620,50 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     {
         return PVC_INVALID_HANDLE;
     }
+
+    ClearCustomErrorText(PVC_READING_ERROR);
+    ClearCustomErrorText(PVC_WRITING_ERROR);
+    ClearCustomErrorText(PVC_EXCEPTION);
+
     const size_t normalizedIndex = NormalizeFrameIndex(handle, imageIndex, 0);
     FrameData& frame = handle.frames[normalizedIndex];
+
+    auto recordFailure = [&](HRESULT failureHr, const char* stage) -> PVCODE {
+        const PVCODE code = HResultToPvCode(failureHr);
+        RecordDetailedError(code, failureHr, stage);
+        return code;
+    };
+
     HRESULT hr = DecodeFrame(handle, normalizedIndex);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "DecodeFrame");
     }
 
     Microsoft::WRL::ComPtr<IWICBitmapEncoder> encoder;
     hr = handle.backend->Factory()->CreateEncoder(mapping.container, nullptr, &encoder);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "CreateEncoder");
     }
 
     Microsoft::WRL::ComPtr<IWICStream> stream;
     hr = handle.backend->Factory()->CreateStream(&stream);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "CreateStream");
     }
 
     hr = stream->InitializeFromFilename(path, GENERIC_WRITE);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "InitializeFromFilename");
     }
 
     hr = encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "Encoder::Initialize");
     }
 
     UINT processedWidth = frame.width;
@@ -2867,14 +2919,14 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         static_cast<UINT>(processedBufferSize), const_cast<BYTE*>(pixelData), &bitmap);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "CreateBitmapFromMemory");
     }
 
     Microsoft::WRL::ComPtr<IWICBitmapSource> source;
     hr = bitmap.As(&source);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "Bitmap::AsBitmapSource");
     }
 
     if ((targetWidth != processedWidth || targetHeight != processedHeight) && source)
@@ -2883,20 +2935,20 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = handle.backend->Factory()->CreateBitmapScaler(&scaler);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "CreateBitmapScaler");
         }
 
         hr = scaler->Initialize(source.Get(), targetWidth, targetHeight, WICBitmapInterpolationModeFant);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "Scaler::Initialize");
         }
 
         Microsoft::WRL::ComPtr<IWICBitmapSource> scaledSource;
         hr = scaler.As(&scaledSource);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "Scaler::AsBitmapSource");
         }
         source = scaledSource;
     }
@@ -2906,28 +2958,31 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = handle.backend->Factory()->CreatePalette(&palette);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "CreatePalette");
         }
 
         UINT desiredEntries = selection.paletteEntries > 0 ? selection.paletteEntries : 256;
+        const char* paletteStage = nullptr;
         if (useUniformPalette)
         {
             hr = palette->InitializePredefined(WICBitmapPaletteTypeFixedWebPalette, FALSE);
+            paletteStage = "Palette::InitializePredefined";
         }
         else
         {
             hr = palette->InitializeFromBitmap(source.Get(), desiredEntries, FALSE);
+            paletteStage = "Palette::InitializeFromBitmap";
         }
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, paletteStage ? paletteStage : "Palette::Initialize");
         }
 
         UINT paletteCount = 0;
         hr = palette->GetColorCount(&paletteCount);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "Palette::GetColorCount");
         }
 
         std::vector<WICColor> colors(paletteCount);
@@ -2937,7 +2992,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             hr = palette->GetColors(paletteCount, colors.data(), &actual);
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "Palette::GetColors");
             }
             colors.resize(actual);
         }
@@ -2982,7 +3037,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             hr = palette->InitializeCustom(colors.data(), static_cast<UINT>(colors.size()));
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "Palette::InitializeCustom");
             }
         }
         paletteColors = std::move(colors);
@@ -2997,7 +3052,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = encoder->SetPalette(palette.Get());
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "Encoder::SetPalette");
         }
     }
 
@@ -3006,32 +3061,32 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     hr = encoder->CreateNewFrame(&frameEncode, &bag);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "Encoder::CreateNewFrame");
     }
 
     hr = bagWriter.Write(bag.Get());
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "PropertyBagWriter::Write");
     }
 
     hr = frameEncode->Initialize(bag.Get());
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "FrameEncode::Initialize");
     }
 
     hr = frameEncode->SetSize(targetWidth, targetHeight);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "FrameEncode::SetSize");
     }
 
     GUID pixelFormat = selection.pixelFormat;
     hr = frameEncode->SetPixelFormat(&pixelFormat);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "FrameEncode::SetPixelFormat");
     }
     const bool encoderIsIndexed = MapPixelFormatToColors(pixelFormat) > 0;
     if (selection.isIndexed && !encoderIsIndexed)
@@ -3045,18 +3100,18 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = handle.backend->Factory()->CreateComponentInfo(pixelFormat, &componentInfo);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "CreateComponentInfo");
         }
         Microsoft::WRL::ComPtr<IWICPixelFormatInfo> pixelInfo;
         hr = componentInfo.As(&pixelInfo);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "ComponentInfo::AsPixelFormatInfo");
         }
         hr = pixelInfo->GetBitsPerPixel(&bitsPerPixel);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "PixelFormatInfo::GetBitsPerPixel");
         }
     }
 
@@ -3083,7 +3138,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             hr = handle.backend->Factory()->CreatePalette(&framePalette);
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "CreatePaletteForFrame");
             }
         }
 
@@ -3095,7 +3150,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 hr = framePalette->GetColorCount(&paletteCount);
                 if (FAILED(hr))
                 {
-                    return HResultToPvCode(hr);
+                    return recordFailure(hr, "FramePalette::GetColorCount");
                 }
                 if (paletteCount > 0)
                 {
@@ -3104,7 +3159,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                     hr = framePalette->GetColors(paletteCount, paletteColors.data(), &actual);
                     if (FAILED(hr))
                     {
-                        return HResultToPvCode(hr);
+                        return recordFailure(hr, "FramePalette::GetColors");
                     }
                     paletteColors.resize(actual);
                 }
@@ -3143,7 +3198,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 hr = framePalette->InitializeCustom(paletteColors.data(), static_cast<UINT>(paletteColors.size()));
                 if (FAILED(hr))
                 {
-                    return HResultToPvCode(hr);
+                    return recordFailure(hr, "FramePalette::InitializeCustom");
                 }
             }
         }
@@ -3155,7 +3210,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             hr = encoder->SetPalette(framePalette.Get());
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "Encoder::SetFramePalette");
             }
         }
 
@@ -3163,7 +3218,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = handle.backend->Factory()->CreateFormatConverter(&converter);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "CreateFormatConverter (indexed)");
         }
 
         const WICBitmapPaletteType paletteType =
@@ -3171,13 +3226,13 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = converter->Initialize(source.Get(), pixelFormat, paletteDither, framePalette.Get(), 0.0, paletteType);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "FormatConverter::Initialize (indexed)");
         }
 
         hr = converter.As(&frameSource);
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "FormatConverter::As (indexed)");
         }
     }
     else
@@ -3189,7 +3244,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             hr = handle.backend->Factory()->CreateFormatConverter(&converter);
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "CreateFormatConverter (non-indexed)");
             }
 
             const bool encoderIsGray = (pixelFormat == GUID_WICPixelFormat8bppGray);
@@ -3198,13 +3253,13 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             hr = converter->Initialize(source.Get(), pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0, paletteType);
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "FormatConverter::Initialize (non-indexed)");
             }
 
             hr = converter.As(&frameSource);
             if (FAILED(hr))
             {
-                return HResultToPvCode(hr);
+                return recordFailure(hr, "FormatConverter::As (non-indexed)");
             }
         }
     }
@@ -3216,7 +3271,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         hr = frameEncode->SetPalette(framePalette.Get());
         if (FAILED(hr))
         {
-            return HResultToPvCode(hr);
+            return recordFailure(hr, "FrameEncode::SetPalette");
         }
     }
 
@@ -3235,7 +3290,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     hr = frameEncode->SetResolution(dpiX, dpiY);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "FrameEncode::SetResolution");
     }
 
     Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
@@ -3248,7 +3303,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         HRESULT metaHr = ApplyCommentMetadata(mapping.container, metadataWriter.Get(), comment);
         if (FAILED(metaHr))
         {
-            return HResultToPvCode(metaHr);
+            return recordFailure(metaHr, "ApplyCommentMetadata");
         }
 
         if (mapping.container == GUID_ContainerFormatGif)
@@ -3261,7 +3316,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             PropVariantClear(&prop);
             if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
             {
-                return HResultToPvCode(metaHr);
+                return recordFailure(metaHr, "Set GIF TransparencyFlag");
             }
 
             if (gifTransparencyIndex.has_value())
@@ -3273,7 +3328,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 PropVariantClear(&prop);
                 if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
                 {
-                    return HResultToPvCode(metaHr);
+                    return recordFailure(metaHr, "Set GIF TransparentColorIndex");
                 }
             }
         }
@@ -3312,7 +3367,7 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                 PropVariantClear(&prop);
                 if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED && metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
                 {
-                    return HResultToPvCode(metaHr);
+                    return recordFailure(metaHr, "Set TIFF RowsPerStrip");
                 }
             }
         }
@@ -3321,18 +3376,18 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "FrameEncode::WriteSource");
     }
 
     hr = frameEncode->Commit();
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "FrameEncode::Commit");
     }
     hr = encoder->Commit();
     if (FAILED(hr))
     {
-        return HResultToPvCode(hr);
+        return recordFailure(hr, "Encoder::Commit");
     }
     return PVC_OK;
 }
