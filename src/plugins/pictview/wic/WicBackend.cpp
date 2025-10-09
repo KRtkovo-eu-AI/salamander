@@ -3307,49 +3307,10 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
     }
 
-    if (encoderIsIndexed)
+    hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
+    if (FAILED(hr))
     {
-        if (encodedStride == 0)
-        {
-            return PVC_UNSUP_OUT_PARAMS;
-        }
-
-        const size_t encodedBufferSize = static_cast<size_t>(encodedStride) * targetHeight;
-        if (encodedBufferSize > std::numeric_limits<UINT>::max())
-        {
-            return PVC_OUT_OF_MEMORY;
-        }
-
-        std::vector<BYTE> indexedPixels;
-        try
-        {
-            indexedPixels.resize(encodedBufferSize);
-        }
-        catch (const std::bad_alloc&)
-        {
-            return PVC_OUT_OF_MEMORY;
-        }
-
-        hr = frameSource->CopyPixels(nullptr, encodedStride, static_cast<UINT>(encodedBufferSize), indexedPixels.data());
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-
-        hr = frameEncode->WritePixels(targetHeight, encodedStride, static_cast<UINT>(encodedBufferSize),
-                                      indexedPixels.data());
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
-    }
-    else
-    {
-        hr = frameEncode->WriteSource(frameSource.Get(), nullptr);
-        if (FAILED(hr))
-        {
-            return HResultToPvCode(hr);
-        }
+        return HResultToPvCode(hr);
     }
 
     hr = frameEncode->Commit();
