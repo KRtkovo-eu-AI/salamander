@@ -3337,7 +3337,16 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
     hr = frameEncode->SetResolution(dpiX, dpiY);
     if (FAILED(hr))
     {
+#if defined(WINCODEC_ERR_UNSUPPORTEDOPERATION)
+        if (hr != WINCODEC_ERR_UNSUPPORTEDOPERATION)
+        {
+            return recordFailure(hr, "FrameEncode::SetResolution");
+        }
+        // Some encoders (e.g., GIF, ICO) do not support DPI metadata. In that
+        // case, leave the encoder's default resolution untouched.
+#else
         return recordFailure(hr, "FrameEncode::SetResolution");
+#endif
     }
 
     Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> metadataWriter;
