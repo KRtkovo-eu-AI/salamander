@@ -43,6 +43,7 @@ struct FrameData
     BITMAPINFOHEADER bmi{};
     HBITMAP hbitmap = nullptr;
     HBITMAP transparencyMask = nullptr;
+    HPALETTE paletteHandle = nullptr;
     DWORD delayMs = 0;
     RECT rect{};
     RECT gifFrameRect{};

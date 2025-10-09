@@ -70,6 +70,7 @@ DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
                                 IWICBitmapSource** convertedSource);
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame);
+HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries);
 
 struct PixelFormatSelection
 {
@@ -2017,9 +2018,51 @@ bool IsPaletteUnavailable(HRESULT hr)
     return false;
 }
 
+HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries)
+{
+    if (entries.empty())
+    {
+        return nullptr;
+    }
+    if (entries.size() > 256)
+    {
+        return nullptr;
+    }
+
+    const size_t paletteSize = sizeof(LOGPALETTE) + (entries.size() - 1) * sizeof(PALETTEENTRY);
+    std::vector<BYTE> buffer;
+    try
+    {
+        buffer.resize(paletteSize);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return nullptr;
+    }
+
+    auto* logPalette = reinterpret_cast<LOGPALETTE*>(buffer.data());
+    logPalette->palVersion = 0x300;
+    logPalette->palNumEntries = static_cast<WORD>(entries.size());
+    for (size_t i = 0; i < entries.size(); ++i)
+    {
+        const RGBQUAD& quad = entries[i];
+        logPalette->palPalEntry[i].peRed = quad.rgbRed;
+        logPalette->palPalEntry[i].peGreen = quad.rgbGreen;
+        logPalette->palPalEntry[i].peBlue = quad.rgbBlue;
+        logPalette->palPalEntry[i].peFlags = 0;
+    }
+
+    return CreatePalette(logPalette);
+}
+
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
 {
     frame.palette.clear();
+    if (frame.paletteHandle)
+    {
+        DeleteObject(frame.paletteHandle);
+        frame.paletteHandle = nullptr;
+    }
 
     if (!factory || !frame.frame)
     {
@@ -2092,6 +2135,19 @@ HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
     }
 
     frame.paletteColorCount = static_cast<UINT>(colors.size());
+    if (!frame.palette.empty())
+    {
+        HPALETTE paletteHandle = CreateGdiPalette(frame.palette);
+        if (paletteHandle)
+        {
+            frame.paletteHandle = paletteHandle;
+        }
+        else if (frame.palette.size() <= 256)
+        {
+            const DWORD error = GetLastError();
+            return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
+        }
+    }
     if (frame.bitsPerPixel > 0)
     {
         frame.reportedColors =
@@ -4771,6 +4827,11 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
             DeleteObject(frame.transparencyMask);
             frame.transparencyMask = nullptr;
         }
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
     }
     delete handle;
     return PVC_OK;
@@ -4947,6 +5008,7 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     handles.TransparentBackgroundHandle = frame.hbitmap;
     handles.StretchedHandle = frame.hbitmap;
     handles.StretchedTransparentHandle = frame.hbitmap;
+    handles.HPal = frame.paletteHandle;
     handles.Palette = frame.palette.empty() ? nullptr : frame.palette.data();
     handles.pLines = frame.linePointers.empty() ? nullptr : frame.linePointers.data();
     *pHandles = &handles;
