@@ -1580,7 +1580,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         {
             return E_OUTOFMEMORY;
         }
-        ZeroTransparentPixels(frame.disposalBuffer);
     }
     else
     {
@@ -1641,8 +1640,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         }
     }
 
-    ZeroTransparentPixels(composed);
-
     frame.width = canvasWidth;
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
@@ -1655,6 +1652,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     {
         return E_OUTOFMEMORY;
     }
+
+    ZeroTransparentPixels(composed);
 
     frame.pixels.swap(composed);
     return S_OK;
