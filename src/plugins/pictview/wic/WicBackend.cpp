@@ -64,6 +64,7 @@ void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const R
                      BYTE a);
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
 void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
+void PremultiplyBuffer(std::vector<BYTE>& buffer);
 void UnpremultiplyBuffer(std::vector<BYTE>& buffer);
 DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel);
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
@@ -1640,6 +1641,9 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     raw.swap(frame.pixels);
 
     const RECT& destinationRect = frame.hasGifFrameRect ? frame.gifFrameRect : frame.rect;
+    const RECT logicalRect = destinationRect;
+
+    PremultiplyBuffer(raw);
 
     const LONGLONG destLeft64 = static_cast<LONGLONG>(destinationRect.left);
     const LONGLONG destTop64 = static_cast<LONGLONG>(destinationRect.top);
@@ -1704,13 +1708,9 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
 
     frame.rect = compositedRect;
-    if (frame.hasGifFrameRect)
+    if (!frame.hasGifFrameRect)
     {
-        frame.gifFrameRect = compositedRect;
-    }
-    else
-    {
-        frame.gifFrameRect = compositedRect;
+        frame.gifFrameRect = logicalRect;
         frame.hasGifFrameRect = true;
     }
 
@@ -1959,13 +1959,6 @@ void BlendPremultipliedPixel(BYTE* dest, const BYTE* src)
     unsigned int srcGreen = src[1];
     unsigned int srcRed = src[2];
 
-    if (srcAlpha < 255)
-    {
-        srcBlue = (srcBlue * srcAlpha + 127u) / 255u;
-        srcGreen = (srcGreen * srcAlpha + 127u) / 255u;
-        srcRed = (srcRed * srcAlpha + 127u) / 255u;
-    }
-
     if (srcAlpha == 255)
     {
         dest[0] = static_cast<BYTE>(std::min<unsigned int>(255u, srcBlue));
@@ -2007,6 +2000,37 @@ void BlendPremultipliedPixel(BYTE* dest, const BYTE* src)
     dest[1] = static_cast<BYTE>(blendedGreen);
     dest[2] = static_cast<BYTE>(blendedRed);
     dest[3] = static_cast<BYTE>(blendedAlpha);
+}
+
+void PremultiplyBuffer(std::vector<BYTE>& buffer)
+{
+    if (buffer.empty())
+    {
+        return;
+    }
+
+    const size_t pixelCount = buffer.size() / kBytesPerPixel;
+    BYTE* data = buffer.data();
+    for (size_t i = 0; i < pixelCount; ++i)
+    {
+        BYTE* pixel = data + i * kBytesPerPixel;
+        const BYTE alpha = pixel[3];
+        if (alpha == 0)
+        {
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+            continue;
+        }
+        if (alpha == 255)
+        {
+            continue;
+        }
+
+        pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * alpha + 127u) / 255u);
+        pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * alpha + 127u) / 255u);
+        pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * alpha + 127u) / 255u);
+    }
 }
 
 void UnpremultiplyBuffer(std::vector<BYTE>& buffer)
