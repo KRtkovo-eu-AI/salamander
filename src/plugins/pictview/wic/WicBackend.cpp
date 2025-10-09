@@ -1664,6 +1664,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         {
             return E_OUTOFMEMORY;
         }
+
+        ZeroTransparentPixels(handle.gifSavedCanvas);
     }
     else
     {
@@ -1752,6 +1754,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
     frame.disposalBuffer.clear();
+
+    ZeroTransparentPixels(handle.gifComposeCanvas);
 
     try
     {
