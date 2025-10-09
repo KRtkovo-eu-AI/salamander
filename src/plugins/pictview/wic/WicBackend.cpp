@@ -1725,6 +1725,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
 
     ZeroTransparentPixels(frame.pixels);
+    frame.allowIndexedDisplay = false;
     return S_OK;
 }
 
