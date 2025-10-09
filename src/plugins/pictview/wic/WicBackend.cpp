@@ -5327,11 +5327,13 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     auto& frame = handle->frames[0];
     PVImageHandles& handles = handle->handles;
     ZeroMemory(&handles, sizeof(PVImageHandles));
+    const bool hasIndexedPixels = frame.useIndexedPixels && !frame.indexedPixels.empty();
+
     handles.TransparentHandle = frame.hasTransparency ? frame.transparencyMask : nullptr;
     handles.TransparentBackgroundHandle = frame.hbitmap;
     handles.StretchedHandle = frame.hbitmap;
     handles.StretchedTransparentHandle = frame.hbitmap;
-    handles.HPal = frame.paletteHandle;
+    handles.HPal = hasIndexedPixels ? frame.paletteHandle : nullptr;
     handles.Palette = frame.palette.empty() ? nullptr : frame.palette.data();
     handles.pLines = frame.linePointers.empty() ? nullptr : frame.linePointers.data();
     *pHandles = &handles;
