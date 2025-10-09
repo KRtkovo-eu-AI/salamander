@@ -1781,26 +1781,18 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     ZeroTransparentPixels(frame.pixels);
     if (multiFrameAnimation)
     {
-        frame.allowIndexedDisplay = false;
         frame.useIndexedPixels = false;
         frame.indexedPixels.clear();
         frame.indexedStride = 0;
         frame.indexedBmi = BITMAPINFOHEADER{};
         frame.displayBmi = BITMAPINFOHEADER{};
         frame.displayStride = 0;
-        frame.realizePalette = false;
-        frame.palette.clear();
-        frame.paletteColorCount = 0;
+
         if (frame.paletteHandle)
         {
             DeleteObject(frame.paletteHandle);
             frame.paletteHandle = nullptr;
         }
-        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
-        frame.bitsPerPixel = 32;
-        frame.reportedBitDepth = 32;
-        frame.reportedColors = PV_COLOR_TC32;
-        frame.colorModel = PVCM_RGB;
     }
     return S_OK;
 }
