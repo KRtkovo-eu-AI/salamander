@@ -2856,6 +2856,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         useUniformPalette ? WICBitmapDitherTypeNone : WICBitmapDitherTypeErrorDiffusion;
 
     PropertyBagWriter bagWriter;
+    bool hasGifInterlaceFlag = false;
+    bool gifInterlaceFlag = false;
     if (info)
     {
         if (mapping.container == GUID_ContainerFormatJpeg)
@@ -2872,7 +2874,8 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         }
         else if (mapping.container == GUID_ContainerFormatGif)
         {
-            bagWriter.AddBool(L"InterlaceOption", (info->Flags & PVSF_INTERLACE) != 0);
+            hasGifInterlaceFlag = true;
+            gifInterlaceFlag = (info->Flags & PVSF_INTERLACE) != 0;
         }
         else if (mapping.container == GUID_ContainerFormatTiff)
         {
@@ -3323,6 +3326,21 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
                     metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
                 {
                     return recordFailure(metaHr, "Set GIF Version");
+                }
+            }
+
+            if (hasGifInterlaceFlag)
+            {
+                PROPVARIANT prop;
+                PropVariantInit(&prop);
+                prop.vt = VT_BOOL;
+                prop.boolVal = gifInterlaceFlag ? VARIANT_TRUE : VARIANT_FALSE;
+                metaHr = metadataWriter->SetMetadataByName(L"/imgdesc/InterlaceFlag", &prop);
+                PropVariantClear(&prop);
+                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
+                    metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                {
+                    return recordFailure(metaHr, "Set GIF InterlaceFlag");
                 }
             }
 
