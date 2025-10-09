@@ -62,6 +62,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index);
 void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYTE r, BYTE g, BYTE b, BYTE a);
 void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
                      BYTE a);
+void ZeroTransparentPixels(std::vector<BYTE>& buffer);
 
 struct PixelFormatSelection
 {
@@ -1616,6 +1617,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         }
     }
 
+    ZeroTransparentPixels(composed);
+
     frame.width = canvasWidth;
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
@@ -1758,6 +1761,9 @@ void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYT
     {
         return;
     }
+    const BYTE fillR = (a == 0) ? 0 : r;
+    const BYTE fillG = (a == 0) ? 0 : g;
+    const BYTE fillB = (a == 0) ? 0 : b;
     const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
     for (UINT y = 0; y < height; ++y)
     {
@@ -1765,9 +1771,9 @@ void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYT
         for (UINT x = 0; x < width; ++x)
         {
             BYTE* pixel = row + static_cast<size_t>(x) * 4;
-            pixel[0] = b;
-            pixel[1] = g;
-            pixel[2] = r;
+            pixel[0] = fillB;
+            pixel[1] = fillG;
+            pixel[2] = fillR;
             pixel[3] = a;
         }
     }
@@ -1792,17 +1798,41 @@ void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const R
         return;
     }
 
+    const BYTE fillR = (a == 0) ? 0 : r;
+    const BYTE fillG = (a == 0) ? 0 : g;
+    const BYTE fillB = (a == 0) ? 0 : b;
     const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
     for (LONG y = top; y < bottom; ++y)
     {
         BYTE* row = buffer.data() + static_cast<size_t>(y) * stride + static_cast<size_t>(left) * 4;
         for (LONG x = left; x < right; ++x)
         {
-            row[0] = b;
-            row[1] = g;
-            row[2] = r;
+            row[0] = fillB;
+            row[1] = fillG;
+            row[2] = fillR;
             row[3] = a;
             row += 4;
+        }
+    }
+}
+
+void ZeroTransparentPixels(std::vector<BYTE>& buffer)
+{
+    if (buffer.empty())
+    {
+        return;
+    }
+
+    const size_t totalPixels = buffer.size() / kBytesPerPixel;
+    BYTE* data = buffer.data();
+    for (size_t i = 0; i < totalPixels; ++i)
+    {
+        BYTE* pixel = data + i * kBytesPerPixel;
+        if (pixel[3] == 0)
+        {
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
         }
     }
 }
