@@ -3820,12 +3820,6 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         bmiPtr = &bmi;
     }
 
-    const BYTE* stretchSource = useIndexed ? frame.indexedPixels.data() : frame.pixels.data();
-    if (!stretchSource)
-    {
-        return PVC_INVALID_HANDLE;
-    }
-
     const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
     const int destY = stretchHeightSigned >= 0 ? imageRect.top : imageRect.bottom - 1;
     const int destWidth = stretchWidthSigned >= 0 ? static_cast<int>(stretchWidthAbs)
@@ -3833,8 +3827,43 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
     const int destHeight = stretchHeightSigned >= 0 ? static_cast<int>(stretchHeightAbs)
                                                     : -static_cast<int>(stretchHeightAbs);
 
-    const int result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, frame.width, frame.height,
-                                     stretchSource, bmiPtr, DIB_RGB_COLORS, SRCCOPY);
+    int result = GDI_ERROR;
+    const bool canAlphaBlend = frame.hasTransparency && frame.hbitmap && !useIndexed && destWidth >= 0 && destHeight >= 0;
+    if (canAlphaBlend)
+    {
+        HDC sourceDc = CreateCompatibleDC(dc);
+        if (!sourceDc)
+        {
+            result = GDI_ERROR;
+        }
+        else
+        {
+            HGDIOBJ oldBitmap = SelectObject(sourceDc, frame.hbitmap);
+            BLENDFUNCTION blend{};
+            blend.BlendOp = AC_SRC_OVER;
+            blend.BlendFlags = 0;
+            blend.SourceConstantAlpha = 255;
+            blend.AlphaFormat = AC_SRC_ALPHA;
+            const BOOL blendResult = GdiAlphaBlend(dc, destX, destY, destWidth, destHeight, sourceDc, 0, 0,
+                                                   static_cast<int>(frame.width), static_cast<int>(frame.height),
+                                                   blend);
+            SelectObject(sourceDc, oldBitmap);
+            DeleteDC(sourceDc);
+            result = blendResult ? 0 : GDI_ERROR;
+        }
+    }
+
+    if (!canAlphaBlend || result == GDI_ERROR)
+    {
+        const BYTE* stretchSource = useIndexed ? frame.indexedPixels.data() : frame.pixels.data();
+        if (!stretchSource)
+        {
+            return PVC_INVALID_HANDLE;
+        }
+
+        result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, frame.width, frame.height, stretchSource,
+                               bmiPtr, DIB_RGB_COLORS, SRCCOPY);
+    }
 
     if (previousMode > 0)
     {
