@@ -63,7 +63,8 @@ void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYT
 void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
                      BYTE a);
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
-void BlendStraightAlphaPixel(BYTE* dest, const BYTE* src);
+void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
+void UnpremultiplyBuffer(std::vector<BYTE>& buffer);
 DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel);
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
@@ -1557,11 +1558,26 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     const BYTE backgroundG = GetGValue(handle.formatInfo.GIF.BgColor);
     const BYTE backgroundB = GetBValue(handle.formatInfo.GIF.BgColor);
     const BYTE backgroundA = handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0;
+    const BYTE premultBackgroundR = backgroundA == 255
+                                        ? backgroundR
+                                        : static_cast<BYTE>((static_cast<unsigned int>(backgroundR) * backgroundA +
+                                                            127u) /
+                                                           255u);
+    const BYTE premultBackgroundG = backgroundA == 255
+                                        ? backgroundG
+                                        : static_cast<BYTE>((static_cast<unsigned int>(backgroundG) * backgroundA +
+                                                            127u) /
+                                                           255u);
+    const BYTE premultBackgroundB = backgroundA == 255
+                                        ? backgroundB
+                                        : static_cast<BYTE>((static_cast<unsigned int>(backgroundB) * backgroundA +
+                                                            127u) /
+                                                           255u);
 
     if (index == 0 || !handle.gifCanvasInitialized)
     {
-        FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG, backgroundB,
-                            backgroundA);
+        FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, premultBackgroundR, premultBackgroundG,
+                            premultBackgroundB, backgroundA);
         handle.gifCanvasInitialized = true;
         handle.gifSavedCanvas.clear();
     }
@@ -1572,8 +1588,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         switch (previous.disposal)
         {
         case PVDM_BACKGROUND:
-            ClearBufferRect(handle.gifComposeCanvas, canvasWidth, canvasHeight, previousLogicalRect, backgroundR,
-                            backgroundG, backgroundB, backgroundA);
+            ClearBufferRect(handle.gifComposeCanvas, canvasWidth, canvasHeight, previousLogicalRect, premultBackgroundR,
+                            premultBackgroundG, premultBackgroundB, backgroundA);
             handle.gifSavedCanvas.clear();
             break;
         case PVDM_PREVIOUS:
@@ -1590,8 +1606,8 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
             }
             else
             {
-                FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG,
-                                    backgroundB, backgroundA);
+                FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, premultBackgroundR,
+                                    premultBackgroundG, premultBackgroundB, backgroundA);
             }
             handle.gifSavedCanvas.clear();
             break;
@@ -1673,7 +1689,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
                 }
 
                 BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
-                BlendStraightAlphaPixel(destPixel, srcPixel);
+                BlendPremultipliedPixel(destPixel, srcPixel);
             }
         }
     }
@@ -1705,8 +1721,19 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
 
     try
     {
-        frame.compositedPixels = handle.gifComposeCanvas;
-        frame.pixels = frame.compositedPixels;
+        frame.pixels = handle.gifComposeCanvas;
+    }
+    catch (const std::bad_alloc&)
+    {
+        frame.pixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    UnpremultiplyBuffer(frame.pixels);
+
+    try
+    {
+        frame.compositedPixels = frame.pixels;
     }
     catch (const std::bad_alloc&)
     {
@@ -1920,7 +1947,7 @@ void ZeroTransparentPixels(std::vector<BYTE>& buffer)
     }
 }
 
-void BlendStraightAlphaPixel(BYTE* dest, const BYTE* src)
+void BlendPremultipliedPixel(BYTE* dest, const BYTE* src)
 {
     const BYTE srcAlpha = src[3];
     if (srcAlpha == 0)
@@ -1928,57 +1955,89 @@ void BlendStraightAlphaPixel(BYTE* dest, const BYTE* src)
         return;
     }
 
+    unsigned int srcBlue = src[0];
+    unsigned int srcGreen = src[1];
+    unsigned int srcRed = src[2];
+
+    if (srcAlpha < 255)
+    {
+        srcBlue = (srcBlue * srcAlpha + 127u) / 255u;
+        srcGreen = (srcGreen * srcAlpha + 127u) / 255u;
+        srcRed = (srcRed * srcAlpha + 127u) / 255u;
+    }
+
     if (srcAlpha == 255)
     {
-        dest[0] = src[0];
-        dest[1] = src[1];
-        dest[2] = src[2];
+        dest[0] = static_cast<BYTE>(std::min<unsigned int>(255u, srcBlue));
+        dest[1] = static_cast<BYTE>(std::min<unsigned int>(255u, srcGreen));
+        dest[2] = static_cast<BYTE>(std::min<unsigned int>(255u, srcRed));
         dest[3] = 255;
         return;
     }
 
-    const BYTE destAlpha = dest[3];
-    if (destAlpha == 0)
-    {
-        dest[0] = src[0];
-        dest[1] = src[1];
-        dest[2] = src[2];
-        dest[3] = srcAlpha;
-        return;
-    }
+    const unsigned int invAlpha = 255u - static_cast<unsigned int>(srcAlpha);
+    const unsigned int destBlue = dest[0];
+    const unsigned int destGreen = dest[1];
+    const unsigned int destRed = dest[2];
+    const unsigned int destAlpha = dest[3];
 
-    const UINT invAlpha = 255u - static_cast<UINT>(srcAlpha);
-    const UINT srcBluePremult = static_cast<UINT>(src[0]) * srcAlpha;
-    const UINT srcGreenPremult = static_cast<UINT>(src[1]) * srcAlpha;
-    const UINT srcRedPremult = static_cast<UINT>(src[2]) * srcAlpha;
+    unsigned int blendedBlue = srcBlue + (destBlue * invAlpha + 127u) / 255u;
+    unsigned int blendedGreen = srcGreen + (destGreen * invAlpha + 127u) / 255u;
+    unsigned int blendedRed = srcRed + (destRed * invAlpha + 127u) / 255u;
 
-    const UINT destBluePremult = static_cast<UINT>(dest[0]) * destAlpha;
-    const UINT destGreenPremult = static_cast<UINT>(dest[1]) * destAlpha;
-    const UINT destRedPremult = static_cast<UINT>(dest[2]) * destAlpha;
-
-    const UINT blendedBluePremult = srcBluePremult + (destBluePremult * invAlpha + 127u) / 255u;
-    const UINT blendedGreenPremult = srcGreenPremult + (destGreenPremult * invAlpha + 127u) / 255u;
-    const UINT blendedRedPremult = srcRedPremult + (destRedPremult * invAlpha + 127u) / 255u;
-
-    UINT blendedAlpha = srcAlpha + (destAlpha * invAlpha + 127u) / 255u;
+    unsigned int blendedAlpha = srcAlpha + (destAlpha * invAlpha + 127u) / 255u;
     if (blendedAlpha > 255u)
     {
         blendedAlpha = 255u;
     }
-
-    if (blendedAlpha == 0)
+    if (blendedBlue > 255u)
     {
-        dest[0] = 0;
-        dest[1] = 0;
-        dest[2] = 0;
-        dest[3] = 0;
+        blendedBlue = 255u;
+    }
+    if (blendedGreen > 255u)
+    {
+        blendedGreen = 255u;
+    }
+    if (blendedRed > 255u)
+    {
+        blendedRed = 255u;
+    }
+
+    dest[0] = static_cast<BYTE>(blendedBlue);
+    dest[1] = static_cast<BYTE>(blendedGreen);
+    dest[2] = static_cast<BYTE>(blendedRed);
+    dest[3] = static_cast<BYTE>(blendedAlpha);
+}
+
+void UnpremultiplyBuffer(std::vector<BYTE>& buffer)
+{
+    if (buffer.empty())
+    {
         return;
     }
 
-    dest[0] = static_cast<BYTE>((blendedBluePremult + blendedAlpha / 2u) / blendedAlpha);
-    dest[1] = static_cast<BYTE>((blendedGreenPremult + blendedAlpha / 2u) / blendedAlpha);
-    dest[2] = static_cast<BYTE>((blendedRedPremult + blendedAlpha / 2u) / blendedAlpha);
-    dest[3] = static_cast<BYTE>(blendedAlpha);
+    const size_t pixelCount = buffer.size() / kBytesPerPixel;
+    BYTE* data = buffer.data();
+    for (size_t i = 0; i < pixelCount; ++i)
+    {
+        BYTE* pixel = data + i * kBytesPerPixel;
+        const BYTE alpha = pixel[3];
+        if (alpha == 0)
+        {
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+            continue;
+        }
+        if (alpha == 255)
+        {
+            continue;
+        }
+
+        pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * 255u + alpha / 2u) / alpha);
+        pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * 255u + alpha / 2u) / alpha);
+        pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * 255u + alpha / 2u) / alpha);
+    }
 }
 
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat)
