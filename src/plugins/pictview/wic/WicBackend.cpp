@@ -3041,6 +3041,15 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
         paletteColors = std::move(colors);
     }
 
+    Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> encoderMetadataWriter;
+    if (mapping.container == GUID_ContainerFormatGif)
+    {
+        if (FAILED(encoder->GetMetadataQueryWriter(&encoderMetadataWriter)))
+        {
+            encoderMetadataWriter.Reset();
+        }
+    }
+
     if (mapping.container == GUID_ContainerFormatGif && palette)
     {
         // The GIF encoder expects its global palette to be registered before any frames are
@@ -3306,26 +3315,35 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
 
         if (mapping.container == GUID_ContainerFormatGif)
         {
+            Microsoft::WRL::ComPtr<IWICMetadataQueryWriter> gifMetadataWriter = encoderMetadataWriter;
+            if (!gifMetadataWriter)
+            {
+                gifMetadataWriter = metadataWriter;
+            }
+
             if (info)
             {
-                PROPVARIANT prop;
-                PropVariantInit(&prop);
-                prop.vt = VT_BSTR;
-                const wchar_t* version = (info->Flags & PVSF_GIF89) != 0 ? L"89a" : L"87a";
-                prop.bstrVal = SysAllocString(version);
-                if (prop.bstrVal)
+                if (gifMetadataWriter)
                 {
-                    metaHr = metadataWriter->SetMetadataByName(L"/logscrdesc/Version", &prop);
-                }
-                else
-                {
-                    metaHr = E_OUTOFMEMORY;
-                }
-                PropVariantClear(&prop);
-                if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
-                    metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
-                {
-                    return recordFailure(metaHr, "Set GIF Version");
+                    PROPVARIANT prop;
+                    PropVariantInit(&prop);
+                    prop.vt = VT_BSTR;
+                    const wchar_t* version = (info->Flags & PVSF_GIF89) != 0 ? L"89a" : L"87a";
+                    prop.bstrVal = SysAllocString(version);
+                    if (prop.bstrVal)
+                    {
+                        metaHr = gifMetadataWriter->SetMetadataByName(L"/logscrdesc/Version", &prop);
+                    }
+                    else
+                    {
+                        metaHr = E_OUTOFMEMORY;
+                    }
+                    PropVariantClear(&prop);
+                    if (FAILED(metaHr) && metaHr != WINCODEC_ERR_PROPERTYNOTSUPPORTED &&
+                        metaHr != WINCODEC_ERR_PROPERTYNOTFOUND)
+                    {
+                        return recordFailure(metaHr, "Set GIF Version");
+                    }
                 }
             }
 
