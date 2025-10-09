@@ -70,6 +70,7 @@ DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
                                 IWICBitmapSource** convertedSource);
 bool IsPaletteUnavailable(HRESULT hr);
+void UnpremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
 HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source);
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame);
 HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries);
@@ -1470,6 +1471,48 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
     return hr;
 }
 
+void UnpremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    const size_t rowStride = static_cast<size_t>(stride);
+    const size_t expectedStride = static_cast<size_t>(width) * kBytesPerPixel;
+    if (rowStride < expectedStride)
+    {
+        return;
+    }
+
+    BYTE* data = buffer.data();
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = data + rowStride * static_cast<size_t>(y);
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * kBytesPerPixel;
+            const BYTE alpha = pixel[3];
+            if (alpha == 0)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                continue;
+            }
+            if (alpha == 255)
+            {
+                continue;
+            }
+
+            const unsigned int a = alpha;
+            pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * 255u + a / 2u) / a);
+            pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * 255u + a / 2u) / a);
+            pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * 255u + a / 2u) / a);
+        }
+    }
+}
+
 HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
 {
     if (!source)
@@ -1518,6 +1561,8 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
         frame.stride = 0;
         return hr;
     }
+
+    UnpremultiplyBuffer(frame.pixels, targetWidth, targetHeight, frame.stride);
 
     frame.rawWidth = targetWidth;
     frame.rawHeight = targetHeight;
@@ -1740,6 +1785,18 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         frame.displayBmi = BITMAPINFOHEADER{};
         frame.displayStride = 0;
         frame.realizePalette = false;
+        frame.palette.clear();
+        frame.paletteColorCount = 0;
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+        frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
+        frame.bitsPerPixel = 32;
+        frame.reportedBitDepth = 32;
+        frame.reportedColors = PV_COLOR_TC32;
+        frame.colorModel = PVCM_RGB;
     }
     return S_OK;
 }
@@ -3103,14 +3160,14 @@ HRESULT EnsureConverter(ImageHandle& handle, size_t index)
     {
         return hr;
     }
-    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
                                WICBitmapPaletteTypeCustom);
     if (FAILED(hr) && IsConverterFormatFailure(hr))
     {
         HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
         if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
         {
-            hr = converter->Initialize(frame.colorConvertedSource.Get(), GUID_WICPixelFormat32bppBGRA,
+            hr = converter->Initialize(frame.colorConvertedSource.Get(), GUID_WICPixelFormat32bppPBGRA,
                                        WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
         }
         else if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
