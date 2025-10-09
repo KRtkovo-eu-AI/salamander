@@ -37,10 +37,13 @@ struct FrameData
     UINT rawStride = 0;
     std::vector<BYTE> pixels;
     std::vector<BYTE> compositedPixels;
+    std::vector<BYTE> indexedPixels;
     std::vector<BYTE*> linePointers;
     std::vector<RGBQUAD> palette;
     std::vector<BYTE> disposalBuffer;
     BITMAPINFOHEADER bmi{};
+    BITMAPINFOHEADER indexedBmi{};
+    BITMAPINFOHEADER displayBmi{};
     HBITMAP hbitmap = nullptr;
     HBITMAP transparencyMask = nullptr;
     HPALETTE paletteHandle = nullptr;
@@ -54,9 +57,12 @@ struct FrameData
     DWORD colorModel = PVCM_RGB;
     UINT paletteColorCount = 0;
     UINT bitsPerPixel = 0;
+    UINT indexedStride = 0;
+    UINT displayStride = 0;
     bool hasGifFrameRect = false;
     bool decoded = false;
     bool hasTransparency = false;
+    bool useIndexedPixels = false;
 };
 
 struct ImageHandle
