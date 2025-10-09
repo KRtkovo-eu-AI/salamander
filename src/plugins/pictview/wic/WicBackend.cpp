@@ -2206,7 +2206,7 @@ HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* s
         return hr;
     }
 
-    return bitmap.As(convertedSource);
+    return bitmap.CopyTo(convertedSource);
 }
 
 HRESULT FinalizeDecodedFrame(FrameData& frame)
