@@ -2233,7 +2233,7 @@ HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries)
         logPalette->palPalEntry[i].peRed = quad.rgbRed;
         logPalette->palPalEntry[i].peGreen = quad.rgbGreen;
         logPalette->palPalEntry[i].peBlue = quad.rgbBlue;
-        logPalette->palPalEntry[i].peFlags = 0;
+        logPalette->palPalEntry[i].peFlags = PC_NOCOLLAPSE;
     }
 
     return CreatePalette(logPalette);
