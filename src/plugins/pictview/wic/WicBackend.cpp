@@ -1664,8 +1664,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         {
             return E_OUTOFMEMORY;
         }
-
-        ZeroTransparentPixels(handle.gifSavedCanvas);
     }
     else
     {
@@ -1755,26 +1753,24 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.stride = static_cast<UINT>(canvasStride);
     frame.disposalBuffer.clear();
 
-    ZeroTransparentPixels(handle.gifComposeCanvas);
-
     try
     {
-        frame.pixels = handle.gifComposeCanvas;
+        frame.compositedPixels = handle.gifComposeCanvas;
     }
     catch (const std::bad_alloc&)
     {
-        frame.pixels.clear();
+        frame.compositedPixels.clear();
         return E_OUTOFMEMORY;
     }
 
     try
     {
-        frame.compositedPixels = frame.pixels;
+        frame.pixels = frame.compositedPixels;
     }
     catch (const std::bad_alloc&)
     {
-        frame.compositedPixels.clear();
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         return E_OUTOFMEMORY;
     }
 
