@@ -70,8 +70,7 @@ DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
                                 IWICBitmapSource** convertedSource);
 bool IsPaletteUnavailable(HRESULT hr);
-HRESULT CopyPalettedPixels(Backend& backend, FrameData& frame, UINT targetWidth, UINT targetHeight);
-HRESULT CopyBgraFromSource(Backend& backend, FrameData& frame, IWICBitmapSource* source);
+HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source);
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame);
 HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries);
 HRESULT BuildIndexedPixelBuffer(FrameData& frame);
@@ -1471,169 +1470,7 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
     return hr;
 }
 
-HRESULT CopyPalettedPixels(Backend& backend, FrameData& frame, UINT targetWidth, UINT targetHeight)
-{
-    if (!frame.frame)
-    {
-        return E_POINTER;
-    }
-    IWICImagingFactory* factory = backend.Factory();
-    if (!factory)
-    {
-        return E_FAIL;
-    }
-
-    Microsoft::WRL::ComPtr<IWICPalette> palette;
-    HRESULT hr = factory->CreatePalette(&palette);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    hr = frame.frame->CopyPalette(palette.Get());
-    if (FAILED(hr))
-    {
-        if (IsPaletteUnavailable(hr))
-        {
-            return hr;
-        }
-        return hr;
-    }
-
-    UINT colorCount = 0;
-    hr = palette->GetColorCount(&colorCount);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-    if (colorCount == 0)
-    {
-        return E_FAIL;
-    }
-
-    std::vector<WICColor> colors(colorCount);
-    UINT actualCount = colorCount;
-    hr = palette->GetColors(colorCount, colors.data(), &actualCount);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-    colors.resize(actualCount);
-    if (colors.empty())
-    {
-        return E_FAIL;
-    }
-
-    if (frame.gifHasTransparentColor)
-    {
-        const size_t transparent = static_cast<size_t>(frame.gifTransparentIndex);
-        if (transparent < colors.size())
-        {
-            colors[transparent] = 0u;
-        }
-    }
-
-    const UINT bitsPerPixel = frame.bitsPerPixel > 0 ? frame.bitsPerPixel : 8;
-    if (bitsPerPixel == 0 || bitsPerPixel > 8)
-    {
-        return WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT;
-    }
-
-    const ULONGLONG strideBits = static_cast<ULONGLONG>(targetWidth) * static_cast<ULONGLONG>(bitsPerPixel);
-    const ULONGLONG strideBytes64 = (strideBits + 7ull) / 8ull;
-    if (strideBytes64 > std::numeric_limits<UINT>::max())
-    {
-        return E_OUTOFMEMORY;
-    }
-    const UINT strideBytes = static_cast<UINT>(strideBytes64);
-    const ULONGLONG totalSize64 = strideBytes64 * static_cast<ULONGLONG>(targetHeight);
-    if (targetHeight != 0 && totalSize64 / targetHeight != strideBytes64)
-    {
-        return E_OUTOFMEMORY;
-    }
-    if (totalSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
-    {
-        return E_OUTOFMEMORY;
-    }
-
-    std::vector<BYTE> indexBuffer;
-    hr = AllocateBuffer(indexBuffer, static_cast<size_t>(totalSize64));
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    WICRect rect{};
-    rect.X = 0;
-    rect.Y = 0;
-    rect.Width = static_cast<INT>(targetWidth);
-    rect.Height = static_cast<INT>(targetHeight);
-    hr = frame.frame->CopyPixels(&rect, strideBytes, static_cast<UINT>(indexBuffer.size()), indexBuffer.data());
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    hr = AllocatePixelStorage(frame, targetWidth, targetHeight);
-    if (FAILED(hr))
-    {
-        return hr;
-    }
-
-    const size_t destStride = frame.stride;
-    const UINT mask = (bitsPerPixel == 8) ? 0xFFu : ((1u << bitsPerPixel) - 1u);
-
-    for (UINT y = 0; y < targetHeight; ++y)
-    {
-        const BYTE* srcRow = indexBuffer.data() + static_cast<size_t>(y) * strideBytes;
-        BYTE* dstRow = frame.pixels.data() + static_cast<size_t>(y) * destStride;
-
-        if (bitsPerPixel == 8)
-        {
-            for (UINT x = 0; x < targetWidth; ++x)
-            {
-                const BYTE index = srcRow[x];
-                const size_t paletteIndex = index < colors.size() ? static_cast<size_t>(index) : 0u;
-                const WICColor color = colors[paletteIndex];
-                BYTE* pixel = dstRow + static_cast<size_t>(x) * kBytesPerPixel;
-                pixel[0] = static_cast<BYTE>(color & 0xFFu);
-                pixel[1] = static_cast<BYTE>((color >> 8) & 0xFFu);
-                pixel[2] = static_cast<BYTE>((color >> 16) & 0xFFu);
-                pixel[3] = static_cast<BYTE>((color >> 24) & 0xFFu);
-            }
-        }
-        else
-        {
-            unsigned int bitOffset = 0;
-            for (UINT x = 0; x < targetWidth; ++x)
-            {
-                const size_t byteIndex = bitOffset / 8u;
-                const unsigned int bitIndex = bitOffset % 8u;
-                const BYTE current = srcRow[byteIndex];
-                const BYTE nextByte = (byteIndex + 1u < strideBytes) ? srcRow[byteIndex + 1u] : 0u;
-                unsigned int combined = (static_cast<unsigned int>(current) << 8) | static_cast<unsigned int>(nextByte);
-                const unsigned int shift = 16u - static_cast<unsigned int>(bitsPerPixel) - bitIndex;
-                const unsigned int indexValue = (combined >> shift) & mask;
-                const size_t paletteIndex = indexValue < colors.size() ? static_cast<size_t>(indexValue) : 0u;
-                const WICColor color = colors[paletteIndex];
-                BYTE* pixel = dstRow + static_cast<size_t>(x) * kBytesPerPixel;
-                pixel[0] = static_cast<BYTE>(color & 0xFFu);
-                pixel[1] = static_cast<BYTE>((color >> 8) & 0xFFu);
-                pixel[2] = static_cast<BYTE>((color >> 16) & 0xFFu);
-                pixel[3] = static_cast<BYTE>((color >> 24) & 0xFFu);
-                bitOffset += bitsPerPixel;
-            }
-        }
-    }
-
-    frame.paletteColorCount = static_cast<UINT>(colors.size());
-    frame.rawWidth = targetWidth;
-    frame.rawHeight = targetHeight;
-    frame.rawStride = frame.stride;
-    return S_OK;
-}
-
-HRESULT CopyBgraFromSource(Backend& backend, FrameData& frame, IWICBitmapSource* source)
+HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
 {
     if (!source)
     {
@@ -1657,17 +1494,6 @@ HRESULT CopyBgraFromSource(Backend& backend, FrameData& frame, IWICBitmapSource*
     if (frame.rawHeight > 0 && frame.rawHeight <= height)
     {
         targetHeight = frame.rawHeight;
-    }
-
-    const bool palettedSource = frame.allowIndexedDisplay && frame.paletteColorCount > 0 && frame.bitsPerPixel > 0 &&
-                                frame.bitsPerPixel <= 8;
-    if (palettedSource)
-    {
-        HRESULT paletteHr = CopyPalettedPixels(backend, frame, targetWidth, targetHeight);
-        if (SUCCEEDED(paletteHr))
-        {
-            return S_OK;
-        }
     }
 
     WICRect rect{};
@@ -3340,7 +3166,7 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return hr;
     }
 
-    hr = CopyBgraFromSource(*handle.backend, frame, frame.converter.Get());
+    hr = CopyBgraFromSource(frame, frame.converter.Get());
     if (FAILED(hr))
     {
         return hr;
