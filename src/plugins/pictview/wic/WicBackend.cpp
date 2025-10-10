@@ -2122,6 +2122,8 @@ void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT 
         return;
     }
 
+    (void)a;
+
     const size_t rowStride = static_cast<size_t>(stride);
     const size_t expectedStride = static_cast<size_t>(width) * kBytesPerPixel;
     if (rowStride < expectedStride)
@@ -2140,7 +2142,7 @@ void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT 
                 pixel[0] = b;
                 pixel[1] = g;
                 pixel[2] = r;
-                pixel[3] = a;
+                pixel[3] = 0;
             }
         }
     }
