@@ -59,6 +59,7 @@ LONG ClampUnsignedToLong(ULONGLONG value);
 HRESULT EnsureTransparencyMask(FrameData& frame);
 DWORD MapPixelFormatToColors(const GUID& guid);
 HRESULT CompositeGifFrame(ImageHandle& handle, size_t index);
+HRESULT RestoreGifCanvasState(ImageHandle& handle, size_t index);
 void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYTE r, BYTE g, BYTE b, BYTE a);
 void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
                      BYTE a);
@@ -1595,6 +1596,9 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         return E_OUTOFMEMORY;
     }
 
+    handle.canvasWidth = canvasWidthLong;
+    handle.canvasHeight = canvasHeightLong;
+
     if (handle.gifComposeCanvas.size() != canvasBytes)
     {
         try
@@ -1659,15 +1663,19 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
         try
         {
             handle.gifSavedCanvas = handle.gifComposeCanvas;
+            frame.disposalBuffer = handle.gifSavedCanvas;
         }
         catch (const std::bad_alloc&)
         {
+            handle.gifSavedCanvas.clear();
+            frame.disposalBuffer.clear();
             return E_OUTOFMEMORY;
         }
     }
     else
     {
         handle.gifSavedCanvas.clear();
+        frame.disposalBuffer.clear();
     }
 
     const UINT sourceWidth = frame.rawWidth > 0 ? frame.rawWidth : frame.width;
@@ -1751,7 +1759,6 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.width = canvasWidth;
     frame.height = canvasHeight;
     frame.stride = static_cast<UINT>(canvasStride);
-    frame.disposalBuffer.clear();
 
     std::vector<BYTE> compositedPixels;
     try
@@ -1797,6 +1804,58 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
             frame.paletteHandle = nullptr;
         }
     }
+    return S_OK;
+}
+
+HRESULT RestoreGifCanvasState(ImageHandle& handle, size_t index)
+{
+    if (index >= handle.frames.size())
+    {
+        return E_INVALIDARG;
+    }
+
+    FrameData& frame = handle.frames[index];
+    if (frame.compositedPixels.empty())
+    {
+        handle.gifComposeCanvas.clear();
+        handle.gifSavedCanvas.clear();
+        handle.gifCanvasInitialized = false;
+        return S_FALSE;
+    }
+
+    try
+    {
+        handle.gifComposeCanvas = frame.compositedPixels;
+    }
+    catch (const std::bad_alloc&)
+    {
+        handle.gifComposeCanvas.clear();
+        handle.gifSavedCanvas.clear();
+        handle.gifCanvasInitialized = false;
+        return E_OUTOFMEMORY;
+    }
+
+    handle.canvasWidth = static_cast<LONG>(frame.width);
+    handle.canvasHeight = static_cast<LONG>(frame.height);
+    handle.gifCanvasInitialized = true;
+
+    if (frame.disposal == PVDM_PREVIOUS && !frame.disposalBuffer.empty())
+    {
+        try
+        {
+            handle.gifSavedCanvas = frame.disposalBuffer;
+        }
+        catch (const std::bad_alloc&)
+        {
+            handle.gifSavedCanvas.clear();
+            return E_OUTOFMEMORY;
+        }
+    }
+    else
+    {
+        handle.gifSavedCanvas.clear();
+    }
+
     return S_OK;
 }
 
@@ -3188,6 +3247,14 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
     FrameData& frame = handle.frames[index];
     if (frame.decoded)
     {
+        if (handle.baseInfo.Format == PVF_GIF)
+        {
+            HRESULT restoreHr = RestoreGifCanvasState(handle, index);
+            if (FAILED(restoreHr) && restoreHr != S_FALSE)
+            {
+                return restoreHr;
+            }
+        }
         return S_OK;
     }
 
