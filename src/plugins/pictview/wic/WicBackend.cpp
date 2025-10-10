@@ -50,7 +50,7 @@ struct GuidMapping
 };
 
 HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height);
-HRESULT FinalizeDecodedFrame(FrameData& frame);
+HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame);
 PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSize, bool hasPreviousImage,
                          DWORD previousImageIndex, int currentImage);
 bool TryReadUnsignedMetadata(IWICMetadataQueryReader* reader, LPCWSTR name, UINT& value);
@@ -58,6 +58,29 @@ DWORD MapGifDisposalToPv(UINT disposal);
 LONG ClampUnsignedToLong(ULONGLONG value);
 HRESULT EnsureTransparencyMask(FrameData& frame);
 DWORD MapPixelFormatToColors(const GUID& guid);
+HRESULT CompositeGifFrame(ImageHandle& handle, size_t index);
+HRESULT RestoreGifCanvasState(ImageHandle& handle, size_t index);
+void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYTE r, BYTE g, BYTE b, BYTE a);
+void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
+                     BYTE a);
+void ZeroTransparentPixels(std::vector<BYTE>& buffer);
+void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
+                                    BYTE b, BYTE a);
+void PremultiplyGifBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
+void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
+HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap);
+HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UINT height);
+DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel);
+DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
+HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
+                                IWICBitmapSource** convertedSource);
+bool IsPaletteUnavailable(HRESULT hr);
+void UnpremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
+HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source);
+void ApplyGifTransparentIndices(FrameData& frame);
+HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame);
+HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries);
+HRESULT BuildIndexedPixelBuffer(FrameData& frame);
 
 struct PixelFormatSelection
 {
@@ -916,7 +939,8 @@ DWORD GetFrameDelayMilliseconds(IWICBitmapFrameDecode* frame)
 
     UINT hundredths = 0;
     static constexpr const wchar_t* kDelayPaths[] = {
-        L"/grctlext/DelayTime",            // GIF frame delay
+        L"/grctlext/DelayTime",            // Some decoders expose DelayTime
+        L"/grctlext/Delay",                // WIC animated GIF sample uses Delay
         L"/ifd/{ushort=0x5100}",           // TIFF/PropertyTagFrameDelay
         L"/xmp/GIF:DelayTime",             // XMP GIF namespace (fallback)
         L"/xmp/MM:FrameDelay",             // Additional XMP metadata some encoders emit
@@ -1035,7 +1059,7 @@ size_t NormalizeFrameIndex(const ImageHandle& handle, int requestedIndex, size_t
     return index;
 }
 
-HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
+HRESULT PopulateFrameFromBitmapHandle(Backend& backend, FrameData& frame, HBITMAP bitmap)
 {
     if (!bitmap)
     {
@@ -1066,6 +1090,10 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
         return hr;
     }
 
+    frame.rawWidth = width;
+    frame.rawHeight = height;
+    frame.rawStride = frame.stride;
+
     BITMAPINFO bmi{};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = static_cast<LONG>(width);
@@ -1079,6 +1107,7 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
     {
         const DWORD error = GetLastError();
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         frame.stride = 0;
         return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
     }
@@ -1095,6 +1124,7 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
     {
         const DWORD error = GetLastError();
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         frame.stride = 0;
         return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_INVALID_DATA);
     }
@@ -1109,13 +1139,28 @@ HRESULT PopulateFrameFromBitmapHandle(FrameData& frame, HBITMAP bitmap)
         }
     }
 
+    frame.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
+    const UINT sourceBits = dib.dsBm.bmBitsPixel > 0 ? static_cast<UINT>(dib.dsBm.bmBitsPixel) : 32u;
+    frame.bitsPerPixel = sourceBits;
+    frame.reportedBitDepth = sourceBits;
+    frame.paletteColorCount = 0;
+    frame.colorModel = PVCM_RGB;
+    frame.reportedColors = DetermineColorCount(frame.sourcePixelFormat, frame.bitsPerPixel, frame.paletteColorCount,
+                                              frame.colorModel);
+    frame.realizePalette = false;
+    frame.hasGifFrameRect = false;
+    frame.gifFrameRect.left = 0;
+    frame.gifFrameRect.top = 0;
+    frame.gifFrameRect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(width));
+    frame.gifFrameRect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(height));
+
     frame.rect.left = 0;
     frame.rect.top = 0;
     frame.rect.right = ClampUnsignedToLong(static_cast<ULONGLONG>(width));
     frame.rect.bottom = ClampUnsignedToLong(static_cast<ULONGLONG>(height));
     frame.disposal = PVDM_UNDEFINED;
 
-    hr = FinalizeDecodedFrame(frame);
+    hr = FinalizeDecodedFrame(&backend, frame);
     if (FAILED(hr))
     {
         return hr;
@@ -1171,6 +1216,10 @@ HRESULT AllocatePixelStorage(FrameData& frame, UINT width, UINT height)
     frame.width = width;
     frame.height = height;
     frame.stride = static_cast<UINT>(stride64);
+    frame.rawWidth = width;
+    frame.rawHeight = height;
+    frame.rawStride = static_cast<UINT>(stride64);
+    frame.compositedPixels.clear();
 
     HRESULT hr = AllocateBuffer(frame.pixels, static_cast<size_t>(buffer64));
     if (FAILED(hr))
@@ -1279,7 +1328,14 @@ std::optional<PixelFormatSelection> DeterminePixelFormat(const GuidMapping& mapp
     case PV_COLOR_TC32:
         if (mapping.container == GUID_ContainerFormatJpeg)
         {
-            selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
+            if (info->ColorModel == PVCM_GRAYS)
+            {
+                selection.pixelFormat = GUID_WICPixelFormat24bppBGR;
+            }
+            else
+            {
+                selection.pixelFormat = GUID_WICPixelFormat32bppCMYK;
+            }
         }
         else
         {
@@ -1421,6 +1477,84 @@ HRESULT ApplyEmbeddedColorProfile(ImageHandle& handle, FrameData& frame)
     return hr;
 }
 
+void UnpremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    const size_t rowStride = static_cast<size_t>(stride);
+    const size_t expectedStride = static_cast<size_t>(width) * kBytesPerPixel;
+    if (rowStride < expectedStride)
+    {
+        return;
+    }
+
+    BYTE* data = buffer.data();
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = data + rowStride * static_cast<size_t>(y);
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * kBytesPerPixel;
+            const BYTE alpha = pixel[3];
+            if (alpha == 0)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                continue;
+            }
+            if (alpha == 255)
+            {
+                continue;
+            }
+
+            const unsigned int a = alpha;
+            pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * 255u + a / 2u) / a);
+            pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * 255u + a / 2u) / a);
+            pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * 255u + a / 2u) / a);
+        }
+    }
+}
+
+void PremultiplyGifBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    const size_t rowStride = static_cast<size_t>(stride);
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = buffer.data() + static_cast<size_t>(y) * rowStride;
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * kBytesPerPixel;
+            const BYTE alpha = pixel[3];
+            if (alpha < 128)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                pixel[3] = 0;
+                continue;
+            }
+            if (pixel[3] != 255)
+            {
+                pixel[3] = 255;
+            }
+
+            const unsigned int a = pixel[3];
+            pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+            pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+            pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+        }
+    }
+}
+
 HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
 {
     if (!source)
@@ -1436,20 +1570,475 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
         return hr;
     }
 
-    hr = AllocatePixelStorage(frame, width, height);
+    UINT targetWidth = width;
+    UINT targetHeight = height;
+    if (frame.rawWidth > 0 && frame.rawWidth <= width)
+    {
+        targetWidth = frame.rawWidth;
+    }
+    if (frame.rawHeight > 0 && frame.rawHeight <= height)
+    {
+        targetHeight = frame.rawHeight;
+    }
+
+    WICRect rect{};
+    rect.X = 0;
+    rect.Y = 0;
+    rect.Width = static_cast<INT>(targetWidth);
+    rect.Height = static_cast<INT>(targetHeight);
+
+    hr = AllocatePixelStorage(frame, targetWidth, targetHeight);
     if (FAILED(hr))
     {
         return hr;
     }
 
-    WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
     const UINT bufferSize = static_cast<UINT>(frame.pixels.size());
+
     hr = source->CopyPixels(&rect, frame.stride, bufferSize, frame.pixels.data());
     if (FAILED(hr))
     {
         frame.pixels.clear();
+        frame.compositedPixels.clear();
         frame.stride = 0;
         return hr;
+    }
+
+    frame.rawWidth = targetWidth;
+    frame.rawHeight = targetHeight;
+    frame.rawStride = frame.stride;
+
+    if (frame.pixelsArePremultiplied)
+    {
+        UnpremultiplyBuffer(frame.pixels, targetWidth, targetHeight, frame.stride);
+    }
+
+    ApplyGifTransparentIndices(frame);
+
+    return S_OK;
+}
+
+void ApplyGifTransparentIndices(FrameData& frame)
+{
+    if (!frame.gifHasTransparentColor || !frame.frame)
+    {
+        return;
+    }
+
+    const UINT width = frame.rawWidth > 0 ? frame.rawWidth : frame.width;
+    const UINT height = frame.rawHeight > 0 ? frame.rawHeight : frame.height;
+    if (width == 0 || height == 0)
+    {
+        return;
+    }
+
+    GUID sourceFormat{};
+    if (FAILED(frame.frame->GetPixelFormat(&sourceFormat)))
+    {
+        return;
+    }
+
+    UINT bitsPerPixel = 0;
+    if (sourceFormat == GUID_WICPixelFormat8bppIndexed)
+    {
+        bitsPerPixel = 8;
+    }
+    else if (sourceFormat == GUID_WICPixelFormat4bppIndexed)
+    {
+        bitsPerPixel = 4;
+    }
+#if defined(GUID_WICPixelFormat2bppIndexed)
+    else if (sourceFormat == GUID_WICPixelFormat2bppIndexed)
+    {
+        bitsPerPixel = 2;
+    }
+#endif
+    else if (sourceFormat == GUID_WICPixelFormat1bppIndexed)
+    {
+        bitsPerPixel = 1;
+    }
+    else
+    {
+        return;
+    }
+
+    const UINT indexStride = static_cast<UINT>((static_cast<ULONGLONG>(width) * bitsPerPixel + 7ull) / 8ull);
+    if (indexStride == 0)
+    {
+        return;
+    }
+
+    const size_t bufferSize = static_cast<size_t>(indexStride) * static_cast<size_t>(height);
+    if (bufferSize == 0)
+    {
+        return;
+    }
+
+    std::vector<BYTE> indices;
+    if (FAILED(AllocateBuffer(indices, bufferSize)))
+    {
+        return;
+    }
+
+    HRESULT hr = frame.frame->CopyPixels(nullptr, indexStride, static_cast<UINT>(indices.size()), indices.data());
+    if (FAILED(hr))
+    {
+        return;
+    }
+
+    auto extractIndex = [bitsPerPixel](const BYTE* row, UINT x) -> BYTE {
+        switch (bitsPerPixel)
+        {
+        case 8:
+            return row[x];
+        case 4:
+        {
+            const BYTE packed = row[x / 2];
+            if ((x & 1u) == 0)
+            {
+                return static_cast<BYTE>(packed >> 4);
+            }
+            return static_cast<BYTE>(packed & 0x0Fu);
+        }
+        case 2:
+        {
+            const BYTE packed = row[x / 4];
+            const UINT shift = 6u - ((x & 3u) * 2u);
+            return static_cast<BYTE>((packed >> shift) & 0x03u);
+        }
+        case 1:
+        default:
+        {
+            const BYTE packed = row[x / 8];
+            const UINT shift = 7u - (x & 7u);
+            return static_cast<BYTE>((packed >> shift) & 0x01u);
+        }
+        }
+    };
+
+    BYTE* dstBase = frame.pixels.data();
+    const size_t dstStride = static_cast<size_t>(frame.stride);
+    const BYTE transparentIndex = frame.gifTransparentIndex;
+
+    for (UINT y = 0; y < height; ++y)
+    {
+        const BYTE* srcRow = indices.data() + static_cast<size_t>(y) * indexStride;
+        BYTE* dstRow = dstBase + static_cast<size_t>(y) * dstStride;
+        for (UINT x = 0; x < width; ++x)
+        {
+            const BYTE paletteIndex = extractIndex(srcRow, x);
+            if (paletteIndex != transparentIndex)
+            {
+                continue;
+            }
+
+            BYTE* pixel = dstRow + static_cast<size_t>(x) * kBytesPerPixel;
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+            pixel[3] = 0;
+        }
+    }
+}
+
+HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
+{
+    if (index >= handle.frames.size())
+    {
+        return E_INVALIDARG;
+    }
+
+    FrameData& frame = handle.frames[index];
+    const bool multiFrameAnimation = handle.frames.size() > 1;
+    const LONG canvasWidthLong = handle.canvasWidth > 0 ? handle.canvasWidth : static_cast<LONG>(frame.width);
+    const LONG canvasHeightLong = handle.canvasHeight > 0 ? handle.canvasHeight : static_cast<LONG>(frame.height);
+    if (canvasWidthLong <= 0 || canvasHeightLong <= 0)
+    {
+        return WINCODEC_ERR_INVALIDPARAMETER;
+    }
+
+    const UINT canvasWidth = static_cast<UINT>(canvasWidthLong);
+    const UINT canvasHeight = static_cast<UINT>(canvasHeightLong);
+    const size_t canvasStride = static_cast<size_t>(canvasWidth) * kBytesPerPixel;
+    const size_t canvasBytes = canvasStride * static_cast<size_t>(canvasHeight);
+    if (canvasStride > static_cast<size_t>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    handle.canvasWidth = canvasWidthLong;
+    handle.canvasHeight = canvasHeightLong;
+
+    if (handle.gifComposeCanvas.size() != canvasBytes)
+    {
+        try
+        {
+            handle.gifComposeCanvas.resize(canvasBytes);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return E_OUTOFMEMORY;
+        }
+    }
+
+    const BYTE backgroundR = GetRValue(handle.formatInfo.GIF.BgColor);
+    const BYTE backgroundG = GetGValue(handle.formatInfo.GIF.BgColor);
+    const BYTE backgroundB = GetBValue(handle.formatInfo.GIF.BgColor);
+    const BYTE backgroundA = handle.gifHasBackgroundColor ? handle.gifBackgroundAlpha : 0;
+    if (index == 0 || !handle.gifCanvasInitialized)
+    {
+        FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG, backgroundB,
+                            backgroundA);
+        handle.gifCanvasInitialized = true;
+        handle.gifSavedCanvas.clear();
+    }
+    else
+    {
+        FrameData& previous = handle.frames[index - 1];
+        const RECT& previousLogicalRect = previous.hasGifFrameRect ? previous.gifFrameRect : previous.rect;
+        switch (previous.disposal)
+        {
+        case PVDM_BACKGROUND:
+            ClearBufferRect(handle.gifComposeCanvas, canvasWidth, canvasHeight, previousLogicalRect, backgroundR,
+                            backgroundG, backgroundB, backgroundA);
+            handle.gifSavedCanvas.clear();
+            break;
+        case PVDM_PREVIOUS:
+            if (handle.gifSavedCanvas.size() == canvasBytes)
+            {
+                try
+                {
+                    handle.gifComposeCanvas = handle.gifSavedCanvas;
+                }
+                catch (const std::bad_alloc&)
+                {
+                    return E_OUTOFMEMORY;
+                }
+            }
+            else
+            {
+                FillBufferWithColor(handle.gifComposeCanvas, canvasWidth, canvasHeight, backgroundR, backgroundG,
+                                    backgroundB, backgroundA);
+            }
+            handle.gifSavedCanvas.clear();
+            break;
+        default:
+            handle.gifSavedCanvas.clear();
+            break;
+        }
+    }
+
+    if (frame.disposal == PVDM_PREVIOUS)
+    {
+        try
+        {
+            handle.gifSavedCanvas = handle.gifComposeCanvas;
+            frame.disposalBuffer = handle.gifSavedCanvas;
+        }
+        catch (const std::bad_alloc&)
+        {
+            handle.gifSavedCanvas.clear();
+            frame.disposalBuffer.clear();
+            return E_OUTOFMEMORY;
+        }
+    }
+    else
+    {
+        handle.gifSavedCanvas.clear();
+        frame.disposalBuffer.clear();
+    }
+
+    const UINT sourceWidth = frame.rawWidth > 0 ? frame.rawWidth : frame.width;
+    const UINT sourceHeight = frame.rawHeight > 0 ? frame.rawHeight : frame.height;
+    const UINT sourceStride = frame.rawStride > 0 ? frame.rawStride : frame.stride;
+    std::vector<BYTE> raw;
+    raw.swap(frame.pixels);
+    if (!raw.empty())
+    {
+        PremultiplyGifBuffer(raw, sourceWidth, sourceHeight, sourceStride);
+    }
+
+    const RECT& destinationRect = frame.hasGifFrameRect ? frame.gifFrameRect : frame.rect;
+    const RECT logicalRect = destinationRect;
+
+    const LONGLONG destLeft64 = static_cast<LONGLONG>(destinationRect.left);
+    const LONGLONG destTop64 = static_cast<LONGLONG>(destinationRect.top);
+    const LONGLONG destRight64 = destLeft64 + static_cast<LONGLONG>(sourceWidth);
+    const LONGLONG destBottom64 = destTop64 + static_cast<LONGLONG>(sourceHeight);
+
+    const LONGLONG canvasWidth64 = static_cast<LONGLONG>(canvasWidth);
+    const LONGLONG canvasHeight64 = static_cast<LONGLONG>(canvasHeight);
+
+    const LONGLONG startX64 = std::max<LONGLONG>(0, destLeft64);
+    const LONGLONG startY64 = std::max<LONGLONG>(0, destTop64);
+    const LONGLONG endX64 = std::min<LONGLONG>(canvasWidth64, destRight64);
+    const LONGLONG endY64 = std::min<LONGLONG>(canvasHeight64, destBottom64);
+
+    RECT compositedRect{};
+    compositedRect.left = static_cast<LONG>(std::clamp(destLeft64, 0ll, canvasWidth64));
+    compositedRect.top = static_cast<LONG>(std::clamp(destTop64, 0ll, canvasHeight64));
+    compositedRect.right = static_cast<LONG>(std::clamp(destRight64, 0ll, canvasWidth64));
+    compositedRect.bottom = static_cast<LONG>(std::clamp(destBottom64, 0ll, canvasHeight64));
+
+    if (sourceWidth > 0 && sourceHeight > 0 && startX64 < endX64 && startY64 < endY64)
+    {
+        const LONG startX = static_cast<LONG>(startX64);
+        const LONG startY = static_cast<LONG>(startY64);
+        const LONG endX = static_cast<LONG>(endX64);
+        const LONG endY = static_cast<LONG>(endY64);
+
+        compositedRect.left = startX;
+        compositedRect.top = startY;
+        compositedRect.right = endX;
+        compositedRect.bottom = endY;
+
+        for (LONG y = startY; y < endY; ++y)
+        {
+            const size_t destYOffset = static_cast<size_t>(y) * canvasStride;
+            const size_t srcY = static_cast<size_t>(static_cast<LONGLONG>(y) - destTop64);
+            const BYTE* srcRow = raw.data() + srcY * sourceStride;
+            BYTE* destRow = handle.gifComposeCanvas.data() + destYOffset;
+
+            for (LONG x = startX; x < endX; ++x)
+            {
+                const size_t srcX = static_cast<size_t>(static_cast<LONGLONG>(x) - destLeft64);
+                const BYTE* srcPixel = srcRow + srcX * kBytesPerPixel;
+                if (srcPixel[3] == 0)
+                {
+                    continue;
+                }
+
+                BYTE* destPixel = destRow + static_cast<size_t>(x) * kBytesPerPixel;
+                BlendPremultipliedPixel(destPixel, srcPixel);
+            }
+        }
+    }
+
+    if (compositedRect.right < compositedRect.left)
+    {
+        compositedRect.right = compositedRect.left;
+    }
+    if (compositedRect.bottom < compositedRect.top)
+    {
+        compositedRect.bottom = compositedRect.top;
+    }
+
+    frame.rect = compositedRect;
+    if (!frame.hasGifFrameRect)
+    {
+        frame.gifFrameRect = logicalRect;
+        frame.hasGifFrameRect = true;
+    }
+
+    frame.width = canvasWidth;
+    frame.height = canvasHeight;
+    frame.stride = static_cast<UINT>(canvasStride);
+
+    std::vector<BYTE> compositedPixels;
+    try
+    {
+        compositedPixels = handle.gifComposeCanvas;
+    }
+    catch (const std::bad_alloc&)
+    {
+        compositedPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> displayPixels;
+    try
+    {
+        displayPixels = compositedPixels;
+    }
+    catch (const std::bad_alloc&)
+    {
+        compositedPixels.clear();
+        displayPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    UnpremultiplyBuffer(displayPixels, canvasWidth, canvasHeight, static_cast<UINT>(canvasStride));
+
+    const bool fillTransparentWithBackground = multiFrameAnimation && handle.gifHasBackgroundColor;
+    if (fillTransparentWithBackground)
+    {
+        FillTransparentPixelsWithColor(displayPixels, canvasWidth, canvasHeight, static_cast<UINT>(canvasStride),
+                                       backgroundR, backgroundG, backgroundB, backgroundA);
+    }
+    else
+    {
+        ZeroTransparentPixels(displayPixels);
+    }
+
+    frame.pixels.swap(displayPixels);
+    frame.compositedPixels.swap(compositedPixels);
+    if (multiFrameAnimation)
+    {
+        frame.useIndexedPixels = false;
+        frame.allowIndexedDisplay = false;
+        frame.realizePalette = false;
+        frame.indexedPixels.clear();
+        frame.indexedStride = 0;
+        frame.indexedBmi = BITMAPINFOHEADER{};
+        frame.displayBmi = BITMAPINFOHEADER{};
+        frame.displayStride = 0;
+
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+    }
+    return S_OK;
+}
+
+HRESULT RestoreGifCanvasState(ImageHandle& handle, size_t index)
+{
+    if (index >= handle.frames.size())
+    {
+        return E_INVALIDARG;
+    }
+
+    FrameData& frame = handle.frames[index];
+    if (frame.compositedPixels.empty())
+    {
+        handle.gifComposeCanvas.clear();
+        handle.gifSavedCanvas.clear();
+        handle.gifCanvasInitialized = false;
+        return S_FALSE;
+    }
+
+    try
+    {
+        handle.gifComposeCanvas = frame.compositedPixels;
+    }
+    catch (const std::bad_alloc&)
+    {
+        handle.gifComposeCanvas.clear();
+        handle.gifSavedCanvas.clear();
+        handle.gifCanvasInitialized = false;
+        return E_OUTOFMEMORY;
+    }
+
+    handle.canvasWidth = static_cast<LONG>(frame.width);
+    handle.canvasHeight = static_cast<LONG>(frame.height);
+    handle.gifCanvasInitialized = true;
+
+    if (frame.disposal == PVDM_PREVIOUS && !frame.disposalBuffer.empty())
+    {
+        try
+        {
+            handle.gifSavedCanvas = frame.disposalBuffer;
+        }
+        catch (const std::bad_alloc&)
+        {
+            handle.gifSavedCanvas.clear();
+            return E_OUTOFMEMORY;
+        }
+    }
+    else
+    {
+        handle.gifSavedCanvas.clear();
     }
 
     return S_OK;
@@ -1470,23 +2059,16 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
     }
 
     bool hasTransparentPixel = false;
-    for (UINT y = 0; y < frame.height; ++y)
+    for (UINT y = 0; y < frame.height && !hasTransparentPixel; ++y)
     {
-        BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        const BYTE* row = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
         for (UINT x = 0; x < frame.width; ++x)
         {
-            BYTE* pixel = row + static_cast<size_t>(x) * 4;
-            if (pixel[3] < 128)
+            const BYTE alpha = row[static_cast<size_t>(x) * 4 + 3];
+            if (alpha < 128)
             {
                 hasTransparentPixel = true;
-                pixel[0] = 0;
-                pixel[1] = 0;
-                pixel[2] = 0;
-                pixel[3] = 0;
-            }
-            else
-            {
-                pixel[3] = 255;
+                break;
             }
         }
     }
@@ -1520,13 +2102,16 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
         return hr;
     }
 
+    std::fill(maskBuffer.begin(), maskBuffer.end(), 0);
+
     for (UINT y = 0; y < frame.height; ++y)
     {
         const BYTE* srcRow = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
         BYTE* dstRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
         for (UINT x = 0; x < frame.width; ++x)
         {
-            if (srcRow[static_cast<size_t>(x) * 4 + 3] == 0)
+            const BYTE alpha = srcRow[static_cast<size_t>(x) * 4 + 3];
+            if (alpha < 128)
             {
                 dstRow[x / 8] |= static_cast<BYTE>(0x80u >> (x % 8));
             }
@@ -1574,17 +2159,1175 @@ HRESULT EnsureTransparencyMask(FrameData& frame)
     return S_OK;
 }
 
-HRESULT FinalizeDecodedFrame(FrameData& frame)
+void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYTE r, BYTE g, BYTE b, BYTE a)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+    const unsigned int alpha = a;
+    const BYTE fillR = static_cast<BYTE>((static_cast<unsigned int>(r) * alpha + 127u) / 255u);
+    const BYTE fillG = static_cast<BYTE>((static_cast<unsigned int>(g) * alpha + 127u) / 255u);
+    const BYTE fillB = static_cast<BYTE>((static_cast<unsigned int>(b) * alpha + 127u) / 255u);
+    const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = buffer.data() + static_cast<size_t>(y) * stride;
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * 4;
+            pixel[0] = fillB;
+            pixel[1] = fillG;
+            pixel[2] = fillR;
+            pixel[3] = a;
+        }
+    }
+}
+
+void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
+                     BYTE a)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    const LONG maxX = static_cast<LONG>(width);
+    const LONG maxY = static_cast<LONG>(height);
+    const LONG left = std::clamp(rect.left, 0L, maxX);
+    const LONG top = std::clamp(rect.top, 0L, maxY);
+    const LONG right = std::clamp(rect.right, left, maxX);
+    const LONG bottom = std::clamp(rect.bottom, top, maxY);
+    if (right <= left || bottom <= top)
+    {
+        return;
+    }
+
+    const unsigned int alpha = a;
+    const BYTE fillR = static_cast<BYTE>((static_cast<unsigned int>(r) * alpha + 127u) / 255u);
+    const BYTE fillG = static_cast<BYTE>((static_cast<unsigned int>(g) * alpha + 127u) / 255u);
+    const BYTE fillB = static_cast<BYTE>((static_cast<unsigned int>(b) * alpha + 127u) / 255u);
+    const size_t stride = static_cast<size_t>(width) * kBytesPerPixel;
+    for (LONG y = top; y < bottom; ++y)
+    {
+        BYTE* row = buffer.data() + static_cast<size_t>(y) * stride + static_cast<size_t>(left) * 4;
+        for (LONG x = left; x < right; ++x)
+        {
+            row[0] = fillB;
+            row[1] = fillG;
+            row[2] = fillR;
+            row[3] = a;
+            row += 4;
+        }
+    }
+}
+
+void ZeroTransparentPixels(std::vector<BYTE>& buffer)
+{
+    if (buffer.empty())
+    {
+        return;
+    }
+
+    const size_t totalPixels = buffer.size() / kBytesPerPixel;
+    BYTE* data = buffer.data();
+    for (size_t i = 0; i < totalPixels; ++i)
+    {
+        BYTE* pixel = data + i * kBytesPerPixel;
+        if (pixel[3] == 0)
+        {
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+        }
+    }
+}
+
+void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
+                                    BYTE b, BYTE a)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    (void)a;
+
+    const size_t rowStride = static_cast<size_t>(stride);
+    const size_t expectedStride = static_cast<size_t>(width) * kBytesPerPixel;
+    if (rowStride < expectedStride)
+    {
+        return;
+    }
+
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = buffer.data() + rowStride * static_cast<size_t>(y);
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * kBytesPerPixel;
+            if (pixel[3] == 0)
+            {
+                pixel[0] = b;
+                pixel[1] = g;
+                pixel[2] = r;
+                pixel[3] = 0;
+            }
+        }
+    }
+}
+
+void BlendPremultipliedPixel(BYTE* dest, const BYTE* src)
+{
+    const unsigned int srcAlpha = src[3];
+    if (srcAlpha == 0)
+    {
+        return;
+    }
+
+    if (srcAlpha == 255)
+    {
+        dest[0] = src[0];
+        dest[1] = src[1];
+        dest[2] = src[2];
+        dest[3] = 255;
+        return;
+    }
+
+    const unsigned int destAlpha = dest[3];
+    const unsigned int invSrcAlpha = 255u - srcAlpha;
+
+    unsigned int outAlpha = srcAlpha + (destAlpha * invSrcAlpha + 127u) / 255u;
+    if (outAlpha > 255u)
+    {
+        outAlpha = 255u;
+    }
+
+    const unsigned int destBlueScaled = (static_cast<unsigned int>(dest[0]) * invSrcAlpha + 127u) / 255u;
+    const unsigned int destGreenScaled = (static_cast<unsigned int>(dest[1]) * invSrcAlpha + 127u) / 255u;
+    const unsigned int destRedScaled = (static_cast<unsigned int>(dest[2]) * invSrcAlpha + 127u) / 255u;
+
+    unsigned int outBlue = static_cast<unsigned int>(src[0]) + destBlueScaled;
+    unsigned int outGreen = static_cast<unsigned int>(src[1]) + destGreenScaled;
+    unsigned int outRed = static_cast<unsigned int>(src[2]) + destRedScaled;
+
+    if (outBlue > outAlpha)
+    {
+        outBlue = outAlpha;
+    }
+    if (outGreen > outAlpha)
+    {
+        outGreen = outAlpha;
+    }
+    if (outRed > outAlpha)
+    {
+        outRed = outAlpha;
+    }
+
+    dest[0] = static_cast<BYTE>(outBlue);
+    dest[1] = static_cast<BYTE>(outGreen);
+    dest[2] = static_cast<BYTE>(outRed);
+    dest[3] = static_cast<BYTE>(outAlpha);
+}
+
+bool IsPaletteUnavailable(HRESULT hr)
+{
+#if defined(WINCODEC_ERR_PALETTEUNAVAILABLE)
+    if (hr == WINCODEC_ERR_PALETTEUNAVAILABLE)
+    {
+        return true;
+    }
+#endif
+#if defined(WINCODEC_ERR_NOTINITIALIZED)
+    if (hr == WINCODEC_ERR_NOTINITIALIZED)
+    {
+        return true;
+    }
+#endif
+#if defined(WINCODEC_ERR_PROPERTYNOTFOUND)
+    if (hr == WINCODEC_ERR_PROPERTYNOTFOUND)
+    {
+        return true;
+    }
+#endif
+#if defined(WINCODEC_ERR_UNSUPPORTEDOPERATION)
+    if (hr == WINCODEC_ERR_UNSUPPORTEDOPERATION)
+    {
+        return true;
+    }
+#endif
+    return false;
+}
+
+HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries)
+{
+    if (entries.empty())
+    {
+        return nullptr;
+    }
+    if (entries.size() > 256)
+    {
+        return nullptr;
+    }
+
+    const size_t paletteSize = sizeof(LOGPALETTE) + (entries.size() - 1) * sizeof(PALETTEENTRY);
+    std::vector<BYTE> buffer;
+    try
+    {
+        buffer.resize(paletteSize);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return nullptr;
+    }
+
+    auto* logPalette = reinterpret_cast<LOGPALETTE*>(buffer.data());
+    logPalette->palVersion = 0x300;
+    logPalette->palNumEntries = static_cast<WORD>(entries.size());
+    for (size_t i = 0; i < entries.size(); ++i)
+    {
+        const RGBQUAD& quad = entries[i];
+        logPalette->palPalEntry[i].peRed = quad.rgbRed;
+        logPalette->palPalEntry[i].peGreen = quad.rgbGreen;
+        logPalette->palPalEntry[i].peBlue = quad.rgbBlue;
+        logPalette->palPalEntry[i].peFlags = PC_NOCOLLAPSE;
+    }
+
+    return CreatePalette(logPalette);
+}
+
+class PaletteSelector
+{
+public:
+    PaletteSelector(HDC dc, HPALETTE palette, bool enable)
+        : m_dc(dc)
+        , m_previous(nullptr)
+        , m_active(false)
+    {
+        if (!enable || !m_dc || !palette)
+        {
+            return;
+        }
+
+        if ((GetDeviceCaps(m_dc, RASTERCAPS) & RC_PALETTE) == 0)
+        {
+            return;
+        }
+
+        m_previous = SelectPalette(m_dc, palette, FALSE);
+        RealizePalette(m_dc);
+        m_active = true;
+    }
+
+    PaletteSelector(const PaletteSelector&) = delete;
+    PaletteSelector& operator=(const PaletteSelector&) = delete;
+
+    ~PaletteSelector()
+    {
+        if (!m_active || !m_dc)
+        {
+            return;
+        }
+
+        HPALETTE restore = m_previous ? m_previous : static_cast<HPALETTE>(GetStockObject(DEFAULT_PALETTE));
+        if (restore)
+        {
+            SelectPalette(m_dc, restore, TRUE);
+            RealizePalette(m_dc);
+        }
+    }
+
+private:
+    HDC m_dc;
+    HPALETTE m_previous;
+    bool m_active;
+};
+
+HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame)
+{
+    if (frame.paletteHandle)
+    {
+        DeleteObject(frame.paletteHandle);
+        frame.paletteHandle = nullptr;
+    }
+    frame.palette.clear();
+
+    frame.useIndexedPixels = false;
+    frame.indexedPixels.clear();
+    frame.indexedStride = 0;
+    frame.indexedBmi = BITMAPINFOHEADER{};
+    frame.displayBmi = BITMAPINFOHEADER{};
+    frame.displayStride = 0;
+
+    const bool needPalette = frame.allowIndexedDisplay || frame.realizePalette;
+    if (!needPalette)
+    {
+        frame.paletteColorCount = 0;
+        return S_OK;
+    }
+
+    if (!factory || !frame.frame)
+    {
+        frame.paletteColorCount = 0;
+        frame.realizePalette = false;
+        return S_OK;
+    }
+
+    if (frame.paletteColorCount == 0 && frame.bitsPerPixel > 8)
+    {
+        frame.realizePalette = false;
+        return S_OK;
+    }
+
+    Microsoft::WRL::ComPtr<IWICPalette> palette;
+    HRESULT hr = factory->CreatePalette(&palette);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = frame.frame->CopyPalette(palette.Get());
+    if (FAILED(hr))
+    {
+        if (IsPaletteUnavailable(hr))
+        {
+            frame.paletteColorCount = 0;
+            frame.realizePalette = false;
+            return S_OK;
+        }
+        return hr;
+    }
+
+    UINT colorCount = 0;
+    hr = palette->GetColorCount(&colorCount);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (colorCount == 0)
+    {
+        frame.paletteColorCount = 0;
+        frame.realizePalette = false;
+        return S_OK;
+    }
+
+    std::vector<WICColor> colors(colorCount);
+    UINT actual = colorCount;
+    hr = palette->GetColors(colorCount, colors.data(), &actual);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    colors.resize(actual);
+
+    if (frame.gifHasTransparentColor)
+    {
+        const size_t transparent = static_cast<size_t>(frame.gifTransparentIndex);
+        if (transparent < colors.size())
+        {
+            colors[transparent] = 0u;
+        }
+    }
+
+    try
+    {
+        frame.palette.resize(colors.size());
+    }
+    catch (const std::bad_alloc&)
+    {
+        frame.palette.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    for (size_t i = 0; i < colors.size(); ++i)
+    {
+        const WICColor color = colors[i];
+        RGBQUAD quad{};
+        quad.rgbRed = static_cast<BYTE>((color >> 16) & 0xFF);
+        quad.rgbGreen = static_cast<BYTE>((color >> 8) & 0xFF);
+        quad.rgbBlue = static_cast<BYTE>(color & 0xFF);
+        quad.rgbReserved = static_cast<BYTE>((color >> 24) & 0xFF);
+        frame.palette[i] = quad;
+    }
+
+    frame.paletteColorCount = static_cast<UINT>(colors.size());
+    if (!frame.palette.empty())
+    {
+        HPALETTE paletteHandle = CreateGdiPalette(frame.palette);
+        if (paletteHandle)
+        {
+            frame.paletteHandle = paletteHandle;
+        }
+        else if (frame.palette.size() <= 256)
+        {
+            const DWORD error = GetLastError();
+            return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
+        }
+    }
+
+    if (frame.bitsPerPixel > 0)
+    {
+        frame.reportedColors =
+            DetermineColorCount(frame.sourcePixelFormat, frame.bitsPerPixel, frame.paletteColorCount, frame.colorModel);
+    }
+
+    frame.realizePalette = frame.realizePalette && frame.paletteColorCount > 0;
+    return S_OK;
+}
+
+HRESULT BuildIndexedPixelBuffer(FrameData& frame)
+{
+    frame.useIndexedPixels = false;
+    frame.indexedPixels.clear();
+    frame.indexedStride = 0;
+    frame.indexedBmi = BITMAPINFOHEADER{};
+
+    if (!frame.allowIndexedDisplay)
+    {
+        return S_FALSE;
+    }
+
+    if (frame.hasTransparency)
+    {
+        return S_FALSE;
+    }
+
+    if (frame.bitsPerPixel > 8)
+    {
+        return S_FALSE;
+    }
+    if (frame.width == 0 || frame.height == 0)
+    {
+        return S_FALSE;
+    }
+
+    if (frame.paletteColorCount == 0)
+    {
+        return S_FALSE;
+    }
+
+    const size_t alignedStride = (static_cast<size_t>(frame.width) + 3u) & ~static_cast<size_t>(3u);
+    if (alignedStride > static_cast<size_t>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+    const size_t totalSize = alignedStride * static_cast<size_t>(frame.height);
+    try
+    {
+        frame.indexedPixels.resize(totalSize);
+    }
+    catch (const std::bad_alloc&)
+    {
+        frame.indexedPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    std::unordered_map<DWORD, BYTE> colorToIndex;
+    colorToIndex.reserve(std::min<size_t>(frame.paletteColorCount != 0 ? frame.paletteColorCount : 256u, 256u));
+    std::vector<RGBQUAD> paletteFromPixels;
+    paletteFromPixels.reserve(256);
+
+    const BYTE* srcBase = frame.pixels.data();
+    for (UINT y = 0; y < frame.height; ++y)
+    {
+        const BYTE* srcRow = srcBase + static_cast<size_t>(y) * frame.stride;
+        BYTE* dstRow = frame.indexedPixels.data() + static_cast<size_t>(y) * alignedStride;
+        for (UINT x = 0; x < frame.width; ++x)
+        {
+            const BYTE* srcPixel = srcRow + static_cast<size_t>(x) * kBytesPerPixel;
+            const BYTE alpha = srcPixel[3];
+            const DWORD key = (static_cast<DWORD>(alpha) << 24) | (static_cast<DWORD>(srcPixel[2]) << 16) |
+                              (static_cast<DWORD>(srcPixel[1]) << 8) | static_cast<DWORD>(srcPixel[0]);
+
+            BYTE paletteIndex = 0;
+            auto it = colorToIndex.find(key);
+            if (it == colorToIndex.end())
+            {
+                if (colorToIndex.size() >= 256)
+                {
+                    frame.indexedPixels.clear();
+                    frame.indexedStride = 0;
+                    return S_FALSE;
+                }
+
+                paletteIndex = static_cast<BYTE>(colorToIndex.size());
+                colorToIndex.emplace(key, paletteIndex);
+
+                RGBQUAD quad{};
+                quad.rgbBlue = srcPixel[0];
+                quad.rgbGreen = srcPixel[1];
+                quad.rgbRed = srcPixel[2];
+                quad.rgbReserved = alpha;
+                paletteFromPixels.push_back(quad);
+            }
+            else
+            {
+                paletteIndex = it->second;
+            }
+
+            dstRow[x] = paletteIndex;
+        }
+
+        if (alignedStride > static_cast<size_t>(frame.width))
+        {
+            memset(dstRow + frame.width, 0, alignedStride - static_cast<size_t>(frame.width));
+        }
+    }
+
+    if (!paletteFromPixels.empty())
+    {
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+
+        frame.palette = paletteFromPixels;
+        frame.paletteColorCount = static_cast<UINT>(frame.palette.size());
+
+        HPALETTE newPaletteHandle = CreateGdiPalette(frame.palette);
+        if (!frame.palette.empty() && !newPaletteHandle)
+        {
+            const DWORD error = GetLastError();
+            return HRESULT_FROM_WIN32(error != 0 ? error : ERROR_NOT_ENOUGH_MEMORY);
+        }
+        frame.paletteHandle = newPaletteHandle;
+    }
+    else
+    {
+        frame.palette.clear();
+        frame.paletteColorCount = 0;
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
+        }
+    }
+
+    if (frame.bitsPerPixel > 0)
+    {
+        frame.reportedColors =
+            DetermineColorCount(frame.sourcePixelFormat, frame.bitsPerPixel, frame.paletteColorCount, frame.colorModel);
+    }
+
+    frame.useIndexedPixels = true;
+    frame.indexedStride = static_cast<UINT>(alignedStride);
+    frame.indexedBmi.biSize = sizeof(BITMAPINFOHEADER);
+    frame.indexedBmi.biWidth = static_cast<LONG>(frame.width);
+    frame.indexedBmi.biHeight = -static_cast<LONG>(frame.height);
+    frame.indexedBmi.biPlanes = 1;
+    frame.indexedBmi.biBitCount = 8;
+    frame.indexedBmi.biCompression = BI_RGB;
+    frame.indexedBmi.biSizeImage = totalSize > std::numeric_limits<DWORD>::max()
+                                       ? 0
+                                       : static_cast<DWORD>(totalSize);
+    frame.indexedBmi.biXPelsPerMeter = frame.bmi.biXPelsPerMeter;
+    frame.indexedBmi.biYPelsPerMeter = frame.bmi.biYPelsPerMeter;
+    const UINT paletteUsed = std::min<UINT>(frame.paletteColorCount, 256u);
+    frame.indexedBmi.biClrUsed = paletteUsed;
+    frame.indexedBmi.biClrImportant = paletteUsed;
+    return S_OK;
+}
+
+
+HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap)
+{
+    colorBitmap = nullptr;
+    maskBitmap = nullptr;
+
+    if (frame.pixels.empty() || frame.stride == 0 || frame.width == 0 || frame.height == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    const LONG maxWidth = static_cast<LONG>(frame.width);
+    const LONG maxHeight = static_cast<LONG>(frame.height);
+
+    const LONG left = std::clamp(rect.left, 0L, maxWidth);
+    const LONG top = std::clamp(rect.top, 0L, maxHeight);
+    const LONG right = std::clamp(rect.right, left, maxWidth);
+    const LONG bottom = std::clamp(rect.bottom, top, maxHeight);
+
+    const LONG visibleWidth = right - left;
+    const LONG visibleHeight = bottom - top;
+    const LONG bitmapWidth = std::max<LONG>(visibleWidth, 1);
+    const LONG bitmapHeight = std::max<LONG>(visibleHeight, 1);
+
+    const size_t dstStride = static_cast<size_t>(bitmapWidth) * kBytesPerPixel;
+    const size_t bitmapSize = dstStride * static_cast<size_t>(bitmapHeight);
+
+    BITMAPINFO colorInfo{};
+    colorInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    colorInfo.bmiHeader.biWidth = bitmapWidth;
+    colorInfo.bmiHeader.biHeight = -bitmapHeight;
+    colorInfo.bmiHeader.biPlanes = 1;
+    colorInfo.bmiHeader.biBitCount = 32;
+    colorInfo.bmiHeader.biCompression = BI_RGB;
+    colorInfo.bmiHeader.biSizeImage = bitmapSize > std::numeric_limits<DWORD>::max() ? 0
+                                                                               : static_cast<DWORD>(bitmapSize);
+
+    void* colorBits = nullptr;
+    HBITMAP color = CreateDIBSection(nullptr, &colorInfo, DIB_RGB_COLORS, &colorBits, nullptr, 0);
+    if (!color || !colorBits)
+    {
+        if (color)
+        {
+            DeleteObject(color);
+        }
+        return E_OUTOFMEMORY;
+    }
+
+    BYTE* dstBase = reinterpret_cast<BYTE*>(colorBits);
+    memset(dstBase, 0, bitmapSize);
+
+    if (visibleWidth > 0 && visibleHeight > 0)
+    {
+        for (LONG y = 0; y < visibleHeight; ++y)
+        {
+            const BYTE* srcRow = frame.pixels.data() +
+                                 (static_cast<size_t>(top + y) * frame.stride) +
+                                 static_cast<size_t>(left) * kBytesPerPixel;
+            BYTE* dstRow = dstBase + static_cast<size_t>(y) * dstStride;
+            memcpy(dstRow, srcRow, static_cast<size_t>(visibleWidth) * kBytesPerPixel);
+        }
+    }
+
+    const ULONGLONG maskStride64 = ((static_cast<ULONGLONG>(bitmapWidth) + 7ull) / 8ull + 3ull) & ~3ull;
+    if (maskStride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        DeleteObject(color);
+        return E_OUTOFMEMORY;
+    }
+    const UINT maskStride = static_cast<UINT>(maskStride64);
+    const ULONGLONG maskSize64 = maskStride64 * static_cast<ULONGLONG>(bitmapHeight);
+    if (bitmapHeight != 0 && maskSize64 / bitmapHeight != maskStride64)
+    {
+        DeleteObject(color);
+        return E_OUTOFMEMORY;
+    }
+    if (maskSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        DeleteObject(color);
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> maskBuffer;
+    HRESULT hr = AllocateBuffer(maskBuffer, static_cast<size_t>(maskSize64));
+    if (FAILED(hr))
+    {
+        DeleteObject(color);
+        return hr;
+    }
+    memset(maskBuffer.data(), 0, maskBuffer.size());
+
+    bool hasTransparency = false;
+    if (visibleWidth > 0 && visibleHeight > 0)
+    {
+        for (LONG y = 0; y < visibleHeight; ++y)
+        {
+            const BYTE* srcRow = frame.pixels.data() +
+                                 (static_cast<size_t>(top + y) * frame.stride) +
+                                 static_cast<size_t>(left) * kBytesPerPixel;
+            BYTE* maskRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
+            for (LONG x = 0; x < visibleWidth; ++x)
+            {
+                if (srcRow[static_cast<size_t>(x) * 4 + 3] == 0)
+                {
+                    maskRow[x / 8] |= static_cast<BYTE>(0x80u >> (x % 8));
+                    hasTransparency = true;
+                }
+            }
+        }
+    }
+    else
+    {
+        if (bitmapWidth > 0 && bitmapHeight > 0)
+        {
+            for (LONG y = 0; y < bitmapHeight; ++y)
+            {
+                BYTE* maskRow = maskBuffer.data() + static_cast<size_t>(y) * maskStride;
+                maskRow[0] = 0xFF;
+            }
+            hasTransparency = true;
+        }
+    }
+
+    HBITMAP mask = nullptr;
+    if (hasTransparency)
+    {
+        BITMAPINFO maskInfo{};
+        maskInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        maskInfo.bmiHeader.biWidth = bitmapWidth;
+        maskInfo.bmiHeader.biHeight = -bitmapHeight;
+        maskInfo.bmiHeader.biPlanes = 1;
+        maskInfo.bmiHeader.biBitCount = 1;
+        maskInfo.bmiHeader.biCompression = BI_RGB;
+        maskInfo.bmiHeader.biSizeImage = maskSize64 > std::numeric_limits<DWORD>::max()
+                                             ? 0
+                                             : static_cast<DWORD>(maskSize64);
+        maskInfo.bmiColors[0].rgbBlue = 0;
+        maskInfo.bmiColors[0].rgbGreen = 0;
+        maskInfo.bmiColors[0].rgbRed = 0;
+        maskInfo.bmiColors[0].rgbReserved = 0;
+        maskInfo.bmiColors[1].rgbBlue = 255;
+        maskInfo.bmiColors[1].rgbGreen = 255;
+        maskInfo.bmiColors[1].rgbRed = 255;
+        maskInfo.bmiColors[1].rgbReserved = 0;
+
+        void* maskBits = nullptr;
+        mask = CreateDIBSection(nullptr, &maskInfo, DIB_RGB_COLORS, &maskBits, nullptr, 0);
+        if (!mask || !maskBits)
+        {
+            if (mask)
+            {
+                DeleteObject(mask);
+            }
+            DeleteObject(color);
+            return E_OUTOFMEMORY;
+        }
+        memcpy(maskBits, maskBuffer.data(), maskBuffer.size());
+    }
+
+    colorBitmap = color;
+    maskBitmap = mask;
+    return S_OK;
+}
+
+HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UINT height)
+{
+    if (width == 0 || height == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    if (frame.scaledBitmap && frame.scaledWidth == width && frame.scaledHeight == height)
+    {
+        return S_OK;
+    }
+
+    if (frame.scaledBitmap)
+    {
+        DeleteObject(frame.scaledBitmap);
+        frame.scaledBitmap = nullptr;
+    }
+    frame.scaledPixels.clear();
+    frame.scaledStride = 0;
+    frame.scaledWidth = 0;
+    frame.scaledHeight = 0;
+
+    IWICImagingFactory* factory = handle.backend ? handle.backend->Factory() : nullptr;
+    if (!factory)
+    {
+        return E_FAIL;
+    }
+
+    if (frame.width > std::numeric_limits<UINT>::max() || frame.height > std::numeric_limits<UINT>::max())
+    {
+        return E_OUTOFMEMORY;
+    }
+    const bool usePremultipliedSource = frame.hasTransparency && !frame.compositedPixels.empty();
+    const std::vector<BYTE>& sourceBuffer = usePremultipliedSource ? frame.compositedPixels : frame.pixels;
+    if (sourceBuffer.empty() || frame.width == 0 || frame.height == 0)
+    {
+        return E_FAIL;
+    }
+    const size_t pixelBytes = sourceBuffer.size();
+    if (pixelBytes > static_cast<size_t>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> premultipliedBuffer;
+    GUID bitmapPixelFormat = usePremultipliedSource ? GUID_WICPixelFormat32bppPBGRA : GUID_WICPixelFormat32bppBGRA;
+    BYTE* bitmapMemory = const_cast<BYTE*>(sourceBuffer.data());
+    if (!usePremultipliedSource && frame.hasTransparency)
+    {
+        try
+        {
+            premultipliedBuffer.assign(sourceBuffer.begin(), sourceBuffer.end());
+        }
+        catch (const std::bad_alloc&)
+        {
+            return E_OUTOFMEMORY;
+        }
+
+        const size_t pixelCount = premultipliedBuffer.size() / kBytesPerPixel;
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            BYTE* pixel = premultipliedBuffer.data() + i * kBytesPerPixel;
+            const BYTE alpha = pixel[3];
+            if (alpha == 0)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                continue;
+            }
+            if (alpha == 255)
+            {
+                continue;
+            }
+
+            const unsigned int a = alpha;
+            pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+            pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+            pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+        }
+
+        bitmapPixelFormat = GUID_WICPixelFormat32bppPBGRA;
+        bitmapMemory = premultipliedBuffer.data();
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmap> memoryBitmap;
+    HRESULT hr = factory->CreateBitmapFromMemory(frame.width, frame.height, bitmapPixelFormat, frame.stride,
+                                                 static_cast<UINT>(pixelBytes), bitmapMemory, &memoryBitmap);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
+    hr = factory->CreateBitmapScaler(&scaler);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = scaler->Initialize(memoryBitmap.Get(), width, height, WICBitmapInterpolationModeHighQualityCubic);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    const ULONGLONG stride64 = static_cast<ULONGLONG>(width) * kBytesPerPixel;
+    if (stride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+    const UINT stride = static_cast<UINT>(stride64);
+    const ULONGLONG bufferSize64 = stride64 * static_cast<ULONGLONG>(height);
+    if (height != 0 && bufferSize64 / height != stride64)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (bufferSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    try
+    {
+        frame.scaledPixels.resize(static_cast<size_t>(bufferSize64));
+    }
+    catch (const std::bad_alloc&)
+    {
+        frame.scaledPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    hr = scaler->CopyPixels(nullptr, stride, static_cast<UINT>(frame.scaledPixels.size()), frame.scaledPixels.data());
+    if (FAILED(hr))
+    {
+        frame.scaledPixels.clear();
+        return hr;
+    }
+
+    BITMAPINFO scaledInfo{};
+    scaledInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    scaledInfo.bmiHeader.biWidth = static_cast<LONG>(width);
+    scaledInfo.bmiHeader.biHeight = -static_cast<LONG>(height);
+    scaledInfo.bmiHeader.biPlanes = 1;
+    scaledInfo.bmiHeader.biBitCount = 32;
+    scaledInfo.bmiHeader.biCompression = BI_RGB;
+    scaledInfo.bmiHeader.biSizeImage = frame.scaledPixels.size() > std::numeric_limits<DWORD>::max()
+                                           ? 0
+                                           : static_cast<DWORD>(frame.scaledPixels.size());
+    scaledInfo.bmiHeader.biXPelsPerMeter = frame.bmi.biXPelsPerMeter;
+    scaledInfo.bmiHeader.biYPelsPerMeter = frame.bmi.biYPelsPerMeter;
+
+    void* bits = nullptr;
+    HBITMAP scaledBitmap = CreateDIBSection(nullptr, &scaledInfo, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!scaledBitmap || !bits)
+    {
+        if (scaledBitmap)
+        {
+            DeleteObject(scaledBitmap);
+        }
+        frame.scaledPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    memcpy(bits, frame.scaledPixels.data(), frame.scaledPixels.size());
+    if (frame.hasTransparency)
+    {
+        BYTE* target = static_cast<BYTE*>(bits);
+        const size_t pixelCount = frame.scaledPixels.size() / kBytesPerPixel;
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            BYTE* pixel = target + i * kBytesPerPixel;
+            if (pixel[3] == 0)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+            }
+        }
+
+        UnpremultiplyBuffer(frame.scaledPixels, width, height, stride);
+        ZeroTransparentPixels(frame.scaledPixels);
+    }
+
+    frame.scaledBitmap = scaledBitmap;
+    frame.scaledStride = stride;
+    frame.scaledWidth = width;
+    frame.scaledHeight = height;
+    return S_OK;
+}
+
+DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat)
+{
+    if (IsEqualGUID(pixelFormat, GUID_WICPixelFormatBlackWhite) ||
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat2bppGray) ||
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat4bppGray) ||
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat8bppGray) ||
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat16bppGray) ||
+#ifdef GUID_WICPixelFormat16bppGrayFixedPoint
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat16bppGrayFixedPoint) ||
+#endif
+#ifdef GUID_WICPixelFormat16bppGrayHalf
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat16bppGrayHalf) ||
+#endif
+#ifdef GUID_WICPixelFormat32bppGrayFloat
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat32bppGrayFloat) ||
+#endif
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat8bppY))
+    {
+        return PVCM_GRAYS;
+    }
+
+    if (IsEqualGUID(pixelFormat, GUID_WICPixelFormat32bppCMYK) ||
+        IsEqualGUID(pixelFormat, GUID_WICPixelFormat40bppCMYKAlpha)
+#ifdef GUID_WICPixelFormat64bppCMYK
+        || IsEqualGUID(pixelFormat, GUID_WICPixelFormat64bppCMYK)
+#endif
+#ifdef GUID_WICPixelFormat80bppCMYKAlpha
+        || IsEqualGUID(pixelFormat, GUID_WICPixelFormat80bppCMYKAlpha)
+#endif
+#ifdef GUID_WICPixelFormat64bppCMYKFixedPoint
+        || IsEqualGUID(pixelFormat, GUID_WICPixelFormat64bppCMYKFixedPoint)
+#endif
+#ifdef GUID_WICPixelFormat128bppCMYKFixedPoint
+        || IsEqualGUID(pixelFormat, GUID_WICPixelFormat128bppCMYKFixedPoint)
+#endif
+    )
+    {
+        return PVCM_CMYK;
+    }
+
+    return PVCM_RGB;
+}
+
+DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel)
+{
+    if (paletteColors > 0)
+    {
+        return paletteColors;
+    }
+
+    if (bitsPerPixel == 0)
+    {
+        return PV_COLOR_TC32;
+    }
+
+    if (bitsPerPixel <= 8)
+    {
+        const UINT rawColors = 1u << bitsPerPixel;
+        return std::max<UINT>(2u, rawColors);
+    }
+
+    if (bitsPerPixel == 15)
+    {
+        return PV_COLOR_HC15;
+    }
+
+    if (bitsPerPixel == 16)
+    {
+        if (IsEqualGUID(pixelFormat, GUID_WICPixelFormat16bppBGR555)
+#ifdef GUID_WICPixelFormat16bppBGRA5551
+            || IsEqualGUID(pixelFormat, GUID_WICPixelFormat16bppBGRA5551)
+#endif
+        )
+        {
+            return PV_COLOR_HC15;
+        }
+        return PV_COLOR_HC16;
+    }
+
+    if (bitsPerPixel == 24)
+    {
+        return PV_COLOR_TC24;
+    }
+
+    if (bitsPerPixel == 32)
+    {
+        return PV_COLOR_TC32;
+    }
+
+    if (colorModel == PVCM_GRAYS && bitsPerPixel <= 16)
+    {
+        if (bitsPerPixel >= 31)
+        {
+            return PV_COLOR_TC32;
+        }
+        const UINT rawColors = 1u << bitsPerPixel;
+        return std::max<UINT>(2u, rawColors);
+    }
+
+    if (bitsPerPixel > 32)
+    {
+        return PV_COLOR_TC32;
+    }
+
+    return PV_COLOR_TC32;
+}
+
+HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
+                                IWICBitmapSource** convertedSource)
+{
+    if (!factory || !source || !convertedSource)
+    {
+        return E_INVALIDARG;
+    }
+
+    *convertedSource = nullptr;
+
+    UINT width = 0;
+    UINT height = 0;
+    HRESULT hr = source->GetSize(&width, &height);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (width == 0 || height == 0)
+    {
+        return WINCODEC_ERR_INVALIDPARAMETER;
+    }
+
+    const ULONGLONG stride64 = static_cast<ULONGLONG>(width) * 4ull;
+    if (stride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+    const UINT stride = static_cast<UINT>(stride64);
+    const ULONGLONG buffer64 = stride64 * static_cast<ULONGLONG>(height);
+    if (height != 0 && buffer64 / height != stride64)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (buffer64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> bgra(static_cast<size_t>(buffer64));
+    WICRect rect{0, 0, static_cast<INT>(width), static_cast<INT>(height)};
+    hr = source->CopyPixels(&rect, stride, static_cast<UINT>(bgra.size()), bgra.data());
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    std::vector<BYTE> cmyk(bgra.size());
+    for (UINT y = 0; y < height; ++y)
+    {
+        const BYTE* srcRow = bgra.data() + static_cast<size_t>(y) * stride;
+        BYTE* dstRow = cmyk.data() + static_cast<size_t>(y) * stride;
+        for (UINT x = 0; x < width; ++x)
+        {
+            const BYTE* pixel = srcRow + static_cast<size_t>(x) * 4;
+            BYTE* out = dstRow + static_cast<size_t>(x) * 4;
+
+            const BYTE alpha = pixel[3];
+            BYTE r = pixel[2];
+            BYTE g = pixel[1];
+            BYTE b = pixel[0];
+            if (alpha < 255)
+            {
+                const unsigned int invAlpha = 255u - static_cast<unsigned int>(alpha);
+                r = static_cast<BYTE>((static_cast<unsigned int>(r) * alpha + 255u * invAlpha + 127u) / 255u);
+                g = static_cast<BYTE>((static_cast<unsigned int>(g) * alpha + 255u * invAlpha + 127u) / 255u);
+                b = static_cast<BYTE>((static_cast<unsigned int>(b) * alpha + 255u * invAlpha + 127u) / 255u);
+            }
+
+            const double rf = static_cast<double>(r) / 255.0;
+            const double gf = static_cast<double>(g) / 255.0;
+            const double bf = static_cast<double>(b) / 255.0;
+            const double maxRgb = std::max({rf, gf, bf});
+            const double k = 1.0 - maxRgb;
+
+            double c = 0.0;
+            double m = 0.0;
+            double yVal = 0.0;
+            if (k < 0.999999)
+            {
+                const double inv = 1.0 - k;
+                c = (1.0 - rf - k) / inv;
+                m = (1.0 - gf - k) / inv;
+                yVal = (1.0 - bf - k) / inv;
+            }
+
+            const auto clampByte = [](double value) -> BYTE {
+                if (value <= 0.0)
+                {
+                    return 0;
+                }
+                if (value >= 1.0)
+                {
+                    return 255;
+                }
+                return static_cast<BYTE>(std::floor(value * 255.0 + 0.5));
+            };
+
+            out[0] = clampByte(c);
+            out[1] = clampByte(m);
+            out[2] = clampByte(yVal);
+            out[3] = clampByte(k);
+        }
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmap> bitmap;
+    hr = factory->CreateBitmapFromMemory(width, height, GUID_WICPixelFormat32bppCMYK, stride,
+                                         static_cast<UINT>(cmyk.size()), cmyk.data(), &bitmap);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    return bitmap.CopyTo(convertedSource);
+}
+
+HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
 {
     const size_t lineCount = static_cast<size_t>(frame.height);
     if (lineCount > frame.linePointers.max_size())
     {
         return E_OUTOFMEMORY;
     }
+    IWICImagingFactory* factory = backend ? backend->Factory() : nullptr;
+    HRESULT paletteHr = PopulateFramePalette(factory, frame);
+    if (FAILED(paletteHr))
+    {
+        return paletteHr;
+    }
     HRESULT maskHr = EnsureTransparencyMask(frame);
     if (FAILED(maskHr))
     {
         return maskHr;
+    }
+    HRESULT indexedHr = BuildIndexedPixelBuffer(frame);
+    if (FAILED(indexedHr) && indexedHr != S_FALSE)
+    {
+        return indexedHr;
     }
     try
     {
@@ -1596,11 +3339,13 @@ HRESULT FinalizeDecodedFrame(FrameData& frame)
         return E_OUTOFMEMORY;
     }
 
+    const bool useIndexed = frame.useIndexedPixels && !frame.indexedPixels.empty();
+    const size_t lineStride = useIndexed ? static_cast<size_t>(frame.indexedStride) : frame.stride;
+    BYTE* baseLine = useIndexed ? frame.indexedPixels.data() : frame.pixels.data();
     for (UINT y = 0; y < frame.height; ++y)
     {
-        frame.linePointers[y] = frame.pixels.data() + static_cast<size_t>(y) * frame.stride;
+        frame.linePointers[y] = baseLine + static_cast<size_t>(y) * lineStride;
     }
-    frame.palette.clear();
 
     frame.bmi.biSize = sizeof(BITMAPINFOHEADER);
     frame.bmi.biWidth = static_cast<LONG>(frame.width);
@@ -1613,12 +3358,31 @@ HRESULT FinalizeDecodedFrame(FrameData& frame)
                                                                          : static_cast<DWORD>(pixelBytes);
     frame.bmi.biXPelsPerMeter = 0;
     frame.bmi.biYPelsPerMeter = 0;
+    if (useIndexed)
+    {
+        frame.displayStride = frame.indexedStride;
+        frame.displayBmi = frame.indexedBmi;
+    }
+    else
+    {
+        frame.displayStride = frame.stride;
+        frame.displayBmi = frame.bmi;
+    }
 
     if (frame.hbitmap)
     {
         DeleteObject(frame.hbitmap);
         frame.hbitmap = nullptr;
     }
+    if (frame.scaledBitmap)
+    {
+        DeleteObject(frame.scaledBitmap);
+        frame.scaledBitmap = nullptr;
+    }
+    frame.scaledPixels.clear();
+    frame.scaledStride = 0;
+    frame.scaledWidth = 0;
+    frame.scaledHeight = 0;
 
     void* bits = nullptr;
     BITMAPINFO bmi{};
@@ -1631,6 +3395,31 @@ HRESULT FinalizeDecodedFrame(FrameData& frame)
     if (bits && !frame.pixels.empty())
     {
         memcpy(bits, frame.pixels.data(), frame.pixels.size());
+        if (frame.hasTransparency)
+        {
+            BYTE* target = static_cast<BYTE*>(bits);
+            const size_t pixelCount = frame.pixels.size() / kBytesPerPixel;
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                BYTE* pixel = target + i * kBytesPerPixel;
+                const BYTE alpha = pixel[3];
+                if (alpha == 0)
+                {
+                    pixel[0] = 0;
+                    pixel[1] = 0;
+                    pixel[2] = 0;
+                    continue;
+                }
+                if (alpha == 255)
+                {
+                    continue;
+                }
+                const unsigned int a = alpha;
+                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+            }
+        }
     }
 
     frame.decoded = true;
@@ -1838,15 +3627,18 @@ HRESULT EnsureConverter(ImageHandle& handle, size_t index)
     {
         return hr;
     }
-    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+    const bool isGif = handle.baseInfo.Format == PVF_GIF;
+    const GUID targetFormat = isGif ? GUID_WICPixelFormat32bppBGRA : GUID_WICPixelFormat32bppPBGRA;
+    frame.pixelsArePremultiplied = !isGif;
+    hr = converter->Initialize(frame.frame.Get(), targetFormat, WICBitmapDitherTypeNone, nullptr, 0.0,
                                WICBitmapPaletteTypeCustom);
     if (FAILED(hr) && IsConverterFormatFailure(hr))
     {
         HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
         if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
         {
-            hr = converter->Initialize(frame.colorConvertedSource.Get(), GUID_WICPixelFormat32bppBGRA,
-                                       WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
+            hr = converter->Initialize(frame.colorConvertedSource.Get(), targetFormat, WICBitmapDitherTypeNone, nullptr,
+                                       0.0, WICBitmapPaletteTypeCustom);
         }
         else if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
         {
@@ -1871,7 +3663,24 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
     FrameData& frame = handle.frames[index];
     if (frame.decoded)
     {
+        if (handle.baseInfo.Format == PVF_GIF)
+        {
+            HRESULT restoreHr = RestoreGifCanvasState(handle, index);
+            if (FAILED(restoreHr) && restoreHr != S_FALSE)
+            {
+                return restoreHr;
+            }
+        }
         return S_OK;
+    }
+
+    if (handle.baseInfo.Format == PVF_GIF && index > 0)
+    {
+        HRESULT previousHr = DecodeFrame(handle, index - 1);
+        if (FAILED(previousHr))
+        {
+            return previousHr;
+        }
     }
 
     HRESULT hr = EnsureConverter(handle, index);
@@ -1884,7 +3693,7 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
             {
                 return hr;
             }
-            hr = FinalizeDecodedFrame(frame);
+            hr = FinalizeDecodedFrame(handle.backend, frame);
             return hr;
         }
         return hr;
@@ -1896,7 +3705,16 @@ HRESULT DecodeFrame(ImageHandle& handle, size_t index)
         return hr;
     }
 
-    return FinalizeDecodedFrame(frame);
+    if (handle.baseInfo.Format == PVF_GIF)
+    {
+        hr = CompositeGifFrame(handle, index);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+    }
+
+    return FinalizeDecodedFrame(handle.backend, frame);
 }
 
 PVCODE HResultToPvCode(HRESULT hr)
@@ -2053,6 +3871,13 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     info->TotalBitDepth = 32;
     info->FSI = handle.hasFormatSpecificInfo ? &handle.formatInfo : nullptr;
 
+    if (!handle.frames.empty())
+    {
+        info->Colors = handle.frames[0].reportedColors;
+        info->ColorModel = handle.frames[0].colorModel;
+        info->TotalBitDepth = handle.frames[0].reportedBitDepth;
+    }
+
     struct FormatLabel
     {
         DWORD format;
@@ -2100,9 +3925,12 @@ PVCODE PopulateImageInfo(ImageHandle& handle, LPPVImageInfo info, DWORD bufferSi
     const FrameData& frame = handle.frames[normalized];
 
     info->CurrentImage = static_cast<DWORD>(normalized);
+    info->Colors = frame.reportedColors;
+    info->ColorModel = frame.colorModel;
+    info->TotalBitDepth = frame.reportedBitDepth;
     info->Width = frame.width;
     info->Height = frame.height;
-    info->BytesPerLine = frame.stride;
+    info->BytesPerLine = frame.displayStride != 0 ? frame.displayStride : frame.stride;
 
     double dpiX = 0.0;
     double dpiY = 0.0;
@@ -2182,6 +4010,18 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     handle.baseInfo.FSI = nullptr;
     handle.canvasWidth = 0;
     handle.canvasHeight = 0;
+    handle.gifComposeCanvas.clear();
+    handle.gifSavedCanvas.clear();
+    handle.gifCanvasInitialized = false;
+
+    GUID container = {};
+    if (FAILED(decoder->GetContainerFormat(&container)))
+    {
+        container = GUID_ContainerFormatBmp;
+    }
+    const DWORD mappedFormat = MapFormatToPvFormat(container);
+    handle.baseInfo.Format = mappedFormat;
+    const bool isGifContainer = mappedFormat == PVF_GIF;
 
     ComPtr<IWICMetadataQueryReader> decoderQuery;
     if (FAILED(decoder->GetMetadataQueryReader(&decoderQuery)))
@@ -2222,8 +4062,14 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     }
 
     COLORREF backgroundColor = RGB(0, 0, 0);
+    handle.gifHasBackgroundColor = false;
+    handle.gifBackgroundAlpha = 0;
+    handle.gifHasBackgroundIndex = false;
+    handle.gifBackgroundIndex = 0;
     if (hasBackgroundIndex)
     {
+        handle.gifHasBackgroundIndex = true;
+        handle.gifBackgroundIndex = static_cast<BYTE>(backgroundIndex & 0xFFu);
         ComPtr<IWICPalette> palette;
         if (SUCCEEDED(backend.Factory()->CreatePalette(&palette)) && palette)
         {
@@ -2238,10 +4084,13 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
                         actualCount > backgroundIndex)
                     {
                         const WICColor color = colors[backgroundIndex];
+                        const BYTE a = static_cast<BYTE>((color >> 24) & 0xFF);
                         const BYTE r = static_cast<BYTE>((color >> 16) & 0xFF);
                         const BYTE g = static_cast<BYTE>((color >> 8) & 0xFF);
                         const BYTE b = static_cast<BYTE>(color & 0xFF);
                         backgroundColor = RGB(r, g, b);
+                        handle.gifHasBackgroundColor = true;
+                        handle.gifBackgroundAlpha = a;
                     }
                 }
             }
@@ -2301,6 +4150,69 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         }
         data.width = width;
         data.height = height;
+        data.rawWidth = width;
+        data.rawHeight = height;
+        data.rawStride = 0;
+
+        data.sourcePixelFormat = GUID_WICPixelFormat32bppBGRA;
+        data.bitsPerPixel = 0;
+        data.paletteColorCount = 0;
+        data.colorModel = PVCM_RGB;
+        data.reportedBitDepth = 32;
+
+        GUID pixelFormat{};
+        if (SUCCEEDED(data.frame->GetPixelFormat(&pixelFormat)))
+        {
+            data.sourcePixelFormat = pixelFormat;
+            IWICImagingFactory* factory = backend.Factory();
+            if (factory)
+            {
+                Microsoft::WRL::ComPtr<IWICComponentInfo> componentInfo;
+                if (SUCCEEDED(factory->CreateComponentInfo(pixelFormat, &componentInfo)))
+                {
+                    Microsoft::WRL::ComPtr<IWICPixelFormatInfo> pixelInfo;
+                    if (SUCCEEDED(componentInfo.As(&pixelInfo)))
+                    {
+                        UINT bitsPerPixel = 0;
+                        if (SUCCEEDED(pixelInfo->GetBitsPerPixel(&bitsPerPixel)))
+                        {
+                            data.bitsPerPixel = bitsPerPixel;
+                            data.reportedBitDepth = bitsPerPixel;
+                        }
+                    }
+                }
+
+                Microsoft::WRL::ComPtr<IWICPalette> framePalette;
+                if (SUCCEEDED(factory->CreatePalette(&framePalette)) && framePalette)
+                {
+                    if (SUCCEEDED(data.frame->CopyPalette(framePalette.Get())))
+                    {
+                        UINT paletteCount = 0;
+                        if (SUCCEEDED(framePalette->GetColorCount(&paletteCount)))
+                        {
+                            data.paletteColorCount = paletteCount;
+                        }
+                    }
+                }
+            }
+
+            data.colorModel = DetermineColorModelFromPixelFormat(pixelFormat);
+        }
+
+        if (data.bitsPerPixel == 0)
+        {
+            data.bitsPerPixel = 32;
+        }
+        if (data.reportedBitDepth == 0)
+        {
+            data.reportedBitDepth = data.bitsPerPixel;
+        }
+        data.reportedColors = DetermineColorCount(data.sourcePixelFormat, data.bitsPerPixel, data.paletteColorCount,
+                                                 data.colorModel);
+        const bool palettedSource = (data.bitsPerPixel > 0 && data.bitsPerPixel <= 8 && data.paletteColorCount > 0);
+        data.allowIndexedDisplay = palettedSource;
+        data.realizePalette = palettedSource;
+
         data.delayMs = GetFrameDelayMilliseconds(data.frame.Get());
         if (frameCount > 1 && data.delayMs == 0)
         {
@@ -2318,6 +4230,8 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         bool topSpecified = false;
         ULONGLONG rectWidth64 = static_cast<ULONGLONG>(width);
         ULONGLONG rectHeight64 = static_cast<ULONGLONG>(height);
+        data.gifHasTransparentColor = false;
+        data.gifTransparentIndex = 0;
         ComPtr<IWICMetadataQueryReader> frameQuery;
         if (SUCCEEDED(data.frame->GetMetadataQueryReader(&frameQuery)) && frameQuery)
         {
@@ -2343,6 +4257,32 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
             if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/Disposal", value))
             {
                 data.disposal = MapGifDisposalToPv(value);
+            }
+            bool transparencySpecified = false;
+            bool transparencyFlag = false;
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/TransparentColorFlag", value) ||
+                TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/TransparencyFlag", value))
+            {
+                transparencySpecified = true;
+                transparencyFlag = (value != 0);
+            }
+            UINT transparentIndex = 0;
+            bool hasTransparentIndex = false;
+            if (TryReadUnsignedMetadata(frameQuery.Get(), L"/grctlext/TransparentColorIndex", value))
+            {
+                transparentIndex = value;
+                hasTransparentIndex = true;
+            }
+            if (hasTransparentIndex && (!transparencySpecified || transparencyFlag))
+            {
+                data.gifHasTransparentColor = true;
+                data.gifTransparentIndex = static_cast<BYTE>(transparentIndex & 0xFFu);
+                if (handle.gifHasBackgroundColor && handle.gifBackgroundAlpha != 0 &&
+                    handle.gifHasBackgroundIndex &&
+                    data.gifTransparentIndex == handle.gifBackgroundIndex)
+                {
+                    handle.gifBackgroundAlpha = 0;
+                }
             }
         }
         LONG rectLeft = ClampUnsignedToLong(leftSpecified ? left64 : 0ull);
@@ -2373,8 +4313,21 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
         data.rect.top = rectTop;
         const LONG rectWidthLong = ClampUnsignedToLong(rectWidth64);
         const LONG rectHeightLong = ClampUnsignedToLong(rectHeight64);
+        if (rectWidthLong > 0)
+        {
+            data.rawWidth = static_cast<UINT>(std::min<LONG>(rectWidthLong, static_cast<LONG>(width)));
+        }
+        if (rectHeightLong > 0)
+        {
+            data.rawHeight = static_cast<UINT>(std::min<LONG>(rectHeightLong, static_cast<LONG>(height)));
+        }
         data.rect.right = clampEdge(rectLeft, rectWidthLong, handle.canvasWidth);
         data.rect.bottom = clampEdge(rectTop, rectHeightLong, handle.canvasHeight);
+        if (isGifContainer)
+        {
+            data.gifFrameRect = data.rect;
+            data.hasGifFrameRect = true;
+        }
         if (!hasExif && FrameContainsExif(data.frame.Get()))
         {
             hasExif = true;
@@ -2389,13 +4342,10 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     {
         handle.canvasHeight = ClampUnsignedToLong(static_cast<ULONGLONG>(handle.frames[0].height));
     }
-    GUID container = {};
-    decoder->GetContainerFormat(&container);
-    handle.baseInfo.Format = MapFormatToPvFormat(container);
     handle.baseInfo.NumOfImages = frameCount;
     handle.baseInfo.FileSize = QueryFileSize(handle.fileName);
 
-    if (handle.baseInfo.Format == PVF_GIF)
+    if (isGifContainer)
     {
         handle.hasFormatSpecificInfo = true;
         const LONG screenWidth = std::max<LONG>(0, handle.canvasWidth);
@@ -2527,9 +4477,53 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         }
     }
 
+    if (frame.hasTransparency)
+    {
+        RECT fillRect = clipRect;
+        HBRUSH brush = CreateSolidBrush(handle.background);
+        if (brush)
+        {
+            FillRect(dc, &fillRect, brush);
+            DeleteObject(brush);
+        }
+    }
+
     int previousMode = SetStretchBltMode(dc, handle.stretchMode ? static_cast<int>(handle.stretchMode) : COLORONCOLOR);
+    std::vector<BYTE> bmiBuffer;
     BITMAPINFO bmi{};
-    bmi.bmiHeader = frame.bmi;
+    BITMAPINFO* bmiPtr = nullptr;
+    const bool useIndexed = frame.useIndexedPixels && !frame.indexedPixels.empty();
+    if (useIndexed)
+    {
+        const size_t paletteCount = std::min<size_t>(frame.palette.size(), std::min<size_t>(frame.paletteColorCount, 256));
+        const size_t bmiSize = sizeof(BITMAPINFOHEADER) + paletteCount * sizeof(RGBQUAD);
+        try
+        {
+            bmiBuffer.resize(bmiSize);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return PVC_EXCEPTION;
+        }
+        bmiPtr = reinterpret_cast<BITMAPINFO*>(bmiBuffer.data());
+        bmiPtr->bmiHeader = frame.displayBmi;
+        bmiPtr->bmiHeader.biClrUsed = static_cast<DWORD>(paletteCount);
+        bmiPtr->bmiHeader.biClrImportant = static_cast<DWORD>(paletteCount);
+        for (size_t i = 0; i < paletteCount; ++i)
+        {
+            RGBQUAD entry = frame.palette[i];
+            entry.rgbReserved = 0;
+            bmiPtr->bmiColors[i] = entry;
+        }
+    }
+    else
+    {
+        bmi.bmiHeader = frame.bmi;
+        bmiPtr = &bmi;
+    }
+
+    const bool realizePalette = useIndexed && frame.paletteHandle;
+    PaletteSelector paletteScope(dc, frame.paletteHandle, realizePalette);
 
     const int destX = stretchWidthSigned >= 0 ? imageRect.left : imageRect.right - 1;
     const int destY = stretchHeightSigned >= 0 ? imageRect.top : imageRect.bottom - 1;
@@ -2538,8 +4532,86 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
     const int destHeight = stretchHeightSigned >= 0 ? static_cast<int>(stretchHeightAbs)
                                                     : -static_cast<int>(stretchHeightAbs);
 
-    const int result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, frame.width, frame.height,
-                                     frame.pixels.data(), &bmi, DIB_RGB_COLORS, SRCCOPY);
+    const UINT targetWidth = static_cast<UINT>(stretchWidthAbs);
+    const UINT targetHeight = static_cast<UINT>(stretchHeightAbs);
+    const bool requiresScaling = (!useIndexed && (frame.width != targetWidth || frame.height != targetHeight));
+
+    BITMAPINFO scaledBmi{};
+    const BYTE* stretchSource = useIndexed ? frame.indexedPixels.data() : frame.pixels.data();
+    UINT sourceWidthForStretch = frame.width;
+    UINT sourceHeightForStretch = frame.height;
+
+    HBITMAP blendBitmap = frame.hbitmap;
+    UINT sourceWidthForBlend = frame.width;
+    UINT sourceHeightForBlend = frame.height;
+
+    if (!useIndexed && requiresScaling)
+    {
+        if (SUCCEEDED(EnsureScaledBitmap(handle, frame, targetWidth, targetHeight)))
+        {
+            if (frame.scaledBitmap)
+            {
+                blendBitmap = frame.scaledBitmap;
+                sourceWidthForBlend = frame.scaledWidth;
+                sourceHeightForBlend = frame.scaledHeight;
+            }
+            if (!frame.scaledPixels.empty())
+            {
+                stretchSource = frame.scaledPixels.data();
+                scaledBmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                scaledBmi.bmiHeader.biWidth = static_cast<LONG>(frame.scaledWidth);
+                scaledBmi.bmiHeader.biHeight = -static_cast<LONG>(frame.scaledHeight);
+                scaledBmi.bmiHeader.biPlanes = 1;
+                scaledBmi.bmiHeader.biBitCount = 32;
+                scaledBmi.bmiHeader.biCompression = BI_RGB;
+                scaledBmi.bmiHeader.biSizeImage = frame.scaledPixels.size() > std::numeric_limits<DWORD>::max()
+                                                       ? 0
+                                                       : static_cast<DWORD>(frame.scaledPixels.size());
+                scaledBmi.bmiHeader.biXPelsPerMeter = frame.bmi.biXPelsPerMeter;
+                scaledBmi.bmiHeader.biYPelsPerMeter = frame.bmi.biYPelsPerMeter;
+                bmiPtr = &scaledBmi;
+                sourceWidthForStretch = frame.scaledWidth;
+                sourceHeightForStretch = frame.scaledHeight;
+            }
+        }
+    }
+
+    int result = GDI_ERROR;
+    const bool canAlphaBlend = frame.hasTransparency && blendBitmap && !useIndexed && destWidth >= 0 && destHeight >= 0;
+    if (canAlphaBlend)
+    {
+        HDC sourceDc = CreateCompatibleDC(dc);
+        if (!sourceDc)
+        {
+            result = GDI_ERROR;
+        }
+        else
+        {
+            HGDIOBJ oldBitmap = SelectObject(sourceDc, blendBitmap);
+            BLENDFUNCTION blend{};
+            blend.BlendOp = AC_SRC_OVER;
+            blend.BlendFlags = 0;
+            blend.SourceConstantAlpha = 255;
+            blend.AlphaFormat = AC_SRC_ALPHA;
+            const BOOL blendResult = GdiAlphaBlend(dc, destX, destY, destWidth, destHeight, sourceDc, 0, 0,
+                                                   static_cast<int>(sourceWidthForBlend),
+                                                   static_cast<int>(sourceHeightForBlend), blend);
+            SelectObject(sourceDc, oldBitmap);
+            DeleteDC(sourceDc);
+            result = blendResult ? 0 : GDI_ERROR;
+        }
+    }
+
+    if (!canAlphaBlend || result == GDI_ERROR)
+    {
+        if (!stretchSource)
+        {
+            return PVC_INVALID_HANDLE;
+        }
+
+        result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, sourceWidthForStretch,
+                               sourceHeightForStretch, stretchSource, bmiPtr, DIB_RGB_COLORS, SRCCOPY);
+    }
 
     if (previousMode > 0)
     {
@@ -2584,29 +4656,23 @@ PVCODE CreateSequenceNodes(ImageHandle& handle, LPPVImageSequence* seq)
         node->DisposalMethod = frame.disposal;
         node->ImgHandle = nullptr;
         node->TransparentHandle = nullptr;
-        if (frame.hbitmap)
+        HBITMAP subFrame = nullptr;
+        HBITMAP subMask = nullptr;
+        hr = CreateSequenceBitmaps(frame, frame.rect, subFrame, subMask);
+        if (FAILED(hr))
         {
-            HBITMAP frameCopy = static_cast<HBITMAP>(CopyImage(frame.hbitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
-            if (!frameCopy)
+            if (subFrame)
             {
-                return PVC_GDI_ERROR;
+                DeleteObject(subFrame);
             }
-            node->ImgHandle = frameCopy;
-        }
-        if (frame.transparencyMask)
-        {
-            HBITMAP maskCopy = static_cast<HBITMAP>(CopyImage(frame.transparencyMask, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
-            if (!maskCopy)
+            if (subMask)
             {
-                if (node->ImgHandle)
-                {
-                    DeleteObject(node->ImgHandle);
-                    node->ImgHandle = nullptr;
-                }
-                return PVC_GDI_ERROR;
+                DeleteObject(subMask);
             }
-            node->TransparentHandle = maskCopy;
+            return HResultToPvCode(hr);
         }
+        node->ImgHandle = subFrame;
+        node->TransparentHandle = subMask;
         *tail = node.release();
         tail = &((*tail)->pNext);
     }
@@ -3296,17 +5362,30 @@ PVCODE SaveFrame(ImageHandle& handle, int imageIndex, const wchar_t* path, const
             {
                 conversionPalette = palette.Get();
             }
-            hr = converter->Initialize(baseSource.Get(), pixelFormat, WICBitmapDitherTypeNone, conversionPalette, 0.0,
-                                      paletteType);
-            if (FAILED(hr))
+            if (IsEqualGUID(pixelFormat, GUID_WICPixelFormat32bppCMYK))
             {
-                return recordFailure(hr, "FormatConverter::Initialize (non-indexed)");
+                frameSource.Reset();
+                hr = ConvertBgraSourceToCmyk(handle.backend->Factory(), baseSource.Get(),
+                                             frameSource.ReleaseAndGetAddressOf());
+                if (FAILED(hr))
+                {
+                    return recordFailure(hr, "ConvertBgraSourceToCmyk");
+                }
             }
-
-            hr = converter.As(&frameSource);
-            if (FAILED(hr))
+            else
             {
-                return recordFailure(hr, "FormatConverter::As (non-indexed)");
+                hr = converter->Initialize(baseSource.Get(), pixelFormat, WICBitmapDitherTypeNone, conversionPalette, 0.0,
+                                          paletteType);
+                if (FAILED(hr))
+                {
+                    return recordFailure(hr, "FormatConverter::Initialize (non-indexed)");
+                }
+
+                hr = converter.As(&frameSource);
+                if (FAILED(hr))
+                {
+                    return recordFailure(hr, "FormatConverter::As (non-indexed)");
+                }
             }
         }
     }
@@ -3655,7 +5734,7 @@ PVCODE WINAPI Backend::sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpen
         }
 
         FrameData frame;
-        HRESULT hr = PopulateFrameFromBitmapHandle(frame, bitmap);
+        HRESULT hr = PopulateFrameFromBitmapHandle(backend, frame, bitmap);
         if (FAILED(hr))
         {
             return HResultToPvCode(hr);
@@ -3728,10 +5807,20 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
             DeleteObject(frame.hbitmap);
             frame.hbitmap = nullptr;
         }
+        if (frame.scaledBitmap)
+        {
+            DeleteObject(frame.scaledBitmap);
+            frame.scaledBitmap = nullptr;
+        }
         if (frame.transparencyMask)
         {
             DeleteObject(frame.transparencyMask);
             frame.transparencyMask = nullptr;
+        }
+        if (frame.paletteHandle)
+        {
+            DeleteObject(frame.paletteHandle);
+            frame.paletteHandle = nullptr;
         }
     }
     delete handle;
@@ -3905,10 +5994,14 @@ PVCODE WINAPI Backend::sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles
     auto& frame = handle->frames[0];
     PVImageHandles& handles = handle->handles;
     ZeroMemory(&handles, sizeof(PVImageHandles));
+    const bool hasIndexedPixels = frame.useIndexedPixels && !frame.indexedPixels.empty();
+    const bool providePaletteHandle = hasIndexedPixels || (frame.realizePalette && frame.paletteHandle);
+
     handles.TransparentHandle = frame.hasTransparency ? frame.transparencyMask : nullptr;
     handles.TransparentBackgroundHandle = frame.hbitmap;
     handles.StretchedHandle = frame.hbitmap;
     handles.StretchedTransparentHandle = frame.hbitmap;
+    handles.HPal = providePaletteHandle ? frame.paletteHandle : nullptr;
     handles.Palette = frame.palette.empty() ? nullptr : frame.palette.data();
     handles.pLines = frame.linePointers.empty() ? nullptr : frame.linePointers.data();
     *pHandles = &handles;
@@ -3996,7 +6089,12 @@ PVCODE WINAPI Backend::sPVChangeImage(LPPVHandle Img, DWORD flags)
     frame.height = newHeight;
     frame.stride = frame.width * 4;
     frame.pixels.swap(rotated);
-    HRESULT finalizeHr = FinalizeDecodedFrame(frame);
+    frame.disposalBuffer.clear();
+    frame.compositedPixels.clear();
+    handle->gifComposeCanvas.clear();
+    handle->gifSavedCanvas.clear();
+    handle->gifCanvasInitialized = false;
+    HRESULT finalizeHr = FinalizeDecodedFrame(handle->backend, frame);
     if (FAILED(finalizeHr))
     {
         return HResultToPvCode(finalizeHr);
@@ -4073,7 +6171,12 @@ PVCODE WINAPI Backend::sPVCropImage(LPPVHandle Img, int left, int top, int width
     frame.height = static_cast<UINT>(height);
     frame.stride = newStride;
     frame.pixels.swap(cropped);
-    HRESULT finalizeHr = FinalizeDecodedFrame(frame);
+    frame.disposalBuffer.clear();
+    frame.compositedPixels.clear();
+    handle->gifComposeCanvas.clear();
+    handle->gifSavedCanvas.clear();
+    handle->gifCanvasInitialized = false;
+    HRESULT finalizeHr = FinalizeDecodedFrame(handle->backend, frame);
     if (FAILED(finalizeHr))
     {
         return HResultToPvCode(finalizeHr);

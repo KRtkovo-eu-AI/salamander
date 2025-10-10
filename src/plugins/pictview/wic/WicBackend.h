@@ -32,17 +32,47 @@ struct FrameData
     UINT width = 0;
     UINT height = 0;
     UINT stride = 0;
+    UINT rawWidth = 0;
+    UINT rawHeight = 0;
+    UINT rawStride = 0;
     std::vector<BYTE> pixels;
+    std::vector<BYTE> compositedPixels;
+    std::vector<BYTE> indexedPixels;
     std::vector<BYTE*> linePointers;
     std::vector<RGBQUAD> palette;
+    std::vector<BYTE> disposalBuffer;
+    std::vector<BYTE> scaledPixels;
     BITMAPINFOHEADER bmi{};
+    BITMAPINFOHEADER indexedBmi{};
+    BITMAPINFOHEADER displayBmi{};
     HBITMAP hbitmap = nullptr;
     HBITMAP transparencyMask = nullptr;
+    HBITMAP scaledBitmap = nullptr;
+    HPALETTE paletteHandle = nullptr;
     DWORD delayMs = 0;
     RECT rect{};
+    RECT gifFrameRect{};
     DWORD disposal = PVDM_UNDEFINED;
+    GUID sourcePixelFormat{};
+    DWORD reportedColors = PV_COLOR_TC32;
+    DWORD reportedBitDepth = 32;
+    DWORD colorModel = PVCM_RGB;
+    UINT paletteColorCount = 0;
+    UINT bitsPerPixel = 0;
+    UINT indexedStride = 0;
+    UINT displayStride = 0;
+    UINT scaledStride = 0;
+    UINT scaledWidth = 0;
+    UINT scaledHeight = 0;
+    bool hasGifFrameRect = false;
     bool decoded = false;
     bool hasTransparency = false;
+    bool useIndexedPixels = false;
+    bool allowIndexedDisplay = true;
+    bool realizePalette = false;
+    bool gifHasTransparentColor = false;
+    BYTE gifTransparentIndex = 0;
+    bool pixelsArePremultiplied = true;
 };
 
 struct ImageHandle
@@ -61,6 +91,13 @@ struct ImageHandle
     bool hasFormatSpecificInfo = false;
     LONG canvasWidth = 0;
     LONG canvasHeight = 0;
+    bool gifHasBackgroundColor = false;
+    BYTE gifBackgroundAlpha = 0;
+    bool gifHasBackgroundIndex = false;
+    BYTE gifBackgroundIndex = 0;
+    std::vector<BYTE> gifComposeCanvas;
+    std::vector<BYTE> gifSavedCanvas;
+    bool gifCanvasInitialized = false;
 };
 
 /**
