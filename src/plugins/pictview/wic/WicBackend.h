@@ -88,6 +88,8 @@ struct ImageHandle
     LONG canvasHeight = 0;
     bool gifHasBackgroundColor = false;
     BYTE gifBackgroundAlpha = 0;
+    bool gifHasBackgroundIndex = false;
+    BYTE gifBackgroundIndex = 0;
     std::vector<BYTE> gifComposeCanvas;
     std::vector<BYTE> gifSavedCanvas;
     bool gifCanvasInitialized = false;

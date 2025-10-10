@@ -3733,8 +3733,12 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
     COLORREF backgroundColor = RGB(0, 0, 0);
     handle.gifHasBackgroundColor = false;
     handle.gifBackgroundAlpha = 0;
+    handle.gifHasBackgroundIndex = false;
+    handle.gifBackgroundIndex = 0;
     if (hasBackgroundIndex)
     {
+        handle.gifHasBackgroundIndex = true;
+        handle.gifBackgroundIndex = static_cast<BYTE>(backgroundIndex & 0xFFu);
         ComPtr<IWICPalette> palette;
         if (SUCCEEDED(backend.Factory()->CreatePalette(&palette)) && palette)
         {
@@ -3942,6 +3946,12 @@ HRESULT CollectFrames(Backend& backend, IWICBitmapDecoder* decoder, ImageHandle&
             {
                 data.gifHasTransparentColor = true;
                 data.gifTransparentIndex = static_cast<BYTE>(transparentIndex & 0xFFu);
+                if (handle.gifHasBackgroundColor && handle.gifBackgroundAlpha != 0 &&
+                    handle.gifHasBackgroundIndex &&
+                    data.gifTransparentIndex == handle.gifBackgroundIndex)
+                {
+                    handle.gifBackgroundAlpha = 0;
+                }
             }
         }
         LONG rectLeft = ClampUnsignedToLong(leftSpecified ? left64 : 0ull);
