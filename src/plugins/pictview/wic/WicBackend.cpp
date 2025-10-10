@@ -2915,11 +2915,6 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
     frame.scaledWidth = 0;
     frame.scaledHeight = 0;
 
-    if (frame.pixels.empty() || frame.width == 0 || frame.height == 0)
-    {
-        return E_FAIL;
-    }
-
     IWICImagingFactory* factory = handle.backend ? handle.backend->Factory() : nullptr;
     if (!factory)
     {
@@ -2930,20 +2925,26 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
     {
         return E_OUTOFMEMORY;
     }
-    const size_t pixelBytes = frame.pixels.size();
+    const bool usePremultipliedSource = frame.hasTransparency && !frame.compositedPixels.empty();
+    const std::vector<BYTE>& sourceBuffer = usePremultipliedSource ? frame.compositedPixels : frame.pixels;
+    if (sourceBuffer.empty() || frame.width == 0 || frame.height == 0)
+    {
+        return E_FAIL;
+    }
+    const size_t pixelBytes = sourceBuffer.size();
     if (pixelBytes > static_cast<size_t>(std::numeric_limits<UINT>::max()))
     {
         return E_OUTOFMEMORY;
     }
 
     std::vector<BYTE> premultipliedBuffer;
-    GUID bitmapPixelFormat = GUID_WICPixelFormat32bppBGRA;
-    BYTE* bitmapMemory = frame.pixels.data();
-    if (frame.hasTransparency)
+    GUID bitmapPixelFormat = usePremultipliedSource ? GUID_WICPixelFormat32bppPBGRA : GUID_WICPixelFormat32bppBGRA;
+    BYTE* bitmapMemory = const_cast<BYTE*>(sourceBuffer.data());
+    if (!usePremultipliedSource && frame.hasTransparency)
     {
         try
         {
-            premultipliedBuffer.assign(frame.pixels.begin(), frame.pixels.end());
+            premultipliedBuffer.assign(sourceBuffer.begin(), sourceBuffer.end());
         }
         catch (const std::bad_alloc&)
         {
