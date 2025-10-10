@@ -4276,6 +4276,17 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         }
     }
 
+    if (frame.hasTransparency)
+    {
+        RECT fillRect = clipRect;
+        HBRUSH brush = CreateSolidBrush(handle.background);
+        if (brush)
+        {
+            FillRect(dc, &fillRect, brush);
+            DeleteObject(brush);
+        }
+    }
+
     int previousMode = SetStretchBltMode(dc, handle.stretchMode ? static_cast<int>(handle.stretchMode) : COLORONCOLOR);
     std::vector<BYTE> bmiBuffer;
     BITMAPINFO bmi{};
