@@ -2936,10 +2936,50 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
         return E_OUTOFMEMORY;
     }
 
+    std::vector<BYTE> premultipliedBuffer;
+    GUID bitmapPixelFormat = GUID_WICPixelFormat32bppBGRA;
+    BYTE* bitmapMemory = frame.pixels.data();
+    if (frame.hasTransparency)
+    {
+        try
+        {
+            premultipliedBuffer.assign(frame.pixels.begin(), frame.pixels.end());
+        }
+        catch (const std::bad_alloc&)
+        {
+            return E_OUTOFMEMORY;
+        }
+
+        const size_t pixelCount = premultipliedBuffer.size() / kBytesPerPixel;
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            BYTE* pixel = premultipliedBuffer.data() + i * kBytesPerPixel;
+            const BYTE alpha = pixel[3];
+            if (alpha == 0)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                continue;
+            }
+            if (alpha == 255)
+            {
+                continue;
+            }
+
+            const unsigned int a = alpha;
+            pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+            pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+            pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+        }
+
+        bitmapPixelFormat = GUID_WICPixelFormat32bppPBGRA;
+        bitmapMemory = premultipliedBuffer.data();
+    }
+
     Microsoft::WRL::ComPtr<IWICBitmap> memoryBitmap;
-    HRESULT hr = factory->CreateBitmapFromMemory(frame.width, frame.height, GUID_WICPixelFormat32bppBGRA,
-                                                 frame.stride, static_cast<UINT>(pixelBytes), frame.pixels.data(),
-                                                 &memoryBitmap);
+    HRESULT hr = factory->CreateBitmapFromMemory(frame.width, frame.height, bitmapPixelFormat, frame.stride,
+                                                 static_cast<UINT>(pixelBytes), bitmapMemory, &memoryBitmap);
     if (FAILED(hr))
     {
         return hr;
@@ -2989,6 +3029,11 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
     {
         frame.scaledPixels.clear();
         return hr;
+    }
+
+    if (frame.hasTransparency && !frame.scaledPixels.empty())
+    {
+        UnpremultiplyBuffer(frame.scaledPixels, width, height, stride);
     }
 
     BITMAPINFO scaledInfo{};
