@@ -64,6 +64,8 @@ void FillBufferWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, BYT
 void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const RECT& rect, BYTE r, BYTE g, BYTE b,
                      BYTE a);
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
+void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
+                                    BYTE b);
 void PremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
 void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
 HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap);
@@ -1827,7 +1829,17 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     }
 
     UnpremultiplyBuffer(displayPixels, canvasWidth, canvasHeight, static_cast<UINT>(canvasStride));
-    ZeroTransparentPixels(displayPixels);
+
+    const bool fillTransparentWithBackground = multiFrameAnimation && handle.gifHasBackgroundColor && backgroundA == 0;
+    if (fillTransparentWithBackground)
+    {
+        FillTransparentPixelsWithColor(displayPixels, canvasWidth, canvasHeight, static_cast<UINT>(canvasStride),
+                                       backgroundR, backgroundG, backgroundB);
+    }
+    else
+    {
+        ZeroTransparentPixels(displayPixels);
+    }
 
     frame.pixels.swap(displayPixels);
     frame.compositedPixels.swap(compositedPixels);
@@ -2098,6 +2110,38 @@ void ZeroTransparentPixels(std::vector<BYTE>& buffer)
             pixel[0] = 0;
             pixel[1] = 0;
             pixel[2] = 0;
+        }
+    }
+}
+
+void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
+                                    BYTE b)
+{
+    if (buffer.empty() || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    const size_t rowStride = static_cast<size_t>(stride);
+    const size_t expectedStride = static_cast<size_t>(width) * kBytesPerPixel;
+    if (rowStride < expectedStride)
+    {
+        return;
+    }
+
+    for (UINT y = 0; y < height; ++y)
+    {
+        BYTE* row = buffer.data() + rowStride * static_cast<size_t>(y);
+        for (UINT x = 0; x < width; ++x)
+        {
+            BYTE* pixel = row + static_cast<size_t>(x) * kBytesPerPixel;
+            if (pixel[3] == 0)
+            {
+                pixel[0] = b;
+                pixel[1] = g;
+                pixel[2] = r;
+                pixel[3] = 255;
+            }
         }
     }
 }
