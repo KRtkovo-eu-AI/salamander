@@ -69,6 +69,7 @@ void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT 
 void PremultiplyGifBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
 void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
 HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap);
+HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UINT height);
 DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel);
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat);
 HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* source,
@@ -2892,6 +2893,162 @@ HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP&
     return S_OK;
 }
 
+HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UINT height)
+{
+    if (width == 0 || height == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    if (frame.scaledBitmap && frame.scaledWidth == width && frame.scaledHeight == height)
+    {
+        return S_OK;
+    }
+
+    if (frame.scaledBitmap)
+    {
+        DeleteObject(frame.scaledBitmap);
+        frame.scaledBitmap = nullptr;
+    }
+    frame.scaledPixels.clear();
+    frame.scaledStride = 0;
+    frame.scaledWidth = 0;
+    frame.scaledHeight = 0;
+
+    if (frame.pixels.empty() || frame.width == 0 || frame.height == 0)
+    {
+        return E_FAIL;
+    }
+
+    IWICImagingFactory* factory = handle.backend ? handle.backend->Factory() : nullptr;
+    if (!factory)
+    {
+        return E_FAIL;
+    }
+
+    if (frame.width > std::numeric_limits<UINT>::max() || frame.height > std::numeric_limits<UINT>::max())
+    {
+        return E_OUTOFMEMORY;
+    }
+    const size_t pixelBytes = frame.pixels.size();
+    if (pixelBytes > static_cast<size_t>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmap> memoryBitmap;
+    HRESULT hr = factory->CreateBitmapFromMemory(frame.width, frame.height, GUID_WICPixelFormat32bppBGRA,
+                                                 frame.stride, static_cast<UINT>(pixelBytes), frame.pixels.data(),
+                                                 &memoryBitmap);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapScaler> scaler;
+    hr = factory->CreateBitmapScaler(&scaler);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = scaler->Initialize(memoryBitmap.Get(), width, height, WICBitmapInterpolationModeFant);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    const ULONGLONG stride64 = static_cast<ULONGLONG>(width) * kBytesPerPixel;
+    if (stride64 > static_cast<ULONGLONG>(std::numeric_limits<UINT>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+    const UINT stride = static_cast<UINT>(stride64);
+    const ULONGLONG bufferSize64 = stride64 * static_cast<ULONGLONG>(height);
+    if (height != 0 && bufferSize64 / height != stride64)
+    {
+        return E_OUTOFMEMORY;
+    }
+    if (bufferSize64 > static_cast<ULONGLONG>(std::numeric_limits<size_t>::max()))
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    try
+    {
+        frame.scaledPixels.resize(static_cast<size_t>(bufferSize64));
+    }
+    catch (const std::bad_alloc&)
+    {
+        frame.scaledPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    hr = scaler->CopyPixels(nullptr, stride, static_cast<UINT>(frame.scaledPixels.size()), frame.scaledPixels.data());
+    if (FAILED(hr))
+    {
+        frame.scaledPixels.clear();
+        return hr;
+    }
+
+    BITMAPINFO scaledInfo{};
+    scaledInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    scaledInfo.bmiHeader.biWidth = static_cast<LONG>(width);
+    scaledInfo.bmiHeader.biHeight = -static_cast<LONG>(height);
+    scaledInfo.bmiHeader.biPlanes = 1;
+    scaledInfo.bmiHeader.biBitCount = 32;
+    scaledInfo.bmiHeader.biCompression = BI_RGB;
+    scaledInfo.bmiHeader.biSizeImage = frame.scaledPixels.size() > std::numeric_limits<DWORD>::max()
+                                           ? 0
+                                           : static_cast<DWORD>(frame.scaledPixels.size());
+    scaledInfo.bmiHeader.biXPelsPerMeter = frame.bmi.biXPelsPerMeter;
+    scaledInfo.bmiHeader.biYPelsPerMeter = frame.bmi.biYPelsPerMeter;
+
+    void* bits = nullptr;
+    HBITMAP scaledBitmap = CreateDIBSection(nullptr, &scaledInfo, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!scaledBitmap || !bits)
+    {
+        if (scaledBitmap)
+        {
+            DeleteObject(scaledBitmap);
+        }
+        frame.scaledPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    memcpy(bits, frame.scaledPixels.data(), frame.scaledPixels.size());
+    if (frame.hasTransparency)
+    {
+        BYTE* target = static_cast<BYTE*>(bits);
+        const size_t pixelCount = frame.scaledPixels.size() / kBytesPerPixel;
+        for (size_t i = 0; i < pixelCount; ++i)
+        {
+            BYTE* pixel = target + i * kBytesPerPixel;
+            const BYTE alpha = pixel[3];
+            if (alpha == 0)
+            {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                continue;
+            }
+            if (alpha != 255)
+            {
+                const unsigned int a = alpha;
+                pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
+                pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
+                pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
+            }
+        }
+    }
+
+    frame.scaledBitmap = scaledBitmap;
+    frame.scaledStride = stride;
+    frame.scaledWidth = width;
+    frame.scaledHeight = height;
+    return S_OK;
+}
+
 DWORD DetermineColorModelFromPixelFormat(const GUID& pixelFormat)
 {
     if (IsEqualGUID(pixelFormat, GUID_WICPixelFormatBlackWhite) ||
@@ -3182,6 +3339,15 @@ HRESULT FinalizeDecodedFrame(Backend* backend, FrameData& frame)
         DeleteObject(frame.hbitmap);
         frame.hbitmap = nullptr;
     }
+    if (frame.scaledBitmap)
+    {
+        DeleteObject(frame.scaledBitmap);
+        frame.scaledBitmap = nullptr;
+    }
+    frame.scaledPixels.clear();
+    frame.scaledStride = 0;
+    frame.scaledWidth = 0;
+    frame.scaledHeight = 0;
 
     void* bits = nullptr;
     BITMAPINFO bmi{};
@@ -4331,8 +4497,52 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
     const int destHeight = stretchHeightSigned >= 0 ? static_cast<int>(stretchHeightAbs)
                                                     : -static_cast<int>(stretchHeightAbs);
 
+    const UINT targetWidth = static_cast<UINT>(stretchWidthAbs);
+    const UINT targetHeight = static_cast<UINT>(stretchHeightAbs);
+    const bool requiresScaling = (!useIndexed && (frame.width != targetWidth || frame.height != targetHeight));
+
+    BITMAPINFO scaledBmi{};
+    const BYTE* stretchSource = useIndexed ? frame.indexedPixels.data() : frame.pixels.data();
+    UINT sourceWidthForStretch = frame.width;
+    UINT sourceHeightForStretch = frame.height;
+
+    HBITMAP blendBitmap = frame.hbitmap;
+    UINT sourceWidthForBlend = frame.width;
+    UINT sourceHeightForBlend = frame.height;
+
+    if (!useIndexed && requiresScaling)
+    {
+        if (SUCCEEDED(EnsureScaledBitmap(handle, frame, targetWidth, targetHeight)))
+        {
+            if (frame.scaledBitmap)
+            {
+                blendBitmap = frame.scaledBitmap;
+                sourceWidthForBlend = frame.scaledWidth;
+                sourceHeightForBlend = frame.scaledHeight;
+            }
+            if (!frame.scaledPixels.empty())
+            {
+                stretchSource = frame.scaledPixels.data();
+                scaledBmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                scaledBmi.bmiHeader.biWidth = static_cast<LONG>(frame.scaledWidth);
+                scaledBmi.bmiHeader.biHeight = -static_cast<LONG>(frame.scaledHeight);
+                scaledBmi.bmiHeader.biPlanes = 1;
+                scaledBmi.bmiHeader.biBitCount = 32;
+                scaledBmi.bmiHeader.biCompression = BI_RGB;
+                scaledBmi.bmiHeader.biSizeImage = frame.scaledPixels.size() > std::numeric_limits<DWORD>::max()
+                                                       ? 0
+                                                       : static_cast<DWORD>(frame.scaledPixels.size());
+                scaledBmi.bmiHeader.biXPelsPerMeter = frame.bmi.biXPelsPerMeter;
+                scaledBmi.bmiHeader.biYPelsPerMeter = frame.bmi.biYPelsPerMeter;
+                bmiPtr = &scaledBmi;
+                sourceWidthForStretch = frame.scaledWidth;
+                sourceHeightForStretch = frame.scaledHeight;
+            }
+        }
+    }
+
     int result = GDI_ERROR;
-    const bool canAlphaBlend = frame.hasTransparency && frame.hbitmap && !useIndexed && destWidth >= 0 && destHeight >= 0;
+    const bool canAlphaBlend = frame.hasTransparency && blendBitmap && !useIndexed && destWidth >= 0 && destHeight >= 0;
     if (canAlphaBlend)
     {
         HDC sourceDc = CreateCompatibleDC(dc);
@@ -4342,15 +4552,15 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
         }
         else
         {
-            HGDIOBJ oldBitmap = SelectObject(sourceDc, frame.hbitmap);
+            HGDIOBJ oldBitmap = SelectObject(sourceDc, blendBitmap);
             BLENDFUNCTION blend{};
             blend.BlendOp = AC_SRC_OVER;
             blend.BlendFlags = 0;
             blend.SourceConstantAlpha = 255;
             blend.AlphaFormat = AC_SRC_ALPHA;
             const BOOL blendResult = GdiAlphaBlend(dc, destX, destY, destWidth, destHeight, sourceDc, 0, 0,
-                                                   static_cast<int>(frame.width), static_cast<int>(frame.height),
-                                                   blend);
+                                                   static_cast<int>(sourceWidthForBlend),
+                                                   static_cast<int>(sourceHeightForBlend), blend);
             SelectObject(sourceDc, oldBitmap);
             DeleteDC(sourceDc);
             result = blendResult ? 0 : GDI_ERROR;
@@ -4359,14 +4569,13 @@ PVCODE DrawFrame(ImageHandle& handle, FrameData& frame, HDC dc, int x, int y, LP
 
     if (!canAlphaBlend || result == GDI_ERROR)
     {
-        const BYTE* stretchSource = useIndexed ? frame.indexedPixels.data() : frame.pixels.data();
         if (!stretchSource)
         {
             return PVC_INVALID_HANDLE;
         }
 
-        result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, frame.width, frame.height, stretchSource,
-                               bmiPtr, DIB_RGB_COLORS, SRCCOPY);
+        result = StretchDIBits(dc, destX, destY, destWidth, destHeight, 0, 0, sourceWidthForStretch,
+                               sourceHeightForStretch, stretchSource, bmiPtr, DIB_RGB_COLORS, SRCCOPY);
     }
 
     if (previousMode > 0)
@@ -5562,6 +5771,11 @@ PVCODE WINAPI Backend::sPVCloseImage(LPPVHandle Img)
         {
             DeleteObject(frame.hbitmap);
             frame.hbitmap = nullptr;
+        }
+        if (frame.scaledBitmap)
+        {
+            DeleteObject(frame.scaledBitmap);
+            frame.scaledBitmap = nullptr;
         }
         if (frame.transparencyMask)
         {

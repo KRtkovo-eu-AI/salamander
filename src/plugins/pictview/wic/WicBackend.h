@@ -41,11 +41,13 @@ struct FrameData
     std::vector<BYTE*> linePointers;
     std::vector<RGBQUAD> palette;
     std::vector<BYTE> disposalBuffer;
+    std::vector<BYTE> scaledPixels;
     BITMAPINFOHEADER bmi{};
     BITMAPINFOHEADER indexedBmi{};
     BITMAPINFOHEADER displayBmi{};
     HBITMAP hbitmap = nullptr;
     HBITMAP transparencyMask = nullptr;
+    HBITMAP scaledBitmap = nullptr;
     HPALETTE paletteHandle = nullptr;
     DWORD delayMs = 0;
     RECT rect{};
@@ -59,6 +61,9 @@ struct FrameData
     UINT bitsPerPixel = 0;
     UINT indexedStride = 0;
     UINT displayStride = 0;
+    UINT scaledStride = 0;
+    UINT scaledWidth = 0;
+    UINT scaledHeight = 0;
     bool hasGifFrameRect = false;
     bool decoded = false;
     bool hasTransparency = false;
