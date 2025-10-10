@@ -66,7 +66,7 @@ void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const R
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
 void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
                                     BYTE b, BYTE a);
-void PremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
+void PremultiplyGifBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
 void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
 HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap);
 DWORD DetermineColorCount(const GUID& pixelFormat, UINT bitsPerPixel, UINT paletteColors, DWORD colorModel);
@@ -1517,7 +1517,7 @@ void UnpremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UIN
     }
 }
 
-void PremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride)
+void PremultiplyGifBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride)
 {
     if (buffer.empty() || width == 0 || height == 0)
     {
@@ -1532,19 +1532,20 @@ void PremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT 
         {
             BYTE* pixel = row + static_cast<size_t>(x) * kBytesPerPixel;
             const BYTE alpha = pixel[3];
-            if (alpha == 0)
+            if (alpha < 128)
             {
                 pixel[0] = 0;
                 pixel[1] = 0;
                 pixel[2] = 0;
+                pixel[3] = 0;
                 continue;
             }
-            if (alpha == 255)
+            if (pixel[3] != 255)
             {
-                continue;
+                pixel[3] = 255;
             }
 
-            const unsigned int a = alpha;
+            const unsigned int a = pixel[3];
             pixel[0] = static_cast<BYTE>((static_cast<unsigned int>(pixel[0]) * a + 127u) / 255u);
             pixel[1] = static_cast<BYTE>((static_cast<unsigned int>(pixel[1]) * a + 127u) / 255u);
             pixel[2] = static_cast<BYTE>((static_cast<unsigned int>(pixel[2]) * a + 127u) / 255u);
@@ -1726,7 +1727,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     raw.swap(frame.pixels);
     if (!raw.empty())
     {
-        PremultiplyBuffer(raw, sourceWidth, sourceHeight, sourceStride);
+        PremultiplyGifBuffer(raw, sourceWidth, sourceHeight, sourceStride);
     }
 
     const RECT& destinationRect = frame.hasGifFrameRect ? frame.gifFrameRect : frame.rect;
