@@ -76,6 +76,7 @@ HRESULT ConvertBgraSourceToCmyk(IWICImagingFactory* factory, IWICBitmapSource* s
 bool IsPaletteUnavailable(HRESULT hr);
 void UnpremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
 HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source);
+void ApplyGifTransparentIndices(FrameData& frame);
 HRESULT PopulateFramePalette(IWICImagingFactory* factory, FrameData& frame);
 HPALETTE CreateGdiPalette(const std::vector<RGBQUAD>& entries);
 HRESULT BuildIndexedPixelBuffer(FrameData& frame);
@@ -1602,15 +1603,141 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
         return hr;
     }
 
+    frame.rawWidth = targetWidth;
+    frame.rawHeight = targetHeight;
+    frame.rawStride = frame.stride;
+
     if (frame.pixelsArePremultiplied)
     {
         UnpremultiplyBuffer(frame.pixels, targetWidth, targetHeight, frame.stride);
     }
 
-    frame.rawWidth = targetWidth;
-    frame.rawHeight = targetHeight;
-    frame.rawStride = frame.stride;
+    ApplyGifTransparentIndices(frame);
+
     return S_OK;
+}
+
+void ApplyGifTransparentIndices(FrameData& frame)
+{
+    if (!frame.gifHasTransparentColor || !frame.frame)
+    {
+        return;
+    }
+
+    const UINT width = frame.rawWidth > 0 ? frame.rawWidth : frame.width;
+    const UINT height = frame.rawHeight > 0 ? frame.rawHeight : frame.height;
+    if (width == 0 || height == 0)
+    {
+        return;
+    }
+
+    GUID sourceFormat{};
+    if (FAILED(frame.frame->GetPixelFormat(&sourceFormat)))
+    {
+        return;
+    }
+
+    UINT bitsPerPixel = 0;
+    if (sourceFormat == GUID_WICPixelFormat8bppIndexed)
+    {
+        bitsPerPixel = 8;
+    }
+    else if (sourceFormat == GUID_WICPixelFormat4bppIndexed)
+    {
+        bitsPerPixel = 4;
+    }
+#if defined(GUID_WICPixelFormat2bppIndexed)
+    else if (sourceFormat == GUID_WICPixelFormat2bppIndexed)
+    {
+        bitsPerPixel = 2;
+    }
+#endif
+    else if (sourceFormat == GUID_WICPixelFormat1bppIndexed)
+    {
+        bitsPerPixel = 1;
+    }
+    else
+    {
+        return;
+    }
+
+    const UINT indexStride = static_cast<UINT>((static_cast<ULONGLONG>(width) * bitsPerPixel + 7ull) / 8ull);
+    if (indexStride == 0)
+    {
+        return;
+    }
+
+    const size_t bufferSize = static_cast<size_t>(indexStride) * static_cast<size_t>(height);
+    if (bufferSize == 0)
+    {
+        return;
+    }
+
+    std::vector<BYTE> indices;
+    if (FAILED(AllocateBuffer(indices, bufferSize)))
+    {
+        return;
+    }
+
+    HRESULT hr = frame.frame->CopyPixels(nullptr, indexStride, static_cast<UINT>(indices.size()), indices.data());
+    if (FAILED(hr))
+    {
+        return;
+    }
+
+    auto extractIndex = [bitsPerPixel](const BYTE* row, UINT x) -> BYTE {
+        switch (bitsPerPixel)
+        {
+        case 8:
+            return row[x];
+        case 4:
+        {
+            const BYTE packed = row[x / 2];
+            if ((x & 1u) == 0)
+            {
+                return static_cast<BYTE>(packed >> 4);
+            }
+            return static_cast<BYTE>(packed & 0x0Fu);
+        }
+        case 2:
+        {
+            const BYTE packed = row[x / 4];
+            const UINT shift = 6u - ((x & 3u) * 2u);
+            return static_cast<BYTE>((packed >> shift) & 0x03u);
+        }
+        case 1:
+        default:
+        {
+            const BYTE packed = row[x / 8];
+            const UINT shift = 7u - (x & 7u);
+            return static_cast<BYTE>((packed >> shift) & 0x01u);
+        }
+        }
+    };
+
+    BYTE* dstBase = frame.pixels.data();
+    const size_t dstStride = static_cast<size_t>(frame.stride);
+    const BYTE transparentIndex = frame.gifTransparentIndex;
+
+    for (UINT y = 0; y < height; ++y)
+    {
+        const BYTE* srcRow = indices.data() + static_cast<size_t>(y) * indexStride;
+        BYTE* dstRow = dstBase + static_cast<size_t>(y) * dstStride;
+        for (UINT x = 0; x < width; ++x)
+        {
+            const BYTE paletteIndex = extractIndex(srcRow, x);
+            if (paletteIndex != transparentIndex)
+            {
+                continue;
+            }
+
+            BYTE* pixel = dstRow + static_cast<size_t>(x) * kBytesPerPixel;
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+            pixel[3] = 0;
+        }
+    }
 }
 
 HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
