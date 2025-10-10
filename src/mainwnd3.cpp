@@ -568,7 +568,7 @@ void CMainWindow::RefreshPanelTabLayout()
         CPanelSide side = (sideIndex == 0) ? cpsLeft : cpsRight;
         CTabWindow* tabWnd = GetPanelTabWindow(side);
         if (tabWnd != NULL && tabWnd->HWindow != NULL)
-            tabWnd->UpdateNewTabButtonWidth();
+            tabWnd->RefreshLayout();
 
         int tabCount = GetPanelTabCount(side);
         for (int i = 0; i < tabCount; ++i)

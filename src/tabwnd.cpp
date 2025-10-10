@@ -352,6 +352,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (hdc == NULL)
         return;
     HFONT oldFont = NULL;
+    bool selected = (index == TabCtrl_GetCurSel(HWindow));
     HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
@@ -580,6 +581,12 @@ void CTabWindow::EnsureNewTabButton()
         }
     }
 
+    UpdateNewTabButtonWidth();
+}
+
+void CTabWindow::RefreshLayout()
+{
+    CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
 }
 

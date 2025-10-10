@@ -42,6 +42,8 @@ public:
 
     CPanelSide GetSide() const { return Side; }
 
+    void RefreshLayout();
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 

@@ -599,6 +599,8 @@
 #define IDC_TABS_MINWIDTH               2692
 #define IDC_TABS_MAXWIDTH_LABEL         2693
 #define IDC_TABS_MAXWIDTH               2694
+#define IDC_TABS_MINWIDTH_UNITS         2695
+#define IDC_TABS_MAXWIDTH_UNITS         2696
 #define IDD_CFGPAGE_ARCHIVERS           2700
 #define IDC_ARCH_SIMPLEICONS            2701
 #define IDC_ARCH_ANOTHERPANELP          2702
