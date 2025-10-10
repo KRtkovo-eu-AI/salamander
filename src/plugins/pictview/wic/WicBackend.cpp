@@ -3072,6 +3072,9 @@ HRESULT EnsureScaledBitmap(ImageHandle& handle, FrameData& frame, UINT width, UI
                 pixel[2] = 0;
             }
         }
+
+        UnpremultiplyBuffer(frame.scaledPixels, width, height, stride);
+        ZeroTransparentPixels(frame.scaledPixels);
     }
 
     frame.scaledBitmap = scaledBitmap;
