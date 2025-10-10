@@ -67,6 +67,7 @@ struct FrameData
     bool realizePalette = false;
     bool gifHasTransparentColor = false;
     BYTE gifTransparentIndex = 0;
+    bool pixelsArePremultiplied = true;
 };
 
 struct ImageHandle

@@ -1563,7 +1563,10 @@ HRESULT CopyBgraFromSource(FrameData& frame, IWICBitmapSource* source)
         return hr;
     }
 
-    UnpremultiplyBuffer(frame.pixels, targetWidth, targetHeight, frame.stride);
+    if (frame.pixelsArePremultiplied)
+    {
+        UnpremultiplyBuffer(frame.pixels, targetWidth, targetHeight, frame.stride);
+    }
 
     frame.rawWidth = targetWidth;
     frame.rawHeight = targetHeight;
@@ -3214,15 +3217,18 @@ HRESULT EnsureConverter(ImageHandle& handle, size_t index)
     {
         return hr;
     }
-    hr = converter->Initialize(frame.frame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+    const bool isGif = handle.baseInfo.Format == PVF_GIF;
+    const GUID targetFormat = isGif ? GUID_WICPixelFormat32bppBGRA : GUID_WICPixelFormat32bppPBGRA;
+    frame.pixelsArePremultiplied = !isGif;
+    hr = converter->Initialize(frame.frame.Get(), targetFormat, WICBitmapDitherTypeNone, nullptr, 0.0,
                                WICBitmapPaletteTypeCustom);
     if (FAILED(hr) && IsConverterFormatFailure(hr))
     {
         HRESULT profileHr = ApplyEmbeddedColorProfile(handle, frame);
         if (SUCCEEDED(profileHr) && frame.colorConvertedSource)
         {
-            hr = converter->Initialize(frame.colorConvertedSource.Get(), GUID_WICPixelFormat32bppPBGRA,
-                                       WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
+            hr = converter->Initialize(frame.colorConvertedSource.Get(), targetFormat, WICBitmapDitherTypeNone, nullptr,
+                                       0.0, WICBitmapPaletteTypeCustom);
         }
         else if (FAILED(profileHr) && !IsIgnorableColorProfileError(profileHr))
         {
