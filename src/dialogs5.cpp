@@ -3464,6 +3464,12 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
     const int MODE_ITEMS = 3;
     int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
 
+    int oldMinWidth = Configuration.TabButtonMinWidth;
+    int oldMaxWidth = Configuration.TabButtonMaxWidth;
+
+    ti.EditLine(IDC_TABS_MINWIDTH, Configuration.TabButtonMinWidth);
+    ti.EditLine(IDC_TABS_MAXWIDTH, Configuration.TabButtonMaxWidth);
+
     if (ti.Type == ttDataToWindow)
     {
         int resIDs[MODE_ITEMS] = {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH};
@@ -3480,6 +3486,9 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
         }
         if (!selected)
             SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_SETCURSEL, 0, 0);
+
+        SendDlgItemMessage(HWindow, IDC_TABS_MINWIDTH, EM_LIMITTEXT, 4, 0);
+        SendDlgItemMessage(HWindow, IDC_TABS_MAXWIDTH, EM_LIMITTEXT, 4, 0);
     }
     else
     {
@@ -3487,22 +3496,21 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
         if (index < 0 || index >= MODE_ITEMS)
             index = 0;
 
+        if (Configuration.TabButtonMinWidth < 0)
+            Configuration.TabButtonMinWidth = 0;
+        if (Configuration.TabButtonMaxWidth < 0)
+            Configuration.TabButtonMaxWidth = 0;
+        if (Configuration.TabButtonMinWidth > 0 && Configuration.TabButtonMaxWidth > 0 &&
+            Configuration.TabButtonMinWidth > Configuration.TabButtonMaxWidth)
+            Configuration.TabButtonMinWidth = Configuration.TabButtonMaxWidth;
+
         int oldMode = Configuration.TabCaptionMode;
         Configuration.TabCaptionMode = modes[index];
-        if (Configuration.TabCaptionMode != oldMode && MainWindow != NULL)
-        {
-            for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
-            {
-                CPanelSide side = (sideIndex == 0) ? cpsLeft : cpsRight;
-                int tabCount = MainWindow->GetPanelTabCount(side);
-                for (int i = 0; i < tabCount; ++i)
-                {
-                    CFilesWindow* panel = MainWindow->GetPanelTabAt(side, i);
-                    if (panel != NULL)
-                        MainWindow->UpdatePanelTabTitle(panel);
-                }
-            }
-        }
+        bool modeChanged = (Configuration.TabCaptionMode != oldMode);
+        bool minChanged = (Configuration.TabButtonMinWidth != oldMinWidth);
+        bool maxChanged = (Configuration.TabButtonMaxWidth != oldMaxWidth);
+        if ((modeChanged || minChanged || maxChanged) && MainWindow != NULL)
+            MainWindow->RefreshPanelTabLayout();
     }
 }
 

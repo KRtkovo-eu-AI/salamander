@@ -42,6 +42,8 @@ public:
 
     CPanelSide GetSide() const { return Side; }
 
+    void RefreshLayout();
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -101,6 +103,9 @@ private:
     DWORD DragInsertMarkFlags;
     RECT DragIndicatorRect;
     bool DragIndicatorVisible;
+
+    int LastClickedIndex;
+    bool LastClickWasSelected;
 
     std::vector<STabColor> TabColors;
 

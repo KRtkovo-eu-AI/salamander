@@ -561,6 +561,25 @@ void CMainWindow::UpdatePanelTabTitle(CFilesWindow* panel)
     tabWnd->SetTabText(index, text.c_str());
 }
 
+void CMainWindow::RefreshPanelTabLayout()
+{
+    for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
+    {
+        CPanelSide side = (sideIndex == 0) ? cpsLeft : cpsRight;
+        CTabWindow* tabWnd = GetPanelTabWindow(side);
+        if (tabWnd != NULL && tabWnd->HWindow != NULL)
+            tabWnd->RefreshLayout();
+
+        int tabCount = GetPanelTabCount(side);
+        for (int i = 0; i < tabCount; ++i)
+        {
+            CFilesWindow* panel = GetPanelTabAt(side, i);
+            if (panel != NULL)
+                UpdatePanelTabTitle(panel);
+        }
+    }
+}
+
 void CMainWindow::UpdatePanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)

@@ -1377,6 +1377,7 @@ extern LOGFONT LogFont;         // struktura popisujici panel font
 BOOL CreatePanelFont(); // naplni Font, FontULa FontCharHeight na zaklade LogFont
 
 extern HFONT EnvFont;         // font prostredi (edit, toolbar, header, status)
+extern HFONT EnvFontBold;     // tucny font prostredi (pro vybrane prvky)
 extern HFONT EnvFontUL;       // font listboxu podtrzeny
 extern int EnvFontCharHeight; // vyska fontu
 extern HFONT TooltipFont;     // font pro tooltips (a statusbars, ale tam ho nepouzivame)

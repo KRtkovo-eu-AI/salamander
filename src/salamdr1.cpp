@@ -242,6 +242,7 @@ LOGFONT LogFont;
 int FontCharHeight = 0;
 
 HFONT EnvFont = NULL;
+HFONT EnvFontBold = NULL;
 HFONT EnvFontUL = NULL;
 //LOGFONT EnvLogFont;
 int EnvFontCharHeight = 0;
@@ -1901,6 +1902,12 @@ void ReleaseConstGraphics()
     {
         HANDLES(DeleteObject(EnvFont));
         EnvFont = NULL;
+    }
+
+    if (EnvFontBold != NULL)
+    {
+        HANDLES(DeleteObject(EnvFontBold));
+        EnvFontBold = NULL;
     }
 
     if (EnvFontUL != NULL)

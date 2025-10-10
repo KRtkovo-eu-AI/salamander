@@ -464,6 +464,8 @@ struct CConfiguration
     int TitleBarShowPath;                        // budeme v titulku zobrazovat cestu?
     int TitleBarMode;                            // rezim zobrazeni title bar (TITLE_BAR_MODE_xxx)
     int TabCaptionMode;                          // rezim zobrazeni nazvu tabu (TITLE_BAR_MODE_xxx)
+    int TabButtonMinWidth;                       // minimalni sirka tlacitka tabu v pixelech (0 = bez omezeni)
+    int TabButtonMaxWidth;                       // maximalni sirka tlacitka tabu v pixelech (0 = bez omezeni)
     int UseTitleBarPrefix;                       // zobrazovat prefix v title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix pro title bar
     int UseTitleBarPrefixForced;                 // cmdline varianta, ma prednost a neuklada se

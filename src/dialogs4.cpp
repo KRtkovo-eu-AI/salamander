@@ -533,6 +533,8 @@ CConfiguration::CConfiguration()
     TitleBarShowPath = TRUE;
     TitleBarMode = TITLE_BAR_MODE_DIRECTORY; // podle Exploreru
     TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
+    TabButtonMinWidth = 0;
+    TabButtonMaxWidth = 0;
     UseTitleBarPrefix = FALSE;
     strcpy(TitleBarPrefix, "ADMIN");
     UseTitleBarPrefixForced = FALSE;
