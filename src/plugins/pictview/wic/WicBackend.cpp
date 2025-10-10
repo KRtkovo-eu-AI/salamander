@@ -1753,13 +1753,25 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     frame.stride = static_cast<UINT>(canvasStride);
     frame.disposalBuffer.clear();
 
-    std::vector<BYTE> displayPixels;
+    std::vector<BYTE> compositedPixels;
     try
     {
-        displayPixels = handle.gifComposeCanvas;
+        compositedPixels = handle.gifComposeCanvas;
     }
     catch (const std::bad_alloc&)
     {
+        compositedPixels.clear();
+        return E_OUTOFMEMORY;
+    }
+
+    std::vector<BYTE> displayPixels;
+    try
+    {
+        displayPixels = compositedPixels;
+    }
+    catch (const std::bad_alloc&)
+    {
+        compositedPixels.clear();
         displayPixels.clear();
         return E_OUTOFMEMORY;
     }
@@ -1767,15 +1779,7 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
     ZeroTransparentPixels(displayPixels);
 
     frame.pixels.swap(displayPixels);
-    try
-    {
-        frame.compositedPixels = frame.pixels;
-    }
-    catch (const std::bad_alloc&)
-    {
-        frame.compositedPixels.clear();
-        return E_OUTOFMEMORY;
-    }
+    frame.compositedPixels.swap(compositedPixels);
     if (multiFrameAnimation)
     {
         frame.useIndexedPixels = false;
