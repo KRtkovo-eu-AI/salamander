@@ -102,6 +102,9 @@ private:
     RECT DragIndicatorRect;
     bool DragIndicatorVisible;
 
+    int LastClickedIndex;
+    bool LastClickWasSelected;
+
     std::vector<STabColor> TabColors;
 
 };
