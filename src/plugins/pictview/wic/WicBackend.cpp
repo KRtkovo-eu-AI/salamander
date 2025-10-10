@@ -65,7 +65,7 @@ void ClearBufferRect(std::vector<BYTE>& buffer, UINT width, UINT height, const R
                      BYTE a);
 void ZeroTransparentPixels(std::vector<BYTE>& buffer);
 void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
-                                    BYTE b);
+                                    BYTE b, BYTE a);
 void PremultiplyBuffer(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride);
 void BlendPremultipliedPixel(BYTE* dest, const BYTE* src);
 HRESULT CreateSequenceBitmaps(const FrameData& frame, const RECT& rect, HBITMAP& colorBitmap, HBITMAP& maskBitmap);
@@ -1830,11 +1830,11 @@ HRESULT CompositeGifFrame(ImageHandle& handle, size_t index)
 
     UnpremultiplyBuffer(displayPixels, canvasWidth, canvasHeight, static_cast<UINT>(canvasStride));
 
-    const bool fillTransparentWithBackground = multiFrameAnimation && handle.gifHasBackgroundColor && backgroundA == 0;
+    const bool fillTransparentWithBackground = multiFrameAnimation && handle.gifHasBackgroundColor;
     if (fillTransparentWithBackground)
     {
         FillTransparentPixelsWithColor(displayPixels, canvasWidth, canvasHeight, static_cast<UINT>(canvasStride),
-                                       backgroundR, backgroundG, backgroundB);
+                                       backgroundR, backgroundG, backgroundB, backgroundA);
     }
     else
     {
@@ -2115,7 +2115,7 @@ void ZeroTransparentPixels(std::vector<BYTE>& buffer)
 }
 
 void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT height, UINT stride, BYTE r, BYTE g,
-                                    BYTE b)
+                                    BYTE b, BYTE a)
 {
     if (buffer.empty() || width == 0 || height == 0)
     {
@@ -2140,7 +2140,7 @@ void FillTransparentPixelsWithColor(std::vector<BYTE>& buffer, UINT width, UINT 
                 pixel[0] = b;
                 pixel[1] = g;
                 pixel[2] = r;
-                pixel[3] = 255;
+                pixel[3] = a;
             }
         }
     }
