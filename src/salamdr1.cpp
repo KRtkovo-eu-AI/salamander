@@ -2134,6 +2134,14 @@ int GetScaleForSystemDPI()
     return scale;
 }
 
+int DipToPixels(int dips)
+{
+    if (dips <= 0)
+        return dips;
+
+    return MulDiv(dips, GetSystemDPI(), 96);
+}
+
 int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
 {
     if (SystemDPI == 0)
