@@ -482,6 +482,7 @@ const char* CONFIG_CONVERSIONTABLE_REG = "Conversion Table";
 const char* CONFIG_TITLEBARSHOWPATH_REG = "Title bar show path";
 const char* CONFIG_TITLEBARMODE_REG = "Title bar mode";
 const char* CONFIG_TABCAPTIONMODE_REG = "Tab caption mode";
+const char* CONFIG_TABCAPTIONALIGNMENT_REG = "Tab caption alignment";
 const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
 const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
@@ -2136,6 +2137,8 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.TitleBarMode, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABCAPTIONMODE_REG, REG_DWORD,
                          &Configuration.TabCaptionMode, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABCAPTIONALIGNMENT_REG, REG_DWORD,
+                         &Configuration.TabCaptionAlignment, sizeof(DWORD));
                 DWORD tabMinWidth = (Configuration.TabButtonMinWidth > 0)
                                           ? (DWORD)Configuration.TabButtonMinWidth
                                           : 0;
@@ -3806,6 +3809,16 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.TabCaptionMode < TITLE_BAR_MODE_DIRECTORY ||
                 Configuration.TabCaptionMode > TITLE_BAR_MODE_FULLPATH)
                 Configuration.TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
+            if (!GetValue(actKey, CONFIG_TABCAPTIONALIGNMENT_REG, REG_DWORD,
+                          &Configuration.TabCaptionAlignment, sizeof(DWORD)))
+            {
+                Configuration.TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
+            }
+            if (Configuration.TabCaptionAlignment != TAB_CAPTION_ALIGN_LEFT &&
+                Configuration.TabCaptionAlignment != TAB_CAPTION_ALIGN_CENTER)
+            {
+                Configuration.TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
+            }
             DWORD storedTabMinWidth = 0;
             if (GetValue(actKey, CONFIG_TABMINWIDTH_REG, REG_DWORD, &storedTabMinWidth, sizeof(DWORD)))
             {

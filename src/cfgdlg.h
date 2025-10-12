@@ -172,6 +172,9 @@ extern const char* DefRightToolBar;
 
 #define TITLE_PREFIX_MAX 100 // velikost bufferu pro title prefix
 
+#define TAB_CAPTION_ALIGN_LEFT 0
+#define TAB_CAPTION_ALIGN_CENTER 1
+
 typedef struct
 {
     int IconResID;
@@ -466,6 +469,7 @@ struct CConfiguration
     int TabCaptionMode;                          // rezim zobrazeni nazvu tabu (TITLE_BAR_MODE_xxx)
     int TabButtonMinWidth;                       // minimalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
     int TabButtonMaxWidth;                       // maximalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
+    int TabCaptionAlignment;                     // zarovnani titulku tlacitek tabu (TAB_CAPTION_ALIGN_xxx)
     int UseTitleBarPrefix;                       // zobrazovat prefix v title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix pro title bar
     int UseTitleBarPrefixForced;                 // cmdline varianta, ma prednost a neuklada se

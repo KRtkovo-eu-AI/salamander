@@ -1685,8 +1685,12 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     COLORREF oldTextColor = SetTextColor(hdc, textColor);
 
     const wchar_t* drawText = (text != NULL) ? text : L"";
-    DrawTextW(hdc, drawText, -1, &textRect,
-              DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+    UINT format = DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX;
+    if (Configuration.TabCaptionAlignment == TAB_CAPTION_ALIGN_LEFT)
+        format |= DT_LEFT;
+    else
+        format |= DT_CENTER;
+    DrawTextW(hdc, drawText, -1, &textRect, format);
 
     if (hasFocus)
     {
