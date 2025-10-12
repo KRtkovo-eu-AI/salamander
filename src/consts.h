@@ -2495,4 +2495,3 @@ int GetScaleForSystemDPI();
 
 // prevod mezi device-independent pixels (DIP) a fyzickymi pixely
 int DipToPixels(int dips);
-int PixelsToDip(int pixels);
