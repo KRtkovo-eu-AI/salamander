@@ -2492,3 +2492,7 @@ int GetSystemDPI();
 
 // vraci scale odpovidajici aktualnimu DPI; misto 1.0 vraci 100, pro 1.25 vraci 125, atd
 int GetScaleForSystemDPI();
+
+// prevod mezi device-independent pixels (DIP) a fyzickymi pixely
+int DipToPixels(int dips);
+int PixelsToDip(int pixels);

@@ -337,15 +337,15 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (desired.empty())
         return;
 
-    int maxWidth = Configuration.TabButtonMaxWidth;
-    if (maxWidth <= 0)
+    int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
+    if (maxWidthPx <= 0)
         return;
 
     RECT rect;
     if (!TabCtrl_GetItemRect(HWindow, index, &rect))
         return;
     int currentWidth = rect.right - rect.left;
-    if (currentWidth <= maxWidth)
+    if (currentWidth <= maxWidthPx)
         return;
 
     HDC hdc = GetDC(HWindow);
@@ -367,7 +367,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     }
 
     int extraWidth = currentWidth - desiredSize.cx;
-    int allowedTextWidth = maxWidth - extraWidth;
+    int allowedTextWidth = maxWidthPx - extraWidth;
     if (allowedTextWidth <= 0)
     {
         setItemText(std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1));
@@ -387,10 +387,10 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         if (!TabCtrl_GetItemRect(HWindow, index, &rect))
             break;
         currentWidth = rect.right - rect.left;
-        if (currentWidth <= maxWidth)
+        if (currentWidth <= maxWidthPx)
             break;
 
-        allowedTextWidth -= (currentWidth - maxWidth);
+        allowedTextWidth -= (currentWidth - maxWidthPx);
         if (allowedTextWidth <= 0)
         {
             finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
@@ -597,8 +597,9 @@ void CTabWindow::UpdateNewTabButtonWidth()
         return;
 
     int minWidth = ComputeNewTabMinWidth(HWindow);
-    if (Configuration.TabButtonMinWidth > 0 && Configuration.TabButtonMinWidth > minWidth)
-        minWidth = Configuration.TabButtonMinWidth;
+    int configuredMinWidth = DipToPixels(Configuration.TabButtonMinWidth);
+    if (configuredMinWidth > 0 && configuredMinWidth > minWidth)
+        minWidth = configuredMinWidth;
     if (minWidth > 0)
         TabCtrl_SetMinTabWidth(HWindow, minWidth);
 }

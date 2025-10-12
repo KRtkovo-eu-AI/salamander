@@ -484,6 +484,7 @@ const char* CONFIG_TITLEBARMODE_REG = "Title bar mode";
 const char* CONFIG_TABCAPTIONMODE_REG = "Tab caption mode";
 const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
 const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
+const char* CONFIG_TABWIDTHSINDIP_REG = "Tab widths use DIP";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
 const char* CONFIG_TITLEBARPREFIXTEXT_REG = "Title bar prefix text";
 const char* CONFIG_MAINWINDOWICONINDEX_REG = "Main window icon index";
@@ -2144,6 +2145,8 @@ void CMainWindow::SaveConfig(HWND parent)
                                           : 0;
                 SetValue(actKey, CONFIG_TABMINWIDTH_REG, REG_DWORD, &tabMinWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &tabMaxWidth, sizeof(DWORD));
+                DWORD tabWidthsUseDip = 1;
+                SetValue(actKey, CONFIG_TABWIDTHSINDIP_REG, REG_DWORD, &tabWidthsUseDip, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                          &Configuration.UseTitleBarPrefix, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
@@ -3806,14 +3809,28 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.TabCaptionMode < TITLE_BAR_MODE_DIRECTORY ||
                 Configuration.TabCaptionMode > TITLE_BAR_MODE_FULLPATH)
                 Configuration.TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
+            DWORD tabWidthsUseDip = 0;
+            BOOL hasTabWidthUnit = GetValue(actKey, CONFIG_TABWIDTHSINDIP_REG, REG_DWORD, &tabWidthsUseDip, sizeof(DWORD));
+            bool tabWidthsStoredAsDip = hasTabWidthUnit && tabWidthsUseDip != 0;
+
             DWORD storedTabMinWidth = 0;
             if (GetValue(actKey, CONFIG_TABMINWIDTH_REG, REG_DWORD, &storedTabMinWidth, sizeof(DWORD)))
-                Configuration.TabButtonMinWidth = (int)storedTabMinWidth;
+            {
+                if (tabWidthsStoredAsDip)
+                    Configuration.TabButtonMinWidth = (int)storedTabMinWidth;
+                else
+                    Configuration.TabButtonMinWidth = PixelsToDip((int)storedTabMinWidth);
+            }
             else
                 Configuration.TabButtonMinWidth = 0;
             DWORD storedTabMaxWidth = 0;
             if (GetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &storedTabMaxWidth, sizeof(DWORD)))
-                Configuration.TabButtonMaxWidth = (int)storedTabMaxWidth;
+            {
+                if (tabWidthsStoredAsDip)
+                    Configuration.TabButtonMaxWidth = (int)storedTabMaxWidth;
+                else
+                    Configuration.TabButtonMaxWidth = PixelsToDip((int)storedTabMaxWidth);
+            }
             else
                 Configuration.TabButtonMaxWidth = 0;
             if (Configuration.TabButtonMinWidth < 0)
