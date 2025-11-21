@@ -5,6 +5,9 @@
 
 #include <windows.h>
 
+// Returns true when a darkmodelib runtime is present and initialized.
+bool DarkModeLibraryIsActive();
+
 // Initializes the dark mode helpers. Safe to call multiple times.
 bool DarkModeInitialize();
 
@@ -47,6 +50,7 @@ HBRUSH DarkModeGetPanelFrameBrush();
 COLORREF DarkModeGetDialogTextColor();
 COLORREF DarkModeGetDialogBackgroundColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
+bool DarkModeQueryPreferredPalette(COLORREF* textColor, COLORREF* backgroundColor, COLORREF* accentColor);
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
 

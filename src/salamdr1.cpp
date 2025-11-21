@@ -375,19 +375,40 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
 
 static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
 {
-    const COLORREF accent = GetSysColor(COLOR_HIGHLIGHT);
-    const COLORREF accentText = GetSysColor(COLOR_HIGHLIGHTTEXT);
-    const COLORREF panelBg = RGB(32, 32, 32);
-    const COLORREF panelAlt = RGB(48, 48, 48);
-    const COLORREF panelHot = RGB(56, 56, 56);
-    const COLORREF text = RGB(220, 220, 220);
-    const COLORREF dimText = RGB(160, 160, 160);
-    const COLORREF overlay = RGB(192, 192, 192);
-    const COLORREF progressBg = RGB(64, 64, 64);
-    const COLORREF inactiveCaptionBg = RGB(45, 45, 48);
-    const COLORREF inactiveCaptionFg = RGB(190, 190, 190);
-    const COLORREF hotActive = RGB(0, 0, 0);
-    const COLORREF thumbnailFrame = RGB(94, 94, 94);
+    COLORREF accent = GetSysColor(COLOR_HIGHLIGHT);
+    COLORREF accentText = GetSysColor(COLOR_HIGHLIGHTTEXT);
+    COLORREF panelBg = RGB(32, 32, 32);
+    COLORREF panelAlt = RGB(48, 48, 48);
+    COLORREF panelHot = RGB(56, 56, 56);
+    COLORREF text = RGB(220, 220, 220);
+    COLORREF dimText = RGB(160, 160, 160);
+    COLORREF overlay = RGB(192, 192, 192);
+    COLORREF progressBg = RGB(64, 64, 64);
+    COLORREF inactiveCaptionBg = RGB(45, 45, 48);
+    COLORREF inactiveCaptionFg = RGB(190, 190, 190);
+    COLORREF hotActive = RGB(0, 0, 0);
+    COLORREF thumbnailFrame = RGB(94, 94, 94);
+
+    COLORREF libraryText = 0;
+    COLORREF libraryBackground = 0;
+    COLORREF libraryAccent = 0;
+    if (DarkModeQueryPreferredPalette(&libraryText, &libraryBackground, &libraryAccent))
+    {
+        text = libraryText;
+        dimText = DarkenColor(text, 60);
+
+        panelBg = libraryBackground;
+        panelAlt = LightenColor(panelBg, 16);
+        panelHot = LightenColor(panelBg, 24);
+        progressBg = DarkenColor(panelBg, 16);
+
+        accent = libraryAccent;
+        accentText = DarkModeEnsureReadableForeground(text, accent);
+    }
+    else
+    {
+        accentText = DarkModeEnsureReadableForeground(accentText, accent);
+    }
 
     auto setColor = [](SALCOLOR& entry, COLORREF color) {
         entry = RGBF(GetRValue(color), GetGValue(color), GetBValue(color), 0);
@@ -3261,6 +3282,12 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
 {
     CALL_STACK_MESSAGE2("ColorsChanged(%d)", refresh);
 
+    // Dark-mode pipeline responsibilities:
+    //  * Toggle native integration (including the optional darkmodelib shim).
+    //  * Rebuild the Salamander palette and menu/dialog brushes.
+    //  * Re-apply window opt-in flags and refresh non-client rendering.
+    //  * Notify children, plug-ins, and the viewer so list views and titles
+    //    repaint with the current theme.
     const bool windowsDarkEnabled = Configuration.UseWindowsDarkMode != FALSE;
     DarkModeSetEnabled(windowsDarkEnabled);
 

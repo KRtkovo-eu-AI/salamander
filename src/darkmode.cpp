@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "darkmode.h"
+#include "darkmodelib.h"
 
 #include <delayimp.h>
 #include <uxtheme.h>
@@ -18,6 +19,12 @@
 
 #ifndef LOAD_LIBRARY_SEARCH_SYSTEM32
 #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
+#endif
+#ifndef LOAD_LIBRARY_SEARCH_APPLICATION_DIR
+#define LOAD_LIBRARY_SEARCH_APPLICATION_DIR 0x00000200
+#endif
+#ifndef LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
+#define LOAD_LIBRARY_SEARCH_DEFAULT_DIRS 0x00001000
 #endif
 
 namespace
@@ -184,6 +191,16 @@ fnShouldSystemUseDarkMode gShouldSystemUseDarkMode = nullptr;
 fnSetPreferredAppMode gSetPreferredAppMode = nullptr;
 fnIsDarkModeAllowedForApp gIsDarkModeAllowedForApp = nullptr;
 
+HMODULE gDarkModeLib = nullptr;
+DarkModeLibApi gDarkModeLibApi;
+bool gDarkModeLibInitialized = false;
+bool gDarkModeLibAvailable = false;
+bool gDarkModeLibPaletteValid = false;
+bool gDarkModeLibPreferred = true;
+COLORREF gDarkModeLibPaletteText = 0;
+COLORREF gDarkModeLibPaletteBackground = 0;
+COLORREF gDarkModeLibPaletteAccent = 0;
+
 DWORD gBuildNumber = 0;
 bool gInitialized = false;
 bool gSupported = false;
@@ -197,6 +214,44 @@ static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
 const wchar_t* kDarkModeClassicButtonProp = L"Salamander.DarkMode.ClassicButton";
+
+void InitializeDarkModeLib()
+{
+    if (gDarkModeLibInitialized)
+        return;
+
+    gDarkModeLibInitialized = true;
+
+    wchar_t disableEnv[2];
+    if (GetEnvironmentVariableW(L"SALAMANDER_DISABLE_DARKMODELIB", disableEnv, _countof(disableEnv)) > 0)
+    {
+        gDarkModeLibPreferred = false;
+        return;
+    }
+
+    gDarkModeLib = LoadLibraryExW(L"darkmodelib.dll", nullptr,
+                                  LOAD_LIBRARY_SEARCH_APPLICATION_DIR |
+                                      LOAD_LIBRARY_SEARCH_SYSTEM32 |
+                                      LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    if (!gDarkModeLib)
+        gDarkModeLib = LoadLibraryW(L"darkmodelib.dll");
+
+    if (!gDarkModeLib)
+        return;
+
+    gDarkModeLibApi.Initialize = reinterpret_cast<fnDarkModeLibInitialize>(GetProcAddress(gDarkModeLib, "DarkModeLibInitialize"));
+    gDarkModeLibApi.IsSupported = reinterpret_cast<fnDarkModeLibIsSupported>(GetProcAddress(gDarkModeLib, "DarkModeLibIsSupported"));
+    gDarkModeLibApi.SetEnabled = reinterpret_cast<fnDarkModeLibSetEnabled>(GetProcAddress(gDarkModeLib, "DarkModeLibSetEnabled"));
+    gDarkModeLibApi.ApplyWindow = reinterpret_cast<fnDarkModeLibApplyWindow>(GetProcAddress(gDarkModeLib, "DarkModeLibApplyWindow"));
+    gDarkModeLibApi.ApplyTree = reinterpret_cast<fnDarkModeLibApplyTree>(GetProcAddress(gDarkModeLib, "DarkModeLibApplyTree"));
+    gDarkModeLibApi.RefreshTitleBar = reinterpret_cast<fnDarkModeLibRefreshTitleBar>(GetProcAddress(gDarkModeLib, "DarkModeLibRefreshTitleBar"));
+    gDarkModeLibApi.ShouldUseDarkColors = reinterpret_cast<fnDarkModeLibShouldUseDarkColors>(GetProcAddress(gDarkModeLib, "DarkModeLibShouldUseDarkColors"));
+    gDarkModeLibApi.QueryPalette = reinterpret_cast<fnDarkModeLibQueryPalette>(GetProcAddress(gDarkModeLib, "DarkModeLibQueryPalette"));
+    gDarkModeLibApi.ThemeWindowControls = reinterpret_cast<fnDarkModeLibThemeWindowControls>(GetProcAddress(gDarkModeLib, "DarkModeLibThemeWindowControls"));
+
+    if (gDarkModeLibApi.Initialize && gDarkModeLibApi.IsSupported)
+        gDarkModeLibAvailable = gDarkModeLibApi.Initialize() && gDarkModeLibApi.IsSupported();
+}
 
 bool ControlHasCaptionButton(HWND hwnd)
 {
@@ -468,12 +523,14 @@ void EnsureInitialized()
     if (gBuildNumber < 17763)
     {
         gSupported = false;
+        InitializeDarkModeLib();
         return;
     }
 
     if (!gUxTheme)
     {
         gSupported = false;
+        InitializeDarkModeLib();
         return;
     }
 
@@ -499,35 +556,46 @@ void EnsureInitialized()
                  (gAllowDarkModeForApp != nullptr || gSetPreferredAppMode != nullptr) &&
                  gShouldAppsUseDarkMode != nullptr;
 
-    if (!gSupported)
-        return;
+    InitializeDarkModeLib();
 }
 
 } // namespace
 
+bool DarkModeLibraryIsActive()
+{
+    EnsureInitialized();
+    return gDarkModeLibAvailable && gDarkModeLibPreferred;
+}
+
 bool DarkModeInitialize()
 {
     EnsureInitialized();
-    return gSupported;
+    return gSupported || DarkModeLibraryIsActive();
 }
 
 bool DarkModeIsSupported()
 {
     EnsureInitialized();
-    return gSupported;
+    return gSupported || DarkModeLibraryIsActive();
 }
 
 void DarkModeSetEnabled(bool enabled)
 {
     EnsureInitialized();
-    if (!gSupported)
-        return;
+    const bool libraryActive = DarkModeLibraryIsActive();
 
     bool newEnabled = enabled && !IsHighContrast();
-    if (gEnabled == newEnabled)
+    if (gEnabled == newEnabled && !libraryActive)
         return;
 
     gEnabled = newEnabled;
+    gDarkModeLibPaletteValid = false;
+
+    if (libraryActive && gDarkModeLibApi.SetEnabled)
+        gDarkModeLibApi.SetEnabled(gEnabled);
+
+    if (!gSupported)
+        return;
 
     if (gAllowDarkModeForApp)
         gAllowDarkModeForApp(gEnabled);
@@ -547,6 +615,9 @@ bool DarkModeShouldUseDarkColors()
 {
     EnsureInitialized();
 
+    if (DarkModeLibraryIsActive() && gDarkModeLibApi.ShouldUseDarkColors)
+        return gDarkModeLibApi.ShouldUseDarkColors();
+
     if (ShouldUseDarkColorsInternal())
         return true;
 
@@ -560,29 +631,57 @@ bool DarkModeShouldUseDarkColors()
 void DarkModeApplyWindow(HWND hwnd)
 {
     EnsureInitialized();
-    if (!gSupported || hwnd == NULL)
+    if (hwnd == NULL)
+        return;
+
+    const bool libraryActive = DarkModeLibraryIsActive();
+    if (libraryActive)
+    {
+        if (gDarkModeLibApi.ApplyWindow)
+            gDarkModeLibApi.ApplyWindow(hwnd);
+        if (gDarkModeLibApi.ThemeWindowControls)
+            gDarkModeLibApi.ThemeWindowControls(hwnd);
+    }
+
+    if (!gSupported)
         return;
 
     if (gAllowDarkModeForWindow)
         gAllowDarkModeForWindow(hwnd, gEnabled);
 
-    ApplyControlTheme(hwnd);
+    if (!libraryActive)
+        ApplyControlTheme(hwnd);
 }
 
 void DarkModeApplyTree(HWND hwnd)
 {
     EnsureInitialized();
-    if (!gSupported || hwnd == NULL)
+    if (hwnd == NULL)
         return;
 
+    const bool libraryActive = DarkModeLibraryIsActive();
+    if (libraryActive && gDarkModeLibApi.ApplyTree)
+    {
+        gDarkModeLibApi.ApplyTree(hwnd);
+        return;
+    }
+
     DarkModeApplyWindow(hwnd);
-    EnumChildWindows(hwnd, ApplyTreeCallback, 0);
+
+    if (gSupported)
+        EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
 void DarkModeRefreshTitleBar(HWND hwnd)
 {
     EnsureInitialized();
-    if (!gSupported || hwnd == NULL)
+    if (hwnd == NULL)
+        return;
+
+    if (DarkModeLibraryIsActive() && gDarkModeLibApi.RefreshTitleBar)
+        gDarkModeLibApi.RefreshTitleBar(hwnd);
+
+    if (!gSupported)
         return;
 
     BOOL useDark = FALSE;
@@ -603,7 +702,8 @@ void DarkModeRefreshTitleBar(HWND hwnd)
 bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
 {
     EnsureInitialized();
-    if (!gSupported)
+    const bool libraryActive = DarkModeLibraryIsActive();
+    if (!gSupported && !libraryActive)
         return false;
 
     if (message != WM_SETTINGCHANGE)
@@ -614,19 +714,24 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
     {
         if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"ImmersiveColorSet", -1, TRUE) == CSTR_EQUAL)
         {
-            RefreshColorPolicy();
+            if (gSupported)
+                RefreshColorPolicy();
             isColor = true;
         }
         else if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"WindowsThemeElement", -1, TRUE) == CSTR_EQUAL)
         {
-            RefreshColorPolicy();
+            if (gSupported)
+                RefreshColorPolicy();
             isColor = true;
         }
     }
-    else
+    else if (gSupported)
     {
         RefreshColorPolicy();
     }
+
+    if (isColor)
+        gDarkModeLibPaletteValid = false;
 
     return isColor;
 }
@@ -662,6 +767,44 @@ COLORREF DarkModeGetDialogBackgroundColor()
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background)
 {
     return ResolveReadableForeground(foreground, background);
+}
+
+bool DarkModeQueryPreferredPalette(COLORREF* textColor, COLORREF* backgroundColor, COLORREF* accentColor)
+{
+    EnsureInitialized();
+
+    if (!DarkModeLibraryIsActive() || gDarkModeLibApi.QueryPalette == nullptr)
+        return false;
+
+    if (gDarkModeLibPaletteValid)
+    {
+        if (textColor)
+            *textColor = gDarkModeLibPaletteText;
+        if (backgroundColor)
+            *backgroundColor = gDarkModeLibPaletteBackground;
+        if (accentColor)
+            *accentColor = gDarkModeLibPaletteAccent;
+        return true;
+    }
+
+    COLORREF libraryText = 0;
+    COLORREF libraryBackground = 0;
+    COLORREF libraryAccent = 0;
+    if (!gDarkModeLibApi.QueryPalette(&libraryText, &libraryBackground, &libraryAccent))
+        return false;
+
+    gDarkModeLibPaletteText = libraryText;
+    gDarkModeLibPaletteBackground = libraryBackground;
+    gDarkModeLibPaletteAccent = libraryAccent;
+    gDarkModeLibPaletteValid = true;
+
+    if (textColor)
+        *textColor = libraryText;
+    if (backgroundColor)
+        *backgroundColor = libraryBackground;
+    if (accentColor)
+        *accentColor = libraryAccent;
+    return true;
 }
 
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)

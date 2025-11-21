@@ -2279,6 +2279,9 @@ void CMainWindow::SaveConfig(HWND parent)
                     scheme = 2;
                 else if (CurrentColors == NavigatorColors)
                     scheme = 3;
+                // Color-scheme handling: persist the logical palette selection and
+                // whether the Windows dark-mode path (and optional darkmodelib
+                // helpers) should be reapplied during ColorsChanged().
                 SetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD));
 
                 DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
