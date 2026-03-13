@@ -216,6 +216,22 @@ BOOL CFilesWindowAncestor::GetGeneralPath(char* buf, int bufSize, BOOL convertFS
     return ret;
 }
 
+void CFilesWindowAncestor::SetPathForDeferredRestore(const char* path)
+{
+    CALL_STACK_MESSAGE2("CFilesWindowAncestor::SetPathForDeferredRestore(%s)", path);
+    DetachDirectory((CFilesWindow*)this);
+    strcpy(Path, path);
+
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle((CFilesWindow*)this);
+
+    FileBasedCompression = FALSE;
+    FileBasedEncryption = FALSE;
+    SupportACLS = FALSE;
+    MonitorChanges = FALSE;
+    DriveType = DRIVE_UNKNOWN;
+}
+
 void CFilesWindowAncestor::SetPath(const char* path)
 {
     CALL_STACK_MESSAGE2("CFilesWindowAncestor::SetPath(%s)", path);

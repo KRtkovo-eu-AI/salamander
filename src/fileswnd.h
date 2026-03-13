@@ -573,6 +573,7 @@ public:
     BOOL GetSuppressAutoRefresh() { return SuppressAutoRefresh; }
 
     void SetPath(const char* path);
+    void SetPathForDeferredRestore(const char* path);
     void SetMonitorChanges(BOOL monitorChanges) { MonitorChanges = monitorChanges; }
     void SetPanelType(CPanelType type) { PanelType = type; }
     void SetZIPPath(const char* path);

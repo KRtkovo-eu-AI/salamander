@@ -1609,10 +1609,8 @@ static void PrepareInactivePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindo
 
     if (IsDiskOrUNCPath(path))
     {
-        panel->SetPath(path);
+        panel->SetPathForDeferredRestore(path);
         panel->NeedsRefreshOnActivation = TRUE;
-        if (mainWnd != NULL)
-            mainWnd->UpdatePanelTabTitle(panel);
     }
     else
         RestorePanelPathFromConfig(mainWnd, panel, path);
