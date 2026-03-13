@@ -1602,6 +1602,22 @@ static BOOL RestorePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel
     return FALSE;
 }
 
+static void PrepareInactivePanelPathFromConfig(CMainWindow* mainWnd, CFilesWindow* panel, const char* path)
+{
+    if (panel == NULL || path == NULL || path[0] == 0)
+        return;
+
+    if (IsDiskOrUNCPath(path))
+    {
+        panel->SetPath(path);
+        panel->NeedsRefreshOnActivation = TRUE;
+        if (mainWnd != NULL)
+            mainWnd->UpdatePanelTabTitle(panel);
+    }
+    else
+        RestorePanelPathFromConfig(mainWnd, panel, path);
+}
+
 void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg)
 {
     HKEY actKey;
@@ -2729,7 +2745,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
 
     if (tabs.Count == 0)
     {
-        CFilesWindow* panel = AddPanelTab(side, 0);
+        CFilesWindow* panel = AddPanelTab(side, 0, false);
         if (panel != NULL)
         {
             DWORD style = WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
@@ -2764,7 +2780,7 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
     while (tabs.Count < tabCount)
     {
         CFilesWindow* previous = (side == cpsLeft) ? LeftPanel : RightPanel;
-        CFilesWindow* panel = AddPanelTab(side, tabs.Count);
+        CFilesWindow* panel = AddPanelTab(side, tabs.Count, false);
         if (panel == NULL)
             break;
 
@@ -2850,7 +2866,11 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
+        BOOL restored = FALSE;
+        if (i == activeIndex)
+            restored = RestorePanelPathFromConfig(this, panel, path);
+        else
+            PrepareInactivePanelPathFromConfig(this, panel, path);
         if (i == activeIndex)
         {
             activeRestored = restored;
