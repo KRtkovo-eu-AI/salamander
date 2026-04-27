@@ -1156,3 +1156,250 @@ BOOL CParserInterfaceCSV::IsRecordDeleted()
     // the CSV format does not support this state
     return FALSE;
 }
+
+//****************************************************************************
+//
+// CParserInterfaceJSONL
+//
+
+CParserInterfaceJSONL::CParserInterfaceJSONL()
+    : Records(1000, 1000)
+{
+    FileName[0] = 0;
+    CurrentRecordIndex = 0;
+}
+
+CParserInterfaceJSONL::~CParserInterfaceJSONL()
+{
+    CloseFile();
+}
+
+CParserStatusEnum
+CParserInterfaceJSONL::OpenFile(const char* fileName)
+{
+    if (fileName == NULL)
+        return psUnknownFile;
+
+    CloseFile();
+
+    FILE* f = fopen(fileName, "rb");
+    if (f == NULL)
+        return psFileNotFound;
+
+    const int initialCap = 4096;
+    int cap = initialCap;
+    int len = 0;
+    char* line = (char*)malloc(cap);
+    if (line == NULL)
+    {
+        fclose(f);
+        return psOOM;
+    }
+
+    CParserStatusEnum status = psOK;
+    int c;
+    while ((c = fgetc(f)) != EOF)
+    {
+        if (c == '\n')
+        {
+            while (len > 0 && line[len - 1] == '\r')
+                len--;
+
+            line[len] = 0;
+
+            if (len > 0)
+            {
+                char* record = (char*)malloc(len + 1);
+                if (record == NULL)
+                {
+                    status = psOOM;
+                    break;
+                }
+                memcpy(record, line, len + 1);
+                Records.Add(record);
+                if (!Records.IsGood())
+                {
+                    free(record);
+                    Records.ResetState();
+                    status = psOOM;
+                    break;
+                }
+            }
+            len = 0;
+            continue;
+        }
+
+        if (len + 1 >= cap)
+        {
+            int newCap = cap * 2;
+            char* grown = (char*)realloc(line, newCap);
+            if (grown == NULL)
+            {
+                status = psOOM;
+                break;
+            }
+            line = grown;
+            cap = newCap;
+        }
+        line[len++] = (char)c;
+    }
+
+    if (status == psOK && ferror(f))
+        status = psReadError;
+
+    if (status == psOK && len > 0)
+    {
+        while (len > 0 && line[len - 1] == '\r')
+            len--;
+        line[len] = 0;
+
+        char* record = (char*)malloc(len + 1);
+        if (record == NULL)
+            status = psOOM;
+        else
+        {
+            memcpy(record, line, len + 1);
+            Records.Add(record);
+            if (!Records.IsGood())
+            {
+                free(record);
+                Records.ResetState();
+                status = psOOM;
+            }
+        }
+    }
+
+    free(line);
+    fclose(f);
+
+    if (status != psOK)
+    {
+        CloseFile();
+        return status;
+    }
+
+    lstrcpyn(FileName, fileName, MAX_PATH);
+    CurrentRecordIndex = 0;
+    return psOK;
+}
+
+void CParserInterfaceJSONL::CloseFile()
+{
+    for (int i = 0; i < Records.Count; i++)
+    {
+        free(Records[i]);
+    }
+    Records.DestroyMembers();
+    FileName[0] = 0;
+    CurrentRecordIndex = 0;
+}
+
+BOOL CParserInterfaceJSONL::GetFileInfo(HWND hEdit)
+{
+    char buff[1000];
+    char buff2[1000];
+
+    SetWindowText(hEdit, "");
+    DWORD tab = 80;
+    SendMessage(hEdit, EM_SETTABSTOPS, 1, (LPARAM)&tab);
+    sprintf(buff, "%s\r\n\r\n", FileName);
+    SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+    HANDLE file = CreateFile(FileName, GENERIC_READ,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE,
+                             NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file != INVALID_HANDLE_VALUE)
+    {
+        FILETIME fileTime;
+        CQuadWord fileSize;
+        GetFileTime(file, NULL, NULL, &fileTime);
+        DWORD err;
+        SalGeneral->SalGetFileSize(file, fileSize, err);
+        CloseHandle(file);
+
+        SYSTEMTIME st;
+        FILETIME ft;
+        FileTimeToLocalFileTime(&fileTime, &ft);
+        FileTimeToSystemTime(&ft, &st);
+
+        GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, 100);
+        strcat(buff2, ", ");
+        GetTimeFormat(LOCALE_USER_DEFAULT, LOCALE_NOUSEROVERRIDE, &st, NULL, buff2 + strlen(buff2), 100);
+        sprintf(buff, "%s:\t%s\r\n", LoadStr(IDS_FINFO_MODIFIED), buff2);
+        SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+        SalGeneral->PrintDiskSize(buff2, fileSize, 1);
+        sprintf(buff, "%s:\t%s\r\n", LoadStr(IDS_FINFO_SIZE), buff2);
+        SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+    }
+
+    sprintf(buff, "%s:\t%u\r\n", LoadStr(IDS_FINFO_RECCOUNT), GetRecordCount());
+    SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+    sprintf(buff, "%s:\t%u\r\n", LoadStr(IDS_FINFO_FIELDCOUNT), GetFieldCount());
+    SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+    return TRUE;
+}
+
+DWORD CParserInterfaceJSONL::GetRecordCount()
+{
+    return Records.Count;
+}
+
+DWORD CParserInterfaceJSONL::GetFieldCount()
+{
+    return 1;
+}
+
+BOOL CParserInterfaceJSONL::GetFieldInfo(DWORD index, CFieldInfo* info)
+{
+    if (index != 0)
+        return FALSE;
+
+    const char* colName = "JSON";
+    if (info->Name == NULL)
+        info->NameMax = (int)strlen(colName) + 1;
+    else
+        lstrcpynA(info->Name, colName, info->NameMax);
+
+    info->LeftAlign = TRUE;
+    info->TextMax = -1;
+    if (info->Type != NULL)
+        lstrcpyn(info->Type, LoadStr(IDS_FTYPE_CHAR), 100);
+    info->FieldLen = -1;
+    info->Decimals = -1;
+    return TRUE;
+}
+
+CParserStatusEnum CParserInterfaceJSONL::FetchRecord(DWORD index)
+{
+    if (index >= (DWORD)Records.Count)
+        return psCount;
+    CurrentRecordIndex = index;
+    return psOK;
+}
+
+const char* CParserInterfaceJSONL::GetCellText(DWORD index, size_t* textLen)
+{
+    if (index != 0 || CurrentRecordIndex >= (DWORD)Records.Count)
+    {
+        *textLen = 0;
+        return "";
+    }
+    const char* record = Records[CurrentRecordIndex];
+    *textLen = strlen(record);
+    return record;
+}
+
+const wchar_t* CParserInterfaceJSONL::GetCellTextW(DWORD index, size_t* textLen)
+{
+    UNREFERENCED_PARAMETER(index);
+    *textLen = 0;
+    return L"";
+}
+
+BOOL CParserInterfaceJSONL::IsRecordDeleted()
+{
+    return FALSE;
+}

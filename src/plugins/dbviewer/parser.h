@@ -175,3 +175,34 @@ private:
     // helpers
     CParserStatusEnum TranslateCSVStatus(CCSVParserStatus status);
 };
+
+//****************************************************************************
+//
+// CParserInterfaceJSONL
+//
+
+class CParserInterfaceJSONL : public CParserInterfaceAbstract
+{
+private:
+    TDirectArray<char*> Records;
+    char FileName[MAX_PATH];
+    DWORD CurrentRecordIndex;
+
+public:
+    CParserInterfaceJSONL();
+    virtual ~CParserInterfaceJSONL();
+
+    virtual const char* GetParserName() { return "jsonl"; }
+
+    virtual CParserStatusEnum OpenFile(const char* fileName);
+    virtual void CloseFile();
+
+    virtual BOOL GetFileInfo(HWND hEdit);
+    virtual DWORD GetRecordCount();
+    virtual DWORD GetFieldCount();
+    virtual BOOL GetFieldInfo(DWORD index, CFieldInfo* info);
+    virtual CParserStatusEnum FetchRecord(DWORD index);
+    virtual const char* GetCellText(DWORD index, size_t* textLen);
+    virtual const wchar_t* GetCellTextW(DWORD index, size_t* textLen);
+    virtual BOOL IsRecordDeleted();
+};

@@ -33,7 +33,7 @@ STRINGTABLE
  IDS_DEFAULTFONT, "default font"
  IDS_CUSTOMFONT, "custom font"
 
- IDS_VIEWERFILTER, "Database files (*.csv;*.dbf;*.txt)|*.csv;*.dbf;*.txt|All Files (*.*)|*.*|"
+ IDS_VIEWERFILTER, "Database files (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|All Files (*.*)|*.*|"
  IDS_FONTDESCRIPTION, "%d pt. %s (%s)"
  IDS_CFG_CONFLICT, "The configuration is already opened."
  IDS_COLUMNS_NAME, "Name"

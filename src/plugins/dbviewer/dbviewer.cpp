@@ -578,7 +578,7 @@ void CPluginInterface::Configuration(HWND parent)
 void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
-    salamander->AddViewer("*.csv;*.dbf", FALSE); // default (plugin installation), otherwise Salamander ignores it
+    salamander->AddViewer("*.csv;*.dbf;*.jsonl", FALSE); // default (plugin installation), otherwise Salamander ignores it
 }
 
 CPluginInterfaceForViewerAbstract*
