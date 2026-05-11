@@ -1162,6 +1162,143 @@ BOOL CParserInterfaceCSV::IsRecordDeleted()
 // CParserInterfaceJSONL
 //
 
+static bool SkipJSONWhitespace(const char* s, int len, int& i)
+{
+    while (i < len && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n'))
+        i++;
+    return i < len;
+}
+
+static char* DupWithMalloc(const char* src)
+{
+    if (src == NULL)
+        return NULL;
+    size_t n = strlen(src) + 1;
+    char* dst = (char*)malloc(n);
+    if (dst != NULL)
+        memcpy(dst, src, n);
+    return dst;
+}
+
+static char* ConvertJSONLineToKeyValueText(const char* line)
+{
+    if (line == NULL)
+        return NULL;
+
+    const int len = (int)strlen(line);
+    int i = 0;
+    SkipJSONWhitespace(line, len, i);
+    if (i >= len || line[i] != '{')
+        return DupWithMalloc(line);
+    i++;
+
+    char* out = (char*)malloc((size_t)len * 2 + 1);
+    if (out == NULL)
+        return NULL;
+    int outLen = 0;
+    bool first = true;
+
+    while (i < len)
+    {
+        SkipJSONWhitespace(line, len, i);
+        if (i < len && line[i] == '}')
+            break;
+        if (i >= len || line[i] != '"')
+        {
+            free(out);
+            return DupWithMalloc(line);
+        }
+        i++;
+        int keyStart = i;
+        while (i < len)
+        {
+            if (line[i] == '\\' && i + 1 < len)
+                i += 2;
+            else if (line[i] == '"')
+                break;
+            else
+                i++;
+        }
+        if (i >= len)
+        {
+            free(out);
+            return DupWithMalloc(line);
+        }
+        int keyEnd = i++;
+        SkipJSONWhitespace(line, len, i);
+        if (i >= len || line[i] != ':')
+        {
+            free(out);
+            return DupWithMalloc(line);
+        }
+        i++;
+        SkipJSONWhitespace(line, len, i);
+        int valStart = i;
+        int depth = 0;
+        bool inStr = false;
+        while (i < len)
+        {
+            char ch = line[i];
+            if (inStr)
+            {
+                if (ch == '\\' && i + 1 < len)
+                    i += 2;
+                else if (ch == '"')
+                {
+                    inStr = false;
+                    i++;
+                }
+                else
+                    i++;
+            }
+            else
+            {
+                if (ch == '"')
+                    inStr = true, i++;
+                else if (ch == '{' || ch == '[')
+                    depth++, i++;
+                else if (ch == '}' || ch == ']')
+                {
+                    if (depth == 0)
+                        break;
+                    depth--, i++;
+                }
+                else if (ch == ',' && depth == 0)
+                    break;
+                else
+                    i++;
+            }
+        }
+        int valEnd = i;
+        while (valEnd > valStart && (line[valEnd - 1] == ' ' || line[valEnd - 1] == '\t' || line[valEnd - 1] == '\r' || line[valEnd - 1] == '\n'))
+            valEnd--;
+
+        if (!first)
+        {
+            out[outLen++] = ';';
+            out[outLen++] = ' ';
+        }
+        memcpy(out + outLen, line + keyStart, keyEnd - keyStart);
+        outLen += keyEnd - keyStart;
+        out[outLen++] = ':';
+        out[outLen++] = ' ';
+        memcpy(out + outLen, line + valStart, valEnd - valStart);
+        outLen += valEnd - valStart;
+        first = false;
+
+        if (i < len && line[i] == ',')
+            i++;
+    }
+
+    out[outLen] = 0;
+    if (first)
+    {
+        free(out);
+        return DupWithMalloc(line);
+    }
+    return out;
+}
+
 CParserInterfaceJSONL::CParserInterfaceJSONL()
     : Records(1000, 1000)
 {
@@ -1209,13 +1346,12 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
 
             if (len > 0)
             {
-                char* record = (char*)malloc(len + 1);
+                char* record = ConvertJSONLineToKeyValueText(line);
                 if (record == NULL)
                 {
                     status = psOOM;
                     break;
                 }
-                memcpy(record, line, len + 1);
                 Records.Add(record);
                 if (!Records.IsGood())
                 {
@@ -1253,12 +1389,11 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
             len--;
         line[len] = 0;
 
-        char* record = (char*)malloc(len + 1);
+        char* record = ConvertJSONLineToKeyValueText(line);
         if (record == NULL)
             status = psOOM;
         else
         {
-            memcpy(record, line, len + 1);
             Records.Add(record);
             if (!Records.IsGood())
             {
@@ -1403,3 +1538,12 @@ BOOL CParserInterfaceJSONL::IsRecordDeleted()
 {
     return FALSE;
 }
+    auto DupWithMalloc = [](const char* src) -> char* {
+        if (src == NULL)
+            return NULL;
+        size_t n = strlen(src) + 1;
+        char* dst = (char*)malloc(n);
+        if (dst != NULL)
+            memcpy(dst, src, n);
+        return dst;
+    };
