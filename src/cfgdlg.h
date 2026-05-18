@@ -207,6 +207,7 @@ struct CConfiguration
         SortDirsByExt,          // emulate extensions for directories (sort by extension + show in separated Ext column)
         SaveHistory,            // store histories into the configuration?
         SaveWorkDirs,           // store the List of Working Directories?
+        WorkDirsHistoryScope,   // working directories history mode (shared / per-tab)
         EnableCmdLineHistory,   // keep history of the command line?
         SaveCmdLineHistory,     // store the command line history?
         OnlyOneInstance,        // allow just a single instance

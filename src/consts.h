@@ -1977,6 +1977,38 @@ extern DWORD EnablerShowProperties;       // focus/selection is on files/directo
 extern DWORD EnablerItemsContextMenu;     // focus/selection is on files/directories and the panel is disk or FS (supports context menu)
 extern DWORD EnablerOpenActiveFolder;     // panel is a disk or an FS (with open-active-folder support)
 extern DWORD EnablerPermissions;          // focus/selection is on files/directories and the panel is a disk; running at least on W2K with NTFS supporting ACLs
+extern DWORD EnablerNewTab;               // can a new tab be created in the active panel?
+extern DWORD EnablerCloseTab;             // can the active tab be closed?
+extern DWORD EnablerNextTab;              // is there a next tab in the active panel?
+extern DWORD EnablerPrevTab;              // is there a previous tab in the active panel?
+extern DWORD EnablerDuplicateTab;         // can the active tab be duplicated on the same side?
+extern DWORD EnablerReopenTab;            // can a closed tab be reopened in the active panel?
+extern DWORD EnablerLockTab;              // can the active tab be locked?
+extern DWORD EnablerUnlockTab;            // can the active tab be unlocked?
+extern DWORD EnablerLeftNewTab;           // can a new tab be created in the left panel?
+extern DWORD EnablerLeftCloseTab;         // can a tab in the left panel be closed?
+extern DWORD EnablerLeftNextTab;          // is there a next tab in the left panel?
+extern DWORD EnablerLeftPrevTab;          // is there a previous tab in the left panel?
+extern DWORD EnablerLeftCloseAllButDefault; // can all tabs except the default one be closed in the left panel?
+extern DWORD EnablerLeftCloseAllExceptThisAndDefault; // can all tabs except the default and current ones be closed in the left panel?
+extern DWORD EnablerLeftDuplicateTab;     // can a tab in the left panel be duplicated on the same side?
+extern DWORD EnablerLeftDuplicateTabToRight; // can a tab be duplicated to the right side?
+extern DWORD EnablerLeftMoveTabToRight;      // can a tab be moved to the right side?
+extern DWORD EnablerLeftReopenTab;        // can a closed tab be reopened in the left panel?
+extern DWORD EnablerLeftLockTab;          // can a tab in the left panel be locked?
+extern DWORD EnablerLeftUnlockTab;        // can a tab in the left panel be unlocked?
+extern DWORD EnablerRightNewTab;          // can a new tab be created in the right panel?
+extern DWORD EnablerRightCloseTab;        // can a tab in the right panel be closed?
+extern DWORD EnablerRightNextTab;         // is there a next tab in the right panel?
+extern DWORD EnablerRightPrevTab;         // is there a previous tab in the right panel?
+extern DWORD EnablerRightCloseAllButDefault; // can all tabs except the default one be closed in the right panel?
+extern DWORD EnablerRightCloseAllExceptThisAndDefault; // can all tabs except the default and current ones be closed in the right panel?
+extern DWORD EnablerRightDuplicateTab;    // can a tab in the right panel be duplicated on the same side?
+extern DWORD EnablerRightDuplicateTabToLeft; // can a tab be duplicated to the left side?
+extern DWORD EnablerRightMoveTabToLeft;      // can a tab be moved to the left side?
+extern DWORD EnablerRightReopenTab;       // can a closed tab be reopened in the right panel?
+extern DWORD EnablerRightLockTab;         // can a tab in the right panel be locked?
+extern DWORD EnablerRightUnlockTab;       // can a tab in the right panel be unlocked?
 
 //******************************************************************************
 //
