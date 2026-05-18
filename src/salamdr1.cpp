@@ -2458,16 +2458,6 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         {
             // folder icon
             hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
-            __try
-            {
-                if (!GetFileIcon(systemDir, FALSE, &hIcon, (CIconSizeEnum)sizeIndex, FALSE, FALSE))
-                    hIcon = NULL;
-            }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 15))
-            {
-                FGIExceptionHasOccured++;
-                hIcon = NULL;
-            }
             if (hIcon != NULL) // if we do not obtain the icon, the #4 one from shell32.dll remains
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
