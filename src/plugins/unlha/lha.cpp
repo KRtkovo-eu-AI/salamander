@@ -1,13 +1,14 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 /*****************************************************************************************\
 **                                                                                       **
 **   LHA.CPP - LHA unpacker                                                              **
 **                                                                                       **
-**   Popis funkci viz LHA.H                                                              **
+**   See LHA.H for function descriptions                                                 **
 **                                                                                       **
-**   Sestaveno ze zdrojovych kodu 'LHA for UNIX, v.1.14'                                 **
+**   Assembled from source code 'LHA for UNIX, v.1.14'                                   **
 **                                                                                       **
 \*****************************************************************************************/
 
@@ -335,8 +336,8 @@ int LHAGetHeader(FILE* fp, LHA_HEADER* lpHeader)
         st.wYear = tajm->tm_year + 1900;
     }
     if (st.wDay == 0 && st.wHour == 0 && st.wMinute == 0 && st.wMonth == 0 &&
-        st.wSecond == 0 && st.wYear == 1980) // nezobrazitelne datum LHA ulozi jako
-    {                                        // same nuly -> nastavime minimum = 1.1.1980
+        st.wSecond == 0 && st.wYear == 1980) // LHA stores an unrepresentable date as all zeros
+    {                                        // set the minimum to 1 January 1980
         st.wDay = 1;
         st.wMonth = 1;
     }
@@ -405,8 +406,8 @@ int LHAGetHeader(FILE* fp, LHA_HEADER* lpHeader)
                 break;
             case 0x50:
                 /*
-           * UNIX permission
-           */
+                           * UNIX permissions
+                           */
                 if (lpHeader->extend_type == EXTEND_UNIX)
                     lpHeader->unix_mode = get_word();
                 break;
@@ -446,7 +447,7 @@ int LHAGetHeader(FILE* fp, LHA_HEADER* lpHeader)
         name_length += dir_length;
     }
 
-    OemToChar(lpHeader->name, lpHeader->name); // češtiňka ... :-)
+    OemToChar(lpHeader->name, lpHeader->name); // convert Czech characters
 
     for (i = 0;; i++)
         if (lha_methods[i] == NULL)
@@ -471,10 +472,9 @@ int LHAGetHeader(FILE* fp, LHA_HEADER* lpHeader)
 
 // PROGRESS ///////////////////////////////////////////////////////////////////////////
 
-BOOL(*pfLHAProgress)
-(int size) = NULL;
+BOOL (*pfLHAProgress)(int size) = NULL;
 static int iProgress;
-#define PROGRESS_MASK 0xffff8000 // pozice progress-meteru se updatuje kazdych 32KB
+#define PROGRESS_MASK 0xffff8000 // progress meter position updates every 32 KB
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // BUFFERED OUTPUT /////////////////////////////////////////////////////////////////////
@@ -496,7 +496,7 @@ BOOL SafeWriteFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToWrite, DWORD* pn
     return TRUE;
 }
 
-#define BUFSIZE (256 * 1024) // velikost bufferu pro zapis
+#define BUFSIZE (256 * 1024) // buffer size for writing
 
 static char* buffer;
 static int bufpos;
@@ -601,7 +601,7 @@ typedef short node;
 #define MAX_DICSIZ (1 << MAX_DICBIT)
 #define MATCHBIT 8   /* bits for MAXMATCH - THRESHOLD */
 #define MAXMATCH 256 /* formerly F (not more than UCHAR_MAX + 1) */
-#define THRESHOLD 3  /* choose optimal value */
+#define THRESHOLD 3  /* optimal value */
 
 #define CBIT 9       /* $\lfloor \log_2 NC \rfloor + 1$ */
 #define USHRT_BIT 16 /* (CHAR_BIT * sizeof(ushort)) */
@@ -949,7 +949,7 @@ static void decode_start_st1()
 
 static void make_table(short nchar, uchar bitlen[], short tablebits, ushort table[])
 {
-    unsigned short count2[17]; /* count of bitlen */
+    unsigned short count2[17]; /* count for each bit length */
     unsigned short weight[17]; /* 0x10000ul >> bitlen */
     unsigned short start[17];  /* first code of bitlen */
     unsigned short total;
@@ -970,7 +970,7 @@ static void make_table(short nchar, uchar bitlen[], short tablebits, ushort tabl
     for (i = 0; (int)i < nchar; i++)
         count2[bitlen[i]]++;
 
-    /* calculate first code */
+    /* calculate the first code */
     total = 0;
     for (i = 1; i <= 16; i++)
     {
@@ -981,7 +981,7 @@ static void make_table(short nchar, uchar bitlen[], short tablebits, ushort tabl
     error("make_table()", "Bad table (5)\n");*/
     //FIX
 
-    /* shift data for make table. */
+    /* Shift data for make_table(). */
     m = 16 - tablebits;
     for (i = 1; (int)i <= tablebits; i++)
     {
@@ -1819,12 +1819,12 @@ int LHAOpenArchive(FILE*& f, LPCTSTR lpName)
 
     LHA_HEADER hdr;
     if (LHAGetHeader(f, &hdr) != GH_ERROR)
-    { // zkusime precist jednu hlavicku
+    { // try to read one header
         fseek(f, 0, SEEK_SET);
-        return TRUE; // vse OK, archiv je LHZ
+        return TRUE; // archive is LHZ
     }
 
-    // nepovedlo se precist prvni hlavicku, zkusime, jestli archiv neni SFX
+    // failed to read the first header, check whether the archive is an SFX
     unsigned char* buffer2;
     unsigned char *p, *q;
     int n;
@@ -1833,7 +1833,7 @@ int LHAOpenArchive(FILE*& f, LPCTSTR lpName)
     if (buffer2 == NULL)
     {
         fclose(f);
-        iLHAErrorStrId = IDS_LOWMEM; // nelze naalokovat buffer2, tak to zabalime
+        iLHAErrorStrId = IDS_LOWMEM; // cannot allocate buffer2, so bail out
         return FALSE;
     }
 
@@ -1845,7 +1845,7 @@ int LHAOpenArchive(FILE*& f, LPCTSTR lpName)
         /* found "-l??-" keyword (as METHOD type string) */
         if (p[0] == '-' && p[1] == 'l' && p[4] == '-')
         {
-            /* size and checksum validate check */
+            /* Check the header size and checksum. */
             if ((p[I_HEADER_LEVEL - 2] == 0 || p[I_HEADER_LEVEL - 2] == 0) && p[I_HEADER_SIZE - 2] > 20 && p[I_HEADER_CHECKSUM - 2] == calc_sum((char*)p, p[-2]))
             {
                 fseek(f, (long)((p - 2) - buffer2) - n, SEEK_CUR);
@@ -1865,14 +1865,14 @@ int LHAOpenArchive(FILE*& f, LPCTSTR lpName)
     fclose(f);
     if (iLHAErrorStrId == IDS_CHECKSUMERROR)
         iLHAErrorStrId = IDS_FILECORRUPT;
-    return FALSE; // archiv neni LHZ ani SFX LHZ
+    return FALSE; // archive is neither LHZ nor SFX LHZ
 }
 
-// TestLHAOpenArchive - otestuje LHAOpenArchive tim, ze ji pusti na vsechny
-// soubory na ceste "path" (prochazi i podadresare). Kdyz to nespadne, je
-// vse OK :-)
+// TestLHAOpenArchive - tests LHAOpenArchive by running it on every
+// file under "path" (including subdirectories). If it does not crash,
+// everything is OK :-)
 //
-// Volat takto:
+// Call it like this:
 // char path[MAX_PATH] = "c:";
 // TestLHAOpenArchive(path);
 

@@ -68,7 +68,7 @@ MENU_TEMPLATE_ITEM PopupMenuTemplate[] =
 
 struct CButtonData
 {
-    int ImageIndex;                   // zero base index
+    int ImageIndex;                   // zero-based index
     WORD ToolTipResID;                // resource ID with the tooltip string
     WORD ID;                          // universal command
     CViewerWindowEnablerEnum Enabler; // control variable for enabling the button
@@ -127,7 +127,7 @@ protected:
     BOOL* Success;
 
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
-    int EnumFilesCurrentIndex; // index of the first viewer file within the source
+    int EnumFilesCurrentIndex; // index of the first file in the viewer within the source
 
 public:
     CViewerThread(const char* name, int left, int top, int width, int height,
@@ -389,8 +389,8 @@ BOOL CViewerWindow::InitializeGraphics()
     hTmpColorBitmap = HANDLES(LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16)));
     BOOL ok = SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
                                                            hTmpGrayBitmap, hTmpMaskBitmap);
-    if (ok) // insert the acquired bitmap handles into HANDLES (example of manual insertion; simpler
-    {       // in this situation (DeleteObject immediately follows) to use the NOHANDLES macro for DeleteObject)
+    if (ok) // insert the acquired bitmap handles into HANDLES (manual insertion example)
+    {       // here DeleteObject follows immediately, so NOHANDLES with DeleteObject would be simpler
         HANDLES_ADD(__htBitmap, __hoCreateDIBitmap, hTmpGrayBitmap);
         HANDLES_ADD(__htBitmap, __hoCreateDIBitmap, hTmpMaskBitmap);
     }
@@ -528,7 +528,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         InitializeGraphics();
-        DragAcceptFiles(HWindow, TRUE); // drag&drop open file
+        DragAcceptFiles(HWindow, TRUE); // allow opening files via drag and drop
         MainMenu = SalamanderGUI->CreateMenuPopup();
         if (MainMenu == NULL)
             return -1;
@@ -583,7 +583,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
-        DragAcceptFiles(HWindow, FALSE); // drag&drop open file
+        DragAcceptFiles(HWindow, FALSE); // disable drag-and-drop file opening
         if (CfgSavePosition)
         {
             CfgWindowPlacement.length = sizeof(WINDOWPLACEMENT);
@@ -620,12 +620,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_DROPFILES: // drag&drop open file
+    case WM_DROPFILES: // allow opening files via drag and drop
     {
         UINT drag;
         char path[MAX_PATH];
 
-        drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // how many files were dropped on us
+        drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // determine how many files were dropped onto the window
         if (drag > 0)
         {
             DragQueryFile((HDROP)wParam, 0, path, MAX_PATH);
@@ -660,9 +660,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HDWP hdwp = HANDLES(BeginDeferWindowPos(2));
             if (hdwp != NULL)
             {
-                // +4: when increasing the window width I was missing a repaint of the last 4 points
-                // in the rebar; even after several hours I did not find the cause; in Salamander it works;
-                // for now I'm handling it like this; maybe I'll remember later where the issue is
+                // +4: without this offset the last four pixels of the rebar failed to repaint while resizing the window.
+                // the cause was not found after several hours; Salamander itself works fine.
+                // keep this workaround for now and revisit it if the root cause becomes clear.
                 hdwp = HANDLES(DeferWindowPos(hdwp, HRebar, NULL,
                                               0, 0, r.right + 4, rebarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
@@ -729,7 +729,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL noMoreFiles = FALSE;
                 char fileName[MAX_PATH];
                 fileName[0] = 0;
-                if (shiftPressed) // legacy hot-key: use Backspace (keys + commands in the menu see PictView, menu File/Other Files)
+                if (shiftPressed) // legacy hotkey: use Backspace instead (see PictView, File/Other Files for keys and menu commands)
                 {
                     ok = SalamanderGeneral->GetPreviousFileNameForViewer(EnumFilesSourceUID,
                                                                          &EnumFilesCurrentIndex,
@@ -807,7 +807,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     FillMenuFilter(popup, CM_FILTER_FIRST, FILTER_COUNT);
 
-                    // using windows popup menu
+                    // use the Windows popup menu
                     HMENU hMenu = CreatePopupMenu();
                     popup->FillMenuHandle(hMenu);
                     TPMPARAMS tpm;
@@ -817,7 +817,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     TrackPopupMenuEx(hMenu, flags, r.left, r.bottom, HWindow, &tpm);
                     DestroyMenu(hMenu);
 
-                    // using Salamander popup menu
+                    // use the Salamander popup menu
                     //               popup->Track(0, r.left, r.bottom, HWindow, &r);
 
                     SalamanderGUI->DestroyMenuPopup(popup);
@@ -901,7 +901,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         case CM_VIEWER_PASTE:
         {
             SalamanderGeneral->SalMessageBox(HWindow, "TODO: Paste", LoadStr(IDS_PLUGINNAME), MB_ICONINFORMATION | MB_OK);
-            Enablers[vwePaste] = FALSE; // it's OK only if it was Cut (Copy should not change it)
+            Enablers[vwePaste] = FALSE; // OK only if it was Cut (Copy should not change it)
             UpdateEnablers();
             break;
         }

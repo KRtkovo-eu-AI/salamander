@@ -111,7 +111,7 @@ void WINAPI DEMOPLUGOperationFromDisk(const char* sourcePath, SalEnumSelection2 
     while ((name = next(data->Parent, 3, &dosName, &isDir, &size, &attr, &lastWrite,
                         nextParam, &errorOccured)) != NULL)
     {
-        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot arrive here
+        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot occur here
             data->Success = FALSE;
         if (!isDir)
             totalSize += size;
@@ -237,7 +237,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       int errTextID;
       char nextFocus[MAX_PATH];
       SalamanderGeneral->SalUpdateDefaultDir(TRUE);
-      if (!SalamanderGeneral->SalGetFullName(path, &errTextID, "c:\\zumpa", nextFocus))
+      if (!SalamanderGeneral->SalGetFullName(path, &errTextID, "c:\\junk", nextFocus))
       {
         char buf[200];
         SalamanderGeneral->GetGFNErrorText(errTextID, buf, 200);
@@ -452,7 +452,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       strcpy(fileComp, "prn");
       ok = SalamanderGeneral->SalIsValidFileNameComponent(fileComp);
       SalamanderGeneral->SalMakeValidFileNameComponent(fileComp);
-      strcpy(fileComp, "ahoj:");
+      strcpy(fileComp, "hello:");
       ok = SalamanderGeneral->SalIsValidFileNameComponent(fileComp);
       SalamanderGeneral->SalMakeValidFileNameComponent(fileComp);
 */
@@ -493,7 +493,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           {
             break;
           }
-          else UpdateWindow(waitWndParent);  // avoid staring at leftover message box contents
+          else UpdateWindow(waitWndParent);  // redraw the parent window to remove message box remnants
           SalamanderGeneral->ShowSafeWaitWindow(TRUE);
         }
       }
@@ -501,7 +501,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 */
 
         /*
-      // password mananger
+      // password manager
       CSalamanderPasswordManagerAbstract *passwordManager = NULL;
       passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
       if (passwordManager != NULL)
@@ -530,11 +530,11 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           if (passwordManager->DecryptPassword(encryptedPassword, encryptedPasswordSize, &decryptedPassword))
           {
             TRACE_I("Decrypted password: " << decryptedPassword);
-            memset(decryptedPassword, 0, lstrlen(decryptedPassword));  // clear memory with plain password
+            memset(decryptedPassword, 0, lstrlen(decryptedPassword));  // clear the memory containing the plain text password
             SalamanderGeneral->Free(decryptedPassword);
           }
 
-          if (!encrypt) memset(encryptedPassword, 0, encryptedPasswordSize);  // clear memory with scrambled password
+          if (!encrypt) memset(encryptedPassword, 0, encryptedPasswordSize);  // clear the memory containing the scrambled password
           SalamanderGeneral->Free(encryptedPassword);
         }
       }
@@ -759,7 +759,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
                         {
                             if (!filePath)
                             {
-                                // error - expected a file path, not a directory
+                                // error - expected a directory path, but found a file
                                 SalamanderGeneral->SalMessageBox(parent, "Unable to create the path specified, name has already been used for a file.",
                                                                  "Path Error", MB_OK | MB_ICONEXCLAMATION);
                                 continue; // ask again
@@ -844,7 +844,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
         SalamanderGeneral->ShowMessageBox("Unknown command.", LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
         break;
     }
-    return FALSE; // keep the selection polozky v panelu
+    return FALSE; // keep the selection in the panel
 }
 
 BOOL WINAPI

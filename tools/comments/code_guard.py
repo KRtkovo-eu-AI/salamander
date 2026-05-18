@@ -66,7 +66,8 @@ EXCLUDE_PATTERNS = [
     'src/plugins/winscp/packages',
     'src/plugins/winscp/putty',
     'src/plugins/winscp/resource',
-    'src/plugins/winscp/windows'
+    'src/plugins/winscp/windows',
+    'src/tools'
 ]
 
 def get_clang_args(repo_path: Path) -> list:
@@ -87,6 +88,7 @@ def get_clang_args(repo_path: Path) -> list:
         '-Wno-comment',
         '-Wno-nonportable-include-path',
         '-Wno-extra-tokens',
+        '-Wno-invalid-token-paste',
         '-Wno-macro-redefined',
         '-Wno-microsoft-include',
         '-Wno-#pragma-messages',
@@ -228,6 +230,12 @@ def main():
         default=".",
         help="Relative path inside both repositories where scanning should start. Default is '.'."
     )
+    parser.add_argument(
+        "--keep-temp-files",
+        action="store_true",
+        default=False,
+        help="Do not delete the generated clang output files."
+    )
     args = parser.parse_args()
 
     clang_exe_path = find_clang_executable(CLANG_EXE)
@@ -265,13 +273,23 @@ def main():
         args.file_name_filter
     )
 
+    def create_temp_files():
+        temp_file1_obj = tempfile.NamedTemporaryFile(
+            mode='w+', delete=False, encoding='utf-8', suffix='.tmp', prefix='clang_out1_'
+        )
+        temp_file2_obj = tempfile.NamedTemporaryFile(
+            mode='w+', delete=False, encoding='utf-8', suffix='.tmp', prefix='clang_out2_'
+        )
+        temp_paths = Path(temp_file1_obj.name), Path(temp_file2_obj.name)
+        temp_file1_obj.close()
+        temp_file2_obj.close()
+        return temp_paths
+
     # Create temporary files for clang output
-    temp_file1_obj = tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf-8', suffix='.tmp', prefix='clang_out1_')
-    temp_file2_obj = tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf-8', suffix='.tmp', prefix='clang_out2_')
-    temp_file1 = Path(temp_file1_obj.name)
-    temp_file2 = Path(temp_file2_obj.name)
-    temp_file1_obj.close()
-    temp_file2_obj.close()
+    temp_file1 = None
+    temp_file2 = None
+    if not args.keep_temp_files:
+        temp_file1, temp_file2 = create_temp_files()
 
     try:
         for file_path in files_to_process:
@@ -285,24 +303,28 @@ def main():
             print(f'Comparing "{relative_path}"')
 
             try:
-                clang_args = get_clang_args(current_repo_path)
+                clang_args_current = get_clang_args(current_repo_path)
+                clang_args_base = get_clang_args(base_repo_path)
 
-                # Apply plugin-specific flags
+                # Apply plugin-specific flags to both invocations so preprocessing stays comparable
                 relative_path_str = str(relative_path).replace('\\', '/')
                 if 'src/plugins/renamer' in relative_path_str:
-                    clang_args.append('-D_CHAR_UNSIGNED')
+                    clang_args_current.append('-D_CHAR_UNSIGNED')
+                    clang_args_base.append('-D_CHAR_UNSIGNED')
                 if 'src/plugins/zip/selfextr' in relative_path_str:
-                    clang_args.append('-DLANG_DEFINED')
-                    clang_args.append('-DEXT_VER')
+                    clang_args_current.append('-DLANG_DEFINED')
+                    clang_args_current.append('-DEXT_VER')
+                    clang_args_base.append('-DLANG_DEFINED')
+                    clang_args_base.append('-DEXT_VER')
 
-                cmd1 = [clang_exe_path, *clang_args, str(file_path)]
+                cmd1 = [clang_exe_path, *clang_args_current, str(file_path)]
                 if args.debug:
                     print(f"DEBUG: Running clang on current repo: {' '.join(cmd1)}")
                 res1 = subprocess.run(cmd1, capture_output=True, text=True, encoding='utf-8', check=True, cwd=current_repo_path)
                 if res1.stderr.strip():
                     print(res1.stderr)
 
-                cmd2 = [clang_exe_path, *clang_args, str(file_in_base_repo)]
+                cmd2 = [clang_exe_path, *clang_args_base, str(file_in_base_repo)]
                 if args.debug:
                     print(f"DEBUG: Running clang on base repo: {' '.join(cmd2)}")
                 res2 = subprocess.run(cmd2, capture_output=True, text=True, encoding='utf-8', check=True, cwd=base_repo_path)
@@ -335,6 +357,9 @@ def main():
             content1 = normalize_paths(res1.stdout, current_repo_path)
             content2 = normalize_paths(res2.stdout, base_repo_path)
 
+            if args.keep_temp_files:
+                temp_file1, temp_file2 = create_temp_files()
+
             temp_file1.write_text(content1, encoding='utf-8')
             temp_file2.write_text(content2, encoding='utf-8')
 
@@ -354,13 +379,18 @@ def main():
                 print(diff_process.stdout)
                 print(f"\033[36m{separator}\033[0m")
                 print()
+                if args.keep_temp_files:
+                    print(f"Kept clang outputs: {temp_file2} vs {temp_file1}")
+            elif args.keep_temp_files:
+                print(f"Kept clang outputs: {temp_file2} vs {temp_file1}")
 
     finally:
         # Cleanup temporary files
-        if temp_file1.exists():
-            temp_file1.unlink()
-        if temp_file2.exists():
-            temp_file2.unlink()
+        if not args.keep_temp_files:
+            if temp_file1 and temp_file1.exists():
+                temp_file1.unlink()
+            if temp_file2 and temp_file2.exists():
+                temp_file2.unlink()
         print("Done.")
 
 if __name__ == "__main__":
