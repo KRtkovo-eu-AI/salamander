@@ -1,4 +1,5 @@
-﻿// Petr: tento soubor existuje jen pro generovani symbols\plugins\pictview\symbols.inc davkou tools\export_translator\export_inc.py
+// CommentsTranslationProject: TRANSLATED
+// Petr: this file exists only to generate symbols\plugins\pictview\symbols.inc using tools\export_translator\export_inc.py
 
 // Legacy PVW32Cnv identifiers kept for translator validation compatibility
 #define IDS_PVW32Cnv_4003          4003
