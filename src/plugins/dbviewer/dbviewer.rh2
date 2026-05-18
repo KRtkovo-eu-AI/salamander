@@ -7,7 +7,7 @@
 #endif //defined(APSTUDIO_INVOKED) && !defined(APSTUDIO_READONLY_SYMBOLS)
 
 #define IDC_STATIC_1 13000
-#include "statics.rh2"   // 13000 az 13039 jsou timto zabrane !!!
+#include "statics.rh2"   // the range 13000 to 13039 is already taken by this include
 
 // Bitmaps
 #define IDB_TOOLBAR16               9970
@@ -68,7 +68,7 @@
 #define CM_FILE_FIRST              10040
 #define CM_FILE_LAST               10041
 
-// for Coversion submenu
+// for Conversion submenu
 #define CM_CODING_FIRST            10050
 #define CM_CODING_LAST             10250
 

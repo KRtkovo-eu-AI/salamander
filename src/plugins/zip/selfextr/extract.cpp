@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include <windows.h>
 
@@ -85,7 +86,7 @@ void* MemZero(void* dst, unsigned count)
 
 //***********************************************************************************
 //
-// Rutiny ze SHLWAPI.DLL
+// Routines from SHLWAPI.DLL
 //
 
 BOOL PathAppend(LPTSTR pPath, LPCTSTR pMore)
@@ -211,7 +212,7 @@ BOOL PathMerge(char* fullPath, const char* relativePath)
     const char* sour = relativePath;
 
     PathAddBackslash(fullPath);
-    if (relativePath[0] == '\\') //UNC or relative to root dir
+    if (relativePath[0] == '\\') // UNC or relative to the root directory
     {
         if (relativePath[1] == '\\')
             *fullPath = 0; //UNC
@@ -239,7 +240,7 @@ BOOL PathMerge(char* fullPath, const char* relativePath)
                     dest = StrRChr(fullPath, dest - 1, '\\') + 1;
                 sour += 2;
                 if (*sour)
-                    sour++; //preskocime jeste lomitko nejsme-li  na konci
+                    sour++; // skip the slash as well unless we are at the end
                 continue;
             }
             if (sour[1] == '\\')
@@ -280,8 +281,8 @@ void i64toa(__int64 val, char* buf)
         *p++ = (char)(digval + '0'); /* a digit */
     } while (val > 0);
 
-    /* We now have the digit of the number in the buffer, but in reverse
-     order.  Thus we reverse them now. */
+    /* The digits of the number are now in the buffer, but in reverse order.
+         Thus we reverse them now. */
 
     *p-- = '\0'; /* terminate string; p points to last digit */
 
@@ -310,7 +311,7 @@ char* NumberToStr(char* buffer, const __int64 number)
     else
     {
         ThousandsSeparatorLen--;
-        ThousandsSeparator[ThousandsSeparatorLen] = 0; // posychrujeme nulu na konci
+        ThousandsSeparator[ThousandsSeparatorLen] = 0; // ensure the terminator stays in place
     }
 
     i64toa(number, buffer);
@@ -383,7 +384,7 @@ int GetName(CFileHeader* header, char* name)
         else
             *dest++ = *sour++;
     }
-    if (*(dest - 1) == '\\') //remove last slash if name specifies a directory
+    if (*(dest - 1) == '\\') // Remove the trailing slash if the name specifies a directory
         dest--;
     *dest = 0;
     if (header->Version >> 8 == HS_FAT ||
@@ -520,9 +521,10 @@ DWORD SalGetFileAttributes(const char* fileName)
 {
     int fileNameLen = (int)lstrlen(fileName);
     char fileNameCopy[3 * MAX_PATH];
-    // pokud cesta konci mezerou/teckou, musime pripojit '\\', jinak GetFileAttributes mezery/tecky
-    // orizne a pracuje tak s jinou cestou + u souboru to sice nefunguje, ale porad lepsi nez ziskat
-    // atributy jineho souboru/adresare (pro "c:\\file.txt   " pracuje se jmenem "c:\\file.txt")
+    // if the path ends with a trailing space or dot we must append '\\'; otherwise GetFileAttributes
+    // trims that character and works with a different path; the fix does not help for files, but it is still
+    // better than retrieving attributes of another file or directory (for "c:\\file.txt   " it works
+    // with "c:\\file.txt").
     if (fileNameLen > 0 && (fileName[fileNameLen - 1] <= ' ' || fileName[fileNameLen - 1] == '.') &&
         fileNameLen + 1 < _countof(fileNameCopy))
     {
@@ -531,7 +533,7 @@ DWORD SalGetFileAttributes(const char* fileName)
         fileNameCopy[fileNameLen + 1] = 0;
         return GetFileAttributes(fileNameCopy);
     }
-    else // obycejna cesta, neni co resit, jen zavolame windowsovou GetFileAttributes
+    else // regular path; nothing special to handle, just call Windows GetFileAttributes
     {
         return GetFileAttributes(fileName);
     }
@@ -646,7 +648,7 @@ HANDLE SafeCreateFile(char* name, DWORD attr, FILETIME* time, unsigned size)
 
 int SafeWrite(HANDLE file, const unsigned char* buffer, unsigned size)
 {
-    unsigned long bytesWritten; //number of butes read by ReadFile()
+    unsigned long bytesWritten; // number of bytes written by WriteFile()
     bool retry;
     unsigned filePos;
     LONG dummy;
@@ -697,15 +699,15 @@ void MakeCrcTable()
     const __UINT32 poly = 0xedb88320L; //polynomial exclusive-or pattern
 
     /*
-  //generate crc polonomial, using precomputed poly should be faster
-  // terms of polynomial defining this crc (except x^32):
-  static const Byte p[] = {0,1,2,4,5,7,8,10,11,12,16,22,23,26};
+      // generate CRC polynomial; using a precomputed poly should be faster
+      // terms of the polynomial defining this CRC (except x^32):
+      static const Byte p[] = {0,1,2,4,5,7,8,10,11,12,16,22,23,26};
 
-  // make exclusive-or pattern from polynomial (0xedb88320L)
-  poly = 0L;
-  for (n = 0; n < sizeof(p)/sizeof(Byte); n++)
-    poly |= 1L << (31 - p[n]);
-*/
+      // make exclusive-or pattern from polynomial (0xedb88320L)
+      poly = 0L;
+      for (n = 0; n < sizeof(p)/sizeof(Byte); n++)
+        poly |= 1L << (31 - p[n]);
+    */
     for (n = 0; n < 256; n++)
     {
         c = (__UINT32)n;
@@ -985,9 +987,9 @@ int Extract()
         OutFile = SafeCreateFile(TargetPath, header->ExternAttr & 0x0000FFFF, &ft, header->Size);
         if (header->ExternAttr & FILE_ATTRIBUTE_DIRECTORY)
         {
-            //ExtractedFiles++; budem pocitat i adresare jakou soubory do vysledku?
+            //ExtractedFiles++; should we count directories as files in the result as well?
             OutFile = INVALID_HANDLE_VALUE;
-            ok = true; //don't erase the file
+            ok = true; // do not delete the file
             goto next;
         }
         if (OutFile == INVALID_HANDLE_VALUE)

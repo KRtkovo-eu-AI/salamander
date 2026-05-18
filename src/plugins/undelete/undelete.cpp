@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 // ****************************************************************************
 //
@@ -96,7 +97,7 @@ void CTopIndexMem::Push(const char* path, int topIndex)
         ok = s - path == l && SalamanderGeneral->StrNICmp(path, Path, l) == 0;
     }
 
-    if (ok) // it continues -> store next top-index
+    if (ok) // path continues: store the next top index
     {
         if (TopIndexesCount == TOP_INDEX_MEM_SIZE) // we need to release first top-index
         {
@@ -108,7 +109,7 @@ void CTopIndexMem::Push(const char* path, int topIndex)
         strcpy(Path, path);
         TopIndexes[TopIndexesCount++] = topIndex;
     }
-    else // it doesn't continue -> first top-index v raw
+    else // path does not continue -> first top index in sequence
     {
         strcpy(Path, path);
         TopIndexesCount = 1;
@@ -162,13 +163,13 @@ BOOL CTopIndexMem::FindAndPop(const char* path, int& topIndex)
 
 void InitIconOverlays()
 {
-    // 48x48 az od XP (brzy bude obsolete, pobezime jen na XP+, pak zahodit)
-    // ve skutecnosti jsou velke ikonky podporeny uz davno, lze je nahodit
-    // Desktop/Properties/???/Large Icons; pozor, nebude pak existovat system image list
-    // pro ikonky 32x32; navic bychom meli ze systemu vytahnout realne velikosti ikonek
-    // zatim na to kasleme a 48x48 povolime az od XP, kde jsou bezne dostupne
+    // 48x48 only on XP and later (this will soon be obsolete; support will be XP+ only, then this can be removed)
+    // in fact, large icons have been supported for a long time and can be enabled via
+    // Desktop/Properties/???/Large Icons; however, the system image list for 32x32 icons
+    // would not exist in that case; additionally, the actual icon sizes should be obtained from the system
+    // for now, this is ignored and 48x48 is enabled only on XP, where these icons are commonly available
     int iconSizes[3] = {16, 32, 48};
-    if (!SalIsWindowsVersionOrGreater(5, 1, 0)) // neni WindowsXPAndLater: neni XP and later
+    if (!SalIsWindowsVersionOrGreater(5, 1, 0)) // not Windows XP or later
         iconSizes[2] = 32;
 
     HICON iconOverlays[3];
@@ -179,7 +180,7 @@ void InitIconOverlays()
                                            SalamanderGeneral->GetIconLRFlags());
     }
 
-    // POZN.: pri chybe loadu ikon SetPluginIconOverlays() selze, ale platne ikony z iconOverlays[] uvolni
+    // NOTE: if loading icons fails, SetPluginIconOverlays() returns failure but releases the valid icons from iconOverlays[]
     SalamanderGeneral->SetPluginIconOverlays(1, iconOverlays);
 }
 
@@ -200,11 +201,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         if (!InitCommonControlsEx(&initCtrls))
         {
             MessageBox(NULL, "InitCommonControlsEx failed!", "Error", MB_OK | MB_ICONERROR);
-            return FALSE; // DLL won't start
+            return FALSE; // DLL will not load
         }
     }
 
-    return TRUE; // DLL can be loaded
+    return TRUE; // Allow the DLL to load
 }
 
 void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
@@ -220,7 +221,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     HANDLES_CAN_USE_TRACE();
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
-    // works with current and newer Salamander version - check it out
+    // Check that it works with the current and newer Salamander versions
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
     { // deny old versions
         MessageBox(salamander->GetParentWindow(), REQUIRE_LAST_VERSION_OF_SALAMANDER,
@@ -229,7 +230,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     }
 
     // load language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "Undelete" /* neprekladat! */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "Undelete" /* DO NOT TRANSLATE */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -328,8 +329,8 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     salamander->SetPluginIcon(0);
     salamander->SetPluginMenuAndToolbarIcon(0);
 
-    /* slouzi pro skript export_mnu.py, ktery generuje salmenu.mnu pro Translator
-   udrzovat synchronizovane s volani salamander->AddMenuItem() dole...
+    /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
+   keep synchronized with the salamander->AddMenuItem() calls below...
 MENU_TEMPLATE_ITEM PluginMenu[] = 
 {
 	{MNTT_PB, 0
@@ -339,7 +340,7 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
 };
 */
 
-    // for better discoverability put plugin also to Plugins menu
+    // To improve discoverability, also put the plugin in the Plugins menu.
     salamander->AddMenuItem(-1, String<char>::LoadStr(IDS_UNDELETECMD), SALHOTKEY('U', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
                             CMD_UNDELETE, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 

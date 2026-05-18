@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -60,7 +61,7 @@ private:
 //  UString SourcePath;
   AString ProcessedFileName;
 
-  // synchronizace pro volani
+  // synchronization for calls
   CRITICAL_SECTION CSUpdate;
 
   TIndirectArray<CFileItem> *FileItems;
@@ -147,7 +148,7 @@ public:
 public:
     AString ProcessedFileName;
 
-    // synchronizace pro volani
+    // call synchronization
     CRITICAL_SECTION CSUpdate;
 
     TIndirectArray<CFileItem>* FileItems;

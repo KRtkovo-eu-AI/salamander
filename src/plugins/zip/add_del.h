@@ -9,7 +9,7 @@
 #define AF_DEL 1       //don't add file, but delete it if moving files to zip \
                        //does matter only on directories
 #define AF_NOADD 2     //don't add file and don't delete it if moving files to zip
-#define AF_OVERWRITE 3 //for unix files when ovewriting, same as AF_ADD
+#define AF_OVERWRITE 3 //for unix files when overwriting, same as AF_ADD
 
 struct CAddInfo
 {
@@ -156,7 +156,7 @@ public:
     void NTFSCompressFile(HANDLE file);
     int EnumFiles2(SalEnumSelection2 next, void* param);
     int LoadCentralDirectory();
-    int MatchFiles(int& count); // count je predpokladany pocet souboru po operaci
+    int MatchFiles(int& count); // count is the expected number of files after the operation
     int BackupZip();
     int PackFiles();
     int FinishPack(int reason = FPR_NORMAL);

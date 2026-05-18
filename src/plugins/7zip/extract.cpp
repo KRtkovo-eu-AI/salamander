@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -25,7 +26,7 @@ using namespace NFile;
 CExtractCallbackImp::CExtractCallbackImp(HWND _hProgWnd, UString& password,
                                          ItemsToExtractMap& itemsToExtract) : Password(password), ItemsToExtract(itemsToExtract)
 {
-    //  Silent = false; // priprava pro skip a skip all
+    //  Silent = false; // preparation for skip and skip all
 
     InitializeCriticalSection(&CSExtract);
 
@@ -39,8 +40,8 @@ CExtractCallbackImp::~CExtractCallbackImp()
     DeleteCriticalSection(&CSExtract);
 }
 
-// silent - pokud je TRUE a pri vybalovani dojde k chybe DataError (vetsinou spatne zadane heslo), soubor je automaticky
-// smazany, na nic se uzivatele neptame (pouziva se pri vybalovani jednoho souboru pro prohlizeni - F3)
+// silent - if TRUE and a DataError occurs during extraction (usually because of an incorrect password), the file is deleted
+// automatically and the user is not prompted (used when extracting a single file for viewing - F3)
 BOOL CExtractCallbackImp::Init(IInArchive* archive, const char* outDir,
                                const FILETIME& utcLastWriteTimeDefault, DWORD attributesDefault, BOOL silentDelete /* = FALSE*/)
 {
@@ -57,7 +58,7 @@ BOOL CExtractCallbackImp::Init(IInArchive* archive, const char* outDir,
 
     TargetFileName[0] = '\0';
 
-    // inicializace promennych pro interakci s userem
+    // initialize variables for interacting with the user
     SilentDelete = silentDelete;
     if (silentDelete)
     {
@@ -134,7 +135,7 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
 {
     HRESULT ret = S_OK;
 
-    // uz jsme dali cancel a zase nam to vlezlo do callbacku (je to zpusobeno implementaci 7za.dll)
+    // we already pressed cancel and yet the callback was invoked again (caused by the 7za.dll implementation)
     if (OverwriteCancel)
         return E_ABORT;
 
@@ -151,27 +152,27 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
         *outStream = NULL;
         OutFileStream.Release();
 
-        // pokud provadime extrakci souboru
+        // if we are extracting a file
         if (askExtractMode == NArchive::NExtract::NAskMode::kExtract)
         {
 
             const CArchiveItemInfo* aii = ItemsToExtract[index];
             if (!aii)
             {
-                // Already extracted??? Not to be extracted?
+                // Already extracted? Not selected for extraction?
                 throw S_OK;
             }
             ItemsToExtract.erase(index);
             const CFileData* fd = aii->FileData;
             // fd is certainly not NULL
 
-            // protoze jsme si predali seznam CArchiveItem, kde mame vsechny udaje, co potrebujeme, tak muzeme vybalit.
-            // potrebujeme k tomu vsak reverzni mapovani (hash funkce), ktere rekne index polozku, kterou pouzit
-            // do teto funkce totiz vchazi index v archivu
+            // Because we passed a list of CArchiveItem objects with all the information we need, we can extract directly.
+            // However, we need reverse mapping (a hash function) to tell us which item index to use,
+            // because this function receives the index within the archive.
             //
-            // ale mohli bychom setrit pamet a vytahnout vlastnosti, ktery potrebujeme, pomoci ArchiveHandler->GetProperty
-            // jenze problem je s nazvy: GetProperty nam vrati path+filename ke koreni archivu a pokud vybalujeme z jineho
-            // korene, museli bychom stripovat cestu
+            // We could save memory and retrieve the properties we need via ArchiveHandler->GetProperty,
+            // but names are a problem: GetProperty returns path+filename relative to the archive root, and if we extract
+            // from a different root, we would have to strip the path.
 
             ProcessedFileInfo.Attributes = fd->Attr;
             ProcessedFileInfo.AttributesAreDefined = true;
@@ -181,7 +182,7 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
             ProcessedFileInfo.Size = fd->Size.Value;
             ProcessedFileInfo.Name = aii->NameInArchive;
 
-            // TODO: test na volne misto
+            // TODO: check for free space
 
             _tcscpy(TargetFileName, TargetDir);
             if (SalamanderGeneral->SalPathAppend(TargetFileName, aii->NameInArchive, MAX_PATH))
@@ -193,13 +194,13 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
 
                 if (ProcessedFileInfo.IsDirectory)
                 {
-                    // vytvorit adresar, pokud jeste neexistuje
+                    // create the directory if it does not already exist
                     SalamanderGeneral->CheckAndCreateDirectory(TargetFileName);
                     throw S_OK;
                 }
                 else
                 {
-                    // POZOR! Tady se provadi test na overwrite
+                    // WARNING! This performs the overwrite test
                     CCreateFileParams cfp;
                     char fileInfo[100];
 
@@ -220,15 +221,15 @@ STDMETHODIMP CExtractCallbackImp::GetStream(UINT32 index, ISequentialOutStream**
                     *outStream = NULL;
                     if (OverwriteSkip)
                         throw S_OK;
-                    // celkova operace nemuze pokracovat dal (cancel)
+                    // the overall operation cannot continue (cancel)
                     if (OverwriteCancel)
                         throw E_ABORT;
 
-                    // otevrit stream pro vybalovani
-                    // v tomto miste existuje prazdny soubor s FILE_ATTRIBUTES_NORMAL
-                    // je vysledkem testu na overwrite - viz vyse
+                    // open the stream for extraction
+                    // at this point there is an empty file with FILE_ATTRIBUTES_NORMAL
+                    // it is the result of the overwrite test - see above
 
-                    // pokud neexistuje cesta kam rozbalujeme -> vytvorit ji
+                    // if the path we are extracting to does not exist -> create it
                     LPTSTR lastComp = _tcsrchr(TargetFileName, '\\');
                     if (lastComp != NULL)
                     {
@@ -300,10 +301,10 @@ STDMETHODIMP CExtractCallbackImp::PrepareOperation(INT32 askExtractMode)
 }
 
 //
-// Dat uzivateli na vyber keep nebo delete poskozeneho souboru
+// Let the user choose whether to keep or delete the damaged file
 //
-// TRUE pokud pokracujeme
-// FALSE pokud Cancel
+// TRUE if we continue
+// FALSE if canceled
 BOOL CExtractCallbackImp::OnDataError()
 {
     EOperationMode mode = DataErrorMode;
@@ -311,9 +312,9 @@ BOOL CExtractCallbackImp::OnDataError()
     if (DataErrorMode == Ask)
     {
         TCHAR btnBuffer[1024];
-        /* slouzi pro skript export_mnu.py, ktery generuje salmenu.mnu pro Translator
-   nechame pro tlacitka msgboxu resit kolize hotkeys tim, ze simulujeme, ze jde o menu
-MENU_TEMPLATE_ITEM MsgBoxButtons[] = 
+        /* used by the export_mnu.py script that generates salmenu.mnu for Translator
+           we let the message box buttons resolve hotkey collisions by simulating a menu
+MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 {
   {MNTT_PB, 0
   {MNTT_IT, IDS_BTN_DELETE
@@ -364,7 +365,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         }
     }
 
-    // release OutStreamu, aby sel prip. smazat
+    // release OutStream so the file can be deleted
     if (OutFileStream != NULL)
         OutFileStreamSpec->SetMTime(&ProcessedFileInfo.LastWrite);
     OutFileStream.Release();
@@ -376,19 +377,19 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         return FALSE;
 
     case Delete:
-        // pokud Cancel, tak pryc
+        // if canceled, exit
         if (!SafeDeleteFile(GetAnsiString(ProcessedFileInfo.FileName), DataErrorDeleteSilent))
             return FALSE;
         break;
 
     case Keep:
-        // nechat soubor, takze mu jeste nastavit atributy
+        // keep the file, so set its attributes
         if (ExtractMode && ProcessedFileInfo.AttributesAreDefined)
             SetFileAttributes(GetAnsiString(ProcessedFileInfo.FileName), ProcessedFileInfo.Attributes);
         break;
     }
 
-    // dal uz se nebudeme ptat, takze mod nastavime na operaci, kterou budeme delat
+    // we will not ask again, so set the mode to the chosen operation
     if (DataErrorSilent)
         DataErrorMode = mode;
 
@@ -439,17 +440,17 @@ STDMETHODIMP CExtractCallbackImp::SetOperationResult(INT32 resultEOperationResul
             break;
 
         case NArchive::NExtract::NOperationResult::kDataError:
-            //          // tento kod pouzit, pokud nepujde provest patch na funkcnost keep/delete
+            //          // use this code if a patch for the keep/delete functionality cannot be applied
             //          if (ExtractMode)
             //            Error(IDS_DATA_ERROR, GetAnsiString(ProcessedFileInfo.FileName));
 
-            // tento kod funguje pouze s patchem na funkcnost keep/delete
+            // this code works only with the keep/delete functionality patch
             if (ExtractMode)
             {
-                // dat uzivateli moznost pro keep/delete poskozeneho souboru
+                // give the user the option to keep/delete the damaged file
                 if (!OnDataError())
                     return E_ABORT;
-                // doslo k chybe pri vybalovani, vymazeme soubor (provede volani funkce vyse) a koncime
+                // an error occurred during extraction; delete the file (handled by the function above) and finish
                 if (SilentDelete)
                 {
                     Error(PasswordIsDefined ? IDS_DATA_ERROR_PWD : IDS_DATA_ERROR, (LPCTSTR)ProcessedFileInfo.Name);
@@ -480,7 +481,7 @@ STDMETHODIMP CExtractCallbackImp::SetOperationResult(INT32 resultEOperationResul
     if (TargetDir && !ItemsToExtract.size())
     {
         // NULL TargetDir means testing the archive
-        // Doing partial extract & everything has been extracted. Looks like a solid archive
+        // A partial extraction was requested, and everything has been extracted. The archive appears to be solid.
         return E_STOPEXTRACTION;
     }
 
@@ -489,7 +490,7 @@ STDMETHODIMP CExtractCallbackImp::SetOperationResult(INT32 resultEOperationResul
 
 STDMETHODIMP CExtractCallbackImp::CryptoGetTextPassword(BSTR* password)
 {
-    if (!PasswordIsDefined /*&& !Silent*/) // Silent je pro skip, kt. neni v 7za.dll implementovany
+    if (!PasswordIsDefined /*&& !Silent*/) // Silent is for skip, which is not implemented in 7za.dll
     {
         char pwd[PASSWORD_LEN];
 
@@ -504,7 +505,7 @@ STDMETHODIMP CExtractCallbackImp::CryptoGetTextPassword(BSTR* password)
         case IDCANCEL:
             return E_ABORT;
             /*
-      // pripraveno pri skip a skip all (snad to rusak v pristi verzi dodela)
+      // prepared for skip and skip all (hopefully it will be completed in the next version)
       case DIALOG_SKIP:
         PasswordIsDefined = false;
         Silent = false;

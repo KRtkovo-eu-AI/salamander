@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -232,7 +233,7 @@ GetStringAlloc(char*& buffer, const char* textData)
         return sour;
     }
     sour++;
-    // spocitame si delku
+    // compute the length
     int len = 0;
     const char* save = sour;
     while (*sour)
@@ -245,7 +246,7 @@ GetStringAlloc(char*& buffer, const char* textData)
         sour++;
         len++;
     }
-    // zkopirujeme string
+    // copy the string
     buffer = (char*)realloc(buffer, len + 1);
     char* dest = buffer;
     sour = save;
@@ -293,7 +294,7 @@ void HandlePathRelativeToZip2Sfx(char* path, const char* zip2sfxDir)
 {
     if (zip2sfxDir[0] != 0 &&
         !(path[0] != 0 && path[1] == ':' || path[0] == '\\' && path[1] == '\\'))
-    { // relativni cesta + zname relativni cestu k zip2sfx.exe
+    { // relative path and we know the path to zip2sfx.exe
         char joinedPath[MAX_PATH];
         if (path[0] == '\\')
             GetRootPath(joinedPath, zip2sfxDir);
@@ -307,22 +308,22 @@ void HandlePathRelativeToZip2Sfx(char* path, const char* zip2sfxDir)
             strcpy(path, joinedPath);
         }
         else
-            path[0] = 0; // chyba, radsi nulujeme...
+            path[0] = 0; // error, better clear it...
     }
 }
 
-// return values
+// Return values
 //
 // 0 OK
-// spatne zadany target_dir:
-//   1 bad temp
+// Invalid target_dir specified:
+//   1 invalid temp
 //   2 missing right parenthesis
 //   3 unknown keyword in $()
-//   4 bad key name
+//   4 invalid key name
 // 5 missing settings version
-// 6 incorrect settings version
-// 7 incorrect data format
-// 8 agree disagree buttons used for classical message box
+// 6 invalid settings version
+// 7 invalid data format
+// 8 Agree/Disagree buttons used for a standard message box
 
 int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* zip2sfxDir)
 {
@@ -594,7 +595,7 @@ int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* 
             return 8;
         }
     }
-    //orezeme mezery na konci
+    // trim trailing spaces
     char* iterator = settings->TargetDir + lstrlen(settings->TargetDir);
     while (--iterator >= settings->TargetDir && *iterator == ' ')
         ;
@@ -611,7 +612,7 @@ int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* 
     return 0;
 }
 
-// return valueas
+// return values
 //
 // lower word is one of the following values:
 //
@@ -621,26 +622,26 @@ int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* 
 // 3 unknown keyword in $()
 // 4 bad key name
 //
-// higher word contains index of where the syntax error occured in the target dir string
+// higher word contains the index of where the syntax error occurred in the target dir string
 
 DWORD
 ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                const char** dirSpecLeft, const char** dirSpecRight, HKEY* Key)
 {
     CALL_STACK_MESSAGE2("ParseTargetDir(%s, , , , , )", path);
-    //nastavime defaultni hodnoty
+    // set default values
     if (targetDir)
         *targetDir = SE_CURDIR;
     if (subDir)
         *subDir = path;
     if (dirSpecLeft)
-        *dirSpecLeft = path; // to jen tak pro jistotu abych tam strcil platny pointer
+        *dirSpecLeft = path; // just to be safe, store a valid pointer here
     if (dirSpecRight)
         *dirSpecRight = path;
     if (Key)
         *Key = NULL;
 
-    //nechybi nam prava zavorka?
+    // are we missing the closing bracket?
     if (path[0] == '$')
     {
         char right = 0;
@@ -676,13 +677,13 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
             }
             if (count)
             {
-                return 2 + (DWORD)((iterator - path) << 16); //chybi nam zavorka
+                return 2 + (DWORD)((iterator - path) << 16); // missing closing bracket
             }
 
-            // jeste otestujem jestli mame spravny string v zavorce
+            // also check that the string inside the brackets is valid
             if (iterator - path + 2 <= 0)
             {
-                return 3 + (2 << 16); // prazdna zavorka
+                return 3 + (2 << 16); // empty parentheses
             }
             if (path[1] == '(')
             {
@@ -690,7 +691,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                 {
                     if (iterator[1] != 0)
                     {
-                        return 1 + (DWORD)(((iterator - path) + 1) << 16); //za $(Temp) jiz nesmi nic byt
+                        return 1 + (DWORD)(((iterator - path) + 1) << 16); // nothing may follow $(Temp)
                     }
                     if (targetDir)
                         *targetDir = SE_TEMPDIREX;
@@ -721,9 +722,9 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                     goto L_KEYS_OK;
                 }
 
-                return 3 + (2 << 16); // spatny keyword
+                return 3 + (2 << 16); // invalid keyword
             }
-            else // popripade naplnime dirSpec
+            else // optionally fill dirSpec
             {
                 if (path[1] == '[')
                 {
@@ -746,7 +747,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                             break;
                     }
                     if (!HKeys[i].Name)
-                        return 4 + (2 << 16); // spatne jmeno klice
+                        return 4 + (2 << 16); // invalid key name
 
                     if (targetDir)
                         *targetDir = SE_REGVALUE;
