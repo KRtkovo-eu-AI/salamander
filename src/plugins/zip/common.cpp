@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -41,32 +42,32 @@ const CConfiguration DefConfig =
     {
         6,                            // Compression level
         EM_ZIP20,                     // Encryption Method
-        false,                        //don't add empty directories to zip
+        false,                        // Do not add empty directories to the ZIP archive.
         true,                         //create temporary backup of zip
-        true,                         //display exteded pack options dialog
+        true,                         //display extended pack options dialog
         false,                        //set zip file time to the newest file time
         {"1423", {0}, {0}, {0}, {0}}, //volume sizes
         {0, 0, 0, 0, 0},              //volume size units
-        true,                         //automatic volume size last used
+        true,                         // whether automatic volume size was used last time
         false,                        //automatically expand multi-volume archives on non-removable disks
         0,                            //config version (0 - default; 1 - beta 3; 2 - beta 4)
         "english.sfx",                //default sfx package
         "",                           //default path to export sfx settings to
-        0,                            //current version of Altap Salamnder, bude nastaveno jinde
+        0,                            //current version of Altap Salamander, will be set elsewhere
         CLR_ASK,                      // ChangeLangReaction, viz CLR_xxx
         TRUE,                         // winzip compatible multi-volume archive names
         // Custom columns:
         TRUE, // Show custom column Packed Size
-        0,    // LO/HI-WORD: left/right panel: Width for Packed Size column
-        0     // LO/HI-WORD: left/right panel: FixedWidth for Packed Size column
+        0,    // LOWORD/HIWORD: left/right panel width for the Packed Size column
+        0     // LO/HI-WORD: fixed width of the Packed Size column in the left/right panel
 };
 
 const CExtendedOptions DefOptions;
 
 CConfiguration Config;
 
-HINSTANCE DLLInstance = NULL; // handle k SPL-ku - jazykove nezavisle resourcy
-HINSTANCE HLanguage = NULL;   // handle k SLG-cku - jazykove zavisle resourcy
+HINSTANCE DLLInstance = NULL; // handle of the SPL - language-independent resources
+HINSTANCE HLanguage = NULL;   // handle of the SLG - language-dependent resources
 
 #ifndef SSZIP
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
@@ -76,7 +77,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     {
         DLLInstance = hinstDLL;
     }
-    return TRUE; // DLL can be loaded
+    return TRUE; // Allow the DLL to load
 }
 #endif //SSZIP
 
@@ -112,28 +113,28 @@ BOOL SalGetTempFileName(const char *path, const char *prefix, char *tmpName, BOO
   if (s > tmpDir && *(s - 1) != '\\') *s++ = '\\';
   while (s < end && *prefix != 0) *s++ = *prefix++;
 
-  if (s - tmpDir < MAX_PATH - 10)  // dost mista pro pripojeni "XXXX.tmp"
+  if (s - tmpDir < MAX_PATH - 10)  // enough room to append "XXXX.tmp"
   {
     DWORD randNum = (GetTickCount() & 0xFFF);
     while (1)
     {
       sprintf(s, "%X.tmp", randNum++);
-      if (file)  // soubor
+      if (file)  // file
       {
         HANDLE h = CreateFile(tmpDir, GENERIC_WRITE, 0, NULL, CREATE_NEW,
                               FILE_ATTRIBUTE_NORMAL, NULL);
         if (h != INVALID_HANDLE_VALUE)
         {
           CloseHandle(h);
-          strcpy(tmpName, tmpDir);   // nakopirujeme vysledek
+          strcpy(tmpName, tmpDir);   // copy the result
           return TRUE;
         }
       }
-      else  // adresar
+      else  // directory
       {
         if (CreateDirectory(tmpDir, NULL))
         {
-          strcpy(tmpName, tmpDir);   // nakopirujeme vysledek
+          strcpy(tmpName, tmpDir);   // copy the result
           return TRUE;
         }
       }
@@ -322,12 +323,12 @@ int CZipCommon::CheckZip()
 int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
                      unsigned* bytesRead, bool* skipAll)
 {
-    CALL_STACK_MESSAGE_NONE // casove kriticka metoda
+    CALL_STACK_MESSAGE_NONE // performance-critical method
                             //  CALL_STACK_MESSAGE3("CZipCommon::Read(, , 0x%X, , ) file: %s", bytesToRead, file->FileName);
-        unsigned long read; //number of butes read by ReadFile()
-    unsigned long toRead;   //number of butes read by ReadFile()
+        unsigned long read; // number of bytes read by ReadFile()
+    unsigned long toRead;   // number of bytes requested from ReadFile()
     int result;             //temp variable
-    int errorID;            //error string identifier
+    int errorID;            // error message identifier
     int lastError;          //value returned by GetLastError()
 
     if (file->Size > file->FilePointer)
@@ -343,15 +344,15 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
     {
         if (file->InputBuffer != NULL && toRead <= INPUT_BUFFER_SIZE)
         {
-            // cteni provadime pres cache
-            // RealFilePointer ukazuje v souboru na misto, odkud je nacten buffer
-            // BufferPosition je pocet validnich bajtu v bufferu
+            // we perform reading through the cache
+            // RealFilePointer points in the file to the position from which the buffer was read
+            // BufferPosition is the number of valid bytes in the buffer
 
             if (file->FilePointer > file->RealFilePointer &&
                 file->FilePointer + toRead <= file->RealFilePointer + file->BufferPosition)
             {
                 int offset = int(file->FilePointer - file->RealFilePointer);
-                // pokud jsou pozadovana data kompletne v bufferu, pouze je prekopirujeme
+                // if the requested data are fully in the buffer, just copy them
                 memcpy(buffer, file->InputBuffer + offset, toRead);
                 file->FilePointer += toRead;
                 if (bytesRead)
@@ -359,7 +360,7 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
                 return 0; //OK
             }
 
-            // data nejsou v bufferu vubec nebo tam nejsou cela, jdeme je nacist
+            // the data are not in the buffer at all or not entirely, go read them
             while (1)
             {
                 LONG distHi = HIDWORD(file->FilePointer);
@@ -397,7 +398,7 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
         }
         else
         {
-            // puvodni necachovane cteni
+            // original non-cached reading
             while (1)
             {
                 LONG distHi = HIDWORD(file->FilePointer);
@@ -441,7 +442,7 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
 int CZipCommon::Write(CFile* file, const void* buffer, unsigned bytesToWrite,
                       bool* skipAll)
 {
-    CALL_STACK_MESSAGE_NONE // casove kriticka metoda
+    CALL_STACK_MESSAGE_NONE // time-critical method
                             //  CALL_STACK_MESSAGE3("CZipCommon::Write(, , 0x%X, ) file: %s", bytesToWrite, file->FileName);
         int result;         //temp variable
     int errorID = 0;        //error string identifier
@@ -510,7 +511,7 @@ int CZipCommon::Flush(CFile* file, const void* buffer, unsigned bytesToWrite,
                       bool* skipAll)
 {
     CALL_STACK_MESSAGE3("CZipCommon::Flush(, , 0x%X, ) file: %s", bytesToWrite, file->FileName);
-    unsigned long bytesWritten; //number of butes read by ReadFile()
+    unsigned long bytesWritten; // number of bytes written by WriteFile()
     int result;                 //temp variable
     int errorID = 0;            //error string identifier
 
@@ -586,11 +587,11 @@ int CZipCommon::CreateCFile(CFile** file, LPCTSTR fileName, unsigned int access,
     {
         if ((access & GENERIC_READ) && !(access & GENERIC_WRITE) && useReadCache)
         {
-            // varianta cachovaneho cteni i zapisu soucasne neni podporena
+            // the variant with cached reading and writing simultaneously is not supported
 
-            // mame cist pres cache, alokujeme ji ted
+            // we should read through the cache, allocate it now
             (*file)->InputBuffer = (char*)malloc(INPUT_BUFFER_SIZE);
-            // pokud alokace nedopadne, nic se nedeje, fungujeme i bez ni
+            // if the allocation fails, that is fine, we can work without it
         }
 
         for (;;)
@@ -667,7 +668,7 @@ int CZipCommon::ProcessError(int errorID, int lastError, const char* fileName,
     if (skipAll && *skipAll)
         exitCode = ERR_SKIP;
     else
-    { //process error and display proper dialog
+    { // Process the error and display the appropriate dialog
         if (lastError)
         {
             char lastErrorBuf[1024]; //temp variable
@@ -692,7 +693,7 @@ int CZipCommon::ProcessError(int errorID, int lastError, const char* fileName,
 
         if (flags & PE_QUIET)
             result = DIALOG_CANCEL;
-        else //display dialog
+        else // display the dialog
             if (flags & PE_NORETRY)
                 if (flags & PE_NOSKIP)
                 {
@@ -737,8 +738,8 @@ int CZipCommon::ProcessError(int errorID, int lastError, const char* fileName,
 int CZipCommon::CheckZipFormat()
 {
     CALL_STACK_MESSAGE1("CZipCommon::CheckZipFormat()");
-    //nedelam kontrolu ridim se pouze podle EOCentrDir na konci archivu
-    //a kdyz ten nenajdu predpokladam, ze to je vicesvazkovy archiv
+    // do not perform additional checks; rely solely on the EOCentrDir at the end of the archive
+    // and if it is not found, assume it is a multi-volume archive
 
     if (ZipFile->Size >= 22)
         return 0;
@@ -862,7 +863,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                         break;
                     }
             }
-            position -= bufSize - 3; //tree overlapping bytes
+            position -= bufSize - 3; //three overlapping bytes
             i--;
         }
         if (!error && !found && position + 64 * 1024 + 22 >= ZipFile->Size)
@@ -908,8 +909,8 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                     break;
                                 }
                                 ZipFile->FilePointer = EOCentrDirOffs + sizeof(CEOCentrDirRecord);
-                                // skipAll=true prevents Read showing EOF error. We show a better
-                                // error ourselves immediatelly
+                                // skipAll=true prevents Read from showing an EOF error. We show a better
+                                // error ourselves immediately
                                 bool skipAll = true;
                                 if (Read(ZipFile, Comment, EOCentrDir.CommentLen, NULL, &skipAll))
                                 {
@@ -1011,14 +1012,14 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                 DetectRemovable();
                 CHDiskFlags = CHD_FIRST | (Removable ? 0 : CHD_SEQNAMES);
 
-                // mala heuristika, zda nahodou nejde o winzip style names
+                // small heuristic to see if this might be a WinZip-style name
                 LPCTSTR arcName = _tcsrchr(ZipFile->FileName, '\\');
                 if (arcName != NULL)
                     arcName++;
                 else
                     arcName = ZipFile->FileName;
                 LPCTSTR ext = _tcsrchr(arcName, '.');
-                if (ext != NULL && lstrcmpi(ext, ".zip") == 0) // ".cvspass" ve Windows je pripona
+                if (ext != NULL && lstrcmpi(ext, ".zip") == 0) // in Windows ".cvspass" is treated as an extension
                 {
                     while (ext - 1 > arcName && isdigit(ext[-1]))
                         ext--;
@@ -1044,8 +1045,8 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     CALL_STACK_MESSAGE1("CZipCommon::FindZip64EOCentrDirLocator()");
     CZip64EOCentrDirLocator zip64Locator;
 
-    // vejde se potencionalni zip64 end of central directory locator pred
-    // end of central directory record?
+    // does the potential Zip64 end of central directory locator fit before
+    // the end of central directory record?
     if (EOCentrDirOffs < sizeof(zip64Locator))
         return 0;
 
@@ -1053,11 +1054,11 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     if (Read(ZipFile, &zip64Locator, sizeof(zip64Locator), NULL, NULL))
         return IDS_NODISPLAY;
 
-    // je na predpokladanem miste opravdu zip64?
+    // is Zip64 really at the expected position?
     if (zip64Locator.Signature != SIG_ZIP64LOCATOR)
         return 0;
 
-    // prepneme se na disk obsahujici zip64 end of central directory record
+    // switch to the disk containing the Zip64 end of central directory record
     if (MultiVol &&
         (EOCentrDir.DiskNum == 0xFFFF ||
          DiskNum != (int)zip64Locator.Zip64StartDisk))
@@ -1074,15 +1075,15 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     if (Read(ZipFile, &zip64Record, sizeof(zip64Record), NULL, NULL))
         return IDS_NODISPLAY;
 
-    // nahradime udaje opravnymi udaji
+    // replace the data with corrected values
     Zip64 = true;
     if (zip64Record.DiskNum < 0xFFFF)
     {
-        // we keep this value unfixed so we can later recognize a weird ZIP file
-        // and refuse its modification, so far we have encountered a single file
-        // like this and we had trouble with deleting files inside the archive,
-        // which ended with the corrupted archive data)
-        // TODO save manison.zip to some repository for the weird ZIPs and put a correct reference here
+        // we keep this value unchanged so we can later recognize a weird ZIP file
+        // and refuse to modify it; so far we have encountered only one file
+        // like this, and deleting files inside the archive caused
+        // the archive data to become corrupted
+        // TODO: save mansion.zip in a repository of weird ZIPs and add a correct reference here
         //EOCentrDir.DiskNum = __UINT16(zip64Record.DiskNum);
     }
     if (EOCentrDir.StartDisk == 0xFFFF)
@@ -1130,7 +1131,7 @@ int CZipCommon::CheckForExtraBytes()
 
     ExtraBytes = 0;
 
-    //nekontroluju extra bytes - moc prace/malo uzitku
+    // extra bytes are not checked: too much work for little benefit
     if (MultiVol)
         return 0;
 
@@ -1138,7 +1139,7 @@ int CZipCommon::CheckForExtraBytes()
     QWORD expectedEndOfCentrDir = Zip64 ? Zip64EOCentrDirOffs : EOCentrDirOffs;
 
     if (endOfCentrDir == expectedEndOfCentrDir)
-        return 0; // vse v poradku
+        return 0; // everything is fine
 
     if (expectedEndOfCentrDir > endOfCentrDir)
     {
@@ -1190,7 +1191,7 @@ int CZipCommon::CheckForExtraBytes()
 int CZipCommon::ReadCentralHeader(CFileHeader* fileHeader, LPQWORD offset,
                                   unsigned int* size)
 {
-    CALL_STACK_MESSAGE_NONE // casove kriticka metoda
+    CALL_STACK_MESSAGE_NONE // time-critical method
                             //  CALL_STACK_MESSAGE1("CZipCommon::ReadCentralHeader(, )");
         unsigned bytesRead;
     //reads file header and name from disc
@@ -1251,12 +1252,12 @@ int CZipCommon::ReadCentralHeader(CFileHeader* fileHeader, LPQWORD offset,
     return 0;
 }
 
-// makro umoznujici prehlednejsi nacitani extra headeru
+// macro that makes reading extra headers more readable
 #define NEXT(t) *(t*)((char*)fileHeader + (iterator += sizeof(t), iterator - sizeof(t)))
 
 void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
 {
-    CALL_STACK_MESSAGE_NONE // casove kriticka metoda
+    CALL_STACK_MESSAGE_NONE // time-critical method
                             //  CALL_STACK_MESSAGE1("CZipCommon::ProcessHeader(, )");
         FILETIME ft;
 
@@ -1313,7 +1314,7 @@ void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
     fileInfo->LocHeaderOffs = fileHeader->LocHeaderOffs + ExtraBytes;
     fileInfo->IsDir = fileHeader->ExternAttr & FILE_ATTRIBUTE_DIRECTORY;
 
-    // pro pripad, ze se nektera z hodnot nevesla, zkusime najit zip64 extra field
+    // in case some of the values did not fit, try to find the Zip64 extra field
     int expectedZip64Size = 0;
     if (fileHeader->Size == 0xFFFFFFFF)
         expectedZip64Size += 8;
@@ -1327,7 +1328,7 @@ void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
     {
         unsigned iterator = sizeof(CFileHeader) + fileHeader->NameLen;
 
-        // vyhledame zip64 extra header;
+        // locate the Zip64 extra header
         BOOL found = FALSE;
         while (iterator + 4 < sizeof(CFileHeader) + fileHeader->NameLen + fileHeader->ExtraLen)
         {
@@ -1339,7 +1340,7 @@ void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
             iterator += NEXT(WORD);
         }
 
-        // nacteme hodnoty z headeru
+        // read the values from the header
         if (found)
         {
             if (NEXT(WORD) >= expectedZip64Size)
@@ -1387,7 +1388,7 @@ bool CZipCommon::IsDirByHeader(CFileHeader* fileHeader)
 
 int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
 {
-    CALL_STACK_MESSAGE_NONE // casove kriticka metoda
+    CALL_STACK_MESSAGE_NONE // time-critical method
                             //  CALL_STACK_MESSAGE1("CZipCommon::ProcessName");
         char* sour;
     char* dest;
@@ -1434,7 +1435,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
     char* end = sour + len;
     dest = outputName;
 
-    // ostranime uvodni lomitka
+    // remove leading slashes
     while ((sour < end) && (*sour == '/' || *sour == '\\'))
         sour++;
     // replace leading spaces with underscores
@@ -1448,7 +1449,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
         if (*sour == '/' || *sour == '\\')
         {
             sour++;
-            // odstranime vicenasobna lomitka
+            // remove multiple slashes
             while ((sour < end) && (*sour == '/' || *sour == '\\'))
                 sour++;
             // replace trailing spaces in the last filename component with underscores
@@ -1473,11 +1474,11 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
             *dest++ = *sour++;
         }
     }
-    if (dest > outputName && *(dest - 1) == '\\') //skip last slash if name specifies a directory
+    if (dest > outputName && *(dest - 1) == '\\') // Skip the trailing slash if the name specifies a directory
     {
         dest--;
-        //nastavime atribut adresare, nektere archivery nenastavuji atributy
-        //tak aby se nam nezobrazil jako soubor
+        // set the directory attribute; some archivers do not set attributes
+        // so that it would appear as a file
         fileHeader->ExternAttr |= FILE_ATTRIBUTE_DIRECTORY;
     }
     // replace trailing spaces with underscores
@@ -1492,7 +1493,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
     if (!(fileHeader->Flag & GPF_UTF8) && ((fileHeader->Version >> 8 == HS_FAT /*0*/) ||
                                            (fileHeader->Version >> 8 == HS_HPFS /*6*/) ||
                                            //       ((fileHeader->Version >> 8 == HS_NTFS/*11*/) && ((fileHeader->Version & 0x0F) == 0x50)) // Patera 2010.03.30: This doesn't make sense -> disabled
-                                           // The following line got inspiration in MultiArc plugin of FAR
+                                           // The following line was inspired by the MultiArc plugin for FAR
                                            ((fileHeader->Version >> 8 == HS_NTFS /*11*/) && (((fileHeader->Version & 0xFF) <= 20) || ((fileHeader->Version & 0xFF) >= 25)))))
         // ZIP built-in to WinXP writes Version 0x0b14 and uses OEM
         // AS writes version 0x0016 and uses OEM
@@ -1552,9 +1553,9 @@ void CZipCommon::ProcessLocalHeader(CLocalFileHeader* fileHeader,
 
     if (fileHeader->Method == CM_AES)
     {
-        // najdeme AES extra-field
+        // find the AES extra field
 
-        // pro pripad, ze bychom ho nenasli
+        // in case we do not find it
         aesExtraField->HeaderID = -1;
 
         DWORD offset = sizeof(CLocalFileHeader) + fileHeader->NameLen;
@@ -1625,9 +1626,9 @@ LABEL_QuickSortHeaders:
             i++;
             j--;
         }
-    } while (i <= j); //musej bejt shodny?
+    } while (i <= j); // do they have to match?
 
-    // nasledujici "hezky" kod jsme nahradili kodem podstatne setricim stack (max. log(N) zanoreni rekurze)
+    // the following "nice" code was replaced with code that saves a lot of stack (max. log(N) recursion depth)
     //  if (left < j) QuickSortHeaders(left, j, headers);
     //  if (i < right) QuickSortHeaders(i, right, headers);
 
@@ -1635,7 +1636,7 @@ LABEL_QuickSortHeaders:
     {
         if (i < right)
         {
-            if (j - left < right - i) // je potreba seradit obe "poloviny", tedy do rekurze posleme tu mensi, tu druhou zpracujeme pres "goto"
+            if (j - left < right - i) // both "halves" need to be sorted, so recurse into the smaller one and process the other via "goto"
             {
                 QuickSortHeaders(left, j, headers);
                 left = i;
@@ -1744,9 +1745,9 @@ LABEL_QuickSortNames:
             i++;
             j--;
         }
-    } while (i <= j); //musej bejt shodny?
+    } while (i <= j); // do they have to match?
 
-    // nasledujici "hezky" kod jsme nahradili kodem podstatne setricim stack (max. log(N) zanoreni rekurze)
+    // the following "nice" code was replaced with code that uses significantly less stack space (max. log(N) recursion depth)
     //  if (left < j) QuickSortNames(left, j, names, unix);
     //  if (i < right) QuickSortNames(i, right, names, unix);
 
@@ -1754,7 +1755,7 @@ LABEL_QuickSortNames:
     {
         if (i < right)
         {
-            if (j - left < right - i) // je potreba seradit obe "poloviny", tedy do rekurze posleme tu mensi, tu druhou zpracujeme pres "goto"
+            if (j - left < right - i) // both "halves" need to be sorted, so recurse into the smaller one and process the other via "goto"
             {
                 QuickSortNames(left, j, names, unix);
                 left = i;
@@ -1792,7 +1793,7 @@ bool BSearchName(LPCTSTR name, int ItemNumber, int left, int right, TIndirectArr
     {
         mid = (left + right) >> 1;
         c = respectCase ? _tcscmp(name, names[mid]->Name) : SalamanderGeneral->StrICmp(name, names[mid]->Name);
-        // Files are matched only when the ItemNumber also matches
+        // Files match only when ItemNumber matches or either ItemNumber is -1
         if (c == 0)
         {
             if ((ItemNumber == names[mid]->ItemNumber) || (-1 == names[mid]->ItemNumber) || (-1 == ItemNumber))
@@ -1849,7 +1850,7 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
     for (cnt = 0; readSize < CentrDirSize && !errorID; cnt++)
     {
         unsigned int s;
-        if (centrDir) //for files deletion
+        if (centrDir) // for deleting files
         {
             centralHeader = (CFileHeader*)(centrDir + readSize);
             if (readSize + sizeof(CFileHeader) > CentrDirSize ||
@@ -1873,17 +1874,17 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
         readSize += s;
         tempNameLen = ProcessName(centralHeader, tempName);
 
-        // otestujeme prefix jmena
+        // test the prefix of the name
         if (tempNameLen < RootLen || RootLen && tempName[RootLen] != '\\' ||
             (Unix ? memcmp(tempName, ZipRoot, RootLen) : SalamanderGeneral->MemICmp(tempName, ZipRoot, RootLen)))
             continue;
 
         name = tempName + (RootLen ? RootLen + 1 : 0);
         LPTSTR slash = _tcschr(name, '\\');
-        if (slash) // tempName + RootLen + 1, obsahuje lomitko
+        if (slash) // tempName + RootLen + 1, contains a slash
         {
-            // hledame komponentu cesty v seznamu adresaru, case-sensitivity zavisi
-            // na flagu Unix
+            // look for the path component in the list of directories; case sensitivity depends
+            // on the Unix flag
             *slash = 0;
             bool r = BSearchName(name, -1 /*any file inside this folder*/, 0, dirs, namesArray, Unix != 0);
             *slash = '\\';
@@ -1892,22 +1893,22 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
         }
         else
         {
-            if (IsDirByHeader(centralHeader)) // je to adresar
+            if (IsDirByHeader(centralHeader)) // this is a directory
             {
-                // hledame v seznamu adresaru, case-sensitivity zavisi na flagu Unix
+                // search in the directory list; case sensitivity depends on the Unix flag
                 if (!BSearchName(name, cnt, 0, dirs, namesArray, Unix != 0))
                     continue;
             }
             else
             {
-                // hledame v seznamu souboru, na case zalezi
+                // search in the list of files; case matters
                 if (!BSearchName(name, cnt, dirs, namesArray.Count, namesArray, true))
                     continue;
             }
         }
 
-        // nasli jsme ho binarnim searchem v seznamu vybranych souboru, pridame ho
-        // tedy do seznamu pro vybaleni
+        // we found it by a binary search in the list of selected files, so add it
+        // to the list for extraction
         fileInfo = new CFileInfo;
         if (!fileInfo)
         {
@@ -1930,7 +1931,7 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
         }
         if (!errorID)
         {
-            if (centrDir) //for files deletion
+            if (centrDir) // when deleting files
                 MatchedTotalSize += CQuadWord().SetUI64(fileInfo->CompSize);
             else
                 MatchedTotalSize += CQuadWord().SetUI64(fileInfo->Size);
@@ -2393,7 +2394,7 @@ DWORD ExpandSfxSettings(CSfxSettings* settings, void* buffer, DWORD size)
     }
     else
     {
-        // pridame defaultni hodnoty
+        // add default values
         CSfxLang* lang = NULL;
         char file[MAX_PATH];
         GetModuleFileName(DLLInstance, file, MAX_PATH);
@@ -2521,7 +2522,7 @@ typedef struct
 
 //***********************************************************************************
 //
-// Rutiny ze SHLWAPI.DLL
+// Routines from SHLWAPI.DLL
 //
 /*
 BOOL PathAppend(LPTSTR  pPath, LPCTSTR pMore)
@@ -2537,7 +2538,7 @@ BOOL PathAppend(LPTSTR  pPath, LPCTSTR pMore)
     return TRUE;
   }
   int len = lstrlen(pPath);
-  // ostrim zpetne lomitko pred pripojenim
+  // add a backslash before appending
   if (len > 1 && pPath[len - 1] != '\\' && pMore[0] != '\\')
   {
     pPath[len] = '\\';
@@ -2559,12 +2560,12 @@ BOOL PathAddExtension(LPTSTR pszPath, LPCTSTR pszExtension)
   int len = lstrlen(pszPath);
   if (len > 0)
   {
-    // podivam se, jestli uz tam pripona neni
+    // check whether the extension is already present
     char *iterator = pszPath + len - 1;
     while (iterator >= pszPath)
     {
-      if (*iterator == '.')    // ".cvspass" ve Windows je pripona
-        return TRUE;  // pripona uz existuje - mizime
+      if (*iterator == '.')    // in Windows ".cvspass" is treated as an extension
+        return TRUE;  // the extension already exists - bail out
       if (*iterator == '\\')
         break;
       iterator--;
@@ -2628,7 +2629,7 @@ LPTSTR PathFindFileName(LPCTSTR pPath)
   char *iterator = pszPath + len - 1;
   while (iterator >= pszPath)
   {
-    if (*iterator == '.')   // ".cvspass" ve Windows je pripona
+    if (*iterator == '.')   // in Windows ".cvspass" is treated as an extension
     {
       *iterator = 0;
       break;

@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -29,8 +30,8 @@ public:
     void ShowCertificate(HWND hParent);
     bool CheckCertificate(LPTSTR buf, int maxlen);
 
-    // POZOR: metoda meni data certifikatu, volajici si musi zajistit, ze se data nepouzivaji
-    //        zaroven v jinem threadu (idealne volat dokud je tohle jediny odkaz na objekt)
+    // NOTE: the method modifies certificate data, the caller must ensure the data are not used
+    //        simultaneously in another thread (ideally call it while this is the only reference to the object)
     void SetVerified(bool verified) { bVerified = verified; };
 
     bool IsSame(BYTE* pDERCert, int DERCertLen, BYTE* pPKCS7Cert, int PKCS7CertLen);
@@ -66,7 +67,7 @@ protected:
 
 struct SSL_SESSION
 {
-}; // Petr: nepotrebujeme znat obsah struktury, pracuje se s ni vyhradne uvnitr OpenSSL
+}; // Petr: we do not need to know the contents of the structure; it is handled exclusively inside OpenSSL
 
 typedef int (*TSSL_get_error)(SSL* SSL, int ret);
 typedef int (*TSSL_write)(SSL* SSL, const void* data, int Size);
@@ -95,7 +96,7 @@ typedef const char* (*TX509_verify_cert_error_string)(long n);
 typedef X509* (*TSSL_get_peer_certificate)(const SSL* SSL);
 typedef STACK_OF(X509) * (*TSSL_get_peer_cert_chain)(const SSL* s);
 typedef STACK_OF(SSL_COMP) * (*TSSL_COMP_get_compression_methods)(void);
-typedef SSL_SESSION* (*TSSL_get1_session)(SSL* ssl); /* obtain a reference count */
+typedef SSL_SESSION* (*TSSL_get1_session)(SSL* ssl); /* obtain a session and increment its reference count */
 typedef void (*TSSL_SESSION_free)(SSL_SESSION* ses);
 typedef long (*TSSL_ctrl)(SSL* ssl, int cmd, long larg, void* parg);
 typedef int (*TSSL_set_session)(SSL* to, SSL_SESSION* session);

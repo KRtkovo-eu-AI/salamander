@@ -403,7 +403,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
             case WM_KEYDOWN:
             {
                 BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-                if (msg.wParam == VK_MENU && (msg.lParam & 0x40000000) == 0 || // Alt down, but not an autorepeat
+                if (msg.wParam == VK_MENU && (msg.lParam & 0x40000000) == 0 || // Alt down, but not auto-repeat
                     (!shiftPressed && msg.wParam == VK_F10))
                 {
                     leaveLoop = TRUE;
@@ -563,7 +563,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
 
     // remove ourselves from monitoring closing messages
     MenuWindowQueue.Remove(HWindow);
-    // if we hooked, we will also unhook
+    // if we hooked the thread, we will also unhook it
     if (hOldHookProc != NULL)
         OldMenuHookTlsAllocator.UnhookThread(hOldHookProc);
 
@@ -591,7 +591,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
         PostMessage(hWndUnderCursor, WM_MOUSEMOVE, 0, MAKELPARAM(cursorPos.x, cursorPos.y));
     }
 
-    // we willdeliver the delayed message
+    // we will deliver the delayed message
     if (DispatchDelayedMsg)
     {
         TranslateMessage(&DelayedMsg);
@@ -722,7 +722,7 @@ BOOL CMenuBar::IsMenuBarMessage(CONST MSG* lpMsg)
         }
         else
         {
-            WheelDuringMenu = FALSE; // if the user scrolled the wheel and then typed a number (Alt+numXXX), we will ignore the scrolling
+            WheelDuringMenu = FALSE; // if the user scrolled the wheel and then typed a number (Alt+numXXX), scrolling is ignored
             HandlingVK_MENU = FALSE;
         }
         if (wParam == VK_F10)
@@ -761,7 +761,7 @@ BOOL CMenuBar::IsMenuBarMessage(CONST MSG* lpMsg)
             if (WheelDuringMenu)
             {
                 WheelDuringMenu = FALSE;
-                return TRUE; // suppress releasing Alt after Alt+Wheel, otherwise the window menu opens (without being shown)
+                return TRUE; // suppress Alt release after Alt+Wheel; otherwise the window menu is entered without being shown
             }
             // if the user did not use the wheel, we must not process the message
             // Alt+num064 (etc.) is used for inserting characters
@@ -833,7 +833,7 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
-        if (WindowsVistaAndLater) // under Vista the rebar flickers
+        if (WindowsVistaAndLater) // On Vista, the rebar flickers
             return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
@@ -915,7 +915,7 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int newHotIndex = HotIndex;
             if (hitItem)
             {
-                if (!HelpMode2 && !MenuLoop && !MouseIsTracked) // capture is needed only in the track mode
+                if (!HelpMode2 && !MenuLoop && !MouseIsTracked) // mouse leave tracking is needed only in track mode
                 {
                     TRACKMOUSEEVENT tme;
                     tme.cbSize = sizeof(tme);

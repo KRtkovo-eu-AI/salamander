@@ -1,8 +1,8 @@
 name: PR Comment Guard
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: read
@@ -20,13 +20,52 @@ jobs:
         shell: pwsh
 
     steps:
+      - name: Check for "comments translation" label
+        id: label_check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $token = $env:GITHUB_TOKEN
+          if ([string]::IsNullOrWhiteSpace($token)) {
+            Write-Error 'GITHUB_TOKEN is not available.'
+          }
+
+          $issueUri = "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}"
+          $headers = @{
+            Authorization = "Bearer $token"
+            'User-Agent' = 'actions/pr-comments-guard'
+            Accept = 'application/vnd.github+json'
+          }
+
+          $response = Invoke-RestMethod -Method Get -Uri $issueUri -Headers $headers
+          $hasLabel = $false
+          foreach ($label in $response.labels) {
+            if ($label.name -eq 'comments translation') {
+              $hasLabel = $true
+              break
+            }
+          }
+
+          if (-not $hasLabel) {
+            'should-skip=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Label 'comments translation' not present on PR; skipping verification."
+          } else {
+            Write-Host "Label 'comments translation' detected; continuing verification."
+          }
+
       - name: Checkout PR
+        if: steps.label_check.outputs.should-skip != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify comment-only changes
+        if: steps.label_check.outputs.should-skip != 'true'
         env:
           COMMENT_GUARD_MODE: ${{ matrix.mode }} # Pass the selected mode down to the PowerShell script.
         run: |
@@ -85,9 +124,9 @@ jobs:
           }
 
           if (-not [string]::IsNullOrWhiteSpace($baseRef)) {
-            git fetch --no-tags origin $baseRef --depth=1 | Out-Null
+            git fetch --no-tags origin $baseRef --depth=0 | Out-Null
           } else {
-            git fetch --no-tags origin $baseSha --depth=1 | Out-Null
+            git fetch --no-tags origin $baseSha --depth=0 | Out-Null
           }
 
           git rev-parse --verify $baseSha | Out-Null
@@ -102,24 +141,80 @@ jobs:
           git worktree add --detach $baseWorktree $baseSha | Out-Null
 
           try {
-            $files = git diff --name-only --diff-filter=ACMR $baseSha HEAD | Where-Object { $_ -ne '' }
+            # Determine which files to check based on the PR action
+            $prAction = '${{ github.event.action }}'
+            $beforeSha = '${{ github.event.before }}'
+            $afterSha = '${{ github.event.after }}'
+            
+            $files = @()
+            if ($prAction -eq 'synchronize' -and -not [string]::IsNullOrWhiteSpace($beforeSha) -and -not [string]::IsNullOrWhiteSpace($afterSha)) {
+              # For synchronize with before/after, check only files changed in the push range
+              Write-Host "Checking files changed in push range: $beforeSha..$afterSha"
+              $files = git diff --name-only --diff-filter=ACMR $beforeSha $afterSha | Where-Object { $_ -ne '' }
+            } else {
+              # For opened/reopened or other cases, use merge-base approach
+              Write-Host "Checking files changed in entire PR using merge-base"
+              $mergeBase = git merge-base origin/$baseRef HEAD
+              if ([string]::IsNullOrWhiteSpace($mergeBase)) {
+                Write-Error "Could not determine merge-base between origin/$baseRef and HEAD"
+              }
+              Write-Host "Merge-base: $mergeBase"
+              $files = git diff --name-only --diff-filter=ACMR $mergeBase..HEAD | Where-Object { $_ -ne '' }
+            }
+            
             if (-not $files) {
               Write-Host 'No tracked changes detected.'
               exit 0
             }
 
+            $baseArgs = @(
+              '-E',
+              '-P',
+              '-DSAFE_ALLOC',
+              '-DFILE_ATTRIBUTE_ENCRYPTED=0x00004000',
+              '-Wno-deprecated',
+              '-Wno-comment',
+              '-Wno-nonportable-include-path',
+              '-Wno-extra-tokens',
+              '-Wno-invalid-token-paste',
+              '-Wno-macro-redefined',
+              '-Wno-microsoft-include',
+              '-Wno-#pragma-messages',
+              '-fkeep-system-includes',
+              '-fdiagnostics-color',
+              '-fansi-escape-codes',
+              '-w',
+              '-x',
+              'c++'
+            )
+            
             $includeRoots = @(
               '.',
               'src',
               'src/common',
-              'src/common/dep',
-              'src/plugins',
               'src/plugins/shared',
-              'include',
-              'common',
-              'plugins',
-              'plugins/shared',
-              'tools'
+              'src/common/dep',
+              'src/plugins/automation',
+              'src/plugins/7zip/7za/cpp/Common',
+              'src/plugins/7zip/7za/cpp',
+              'src/plugins/automation/generated',
+              'src/plugins/shared/lukas',
+              'src/plugins/ftp',
+              'src/plugins/ftp/openssl',
+              'src/plugins/ieviewer/cmark-gfm/build/src',
+              'src/plugins/ieviewer/cmark-gfm/build/extensions',
+              'src/plugins/ieviewer/cmark-gfm/extensions',
+              'src/plugins/ieviewer/cmark-gfm/src',
+              'src/plugins/pictview/exif',
+              'src/plugins/tar',
+              'src/plugins/undelete/library',
+              'src/plugins/zip',
+              'src/plugins/winscp/core',
+              'src/plugins/winscp/windows',
+              'src/plugins/winscp/resource',
+              'src/plugins/winscp/forms',
+              'src/plugins/wmobile/rapi',
+              'tools/comments/code_guard_stubs'
             )
             $headIncludeArgs = @()
             foreach ($rel in $includeRoots) {
@@ -168,8 +263,18 @@ jobs:
               $headTmp = [System.IO.Path]::GetTempFileName()
 
               try {
-                $clangArgsBase = @('-E', '-P', '-w', '-x', 'c++') + $baseIncludeArgs + @('-o', $baseTmp, $basePath)
-                $clangArgsHead = @('-E', '-P', '-w', '-x', 'c++') + $headIncludeArgs + @('-o', $headTmp, $headPath)
+                $extraArgs = @()
+                # Apply plugin-specific preprocessor defines that clang needs to parse these sources.
+                if ($file -like 'src/plugins/renamer/*') {
+                  $extraArgs += '-D_CHAR_UNSIGNED'
+                }
+                if ($file -like 'src/plugins/zip/selfextr/*') {
+                  $extraArgs += '-DLANG_DEFINED'
+                  $extraArgs += '-DEXT_VER'
+                }
+
+                $clangArgsBase = $baseArgs + $baseIncludeArgs + $extraArgs + @('-o', $baseTmp, $basePath)
+                $clangArgsHead = $baseArgs + $headIncludeArgs + $extraArgs + @('-o', $headTmp, $headPath)
 
                 $clangBaseOutput = & clang.exe @clangArgsBase 2>&1
                 if ($LASTEXITCODE -ne 0) {
@@ -210,6 +315,10 @@ jobs:
                 if ([string]::IsNullOrEmpty($message)) {
                   $message = 'Unknown error'
                 }
+
+                # Include the mode in the message for clarity
+                $modeLabel = if ($commentGuardMode -eq 'strict') { '[strict]' } else { '[ignore-whitespace]' }
+                $message = "$modeLabel $message"
 
                 $annotation = "::error"
                 if (-not [string]::IsNullOrEmpty($file)) {

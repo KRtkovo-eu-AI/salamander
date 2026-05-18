@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -30,17 +31,17 @@ struct huft
 
 struct CDecompressionObject
 {
-    const char* Data;    // zacatek dat
-    const char* DataPtr; // aktualni pozice v datech
-    const char* DataEnd; // konec dat
+    const char* Data;    // start of data
+    const char* DataPtr; // current position in the data
+    const char* DataEnd; // end of data
 
-    DWORD Crc; // CRC32 vypakovanych dat
+    DWORD Crc; // CRC32 of unpacked data
 
-    char* OutputMem;     // buffer pro vybalena data
-    char* OutputMemPtr;  // aktualni pozice v bufferu pro vybalena data
-    DWORD OutputMemSize; // velikost bufferu pro vybalena data
+    char* OutputMem;     // buffer for unpacked data
+    char* OutputMemPtr;  // current position in the buffer for unpacked data
+    DWORD OutputMemSize; // size of buffer for unpacked data
 
-    //public fields, should be intialized before calling Inflate()
+    //public fields, should be initialized before calling Inflate()
     uch* SlideWin;    //circular buffer
     unsigned WinSize; //size of sliding window, should be at least 32K
 
@@ -83,8 +84,8 @@ __forceinline uch NextByte(CDecompressionObject* decompress)
     else
     {
         if (decompress->DataPtr == decompress->DataEnd)
-            decompress->DataPtr++; // chybovy stav je az decompress->DataPtr > decompress->DataEnd
-        return 0 /* chyba */;
+            decompress->DataPtr++; // error state only occurs when decompress->DataPtr > decompress->DataEnd
+        return 0 /* error */;
     }
 }
 #endif //_DEBUG

@@ -7,7 +7,7 @@
 //
 // C7zClient
 //
-// Sandbox knihovny 7za.dll
+// 7za.dll library sandbox
 //
 
 #include "7za/CPP/Common/StringConvert.h"
@@ -24,19 +24,19 @@
 #include "structs.h"
 
 #ifndef FILE_ATTRIBUTE_UNIX_EXTENSION
-// Transfered from p7zip (portable 7zip)
+// Transferred from p7zip (portable 7zip)
 #define FILE_ATTRIBUTE_UNIX_EXTENSION 0x8000 /* trick for Unix */
 #endif
 
 #ifndef S_ISLNK
-// Transfered from sys/stat.h on Mac (and other Unix systems)
+// Transferred from sys/stat.h on Mac (and other Unix systems)
 #define S_ISLNK(m) (((m) & 0170000) == 0120000) /* symbolic link */
 #endif
 
-// tri stavy pro chyby.
-// jsou situace, kdy nestaci TRUE/FALSE. mame cinnost, pri ktere muze nastat chyba. nekdy muzeme
-// a chceme v cinnosti pokracovat, jindy to nejde. pokud muzeme pokracovat vracime OPER_CONTINUE,
-// pokud to dal nejde (dosla pamet, aj.) -> OPER_CANCEL. pokud vse ok -> OPER_OK
+// three error states.
+// there are situations where TRUE/FALSE is not enough. we have an operation that can encounter an error. sometimes we can
+// and want to continue the operation, other times we cannot. if we can continue, we return OPER_CONTINUE,
+// if continuing is not possible (out of memory, etc.) -> OPER_CANCEL. if everything is OK -> OPER_OK
 #define OPER_OK 0
 #define OPER_CONTINUE 1
 #define OPER_CANCEL 2
@@ -47,10 +47,10 @@
 
 typedef UINT32(WINAPI* TCreateObjectFunc)(const GUID* clsID, const GUID* interfaceID, void** outObject);
 
-// slouzi k predani polozek, ktere se budou vybalovat
+// used to pass the items that will be extracted
 struct CArchiveItemInfo
 {
-    CSysString NameInArchive; // v archivu (tedy i s cestou)
+    CSysString NameInArchive; // in the archive (i.e. including the path)
     const CFileData* FileData;
     bool IsDir;
 

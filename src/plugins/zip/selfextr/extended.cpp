@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include <windows.h>
 #include <Tlhelp32.h>
@@ -305,7 +306,7 @@ int ReadCentralDirectory()
             return 1;
     }
     else if (ChangeDisk(ECRec->StartDisk + 1, TRUE))
-        return 1; //otevreme si prvni soubor
+        return 1; // open the first file
     DiskNum = ECRec->StartDisk + 1;
     unsigned left = ECRec->CentrDirSize;
     char* dest = (char*)CentrDir;
@@ -462,7 +463,7 @@ int decrypt_byte()
 
 #define CRC32(c, b) (CrcTab[((int)(c) ^ (b)) & 0xff] ^ ((c) >> 8))
 
-//Update the encryption keys with the next byte of plain text
+// Update the encryption keys with the next byte of plaintext
 int update_keys(int c)
 {
     Keys[0] = CRC32(Keys[0], c);

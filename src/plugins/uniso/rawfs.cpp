@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -93,11 +94,11 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
         // set file time
         file.SetFileTime(&ft, &ft, &ft);
 
-        // celkova operace muze pokracovat dal. pouze skip
+        // the overall operation can continue; skip only this file
         if (toSkip)
             throw UNPACK_ERROR;
 
-        // celkova operace nemuze pokracovat dal. cancel
+        // the overall operation cannot continue; cancel
         if (hFile == INVALID_HANDLE_VALUE)
             throw UNPACK_CANCEL;
 
@@ -105,14 +106,14 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
         /*
     BYTE track = Image->GetTrackFromExtent(fp->Extent);
     if (!Image->OpenTrack(track)) {
-      // je treba otevrit track, ze ktereho budeme cist (nastaveni parametru tracku)
+      // it is necessary to open the track we will read from (setting the track parameters)
       Error(IDS_CANT_OPEN_TRACK, silent == 1, track);
       throw UNPACK_ERROR;
     }
 */
 
-        // tady je mozne, ze se extent nebude muset odecitat, nejsou data na otestovani, takze nevim :(
-        // ale pravdepodobnejsi je varianta, ze se odecitat ma
+        // it is possible that the extent does not need to be subtracted here; there is no data to test this, so it is unclear
+        // but it is more likely that it should be subtracted
         DWORD block = fp->Extent - ExtentOffset;
         CQuadWord remain = fileData->Size;
 
@@ -120,7 +121,7 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
         while (remain.Value > 0)
         {
             if (remain.Value < nbytes)
-                nbytes = remain.LoDWord; // !!! velikost bufferu nesmi byt vetsi nez DWORD
+                nbytes = remain.LoDWord; // !!! the buffer size must not exceed DWORD
 
             if (!ReadBlockPhys(block, 1, sector))
             {
@@ -150,20 +151,20 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
                 break;
             }
 
-            if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE, abychom nebrzdili
+            if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE, so we do not slow things down
             {
                 salamander->ProgressDialogAddText(LoadStr(IDS_CANCELING_OPERATION), FALSE);
                 salamander->ProgressEnableCancel(FALSE);
 
                 ret = UNPACK_CANCEL;
                 bFileComplete = FALSE;
-                break; // preruseni akce
+                break; // action interrupted
             }
 
             ULONG written;
             if (!file.Write(sector, nbytes, &written, name, NULL))
             {
-                // Error message was already displayed by SafeWriteFile()
+                // The error message has already been displayed by SafeWriteFile().
                 ret = UNPACK_CANCEL;
                 bFileComplete = FALSE;
                 break;
@@ -182,14 +183,14 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
 
         if (!bFileComplete)
         {
-            // protoze je vytvoren s read-only atributem, musime R attribut
-            // shodit, aby sel soubor smazat
+            // because it was created with the read-only attribute, we must clear
+            // the read-only attribute so the file can be deleted
             attrs &= ~FILE_ATTRIBUTE_READONLY;
             if (!SetFileAttributes(name, attrs))
                 Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
 
-            // user zrusil operaci
-            // smazat po sobe neuplny soubor
+            // user canceled the operation
+            // delete the incomplete file
             if (!DeleteFile(name))
                 Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError());
         }
