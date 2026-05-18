@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -220,7 +221,7 @@ INT_PTR CCopyProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // chci focus od DefDlgProc
+        break; // let DefDlgProc set the focus
     }
 
     case WM_COMMAND:
@@ -389,13 +390,13 @@ void CConnectDialog::InitDrives()
 
         case PATH_TYPE_FS:
         {
-            // remove the "del:" prefix so correct path will be selected when opening this dialog box on Undelete path
+            // Remove the "del:" prefix so the correct path is selected when opening this dialog box from an Undelete path.
             if (archiveOrFS != NULL)
                 memmove(sourcePanelPath, archiveOrFS + 1, strlen(archiveOrFS + 1) + 1);
             break;
         }
 
-        // can't do much about this
+        // not much can be done here
         default:
             break;
         }
@@ -429,7 +430,7 @@ void CConnectDialog::InitDrives()
         int serial = 0;
         for (i = 0; i < volumeListing.Count; ++i)
         {
-            // for simple disks get the icon from system, for mount points or unmounted disks get just plain HDD icon
+            // for regular disks, get the icon from the system; for mount points or unmounted disks, use a plain HDD icon
             // (passing MountPoints instead of volumeName is much faster for some disks)
             HICON icn;
             if (volumeListing[i].MountPoint && (3 == strlen(volumeListing[i].MountPoint)))
@@ -545,7 +546,7 @@ void CConnectDialog::OnImageBrowse()
     openInfo.hwndOwner = HWindow;
     openInfo.lpstrFilter = "Image Files (*.img;*.ima)\0*.IMG;*.IMA\0AllFiles (*.*)\0*.*\0\0\0";
     openInfo.lpstrFile = Volume;
-    // TODO: porad to tady smrdi, kdyz je volume treba C:\Work\Altap\, tak init dir je svinstvo kvuli lpstrFile
+    // TODO: this still feels wrong; when the volume is e.g. C:\Work\Altap\, the initial dir becomes garbage because of lpstrFile
     openInfo.lpstrInitialDir = Volume;
     openInfo.nMaxFile = MAX_PATH;
     openInfo.Flags = OFN_FILEMUSTEXIST | OFN_READONLY;
@@ -747,8 +748,8 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SalamanderGeneral->GetCommonFSOperSourceDescr(text2, MAX_PATH + 100, PANEL_SOURCE, files, dirs, NULL, FALSE, FALSE);
         GetDlgItemText(HWindow, IDC_LABEL_SOURCE, text1, 200);
         BOOL labelSet = FALSE;
-        // pokud jde o "file \"name.txt\"" nebo "directory \"name\"" najdeme jmeno a zbytek
-        // retezce pridame do text1, aby sla pouzit CSalamanderGUI::SetSubjectTruncatedText
+        // if it is "file \"name.txt\"" or "directory \"name\"" we find the name and the remaining text
+        // we add the strings to text1 so that CSalamanderGUI::SetSubjectTruncatedText can be used
         if (files + dirs <= 1)
         {
             char* beg = strchr(text2, '"');

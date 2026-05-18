@@ -41,7 +41,7 @@ typedef struct
             char* url_audiosource; //The 'Official audio source webpage' frame is a URL pointing at the official webpage for the source of the audio file, e.g. a movie.
             char* url_iradio;      //The 'Official internet radio station homepage' contains a URL pointing at the homepage of the internet radio station.
             char* url_payment;     //The 'Payment' frame is a URL pointing at a webpage that will handle the process of paying for this file.
-            char* url_publisher;   //The 'Publishers official webpage' frame is a URL pointing at the official wepage for the publisher
+            char* url_publisher;   //The 'Publishers official webpage' frame is a URL pointing at the official webpage for the publisher
             char* url_userdefined;
             char* text_userdefined;
         };
@@ -59,7 +59,7 @@ DWORD ConvertInt28(const BYTE size[4]);
 DWORD ConvertBENumber(const BYTE size[4]);
 
 #define CONVERT_C2DW(b4) ConvertInt28(b4)
-#define CONVERT_C2DW4(b4) (DWORD(b4[0]) * 0x1000000 + DWORD(b4[1]) * 0x10000 + DWORD(b4[2]) * 0x100 + DWORD(b4[3])) //je mozne pouzit take convert BE number
+#define CONVERT_C2DW4(b4) (DWORD(b4[0]) * 0x1000000 + DWORD(b4[1]) * 0x10000 + DWORD(b4[2]) * 0x100 + DWORD(b4[3])) // you can also use convert BE number
 #define CONVERT_C2DW3(b3) (DWORD(b3[0]) * 0x10000 + DWORD(b3[1]) * 0x100 + DWORD(b3[2]))
 
 BOOL ID3TAGV2_ReadMainHead(FILE* f, ID3TAGV2_HEADER* pmh);

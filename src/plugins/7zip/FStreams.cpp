@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -31,8 +32,8 @@ BOOL ShowRetryAbortBox(HWND hParentWnd, int resID, DWORD err, ...)
     _stprintf(buf, _T("%s\n\n%s"), msg, SalamanderGeneral->GetErrorText(err));
 
     TCHAR btnBuffer[128];
-    /* slouzi pro skript export_mnu.py, ktery generuje salmenu.mnu pro Translator
-   nechame pro tlacitka msgboxu resit kolize hotkeys tim, ze simulujeme, ze jde o menu
+    /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
+   treat message box buttons as a menu to resolve hotkey collisions
 MENU_TEMPLATE_ITEM MsgBoxButtons[] = 
 {
   {MNTT_PB, 0

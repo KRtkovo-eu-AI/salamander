@@ -23,6 +23,33 @@ from tree_sitter import Language, Parser
 WORD_RE = re.compile(r"[A-Za-z]+")
 
 
+MANUAL_ENGLISH_WORDS = frozenset(
+    {
+        "arton",
+        "bzip",
+        "cvut",
+        "dpb",
+        "filezilla",
+        "ftps",
+        "hlist",
+        "isel",
+        "mkdir",
+        "msie",
+        "ocsp",
+        "partl",
+        "pecl",
+        "ramdisk",
+        "regedit",
+        "srand",
+        "tgz",
+        "ubyte",
+        "ulong",
+        "winapi",
+        "winscp",
+    }
+)
+
+
 def _build_word_set(lang: str, count: int) -> set[str]:
     """Return a set with the *count* most common words for *lang* without diacritics."""
     # Normalize the most frequent words so tokens compare consistently even when the source comment uses punctuation or diacritics.
@@ -40,7 +67,15 @@ def _load_word_sets() -> tuple[frozenset[str], frozenset[str]]:
     # Limit the number of entries to keep the cached sets lightweight but representative for each language.
     cs_words = _build_word_set("cs", 500_000)
     en_words = _build_word_set("en", 200_000)
+
+    # Remove any overlap between the automatically generated vocabularies.
     cs_words -= en_words
+
+    # Manual overrides capture technical identifiers frequently used in the codebase that
+    # would otherwise be classified as Czech due to their absence in the English frequency list.
+    cs_words -= MANUAL_ENGLISH_WORDS
+    en_words |= MANUAL_ENGLISH_WORDS
+
     return frozenset(cs_words), frozenset(en_words)
 
 
@@ -362,6 +397,13 @@ def _aggregate_stats(file_stats: dict[str, dict[str, int]]) -> dict[str, dict[st
     return aggregated
 
 
+def _format_directory_label(raw_label: str, stats: dict[str, int]) -> str:
+    """Return *raw_label* suffixed with the aggregated English translation percentage."""
+    total_size = stats["cs"] + stats["en"]
+    translated_pct = (stats["en"] / total_size * 100) if total_size > 0 else 0.0
+    return f"{raw_label} ({translated_pct:.1f}%)"
+
+
 def generate_treemap(
     file_stats: dict[str, dict[str, int]],
     output_dir: Path,
@@ -413,7 +455,7 @@ def generate_treemap(
             continue
 
         if path == project_key:
-            label = project_key
+            label = _format_directory_label(project_key, stats)
             parent = ""
         else:
             label = Path(path).name or path
@@ -424,6 +466,10 @@ def generate_treemap(
                 parent = parent_path
             else:
                 parent = project_key
+
+            if path not in scoped_stats:
+                # Only directories are missing from scoped_stats because it stores file entries.
+                label = _format_directory_label(label, stats)
 
         ids.append(path)
         labels.append(label)

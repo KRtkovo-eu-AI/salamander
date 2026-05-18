@@ -126,7 +126,7 @@ void CScriptAbortPaletteWindow::OnCreate()
     rc.top = 0;
     rc.right = cx;
     rc.bottom = cy;
-    AdjustWindowRectEx(&rc, GetWindowLong(HWindow, GWL_STYLE), FALSE, // FIXME_X64 - nahradit GetWindowLong -> GetWindowLongPtr (napric celym balikem Salamandera); tento warinig odstrani Honza Rysavy, prosim zachovat
+    AdjustWindowRectEx(&rc, GetWindowLong(HWindow, GWL_STYLE), FALSE, // FIXME_X64 - replace GetWindowLong -> GetWindowLongPtr (across the entire Salamander package); this warning will be removed by Honza Rysavy, please keep it
                        GetWindowLong(HWindow, GWL_EXSTYLE));
 
     SetWindowPos(m_pToolBar->GetHWND(), NULL, 0, 0, cx, cy,
@@ -280,7 +280,7 @@ unsigned CScriptAbortPaletteThread::Body()
     // Let everyone know that the palette window is now ready.
     SetEvent(m_hWindowCreatedEvt);
 
-    // Remove unneccessary items from the system menu.
+    // Remove unnecessary items from the system menu.
     HMENU hSysMenu = GetSystemMenu(hwndPalette, FALSE);
     if (hSysMenu != NULL)
     {
@@ -293,8 +293,8 @@ unsigned CScriptAbortPaletteThread::Body()
                 // We cannot delete the SC_CLOSE menu item,
                 // since that would not disable the close button
                 // on the title bar on Vista+ with Aero.
-                // Moreover the item cannot be referenced by
-                // position but by command only.
+                // Moreover, the item cannot be referenced
+                // by position, only by command.
                 EnableMenuItem(hSysMenu, SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
             }
             else if (uId != SC_MOVE)

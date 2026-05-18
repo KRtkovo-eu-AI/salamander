@@ -11,9 +11,9 @@
 
 #include "precomp.h"
 
-// otevre specifikovany soubor a prevede jej na sekvecni DWORDu
-// tedy 24 bitu pro barvu (R, G, B) a 8 bitu smeti
-// velikost jednoho radku v bajtech je: sirka_obrazku * sizeof(DWORD)
+// opens the specified file and converts it into a sequence of DWORDs
+// i.e. 24 bits for color (R, G, B) and 8 unused bits
+// the size of a single row in bytes is: image_width * sizeof(DWORD)
 
 DWORD GetClrUsed(const BITMAPINFOHEADER* bih, BOOL max)
 {
@@ -29,7 +29,7 @@ DWORD GetClrUsed(const BITMAPINFOHEADER* bih, BOOL max)
     case 8:
         return 256;
     default:
-        return 0; // A 24 or 32 bitcount DIB has no color table
+        return 0; // A 24-bit or 32-bit DIB has no color table
     }
 }
 
@@ -147,7 +147,7 @@ CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename,
                                               BOOL fastThumbnail)
 {
     BOOL stopFurtherLoaders = TRUE; // don't try next parsers
-    // we must call thumbMaker->SetError() when error occures and stopFurtherLoaders is TRUE
+    // we must call thumbMaker->SetError() when an error occurs and stopFurtherLoaders is TRUE
 
     // open the file
     HANDLE hFile = HANDLES_Q(CreateFile(filename, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -194,7 +194,7 @@ CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename,
                                 processTopDown = TRUE;
                                 height *= -1;
                             }
-                            // pass picture format to Open Salamander
+                            // pass image parameters to Open Salamander
                             if (thumbMaker->SetParameters(width, height, processTopDown ? 0 : SSTHUMB_MIRROR_VERT))
                             {
                                 LOGPALETTE* palette = NULL;
@@ -245,7 +245,7 @@ CPluginInterfaceForThumbLoader::LoadThumbnail(const char* filename,
 
                                     int bufferLines = min(max(1, 50000 / rowSize), bih.biHeight);
                                     DWORD bufferSize = bufferLines * rowSize;
-                                    void* srcBuffer = malloc(bufferSize + 1); // +1 pro presah v ConvertDIBToCOLORREF/24 bitu
+                                    void* srcBuffer = malloc(bufferSize + 1); // +1 for the overlap in ConvertDIBToCOLORREF/24 bits
                                     void* dstBuffer;
                                     if (srcBuffer != NULL)
                                     {
