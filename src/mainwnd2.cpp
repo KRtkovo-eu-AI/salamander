@@ -156,7 +156,7 @@ const DWORD THIS_CONFIG_VERSION = 104;
 // !!! Keep the corresponding lines in SalamanderConfigurationVersions up to date
 const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
     {
-        "Software\\Open Salamander\\5.0",
+        "Software\\Open Salamander Samandarin\\5.0-samandarin-0.1",
         "Software\\Altap\\Altap Salamander 4.0",
         "Software\\Altap\\Altap Salamander 4.0 beta 1 (DB177)",
         "Software\\Altap\\Altap Salamander 4.0 beta 1 (DB171)",
@@ -3847,8 +3847,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.TitleBarPrefix, TITLE_PREFIX_MAX);
             GetValue(actKey, CONFIG_MAINWINDOWICONINDEX_REG, REG_DWORD,
                      &Configuration.MainWindowIconIndex, sizeof(DWORD));
-            if (Configuration.MainWindowIconIndex < 0 || Configuration.MainWindowIconIndex > MAINWINDOWICONS_COUNT)
-                Configuration.MainWindowIconIndex = 0;
+            if (Configuration.MainWindowIconIndex < 0 || Configuration.MainWindowIconIndex >= MAINWINDOWICONS_COUNT)
+                Configuration.MainWindowIconIndex = MAINWINDOWICON_DEFAULT_INDEX;
             GetValue(actKey, CONFIG_CLICKQUICKRENAME_REG, REG_DWORD,
                      &Configuration.ClickQuickRename, sizeof(DWORD));
             GetValue(actKey, CONFIG_VISIBLEDRIVES_REG, REG_DWORD,
