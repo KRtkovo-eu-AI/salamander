@@ -2284,12 +2284,6 @@ BOOL CSalamanderGeneral::PostRefreshPanelFS2(CPluginFSInterfaceAbstract* modifie
     }
     if (notified)
     {
-        // post a hard refresh
-        HANDLES(EnterCriticalSection(&TimeCounterSection));
-        int t1 = MyTimeCounter++;
-        HANDLES(LeaveCriticalSection(&TimeCounterSection));
-        p->FocusFirstNewItem = focusFirstNewItem; // not synchronized (may be called outside the main thread) but should not matter
-        PostMessage(p->HWindow, WM_USER_REFRESH_DIR, 0, t1);
         return TRUE;
     }
     else

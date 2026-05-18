@@ -244,6 +244,7 @@ LOGFONT LogFont;
 int FontCharHeight = 0;
 
 HFONT EnvFont = NULL;
+HFONT EnvFontBold = NULL;
 HFONT EnvFontUL = NULL;
 //LOGFONT EnvLogFont;
 int EnvFontCharHeight = 0;
@@ -1905,6 +1906,12 @@ void ReleaseConstGraphics()
         EnvFont = NULL;
     }
 
+    if (EnvFontBold != NULL)
+    {
+        HANDLES(DeleteObject(EnvFontBold));
+        EnvFontBold = NULL;
+    }
+
     if (EnvFontUL != NULL)
     {
         HANDLES(DeleteObject(EnvFontUL));
@@ -2128,6 +2135,14 @@ int GetScaleForSystemDPI()
         scale = 500;
 
     return scale;
+}
+
+int DipToPixels(int dips)
+{
+    if (dips <= 0)
+        return dips;
+
+    return MulDiv(dips, GetSystemDPI(), 96);
 }
 
 int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
@@ -2443,16 +2458,6 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         {
             // folder icon
             hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
-            __try
-            {
-                if (!GetFileIcon(systemDir, FALSE, &hIcon, (CIconSizeEnum)sizeIndex, FALSE, FALSE))
-                    hIcon = NULL;
-            }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 15))
-            {
-                FGIExceptionHasOccured++;
-                hIcon = NULL;
-            }
             if (hIcon != NULL) // if we do not obtain the icon, the #4 one from shell32.dll remains
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
