@@ -172,7 +172,7 @@ BOOL CMainWindow::Init()
     // we do not want visual styles for the rebar
     if (SalGUI->DisableWindowVisualStyles(Rebar->HWindow))
     {
-    // force WS_BORDER back in case it "disappeared"
+        // force WS_BORDER back in case it "disappeared"
         DWORD style = GetWindowLong(Rebar->HWindow, GWL_STYLE);
         style |= WS_BORDER;
         SetWindowLong(Rebar->HWindow, GWL_STYLE, style);
@@ -508,7 +508,7 @@ void CMainWindow::SelectDifferenceByOffset(QWORD offset, BOOL center)
         {
             OutOfRange = FALSE;
             SelectDifference(mid, 0, TRUE, center);
-            return; // nasli jsme
+            return; // found it
         }
         if (Changes[mid].Offset < offset)
             l = mid + 1;
@@ -705,7 +705,7 @@ BOOL CMainWindow::RebuildFileViewScripts(BOOL& cancel)
         SetForegroundWindow(HWindow);
         UpdateWindow(HWindow);
 
-        return TRUE; // ok
+        return TRUE; // success
     }
 
     // something went wrong
@@ -833,9 +833,9 @@ void CMainWindow::RestoreRebarLayout()
         BandsParams[BI_DIFFLIST].Style = 0;
         BandsParams[BI_DIFFLIST].Index = 1;
     }
-    // band s toolbarou
+    // band with the toolbar
     Rebar->SetBandParams(IDC_TOOLBAR, BandsParams + BI_TOOLBAR);
-    // band s combacem
+    // band with the combo box
     Rebar->SetBandParams(IDC_DIFFLIST, BandsParams + BI_DIFFLIST);
 }
 
@@ -880,7 +880,7 @@ void CMainWindow::SpawnWorker(const char* path1, const char* path2,
         if (!worker->Create(ThreadQueue))
         {
             delete worker;
-            SetEvent(WorkerEvent); // so we do not wait for it in vain
+            SetEvent(WorkerEvent); // so we do not wait for it unnecessarily
             TRACE_I("Nepovedlo se spustit diff worker thread.");
         }
         else
@@ -962,8 +962,8 @@ bool CMainWindow::TextFilesDiffer(CTextCompareResults<CChar>* res, char* message
     TTextFileViewWindow<CChar>* leftFileView = (TTextFileViewWindow<CChar>*)FileView[fviLeft];
     TTextFileViewWindow<CChar>* rightFileView = (TTextFileViewWindow<CChar>*)FileView[fviRight];
 
-    // taking ownership of the data; from now on I must release it
-    // predanych v CTextCompareResults
+    // take ownership of the data; from now on, it must be deallocated here
+    // after it is passed via CTextCompareResults
     leftFileView->SetData(res->Files[0].Text, res->Files[0].Lines, res->Files[0].LineScript);
     rightFileView->SetData(res->Files[1].Text, res->Files[1].Lines, res->Files[1].LineScript);
 
@@ -1076,7 +1076,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
-        if (wParam == 666) // we should post CM_EXIT; the modal dialog should be gone by now
+        if (wParam == 666) // post CM_EXIT; the modal dialog should be gone by now
         {
             KillTimer(HWindow, 666);
             PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0);
@@ -1132,7 +1132,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 return 0;
             }
         }
-            // jedeme dal ...
+            // keep going ...
         case CM_EXIT:
             if (!IsWindowEnabled(HWindow))
             { // close all dialogs above this one (send them WM_CLOSE, then repost CM_EXIT here)
@@ -1167,12 +1167,12 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             UINT state = GetMenuState(GetMenu(HWindow), CM_PREVDIFF, MF_BYCOMMAND);
             if (state & (MF_DISABLED | MF_GRAYED))
             {
-                if (DifferencesCount > 0) // Petr: when I scroll the view somewhere else I want Alt+Arrow to focus the difference (hunting it manually is a pain); with just one diff it did not work at all, otherwise only by jumping to next/previous
+                if (DifferencesCount > 0) // Petr: when the view is scrolled away, Alt+Arrow should focus the difference (finding it manually is a pain); with only one difference, it did not work at all, otherwise it only worked by switching to previous/next
                     SelectDifference(SelectedDifference, CM_PREVDIFF);
                 return 0;
             }
         }
-            // jedeme dal
+            // keep going
 
         case CM_PREVDIFF:
             if (DataValid)
@@ -1198,16 +1198,16 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             UINT state = GetMenuState(GetMenu(HWindow), CM_NEXTDIFF, MF_BYCOMMAND);
             if (state & (MF_DISABLED | MF_GRAYED))
             {
-                if (DifferencesCount > 0) // Petr: when I scroll the view somewhere else I want Alt+Arrow to focus the difference (hunting it manually is a pain); with just one diff it did not work at all, otherwise only by jumping previous/next
+                if (DifferencesCount > 0) // Petr: when the view is scrolled away, Alt+Arrow should focus the difference (finding it manually is a pain); with only one difference, it did not work at all, otherwise it only worked by switching to previous/next
                     SelectDifference(SelectedDifference, CM_NEXTDIFF);
                 return 0;
             }
         }
-            // jedeme dal
+            // keep going
 
         case CM_NEXTDIFF:
             if (DataValid)
-                SelectDifference(SelectedDifference + 1, CM_NEXTDIFF); // guard the DifferencesCount test later
+                SelectDifference(SelectedDifference + 1, CM_NEXTDIFF); // handle the DifferencesCount test later
             return 0;
 
         case CM_LASTDIFF:
@@ -1309,7 +1309,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 ((CTextFileViewWindowBase*)FileView[fviRight])->SetShowWhiteSpace(ShowWhiteSpace);
             }
 
-            // prekreslime obrazovku
+            // redraw the screen
             InvalidateRect(LeftFileViewHWnd, NULL, FALSE);
             UpdateWindow(LeftFileViewHWnd);
             InvalidateRect(RightFileViewHWnd, NULL, FALSE);
@@ -1357,7 +1357,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 CheckMenuItem(GetMenu(HWindow), CM_DETAILDIFF, MF_BYCOMMAND | (DetailedDifferences ? MF_CHECKED : MF_UNCHECKED));
 
-                // prekreslime obrazovku
+                // redraw the screen
                 InvalidateRect(LeftFileViewHWnd, NULL, FALSE);
                 UpdateWindow(LeftFileViewHWnd);
                 InvalidateRect(RightFileViewHWnd, NULL, FALSE);
@@ -1979,7 +1979,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 RightHeader->SetText("");
                 FileView[fviLeft]->InvalidateData(); // ensure the windows are repainted
                 FileView[fviRight]->InvalidateData();
-                ret = FALSE; // nebudeme hledat difference
+                ret = FALSE; // we will not search for the difference
             }
 
             break;
@@ -2228,10 +2228,11 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_ACTIVATEWINDOW:
     {
-        // if the window is disabled, a message box is likely sitting on top of it;
-        // bringing this window to the front would activate it (an issue in an older SS version
-        // where comparing identical files showed this window, then a message box about the match,
-        // and finally this message arrived, stealing focus from the box and activating the window underneath)
+        // if the window is disabled, a message box is likely displayed above it;
+        // bringing this window to the front would activate it (this happened in an older SS version
+        // when the user compared two identical files: this window appeared first,
+        // then a message box reporting the match popped up, and finally this message arrived,
+        // stealing focus from the message box and activating the window underneath)
         if (IsWindowEnabled(HWindow))
         {
             ShowWindow(HWindow, ShowCmd /*SW_SHOW*/);

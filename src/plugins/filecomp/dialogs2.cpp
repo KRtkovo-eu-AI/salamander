@@ -221,7 +221,7 @@ void CPropPageColors::ChooseColor(int item, int colorFG, int colorBK, const RECT
                              btnRect->right, btnRect->top, HWindow, &tpmPar))
     {
     case CM_CUSTOMTEXT:
-        color = colorFG; // keep going...
+        color = colorFG; // fall through
     case CM_CUSTOMBACKGROUND:
     {
         CHOOSECOLOR cc;
@@ -276,7 +276,7 @@ CPropPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             ColorButtons[i][LINENUM_COLOR_BTN] = SalGUI->AttachColorArrowButton(HWindow, LineNumIDs[i], TRUE);
             ColorButtons[i][TEXT_COLOR_BTN] = SalGUI->AttachColorArrowButton(HWindow, TextIDs[i], TRUE);
-            // #pragma message(__FILE__ "(280) : Honzo, once you implement this, uncomment the code below. Thanks, Lukas.")
+            // #pragma message(__FILE__ "(280) : Once you implement this, uncomment the code below. Thanks, Lukas.")
             // j.r. FIXME: I have not had time yet, so I am putting the pragma into a comment so it does not haunt the build
             // l.c., 13.2.2011 I only uncommented the pragma as a test in case you coded it in the meantime :)
             // j.r., 23.3.2011 low priority, we will not deal with it for now
@@ -372,7 +372,7 @@ CPropPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LRESULT i = SendMessage(GetDlgItem(HWindow, IDC_ITEMS), CB_GETCURSEL, 0, 0);
         UpdateColors(int(i));
-        // #pragma message(__FILE__ "(375) : Honzo, once you verify that CGUIColorArrowButton refreshes pens automatically, delete the following comment (do not confuse with uncomment :). Thanks, Lukas")
+        // #pragma message(__FILE__ "(375) : Once you verify that CGUIColorArrowButton refreshes pens automatically, delete the following comment (do not confuse with uncomment :). Thanks, Lukas")
         // j.r. FIXME: I have not had time yet, so I am putting the pragma into a comment so it does not haunt the build
         // l.c., 13.2.2011 I only uncommented the pragma as a test in case you coded it in the meantime :)
         // j.r., 23.3.2011 low priority, we will not deal with it for now
@@ -522,7 +522,7 @@ void CPreviewWindow::RePaint()
 void CPreviewWindow::SetFont(LOGFONT* font)
 {
     CALL_STACK_MESSAGE1("CPreviewWindow::SetFont()");
-    // load the font
+    // create the font
     if (HFont)
         DeleteObject(HFont);
     HDC hdc = GetDC(NULL);
@@ -563,7 +563,7 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RECT r1; // line number
         r1.left = 0;
         r1.right = (2 + 1) * FontWidth + BORDER_WIDTH;
-        r1.bottom = 0; // have valid data later if the drawing loop never runs
+        r1.bottom = 0; // so we have valid data later even if the drawing loop never runs
         RECT r2;       // the actual text line
         r2.left = r1.right;
         r2.right = cr.right;

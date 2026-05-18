@@ -69,7 +69,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     _CrtMemCheckpoint(&___CrtMemState);
 #endif //DUMP_MEM
 
-    if (!InitLCUtils(salamander, "File Comparator" /* neprekladat! */))
+    if (!InitLCUtils(salamander, "File Comparator" /* do not translate! */))
         return NULL;
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
@@ -97,7 +97,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM,
                                    VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
-                                   "File Comparator" /* neprekladat! */);
+                                   "File Comparator" /* do not translate! */);
 
     salamander->SetPluginHomePageURL("www.altap.cz");
 
@@ -296,7 +296,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
                 // and thus the toolbar could be partially covered by Differences
                 registry->GetValue(regKey, CONFIG_REBARBANDSLAYOUT, REG_BINARY, BandsParams, sizeof(CBandParams) * 2);
             }
-            // posledni navstivena stranka v konfiguraci
+            // last visited page in the configuration dialog
             registry->GetValue(regKey, CONFIG_LASTCFGPAGE, REG_DWORD, &LastCfgPage, sizeof(DWORD));
             // load on start flag
             DWORD dw;
@@ -317,7 +317,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     }
 
     UpdateDefaultColors(Colors, Palette);
-    // Do not allow normalization if Normaliz.dll not present
+    // Do not allow normalization if Normaliz.dll is not present
     if (!PNormalizeString)
         DefCompareOptions.NormalizationForm = FALSE;
 }
@@ -444,7 +444,7 @@ CPluginInterface::GetInterfaceForMenuExt()
     return &InterfaceForMenu;
 }
 
-void CPluginInterface::Event(int event, DWORD param) // FIXME_X64 - staci zde jen 32b DWORD?
+void CPluginInterface::Event(int event, DWORD param) // FIXME_X64 - is a 32-bit DWORD sufficient here?
 {
     CALL_STACK_MESSAGE2("CPluginInterface::Event(, 0x%X)", param);
     switch (event)
@@ -522,7 +522,7 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
 
             if (!fd2)
             {
-                // one item is selected and we take the other either from focus
+                // one item is selected, and we take the other either from the focused item
                 // or from the selection in the target panel
                 index = 0;
                 fd2 = SG->GetPanelSelectedItem(PANEL_TARGET, &index, &isDir);
@@ -561,7 +561,7 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
         SG->SalPathAppend(file1, fd1->Name, MAX_PATH);
 
         if (fd2 &&
-            !isDir && fd2 != fd1) // in case we take the file from the focus
+            !isDir && fd2 != fd1) // in case we take the file from the focused item
         {
             // store the name of the second file
             SG->GetPanelPath(PANEL_SOURCE, file2, MAX_PATH, NULL, NULL);
@@ -572,7 +572,7 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
         {
             if (tgtPanelIsDisk)
             {
-                // jeste musime vybrat druhy soubor s target panelu
+                // we still need to pick the second file from the target panel
                 index = 0;
                 fd2 = SG->GetPanelSelectedItem(PANEL_TARGET, &index, &isDir);
 
@@ -689,7 +689,7 @@ CFilecompThread::Body()
         }
 
         if (!dialogBox || !succes)
-            break; // leave the message loop
+            break; // exit the message loop
 
     LLAUNCHFC:
 
