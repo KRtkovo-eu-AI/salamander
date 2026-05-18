@@ -44,12 +44,12 @@ protected:
     };
     typedef std::vector<CCharProxy<CChar>> CStrictCompareData;
 
-    HWND MainWindow; // okno, ktere dostane WM_USER_WORKERNOTIFIES
+    HWND MainWindow; // window that receives WM_USER_WORKERNOTIFIES
     CCompareOptions& Options;
-    const int& CancelFlag; // 0 ... jedeme dal, jinak konec
+    const int& CancelFlag; // 0 ... keep going, otherwise finish
     CFCFileData Files[2];
 
-    // work buffers for StrictCompare are to prevent offten re-allocation when
+    // work buffers for StrictCompare prevent repeated reallocation when
     // called multiple times
     struct CStrictData
     {

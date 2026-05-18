@@ -35,14 +35,14 @@ protected:
     CLogger* _logger;
 
     int _clustersize;
-    int _minimalfilesize; //zjistit zda NTFS, protoze pak = 512
+    int _minimalfilesize; //determine whether NTFS, because then it equals 512
 
     CRWLock* GetRWLock() { return this->_lock; }
 
     static DWORD_PTR WINAPI PopulateThreadProc(CWorkerThread* mythread, LPVOID lpParam)
     {
         CZRoot* self = (CZRoot*)lpParam;
-        TCHAR path[2 * MAX_PATH + 3]; //aby se vesla MAX_PATH cesta + MAX_PATH dlouhy nazev souboru + nejaka rezerva
+        TCHAR path[2 * MAX_PATH + 3]; //fits a MAX_PATH path + MAX_PATH-long file name + some margin
         self->PopulateDir(mythread, path, 0, ARRAYSIZE(path));
         if (mythread->Aborting() && mythread->IsSelfDelete())
         {
@@ -89,7 +89,7 @@ public:
     CZRoot(TCHAR const* name, CLogger* logger, int sortorder = FILESIZE_DISK) : CZDirectory(NULL, name, NULL, NULL)
     {
         this->_clustersize = 0;
-        this->_minimalfilesize = 0; //TODO: pro NTFS = 512
+        this->_minimalfilesize = 0; // TODO: use 512 for NTFS
 
         this->_allfilecount = 0;
         this->_alldircount = 0;
@@ -109,7 +109,7 @@ public:
     }
     int GetSortOrder() { return this->_sortorder; }
 
-    //FIXME: toto je hack :(
+    // FIXME: this is a hack.
     void SetClusterSize(int clustersize)
     {
         this->_clustersize = clustersize;
@@ -156,7 +156,7 @@ public:
 
     INT64 SyncPopulate()
     {
-        TCHAR path[2 * MAX_PATH + 3]; //aby se vesla MAX_PATH cesta + MAX_PATH dlouhy nazev souboru + nejaka rezerva
+        TCHAR path[2 * MAX_PATH + 3]; //fits a MAX_PATH path + MAX_PATH-long file name + some margin
         return this->PopulateDir(NULL, path, 0, ARRAYSIZE(path));
     }
 

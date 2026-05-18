@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -17,12 +18,12 @@
 typedef wchar_t unicode_t;
 
 #define SECTOR_SIZE 0x800
-#define INVALID_SECTOR_NUMBER -11111111 // reasonable negative number; Should not be -1 or so!!
+#define INVALID_SECTOR_NUMBER -11111111 // A suitable negative number; should not be -1 or similar.
 
-// Maximum length of filenames allowed in UDF.
+// Maximum filename length allowed in UDF.
 #define MAX_UDF_FILE_NAME_LEN 2048
 
-// Flagy pro testovani File Identifier Descriptoru
+// Flags for testing the File Identifier Descriptor
 #define UDF_HIDDEN 0x01
 #define UDF_DIRECTORY 0x02
 #define UDF_DELETED 0x04
@@ -36,7 +37,7 @@ typedef wchar_t unicode_t;
 //		  | ((Uint32)data[(p) + 2] << 16))
 #define GET_DWORD(data, p) ((Uint32)data[p] | ((Uint32)data[(p) + 1] << 8) | ((Uint32)data[(p) + 2] << 16) | ((Uint32)data[(p) + 3] << 24))
 #define GET_QWORD(data, p) ((Uint64)data[p] | ((Uint64)data[(p) + 1] << 8) | ((Uint64)data[(p) + 2] << 16) | ((Uint64)data[(p) + 3] << 24) | ((Uint64)data[(p) + 4] << 32) | ((Uint64)data[(p) + 5] << 40) | ((Uint64)data[(p) + 6] << 48) | ((Uint64)data[(p) + 7] << 56))
-/* This is wrong with regard to endianess */
+/* This is wrong with regard to endianness */
 #define GETN(data, p, n, target) memcpy(target, &data[p], n)
 
 static void
@@ -65,7 +66,7 @@ UDFTimeStampToFileTime(CUDF::CTimeStamp& stamp, FILETIME* ft)
     { // Valid timezone, offset in minutes
         __int64 newtime = ft->dwLowDateTime + (((__int64)ft->dwHighDateTime) << 32);
 
-        if (offset & 0x800) // negative 12-bit number -> extend to 32-bit negative number
+        if (offset & 0x800) // negative 12-bit number -> sign-extend to a 32-bit negative number
             offset |= 0xFFFFF000;
         newtime -= ((__int64)offset) * 60 * 1000 * 1000 * 10; // from min units to 100ns units
         ft->dwLowDateTime = (DWORD)(newtime & 0x00000000ffffffff);
@@ -90,7 +91,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
     unsigned int compID;
     int returnValue, unicodeIndex, byteIndex;
 
-    // Use 'compressed' to store current byte being read.
+    // 'compressed' points to the compressed input bytes being read.
     compID = compressed[0];
 
     // First check for valid compID.
@@ -104,7 +105,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
         byteIndex = 1;
         if (16 == compID)
         {
-            // Make it odd number: length byte plus even number of text bytes
+            // Make it an odd number: a length byte plus an even number of text bytes
             numberOfBytes = ((numberOfBytes - 1) & 0xFFFE) + 1;
         }
 
@@ -113,7 +114,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
         {
             if (compID == 16)
             {
-                // Move the first byte to the high bits of the unicode char.
+                // Move the first byte to the high bits of the Unicode character.
                 unicode[unicodeIndex] = compressed[byteIndex++] << 8;
             }
             else
@@ -122,7 +123,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
             }
             if (byteIndex < numberOfBytes)
             {
-                // Then the next byte to the low bits.
+                // Then put the next byte into the low bits.
                 unicode[unicodeIndex] |= compressed[byteIndex++];
             }
             unicodeIndex++;
@@ -145,7 +146,7 @@ void DecodeOSTACompressed(BYTE* id, int len, char* result)
         return;
     }
     uncompressed[ucompChars] = 0;
-    int length = MIN(ucompChars, UnicodeLength(uncompressed)) + 1 /*terminating zero*/;
+    int length = MIN(ucompChars, UnicodeLength(uncompressed)) + 1 /*null terminator*/;
 
     char final[1024];
 
@@ -390,10 +391,10 @@ void CUDF::ReadDescriptorTag(BYTE sector[], CDescriptorTag* tag)
 
 //
 // in:
-//    data
+//    data, partition
 //
 // out:
-//    ad, partition
+//    ad
 int CUDF::ShortAD(Uint8* data, CUDF::CAD* ad, WORD partNumber)
 {
     ad->Length = GET_DWORD(data, 0);
@@ -521,11 +522,11 @@ int CUDF::ReadFileEntry(Uint8* data, bool bEFE, Uint16 part, CICBTag* icbTag, CU
             break;
         }
     }
-    cnt -= maxAds; // # of used ad entries
+    cnt -= maxAds; // Number of used AD entries
     if (maxAds > 0)
     {
         // Terminate the sequence
-        // And also init ad for an empty file (i.e. there isn't a AD, L_AD == 0 )
+        // Also initialize ad for an empty file (i.e. there is no AD, L_AD == 0)
         ad->Length = 0;
         ad->Flags = 0;
         ad->Location = 0; // what should we put here?
@@ -678,7 +679,7 @@ BOOL CUDF::Open(BOOL quiet)
 
         if (block > lastBlock)
         {
-            // Just to make sure we don't read in a too big file, stop after 128 sectors.
+            // Just to make sure we do not read too large a file, stop after 128 sectors.
             ret = FALSE;
             break;
         }
@@ -711,7 +712,7 @@ void CUDF::ReadFileEntry(BYTE sector[], bool bEFE, CFileEntry* fe)
 }
 
 //
-// vrati delku precteneho alloc descriptoru
+// returns the length of the allocation descriptor read
 int CUDF::ReadAllocDesc(BYTE data[], CFileEntry* fe, BYTE* vat, DWORD* o)
 {
     CAD ad;
@@ -792,7 +793,7 @@ BOOL CUDF::AddFileDir(const char* path, char* fileName, BYTE fileChar, CAD* icb,
 
         fd.DosName = NULL;
 
-        fd.Attr = FILE_ATTRIBUTE_READONLY; // vse je defaultne read-only
+        fd.Attr = FILE_ATTRIBUTE_READONLY; // everything is read-only by default
         fd.Hidden = 0;
         fd.IsOffline = 0;
 
@@ -811,7 +812,7 @@ BOOL CUDF::AddFileDir(const char* path, char* fileName, BYTE fileChar, CAD* icb,
             UDFTimeStampToFileTime(PVD.RecordingDateandTime, &fd.LastWrite);
 
             if (!SortByExtDirsAsFiles)
-                fd.Ext = fd.Name + fd.NameLen; // adresare nemaji priponu
+                fd.Ext = fd.Name + fd.NameLen; // directories do not have an extension
 
             if (dir && !dir->AddDir(path, fd, pluginData))
             {
@@ -831,7 +832,7 @@ BOOL CUDF::AddFileDir(const char* path, char* fileName, BYTE fileChar, CAD* icb,
             fd.Size.Value = fe.InformationLength;
             UDFTimeStampToFileTime(fe.mtime, &fd.LastWrite);
 
-            // soubor
+            // file
             fd.IsLink = SalamanderGeneral->IsFileLink(fd.Ext);
             if (dir && !dir->AddFile(path, fd, pluginData))
             {
@@ -909,14 +910,14 @@ int CUDF::ScanDir(CUDF::CAD dirICB, char* path,
     Uint8 fileChar;
     unsigned int p;
 
-    // Scan dir for ICB of file
+    // Scan the directory for the file ICB
     lbNum = LogSector(dirICB.Location, dirICB.Partition);
     if (!ReadBlockPhys(lbNum, 2, directory))
     {
         Error(IDS_ERROR_LISTING_IMAGE, FALSE, lbNum);
-        // cteme-li z root (lbNum == 2), vratime ERR_CONTINUE, abychom se mohli vnorit do prazdneho image
-        // snazime se chovat konzistentne z pohledu uzivatele
-        // TODO: lepsi detekce toho, zda je cteny sector korenovy
+        // if we are reading from the root (lbNum == 2), return ERR_CONTINUE so we can descend into an empty image
+        // we try to behave consistently from the user's point of view
+        // TODO: better detection of whether the sector being read is the root
         return lbNum == 2 ? ERR_CONTINUE : ERR_TERMINATE;
     }
 
@@ -959,11 +960,11 @@ int CUDF::ScanDir(CUDF::CAD dirICB, char* path,
 
                     CAD fileICB;
                     CICBTag icbTag;
-                    // zanorit, kdyz je vse OK
+                    // descend when everything is OK
                     if (MapICB(icb, &icbTag, &fileICB) && ret == ERR_OK)
                     {
                         ret = ScanDir(fileICB, newPath, dir, pluginData);
-                        // kdyz se vynorime s ukoncovaci chybou, pokracovat ve zpracovani, co to pujde
+                        // if we surface with a termination error, keep processing as much as possible
                         if (ret == ERR_TERMINATE)
                             ret = ERR_CONTINUE;
                     }
@@ -985,10 +986,10 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
 {
     CALL_STACK_MESSAGE7("CUDF::UnpackFile( , %s, %s, %s, %p, %u, %d)", srcPath, path, nameInArc, fileData, silent, toSkip);
 
-    // TODO: vybalovani podle alokacni strategie 4096
-    // pokud je soubor sekvence allocation descriptoru, pak ho nedokazeme vybalit, protoze se musi sledovat,
-    // kam odkazuji alloc. descriptory a pouzit ty spravne bloky (nemame image na otestovani,
-    // neimplementujeme, snad casem)
+    // TODO: extraction for allocation strategy 4096
+    // If the file is a sequence of allocation descriptors, we cannot extract it because we would need to track
+    // where the allocation descriptors point and use the correct blocks (we do not have an image to test this on,
+    // so this is not implemented yet).
 
     if (fileData == NULL)
         return UNPACK_ERROR;
@@ -1032,7 +1033,7 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
 
         CICBTag icbTag;
         CAD icbs[32]; // Each ICB can describe at most 1GB-1B
-        // -> 9 ICB's should be enough for a DVD9, but we are paranoic
+        // 9 ICBs should be enough for a DVD9, but be conservative
 
         int nicbs = ReadFileEntry(fileEntry, UDF_TAGID_EXTFENTRY == tag.ID, fp->Partition, &icbTag, icbs, sizeof(icbs) / sizeof(CAD));
 
@@ -1040,7 +1041,7 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
         delete[] fileEntry;
         fileEntry = NULL;
 
-        // Verify that the icbs describe as many bytes as needed by the file
+        // Verify that the ICBs describe as many bytes as the file requires
         ULONGLONG acc = 0;
         if (-1 == nicbs)
         {
@@ -1096,11 +1097,11 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
         // set file time
         file.SetFileTime(&ft, &ft, &ft);
 
-        // celkova operace muze pokracovat dal. pouze skip
+        // the overall operation can continue further: skip only
         if (toSkip)
             throw UNPACK_ERROR;
 
-        // celkova operace nemuze pokracovat dal. cancel
+        // the overall operation cannot continue any further: cancel
         if (hFile == INVALID_HANDLE_VALUE)
             throw UNPACK_CANCEL;
 
@@ -1117,14 +1118,14 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
             BYTE track = Image->GetTrackFromExtent(picb->Location);
             DWORD extentOfs = Image->GetTrack(track)->ExtentOffset;
 
-            // je treba otevrit track, ze ktereho budeme cist (nastaveni parametru tracku)
+            // open the track to read from (sets the track parameters)
             if (!Image->OpenTrack(track))
             {
                 Error(IDS_CANT_OPEN_TRACK, silent == 1, track);
                 throw UNPACK_ERROR;
             }
 
-            DWORD block = picb->Location - extentOfs; // pouzit extent z tracku, kde je soubor ulozen
+            DWORD block = picb->Location - extentOfs; // use the extent from the track where the file is stored
             DWORD remain = picb->Length;
 
             /*
@@ -1166,21 +1167,21 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
                     break;
                 }
 
-                if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE, to make things faster
+                if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint == TRUE to make this faster
                 {
                     salamander->ProgressDialogAddText(LoadStr(IDS_CANCELING_OPERATION), FALSE);
                     salamander->ProgressEnableCancel(FALSE);
 
                     ret = UNPACK_CANCEL;
                     bFileComplete = FALSE;
-                    break; // preruseni akce
+                    break; // operation interrupted
                 }
 
                 ULONG written;
                 // picb->Offset is nonzero only for small (less than a sector) files inlined within File Entry
                 if (!file.Write(sector + picb->Offset, nbytes, &written, name, NULL))
                 {
-                    // Error message was already displayed by SafeWriteFile()
+                    // The error message was already displayed by SafeWriteFile().
                     ret = UNPACK_CANCEL;
                     bFileComplete = FALSE;
                     break;
@@ -1202,14 +1203,14 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
 
         if (!bFileComplete)
         {
-            // protoze je vytvoren s read-only atributem, musime R attribut
-            // shodit, aby sel soubor smazat
+            // because it was created with the read-only attribute, we must clear
+            // the read-only attribute so the file can be deleted
             attrs &= ~FILE_ATTRIBUTE_READONLY;
             if (!SetFileAttributes(name, attrs))
                 Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError(), silent == 1);
 
-            // user zrusil operaci
-            // smazat po sobe neuplny soubor
+            // the user canceled the operation
+            // delete the incomplete file afterwards
             if (!DeleteFile(name))
                 Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError(), silent == 1);
         }
@@ -1232,7 +1233,7 @@ BOOL CUDF::DumpInfo(FILE* outStream)
 
     char buffer[256], *s;
 
-    // zobrazit info z PVD
+    // display info from the PVD
     DecodeOSTACompressed((BYTE*)PVD.VolumeIdentifier, 32, buffer);
     fprintf(outStream, "    Volume:             %s\n", buffer);
     DecodeOSTACompressed((BYTE*)PVD.VolumeSetIdentifier, 128, buffer);
