@@ -207,6 +207,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragIndicatorVisible = false;
     LastClickedIndex = -1;
     LastClickWasSelected = false;
+    MouseWheelAccumulator = 0;
 }
 
 CTabWindow::~CTabWindow()
@@ -588,6 +589,33 @@ void CTabWindow::RefreshLayout()
 {
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
+}
+
+bool CTabWindow::HandleMouseWheel(WPARAM wParam)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return false;
+
+    short zDelta = (short)HIWORD(wParam);
+    if (zDelta == 0)
+        return true;
+
+    if ((zDelta < 0 && MouseWheelAccumulator > 0) ||
+        (zDelta > 0 && MouseWheelAccumulator < 0))
+    {
+        MouseWheelAccumulator = 0;
+    }
+
+    MouseWheelAccumulator += zDelta;
+    int steps = MouseWheelAccumulator / WHEEL_DELTA;
+    if (steps != 0)
+    {
+        MouseWheelAccumulator -= steps * WHEEL_DELTA;
+        ScrollTabsByWheelSteps(steps);
+    }
+
+    return true;
 }
 
 void CTabWindow::UpdateNewTabButtonWidth()
@@ -1372,6 +1400,21 @@ void CTabWindow::ExpandSelectedTabRect(RECT& rect) const
     rect.top -= expand;
 }
 
+void CTabWindow::ScrollTabsByWheelSteps(int steps)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL || steps == 0)
+        return;
+
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    UINT scrollCode = steps > 0 ? SB_LINELEFT : SB_LINERIGHT;
+    int count = steps > 0 ? steps : -steps;
+    for (int i = 0; i < count; ++i)
+        SendMessage(HWindow, WM_HSCROLL, MAKEWPARAM(scrollCode, 0), (LPARAM)upDown);
+
+    InvalidateRect(HWindow, NULL, FALSE);
+}
+
 void CTabWindow::InvalidateTab(int index)
 {
     if (HWindow == NULL)
@@ -1767,6 +1810,18 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CancelDragTracking();
         break;
     }
+
+    case WM_MOUSEWHEEL:
+        if (MouseWheelMSGThroughHook && MouseWheelMSGTime != 0 && (GetTickCount() - MouseWheelMSGTime < MOUSEWHEELMSG_VALID))
+            return 0;
+        MouseWheelMSGThroughHook = FALSE;
+        MouseWheelMSGTime = GetTickCount();
+        HandleMouseWheel(wParam);
+        return 0;
+
+    case WM_USER_MOUSEWHEEL:
+        HandleMouseWheel(wParam);
+        return 0;
 
     case WM_MBUTTONDOWN:
     {
