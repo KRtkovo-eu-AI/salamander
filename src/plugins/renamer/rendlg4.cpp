@@ -22,7 +22,7 @@ BOOL CRenamerDialog::ExportToTempFile()
         return Error(IDS_CREATETEMP);
     }
 
-    // Read text from the control.
+    // nacteme text z controlu
     TBuffer<char> buffer;
     if (!buffer.Reserve(GetWindowTextLength(ManualEdit->HWindow) + 1))
     {
@@ -199,7 +199,7 @@ BOOL CRenamerDialog::ExecuteCommand(const char* command)
         goto LERROR;
     }
 
-    // Read text from the control.
+    // nacteme text z controlu
     if (!buffer.Reserve(GetWindowTextLength(ManualEdit->HWindow) + 1))
     {
         SG->CutDirectory(TempFile);

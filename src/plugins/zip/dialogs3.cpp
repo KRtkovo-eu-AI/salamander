@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -131,7 +130,7 @@ CCommentDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SHOWWINDOW:
         if (FirstShow)
         {
-            // clear the selection
+            // clear the selection of the entire text
             SendMessage(CommentHWnd, EM_SETSEL, 0, 0);
             FirstShow = FALSE;
         }

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -25,9 +24,9 @@ extern "C"
 class CUMDropTarget : public IDropTarget
 {
 private:
-    long RefCount;             // object lifetime
-    IDataObject* DataObject;   // IDataObject that entered the drag
-    CUserMenuBar* UserMenuBar; // bar we are associated with
+    long RefCount;             // zivotnost objektu
+    IDataObject* DataObject;   // IDataObject, ktery vstoupil do dragu
+    CUserMenuBar* UserMenuBar; // bar, ke kteremu jsme asociovani
     IDropTarget* DropTarget;
     char DropTargetFileName[MAX_PATH];
 
@@ -71,12 +70,12 @@ public:
         if (--RefCount == 0)
         {
             delete this;
-            return 0; // we must not touch the object, it no longer exists
+            return 0; // nesmime sahnout do objektu, uz neexistuje
         }
         return RefCount;
     }
 
-    void HitTest(POINTL pt, int& insertIndex, BOOL& after, int& pasteIndex, char* fileName, BOOL insert) // fileName buffer has length MAX_PATH
+    void HitTest(POINTL pt, int& insertIndex, BOOL& after, int& pasteIndex, char* fileName, BOOL insert) // fileName buffer ma delku MAX_PATH
     {
         POINT p;
         p.x = pt.x;
@@ -117,7 +116,7 @@ public:
         if (pasteIndex != -1)
         {
             insertIndex = -1;
-            // Verify that the drop target is valid.
+            // overim, ze jde o target
             TLBI_ITEM_INFO2 tii;
             tii.Mask = TLBI_MASK_ID;
             if (UserMenuBar->GetItemInfo2(pasteIndex, TRUE, &tii))
@@ -205,7 +204,7 @@ public:
 
         if (DataObject != NULL)
         {
-            // Perform a hit test to locate the drop position.
+            // provedeme hittest
             int insertIndex = -1;
             BOOL after;
             int pasteIndex = -1;
@@ -258,7 +257,7 @@ public:
             ImageDragMove(pt.x, pt.y);
         if (DataObject != NULL)
         {
-            // Perform a hit test.
+            // provedeme hittest
             int insertIndex = -1;
             BOOL after;
             int pasteIndex = -1;
@@ -325,9 +324,9 @@ public:
             DataObject = NULL;
         }
 
-        // Clear the insert mark.
+        // sestrelim insert mark
         UserMenuBar->SetInsertMark(-1, FALSE);
-        // Clear the hot item.
+        // sestrelim hot item
         UserMenuBar->SetHotItem(-1);
 
         return E_UNEXPECTED;
@@ -343,7 +342,7 @@ public:
             ImageDragLeave();
         if (DataObject != NULL)
         {
-            // Perform a hit test.
+            // provedeme hittest
             int insertIndex = -1;
             BOOL after;
             int pasteIndex = -1;
@@ -356,7 +355,7 @@ public:
 
             if (insertIndex != -1)
             {
-                // Clear the insert mark.
+                // sestrelim insert mark
                 UserMenuBar->SetInsertMark(-1, FALSE);
 
                 if (insert)
@@ -373,11 +372,11 @@ public:
                     char tmp[MAX_PATH];
                     BOOL shell = FALSE;
 
-                    // CMainWindow::UserMenu was changed so that if it does not launch through the Shell,
-                    // Calls ShellExecuteEx instead of CreateProcess; therefore quotes are no longer needed
+                    // zmenil jsem metodu CMainWindow::UserMenu tak, ze pokud nespousti pres Shell,
+                    // vola ShellExecuteEx misto CreateProcess; proto uz nejsou potreba uvozovky
                     /*
-            // if it is not an executable file (.exe, .com, .bat, .pif),
-            // wrap the name in quotes and launch it through the shell
+            // pokud se nejedna o spustitelny soubor (.exe, .com, .bat, .pif),
+            // soupnu nazev do uvozovek a spustim ho pres shell
             char *dot = strrchr(buff, '.');
             if (dot != NULL && *(dot + 1) != 0)
             {
@@ -398,7 +397,7 @@ public:
             }
 */
 
-                    // if the path contains the character $, replace it with $$
+                    // pokud je v ceste znak $, musim ho nahradit $$
                     strcpy(tmp, buff);
                     char* iterS = tmp;
                     char* iterT = buff;
@@ -420,7 +419,7 @@ public:
                     CUserMenuItem* item = new CUserMenuItem(name, buff, emptyBuffer, fullPathBuffer, emptyBuffer,
                                                             shell, FALSE, FALSE, TRUE, umitItem, NULL);
 
-                    // find the place where the item needs to be inserted
+                    // vyhledame misto, kam je treba polozku vlozit
                     int count = 0;
                     int i;
                     for (i = 0; i < MainWindow->UserMenuItems->Count; i++)
@@ -441,12 +440,12 @@ public:
                     }
                     MainWindow->UserMenuItems->Insert(i, item);
 
-                    if (UserMenuIconBkgndReader.IsReadingIcons()) // icon loading is in progress, so restart it because the number of items in the user menu has changed (as a side effect, this drops the icon just loaded for the dropped file, but that is acceptable)
+                    if (UserMenuIconBkgndReader.IsReadingIcons()) // probiha nacitani ikon = musime ho nahodit znovu, zmenil se pocet polozek v user menu (jako side-efekt to zahodi prave nactenou ikonu dropleho souboru, ale na to proste kaslu)
                     {
                         CUserMenuIconDataArr* bkgndReaderData = new CUserMenuIconDataArr();
                         for (int i2 = 0; i2 < MainWindow->UserMenuItems->Count; i2++)
                             MainWindow->UserMenuItems->At(i2)->GetIconHandle(bkgndReaderData, FALSE);
-                        UserMenuIconBkgndReader.StartBkgndReadingIcons(bkgndReaderData); // WARNING: releases 'bkgndReaderData'
+                        UserMenuIconBkgndReader.StartBkgndReadingIcons(bkgndReaderData); // POZOR: uvolni 'bkgndReaderData'
                     }
 
                     MainWindow->UMToolBar->CreateButtons();
@@ -514,8 +513,8 @@ CUserMenuBar::CUserMenuBar(HWND hNotifyWindow, CObjectOrigin origin)
     RemoveAllItems();
     SetStyle(TLB_STYLE_IMAGE | (Configuration.UserMenuToolbarLabels ? TLB_STYLE_TEXT : 0));
 
-    // load icons into the toolbar
-    // insert only items and submenus from the top level; the rest will expand as submenus
+    // naleju ikonky do vlastni toolbary
+    // vlozim pouze itemy a submenu z nejvyssi urovne; ostatni se bude rozbalovat jako submenu
     int level = 0;
     TLBI_ITEM_INFO2 tii;
     int i;
@@ -575,7 +574,7 @@ CUserMenuBar::CUserMenuBar(HWND hNotifyWindow, CObjectOrigin origin)
 void CUserMenuBar::ToggleLabels()
 {
     CALL_STACK_MESSAGE1("CUserMenuBar::ToggleLabels()");
-    // update the style
+    // nastvim styl
     DWORD style = GetStyle();
     if (Configuration.UserMenuToolbarLabels)
         style &= ~TLB_STYLE_TEXT;
@@ -588,7 +587,7 @@ void CUserMenuBar::ToggleLabels()
 int CUserMenuBar::GetNeededHeight()
 {
     CALL_STACK_MESSAGE_NONE
-    // return the correct height even when no icon is loaded
+    // i v pripade, ze nedrzime zadnou ikonu budeem vracet spravnou vysku
     int height = CToolBar::GetNeededHeight();
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
     int minH = 3 + iconSize + 3;
@@ -600,7 +599,7 @@ int CUserMenuBar::GetNeededHeight()
 void CUserMenuBar::Customize()
 {
     CALL_STACK_MESSAGE_NONE
-    // open the UserMenu page and start editing the item at the given index
+    // nechame vybalit stranku UserMenu a rozeditovat polozku index
     PostMessage(MainWindow->HWindow, WM_USER_CONFIGURATION, 2, 0);
 }
 
@@ -663,7 +662,7 @@ CUserMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 TRACE_E("RegisterDragDrop error.");
             }
-            dropTarget->Release(); // RegisterDragDrop called AddRef()
+            dropTarget->Release(); // RegisterDragDrop volala AddRef()
         }
         break;
     }

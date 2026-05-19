@@ -70,7 +70,7 @@ private:
     IActiveScriptError* m_pHardError;
     bool m_bSiteErrorDisplayed; ///< Message box shown in site's OnScriptError.
     class CScriptEngineShim* m_pShim;
-    HANDLE m_hAbortEvent; ///< Manual-reset event signaled when the user requests abort.
+    HANDLE m_hAbortEvent; ///< Manually reset event signaled when the user requested abort.
     HWND m_hwndAbortTarget;
 
     // statistics stuff

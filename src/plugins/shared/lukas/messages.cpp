@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -61,7 +60,7 @@ BOOL CMessageCenter::SendMessage(CMessage* message, BOOL bufferTimeout)
 
     while (1)
     {
-        // enter the critical section
+        // vlezeme do kriticke sekce
         if (WaitForSingleObject(DataMutex, INFINITE) != WAIT_OBJECT_0)
         {
             TRACE_E("Unable to enter critical section for sending message.");
@@ -73,26 +72,26 @@ BOOL CMessageCenter::SendMessage(CMessage* message, BOOL bufferTimeout)
 
         if (Buffer->WritePos + message->Size <= BufferSize)
         {
-            // set the sender ID
+            // nastavime ID odesilatele
             message->SenderID = SenderID;
-            // copy the message into the buffer
+            // provedeme zapis
             my_memcpy2((char*)Buffer + Buffer->WritePos, message, message->Size);
-            // notify the receiver that the buffer contains a message
+            // informuje prijemce, ze ma v bufferu zpravu
             if (Buffer->WritePos == sizeof(CBuffer))
             {
                 SetEvent(HaveMessage);
                 ResetEvent(BufferFree);
             }
             Buffer->WritePos += message->Size;
-            // leave the critical section
+            // uvolnime kritickou sekci
             ReleaseMutex(DataMutex);
-            return TRUE; // success
+            return TRUE; // uspech
         }
 
-        // leave the critical section
+        // uvolnime kritickou sekci
         ReleaseMutex(DataMutex);
 
-        // wait until space is freed in the buffer or the server exits
+        // pockame az se uvolni misto v bufferu, nebo server chcipne
         HANDLE handles[] = {BufferFree, Reciever};
         DWORD ret = WaitForMultipleObjects(2, handles, FALSE, bufferTimeout);
         if (ret == WAIT_TIMEOUT)
@@ -116,7 +115,7 @@ BOOL CMessageCenter::RecieveMessages(CMessageListener* listener)
     if (Sender)
         return FALSE;
 
-    // enter the critical section
+    // vlezeme do kriticke sekce
     DWORD ret = WaitForSingleObject(DataMutex, INFINITE);
     if (ret == WAIT_FAILED)
     {
@@ -126,20 +125,20 @@ BOOL CMessageCenter::RecieveMessages(CMessageListener* listener)
     }
     if (ret == WAIT_OBJECT_0)
     {
-        // drain the message buffer
+        // vyprazdnime message buffer
         for (int pos = sizeof(CBuffer); pos < Buffer->WritePos;
              pos += MESSAGE_AT_POS(pos)->Size)
         {
             if (MESSAGE_AT_POS(pos)->Size == 0)
-                break; // zero-size messages would cause an infinite loop and make no sense anyway
+                break; // to by byl nekonecny cyklus a navic je to nesmysl
             listener->RecieveMessage(MESSAGE_AT_POS(pos));
         }
     }
-    // mark the buffer as empty (even for an abandoned data mutex)
+    // nastavime buffer na prazdny (i pro abadoned data-mutex)
     Buffer->WritePos = sizeof(CBuffer);
     SetEvent(BufferFree);
     ResetEvent(HaveMessage);
-    // leave the critical section
+    // uvolnime kritickou sekci
     ReleaseMutex(DataMutex);
     return TRUE;
 }
@@ -212,11 +211,11 @@ BOOL CMessageCenter::Init()
 
     do
     {
-        // only one process can be in Init at a time
+        // initem muze prochazet pouze jeden process
         str = Concatenate(Name, " - Startup Mutex");
         if (Sender)
         {
-            // the sender can be started only if the receiver is running
+            // odesilatel se muze aktivovat, jedine pokud bezi prijemce
             StartupMutex = OpenMutex(MUTEX_ALL_ACCESS, FALSE, str);
             if (!StartupMutex)
             {
@@ -234,7 +233,7 @@ BOOL CMessageCenter::Init()
                 TRACE_E("Unable to create starting mutex.");
                 break;
             }
-            // only one receiver can be started
+            // jde pustit pouze jeden prijemce
             if (GetLastError() == ERROR_ALREADY_EXISTS)
             {
                 TRACE_I("Receiver '" << Name << "' is already running.");
@@ -242,7 +241,7 @@ BOOL CMessageCenter::Init()
             }
         }
 
-        // create the synchronization objects
+        // vytvorime synchronizacni objekty
         str = Concatenate(Name, " - Data Mutex");
         DataMutex = Sender ? OpenMutex(MUTEX_ALL_ACCESS, FALSE, str) : CreateMutex(NULL, FALSE, str);
         if (!DataMutex)
@@ -261,10 +260,10 @@ BOOL CMessageCenter::Init()
             break;
         }
 
-        // create the shared memory segment
+        // vytvorime sdilenou cast pameti
         const char* mapname = Concatenate(
             Concatenate(Name, " - Buffer v"), Version);
-        FileMapping = Sender ? OpenFileMapping(FILE_MAP_WRITE, FALSE, mapname) : CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, // FIXME_X64: are we passing x86/x64-incompatible data?
+        FileMapping = Sender ? OpenFileMapping(FILE_MAP_WRITE, FALSE, mapname) : CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, // FIXME_X64 nepredavame x86/x64 nekompatibilni data?
                                                                                                    BufferSize, mapname);
         if (!FileMapping)
         {
@@ -281,13 +280,13 @@ BOOL CMessageCenter::Init()
 
         if (Sender)
         {
-            // enter the critical section
+            // vlezeme do kriticke sekce
             if (WaitForSingleObject(DataMutex, INFINITE) != WAIT_OBJECT_0)
             {
                 TRACE_E("Unable to enter critical section.");
                 break;
             }
-            // open a handle to the receiver
+            // otevreme si handle na prijemce
             RecieverPid = Buffer->Pid;
             Reciever = OpenProcess(SYNCHRONIZE, FALSE, RecieverPid);
             if (!Reciever)
@@ -296,25 +295,25 @@ BOOL CMessageCenter::Init()
                 break;
             }
             SenderID = Buffer->UniqueCounter++;
-            // leave the critical section
+            // uvolnime kritickou sekci
             ReleaseMutex(DataMutex);
         }
         else
         {
-            // enter the critical section
+            // vlezeme do kriticke sekce
             if (WaitForSingleObject(DataMutex, INFINITE) == WAIT_FAILED)
                 break;
-            // initialize the buffer
+            // inicializujeme buffer
             Buffer->Pid = GetCurrentProcessId();
             Buffer->UniqueCounter = 0;
             Buffer->WritePos = sizeof(CBuffer);
             SetEvent(BufferFree);
             ResetEvent(HaveMessage);
-            // leave the critical section
+            // uvolnime kritickou sekci
             ReleaseMutex(DataMutex);
         }
 
-        // let the other processes continue through Init
+        // nechame ostatni procesy projit initem
         ReleaseMutex(StartupMutex);
         if (Sender)
         {

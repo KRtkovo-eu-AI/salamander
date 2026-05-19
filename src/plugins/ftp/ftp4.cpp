@@ -460,7 +460,7 @@ BOOL GetColumnEmptyValue(const char* empty, CSrvTypeColumnTypes type, CQuadWord*
         }
         else
         {
-            if (type == stctGeneralDate) // "" should be displayed for stctGeneralDate
+            if (type == stctGeneralDate) // for stctGeneralDate the value "" should be displayed
             {
                 day = 0;
                 skipDateCheck = TRUE;

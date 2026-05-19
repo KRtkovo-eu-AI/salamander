@@ -811,7 +811,7 @@ void TTextFileViewWindow<CChar>::Paint()
 
                 if (Script[ViewMode][line].GetChanges())
                 {
-                    // Transform offsets in the line changes script to account for tabs.
+                    // tranfrom offsets (due tabs) in line changes script
                     int* script = Script[ViewMode][line].GetChanges();
                     count = *script;
                     TransformOffsets(script + 1, *script, Lines[l]);

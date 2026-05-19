@@ -133,6 +133,8 @@
     </ClCompile>
     <ClCompile Include="..\histwnd.cpp">
     </ClCompile>
+    <ClCompile Include="..\openimagebackend.cpp">
+    </ClCompile>
     <ClCompile Include="..\pictview.cpp">
     </ClCompile>
     <ClCompile Include="..\PixelAccess.cpp">
@@ -205,6 +207,8 @@
     </ClInclude>
     <ClInclude Include="..\lib\pvw32dll.h">
     </ClInclude>
+    <ClInclude Include="..\openimagebackend.h">
+    </ClInclude>
     <ClInclude Include="..\pictview.h">
     </ClInclude>
     <ClInclude Include="..\PixelAccess.h">
@@ -253,10 +257,6 @@
     </ProjectReference>
     <ProjectReference Include="lang_pictview.vcxproj">
       <Project>{bc2e9ea5-ebc4-4fdf-b064-e2bbbbcba1d3}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
-    <ProjectReference Include="salpvenv.vcxproj">
-      <Project>{17cf5e05-f29c-4e5d-ba41-83254e342e0b}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>

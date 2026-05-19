@@ -5,7 +5,7 @@
 
 #include "fs.h"
 
-// Some basic info on Xbox DVD format can be found here: http://home.comcast.net/~admiral_powerslave/dvddrives.html
+// Some elementera info on Xbox DVD format can be found here: http://home.comcast.net/~admiral_powerslave/dvddrives.html
 
 #define XBOX_DESCRIPTOR "MICROSOFT*XBOX*MEDIA"
 

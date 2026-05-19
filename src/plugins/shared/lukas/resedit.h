@@ -1,19 +1,20 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// ******************************************************************************
+//******************************************************************************
 //
-// CResEdit class methods replace the BeginUpdateResource, UpdateResource, and EndUpdateResource API functions.
+// metody tridy CResEdit nahrazuji API funkce BeginUpdateResource, UpdateResource, EndUpdateResource
 //
-// Current limitations:
-// - the .rsrc section must exist in the executable
-// - the .rsrc section must be at the end of the PE file; otherwise (for example, in a debug build)
-//   the rest of the executable is overwritten
-// - deleting a resource from the executable is not supported (the API allows this by passing NULL as the 'lpData' parameter to UpdateResource)
-// - the exact error cannot be determined; none of the three methods sets last error, and they return only FALSE on failure
+// co neni jeste vychytany:
+// - .rsrc section musi v exaci existovat
+// - .rsrc section muze byt pouze na konci PE souboru, neni-li (napr. u debug verse exace)
+//  dojde k prepsani zbytku exace
+// -nejde smazat resource z exace (v API to lze predanim hodnoty NULL parametru 'lpData' do
+//  funkce UpdateResource)
+// -nelze blize urcit chybu, vsechny tri metody nenastavuji last error a v pripade chyby
+//  vraceji pouze FALSE
 
 class CResEditRoot
 {
@@ -58,7 +59,7 @@ public:
         Sections = NULL;
     }
 
-    // BeginUpdateResource initializes the CResEdit class and begins a resource update in
+    // The BeginUpdateResource initilalize CResEdit class and begin resource update in
     // an executable file.
     BOOL BeginUpdateResource(
         LPCSTR pFileName,             // executable file name
@@ -78,7 +79,7 @@ public:
     // The RemoveAllResources function deletes all resources from executable.
     BOOL RemoveAllResources();
 
-    // GetResourceDirectory obtains a copy of the resource directory
+    // The GetResourceDirectory function obstain a copy of resource directory
     // tree. Returns pointer to copy of resource directory tree or NULL in case
     // of error (low memory).
     CResDir* GetResourceDirectory();

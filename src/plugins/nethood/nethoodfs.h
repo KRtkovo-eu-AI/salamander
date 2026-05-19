@@ -19,7 +19,7 @@ private:
     int m_cActiveFS;
 
 public:
-    /// Constructor.
+    /// Contructor.
     CNethoodPluginInterfaceForFS();
 
     /// Destructor.

@@ -1,10 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// menu item skill level ALL (includes beginner, intermediate, and advanced)
+// menu item skill level ALL (zahrnuje beginned, intermediate a advanced)
 #define MNTS_ALL (MNTS_B | MNTS_I | MNTS_A)
 
 #ifndef QWORD
@@ -36,19 +35,20 @@ private: \
 // utilbase.cpp
 //
 
-extern HINSTANCE DLLInstance;     // SPL handle - language-independent resources
-extern HINSTANCE HLanguage;       // SLG handle - language-dependent resources
-extern BOOL WindowsVistaAndLater; // Windows Vista or later in the NT family (6.0+)
+extern HINSTANCE DLLInstance;     // handle k SPL-ku - jazykove nezavisle resourcy
+extern HINSTANCE HLanguage;       // handle k SLG-cku - jazykove zavisle resourcy
+extern BOOL WindowsVistaAndLater; // Windows Vista nebo pozdejsi z rady NT (6.0+)
 extern BOOL WindowsXP64AndLater;  // Windows XP 64, Vista or later (5.2+)
 
-// Open Salamander interface - valid from the InitUtils() call until
-// plugin shutdown
+// rozhrani Open Salamandera - platna od volani InitUtils() az do
+// ukonceni pluginu
 extern CSalamanderGeneralAbstract* SG;
 extern CSalamanderGUIAbstract* SalGUI;
 
 // ****************************************************************************
 //
-// CCS -- self-initializing and self-destructing critical section
+// CCS -- samo-inicializujici se a samo-destruujici se kriticka sekce
+//
 
 struct CCS
 {
@@ -80,9 +80,10 @@ const char* Concatenate(const char* string1, const char* string2);
 
 // ****************************************************************************
 //
-// CDialogStack -- stores the window hierarchy on a stack; the top of the
-// stack is the parent for displayed message and error boxes; each thread
-// has its own window hierarchy
+// CDialogStack -- slouzi k ukladani hiearchie oken na zasobnik, vrchol
+// zasobniku je parent pro zobrazovane message- a error-boxy, kazdy thread
+// ma svou vlastni hierarchii oken
+//
 
 class CDialogStack
 {
@@ -115,8 +116,8 @@ public:
 
 // ****************************************************************************
 //
-// CDialogEx -- automatically centered dialog, automatically adds and removes
-// HWND to/from DialogStack
+// CDialogEx -- automaticky centrovany dialog, automaticky pridava a odebira
+// HWND do/z DialogStack
 //
 
 class CDialogEx : public CDialog
@@ -190,7 +191,8 @@ public:
 
 // ****************************************************************************
 //
-// CArgv -- creates an argument vector from a command-line string
+// CArgv -- Vytvori argument-vector z commanline retezce
+//
 
 class CArgv : public TIndirectArray<char>
 {

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -36,8 +35,8 @@ CHotPathsBar::CHotPathsBar(HWND hNotifyWindow, CObjectOrigin origin)
 
     SetStyle(TLB_STYLE_IMAGE | TLB_STYLE_TEXT);
 
-    // Load icons into the toolbar.
-    // Insert only top-level items and submenus; the rest expand as nested submenus.
+    // naleju ikonky do vlastni toolbary
+    // vlozim pouze itemy a submenu z nejvyssi urovne; ostatni se bude rozbalovat jako submenu
     int level = 0;
     TLBI_ITEM_INFO2 tii;
     int i;
@@ -107,7 +106,7 @@ CHotPathsBar::CHotPathsBar(HWND hNotifyWindow, CObjectOrigin origin)
 int CHotPathsBar::GetNeededHeight()
 {
     CALL_STACK_MESSAGE_NONE
-    // Return the correct height even when no icon is loaded.
+    // i v pripade, ze nedrzime zadnou ikonu budeem vracet spravnou vysku
     int height = CToolBar::GetNeededHeight();
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
     int minH = 3 + iconSize + 3;
@@ -119,7 +118,7 @@ int CHotPathsBar::GetNeededHeight()
 void CHotPathsBar::Customize()
 {
     CALL_STACK_MESSAGE_NONE
-    // Open the HotPaths page.
+    // nechame vybalit stranku HotPaths
     PostMessage(MainWindow->HWindow, WM_USER_CONFIGURATION, 1, -1);
 }
 
@@ -154,7 +153,7 @@ CHotPathsBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
           TRACE_E("RegisterDragDrop error.");
         }
-        dropTarget->Release();  // RegisterDragDrop called AddRef().
+        dropTarget->Release();  // RegisterDragDrop volala AddRef()
       }
       break;
     }

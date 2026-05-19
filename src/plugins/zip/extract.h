@@ -32,7 +32,7 @@ public:
     char* SlideWindow;
     unsigned WinSize;
     //unsigned                InputPos;       //read position in zip file
-    QWORD BytesLeft;   //number of compressed bytes remaining
+    QWORD BytesLeft;   //number of copressed bytes remainig
                        //to read from zipfile
     CFile* OutputFile; //current output file
     int OutputError;
@@ -44,7 +44,7 @@ public:
     bool TestAllocateWholeFile;
 
     //inflate specifics
-    //fixed Huffman trees
+    //fixed hufman trees
     void* fixed_tl64; // !! must be NULL initialized
     void* fixed_td64; //before calling inflate
     int fixed_bl64,

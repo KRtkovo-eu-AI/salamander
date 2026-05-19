@@ -268,7 +268,7 @@ typedef void(PASCAL* FRARSetCallback)(HANDLE hArcData, UNRARCALLBACK Callback, L
 
 //***********************************************************************************
 //
-// Routines from SHLWAPI.DLL
+// Rutiny ze SHLWAPI.DLL
 //
 
 //BOOL PathAppend(LPTSTR  pPath, LPCTSTR pMore);

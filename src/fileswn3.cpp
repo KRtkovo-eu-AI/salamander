@@ -169,8 +169,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         Files->SetDeleteData(TRUE);
         Dirs->SetDeleteData(TRUE);
 
-        if (WaitForESCReleaseBeforeTestingESC) // wait for ESC to be released (so that listing is not interrupted
-                                               // immediately; this ESC probably closed a modal dialog/message box)
+        if (WaitForESCReleaseBeforeTestingESC) // waiting for ESC release (so that listing is not interrupted
+                                               // immediately - this ESC probably ended modal dialog/messagebox)
         {
             WaitForESCRelease();
             WaitForESCReleaseBeforeTestingESC = FALSE; // another waiting makes no sense
@@ -192,7 +192,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         {
             BOOL isDriveFloppy = FALSE; // floppies have their own configuration beside other removable drives
             int drv = UpperCase[fileName[0]] - 'A' + 1;
-            if (drv >= 1 && drv <= 26) // perform a range check just to be safe
+            if (drv >= 1 && drv <= 26) // doing "range-check" for sure
             {
                 DWORD medium = GetDriveFormFactor(drv);
                 if (medium == 350 || medium == 525 || medium == 800 || medium == 1)
@@ -230,7 +230,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             SetCurrentDirectoryToSystem();
             DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
             //      TRACE_I("ReadDirectory: end");
-            return FALSE; // empty input string
+            return FALSE; // empty string on input
         }
         if (*(st - 1) != '\\')
             *st++ = '\\';
@@ -240,7 +240,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         if (UseSystemIcons)
         {
             IconCacheValid = FALSE;
-            MSG msg; // we must remove any pending WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
+            MSG msg; // we must destroy possible WM_USER_ICONREADING_END which would set IconCacheValid = TRUE
             while (PeekMessage(&msg, HWindow, WM_USER_ICONREADING_END, WM_USER_ICONREADING_END, PM_REMOVE))
                 ;
 
@@ -256,7 +256,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             if (UseThumbnails)
             {
                 IconCacheValid = FALSE;
-                MSG msg; // we must remove any pending WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
+                MSG msg; // we must destroy possible WM_USER_ICONREADING_END which would set IconCacheValid = TRUE
                 while (PeekMessage(&msg, HWindow, WM_USER_ICONREADING_END, WM_USER_ICONREADING_END, PM_REMOVE))
                     ;
             }
@@ -266,7 +266,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         BOOL UNCRootUpDir = FALSE;
         if (GetPath()[0] == '\\' && GetPath()[1] == '\\')
         {
-            if (GetPath()[2] == '.' && GetPath()[3] == '\\' && GetPath()[4] != 0 && GetPath()[5] == ':') // path of the "\\.\C:\" type
+            if (GetPath()[2] == '.' && GetPath()[3] == '\\' && GetPath()[4] != 0 && GetPath()[5] == ':') // "\\.\C:\" type path
             {
                 upDir = strlen(GetPath()) > 7;
             }
@@ -297,7 +297,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         iconData.SetReadingDone(0); // just for the form
         BOOL addtoIconCache;
         CFileData file;
-        // initialization of structure members which will not be changed later
+        // inicialization of structure members which will not be changed later
         file.PluginData = -1; // -1 just like that, ignored
         file.Selected = 0;
         file.SizeValid = 0;
@@ -320,12 +320,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
         DWORD lastEscCheckTime;
         //lastEscCheckTime = GetTickCount() - 200;  // the first ESC will go immediately
-        lastEscCheckTime = GetTickCount(); // the first ESC will only be accepted after 200 ms; this protects
+        lastEscCheckTime = GetTickCount(); // the first ESC will go after 200 ms -- it's a protection
                                            // against the cancel prompt for listing after the user
-                                           // has closed a dialog (e.g. Files/Security/*) with Esc and
-                                           // there was a network drive in the panel (and during the
-                                           // open dialog the user switched to Salamander and back,
-                                           // causing a directory refresh)
+                                           // has closed a dialog (e.g. Files/Security/*) by Esc and
+                                           // in the panel there was a network drive (and during the
+                                           // opened dialog the user switched to Salamander and back,
+                                           // so that there was a refresh of the directory)
 
         BOOL isUpDir = FALSE;
         WIN32_FIND_DATA fileData;
@@ -407,7 +407,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 if (isRefresh &&
                     (err == ERROR_ACCESS_DENIED || err == ERROR_PATH_NOT_FOUND ||
                      err == ERROR_BAD_PATHNAME || err == ERROR_FILE_NOT_FOUND))
-                { // when a path displayed in the panel is deleted, these errors appear, which we do not want, so just silently shorten the path to the first existing one (unfortunately this is not caught earlier because the path still exists for some time after deletion due to Windows behavior)
+                { // when deleting a path shown in the panel, these errors are shown, which we don't want, we just silently shorten the path to the first existing one (unfortunately it's not caught earlier, because the path exists for some time after its deletion, something in Windows just didn't work out again)
                     //          TRACE_I("ReadDirectory(): silently ignoring FindFirstFile failure: " << GetErrorText(err));
                     showErr = FALSE;
                 }
@@ -425,7 +425,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             {
                 NumberOfItemsInCurDir++;
 
-                // test ESC: does the user want to interrupt reading?
+                // test ESC - doesn't user want to interrupt reading?
                 if (GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
                 {
                     if (UserWantsToCancelSafeWaitWindow())
@@ -448,7 +448,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (resBut == IDYES)
                         {
                             testFindNextErr = FALSE;
-                            break; // stop loading
+                            break; // finish reading
                         }
                         else
                         {
@@ -501,7 +501,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     while (--ext >= fileData.cFileName && *ext != '.')
                         ;
                     if (ext < fileData.cFileName)
-                        ext = fileData.cFileName + len; // ".cvspass" is treated as an extension in Windows...
+                        ext = fileData.cFileName + len; // ".cvspass" in Windows is an extension ...
                     else
                         ext++;
                     if (!Filter.AgreeMasks(fileData.cFileName, ext))
@@ -512,7 +512,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     }
                 }
 
-                //--- if the name is already present in the HiddenNames array, we discard it
+                //--- if the name is occupied in the array HiddenNames, we will discard it
                 if (HiddenNames.Contains(isDir, fileData.cFileName))
                 {
                     if (isDir)
@@ -547,7 +547,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 memmove(file.Name, st, len + 1); // copy of text
                 file.NameLen = len;
                 //--- extension
-                if (!Configuration.SortDirsByExt && (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // ptDisk only
+                if (!Configuration.SortDirsByExt && (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk
                 {
                     file.Ext = file.Name + file.NameLen; // directories have no extension
                 }
@@ -557,7 +557,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     while (--s >= st && *s != '.')
                         ;
                     if (s >= st)
-                        file.Ext = file.Name + (s - st + 1); // ".cvspass" is treated as an extension in Windows...
+                        file.Ext = file.Name + (s - st + 1); // ".cvspass" in Windows is an extension ...
                                                              //          if (s > st) file.Ext = file.Name + (s - st + 1);
                     else
                         file.Ext = file.Name + file.NameLen;
@@ -570,7 +570,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 file.Hidden = (file.Attr & FILE_ATTRIBUTE_HIDDEN) && !IsFilePlaceholder(&fileData) ? 1 : 0;
 
                 file.IsOffline = !isUpDir && (file.Attr & FILE_ATTRIBUTE_OFFLINE) ? 1 : 0;
-                if (testShares && (file.Attr & FILE_ATTRIBUTE_DIRECTORY)) // ptDisk
+                if (testShares && (file.Attr & FILE_ATTRIBUTE_DIRECTORY)) // this is ptDisk
                 {
                     file.Shared = Shares.Search(file.Name);
                 }
@@ -603,12 +603,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 }
                 else
                     file.DosName = NULL;
-                if (file.Attr & FILE_ATTRIBUTE_DIRECTORY) // ptDisk
+                if (file.Attr & FILE_ATTRIBUTE_DIRECTORY) // this is ptDisk
                 {
                     file.Association = 0;
                     file.Archive = 0;
 #ifndef _WIN64
-                    file.IsLink = (isWin64RedirectedDir || (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) || // CAUTION: pseudo-directories must have IsLink set; otherwise, ContainsWin64RedirectedDir must be changed
+                    file.IsLink = (isWin64RedirectedDir || (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) || // CAUTION: pseudo-directory must have IsLink set, otherwise ContainsWin64RedirectedDir must be changed
                                    isWindows64BitDir && file.NameLen == 8 && StrICmp(file.Name, "system32") == 0)
                                       ? 1
                                       : 0; // system32 directory in 32-bit Salamander is link to SysWOW64 + win64 redirected-dir + volume mount point or junction point = show directory with link overlay
@@ -657,7 +657,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 }
                 else
                 {
-                    if (s >= st) // extension exists
+                    if (s >= st) // an extension exists
                     {
                         while (*++s != 0)
                             *st++ = LowerCase[*s];
@@ -675,7 +675,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                               : 0;
                         }
 
-                        if (PackerFormatConfig.PackIsArchive(file.Name, file.NameLen)) // is this an archive format we can handle?
+                        if (PackerFormatConfig.PackIsArchive(file.Name, file.NameLen)) // is it an archive which we can process?
                         {
                             file.Association = 1;
                             file.Archive = 1;
@@ -685,22 +685,22 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         {
                             file.Association = Associations.IsAssociated(st, addtoIconCache, iconSize);
                             file.Archive = 0;
-                            if (*(DWORD*)st == *(DWORD*)"scr" || // a few exceptions
+                            if (*(DWORD*)st == *(DWORD*)"scr" || // few exceptions
                                 *(DWORD*)st == *(DWORD*)"pif")
                             {
                                 addtoIconCache = TRUE;
                             }
                             else
                             {
-                                if (*(DWORD*)st == *(DWORD*)"lnk") // icons via shortcut
+                                if (*(DWORD*)st == *(DWORD*)"lnk") // icons via link
                                 {
                                     strcpy(fileData.cFileName, file.Name);
                                     char* ext2 = strrchr(fileData.cFileName, '.');
-                                    if (ext2 != NULL) // ".cvspass" is treated as an extension in Windows
+                                    if (ext2 != NULL) // ".cvspass" in Windows is an extesion
                                                       //                  if (ext2 != NULL && ext2 != fileData.cFileName)
                                     {
                                         *ext2 = 0;
-                                        if (PackerFormatConfig.PackIsArchive(fileData.cFileName)) // is it a link to an archive that we can process?
+                                        if (PackerFormatConfig.PackIsArchive(fileData.cFileName)) // is it a link to archive which we can process?
                                         {
                                             file.Association = 1;
                                             file.Archive = 1;
@@ -741,7 +741,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 }
 
                 // at the file, we will check if it's necessary to load its thumbnail
-                if (readThumbnails &&                              // load thumbnails
+                if (readThumbnails &&                              // thumbnail should be loaded
                     (file.Attr & FILE_ATTRIBUTE_DIRECTORY) == 0 && // (it is ptDisk, so using FILE_ATTRIBUTE_DIRECTORY is o.k.)
                     file.Archive == 0)                             // archive icon is preferred before thumbnail
                 {
@@ -753,30 +753,30 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext) &&
                             !p->ThumbnailMasksDisabled) // its unload/remove is not in progress
                         {
-                            if (!p->GetLoaded()) // plugin needs to be loaded (the "thumbnail loader" mask may change)
+                            if (!p->GetLoaded()) // plugin needs to be loaded (possible change of mask for "thumbnail loader")
                             {
                                 //                RefreshListBox(0, -1, -1, FALSE, FALSE); // replaced with ListBox->SetItemsCound + WM_USER_UPDATEPANEL, because it was blinking e.g. when adding the first *.doc file to a directory with images (Eroiica is loaded (for thumbnail *.doc))
 
                                 // displaying "PictureView is not registered" dialog may occur -> in that case it's necessary
                                 // to refresh listbox (otherwise we don't do any refresh, so that it doesn't blink with the panel)
                                 // we protect listbox against errors caused by request for refresh (data is just being read from disk)
-                                ListBox->SetItemsCount(0, 0, 0, TRUE); // TRUE - disable scrollbar updates
-                                // If WM_USER_UPDATEPANEL is delivered, the panel contents will be redrawn and the scrollbar will be updated.
-                                // The message loop can deliver it when a message box (or dialog) is created.
-                                // Otherwise, the panel will appear unchanged and the message will be removed from the queue.
+                                ListBox->SetItemsCount(0, 0, 0, TRUE); // TRUE - we will disable setting scrollbar
+                                // If WM_USER_UPDATEPANEL is delivered, the panel will be redrawn and scrollbar will be set.
+                                // Message loop can deliver it when message box (or dialog) is created.
+                                // Otherwise the panel will behave as unchanged and the message will be removed from queue.
                                 PostMessage(HWindow, WM_USER_UPDATEPANEL, 0, 0);
 
                                 BOOL cont = FALSE;
                                 if (p->InitDLL(HWindow, FALSE, TRUE, FALSE) &&  // plugin loaded successfully
                                     p->ThumbnailMasks.GetMasksString()[0] != 0) // plugin is still "thumbnail loader"
                                 {
-                                    if (!p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext) || // it can no longer generate thumbnails for this file
+                                    if (!p->ThumbnailMasks.AgreeMasks(file.Name, file.Ext) || // it can't do thumbnail for this file anymore
                                         p->ThumbnailMasksDisabled)                            // its unload/remove is in progress
                                     {
                                         cont = TRUE;
                                     }
                                 }
-                                else // cannot load -> remove it from the list of tried plugins (to prevent repeated error messages)
+                                else // can't load -> we will remove it from the list of probed plugins (prevent from repeating error messages)
                                 {
                                     TRACE_I("Unable to use plugin " << p->Name << " as thumbnail loader.");
                                     thumbLoaderPlugins.Delete(i);
@@ -804,10 +804,10 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (foundThumbLoaderPlugins.Count > 0)
                         {
                             int size = len + 4;
-                            size -= (size & 0x3); // size % 4 (4-byte alignment)
+                            size -= (size & 0x3); // size % 4 (alignment per four bytes)
                             int nameSize = size;
                             size += sizeof(CQuadWord) + sizeof(FILETIME);
-                            size += (foundThumbLoaderPlugins.Count + 1) * sizeof(void*); // space for pointers to plugin interfaces and NULL at the end
+                            size += (foundThumbLoaderPlugins.Count + 1) * sizeof(void*); // space for pointers to plugin interfaces + NULL at the end
                             iconData.NameAndData = (char*)malloc(size);
                             if (iconData.NameAndData != NULL)
                             {
@@ -824,9 +824,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                     *ifaces++ = foundThumbLoaderPlugins[i2]->GetPluginInterfaceForThumbLoader();
                                 }
                                 *ifaces = NULL;      // the end of list of plugin interfaces
-                                iconData.SetFlag(4); // thumbnail not loaded yet
+                                iconData.SetFlag(4); // so far no unread thumbnail
 
-                                // we must allocate space for the thumbnail here; it cannot be done in the thread
+                                // we have to allocate space for thumbnail, because it can't be done in the thread
                                 iconData.SetIndex(IconCache->AllocThumbnail());
 
                                 if (iconData.GetIndex() != -1)
@@ -838,7 +838,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                         IconCache->ResetState();
                                     }
                                     else
-                                        addtoIconCache = FALSE; // this is a thumbnail, so it cannot be an icon at the same time
+                                        addtoIconCache = FALSE; // it's a thumbnail, it can't be an icon at the same time
                                 }
                                 else
                                     free(iconData.NameAndData);
@@ -853,14 +853,14 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 if (UseSystemIcons && addtoIconCache)
                 {
                     int size = len + 4;
-                    size -= (size & 0x3); // size % 4 (4-byte alignment)
+                    size -= (size & 0x3); // size % 4 (alignment per four bytes)
                     iconData.NameAndData = (char*)malloc(size);
                     if (iconData.NameAndData != NULL)
                     {
                         memmove(iconData.NameAndData, file.Name, len);
                         memset(iconData.NameAndData + len, 0, size - len); // end of name is zeroed
-                        iconData.SetFlag(0);                               // icon not loaded yet
-                                                                           // bitmap storage must be allocated here; it cannot be done in the worker thread
+                        iconData.SetFlag(0);                               // no not-loaded icon yet
+                                                                           // need to allocate space for bitmaps, can't be done in thread
                         iconData.SetIndex(IconCache->AllocIcon(NULL, NULL));
                         if (iconData.GetIndex() != -1)
                         {
@@ -881,7 +881,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 #ifndef _WIN64
                     isWin64RedirectedDir = FALSE;
 #endif                     // _WIN64
-                    break; // second pass (adding ".." or the Win64-redirected directory)
+                    break; // the second pass (adding ".." or win64 redirected-dir)
                 }
             } while (FindNextFile(search, &fileData));
             DWORD err = GetLastError();
@@ -953,7 +953,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         if (foundWin64RedirectedDirs < 10 &&
             AddWin64RedirectedDir(GetPath(), Dirs, &fileData, &foundWin64RedirectedDirs, &dirWithSameNameExists))
         {
-            foundWin64RedirectedDirs++; // e.g. there can be 5 of them under system32; some reserve was added up to 10...
+            foundWin64RedirectedDirs++; // e.g. under system32 there can be 5, I've added some reserve to 10...
 
             if (Configuration.NotHiddenSystemFiles &&
                 (fileData.dwFileAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
@@ -966,7 +966,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 goto FIND_NEXT_WIN64_REDIRECTEDDIR;
             }
 
-            //--- if the name is already present in the HiddenNames array, we discard it
+            //--- if the name is occupied in the array HiddenNames, we will discard it
             if (HiddenNames.Contains(TRUE, fileData.cFileName))
             {
                 if (!dirWithSameNameExists)
@@ -1038,7 +1038,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 {
                     CFileData* f = &ZIPFiles->At(i);
                     if (Configuration.NotHiddenSystemFiles &&
-                        (f->Hidden || // Hidden and Attr are zeroed when invalid; otherwise tests fail
+                        (f->Hidden || // both Hidden and Attr are nulled if they are invalid -> tests fail
                          (f->Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))))
                     { // skip hidden file/directory
                         HiddenFilesCount++;
@@ -1053,7 +1053,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         continue;
                     }
 
-                    //--- if the name is already present in the HiddenNames array, we discard it
+                    //--- if the name is occupied in the array HiddenNames, we will discard it
                     if (HiddenNames.Contains(FALSE, f->Name))
                     {
                         HiddenFilesCount++;
@@ -1065,13 +1065,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 }
                 CFileData upDir;
                 static char buffUp[] = "..";
-                upDir.Name = buffUp; // free() will not be called, so ".." can be used directly
+                upDir.Name = buffUp; // free() won't be called, we can afford ".."
                 upDir.Ext = upDir.Name + 2;
                 upDir.Size = CQuadWord(0, 0);
                 upDir.Attr = 0;
                 upDir.LastWrite = GetZIPArchiveDate();
                 upDir.DosName = NULL;
-                upDir.PluginData = 0; // 0 just like that, plugin will overwrite it with its value
+                upDir.PluginData = 0; // 0 just like that, plug-in will overwrite it with its value
                 upDir.NameLen = 2;
                 upDir.Hidden = 0;
                 upDir.IsLink = 0;
@@ -1094,7 +1094,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 {
                     CFileData* f = &ZIPDirs->At(i);
                     if (Configuration.NotHiddenSystemFiles &&
-                        (f->Hidden || // Hidden and Attr are zeroed if they are invalid -> tests fail
+                        (f->Hidden || // both Hidden and Attr are nulled if they are invalid -> tests fail
                          (f->Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))))
                     { // skip hidden file/directory
                         HiddenDirsCount++;
@@ -1102,7 +1102,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         continue;
                     }
 
-                    //--- if the name is already present in the HiddenNames array, we discard it
+                    //--- if the name is occupied in the array HiddenNames, we will discard it
                     if (HiddenNames.Contains(TRUE, f->Name))
                     {
                         HiddenDirsCount++;
@@ -1127,7 +1127,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             {
                 DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
                 //        TRACE_I("ReadDirectory: end");
-                return FALSE; // the directory no longer exists ...
+                return FALSE; // the directory has ceased to exist ...
             }
 
             // sorting of Files and Dirs according to the current sorting method
@@ -1138,7 +1138,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             {
                 // preparing for loading of icons
                 IconCacheValid = FALSE;
-                MSG msg; // remove any pending WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
+                MSG msg; // need to remove any WM_USER_ICONREADING_END, which would set IconCacheValid = TRUE
                 while (PeekMessage(&msg, HWindow, WM_USER_ICONREADING_END, WM_USER_ICONREADING_END, PM_REMOVE))
                     ;
 
@@ -1155,10 +1155,10 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     const char* iconLocation = NULL;
                     CFileData* f = &Files->At(i);
 
-                    if (*f->Ext != 0) // file has an extension
+                    if (*f->Ext != 0) // an extension exists
                     {
                         /*
-            if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive that we can process?
+            if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive which we can process?
             {
               f->Association = TRUE;
               f->Archive = TRUE;
@@ -1191,13 +1191,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         iconData.FSFileData = NULL;
                         iconData.SetReadingDone(0); // just for form
                         int size = (int)strlen(iconLocation) + 4;
-                        size -= (size & 0x3);                // size % 4  (4-byte alignment)
+                        size -= (size & 0x3);                // size % 4  (alignment per four bytes)
                         const char* s = iconLocation + size; // skip alignment from zeros
                         int len = (int)strlen(s);
-                        if (len > 0) // icon location is not empty
+                        if (len > 0) // icon-location is not empty
                         {
                             int nameLen = f->NameLen + 4;
-                            nameLen -= (nameLen & 0x3); // nameLen % 4  (four-byte alignment)
+                            nameLen -= (nameLen & 0x3); // nameLen % 4  (alignment per four bytes)
                             iconData.NameAndData = (char*)malloc(nameLen + len + 1);
                             if (iconData.NameAndData != NULL)
                             {
@@ -1205,8 +1205,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                 memset(iconData.NameAndData + f->NameLen, 0, nameLen - f->NameLen); // zeroes alignment +
                                 memcpy(iconData.NameAndData + nameLen, s, len + 1);                 // icon-location + '\0'
 
-                                iconData.SetFlag(3); // icon not loaded yet; only the icon location is known
-                                                     // we need to allocate space for the bitmaps, which cannot be done in this thread
+                                iconData.SetFlag(3); // not-loaded icon given by icon-location only
+                                                     // we need to allocate space for bitmaps, can't be done in thread
                                 iconData.SetIndex(IconCache->AllocIcon(NULL, NULL));
                                 if (iconData.GetIndex() != -1)
                                 {
@@ -1236,10 +1236,10 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 {
                     CFileData* f = &Files->At(i);
 
-                    if (*f->Ext != 0) // has an extension
+                    if (*f->Ext != 0) // an extension exists
                     {
                         /*
-            if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive that we can process?
+            if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive which we can process?
             {
               f->Association = TRUE;
               f->Archive = TRUE;
@@ -1305,7 +1305,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         CFileData* f = &FSFiles->At(i);
 
                         if (Configuration.NotHiddenSystemFiles &&
-                            (f->Hidden || // Hidden and Attr are zeroed when invalid; otherwise the tests fail
+                            (f->Hidden || // both Hidden and Attr are nulled if they are invalid -> tests fail
                              (f->Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))))
                         { // skip hidden file/directory
                             HiddenFilesCount++;
@@ -1320,7 +1320,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             continue;
                         }
 
-                        //--- if the name is already present in the HiddenNames array, we discard it
+                        //--- if the name is occupied in the array HiddenNames, we will discard it
                         if (HiddenNames.Contains(FALSE, f->Name))
                         {
                             HiddenFilesCount++;
@@ -1335,7 +1335,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     {
                         CFileData* f = &FSDirs->At(i);
                         if (Configuration.NotHiddenSystemFiles &&
-                            (f->Hidden || // both Hidden and Attr are zeroed if they are invalid -> tests fail
+                            (f->Hidden || // both Hidden and Attr are nulled if they are invalid -> tests fail
                              (f->Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))))
                         { // skip hidden file/directory
                             HiddenDirsCount++;
@@ -1343,7 +1343,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             continue;
                         }
 
-                        //--- if the name is already present in the HiddenNames array, we discard it
+                        //--- if the name is occupied in the array HiddenNames, we will discard it
                         if (HiddenNames.Contains(TRUE, f->Name))
                         {
                             HiddenDirsCount++;
@@ -1369,7 +1369,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 {
                     DirectoryLine->SetHidden(HiddenFilesCount, HiddenDirsCount);
                     //          TRACE_I("ReadDirectory: end");
-                    return FALSE; // the directory no longer exists ...
+                    return FALSE; // the directory has ceased to exist ...
                 }
 
                 // if the panel is empty, we will set infoline to "No files found"
@@ -1399,7 +1399,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
                     // preparing for loading of icons
                     IconCacheValid = FALSE;
-                    MSG msg; // need to remove any pending WM_USER_ICONREADING_END message that would set IconCacheValid = TRUE
+                    MSG msg; // need to remove any WM_USER_ICONREADING_END, which would set IconCacheValid = TRUE
                     while (PeekMessage(&msg, HWindow, WM_USER_ICONREADING_END, WM_USER_ICONREADING_END, PM_REMOVE))
                         ;
 
@@ -1419,7 +1419,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (*f->Ext != 0) // an extension exists
                         {
                             /*
-              if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive that we can process?
+              if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive which we can process?
               {
                 f->Association = TRUE;
                 f->Archive = TRUE;
@@ -1452,13 +1452,13 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             iconData.FSFileData = NULL;
                             iconData.SetReadingDone(0); // just for form
                             int size = (int)strlen(iconLocation) + 4;
-                            size -= (size & 0x3);                // size % 4  (4-byte alignment)
+                            size -= (size & 0x3);                // size % 4  (alignment per four bytes)
                             const char* s = iconLocation + size; // skip alignment from zeros
                             int len = (int)strlen(s);
-                            if (len > 0) // icon location is not empty
+                            if (len > 0) // icon-location is not empty
                             {
                                 int nameLen = f->NameLen + 4;
-                                nameLen -= (nameLen & 0x3); // nameLen % 4 (aligned to four bytes)
+                                nameLen -= (nameLen & 0x3); // nameLen % 4  (alignment per four bytes)
                                 iconData.NameAndData = (char*)malloc(nameLen + len + 1);
                                 if (iconData.NameAndData != NULL)
                                 {
@@ -1466,8 +1466,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                     memset(iconData.NameAndData + f->NameLen, 0, nameLen - f->NameLen); // zeroes alignment +
                                     memcpy(iconData.NameAndData + nameLen, s, len + 1);                 // icon-location + '\0'
 
-                                    iconData.SetFlag(3); // icon not yet loaded, specified only by icon-location
-                                                         // we need to allocate space for the bitmaps; this cannot be done in the worker thread
+                                    iconData.SetFlag(3); // not-loaded icon given by icon-location only
+                                                         // we need to allocate space for bitmaps, can't be done in thread
                                     iconData.SetIndex(IconCache->AllocIcon(NULL, NULL));
                                     if (iconData.GetIndex() != -1)
                                     {
@@ -1499,7 +1499,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             TRACE_E("SimplePluginIcons is not NULL before GetSimplePluginIcons().");
 #endif // _DEBUG
                         SimplePluginIcons = PluginData.GetSimplePluginIcons(iconSize);
-                        if (SimplePluginIcons == NULL) // failure -> fall back to pitSimple
+                        if (SimplePluginIcons == NULL) // not a success -> degradation to pitSimple
                         {
                             SetPluginIconsType(pitSimple);
                         }
@@ -1517,7 +1517,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             if (*f->Ext != 0) // an extension exists
                             {
                                 /*
-                if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive that we can process?
+                if (PackerFormatConfig.PackIsArchive(f->Name))   // is it an archive which we can process?
                 {
                   f->Association = TRUE;
                   f->Archive = TRUE;
@@ -1556,11 +1556,11 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
                             // preparing for loading of icons
                             IconCacheValid = FALSE;
-                            MSG msg; // remove any pending WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
+                            MSG msg; // need to remove any WM_USER_ICONREADING_END, which would set IconCacheValid = TRUE
                             while (PeekMessage(&msg, HWindow, WM_USER_ICONREADING_END, WM_USER_ICONREADING_END, PM_REMOVE))
                                 ;
 
-                            // add files/directories without a simple icon to the icon cache
+                            // file/directories which don't have a simple icon will be addeed to icon-cache
                             {
                                 CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory::FS-icons-from-plugin");
 
@@ -1572,10 +1572,10 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                     BOOL isDir = i < FSDirs->Count;
                                     CFileData* f = (isDir ? &FSDirs->At(i) : &FSFiles->At(i - FSDirs->Count));
 
-                                    // a pointer to CFileData is needed for PluginFSDir, because items in Files and Dirs can move
-                                    // for example when sorting (Files and Dirs are arrays of CFileData, not `CFileData*`, which causes these problems)
+                                    // need a pointer to CFileData for PluginFSDir, because moving occurs in Files and Dirs
+                                    // e.g. when sorting (Files and Dirs are arrays of CFileData, not (CFileData *), that's why these problems exist)
                                     if (Configuration.NotHiddenSystemFiles &&
-                                        (f->Hidden || // both Hidden and Attr are zeroed when invalid -> tests fail
+                                        (f->Hidden || //both Hidden a Attr jsou nulovane pokud jsou neplatne -> testy failnou
                                          (f->Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))))
                                     { // skip hidden file/directory
                                         continue;
@@ -1585,7 +1585,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                         if (FilterEnabled && !Filter.AgreeMasks(f->Name, f->Ext))
                                             continue;
                                     }
-                                    //--- if the name is already present in the HiddenNames array, we discard it
+                                    //--- if the name is occupied in the array HiddenNames, we will discard it
                                     if (HiddenNames.Contains(isDir, f->Name))
                                         continue;
                                     debugCount++;
@@ -1604,8 +1604,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                                             memcpy(iconData.NameAndData, f->Name, f->NameLen);                  // name +
                                             memset(iconData.NameAndData + f->NameLen, 0, nameLen - f->NameLen); // zeroes alignment
 
-                                            iconData.SetFlag(0); // icon not loaded yet (plugin icon)
-                                                                 // bitmap storage must be allocated outside the thread
+                                            iconData.SetFlag(0); // so far not loaded icon (plugin-icon)
+                                                                 // need to allocate space for bitmaps, can't be done in thread
                                             iconData.SetIndex(IconCache->AllocIcon(NULL, NULL));
                                             if (iconData.GetIndex() != -1)
                                             {
@@ -1660,19 +1660,19 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     return TRUE;
 }
 
-// sorts the Dirs and Files arrays independently of global variables
+// sorts array Dirs and Files independently on global variables
 void SortFilesAndDirectories(CFilesArray* files, CFilesArray* dirs, CSortType sortType, BOOL reverseSort, BOOL sortDirsByName)
 {
     CALL_STACK_MESSAGE1("SortDirectoryAux()");
 
-    // CAUTION: must match the sort code in RefreshDirectory, ChangeSortType, and CompareDirectories !!
+    // CAUTION: must correspond to sort-code in RefreshDirectory, ChangeSortType and CompareDirectories !!!
 
     if (dirs->Count > 0)
     {
         BOOL hasRoot = (dirs->At(0).NameLen == 2 && dirs->At(0).Name[0] == '.' &&
                         dirs->At(0).Name[1] == '.'); // root directory
         int firstIndex = hasRoot ? 1 : 0;
-        if (dirs->Count - firstIndex > 1) // if there is only one item, there is nothing to sort
+        if (dirs->Count - firstIndex > 1) // if there's one item only, there's nothing to sort
         {
             switch (sortType)
             {
@@ -1757,7 +1757,7 @@ BOOL IsWin64RedirectedDirAux(const char* subDir, const char* redirectedDir, cons
             if (h != INVALID_HANDLE_VALUE)
             {
                 HANDLES(FindClose(h));
-                return FALSE; // this is not just a pseudo-directory; a directory with the same name exists there, which means that, for example, the context menu will work almost normally
+                return FALSE; // this is not just a pseudo-directory, there is a directory with the same name, which means that e.g. context menu will work more or less normally
             }
         }
 
@@ -1846,7 +1846,7 @@ BOOL AddWin64RedirectedDirAux(const char* path, const char* subDir, const char* 
             if (StrICmp(dirs->At(i).Name, redirectedDirLastComp) == 0)
             {
                 if (dirs->At(i).IsLink)
-                    return FALSE; // this redirected directory has already been added
+                    return FALSE; // this redirected-dir is already added
                 deleteIndex = i;
                 break;
             }
@@ -1874,11 +1874,11 @@ BOOL AddWin64RedirectedDirAux(const char* path, const char* subDir, const char* 
                 if (found)
                 {
                     if (deleteIndex != -1)
-                        dirs->Delete(deleteIndex); // there is a directory here, we will delete it; redirected-dir has priority (redirector ignores this directory)
+                        dirs->Delete(deleteIndex); // there's is a directory here, we will delete it, redirected-dir has priority (redirector ignores this directory)
                     lstrcpyn(fileData->cFileName, redirectedDirLastComp, MAX_PATH);
                     fileData->cAlternateFileName[0] = 0;
 
-                    if (CutDirectory(findPath)) // Check whether a directory with the same name as redirected-dir exists on disk (it may not be in the 'dirs' array, e.g. due to the "Hide Selected Names" command)
+                    if (CutDirectory(findPath)) // find out if there's a directory with the same name as redirected-dir on the disk (it does not need to be in the 'dirs' array, e.g. because of the command "Hide Selected Names")
                     {
                         WIN32_FIND_DATA fd;
                         h = HANDLES_Q(FindFirstFile(findPath, &fd));
@@ -1982,7 +1982,7 @@ CHANGE_AGAIN:
         UpdateWindow(MainWindow->HWindow);
         if (newDir != NULL)
             lstrcpyn(path, newDir, 2 * MAX_PATH);
-        else // do not set focus and top-index for a path from the dialog
+        else // focus and top-index setting won't be done for path from dialog
         {
             suggestedTopIndex = -1;
             suggestedFocusName = NULL;
@@ -1992,7 +1992,7 @@ CHANGE_AGAIN:
         char* fsUserPart;
         if (!sendDirectlyToPluginLocal && IsPluginFSPath(path, fsName, (const char**)&fsUserPart))
         {
-            if (strlen(fsUserPart) >= MAX_PATH) // plugins do not support longer paths
+            if (strlen(fsUserPart) >= MAX_PATH) // plugins do not count with longer path
             {
                 sprintf(errBuf, LoadStr(IDS_PATHERRORFORMAT), path, LoadStr(IDS_TOOLONGPATH));
                 SalMessageBox(HWindow, errBuf, LoadStr(IDS_ERRORCHANGINGDIR),
@@ -2003,7 +2003,7 @@ CHANGE_AGAIN:
                         EndStopRefresh(); // snooper will be started again
                     if (failReason != NULL)
                         *failReason = CHPPFR_INVALIDPATH;
-                    return FALSE; // cannot retry, returning failure
+                    return FALSE; // we're finished, it can't be repeated
                 }
                 goto CHANGE_AGAIN;
             }
@@ -2036,7 +2036,7 @@ CHANGE_AGAIN:
                 // which would be able to list the path (so that a new FS is not opened unnecessarily)
                 int fsNameIndexDummy;
                 BOOL convertPathToInternalDummy = FALSE;
-                if (!Is(ptPluginFS) || // the panel's FS interface cannot display this path (ChangePathToPluginFS opens a new FS)
+                if (!Is(ptPluginFS) || // FS interface in the panel cannot list the path (ChangePathToPluginFS opens a new FS)
                     !IsPathFromActiveFS(fsName, fsUserPart, fsNameIndexDummy, convertPathToInternalDummy))
                 {
                     CDetachedFSList* list = MainWindow->DetachedFSList;
@@ -2099,7 +2099,7 @@ CHANGE_AGAIN:
                         EndStopRefresh(); // snooper will be started again
                     if (failReason != NULL)
                         *failReason = CHPPFR_INVALIDPATH;
-                    return FALSE; // Cannot continue; retry is not possible
+                    return FALSE; // finished, cannot be repeated
                 }
                 goto CHANGE_AGAIN;
             }
@@ -2110,13 +2110,13 @@ CHANGE_AGAIN:
                 (path[0] != 0 && path[1] == ':' ||                                             // X: type paths
                  (path[0] == '/' || path[0] == '\\') && (path[1] == '/' || path[1] == '\\') || // UNC paths
                  Is(ptDisk) || Is(ptZIPArchive)))                                              // disk+archive of the relative path
-            {                                                                                  // disk path (absolute or relative): convert all '/' to '\\' and remove duplicate '\\'
+            {                                                                                  // this is a disk path (absolute or relative) - turn all '/' to '\\' + remove duplicated '\\'
                 SlashesToBackslashesAndRemoveDups(path);
             }
 
             int errTextID;
             const char* text = NULL;                 // caution: textFailReason must be set
-            int textFailReason = CHPPFR_INVALIDPATH; // if text != NULL, textFailReason contains the error code
+            int textFailReason = CHPPFR_INVALIDPATH; // if text != NULL, it contains the code of error which occurred
             char curPath[2 * MAX_PATH];
             curPath[0] = 0;
             if (sendDirectlyToPluginLocal)
@@ -2195,7 +2195,7 @@ CHANGE_AGAIN:
                                         EndStopRefresh(); // snooper will be started again
                                     if (failReason != NULL)
                                         *failReason = CHPPFR_INVALIDPATH;
-                                    return FALSE; // done, cannot retry
+                                    return FALSE; // finished, cannot be repeated
                                 }
                                 goto CHANGE_AGAIN; // show the path in dialog again, so that the user can correct it
                             }
@@ -2221,7 +2221,7 @@ CHANGE_AGAIN:
                             EndStopRefresh(); // snooper will be started again
                         if (failReason != NULL)
                             *failReason = CHPPFR_INVALIDPATH;
-                        return FALSE; // stop here, cannot retry
+                        return FALSE; // finished, cannot be repeated
                     }
                     goto CHANGE_AGAIN;
                 }
@@ -2247,7 +2247,7 @@ CHANGE_AGAIN:
                         copyLen = (int)strlen(copy);
                         if (copyLen >= MAX_PATH)
                         {
-                            if (*end != 0 && !SalPathAppend(copy, end + 1, 2 * MAX_PATH)) // if extending the part of the path processed so far leaves no room for the rest, use the original form of the path
+                            if (*end != 0 && !SalPathAppend(copy, end + 1, 2 * MAX_PATH)) // if the so far processed part of the path is enlengthened and the rest of the path does not fit, we will use the original form of the path
                                 strcpy(copy, path);
                             text = LoadStr(IDS_TOOLONGPATH);
                             textFailReason = CHPPFR_INVALIDPATH;
@@ -2275,7 +2275,7 @@ CHANGE_AGAIN:
                             err = GetLastError();
                             if (err != ERROR_FILE_NOT_FOUND && err != ERROR_PATH_NOT_FOUND &&
                                 err != ERROR_BAD_PATHNAME && err != ERROR_INVALID_NAME)
-                            { // If the path may contain a directory we cannot access (try whether later path components are accessible)
+                            { // if there's chance that the path contains a directory to which we don't have access (we will try if there are other components of the path accessible)
                                 DWORD firstErr = err;
                                 char* firstCopyEnd = st + strlen(st);
                                 while (*end != 0)
@@ -2286,7 +2286,7 @@ CHANGE_AGAIN:
                                     memcpy(st, s, end - s);
                                     st[end - s] = 0;
                                     s = end;
-                                    if ((int)strlen(copy) >= MAX_PATH) // Path is too long, abort.
+                                    if ((int)strlen(copy) >= MAX_PATH) // too long path, we're finished...
                                     {
                                         h = INVALID_HANDLE_VALUE;
                                         break;
@@ -2295,14 +2295,14 @@ CHANGE_AGAIN:
                                     {
                                         h = HANDLES_Q(FindFirstFile(copy, &find));
                                         if (h != INVALID_HANDLE_VALUE)
-                                            break; // found an accessible component, continue
+                                            break; // we've found an accessible component, continuing...
                                         err = GetLastError();
                                         if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND ||
                                             err == ERROR_BAD_PATHNAME || err == ERROR_INVALID_NAME)
-                                            break; // path error, stopping...
+                                            break; // an error in the path, we're finished...
                                     }
                                 }
-                                if (*end == 0 && h == INVALID_HANDLE_VALUE) // no other accessible component found; try listing the current path
+                                if (*end == 0 && h == INVALID_HANDLE_VALUE) // another accessible component not found, we will try if the current path can be listed
                                 {
                                     if ((int)strlen(copy) < MAX_PATH && SalPathAppend(copy, "*.*", MAX_PATH + 10))
                                     {
@@ -2321,7 +2321,7 @@ CHANGE_AGAIN:
                                         }
                                     }
                                 }
-                                if (h == INVALID_HANDLE_VALUE) // no accessible part of the path was found; report the first error encountered
+                                if (h == INVALID_HANDLE_VALUE) // accessible part of the path not found, we will report the first found error
                                 {
                                     err = firstErr;
                                     *firstCopyEnd = 0;
@@ -2347,7 +2347,7 @@ CHANGE_AGAIN:
                             {
                                 HANDLES(FindClose(h));
                                 int len2 = (int)strlen(find.cFileName); // must fit (only the size of letters is changed - result of FindFirstFile)
-                                if ((int)strlen(st + 1) != len2)        // for example, for "aaa  " it returns "aaa"; reproduce: Paste (text without outer quotes): "   "   %TEMP%\aaa   "   "
+                                if ((int)strlen(st + 1) != len2)        // it does e.g. for "aaa  " returns "aaa", reproduce: Paste (text without quotes): "   "   %TEMP%\aaa   "   "
                                 {
                                     TRACE_E("CFilesWindow::ChangeDir(): unexpected situation: FindFirstFile returned name with "
                                             "different length: \""
@@ -2360,16 +2360,16 @@ CHANGE_AGAIN:
                             else
                                 st += strlen(st);
 
-                            // copy contains the "translated" path
+                            // copy containts the "translated" path
                             if (!pathEndsWithSpaceOrDot)
                                 copyAttr = find.dwFileAttributes;
                             if ((copyAttr & FILE_ATTRIBUTE_DIRECTORY) == 0)
                             { // file -> is it an archive?
                                 if (PackerFormatConfig.PackIsArchive(copy))
                                 {
-                                    if ((int)strlen(*end != 0 ? end + 1 : end) >= MAX_PATH) // path in the archive is too long
+                                    if ((int)strlen(*end != 0 ? end + 1 : end) >= MAX_PATH) // too long path in archive
                                     {
-                                        if (!SalPathAppend(copy, end + 1, 2 * MAX_PATH)) // if extending the archive name would leave no room for the path inside the archive, use the original form of the path
+                                        if (!SalPathAppend(copy, end + 1, 2 * MAX_PATH)) // if the archive name is enlengthened and the rest of the path does not fit, we will use the original form of the path
                                             strcpy(copy, path);
                                         text = LoadStr(IDS_TOOLONGPATH);
                                         textFailReason = CHPPFR_INVALIDPATH;
@@ -2401,7 +2401,7 @@ CHANGE_AGAIN:
                                     char* name;
                                     char shortenedPath[MAX_PATH];
                                     strcpy(shortenedPath, copy);
-                                    if (*end == 0 && CutDirectory(shortenedPath, &name)) // if the path does not end with '\\' (it is a file path)
+                                    if (*end == 0 && CutDirectory(shortenedPath, &name)) // when the path does not end with '\\' (path to file)
                                     {
                                         // change of the path to absolute windows path + focus to the file
                                         ChangePathToDisk(HWindow, shortenedPath, -1, name, NULL, TRUE, FALSE, FALSE, failReason);
@@ -2409,7 +2409,7 @@ CHANGE_AGAIN:
                                             EndStopRefresh(); // snooper will be started again
                                         if (failReason != NULL && *failReason == CHPPFR_SUCCESS)
                                             *failReason = CHPPFR_FILENAMEFOCUSED;
-                                        return FALSE; // browse a different path (without the file name)
+                                        return FALSE; // listing another path (file name is cut)
                                     }
                                     else
                                     {
@@ -2495,10 +2495,10 @@ CHANGE_AGAIN:
                 if (newDir != NULL)
                 {
                     if (useStopRefresh)
-                        EndStopRefresh(); // snooper will be started again
+                        EndStopRefresh(); // snopper will be started again
                     if (failReason != NULL)
                         *failReason = textFailReason;
-                    return FALSE; // Stop here; cannot retry.
+                    return FALSE; // finished, cannot be repeated
                 }
                 goto CHANGE_AGAIN;
             }
@@ -2558,7 +2558,7 @@ BOOL CFilesWindow::ChangePathToDrvType(HWND parent, int driveType, const char* d
 void CFilesWindow::ChangeDrive(char drive)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::ChangeDrive(%u)", drive);
-    //--- DefaultDir refresh
+    //--- DefaultDire refresh
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() != this);
     //---  possible disk selection from the dialog
     CFilesWindow* anotherPanel = Parent->GetOtherPanel(this);
@@ -2673,7 +2673,7 @@ void CFilesWindow::ChangeDrive(char drive)
                 }
             }
 
-            if (ifaceForFS != NULL) // post-cmd from the context menu of the active or detached FS
+            if (ifaceForFS != NULL) // post-cmd from context menu of active/detached FS
             {
                 ifaceForFS->ExecuteChangeDrivePostCommand(PANEL_SOURCE, postCmd, postCmdParam);
             }
@@ -2681,19 +2681,19 @@ void CFilesWindow::ChangeDrive(char drive)
         }
 
         case drvtPluginFSInOtherPanel:
-            return; // invalid action (an FS from the other panel cannot be assigned to the active panel)
+            return; // illegal action (FS from other panel cannot be given to active panel)
 
         case drvtPluginCmd:
         {
             const char* dllName = (const char*)driveTypeParam;
             CPluginData* data = Plugins.GetPluginData(dllName);
-            if (data != NULL) // plugin exists, execute the command
+            if (data != NULL) // plugin exists, we can execute the command
             {
-                if (!fromContextMenu) // command for an FS item
+                if (!fromContextMenu) // FS item command
                 {
                     data->ExecuteChangeDriveMenuItem(PANEL_SOURCE);
                 }
-                else // post-command from the context menu of an FS item
+                else // post-cmd from context menu of FS item
                 {
                     data->GetPluginInterfaceForFS()->ExecuteChangeDrivePostCommand(PANEL_SOURCE, postCmd, postCmdParam);
                 }
@@ -2760,13 +2760,13 @@ void CFilesWindow::UpdateDriveIcon(BOOL check)
                 {
                     BOOL destroyIcon;
                     HICON icon = GetPluginFS()->GetFSIcon(destroyIcon);
-                    if (icon != NULL) // defined by the plugin
+                    if (icon != NULL) // defined by plugin
                     {
                         DirectoryLine->SetDriveIcon(icon);
                         if (destroyIcon)
                             HANDLES(DestroyIcon(icon));
                     }
-                    else // default
+                    else // standard
                     {
                         icon = SalLoadIcon(HInstance, IDI_PLUGINFS, IconSizes[ICONSIZE_16]);
                         DirectoryLine->SetDriveIcon(icon);

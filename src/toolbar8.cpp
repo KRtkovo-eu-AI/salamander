@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -71,7 +70,7 @@ BOOL CPluginsBar::CreatePluginButtons()
     tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_IMAGEINDEX | TLBI_MASK_ID;
     tii.Style = TLBI_STYLE_WHOLEDROPDOWN | TLBI_STYLE_DROPDOWN;
     tii.ImageIndex = i;
-    tii.ID = CM_PLUGINCMD_MIN + i; // mainwnd3 receives it as WM_USER_TBDROPDOWN.
+    tii.ID = CM_PLUGINCMD_MIN + i; // do mainwnd3 prijde jako WM_USER_TBDROPDOWN
     InsertItem2(0xFFFFFFFF, TRUE, &tii);
   }
   */
@@ -82,7 +81,7 @@ BOOL CPluginsBar::CreatePluginButtons()
 int CPluginsBar::GetNeededHeight()
 {
     CALL_STACK_MESSAGE_NONE
-    // Return the correct height even when no icon is loaded.
+    // i v pripade, ze nedrzime zadnou ikonu budeem vracet spravnou vysku
     int height = CToolBar::GetNeededHeight();
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
     int minH = 3 + iconSize + 3;
@@ -94,7 +93,7 @@ int CPluginsBar::GetNeededHeight()
 void CPluginsBar::Customize()
 {
     CALL_STACK_MESSAGE_NONE
-    // Open the Plugins window.
+    // zobrazim okno Plugins
     PostMessage(MainWindow->HWindow, WM_COMMAND, CM_CUSTOMIZEPLUGINS, 0);
 }
 

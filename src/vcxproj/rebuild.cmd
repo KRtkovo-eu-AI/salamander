@@ -1,16 +1,23 @@
 @echo off
 
-set MSB=C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Current\Bin\MSBuild.exe
-
-if "%OPENSAL_BUILD_DIR%"=="" (
-  echo Please set OPENSAL_BUILD_DIR environment variable.
+set "MSB="
+call :resolve_msbuild
+if not defined MSB (
+  echo MSBuild.exe not found. Please install Visual Studio with C++ support or open a Developer Command Prompt.
   echo.
   pause
   exit /b
 )
 
-if not exist "%MSB%" (
-  echo MSBuild.exe not found: %MSB%
+call :check_v143
+if errorlevel 1 (
+  echo.
+  pause
+  exit /b
+)
+
+if "%OPENSAL_BUILD_DIR%"=="" (
+  echo Please set OPENSAL_BUILD_DIR environment variable.
   echo.
   pause
   exit /b
@@ -141,4 +148,57 @@ exit /b
 
 :remove_file_if_empty <filename>
 if %~z1==0 del %1
+exit /b
+
+:resolve_msbuild
+where msbuild >nul 2>&1
+if %errorlevel% equ 0 (
+  set "MSB=msbuild"
+  exit /b
+)
+
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" exit /b
+
+for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -property installationPath`) do set "VSROOT=%%I"
+if not defined VSROOT exit /b
+
+if exist "%VSROOT%\MSBuild\Current\Bin\MSBuild.exe" (
+  set "MSB=%VSROOT%\MSBuild\Current\Bin\MSBuild.exe"
+)
+exit /b
+
+:check_v143
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+  set "V143ROOT="
+  for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.v143.x86.x64 -property installationPath`) do set "V143ROOT=%%I"
+  if defined V143ROOT (
+    call :select_v143_toolset
+    exit /b 0
+  )
+)
+
+call :select_v143_toolset
+if defined V143TOOLS exit /b 0
+
+echo Visual Studio C++ v143 build tools are not installed.
+echo Open Salamander requires PlatformToolset=v143. Install component:
+echo   Microsoft.VisualStudio.Component.VC.v143.x86.x64
+echo.
+exit /b 1
+
+:select_v143_toolset
+set "V143TOOLS="
+if not defined VSROOT (
+  if exist "%VSWHERE%" (
+    for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -property installationPath`) do set "VSROOT=%%I"
+  )
+)
+if not defined VSROOT exit /b
+
+for /f "delims=" %%I in ('dir /b /ad "%VSROOT%\VC\Tools\MSVC\14.4*" 2^>nul') do set "V143TOOLS=%%I"
+if not defined V143TOOLS exit /b
+
+if not defined VCToolsVersion set "VCToolsVersion=%V143TOOLS%"
 exit /b

@@ -1,13 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
 //*****************************************************************************
 //*****************************************************************************
 //
-// original regexp.h
+// puvodni regexp.h
 //
 //*****************************************************************************
 //*****************************************************************************
@@ -37,12 +36,12 @@ void regerror(const char* error);
 //*****************************************************************************
 //*****************************************************************************
 //
-// my section of regexp.h
+// moje cast regexp.h
 //
 //*****************************************************************************
 //*****************************************************************************
 
-// Errors that may occur during regexp compilation and search.
+// chyby, ktere mohou nastat pri compilaci a hledani reg. expr.
 enum CRegExpErrors
 {
     reeNoError,
@@ -60,7 +59,7 @@ enum CRegExpErrors
     reeInternalDisaster,
 };
 
-// Function that returns the error text.
+// funkce, ktera vraci text nastale chyby
 const char* RegExpErrorText(CRegExpErrors err);
 
 // search flags
@@ -75,18 +74,18 @@ const char* RegExpErrorText(CRegExpErrors err);
 class CRegularExpression
 {
 public:
-    static const char* LastError; // Last error text.
+    static const char* LastError; // text posledni chyby
 
 protected:
     const char* LastErrorText;
     char* OriginalPattern;
-    regexp* Expression; // Compiled regular expression.
+    regexp* Expression; // nakompilovany regularni vyraz
     WORD Flags;
 
-    char* Line;                // Line buffer.
-    const char* OrigLineStart; // Pointer to the start of the original text (passed to SetLine() as 'start').
-    int Allocated;             // Number of allocated bytes.
-    int LineLength;            // Current line length.
+    char* Line;                // buffer pro radek
+    const char* OrigLineStart; // pointer na zacatek puvodniho textu (predaneho do SetLine() jako 'start')
+    int Allocated;             // kolik bytu je alokovano
+    int LineLength;            // aktualni delka radky
 
 public:
     CRegularExpression()
@@ -115,33 +114,33 @@ public:
     const char* GetPattern() const { return OriginalPattern; }
 
     const char* GetLastErrorText() const { return LastErrorText; }
-    BOOL Set(const char* pattern, WORD flags); // Returns FALSE on error (call GetLastErrorText).
-    BOOL SetFlags(WORD flags);                 // Returns FALSE on error (call GetLastErrorText).
+    BOOL Set(const char* pattern, WORD flags); // vraci FALSE pri chybe (volat metodu GetLastErrorText)
+    BOOL SetFlags(WORD flags);                 // vraci FALSE pri chybe (volat metodu GetLastErrorText)
 
-    BOOL SetLine(const char* start, const char* end); // Sets the line of text to search in; returns FALSE on error (call GetLastErrorText).
+    BOOL SetLine(const char* start, const char* end); // radek textu, ve kterem vyhledava, vraci FALSE pri chybe (volat metodu GetLastErrorText)
 
     int SearchForward(int start, int& foundLen);
     int SearchBackward(int length, int& foundLen);
 
-    // Replaces variables \1 ... \9 with the text captured by the corresponding groups.
-    // 'pattern' is the replacement pattern for the matched text, 'buffer' is the output
-    // buffer, 'bufSize' is the maximum buffer size including the terminating NULL
-    // character, and 'count' receives the number of characters copied to 'buffer'
-    // Returns TRUE if the entire expanded text fit in 'buffer'
+    // nahradi promnene \1 ... \9 textem zachycenym odpovidajicima zavorkama
+    // 'pattern' je vzor kterym se nahrazuje nalezeny match, 'buffer' buffer
+    // pro vystup, 'bufSize' maximalni velikost textu vcetne ukoncovaciho NULL
+    // znaku, v promnene 'count' vraci pocet znaku zkopirovanych do bufferu
+    // vraci TRUE pokud se vyraz vesel cely do bufferu
     BOOL ExpandVariables(char* pattern, char* buffer,
                          int bufSize, int* count);
 
-    // Return values
+    // navratove hodnoty
     //
-    // 0 the text was not found, nothing was copied to 'buffer'
-    // 1 the text was replaced successfully
-    // 2 'buffer' is too small
+    // 0 hledany text nebyl nalezen, do 'buffer' se nic nekopirovalo
+    // 1 text byl uspesne nahrazen
+    // 2 'buffer' je prilis maly
     int ReplaceForward(int start, char* pattern, BOOL global,
                        char* buffer, int bufSize);
 
 protected:
-    // Reverses the regular expression for backward search.
-    // THE EXPRESSION MUST BE SYNTACTICALLY CORRECT, OR IT WILL NOT WORK PROPERLY!
-    // e.g. "a)b(d)(" -> "((d)b)a", which is incorrect
+    // Obraci regularni vyraz - pro hledani od zadu
+    // VYRAZ MUSI BYT SYNTAKTICKY SPRAVNY ! JINAK NEFUNGUJE SPRAVNE !
+    // napr. "a)b(d)(" -> "((d)b)a" coz je chybne
     void ReverseRegExp(char*& dstExpEnd, char* srcExp, char* srcExpEnd);
 };

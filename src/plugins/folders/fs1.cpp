@@ -121,7 +121,7 @@ CPluginInterfaceForFS::ExecuteOnFS(int panel, CPluginFSInterfaceAbstract* plugin
         IShellFolder* newFolder;
         LPITEMIDLIST newPIDL;
 
-        if (isDir == 2) // parent directory
+        if (isDir == 2) // up-dir
         {
             if (CutLastItemFromIL(fs->CurrentPIDL, &newFolder, &newPIDL))
             {
@@ -311,9 +311,9 @@ CPluginDataInterface::CompareFilesFromFS(const CFileData* file1, const CFileData
     if (pidl1 == pidl2)
         return 0;
     if (pidl1 == NULL)
-        return -1; // the ".." directory ends up here with pidl==NULL
+        return -1; // the ".." directory arrives here and has pidl==NULL
     if (pidl2 == NULL)
-        return 1; // the ".." directory ends up here with pidl==NULL
+        return 1; // the ".." directory arrives here and has pidl==NULL
 
     while (1)
     {
@@ -330,7 +330,7 @@ CPluginDataInterface::CompareFilesFromFS(const CFileData* file1, const CFileData
             if (end2->mkid.cb == 0)
                 return 0; // PIDLs are identical
             else
-                return -1; // the first PIDL is shorter, so it is "less"
+                return -1; // the first PIDL is shorter, thus "lesser"
         }
         else
         {

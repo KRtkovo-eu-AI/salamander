@@ -453,7 +453,7 @@ class CIEMainWindow
 {
 public:
     HWND HWindow;                                // viewer window handle
-    HANDLE Lock;                                 // 'lock' object or NULL (becomes signaled only after the file is closed)
+    HANDLE Lock;                                 // 'lock' object or NULL (becomes signaled after we close the file)
     static CIEMainWindowQueue ViewerWindowQueue; // list of all viewer windows
     static CThreadQueue ThreadQueue;             // list of all window threads
 

@@ -52,7 +52,7 @@ AnsiString __fastcall TSalamandHelpSystem::GetViewerName()
 //---------------------------------------------------------------------------
 int __fastcall TSalamandHelpSystem::UnderstandsKeyword(const AnsiString HelpString)
 {
-    // pretend that we know everything
+    // pretend that we know everyting
     return 1;
 }
 //---------------------------------------------------------------------------

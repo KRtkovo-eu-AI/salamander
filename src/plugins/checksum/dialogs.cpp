@@ -179,7 +179,7 @@ void CSFVMD5Dialog::OnThreadEnd()
     ShowWindow(GetDlgItem(HWindow, IDC_LABEL), SW_HIDE);
     ShowWindow(GetDlgItem(HWindow, IDC_PROGRESS), SW_HIDE);
     bThreadRunning = FALSE;
-    if (ScrollIndex < FileList.Count) // the worker thread is no longer calculating (it may still be running), so no synchronization is needed
+    if (ScrollIndex < FileList.Count) // the worker already stopped counting (it may still be running), no sync needed
     {                                 // update the last "calculated" item so it does not remain calculating / verifying ...
         SetRowsDirty(ScrollIndex, ScrollIndex);
     }
@@ -330,12 +330,11 @@ INT_PTR CSFVMD5Dialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int i = -1; // -1 = do not call ensure visible
             if (ScheduledScrollIndex != ScrollIndex)
             {
-                // at this moment, computed data up to ScrollIndex becomes visible;
-                // ScrollIndex itself is calculating / verifying, and the items after it remain uncomputed
-                // (even if they have already been computed, they are not shown
-                // until the next cycle)
-                // repaint the newly visible computed data + the new ScrollIndex
-                // (display calculating / verifying)
+                // at this moment items up to ScrollIndex are acknowledged as computed,
+                // ScrollIndex itself is calculating / verifying and the items after it remain unprocessed
+                // (even if they are already computed, they will surface in the next cycle)
+                // show the newly acknowledged computed data + the new ScrollIndex must be repainted
+                // (to print calculating / verifying)
                 SetRowsDirty(ScrollIndex, ScheduledScrollIndex);
                 ScrollIndex = ScheduledScrollIndex;
                 if (bScrollToItem)
@@ -414,7 +413,7 @@ INT_PTR CSFVMD5Dialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (!IsWindowEnabled(HWindow))
         { // close all dialogs stacked above this one (send them WM_CLOSE and then send it here again)
             SalamanderGeneral->CloseAllOwnedEnabledDialogs(HWindow);
-            if (iThreadID != 0) // if a thread is running, close its windows too and let it terminate
+            if (iThreadID != 0) // if a thread is running, close its windows too and let it finish
             {                   // to avoid immediately opening another window with a new error
                 bTerminateThread = TRUE;
                 SalamanderGeneral->CloseAllOwnedEnabledDialogs(HWindow, iThreadID);
@@ -429,7 +428,7 @@ INT_PTR CSFVMD5Dialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
-        if (hThread != NULL) // if we started the thread, request its termination and wait for it
+        if (hThread != NULL) // if we started the thread, close it and wait for it
         {
             bTerminateThread = TRUE;
             ThreadQueue.WaitForExit(hThread, INFINITE);
@@ -462,7 +461,7 @@ CCalculateDialog::CCalculateDialog(HWND parent, BOOL alwaysOnTop, TSeedFileList*
 void CCalculateDialog::RefreshUI()
 {
     MSG msg;
-    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) // Keep the GUI responsive
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) // we want responsive GUI
     {
         if (!IsWindow(HWindow) || !IsDialogMessage(HWindow, &msg))
         {
@@ -1279,7 +1278,7 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 NMLVDISPINFO* plvdi = (NMLVDISPINFO*)nmh;
                 int index = plvdi->item.iItem;
                 if (index < 0 || index >= FileList.Count) // while the worker thread runs, the array is not modified
-                    break;                                // the array size does not change, so no synchronization is needed
+                    break;                                // array size does not change = no synchronization
                 if (plvdi->item.mask & LVIF_IMAGE)
                 {
                     // ScrollIndex nor the icons before it are modified by the thread, no synchronization needed
@@ -1300,7 +1299,7 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
 
                     case 1:
-                    { // Size: once added to the array, it never changes, so access is not synchronized
+                    { // Size: once added to the array it never changes = access is not synchronized
                         SalamanderGeneral->NumberToStr(plvdi->item.pszText, FileList[index]->Size);
                         break;
                     }
@@ -1498,8 +1497,8 @@ BOOL CVerifyDialog::AnalyzeSourceFile()
                 isSFV = FALSE; // not an SFV
             }
 
-            // WARNING: the following code must remain consistent with CGenericHashAlgo::ParseDigest() !!!
-            // checksum at the beginning (before ' ') or at the end (after ' ' or '=') and also
+            // WARNING: the following code must match CGenericHashAlgo::ParseDigest() !!!
+            // checksum at the beginning (before ' ') or checksum at the end (after ' ' or '=') and at the same time
             // the hash name at the beginning (before '(' or ' ')
 
             int posFirst, lenFirst;
@@ -1811,7 +1810,7 @@ void CVerifyDialog::OnThreadEnd()
     {
         if (!nMissing && !nSkipped && !nCorrupt)
         {
-            if (fileList.Count)                   // while the worker thread is running, the number of items in the array does not change
+            if (fileList.Count)                   // while the worker thread runs, the array is not modified
                 strcpy(text, LoadStr(IDS_ALLOK)); // number of items does not change = no synchronization needed
             else
                 strcpy(text, LoadStr(IDS_NOFILES));
@@ -1906,7 +1905,7 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 lstrcpyn(Focus_Path, fileList[i]->fileName, MAX_PATH);
                 SalamanderGeneral->PostMenuExtCommand(CMD_FOCUSFILE, TRUE);
                 Sleep(500);        // switching to another window happens, so this Sleep should not hurt anything
-                Focus_Path[0] = 0; // after 0.5 seconds we no longer need the focus (handles the case where we hit the start of Salamander's BUSY mode)
+                Focus_Path[0] = 0; // after 0.5 seconds we no longer want the focus (handles hitting the start of Salamander's BUSY mode)
             }
             else
                 SalamanderGeneral->SalMessageBox(HWindow, LoadStr(IDS_BUSY), LoadStr(IDS_VERIFYTITLE), MB_ICONINFORMATION);
@@ -1951,7 +1950,7 @@ INT_PTR CVerifyDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         break;
                     }
 
-                    case 1: // FileExist+Size: once added to the array, they do not change, so access is not synchronized
+                    case 1: // FileExist+Size: once added to the array it never changes = no synchronization needed
                     {
                         if (FileList[index]->FileExist)
                             SalamanderGeneral->NumberToStr(plvdi->item.pszText, FileList[index]->Size);
@@ -2087,7 +2086,7 @@ BOOL OpenCalculateDialog(HWND parent)
     int nFiles, nDirs;
     char sourcePath[MAX_PATH];
 
-    // Check whether nothing is selected and no item is focused
+    // Check if nothing is selected and no focus is set
     if (SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &nFiles, &nDirs))
     {
         int index = 0;
@@ -2239,7 +2238,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // Center horizontally & vertically to parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // Need DefDlgProc to set focus
+        break; // Need focus from DefDlgProc
     }
     } // switch
     return CDialog::DialogProc(uMsg, wParam, lParam);

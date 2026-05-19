@@ -111,7 +111,7 @@ void WINAPI DEMOPLUGOperationFromDisk(const char* sourcePath, SalEnumSelection2 
     while ((name = next(data->Parent, 3, &dosName, &isDir, &size, &attr, &lastWrite,
                         nextParam, &errorOccured)) != NULL)
     {
-        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot occur here
+        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot arrive here
             data->Success = FALSE;
         if (!isDir)
             totalSize += size;
@@ -493,7 +493,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           {
             break;
           }
-          else UpdateWindow(waitWndParent);  // redraw the parent window to remove message box remnants
+          else UpdateWindow(waitWndParent);  // avoid staring at leftover message box contents
           SalamanderGeneral->ShowSafeWaitWindow(TRUE);
         }
       }
@@ -501,7 +501,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 */
 
         /*
-      // password manager
+      // password mananger
       CSalamanderPasswordManagerAbstract *passwordManager = NULL;
       passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
       if (passwordManager != NULL)
@@ -530,11 +530,11 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           if (passwordManager->DecryptPassword(encryptedPassword, encryptedPasswordSize, &decryptedPassword))
           {
             TRACE_I("Decrypted password: " << decryptedPassword);
-            memset(decryptedPassword, 0, lstrlen(decryptedPassword));  // clear the memory containing the plain text password
+            memset(decryptedPassword, 0, lstrlen(decryptedPassword));  // clear memory with plain password
             SalamanderGeneral->Free(decryptedPassword);
           }
 
-          if (!encrypt) memset(encryptedPassword, 0, encryptedPasswordSize);  // clear the memory containing the scrambled password
+          if (!encrypt) memset(encryptedPassword, 0, encryptedPasswordSize);  // clear memory with scrambled password
           SalamanderGeneral->Free(encryptedPassword);
         }
       }
@@ -759,7 +759,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
                         {
                             if (!filePath)
                             {
-                                // error - expected a directory path, but found a file
+                                // error - expected a file path, not a directory
                                 SalamanderGeneral->SalMessageBox(parent, "Unable to create the path specified, name has already been used for a file.",
                                                                  "Path Error", MB_OK | MB_ICONEXCLAMATION);
                                 continue; // ask again

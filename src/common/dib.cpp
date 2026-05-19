@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -8,7 +7,7 @@
 #include <crtdbg.h>
 #include <ostream>
 #include <limits.h>
-#include <commctrl.h> // Needed for LPCOLORMAP.
+#include <commctrl.h> // potrebuju LPCOLORMAP
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -22,8 +21,8 @@
 
 #include "dib.h"
 
-// Workaround for a runtime check failure in the debug build: the original version of the macro casts rgb to WORD,
-// so the runtime check reports data loss in the RED component.
+// opatreni proti runtime check failure v debug verzi: puvodni verze makra pretypovava rgb na WORD,
+// takze hlasi ztratu dat (RED slozky)
 #undef GetGValue
 #define GetGValue(rgb) ((BYTE)(((rgb) >> 8) & 0xFF))
 
@@ -83,7 +82,7 @@ HBITMAP LoadBitmapAndMapColors(HINSTANCE hInst, HRSRC hRsrc, int mapCount,
         TRACE_E("Unable to create bitmap.");
     HANDLES(ReleaseDC(NULL, hDCScreen));
 
-    // free the copy of the bitmap info struct and the resource itself
+    // free copy of bitmap info struct and resource itself
     free(lpBitmapInfo);
     FreeResource(hglb);
 
@@ -245,7 +244,7 @@ DWORD DIBWidth(LPSTR lpDIB)
 //
 // Purpose:    Given a handle to global memory with a DIB spec in it,
 //             and a palette, returns a device dependent bitmap.  The
-//             DDB will be rendered with the specified palette.
+//             The DDB will be rendered with the specified palette.
 //
 // Parms:      hDIB == HANDLE to global memory containing a DIB spec
 //                     (either BITMAPINFOHEADER or BITMAPCOREHEADER)
@@ -308,14 +307,13 @@ HBITMAP DIBToBitmap(HANDLE hDIB, HPALETTE hPal)
     return hBitmap;
 }
 
-// ---------------------------------------------------------------------
+//---------------------------------------------------------------------
 //
 // Function:   MapColor(RGB fromColor, RGB toColor)
 //
-//             Remaps every occurrence of fromColor in the DIB to
-//             toColor.
+//             vsechny barvy fromColor premapuje na barvu toColor
 //
-// ---------------------------------------------------------------------
+//---------------------------------------------------------------------
 
 int MapColor(HANDLE hDIB, COLORREF fromColor, COLORREF toColor)
 {

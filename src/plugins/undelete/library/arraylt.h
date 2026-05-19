@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -41,9 +40,9 @@ enum CDeleteType
 enum CErrorType
 {
     etNone,         // OK
-    etLowMemory,    // new returned NULL
-    etUnknownIndex, // index is out of range for the array
-    etBadInsert,    // index of the inserted item is out of array range
+    etLowMemory,    // new - NULL
+    etUnknownIndex, // index is out of array range
+    etBadInsert,    // index of inserted item is out of array range
     etDestructed,   // array was already destructed using Destroy() method
 };
 
@@ -52,13 +51,13 @@ enum CErrorType
 //  -behaves like classic array, in addition it can pre-allocate to bigger or
 //   smaller (look at constructor 'base' and 'delta' values).
 //  -when adding item to array, copy-constructor is called
-//  -when deleting item, item destructor is called, you can change this behavior,
+//  -when deleting item, item destructor is called, you can change this behaviour,
 //   see CallDestructor method
-//  -you can use this array for simple types and also for objects that do not
+//  -you can use this array for simple types and also for objects which does not
 //   contain pointers to its own data, reason:
 //     objects are moved in array (e.g. when reallocating array or when inserting
 //     item to the beginning of array) simply by using memmove, so during these
-//     move constructors/destructors are not called, example:
+//     moves contructors/destructors are not called, example:
 //       char Path[MAX_PATH];  // full file name
 //       char *Name;           // points to 'Path' to file name (without path)
 //     SOLUTION: store only offsets instead of complete pointers
@@ -67,7 +66,7 @@ template <class DATA_TYPE>
 class TDirectArray
 {
 public:
-    CErrorType State; // etNone if array is OK, otherwise some error occurred
+    CErrorType State; // etNone if array is OK, otherwise some error occured
     int Count;        // current count of items in array
 
     TDirectArray<DATA_TYPE>(int base, int delta);
@@ -81,12 +80,12 @@ public:
     }
 
     void Insert(int index, const DATA_TYPE& member);
-    int Add(const DATA_TYPE& member); // adds an item to the end of the array; returns its index
+    int Add(const DATA_TYPE& member); // adds item to the end of array, returns item index
 
-    void Insert(int index, const DATA_TYPE* members, int count); // insert 'count' items from 'members'
-    int Add(const DATA_TYPE* members, int count);                // adds 'count' items from 'members'
+    void Insert(int index, const DATA_TYPE* members, int count); // insert 'count' of 'members' items
+    int Add(const DATA_TYPE* members, int count);                // add 'count' of 'members' items
 
-    DATA_TYPE& At(int index) // returns a reference to the item at 'index'
+    DATA_TYPE& At(int index) // returns pointer to item at 'index' possition
     {
 #if defined(_DEBUG) || defined(__ARRAY_DEBUG)
         if (index >= 0 && index < Count)
@@ -98,12 +97,12 @@ public:
             TRACE_C("Index is out of range (index = " << index
                                                       << ", Count = " << Count << ").");
             Error(etUnknownIndex);
-            return Data[0]; // because of the compiler, we must return an (invalid) item
+            return Data[0]; // because of compiler we must return (invalid) item
         }
 #endif
     }
 
-    DATA_TYPE& operator[](int index) // returns a reference to the item at 'index'
+    DATA_TYPE& operator[](int index) // returns pointer to item at 'index' possition
     {
 #if defined(_DEBUG) || defined(__ARRAY_DEBUG)
         if (index >= 0 && index < Count)
@@ -115,7 +114,7 @@ public:
             TRACE_C("Index is out of range (index = " << index
                                                       << ", Count = " << Count << ").");
             Error(etUnknownIndex);
-            return Data[0]; // because of the compiler, we must return an (invalid) item
+            return Data[0]; // because of compiler we must return (invalid) item
         }
 #endif
     }
@@ -132,12 +131,12 @@ public:
     void DestroyMembers();             // release items from memory (calling destructors), keep array
     void DetachMembers();              // detach all items (destructors are NOT called), keep array
     void Destroy();                    // complete array destruction (calling destructors)
-    void Delete(int index);            // delete the item at 'index' (calling the destructor), move remaining items
-    void Delete(int index, int count); // delete 'count' items at 'index' position (calling destructors), move remaining items
-    void Detach(int index);            // detach item at 'index' position (destructor is NOT called), move remaining items
-    void Detach(int index, int count); // detach 'count' items at 'index' position (destructors are NOT called), move remaining items
+    void Delete(int index);            // delete item at 'index' possition (calling destructor), move remaining items
+    void Delete(int index, int count); // delete 'count' of items at 'index' possition (calling destructors), move remaining items
+    void Detach(int index);            // detach item at 'index' possition (destructor is NOT called), move remaining items
+    void Detach(int index, int count); // detach 'count' of items at 'index' possition (destructors are NOT called), move remaining items
 
-    int SetDelta(int delta); // change 'Delta', return the actual value used; NOTE: can be used only for an empty array
+    int SetDelta(int delta); // change 'Delta', return real used value; NOTE: can be used only for empty array
 
 protected:
     DATA_TYPE* Data; // pointer to array
@@ -145,7 +144,7 @@ protected:
     int Base;        // smallest allocated size of array
     int Delta;       // allocated array size is enlarged/reduced by this value
 
-    virtual void Error(CErrorType err) // handles array errors
+    virtual void Error(CErrorType err) // array error handling
     {
         if (State == etNone)
             State = err;
@@ -155,7 +154,7 @@ protected:
     void EnlargeArray(); // enlarges array
     void ReduceArray();  // reduces array
 
-    void Move(CArrayDirection direction, int first, int count); // move selected items to the next/previous index
+    void Move(CArrayDirection direction, int first, int count); // move selected items to next/previous index
 
     void CallCopyConstructor(DATA_TYPE* placement, const DATA_TYPE& member)
     {
@@ -296,7 +295,7 @@ TDirectArray<DATA_TYPE>::TDirectArray(int base, int delta)
 template <class DATA_TYPE>
 void TDirectArray<DATA_TYPE>::Destroy()
 {
-    if (State == etNone) // it can also be etDestructed
+    if (State == etNone) // it can be also etDestructed
     {
         if (Data != NULL)
         {

@@ -1,18 +1,17 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// HANDLES_ENABLE macro - enables handle monitoring
-// _DEBUG or __HANDLES_DEBUG macro - outputs debug messages to TRACE
-// MULTITHREADED_HANDLES_ENABLE macro - prepares handles for multithreaded applications
+// makro HANDLES_ENABLE - zapina monitorovani handlu
+// makro _DEBUG nebo __HANDLES_DEBUG - vypis debug hlasek do TRACE
+// makro MULTITHREADED_HANDLES_ENABLE - pripravi handles pro multithreadove aplikace
 
 #define NOHANDLES(function) function
 
 #ifndef HANDLES_ENABLE
 
-// to avoid problems with semicolons in the macros defined below
+// aby nedochazelo k problemum se stredniky v nize nadefinovanych makrech
 inline void __HandlesEmptyFunction() {}
 
 #define HANDLES(function) ::function
@@ -27,7 +26,7 @@ inline void __HandlesEmptyFunction() {}
 
 #ifndef MULTITHREADED_HANDLES_ENABLE
 
-// for checking use of the non-multithreaded module version
+// pro kontrolu pouziti nemulti-threadove verze modulu
 extern DWORD __HandlesMainThreadID;
 
 #endif // MULTITHREADED_HANDLES_ENABLE
@@ -48,8 +47,8 @@ enum C__HandlesOutputType
 
 enum C__HandlesType
 {
-    __htHandle_comp_with_CloseHandle,  // handle compatible with CloseHandle() and DuplicateHandle()
-    __htHandle_comp_with_DeleteObject, // handle compatible with DeleteObject() and GetStockObject()
+    __htHandle_comp_with_CloseHandle,  // handle kompatibilni s CloseHandle() a DuplicateHandle()
+    __htHandle_comp_with_DeleteObject, // handle kompatibilni s DeleteObject() a GetStockObject()
     __htKey,
     __htIcon,
     __htGlobal,
@@ -214,7 +213,7 @@ struct C__HandlesHandle
 {
     C__HandlesType Type;
     C__HandlesOrigin Origin;
-    HANDLE Handle; // generic, for all handle types
+    HANDLE Handle; // univerzalni, pro vsechny druhy handlu
 
     C__HandlesHandle() {}
 
@@ -258,11 +257,11 @@ protected:
 class C__Handles
 {
 protected:
-    C_HandlesDataArray Handles;      // all monitored handles
-    C__HandlesData TemporaryHandle;  // set from SetInfo() during insertion
-    C__HandlesOutputType OutputType; // message output type
+    C_HandlesDataArray Handles;      // vsechny kontrolovane handly
+    C__HandlesData TemporaryHandle;  // pri vkladani nastaven z SetInfo()
+    C__HandlesOutputType OutputType; // typ vystupu hlasek
 #ifdef MULTITHREADED_HANDLES_ENABLE
-    CRITICAL_SECTION CriticalSection; // for multithreaded synchronization
+    CRITICAL_SECTION CriticalSection; // pro synchronizaci multi-threadu
 #endif // MULTITHREADED_HANDLES_ENABLE
 
 public:
@@ -656,9 +655,9 @@ public:
     BOOL OpenProcessToken(HANDLE ProcessHandle, DWORD DesiredAccess, PHANDLE TokenHandle);
 
 protected:
-    void AddHandle(C__HandlesHandle handle); // adds TemporaryHandle
+    void AddHandle(C__HandlesHandle handle); // prida TemporaryHandle
 
-    // removes the handle; returns TRUE on success
+    // vyjme handle, pri uspechu vraci TRUE
     BOOL DeleteHandle(C__HandlesType& type, HANDLE handle,
                       C__HandlesOrigin* origin,
                       C__HandlesType expType);

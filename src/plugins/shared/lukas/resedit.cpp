@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -78,7 +77,7 @@ try_again:
     if (!File)
         return FALSE;
 
-    // read the headers
+    // nacteme headery
     DWORD pesig;
     DWORD lastError = 0;
     if (!Read(&MZHead, sizeof(IMAGE_DOS_HEADER), &lastError) ||
@@ -88,20 +87,20 @@ try_again:
         !Read(&PEHead, sizeof(IMAGE_FILE_HEADER)) ||
         !Read(&OptHead, OPTHEAD_SIZE) ||
         !Read(OptHead.DataDirectory, OptHead.NumberOfRvaAndSizes * sizeof(IMAGE_DATA_DIRECTORY)) ||
-        OptHead.NumberOfRvaAndSizes <= IMAGE_DIRECTORY_ENTRY_RESOURCE) // check whether a resource directory is present
+        OptHead.NumberOfRvaAndSizes <= IMAGE_DIRECTORY_ENTRY_RESOURCE) //zkontrolujeme jestli mame ressource dir
     {
         if (lastError == ERROR_INVALID_HANDLE && ++num_of_retries <= 10)
         {
             CloseHandle(File);
-            Sleep(100); // Wait up to 10 x 100 ms for the handle to become usable (perhaps the antivirus is interfering?)
+            Sleep(100); // cekame 10x 100ms na "zvalidneni" handlu (asi do toho zasahuje antivir?)
             goto try_again;
         }
         TRACE_E("Error reading headers.");
         goto error;
     }
 
-    // section headers read; allocate one extra slot so a missing
-    // .rsrc section can be added without reallocating
+    // nactene section headery, allokujeme o jednu vice, kdyby mezi nima nebyla
+    // .rsrc section, tak abych ji mohli pridat bez reallokace
     Sections = (IMAGE_SECTION_HEADER*)malloc(sizeof(IMAGE_SECTION_HEADER) * (PEHead.NumberOfSections + 1));
     if (!Sections)
     {
@@ -114,7 +113,7 @@ try_again:
         goto error;
     }
 
-    // find the resource section
+    // najdeme resource section
     DWORD i;
     RsrcSectIndex = -1;
     SizeOfInitializedData = 0;
@@ -139,7 +138,7 @@ try_again:
         TRACE_I(".rsrc section not found.");
     else
     {
-        // verify that the section we found contains the resource directory
+        // overime ze nalezena section obsahuje resource dir
         if (Sections[RsrcSectIndex].VirtualAddress > OptHead.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress ||
             Sections[RsrcSectIndex].VirtualAddress + Sections[RsrcSectIndex].SizeOfRawData <= OptHead.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress)
         {
@@ -147,8 +146,8 @@ try_again:
             goto error;
         }
 
-        // verify that the .rsrc section contains no other directory data (for
-        // example a UPX-packed executable that stores the import table in .rsrc)
+        // overime .rsrc section neobsahuje jine data adresare (jako napr UPXnuty exac,
+        // ktery ma v .rsrc sekci ulozenou import tabulku)
         DWORD alignedSize = ((Sections[RsrcSectIndex].Misc.VirtualSize + OptHead.SectionAlignment - 1) / OptHead.SectionAlignment) * OptHead.SectionAlignment;
         for (i = 0; i < OptHead.NumberOfRvaAndSizes; i++)
         {
@@ -285,7 +284,7 @@ BOOL CResEdit::SaveResourceTree()
     CALL_STACK_MESSAGE1("CResEdit::SaveResourceTree()");
     if (ResDir->IsEmpty())
     {
-        //remove the resource section
+        //odstranime resource section
         if (RsrcSectIndex != -1)
         {
             PEHead.NumberOfSections--;
@@ -301,10 +300,10 @@ BOOL CResEdit::SaveResourceTree()
     }
     else
     {
-        //save the resources
+        //ulozime resourcy
         if (RsrcSectIndex == -1)
         {
-            //add the resource section
+            //pridame resource section
             RsrcSectIndex = PEHead.NumberOfSections;
             memcpy(Sections[RsrcSectIndex].Name, ".rsrc", 5);
             memset(Sections[RsrcSectIndex].Name + 5, 0, 3);
@@ -697,7 +696,7 @@ void SortDirEntries(int left, int right, TIndirectArray2<CDirEntry>& entries)
             i++;
             j--;
         }
-    } while (i <= j); // must they be the same?
+    } while (i <= j); //musej bejt shodny?
     if (left < j)
         SortDirEntries(left, j, entries);
     if (i < right)
@@ -707,7 +706,7 @@ void SortDirEntries(int left, int right, TIndirectArray2<CDirEntry>& entries)
 DWORD CResDir::Save(CSaveRes* save)
 {
     CALL_STACK_MESSAGE1("CResDir::Save()");
-    //sort entries: named ones alphabetically first, then ID entries numerically
+    //seradime polozky, nejprve abecedne ty se jmenem a pak ciselne ty s ID
     SortDirEntries(0, DirEntries.Count - 1, DirEntries);
 
     IMAGE_RESOURCE_DIRECTORY rsdirh;
@@ -899,7 +898,7 @@ CResTreeLeaf::GetCopy()
 BOOL CResTreeLeaf::Load(int level, DWORD offset, COffsets* offsets)
 {
     CALL_STACK_MESSAGE3("CResTreeLeaf::Load(%d, 0x%p, )", level, offsets);
-    //read the language directory
+    //nacteme language dir
     if (!Seek(offsets->DirRootOffset + offset))
         return FALSE;
 
@@ -918,7 +917,7 @@ BOOL CResTreeLeaf::Load(int level, DWORD offset, COffsets* offsets)
     //NumberOfIdEntries = 1;
     LangID = (LANGID)rsdir.Name;
 
-    //read the resource data
+    //nacteme resource data
     if (!Seek(offsets->DirRootOffset + rsdir.OffsetToData & ~0x80000000))
         return FALSE;
 

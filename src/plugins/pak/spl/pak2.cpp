@@ -289,7 +289,7 @@ void SortByDirDepth(int left, int right, TIndirectArray2<CFileInfo>& files)
             i++;
             j--;
         }
-    } while (i <= j); // continue until the indices cross
+    } while (i <= j); //do they have to match?
     if (left < j)
         SortByDirDepth(left, j, files);
     if (i < right)
