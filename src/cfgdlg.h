@@ -305,6 +305,7 @@ struct CConfiguration
     int UsePanelTabs;     // pouzivat panelove taby?
     int ShowPanelCaption; // should the panel caption be shown in color in the directory line?
     int ShowPanelZoom;    // should the Zoom button be shown in the directory line?
+    int UseWindowsDarkMode; // enable native Windows dark mode when available
 
     char InfoLineContent[200];
 
@@ -772,6 +773,7 @@ protected:
     CHighlightMasks* SourceHighlightMasks;
 
     BOOL Dirty;
+    int SelectedSchemeId;
 
 public:
     CCfgPageColors();
@@ -786,6 +788,7 @@ protected:
     void LoadMasks();
     void StoreMasks();
     void EnableControls();
+    void OnSchemeChanged();
 };
 
 //

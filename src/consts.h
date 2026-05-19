@@ -1311,6 +1311,8 @@ extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standard colors
 
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // viewer colors
 
+void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
+
 extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // for the standard color dialog
 
 #define CARET_WIDTH 2
