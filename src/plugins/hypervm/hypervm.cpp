@@ -133,10 +133,13 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_FILESYSTEM | FUNCTION_CONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION), PluginNameShort,
-                                   NULL, NULL);
+                                   "hypervm", "hyperv");
 
     // nastavime URL home-page pluginu
     salamander->SetPluginHomePageURL(LoadStr(IDS_PLUGIN_HOME));
+
+    SalamanderGeneral->GetPluginFSName(AssignedFSName, 0);
+    AssignedFSNameLen = lstrlenA(AssignedFSName);
 
     return &PluginInterface;
 }
