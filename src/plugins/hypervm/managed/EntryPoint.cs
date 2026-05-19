@@ -81,6 +81,22 @@ public static class EntryPoint
         return result;
     }
 
+
+    private static string GetPreferredPowerShellPath()
+    {
+        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+
+        var sysnativePath = System.IO.Path.Combine(windowsDirectory, "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (System.IO.File.Exists(sysnativePath))
+            return sysnativePath;
+
+        var system32Path = System.IO.Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (System.IO.File.Exists(system32Path))
+            return system32Path;
+
+        return "powershell.exe";
+    }
+
     private static void EnsureApplicationInitialized()
     {
         if (_visualsEnabled) return;
