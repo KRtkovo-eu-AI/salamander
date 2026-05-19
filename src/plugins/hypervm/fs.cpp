@@ -22,7 +22,8 @@ public:
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
 
-        FILE* pipe = _popen("powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"", "rt");
+        const char* cmd = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"";
+        FILE* pipe = _popen(cmd, "rt");
         if (pipe == NULL)
             return TRUE;
 
@@ -54,7 +55,7 @@ public:
 
     virtual BOOL WINAPI TryCloseOrDetach(BOOL forceClose, BOOL canDetach, BOOL& detach, int reason) { (void)forceClose; (void)canDetach; (void)reason; detach = FALSE; return TRUE; }
     virtual void WINAPI Event(int event, DWORD param) { (void)event; (void)param; }
-    virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; delete this; }
+    virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; }
     virtual DWORD WINAPI GetSupportedServices() { return 0; }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon) { (void)fsName; (void)title; icon = NULL; destroyIcon = FALSE; return FALSE; }
     virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = FALSE; return NULL; }
@@ -88,7 +89,7 @@ class CHyperVFSInterface : public CPluginInterfaceForFSAbstract
 {
 public:
     virtual CPluginFSInterfaceAbstract* WINAPI OpenFS(const char* fsName, int fsNameIndex) { (void)fsName; (void)fsNameIndex; return new CHyperVFS(); }
-    virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract* fs) { if (fs) fs->ReleaseObject(NULL); }
+    virtual void WINAPI CloseFS(CPluginFSInterfaceAbstract* fs) { if (fs) delete fs; }
     virtual void WINAPI ExecuteChangeDriveMenuItem(int panel) { int failReason = 0; (void)panel; SalamanderGeneral->ChangePanelPathToPluginFS(PANEL_SOURCE, AssignedFSName, "", &failReason); }
     virtual BOOL WINAPI ChangeDriveMenuItemContextMenu(HWND parent, int panel, int x, int y, CPluginFSInterfaceAbstract* pluginFS, const char* pluginFSName, int pluginFSNameIndex, BOOL isDetachedFS, BOOL& refreshMenu, BOOL& closeMenu, int& postCmd, void*& postCmdParam)
     { (void)parent; (void)panel; (void)x; (void)y; (void)pluginFS; (void)pluginFSName; (void)pluginFSNameIndex; (void)isDetachedFS; (void)refreshMenu; (void)closeMenu; (void)postCmd; (void)postCmdParam; return FALSE; }
