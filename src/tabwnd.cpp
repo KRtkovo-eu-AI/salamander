@@ -207,6 +207,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragIndicatorVisible = false;
     LastClickedIndex = -1;
     LastClickWasSelected = false;
+    MouseWheelAccumulator = 0;
 }
 
 CTabWindow::~CTabWindow()
@@ -588,6 +589,33 @@ void CTabWindow::RefreshLayout()
 {
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
+}
+
+bool CTabWindow::HandleMouseWheel(WPARAM wParam)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return false;
+
+    short zDelta = (short)HIWORD(wParam);
+    if (zDelta == 0)
+        return true;
+
+    if ((zDelta < 0 && MouseWheelAccumulator > 0) ||
+        (zDelta > 0 && MouseWheelAccumulator < 0))
+    {
+        MouseWheelAccumulator = 0;
+    }
+
+    MouseWheelAccumulator += zDelta;
+    int steps = MouseWheelAccumulator / WHEEL_DELTA;
+    if (steps != 0)
+    {
+        MouseWheelAccumulator -= steps * WHEEL_DELTA;
+        ScrollTabsByWheelSteps(steps);
+    }
+
+    return true;
 }
 
 void CTabWindow::UpdateNewTabButtonWidth()
@@ -1372,6 +1400,50 @@ void CTabWindow::ExpandSelectedTabRect(RECT& rect) const
     rect.top -= expand;
 }
 
+void CTabWindow::ScrollTabsByWheelSteps(int steps)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL || steps == 0)
+        return;
+
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    if (upDown == NULL || !IsWindowVisible(upDown) || !IsWindowEnabled(upDown))
+        return;
+
+    RECT upDownClientRect;
+    if (!GetClientRect(upDown, &upDownClientRect))
+        return;
+
+    int width = upDownClientRect.right - upDownClientRect.left;
+    int height = upDownClientRect.bottom - upDownClientRect.top;
+    if (width <= 0 || height <= 0)
+        return;
+
+    // The tab control's overflow arrows are implemented as an internal up-down child window.
+    // Simulate clicks on that child instead of changing the tab control focus/selection:
+    // clicking those arrows scrolls the visible tab strip without activating another tab.
+    bool scrollLeft = steps > 0;
+    int x = scrollLeft ? width / 4 : (3 * width) / 4;
+    int y = height / 2;
+    LPARAM clickPoint = MAKELPARAM(x, y);
+    int count = steps > 0 ? steps : -steps;
+
+    int oldSel = TabCtrl_GetCurSel(HWindow);
+    for (int i = 0; i < count; ++i)
+    {
+        SendMessage(upDown, WM_LBUTTONDOWN, MK_LBUTTON, clickPoint);
+        SendMessage(upDown, WM_LBUTTONUP, 0, clickPoint);
+    }
+
+    if (oldSel >= 0 && TabCtrl_GetCurSel(HWindow) != oldSel)
+    {
+        CSelChangeGuard guard(SuppressSelectionNotifications);
+        TabCtrl_SetCurSel(HWindow, oldSel);
+    }
+
+    InvalidateRect(HWindow, NULL, FALSE);
+}
+
 void CTabWindow::InvalidateTab(int index)
 {
     if (HWindow == NULL)
@@ -1767,6 +1839,18 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CancelDragTracking();
         break;
     }
+
+    case WM_MOUSEWHEEL:
+        if (MouseWheelMSGThroughHook && MouseWheelMSGTime != 0 && (GetTickCount() - MouseWheelMSGTime < MOUSEWHEELMSG_VALID))
+            return 0;
+        MouseWheelMSGThroughHook = FALSE;
+        MouseWheelMSGTime = GetTickCount();
+        HandleMouseWheel(wParam);
+        return 0;
+
+    case WM_USER_MOUSEWHEEL:
+        HandleMouseWheel(wParam);
+        return 0;
 
     case WM_MBUTTONDOWN:
     {

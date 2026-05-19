@@ -2922,11 +2922,15 @@ BOOL PostMouseWheelMessage(MSG* pMSG)
             TRACE_E("GetClassName() failed!");
             hWindow = pMSG->hwnd;
         }
-        // if this is a scrollbar with a parent window, post the message to the parent.
+        // If this is a scrollbar or an up-down helper with a parent window, post the message to the parent.
         // Scrollbars in the panels are not subclassed, so this is currently the only way
         // for the panel to receive wheel messages when the cursor is over the scrollbar.
+        // Overflowed tab controls use an up-down child for the scroll arrows; route wheel messages
+        // over those arrows to the tab control so its subclass can scroll the tab strip.
         className[0] = 0;
-        if (GetClassName(hWindow, className, 100) == 0 || StrICmp(className, "scrollbar") == 0)
+        if (GetClassName(hWindow, className, 100) == 0 ||
+            StrICmp(className, "scrollbar") == 0 ||
+            StrICmp(className, UPDOWN_CLASS) == 0)
         {
             HWND hParent = GetParent(hWindow);
             if (hParent != NULL)

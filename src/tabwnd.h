@@ -69,6 +69,8 @@ private:
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
     void ExpandSelectedTabRect(RECT& rect) const;
+    bool HandleMouseWheel(WPARAM wParam);
+    void ScrollTabsByWheelSteps(int steps);
 
     struct STabColor
     {
@@ -106,6 +108,7 @@ private:
 
     int LastClickedIndex;
     bool LastClickWasSelected;
+    int MouseWheelAccumulator;
 
     std::vector<STabColor> TabColors;
 
