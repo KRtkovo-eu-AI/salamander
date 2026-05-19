@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -671,6 +671,17 @@ BOOL MyCopyFile(const char* sFileName, const char* tFileName,
     {
         // failed - bail out
         DWORD error = GetLastError();
+        
+        if ((error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
+        {
+            const char* ext = MyRStrChr(sFileName, '.');
+            if (ext != NULL && lstrcmpi(ext, ".slg") == 0)
+            {
+                *options = COPYFILEOPTIONS_SKIP;
+                return TRUE;
+            }
+        }
+
         wsprintf(buff, LoadStr(ERROR_CF_OPENFILE), sFileName);
         HandleErrorM(IDS_MAINWINDOWTITLE, buff, error);
         return FALSE;
@@ -2137,7 +2148,10 @@ void AddWERLocalDump(const char* exeName)
     // Note that bypassing the redirector also applies to remove.c!
     HKEY hKey;
     DWORD dwDisposition;
+    DWORD samandarinRefCount = 0;
     DWORD altapRefCount = 0;
+    BOOL hasSamandarinRefCount = FALSE;
+    BOOL hasAltapRefCount = FALSE;
     REGSAM samDesired = 0;
     if (IsWow64())
         samDesired = KEY_WOW64_64KEY;
@@ -2152,19 +2166,41 @@ void AddWERLocalDump(const char* exeName)
             DWORD dumpCount;
             DWORD dumpType;
             DWORD customDumpFlags;
-            const char* dumpFolder = "%LOCALAPPDATA%\\Open Salamander";
+            const char* dumpFolder = "%LOCALAPPDATA%\\Open Salamander Samandarin";
             // if the key already existed, read the reference count
             if (dwDisposition == REG_OPENED_EXISTING_KEY)
             {
-                DWORD size = sizeof(altapRefCount);
+                DWORD size = sizeof(samandarinRefCount);
                 dwType = REG_DWORD;
-                if (RegQueryValueEx(hExeKey, "AltapRefCount", 0, &dwType, (BYTE*)&altapRefCount, &size) != ERROR_SUCCESS || dwType != REG_DWORD)
+                if (RegQueryValueEx(hExeKey, "SamandarinRefCount", 0, &dwType, (BYTE*)&samandarinRefCount, &size) == ERROR_SUCCESS && dwType == REG_DWORD)
+                    hasSamandarinRefCount = TRUE;
+                else
+                    samandarinRefCount = 0;
+
+                size = sizeof(altapRefCount);
+                dwType = REG_DWORD;
+                if (RegQueryValueEx(hExeKey, "AltapRefCount", 0, &dwType, (BYTE*)&altapRefCount, &size) == ERROR_SUCCESS && dwType == REG_DWORD)
+                    hasAltapRefCount = TRUE;
+                else
                     altapRefCount = 0;
             }
-            altapRefCount++;
+
+            // Prefer the legacy Altap counter if it exists so we keep counts shared
+            // with pre-rebrand builds in sync.
+            if (hasAltapRefCount)
+            {
+                samandarinRefCount = altapRefCount;
+            }
+            else if (!hasSamandarinRefCount)
+            {
+                samandarinRefCount = 0;
+            }
+
+            samandarinRefCount++;
 
             dwType = REG_DWORD;
-            RegSetValueEx(hExeKey, "AltapRefCount", 0, dwType, (const BYTE*)&altapRefCount, sizeof(altapRefCount));
+            RegSetValueEx(hExeKey, "SamandarinRefCount", 0, dwType, (const BYTE*)&samandarinRefCount, sizeof(samandarinRefCount));
+            RegSetValueEx(hExeKey, "AltapRefCount", 0, dwType, (const BYTE*)&samandarinRefCount, sizeof(samandarinRefCount));
             dumpCount = 50;
             RegSetValueEx(hExeKey, "DumpCount", 0, dwType, (const BYTE*)&dumpCount, sizeof(dumpCount));
             dumpType = 0; // custom dump type

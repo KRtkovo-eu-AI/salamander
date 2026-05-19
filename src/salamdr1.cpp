@@ -4,6 +4,7 @@
 
 #include "precomp.h"
 #include <time.h>
+#include <stdlib.h>
 //#ifdef MSVC_RUNTIME_CHECKS
 #include <rtcapi.h>
 //#endif // MSVC_RUNTIME_CHECKS
@@ -215,7 +216,7 @@ const char* SALCF_FAKE_REALPATH = "SalFakeRealPath";
 const char* SALCF_FAKE_SRCTYPE = "SalFakeSrcType";
 const char* SALCF_FAKE_SRCFSPATH = "SalFakeSrcFSPath";
 
-const char* MAINWINDOW_NAME = "Open Salamander";
+const char* MAINWINDOW_NAME = "Open Salamander: Samandarin";
 const char* CMAINWINDOW_CLASSNAME = "SalamanderMainWindowVer25";
 const char* SAVEBITS_CLASSNAME = "SalamanderSaveBits";
 const char* SHELLEXECUTE_CLASSNAME = "SalamanderShellExecute";
@@ -245,6 +246,7 @@ LOGFONT LogFont;
 int FontCharHeight = 0;
 
 HFONT EnvFont = NULL;
+HFONT EnvFontBold = NULL;
 HFONT EnvFontUL = NULL;
 //LOGFONT EnvLogFont;
 int EnvFontCharHeight = 0;
@@ -561,6 +563,7 @@ HIMAGELIST HGrayToolBarImageList = NULL;
 HIMAGELIST HHotToolBarImageList = NULL;
 HIMAGELIST HBottomTBImageList = NULL;
 HIMAGELIST HHotBottomTBImageList = NULL;
+int ToolBarLockImageIndex = -1;
 
 CBitmap ItemBitmap;
 
@@ -707,6 +710,38 @@ DWORD EnablerShowProperties = FALSE;
 DWORD EnablerItemsContextMenu = FALSE;
 DWORD EnablerOpenActiveFolder = FALSE;
 DWORD EnablerPermissions = FALSE;
+DWORD EnablerNewTab = FALSE;
+DWORD EnablerCloseTab = FALSE;
+DWORD EnablerNextTab = FALSE;
+DWORD EnablerPrevTab = FALSE;
+DWORD EnablerDuplicateTab = FALSE;
+DWORD EnablerReopenTab = FALSE;
+DWORD EnablerLockTab = FALSE;
+DWORD EnablerUnlockTab = FALSE;
+DWORD EnablerLeftNewTab = FALSE;
+DWORD EnablerLeftCloseTab = FALSE;
+DWORD EnablerLeftNextTab = FALSE;
+DWORD EnablerLeftPrevTab = FALSE;
+DWORD EnablerLeftCloseAllButDefault = FALSE;
+DWORD EnablerLeftCloseAllExceptThisAndDefault = FALSE;
+DWORD EnablerLeftDuplicateTab = FALSE;
+DWORD EnablerLeftDuplicateTabToRight = FALSE;
+DWORD EnablerLeftMoveTabToRight = FALSE;
+DWORD EnablerLeftReopenTab = FALSE;
+DWORD EnablerLeftLockTab = FALSE;
+DWORD EnablerLeftUnlockTab = FALSE;
+DWORD EnablerRightNewTab = FALSE;
+DWORD EnablerRightCloseTab = FALSE;
+DWORD EnablerRightNextTab = FALSE;
+DWORD EnablerRightPrevTab = FALSE;
+DWORD EnablerRightCloseAllButDefault = FALSE;
+DWORD EnablerRightCloseAllExceptThisAndDefault = FALSE;
+DWORD EnablerRightDuplicateTab = FALSE;
+DWORD EnablerRightDuplicateTabToLeft = FALSE;
+DWORD EnablerRightMoveTabToLeft = FALSE;
+DWORD EnablerRightReopenTab = FALSE;
+DWORD EnablerRightLockTab = FALSE;
+DWORD EnablerRightUnlockTab = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 
@@ -2147,11 +2182,33 @@ void ReleaseConstGraphics()
         EnvFont = NULL;
     }
 
+    if (EnvFontBold != NULL)
+    {
+        HANDLES(DeleteObject(EnvFontBold));
+        EnvFontBold = NULL;
+    }
+
     if (EnvFontUL != NULL)
     {
         HANDLES(DeleteObject(EnvFontUL));
         EnvFontUL = NULL;
     }
+}
+
+static HICON SafeLoadDirectoryIcon(const char* systemDir, CIconSizeEnum sizeIndex)
+{
+    HICON hIcon = NULL;
+    __try
+    {
+        if (!GetFileIcon(systemDir, FALSE, &hIcon, sizeIndex, FALSE, FALSE))
+            hIcon = NULL;
+    }
+    __except (CCallStack::HandleException(GetExceptionInformation(), 15))
+    {
+        FGIExceptionHasOccured++;
+        hIcon = NULL;
+    }
+    return hIcon;
 }
 
 BOOL AuxAllocateImageLists()
@@ -2354,6 +2411,14 @@ int GetScaleForSystemDPI()
         scale = 500;
 
     return scale;
+}
+
+int DipToPixels(int dips)
+{
+    if (dips <= 0)
+        return dips;
+
+    return MulDiv(dips, GetSystemDPI(), 96);
 }
 
 int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
@@ -2590,6 +2655,44 @@ BOOL InitializeGraphics(BOOL colorsOnly)
             return FALSE;
         }
 
+        ToolBarLockImageIndex = -1;
+        if (LockFrames != NULL)
+        {
+            HICON colorLock = LockFrames->GetIcon(0);
+            CIconList grayLockCopy;
+            HICON grayLock = NULL;
+            if (grayLockCopy.CreateAsCopy(LockFrames, TRUE))
+                grayLock = grayLockCopy.GetIcon(0);
+
+            if (colorLock != NULL)
+            {
+                ToolBarLockImageIndex = ImageList_AddIcon(HHotToolBarImageList, colorLock);
+                DestroyIcon(colorLock);
+            }
+
+            if (grayLock != NULL)
+            {
+                int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, grayLock);
+                if (ToolBarLockImageIndex >= 0 && grayIndex != ToolBarLockImageIndex)
+                {
+                    ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, grayLock);
+                    ImageList_Remove(HGrayToolBarImageList, grayIndex);
+                }
+                DestroyIcon(grayLock);
+            }
+            else if (ToolBarLockImageIndex >= 0)
+            {
+                HICON fallback = LockFrames->GetIcon(0);
+                if (fallback != NULL)
+                {
+                    int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, fallback);
+                    if (grayIndex != ToolBarLockImageIndex)
+                        ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, fallback);
+                    DestroyIcon(fallback);
+                }
+            }
+        }
+
         HBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
         HHotBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
         if (HBottomTBImageList == NULL || HHotBottomTBImageList == NULL)
@@ -2631,18 +2734,8 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         int sizeIndex;
         for (sizeIndex = ICONSIZE_16; sizeIndex < ICONSIZE_COUNT; sizeIndex++)
         {
-            // folder icon
-            hIcon = NULL;
-            __try
-            {
-                if (!GetFileIcon(systemDir, FALSE, &hIcon, (CIconSizeEnum)sizeIndex, FALSE, FALSE))
-                    hIcon = NULL;
-            }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 15))
-            {
-                FGIExceptionHasOccured++;
-                hIcon = NULL;
-            }
+            // ikonka adresare
+            hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
             if (hIcon != NULL) // if we do not obtain the icon, the #4 one from shell32.dll remains
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
@@ -2787,7 +2880,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     }
     else if (GetCurrentBPP() > 8)
     {
-        clrMap[2].from = RGB(255, 255, 255); // white -> light gray (so it's not so harsh)
+        clrMap[2].from = RGB(255, 255, 255); // bila -> svetle sedivou (at to tak nerve)
         clrMap[2].to = RGB(235, 235, 235);
         remapWhite = TRUE;
     }
@@ -3773,12 +3866,17 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                 if (i + 1 < p)
                 {
                     char* s = argv[i + 1];
-                    if ((*s == '0' || *s == '1' || *s == '2' || *s == '3') && *(s + 1) == 0) // 0, 1, 2, 3
+                    if (*s != 0)
                     {
-                        Configuration.MainWindowIconIndexForced = (*s - '0');
+                        char* endPtr = NULL;
+                        long parsedIndex = strtol(s, &endPtr, 10);
+                        if (*endPtr == 0 && parsedIndex >= 0 && parsedIndex < MAINWINDOWICONS_COUNT)
+                        {
+                            Configuration.MainWindowIconIndexForced = (int)parsedIndex;
 
-                        cmdLineParams->SetMainWindowIconIndex = TRUE;
-                        cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                            cmdLineParams->SetMainWindowIconIndex = TRUE;
+                            cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                        }
                     }
                     i++;
                     continue;
@@ -4371,6 +4469,7 @@ FIND_NEW_SLG_FILE:
         SplashScreenCloseIfExist();
         goto EXIT_8;
     }
+    UpdateTabbedPanelMenuItems(Configuration.UsePanelTabs != 0);
     if (!InitializeThread())
     {
         SplashScreenCloseIfExist();

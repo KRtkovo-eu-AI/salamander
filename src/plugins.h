@@ -1,11 +1,11 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
 // when changing this header search for "BuiltForVersion" - tests for older plugin versions will no longer make sense and should be removed
-#define PLUGIN_REQVER 103 // ("5.0") load only plugins that return at least this required Salamander version
+#define PLUGIN_REQVER 102 // ("4.0") load only plugins that return at least this required Salamander version
 
 //
 // ****************************************************************************

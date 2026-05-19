@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -559,6 +559,7 @@ extern CMenuPopup ArchiveMenu;
 extern CMenuPopup ArchivePanelMenu;
 
 BOOL BuildSalamanderMenus();           // builds the global menu for Salamander
+void UpdateTabbedPanelMenuItems(BOOL tabsEnabled);
 BOOL BuildFindMenu(CMenuPopup* popup); // builds an instance of the find menu
 
 // Adds to 'popup' items created from the 'buttonsID' array.

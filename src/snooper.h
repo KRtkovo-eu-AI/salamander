@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -19,7 +19,9 @@ void TerminateThread();
 void BeginSuspendMode(BOOL debugDoNotTestCaller = FALSE);
 void EndSuspendMode(BOOL debugDoNotTestCaller = FALSE);
 
-typedef TDirectArray<CFilesWindow*> CWindowArray; // (CFilesWindow *)
+void EnsureWatching(CFilesWindow* win, BOOL registerDevNotification);
+
+typedef TDirectArray<CFilesWindow*> CWindowArray; // (CFilesWindow*)
 typedef TDirectArray<HANDLE> CObjectArray;        // (HANDLE)
 
 extern CWindowArray WindowArray; // arrays share the same indices
