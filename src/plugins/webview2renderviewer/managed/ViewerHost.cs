@@ -40,16 +40,6 @@ internal static class ViewerHost
             return 1;
         }
 
-        if (asynchronous && parsed.CloseHandle == IntPtr.Zero)
-        {
-            MessageBox.Show(parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null,
-                "The native host did not provide a synchronization handle for the viewer.",
-                "WebView2 Render Viewer .NET Plugin",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-            return 1;
-        }
-
         ViewerSession session;
         try
         {
