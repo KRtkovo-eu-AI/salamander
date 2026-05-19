@@ -1538,12 +1538,3 @@ BOOL CParserInterfaceJSONL::IsRecordDeleted()
 {
     return FALSE;
 }
-    auto DupWithMalloc = [](const char* src) -> char* {
-        if (src == NULL)
-            return NULL;
-        size_t n = strlen(src) + 1;
-        char* dst = (char*)malloc(n);
-        if (dst != NULL)
-            memcpy(dst, src, n);
-        return dst;
-    };
