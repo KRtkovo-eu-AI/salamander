@@ -737,21 +737,21 @@
 %1\salamand.exe,%8\Open Salamander Samandarin (x86).lnk,%@%1\utils\muires.dll,-101
 
 [AddRegistryKeys]
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86)
-HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.1
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86)
+HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.2
 
 [AddRegistryValues]
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),DisplayName,1,Open Salamander 5.0-samandarin-0.1 (x86)
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),DisplayIcon,1,%1\salamand.exe
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),DisplayVersion,1,5.0-samandarin-0.1
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),VersionMajor,1,5
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),VersionMinor,1,0
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),InstallLocation,1,%1
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),UninstallString,1,%1\remove\remove.exe
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),QuietUninstallString,1,%1\remove\remove.exe /q
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),Publisher,1,Open Salamander Project
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),HelpLink,1,https://github.com/KRtkovo-eu-AI/salamander
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x86),UrlInfoAbout,1,https://github.com/KRtkovo-eu-AI/salamander
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),DisplayName,1,Open Salamander 5.0-samandarin-0.2 (x86)
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),DisplayIcon,1,%1\salamand.exe
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),DisplayVersion,1,5.0-samandarin-0.2
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),VersionMajor,1,5
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),VersionMinor,1,0
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),InstallLocation,1,%1
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),UninstallString,1,%1\remove\remove.exe
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),QuietUninstallString,1,%1\remove\remove.exe /q
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),Publisher,1,Open Salamander Project
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),HelpLink,1,https://github.com/KRtkovo-eu-AI/salamander
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x86),UrlInfoAbout,1,https://github.com/KRtkovo-eu-AI/salamander
 
 [DelShellExts]
 %1\utils\salextx86.dll
@@ -760,17 +760,17 @@ HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-sam
 
 [Private]
 ApplicationName="Open Salamander: Samandarin"
-ApplicationNameVer="Open Salamander 5.0-samandarin-0.1 (x86)"
+ApplicationNameVer="Open Salamander 5.0-samandarin-0.2 (x86)"
 DefaultDirectory=%4\Open Salamander Samandarin
 LastDirectories=HKCU,Software\Open Salamander Samandarin\Applications\Open Salamander Samandarin (x86)
 LicenseFile=%0\doc\license.txt
 LicenseFileCZ=%0\doc\license_cz.txt
 ViewReadme=%1\doc\readme.txt
 RunProgram=%1\salamand.exe
-IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.1\Configuration,Plugins.ver Version (x86)
+IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.2\Configuration,Plugins.ver Version (x86)
 IncrementFileContentDst=%1\plugins\plugins.ver,winscp\winscp.spl,jsonviewer\jsonviewer.spl,textviewer\textviewer.spl,webview2renderviewer\webview2renderviewer.spl,samandarin\samandarin.spl
 SaveRemoveLog=%1\remove\remove.rlg
-AutoImportConfig=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.1,AutoImportConfig
+AutoImportConfig=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.2,AutoImportConfig
 DisplayWelcomeWarning=0
 SLGLanguages=english.slg
 WERLocalDumps=salamand.exe,salmon.exe,salopen.exe,salspawn.exe,fcremote.exe,salpvenv.exe
