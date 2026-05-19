@@ -34,19 +34,6 @@ bool ShouldUsePluginsDarkPalette()
 }
 }
 
-namespace
-{
-bool ShouldUsePluginsDarkPalette()
-{
-    if (DarkModeShouldUseDarkColors())
-        return true;
-
-    COLORREF background = DarkModeGetDialogBackgroundColor();
-    int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
-    return luminance < 128;
-}
-}
-
 //
 // ****************************************************************************
 // CPluginsDlg
