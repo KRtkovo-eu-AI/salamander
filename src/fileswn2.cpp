@@ -1598,6 +1598,7 @@ void CFilesWindow::CreateTreeView()
         }
         if (appIsThemed)
             SetWindowTheme(HTreeView, (L" "), (L" "));
+        DarkModeApplyWindow(HTreeView);
 
         SHFILEINFO sfi;
         memset(&sfi, 0, sizeof(sfi));
