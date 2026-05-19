@@ -195,7 +195,6 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         "php",
         "md",
         "markdown",
-        "csv",
         "bat",
         "cmd",
         "ps1",
@@ -284,7 +283,6 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         "cshtml",
         "csp",
         "css",
-        "csv",
         "cypher",
         "d",
         "dart",
@@ -749,7 +747,7 @@ BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)
 
     static const char* const kExtensions[] = {
         ".txt", ".log", ".ini", ".cfg", ".json", ".yaml", ".yml", ".xml", ".html", ".htm", ".md",
-        ".csv", ".cs", ".cpp", ".c", ".h", ".hpp", ".py", ".js", ".ts", ".css", ".sql", ".bat", ".ps1",
+        ".cs", ".cpp", ".c", ".h", ".hpp", ".py", ".js", ".ts", ".css", ".sql", ".bat", ".ps1",
         ".php"
     };
 
