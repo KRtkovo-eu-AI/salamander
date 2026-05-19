@@ -41,63 +41,11 @@ static bool RunHiddenPowerShell(const std::string& script)
     return exitCode == 0;
 }
 
-static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
+
+struct CHyperVItemData
 {
-    SECURITY_ATTRIBUTES sa = {0};
-    sa.nLength = sizeof(sa);
-    sa.bInheritHandle = TRUE;
-
-    HANDLE rd = NULL;
-    HANDLE wr = NULL;
-    if (!CreatePipe(&rd, &wr, &sa, 0))
-        return false;
-    SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
-
-    std::string script =
-        "$ErrorActionPreference='Stop'; "
-        "Import-Module Hyper-V -ErrorAction Stop; "
-        "(Get-VM -Name '" + vmNameEscaped + "' -ErrorAction Stop).State.ToString()";
-
-    std::string cmdLine = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + script + "\"";
-    std::vector<char> mutableCmd(cmdLine.begin(), cmdLine.end());
-    mutableCmd.push_back('\0');
-
-    STARTUPINFOA si = {0};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    si.hStdOutput = wr;
-    si.hStdError = wr;
-    si.wShowWindow = SW_HIDE;
-
-    PROCESS_INFORMATION pi = {0};
-    BOOL created = CreateProcessA(NULL, mutableCmd.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
-    CloseHandle(wr);
-    if (!created)
-    {
-        CloseHandle(rd);
-        return false;
-    }
-
-    char chunk[128];
-    DWORD n = 0;
-    std::string output;
-    while (ReadFile(rd, chunk, sizeof(chunk) - 1, &n, NULL) && n > 0)
-    {
-        chunk[n] = 0;
-        output += chunk;
-    }
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-    CloseHandle(rd);
-
-    while (!output.empty() && (output.back() == '\r' || output.back() == '\n' || output.back() == ' ' || output.back() == '\t'))
-        output.pop_back();
-
-    state = output;
-    return !state.empty();
-}
+    bool Running;
+};
 
 class CHyperVFS : public CPluginFSInterfaceAbstract
 {
@@ -140,7 +88,7 @@ public:
         si.wShowWindow = SW_HIDE;
 
         PROCESS_INFORMATION pi = {0};
-        char cmdLine[] = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"";
+        char cmdLine[] = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | ForEach-Object { $_.Name + '\t' + $_.State }\"";
         BOOL created = CreateProcessA(NULL, cmdLine, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
         CloseHandle(stdoutWrite);
         if (!created)
@@ -176,6 +124,14 @@ public:
                     continue;
 
                 lstrcpynA(line, one.c_str(), (int)sizeof(line));
+                char* tab = strchr(line, "\t");
+                bool running = false;
+                if (tab != NULL)
+                {
+                    *tab = 0;
+                    const char* state = tab + 1;
+                    running = (_stricmp(state, "Running") == 0);
+                }
 
                 CFileData file;
                 memset(&file, 0, sizeof(file));
@@ -187,7 +143,9 @@ public:
                 file.IsOffline = 0;
                 file.Hidden = 0;
                 file.Attr = 0;
-                file.PluginData = 0;
+                CHyperVItemData* ext = new CHyperVItemData();
+                ext->Running = running;
+                file.PluginData = reinterpret_cast<DWORD_PTR>(ext);
                 dir->AddFile(NULL, file, pluginData);
             }
         }
@@ -240,9 +198,9 @@ public:
             return;
 
         std::string vm = EscapePsSingleQuoted(item->Name);
-        std::string state;
-        bool gotState = QueryVmState(vm, state);
-        bool running = gotState && _stricmp(state.c_str(), "Running") == 0;
+        bool running = false;
+        CHyperVItemData* ext = reinterpret_cast<CHyperVItemData*>(item->PluginData);
+        if (ext != NULL) running = ext->Running;
 
         HMENU menu = CreatePopupMenu();
         if (menu == NULL)
@@ -290,6 +248,11 @@ public:
         if (!success)
         {
             SalamanderGeneral->SalMessageBox(parent, "Hyper-V command failed.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
+        }
+        else if (ext != NULL)
+        {
+            if (cmdId == ID_START) ext->Running = true;
+            if (cmdId == ID_TURNOFF || cmdId == ID_SHUTDOWN) ext->Running = false;
         }
 
         SalamanderGeneral->PostRefreshPanelFS(this);
