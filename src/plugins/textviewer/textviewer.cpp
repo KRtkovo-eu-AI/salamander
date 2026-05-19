@@ -733,7 +733,7 @@ BOOL WINAPI CPluginInterfaceForViewer::ViewFile(const char* name, int left, int 
         return TRUE;
     }
 
-    return ManagedBridge_ViewTextFile(parent, name, placement, showCmd, alwaysOnTop, NULL, false);
+    return ManagedBridge_ViewTextFile(parent, name, placement, showCmd, alwaysOnTop, NULL, true);
 }
 
 BOOL WINAPI CPluginInterfaceForViewer::CanViewFile(const char* name)
