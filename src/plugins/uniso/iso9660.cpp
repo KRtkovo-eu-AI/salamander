@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -61,13 +60,13 @@ BOOL CISO9660::Open(BOOL quiet)
 
     // detecting CD-ROM Volume Descriptor Set
     BOOL isoDescriptors = FALSE;
-    // Read the Volume Descriptor (2 KB) until we find it, but only up to 1 MB
+    // Read the VolumeDescriptor (2k) until we find it, but only up to to 1MB
     while (!terminate)
     {
         // Try to read a block
         if (Image->ReadBlock(block, SECTOR_SIZE, sector) != SECTOR_SIZE)
         {
-            // Read failed, possibly due to EOF.
+            // Something went wrong, probably EOF?
             Error(IDS_ERROR_READING_SECTOR, quiet, block);
             ret = FALSE;
             break;
@@ -85,14 +84,14 @@ BOOL CISO9660::Open(BOOL quiet)
                 memcpy(&PVD, sector, SECTOR_SIZE);
                 break;
 
-            case 0x02: // supplementary/enhanced volume descriptor
+            case 0x02: // suplementary/enhanced volume descriptor
                 memcpy(&SVD, sector, SECTOR_SIZE);
 
                 // Joliet has FileStructureVersion = 1
                 if (SVD.FileStructureVersion == 1)
                     Ext = extJoliet;
-                // Patera 2009-02-03: The following check seems correct, unlike the one above...
-                // Raptor provided "Pantera Safari.ISO" with a corrupted FileStructureVersion
+                // Patera 2009.02.03: The following check seems correct and not the above one...
+                // Raptor provided "Pantera Safari.ISO" with corruped FileStructureVersion
                 if ((SVD.EscapeSequences[0] == 0x25) && (SVD.EscapeSequences[1] == 0x2F) && ((SVD.EscapeSequences[2] == 0x40) || (SVD.EscapeSequences[2] == 0x43) || (SVD.EscapeSequences[2] == 0x45)))
                     Ext = extJoliet;
                 break;
@@ -170,7 +169,7 @@ void CISO9660::ExtractExtFileName(char* fileName, const char* src, CDirectoryRec
         srcSU++;
     }
 
-    // check whether the 'system use area' contains any extension
+    // check whether there is any extension in the 'system use area'
     if (srcSU < srcEnd && (Ext != extJoliet))
     {
         EExt ext = extNone;
@@ -458,7 +457,7 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
     {
         delete[] data;
         Error(IDS_ERROR_LISTING_IMAGE, FALSE, block);
-        // if reading the root sector fails
+        // if reading the sector with the root fails
         return (block == (DWORD)Root.LocationOfExtent - ExtentOffset) ? ERR_CONTINUE : ERR_TERMINATE;
     }
 
@@ -498,11 +497,11 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
                         int pathLen = (int)strlen(path);
                         strcat(path, "\\");
                         strcat(path, dirName);
-                        // recurse only when everything is OK
+                        // descend only when everything is OK
                         if (ret == ERR_OK)
                         {
                             ret = ListDirectoryRe(path, &dirRecord, dir, pluginData);
-                            // if we return with a termination error, keep processing as much as possible
+                            // if we surface with a termination error, keep processing as much as possible
                             if (ret == ERR_TERMINATE)
                                 ret = ERR_CONTINUE;
                         }
@@ -531,7 +530,7 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
                         if (ret == ERR_OK)
                         {
                             ret = ListDirectoryRe(path, &dirRecord, dir, pluginData);
-                            // if we return with a termination error, continue processing as much as possible
+                            // if we surface with a termination error, keep processing as much as possible
                             if (ret == ERR_TERMINATE)
                                 ret = ERR_CONTINUE;
                         }
@@ -595,7 +594,7 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
     // set file time
     file.SetFileTime(&ft, &ft, &ft);
 
-    // the overall operation can continue; skip this file only
+    // the overall operation can continue further: skip only
     if (toSkip)
         return UNPACK_ERROR;
 
@@ -659,14 +658,14 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
 
         block++;
 
-        if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE so we do not slow the operation down
+        if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE, so we do not slow things down
         {
             salamander->ProgressDialogAddText(LoadStr(IDS_CANCELING_OPERATION), FALSE);
             salamander->ProgressEnableCancel(FALSE);
 
             ret = UNPACK_CANCEL;
             bFileComplete = FALSE;
-            break; // operation interrupted
+            break; // action interrupted
         }
 
         ULONG written;
@@ -700,8 +699,8 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
         if (!SetFileAttributes(name, attrs))
             Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
 
-        // the user canceled the operation
-        // delete the incomplete file
+        // the user cancelled the operation
+        // delete the incomplete file afterwards
         if (!DeleteFile(name))
             Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError());
     }
@@ -779,7 +778,7 @@ BOOL CISO9660::ReadBootRecord(BYTE* data, BOOL quiet)
     if (!Options.BootImageAsFile)
         return FALSE;
 
-    // check for the El Torito specification
+    // check for El Torito specification
     if (memcmp(BR.BootSystemIdentifier + 0, "EL TORITO SPECIFICATION", 23) == 0)
     {
         DWORD sector = 0;
@@ -803,6 +802,6 @@ BOOL CISO9660::ReadBootRecord(BYTE* data, BOOL quiet)
         delete[] catalog;
     }
 
-    // Finally
+    // and finally
     return result;
 }

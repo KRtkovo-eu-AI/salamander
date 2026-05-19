@@ -343,7 +343,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
                 sii.Height = PV_THUMB_CREATE_HEIGHT;
                 sii.Width = pvii.Width * PV_THUMB_CREATE_HEIGHT / pvii.Height;
             }
-            /* Handle pathological cases */
+            /* Handle patological cases */
             if (!sii.Height)
                 sii.Height = 1;
             if (!sii.Width)

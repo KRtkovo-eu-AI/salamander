@@ -19,6 +19,240 @@
 #include "geticon.h"
 #include "shiconov.h"
 
+struct CTreeViewPopulateEntry
+{
+    char Name[MAX_PATH];
+    char FullPath[MAX_PATH];
+    BOOL IsDirectory;
+};
+
+static char* DuplicateTreeViewString(const char* text)
+{
+    int len = (int)strlen(text) + 1;
+    char* copy = (char*)malloc(len);
+    if (copy != NULL)
+        memcpy(copy, text, len);
+    return copy;
+}
+
+static void FreeTreeViewNodeData(CTreeViewNodeData* itemData)
+{
+    if (itemData == NULL)
+        return;
+
+    free(itemData->FullPath);
+    free(itemData->FocusPath);
+    free(itemData->FocusName);
+    free(itemData);
+}
+
+static BOOL GetTreeViewItemData(HWND hTreeView, HTREEITEM hItem, CTreeViewNodeData* itemData)
+{
+    if (hTreeView == NULL || hItem == NULL)
+        return FALSE;
+
+    TVITEM item;
+    memset(&item, 0, sizeof(item));
+    item.mask = TVIF_PARAM;
+    item.hItem = hItem;
+    if (!TreeView_GetItem(hTreeView, &item))
+        return FALSE;
+    if (item.lParam == 0)
+        return FALSE;
+
+    *itemData = *(CTreeViewNodeData*)item.lParam;
+    return TRUE;
+}
+
+static CTreeViewNodeData* GetTreeViewItemDataPtr(HWND hTreeView, HTREEITEM hItem)
+{
+    if (hTreeView == NULL || hItem == NULL)
+        return NULL;
+
+    TVITEM item;
+    memset(&item, 0, sizeof(item));
+    item.mask = TVIF_PARAM;
+    item.hItem = hItem;
+    if (!TreeView_GetItem(hTreeView, &item) || item.lParam == 0)
+        return NULL;
+
+    return (CTreeViewNodeData*)item.lParam;
+}
+
+static const char* GetTreeViewItemPath(HWND hTreeView, HTREEITEM hItem)
+{
+    CTreeViewNodeData itemData;
+    if (!GetTreeViewItemData(hTreeView, hItem, &itemData))
+        return NULL;
+
+    return itemData.FullPath;
+}
+
+static BOOL IsTreeViewDirectoryItem(HWND hTreeView, HTREEITEM hItem)
+{
+    CTreeViewNodeData itemData;
+    if (!GetTreeViewItemData(hTreeView, hItem, &itemData))
+        return FALSE;
+
+    return itemData.Type == tvntDirectory;
+}
+
+static HTREEITEM FindTreeViewChildByPath(HWND hTreeView, HTREEITEM hParent, const char* path)
+{
+    HTREEITEM hChild = TreeView_GetChild(hTreeView, hParent);
+    while (hChild != NULL)
+    {
+        const char* childPath = GetTreeViewItemPath(hTreeView, hChild);
+        if (childPath != NULL && IsTheSamePath(childPath, path))
+            return hChild;
+        hChild = TreeView_GetNextSibling(hTreeView, hChild);
+    }
+    return NULL;
+}
+
+static void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children)
+{
+    TVITEM item;
+    memset(&item, 0, sizeof(item));
+    item.mask = TVIF_CHILDREN;
+    item.hItem = hItem;
+    item.cChildren = children;
+    TreeView_SetItem(hTreeView, &item);
+}
+
+static BOOL GetTreeViewShellIconIndexes(const char* path, BOOL isDirectory,
+                                        int* imageIndex, int* selectedImageIndex)
+{
+    SHFILEINFO sfi;
+    memset(&sfi, 0, sizeof(sfi));
+
+    DWORD attributes = isDirectory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+    UINT flags = SHGFI_SYSICONINDEX | SHGFI_SMALLICON;
+    if (path == NULL || path[0] == 0)
+        flags |= SHGFI_USEFILEATTRIBUTES;
+
+    if (SHGetFileInfo(path, attributes, &sfi, sizeof(sfi), flags) == 0)
+        return FALSE;
+
+    *imageIndex = sfi.iIcon;
+
+    if (isDirectory)
+    {
+        SHFILEINFO selectedSfi;
+        memset(&selectedSfi, 0, sizeof(selectedSfi));
+        if (SHGetFileInfo(path, attributes, &selectedSfi, sizeof(selectedSfi),
+                          flags | SHGFI_OPENICON) != 0)
+            *selectedImageIndex = selectedSfi.iIcon;
+        else
+            *selectedImageIndex = *imageIndex;
+    }
+    else
+        *selectedImageIndex = *imageIndex;
+
+    return TRUE;
+}
+
+static CTreeViewNodeData* CreateTreeViewNodeData(CTreeViewNodeTypeEnum type, const char* fullPath,
+                                                 const char* focusPath, const char* focusName)
+{
+    CTreeViewNodeData* itemData = (CTreeViewNodeData*)malloc(sizeof(CTreeViewNodeData));
+    if (itemData == NULL)
+        return NULL;
+    memset(itemData, 0, sizeof(CTreeViewNodeData));
+
+    itemData->Type = type;
+    itemData->FullPath = DuplicateTreeViewString(fullPath);
+    itemData->FocusPath = DuplicateTreeViewString(focusPath != NULL ? focusPath : fullPath);
+    if (focusName != NULL)
+        itemData->FocusName = DuplicateTreeViewString(focusName);
+
+    if (itemData->FullPath == NULL || itemData->FocusPath == NULL || (focusName != NULL && itemData->FocusName == NULL))
+    {
+        FreeTreeViewNodeData(itemData);
+        return NULL;
+    }
+
+    if (!GetTreeViewShellIconIndexes(fullPath, type == tvntDirectory,
+                                     &itemData->ImageIndex, &itemData->SelectedImageIndex))
+    {
+        itemData->ImageIndex = I_IMAGECALLBACK;
+        itemData->SelectedImageIndex = I_IMAGECALLBACK;
+    }
+
+    return itemData;
+}
+
+static HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text,
+                                    CTreeViewNodeTypeEnum type, const char* fullPath,
+                                    const char* focusPath, const char* focusName, BOOL hasChildren)
+{
+    CTreeViewNodeData* itemData = CreateTreeViewNodeData(type, fullPath, focusPath, focusName);
+    if (itemData == NULL)
+        return NULL;
+
+    TVINSERTSTRUCT tvis;
+    memset(&tvis, 0, sizeof(tvis));
+    tvis.hParent = hParent;
+    tvis.hInsertAfter = TVI_LAST;
+    tvis.item.mask = TVIF_TEXT | TVIF_PARAM | TVIF_CHILDREN | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
+    tvis.item.pszText = (char*)text;
+    tvis.item.lParam = (LPARAM)itemData;
+    tvis.item.cChildren = hasChildren ? 1 : 0;
+    tvis.item.iImage = itemData->ImageIndex;
+    tvis.item.iSelectedImage = itemData->SelectedImageIndex;
+
+    HTREEITEM hItem = TreeView_InsertItem(hTreeView, &tvis);
+    if (hItem == NULL)
+        FreeTreeViewNodeData(itemData);
+    return hItem;
+}
+
+enum
+{
+    TREEVIEW_MIN_WIDTH = 120,
+    TREEVIEW_MIN_LIST_WIDTH = 50,
+    TREEVIEW_SPLITTER_WIDTH = 4
+};
+
+static int __cdecl CompareTreeViewPopulateEntries(const void* p1, const void* p2)
+{
+    const CTreeViewPopulateEntry* e1 = (const CTreeViewPopulateEntry*)p1;
+    const CTreeViewPopulateEntry* e2 = (const CTreeViewPopulateEntry*)p2;
+    return lstrcmpi(e1->Name, e2->Name);
+}
+
+static BOOL AddTreeViewPopulateEntry(CTreeViewPopulateEntry** entries, int* count,
+                                     const char* name, const char* fullPath, BOOL isDirectory)
+{
+    CTreeViewPopulateEntry* newEntries = (CTreeViewPopulateEntry*)realloc(*entries,
+                                                                          (*count + 1) * sizeof(CTreeViewPopulateEntry));
+    if (newEntries == NULL)
+        return FALSE;
+
+    *entries = newEntries;
+    lstrcpyn(newEntries[*count].Name, name, MAX_PATH);
+    lstrcpyn(newEntries[*count].FullPath, fullPath, MAX_PATH);
+    newEntries[*count].IsDirectory = isDirectory;
+    (*count)++;
+    return TRUE;
+}
+
+static BOOL ShouldSkipTreeViewEntry(const WIN32_FIND_DATA* findData)
+{
+    if (strcmp(findData->cFileName, ".") == 0 || strcmp(findData->cFileName, "..") == 0)
+        return TRUE;
+
+    int len = (int)strlen(findData->cFileName);
+    const char* st = findData->cFileName + len - 1;
+    if (Configuration.NotHiddenSystemFiles &&
+        !IsFilePlaceholder(findData) &&
+        (findData->dwFileAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) &&
+        (len != 2 || *st != '.' || *(st + 1) != '.'))
+        return TRUE;
+
+    return FALSE;
+}
+
 //
 // ****************************************************************************
 // CFilesWindowAncestor
@@ -124,7 +358,7 @@ BOOL CFilesWindowAncestor::IsPathFromActiveFS(const char* fsName, char* fsUserPa
     fsNameIndex = -1;
     if (Is(ptPluginFS) && PluginFS.NotEmpty())
     {
-        if (Plugins.AreFSNamesFromSamePlugin(PluginFS.GetPluginFSName(), fsName, fsNameIndex)) // Check whether the file systems are from the same plugin
+        if (Plugins.AreFSNamesFromSamePlugin(PluginFS.GetPluginFSName(), fsName, fsNameIndex)) // we compare whether the file systems are from the same plug-in
         {
             if (convertPathToInternal)
             {
@@ -291,10 +525,259 @@ void CFilesWindowAncestor::SetPath(const char* path)
             ((CFilesWindow*)this)->SetAutomaticRefresh(FALSE, TRUE);
         }
     }
-    else // ptPluginFS - do not perform any refreshes; the plugin manages them itself
+    else // ptPluginFS - do not perform any refreshes; the plug-in manages them itself
     {
         ((CFilesWindow*)this)->SetAutomaticRefresh(TRUE, TRUE);
     }
+
+    if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
+        MainWindow->LeftPanel->RefreshTreeView();
+    else
+        ((CFilesWindow*)this)->RefreshTreeView();
+}
+
+void CFilesWindow::RefreshTreeView()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::RefreshTreeView()");
+
+    if (!IsTreeViewHost() || HTreeView == NULL)
+        return;
+
+    if (!TreeViewActive)
+    {
+        EnableWindow(HTreeView, FALSE);
+        return;
+    }
+
+    BOOL hadSelectedFile = FALSE;
+    char selectedFileFullPath[MAX_PATH];
+    char selectedFileFocusPath[MAX_PATH];
+    selectedFileFullPath[0] = 0;
+    selectedFileFocusPath[0] = 0;
+    HTREEITEM hSelected = TreeView_GetSelection(HTreeView);
+    if (hSelected != NULL)
+    {
+        CTreeViewNodeData selectedItemData;
+        if (GetTreeViewItemData(HTreeView, hSelected, &selectedItemData) &&
+            selectedItemData.Type == tvntFile &&
+            selectedItemData.FullPath != NULL && selectedItemData.FocusPath != NULL)
+        {
+            hadSelectedFile = TRUE;
+            lstrcpyn(selectedFileFullPath, selectedItemData.FullPath, MAX_PATH);
+            lstrcpyn(selectedFileFocusPath, selectedItemData.FocusPath, MAX_PATH);
+        }
+    }
+
+    TreeViewDisableNotify = TRUE;
+    SendMessage(HTreeView, WM_SETREDRAW, FALSE, 0);
+
+    do
+    {
+        CFilesWindow* sourcePanel = GetTreeViewSourcePanel();
+        if (sourcePanel == NULL || !sourcePanel->Is(ptDisk))
+        {
+            EnableWindow(HTreeView, FALSE);
+            TreeView_DeleteAllItems(HTreeView);
+            break;
+        }
+
+        EnableWindow(HTreeView, TRUE);
+        UpdateTreeViewColors();
+
+        const char* sourcePath = sourcePanel->GetPath();
+        char root[MAX_PATH];
+        GetRootPath(root, sourcePath);
+        if (root[0] == 0)
+        {
+            TreeView_DeleteAllItems(HTreeView);
+            break;
+        }
+
+        HTREEITEM hCurrent = TreeView_GetRoot(HTreeView);
+        if (hCurrent == NULL)
+            hCurrent = InsertTreeViewItem(HTreeView, TVI_ROOT, root, tvntDirectory, root, root, NULL, TRUE);
+        else
+        {
+            const char* rootPath = GetTreeViewItemPath(HTreeView, hCurrent);
+            if (rootPath == NULL || !IsTheSamePath(rootPath, root))
+            {
+                TreeView_DeleteAllItems(HTreeView);
+                hCurrent = InsertTreeViewItem(HTreeView, TVI_ROOT, root, tvntDirectory, root, root, NULL, TRUE);
+            }
+        }
+        if (hCurrent == NULL)
+            break;
+
+        PopulateTreeViewItem(hCurrent);
+        TreeView_Expand(HTreeView, hCurrent, TVE_EXPAND);
+
+        if (!IsTheSamePath(root, sourcePath))
+        {
+            char currentPath[MAX_PATH];
+            lstrcpyn(currentPath, root, MAX_PATH);
+
+            const char* segment = sourcePath + strlen(root);
+            while (*segment == '\\' || *segment == '/')
+                segment++;
+
+            while (*segment != 0)
+            {
+                char nextPath[MAX_PATH];
+                lstrcpyn(nextPath, currentPath, MAX_PATH);
+
+                char name[MAX_PATH];
+                int len = 0;
+                while (segment[len] != 0 && segment[len] != '\\' && segment[len] != '/')
+                    len++;
+                memcpy(name, segment, len);
+                name[len] = 0;
+
+                if (!SalPathAppend(nextPath, name, MAX_PATH))
+                    break;
+
+                HTREEITEM hChild = FindTreeViewChildByPath(HTreeView, hCurrent, nextPath);
+                if (hChild == NULL)
+                {
+                    PopulateTreeViewItem(hCurrent, TRUE);
+                    hChild = FindTreeViewChildByPath(HTreeView, hCurrent, nextPath);
+                }
+
+                if (hChild == NULL)
+                    break;
+
+                hCurrent = hChild;
+                lstrcpyn(currentPath, nextPath, MAX_PATH);
+                PopulateTreeViewItem(hCurrent);
+                TreeView_Expand(HTreeView, hCurrent, TVE_EXPAND);
+
+                segment += len;
+                while (*segment == '\\' || *segment == '/')
+                    segment++;
+            }
+        }
+
+        PopulateTreeViewItem(hCurrent, TRUE);
+
+        HTREEITEM hSelect = hCurrent;
+        if (hadSelectedFile && IsTheSamePath(selectedFileFocusPath, sourcePath))
+        {
+            HTREEITEM hSelectedFile = FindTreeViewChildByPath(HTreeView, hCurrent, selectedFileFullPath);
+            if (hSelectedFile != NULL)
+                hSelect = hSelectedFile;
+        }
+
+        TreeView_SelectItem(HTreeView, hSelect);
+        TreeView_EnsureVisible(HTreeView, hSelect);
+    } while (0);
+
+    SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
+    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
+    TreeViewDisableNotify = FALSE;
+}
+
+BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::PopulateTreeViewItem()");
+
+    CFilesWindow* sourcePanel = GetTreeViewSourcePanel();
+    if (HTreeView == NULL || hItem == NULL || sourcePanel == NULL || !sourcePanel->Is(ptDisk))
+        return FALSE;
+
+    CTreeViewNodeData* itemData = GetTreeViewItemDataPtr(HTreeView, hItem);
+    if (itemData == NULL)
+        return FALSE;
+
+    const char* itemPath = GetTreeViewItemPath(HTreeView, hItem);
+    if (itemPath == NULL || itemPath[0] == 0)
+        return FALSE;
+    if (!IsTreeViewDirectoryItem(HTreeView, hItem))
+    {
+        SetTreeViewItemChildren(HTreeView, hItem, 0);
+        return FALSE;
+    }
+
+    if (!forceRefresh && itemData->Populated)
+        return TreeView_GetChild(HTreeView, hItem) != NULL;
+
+    HTREEITEM hChild = TreeView_GetChild(HTreeView, hItem);
+    while (hChild != NULL)
+    {
+        HTREEITEM hNext = TreeView_GetNextSibling(HTreeView, hChild);
+        TreeView_DeleteItem(HTreeView, hChild);
+        hChild = hNext;
+    }
+
+    char searchPath[MAX_PATH];
+    lstrcpyn(searchPath, itemPath, MAX_PATH);
+    if (!SalPathAppend(searchPath, "*", MAX_PATH))
+    {
+        SetTreeViewItemChildren(HTreeView, hItem, 0);
+        return FALSE;
+    }
+
+    WIN32_FIND_DATA data;
+    HANDLE find = FindFirstFile(searchPath, &data);
+    if (find == INVALID_HANDLE_VALUE)
+    {
+        SetTreeViewItemChildren(HTreeView, hItem, 0);
+        return FALSE;
+    }
+
+    CTreeViewPopulateEntry* dirEntries = NULL;
+    CTreeViewPopulateEntry* fileEntries = NULL;
+    int dirCount = 0;
+    int fileCount = 0;
+    BOOL hasChildren = FALSE;
+    do
+    {
+        if (ShouldSkipTreeViewEntry(&data))
+            continue;
+
+        BOOL isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        char childPath[MAX_PATH];
+        lstrcpyn(childPath, itemPath, MAX_PATH);
+        if (!SalPathAppend(childPath, data.cFileName, MAX_PATH))
+            continue;
+
+        if (!AddTreeViewPopulateEntry(isDirectory ? &dirEntries : &fileEntries,
+                                      isDirectory ? &dirCount : &fileCount,
+                                      data.cFileName, childPath, isDirectory))
+        {
+            FindClose(find);
+            free(dirEntries);
+            free(fileEntries);
+            SetTreeViewItemChildren(HTreeView, hItem, 0);
+            return FALSE;
+        }
+    } while (FindNextFile(find, &data));
+
+    FindClose(find);
+
+    if (dirCount > 1)
+        qsort(dirEntries, dirCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
+    if (fileCount > 1)
+        qsort(fileEntries, fileCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
+
+    int i;
+    for (i = 0; i < dirCount; i++)
+    {
+        if (InsertTreeViewItem(HTreeView, hItem, dirEntries[i].Name, tvntDirectory,
+                               dirEntries[i].FullPath, dirEntries[i].FullPath, NULL, TRUE) != NULL)
+            hasChildren = TRUE;
+    }
+    for (i = 0; i < fileCount; i++)
+    {
+        if (InsertTreeViewItem(HTreeView, hItem, fileEntries[i].Name, tvntFile,
+                               fileEntries[i].FullPath, itemPath, fileEntries[i].Name, FALSE) != NULL)
+            hasChildren = TRUE;
+    }
+
+    free(dirEntries);
+    free(fileEntries);
+
+    itemData->Populated = TRUE;
+    SetTreeViewItemChildren(HTreeView, hItem, dirCount > 0 ? 1 : 0);
+    return hasChildren;
 }
 
 CFilesArray*
@@ -525,7 +1008,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                     else
                         TRACE_E("Unexpected situation.");
                 }
-                // Before starting, set "ReadingDone" to FALSE for all icon-cache items and "IconOverlayDone" to FALSE for all items in the panel
+                // before starting set "ReadingDone" of all icon-cache items and "IconOverlayDone" of all panel items to FALSE
                 int x;
                 if (!repeatedRound)
                     for (x = 0; x < window->IconCache->Count; x++)
@@ -543,12 +1026,12 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                 int selectMode = 1;
                 // 1 = sequential traversal (VisibleItemsArray.IsArrValid() == FALSE),
-                // 2 = traversal using VisibleItemsArray,
-                // 3 = traversal using VisibleItemsArraySurround,
+                // 2 = traversal according to VisibleItemsArray,
+                // 3 = traversal according to VisibleItemsArraySurround,
                 // 4 = sequential traversal (VisibleItemsArray.IsArrValid() == TRUE)
 
                 BOOL canReadIconOverlays = firstRound && window->Is(ptDisk) && iconReadersIconOverlayIds != NULL;
-                BOOL readIconOverlaysNow = FALSE; // TRUE = reading overlays now, FALSE = reading icons and thumbnails
+                BOOL readIconOverlaysNow = FALSE; // TRUE = reading overlays now, FALSE = reading icons + thumbnails
 
                 //          TRACE_I("wanted=" << wanted << ", selectMode=" << selectMode);
 
@@ -559,7 +1042,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                 while (1)
                 {
                     BOOL callWaitForObjects = TRUE;                                                                        // optimization only - while searching for an item (takes almost no time) WaitForMultipleObjects is not called
-                    if (i < (readIconOverlaysNow ? window->Files->Count + window->Dirs->Count : window->IconCache->Count)) // load an icon from a file/directory or retrieve the icon overlay for a file/directory
+                    if (i < (readIconOverlaysNow ? window->Files->Count + window->Dirs->Count : window->IconCache->Count)) // loading an icon from a file/directory or retrieving icon overlay for a file/directory
                     {
                         CIconData* iconData = readIconOverlaysNow ? NULL : &window->IconCache->At(i);
 
@@ -716,9 +1199,9 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     iconData->GetFlag() == wanted)
                                 {
                                     iconData->SetReadingDone(1);    // mark that we have already worked with this icon so we do not try again during this cycle
-                                    if (wanted == 0 || wanted == 2) // loading icons directly from a file or from a plugin
+                                    if (wanted == 0 || wanted == 2) // loading icons directly from a file or from a plug-in
                                     {
-                                        if (!pluginFSIconsFromPlugin) // icon from disk
+                                        if (!pluginFSIconsFromPlugin) // icon on disk
                                         {
                                             if (strlen(iconData->NameAndData) + (name - path) < MAX_PATH)
                                             {
@@ -761,7 +1244,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 TRACE_I("Too long filename to get icon from: " << path << iconData->NameAndData);
                                             }
                                         }
-                                        else // icon in a plugin FS - loading cannot be interrupted (risk of PluginData being destroyed)
+                                        else // icon in a plug-in FS - reading cannot be interrupted (risk of PluginData being destroyed)
                                         {
                                             const CFileData* f = iconData->GetFSFileData();
                                             if (f != NULL)
@@ -783,12 +1266,12 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     }
                                     else
                                     {
-                                        if (wanted == 3) // loading icons from icon-location
+                                        if (wanted == 3) // loading icons from the icon-location
                                         {
                                             shi.hIcon = NULL;
                                             char* nameAndData = iconData->NameAndData;
                                             int size = (int)strlen(nameAndData) + 4;
-                                            size -= (size & 0x3);         // size % 4 (4-byte alignment)
+                                            size -= (size & 0x3);         // size % 4 (alignment to four bytes)
                                             char* s = nameAndData + size; // skip the alignment zeros
                                             BOOL doExtractIcons = FALSE;
                                             BOOL doLoadImage = FALSE;
@@ -870,14 +1353,14 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                                             HANDLES(EnterCriticalSection(&window->ICSleepSection));
                                         }
-                                        else // wanted == 4 or 6; loading thumbnails from a plugin ("thumbnail loader")
+                                        else // wanted == 4 or 6; loading thumbnails from a plug-in ("thumbnail loader")
                                         {
                                             shi.hIcon = NULL; // precaution against incorrect icon deallocation (none is created here)
 
                                             char* s = iconData->NameAndData;
                                             int len = (int)strlen(s);
                                             int size = len + 4;
-                                            size -= (size & 0x3); // size % 4 (4-byte alignment)
+                                            size -= (size & 0x3); // size % 4 (alignment to four bytes)
                                             if (strlen(s) + (name - path) < MAX_PATH)
                                             {
                                                 strcpy(name, s);
@@ -894,9 +1377,9 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                     {
                                                         thumbnailFlag = wanted == 4 /* first thumbnail loading round */ ? (thumbMaker.IsOnlyPreview() ? 6 /* low-quality/smaller */ : 5 /* quality */) : 5 /* in the second round all obtained thumbnails are quality */;
                                                         thumbMaker.HandleIncompleteImages();
-                                                        break; // the thumbnail may be loaded; do not try another plugin
+                                                        break; // the thumbnail may be loaded; do not try another plug-in
                                                     }
-                                                    loader++; // try the next plugin in line, it might load the thumbnail
+                                                    loader++; // try the next plug-in in line, it might load the thumbnail
                                                 }
                                                 if (*loader == NULL)
                                                     thumbMaker.Clear(); // failed thumbnail -> clean it up
@@ -915,7 +1398,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                     {
                                         thumbMaker.Clear(); // the thumbnail will no longer be needed
 
-                                        // if this is not an icon from a plugin that forbids icon destruction, destroy it
+                                        // if this is not an icon from a plug-in that forbids icon destruction, destroy it
                                         if (shi.hIcon != NULL && (!pluginFSIconsFromPlugin || destroyPluginIcon))
                                         {
                                             ::NOHANDLES(DestroyIcon(shi.hIcon));
@@ -939,9 +1422,9 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                                                 HANDLES(LeaveCriticalSection(&window->ICSectionUsingIcon));
 
-                                                // find the index of the item whose icon we loaded
+                                                // find the index of the item for which we loaded the icon
 
-                                                if (pluginFSIconsFromPlugin) // pitFromPlugin: let the plugin compare the items itself (the comparison must not treat any two items in the listing as equal)
+                                                if (pluginFSIconsFromPlugin) // pitFromPlugin: let the plug-in compare items itself (must compare with no duplicates)
                                                 {
                                                     const CFileData* file = iconData->GetFSFileData();
                                                     if (file != NULL)
@@ -973,7 +1456,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                         }
                                                     }
                                                 }
-                                                else // duplicate names are not a problem (or are not an obstacle, as for example in an archive, where
+                                                else // duplicate names are not a problem (e.g., archives where identical names cannot have different icons)
                                                 {
                                                     char* name2 = iconData->NameAndData;
                                                     CFilesArray* arr = window->Dirs;
@@ -1024,7 +1507,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                                                 if (thumbMaker.RenderToThumbnailData(thumbnailData))
                                                 {
                                                     iconData->SetFlag(thumbnailFlag); // already loaded
-                                                    if (thumbnailFlag == 6 /* lower-quality/smaller thumbnail in the first thumbnail-loading pass */)
+                                                    if (thumbnailFlag == 6 /* low-quality/smaller thumbnail in the first loading round */)
                                                         iconData->SetReadingDone(0); // another round will follow, so mark as not "done"
                                                     thumbnailCreated = TRUE;
                                                 }
@@ -1032,7 +1515,7 @@ unsigned IconThreadThreadFBody(void* parameter)
 
                                                 if (thumbnailCreated)
                                                 {
-                                                    // find the index of the file (directories have no thumbnails) whose thumbnail we loaded
+                                                    // find the index of the file (directories have no thumbnails) for which we loaded the thumbnail
                                                     char* name2 = iconData->NameAndData;
                                                     int z;
                                                     for (z = 0; z < window->Files->Count; z++)
@@ -1087,13 +1570,13 @@ unsigned IconThreadThreadFBody(void* parameter)
                         canReadIconOverlays = FALSE;
 
                         // loading order: new icons, new thumbnails, old icons, old thumbnails
-                        BOOL done = FALSE; // TRUE = stop, everything has already been loaded
+                        BOOL done = FALSE; // TRUE == break, everything is loaded
                         switch (wanted)
                         {
                         case 0: // new icons have already been loaded
                         {
-                            // if thumbnails should be loaded and this is the first loading pass (plugins do not behave
-                            // nondeterministically like the system, so if they do not load the first time, they will never load), load
+                            // if thumbnails should be read and this is the first round (plug-ins do not work
+                            // randomly like the system, so if they fail the first time they will never load), read
                             // new thumbnails (wanted == 4)
                             if (readThumbnails && firstRound)
                                 wanted = 4;
@@ -1187,7 +1670,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                             }
                         }
                     }
-                    if (wait == WAIT_TIMEOUT) // reason to retry reading icons (visible area changed or user-menu icon reading finished)
+                    if (wait == WAIT_TIMEOUT) // reason to retry reading icons (visible area change or usermenu icons finished)
                     {
                         if (!UserMenuIconBkgndReader.IsReadingIcons()) // if usermenu icons are done, read icons outside the visible area
                         {
@@ -1212,7 +1695,7 @@ unsigned IconThreadThreadFBody(void* parameter)
                     if (window->Is(ptDisk) && failed && firstRound)
                     {                                   // try again (not all icons were loaded)
                         firstRound = FALSE;             // only one extra round
-                        waitBeforeFirstReadIcon = TRUE; // avoid reading the icon again immediately (low chance of success)
+                        waitBeforeFirstReadIcon = TRUE; // prevent immediate rereading (low chance of success)
                                                         //              TRACE_I("Going to second round of reading (some icons have not been read in the first round).");
                         goto SECOND_ROUND;
                         // postRefresh = TRUE;
@@ -1291,7 +1774,7 @@ unsigned IconThreadThreadFEH(void* param)
     {
         TRACE_I("Thread IconReader: calling ExitProcess(1).");
         //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // harder exit (the referent of "this one" is unclear here)
+        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this call still performs some operations)
         return 1;
     }
 #endif // CALLSTK_DISABLE
@@ -1363,9 +1846,15 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     ListBox = NULL;
     StatusLine = NULL;
     DirectoryLine = NULL;
+    HTreeView = NULL;
+    HTreeSplit = NULL;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
+    TreeViewActive = FALSE;
+    TreeViewDisableNotify = FALSE;
+    TreeViewSplitDragging = FALSE;
+    TreeViewSplitOffset = 0;
 
     SortType = stName;
     ReverseSort = FALSE;
@@ -1526,7 +2015,7 @@ void CFilesWindow::WakeupIconCacheThread()
     CALL_STACK_MESSAGE_NONE
     ICStopWork = FALSE;    // so that the work is not interrupted right from the start
     SetEvent(ICEventWork); // switch to work mode without waiting for a response
-    MSG msg;               // remove any pending WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
+    MSG msg;               // remove any WM_USER_ICONREADING_END that would set IconCacheValid = TRUE
     while (PeekMessage(&msg, HWindow, WM_USER_ICONREADING_END, WM_USER_ICONREADING_END, PM_REMOVE))
         ;
 }
@@ -1565,7 +2054,7 @@ BOOL CFilesWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin
                         HANDLES(EnterCriticalSection(&TimeCounterSection));
                         int t1 = MyTimeCounter++;
                         HANDLES(LeaveCriticalSection(&TimeCounterSection));
-                        PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, t1); // ensure the icon cache is refilled (ideally after the plugin unload/remove)
+                        PostMessage(HWindow, WM_USER_REFRESH_DIR, 0, t1); // ensure the icon cache is refilled (ideally after the plug-in unload/remove)
                     }
                 }
             }
@@ -1587,27 +2076,27 @@ BOOL CFilesWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin
             else
             {
                 if (Is(ptZIPArchive))
-                { // an archive may not use PluginData, so we must also check archive associations
-                    // this part matters only when Salamander is shutting down; otherwise the plugin
-                    // could be unloaded while the archiver is still in use (each archiver function loads the plugin)
-                    // NOTE: icon overlays from the plugin are an exception; after the plugin is unloaded, they stop being drawn
-                    //       (the plugin's icon-overlay array is released during unload)
+                { // an archive may not use PluginData, therefore we must also test archive associations
+                    // this part matters only when shutting Salamander down—otherwise the plug-in
+                    // could unload while the archiver is still in use (each archiver function loads the plug-in)
+                    // NOTE: icon overlays from the plug-in are an exception; after unload they would stop drawing
+                    //       (the plug-in's overlay table is released during unload)
                     int format = PackerFormatConfig.PackIsArchive(GetZIPArchive());
                     if (format != 0) // found a supported archive
                     {
                         format--;
                         CPluginData* data;
                         int index = PackerFormatConfig.GetUnpackerIndex(format);
-                        if (index < 0) // is this handled internally by a plugin?
+                        if (index < 0) // view: is this internal processing (plug-in)?
                         {
                             data = Plugins.Get(-index - 1);
                             if (data != NULL && data->GetPluginInterface()->GetInterface() == plugin)
                                 used = TRUE;
                         }
-                        if (PackerFormatConfig.GetUsePacker(format)) // supports editing?
+                        if (PackerFormatConfig.GetUsePacker(format)) // has an editor?
                         {
                             index = PackerFormatConfig.GetPackerIndex(format);
-                            if (index < 0) // handled by a plugin?
+                            if (index < 0) // is this internal processing (plug-in)?
                             {
                                 data = Plugins.Get(-index - 1);
                                 if (data != NULL && data->GetPluginInterface()->GetInterface() == plugin)
@@ -1620,7 +2109,7 @@ BOOL CFilesWindow::CanUnloadPlugin(HWND parent, CPluginInterfaceAbstract* plugin
         }
         if (used)
         {
-            if (Is(ptZIPArchive) || Is(ptPluginFS)) // archive -> just leave it; plugin FS -> return to the last disk path
+            if (Is(ptZIPArchive) || Is(ptPluginFS)) // archive -> just leave it; plug-in FS -> return to the last disk path
             {
                 char path[MAX_PATH];
                 strcpy(path, GetPath());
@@ -1878,7 +2367,7 @@ void CFilesWindow::StoreGlobalSelection()
             int totalCount = Dirs->Count + Files->Count;
             if (clipboard)
             {
-                // put the list on the clipboard
+                // we should put the list on the clipboard
 
                 // compute the required buffer size (name1CRLFname2CRLF...nameNCRLF)
                 DWORD size = 0;
@@ -2140,11 +2629,11 @@ void CFilesWindow::SetAutomaticRefresh(BOOL value, BOOL force)
     if (force || AutomaticRefresh != value)
     {
         AutomaticRefresh = value;
-        /* // removing the refresh flag from the directory line
-            // it crashed here; a method was called on a destroyed object
-            if (DirectoryLine != NULL)
-              DirectoryLine->SetAutomatic(AutomaticRefresh);
-        */
+        /* // "throwing away" the refresh mark from the directory line
+    // it crashed here; a destroyed object was called
+    if (DirectoryLine != NULL)                       
+      DirectoryLine->SetAutomatic(AutomaticRefresh);
+*/
     }
 }
 
@@ -2244,9 +2733,9 @@ void CFilesWindow::OpenActiveFolder()
 
 #ifndef _WIN64
         // replace "C:\\Windows\\sysnative\\*" with "C:\\Windows\\system32\\*" on 64-bit systems
-        // the 64-bit Explorer process knows nothing about "sysnative", so minimize user disruption,
+        // the Explorer process knows nothing about "sysnative", so let's not bother users with it,
         // also replace "C:\\Windows\\system32\\*" with "C:\\Windows\\SysWOW64\\*"
-        // (except for a group of directories excluded from the redirector that thus point back to System32)
+        //  (except for a group of directories excluded from the redirector that thus point back to System32)
         char dirName[MAX_PATH];
         dirName[0] = 0;
         if (Windows64Bit && WindowsDirectory[0] != 0)

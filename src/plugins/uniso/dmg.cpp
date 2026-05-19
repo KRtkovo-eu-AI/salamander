@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -68,7 +67,7 @@ static int UnBase64(char* s)
         *out++ = (b3 >> 2) | (b2 << 4);
         *out++ = b4 | (b3 << 6);
     }
-    // NOTE: Ignore the last extra 1, 2, or 3 bytes that were added
+    // NOTE: we don't care about the last extra 1 or 2 or 3 bytes we added
     return (int)(out - orig);
 }
 
@@ -363,8 +362,8 @@ CDMGFile::CADCBlock::CADCBlock(BlockInfo* blockInfo, HANDLE hFile)
             }
             else
             {
-                // NOTE: memcpy and memmove cannot be used in general; they read in DWORDs
-                // NOTE: http://www.macdisk.com/dmgen.php mentions memset, but it does not work; see SymArt_Demo.dmg
+                // NOTE: memcpy & memmove cannot be used in general, they read by dwords
+                // NOTE: http://www.macdisk.com/dmgen.php says something about memset... but it doesn't work - see SymArt_Demo.dmg
                 while (len-- > 0)
                     *out++ = *src++;
             }
@@ -383,8 +382,8 @@ CDMGFile::CADCBlock::CADCBlock(BlockInfo* blockInfo, HANDLE hFile)
             }
             else
             {
-                // NOTE: memcpy & memmove cannot generally be used; they read in DWORDs
-                // NOTE: http://www.macdisk.com/dmgen.php mentions memset... but it does not work - see SymArt_Demo.dmg
+                // NOTE: memcpy & memmove cannot be used in general, they read by dwords
+                // NOTE: http://www.macdisk.com/dmgen.php says something about memset... but it doesn't work - see SymArt_Demo.dmg
                 while (len-- > 0)
                     *out++ = *src++;
             }

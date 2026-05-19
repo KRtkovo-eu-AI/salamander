@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -153,9 +152,9 @@ BOOL WINAPI
 CPluginFSInterface::GetFullName(CFileData& file, int isDir, char* buf, int bufSize)
 {
     CALL_STACK_MESSAGE3("CPluginFSInterface::GetFullName(, %d, , %d)", isDir, bufSize);
-    lstrcpyn(buf, Path, bufSize); // If the path does not fit, the name will not fit either (report an error).
+    lstrcpyn(buf, Path, bufSize); // if path doesn't fit, name doesn't fit too (report error)
     if (isDir == 2)
-        return SalamanderGeneral->CutDirectory(buf, NULL); // parent directory
+        return SalamanderGeneral->CutDirectory(buf, NULL); // up-dir
     else
         return SalamanderGeneral->SalPathAppend(buf, file.Name, bufSize);
 }
@@ -182,7 +181,7 @@ CPluginFSInterface::IsOurPath(int currentFSNameIndex, int fsNameIndex, const cha
     CALL_STACK_MESSAGE4("CPluginFSInterface::IsOurPath(%d, %d, %s)",
                         currentFSNameIndex, fsNameIndex, userPart);
     if (WantReconnect)
-        return FALSE; // user requested a new connection
+        return FALSE; // user wants new connection
     char buffer[MAX_PATH];
     if (!RootPathFromFull(userPart, buffer, MAX_PATH))
         return FALSE;
@@ -227,7 +226,7 @@ CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fsNameI
     if (forceRefresh)
         IsSnapshotValid = FALSE;
 
-    // checks and initialization
+    // tests and inits
     if (mode != 3 && (pathWasCut != NULL || cutFileName != NULL))
     {
         TRACE_E("Incorrect value of 'mode' in CPluginFSInterface::ChangePath().");
@@ -323,7 +322,7 @@ CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fsNameI
         IsSnapshotValid = TRUE;
     }
 
-    // Walk through all path components while traversing the directory structure
+    // walk through all path components, also moving in directories structure
     CurrentDir = Snapshot->Root;
     // we will cut path to individual parts
     char temp[MAX_PATH];
@@ -342,12 +341,12 @@ CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fsNameI
             DIR_ITEM_I<char>* di = &CurrentDir->DirItems[i];
             if (!namecmp(di->FileName->FNName, component))
             {
-                if (di->Record->IsDir) // yes, it is a directory
+                if (di->Record->IsDir) // yes, it is direcotry
                 {
                     SalamanderGeneral->SalPathAppend(Path, component, MAX_PATH);
                     CurrentDir = di->Record;
                 }
-                else // it is a file
+                else // it is file
                 {
                     if (cutFileName != NULL)
                         lstrcpyn(cutFileName, di->FileName->FNName, MAX_PATH);
@@ -362,8 +361,8 @@ CPluginFSInterface::ChangePath(int currentFSNameIndex, char* fsName, int fsNameI
         {
             if (pathWasCut != NULL)
                 *pathWasCut = TRUE;
-            // Originally this was `mode > 1`, but I received messages when connecting from a directory
-            // with no deleted files, so the path did not point there.
+            // originally here was mode > 1 but I received messages when connecting from directory
+            // where are no deleted files (so path doesn't point there)
             if (mode == 3)
                 String<char>::Error(IDS_UNDELETE, IDS_PATHNOTFOUND);
             return mode != 3;
@@ -391,7 +390,7 @@ CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
         return FALSE;
     }
 
-    // Set valid members of fd
+    // set valid 'fd' data members
     dir->SetValidData(VALID_DATA_EXTENSION |
                       VALID_DATA_DOSNAME |
                       VALID_DATA_SIZE |
@@ -418,7 +417,7 @@ CPluginFSInterface::ListCurrentPath(CSalamanderDirectoryAbstract* dir,
     }
     dir->SetApproximateCount(filesCount, dirsCount);
 
-    // add the up-directory entry if we are not at the root
+    // add up-dir if we are not in root
     CFileData fd;
     memset(&fd, 0, sizeof(fd));
     if (CurrentDir != Snapshot->Root)
@@ -756,7 +755,7 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
     }
     else
     {
-        // for viewing, this is simple
+        // for view it is simple
         lstrcpyn(path, targetPath, MAX_PATH);
         lstrcpyn(SourcePath, filename, MAX_PATH);
         oldlen = 0;
@@ -779,8 +778,8 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
     // extract all streams
     char* pathend = path + strlen(path);
 
-    // we want to copy the file stream (without ADS streams) first
-    // otherwise the overwrite check would fail because ADS would also create the base file
+    // we want to copy file stream (no ADS streams) first
+    // otherwise file overwrite test will be broken beacuse with ADS will be also created base file
     TDirectArray<DATA_STREAM_I<char>*> copyStreams(10, 10);
     DATA_STREAM_I<char>* stream = record->Streams;
     while (stream != NULL)
@@ -800,7 +799,7 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
         stream = copyStreams[streamIndex];
         if (encrypted)
         {
-            // append .bak when backing up encrypted files
+            // append .bak when backuping encrypted files
             if (BackupEncryptedFiles)
             {
                 lstrcpyn(pathend, ".bak", MAX_PATH);
@@ -842,7 +841,7 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
         if (result == INVALID_HANDLE_VALUE)
         {
             ret = FALSE;
-            deleteTargetOnError = FALSE; // overwrite dialog was canceled, keep target file
+            deleteTargetOnError = FALSE; // overwrite dialog was cancelled, keep target file
             break;
         }
 
@@ -853,7 +852,7 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
 
             if (BackupEncryptedFiles)
             {
-                BYTE buffer2[5000]; // WriteEncryptedFileRaw also uses a 5000-byte buffer
+                BYTE buffer2[5000]; // WriteEncryptedFileRaw is also using buffer with size 5000
                 ULONG length;
                 ULONG numw;
                 do
@@ -914,7 +913,7 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
             {
                 DWORD numw;
                 CStreamReader<char> reader;
-                reader.Init(&Volume, stream); // FIXME: check the return value
+                reader.Init(&Volume, stream); // fixme: return value
                 QWORD bytesleft = stream->DSSize;
                 QWORD clustersleft = (bytesleft - 1) / Volume.BytesPerCluster + 1;
                 BOOL exitLoop = FALSE;
@@ -980,13 +979,13 @@ BOOL CPluginFSInterface::CopyFile(FILE_RECORD_I<char>* record, char* filename, c
                     bytesleft -= nb;
                 }
             }
-            if (ret && streamIndex == copyStreams.Count - 1) // set file times
+            if (ret && streamIndex == copyStreams.Count - 1) // set time
                 SetFileTime(file.HFile, &record->TimeCreation, &record->TimeLastAccess, &record->TimeLastWrite);
             SalamanderSafeFile->SafeFileClose(&file);
         }
 
         if (encrypted)
-            break; // do not iterate through all streams for encrypted files
+            break; // we don't walk through all streams for encrypted files
     }
 
     // remove file on error
@@ -1080,7 +1079,7 @@ QWORD CPluginFSInterface::GetDirSize(FILE_RECORD_I<char>* record, int plus, BOOL
         if (r->IsDir)
             size += GetDirSize(r, plus, encrypted);
         else
-            size += GetFileSize(r, encrypted) + plus; // +1 for the all-zero-size case
+            size += GetFileSize(r, encrypted) + plus; // +1 for all-zero-size situation
     }
     return size + plus;
 }
@@ -1159,7 +1158,7 @@ void UndeleteGetResolvedRootPath(const char* path, char* resolvedPath)
     {
         BOOL cutPathIsPossible = TRUE;
         SalamanderGeneral->ResolveLocalPathWithReparsePoints(resolvedPath, path, &cutPathIsPossible, NULL, NULL, NULL, NULL, NULL);
-        // we need the root path for GetVolumeInformation
+        // we need root for GetVolumeInformation
         if (cutPathIsPossible)
         {
             SalamanderGeneral->GetRootPath(rootPath, resolvedPath);
@@ -1422,8 +1421,8 @@ CPluginFSInterface::ViewFile(const char* fsName, HWND parent,
     strcat(uniqueFileName, ":");
     strcat(uniqueFileName, Path);
     SalamanderGeneral->SalPathAppend(uniqueFileName + strlen(fsName) + 1, file.Name, MAX_PATH);
-    // Names on disk are case-insensitive, but the disk cache is case-sensitive, so we convert
-    // to lowercase to make the disk cache behave case-insensitively
+    // name on disk are case-insensitive, disk-cache is case-sensitive, we will convert
+    // to lowercase so disk-cache will behave as case-insensitive
     SalamanderGeneral->ToLowerCase(uniqueFileName);
 
     // get name of file copy in disk-cache
@@ -1432,7 +1431,7 @@ CPluginFSInterface::ViewFile(const char* fsName, HWND parent,
     if (tmpFileName == NULL)
         return; // fatal error
 
-    // Determine whether we need to prepare a file copy for the disk cache (download)
+    // find out if we need prepare file copy for disk-cache (download)
     BOOL newFileOK = FALSE;
     CQuadWord newFileSize(0, 0);
     if (!fileExists) // we need it
@@ -1461,7 +1460,7 @@ CPluginFSInterface::ViewFile(const char* fsName, HWND parent,
             HANDLE hFile = HANDLES_Q(CreateFile(tmpFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                                 NULL, OPEN_EXISTING, 0, NULL));
             if (hFile != INVALID_HANDLE_VALUE)
-            { // ignore errors; file size is not critical here
+            { // ignore error, file size doesn't matter so much
                 DWORD err;
                 SalamanderGeneral->SalGetFileSize(hFile, newFileSize, err); // ignore errors
                 HANDLES(CloseHandle(hFile));
@@ -1472,7 +1471,7 @@ CPluginFSInterface::ViewFile(const char* fsName, HWND parent,
     // open viewer
     HANDLE fileLock;
     BOOL fileLockOwner;
-    if (!fileExists && !newFileOK || // open the viewer only if the file copy succeeded
+    if (!fileExists && !newFileOK || // open viewer only when file copy is OK
         !salamander->OpenViewer(parent, tmpFileName, &fileLock, &fileLockOwner))
     { // clear "lock" on error
         fileLock = NULL;
@@ -1772,7 +1771,7 @@ BOOL CPluginFSInterface::TestUndeleteOnExistingFile(FILE* file, FILE_RECORD_I<ch
 {
     BOOL ret;
 
-    // allocate buffers
+    // allocate buffer
     BYTE* buffer = new BYTE[COPY_BUFFER];
     BYTE* orgBuffer = new BYTE[COPY_BUFFER];
     int bufclusters = COPY_BUFFER / Volume.BytesPerCluster;
@@ -1851,7 +1850,7 @@ BOOL CPluginFSInterface::TestUndeleteOnExistingFile(FILE* file, FILE_RECORD_I<ch
             TRACE_I("fopen() failed on " << path);
         }
         if (encrypted)
-            break; // Skip the remaining streams for encrypted files
+            break; // we don't walk through all streams for encrypted files
         stream = stream->DSNext;
     }
     delete[] buffer;
@@ -2028,7 +2027,7 @@ void CPluginFSInterface::FragmentFile(HWND parent, const DIR_ITEM_I<char>* di, c
         goto exit;
     }
 
-    // find free cluster, use returned realigned starting LCN
+    // find free cluster, use returned re-alligned starting LCN
     for (int i = 0; freeLCN == -1 && i < BITMAP_BUFFER_SIZE - sizeof(VOLUME_BITMAP_BUFFER) - 32; i++)
     {
         if (bitmap->Buffer[i] != 0xFF)

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -135,7 +134,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
     if (skipped)
     {
         SalamanderSafeFile->SafeFileClose(&srcfile);
-        // the file was skipped in the progress dialog
+        // skip file in progress
         FileProgress = 0;
         TotalProgress += size.Value;
         UpdateRestoreProgress();
@@ -147,8 +146,8 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
     // recover encrypted files from backup
     if (real)
     {
-        // OpenEncryptedFileRaw (and related APIs) unfortunately writes to the output file itself; we open the file
-        // with SafeFileCreate anyway for error handling, but then we need to close it
+        // OpenEncryptedFileRaw (and others) unfortunately has own write to output file, we will open file
+        // with SafeFileCreate anyway for error handling, but we need to close it
         SalamanderSafeFile->SafeFileClose(&dstfile);
 
         // restore
@@ -158,7 +157,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
         if ((result = OpenEncryptedFileRaw(dstpath, CREATE_FOR_IMPORT, &context)) != ERROR_SUCCESS ||
             (result = WriteEncryptedFileRaw(RestoreCallback, (PVOID)&ctx, context)) != ERROR_SUCCESS)
         {
-            if (result != ERROR_CANCELLED) // return if the user canceled
+            if (result != ERROR_CANCELLED) // return on cancel from user
             {
                 SetLastError(result);
                 String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
@@ -167,7 +166,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
         }
         CloseEncryptedFileRaw(context);
     }
-    else // otherwise, just copy
+    else // otherwise only copy
     {
         BYTE* buffer = new BYTE[COPY_BUFFER_SIZE];
 
@@ -202,7 +201,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
         }
         SetFileAttributes(dstpath, attr | FILE_ATTRIBUTE_ENCRYPTED);
     }
-    // On cancel, remove the incomplete file
+    // on cancel remove incomplete file
     else if (Progress->GetWantCancel())
     {
         DeleteFile(dstpath);
@@ -364,7 +363,7 @@ BOOL RestoreEncryptedFiles(const char* targetPath, HWND parent)
     if (!SalamanderGeneral->TestFreeSpace(parent, targetPath, CQuadWord().SetUI64(GrandTotal), String<char>::LoadStr(IDS_RESTORE)))
         return FALSE;
 
-    // TODO: check whether sourcePath == targetPath; this is an error
+    // todo: test if sourcePath == targetPath - it is error
 
     // open progress
     CRestoreProgressDlg dlg(parent, ooStatic);

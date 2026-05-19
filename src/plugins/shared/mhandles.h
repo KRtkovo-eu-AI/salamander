@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -12,19 +11,19 @@
 
 #pragma once
 
-// MHANDLES_ENABLE macro - enables handle monitoring
-// WARNING: call HANDLES_CAN_USE_TRACE() immediately after initializing the "dbg.h" module
-//        (after SalamanderDebug and SalamanderVersion have been initialized)
-// WARNING: MHANDLES are initialized/destroyed at the "lib" level; if a plugin
-//        uses the "lib" (or "compiler") level, it must ensure that MHANDLES are not
-//        used at those levels (see #pragma init_seg (lib))
-// NOTE: use CheckHnd.exe to simplify the placement of HANDLES() and HANDLES_Q() macros
+// makro MHANDLES_ENABLE - zapina monitorovani handlu
+// POZOR: volat HANDLES_CAN_USE_TRACE() tesne po inicializaci "dbg.h" modulu
+//        (po inicializaci SalamanderDebug a SalamanderVersion)
+// POZOR: MHANDLES se inicializuji/rusi na urovni "lib", pokud tedy plugin
+//        uroven "lib" (nebo "compiler") pouziva, musi si sam zajistit, ze na
+//        techto urovnich nebude pouzivat MHANDLES (viz #pragma init_seg (lib))
+// POZNAMKA: pro snazsi rozmisteni maker HANDLES() a HANDLES_Q() pouzijte program CheckHnd.exe
 
 #define NOHANDLES(function) function
 
 #ifndef MHANDLES_ENABLE
 
-// to avoid semicolon problems in the macros defined below
+// aby nedochazelo k problemum se stredniky v nize nadefinovanych makrech
 inline void __HandlesEmptyFunction() {}
 
 #define HANDLES_CAN_USE_TRACE() __HandlesEmptyFunction()
@@ -55,8 +54,8 @@ enum C__HandlesOutputType
 
 enum C__HandlesType
 {
-    __htHandle_comp_with_CloseHandle,  // handle compatible with CloseHandle() and DuplicateHandle()
-    __htHandle_comp_with_DeleteObject, // handle compatible with DeleteObject() and GetStockObject()
+    __htHandle_comp_with_CloseHandle,  // handle kompatibilni s CloseHandle() a DuplicateHandle()
+    __htHandle_comp_with_DeleteObject, // handle kompatibilni s DeleteObject() a GetStockObject()
     __htKey,
     __htIcon,
     __htGlobal,
@@ -221,7 +220,7 @@ struct C__HandlesHandle
 {
     C__HandlesType Type;
     C__HandlesOrigin Origin;
-    HANDLE Handle; // generic, for all handle types
+    HANDLE Handle; // univerzalni, pro vsechny druhy handlu
 
     C__HandlesHandle() {}
 
@@ -285,16 +284,16 @@ typedef unsigned int uintptr_t;
 class C__Handles
 {
 public:
-    // message box helper objects; this one is here only to guarantee construction/destruction order
+    // objekty pro praci s messageboxy, zde je jen pro zaruceni poradi konstrukce/destrukce
     std::ostream __MessagesStrStream;
     C__Messages __Messages;
 
 protected:
-    C_HandlesDataArray Handles;       // all monitored handles
-    C__HandlesData TemporaryHandle;   // used during insertion, set by SetInfo()
-    C__HandlesOutputType OutputType;  // message output type
-    CRITICAL_SECTION CriticalSection; // for multi-thread synchronization
-    BOOL CanUseTrace;                 // TRUE only after the "dbg.h" module is initialized and TRACE_ macros can be used
+    C_HandlesDataArray Handles;       // vsechny kontrolovane handly
+    C__HandlesData TemporaryHandle;   // pri vkladani nastaven z SetInfo()
+    C__HandlesOutputType OutputType;  // typ vystupu hlasek
+    CRITICAL_SECTION CriticalSection; // pro synchronizaci multi-threadu
+    BOOL CanUseTrace;                 // TRUE az po inicializaci "dbg.h" modulu, az bude mozne pouzivat TRACE_ makra
 
 public:
     C__Handles();
@@ -678,9 +677,9 @@ public:
     BOOL OpenProcessToken(HANDLE ProcessHandle, DWORD DesiredAccess, PHANDLE TokenHandle);
 
 protected:
-    void AddHandle(C__HandlesHandle handle); // adds TemporaryHandle
+    void AddHandle(C__HandlesHandle handle); // prida TemporaryHandle
 
-    // removes the handle, returns TRUE on success
+    // vyjme handle, pri uspechu vraci TRUE
     BOOL DeleteHandle(C__HandlesType& type, HANDLE handle,
                       C__HandlesOrigin* origin,
                       C__HandlesType expType);

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __COMDEFS_H
@@ -18,7 +17,7 @@ typedef struct
     unsigned Flags;
     unsigned EOCentrDirOffs;
     unsigned ArchiveSize; //size of zip archive following this header
-    short CommandOffs;    // offset of the command line string following this structure, including the terminating '\0'
+    short CommandOffs;    // length of the command line string following this structure, including the terminating '\0'
     short TextOffs;
     short TitleOffs;
     short SubDirOffs;

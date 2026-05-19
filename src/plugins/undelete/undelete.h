@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -142,7 +141,7 @@ public:
 class CTopIndexMem
 {
 protected:
-    // path for the last stored top-index
+    // path for last stored top-index
     char Path[MAX_PATH];
     int TopIndexes[TOP_INDEX_MEM_SIZE]; // stored top-index list
     int TopIndexesCount;                // count of stored top-index
@@ -155,7 +154,7 @@ public:
         TopIndexesCount = 0;
     } // clear memory
     void Push(const char* path, int topIndex);        // store top-index for given path
-    BOOL FindAndPop(const char* path, int& topIndex); // find the top index for the given path; FALSE if not found
+    BOOL FindAndPop(const char* path, int& topIndex); // search top-index for given path, FALSE->not found
 };
 
 class CPluginInterfaceForFS : public CPluginInterfaceForFSAbstract
@@ -344,8 +343,8 @@ public:
     virtual void WINAPI ShowSecurityInfo(HWND parent) {}
 
     BOOL GetTempDirOutsideRoot(HWND parent, char* buffer, char** ret);
-#if defined(_DEBUG) && _WIN32_WINNT >= 0x0501 // some debug features work on Windows XP and later (NTFS 5.0)
-    // NOTE: the following functions are quick, dirty, minimal tests (no error handling, etc.)
+#if defined(_DEBUG) && _WIN32_WINNT >= 0x0501 // some debug feauters works from Windows XP (NTFS 5.0)
+    // NOTE: following functions are just quitch, dirty, and minimal tests (no error handling, etc)
     // included only in debug build
     void DumpSpecifiedFiles(FILE* file, FILE_RECORD_I<char>* dir, char* path, int pathSize);
     void DumpDirItemInfo(FILE* file, const DIR_ITEM_I<char>* di);

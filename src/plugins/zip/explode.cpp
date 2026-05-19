@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -318,10 +317,10 @@ int explode_lit(CDecompressionObject* decompress,
     mdl = mask_bits[bdl];
     s = (ulg)decompress->ucsize;
 
-    while (s > 0) /* repeat until ucsize bytes have been uncompressed */
+    while (s > 0) /* do until ucsize bytes uncompressed */
     {
         NEEDBITS(decompress, 1)
-        if (b & 1) /* then decode the literal */
+        if (b & 1) /* then literal--decode it */
         {
             DUMPBITS(1)
             s--;
@@ -384,7 +383,7 @@ int explode_lit(CDecompressionObject* decompress,
                     w += e;
                     d += e;
                 }
-                else /* copy byte by byte to avoid overlap */
+                else /* do it slow to avoid memcpy() overlap */
 #endif               /* !NOMEMCPY */
                     do
                     {
@@ -409,7 +408,7 @@ int explode_lit(CDecompressionObject* decompress,
         TRACE_E("flush returned error");
         return 5;
     }
-    // this detects the CRC
+    // this exposes the CRC
     //
     // if (G.csize + G.incnt + (k >> 3))   /* should have read csize bytes, but */
     // {                        /* sometimes read one too many:  k>>3 compensates */
@@ -438,7 +437,7 @@ int explode_nolit(CDecompressionObject* decompress,
     ulg b;           /* bit buffer */
     unsigned k;      /* number of bits in bit buffer */
     unsigned u;      /* true if unflushed */
-    int retval = 0;  /* returned error code, initialized to "no error" */
+    int retval = 0;  /* error code returned: initialized to "no error" */
 
     uch* redirSlide;
     unsigned wsize;
@@ -454,7 +453,7 @@ int explode_nolit(CDecompressionObject* decompress,
     mdl = mask_bits[bdl];
     s = (ulg)decompress->ucsize;
 
-    while (s > 0) /* continue until ucsize bytes have been uncompressed */
+    while (s > 0) /* do until ucsize bytes uncompressed */
     {
         NEEDBITS(decompress, 1)
         if (b & 1) /* then literal--get eight bits */
@@ -481,7 +480,7 @@ int explode_nolit(CDecompressionObject* decompress,
             d = (unsigned)b & mdl;
             DUMPBITS(bdl)
             DECODEHUFT(decompress, td, bd, md) /* get coded distance high bits */
-            d = w - d - t->v.n;                /* compute offset */
+            d = w - d - t->v.n;                /* construct offset */
             DECODEHUFT(decompress, tl, bl, ml) /* get coded length */
             n = t->v.n;
             if (e) /* get length extra bits */
@@ -521,7 +520,7 @@ int explode_nolit(CDecompressionObject* decompress,
                     w += e;
                     d += e;
                 }
-                else /* copy slowly to avoid memcpy() overlap */
+                else /* do it slow to avoid memcpy() overlap */
 #endif               /* !NOMEMCPY */
                     do
                     {
@@ -546,7 +545,7 @@ int explode_nolit(CDecompressionObject* decompress,
         TRACE_E("flush returned error");
         return 5;
     }
-    // The CRC check catches this
+    // this catches the CRC
     // if (G.csize + G.incnt + (k >> 3))   /* should have read csize bytes, but */
     // {                        /* sometimes read one too many:  k>>3 compensates */
     //   G.used_csize = G.lrec.csize - G.csize - G.incnt - (k >> 3);
@@ -633,7 +632,7 @@ int Explode(CDecompressionObject* decompress)
             huft_free(decompress, tb);
         return (int)r;
     }
-    if (decompress->Flag & 2) /* TRUE for 8K */
+    if (decompress->Flag & 2) /* true if 8K */
     {
         bdl = 7;
         r = huft_build(decompress, l, 64, 0, cpdist8, extra, &td, &bd);

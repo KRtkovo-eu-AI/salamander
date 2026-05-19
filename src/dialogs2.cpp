@@ -269,7 +269,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
             CallEndStopRefresh = FALSE;
 
-        // when opening the dialog, set the message-box parent for plugins to this dialog (main thread only)
+        // when opening the dialog set the plug-ins' msgbox parent to this dialog (main thread only)
         if (Modal && MainThreadID == GetCurrentThreadId())
         {
             HOldPluginMsgBoxParent = PluginMsgBoxParent;
@@ -301,15 +301,15 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
-        if (GetKeyState(VK_ESCAPE) & 0x8000) // safeguard against interrupting panel listing on each Esc
+        if (GetKeyState(VK_ESCAPE) & 0x8000) // measure to avoid interrupting panel listing after each ESC
             WaitForESCReleaseBeforeTestingESC = TRUE;
 
-        // the dialog is closing; the user might have changed the clipboard
-        // (for example by putting text into an edit line), so we will check it
+        // the dialog is closing - the user might have changed the clipboard
+        // (for example pasted text from an editline), so we'll verify it
         IdleRefreshStates = TRUE;  // force the state variables check during the next Idle
         IdleCheckClipboard = TRUE; // also let the clipboard be checked
 
-        // when closing the dialog restore the msgbox parent for plugins
+        // when closing the dialog restore the msgbox parent for plug-ins
         if (HOldPluginMsgBoxParent != NULL)
             PluginMsgBoxParent = HOldPluginMsgBoxParent;
 
@@ -457,7 +457,7 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableWindow(GetDlgItem(HWindow, IDS_COMPRATIO), FALSE);
         }
 
-        // fill the combo box
+        // fill the combobox
 
         DWORD clusterSize = 2048; // most likely used for CDs
         CFilesWindow* panel = MainWindow->GetNonActivePanel();
@@ -580,7 +580,7 @@ CSelectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_FILEMASK)); // install WordBreakProc to the combo box
+        InstallWordBreakProc(GetDlgItem(HWindow, IDE_FILEMASK)); // install WordBreakProc to the combobox
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
@@ -640,7 +640,7 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
                     selIndex = 1; // the last configuration becomes default
             }
         }
-        if (selIndex == 0) // nothing to choose from, disable the combo box
+        if (selIndex == 0) // nothing to choose from, disable the combobox
         {
             EnableWindow(GetDlgItem(HWindow, IDC_IMPORTCONFIG), FALSE);
         }
@@ -875,7 +875,7 @@ void CLanguageSelectorDialog::LoadListView()
 
 void CLanguageSelectorDialog::Transfer(CTransferInfo& ti)
 {
-    if (PluginName != NULL) // show this checkbox only when selecting an alternative language for a plugin
+    if (PluginName != NULL) // show this checkbox only when selecting an alternative language for a plug-in
         ti.CheckBox(IDC_USESAMESLGINOTHERPLUGINS, Configuration.UseAsAltSLGInOtherPlugins);
 
     if (ti.Type == ttDataToWindow)
@@ -894,7 +894,7 @@ void CLanguageSelectorDialog::Transfer(CTransferInfo& ti)
         if (index != -1)
         {
             lstrcpy(SLGName, Items[index].FileName);
-            if (PluginName != NULL) // store the alternative language name only when selecting an alternative language for a plugin
+            if (PluginName != NULL) // store the alternative language name only when selecting an alternative language for a plug-in
             {
                 if (Configuration.UseAsAltSLGInOtherPlugins)
                     lstrcpy(Configuration.AltPluginSLGName, SLGName);
@@ -923,7 +923,7 @@ BOOL CLanguageSelectorDialog::Initialize(const char* slgSearchPath, HINSTANCE pl
         do
         {
             char* point = strrchr(file.cFileName, '.');
-            if (point != NULL && stricmp(point + 1, "slg") == 0) // FindFirstFile was returning *.slg* too
+            if (point != NULL && stricmp(point + 1, "slg") == 0) // it was returning *.slg*
             {
                 CLanguage lang;
                 if (lang.Init(file.cFileName, pluginDLL))
@@ -950,7 +950,7 @@ int CLanguageSelectorDialog::GetPreferredLanguageIndex(const char* selectSLGName
     WORD primaryID = PRIMARYLANGID(langID);
     int localeIndex = -1;        // index corresponding to the user's locale
     int primarylocaleIndex = -1; // index corresponding to the user's primary language locale
-    int englishIndex = -1;       // index of the "english.slg" file
+    int englishIndex = -1;       // index of the file "english.slg"
     int i;
     for (i = 0; i < Items.Count; i++)
     {
@@ -1014,18 +1014,18 @@ CLanguageSelectorDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if (PluginName != NULL)
             {
-                // put the plugin name in the title so the user knows which plugin the language is for
+                // put the plug-in name in the title so the user knows which plug-in the language is for
                 char buf[200];
                 _snprintf_s(buf, _TRUNCATE, "%s: ", PluginName);
-                buf[99] = 0; // use only 100 characters for the plugin name so some space remains for the original title dialog
+                buf[99] = 0; // use only 100 characters for the plug-in name so some space remains for the original title dialog
                 int len = (int)strlen(buf);
                 if (GetWindowText(HWindow, buf + len, 200 - len))
                     SetWindowText(HWindow, buf);
             }
         }
-        if (!OpenedFromConfiguration && PluginName == NULL) // change the Cancel button to Exit
+        if (!OpenedFromConfiguration && PluginName == NULL) // turn the Cancel button into Exit
             SetDlgItemText(HWindow, IDCANCEL, ExitButtonLabel);
-        if (PluginName != NULL) // disable the Close command
+        if (PluginName != NULL) // disable closing
             EnableMenuItem(GetSystemMenu(HWindow, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
 
         Web = new CHyperLink(HWindow, IDC_SLG_WEB, STF_HYPERLINK_COLOR);

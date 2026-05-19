@@ -212,7 +212,7 @@ public:
     int GetUnassignedHotPathIndex();
 
     BOOL GetVisible(int index) { return Items[index].Visible; }
-    BOOL CleanName(char* name); // trims spaces and returns TRUE if name is not empty
+    BOOL CleanName(char* name); // trims spaces and returns TRUE if the name is valid
 
     BOOL SwapItems(int index1, int index2); // swaps two items in the array
 
@@ -354,7 +354,7 @@ struct CDynString
             free(Buffer);
     }
 
-    BOOL Append(const char* str, int len); // returns TRUE on success; if 'len' is -1, "len = strlen(str)" is used
+    BOOL Append(const char* str, int len); // returns TRUE on success; if 'len' is -1 the length is calculated using "len = strlen(str)"
 
     const char* GetString() const { return Buffer; }
 };
@@ -403,7 +403,7 @@ public:
 
     CUserMenuItems* UserMenuItems;
     CViewerMasks* ViewerMasks;
-    CRITICAL_SECTION ViewerMasksCS; // critical section used only to synchronize access to 'ViewerMasks' (writes anywhere and reads outside the main thread)
+    CRITICAL_SECTION ViewerMasksCS; // section used only for synchronizing access to 'ViewerMasks' (writes anywhere and reads outside the main thread)
     CViewerMasks* AltViewerMasks;
     CEditorMasks* EditorMasks;
     CHighlightMasks* HighlightMasks;
@@ -441,7 +441,7 @@ public:
 
     int ActivateSuspMode; // counter of WM_ACTIVATEAPP activations/deactivations; some messages may get lost
 
-    RECT WindowRect; // current window rectangle
+    RECT WindowRect; // current window position
 
     BOOL CaptionIsActive; // is the main window caption active?
 
@@ -475,6 +475,7 @@ protected:
         BeforeZoomSplitPosition, // split position before panel zoom
         DragSplitPosition;       // shown in the tooltip
     CToolTipWindow ToolTipWindow;
+    BOOL KeepSplitPositionCenteredOnVisiblePanes;
 
     BOOL FirstActivateApp; // WM_ACTIVATEAPP uses this variable during startup
 
@@ -487,11 +488,16 @@ public:
 
     void EnterViewerMasksCS() { HANDLES(EnterCriticalSection(&ViewerMasksCS)); }
     void LeaveViewerMasksCS() { HANDLES(LeaveCriticalSection(&ViewerMasksCS)); }
-    BOOL GetViewersAssoc(int wantedViewerType, CDynString* strViewerMasks); // helper method: collects all masks associated with viewer type "wantedViewerType"; returns TRUE on success (if there is enough memory for the string)
+    BOOL GetViewersAssoc(int wantedViewerType, CDynString* strViewerMasks); // helper: collects all masks associated with the given viewer type "wantedViewerType"; returns TRUE on success (when enough memory for the string)
 
     void ClearHistory(); // clears all histories
 
     void GetSplitRect(RECT& r);
+    void GetPanelWidthsFromSplitPosition(double splitPosition, int& leftWidth, int& rightWidth);
+    double GetVisibleLeftPanelRatio();
+    double GetSplitPositionForVisibleLeftPanelRatio(double leftVisibleRatio);
+    double GetVisiblePanesCenteredSplitPosition();
+    void UpdateCenteredSplitPosition();
 
     BOOL IsGood();
 
@@ -503,7 +509,7 @@ public:
 
     // these functions have no effect if CFilesWindow::CanBeFocused is not satisfied
     void ChangePanel(BOOL force = FALSE);                                   // respects EditMode; activates the inactive panel; (ignores ZOOM if force is TRUE)
-    void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // clears EditMode because it sets focus to the panel
+    void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // clears EditMode because focus is put into the panel
     void FocusLeftPanel();                                                  // calls FocusPanel for the left panel
 
     // compares directories in the left and right panels
@@ -582,9 +588,10 @@ public:
     BOOL TogglePluginsBar(BOOL storePos = TRUE);
     BOOL ToggleMiddleToolBar();
     BOOL ToggleBottomToolBar();
+    BOOL ToggleTreeView();
     BOOL ToggleUserMenuToolBar(BOOL storePos = TRUE);
     BOOL ToggleHotPathsBar(BOOL storePos = TRUE);
-    // If 'twoDriveBars' is TRUE, the user wants to toggle two drive bars; otherwise only one
+    // If 'twoDriveBars' is TRUE, the user wants two drive lists; otherwise only one
     BOOL ToggleDriveBar(BOOL twoDriveBars, BOOL storePos = TRUE);
 
     void ToggleToolBarGrips();
@@ -675,7 +682,7 @@ public:
     BOOL CanEnterHelpMode();
     void OnContextHelp();
     HWND SetHelpCapture(POINT point, BOOL* pbDescendant);
-    BOOL ProcessHelpMsg(MSG& msg, DWORD* pContext, HWND* hDirtyWindow); // hDirtyWindow: returns the window to which WM_USER_HELP_MOUSEMOVE was sent and which needs to receive WM_USER_HELP_MOUSELEAVE
+    BOOL ProcessHelpMsg(MSG& msg, DWORD* pContext, HWND* hDirtyWindow); // hDirtyWindow: returns the window to which we sent WM_USER_HELP_MOUSEMOVE and that needs to receive WM_USER_HELP_MOUSELEAVE
     void ExitHelpMode();
     DWORD MapClientArea(POINT point);
     DWORD MapNonClientArea(int iHit);
@@ -690,7 +697,7 @@ public:
     void RebuildDriveBarsIfNeeded(BOOL useDrivesMask, DWORD drivesMask, BOOL checkCloudStorages,
                                   DWORD cloudStoragesMask);
 
-    // Sets DoNotLoadAnyPlugins and when it is FALSE, it sends refreshes to panels loading thumbnails
+    // it sets DoNotLoadAnyPlugins and when it is FALSE, it sends refreshes to panels loading thumbnails
     void SetDoNotLoadAnyPlugins(BOOL doNotLoad);
 
     // based on 'show', shows or hides two drive bars

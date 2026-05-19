@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -55,7 +54,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 char* LoadStr(int resID)
@@ -270,7 +269,7 @@ BOOL ParseStorage(CSalamanderDirectoryAbstract* Dir, LPSTORAGE CF, LPMALLOC pIMa
         {
             LPSTORAGE pSubStorage;
 
-            // append to path
+            // concatenate path
             if (path != oldPath)
             {
                 strcpy(oldPath, "\\");

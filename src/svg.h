@@ -60,11 +60,11 @@ protected:
     // creates a DIB of size 'width' and 'height', returns its handle and a pointer to its data
     void CreateDIB(int width, int height, HBITMAP* hMemBmp, void** lpMemBits);
 
-    // tints the SVG 'image' with the color determined by 'state'
+    // tints the SVG 'image' with the color determined by 'state' state
     void ColorizeSVG(NSVGimage* image, DWORD state);
 
 protected:
-    int Width; // Width of a single image in points
+    int Width; // dimension of a single image in points
     int Height;
     HBITMAP HBitmaps[SVGSTATE_COUNT];
 };

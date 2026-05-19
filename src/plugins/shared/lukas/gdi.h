@@ -1,13 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
 // ****************************************************************************
 //
-// CBackbufferedDC -- DC with a back buffer for smooth drawing of more
-// complex graphics
+// CBackbufferedDC -- DC s back bufferem, pro hladke kresleni slozitejsich
+// grafickych celku
+//
 
 class CBackbufferedDC
 {
@@ -17,24 +17,24 @@ public:
     ~CBackbufferedDC();
     void Destroy();
 
-    // Sets the window the DC is bound to
+    // nastavi okno ke kteremu se DC vaze
     void SetWindow(HWND window);
 
-    // Updates internal data after changes in window size, screen
-    // resolution, etc.; do not call between BeginPaint and EndPaint
+    // aktualizuje vnitrni data v zavislosti na zmene velikosti okna/rozliseni
+    // obrazovky apod; nevolat mezi BeginPaint a EndPaint
     void Update();
 
-    // Starts drawing into the window; _must_ be paired with EndPaint;
-    // cannot be called repeatedly
+    // zahaji kresleni do okna, _musi_ parovat s EndPaint, nelze volat
+    // opakovane
     void BeginPaint();
 
-    // Ends drawing and copies the back buffer contents to the screen
+    // ukonci kresleni a zkopiruje obsah back-bufferu na obrazovku
     void EndPaint();
 
-    // DC for drawing into the window, valid only between BeginPaint and EndPaint
+    // DC pro kresleni do okna, platne jen mezi BeginPaint a EndPaint
     operator HDC();
 
-    // Returns a RECT with the buffer dimensions
+    // vrati rectangle o rozmerech bufferu
     const RECT& GetRect() { return ClientRect; }
 
 private:

@@ -36,7 +36,7 @@ void ColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSatu
     int h, l, s;     // output HLS values
     WORD cMax, cMin; // max and min RGB values
     WORD cSum, cDif;
-    int rDelta, gDelta, bDelta; // intermediate value: % of the spread from the maximum
+    int rDelta, gDelta, bDelta; // intermediate value: % of spread from max
 
     // get R, G, and B out of DWORD
     r = GetRValue(clrRGB);
@@ -95,7 +95,7 @@ WORD HueToRGB(WORD n1, WORD n2, WORD hue)
     if (hue > HLSMAX)
         hue -= HLSMAX;
 
-    // return the r, g, or b value for this hue segment
+    // return r,g, or b value from this tridrant
     if (hue < (HLSMAX / 6))
         return (n1 + (((n2 - n1) * hue + (HLSMAX / 12)) / (HLSMAX / 6)));
     if (hue < (HLSMAX / 2))
@@ -109,7 +109,7 @@ WORD HueToRGB(WORD n1, WORD n2, WORD hue)
 COLORREF ColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation)
 {
     WORD r, g, b;        // RGB component values
-    WORD magic1, magic2; // computed magic numbers
+    WORD magic1, magic2; // calculated magic numbers (really!)
 
     if (wSaturation == 0)
     { // achromatic case

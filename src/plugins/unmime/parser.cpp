@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 /****************************************************************************************\
 **                                                                                      **
@@ -129,10 +128,10 @@ int iErrorStr;
 
 #define MIN_WEIGHT 5
 
-// List of header names used to recognize a header block. 'name' is the header name,
-// 'main' is a boolean indicating whether the header appears only in the headers
-// of the entire mail; 'weight' is the header-name weight. For a block to qualify
-// as a header, the sum of the header-name weights must be at least MIN_WEIGHT.
+// List of header names - used to recognize the header block. 'name' is the header name,
+// 'main' is a boolean that determines whether the header appears only in the main headers
+// of the entire mail; 'weight' is the name weight - for a block to qualify as a header, the sum
+// of the header-name weights must be at least MIN_WEIGHT.
 
 static struct HEADERINFO
 {
@@ -194,7 +193,7 @@ static struct HEADERINFO
 // MIN_WEIGHT.
 
 static BOOL bHeaderNamesSorted = FALSE; // the list of names is sorted during the first pass
-// ParseMailFile sorts it and sets bHeaderNamesSorted to TRUE
+// of ParseMailFile and bHeaderNamesSorted is set to TRUE
 
 // comparison function for qsort and bsearch
 static int __cdecl compare_header_names(const void* elem1, const void* elem2)
@@ -296,7 +295,7 @@ void CInputFile::RestorePosition()
 
 // ****************************************************************************
 //
-// CParserOutput methods
+//  Metody CParserOutput
 //
 
 void CParserOutput::StartBlock(int iType, int iLine)
@@ -533,8 +532,8 @@ static void ParseContentType(LPCSTR pszText, LPSTR pszType, int iMaxType, LPSTR 
 static BOOL GetParameter(LPSTR pszText, LPCSTR pszParam, LPSTR pszBuffer, int iBufferSize)
 {
     CALL_STACK_MESSAGE3("GetParameter(%s, , , %d)", pszText, iBufferSize);
-    // create lowercase copies of the strings so the search can be case-insensitive,
-    // StrStrI is avoided because it may not be available on all systems
+    // create lowercase copies of the strings so I can search case-insensitively,
+    // I was afraid to use StrStrI... (I do not know if it is available on all systems)
     char* text = new char[strlen(pszText) + 1];
     strcpy(text, pszText);
     CharLower(text);
@@ -642,7 +641,7 @@ static void DestroyIllegalChars(LPSTR pszPath)
     }
 }
 
-////// NAMES OF DECODED FILES //////////////////////////////////////////////
+////// JMENA DEKODOVANYCH SOUBORU //////////////////////////////////////////////
 
 static void SetDefaultFileName(BOOL bAppendCharset)
 {
@@ -685,7 +684,7 @@ static void InsertSuffix(char* filename, int suffix)
 {
     char temp[MAX_PATH];
     char* ext = strrchr(filename, '.');
-    if (ext != NULL) // ".cvspass" is treated as a file extension on Windows
+    if (ext != NULL) // ".cvspass" is an extension in Windows
     {
         *ext++ = 0;
         sprintf(temp, "%s(%ld).%s", filename, suffix, ext);
@@ -722,7 +721,7 @@ static void MakeNamesUnique(CParserOutput* pOutput)
     }
     // sort the index
     qsort(index, numblocks, sizeof(char*), compare_file_names);
-    // identical names are now adjacent, so we can detect them easily
+    // identical names now lie next to each other and we can easily catch them
     int k, l;
     for (k = 1, l = 0; k < numblocks; k++)
     {
@@ -872,7 +871,7 @@ static void EndCalcSize(CParserOutput* pOutput)
     }
 }
 
-//FUNCTIONS FOR SAVING/RESTORING PARSER STATE ///////////////////////////////
+////// FUNKCE PRO ULOZENI/OBNOVENI STAVU PARSERU ///////////////////////////////
 
 static void SaveState()
 {
@@ -954,7 +953,7 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
     SkipWSP(line);
     if (!*line)
         return FALSE;
-    while (*line && *line != ' ' && *line != '\t') // does a sequence of octal digits follow?
+    while (*line && *line != ' ' && *line != '\t') // is a sequence of octal digits following?
         if ((BYTE)*line < (BYTE)'0' || (BYTE)*line > (BYTE)'7')
             return FALSE;
         else
@@ -965,9 +964,9 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
     GetWord(line, filename, MAX_PATH, " \t"); // the file name also has to be present
     SkipWSP(line);
     if (*line)
-        return FALSE; // nothing else must follow
+        return FALSE; // and nothing more
 
-    // we found a uuencoded header
+    // we found a UU header
     SaveState(); // save the position in case we need to return
     int iLineStart = InputFile.iCurrentLine;
     int size = 0;
@@ -1040,7 +1039,7 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
 
 static BOOL TestYEncBlock(CParserOutput* pOutput, BOOL& bEnd)
 {
-    // is this the header?
+    // are we on a header?
     if (memcmp(cLine, "=ybegin", 7))
         return FALSE;
 
@@ -1354,8 +1353,8 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                     }
                     goback = TRUE;
                 }
-                else // Handling the previous multipart case
-                {    // was not properly terminated, but we are at a boundary
+                else // Handling the case when the previous multipart
+                {    // was not properly terminated, yet we are at a boundary
                     int i;
                     for (i = STACKTOP - 1; i >= 0; i--) // one of the previous ones.
                         if (IsBoundary(cBoundaries[i], &bEnd2))
@@ -1414,7 +1413,7 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                 while ((cNextLine[0] == ' ' || cNextLine[0] == '\t') && !IsWhiteLine(cNextLine))
                 {
                     if (strlen(cLine) + strlen(cNextLine + 1) >= LINE_MAX)
-                        break; // overflow check
+                        break; // overflow test
                     pDummyDecoder->DecodeLine(cNextLine, bLast);
                     strcat(cLine, cNextLine + 1);
                     bLast = bNextLast;
@@ -1430,7 +1429,7 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                         char cType[20], cSubType[20];
                         ParseContentType(cText, cType, sizeof(cType), cSubType, sizeof(cSubType));
                         if (iMultipart < MULTIPARTSTACK_MAX && !_stricmp(cType, "multipart"))
-                        { // if the message is multipart, we care about the boundary string that separates the individual parts
+                        { // if the message is multipart, we care about the string that separates the individual parts
                             char cBoundary[BOUNDARY_MAX];
                             if (GetParameter(cText, "boundary", cBoundary, BOUNDARY_MAX))
                             {
@@ -1489,7 +1488,7 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                             p = strrchr(cDisp, '/');
                             p = max(p, p2);
                             if (p && p[1])
-                            { // Do not take an empty file name from URLs such as http://www.altap.cz/
+                            { // Do not take empty fname from from e.g. http://www.altap.cz/
                                 iNameOrigin = 3;
                                 bNextBlockIsAttachment = TRUE;
                                 strcpy(cFileName, p + 1);
@@ -1504,10 +1503,10 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                         }
                         else if (!*p)
                         {
-                            // Hack: Handle .MHT files created by MSIE7 or the Windows 7 problem reporting tool:
+                            // Hack: Handle .MHT files created by MSIE7 or Win7 problem report creation tool:
                             // Content-Location: screenshot_0001.jpeg
-                            // No example using file: has been found yet.
-                            // Should we also look for \\ and /?
+                            // But right now I cannot find any example with file: :-(((
+                            // Should we look for \ and / as well?
                             iNameOrigin = 3;
                             bNextBlockIsAttachment = TRUE;
                             strcpy(cFileName, cDisp);

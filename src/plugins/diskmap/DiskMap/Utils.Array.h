@@ -92,7 +92,7 @@ public:
         {
             free(Blocks[_count / BlockSize]);
         }
-        if (!_count) // all elements used up
+        if (!_count) //used them all
         {
             free(Blocks);
             Blocks = NULL;
@@ -104,7 +104,7 @@ public:
         CDynamicArray * const &operator[](float index); // function is never called, but if it is missing
         // MSVC does terrible things
 	*/
-    DATA_TYPE& operator[](int index) // returns the element at the given position
+    DATA_TYPE& operator[](int index) //returns the element at the position
     {
         return Blocks[index / BlockSize][index % BlockSize];
     }

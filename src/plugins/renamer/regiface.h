@@ -21,7 +21,7 @@ typedef int BOOL;
 
 // ******************************************************************
 //
-// Error codes - errors can occur when compiling or matching expression
+// Error codes - errors can occur when compilig or matching expresion
 //
 
 enum CRegExpErrors
@@ -87,8 +87,8 @@ const char* RegExpErrorText(CRegExpErrors err);
 class CRegExpAbstract
 {
 public:
-    // Number of subexpressions in regular expression + 1 for
-    // whole expression, not counting the non-capturing subexpressions
+    // Number of subexpresions in regular expression + 1 for
+    // whole expression, not counting the non-capturing subexpresions
     // specified with (?:pattern) instead of (pattern).
     // SubExpCount is computed at runtime when compiling expression
     // with RegComp().
@@ -110,7 +110,7 @@ public:
     virtual BOOL RegComp(char* exp, unsigned options) = 0;
 
     // Match 'string' against previously compiled pattern. 'length'
-    // is length of string. Matching starts at 'offset' in subject
+    // is leghth of string. Matching starts at 'offest' in subject
     // string.
     // If 'separateThread' is TRUE, matching is executed in separate
     // thread, such matching is protected against stack overflow,

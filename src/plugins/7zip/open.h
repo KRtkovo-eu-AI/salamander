@@ -37,7 +37,7 @@ private:
     UString& Password;
 
 public:
-    // If entered, the password is returned through the password parameter
+    // If entered, the password gets propagated towards password
     CArchiveOpenCallbackImp(UString& password);
     ~CArchiveOpenCallbackImp();
 };

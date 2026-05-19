@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -113,7 +112,7 @@ public:
         RAPI_FUNCTIONS
 #undef Func_Operator
 
-        if (!IsGood()) // Verify everything
+        if (!IsGood()) // And verify everything
         {
             Unload();
             return FALSE;
@@ -590,7 +589,7 @@ BOOL CRAPI::FindAllFilesInTree(LPCTSTR rootPath, char (&path)[MAX_PATH], LPCTSTR
         // JR Some storage implementations return ERROR_FILE_NOT_FOUND instead of ERROR_NO_MORE_FILES
         int nError = CDynRapi::CeGetLastError();
         if (nError == ERROR_NO_MORE_FILES || nError == ERROR_FILE_NOT_FOUND)
-            return TRUE; // JR: empty directory, returning
+            return TRUE; // JR empty directory, stop
 
         char buf[2 * MAX_PATH + 100];
         DWORD err = GetLastError();
@@ -665,7 +664,7 @@ BOOL CRAPI::FindAllFilesInTree(LPCTSTR rootPath, char (&path)[MAX_PATH], LPCTSTR
         if (!FindNextFile(find, &data))
         {
             if (CDynRapi::CeGetLastError() == ERROR_NO_MORE_FILES)
-                break; // JR everything is fine, stopping
+                break; // JR Everything is fine, stop
 
             DWORD err = GetLastError();
             SalamanderGeneral->ShowMessageBox(SalamanderGeneral->GetErrorText(err), TitleWMobileError, MSGBOX_ERROR);
@@ -703,7 +702,7 @@ CRAPI::CopyFileToPC(LPCTSTR lpExistingFileName, LPCTSTR lpNewFileName, BOOL bFai
     if (srcHandle == INVALID_HANDLE_VALUE)
         goto ONERROR_SRC;
 
-    size = GetFileSize(srcHandle, NULL); //JR REVIEW: Files larger than 4 GB probably do not exist on Windows Mobile
+    size = GetFileSize(srcHandle, NULL); // JR REVIEW: Files larger than 4 GB likely won't exist on Windows Mobile
     if (size == 0xFFFFFFFF)
         goto ONERROR_SRC;
 
@@ -749,7 +748,7 @@ CRAPI::CopyFileToPC(LPCTSTR lpExistingFileName, LPCTSTR lpNewFileName, BOOL bFai
         }
     } while (read >= sizeof(buffer));
 
-    ::SetFileTime(dstHandle, &creationTime, &accessedTime, &writeTime); // JR REVIEW: ignore potential errors?
+    ::SetFileTime(dstHandle, &creationTime, &accessedTime, &writeTime); // JR REVIEW: should we ignore potential errors?
     ::SetFileAttributes(lpNewFileName, attr);
 
 RETURN:
@@ -840,7 +839,7 @@ CRAPI::CopyFileToCE(LPCTSTR lpExistingFileName, LPCTSTR lpNewFileName, BOOL bFai
         }
     } while (read >= sizeof(buffer));
 
-    SetFileTime(dstHandle, &creationTime, &accessedTime, &writeTime); // JR REVIEW: ignore potential errors?
+    SetFileTime(dstHandle, &creationTime, &accessedTime, &writeTime); // JR REVIEW: should we ignore potential errors?
     SetFileAttributes(lpNewFileName, attr);
 
 RETURN:
@@ -934,7 +933,7 @@ CRAPI::CopyFile(LPCTSTR lpExistingFileName, LPCTSTR lpNewFileName, BOOL bFailIfE
         }
     } while (read >= sizeof(buffer));
 
-    SetFileTime(dstHandle, &creationTime, &accessedTime, &writeTime); // JR REVIEW: ignore potential errors?
+    SetFileTime(dstHandle, &creationTime, &accessedTime, &writeTime); // JR REVIEW: should we ignore potential errors?
     SetFileAttributes(lpNewFileName, attr);
 
 RETURN:
@@ -1089,7 +1088,7 @@ BOOL CRAPI::CheckAndCreateDirectory(const char* dir, HWND parent, BOOL quiet, ch
                 if (attrs != 0xFFFFFFFF) // the name exists
                 {
                     if (attrs & FILE_ATTRIBUTE_DIRECTORY)
-                        break; // we will create directories starting from this directory
+                        break; // we will build from this directory
                     else       // it is a file, that would not work...
                     {
                         sprintf(buf, LoadStr(IDS_ERR_DIRNAMEISFILE), name);
@@ -1155,7 +1154,7 @@ BOOL CRAPI::CheckAndCreateDirectory(const char* dir, HWND parent, BOOL quiet, ch
     }
     if (attrs & FILE_ATTRIBUTE_DIRECTORY)
         return TRUE;
-    else // a file; a directory cannot be created here
+    else // file, that would not work...
     {
         sprintf(buf, LoadStr(IDS_ERR_DIRNAMEISFILE), dir);
         if (errBuf != NULL)

@@ -19,7 +19,7 @@ class CSalamanderGuiTextBox : public CSalamanderGuiComponentImpl<CSalamanderGuiT
 {
 private:
 protected:
-    /// Overridden.
+    /// Overrriden.
     /// \see CSalamanderGuiComponentBase::CreateHwnd
     virtual HWND CreateHwnd(HWND hWndParent);
 

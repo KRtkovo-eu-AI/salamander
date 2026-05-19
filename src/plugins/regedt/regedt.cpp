@@ -220,12 +220,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // cannot call Error here because it uses SG->SalMessageBox (SG not initialized + incompatible interface)
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "Registry Editor" /* do not translate! */, MB_OK | MB_ICONERROR);
+                   "Registry Editor" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "Registry Editor" /* do not translate! */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "Registry Editor" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 

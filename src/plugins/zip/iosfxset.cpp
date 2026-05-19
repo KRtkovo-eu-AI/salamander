@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -312,18 +311,18 @@ void HandlePathRelativeToZip2Sfx(char* path, const char* zip2sfxDir)
     }
 }
 
-// Return values
+// return values
 //
 // 0 OK
-// Invalid target_dir specified:
-//   1 invalid temp
+// invalid target_dir specified:
+//   1 bad temp
 //   2 missing right parenthesis
 //   3 unknown keyword in $()
-//   4 invalid key name
+//   4 bad key name
 // 5 missing settings version
-// 6 invalid settings version
-// 7 invalid data format
-// 8 Agree/Disagree buttons used for a standard message box
+// 6 incorrect settings version
+// 7 incorrect data format
+// 8 agree disagree buttons used for classical message box
 
 int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* zip2sfxDir)
 {
@@ -622,7 +621,7 @@ int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* 
 // 3 unknown keyword in $()
 // 4 bad key name
 //
-// higher word contains the index of where the syntax error occurred in the target dir string
+// higher word contains index of where the syntax error occured in the target dir string
 
 DWORD
 ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
@@ -683,7 +682,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
             // also check that the string inside the brackets is valid
             if (iterator - path + 2 <= 0)
             {
-                return 3 + (2 << 16); // empty parentheses
+                return 3 + (2 << 16); // empty brackets
             }
             if (path[1] == '(')
             {
@@ -691,7 +690,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                 {
                     if (iterator[1] != 0)
                     {
-                        return 1 + (DWORD)(((iterator - path) + 1) << 16); // nothing may follow $(Temp)
+                        return 1 + (DWORD)(((iterator - path) + 1) << 16); // nothing may follow after $(Temp)
                     }
                     if (targetDir)
                         *targetDir = SE_TEMPDIREX;
@@ -724,7 +723,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
 
                 return 3 + (2 << 16); // invalid keyword
             }
-            else // optionally fill dirSpec
+            else // otherwise fill dirSpec
             {
                 if (path[1] == '[')
                 {

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -54,7 +53,7 @@ void HistoryComboBox(CTransferInfo& ti, int id, char* text, int textMax,
 
         int toMove = historySize - 1;
 
-        // Check whether the same item is already in the history.
+        // podivame jestli uz stejna polozka neni v historii
         int i;
         for (i = 0; i < historySize; i++)
         {
@@ -66,17 +65,17 @@ void HistoryComboBox(CTransferInfo& ti, int id, char* text, int textMax,
                 break;
             }
         }
-        // Allocate memory for the new item.
+        // alokujeme si pamet pro novou polozku
         char* ptr = new char[strlen(text) + 1];
         if (ptr)
         {
-            // Free the removed item's memory.
+            // uvolnime pamet vymazavane polozky
             if (history[toMove])
                 delete[] history[toMove];
-            // Make room in the history for the new path.
+            // vytvorime misto pro cestu kterou budeme ukladat
             for (i = toMove; i > 0; i--)
                 history[i] = history[i - 1];
-            // Store the path in the history.
+            // ulozime cestu
             strcpy(ptr, text);
             history[0] = ptr;
         }

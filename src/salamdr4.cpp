@@ -156,7 +156,7 @@ CTruncatedString::Get()
 
 BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
 {
-    // if there is nothing to truncate, return
+    // if there is nothing to truncate, exit
     if (SubStrIndex == -1)
         return TRUE;
 
@@ -190,7 +190,7 @@ BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
             GetTextExtentExPoint(hDC, Text + SubStrIndex, SubStrLen, maxWidth, &fitChars, alpDx, &sz);
             if (fitChars < SubStrLen)
             {
-                // first part with a truncated substring
+                // first part with the truncated substring
                 memcpy(TruncatedText, Text, SubStrIndex + fitChars);
                 // ellipsis
                 memcpy(TruncatedText + SubStrIndex + fitChars, "...", 3);
@@ -231,7 +231,7 @@ BOOL CTruncatedString::TruncateText(HWND hWindow, BOOL forMessageBox)
                     width -= (alpDx[index] - alpDx[index - 1]);
                     index--;
                 }
-                // first part with the truncated substring
+                // the first part with the shortened substring
                 memcpy(TruncatedText, Text, index);
                 // ellipsis
                 memcpy(TruncatedText + index, "...", 3);
@@ -331,7 +331,7 @@ int ExpandPluralString(char* lpOut, int nOutMax, const char* lpFmt, int nParCoun
     if (nOutMax > 0 && lpOut != NULL)
         *lpOut = 0;
 
-    // check for and skip the {!} marker
+    // check and skip the {!} signature
     if (input != NULL && *input++ == '{' && *input++ == '!' && *input++ == '}' && nOutMax > 0)
     {
         while (*input != 0)
@@ -341,7 +341,7 @@ int ExpandPluralString(char* lpOut, int nOutMax, const char* lpFmt, int nParCoun
                  *(input + 1) == '{' || *(input + 1) == '}')) // escape sequence
             {
                 input++;
-                if (output >= outputNullTerm) // the buffer must also have room for the terminating null
+                if (output >= outputNullTerm) // the buffer must also fit the terminating zero
                 {
                     lpOut[nOutMax - 1] = 0;
                     TRACE_E("ExpandPluralString: truncated output string.");
@@ -351,7 +351,7 @@ int ExpandPluralString(char* lpOut, int nOutMax, const char* lpFmt, int nParCoun
             }
             else
             {
-                if (*input == '{') // expand the brace expression
+                if (*input == '{') // perform expansion of the curly brace
                 {
                     input++;
 
@@ -376,7 +376,7 @@ int ExpandPluralString(char* lpOut, int nOutMax, const char* lpFmt, int nParCoun
                             return (int)(output - lpOut);
                         }
                     }
-                    else // use the next parameter in sequence
+                    else // use the next parameter in order
                     {
                         if (actParIndex < nParCount)
                         {
@@ -451,7 +451,7 @@ int ExpandPluralString(char* lpOut, int nOutMax, const char* lpFmt, int nParCoun
                                     (*(subStr + 1) == '|' || *(subStr + 1) == '\\' || *(subStr + 1) == ':' ||
                                      *(subStr + 1) == '{' || *(subStr + 1) == '}')) // escape sequence
                                     subStr++;
-                                if (output >= outputNullTerm) // the buffer must also have room for the terminating null
+                                if (output >= outputNullTerm) // the buffer must also fit the terminating zero
                                 {
                                     lpOut[nOutMax - 1] = 0;
                                     TRACE_E("ExpandPluralString: truncated output string.");
@@ -476,7 +476,7 @@ int ExpandPluralString(char* lpOut, int nOutMax, const char* lpFmt, int nParCoun
                 }
                 else
                 {
-                    if (output >= outputNullTerm) // the buffer must also have room for the terminating null
+                    if (output >= outputNullTerm) // the buffer must also fit the terminating zero
                     {
                         lpOut[nOutMax - 1] = 0;
                         TRACE_E("ExpandPluralString: truncated output string.");
@@ -930,7 +930,7 @@ DWORD AddUnicodeToClipboard(const char* str, int textLen)
             {
                 if (textLen > 0 && MultiByteToWideChar(CP_ACP, 0, str, textLen, unicodeStr, unicodeLen + 1) == 0)
                     err = GetLastError();
-                unicodeStr[unicodeLen] = 0; // terminating null
+                unicodeStr[unicodeLen] = 0; // terminating zero
                 HANDLES(GlobalUnlock(unicode));
                 if (err == ERROR_SUCCESS && SetClipboardData(CF_UNICODETEXT, unicode) == NULL)
                     err = GetLastError();
@@ -1012,7 +1012,7 @@ BOOL CopyHTextToClipboardW(HGLOBAL hGlobalText, int textLen)
             else
                 err = GetLastError();
 
-            if (SetClipboardData(CF_UNICODETEXT, hGlobalText) == NULL) // then store the text in multibyte format
+            if (SetClipboardData(CF_UNICODETEXT, hGlobalText) == NULL) // then store the multibyte text
                 err = GetLastError();
         }
         else
@@ -1375,7 +1375,7 @@ void WINAPI InternalGetTimeOnlyForDisk()
 void WINAPI InternalGetAttr()
 {
     TransferLen = 0;
-    // WARNING: if we want to display additional attributes, GetAttrsString() and the DISPLAYED_ATTRIBUTES mask must be reworked!
+    // WARNING: if we want to display more attributes, we must rework GetAttrsString() and the DISPLAYED_ATTRIBUTES mask!!!
     if (TransferFileData->Attr & FILE_ATTRIBUTE_READONLY)
         TransferBuffer[TransferLen++] = 'R';
     if (TransferFileData->Attr & FILE_ATTRIBUTE_HIDDEN)
@@ -1575,7 +1575,7 @@ BOOL CSalamanderView::SetColumnName(int index, const char* name, const char* des
         return FALSE;
     }
     if (index == 0 && !Panel->IsExtensionInSeparateColumn() && (Panel->ValidFileData & VALID_DATA_EXTENSION))
-    { // validate the double string (double-null-terminated), ensure the second string is non-empty, and copy both
+    { // check double (twice null-terminated) strings + the non-emptiness of the second one + and their copy
         const char* s = name + strlen(name) + 1;
         const char* beg = s;
         while (s < name + COLUMN_NAME_MAX && *s != 0)

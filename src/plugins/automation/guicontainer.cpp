@@ -248,7 +248,7 @@ HRESULT CSalamanderGuiContainerBase::ContainerPutMember(
         }
         else
         {
-            // Setting a non-existent member to NULL is a no-op.
+            // Setting non-existent member to NULL is no-op.
             _ASSERT(pComponent == NULL);
         }
 
@@ -281,7 +281,7 @@ HRESULT CSalamanderGuiContainerBase::ContainerPutMember(
 
     if (FAILED(hr))
     {
-        // Not a component.
+        // It's not a component.
 
         if (pComponent)
         {

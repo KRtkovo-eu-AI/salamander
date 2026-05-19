@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -35,7 +34,7 @@ __forceinline int decrypt_byte(__UINT32* keys)
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 #define CRC32(c, b) (SalamanderGeneral->UpdateCrc32(&b, 1, c ^ 0xffffffffL) ^ 0xffffffffL)
 
-// Update the encryption keys with the next byte of plaintext
+//Update the encryption keys with the next byte of plain text
 __forceinline int update_keys(int c, __UINT32* keys)
 {
     CALL_STACK_MESSAGE_NONE
@@ -49,8 +48,8 @@ __forceinline int update_keys(int c, __UINT32* keys)
     return c;
 }
 
-// Initialize the encryption keys from
-// the given password.
+//initialize the encryption keys and the random header according to
+//the given password.
 void init_keys(const char* password, __UINT32* keys)
 {
     CALL_STACK_MESSAGE2("init_keys(%s, )", password);
@@ -70,7 +69,7 @@ int testkey(const char* password, const char* header, char check,
     CALL_STACK_MESSAGE4("testkey(%s, %s, %u, )", password, header, check);
     char buf[ENCRYPT_HEADER_SIZE]; //decrypted header
 
-    //set keys and copy the encrypted header
+    //set keys and save the encrypted header
     init_keys(password, keys);
     CopyMemory(buf, header, ENCRYPT_HEADER_SIZE);
     //decrypt header
@@ -79,10 +78,10 @@ int testkey(const char* password, const char* header, char check,
     if (buf[ENCRYPT_HEADER_SIZE - 1] == check)
         return 0;
     else
-        return -1; // check failed
+        return -1; // bad
 }
 
-// Test the password and set up the keys
+//test password and set up keys
 int InitKeys(const char* password, const char* header, char check,
              __UINT32* keys)
 {
@@ -104,7 +103,7 @@ int InitKeys(const char* password, const char* header, char check,
     return ret;
 }
 
-// decrypt the buffer
+//decrypt buffer
 void Decrypt(char* buffer, unsigned size, __UINT32* keys)
 {
     CALL_STACK_MESSAGE3("Decrypt(%p, %u, , )", buffer, size);
@@ -127,7 +126,7 @@ void FillBufferWithRandomData(char* buf, int len)
         *buf++ = (rand() >> 7) & 0xff;
 }
 
-// Encrypt the ZIP encryption header
+//crypt encryption header
 void CryptHeader(const char* password, char* header, unsigned short check,
                  __UINT32* keys)
 {
@@ -152,7 +151,7 @@ void CryptHeader(const char* password, char* header, unsigned short check,
     Encrypt(header, ENCRYPT_HEADER_SIZE, keys);
 }
 
-// encrypts buffer
+//encrypt buffer
 void Encrypt(char* buffer, unsigned size, __UINT32* keys)
 {
     CALL_STACK_MESSAGE3("Encrypt(%p, %u, , )", buffer, size);

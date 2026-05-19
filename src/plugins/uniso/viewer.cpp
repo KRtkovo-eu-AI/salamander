@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -145,7 +144,7 @@ BOOL CISOImage::DumpInfo(FILE* outStream)
 {
     CALL_STACK_MESSAGE1("CISOImage::DumpInfo( )");
 
-    // display session information
+    // display information about sessions
     fprintf(outStream, LoadStr(*GetLabel() ? IDS_INFO_LABEL_LABEL : IDS_INFO_LABEL), GetLabel());
     fprintf(outStream, LoadStr(IDS_INFO_CNT_SESSIONS), Session.Count);
 

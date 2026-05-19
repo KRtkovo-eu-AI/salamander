@@ -1,5 +1,4 @@
-﻿// CommentsTranslationProject: TRANSLATED
-/*
+﻿/*
 	Automation Plugin for Open Salamander
 	
 	Copyright (c) 2009-2023 Milan Kase <manison@manison.cz>
@@ -19,7 +18,7 @@
 
 #define VERSINFO_MAJOR       1
 #define VERSINFO_MINORA      7
-#define VERSINFO_MINORB      0  // Must be 0, otherwise the build will hit an assert.
+#define VERSINFO_MINORB      0  // POZOR: tady musi byt 0, jinak vyleti assert pri buildu
 
 #include "spl_vers.h" // get version and build numbers
 

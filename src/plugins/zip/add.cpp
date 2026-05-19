@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <winioctl.h>
@@ -131,7 +130,7 @@ int CZipPack::PackNormal(SalEnumSelection2 next, void* param)
                                 ProgressTotalSize += CQuadWord().SetUI64(DelFiles[0]->LocHeaderOffs);
                         }
                         else if (Config.BackupZip)
-                            ProgressTotalSize = CQuadWord().SetUI64(CentrDirOffs); // size of the backed-up file
+                            ProgressTotalSize = CQuadWord().SetUI64(CentrDirOffs); //size of backuped file
                         else
                             ProgressTotalSize = CQuadWord(0, 0);
                         ProgressTotalSize += AddTotalSize + CQuadWord(addCount, 0);
@@ -142,7 +141,7 @@ int CZipPack::PackNormal(SalEnumSelection2 next, void* param)
                             if (ErrorID && !Config.BackupZip && !ZeroZip)
                                 Recover();
                         }
-                        else // back up ZIP
+                        else //backup zip
                             if (Config.BackupZip)
                                 ErrorID = BackupZip();
                         if (!ErrorID && !UserBreak)
@@ -652,14 +651,14 @@ int CZipPack::ExportLocalHeader(CFileInfo* fileInfo, char* buffer)
     else
     {
         localHeader->CompSize = 0xFFFFFFFF;
-        Zip64Size = 8 + 8; // In the local header, both Size and CompSize must be present if either is.
+        Zip64Size = 8 + 8; // In Local Header, both Size and CompSize must be present, if any
     }
     if (fileInfo->Size < 0xFFFFFFFF)
         localHeader->Size = (__UINT32)fileInfo->Size;
     else
     {
         localHeader->Size = 0xFFFFFFFF;
-        Zip64Size = 8 + 8; // In the local header, both Size and CompSize must be present, if either is present
+        Zip64Size = 8 + 8; // In Local Header, both Size and CompSize must be present, if any
     }
     localHeader->NameLen = ExportName(buffer + sizeof(CLocalFileHeader), fileInfo);
     localHeader->ExtraLen = 0;
@@ -1130,7 +1129,7 @@ int CZipPack::MatchFiles(int& count)
             }
             lstrcpy(destName, next->Name + SourceLen + 1);
             destLen = RootLen + next->NameLen - SourceLen - (RootLen ? 0 : 1);
-            if (next->Action == AF_NOADD && next->IsDir) // this can already apply to directories; files are skipped above
+            if (next->Action == AF_NOADD && next->IsDir) // this may already apply to directories; files are skipped above
                 if (Move)
                 {
                     if (inZipLen >= destLen &&
@@ -1343,9 +1342,9 @@ int WriteOutput(char* buffer, unsigned size, void* user)
     CZipPack* pack = (CZipPack*)user;
     int error = 0;
 
-    // Note: The compressed output grows slightly if the buffer content is modified here (e.g. by memset).
-    // The cause is unknown; this appears to be a compressor bug.
-    // NOTE: The file can still be decompressed successfully afterward.
+    // Note: The compressed output slightly grows if buffer content is modified here anyhow (e.g. memset)
+    // I don't know why, looks like a bug in the compressor?
+    // NOTE: The file still gets successfully decompressed even then...
     if (pack->Options.Encrypt)
         if (pack->AESContextValid)
             SalamanderCrypt->AESEncrypt(&pack->AESContext, buffer, size);
@@ -1522,7 +1521,7 @@ int CZipPack::PackFiles()
         {
             ret = CreateCFile(&SourFile, next->Name, GENERIC_READ, FILE_SHARE_READ,
                               OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, 0, &SkipAllIOErrors,
-                              // Do not allow files over 4 GB in SFX files; the SFX module probably does not support them
+                              // Do not allow files over 4GB in SFX files, the SFX module probably doesn't support them
                               (Options.Action & PA_SELFEXTRACT) ? false : true, false);
             if (ret)
             {
@@ -1572,9 +1571,9 @@ int CZipPack::PackFiles()
 
                     next->Flag |= GPF_ENCRYPTED | GPF_DATADESCR;
                     // NOTE: Patera 2008.12.03: This FAST/SLOW flag is normally set in CDeflate::lm_init()
-                    // in deflate.cpp. But for encrypted files, the local header is written before lm_init() is called.
-                    // It would be cleaner to do the same as for non-encrypted files.
-                    // Otherwise WinZIP 12.0 complains about different GPF flags in the local and central headers.
+                    // in deflate.cpp. But in case of encrypted files LocalHeder is written before lm_init() gets called.
+                    // IMHO it would be cleaner to do the same as with non-encrypted files.
+                    // WinZIP 12.0 complains about different GPF flags in loc & central headers otherwise.
                     if (Config.Level <= 2)
                     {
                         next->Flag |= FAST;
@@ -1630,7 +1629,7 @@ int CZipPack::PackFiles()
                 if (Options.Action & PA_MULTIVOL)
                 {
                     TempFile->FilePointer = file.LocHeaderOffs;
-                    // See the comment for encrypted archives 35 lines above; it applies here as well
+                    // Pleasee the comment for encrypted archives 35 lines above, it applies also here
                     if (Config.Level <= 2)
                     {
                         next->Flag |= FAST;
@@ -1961,7 +1960,7 @@ int CZipPack::IsDirectoryEmpty(const char* name)
     if (search == INVALID_HANDLE_VALUE)
     {
         ProcessError(IDS_ERRACCESDIR, GetLastError(), name, PE_NORETRY | PE_NOSKIP, NULL);
-        return 1; // treat as an empty directory
+        return 1; //like an empty directory
     }
     ret = TRUE;
     do
@@ -2420,7 +2419,7 @@ int CZipPack::WriteSfxExecutable(const char* sfxFile, const char* sfxPackage, BO
     unsigned size;
     CSfxFileHeader sfxHead;
 
-    //copy executable
+    //copy exetutable
     char package[MAX_PATH];
     GetModuleFileName(DLLInstance, package, MAX_PATH);
     SalamanderGeneral->CutDirectory(package);

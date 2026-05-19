@@ -11,6 +11,7 @@
 #include "plugins.h"
 #include "fileswnd.h"
 #include "mainwnd.h"
+#include "stswnd.h"
 #include "shellib.h"
 #include "toolbar.h"
 #include "shiconov.h"
@@ -92,7 +93,7 @@ BOOL GetUserName(const char* drive, const char* remoteName, char* userName, DWOR
     HKEY network;
     LONG res = HANDLES_Q(RegOpenKeyEx(HKEY_CURRENT_USER, "Network", 0, KEY_READ, &network));
     if (res != ERROR_SUCCESS)
-        return FALSE; // nothing to do ...
+        return FALSE; // well, nothing ...
 
     BOOL ret = FALSE;
     char keyName[MAX_PATH];
@@ -115,7 +116,7 @@ BOOL GetUserName(const char* drive, const char* remoteName, char* userName, DWOR
             type = REG_SZ;
             res = SalRegQueryValueEx(driveKey, "UserName", 0, &type,
                                      (unsigned char*)userName, &keyNameSize);
-            if (res == ERROR_SUCCESS && type == REG_SZ && userName[0] != 0) // do we have a user name?
+            if (res == ERROR_SUCCESS && type == REG_SZ && userName[0] != 0) // do we have a user?
                 TRACE_I("Found user name: " << keyName << ", " << userName);
             else
                 userName[0] = 0;
@@ -124,7 +125,7 @@ BOOL GetUserName(const char* drive, const char* remoteName, char* userName, DWOR
             type = REG_SZ;
             res = SalRegQueryValueEx(driveKey, "ProviderName", 0, &type,
                                      (unsigned char*)providerBuf, &keyNameSize);
-            if (res != ERROR_SUCCESS || type != REG_SZ) // if we do not have a provider, clear the buffer
+            if (res != ERROR_SUCCESS || type != REG_SZ) // if we do not have a provider, we will reset the buffer
                 providerBuf[0] = 0;
         }
         HANDLES(RegCloseKey(driveKey));
@@ -158,7 +159,7 @@ DWORD WINAPI NBWNetAC3ThreadF(void* param)
 {
     CALL_STACK_MESSAGE_NONE
     CNBWNetAC3ThreadFParams* data = &NBWNetAC3ThreadFParams;
-    data->err = WNetAddConnection3(NULL /* CONNECT_INTERACTIVE is not used because this runs in another thread */,
+    data->err = WNetAddConnection3(NULL /* we're not using CONNECT_INTERACTIVE, we're in another thread */,
                                    &data->netResource, data->lpPassword, data->lpUserName, data->dwFlags);
     memset(data->bufPassword, 0, sizeof(data->bufPassword));
     if (data->err == ERROR_EXTENDED_ERROR &&
@@ -189,28 +190,28 @@ BOOL NonBlockingWNetAddConnection3(DWORD& err, LPNETRESOURCE lpNetResource,
     if (errProviderName != NULL)
         errProviderName[0] = 0;
 
-    // first wait for the previous "operation" to finish
+    // first all we will wait for the previous "calculation" to finish
     GetAsyncKeyState(VK_ESCAPE); // init GetAsyncKeyState - see help
     if (NBWNetAC3Thread.ShutdownArrived)
-        return FALSE; // the application is already shutting down; no further action
+        return FALSE; // soft has already ended, no further action
     if (NBWNetAC3Thread.Thread != NULL)
     {
         while (1)
         {
             DWORD res = WaitForSingleObject(NBWNetAC3Thread.Thread, 200);
             if (res == WAIT_FAILED)
-                return FALSE; // invalid thread handle (closed externally during application shutdown)
+                return FALSE; // invalid thread handle (closed from outside when ending the soft)
             if (res != WAIT_TIMEOUT)
                 break;
             if (UserWantsToCancelSafeWaitWindow())
                 return FALSE;
         }
         if (NBWNetAC3Thread.ShutdownArrived)
-            return FALSE; // the application is already shutting down; no further action
+            return FALSE; // soft has already ended, no further action
         NBWNetAC3Thread.Close();
     }
 
-    // then set the parameters and try to start a new thread
+    // then we will set the parameters and try to start a new thread
     if (lpUserName != NULL)
     {
         lstrcpyn(NBWNetAC3ThreadFParams.bufUserName, lpUserName, USERNAME_MAXLEN);
@@ -248,7 +249,7 @@ BOOL NonBlockingWNetAddConnection3(DWORD& err, LPNETRESOURCE lpNetResource,
     {
         memset(NBWNetAC3ThreadFParams.bufPassword, 0, sizeof(NBWNetAC3ThreadFParams.bufPassword));
         TRACE_E("Unable to start add-net-connection-3 thread.");
-        return FALSE; // error (ESC simulation)
+        return FALSE; // error (simulation of ESC)
     }
 
     // we will wait for the "calculation" to finish so that we can return the result
@@ -256,14 +257,14 @@ BOOL NonBlockingWNetAddConnection3(DWORD& err, LPNETRESOURCE lpNetResource,
     {
         DWORD res = WaitForSingleObject(NBWNetAC3Thread.Thread, 200);
         if (res == WAIT_FAILED)
-            return FALSE; // invalid thread handle (closed externally during application shutdown)
+            return FALSE; // invalid thread handle (closed from outside when ending the soft)
         if (res != WAIT_TIMEOUT)
             break;
         if (UserWantsToCancelSafeWaitWindow())
             return FALSE;
     }
     if (NBWNetAC3Thread.ShutdownArrived)
-        return FALSE; // the application is already shutting down; no further action
+        return FALSE; // soft has already ended, no further action
     NBWNetAC3Thread.Close();
 
     if (errProviderCode != NULL)
@@ -278,7 +279,7 @@ BOOL NonBlockingWNetAddConnection3(DWORD& err, LPNETRESOURCE lpNetResource,
 
 BOOL IsLogonFailureErr(DWORD err)
 {
-    return err == ERROR_ACCESS_DENIED || // guard against e.g. "no files found"
+    return err == ERROR_ACCESS_DENIED || // defense against e.g. "no files found"
            err == ERROR_LOGON_FAILURE ||
            err == ERROR_ACCOUNT_RESTRICTION ||
            err == ERROR_INVALID_LOGON_HOURS ||
@@ -297,7 +298,7 @@ BOOL IsLogonFailureErr(DWORD err)
            err == ERROR_BAD_USERNAME ||
            err == ERROR_NO_SUCH_USER ||
            err == ERROR_DOWNGRADE_DETECTED ||
-           err == ERROR_EXTENDED_ERROR; // This extended error is not specific, but "password expired" can be reported here, so treat it as a logon failure in general (at worst, the user clicks Cancel).
+           err == ERROR_EXTENDED_ERROR; // who knows what extended error this is, but "password expired" belongs here, so that it's a logon failure (at least user says Cancel)
 }
 
 BOOL IsBadUserNameOrPasswdErr(DWORD err)
@@ -357,8 +358,8 @@ BOOL IsAdminShareExtraLogonFailureErr(DWORD err, const char* root)
         const char* server = root + 2;
         root++;
         while (*++root != 0 && *root != '\\' && CharIsAllowedInServerName(*root))
-            ;             // skip the server name and do a simple check (incomplete; for example, it also rejects dots in IPv4 and IPv6) whether this is really an invalid name (in that case, we will not ask for a username and password)
-        if (*root == '.') // we will take care of IPv4 addresses (let's ignore IPv6)
+            ;             // skip server name + simple test (incomplete, e.g. forbids dots in IPv4 and IPv6), whether it is really an invalid name (in that case we will not ask for username+password)
+        if (*root == '.') // we will take care of IPv4 adresses (let's ignore IPv6)
         {
             const char* r = root;
             while (*++r != 0 && *r != '\\')
@@ -434,7 +435,7 @@ typedef WINADVAPI DWORD (WINAPI *FT_CredUIParseUserNameA)(
 */
 
 #define CREDUI_FLAGS_DO_NOT_PERSIST 0x00002      // Do not show "Save" checkbox, and do not persist credentials
-#define CREDUI_FLAGS_EXPECT_CONFIRMATION 0x20000 // Do not persist unless the caller later confirms the credential via CredUIConfirmCredential() API
+#define CREDUI_FLAGS_EXPECT_CONFIRMATION 0x20000 // do not persist unless caller later confirms credential via CredUIConfirmCredential() api
 #define CREDUI_FLAGS_GENERIC_CREDENTIALS 0x40000 // Credential is a generic credential
 
 BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteName, DWORD* retErr, LPNETRESOURCE lpNetResource)
@@ -488,12 +489,12 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
             if (end != NULL && *(end + 1) != '\\' && *(end + 1) != 0)
             {
                 const char* last = strchr(end + 2, '\\');
-                if (last == NULL || *(last + 1) == 0) // show the custom dialog on XP and Vista only for simple UNC paths: "\\server\share" and "\\server\share\\"
+                if (last == NULL || *(last + 1) == 0) // the own dialog under XP+Vista will be only shown for simple UNC paths: "\\server\share" and "\\server\\share\\"
                     lstrcpyn(serverName, remoteName + 2, (int)min(MAX_PATH, (end - (remoteName + 2)) + 1));
             }
         }
 
-        if (name != NULL &&                                                                     // mapped paths only (to a drive letter)
+        if (name != NULL &&                                                                     // mapped paths only (for the drive letter)
             GetUserName(name, remoteName, userNameBuf, USERNAME_MAXLEN, providerBuf, MAX_PATH)) // unknown user name for the restored connection
         {
             if (userNameBuf[0] != 0)
@@ -508,8 +509,8 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
     DWORD err;
     char* passwd = NULL;
 
-    // XP+Vista: load functions dynamically to obtain the username and password in the standard dialog (including the option to save them to Credential Manager; see "Manage your network passwords" in User Accounts in Control Panel)
-    // Windows 7: uses a new dialog again, and no interface for it has been found yet
+    // XP+Vista: we will dynamically extract functions for getting username+password in the standard dialog (including the option to save to Credential Manager - see "Manage your network passwords" in User Accounts in Control Panel)
+    // Windows 7: there is a new dialog again and I have not yet discovered the interface for it
     HMODULE credUIDLL = !Windows7AndLater ? HANDLES(LoadLibrary("CREDUI.DLL")) : NULL;
     FT_CredUIPromptForCredentialsA credUIPromptForCredentialsA = NULL;
     FT_CredUIConfirmCredentialsA credUIConfirmCredentialsA = NULL;
@@ -530,7 +531,7 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
     }
 
     BOOL connectInteractive = FALSE; // TRUE: Windows 7 always, XP+Vista only if CREDUI.DLL is not available or it is not a simple UNC path: we will use the CONNECT_INTERACTIVE flag (can do with "network passwords") and therefore the blocking call WNetAddConnection3 (must be in the same thread with the parent)
-    BOOL confirmCred = FALSE;        // TRUE: CredUIConfirmCredentialsA must be called
+    BOOL confirmCred = FALSE;        // TRUE: calling CredUIConfirmCredentialsA is needed
 
     //  char domain[DOMAIN_MAXLEN];
     CREDUI_INFOA uiInfo = {0};
@@ -542,9 +543,9 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
     char messageBuf[MAX_PATH + 100];
     messageBuf[0] = 0;
 
-    if (name == NULL) // map UNC paths to "none"
+    if (name == NULL) // mapping UNC paths to "none"
     {
-        if (!Windows7AndLater && // Windows 7 uses a new dialog again, and no interface for it has been found yet
+        if (!Windows7AndLater && // there's a new dialog again on Windows 7 and I haven't found the interface for it yet
             credUIPromptForCredentialsA != NULL && credUIConfirmCredentialsA != NULL /*&& credUIParseUserNameA != NULL*/ &&
             serverName[0] != 0) // own dialog for entering username+password we will show only for simple UNC paths (\\server\share), we will leave DFS and others to the system
         {
@@ -558,30 +559,30 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
             else
             {
                 if (lpNetResource == NULL)
-                    UpdateWindow(MainWindow->HWindow); // not useful from Network Neighborhood
-                if (err == NO_ERROR)                   // user clicked OK
+                    UpdateWindow(MainWindow->HWindow); // doesn't make sense to use from nethood
+                if (err == NO_ERROR)                   // user confirmed with OK
                 {
                     confirmCred = TRUE;
                     lstrcpyn(userNameBuf, dlg.User, USERNAME_MAXLEN);
                     userName = userNameBuf;
                     passwd = dlg.Passwd;
-                    /* // there was a problem with stripping the domain from the username; users could not log in because we converted their domain username into a local one
-                              if (credUIParseUserNameA(dlg.User, userNameBuf, USERNAME_MAXLEN, domain, DOMAIN_MAXLEN) == NO_ERROR)
-                              {
-                                confirmCred = TRUE;
-                                userName = userNameBuf;
-                                passwd = dlg.Passwd;
-                              }
-                              else
-                              {
-                                TRACE_E("RestoreNetworkConnection(): CredUIParseUserNameA failed for: " << dlg.User);
-                                userNameBuf[0] = 0;
-                                userName = NULL;
-                                credUIConfirmCredentialsA(serverName, FALSE);
-                                connectInteractive = TRUE;  // another error, let the system implementation handle it
-                                err = ERROR_BAD_USERNAME;
-                              }
-                    */
+                    /* // there was a problem with trimming the domain from the username, they just couldn't log in because we made their domain name local
+          if (credUIParseUserNameA(dlg.User, userNameBuf, USERNAME_MAXLEN, domain, DOMAIN_MAXLEN) == NO_ERROR)
+          {
+            confirmCred = TRUE;
+            userName = userNameBuf;
+            passwd = dlg.Passwd;
+          }
+          else
+          {
+            TRACE_E("RestoreNetworkConnection(): CredUIParseUserNameA failed for: " << dlg.User);
+            userNameBuf[0] = 0;
+            userName = NULL;
+            credUIConfirmCredentialsA(serverName, FALSE);
+            connectInteractive = TRUE;  // another error, let the system variant deal with it
+            err = ERROR_BAD_USERNAME;
+          }
+*/
                 }
                 else
                     connectInteractive = TRUE; // another error, let the system variant deal with it
@@ -618,7 +619,7 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
             memset(dlg.Passwd, 0, sizeof(dlg.Passwd));
             passwd = NULL;
 
-            if (err == ERROR_CANCELLED) // canceled
+            if (err == ERROR_CANCELLED) // cancel
             {
                 ret = FALSE;
                 break;
@@ -715,7 +716,7 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
             }
 
             BOOL newConnectInteractive = FALSE;
-            if (!Windows7AndLater && // Windows 7 uses a new dialog again, and no interface for it has been found yet
+            if (!Windows7AndLater && // there's a new dialog again on Windows 7 and I haven't found the interface for it yet
                 credUIPromptForCredentialsA != NULL && credUIConfirmCredentialsA != NULL /*&& credUIParseUserNameA != NULL*/ &&
                 serverName[0] != 0) // own dialog for entering username+password we will show only for simple UNC paths (\\server\share), we will leave DFS and others to the system
             {
@@ -731,8 +732,8 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
                 else
                 {
                     if (lpNetResource == NULL)
-                        UpdateWindow(MainWindow->HWindow); // not meaningful when used from Network Neighborhood
-                    if (err == NO_ERROR)                   // user clicked OK
+                        UpdateWindow(MainWindow->HWindow); // doesn't make sense to use from nethood
+                    if (err == NO_ERROR)                   // user confirmed with OK
                     {
                         if (name == NULL)
                             confirmCred = TRUE;
@@ -773,7 +774,7 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
 
             if (newConnectInteractive)
             {
-                if (!connectInteractive) // try interactive mode only if it has not been used already (to prevent an infinite loop)
+                if (!connectInteractive) // let's try an interactive mode only if we haven't used it already (a defense against an infinite cycle)
                 {
                     connectInteractive = TRUE;
                     continue;
@@ -805,7 +806,7 @@ BOOL RestoreNetworkConnection(HWND parent, const char* name, const char* remoteN
             if (MainWindow != NULL && MainWindow->HWindow != NULL)
                 PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
 
-            break; // function returns TRUE
+            break; // returning TRUE
         }
     }
     memset(dlg.Passwd, 0, sizeof(dlg.Passwd));
@@ -826,7 +827,7 @@ BOOL CheckAndRestoreNetworkConnection(HWND parent, const char drive, BOOL& pathI
 
     GetNetworkDrives(netDrives, netRemotePath);
 
-    if (netDrives & (1 << (LowerCase[drive] - 'a'))) // the drive existed, so try to restore it
+    if (netDrives & (1 << (LowerCase[drive] - 'a'))) // disk existed, try to restore
     {
         char name[4] = " :";
         name[0] = drive;
@@ -836,7 +837,7 @@ BOOL CheckAndRestoreNetworkConnection(HWND parent, const char drive, BOOL& pathI
             name[3] = 0;
             DWORD err = NO_ERROR;
             char* netPath = netRemotePath[LowerCase[drive] - 'a'];
-            if (netPath[0] == '\\' && netPath[1] == '\\' && strchr(netPath + 2, '\\') != NULL &&                                   // at least a basic validity check for the UNC path
+            if (netPath[0] == '\\' && netPath[1] == '\\' && strchr(netPath + 2, '\\') != NULL &&                                   // at least a primitive test of a valid UNC path
                 (err = SalCheckPath(FALSE, name, ERROR_SUCCESS, TRUE, parent)) != ERROR_SUCCESS && err != ERROR_USER_TERMINATED && // mapped disk is not accessible
                 (err = SalCheckPath(FALSE, netPath, ERROR_SUCCESS, TRUE, parent)) == ERROR_SUCCESS &&                              // UNC is accessible
                 (err = SalCheckPath(FALSE, name, ERROR_SUCCESS, TRUE, parent)) == ERROR_SUCCESS)                                   // now the mapped disk is accessible again
@@ -864,7 +865,7 @@ BOOL CheckAndConnectUNCNetworkPath(HWND parent, const char* UNCPath, BOOL& pathI
     CALL_STACK_MESSAGE3("CheckAndConnectUNCNetworkPath(, %s, , %d)", UNCPath, donotReconnect);
     pathInvalid = FALSE;
     if (!IsUNCPath(UNCPath) || UNCPath[2] == '?')
-        return FALSE; // not a UNC path in the basic UNC format
+        return FALSE; // no basic format UNC path
 
     char root[MAX_PATH + 4];
     char* s = root + GetRootPath(root, UNCPath);
@@ -876,13 +877,13 @@ BOOL CheckAndConnectUNCNetworkPath(HWND parent, const char* UNCPath, BOOL& pathI
     { // UNC root path is accessible, we will not do anything
         HANDLES(FindClose(h));
     }
-    else // the UNC root path cannot be listed
+    else // UNC root of the path is not listable
     {
         *(s - 1) = 0; // we will trim the backslash at the end of the root path
         DWORD err = GetLastError();
         BOOL trySharepoint = err == ERROR_BAD_NET_NAME; // try to call shell when error 67 occurs, so that it can make the path accessible
         if (!donotReconnect &&
-            (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND)) // on XP, this error is returned if the user does not have access to the server or if the share does not exist; we call WNetAddConnection3 to distinguish between the two cases
+            (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND)) // on XP, this error is returned if the user does not have access to the server or the share does not exist on the server, to distinguish these two errors, we call WNetAddConnection3
         {
             NETRESOURCE ns;
             ns.dwType = RESOURCETYPE_DISK;
@@ -893,15 +894,15 @@ BOOL CheckAndConnectUNCNetworkPath(HWND parent, const char* UNCPath, BOOL& pathI
                 err = ERROR_PATH_NOT_FOUND; // ESC
         }
 
-        if (IsLogonFailureErr(err) || // guard against e.g. "no files found"
+        if (IsLogonFailureErr(err) || // a defense against e.g. "no files found"
             IsAdminShareExtraLogonFailureErr(err, root))
         {
             if (donotReconnect)
                 pathInvalid = TRUE; // we report the error directly
             else
             {
-                // Petr: commented out. Explorer and TC do not show any error before displaying the user name and password dialog; moreover,
-                //       the error is now shown only after an attempt to establish a connection, so the user learns about an expired password, etc.
+                // Petr: I commented out, Explorer or TC do not show any error before displaying the dialog for entering user + password; besides
+                //       we now show a new error after trying to establish a connection (so that the user finds out that he has an expired password, etc.)
                 //          SalMessageBox(parent, GetErrorText(err), LoadStr(IDS_NETWORKERROR),
                 //                        MB_OK | MB_ICONEXCLAMATION);
 
@@ -911,7 +912,7 @@ BOOL CheckAndConnectUNCNetworkPath(HWND parent, const char* UNCPath, BOOL& pathI
         }
         else
         {
-            if (trySharepoint) // on error 67, try calling the shell to make the path accessible
+            if (trySharepoint) // we will try to call shell when error 67 occurs, so that it can make the path accessible
             {
                 SHFILEINFO fi;
                 if (SHGetFileInfoAux(UNCPath, 0, &fi, sizeof(fi), SHGFI_ATTRIBUTES))
@@ -923,17 +924,17 @@ BOOL CheckAndConnectUNCNetworkPath(HWND parent, const char* UNCPath, BOOL& pathI
 }
 
 // ****************************************************************************
-// this code is taken from the Knowledge Base and is used to obtain information about the media type
-// of floppy drives (3.5", 5.25", 8")
+// tenhle kod je vzaty z Knowledge Base a slouzi k ziskani informaci o typu media
+// floppy mechaniky (3.5", 5.25", 8")
 
 /*
   GetDriveFormFactor returns the drive form factor.
 
-  Returns 350 if the drive is a 3.5" floppy drive.
-  Returns 525 if the drive is a 5.25" floppy drive.
-  Returns 800 if the drive is an 8" floppy drive.
-  Returns 1 if the drive supports removable media other than 3.5", 5.25", and 8" floppies.
-  Returns 0 on error.
+  It returns 350 if the drive is a 3.5" floppy drive.
+  It returns 525 if the drive is a 5.25" floppy drive.
+  It returns 800 if the drive is a 8" floppy drive.
+  It returns   1 if the drive supports removable media other than 3.5", 5.25", and 8" floppies.
+  It returns   0 on error.
 
   iDrive is 1 for drive A:, 2 for drive B:, etc.
 */
@@ -1027,7 +1028,7 @@ void DisplayMenuAux(IContextMenu2* contextMenu, CMINVOKECOMMANDINFO* ici)
 void DisplayMenuAux2(IContextMenu2* contextMenu, HMENU h)
 {
     CALL_STACK_MESSAGE_NONE
-    // temporarily lower the thread priority so that some confused shell extension does not eat all the CPU
+    // temporary lower the thread priority so that some confused shell extension doesn't eat our CPU
     HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
@@ -1073,7 +1074,7 @@ CDrivesList::CDrivesList(CFilesWindow* filesWindow, const char* currentPath,
     CachedDrivesMask = 0;
     CachedCloudStoragesMask = 0;
 
-    // this is normally not a post-command, so clear it
+    // standardne nejde o post-cmd, proto nulujeme
     *PostCmd = 0;
     *PostCmdParam = NULL;
     *FromContextMenu = FALSE;
@@ -1090,7 +1091,7 @@ CDrivesList::OwnGetDriveType(const char* rootPath)
     case DRIVE_REMOVABLE:
         ret = drvtRemovable;
         break;
-    case DRIVE_NO_ROOT_DIR: // subst drive whose directory was deleted (it can also be remote, but we ignore that)
+    case DRIVE_NO_ROOT_DIR: // subst of which the directory was deleted (can also be remote, but we don't care about that)
     case DRIVE_FIXED:
         ret = drvtFixed;
         break;
@@ -1136,7 +1137,7 @@ unsigned ReadCDVolNameThreadFBody(void* param) // directory accessibility test
 
     HANDLES(EnterCriticalSection(&ReadCDVolNameCS));
     BOOL run = FALSE;
-    if (uid == ReadCDVolNameReqUID) // someone is still waiting for the response
+    if (uid == ReadCDVolNameReqUID) // someone is still waiting for an answer
     {
         lstrcpyn(root, ReadCDVolNameBuffer, MAX_PATH);
         run = TRUE;
@@ -1148,12 +1149,12 @@ unsigned ReadCDVolNameThreadFBody(void* param) // directory accessibility test
         DWORD dummy;
         char fileSystem[11];
         if (!GetVolumeInformation(root, buf, MAX_PATH, NULL, &dummy, &dummy, fileSystem, 10))
-            buf[0] = 0; // GetVolumeInformation failed
+            buf[0] = 0; // error GetVolumeInformation
         if (buf[0] == 0)
             GetDisplayNameFromSystem(root, buf, MAX_PATH);
 
         HANDLES(EnterCriticalSection(&ReadCDVolNameCS));
-        if (uid == ReadCDVolNameReqUID) // someone is still waiting for the response
+        if (uid == ReadCDVolNameReqUID) // someone is still waiting for an answer
             lstrcpyn(ReadCDVolNameBuffer, buf, MAX_PATH);
         HANDLES(LeaveCriticalSection(&ReadCDVolNameCS));
     }
@@ -1240,7 +1241,7 @@ int GetIndexForDrvText(CPluginFSInterfaceEncapsulation** fsList, int count,
 {
     CPluginFSInterfaceEncapsulation* fs = NULL;
     int z;
-    for (z = 0; z < count; z++) // found FS encapsulation (if memory is low, the indexes in fsList and Drives may not match from firstFSIndex onward)
+    for (z = 0; z < count; z++) // found encapsulation FS (if there is a lack of memory, the indexes in fsList and Drives (from the firstFSIndex offset) may not match)
     {
         if (fsList[z]->GetInterface() == fsIface)
         {
@@ -1258,8 +1259,8 @@ int GetIndexForDrvText(CPluginFSInterfaceEncapsulation** fsList, int count,
     return currentIndex;
 }
 
-// creates a black-and-white version of the icon from 'hSrcIcon'
-// WARNING: slow; use with caution
+// based on 'hSrcIcon' creates a black and white version of the icon
+// WARNING, SLOW, use with caution
 HICON ConvertIcon16x16ToGray(HICON hSrcIcon)
 {
     CIconList il;
@@ -1356,7 +1357,7 @@ void InitDropboxPath()
                 if (hFile != INVALID_HANDLE_VALUE)
                 {
                     LARGE_INTEGER size;
-                    if (GetFileSizeEx(hFile, &size) && size.QuadPart < 100000) // 100 KB is more than enough for a config file
+                    if (GetFileSizeEx(hFile, &size) && size.QuadPart < 100000) // 100KB is enough for a stupid config file
                     {
                         char* buf = (char*)malloc(size.LowPart);
                         DWORD read;
@@ -1373,7 +1374,7 @@ void InitDropboxPath()
                             char* secRowEnd = secRow;
                             while (secRowEnd < end && *secRowEnd != '\r' && *secRowEnd != '\n')
                                 secRowEnd++;
-                            if (secRow < secRowEnd) // second line text containing the target path encoded in Base64
+                            if (secRow < secRowEnd) // I have a text 2. rows, where the base64 encoded searched path is
                             {
                                 int pathLen;
                                 if (base64_decode(secRow, (int)(secRowEnd - secRow), &pathLen, "Dropbox path: "))
@@ -1414,7 +1415,7 @@ void InitDropboxPath()
 #define my_DEFINE_KNOWN_FOLDER(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
     EXTERN_C const GUID DECLSPEC_SELECTANY name = {l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}
 
-// {A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}  // OneDrive folder from the system, introduced only since Windows 8.1
+// {A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}  // OneDriver folder from the system, introduced only since Windows 8.1
 my_DEFINE_KNOWN_FOLDER(my_FOLDERID_SkyDrive, 0xa52bba46, 0xe9e1, 0x435f, 0xb3, 0xd9, 0x28, 0xda, 0xa6, 0x48, 0xc0, 0xf6);
 
 // the path to the local OneDrive folder - Personal (only for personal accounts, for business accounts we have OneDriveBusinessStorages)
@@ -1460,10 +1461,10 @@ BOOL COneDriveBusinessStorages::Find(const char* displayName, const char** userF
 
 void InitOneDrivePath()
 {
-    OneDrivePath[0] = 0; // The OneDrive path is resolved every time, because after the "Unlink OneDrive" command in OneDrive, it should no longer be shown.
+    OneDrivePath[0] = 0; // we find out the path to OneDrive over and over again, because after the commend "Unlink OneDrive" (from OneDrive) we should stop showing it
 
     BOOL done = FALSE;
-    if (WindowsVistaAndLater) // SHGetKnownFolderPath has been available since Vista
+    if (WindowsVistaAndLater) // SHGetKnownFolderPath has existed since Vista
     {
         typedef HRESULT(WINAPI * FSHGetKnownFolderPath)(REFKNOWNFOLDERID rfid,
                                                         DWORD /* KNOWN_FOLDER_FLAG */ dwFlags,
@@ -1476,11 +1477,11 @@ void InitOneDrivePath()
             PWSTR path = NULL;
             if (DynSHGetKnownFolderPath(my_FOLDERID_SkyDrive, 0, NULL, &path) == S_OK && path != NULL)
             {
-                if (path[0] != 0) // FOLDERID_SkyDrive was introduced in Windows 8.1, so it should not be necessary to look it up in the registry
+                if (path[0] != 0) // FOLDERID_SkyDrive was introduced in Windows 8.1 = we should not need to hunt it in the registry
                 {
                     done = ConvertU2A(path, -1, OneDrivePath, _countof(OneDrivePath)) != 0;
                     if (!done)
-                        OneDrivePath[0] = 0; // just to be safe
+                        OneDrivePath[0] = 0; // just for sync
                                              //else TRACE_I("OneDrive path (FOLDERID_SkyDrive): " << OneDrivePath);
                 }
                 CoTaskMemFree(path);
@@ -1490,12 +1491,12 @@ void InitOneDrivePath()
 
     HKEY hKey;
     char path[MAX_PATH];
-    for (int i = 0; !done && i < 2; i++) // theoretically only needed for Windows 8 and earlier (from 8.1 onward we have FOLDERID_SkyDrive)
+    for (int i = 0; !done && i < 2; i++) // theoretically only needed for Windows 8 and lower (from 8.1 we have FOLDERID_SkyDrive)
     {
         if (HANDLES_Q(RegOpenKeyEx(HKEY_CURRENT_USER,
-                                   Windows8_1AndLater && !Windows10AndLater ? (i == 0 ? "Software\\Microsoft\\Windows\\CurrentVersion\\OneDrive" : // Windows 8.1 only
+                                   Windows8_1AndLater && !Windows10AndLater ? (i == 0 ? "Software\\Microsoft\\Windows\\CurrentVersion\\OneDrive" : // jen Win 8.1
                                                                                    "Software\\Microsoft\\Windows\\CurrentVersion\\SkyDrive")
-                                                                            : (i == 0 ? "Software\\Microsoft\\OneDrive" : "Software\\Microsoft\\SkyDrive"), // except Windows 8.1
+                                                                            : (i == 0 ? "Software\\Microsoft\\OneDrive" : "Software\\Microsoft\\SkyDrive"), // krom Win 8.1
                                    0, KEY_READ, &hKey)) == ERROR_SUCCESS)
         {
             DWORD size = sizeof(path); // size in bytes
@@ -1504,7 +1505,7 @@ void InitOneDrivePath()
                 type == REG_SZ && size > 1)
             {
                 //TRACE_I("OneDrive path (UserFolder): " << path);
-                strcpy_s(OneDrivePath, path); // we have the required path
+                strcpy_s(OneDrivePath, path); // we have needed path
                 done = TRUE;
             }
             HANDLES(RegCloseKey(hKey));
@@ -1518,13 +1519,13 @@ void InitOneDrivePath()
     {
         DWORD i = 0;
         while (1)
-        { // enumerate all extensions one by one
+        { // enumarate all extensions one by one
             char keyName[300];
             DWORD keyNameLen = _countof(keyName);
             if (RegEnumKeyEx(hKey, i, keyName, &keyNameLen, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
             { // opening the account key
                 HKEY hAccount;
-                if (StrICmp(keyName, "Personal") != 0 && // do not read the personal account here (see OneDrivePath)
+                if (StrICmp(keyName, "Personal") != 0 && // we don't want to read personal account here (see OneDrivePath)
                     HANDLES_Q(RegOpenKeyEx(hKey, keyName, 0, KEY_READ, &hAccount)) == ERROR_SUCCESS)
                 { // we read all accounts except Personal (for now only "Business???", where ??? is a number)
                     char disp[ONEDRIVE_MAXBUSINESSDISPLAYNAME];
@@ -1536,7 +1537,7 @@ void InitOneDrivePath()
                         size = sizeof(path); // size in bytes
                         if (SalRegQueryValueEx(hAccount, "UserFolder", 0, &type, (BYTE*)path, &size) == ERROR_SUCCESS &&
                             type == REG_SZ && size > 1)
-                        { // Collect every item that has DisplayName and UserFolder and offer it to the user as "OneDrive"
+                        { // we will collect everything that has DisplayName and UserFolder, no matter what it is, we will offer it to the user under "OneDrive"
                             //TRACE_I("OneDrive Business: DisplayName: " << disp << ", UserFolder: " << path);
                             OneDriveBusinessStorages.SortIn(new COneDriveBusinessStorage(DupStr(disp), DupStr(path)));
                         }
@@ -1545,7 +1546,7 @@ void InitOneDrivePath()
                 }
             }
             else
-                break; // end of enumeration (this can also mean the buffer is too small, but handling that is not considered worthwhile)
+                break; // end of enumeration (can also be a small buffer, but I don't consider it reasonable to handle)
             i++;
         }
         HANDLES(RegCloseKey(hKey));
@@ -1561,7 +1562,7 @@ void CDrivesList::AddToDrives(CDriveData& drv, int textResId, char hotkey, CDriv
                               BOOL getGrayIcons, HICON icon, BOOL destroyIcon, const char* itemText)
 {
     const char* s = itemText != NULL ? itemText : LoadStr(textResId);
-    // WARNING: for drvtOneDriveBus, DisplayName is later taken from drv.DriveText; if the text format changes, update this accordingly
+    // WARNING: for drvtOneDriveBus, DisplayName is later taken from drv.DriveText, when changing the text format, change it !!!
     char* txt = (char*)malloc(1 + (hotkey == 0 ? 0 : 1) + strlen(s) + 1);
     strcpy(txt, hotkey == 0 ? "\t" : " \t");
     if (hotkey != 0)
@@ -1610,11 +1611,11 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     ZeroMemory(&drvSeparator, sizeof(drvSeparator));
     drvSeparator.DriveType = drvtSeparator;
 
-    if (copyDrives != NULL) // optimization: the data is simply copied (e.g. this is the second Drives Bar, so we copy the data from the first Drives Bar, for which we retrieved it from the system a few ms ago)
+    if (copyDrives != NULL) // optimization: data is just copied (e.g. it's the second Drives Bar, so we copy the data from the first Drives Bar, for which we got it from the system a few ms ago)
     {
         CachedDrivesMask = copyCachedDrivesMask;
 
-        // Add drives A..Z
+        // I will add drives a..z
         int lastDiskDrv = -1;
         int x;
         for (x = 0; x < copyDrives->Count; x++)
@@ -1658,7 +1659,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     else
     {
         // remembered and not refreshed network drives will not be returned from GetLogicalDrives()
-        DWORD netDrives; // bit array of network drives
+        DWORD netDrives; // bitove pole network disku
         char netRemotePath['z' - 'a' + 1][MAX_PATH];
         GetNetworkDrives(netDrives, netRemotePath);
 
@@ -1672,14 +1673,14 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
 
         CQuadWord freeSpace; // how much space we have on the disk
 
-        Shares.PrepareSearch(""); // now we will look for drive roots
+        Shares.PrepareSearch(""); // now we will search for drives roots
 
-        BOOL separateNextDrive = FALSE; // before inserting the drive, should we insert a separator?
+        BOOL separateNextDrive = FALSE; // before we insert drive, should we insert separator?
 
-        // Add drives A..Z
+        // I will add drives a..z
         while (i != 0)
         {
-            if (!(noDrivesPolicy & i) && ((mask & i) || (netDrives & i))) // drive is accessible
+            if (!(noDrivesPolicy & i) && ((mask & i) || (netDrives & i))) // disk is accessible
             {
                 root[0] = drive;
                 int driveType;
@@ -1853,8 +1854,8 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 // we separate drives that the user wanted to separate
                 if (separateNextDrive && Drives->Count > 0 && !IsLastItemSeparator())
                     Drives->Add(drvSeparator);
-                // if drive A or B is not present in the system and the user set a separator after A or B, we displayed it after C
-                // therefore we must clear the flag in every case, not just in the previous condition
+                // if there's no drive A or B in the system and the user has set the separator after A or B, we've shown it after C
+                // that's why we have to drop the flag in any case, not just in the previous condition
                 separateNextDrive = FALSE;
 
                 int index = Drives->Add(drv);
@@ -1956,7 +1957,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     drv.DLLName = NULL;  // just for sure
     int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
 
-    // add a separator if this is not the first item and there is not one already
+    // I will add the separator if it is not the first item and if there is no separator yet
     if (Drives->Count > 0 && !IsLastItemSeparator())
         Drives->Add(drvSeparator);
 
@@ -1967,11 +1968,11 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                     SalLoadIcon(ImageResDLL, 112, iconSize));
     }
 
-    // Add cloud storages (Google Drive, etc.) if any are found
+    // adding Cloud Storages (Google Drive, etc.), if I find any...
     CachedCloudStoragesMask = 0;
     if (Configuration.ChangeDriveCloudStorage)
     {
-        CSQLite3DynLoadBase* sqlite3_Dyn_InOut = NULL; // sqlite3 was expected to be needed for Dropbox too, but that turned out not to be the case, so this is kept here just in case
+        CSQLite3DynLoadBase* sqlite3_Dyn_InOut = NULL; // I somewhat expected that sqlite3 will be needed for Dropbox, too, which eventually did not happen (so this is here just in case)
         ShellIconOverlays.InitGoogleDrivePath(&sqlite3_Dyn_InOut, TRUE);
         if (ShellIconOverlays.HasGoogleDrivePath())
         {
@@ -1995,11 +1996,11 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         if (c == 1 && OneDrivePath[0] == 0)
             CachedCloudStoragesMask |= 0x08 /* only one OneDrive storage - Business */;
         if (c > 1)
-            CachedCloudStoragesMask |= 0x10 /* more OneDrive storages - drop-down menu on drive-bar */;
+            CachedCloudStoragesMask |= 0x10 /* more OneDrive storages - drop down menu on drive-bar */;
         char itemText[200 + ONEDRIVE_MAXBUSINESSDISPLAYNAME];
         HICON oneDriveIco = c == 0 ? NULL : SalLoadIcon(HInstance, IDI_ONEDRIVE, iconSize);
         BOOL destroyOneDriveIco = oneDriveIco != NULL;
-        if (forDriveBar && c > 1) // for the drive bar with multiple storages, let the user choose from a drop-down menu
+        if (forDriveBar && c > 1) // data for drive-bar && more storages = let the user choose from the menu (drop down)
         {
             strcpy_s(itemText, LoadStr(IDS_ONEDRIVE));
             AddToDrives(drv, 0, 0, drvtOneDriveMenu, getGrayIcons, oneDriveIco, destroyOneDriveIco, itemText);
@@ -2007,7 +2008,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         }
         else // data for change drive menu || drive-bar && the only storage (we give a simple button on the drive-bar)
         {
-            if (OneDrivePath[0] != 0) // personal storage
+            if (OneDrivePath[0] != 0) // personal
             {
                 if (c == 1)
                     strcpy_s(itemText, LoadStr(IDS_ONEDRIVE)); // the only personal storage = we write only: OneDrive
@@ -2016,8 +2017,8 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                 AddToDrives(drv, 0, 0, drvtOneDrive, getGrayIcons, oneDriveIco, destroyOneDriveIco, itemText);
                 destroyOneDriveIco = FALSE;
             }
-            for (int i = 0; i < OneDriveBusinessStorages.Count; i++) // business storages
-            {                                                        // WARNING: For drvtOneDriveBus, DisplayName is later taken from drv.DriveText; if the text format changes, update this too.
+            for (int i = 0; i < OneDriveBusinessStorages.Count; i++) // business
+            {                                                        // WARNING: for drvtOneDriveBus, DisplayName is later taken from drv.DriveText, when changing the text format, change it !!!
                 sprintf_s(itemText, "%s - %s", LoadStr(IDS_ONEDRIVE), OneDriveBusinessStorages[i]->DisplayName);
                 AddToDrives(drv, 0, 0, drvtOneDriveBus, getGrayIcons, oneDriveIco, destroyOneDriveIco, itemText);
                 destroyOneDriveIco = FALSE;
@@ -2041,7 +2042,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         neighborhoodIndex = Drives->Count - 1;
     }
 
-    // adding FS commands from all plugins
+    // adding FS commands from all plug-ins
     if (!Plugins.AddItemsToChangeDrvMenu(this, currentFSIndex,
                                          FilesWindow->GetPluginFS()->GetPluginInterfaceForFS()->GetInterface(),
                                          getGrayIcons))
@@ -2049,7 +2050,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         return FALSE;
     }
 
-    // find the index of the Nethood plugin and store it in neighborhoodIndex (we fully represent the Network item)
+    // finding the index of the Nethood plug-in and setting it to neighborhoodIndex (we represent the Network item with everything)
     if (existsNethoodPlugin && nethoodPlugin != NULL && neighborhoodIndex == -1)
     {
         int i2;
@@ -2073,7 +2074,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     }
     else
     {
-        if (CurrentPath[0] != 0) // only if we have a path (it is not ptPluginFS)
+        if (CurrentPath[0] != 0) // only if we have a path (it's not ptPluginFS)
         {
             if (currentDiskIndex != -1)
                 FocusIndex = currentDiskIndex;
@@ -2120,13 +2121,13 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                     {
                         BOOL destroyIcon;
                         HICON icon = panel->GetPluginFS()->GetFSIcon(destroyIcon);
-                        if (icon != NULL) // defined by the plugin
+                        if (icon != NULL) // defined by a plugin
                         {
                             drv.HIcon = icon;
                             drv.HGrayIcon = NULL;
                             drv.DestroyIcon = destroyIcon; // we are driven by the plugin
                         }
-                        else // default
+                        else // standard
                         {
                             drv.HIcon = SalLoadIcon(HInstance, IDI_PLUGINFS, iconSize);
                             drv.HGrayIcon = NULL;
@@ -2181,7 +2182,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
                     drv.Accessible = TRUE;
                     drv.Shared = FALSE;
                     Drives->Add(drv);
-                    drv.DestroyIcon = FALSE; // Do not clean up the remaining icons
+                    drv.DestroyIcon = FALSE; // I won't clean up other icons anymore
                 }
                 else
                 {
@@ -2196,7 +2197,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     if (Drives->Count > 0 && IsLastItemSeparator())
         Drives->Delete(Drives->Count - 1);
 
-    if (drv.DestroyIcon) // not a hot path, so we must destroy the icon here
+    if (drv.DestroyIcon) // no hot path, we have to remove the icon here
     {
         HANDLES(DestroyIcon(drv.HIcon));
     }
@@ -2258,7 +2259,7 @@ BOOL CDrivesList::LoadMenuFromData()
                 mii.HOverlay = HSharedOverlays[ICONSIZE_16];
             mii.String = item->DriveText;
             mii.State = 0;
-            if (i == FocusIndex) // if FocusIndex == -1, nothing is checked
+            if (i == FocusIndex) // if FocusIndex==-1, nothing is marked
                 mii.State = MENU_STATE_CHECKED;
             if (item->DriveType == drvtPluginFSInOtherPanel)
                 mii.State |= MFS_DISABLED | MFS_GRAYED;
@@ -2302,7 +2303,7 @@ BOOL CDrivesList::ExecuteItem(int index, HWND hwnd, const RECT* exclude, BOOL* f
         break;
     }
 
-    case drvtOneDriveMenu: // opening the drop-down menu for OneDrive storage selection
+    case drvtOneDriveMenu: // opening the drop down menu for OneDrive storage selection
     {
         if (fromDropDown != NULL)
             *fromDropDown = TRUE;
@@ -2399,14 +2400,14 @@ BOOL CDrivesList::ExecuteItem(int index, HWND hwnd, const RECT* exclude, BOOL* f
         break;
     }
 
-    case drvtPluginFS:             // plugin item: open FS (active/disconnected)
+    case drvtPluginFS:             // a plug-in item: opened FS (active/disconnected)
     case drvtPluginFSInOtherPanel: // this should never come, we will stop it later (no action)
     {
         *DriveTypeParam = (DWORD_PTR)item->PluginFS;
         break;
     }
 
-    case drvtPluginCmd: // a plugin item: FS command
+    case drvtPluginCmd: // a plug-in item: FS command
     {
         *DriveTypeParam = (DWORD_PTR)item->DLLName;
         break;
@@ -2418,14 +2419,27 @@ BOOL CDrivesList::ExecuteItem(int index, HWND hwnd, const RECT* exclude, BOOL* f
 BOOL CDrivesList::Track()
 {
     CALL_STACK_MESSAGE1("CDrivesList::Track()");
-    RECT r;
-    GetWindowRect(FilesWindow->HWindow, &r);
-    int dirHeight = MainWindow->GetDirectoryLineHeight();
-
     RECT buttonRect;
-    buttonRect = r;
-    buttonRect.bottom = buttonRect.top + dirHeight;
-    buttonRect.right = buttonRect.left + dirHeight;
+    BOOL buttonRectFound = FALSE;
+    if (FilesWindow->DirectoryLine != NULL &&
+        FilesWindow->DirectoryLine->ToolBar != NULL &&
+        FilesWindow->DirectoryLine->ToolBar->HWindow != NULL)
+    {
+        DWORD changeDriveCmd = MainWindow->LeftPanel == FilesWindow ? CM_LCHANGEDRIVE : CM_RCHANGEDRIVE;
+        int index = FilesWindow->DirectoryLine->ToolBar->FindItemPosition(changeDriveCmd);
+        if (index != -1)
+            buttonRectFound = FilesWindow->DirectoryLine->ToolBar->GetItemRect(index, buttonRect);
+    }
+    if (!buttonRectFound)
+    {
+        RECT r;
+        GetWindowRect(FilesWindow->HWindow, &r);
+        int dirHeight = MainWindow->GetDirectoryLineHeight();
+
+        buttonRect = r;
+        buttonRect.bottom = buttonRect.top + dirHeight;
+        buttonRect.right = buttonRect.left + dirHeight;
+    }
 
     MenuPopup = new CMenuPopup;
     if (MenuPopup == NULL)
@@ -2721,7 +2735,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
     if (pluginFSDLLName != NULL)
         *pluginFSDLLName = NULL;
 
-    // MenuPopup may only be accessed if posByMouse == FALSE
+    // for the MenuPopup variable, access is only allowed if posByMouse == FALSE
 
     int selectedIndex;
     if (itemIndex == -1 || !posByMouse)
@@ -2781,7 +2795,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
             }
         }
         else
-            return FALSE; // context menus are not supported for other path types (relative paths or plugin FS paths)
+            return FALSE; // we can't do the context menu for other types of paths (relative, FS plugin)
         break;
     }
 
@@ -2802,7 +2816,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
         if (dt == drvtPluginFS)
         {
             CPluginFSInterfaceAbstract* fs = Drives->At(selectedIndex).PluginFS;
-            // we must verify that 'fs' is still a valid interface
+            // we need to verify, that 'fs' is still a valid interface
             if (FilesWindow->Is(ptPluginFS) && FilesWindow->GetPluginFS()->GetInterface() == fs)
             { // active FS selection - we will do refresh
                 pluginData = Plugins.GetPluginData(FilesWindow->GetPluginFS()->GetPluginInterfaceForFS()->GetInterface());
@@ -2850,7 +2864,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
                 p.y = selectedIndexRect.bottom;
             }
 
-            char pluginFSNameBuf[MAX_PATH]; // 'pluginFS' may cease to exist, so we copy 'fsName' into a local buffer
+            char pluginFSNameBuf[MAX_PATH]; // 'pluginFS' may cease to exist, so we put 'fsName' into a local buffer
             if (pluginFSName != NULL)
                 lstrcpyn(pluginFSNameBuf, pluginFSName, MAX_PATH);
             if (pluginData->ChangeDriveMenuItemContextMenu(MainWindow->HWindow, panel, p.x, p.y, pluginFS,
@@ -2885,14 +2899,14 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
                     }
                     if (!failed)
                     {
-                        if (postCmd != 0) // closing the Change Drive menu and executing postCmd
+                        if (postCmd != 0) // closing Change Drive menu + executing postCmd
                         {
                             *PostCmd = postCmd;
                             *PostCmdParam = postCmdParam;
                             *FromContextMenu = TRUE;
                             return TRUE;
                         }
-                        else // just closing the Change Drive menu
+                        else // just closing Change Drive menu
                         {
                             *PostCmd = 0; // not needed (set from constructor), just for clarity
                             *FromContextMenu = TRUE;
@@ -2900,7 +2914,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
                         }
                     }
                 }
-                if (refreshMenu) // plugin requests a menu refresh
+                if (refreshMenu) // plug-in asks for menu refresh
                 {
                     PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
                 }
@@ -2923,7 +2937,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
     case drvtOneDriveBus:
     case drvtOneDriveMenu:
     {
-        // no context menu for Documents, Network, As Other Panel, or Cloud Storages
+        // for Documents, Network, As Other Panel a Cloud Storages we can't do context menu)
         return FALSE;
     }
 
@@ -2973,21 +2987,21 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
         DWORD cmd = contextPopup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                                        pt.x, pt.y, MainWindow->HWindow, NULL);
 
-        // WARNING: while the context menu is open, this object may be refreshed (for example, when the user inserts
-        // a USB stick or disconnects a network drive); this must be taken into account when accessing the
-        // object's data (for example, Drives may contain different data)
+        // WARNING: during the opened context menu, the object can be refreshed (e.g. user inserts
+        // a USB stick or disconnects a network drive), we have to count on it when accessing the
+        // data of this object (e.g. Drives can contain different data)
 
         if (cmd != 0)
         {
             BOOL releaseLeft = FALSE;  // disconnect left panel from disk?
             BOOL releaseRight = FALSE; // disconnect right panel from disk?
 
-            char cmdName[2000]; // we intentionally use 2000 instead of 200; shell extensions sometimes write twice as much (roughly: Unicode = 2 * "number of characters"), etc.
+            char cmdName[2000]; // we have 2000 instead of 200 on purpose, shell extensions sometimes write double (consideration: unicode = 2 * "number of characters"), etc.
             if (AuxGetCommandString(MainWindow->ContextMenuChngDrv, cmd, GCS_VERB, NULL, cmdName, 200) != NOERROR)
             {
                 cmdName[0] = 0;
             }
-            if (stricmp(cmdName, "properties") != 0 && // not needed for Properties
+            if (stricmp(cmdName, "properties") != 0 && // not mandatory for properties
                 stricmp(cmdName, "find") != 0 &&       // not mandatory for find
                 stricmp(cmdName, "open") != 0 &&       // not mandatory for open
                 stricmp(cmdName, "explore") != 0 &&    // not mandatory for explore
@@ -2998,7 +3012,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
                 for (i = 0; i < 2; i++)
                 {
                     win = i == 0 ? MainWindow->LeftPanel : MainWindow->RightPanel;
-                    if (HasTheSameRootPath(win->GetPath(), path)) // same drive (local or UNC)
+                    if (HasTheSameRootPath(win->GetPath(), path)) // identical disk (both normal and UNC)
                     {
                         if (i == 0)
                             releaseLeft = TRUE;
@@ -3031,15 +3045,15 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
                 ici.ptInvoke.y = pt.y;
             }
 
-            BOOL changeToFixedDrv = cmd == 35; // "format" is not modal, so we need to switch to a fixed drive
+            BOOL changeToFixedDrv = cmd == 35; // "format" is not modal, we need to change to fixed drive
             if (releaseLeft)
             {
                 if (changeToFixedDrv)
                 {
                     MainWindow->LeftPanel->ChangeToFixedDrive(MainWindow->LeftPanel->HWindow);
-                    // WARNING: The window must be invalidated to discard the cached bitmap of the Alt+F1/2 menu
-                    // otherwise, an old part of the panel would be displayed in this situation:
-                    // the left panel shows drive S:; Alt+F1, right-click S:, Format
+                    // WARNING: we have to invalidate the window, so that the cached bitmap of Alt+F1/2 menu is broken
+                    // otherwise, the old part of the panel was displayed in this situation:
+                    // there is disk S: in the left panel; Alt+F1, right click on S, Format
                     InvalidateRect(MainWindow->LeftPanel->HWindow, NULL, TRUE);
                 }
                 else
@@ -3058,9 +3072,9 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
 
             DisplayMenuAux(MainWindow->ContextMenuChngDrv, (CMINVOKECOMMANDINFO*)&ici);
 
-            // the context menu can change the clipboard, so we will verify it ...
+            // it's possible to change clipboard from context menu, we will check it ...
             IdleRefreshStates = TRUE;  // we will force the check of the state variables at the next Idle
-            IdleCheckClipboard = TRUE; // we will force the clipboard check as well
+            IdleCheckClipboard = TRUE; // we will the clipboard to be checked as well
 
             UpdateWindow(MainWindow->HWindow);
             if (releaseLeft && !changeToFixedDrv)
@@ -3068,7 +3082,7 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
             if (releaseRight && !changeToFixedDrv)
                 MainWindow->RightPanel->HandsOff(FALSE);
 
-            if (!selectedIndexAccessible) // unmapping a remembered inactive network connection?
+            if (!selectedIndexAccessible) // unmap the remembered inactive network connection?
                 PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
 
             /*
@@ -3106,7 +3120,7 @@ BOOL CDrivesList::RebuildMenu()
         // remove old data
         DestroyData();
         // get new ones
-        BuildData(TRUE); // A timeout cannot be used; reading the CD label takes a long time (1.5 s), and the system notifies the drive before the label has been read.
+        BuildData(TRUE); // timeout can't be used, reading CD labels takes long time (1,5s) - system notifies the driver earlier than it's loaded
         // remove items from menu
         MenuPopup->RemoveAllItems();
         // get new items
@@ -3122,7 +3136,7 @@ BOOL CDrivesList::FindPanelPathIndex(CFilesWindow* panel, DWORD* index)
     if (panel->Is(ptPluginFS))
     {
         if (!panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_GETCHANGEDRIVEORDISCONNECTITEM))
-        { // searching for a plugin FS without its own item in Change Drive menu (these items are not in Drive bars)
+        { // searching for a plug-in FS without its own item in Change Drive menu (these items are not in Drive bars)
             int i;
             for (i = 0; i < Drives->Count; i++)
             {
@@ -3141,7 +3155,7 @@ BOOL CDrivesList::FindPanelPathIndex(CFilesWindow* panel, DWORD* index)
         if (path[0] == '\\' && path[1] == '\\')
         {
             if (path[2] == '.' && path[3] == '\\' && path[4] != 0 && path[5] == ':')
-                return FALSE; // path in the "\\.\C:\" form
+                return FALSE; // "\\.\C:\" type path
             CPluginData* nethoodPlugin = NULL;
             Plugins.GetFirstNethoodPluginFSName(NULL, &nethoodPlugin);
             int i;

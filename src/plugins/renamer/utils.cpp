@@ -543,7 +543,7 @@ BOOL IsValidFullPath(const char* name, int len)
     CALL_STACK_MESSAGE_NONE
     int i = 0;
 
-    // Validate the drive/UNC root.
+    // validujem drive/unc root
     if (name[0] == '\\' && name[1] == '\\') // UNC
     {
         i += 2;

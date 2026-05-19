@@ -1,5 +1,4 @@
 ﻿//
-//
 // lang.rc2 - resources Microsoft Visual C++ does not edit directly
 //
 
@@ -36,7 +35,7 @@ IDM_VIEWERMENU MENU
   MENUITEM "&Refresh\tCtrl+R", CM_REREADFILE
   MENUITEM SEPARATOR
   
-// WARNING: if the index of this submenu changes, VIEWER_FILE_MENU_OTHFILESINDEX must also be updated
+// POZOR: pokud se zmeni index tohoto submenu, je potreba zmenit VIEWER_FILE_MENU_OTHFILESINDEX
   POPUP "Ot&her Files"
   {
    MENUITEM "&Previous\tBackspace", CM_PREVFILE

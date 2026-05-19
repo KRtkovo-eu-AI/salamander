@@ -206,7 +206,7 @@ void SaveHistory(HKEY regKey, const char* keyPattern, LPWSTR* history, CSalamand
 BOOL TestForCancel()
 {
     CALL_STACK_MESSAGE_NONE
-    //  CALL_STACK_MESSAGE1("TestForCancel()");  // Petr: call-stack is too slow
+    //  CALL_STACK_MESSAGE1("TestForCancel()");  // Petr: prilis pomaly call-stack
     static DWORD nextTest;
     if ((int)(GetTickCount() - nextTest) < 0)
         return FALSE;

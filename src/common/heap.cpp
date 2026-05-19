@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -29,15 +28,15 @@
 // boundaries so we can find the real functions
 // that we need to call for initialization.
 
-#pragma warning(disable : 4075) // Define the module initialization order
+#pragma warning(disable : 4075) // chceme definovat poradi inicializace modulu
 
 typedef void(__cdecl* _PVFV)(void);
 
 #pragma section(".i_hea$a", read)
-__declspec(allocate(".i_hea$a")) const _PVFV i_heap = (_PVFV)1; // Place i_heap at the start of the .i_hea section
+__declspec(allocate(".i_hea$a")) const _PVFV i_heap = (_PVFV)1; // na zacatek sekce .i_hea si dame promennou i_heap
 
 #pragma section(".i_hea$z", read)
-__declspec(allocate(".i_hea$z")) const _PVFV i_heap_end = (_PVFV)1; // Place i_heap_end at the end of the .i_hea section
+__declspec(allocate(".i_hea$z")) const _PVFV i_heap_end = (_PVFV)1; // a na konec sekce .i_hea si dame promennou i_heap_end
 
 void Initialize__Heap()
 {
@@ -70,7 +69,8 @@ int OurReportingFunction(int reportType, char* userMessage, int* retVal)
     // retVal to one.
     *retVal = 0;
 
-    // Return FALSE after reporting some information so _CrtDbgReport still gets called
+    // we'll report some information, but we also
+    // want _CrtDbgReport to get called - so we'll return FALSE
     return FALSE;
 }
 
@@ -79,7 +79,7 @@ class C__GCHeapInit
 public:
     C__GCHeapInit()
     {
-        // Save the initial memory state
+        // uloz stav pameti na zacatku
         _CrtMemCheckpoint(&start_state);
         prev_reporting_hook = _CrtSetReportHook(OurReportingFunction);
         InitializeCriticalSection(&CriticalSection);
@@ -87,32 +87,32 @@ public:
     }
     ~C__GCHeapInit()
     {
-        // Capture the current memory state
+        // zjisti aktualni stav pameti
         _CrtMemState end_state;
         _CrtMemCheckpoint(&end_state);
 
-        // Check for memory leaks
+        // zkontroluj, jestli jsou nejake leaky
         _CrtMemState diff;
         if (_CrtMemDifference(&diff, &start_state, &end_state))
         {
             HMODULE hUsedModules[GCHEAP_MAX_USED_MODULES];
-            // Map into memory all modules that may report memory leaks,
-            // so the report shows the .cpp file names (otherwise it would show only "#File Error#")
+            // namapuju do pameti vsechny moduly, ve kterych se muzou hlasit memory leaky,
+            // tim se v reportu zobrazi jmena .cpp souboru (jinak by tam bylo jen "#File Error#")
             for (int i = 0; i < UsedModulesCount; i++)
                 hUsedModules[i] = LoadLibraryEx(UsedModules[i], NULL, DONT_RESOLVE_DLL_REFERENCES);
 
-            // Dump all unfreed blocks
+            // vypise vsechny neuvolnene bloky
             _CrtMemDumpAllObjectsSince(&start_state);
 
-            // Dump the diff too, since we already have it
+            // kdyz uz mame diff, tak ho taky vypisem
             _CrtMemDumpStatistics(&diff);
 
-            // Release the mapped modules again
+            // zase uvolnime namapovane moduly
             for (int i = 0; i < UsedModulesCount; i++)
                 FreeLibrary(hUsedModules[i]);
 
-            // Show the warning message box
-            MSG msg; // Clear any buffered ESC key so the message box does not close immediately
+            // vyhod warning messagebox
+            MSG msg; // remove possibly buffered ESC key (not to close msgbox immediately)
             while (PeekMessage(&msg, NULL, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE))
                 ;
             MessageBoxA(NULL, "Detected memory leaks!", "Heap Message",

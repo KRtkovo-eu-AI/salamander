@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -54,10 +53,10 @@ BOOL CShrinkImage::Alloc(DWORD origWidth, DWORD origHeight,
         TRACE_E("origWidth == 0 || origHeight == 0 || newWidth == 0 || newHeight == 0");
         return FALSE;
     }
-    // allocate and initialize the coefficients
+    // alokujeme a inicializujeme koeficienty
     RowCoeff = CreateCoeff(origWidth, newWidth, NormCoeffX);
     ColCoeff = CreateCoeff(origHeight, newHeight, NormCoeffY);
-    // allocate and clear the buffer
+    // alokujeme a vycistime buffer
     Buff = (DWORD*)malloc(3 * newWidth * sizeof(DWORD));
     if (RowCoeff == NULL || ColCoeff == NULL || Buff == NULL)
     {
@@ -73,14 +72,14 @@ BOOL CShrinkImage::Alloc(DWORD origWidth, DWORD origHeight,
     ProcessTopDown = processTopDown;
 
     YCoeff = ColCoeff;
-    // coefficients for the center and right pixel for a possible additional round
+    // koeficienty pro stredove a pravy pixel pro pripadne dalsi kolo
     NormCoeff = NormCoeffY * NormCoeffX;
-    // Y boundary of this section
+    // y-ova hranice sekce
     YBndr = *YCoeff++;
-    // skip the coefficient for the first row
+    // preskocime koeficient pro prvni radek
     YCoeff++;
 
-    // if we process from the bottom, we must start from the last row
+    // pokud jedem odspodu, musime zacit poslednim radkem
     if (!ProcessTopDown)
         OutLine = outBuff + newWidth * (newHeight - 1);
     else
@@ -116,25 +115,25 @@ CShrinkImage::CreateCoeff(DWORD origLen, WORD newLen, DWORD& norm)
     for (i = 0; i < newLen; i++)
     {
         sum += origLen;
-        // compute the pixel the new boundary crosses
+        // vypocet pixelu, kterym prochazi nova hranice
         boundary = sum / newLen;
-        // how much of the previous boundary belongs to the left part of this section
+        // kolik z predesle hranice bude v leve casti teto sekce
         lCoeff = norm - rCoeff;
-        // Weight of the pixel at the right edge of the section
+        // a nakonec vaha pixelu u praveho okraje sekce
         modulo = sum % newLen;
         if (modulo == 0)
         {
-            // if the boundary falls between pixels, prefer the left one
+            // pokud nam hranice prochazi mezi pixely, uprednostnime levy pixel
             boundary--;
             rCoeff = norm;
         }
         else
             rCoeff = (modulo << 12) / origLen;
-        // and store the data in the array: first the boundary coordinate
+        // a ulozime do pole - prvni je souradnice hranice
         *coeff++ = boundary;
-        // next the weight of the pixel at the left edge
+        // dalsi je vaha pixelu u leveho okraje
         *coeff++ = lCoeff;
-        // and the weight at the right edge
+        // a vaha u praveho okraje
         *coeff++ = rCoeff;
     }
     return res;
@@ -149,207 +148,207 @@ void CShrinkImage::ProcessRows(DWORD* inBuff, DWORD rowCount)
     BYTE r, g, b;
     DWORD rgb;
 
-    // iterate over every row
+    // jedem pres vsechny radky
     DWORD y;
     for (y = Y; y < Y + rowCount; y++)
     {
-        // initialize the buffer pointers
+        // nainicializujeme pointery do bufferu
         currPix = Buff;
-        // initialize the pointer into the coefficient array
+        // nainicializujem pointer do pole koeficientu
         ptrXCoeff = RowCoeff;
-        // maximum X coordinate for the current output pixel
+        // maximalni x-ova souradnice
         xBndr = *ptrXCoeff++;
-        // at the start of the row the left coefficient equals the middle coefficient
+        // levej koeficient je na zacatku radku stejnej jako stredni
         ptrXCoeff++;
-        // right coefficient
+        // pravej koeficient
         xCoeff = *ptrXCoeff++;
 
         x2 = 0;
-        // branch depending on whether this row is in the middle of the section or the last one
+        // rozdeleni podle polohy radku v sekci (stredni nebo posledni)
         if (y == YBndr)
         {
-            // take the coefficient for the last row
+            // vytahneme koeficient pro posledni radek
             DWORD yLastCoeff = *YCoeff++;
-            // take the coefficient for the first row of the next section (if any)
+            // vytahneme koeficient pro prvni radek dalsi sekce (je-li nejaka)
             if (y + 1 < OrigHeight)
             {
-                YBndr = *YCoeff++; // new Y boundary of the segment
+                YBndr = *YCoeff++; // nova y-ova hranice sekce
                 yCoeff = *YCoeff++;
             }
             else
             {
-                YBndr = 0; // new Y boundary of the segment
+                YBndr = 0; // nova y-ova hranice sekce
                 yCoeff = 0;
             }
-            // coefficients for the center and right pixel
+            // koeficienty pro stredove a pravy pixel
             xNewCoeff = yCoeff * xCoeff;
             xCoeff *= yLastCoeff;
-            // coefficients for the next row
+            // koeficienty pro dalsi radek
             DWORD midNewCoeff = yCoeff * NormCoeffX;
             DWORD midCoeff = yLastCoeff * NormCoeffX;
-            // temporary sums for the next row's pixel
+            // pomocne promenne pro pixel dalsiho radku
             DWORD nextR = 0;
             DWORD nextG = 0;
             DWORD nextB = 0;
-            // and precompute the remaining contributions
+            // a predpocitavame dalsi
             for (x1 = 0; x1 + 1 < NewWidth; x1++)
             {
-                // since this is the last row, store the current pixel into the result
-                // process the middle portion
+                // jsme-li na poslednim radku, aktualni ukladame do vysledku
+                // projedem stredni cast
                 for (; x2 < xBndr; x2++)
                 {
-                    // fetch the pixel
+                    // vytahneme pixel
                     rgb = *inBuff++;
                     r = GetRValue(rgb);
                     g = GetGValue(rgb);
                     b = GetBValue(rgb);
-                    // accumulate it into the buffer
+                    // pripocitame ho do bufferu
                     currPix[0] += midCoeff * r;
                     currPix[1] += midCoeff * g;
                     currPix[2] += midCoeff * b;
-                    // and accumulate the contributions for the next row's pixel
+                    // a pripravime i pixel z pristiho radku
                     nextR += midNewCoeff * r;
                     nextG += midNewCoeff * g;
                     nextB += midNewCoeff * b;
                 }
-                // fetch the rightmost pixel
+                // vytahneme nejpravejsi pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // the computed pixel can now be written to the output
+                // napocitany pixel uz muzem poslat na vystup
                 *OutLine++ = RGB((currPix[0] + xCoeff * r) >> 24,
                                  (currPix[1] + xCoeff * g) >> 24,
                                  (currPix[2] + xCoeff * b) >> 24);
-                // prepare the buffer for the next row
+                // pripravime pixel pro dalsi radek
                 currPix[0] = nextR + xNewCoeff * r;
                 currPix[1] = nextG + xNewCoeff * g;
                 currPix[2] = nextB + xNewCoeff * b;
-                // advance the coordinate
+                // zvetsime souradnici
                 x2++;
-                // move to the next output pixel
+                // soupnem se ve vystupu na dalsi pixel
                 currPix += 3;
-                // fetch the next X boundary
+                // nova maximalni x-ova souradnice
                 xBndr = *ptrXCoeff++;
-                // new left coefficient for both rows
+                // novej levej koeficient pro oba radky
                 xNewCoeff = yCoeff * *ptrXCoeff;
                 xCoeff = yLastCoeff * *ptrXCoeff++;
-                // and accumulate it into the buffer for the next pixel
+                // a taky ho pripocitame do bufferu pro dalsi pixel
                 currPix[0] += xCoeff * r;
                 currPix[1] += xCoeff * g;
                 currPix[2] += xCoeff * b;
-                // and accumulate the next row's pixel contributions
+                // a pripravime i pixel z pristiho radku
                 nextR = xNewCoeff * r;
                 nextG = xNewCoeff * g;
                 nextB = xNewCoeff * b;
-                // and the new right coefficient
+                // a novej pravej koeficient
                 xNewCoeff = yCoeff * *ptrXCoeff;
                 xCoeff = yLastCoeff * *ptrXCoeff++;
             }
-            // for the last pixel we must skip computing the left part
-            // of the next pixel (there isn't one)
+            // pro posledni pixel musime vynechat vypocet leve casti
+            // dalsiho pixelu (zadnej neni)
             for (; x2 < xBndr; x2++)
             {
-                // fetch the pixel
+                // vytahneme pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // accumulate it into the buffer
+                // pripocitame ho do bufferu
                 currPix[0] += midCoeff * r;
                 currPix[1] += midCoeff * g;
                 currPix[2] += midCoeff * b;
-                // and accumulate the contributions for the next row's pixel
+                // a pripravime i pixel z pristiho radku
                 nextR += midNewCoeff * r;
                 nextG += midNewCoeff * g;
                 nextB += midNewCoeff * b;
             }
-            // fetch the rightmost pixel
+            // vytahneme nejpravejsi pixel
             rgb = *inBuff++;
             r = GetRValue(rgb);
             g = GetGValue(rgb);
             b = GetBValue(rgb);
-            // the computed pixel can now be written to the output
+            // napocitany pixel uz muzem poslat na vystup
             *OutLine++ = RGB((currPix[0] + xCoeff * r) >> 24,
                              (currPix[1] + xCoeff * g) >> 24,
                              (currPix[2] + xCoeff * b) >> 24);
-            // prepare the buffer for the next row
+            // pripravime pixel pro dalsi radek
             currPix[0] = nextR + xNewCoeff * r;
             currPix[1] = nextG + xNewCoeff * g;
             currPix[2] = nextB + xNewCoeff * b;
-            // the entire row is finished
+            // mame hotovej celej radek
 
-            // if we process from the bottom, move one row up
+            // pokud jedem odspodu, pokracujem o radek vys
             if (!ProcessTopDown)
                 OutLine -= NewWidth * 2;
         }
         else
         {
-            // right coefficient
+            // pravej koeficient
             xCoeff *= NormCoeffY;
-            // for rows in the middle of a section, compute normally
+            // jsme-li na stredovych pixelech, pocitame normalne
             for (x1 = 0; x1 + 1 < NewWidth; x1++)
             {
-                // process the middle portion
+                // projedem stredni cast
                 for (; x2 < xBndr; x2++)
                 {
-                    // fetch the pixel
+                    // vytahneme pixel
                     rgb = *inBuff++;
                     r = GetRValue(rgb);
                     g = GetGValue(rgb);
                     b = GetBValue(rgb);
-                    // accumulate it into the buffer
+                    // pripocitame ho do bufferu
                     currPix[0] += NormCoeff * r;
                     currPix[1] += NormCoeff * g;
                     currPix[2] += NormCoeff * b;
                 }
-                // fetch the rightmost pixel
+                // vytahneme nejpravejsi pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // also accumulate it into the buffer
+                // a taky ho pripocitame do bufferu
                 currPix[0] += xCoeff * r;
                 currPix[1] += xCoeff * g;
                 currPix[2] += xCoeff * b;
-                // advance the coordinate
+                // zvetsime souradnici
                 x2++;
-                // move to the next output pixel
+                // soupnem se ve vystupu na dalsi pixel
                 currPix += 3;
-                // fetch the next X boundary
+                // nova maximalni x-ova souradnice
                 xBndr = *ptrXCoeff++;
-                // new left coefficient
+                // novej levej koeficient
                 xCoeff = NormCoeffY * *ptrXCoeff++;
-                // accumulate it into the buffer for the next pixel
+                // a taky ho pripocitame do bufferu pro dalsi pixel
                 currPix[0] += xCoeff * r;
                 currPix[1] += xCoeff * g;
                 currPix[2] += xCoeff * b;
-                // and the new right coefficient
+                // a novej pravej koeficient
                 xCoeff = NormCoeffY * *ptrXCoeff++;
             }
-            // for the last pixel we must skip computing the left-side contribution
+            // pro posledni pixel musime vynechat vypocet leve casti
             for (; x2 < xBndr; x2++)
             {
-                // fetch the pixel
+                // vytahneme pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // accumulate it into the buffer
+                // pripocitame ho do bufferu
                 currPix[0] += NormCoeff * r;
                 currPix[1] += NormCoeff * g;
                 currPix[2] += NormCoeff * b;
             }
-            // fetch the rightmost pixel
+            // vytahneme nejpravejsi pixel
             rgb = *inBuff++;
             r = GetRValue(rgb);
             g = GetGValue(rgb);
             b = GetBValue(rgb);
-            // also accumulate it into the buffer
+            // a taky ho pripocitame do bufferu
             currPix[0] += xCoeff * r;
             currPix[1] += xCoeff * g;
             currPix[2] += xCoeff * b;
-            // the entire row is finished
+            // mame hotovej celej radek
         }
     }
     Y += rowCount;
@@ -368,7 +367,7 @@ CSalamanderThumbnailMaker::CSalamanderThumbnailMaker(CFilesWindow* window)
 
     ThumbnailBuffer = NULL;
     AuxTransformBuffer = NULL;
-    ThumbnailMaxWidth = 0; // must initialize, Clear() is called with -1
+    ThumbnailMaxWidth = 0; // musime inicializovat, Clear() volame s -1
     ThumbnailMaxHeight = 0;
 
     Clear(-1);
@@ -384,8 +383,8 @@ CSalamanderThumbnailMaker::~CSalamanderThumbnailMaker()
         free(AuxTransformBuffer);
 }
 
-// Object cleanup—called before processing another thumbnail or when
-// this object no longer needs a thumbnail (finished or not)
+// vycisteni objektu - vola se pred zpracovanim dalsiho thumbnailu nebo kdyz uz
+// neni potreba thumbnail (at uz hotovy nebo ne) z tohoto objektu
 void CSalamanderThumbnailMaker::Clear(int thumbnailMaxSize)
 {
     Error = FALSE;
@@ -403,8 +402,8 @@ void CSalamanderThumbnailMaker::Clear(int thumbnailMaxSize)
     {
         if (thumbnailMaxSize != ThumbnailMaxWidth || thumbnailMaxSize != ThumbnailMaxHeight)
         {
-            // if the user changed the thumbnail size in configuration, we must
-            // allocate ThumbnailBuffer and AuxTransformBuffer again
+            // pokud uzivatel zmenil velikost thumbnailu (v konfiguraci), musime nechat znovu
+            // naalokovat ThumbnailBuffer a AuxTransformBuffer
             if (ThumbnailBuffer != NULL)
             {
                 free(ThumbnailBuffer);
@@ -424,8 +423,8 @@ void CSalamanderThumbnailMaker::Clear(int thumbnailMaxSize)
     Shrinker.Destroy();
 }
 
-// returns TRUE if the entire thumbnail is ready in this object (it was
-// successfully obtained from the plugin)
+// vraci TRUE pokud je v tomto objektu pripraveny cely thumbnail (povedlo se
+// jeho ziskani od pluginu)
 BOOL CSalamanderThumbnailMaker::ThumbnailReady()
 {
     return OriginalHeight != 0 && NextLine >= OriginalHeight && !Error;
@@ -433,12 +432,12 @@ BOOL CSalamanderThumbnailMaker::ThumbnailReady()
 
 void CSalamanderThumbnailMaker::TransformThumbnail()
 {
-    // SSTHUMB_MIRROR_VERT is already done; we still need to perform SSTHUMB_MIRROR_HOR and SSTHUMB_ROTATE_90CW
+    // SSTHUMB_MIRROR_VERT uz je hotova, zbyva provest SSTHUMB_MIRROR_HOR a SSTHUMB_ROTATE_90CW
     int transformation = (PictureFlags & (SSTHUMB_MIRROR_HOR | SSTHUMB_ROTATE_90CW));
     switch (transformation)
     {
     case 0:
-        break; // nothing to do
+        break; // neni to delat
 
     case SSTHUMB_MIRROR_HOR:
     {
@@ -519,16 +518,16 @@ void CSalamanderThumbnailMaker::TransformThumbnail()
     }
 }
 
-// Convert the held thumbnail to a DDB and store its data in CThumbnailData
+// nama drzeny thumbnail prevedeme na DDB a jeji data ulozime do CThumbnailData
 BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
 {
-    // create a DDB and let it initialize with the thumbnail's RGB data
+    // vytvorime DDB a nechame ji inicializovat RGB datama thumbnailu
     HDC hDC = HANDLES(GetDC(NULL));
     BITMAPINFO srcBI;
     memset(&srcBI, 0, sizeof(BITMAPINFO));
     srcBI.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     srcBI.bmiHeader.biWidth = ThumbnailRealWidth;
-    srcBI.bmiHeader.biHeight = -ThumbnailRealHeight; // we have a top-down representation
+    srcBI.bmiHeader.biHeight = -ThumbnailRealHeight; // mam top-down reprezentaci
     srcBI.bmiHeader.biPlanes = 1;
     srcBI.bmiHeader.biBitCount = 32;
     srcBI.bmiHeader.biCompression = BI_RGB;
@@ -542,7 +541,7 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // obtain the "geometry" of the newly created bitmap
+    // ziskame "geometrii" prave vytvorene bitmapy
     BITMAP bitmap;
     if (GetObject(hBmp, sizeof(BITMAP), &bitmap) == NULL)
     {
@@ -551,9 +550,9 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // allocate a buffer for the raw bitmap data
-    // destruction happens in CIconCache::Destroy() or a few lines below
-    // in case of a refresh
+    // alokujeme buffer pro raw data bitmpay
+    // destrukce probehne v CIconCache::Destroy() nebo o par radku niz
+    // v pripade refreshe
 
     DWORD rawSize = bitmap.bmWidthBytes * bitmap.bmPlanes * bitmap.bmHeight;
 
@@ -565,7 +564,7 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // pull the raw data into the allocated array
+    // vytahneme raw data do alokovaneho pole
     if (GetBitmapBits(hBmp, rawSize, bits) == NULL)
     {
         TRACE_E("GetBitmapBits failed!");
@@ -574,14 +573,14 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // discard the bitmap
+    // zahodime bitmapu
     HANDLES(DeleteObject(hBmp));
 
-    // if we already hold some data, free it before storing the new data
+    // pokud uz nejaka data drzime, musime je uvolnit pro nova
     if (data->Bits != NULL)
         free(data->Bits);
 
-    // store the result
+    // ulozime vysledek
     data->Width = (WORD)bitmap.bmWidth;
     data->Height = (WORD)bitmap.bmHeight;
     data->Planes = bitmap.bmPlanes;
@@ -616,7 +615,7 @@ void CSalamanderThumbnailMaker::HandleIncompleteImages()
 }
 
 // *********************************************************************************
-// methods of the CSalamanderThumbnailMakerAbstract interface
+// metody rozhrani CSalamanderThumbnailMakerAbstract
 // *********************************************************************************
 
 BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD flags)
@@ -637,7 +636,7 @@ BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD
     PictureFlags = flags;
     ProcessTopDown = (flags & SSTHUMB_MIRROR_VERT) == 0;
 
-    int maxWidth = ThumbnailMaxWidth; // maximum thumbnail size
+    int maxWidth = ThumbnailMaxWidth; // maximalni velikost thumbnailu
     int maxHeight = ThumbnailMaxHeight;
 
     if (maxWidth < 1 || maxHeight < 1)
@@ -649,14 +648,14 @@ BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD
 
     if (OriginalWidth <= maxWidth && OriginalHeight <= maxHeight)
     {
-        // copy the data
+        // okopirujeme data
         ThumbnailRealWidth = OriginalWidth;
         ThumbnailRealHeight = OriginalHeight;
         ShrinkImage = FALSE;
     }
     else
     {
-        // keep the aspect ratio
+        // zachovame pomer stran
         if ((double)maxWidth / (double)maxHeight < (double)OriginalWidth / (double)OriginalHeight)
         {
             ThumbnailRealWidth = maxWidth;
@@ -667,7 +666,7 @@ BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD
             ThumbnailRealHeight = maxHeight;
             ThumbnailRealWidth = (int)((double)maxHeight / ((double)OriginalHeight / (double)OriginalWidth));
         }
-        // no dimension entering the algorithm may be zero; better to break proportions
+        // do algoritmu nesmi vstoupit zadny z rozmeru nulovy; radeji porusime proporce
         if (ThumbnailRealWidth < 1)
             ThumbnailRealWidth = 1;
         if (ThumbnailRealHeight < 1)
@@ -722,7 +721,7 @@ BOOL CSalamanderThumbnailMaker::ProcessBuffer(void* buffer, int rowsCount)
     {
         if (!Window->ICStopWork)
             TRACE_E("CSalamanderThumbnailMaker::ProcessBuffer failed. Error=" << Error << " NextLine=" << NextLine << " OriginalHeight=" << OriginalHeight);
-        return FALSE; // we are going to stop (error, overflow, or sleep-icon-cache)
+        return FALSE; // budeme koncit (chyba, presah nebo sleep-icon-cache)
     }
     if (NextLine == -1)
     {
@@ -754,12 +753,12 @@ BOOL CSalamanderThumbnailMaker::ProcessBuffer(void* buffer, int rowsCount)
     {
         if (ShrinkImage)
         {
-            // shrink to the thumbnail size
+            // zmensime na thumbnail
             Shrinker.ProcessRows((DWORD*)buffer, rowsCount);
         }
         else
         {
-            // copy 1:1
+            // preneseme 1:1
             if (ProcessTopDown)
             {
                 memcpy(ThumbnailBuffer + NextLine * ThumbnailRealWidth, buffer, rowsCount * ThumbnailRealWidth * sizeof(DWORD));

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -390,7 +389,7 @@ CCompressParamsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetComboCurSelData(GetDlgItem(HWindow, IDCfgDictSize), CompressParams->DictSize);
         SetComboCurSelData(GetDlgItem(HWindow, IDCfgWordSize), CompressParams->WordSize);
 
-        break; // let DefDlgProc handle focus
+        break; // request focus from DefDlgProc
     }
 
     case WM_COMMAND:
@@ -435,7 +434,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontally and vertically center the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // let DefDlgProc handle focus
+        break; // request focus from DefDlgProc
 
     case WM_COMMAND:
         break;
@@ -484,7 +483,7 @@ CConfigurationDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         EnableWindow(GetDlgItem(HWindow, IDC_CFG_LISTINFOMETHOD), Cfg.ExtendedListInfo);
 
         CompressParamsDlg.HWindow = HWindow;
-        break; // let DefDlgProc handle focus
+        break; // request focus from DefDlgProc
     }
 
     case WM_COMMAND:
@@ -567,7 +566,7 @@ CExtOptionsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (!CreateChilds())
         {
             DestroyWindow(HWindow); // error -> do not open the dialog
-            return FALSE;           // end processing
+            return FALSE;           // stop processing
         }
 
         // set archive name
@@ -581,7 +580,7 @@ CExtOptionsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         CompressParamsDlg.HWindow = HWindow;
 
-        break; // let DefDlgProc handle focus
+        break; // request focus from DefDlgProc
     }
 
     case WM_COMMAND:
@@ -667,7 +666,7 @@ CEnterPasswordDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
     {
         /*
-      // support for skip and skip_all
+      // preparation for skip and skip_all
       switch (LOWORD(wParam))
       {
         case IDC_SKIP: return EndDialog(HWindow, DIALOG_SKIP);
