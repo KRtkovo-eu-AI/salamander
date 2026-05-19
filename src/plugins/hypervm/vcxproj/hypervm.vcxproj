@@ -144,6 +144,8 @@
     </ClCompile>
     <ClCompile Include="..\menu.cpp">
     </ClCompile>
+    <ClCompile Include="..\fs.cpp">
+    </ClCompile>
     <ClCompile Include="..\precomp.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

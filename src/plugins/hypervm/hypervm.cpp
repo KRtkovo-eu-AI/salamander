@@ -15,6 +15,7 @@
 CPluginInterface PluginInterface;
 // dalsi casti interfacu CPluginInterface
 CPluginInterfaceForMenuExt InterfaceForMenuExt;
+extern CPluginInterfaceForFSAbstract* gHyperVFSInterfacePtr;
 
 // globalni data
 const char* PluginNameEN = "Hyper-V Machines";    // neprekladane jmeno pluginu, pouziti pred loadem jazykoveho modulu + pro debug veci
@@ -25,6 +26,8 @@ HINSTANCE HLanguage = NULL;   // handle k SLG-cku - jazykove zavisle resourcy
 
 // obecne rozhrani Salamandera - platne od startu az do ukonceni pluginu
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+char AssignedFSName[MAX_PATH] = "";
+int AssignedFSNameLen = 0;
 
 // definice promenne pro "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
@@ -127,7 +130,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGeneral->SetHelpFileName("hypervm.chm");
 
     // nastavime zakladni informace o pluginu
-    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_DYNAMICMENUEXT | FUNCTION_CONFIGURATION,
+    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_FILESYSTEM | FUNCTION_CONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION), PluginNameShort,
                                    NULL, NULL);
@@ -172,10 +175,7 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    // zakladni cast:
-    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_HELLO), SALHOTKEY('M', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
-                            MENUCMD_SHOWHELLO, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
-
+    salamander->AddFSName("hyperv", &AssignedFSName, &AssignedFSNameLen);
     ManagedBridge_EnsureInitialized(parent);
 
     /*
@@ -195,4 +195,10 @@ CPluginInterfaceForMenuExtAbstract* WINAPI
 CPluginInterface::GetInterfaceForMenuExt()
 {
     return &InterfaceForMenuExt;
+}
+
+CPluginInterfaceForFSAbstract* WINAPI
+CPluginInterface::GetInterfaceForFS()
+{
+    return gHyperVFSInterfacePtr;
 }
