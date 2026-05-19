@@ -61,6 +61,7 @@ public:
     virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect) { (void)srcFSPath; (void)tgtFSPath; (void)keyState; *dropEffect = allowedEffects & DROPEFFECT_COPY; }
     virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
     virtual BOOL WINAPI GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset) { (void)text; (void)pathLen; (void)offset; return FALSE; }
+    virtual void WINAPI CompleteDirectoryLineHotPath(char* path, int pathBufSize) { (void)path; (void)pathBufSize; }
     virtual BOOL WINAPI GetPathForMainWindowTitle(const char* fsName, int mode, char* buf, int bufSize) { (void)mode; _snprintf(buf, bufSize, "%s:%s", fsName, Path); return TRUE; }
     virtual void WINAPI ShowInfoDialog(const char* fsName, HWND parent) { (void)fsName; (void)parent; }
     virtual BOOL WINAPI ExecuteCommandLine(HWND parent, char* command, int& selFrom, int& selTo) { (void)parent; (void)command; (void)selFrom; (void)selTo; return FALSE; }
