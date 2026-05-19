@@ -1172,7 +1172,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
         return TRUE;
     }
 
-    if (controlPressed && !altPressed &&
+    if (controlPressed && !altPressed && !shiftPressed &&
         (wParam == VK_RETURN || wParam == VK_LBRACKET || wParam == VK_RBRACKET ||
          wParam == VK_SPACE))
     {
