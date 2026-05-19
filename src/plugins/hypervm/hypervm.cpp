@@ -175,7 +175,9 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    salamander->AddFSName("hyperv", &AssignedFSName, &AssignedFSNameLen);
+    SalamanderGeneral->GetPluginFSName(AssignedFSName, 0);
+    AssignedFSNameLen = lstrlenA(AssignedFSName);
+    salamander->SetChangeDriveMenuItem("	Hyper-V Machines", 0);
     ManagedBridge_EnsureInitialized(parent);
 
     /*

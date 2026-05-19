@@ -23,6 +23,8 @@ char* LoadStr(int resID);
 extern char AssignedFSName[MAX_PATH];
 extern int AssignedFSNameLen;
 
+#define MENUCMD_SHOWHELLO 1
+
 
 //
 // ****************************************************************************
