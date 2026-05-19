@@ -288,6 +288,7 @@ public:
         const UINT ID_SHUTDOWN = 2004;
 
         AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
+        AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         if (running)
         {
             AppendMenuA(menu, MF_STRING, ID_TURNOFF, "Turn Off");
