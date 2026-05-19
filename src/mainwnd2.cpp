@@ -243,7 +243,8 @@ const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
 };
 const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT] =
     {
-        "5.0",
+        "5.0 Samandarin 0.2",
+        "5.0 Samandarin 0.1",
         "4.0",
         "4.0 beta 1 (DB177)",
         "4.0 beta 1 (DB171)",
