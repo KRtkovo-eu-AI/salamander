@@ -1,0 +1,42 @@
+=============================================================
+Service Explorer (Altap Salamander Plugin) - Changelog
+=============================================================
+
+Version 0.0.6 (08.09.2009)
+-------------------------
++ changing the startupmode is now supported
+* RTL is now statically linked
+
+Version 0.0.5 (07.09.2009)
+-------------------------
++ new "Info dialog"
++ moved all strings to the lanugage dll
+* removed the extension column
+* doesn't need admin privileges anymore (at least for listing) 
+- numerous smaller bugfixes (icons, infolinecontent,..)
+
+Version 0.0.4 (29.08.2009)
+-------------------------
++ new contextmenu entry "Open Service Control Manager"
+- invalid string in the information line when selecting multiple files (@Jan)
+- removed (hopefully) all debugmessages
+
+Version 0.0.3 (28.08.2009)
+-------------------------
++ integrated contextmenu functionality for start/stop/restart services
+* changed filesystemname from "srv" to "svc"
+* changed plugin directory from "SrvExp" to "svcexp" 
+
+Version 0.0.2 (28.08.2009)
+-------------------------
+- fixed a debug "Error" message in the "About" dialog (thx @thomas)
+
+Version 0.0.1 (28.08.2009)
+-------------------------
+First public release.
+
+Legend
+------
+[*] Change
+[-] Bugfix
+[+] New feature, enhancement

@@ -15,6 +15,7 @@
 #include "plugins.h"
 #include "fileswnd.h"
 #include "dialogs.h"
+#include "darkmode.h"
 
 //****************************************************************************
 //
@@ -272,7 +273,10 @@ void CFindDialog::OnColorsChange()
     if (TBHeader != NULL)
         TBHeader->OnColorsChange();
     if (FoundFilesListView != NULL && FoundFilesListView->HWindow != NULL)
+    {
         ListView_SetImageList(FoundFilesListView->HWindow, HFindSymbolsImageList, LVSIL_SMALL);
+        DarkModeUpdateListViewColors(FoundFilesListView->HWindow);
+    }
     if (MenuBar != NULL)
     {
         MenuBar->SetFont();

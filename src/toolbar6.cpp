@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -24,7 +24,8 @@ CDriveBar::CDriveBar(HWND hNotifyWindow, CObjectOrigin origin)
 {
     CALL_STACK_MESSAGE_NONE
     List = NULL;
-    // tato inicializace je take ve WM_DESTROY, protoze okno se pouze zhasina a rozsveci
+    SetDarkCheckedUseAccent(FALSE);
+    // Repeat this initialization in WM_DESTROY because the window only dims and lights up again.
     CheckedDrive[0] = 0;
     HDrivesIcons = NULL;
     HDrivesIconsGray = NULL;

@@ -142,8 +142,8 @@ BOOL CSplashScreen::PrepareBitmap()
     r.right = Width;
     r.bottom = Height;
 
-    // paint the background white
-    SetBkColor(hDC, RGB(255, 255, 255));
+    // paint the background to match the application's dark theme (#212121)
+    SetBkColor(hDC, RGB(33, 33, 33));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
     CSVGSprite svgText;
@@ -368,8 +368,8 @@ AboutAndEvalDlgCreateBkgnd(HWND hWindow)
 
     hDC = bitmap->HMemDC;
 
-    // paint the background white
-    SetBkColor(hDC, RGB(255, 255, 255));
+    // paint the background to match the application's dark theme (#212121)
+    SetBkColor(hDC, RGB(33, 33, 33));
     ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, "", 0, NULL);
 
     CSVGSprite svgText;
@@ -415,14 +415,11 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         new CStaticText(HWindow, IDS_ABOUT_SALAMANDER, STF_BOLD);
         //      new CStaticText(HWindow, IDS_ABOUT_FIRM, STF_BOLD);
 
-        // if the environment is in Czech or in Slovak, show the Czech website automatically
-        BOOL english = LanguageID != 0x405 /* Czech */ && LanguageID != 0x41B /* Slovak */;
-
-        hl = new CHyperLink(HWindow, IDC_ABOUT_WWW);
+        hl = new CHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE);
         if (hl != NULL)
         {
-            const char* url = english ? "https://www.altap.cz" : "https://www.altap.cz/cz";
-            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url + 8);
+            const char* url = "https://github.com/KRtkovo-eu-AI/salamander";
+            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url);
             hl->SetActionOpen(url);
         }
 
@@ -435,17 +432,20 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hdcStatic = (HDC)wParam;
         HWND hwndStatic = (HWND)lParam;
         int resID = GetWindowLong(hwndStatic, GWL_ID);
-        COLORREF textClr = RGB(70, 70, 70);
+        COLORREF textClr = RGB(224, 224, 224);
         switch (resID)
         {
+        case IDC_ABOUT_WWW:
+            textClr = RGB(86, 156, 214);
+            break;
         case IDC_STATIC_6:
         case IDC_STATIC_7:
         case IDC_STATIC_8:
-            textClr = RGB(128, 128, 128);
+            textClr = RGB(160, 160, 160);
             break;
         }
         SetTextColor(hdcStatic, textClr);
-        SetBkColor(hdcStatic, RGB(255, 255, 255));
+        SetBkColor(hdcStatic, RGB(33, 33, 33));
         return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH);
     }
 

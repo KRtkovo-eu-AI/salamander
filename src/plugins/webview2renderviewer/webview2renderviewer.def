@@ -1,0 +1,7 @@
+LIBRARY WEBVIEW2RENDERVIEWER.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
+EXPORTS RenderViewer_GetCurrentColor
+EXPORTS RenderViewer_SetDarkModeState
+EXPORTS RenderViewer_ApplyDarkModeTree

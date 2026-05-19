@@ -12,10 +12,44 @@
 #include <uxtheme.h>
 #include <vssym32.h>
 
+#include "consts.h"
+#include "darkmode.h"
+
 #include "nanosvg\nanosvg.h"
 #include "nanosvg\nanosvgrast.h"
 
 #include "mainwnd.h"
+
+namespace
+{
+COLORREF LightenColorSimple(COLORREF color, int amount)
+{
+    int r = GetRValue(color) + amount;
+    int g = GetGValue(color) + amount;
+    int b = GetBValue(color) + amount;
+    if (r > 255)
+        r = 255;
+    if (g > 255)
+        g = 255;
+    if (b > 255)
+        b = 255;
+    return RGB(r, g, b);
+}
+
+COLORREF DarkenColorSimple(COLORREF color, int amount)
+{
+    int r = GetRValue(color) - amount;
+    int g = GetGValue(color) - amount;
+    int b = GetBValue(color) - amount;
+    if (r < 0)
+        r = 0;
+    if (g < 0)
+        g = 0;
+    if (b < 0)
+        b = 0;
+    return RGB(r, g, b);
+}
+} // namespace
 
 //****************************************************************************
 //
@@ -1841,7 +1875,12 @@ void CButton::PaintFace(HDC hdc, const RECT* rect, BOOL enabled)
 
         HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
         int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-        int oldTextColor = SetTextColor(hdc, GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
+        const bool useDark = DarkModeShouldUseDarkColors();
+        const COLORREF background = useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+        COLORREF textColor = enabled ? (useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT))
+                                     : GetSysColor(COLOR_GRAYTEXT);
+        textColor = DarkModeEnsureReadableForeground(textColor, background);
+        int oldTextColor = SetTextColor(hdc, textColor);
         RECT r2 = r;
         r2.top--;
         DWORD dtFlags = DT_CENTER | DT_VCENTER | DT_SINGLELINE;
@@ -2800,20 +2839,69 @@ void CToolbarHeader::CheckToolbar(DWORD checkMask)
 
 void CToolbarHeader::OnPaint(HDC hDC, BOOL hideAccel, BOOL prefixOnly)
 {
-    RECT r;
-    GetClientRect(HWindow, &r);
-    DrawEdge(hDC, &r, BDR_SUNKENOUTER, BF_RECT);
-    r.left += 5;
+    RECT rect;
+    GetClientRect(HWindow, &rect);
+
+    RECT textRect = rect;
+    const bool useDark = DarkModeShouldUseDarkColors();
+
+    if (useDark)
+    {
+        const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
+        const COLORREF light = LightenColorSimple(background, 32);
+        const COLORREF shadow = DarkenColorSimple(background, 48);
+
+        HBRUSH brush = CreateSolidBrush(background);
+        FillRect(hDC, &rect, brush);
+        DeleteObject(brush);
+
+        HPEN lightPen = CreatePen(PS_SOLID, 1, light);
+        HPEN shadowPen = CreatePen(PS_SOLID, 1, shadow);
+        HPEN oldPen = (HPEN)SelectObject(hDC, lightPen);
+
+        MoveToEx(hDC, rect.left, rect.bottom - 1, NULL);
+        LineTo(hDC, rect.left, rect.top);
+        LineTo(hDC, rect.right - 1, rect.top);
+
+        SelectObject(hDC, shadowPen);
+        LineTo(hDC, rect.right - 1, rect.bottom - 1);
+        LineTo(hDC, rect.left, rect.bottom - 1);
+
+        SelectObject(hDC, oldPen);
+        DeleteObject(lightPen);
+        DeleteObject(shadowPen);
+
+        InflateRect(&textRect, -1, -1);
+    }
+    else
+    {
+        DrawEdge(hDC, &rect, BDR_SUNKENOUTER, BF_RECT);
+        InflateRect(&textRect, -2, -2);
+    }
+
+    textRect.left += 5;
+
     char buff[100];
     GetWindowText(HWindow, buff, 100);
-    SetBkMode(hDC, TRANSPARENT);
+
     HFONT hOldFont = (HFONT)SelectObject(hDC, (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
+    int oldBkMode = SetBkMode(hDC, TRANSPARENT);
+    const COLORREF baseText = useDark
+                                  ? DarkModeEnsureReadableForeground(GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]),
+                                                                     GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]))
+                                  : GetSysColor(COLOR_BTNTEXT);
+    COLORREF oldColor = SetTextColor(hDC, baseText);
+
     DWORD dtFlags = DT_SINGLELINE | DT_LEFT | DT_VCENTER;
     if (hideAccel)
         dtFlags |= DT_HIDEPREFIX;
     if (prefixOnly)
         dtFlags |= DT_PREFIXONLY;
-    DrawText(hDC, buff, -1, &r, dtFlags);
+
+    DrawText(hDC, buff, -1, &textRect, dtFlags);
+
+    SetTextColor(hDC, oldColor);
+    SetBkMode(hDC, oldBkMode);
     SelectObject(hDC, hOldFont);
 }
 

@@ -94,3 +94,25 @@ Copyright (c) 2013 Karl Dubost
 Copyright (c) 2014 Dave Liepmann
 Copyright (c) Sindre Sorhus
 Copyright (c) 2016 Osmo Salomaa
+
+=== JSON Viewer Plugin ===
+The JSON Viewer plugin utilizes the following third-party software:
+- Microsoft .NET Framework 4.8, provided by Microsoft Corporation under the Microsoft .NET Framework license terms.
+- Newtonsoft.Json 13.0.3 by James Newton-King, released under the MIT License.
+
+=== PrismSharp Text Viewer Plugin ===
+The PrismSharp Text Viewer plugin utilizes the following third-party software:
+- Microsoft .NET Framework 4.8, provided by Microsoft Corporation under the Microsoft .NET Framework license terms.
+- Microsoft.Web.WebView2 1.0.2420.47 by Microsoft Corporation, distributed under the BSD 3-Clause License.
+- PrismSharp 1.0.0-beta by Tomáš Kubec, released under the MIT License, which includes Prism.js by Lea Verou and the PrismJS contributors under the MIT License.
+- Newtonsoft.Json 13.0.3 by James Newton-King, released under the MIT License.
+
+=== WebView2 Render Viewer Plugin ===
+The WebView2 Render Viewer plugin utilizes the following third-party software:
+- Microsoft .NET Framework 4.8, provided by Microsoft Corporation under the Microsoft .NET Framework license terms.
+- Microsoft.Web.WebView2 1.0.2420.47 by Microsoft Corporation, distributed under the BSD 3-Clause License.
+- Markdig 0.36.2 by Alexandre Mutel and contributors, released under the BSD 2-Clause License.
+
+=== Samandarin Update Notifier Plugin ===
+The Samandarin Update Notifier plugin utilizes the following third-party software:
+- Microsoft .NET Framework 4.8, provided by Microsoft Corporation under the Microsoft .NET Framework license terms.

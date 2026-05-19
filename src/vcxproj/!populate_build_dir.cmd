@@ -2,8 +2,8 @@
 
 set SAL_POPULATE_ROOT=%~dp0%
 
-set MSVC_REDIST_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC\14.38.33130
-set UCRT_REDIST_PATH=C:\Program Files (x86)\Windows Kits\10\Redist\10.0.22621.0
+set MSVC_REDIST_PATH=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Redist\MSVC\14.44.35112
+set UCRT_REDIST_PATH=D:\Windows Kits\10\Redist\10.0.22621.0
 set UCRTD_REDIST_PATH=C:\Program Files (x86)\Microsoft SDKs\Windows Kits\10\ExtensionSDKs\Microsoft.UniversalCRT.Debug\10.0.22621.0
 
 echo Populate Open Salamander Build directory with redistributable DLLs and optionally
@@ -49,6 +49,7 @@ for %%t in (Debug_x86 Debug_x64 Release_x86 Release_x64) do (
   echo.
   echo Target directory: %%t
   call :copy_thirdparty "%OPENSAL_BUILD_DIR%salamander\%%t"
+  call :copy_csharp_plugins "%%t" "%OPENSAL_BUILD_DIR%salamander\%%t"
 )
 
 call :sfx_make_all
@@ -133,6 +134,30 @@ call :mycopy_with_mkdir_bat readme.txt     ..\plugins\zip\zip2sfx %1\plugins\zip
 call :mycopy_with_mkdir_bat sam_cz.set     ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
 call :mycopy_with_mkdir_bat sample.set     ..\plugins\zip\zip2sfx %1\plugins\zip\zip2sfx
 
+exit /b
+
+
+:copy_csharp_plugins
+setlocal
+set "CONFIGURATION=%~1"
+set "TARGET_ROOT=%~2"
+set "SOURCE_PLUGINS=%SAL_POPULATE_ROOT%..\..\build\salamander\%CONFIGURATION%\plugins"
+
+if not exist "%SOURCE_PLUGINS%\*" goto copy_csharp_plugins_end
+
+set "TARGET_PLUGINS=%TARGET_ROOT%\plugins"
+if not exist "%TARGET_PLUGINS%" mkdir "%TARGET_PLUGINS%"
+
+for /D %%P in ("%SOURCE_PLUGINS%\*") do (
+  call :mycopy_dir "%%~fP" "%TARGET_PLUGINS%\%%~nxP"
+)
+
+for %%F in ("%SOURCE_PLUGINS%\*.spl") do (
+  if exist "%%~fF" copy /Y "%%~fF" "%TARGET_PLUGINS%\" >nul
+)
+
+:copy_csharp_plugins_end
+endlocal
 exit /b
 
 

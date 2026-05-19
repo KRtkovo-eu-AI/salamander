@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -93,9 +93,10 @@ protected:
     BOOL Customizing;   // je prave toolbara konfigurovana
     int InserMarkIndex; // -1 = zadny
     BOOL InserMarkAfter;
-    BOOL MouseIsTracked;  // je mys sledovana pomoci TrackMouseEvent?
-    DWORD DropDownUpTime; // cas v [ms], kdy byl odmackunt drop down, pro ochranu pred novym zamacknutim
-    BOOL HelpMode;        // Salamander je Shift+F1 (ctx help) rezimu a toolbar by mel vysvitit i disabled polozky pod kurzorem
+    BOOL MouseIsTracked;  // Is the mouse being tracked via TrackMouseEvent?
+    DWORD DropDownUpTime; // Timestamp in milliseconds when the drop-down was released to avoid immediate re-pressing.
+    BOOL HelpMode;        // Salamander is in Shift+F1 (context help) mode; highlight disabled items under the cursor.
+    BOOL DarkCheckedUseAccent; // pouzivat v dark mode akcent pro zamacknuta tlacitka
 
 public:
     //
@@ -146,6 +147,7 @@ public:
 
     virtual void WINAPI SetPadding(const TOOLBAR_PADDING* padding);
     virtual void WINAPI GetPadding(TOOLBAR_PADDING* padding);
+    void SetDarkCheckedUseAccent(BOOL useAccent);
 
     // obehne vsechny polozky a pokud maji nastaveny ukazatel 'EnablerData'
     // porovna hodnoty (na kterou ukazuje) se skutecnym stavem polozky.

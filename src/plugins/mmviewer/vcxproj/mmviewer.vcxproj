@@ -129,6 +129,7 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp" />
     <ClCompile Include="..\buffer.cpp">
     </ClCompile>
     <ClCompile Include="..\dialogs.cpp">

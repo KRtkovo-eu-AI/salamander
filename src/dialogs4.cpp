@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -18,6 +18,7 @@
 #include "viewer.h"
 #include "find.h"
 #include "gui.h"
+#include "darkmode.h"
 
 //****************************************************************************
 //
@@ -295,6 +296,7 @@ CConfiguration::CConfiguration()
     SortDirsByExt = FALSE;  // directories have no extensions, an option kept for companies/users relying on the old directory ordering
     SaveHistory = TRUE;
     SaveWorkDirs = FALSE; // by default save space in the registry, the list is large
+    WorkDirsHistoryScope = wdhsShared;
     EnableCmdLineHistory = TRUE;
     SaveCmdLineHistory = TRUE;
     //  LantasticCheck = FALSE;
@@ -378,8 +380,10 @@ CConfiguration::CConfiguration()
     FullRowSelect = FALSE;
     FullRowHighlight = TRUE;
     UseIconTincture = TRUE;
+    UsePanelTabs = TRUE;
     ShowPanelCaption = TRUE;
     ShowPanelZoom = TRUE;
+    UseWindowsDarkMode = FALSE;
     strcpy(InfoLineContent, "$(FileName): $(FileSize), $(FileDate), $(FileTime), $(FileAttributes), $(FileDOSName)");
 
     HotPathAutoConfig = TRUE;
@@ -533,12 +537,16 @@ CConfiguration::CConfiguration()
 
     TitleBarShowPath = TRUE;
     TitleBarMode = TITLE_BAR_MODE_DIRECTORY; // like Explorer
+    TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
+    TabButtonMinWidth = 0;
+    TabButtonMaxWidth = 0;
+    TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
     UseTitleBarPrefix = FALSE;
     strcpy(TitleBarPrefix, "ADMIN");
     UseTitleBarPrefixForced = FALSE;
     TitleBarPrefixForced[0] = 0;
 
-    MainWindowIconIndex = 0; // default icon
+    MainWindowIconIndex = MAINWINDOWICON_DEFAULT_INDEX; // default Samandarin icon
     MainWindowIconIndexForced = -1;
 
     ClickQuickRename = TRUE;
@@ -672,7 +680,7 @@ int CConfiguration::GetMainWindowIconIndex()
     if (index >= 0 && index < MAINWINDOWICONS_COUNT)
         return index;
     else
-        return 0; // default
+        return MAINWINDOWICON_DEFAULT_INDEX; // default Samandarin icon
 }
 
 //
@@ -683,15 +691,16 @@ int CConfiguration::GetMainWindowIconIndex()
 CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                      int mode, int param)
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
-                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 14
-                                                              : mode == 2   ? 13
-                                                              : mode == 3   ? 21
-                                                              : mode == 4   ? 12
+                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 15
+                                                              : mode == 2   ? 14
+                                                              : mode == 3   ? 22
+                                                              : mode == 4   ? 13
                                                               : mode == 5   ? 1
-                                                                            : 11 /* mode == 6 */,
+                                                                            : 12 /* mode == 6 */,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight),
+      TabsPageVisible(TRUE),
       PageView(mode == 4 ? param : -1), //-1 = active panel
       PageUserMenu(userMenuItems),
       PageHotPath(mode == 1 ? TRUE : FALSE, param),
@@ -706,37 +715,90 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     /*00*/ Add(&PageGeneral);       // General
     /*01*/ Add(&PagePanels);        // Panels
-    /*02*/ Add(&PageHistory);       // History
-    /*03*/ Add(&PageSystem);        // System
-    /*04*/ Add(&PageRegional);      // Regional
-    /*05*/ Add(&PageMainWindow);    // MainWindow
-    /*06*/ Add(&PageAppear);        // Appearance
-    /*07*/ Add(&PageColors);        // Colors
-    /*08*/ Add(&PageKeyboard);      // Keyboard
-    /*09*/ Add(&PageConfirmations); // Confirmations
-    /*10*/ Add(&PageChangeDrive);   // Change Drive Menu
-    /*11*/ Add(&PageDrives);        // Drives
-    /*12*/ Add(&PageView);          // Views
-    /*13*/ Add(&PageUserMenu);      // User Menu
-    /*14*/ Add(&PageHotPath);       // Hot Paths
-    /*15*/ Add(&PageSecurity);      // Security
-    /*16*/ Add(&PageIconOvrls);     // Icon Overlays
-    /*17*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
-    /*18*/ Add(&Page13, &PageViewEdit);
-    /*19*/ Add(&Page14, &PageViewEdit);
-    /*20*/ Add(&Page15, &PageViewEdit);
-    /*21*/ Add(&PageViewer, &PageViewEdit);
-    /*22*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
-    /*23*/ Add(&PageP4, &PagePP);
-    /*24*/ Add(&PageP3, &PagePP);
-    /*25*/ Add(&PageP1, &PagePP);
-    /*26*/ Add(&PageP2, &PagePP);
+    /*02*/ Add(&PageTabs);          // Tabs
+    /*03*/ Add(&PageHistory);       // History
+    /*04*/ Add(&PageSystem);        // System
+    /*05*/ Add(&PageRegional);      // Regional
+    /*06*/ Add(&PageMainWindow);    // MainWindow
+    /*07*/ Add(&PageAppear);        // Appearance
+    /*08*/ Add(&PageColors);        // Colors
+    /*09*/ Add(&PageKeyboard);      // Keyboard
+    /*10*/ Add(&PageConfirmations); // Confirmations
+    /*11*/ Add(&PageChangeDrive);   // Change Drive Menu
+    /*12*/ Add(&PageDrives);        // Drives
+    /*13*/ Add(&PageView);          // Views
+    /*14*/ Add(&PageUserMenu);      // User Menu
+    /*15*/ Add(&PageHotPath);       // Hot Paths
+    /*16*/ Add(&PageSecurity);      // Security
+    /*17*/ Add(&PageIconOvrls);     // Icon Overlays
+    /*18*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
+    /*19*/ Add(&Page13, &PageViewEdit);
+    /*20*/ Add(&Page14, &PageViewEdit);
+    /*21*/ Add(&Page15, &PageViewEdit);
+    /*22*/ Add(&PageViewer, &PageViewEdit);
+    /*23*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
+    /*24*/ Add(&PageP4, &PagePP);
+    /*25*/ Add(&PageP3, &PagePP);
+    /*26*/ Add(&PageP1, &PagePP);
+    /*27*/ Add(&PageP2, &PagePP);
     /*27*/ //  Add(&PageShellExtensions);
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
            // when the page order changes, update the constructor
            // mode == 0 ? Configuration.LastFocusedPage : 4
            // in 1.6b2 this fooled me
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+}
+
+void CConfigurationDlg::EnsureTabsPageVisibility(BOOL showTabs)
+{
+    HWND tree = GetTreeViewHandle();
+    if (tree == NULL)
+        return;
+
+    if (showTabs)
+    {
+        if (TabsPageVisible && GetPageTreeItem(&PageTabs) != NULL)
+            return;
+
+        TVINSERTSTRUCT tvis;
+        ZeroMemory(&tvis, sizeof(tvis));
+        tvis.hParent = NULL;
+        HTREEITEM panelsItem = GetPageTreeItem(&PagePanels);
+        tvis.hInsertAfter = panelsItem != NULL ? panelsItem : TVI_LAST;
+        tvis.item.mask = TVIF_TEXT | TVIF_STATE | TVIF_PARAM;
+        const TCHAR* tabsTitle = GetPageTitle(&PageTabs);
+        tvis.item.pszText = (TCHAR*)tabsTitle;
+        tvis.item.cchTextMax = (tabsTitle != NULL) ? (int)_tcslen(tabsTitle) : 0;
+        tvis.item.lParam = (LPARAM)&PageTabs;
+
+        HTREEITEM item = TreeView_InsertItem(tree, &tvis);
+        if (item != NULL)
+        {
+            SetPageTreeItem(&PageTabs, item);
+            TabsPageVisible = TRUE;
+        }
+        return;
+    }
+
+    if (!TabsPageVisible && GetPageTreeItem(&PageTabs) == NULL)
+        return;
+
+    HTREEITEM tabsItem = GetPageTreeItem(&PageTabs);
+    if (tabsItem != NULL)
+    {
+        HTREEITEM selection = TreeView_GetSelection(tree);
+        if (selection == tabsItem)
+        {
+            HTREEITEM fallback = GetPageTreeItem(&PagePanels);
+            if (fallback == tabsItem || fallback == NULL)
+                fallback = TreeView_GetRoot(tree);
+            if (fallback != NULL && fallback != tabsItem)
+                TreeView_SelectItem(tree, fallback);
+        }
+        TreeView_DeleteItem(tree, tabsItem);
+        SetPageTreeItem(&PageTabs, NULL);
+    }
+    TabsPageVisible = FALSE;
 }
 
 void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -750,6 +812,7 @@ void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HOldPluginMsgBoxParent = PluginMsgBoxParent;
         PluginMsgBoxParent = Dialog.HWindow;
         MultiMonCenterWindow(Dialog.HWindow, Parent, TRUE);
+        EnsureTabsPageVisibility(Configuration.UsePanelTabs != 0);
         break;
     }
 
@@ -771,6 +834,12 @@ void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (w != NULL)
                 PostMessage(w, WM_SYSCOLORCHANGE, 0, 0);
         }
+        break;
+    }
+
+    case WM_CFG_UPDATE_TABS_VISIBILITY:
+    {
+        EnsureTabsPageVisibility(wParam != 0);
         break;
     }
     }
@@ -1357,13 +1426,16 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
 
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
+
         break;
     }
 
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
-        ListView_SetBkColor(HListView2, GetSysColor(COLOR_WINDOW));
+        DarkModeUpdateListViewColors(HListView);
+        DarkModeUpdateListViewColors(HListView2);
         break;
     }
 
@@ -1938,6 +2010,7 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
         }
         break;
     }
+
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
@@ -2972,6 +3045,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
 
+        DarkModeUpdateListViewColors(HListView);
+
         break;
     }
 
@@ -3110,6 +3185,19 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 break;
             }
         }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeUpdateListViewColors(HListView);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            DarkModeUpdateListViewColors(HListView);
         break;
     }
     }
@@ -3300,6 +3388,7 @@ CCfgPageColors::CCfgPageColors()
     HighlightMasks.Load(*SourceHighlightMasks);
 
     Dirty = FALSE;
+    SelectedSchemeId = -1;
 }
 
 void CCfgPageColors::Transfer(CTransferInfo& ti)
@@ -3311,9 +3400,25 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < NUMBER_OF_COLORS; i++)
             TmpColors[i] = UserColors[i];
 
-        int schemes[5] = {IDS_COLORSCHEME_SALAMANDER, IDS_COLORSCHEME_EXPLORER, IDS_COLORSCHEME_NORTON, IDS_COLORSCHEME_NAVIGATOR, IDS_COLORSCHEME_CUSTOM};
-        for (i = 0; i < 5; i++)
-            SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[i]));
+        struct SchemeEntry
+        {
+            int Id;
+            int TextResId;
+        };
+        static const SchemeEntry schemes[] = {
+            {0, IDS_COLORSCHEME_SALAMANDER},
+            {1, IDS_COLORSCHEME_EXPLORER},
+            {2, IDS_COLORSCHEME_NORTON},
+            {3, IDS_COLORSCHEME_NAVIGATOR},
+            {5, IDS_COLORSCHEME_CUSTOM},
+            {4, IDS_COLORSCHEME_WINDARK},
+        };
+        for (size_t schemeIndex = 0; schemeIndex < _countof(schemes); schemeIndex++)
+        {
+            int item = (int)SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[schemeIndex].TextResId));
+            if (item != CB_ERR)
+                SendMessage(HScheme, CB_SETITEMDATA, item, schemes[schemeIndex].Id);
+        }
 
         for (i = 0; i < PAGE7DATA_COUNT; i++)
             SendMessage(HItem, CB_ADDSTRING, 0, (LPARAM)LoadStr(Page7Data[i].ItemLabel));
@@ -3322,16 +3427,34 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         for (i = 0; i < CFG_COLORS_BUTTONS; i++)
             SetDlgItemText(HWindow, CConfigurationPage7Masks[i], LoadStr(labels[i]));
 
-        int index = 4; // custom
-        if (CurrentColors == SalamanderColors)
-            index = 0;
+        int schemeId = 5; // custom
+        if (Configuration.UseWindowsDarkMode)
+            schemeId = 4;
+        else if (CurrentColors == SalamanderColors)
+            schemeId = 0;
         else if (CurrentColors == ExplorerColors)
-            index = 1;
+            schemeId = 1;
         else if (CurrentColors == NortonColors)
-            index = 2;
+            schemeId = 2;
         else if (CurrentColors == NavigatorColors)
-            index = 3;
-        SendMessage(HScheme, CB_SETCURSEL, index, 0);
+            schemeId = 3;
+
+        int selIndex = -1;
+        int itemCount = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
+        for (int item = 0; item < itemCount; item++)
+        {
+            int itemSchemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, item, 0);
+            if (itemSchemeId == schemeId)
+            {
+                selIndex = item;
+                break;
+            }
+        }
+        if (selIndex == -1)
+            selIndex = 0;
+        SendMessage(HScheme, CB_SETCURSEL, selIndex, 0);
+        int selectedSchemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, selIndex, 0);
+        SelectedSchemeId = (selectedSchemeId == CB_ERR) ? schemeId : selectedSchemeId;
         SendMessage(HItem, CB_SETCURSEL, 0, 0);
 
         // populate the highlight items list
@@ -3348,13 +3471,16 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
     else
     {
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-        if (index == 0)
+        int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+        if (schemeId == CB_ERR)
+            schemeId = SelectedSchemeId;
+        if (schemeId == 0)
             CurrentColors = SalamanderColors;
-        else if (index == 1)
+        else if (schemeId == 1)
             CurrentColors = ExplorerColors;
-        else if (index == 2)
+        else if (schemeId == 2)
             CurrentColors = NortonColors;
-        else if (index == 3)
+        else if (schemeId == 3)
             CurrentColors = NavigatorColors;
         else
         {
@@ -3363,6 +3489,8 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             for (i = 0; i < NUMBER_OF_COLORS; i++)
                 UserColors[i] = TmpColors[i];
         }
+
+        Configuration.UseWindowsDarkMode = (schemeId == 4);
 
         ColorsChanged(TRUE, TRUE, FALSE); // save time, change only color-dependent items, do not reload icons
 
@@ -3380,13 +3508,16 @@ void CCfgPageColors::LoadColors()
 
     COLORREF* tmpColors;
     int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-    if (index == 0)
+    int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+    if (schemeId == CB_ERR)
+        schemeId = SelectedSchemeId;
+    if (schemeId == 0)
         tmpColors = SalamanderColors;
-    else if (index == 1)
+    else if (schemeId == 1)
         tmpColors = ExplorerColors;
-    else if (index == 2)
+    else if (schemeId == 2)
         tmpColors = NortonColors;
-    else if (index == 3)
+    else if (schemeId == 3)
         tmpColors = NavigatorColors;
     else
         tmpColors = TmpColors;
@@ -3517,6 +3648,22 @@ void CCfgPageColors::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDC_C_MASK5_C), validItem);
 }
 
+void CCfgPageColors::OnSchemeChanged()
+{
+    int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
+    if (index == CB_ERR)
+        return;
+
+    int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+    if (schemeId == CB_ERR)
+        schemeId = SelectedSchemeId;
+
+    if (schemeId == 4 && SelectedSchemeId != 4)
+        WindowsDarkModeBuildPalette(reinterpret_cast<SALCOLOR*>(TmpColors), NULL);
+
+    SelectedSchemeId = schemeId;
+}
+
 void CCfgPageColors::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPageColors::Validate()");
@@ -3547,6 +3694,15 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         HScheme = GetDlgItem(HWindow, IDC_C_SCHEME);
@@ -3585,10 +3741,19 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             StoreMasks();
         }
 
-        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME || LOWORD(wParam) == IDC_C_ITEM)
+        if (HIWORD(wParam) == CBN_SELCHANGE)
         {
-            LoadColors();
-            break;
+            if (LOWORD(wParam) == IDC_C_SCHEME)
+            {
+                OnSchemeChanged();
+                LoadColors();
+                break;
+            }
+            if (LOWORD(wParam) == IDC_C_ITEM)
+            {
+                LoadColors();
+                break;
+            }
         }
         if (HIWORD(wParam) == LBN_SELCHANGE && LOWORD(wParam) == IDC_C_LIST)
         {
@@ -3636,13 +3801,16 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 int index;
 
                 index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-                if (index == 0)
+                int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+                if (schemeId == CB_ERR)
+                    schemeId = SelectedSchemeId;
+                if (schemeId == 0)
                     tmpColors = SalamanderColors;
-                else if (index == 1)
+                else if (schemeId == 1)
                     tmpColors = ExplorerColors;
-                else if (index == 2)
+                else if (schemeId == 2)
                     tmpColors = NortonColors;
-                else if (index == 3)
+                else if (schemeId == 3)
                     tmpColors = NavigatorColors;
                 else
                     tmpColors = TmpColors;
@@ -3788,22 +3956,32 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
             if (cmd != 0)
             {
                 int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-                if (index != 4)
+                int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+                if (schemeId >= 0 && schemeId <= 3)
                 {
                     COLORREF* colors;
-                    if (index == 0)
+                    if (schemeId == 0)
                         colors = SalamanderColors;
-                    else if (index == 1)
+                    else if (schemeId == 1)
                         colors = ExplorerColors;
-                    else if (index == 2)
+                    else if (schemeId == 2)
                         colors = NortonColors;
-                    else if (index == 3)
+                    else if (schemeId == 3)
                         colors = NavigatorColors;
 
                     int i;
                     for (i = 0; i < NUMBER_OF_COLORS; i++)
                         TmpColors[i] = colors[i];
-                    SendMessage(HScheme, CB_SETCURSEL, 4, 0);
+                    int itemCount = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
+                    for (int item = 0; item < itemCount; item++)
+                    {
+                        if ((int)SendMessage(HScheme, CB_GETITEMDATA, item, 0) == 5)
+                        {
+                            SendMessage(HScheme, CB_SETCURSEL, item, 0);
+                            SelectedSchemeId = 5;
+                            break;
+                        }
+                    }
                 }
 
                 if (cmd == 1 || cmd == 3)
@@ -4005,10 +4183,18 @@ void CCfgPageHistory::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_HISTORY_ENABLECMDLINE, Configuration.EnableCmdLineHistory);
     ti.CheckBox(IDC_HISTORY_SAVECMDLINE, Configuration.SaveCmdLineHistory);
 
+    CWorkDirsHistoryScope oldScope = (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope;
+    ti.RadioButton(IDC_HISTORY_WORKDIRS_SHARED, wdhsShared, Configuration.WorkDirsHistoryScope);
+    ti.RadioButton(IDC_HISTORY_WORKDIRS_PER_TAB, wdhsPerTab, Configuration.WorkDirsHistoryScope);
+
     if (ti.Type == ttDataToWindow)
         EnableControls();
     else
+    {
+        if (oldScope != (CWorkDirsHistoryScope)Configuration.WorkDirsHistoryScope)
+            MainWindow->HandleWorkDirsHistoryScopeChange(oldScope);
         MainWindow->EditWindow->FillHistory();
+    }
 }
 
 void CCfgPageHistory::EnableControls()
@@ -4019,6 +4205,7 @@ void CCfgPageHistory::EnableControls()
         CheckDlgButton(HWindow, IDC_HISTORY_WORKDIRS, BST_UNCHECKED);
     }
     EnableWindow(GetDlgItem(HWindow, IDC_HISTORY_WORKDIRS), saveHistory);
+
     BOOL enableCmdLineHistory = IsDlgButtonChecked(HWindow, IDC_HISTORY_ENABLECMDLINE) == BST_CHECKED;
     if (!saveHistory || !enableCmdLineHistory)
         CheckDlgButton(HWindow, IDC_HISTORY_SAVECMDLINE, BST_UNCHECKED);

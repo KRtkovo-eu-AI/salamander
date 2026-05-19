@@ -1,0 +1,215 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{0460A4C1-C947-4CA3-AF4F-EE2F7D45E192}</ProjectGuid>
+    <RootNamespace>samandarin</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props">
+  </Import>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props">
+  </Import>
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x86.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_release.props">
+    </Import>
+    <Import Project="samandarin.props">
+    </Import>
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x86.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props">
+    </Import>
+    <Import Project="samandarin.props">
+    </Import>
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x64.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_release.props">
+    </Import>
+    <Import Project="samandarin.props">
+    </Import>
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\x64.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_base.props">
+    </Import>
+    <Import Project="..\..\shared\vcxproj\plugin_debug.props">
+    </Import>
+    <Import Project="samandarin.props">
+    </Import>
+  </ImportGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'!=''">
+    <SamandarinBuildRoot>$([System.IO.Path]::Combine('$(OPENSAL_BUILD_DIR)', 'salamander'))\</SamandarinBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OPENSAL_BUILD_DIR)'==''">
+    <SamandarinBuildRoot>$(ProjectDir)..\..\..\..\build\salamander\</SamandarinBuildRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SamandarinPluginDir>$(SamandarinBuildRoot)$(Configuration)_$(ShortPlatform)\plugins\samandarin\</SamandarinPluginDir>
+    <OutDir>$(SamandarinPluginDir)</OutDir>
+    <IntDir>$(OutDir)Intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros">
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\shared\auxtools.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\dbg.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+    </ClCompile>
+    <ClCompile Include="..\samandarin.cpp">
+    </ClCompile>
+    <ClCompile Include="..\managed_bridge.cpp">
+    </ClCompile>
+    <ClCompile Include="..\precomp.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\shared\auxtools.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\dbg.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\mhandles.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_base.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_com.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_gen.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_gui.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_thum.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\spl_vers.h">
+    </ClInclude>
+    <ClInclude Include="..\samandarin.h">
+    </ClInclude>
+    <ClInclude Include="..\managed_bridge.h">
+    </ClInclude>
+    <ClInclude Include="..\precomp.h">
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\samandarin.def">
+    </None>
+    <None Include="..\samandarin.rc2">
+    </None>
+    <None Include="..\samandarin.rh">
+    </None>
+    <None Include="..\samandarin.rh2">
+    </None>
+    <None Include="..\lang\lang.rh">
+    </None>
+    <None Include="..\versinfo.rh2">
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\samandarin.rc">
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="lang_samandarin.vcxproj">
+      <Project>{3cb8b01d-bcb3-4f4e-b60a-9b46d2af2f69}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\managed\Samandarin.Managed.csproj">
+      <Project>{E9F70914-3011-4D4F-9E79-3A9540A5E0F3}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <PostBuildEvent>
+      <Command>if not exist "$(SamandarinPluginDir)" mkdir "$(SamandarinPluginDir)"&#x0D;&#x0A;if exist "$(ProjectDir)..\managed\bin\$(Configuration)\Samandarin.Managed.dll" copy /Y "$(ProjectDir)..\managed\bin\$(Configuration)\Samandarin.Managed.dll" "$(SamandarinPluginDir)Samandarin.Managed.dll"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets">
+  </Import>
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

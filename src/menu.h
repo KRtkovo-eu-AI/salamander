@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -558,8 +558,9 @@ extern CMenuPopup MainMenu;
 extern CMenuPopup ArchiveMenu;
 extern CMenuPopup ArchivePanelMenu;
 
-BOOL BuildSalamanderMenus();           // sestavi globalni menu pro Salamandera
-BOOL BuildFindMenu(CMenuPopup* popup); // sestavi instanci menu pro find
+BOOL BuildSalamanderMenus();           // builds the global menu for Salamander
+void UpdateTabbedPanelMenuItems(BOOL tabsEnabled);
+BOOL BuildFindMenu(CMenuPopup* popup); // builds an instance of the find menu
 
 // Prida do 'popup' polozky vytvorene na zaklade pole 'buttonsID'.
 // 'hWindow' je parent tlacitek, na ktere odkazuji konstanty pole 'buttonsID'.

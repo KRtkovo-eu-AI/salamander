@@ -1,10 +1,18 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
 class CColorArrowButton;
+
+#define WM_CFG_UPDATE_TABS_VISIBILITY (WM_APP + 105)
+
+enum CWorkDirsHistoryScope
+{
+    wdhsShared = 0,
+    wdhsPerTab = 1,
+};
 
 //****************************************************************************
 //
@@ -165,12 +173,16 @@ extern const char* DefRightToolBar;
 
 #define TITLE_PREFIX_MAX 100 // size of the buffer for the title prefix
 
+#define TAB_CAPTION_ALIGN_LEFT 0
+#define TAB_CAPTION_ALIGN_CENTER 1
+
 typedef struct
 {
     int IconResID;
     int TextResID;
 } CMainWindowIconItem;
-#define MAINWINDOWICONS_COUNT 4
+#define MAINWINDOWICONS_COUNT 5
+#define MAINWINDOWICON_DEFAULT_INDEX 4
 extern CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT];
 
 struct CConfiguration
@@ -196,6 +208,7 @@ struct CConfiguration
         SortDirsByExt,          // emulate extensions for directories (sort by extension + show in separated Ext column)
         SaveHistory,            // store histories into the configuration?
         SaveWorkDirs,           // store the List of Working Directories?
+        WorkDirsHistoryScope,   // working directories history mode (shared / per-tab)
         EnableCmdLineHistory,   // keep history of the command line?
         SaveCmdLineHistory,     // store the command line history?
                                 //      LantasticCheck,        // Lantastic 7.0 paranoid check (compare sizes after Copy)
@@ -292,8 +305,10 @@ struct CConfiguration
     int FullRowSelect;    // in detailed/brief view clicking anywhere selects the item
     int FullRowHighlight; // in detailed view highlight continues past the focused column
     int UseIconTincture;  // for hidden/system/selected/focused items
+    int UsePanelTabs;     // pouzivat panelove taby?
     int ShowPanelCaption; // should the panel caption be shown in color in the directory line?
     int ShowPanelZoom;    // should the Zoom button be shown in the directory line?
+    int UseWindowsDarkMode; // enable native Windows dark mode when available
 
     char InfoLineContent[200];
 
@@ -457,6 +472,10 @@ struct CConfiguration
 
     int TitleBarShowPath;                        // will we display the path in the title bar?
     int TitleBarMode;                            // title bar display mode (TITLE_BAR_MODE_xxx)
+    int TabCaptionMode;                          // rezim zobrazeni nazvu tabu (TITLE_BAR_MODE_xxx)
+    int TabButtonMinWidth;                       // minimalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
+    int TabButtonMaxWidth;                       // maximalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
+    int TabCaptionAlignment;                     // zarovnani titulku tlacitek tabu (TAB_CAPTION_ALIGN_xxx)
     int UseTitleBarPrefix;                       // should prefix be shown in the title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix for the title bar
     int UseTitleBarPrefixForced;                 // command-line variant has priority and is not saved
@@ -758,6 +777,7 @@ protected:
     CHighlightMasks* SourceHighlightMasks;
 
     BOOL Dirty;
+    int SelectedSchemeId;
 
 public:
     CCfgPageColors();
@@ -772,6 +792,7 @@ protected:
     void LoadMasks();
     void StoreMasks();
     void EnableControls();
+    void OnSchemeChanged();
 };
 
 //
@@ -1142,6 +1163,17 @@ protected:
 //
 // ****************************************************************************
 
+class CCfgPageTabs : public CCommonPropSheetPage
+{
+public:
+    CCfgPageTabs();
+
+    virtual void Transfer(CTransferInfo& ti);
+};
+
+//
+// ****************************************************************************
+
 class CCfgPageHistory : public CCommonPropSheetPage
 {
 public:
@@ -1189,6 +1221,7 @@ public:
     CCfgPageHistory PageHistory;
     CCfgPageChangeDrive PageChangeDrive;
     CCfgPagePanels PagePanels;
+    CCfgPageTabs PageTabs;
     CCfgPageKeyboard PageKeyboard;
     CCfgPageSecurity PageSecurity;
 
@@ -1203,6 +1236,9 @@ public:
     HWND HOldPluginMsgBoxParent;
 
 protected:
+    BOOL TabsPageVisible;
+
+    void EnsureTabsPageVisibility(BOOL showTabs);
     virtual void DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
