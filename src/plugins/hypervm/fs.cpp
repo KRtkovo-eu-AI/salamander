@@ -247,7 +247,7 @@ public:
     virtual void WINAPI ShowInfoDialog(const char* fsName, HWND parent) { (void)fsName; (void)parent; }
     virtual BOOL WINAPI ExecuteCommandLine(HWND parent, char* command, int& selFrom, int& selTo) { (void)parent; (void)command; (void)selFrom; (void)selTo; return FALSE; }
     virtual BOOL WINAPI QuickRename(const char* fsName, int mode, HWND parent, CFileData& file, BOOL isDir, char* newName, BOOL& cancel) { (void)fsName; (void)mode; (void)parent; (void)file; (void)isDir; (void)newName; cancel = FALSE; return FALSE; }
-    virtual void WINAPI AcceptChangeOnPathNotification(const char* fsName, const char* path, BOOL includingSubdirs) { (void)fsName; (void)path; (void)includingSubdirs; }
+    virtual void WINAPI AcceptChangeOnPathNotification(const char* fsName, const char* path, BOOL includingSubdirs) { (void)fsName; (void)path; (void)includingSubdirs; SalamanderGeneral->PostRefreshPanelFS(this); }
     virtual BOOL WINAPI CreateDir(const char* fsName, int mode, HWND parent, char* newName, BOOL& cancel) { (void)fsName; (void)mode; (void)parent; (void)newName; cancel = FALSE; return FALSE; }
     virtual void WINAPI ViewFile(const char* fsName, HWND parent, CSalamanderForViewFileOnFSAbstract* salamander, CFileData& file) { (void)fsName; (void)parent; (void)salamander; (void)file; }
     virtual BOOL WINAPI Delete(const char* fsName, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError) { (void)fsName; (void)mode; (void)parent; (void)panel; (void)selectedFiles; (void)selectedDirs; cancelOrError = FALSE; return FALSE; }
@@ -258,8 +258,29 @@ public:
     virtual void WINAPI ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs)
     {
         (void)fsName;
-        if (type != fscmItemsInPanel)
+
+        HMENU menu = CreatePopupMenu();
+        if (menu == NULL)
             return;
+
+        if (type == fscmPanel || type == fscmPathInPanel)
+        {
+            AppendMenuA(menu, MF_STRING, 2005, "Create New Machine");
+            UINT cmdIdOnly = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
+            DestroyMenu(menu);
+            if (cmdIdOnly == 2005)
+            {
+                ShellExecuteA(parent, "open", "VMCreate.exe", "", "", SW_SHOWNORMAL);
+                SalamanderGeneral->PostRefreshPanelFS(this);
+            }
+            return;
+        }
+
+        if (type != fscmItemsInPanel)
+        {
+            DestroyMenu(menu);
+            return;
+        }
 
         int isDir = 0;
         const CFileData* item = NULL;
@@ -278,14 +299,11 @@ public:
         QueryVmState(vm, state);
         bool running = (_stricmp(state.c_str(), "Running") == 0);
 
-        HMENU menu = CreatePopupMenu();
-        if (menu == NULL)
-            return;
-
         const UINT ID_CONNECT = 2001;
         const UINT ID_START = 2002;
         const UINT ID_TURNOFF = 2003;
         const UINT ID_SHUTDOWN = 2004;
+        const UINT ID_CREATE = 2005;
 
         AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
@@ -298,6 +316,8 @@ public:
         {
             AppendMenuA(menu, MF_STRING, ID_START, "Start");
         }
+        AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
+        AppendMenuA(menu, MF_STRING, ID_CREATE, "Create New Machine");
 
         UINT cmdId = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
         DestroyMenu(menu);
