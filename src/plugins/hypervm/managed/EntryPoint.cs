@@ -52,7 +52,7 @@ public static class EntryPoint
         var psi = new ProcessStartInfo
         {
             FileName = GetPreferredPowerShellPath(),
-            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"Get-VM | Select-Object -ExpandProperty Name\"",
+            Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference = 'Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -69,6 +69,11 @@ public static class EntryPoint
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException("Get-VM failed: " + error);
+        }
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            throw new InvalidOperationException("PowerShell reported an error while querying Hyper-V: " + error);
         }
 
         var result = new List<string>();
