@@ -51,7 +51,7 @@ public static class EntryPoint
     {
         var psi = new ProcessStartInfo
         {
-            FileName = "powershell.exe",
+            FileName = GetPreferredPowerShellPath(),
             Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"Get-VM | Select-Object -ExpandProperty Name\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
