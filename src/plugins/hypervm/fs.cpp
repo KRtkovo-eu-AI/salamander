@@ -22,34 +22,81 @@ public:
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
 
-        const char* cmd = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"";
-        FILE* pipe = _popen(cmd, "rt");
-        if (pipe == NULL)
+        SECURITY_ATTRIBUTES sa = {0};
+        sa.nLength = sizeof(sa);
+        sa.bInheritHandle = TRUE;
+
+        HANDLE stdoutRead = NULL;
+        HANDLE stdoutWrite = NULL;
+        if (!CreatePipe(&stdoutRead, &stdoutWrite, &sa, 0))
             return TRUE;
+        SetHandleInformation(stdoutRead, HANDLE_FLAG_INHERIT, 0);
+
+        STARTUPINFOA si = {0};
+        si.cb = sizeof(si);
+        si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+        si.hStdOutput = stdoutWrite;
+        si.hStdError = stdoutWrite;
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        si.wShowWindow = SW_HIDE;
+
+        PROCESS_INFORMATION pi = {0};
+        char cmdLine[] = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | Select-Object -ExpandProperty Name\"";
+        BOOL created = CreateProcessA(NULL, cmdLine, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+        CloseHandle(stdoutWrite);
+        if (!created)
+        {
+            CloseHandle(stdoutRead);
+            return TRUE;
+        }
 
         char line[512];
-        while (fgets(line, sizeof(line), pipe) != NULL)
+        char chunk[256];
+        DWORD bytesRead = 0;
+        std::string pending;
+        while (ReadFile(stdoutRead, chunk, sizeof(chunk) - 1, &bytesRead, NULL) && bytesRead > 0)
         {
-            size_t len = strlen(line);
-            while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n'))
-                line[--len] = 0;
-            if (len == 0)
-                continue;
+            chunk[bytesRead] = 0;
+            pending.append(chunk);
 
-            CFileData file;
-            memset(&file, 0, sizeof(file));
-            file.Name = SalamanderGeneral->DupStr(line);
-            file.NameLen = static_cast<int>(strlen(file.Name));
-            file.Ext = file.Name + file.NameLen;
-            file.DosName = NULL;
-            file.IsLink = 0;
-            file.IsOffline = 0;
-            file.Hidden = 0;
-            file.Attr = 0;
-            file.PluginData = 0;
-            dir->AddFile(NULL, file, pluginData);
+            size_t pos = 0;
+            while (true)
+            {
+                size_t nl = pending.find('\n', pos);
+                if (nl == std::string::npos)
+                {
+                    pending.erase(0, pos);
+                    break;
+                }
+
+                std::string one = pending.substr(pos, nl - pos);
+                if (!one.empty() && one.back() == '\r')
+                    one.pop_back();
+                pos = nl + 1;
+                if (one.empty())
+                    continue;
+
+                lstrcpynA(line, one.c_str(), (int)sizeof(line));
+
+                CFileData file;
+                memset(&file, 0, sizeof(file));
+                file.Name = SalamanderGeneral->DupStr(line);
+                file.NameLen = static_cast<int>(strlen(file.Name));
+                file.Ext = file.Name + file.NameLen;
+                file.DosName = NULL;
+                file.IsLink = 0;
+                file.IsOffline = 0;
+                file.Hidden = 0;
+                file.Attr = 0;
+                file.PluginData = 0;
+                dir->AddFile(NULL, file, pluginData);
+            }
         }
-        _pclose(pipe);
+
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        CloseHandle(stdoutRead);
         return TRUE;
     }
 
