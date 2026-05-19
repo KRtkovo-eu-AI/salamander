@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{8C89C5D0-4D7C-4A6D-8BFB-57C9B0E1682C}</ProjectGuid>
+    <ProjectGuid>{BAD3666C-E56B-4E00-991C-20DC2D466D5A}</ProjectGuid>
     <RootNamespace>hypervm</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -199,11 +199,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="lang_hypervm.vcxproj">
-      <Project>{3cb8b01d-bcb3-4f4e-b60a-9b46d2af2f69}</Project>
+      <Project>{88C7DF75-8859-4FE3-9C0C-FD2E0C819DD5}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
     <ProjectReference Include="..\managed\HyperVM.Managed.csproj">
-      <Project>{E9F70914-3011-4D4F-9E79-3A9540A5E0F3}</Project>
+      <Project>{ED9FBB69-F871-4097-B492-354FDA5C8AB9}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
