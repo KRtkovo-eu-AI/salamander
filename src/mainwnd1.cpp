@@ -25,7 +25,7 @@
 
 #include "versinfo.rh2"
 
-const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin 0.2" VERSINFO_PLATFORM;
+const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin 0.2 (" SAL_VER_PLATFORM ")";
 
 //****************************************************************************
 //
