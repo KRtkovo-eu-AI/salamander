@@ -124,7 +124,7 @@ public:
                     continue;
 
                 lstrcpynA(line, one.c_str(), (int)sizeof(line));
-                char* tab = strchr(line, "\t");
+                char* tab = strchr(line, '\t');
                 bool running = false;
                 if (tab != NULL)
                 {
