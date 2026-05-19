@@ -1,4 +1,103 @@
 #include "precomp.h"
+#include <string>
+#include <vector>
+
+static std::string EscapePsSingleQuoted(const char* text)
+{
+    std::string src = text ? text : "";
+    std::string out;
+    out.reserve(src.size() + 8);
+    for (char c : src)
+    {
+        if (c == '\'')
+            out += "''";
+        else
+            out.push_back(c);
+    }
+    return out;
+}
+
+static bool RunHiddenPowerShell(const std::string& script)
+{
+    std::string cmdLine = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + script + "\"";
+    std::vector<char> mutableCmd(cmdLine.begin(), cmdLine.end());
+    mutableCmd.push_back('\0');
+
+    STARTUPINFOA si = {0};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    PROCESS_INFORMATION pi = {0};
+    BOOL created = CreateProcessA(NULL, mutableCmd.data(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    if (!created)
+        return false;
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    DWORD exitCode = 1;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return exitCode == 0;
+}
+
+static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
+{
+    SECURITY_ATTRIBUTES sa = {0};
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+
+    HANDLE rd = NULL;
+    HANDLE wr = NULL;
+    if (!CreatePipe(&rd, &wr, &sa, 0))
+        return false;
+    SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
+
+    std::string script =
+        "$ErrorActionPreference='Stop'; "
+        "Import-Module Hyper-V -ErrorAction Stop; "
+        "(Get-VM -Name '" + vmNameEscaped + "' -ErrorAction Stop).State.ToString()";
+
+    std::string cmdLine = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + script + "\"";
+    std::vector<char> mutableCmd(cmdLine.begin(), cmdLine.end());
+    mutableCmd.push_back('\0');
+
+    STARTUPINFOA si = {0};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.hStdOutput = wr;
+    si.hStdError = wr;
+    si.wShowWindow = SW_HIDE;
+
+    PROCESS_INFORMATION pi = {0};
+    BOOL created = CreateProcessA(NULL, mutableCmd.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    CloseHandle(wr);
+    if (!created)
+    {
+        CloseHandle(rd);
+        return false;
+    }
+
+    char chunk[128];
+    DWORD n = 0;
+    std::string output;
+    while (ReadFile(rd, chunk, sizeof(chunk) - 1, &n, NULL) && n > 0)
+    {
+        chunk[n] = 0;
+        output += chunk;
+    }
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    CloseHandle(rd);
+
+    while (!output.empty() && (output.back() == '\r' || output.back() == '\n' || output.back() == ' ' || output.back() == '\t'))
+        output.pop_back();
+
+    state = output;
+    return !state.empty();
+}
 
 class CHyperVFS : public CPluginFSInterfaceAbstract
 {
@@ -103,7 +202,7 @@ public:
     virtual BOOL WINAPI TryCloseOrDetach(BOOL forceClose, BOOL canDetach, BOOL& detach, int reason) { (void)forceClose; (void)canDetach; (void)reason; detach = FALSE; return TRUE; }
     virtual void WINAPI Event(int event, DWORD param) { (void)event; (void)param; }
     virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; }
-    virtual DWORD WINAPI GetSupportedServices() { return 0; }
+    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU; }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon) { (void)fsName; (void)title; icon = NULL; destroyIcon = FALSE; return FALSE; }
     virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = FALSE; return NULL; }
     virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect) { (void)srcFSPath; (void)tgtFSPath; (void)keyState; *dropEffect = allowedEffects & DROPEFFECT_COPY; }
@@ -122,7 +221,79 @@ public:
     virtual BOOL WINAPI CopyOrMoveFromDiskToFS(BOOL copy, int mode, const char* fsName, HWND parent, const char* sourcePath, SalEnumSelection2 next, void* nextParam, int sourceFiles, int sourceDirs, char* targetPath, BOOL* invalidPathOrCancel) { (void)copy; (void)mode; (void)fsName; (void)parent; (void)sourcePath; (void)next; (void)nextParam; (void)sourceFiles; (void)sourceDirs; (void)targetPath; if (invalidPathOrCancel) *invalidPathOrCancel = FALSE; return FALSE; }
     virtual BOOL WINAPI ChangeAttributes(const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs) { (void)fsName; (void)parent; (void)panel; (void)selectedFiles; (void)selectedDirs; return FALSE; }
     virtual void WINAPI ShowProperties(const char* fsName, HWND parent, int panel, int selectedFiles, int selectedDirs) { (void)fsName; (void)parent; (void)panel; (void)selectedFiles; (void)selectedDirs; }
-    virtual void WINAPI ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs) { (void)fsName; (void)parent; (void)menuX; (void)menuY; (void)type; (void)panel; (void)selectedFiles; (void)selectedDirs; }
+    virtual void WINAPI ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs)
+    {
+        (void)fsName;
+        if (type != fscmItemsInPanel)
+            return;
+
+        int isDir = 0;
+        const CFileData* item = NULL;
+        if (selectedFiles == 0 && selectedDirs == 0)
+            item = SalamanderGeneral->GetPanelFocusedItem(panel, &isDir);
+        else
+        {
+            int idx = 0;
+            item = SalamanderGeneral->GetPanelSelectedItem(panel, &idx, &isDir);
+        }
+        if (item == NULL || item->Name == NULL || item->Name[0] == 0)
+            return;
+
+        std::string vm = EscapePsSingleQuoted(item->Name);
+        std::string state;
+        bool gotState = QueryVmState(vm, state);
+        bool running = gotState && _stricmp(state.c_str(), "Running") == 0;
+
+        HMENU menu = CreatePopupMenu();
+        if (menu == NULL)
+            return;
+
+        const UINT ID_CONNECT = 2001;
+        const UINT ID_START = 2002;
+        const UINT ID_TURNOFF = 2003;
+        const UINT ID_SHUTDOWN = 2004;
+
+        AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
+        if (running)
+        {
+            AppendMenuA(menu, MF_STRING, ID_TURNOFF, "Turn Off");
+            AppendMenuA(menu, MF_STRING, ID_SHUTDOWN, "Shut Down");
+        }
+        else
+        {
+            AppendMenuA(menu, MF_STRING, ID_START, "Start");
+        }
+
+        UINT cmdId = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
+        DestroyMenu(menu);
+        if (cmdId == 0)
+            return;
+
+        bool success = false;
+        if (cmdId == ID_CONNECT)
+        {
+            success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; vmconnect.exe localhost '" + vm + "'");
+        }
+        else if (cmdId == ID_START)
+        {
+            success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Start-VM -Name '" + vm + "' -ErrorAction Stop");
+        }
+        else if (cmdId == ID_TURNOFF)
+        {
+            success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Stop-VM -Name '" + vm + "' -TurnOff -Force -ErrorAction Stop");
+        }
+        else if (cmdId == ID_SHUTDOWN)
+        {
+            success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Stop-VM -Name '" + vm + "' -ErrorAction Stop");
+        }
+
+        if (!success)
+        {
+            SalamanderGeneral->SalMessageBox(parent, "Hyper-V command failed.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
+        }
+
+        SalamanderGeneral->PostRefreshPanelFS(this);
+    }
     virtual BOOL WINAPI HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult) { (void)uMsg; (void)wParam; (void)lParam; (void)plResult; return FALSE; }
     virtual BOOL WINAPI OpenFindDialog(const char* fsName, int panel) { (void)fsName; (void)panel; return FALSE; }
     virtual void WINAPI OpenActiveFolder(const char* fsName, HWND parent) { (void)fsName; (void)parent; }
