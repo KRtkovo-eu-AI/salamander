@@ -6249,8 +6249,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             ToggleTreeView();
             IdleRefreshStates = TRUE; // on the next Idle, force a check of status variables
-            if (KeepSplitPositionCenteredOnVisiblePanes)
-                UpdateCenteredSplitPosition();
             LayoutWindows();
             break;
         }
