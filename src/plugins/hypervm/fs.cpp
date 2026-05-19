@@ -53,6 +53,23 @@ public:
         SalamanderGeneral->CloseDetachedFS(parent, pluginFS);
         return TRUE;
     }
+
+    virtual void WINAPI ConvertPathToInternal(const char* fsName, int fsNameIndex,
+                                              char* fsUserPart)
+    {
+        (void)fsName; (void)fsNameIndex; (void)fsUserPart;
+    }
+
+    virtual void WINAPI ConvertPathToExternal(const char* fsName, int fsNameIndex,
+                                              char* fsUserPart)
+    {
+        (void)fsName; (void)fsNameIndex; (void)fsUserPart;
+    }
+
+    virtual void WINAPI EnsureShareExistsOnServer(int panel, const char* server, const char* share)
+    {
+        (void)panel; (void)server; (void)share;
+    }
 };
 
 CHyperVFSInterface gHyperVFSInterface;
