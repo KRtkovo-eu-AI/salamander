@@ -1,0 +1,5 @@
+LIBRARY CSDEMO.SPL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
+EXPORTS HyperVM_GetCurrentColor
