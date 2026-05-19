@@ -187,6 +187,8 @@ private:
     TDirectArray<char*> Records;
     char FileName[MAX_PATH];
     DWORD CurrentRecordIndex;
+    DWORD MaxColumns;
+    char* CellBuffer;
 
 public:
     CParserInterfaceJSONL();

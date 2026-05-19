@@ -1299,11 +1299,26 @@ static char* ConvertJSONLineToKeyValueText(const char* line)
     return out;
 }
 
+static DWORD CountColumnsInRecord(const char* record)
+{
+    if (record == NULL || *record == 0)
+        return 1;
+    DWORD count = 1;
+    for (const char* p = record; *p != 0; p++)
+    {
+        if (*p == ';')
+            count++;
+    }
+    return count;
+}
+
 CParserInterfaceJSONL::CParserInterfaceJSONL()
     : Records(1000, 1000)
 {
     FileName[0] = 0;
     CurrentRecordIndex = 0;
+    MaxColumns = 1;
+    CellBuffer = NULL;
 }
 
 CParserInterfaceJSONL::~CParserInterfaceJSONL()
@@ -1360,6 +1375,9 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
                     status = psOOM;
                     break;
                 }
+                DWORD cols = CountColumnsInRecord(record);
+                if (cols > MaxColumns)
+                    MaxColumns = cols;
             }
             len = 0;
             continue;
@@ -1401,6 +1419,12 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
                 Records.ResetState();
                 status = psOOM;
             }
+            else
+            {
+                DWORD cols = CountColumnsInRecord(record);
+                if (cols > MaxColumns)
+                    MaxColumns = cols;
+            }
         }
     }
 
@@ -1427,6 +1451,12 @@ void CParserInterfaceJSONL::CloseFile()
     Records.DestroyMembers();
     FileName[0] = 0;
     CurrentRecordIndex = 0;
+    MaxColumns = 1;
+    if (CellBuffer != NULL)
+    {
+        free(CellBuffer);
+        CellBuffer = NULL;
+    }
 }
 
 BOOL CParserInterfaceJSONL::GetFileInfo(HWND hEdit)
@@ -1484,15 +1514,16 @@ DWORD CParserInterfaceJSONL::GetRecordCount()
 
 DWORD CParserInterfaceJSONL::GetFieldCount()
 {
-    return 1;
+    return MaxColumns;
 }
 
 BOOL CParserInterfaceJSONL::GetFieldInfo(DWORD index, CFieldInfo* info)
 {
-    if (index != 0)
+    if (index >= MaxColumns)
         return FALSE;
 
-    const char* colName = "JSON";
+    char colName[32];
+    sprintf(colName, "Field %u", index + 1);
     if (info->Name == NULL)
         info->NameMax = (int)strlen(colName) + 1;
     else
@@ -1517,14 +1548,52 @@ CParserStatusEnum CParserInterfaceJSONL::FetchRecord(DWORD index)
 
 const char* CParserInterfaceJSONL::GetCellText(DWORD index, size_t* textLen)
 {
-    if (index != 0 || CurrentRecordIndex >= (DWORD)Records.Count)
+    if (CurrentRecordIndex >= (DWORD)Records.Count || index >= MaxColumns)
     {
         *textLen = 0;
         return "";
     }
+
     const char* record = Records[CurrentRecordIndex];
-    *textLen = strlen(record);
-    return record;
+    const char* tokenStart = record;
+    DWORD tokenIndex = 0;
+    const char* p = record;
+    while (*p != 0 && tokenIndex < index)
+    {
+        if (*p == ';')
+        {
+            tokenIndex++;
+            tokenStart = p + 1;
+        }
+        p++;
+    }
+    if (tokenIndex != index)
+    {
+        *textLen = 0;
+        return "";
+    }
+
+    const char* tokenEnd = tokenStart;
+    while (*tokenEnd != 0 && *tokenEnd != ';')
+        tokenEnd++;
+
+    while (tokenStart < tokenEnd && (*tokenStart == ' ' || *tokenStart == '\t'))
+        tokenStart++;
+    while (tokenEnd > tokenStart && (tokenEnd[-1] == ' ' || tokenEnd[-1] == '\t'))
+        tokenEnd--;
+
+    size_t len = (size_t)(tokenEnd - tokenStart);
+    free(CellBuffer);
+    CellBuffer = (char*)malloc(len + 1);
+    if (CellBuffer == NULL)
+    {
+        *textLen = 0;
+        return "";
+    }
+    memcpy(CellBuffer, tokenStart, len);
+    CellBuffer[len] = 0;
+    *textLen = len;
+    return CellBuffer;
 }
 
 const wchar_t* CParserInterfaceJSONL::GetCellTextW(DWORD index, size_t* textLen)
