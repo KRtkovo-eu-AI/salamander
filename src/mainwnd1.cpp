@@ -25,7 +25,7 @@
 
 #include "versinfo.rh2"
 
-const char* SALAMANDER_TEXT_VERSION = "Open Salamander " VERSINFO_VERSION;
+const char* SALAMANDER_TEXT_VERSION = "Open Salamander 5.0 Samandarin 0.2 (" SAL_VER_PLATFORM ")";
 
 //****************************************************************************
 //
@@ -1959,9 +1959,8 @@ void CMainWindow::SetWindowTitle(const char* text)
                 strcat(stdWndName, " - ");
         }
 
-        // Open Salamander name + ver
-        lstrcat(stdWndName, MAINWINDOW_NAME);
-        lstrcat(stdWndName, " " VERSINFO_VERSION);
+        // Open Salamander full product name + ver/platform variant
+        lstrcat(stdWndName, SALAMANDER_TEXT_VERSION);
 
         if (RunningAsAdmin)
             sprintf(stdWndName + lstrlen(stdWndName), " (%s)", LoadStr(IDS_AS_ADMIN_TITLE));
