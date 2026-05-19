@@ -1406,82 +1406,42 @@ void CTabWindow::ScrollTabsByWheelSteps(int steps)
     if (HWindow == NULL || steps == 0)
         return;
 
-    int total = GetDisplayedTabCount();
-    if (total <= 0)
-        return;
-
-    RECT visibleRect;
-    if (!GetClientRect(HWindow, &visibleRect))
-        return;
-
     HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
-    if (upDown != NULL && IsWindowVisible(upDown))
-    {
-        RECT upDownRect;
-        if (GetWindowRect(upDown, &upDownRect))
-        {
-            POINT upDownLeftTop = {upDownRect.left, upDownRect.top};
-            POINT upDownRightBottom = {upDownRect.right, upDownRect.bottom};
-            ScreenToClient(HWindow, &upDownLeftTop);
-            ScreenToClient(HWindow, &upDownRightBottom);
-
-            RECT upDownClientRect = {upDownLeftTop.x, upDownLeftTop.y, upDownRightBottom.x, upDownRightBottom.y};
-            RECT intersection;
-            if (IntersectRect(&intersection, &visibleRect, &upDownClientRect))
-            {
-                if (upDownClientRect.left <= visibleRect.left)
-                    visibleRect.left = upDownClientRect.right;
-                else if (upDownClientRect.right >= visibleRect.right)
-                    visibleRect.right = upDownClientRect.left;
-            }
-        }
-    }
-
-    if (visibleRect.right <= visibleRect.left)
+    if (upDown == NULL || !IsWindowVisible(upDown) || !IsWindowEnabled(upDown))
         return;
 
-    int count = steps > 0 ? steps : -steps;
+    RECT upDownClientRect;
+    if (!GetClientRect(upDown, &upDownClientRect))
+        return;
+
+    int width = upDownClientRect.right - upDownClientRect.left;
+    int height = upDownClientRect.bottom - upDownClientRect.top;
+    if (width <= 0 || height <= 0)
+        return;
+
+    // The tab control's overflow arrows are implemented as an internal up-down child window.
+    // Simulate clicks on that child instead of changing the tab control focus/selection:
+    // clicking those arrows scrolls the visible tab strip without activating another tab.
     bool scrollLeft = steps > 0;
-    bool scrolled = false;
+    int x = scrollLeft ? width / 4 : (3 * width) / 4;
+    int y = height / 2;
+    LPARAM clickPoint = MAKELPARAM(x, y);
+    int count = steps > 0 ? steps : -steps;
 
-    for (int step = 0; step < count; ++step)
+    int oldSel = TabCtrl_GetCurSel(HWindow);
+    for (int i = 0; i < count; ++i)
     {
-        int firstVisible = -1;
-        int lastVisible = -1;
-        for (int index = 0; index < total; ++index)
-        {
-            RECT itemRect;
-            if (!TabCtrl_GetItemRect(HWindow, index, &itemRect))
-                continue;
-            if (itemRect.right > visibleRect.left && itemRect.left < visibleRect.right)
-            {
-                if (firstVisible < 0)
-                    firstVisible = index;
-                lastVisible = index;
-            }
-        }
-
-        int target = -1;
-        if (scrollLeft)
-        {
-            if (firstVisible > 0)
-                target = firstVisible - 1;
-        }
-        else
-        {
-            if (lastVisible >= 0 && lastVisible < total - 1)
-                target = lastVisible + 1;
-        }
-
-        if (target < 0)
-            break;
-
-        SendMessage(HWindow, TCM_SETCURFOCUS, target, 0);
-        scrolled = true;
+        SendMessage(upDown, WM_LBUTTONDOWN, MK_LBUTTON, clickPoint);
+        SendMessage(upDown, WM_LBUTTONUP, 0, clickPoint);
     }
 
-    if (scrolled)
-        InvalidateRect(HWindow, NULL, FALSE);
+    if (oldSel >= 0 && TabCtrl_GetCurSel(HWindow) != oldSel)
+    {
+        CSelChangeGuard guard(SuppressSelectionNotifications);
+        TabCtrl_SetCurSel(HWindow, oldSel);
+    }
+
+    InvalidateRect(HWindow, NULL, FALSE);
 }
 
 void CTabWindow::InvalidateTab(int index)
