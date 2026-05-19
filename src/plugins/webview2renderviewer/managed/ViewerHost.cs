@@ -654,12 +654,10 @@ internal static class ViewerHost
                 if (_browserCore is not null)
                 {
                     _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
-                    _browserCore.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
                 }
 
                 _browserCore = core;
                 _browserCore.WebMessageReceived += OnBrowserWebMessageReceived;
-                _browserCore.AcceleratorKeyPressed += OnBrowserAcceleratorKeyPressed;
                 _ = _browserCore.AddScriptToExecuteOnDocumentCreatedAsync(EscapeScript);
             }
 
@@ -731,7 +729,6 @@ internal static class ViewerHost
             if (_browserCore is not null)
             {
                 _browserCore.WebMessageReceived -= OnBrowserWebMessageReceived;
-                _browserCore.AcceleratorKeyPressed -= OnBrowserAcceleratorKeyPressed;
                 _browserCore = null;
             }
 
@@ -954,16 +951,6 @@ internal static class ViewerHost
             }
         }
 
-        private void OnBrowserAcceleratorKeyPressed(object? sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
-        {
-            if (e is null || e.KeyEventKind != CoreWebView2KeyEventKind.KeyDown || e.VirtualKey != (uint)Keys.Escape)
-            {
-                return;
-            }
-
-            e.Handled = true;
-            CloseFromBrowserInput();
-        }
 
         private void CloseFromBrowserInput()
         {
