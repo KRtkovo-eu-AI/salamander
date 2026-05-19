@@ -89,7 +89,7 @@
 
 #define ssize_t int
 
-// static inline not supported by MSVC and not useful here -> define it out
+// make the generic inline keyword available even for C sources built by MSVC
 #define inline __inline
 
 #ifndef M_PI

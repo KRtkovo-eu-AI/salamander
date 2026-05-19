@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -3347,6 +3347,8 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPagePanels::Transfer()");
 
+    int oldUseTabs = Configuration.UsePanelTabs;
+
     // keep values in Configuration.FileNameFormat for backward compatibility
     const int MANGLE_ITEMS = 6;
     int mangles[MANGLE_ITEMS] = {4 /*ONTHEDISK*/, 5 /*EXPLORER*/, 6 /*VC*/, 7 /*PARTMIXEDCASE*/, 2 /*LOWERCASE*/, 3 /*UPPERCASE*/};
@@ -3398,6 +3400,7 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
         Configuration.SizeFormat = sizes[index];
     }
 
+    ti.CheckBox(IDC_PANELS_USETABS, Configuration.UsePanelTabs);
     ti.CheckBox(IDC_NOTHIDDENSYSTEM, Configuration.NotHiddenSystemFiles);
     ti.CheckBox(IDC_INCLUDEDIRS, Configuration.IncludeDirs);
     ti.CheckBox(IDC_DISABLEDANDD, Configuration.UseDragDropMinTime);
@@ -3414,6 +3417,8 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
 
     if (ti.Type == ttDataToWindow)
         EnableControls();
+    else if (oldUseTabs != Configuration.UsePanelTabs)
+        MainWindow->HandlePanelTabsEnabledChange(oldUseTabs != 0);
 }
 
 void CCfgPagePanels::EnableControls()
@@ -3430,11 +3435,110 @@ CCfgPagePanels::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == BN_CLICKED)
+        {
             EnableControls();
+            if (LOWORD(wParam) == IDC_PANELS_USETABS)
+            {
+                BOOL useTabs = IsDlgButtonChecked(HWindow, IDC_PANELS_USETABS) == BST_CHECKED;
+                SendMessage(::GetParent(HWindow), WM_CFG_UPDATE_TABS_VISIBILITY, useTabs, 0);
+            }
+        }
         break;
     }
     }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
+
+//
+// ****************************************************************************
+// CCfgPageTabs
+//
+
+CCfgPageTabs::CCfgPageTabs()
+    : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_TABS, IDD_CFGPAGE_TABS, PSP_USETITLE, NULL)
+{
+}
+
+void CCfgPageTabs::Transfer(CTransferInfo& ti)
+{
+    CALL_STACK_MESSAGE1("CCfgPageTabs::Transfer()");
+
+    const int MODE_ITEMS = 3;
+    int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
+
+    int oldMinWidth = Configuration.TabButtonMinWidth;
+    int oldMaxWidth = Configuration.TabButtonMaxWidth;
+
+    ti.EditLine(IDC_TABS_MINWIDTH, Configuration.TabButtonMinWidth);
+    ti.EditLine(IDC_TABS_MAXWIDTH, Configuration.TabButtonMaxWidth);
+
+    if (ti.Type == ttDataToWindow)
+    {
+        int resIDs[MODE_ITEMS] = {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH};
+        SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_RESETCONTENT, 0, 0);
+        BOOL selected = FALSE;
+        for (int i = 0; i < MODE_ITEMS; i++)
+        {
+            SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_ADDSTRING, 0, (LPARAM)LoadStr(resIDs[i]));
+            if (!selected && Configuration.TabCaptionMode == modes[i])
+            {
+                SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_SETCURSEL, i, 0);
+                selected = TRUE;
+            }
+        }
+        if (!selected)
+            SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_SETCURSEL, 0, 0);
+
+        const int ALIGN_ITEMS = 2;
+        int alignments[ALIGN_ITEMS] = {TAB_CAPTION_ALIGN_LEFT, TAB_CAPTION_ALIGN_CENTER};
+        int alignResIDs[ALIGN_ITEMS] = {IDS_TABCAPTIONALIGN_LEFT, IDS_TABCAPTIONALIGN_CENTER};
+        SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_RESETCONTENT, 0, 0);
+        selected = FALSE;
+        for (int i = 0; i < ALIGN_ITEMS; ++i)
+        {
+            SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_ADDSTRING, 0, (LPARAM)LoadStr(alignResIDs[i]));
+            if (!selected && Configuration.TabCaptionAlignment == alignments[i])
+            {
+                SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_SETCURSEL, i, 0);
+                selected = TRUE;
+            }
+        }
+        if (!selected)
+            SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_SETCURSEL, 1, 0);
+
+        SendDlgItemMessage(HWindow, IDC_TABS_MINWIDTH, EM_LIMITTEXT, 4, 0);
+        SendDlgItemMessage(HWindow, IDC_TABS_MAXWIDTH, EM_LIMITTEXT, 4, 0);
+    }
+    else
+    {
+        const int ALIGN_ITEMS = 2;
+        int alignments[ALIGN_ITEMS] = {TAB_CAPTION_ALIGN_LEFT, TAB_CAPTION_ALIGN_CENTER};
+        int index = (int)SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_GETCURSEL, 0, 0);
+        if (index < 0 || index >= MODE_ITEMS)
+            index = 0;
+        int alignIndex = (int)SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_GETCURSEL, 0, 0);
+        if (alignIndex < 0 || alignIndex >= ALIGN_ITEMS)
+            alignIndex = 1;
+
+        if (Configuration.TabButtonMinWidth < 0)
+            Configuration.TabButtonMinWidth = 0;
+        if (Configuration.TabButtonMaxWidth < 0)
+            Configuration.TabButtonMaxWidth = 0;
+        if (Configuration.TabButtonMinWidth > 0 && Configuration.TabButtonMaxWidth > 0 &&
+            Configuration.TabButtonMinWidth > Configuration.TabButtonMaxWidth)
+            Configuration.TabButtonMinWidth = Configuration.TabButtonMaxWidth;
+
+        int oldMode = Configuration.TabCaptionMode;
+        Configuration.TabCaptionMode = modes[index];
+        bool modeChanged = (Configuration.TabCaptionMode != oldMode);
+        int newAlignment = alignments[alignIndex];
+        bool alignmentChanged = (Configuration.TabCaptionAlignment != newAlignment);
+        Configuration.TabCaptionAlignment = newAlignment;
+        bool minChanged = (Configuration.TabButtonMinWidth != oldMinWidth);
+        bool maxChanged = (Configuration.TabButtonMaxWidth != oldMaxWidth);
+        if ((modeChanged || minChanged || maxChanged || alignmentChanged) && MainWindow != NULL)
+            MainWindow->RefreshPanelTabLayout();
+    }
 }
 
 //
