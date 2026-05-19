@@ -50,6 +50,68 @@ struct CHyperVItemData
     bool Running;
 };
 
+static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
+{
+    HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
+    bool coInit = SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE;
+    if (!coInit)
+        return false;
+
+    IWbemLocator* pLoc = NULL;
+    hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
+    if (FAILED(hr) || pLoc == NULL)
+    {
+        CoUninitialize();
+        return false;
+    }
+
+    IWbemServices* pSvc = NULL;
+    hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\virtualization\\v2"), NULL, NULL, 0, 0, 0, 0, &pSvc);
+    if (FAILED(hr) || pSvc == NULL)
+    {
+        pLoc->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+    if (FAILED(hr))
+    {
+        pSvc->Release(); pLoc->Release(); CoUninitialize(); return false;
+    }
+
+    std::wstring wvm(vmNameEscaped.begin(), vmNameEscaped.end());
+    std::wstring query = L"SELECT EnabledState FROM Msvm_ComputerSystem WHERE Caption='Virtual Machine' AND ElementName='" + wvm + L"'";
+
+    IEnumWbemClassObject* pEnumerator = NULL;
+    hr = pSvc->ExecQuery(bstr_t("WQL"), bstr_t(query.c_str()), WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+    bool ok = false;
+    if (SUCCEEDED(hr) && pEnumerator != NULL)
+    {
+        IWbemClassObject* pclsObj = NULL;
+        ULONG uReturn = 0;
+        hr = pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+        if (uReturn > 0)
+        {
+            VARIANT vtState; VariantInit(&vtState);
+            pclsObj->Get(L"EnabledState", 0, &vtState, 0, 0);
+            long st = 0;
+            if (vtState.vt == VT_I4) st = vtState.lVal;
+            else if (vtState.vt == VT_UI4) st = (long)vtState.ulVal;
+            state = (st == 2) ? "Running" : "Off";
+            VariantClear(&vtState);
+            pclsObj->Release();
+            ok = true;
+        }
+        pEnumerator->Release();
+    }
+
+    pSvc->Release();
+    pLoc->Release();
+    CoUninitialize();
+    return ok;
+}
+
 class CHyperVFS : public CPluginFSInterfaceAbstract
 {
 public:
@@ -212,9 +274,9 @@ public:
             return;
 
         std::string vm = EscapePsSingleQuoted(item->Name);
-        bool running = false;
-        CHyperVItemData* ext = reinterpret_cast<CHyperVItemData*>(item->PluginData);
-        if (ext != NULL) running = ext->Running;
+        std::string state;
+        QueryVmState(vm, state);
+        bool running = (_stricmp(state.c_str(), "Running") == 0);
 
         HMENU menu = CreatePopupMenu();
         if (menu == NULL)
@@ -262,11 +324,6 @@ public:
         if (!success)
         {
             SalamanderGeneral->SalMessageBox(parent, "Hyper-V command failed.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
-        }
-        else if (ext != NULL)
-        {
-            if (cmdId == ID_START) ext->Running = true;
-            if (cmdId == ID_TURNOFF || cmdId == ID_SHUTDOWN) ext->Running = false;
         }
 
         SalamanderGeneral->PostRefreshPanelFS(this);
