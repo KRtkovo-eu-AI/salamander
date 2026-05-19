@@ -578,6 +578,7 @@ internal static class ViewerHost
 
             viewer.CoreWebView2InitializationCompleted += OnBrowserInitializationCompleted;
             viewer.NavigationCompleted += OnBrowserNavigationCompleted;
+            viewer.PreviewKeyDown += OnBrowserPreviewKeyDown;
 
             Controls.Add(viewer);
             ThemeHelper.ApplyTheme(viewer);
@@ -829,7 +830,7 @@ internal static class ViewerHost
                 _pendingHtmlContent = null;
                 core.Navigate(uri.AbsoluteUri);
             }
-            else if (_currentView.Kind == DocumentViewKind.Html)
+            else if (_currentView.Kind == DocumentViewKind.Html || _currentView.Kind == DocumentViewKind.Image)
             {
                 string html = _currentView.HtmlContent ?? string.Empty;
                 _pendingNavigationUri = null;
@@ -941,6 +942,26 @@ internal static class ViewerHost
             return string.Format(CultureInfo.CurrentCulture, "{0} - WebView2 Render Viewer .NET", caption);
         }
 
+
+        private void OnBrowserPreviewKeyDown(object? sender, PreviewKeyDownEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                CloseFromBrowserInput();
+            }
+        }
+
+
+        private void CloseFromBrowserInput()
+        {
+            BeginInvoke(new MethodInvoker(() =>
+            {
+                if (!IsDisposed)
+                {
+                    Close();
+                }
+            }));
+        }
         private void OnBrowserWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
             if (e is null)
@@ -953,13 +974,7 @@ internal static class ViewerHost
                 return;
             }
 
-            BeginInvoke(new MethodInvoker(() =>
-            {
-                if (!IsDisposed)
-                {
-                    Close();
-                }
-            }));
+            CloseFromBrowserInput();
         }
 
     }
@@ -1116,6 +1131,7 @@ internal static class ViewerHost
     {
         Navigate,
         Html,
+        Image,
     }
 
     private sealed class DocumentView
@@ -1144,6 +1160,13 @@ internal static class ViewerHost
                 return new DocumentView(DocumentViewKind.Html, caption, null, html);
             }
 
+            if (FileViewHelper.IsRasterImage(extension))
+            {
+                var imageUri = new Uri(Path.GetFullPath(path));
+                string html = RasterImageRenderer.BuildHtml(imageUri, caption);
+                return new DocumentView(DocumentViewKind.Image, caption, null, html);
+            }
+
             var uri = new Uri(Path.GetFullPath(path));
             return new DocumentView(DocumentViewKind.Navigate, caption, uri, null);
         }
@@ -1156,9 +1179,58 @@ internal static class ViewerHost
             "md", "markdown", "mdown", "mkd", "mdx",
         };
 
+        private static readonly HashSet<string> s_rasterImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "bmp", "dib", "gif", "ico", "jfif", "jpeg", "jpg", "jpe", "png", "tif", "tiff", "webp",
+        };
+
         public static bool IsMarkdown(string extension)
         {
             return s_markdownExtensions.Contains(extension);
+        }
+
+        public static bool IsRasterImage(string extension)
+        {
+            return s_rasterImageExtensions.Contains(extension);
+        }
+    }
+
+
+    private static class RasterImageRenderer
+    {
+        public static string BuildHtml(Uri imageUri, string caption)
+        {
+            ThemeHelper.ThemePalette? palette = ThemeHelper.TryGetPalette(out var value) ? value : null;
+            Color background = palette?.Background ?? SystemColors.Window;
+            Color foreground = palette?.Foreground ?? SystemColors.WindowText;
+
+            var builder = new StringBuilder();
+            builder.AppendLine("<!DOCTYPE html>");
+            builder.Append("<html><head><meta charset=\"utf-8\"/>");
+            if (palette.HasValue)
+            {
+                string scheme = palette.Value.IsDark ? "dark" : "light";
+                builder.Append("<meta name=\"color-scheme\" content=\"")
+                    .Append(scheme)
+                    .Append("\"/>");
+            }
+
+            builder.Append("<title>")
+                .Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "WebView2 Render Viewer .NET" : caption))
+                .Append("</title>");
+            builder.Append("<script>").Append(EscapeScript).Append("</script>");
+            builder.Append("<style>")
+                .Append("html,body{margin:0;width:100%;height:100%;background:").Append(MarkdownRenderer.ColorToCss(background))
+                .Append(";color:").Append(MarkdownRenderer.ColorToCss(foreground))
+                .Append(";overflow:hidden;}body{display:flex;align-items:center;justify-content:center;}")
+                .Append("img{max-width:100%;max-height:100%;object-fit:contain;}")
+                .Append("</style>");
+            builder.Append("</head><body><img alt=\"")
+                .Append(WebUtility.HtmlEncode(caption))
+                .Append("\" src=\"")
+                .Append(WebUtility.HtmlEncode(imageUri.AbsoluteUri))
+                .Append("\"/></body></html>");
+            return builder.ToString();
         }
     }
 
@@ -1292,7 +1364,7 @@ internal static class ViewerHost
             builder.Append("ul,ol{margin:0 0 1em 1.5em;}");
         }
 
-        private static string ColorToCss(Color color)
+        internal static string ColorToCss(Color color)
         {
             return string.Format(System.Globalization.CultureInfo.InvariantCulture,
                                  "#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
