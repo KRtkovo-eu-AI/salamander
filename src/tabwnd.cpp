@@ -1406,13 +1406,82 @@ void CTabWindow::ScrollTabsByWheelSteps(int steps)
     if (HWindow == NULL || steps == 0)
         return;
 
-    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
-    UINT scrollCode = steps > 0 ? SB_LINELEFT : SB_LINERIGHT;
-    int count = steps > 0 ? steps : -steps;
-    for (int i = 0; i < count; ++i)
-        SendMessage(HWindow, WM_HSCROLL, MAKEWPARAM(scrollCode, 0), (LPARAM)upDown);
+    int total = GetDisplayedTabCount();
+    if (total <= 0)
+        return;
 
-    InvalidateRect(HWindow, NULL, FALSE);
+    RECT visibleRect;
+    if (!GetClientRect(HWindow, &visibleRect))
+        return;
+
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    if (upDown != NULL && IsWindowVisible(upDown))
+    {
+        RECT upDownRect;
+        if (GetWindowRect(upDown, &upDownRect))
+        {
+            POINT upDownLeftTop = {upDownRect.left, upDownRect.top};
+            POINT upDownRightBottom = {upDownRect.right, upDownRect.bottom};
+            ScreenToClient(HWindow, &upDownLeftTop);
+            ScreenToClient(HWindow, &upDownRightBottom);
+
+            RECT upDownClientRect = {upDownLeftTop.x, upDownLeftTop.y, upDownRightBottom.x, upDownRightBottom.y};
+            RECT intersection;
+            if (IntersectRect(&intersection, &visibleRect, &upDownClientRect))
+            {
+                if (upDownClientRect.left <= visibleRect.left)
+                    visibleRect.left = upDownClientRect.right;
+                else if (upDownClientRect.right >= visibleRect.right)
+                    visibleRect.right = upDownClientRect.left;
+            }
+        }
+    }
+
+    if (visibleRect.right <= visibleRect.left)
+        return;
+
+    int count = steps > 0 ? steps : -steps;
+    bool scrollLeft = steps > 0;
+    bool scrolled = false;
+
+    for (int step = 0; step < count; ++step)
+    {
+        int firstVisible = -1;
+        int lastVisible = -1;
+        for (int index = 0; index < total; ++index)
+        {
+            RECT itemRect;
+            if (!TabCtrl_GetItemRect(HWindow, index, &itemRect))
+                continue;
+            if (itemRect.right > visibleRect.left && itemRect.left < visibleRect.right)
+            {
+                if (firstVisible < 0)
+                    firstVisible = index;
+                lastVisible = index;
+            }
+        }
+
+        int target = -1;
+        if (scrollLeft)
+        {
+            if (firstVisible > 0)
+                target = firstVisible - 1;
+        }
+        else
+        {
+            if (lastVisible >= 0 && lastVisible < total - 1)
+                target = lastVisible + 1;
+        }
+
+        if (target < 0)
+            break;
+
+        SendMessage(HWindow, TCM_SETCURFOCUS, target, 0);
+        scrolled = true;
+    }
+
+    if (scrolled)
+        InvalidateRect(HWindow, NULL, FALSE);
 }
 
 void CTabWindow::InvalidateTab(int index)
