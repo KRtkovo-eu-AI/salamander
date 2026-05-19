@@ -189,6 +189,7 @@ private:
     DWORD CurrentRecordIndex;
     DWORD MaxColumns;
     char* CellBuffer;
+    TDirectArray<DWORD> ColumnMaxLens;
 
 public:
     CParserInterfaceJSONL();

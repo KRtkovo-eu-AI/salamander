@@ -1312,8 +1312,57 @@ static DWORD CountColumnsInRecord(const char* record)
     return count;
 }
 
+static size_t GetColumnTokenLen(const char* record, DWORD index)
+{
+    if (record == NULL)
+        return 0;
+    const char* tokenStart = record;
+    DWORD tokenIndex = 0;
+    const char* p = record;
+    while (*p != 0 && tokenIndex < index)
+    {
+        if (*p == ';')
+        {
+            tokenIndex++;
+            tokenStart = p + 1;
+        }
+        p++;
+    }
+    if (tokenIndex != index)
+        return 0;
+
+    const char* tokenEnd = tokenStart;
+    while (*tokenEnd != 0 && *tokenEnd != ';')
+        tokenEnd++;
+    while (tokenStart < tokenEnd && (*tokenStart == ' ' || *tokenStart == '\t'))
+        tokenStart++;
+    while (tokenEnd > tokenStart && (tokenEnd[-1] == ' ' || tokenEnd[-1] == '\t'))
+        tokenEnd--;
+    return (size_t)(tokenEnd - tokenStart);
+}
+
+static bool UpdateJSONLColumnWidths(TDirectArray<DWORD>& maxLens, const char* record, DWORD cols)
+{
+    while ((DWORD)maxLens.Count < cols)
+    {
+        maxLens.Add(0);
+        if (!maxLens.IsGood())
+        {
+            maxLens.ResetState();
+            return false;
+        }
+    }
+    for (DWORD i = 0; i < cols; i++)
+    {
+        size_t len = GetColumnTokenLen(record, i);
+        if (len > maxLens[i])
+            maxLens[i] = (DWORD)len;
+    }
+    return true;
+}
+
 CParserInterfaceJSONL::CParserInterfaceJSONL()
-    : Records(1000, 1000)
+    : Records(1000, 1000), ColumnMaxLens(32, 32)
 {
     FileName[0] = 0;
     CurrentRecordIndex = 0;
@@ -1378,6 +1427,11 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
                 DWORD cols = CountColumnsInRecord(record);
                 if (cols > MaxColumns)
                     MaxColumns = cols;
+                if (!UpdateJSONLColumnWidths(ColumnMaxLens, record, cols))
+                {
+                    status = psOOM;
+                    break;
+                }
             }
             len = 0;
             continue;
@@ -1424,6 +1478,8 @@ CParserInterfaceJSONL::OpenFile(const char* fileName)
                 DWORD cols = CountColumnsInRecord(record);
                 if (cols > MaxColumns)
                     MaxColumns = cols;
+                if (!UpdateJSONLColumnWidths(ColumnMaxLens, record, cols))
+                    status = psOOM;
             }
         }
     }
@@ -1452,6 +1508,7 @@ void CParserInterfaceJSONL::CloseFile()
     FileName[0] = 0;
     CurrentRecordIndex = 0;
     MaxColumns = 1;
+    ColumnMaxLens.DestroyMembers();
     if (CellBuffer != NULL)
     {
         free(CellBuffer);
@@ -1530,7 +1587,7 @@ BOOL CParserInterfaceJSONL::GetFieldInfo(DWORD index, CFieldInfo* info)
         lstrcpynA(info->Name, colName, info->NameMax);
 
     info->LeftAlign = TRUE;
-    info->TextMax = -1;
+    info->TextMax = (index < (DWORD)ColumnMaxLens.Count && ColumnMaxLens[index] > 0) ? (int)ColumnMaxLens[index] : -1;
     if (info->Type != NULL)
         lstrcpyn(info->Type, LoadStr(IDS_FTYPE_CHAR), 100);
     info->FieldLen = -1;
