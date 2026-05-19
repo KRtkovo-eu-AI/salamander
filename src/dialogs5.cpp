@@ -2812,10 +2812,11 @@ CCfgPageEditors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT] =
     {
-        {IDI_SALAMANDER, IDS_SALAMANDERICON_DEFAULT}, // default icon
+        {IDI_SALAMANDER_CLASSIC, IDS_SALAMANDERICON_DEFAULT}, // classic default icon
         {IDI_SALAMANDER_RED, IDS_SALAMANDERICON_RED},
         {IDI_SALAMANDER_GREEN, IDS_SALAMANDERICON_GREEN},
         {IDI_SALAMANDER_BLUE, IDS_SALAMANDERICON_BLUE},
+        {IDI_SALAMANDER_SAMANDARIN, IDS_SALAMANDERICON_SAMANDARIN},
 };
 
 CCfgPageMainWindow::CCfgPageMainWindow()
@@ -3573,6 +3574,12 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
     const int MODE_ITEMS = 3;
     int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH};
 
+    int oldMinWidth = Configuration.TabButtonMinWidth;
+    int oldMaxWidth = Configuration.TabButtonMaxWidth;
+
+    ti.EditLine(IDC_TABS_MINWIDTH, Configuration.TabButtonMinWidth);
+    ti.EditLine(IDC_TABS_MAXWIDTH, Configuration.TabButtonMaxWidth);
+
     if (ti.Type == ttDataToWindow)
     {
         int resIDs[MODE_ITEMS] = {IDS_TITLEBAR_DIRECTORY, IDS_TITLEBAR_COMPOSITE, IDS_TITLEBAR_FULLPATH};
@@ -3589,29 +3596,56 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
         }
         if (!selected)
             SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_SETCURSEL, 0, 0);
+
+        const int ALIGN_ITEMS = 2;
+        int alignments[ALIGN_ITEMS] = {TAB_CAPTION_ALIGN_LEFT, TAB_CAPTION_ALIGN_CENTER};
+        int alignResIDs[ALIGN_ITEMS] = {IDS_TABCAPTIONALIGN_LEFT, IDS_TABCAPTIONALIGN_CENTER};
+        SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_RESETCONTENT, 0, 0);
+        selected = FALSE;
+        for (int i = 0; i < ALIGN_ITEMS; ++i)
+        {
+            SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_ADDSTRING, 0, (LPARAM)LoadStr(alignResIDs[i]));
+            if (!selected && Configuration.TabCaptionAlignment == alignments[i])
+            {
+                SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_SETCURSEL, i, 0);
+                selected = TRUE;
+            }
+        }
+        if (!selected)
+            SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_SETCURSEL, 1, 0);
+
+        SendDlgItemMessage(HWindow, IDC_TABS_MINWIDTH, EM_LIMITTEXT, 4, 0);
+        SendDlgItemMessage(HWindow, IDC_TABS_MAXWIDTH, EM_LIMITTEXT, 4, 0);
     }
     else
     {
+        const int ALIGN_ITEMS = 2;
+        int alignments[ALIGN_ITEMS] = {TAB_CAPTION_ALIGN_LEFT, TAB_CAPTION_ALIGN_CENTER};
         int index = (int)SendDlgItemMessage(HWindow, IDC_TABS_MODE, CB_GETCURSEL, 0, 0);
         if (index < 0 || index >= MODE_ITEMS)
             index = 0;
+        int alignIndex = (int)SendDlgItemMessage(HWindow, IDC_TABS_ALIGN, CB_GETCURSEL, 0, 0);
+        if (alignIndex < 0 || alignIndex >= ALIGN_ITEMS)
+            alignIndex = 1;
+
+        if (Configuration.TabButtonMinWidth < 0)
+            Configuration.TabButtonMinWidth = 0;
+        if (Configuration.TabButtonMaxWidth < 0)
+            Configuration.TabButtonMaxWidth = 0;
+        if (Configuration.TabButtonMinWidth > 0 && Configuration.TabButtonMaxWidth > 0 &&
+            Configuration.TabButtonMinWidth > Configuration.TabButtonMaxWidth)
+            Configuration.TabButtonMinWidth = Configuration.TabButtonMaxWidth;
 
         int oldMode = Configuration.TabCaptionMode;
         Configuration.TabCaptionMode = modes[index];
-        if (Configuration.TabCaptionMode != oldMode && MainWindow != NULL)
-        {
-            for (int sideIndex = 0; sideIndex < 2; ++sideIndex)
-            {
-                CPanelSide side = (sideIndex == 0) ? cpsLeft : cpsRight;
-                int tabCount = MainWindow->GetPanelTabCount(side);
-                for (int i = 0; i < tabCount; ++i)
-                {
-                    CFilesWindow* panel = MainWindow->GetPanelTabAt(side, i);
-                    if (panel != NULL)
-                        MainWindow->UpdatePanelTabTitle(panel);
-                }
-            }
-        }
+        bool modeChanged = (Configuration.TabCaptionMode != oldMode);
+        int newAlignment = alignments[alignIndex];
+        bool alignmentChanged = (Configuration.TabCaptionAlignment != newAlignment);
+        Configuration.TabCaptionAlignment = newAlignment;
+        bool minChanged = (Configuration.TabButtonMinWidth != oldMinWidth);
+        bool maxChanged = (Configuration.TabButtonMaxWidth != oldMaxWidth);
+        if ((modeChanged || minChanged || maxChanged || alignmentChanged) && MainWindow != NULL)
+            MainWindow->RefreshPanelTabLayout();
     }
 }
 

@@ -173,12 +173,16 @@ extern const char* DefRightToolBar;
 
 #define TITLE_PREFIX_MAX 100 // size of the buffer for the title prefix
 
+#define TAB_CAPTION_ALIGN_LEFT 0
+#define TAB_CAPTION_ALIGN_CENTER 1
+
 typedef struct
 {
     int IconResID;
     int TextResID;
 } CMainWindowIconItem;
-#define MAINWINDOWICONS_COUNT 4
+#define MAINWINDOWICONS_COUNT 5
+#define MAINWINDOWICON_DEFAULT_INDEX 4
 extern CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT];
 
 struct CConfiguration
@@ -204,6 +208,7 @@ struct CConfiguration
         SortDirsByExt,          // emulate extensions for directories (sort by extension + show in separated Ext column)
         SaveHistory,            // store histories into the configuration?
         SaveWorkDirs,           // store the List of Working Directories?
+        WorkDirsHistoryScope,   // working directories history mode (shared / per-tab)
         EnableCmdLineHistory,   // keep history of the command line?
         SaveCmdLineHistory,     // store the command line history?
         OnlyOneInstance,        // allow just a single instance
@@ -464,6 +469,9 @@ struct CConfiguration
     int TitleBarShowPath;                        // display the path in the title bar?
     int TitleBarMode;                            // title bar display mode (TITLE_BAR_MODE_xxx)
     int TabCaptionMode;                          // rezim zobrazeni nazvu tabu (TITLE_BAR_MODE_xxx)
+    int TabButtonMinWidth;                       // minimalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
+    int TabButtonMaxWidth;                       // maximalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
+    int TabCaptionAlignment;                     // zarovnani titulku tlacitek tabu (TAB_CAPTION_ALIGN_xxx)
     int UseTitleBarPrefix;                       // should prefix be shown in the title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix for the title bar
     int UseTitleBarPrefixForced;                 // command-line variant has priority and is not saved

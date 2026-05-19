@@ -634,9 +634,9 @@ BEGIN
     LTEXT           "",IDC_ABOUT_LOGO,174,1,123,104
     DEFPUSHBUTTON   "Close",IDOK,124,162,50,14,WS_GROUP
     LTEXT           "Version",IDS_ABOUT_SALAMANDER,10,86,201,8
-    LTEXT           "Copyright © 1997-2023 Open Salamander Authors",IDC_STATIC_1,10,97,196,8
+    LTEXT           "Copyright © 1997-2025 Open Salamander Authors",IDC_STATIC_1,10,97,196,8
     LTEXT           "Web:",IDC_STATIC_3,10,108,20,8
-    LTEXT           "www.altap.cz",IDC_ABOUT_WWW,31,108,64,8,WS_TABSTOP
+    LTEXT           "https://github.com/KRtkovo-eu-AI/salamander",IDC_ABOUT_WWW,31,108,220,8,WS_TABSTOP
     LTEXT           "Open Salamander is free software",IDC_STATIC_4,10,119,165,8
     LTEXT           "Licensed under GNU General Public License version 2 or later",IDC_STATIC_5,10,130,214,8
     CONTROL         "",IDC_ABOUT_BOTTOM,"Static",SS_ETCHEDHORZ | WS_GROUP,2,154,294,1
@@ -1920,13 +1920,21 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,227,265,12
 END
 
-IDD_CFGPAGE_TABS DIALOGEX 64, 22, 299, 40
+IDD_CFGPAGE_TABS DIALOGEX 64, 22, 299, 68
 STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Tabs"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "&Display current path in tab name as:",IDC_TABS_LABEL,1,3,162,8
+    LTEXT           "&Display current path in tab caption as:",IDC_TABS_LABEL,1,3,162,8
     COMBOBOX        IDC_TABS_MODE,164,3,130,55,CBS_DROPDOWNLIST | WS_TABSTOP
+    LTEXT           "&Minimal tab button width:",IDC_TABS_MINWIDTH_LABEL,1,20,150,8
+    EDITTEXT        IDC_TABS_MINWIDTH,164,18,40,12,ES_AUTOHSCROLL | ES_NUMBER | WS_TABSTOP
+    LTEXT           "dp",IDC_TABS_MINWIDTH_UNITS,208,20,30,8
+    LTEXT           "Ma&ximal tab button width:",IDC_TABS_MAXWIDTH_LABEL,1,36,150,8
+    EDITTEXT        IDC_TABS_MAXWIDTH,164,34,40,12,ES_AUTOHSCROLL | ES_NUMBER | WS_TABSTOP
+    LTEXT           "dp",IDC_TABS_MAXWIDTH_UNITS,208,36,30,8
+    LTEXT           "Tab button caption align&ment:",IDC_TABS_ALIGN_LABEL,1,52,150,8
+    COMBOBOX        IDC_TABS_ALIGN,164,50,130,55,CBS_DROPDOWNLIST | WS_TABSTOP
 END
 
 IDD_CANNOTSETATTRSINFO DIALOGEX 15, 33, 353, 89

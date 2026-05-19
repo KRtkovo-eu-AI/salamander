@@ -4,6 +4,7 @@
 
 #include "precomp.h"
 #include <time.h>
+#include <stdlib.h>
 //#ifdef MSVC_RUNTIME_CHECKS
 #include <rtcapi.h>
 //#endif // MSVC_RUNTIME_CHECKS
@@ -215,7 +216,7 @@ const char* SALCF_FAKE_REALPATH = "SalFakeRealPath";
 const char* SALCF_FAKE_SRCTYPE = "SalFakeSrcType";
 const char* SALCF_FAKE_SRCFSPATH = "SalFakeSrcFSPath";
 
-const char* MAINWINDOW_NAME = "Open Salamander";
+const char* MAINWINDOW_NAME = "Open Salamander: Samandarin";
 const char* CMAINWINDOW_CLASSNAME = "SalamanderMainWindowVer25";
 const char* SAVEBITS_CLASSNAME = "SalamanderSaveBits";
 const char* SHELLEXECUTE_CLASSNAME = "SalamanderShellExecute";
@@ -245,6 +246,7 @@ LOGFONT LogFont;
 int FontCharHeight = 0;
 
 HFONT EnvFont = NULL;
+HFONT EnvFontBold = NULL;
 HFONT EnvFontUL = NULL;
 //LOGFONT EnvLogFont;
 int EnvFontCharHeight = 0;
@@ -388,6 +390,7 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
     const COLORREF progressBg = RGB(64, 64, 64);
     const COLORREF inactiveCaptionBg = RGB(45, 45, 48);
     const COLORREF inactiveCaptionFg = RGB(190, 190, 190);
+    const COLORREF hotActive = RGB(0, 0, 0);
     const COLORREF thumbnailFrame = RGB(94, 94, 94);
 
     auto setColor = [](SALCOLOR& entry, COLORREF color) {
@@ -423,7 +426,7 @@ static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
     setColor(target[PROGRESS_BK_SELECTED], accent);
 
     setColor(target[HOT_PANEL], accent);
-    setColor(target[HOT_ACTIVE], accent);
+    setColor(target[HOT_ACTIVE], hotActive);
     setColor(target[HOT_INACTIVE], accent);
 
     setColor(target[ACTIVE_CAPTION_FG], accentText);
@@ -2107,6 +2110,12 @@ BOOL InitializeConstGraphics()
 
     UpdateMenuAndDialogBrushes(DarkModeShouldUseDarkColors());
 
+    HDialogBrush = GetSysColorBrush(COLOR_BTNFACE);
+    HButtonTextBrush = GetSysColorBrush(COLOR_BTNTEXT);
+    HMenuSelectedBkBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
+    HMenuSelectedTextBrush = GetSysColorBrush(COLOR_HIGHLIGHTTEXT);
+    HMenuHilightBrush = GetSysColorBrush(COLOR_3DHILIGHT);
+    HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
     if (HDialogBrush == NULL || HButtonTextBrush == NULL ||
         HMenuSelectedTextBrush == NULL || HMenuHilightBrush == NULL ||
         HMenuGrayTextBrush == NULL)
@@ -2171,6 +2180,12 @@ void ReleaseConstGraphics()
     {
         HANDLES(DeleteObject(EnvFont));
         EnvFont = NULL;
+    }
+
+    if (EnvFontBold != NULL)
+    {
+        HANDLES(DeleteObject(EnvFontBold));
+        EnvFontBold = NULL;
     }
 
     if (EnvFontUL != NULL)
@@ -2398,6 +2413,14 @@ int GetScaleForSystemDPI()
     return scale;
 }
 
+int DipToPixels(int dips)
+{
+    if (dips <= 0)
+        return dips;
+
+    return MulDiv(dips, GetSystemDPI(), 96);
+}
+
 int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
 {
     if (SystemDPI == 0)
@@ -2450,11 +2473,11 @@ BOOL InitializeGraphics(BOOL colorsOnly)
 {
     bool useDark = DarkModeShouldUseDarkColors();
     COLORREF toolbarFace = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
-    // 48x48 az od XP
-    // ve skutecnosti jsou velke ikonky podporeny uz davno, lze je nahodit
-    // Desktop/Properties/???/Large Icons; pozor, nebude pak existovat system image list
-    // pro ikonky 32x32; navic bychom meli ze systemu vytahnout realne velikosti ikonek
-    // zatim na to kasleme a 48x48 povolime az od XP, kde jsou bezne dostupne
+    // 48x48 only on XP and later
+    // Large icons have actually been supported for a long time; they can be enabled via
+    // Desktop/Properties/???/Large Icons. Note that there will then be no system image list
+    // for 32x32 icons; also, we should get the real icon sizes from the system.
+    // For now we ignore that and enable 48x48 only on XP, where they are commonly available.
 
     //
     // Retrieve the requested icon color depth from the Registry
@@ -2713,7 +2736,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         {
             // ikonka adresare
             hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
-            if (hIcon != NULL) // pokud ikonku neziskame, je tam porad jeste 4-rka z shell32.dll
+            if (hIcon != NULL) // if we do not obtain the icon, the #4 one from shell32.dll remains
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
                 NOHANDLES(DestroyIcon(hIcon));
@@ -2841,11 +2864,11 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         return FALSE;
     }
 
-    clrMap[0].from = RGB(128, 128, 128); // seda -> tie stinove barvy
+    clrMap[0].from = RGB(128, 128, 128); // gray -> COLOR_BTNSHADOW
     clrMap[0].to = toolbarShadow;
-    clrMap[1].from = RGB(0, 0, 0); // cerna -> barva textu
+    clrMap[1].from = RGB(0, 0, 0); // black -> COLOR_BTNTEXT
     clrMap[1].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
-    clrMap[2].from = RGB(255, 255, 255); // bila -> pruhledna
+    clrMap[2].from = RGB(255, 255, 255); // white -> transparent
     clrMap[2].to = RGB(255, 0, 255);
     HBITMAP hBottomTB = HANDLES(CreateMappedBitmap(HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, 3));
     BOOL remapWhite = FALSE;
@@ -3355,8 +3378,8 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
         EnumThreadWindows(GetCurrentThreadId(), SendThemeChangedToThreadWindows,
                           reinterpret_cast<LPARAM>(MainWindow->HWindow));
     }
-    // POZOR! fonts musi byt FALSE, aby nedoslo k zmene handlu fontu, o ktere
-    // se museji dozvedet toolbary, ktere jej pouzivaji
+    // WARNING! fonts must be FALSE to avoid changing the font handle,
+    // and the toolbars that use it would have to be notified of that change
     ReleaseGraphics(colorsOnly);
     InitializeGraphics(colorsOnly);
     ItemBitmap.ReCreateForScreenDC();
@@ -3843,12 +3866,17 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                 if (i + 1 < p)
                 {
                     char* s = argv[i + 1];
-                    if ((*s == '0' || *s == '1' || *s == '2' || *s == '3') && *(s + 1) == 0) // 0, 1, 2, 3
+                    if (*s != 0)
                     {
-                        Configuration.MainWindowIconIndexForced = (*s - '0');
+                        char* endPtr = NULL;
+                        long parsedIndex = strtol(s, &endPtr, 10);
+                        if (*endPtr == 0 && parsedIndex >= 0 && parsedIndex < MAINWINDOWICONS_COUNT)
+                        {
+                            Configuration.MainWindowIconIndexForced = (int)parsedIndex;
 
-                        cmdLineParams->SetMainWindowIconIndex = TRUE;
-                        cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                            cmdLineParams->SetMainWindowIconIndex = TRUE;
+                            cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                        }
                     }
                     i++;
                     continue;

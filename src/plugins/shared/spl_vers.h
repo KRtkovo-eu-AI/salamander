@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -25,6 +25,13 @@
 #define VERSINFO_SALAMANDER_MAJOR 5
 #define VERSINFO_SALAMANDER_MINORA 0
 #define VERSINFO_SALAMANDER_MINORB 0
+
+#define VERSINFO_SAMANDARIN_MAJOR 0
+#define VERSINFO_SAMANDARIN_MINORA 1
+
+#define VERSINFO_SAMANDARIN_VERSION VERSINFO_xstr(VERSINFO_SAMANDARIN_MAJOR) "." VERSINFO_xstr(VERSINFO_SAMANDARIN_MINORA)
+#define VERSINFO_SAMANDARIN_SUFFIX "-samandarin-" VERSINFO_SAMANDARIN_VERSION
+#define VERSINFO_SAMANDARIN_SHORT "SAM" VERSINFO_SAMANDARIN_VERSION
 
 #if (VERSINFO_SALAMANDER_MINORB == 0) // omit the trailing zero in the hundredths place: 2.50 -> 2.5
 #define VERSINFO_SALAMANDER_VERSION VERSINFO_xstr(VERSINFO_SALAMANDER_MAJOR) "." VERSINFO_xstr(VERSINFO_SALAMANDER_MINORA) VERSINFO_BETAVERSION_TXT
@@ -108,12 +115,19 @@
 // examples ("x86" is for the 32-bit version, "x64" for the 64-bit version; in the following examples,
 // x86/x64 are interchangeable): " (x86)" (for release versions), " beta 2 (x64)", " beta 2 (SDK x86)",
 // " RC1 (x64)", " beta 2 (IB21 x86)", " beta 2 (DB21 x64)", " beta 2 (PB21 x86)"
+#ifdef INSIDE_SALAMANDER
+#define VERSINFO_BUILD_SUFFIX VERSINFO_SAMANDARIN_SUFFIX
+#define VERSINFO_BUILD_SHORT_SUFFIX VERSINFO_SAMANDARIN_SHORT
+#else
+#define VERSINFO_BUILD_SUFFIX ""
+#define VERSINFO_BUILD_SHORT_SUFFIX ""
+#endif
 #define VERSINFO_BETAVERSION_TXT " (" SAL_VER_PLATFORM ")"
 #define VERSINFO_BETAVERSION_TXT_NO_PLATFORM "" // copy the line above + remove SAL_VER_PLATFORM + if the parentheses are empty, remove them + remove extra spaces
 
 // examples (see the previous paragraph for x86/x64): "x86" (for release versions), "B2x64", "B2SDKx86",
 // "RC1x64", "B2IB21x86", "B2DB21x64", "B2PB21x86"
-#define VERSINFO_BETAVERSIONSHORT_TXT SAL_VER_PLATFORM
+#define VERSINFO_BETAVERSIONSHORT_TXT VERSINFO_BUILD_SHORT_SUFFIX SAL_VER_PLATFORM
 
 // LAST_VERSION_OF_SALAMANDER:
 //

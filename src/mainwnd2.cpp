@@ -156,7 +156,7 @@ const DWORD THIS_CONFIG_VERSION = 104;
 // !!! Keep the corresponding lines in SalamanderConfigurationVersions up to date
 const char* SalamanderConfigurationRoots[SALCFG_ROOTS_COUNT + 1] =
     {
-        "Software\\Open Salamander\\5.0",
+        "Software\\Open Salamander Samandarin\\5.0-samandarin-0.1",
         "Software\\Altap\\Altap Salamander 4.0",
         "Software\\Altap\\Altap Salamander 4.0 beta 1 (DB177)",
         "Software\\Altap\\Altap Salamander 4.0 beta 1 (DB171)",
@@ -482,6 +482,9 @@ const char* CONFIG_CONVERSIONTABLE_REG = "Conversion Table";
 const char* CONFIG_TITLEBARSHOWPATH_REG = "Title bar show path";
 const char* CONFIG_TITLEBARMODE_REG = "Title bar mode";
 const char* CONFIG_TABCAPTIONMODE_REG = "Tab caption mode";
+const char* CONFIG_TABCAPTIONALIGNMENT_REG = "Tab caption alignment";
+const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
+const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
 const char* CONFIG_TITLEBARPREFIXTEXT_REG = "Title bar prefix text";
 const char* CONFIG_MAINWINDOWICONINDEX_REG = "Main window icon index";
@@ -2136,6 +2139,16 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.TitleBarMode, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABCAPTIONMODE_REG, REG_DWORD,
                          &Configuration.TabCaptionMode, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABCAPTIONALIGNMENT_REG, REG_DWORD,
+                         &Configuration.TabCaptionAlignment, sizeof(DWORD));
+                DWORD tabMinWidth = (Configuration.TabButtonMinWidth > 0)
+                                          ? (DWORD)Configuration.TabButtonMinWidth
+                                          : 0;
+                DWORD tabMaxWidth = (Configuration.TabButtonMaxWidth > 0)
+                                          ? (DWORD)Configuration.TabButtonMaxWidth
+                                          : 0;
+                SetValue(actKey, CONFIG_TABMINWIDTH_REG, REG_DWORD, &tabMinWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &tabMaxWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                          &Configuration.UseTitleBarPrefix, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
@@ -3832,14 +3845,45 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.TabCaptionMode < TITLE_BAR_MODE_DIRECTORY ||
                 Configuration.TabCaptionMode > TITLE_BAR_MODE_FULLPATH)
                 Configuration.TabCaptionMode = TITLE_BAR_MODE_DIRECTORY;
+            if (!GetValue(actKey, CONFIG_TABCAPTIONALIGNMENT_REG, REG_DWORD,
+                          &Configuration.TabCaptionAlignment, sizeof(DWORD)))
+            {
+                Configuration.TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
+            }
+            if (Configuration.TabCaptionAlignment != TAB_CAPTION_ALIGN_LEFT &&
+                Configuration.TabCaptionAlignment != TAB_CAPTION_ALIGN_CENTER)
+            {
+                Configuration.TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
+            }
+            DWORD storedTabMinWidth = 0;
+            if (GetValue(actKey, CONFIG_TABMINWIDTH_REG, REG_DWORD, &storedTabMinWidth, sizeof(DWORD)))
+            {
+                Configuration.TabButtonMinWidth = (int)storedTabMinWidth;
+            }
+            else
+                Configuration.TabButtonMinWidth = 0;
+            DWORD storedTabMaxWidth = 0;
+            if (GetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &storedTabMaxWidth, sizeof(DWORD)))
+            {
+                Configuration.TabButtonMaxWidth = (int)storedTabMaxWidth;
+            }
+            else
+                Configuration.TabButtonMaxWidth = 0;
+            if (Configuration.TabButtonMinWidth < 0)
+                Configuration.TabButtonMinWidth = 0;
+            if (Configuration.TabButtonMaxWidth < 0)
+                Configuration.TabButtonMaxWidth = 0;
+            if (Configuration.TabButtonMinWidth > 0 && Configuration.TabButtonMaxWidth > 0 &&
+                Configuration.TabButtonMinWidth > Configuration.TabButtonMaxWidth)
+                Configuration.TabButtonMinWidth = Configuration.TabButtonMaxWidth;
             GetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                      &Configuration.UseTitleBarPrefix, sizeof(DWORD));
             GetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
                      &Configuration.TitleBarPrefix, TITLE_PREFIX_MAX);
             GetValue(actKey, CONFIG_MAINWINDOWICONINDEX_REG, REG_DWORD,
                      &Configuration.MainWindowIconIndex, sizeof(DWORD));
-            if (Configuration.MainWindowIconIndex < 0 || Configuration.MainWindowIconIndex > MAINWINDOWICONS_COUNT)
-                Configuration.MainWindowIconIndex = 0;
+            if (Configuration.MainWindowIconIndex < 0 || Configuration.MainWindowIconIndex >= MAINWINDOWICONS_COUNT)
+                Configuration.MainWindowIconIndex = MAINWINDOWICON_DEFAULT_INDEX;
             GetValue(actKey, CONFIG_CLICKQUICKRENAME_REG, REG_DWORD,
                      &Configuration.ClickQuickRename, sizeof(DWORD));
             GetValue(actKey, CONFIG_VISIBLEDRIVES_REG, REG_DWORD,

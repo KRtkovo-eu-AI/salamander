@@ -1417,6 +1417,17 @@ BOOL CreateEnvFonts()
         return FALSE;
     }
 
+    LOGFONT boldLF = lf;
+    boldLF.lfWeight = FW_BOLD;
+    if (EnvFontBold != NULL)
+        HANDLES(DeleteObject(EnvFontBold));
+    EnvFontBold = HANDLES(CreateFontIndirect(&boldLF));
+    if (EnvFontBold == NULL)
+    {
+        TRACE_E("Unable to create bold font.");
+        return FALSE;
+    }
+
     // create an underlined variant
     lf.lfUnderline = TRUE;
     if (EnvFontUL != NULL)

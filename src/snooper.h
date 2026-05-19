@@ -21,5 +21,8 @@ void EndSuspendMode(BOOL debugDoNotTestCaller = FALSE);
 
 void EnsureWatching(CFilesWindow* win, BOOL registerDevNotification);
 
+typedef TDirectArray<CFilesWindow*> CWindowArray; // (CFilesWindow*)
+typedef TDirectArray<HANDLE> CObjectArray;        // (HANDLE)
+
 extern CWindowArray WindowArray; // arrays share the same indices
 extern CObjectArray ObjectArray; // the object handle associated with the MainWindow

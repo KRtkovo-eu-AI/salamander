@@ -205,7 +205,7 @@ STRINGTABLE
  IDS_MENU_HELP_TASKLIST,     "Task &List..."
  IDS_MENU_HELP_FORUM,        "Official Support &Forum"
  IDS_MENU_HELP_ABOUTPLUGINS, "About &Plugin"
- IDS_MENU_HELP_ABOUT,        "&About Open Salamander"
+ IDS_MENU_HELP_ABOUT,        "&About Open Salamander: Samandarin"
 
 //
 // find file menu
@@ -1590,6 +1590,8 @@ STRINGTABLE
  IDS_TITLEBAR_DIRECTORY, "Directory Name Only"
  IDS_TITLEBAR_COMPOSITE, "Shortened Path"
  IDS_TITLEBAR_FULLPATH, "Full Path"
+ IDS_TABCAPTIONALIGN_LEFT, "Left"
+ IDS_TABCAPTIONALIGN_CENTER, "Center"
 
  IDS_SHORTCUT_INVALID, "The file '%s' is not valid shortcut nor link."
  IDS_SHORTCUT_WRONG_PATH, "Cannot obtain shortcut target or target path is not accessible."
@@ -1824,6 +1826,7 @@ STRINGTABLE
  IDS_SALAMANDERICON_RED, "Red"
  IDS_SALAMANDERICON_GREEN, "Green"
  IDS_SALAMANDERICON_BLUE, "Blue"
+ IDS_SALAMANDERICON_SAMANDARIN, "Samandarin"
  
  IDS_PROGDLGHOURS, "%d hr"
  IDS_PROGDLGMINUTES, "%d min"

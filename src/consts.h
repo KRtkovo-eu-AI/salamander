@@ -1313,7 +1313,7 @@ extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // viewer colors
 
 void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
 
-extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // pro standardni color dialog
+extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // for the standard color dialog
 
 #define CARET_WIDTH 2
 #define MIN_PANELWIDTH 5 // a narrower panel does not receive focus
@@ -1417,6 +1417,7 @@ extern LOGFONT LogFont;         // structure describing the panel font
 BOOL CreatePanelFont(); // fills Font, FontUL and FontCharHeight based on LogFont
 
 extern HFONT EnvFont;         // environment font (edit, toolbar, header, status)
+extern HFONT EnvFontBold;     // tucny font prostredi (pro vybrane prvky)
 extern HFONT EnvFontUL;       // underlined list box font
 extern int EnvFontCharHeight; // font height
 extern HFONT TooltipFont;     // font for tooltips (and status bars, although we don't use it there)
@@ -1921,95 +1922,95 @@ extern BOOL IdleRefreshStates;  // when set, the next CMainWindow::OnEnterIdle w
 extern BOOL IdleForceRefresh;   // if IdleRefreshStates is set, setting IdleForceRefresh bypasses Salamander's cache
 extern BOOL IdleCheckClipboard; // when IdleRefreshStates is TRUE and this flag is set, the clipboard is checked as well (time consuming)
 
-// ".." neni pocitano mezi soubory|adresare
-extern DWORD EnablerUpDir;                // existuje parent directory?
-extern DWORD EnablerRootDir;              // nejsme jeste v rootu? (pozor: UNC root ma updir, ale je to root)
-extern DWORD EnablerForward;              // je v historii dostupny forward?
-extern DWORD EnablerBackward;             // je v historii dostupny backward?
-extern DWORD EnablerFileOnDisk;           // focus je na souboru && panel je disk
-extern DWORD EnablerFileOnDiskOrArchive;  // focus je na souboru && panel je disk nebo archiv
-extern DWORD EnablerFileOrDirLinkOnDisk;  // focus je na souboru nebo adresari linku && panel je disk
-extern DWORD EnablerFiles;                // focus|select je na souborech|adresarich
-extern DWORD EnablerFilesOnDisk;          // focus|select je na souborech|adresarich && panel je disk
-extern DWORD EnablerFilesOnDiskCompress;  // focus|select je na souborech|adresarich && panel je disk && je podporovana komprese
-extern DWORD EnablerFilesOnDiskEncrypt;   // focus|select je na souborech|adresarich && panel je disk && je podporovano sifrovani
-extern DWORD EnablerFilesOnDiskOrArchive; // focus|select je na souborech|adresarich && panel je disk nebo archiv
-extern DWORD EnablerOccupiedSpace;        // panel je disk nebo archiv s VALID_DATA_SIZE a zaroven plati EnablerFilesOnDiskOrArchive
-extern DWORD EnablerFilesCopy;            // focus|select je na souborech|adresarich && panel je disk, archiv nebo FS s podporou "copy from fs"
-extern DWORD EnablerFilesMove;            // focus|select je na souborech|adresarich && panel je disk nebo FS s podporou "move from fs"
-extern DWORD EnablerFilesDelete;          // focus|select je na souborech|adresarich && (panel je disk, editovatelny archiv nebo FS s podporou "delete")
-extern DWORD EnablerFileDir;              // focus je na souboru|adresari
-extern DWORD EnablerFileDirANDSelected;   // focus je na souboru|adresari && jsou oznaceny nejake soubory|adresare
-extern DWORD EnablerQuickRename;          // focus je na souboru|adresari && panel je disk nebo FS (s podporou quick-rename)
-extern DWORD EnablerOnDisk;               // panel je disk
-extern DWORD EnablerCalcDirSizes;         // panel je disk nebo archiv s VALID_DATA_SIZE
-extern DWORD EnablerPasteFiles;           // je mozne provest Paste? (soubory na clipboardu) (vyuzite jako pamet posledniho stavu clipboardu pro 'pasteFiles' v CMainWindow::RefreshCommandStates())
-extern DWORD EnablerPastePath;            // je mozne provest Paste? (text cesty na clipboardu) (vyuzite jako pamet posledniho stavu clipboardu pro 'pastePath' v CMainWindow::RefreshCommandStates())
-extern DWORD EnablerPasteLinks;           // je mozne provest Paste Links? (soubory pres "copy" na clipboardu) (vyuzite jako pamet posledniho stavu clipboardu pro 'pasteLinks' v CMainWindow::RefreshCommandStates())
-extern DWORD EnablerPasteSimpleFiles;     // jsou na clipboardu soubory/adresare z jedine cesty? (aneb: je sance na Paste do archivu nebo FS?)
-extern DWORD EnablerPasteDefEffect;       // jaky je defaultni paste-effect, muze byt i kombinace DROPEFFECT_COPY+DROPEFFECT_MOVE (aneb: slo o Copy nebo Cut?)
-extern DWORD EnablerPasteFilesToArcOrFS;  // je mozny Paste souboru do archivu/FS v aktualnim panelu? (v panelu je archiv/FS && EnablerPasteSimpleFiles && operace podle EnablerPasteDefEffect je mozna)
-extern DWORD EnablerPaste;                // je mozne provest Paste? (soubory na clipboardu && panel je disk || je mozne provest paste do archivu nebo FS || text cesty na clipboardu)
-extern DWORD EnablerPasteLinksOnDisk;     // je mozne provest Paste Links a panel je disk?
-extern DWORD EnablerSelected;             // jsou oznaceny nejake soubory|adresare
-extern DWORD EnablerUnselected;           // existuje alespon jeden neoznaceny soubor|adresar (UpDir ".." se neuvazuje)
-extern DWORD EnablerHiddenNames;          // pole HiddenNames obsahuje nejake nazvy
-extern DWORD EnablerSelectionStored;      // je ulozena selection v OldSelection aktivniho panelu?
-extern DWORD EnablerGlobalSelStored;      // je ulozena selection v GlobalSelection?
-extern DWORD EnablerSelGotoPrev;          // existuje pred focusem vybrana polozka?
-extern DWORD EnablerSelGotoNext;          // existuje za focusem vybrana polozka?
-extern DWORD EnablerLeftUpDir;            // existuje v levem panelu parent directory?
-extern DWORD EnablerRightUpDir;           // existuje v pravem panelu parent directory?
-extern DWORD EnablerLeftRootDir;          // nejsme jeste v levem panelu v rootu? (pozor: UNC root ma updir, ale je to root)
-extern DWORD EnablerRightRootDir;         // nejsme jeste v pravem panelu v rootu? (pozor: UNC root ma updir, ale je to root)
-extern DWORD EnablerLeftForward;          // je v historii leveho panelu dostupny forward?
-extern DWORD EnablerRightForward;         // je v historii praveho panelu dostupny forward?
-extern DWORD EnablerLeftBackward;         // je v historii leveho panelu dostupny backward?
-extern DWORD EnablerRightBackward;        // je v historii praveho panelu dostupny backward?
-extern DWORD EnablerFileHistory;          // je v view/edit historii dostupny soubor?
-extern DWORD EnablerDirHistory;           // je v directory historii dostupny adresar?
-extern DWORD EnablerCustomizeLeftView;    // je mozne konfigurovat sloupce pro levy pohled?
-extern DWORD EnablerCustomizeRightView;   // je mozne konfigurovat sloupce pro pravy pohled?
-extern DWORD EnablerDriveInfo;            // je mozne zobrazit Drive Info?
-extern DWORD EnablerCreateDir;            // panel je disk nebo FS (s podporou create-dir)
-extern DWORD EnablerViewFile;             // focus je na souboru && panel je disk, archiv nebo FS (s podporou view-file)
-extern DWORD EnablerChangeAttrs;          // focus|select je na souborech|adresarich && panel je disk nebo FS (s podporou change-attributes)
-extern DWORD EnablerShowProperties;       // focus|select je na souborech|adresarich && panel je disk nebo FS (s podporou show-properties)
-extern DWORD EnablerItemsContextMenu;     // focus|select je na souborech|adresarich && panel je disk nebo FS (s podporou context-menu)
-extern DWORD EnablerOpenActiveFolder;     // panel je disk nebo FS (s podporou open-active-folder)
-extern DWORD EnablerPermissions;          // focus|select je na souborech|adresarich && panel je disk, bezime nejmene na W2K, disk umi ACL (NTFS)
-extern DWORD EnablerNewTab;               // lze vytvorit novy tab v aktivnim panelu?
-extern DWORD EnablerCloseTab;             // lze zavrit aktivni tab?
-extern DWORD EnablerNextTab;              // je dostupny dalsi tab v aktivnim panelu?
-extern DWORD EnablerPrevTab;              // je dostupny predchozi tab v aktivnim panelu?
-extern DWORD EnablerDuplicateTab;         // lze duplikovat aktivni tab na stejnou stranu?
-extern DWORD EnablerReopenTab;            // lze znovu otevrit zavreny tab v aktivnim panelu?
-extern DWORD EnablerLockTab;              // lze zamknout aktivni tab?
-extern DWORD EnablerUnlockTab;            // lze odemknout aktivni tab?
-extern DWORD EnablerLeftNewTab;           // lze vytvorit novy tab v levem panelu?
-extern DWORD EnablerLeftCloseTab;         // lze zavrit tab v levem panelu?
-extern DWORD EnablerLeftNextTab;          // je dostupny dalsi tab v levem panelu?
-extern DWORD EnablerLeftPrevTab;          // je dostupny predchozi tab v levem panelu?
-extern DWORD EnablerLeftCloseAllButDefault; // lze zavrit vsechny taby krome vychoziho v levem panelu?
-extern DWORD EnablerLeftCloseAllExceptThisAndDefault; // lze zavrit vsechny taby krom vychoziho a aktualniho v levem panelu?
-extern DWORD EnablerLeftDuplicateTab;     // lze duplikovat tab v levem panelu na stejnou stranu?
-extern DWORD EnablerLeftDuplicateTabToRight; // lze duplikovat tab na pravou stranu?
-extern DWORD EnablerLeftMoveTabToRight;      // lze presunout tab na pravou stranu?
-extern DWORD EnablerLeftReopenTab;        // lze znovu otevrit zavreny tab v levem panelu?
-extern DWORD EnablerLeftLockTab;          // lze zamknout tab v levem panelu?
-extern DWORD EnablerLeftUnlockTab;        // lze odemknout tab v levem panelu?
-extern DWORD EnablerRightNewTab;          // lze vytvorit novy tab v pravem panelu?
-extern DWORD EnablerRightCloseTab;        // lze zavrit tab v pravem panelu?
-extern DWORD EnablerRightNextTab;         // je dostupny dalsi tab v pravem panelu?
-extern DWORD EnablerRightPrevTab;         // je dostupny predchozi tab v pravem panelu?
-extern DWORD EnablerRightCloseAllButDefault; // lze zavrit vsechny taby krome vychoziho v pravem panelu?
-extern DWORD EnablerRightCloseAllExceptThisAndDefault; // lze zavrit vsechny taby krom vychoziho a aktualniho v pravem panelu?
-extern DWORD EnablerRightDuplicateTab;    // lze duplikovat tab v pravem panelu na stejnou stranu?
-extern DWORD EnablerRightDuplicateTabToLeft; // lze duplikovat tab na levou stranu?
-extern DWORD EnablerRightMoveTabToLeft;      // lze presunout tab na levou stranu?
-extern DWORD EnablerRightReopenTab;       // lze znovu otevrit zavreny tab v pravem panelu?
-extern DWORD EnablerRightLockTab;         // lze zamknout tab v pravem panelu?
-extern DWORD EnablerRightUnlockTab;       // lze odemknout tab v pravem panelu?
+// ".." is not counted among files/directories
+extern DWORD EnablerUpDir;                // is a parent directory available?
+extern DWORD EnablerRootDir;              // are we already at the root? (note: UNC roots have an updir but are still roots)
+extern DWORD EnablerForward;              // is forward available in history?
+extern DWORD EnablerBackward;             // is backward available in history?
+extern DWORD EnablerFileOnDisk;           // focus is on a file and the panel is disk-based
+extern DWORD EnablerFileOnDiskOrArchive;  // focus is on a file and the panel is disk or archive
+extern DWORD EnablerFileOrDirLinkOnDisk;  // focus is on a file or directory link and the panel is disk
+extern DWORD EnablerFiles;                // focus/selection is on files/directories
+extern DWORD EnablerFilesOnDisk;          // focus/selection is on files/directories and the panel is a disk
+extern DWORD EnablerFilesOnDiskCompress;  // focus/selection is on files/directories and the panel is a disk that supports compression
+extern DWORD EnablerFilesOnDiskEncrypt;   // focus/selection is on files/directories and the panel is a disk that supports encryption
+extern DWORD EnablerFilesOnDiskOrArchive; // focus/selection is on files/directories and the panel is disk or archive
+extern DWORD EnablerOccupiedSpace;        // panel is disk or archive with VALID_DATA_SIZE and EnablerFilesOnDiskOrArchive holds
+extern DWORD EnablerFilesCopy;            // focus/selection is on files/directories and the panel is disk, archive or FS supporting "copy from fs"
+extern DWORD EnablerFilesMove;            // focus/selection is on files/directories and the panel is disk or FS supporting "move from fs"
+extern DWORD EnablerFilesDelete;          // focus/selection is on files/directories and the panel is a disk, an editable archive, or an FS supporting "delete"
+extern DWORD EnablerFileDir;              // focus is on a file/directory
+extern DWORD EnablerFileDirANDSelected;   // focus is on a file/directory and some files/directories are selected
+extern DWORD EnablerQuickRename;          // focus is on a file/directory and the panel is disk or FS (with quick-rename support)
+extern DWORD EnablerOnDisk;               // panel is a disk
+extern DWORD EnablerCalcDirSizes;         // panel is a disk or archive with VALID_DATA_SIZE
+extern DWORD EnablerPasteFiles;           // can Paste be performed? (files on the clipboard) used as memory of the last clipboard state for 'pasteFiles' in CMainWindow::RefreshCommandStates()
+extern DWORD EnablerPastePath;            // can Paste be performed? (path text on the clipboard) used as memory of the last clipboard state for 'pastePath' in CMainWindow::RefreshCommandStates()
+extern DWORD EnablerPasteLinks;           // can Paste Links be performed? (files copied to the clipboard) used as memory of the last clipboard state for 'pasteLinks' in CMainWindow::RefreshCommandStates()
+extern DWORD EnablerPasteSimpleFiles;     // are there files/directories from a single path on the clipboard? (chance to Paste into an archive or FS)
+extern DWORD EnablerPasteDefEffect;       // what is the default paste effect; may be a combination of DROPEFFECT_COPY+DROPEFFECT_MOVE (Copy or Cut?)
+extern DWORD EnablerPasteFilesToArcOrFS;  // can files be pasted into the archive/FS in the current panel? (the panel is archive/FS && EnablerPasteSimpleFiles && the operation according to EnablerPasteDefEffect is allowed)
+extern DWORD EnablerPaste;                // can Paste be performed? (files on clipboard && panel is disk || paste into archive/FS is possible || path text on clipboard)
+extern DWORD EnablerPasteLinksOnDisk;     // can Paste Links be performed and the panel is a disk?
+extern DWORD EnablerSelected;             // are any files/directories selected
+extern DWORD EnablerUnselected;           // is there at least one unselected file/directory (UpDir ".." not considered)
+extern DWORD EnablerHiddenNames;          // the HiddenNames array contains some names
+extern DWORD EnablerSelectionStored;      // is a selection stored in OldSelection of the active panel?
+extern DWORD EnablerGlobalSelStored;      // is a selection stored in GlobalSelection?
+extern DWORD EnablerSelGotoPrev;          // is there a selected item before the focus?
+extern DWORD EnablerSelGotoNext;          // is there a selected item after the focus?
+extern DWORD EnablerLeftUpDir;            // does the left panel have a parent directory?
+extern DWORD EnablerRightUpDir;           // does the right panel have a parent directory?
+extern DWORD EnablerLeftRootDir;          // are we not yet at the root in the left panel? (UNC roots have an updir but are still roots)
+extern DWORD EnablerRightRootDir;         // are we not yet at the root in the right panel? (UNC roots have an updir but are still roots)
+extern DWORD EnablerLeftForward;          // is forward available in the left panel history?
+extern DWORD EnablerRightForward;         // is forward available in the right panel history?
+extern DWORD EnablerLeftBackward;         // is backward available in the left panel history?
+extern DWORD EnablerRightBackward;        // is backward available in the right panel history?
+extern DWORD EnablerFileHistory;          // is a file available in the view/edit history?
+extern DWORD EnablerDirHistory;           // is a directory available in the directory history?
+extern DWORD EnablerCustomizeLeftView;    // can columns be configured for the left view?
+extern DWORD EnablerCustomizeRightView;   // can columns be configured for the right view?
+extern DWORD EnablerDriveInfo;            // can Drive Info be displayed?
+extern DWORD EnablerCreateDir;            // panel is disk or FS (supports create-dir)
+extern DWORD EnablerViewFile;             // focus is on a file and the panel is disk, archive or FS (supports view-file)
+extern DWORD EnablerChangeAttrs;          // focus/selection is on files/directories and the panel is disk or FS (supports change-attributes)
+extern DWORD EnablerShowProperties;       // focus/selection is on files/directories and the panel is disk or FS (supports show-properties)
+extern DWORD EnablerItemsContextMenu;     // focus/selection is on files/directories and the panel is disk or FS (supports context menu)
+extern DWORD EnablerOpenActiveFolder;     // panel is a disk or an FS (with open-active-folder support)
+extern DWORD EnablerPermissions;          // focus/selection is on files/directories and the panel is a disk; running at least on W2K with NTFS supporting ACLs
+extern DWORD EnablerNewTab;               // can a new tab be created in the active panel?
+extern DWORD EnablerCloseTab;             // can the active tab be closed?
+extern DWORD EnablerNextTab;              // is there a next tab in the active panel?
+extern DWORD EnablerPrevTab;              // is there a previous tab in the active panel?
+extern DWORD EnablerDuplicateTab;         // can the active tab be duplicated on the same side?
+extern DWORD EnablerReopenTab;            // can a closed tab be reopened in the active panel?
+extern DWORD EnablerLockTab;              // can the active tab be locked?
+extern DWORD EnablerUnlockTab;            // can the active tab be unlocked?
+extern DWORD EnablerLeftNewTab;           // can a new tab be created in the left panel?
+extern DWORD EnablerLeftCloseTab;         // can a tab in the left panel be closed?
+extern DWORD EnablerLeftNextTab;          // is there a next tab in the left panel?
+extern DWORD EnablerLeftPrevTab;          // is there a previous tab in the left panel?
+extern DWORD EnablerLeftCloseAllButDefault; // can all tabs except the default one be closed in the left panel?
+extern DWORD EnablerLeftCloseAllExceptThisAndDefault; // can all tabs except the default and current ones be closed in the left panel?
+extern DWORD EnablerLeftDuplicateTab;     // can a tab in the left panel be duplicated on the same side?
+extern DWORD EnablerLeftDuplicateTabToRight; // can a tab be duplicated to the right side?
+extern DWORD EnablerLeftMoveTabToRight;      // can a tab be moved to the right side?
+extern DWORD EnablerLeftReopenTab;        // can a closed tab be reopened in the left panel?
+extern DWORD EnablerLeftLockTab;          // can a tab in the left panel be locked?
+extern DWORD EnablerLeftUnlockTab;        // can a tab in the left panel be unlocked?
+extern DWORD EnablerRightNewTab;          // can a new tab be created in the right panel?
+extern DWORD EnablerRightCloseTab;        // can a tab in the right panel be closed?
+extern DWORD EnablerRightNextTab;         // is there a next tab in the right panel?
+extern DWORD EnablerRightPrevTab;         // is there a previous tab in the right panel?
+extern DWORD EnablerRightCloseAllButDefault; // can all tabs except the default one be closed in the right panel?
+extern DWORD EnablerRightCloseAllExceptThisAndDefault; // can all tabs except the default and current ones be closed in the right panel?
+extern DWORD EnablerRightDuplicateTab;    // can a tab in the right panel be duplicated on the same side?
+extern DWORD EnablerRightDuplicateTabToLeft; // can a tab be duplicated to the left side?
+extern DWORD EnablerRightMoveTabToLeft;      // can a tab be moved to the left side?
+extern DWORD EnablerRightReopenTab;       // can a closed tab be reopened in the right panel?
+extern DWORD EnablerRightLockTab;         // can a tab in the right panel be locked?
+extern DWORD EnablerRightUnlockTab;       // can a tab in the right panel be unlocked?
 
 //******************************************************************************
 //
@@ -2525,3 +2526,6 @@ int GetSystemDPI();
 // returns the scale corresponding to the current DPI; instead of 1.0 returns
 // 100, for 1.25 returns 125, etc.
 int GetScaleForSystemDPI();
+
+// prevod mezi device-independent pixels (DIP) a fyzickymi pixely
+int DipToPixels(int dips);

@@ -51,6 +51,7 @@ namespace
 {
     constexpr LPARAM kNewTabButtonParam = static_cast<LPARAM>(-1);
     const wchar_t kNewTabButtonText[] = L"+";
+    const wchar_t kEllipsisText[] = L"...";
 
     COLORREF BlendColor(COLORREF from, COLORREF to, int weight)
     {
@@ -128,6 +129,59 @@ namespace
         return minWidth + padding;
     }
 
+    std::wstring EllipsizeTextToWidth(const std::wstring& text, HDC hdc, int maxWidth)
+    {
+        if (maxWidth <= 0)
+            return std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+        if (text.empty())
+            return text;
+
+        SIZE textSize = {0, 0};
+        if (!GetTextExtentPoint32W(hdc, text.c_str(), (int)text.length(), &textSize))
+            return text;
+        if (textSize.cx <= maxWidth)
+            return text;
+
+        SIZE ellipsisSize = {0, 0};
+        if (!GetTextExtentPoint32W(hdc, kEllipsisText, _countof(kEllipsisText) - 1, &ellipsisSize))
+            ellipsisSize.cx = 0;
+        if (ellipsisSize.cx > maxWidth)
+            return std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+
+        int low = 0;
+        int high = (int)text.length() - 1;
+        std::wstring best(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+        while (low <= high)
+        {
+            int mid = (low + high) / 2;
+            std::wstring candidate;
+            if (mid <= 0)
+                candidate.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+            else
+            {
+                candidate.assign(text, 0, mid);
+                candidate.append(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+            }
+
+            SIZE candidateSize = {0, 0};
+            if (!GetTextExtentPoint32W(hdc, candidate.c_str(), (int)candidate.length(), &candidateSize))
+            {
+                high = mid - 1;
+                continue;
+            }
+
+            if (candidateSize.cx <= maxWidth)
+            {
+                best = candidate;
+                low = mid + 1;
+            }
+            else
+                high = mid - 1;
+        }
+
+        return best;
+    }
+
 }
 
 CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
@@ -153,6 +207,9 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     DragInsertMarkFlags = 0;
     SetRectEmpty(&DragIndicatorRect);
     DragIndicatorVisible = false;
+    LastClickedIndex = -1;
+    LastClickWasSelected = false;
+    MouseWheelAccumulator = 0;
 }
 
 CTabWindow::~CTabWindow()
@@ -227,6 +284,7 @@ int CTabWindow::AddTab(int index, const wchar_t* text, LPARAM data)
         return result;
     InsertTabColorSlot(colorIndex, count);
     EnsureNewTabButton();
+    SetTabText(insertIndex, text);
     return result;
 }
 
@@ -267,11 +325,88 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL || index < 0 || index >= GetTabCount())
         return;
-    TCITEMW item;
-    ZeroMemory(&item, sizeof(item));
-    item.mask = TCIF_TEXT;
-    item.pszText = const_cast<LPWSTR>(text != NULL ? text : L"");
-    SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
+    std::wstring desired = (text != NULL) ? text : L"";
+
+    auto setItemText = [&](const std::wstring& value) {
+        TCITEMW item;
+        ZeroMemory(&item, sizeof(item));
+        item.mask = TCIF_TEXT;
+        item.pszText = const_cast<LPWSTR>(value.c_str());
+        SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
+    };
+
+    setItemText(desired);
+
+    if (desired.empty())
+        return;
+
+    int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
+    if (maxWidthPx <= 0)
+        return;
+
+    RECT rect;
+    if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+        return;
+    int currentWidth = rect.right - rect.left;
+    if (currentWidth <= maxWidthPx)
+        return;
+
+    HDC hdc = GetDC(HWindow);
+    if (hdc == NULL)
+        return;
+    HFONT oldFont = NULL;
+    bool selected = (index == TabCtrl_GetCurSel(HWindow));
+    HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
+    if (fontToUse != NULL)
+        oldFont = (HFONT)SelectObject(hdc, fontToUse);
+
+    SIZE desiredSize = {0, 0};
+    if (!GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
+    {
+        if (oldFont != NULL)
+            SelectObject(hdc, oldFont);
+        ReleaseDC(HWindow, hdc);
+        return;
+    }
+
+    int extraWidth = currentWidth - desiredSize.cx;
+    int allowedTextWidth = maxWidthPx - extraWidth;
+    if (allowedTextWidth <= 0)
+    {
+        setItemText(std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1));
+        if (oldFont != NULL)
+            SelectObject(hdc, oldFont);
+        ReleaseDC(HWindow, hdc);
+        return;
+    }
+
+    std::wstring finalText = desired;
+    if (desiredSize.cx > allowedTextWidth)
+        finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+
+    for (int attempt = 0; attempt < 3; ++attempt)
+    {
+        setItemText(finalText);
+        if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+            break;
+        currentWidth = rect.right - rect.left;
+        if (currentWidth <= maxWidthPx)
+            break;
+
+        allowedTextWidth -= (currentWidth - maxWidthPx);
+        if (allowedTextWidth <= 0)
+        {
+            finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+        }
+        else
+        {
+            finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+        }
+    }
+
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+    ReleaseDC(HWindow, hdc);
 }
 
 void CTabWindow::SetCurSel(int index)
@@ -452,6 +587,39 @@ void CTabWindow::EnsureNewTabButton()
     UpdateNewTabButtonWidth();
 }
 
+void CTabWindow::RefreshLayout()
+{
+    CALL_STACK_MESSAGE_NONE
+    UpdateNewTabButtonWidth();
+}
+
+bool CTabWindow::HandleMouseWheel(WPARAM wParam)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return false;
+
+    short zDelta = (short)HIWORD(wParam);
+    if (zDelta == 0)
+        return true;
+
+    if ((zDelta < 0 && MouseWheelAccumulator > 0) ||
+        (zDelta > 0 && MouseWheelAccumulator < 0))
+    {
+        MouseWheelAccumulator = 0;
+    }
+
+    MouseWheelAccumulator += zDelta;
+    int steps = MouseWheelAccumulator / WHEEL_DELTA;
+    if (steps != 0)
+    {
+        MouseWheelAccumulator -= steps * WHEEL_DELTA;
+        ScrollTabsByWheelSteps(steps);
+    }
+
+    return true;
+}
+
 void CTabWindow::UpdateNewTabButtonWidth()
 {
     CALL_STACK_MESSAGE_NONE
@@ -459,6 +627,9 @@ void CTabWindow::UpdateNewTabButtonWidth()
         return;
 
     int minWidth = ComputeNewTabMinWidth(HWindow);
+    int configuredMinWidth = DipToPixels(Configuration.TabButtonMinWidth);
+    if (configuredMinWidth > 0 && configuredMinWidth > minWidth)
+        minWidth = configuredMinWidth;
     if (minWidth > 0)
         TabCtrl_SetMinTabWidth(HWindow, minWidth);
 }
@@ -1237,6 +1408,50 @@ void CTabWindow::ExpandSelectedTabRect(RECT& rect) const
     rect.top -= expand;
 }
 
+void CTabWindow::ScrollTabsByWheelSteps(int steps)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL || steps == 0)
+        return;
+
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    if (upDown == NULL || !IsWindowVisible(upDown) || !IsWindowEnabled(upDown))
+        return;
+
+    RECT upDownClientRect;
+    if (!GetClientRect(upDown, &upDownClientRect))
+        return;
+
+    int width = upDownClientRect.right - upDownClientRect.left;
+    int height = upDownClientRect.bottom - upDownClientRect.top;
+    if (width <= 0 || height <= 0)
+        return;
+
+    // The tab control's overflow arrows are implemented as an internal up-down child window.
+    // Simulate clicks on that child instead of changing the tab control focus/selection:
+    // clicking those arrows scrolls the visible tab strip without activating another tab.
+    bool scrollLeft = steps > 0;
+    int x = scrollLeft ? width / 4 : (3 * width) / 4;
+    int y = height / 2;
+    LPARAM clickPoint = MAKELPARAM(x, y);
+    int count = steps > 0 ? steps : -steps;
+
+    int oldSel = TabCtrl_GetCurSel(HWindow);
+    for (int i = 0; i < count; ++i)
+    {
+        SendMessage(upDown, WM_LBUTTONDOWN, MK_LBUTTON, clickPoint);
+        SendMessage(upDown, WM_LBUTTONUP, 0, clickPoint);
+    }
+
+    if (oldSel >= 0 && TabCtrl_GetCurSel(HWindow) != oldSel)
+    {
+        CSelChangeGuard guard(SuppressSelectionNotifications);
+        TabCtrl_SetCurSel(HWindow, oldSel);
+    }
+
+    InvalidateRect(HWindow, NULL, FALSE);
+}
+
 void CTabWindow::InvalidateTab(int index)
 {
     if (HWindow == NULL)
@@ -1596,8 +1811,9 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     }
 
     HFONT oldFont = NULL;
-    if (EnvFont != NULL)
-        oldFont = (HFONT)SelectObject(hdc, EnvFont);
+    HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
+    if (fontToUse != NULL)
+        oldFont = (HFONT)SelectObject(hdc, fontToUse);
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
     COLORREF textColor;
     if (useDark)
@@ -1626,8 +1842,12 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     COLORREF oldTextColor = SetTextColor(hdc, textColor);
 
     const wchar_t* drawText = (text != NULL) ? text : L"";
-    DrawTextW(hdc, drawText, -1, &textRect,
-              DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+    UINT format = DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX;
+    if (Configuration.TabCaptionAlignment == TAB_CAPTION_ALIGN_LEFT)
+        format |= DT_LEFT;
+    else
+        format |= DT_CENTER;
+    DrawTextW(hdc, drawText, -1, &textRect, format);
 
     if (hasFocus)
     {
@@ -1695,12 +1915,27 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         pt.x = pts.x;
         pt.y = pts.y;
         int hit = HitTest(pt);
+        LastClickedIndex = hit;
+        LastClickWasSelected =
+            (hit >= 0 && !IsNewTabButtonIndex(hit) && TabCtrl_GetCurSel(HWindow) == hit);
         if (IsReorderableIndex(hit))
             StartDragTracking(hit, pt);
         else
             CancelDragTracking();
         break;
     }
+
+    case WM_MOUSEWHEEL:
+        if (MouseWheelMSGThroughHook && MouseWheelMSGTime != 0 && (GetTickCount() - MouseWheelMSGTime < MOUSEWHEELMSG_VALID))
+            return 0;
+        MouseWheelMSGThroughHook = FALSE;
+        MouseWheelMSGTime = GetTickCount();
+        HandleMouseWheel(wParam);
+        return 0;
+
+    case WM_USER_MOUSEWHEEL:
+        HandleMouseWheel(wParam);
+        return 0;
 
     case WM_MBUTTONDOWN:
     {
@@ -1750,7 +1985,17 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         POINT pt;
         pt.x = pts.x;
         pt.y = pts.y;
+        bool wasDragging = Dragging;
+        int clickedIndex = LastClickedIndex;
+        bool clickedSelected = LastClickWasSelected;
         FinishDragTracking(pt, false);
+        LastClickedIndex = -1;
+        LastClickWasSelected = false;
+        if (!wasDragging && clickedIndex >= 0 && clickedSelected && MainWindow != NULL &&
+            !IsNewTabButtonIndex(clickedIndex))
+        {
+            MainWindow->OnPanelTabSelected(Side, clickedIndex);
+        }
         break;
     }
 

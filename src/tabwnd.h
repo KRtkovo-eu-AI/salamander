@@ -42,6 +42,8 @@ public:
 
     CPanelSide GetSide() const { return Side; }
 
+    void RefreshLayout();
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -67,6 +69,8 @@ private:
     void MoveTabInternal(int from, int to);
     void InvalidateTab(int index);
     void ExpandSelectedTabRect(RECT& rect) const;
+    bool HandleMouseWheel(WPARAM wParam);
+    void ScrollTabsByWheelSteps(int steps);
 
     struct STabColor
     {
@@ -101,6 +105,10 @@ private:
     DWORD DragInsertMarkFlags;
     RECT DragIndicatorRect;
     bool DragIndicatorVisible;
+
+    int LastClickedIndex;
+    bool LastClickWasSelected;
+    int MouseWheelAccumulator;
 
     std::vector<STabColor> TabColors;
 
