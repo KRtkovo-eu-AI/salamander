@@ -35,7 +35,7 @@ public:
     virtual BOOL WINAPI ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
                                         int id, DWORD eventMask);
     virtual BOOL WINAPI HelpForMenuItem(HWND parent, int id);
-    virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander) {}
+    virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander);
 };
 
 class CPluginInterface : public CPluginInterfaceAbstract

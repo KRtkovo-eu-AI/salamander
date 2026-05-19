@@ -51,3 +51,12 @@ CPluginInterfaceForMenuExt::HelpForMenuItem(HWND parent, int id)
         SalamanderGeneral->OpenHtmlHelp(parent, HHCDisplayContext, helpID, FALSE);
     return helpID != 0;
 }
+
+
+void WINAPI
+CPluginInterfaceForMenuExt::BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander)
+{
+    (void)parent;
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_HELLO), SALHOTKEY('M', HOTKEYF_CONTROL | HOTKEYF_SHIFT),
+                            MENUCMD_SHOWHELLO, FALSE, MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+}
