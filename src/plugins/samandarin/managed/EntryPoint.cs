@@ -19,7 +19,6 @@ namespace OpenSalamander.Samandarin;
 public static class EntryPoint
 {
     private static bool _visualsEnabled;
-    private static SynchronizationContext? _syncContext;
 
     [STAThread]
     public static int Dispatch(string? argument)
@@ -28,8 +27,6 @@ public static class EntryPoint
         try
         {
             EnsureApplicationInitialized();
-            _syncContext ??= SynchronizationContext.Current;
-
             var parts = (argument ?? string.Empty).Split(new[] { ';' }, 3);
             var command = parts.Length > 0 ? parts[0] : string.Empty;
             parentHandle = ParseHandle(parts.Length > 1 ? parts[1] : string.Empty);
@@ -54,7 +51,7 @@ public static class EntryPoint
 
     private static int Initialize(IntPtr parent, string currentVersion)
     {
-        UpdateCoordinator.Initialize(currentVersion, _syncContext, parent);
+        UpdateCoordinator.Initialize(currentVersion, parent);
         return 0;
     }
 
@@ -134,7 +131,6 @@ internal static class UpdateCoordinator
     private static readonly HttpClient HttpClient;
     private static readonly object UiThreadLock = new();
 
-    private static SynchronizationContext? SyncContext;
     private static UpdateSettings Settings;
     private static string CurrentVersion = string.Empty;
     private static Timer? UpdateTimer;
@@ -161,15 +157,11 @@ internal static class UpdateCoordinator
         HttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinUpdateNotifier/1.0");
     }
 
-    public static void Initialize(string currentVersion, SynchronizationContext? context, IntPtr parent)
+    public static void Initialize(string currentVersion, IntPtr parent)
     {
         lock (SyncRoot)
         {
             CurrentVersion = (currentVersion ?? string.Empty).Trim();
-            if (context != null)
-            {
-                SyncContext = context;
-            }
             ScheduleTimer_NoLock();
         }
 
@@ -603,44 +595,29 @@ internal static class UpdateCoordinator
 
     private static void RunOnUiThread(Action action)
     {
-        var context = SyncContext;
-        if (context is null)
+        EnsureUiThread();
+
+        var queue = UiQueue;
+        if (queue is null)
         {
-            EnsureUiThread();
-
-            var queue = UiQueue;
-            if (queue is null)
-            {
-                action();
-                return;
-            }
-
-            if (Thread.CurrentThread == UiThread)
-            {
-                action();
-                return;
-            }
-
-            try
-            {
-                queue.Add(action);
-            }
-            catch (InvalidOperationException)
-            {
-                // The queue has been marked complete during shutdown; run inline as a best effort.
-                action();
-            }
+            action();
+            return;
         }
-        else
+
+        if (Thread.CurrentThread == UiThread)
         {
-            if (ReferenceEquals(SynchronizationContext.Current, context))
-            {
-                action();
-            }
-            else
-            {
-                context.Post(static state => ((Action)state!)(), action);
-            }
+            action();
+            return;
+        }
+
+        try
+        {
+            queue.Add(action);
+        }
+        catch (InvalidOperationException)
+        {
+            // The queue has been marked complete during shutdown; run inline as a best effort.
+            action();
         }
     }
 
