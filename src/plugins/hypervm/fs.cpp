@@ -1,6 +1,9 @@
 #include "precomp.h"
 #include <string>
 #include <vector>
+#include <comdef.h>
+#include <Wbemidl.h>
+#pragma comment(lib, "wbemuuid.lib")
 
 static std::string EscapePsSingleQuoted(const char* text)
 {
@@ -69,91 +72,102 @@ public:
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
 
-        SECURITY_ATTRIBUTES sa = {0};
-        sa.nLength = sizeof(sa);
-        sa.bInheritHandle = TRUE;
-
-        HANDLE stdoutRead = NULL;
-        HANDLE stdoutWrite = NULL;
-        if (!CreatePipe(&stdoutRead, &stdoutWrite, &sa, 0))
+        HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
+        bool coInit = SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE;
+        if (!coInit)
             return TRUE;
-        SetHandleInformation(stdoutRead, HANDLE_FLAG_INHERIT, 0);
 
-        STARTUPINFOA si = {0};
-        si.cb = sizeof(si);
-        si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-        si.hStdOutput = stdoutWrite;
-        si.hStdError = stdoutWrite;
-        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-        si.wShowWindow = SW_HIDE;
+        hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT,
+                                  RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
+        (void)hr;
 
-        PROCESS_INFORMATION pi = {0};
-        char cmdLine[] = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Get-VM -ComputerName localhost -ErrorAction Stop | ForEach-Object { $_.Name + '\t' + $_.State }\"";
-        BOOL created = CreateProcessA(NULL, cmdLine, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
-        CloseHandle(stdoutWrite);
-        if (!created)
+        IWbemLocator* pLoc = NULL;
+        hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER,
+                              IID_IWbemLocator, (LPVOID*)&pLoc);
+        if (FAILED(hr) || pLoc == NULL)
         {
-            CloseHandle(stdoutRead);
+            CoUninitialize();
             return TRUE;
         }
 
-        char line[512];
-        char chunk[256];
-        DWORD bytesRead = 0;
-        std::string pending;
-        while (ReadFile(stdoutRead, chunk, sizeof(chunk) - 1, &bytesRead, NULL) && bytesRead > 0)
+        IWbemServices* pSvc = NULL;
+        hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\virtualization\\v2"), NULL, NULL, 0, 0, 0, 0, &pSvc);
+        if (FAILED(hr) || pSvc == NULL)
         {
-            chunk[bytesRead] = 0;
-            pending.append(chunk);
+            pLoc->Release();
+            CoUninitialize();
+            return TRUE;
+        }
 
-            size_t pos = 0;
-            while (true)
+        hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+                               RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+        if (FAILED(hr))
+        {
+            pSvc->Release();
+            pLoc->Release();
+            CoUninitialize();
+            return TRUE;
+        }
+
+        IEnumWbemClassObject* pEnumerator = NULL;
+        hr = pSvc->ExecQuery(bstr_t("WQL"),
+                             bstr_t("SELECT ElementName, EnabledState FROM Msvm_ComputerSystem WHERE Caption='Virtual Machine'"),
+                             WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+                             NULL, &pEnumerator);
+
+        if (SUCCEEDED(hr) && pEnumerator != NULL)
+        {
+            IWbemClassObject* pclsObj = NULL;
+            ULONG uReturn = 0;
+            while (pEnumerator)
             {
-                size_t nl = pending.find('\n', pos);
-                if (nl == std::string::npos)
-                {
-                    pending.erase(0, pos);
+                hr = pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+                if (uReturn == 0)
                     break;
-                }
 
-                std::string one = pending.substr(pos, nl - pos);
-                if (!one.empty() && one.back() == '\r')
-                    one.pop_back();
-                pos = nl + 1;
-                if (one.empty())
-                    continue;
+                VARIANT vtName;
+                VariantInit(&vtName);
+                VARIANT vtState;
+                VariantInit(&vtState);
 
-                lstrcpynA(line, one.c_str(), (int)sizeof(line));
-                char* tab = strchr(line, '\t');
-                bool running = false;
-                if (tab != NULL)
+                pclsObj->Get(L"ElementName", 0, &vtName, 0, 0);
+                pclsObj->Get(L"EnabledState", 0, &vtState, 0, 0);
+
+                if ((vtName.vt == VT_BSTR) && vtName.bstrVal != NULL)
                 {
-                    *tab = 0;
-                    const char* state = tab + 1;
-                    running = (_stricmp(state, "Running") == 0);
+                    char line[512] = {0};
+                    WideCharToMultiByte(CP_ACP, 0, vtName.bstrVal, -1, line, (int)sizeof(line), NULL, NULL);
+
+                    CFileData file;
+                    memset(&file, 0, sizeof(file));
+                    file.Name = SalamanderGeneral->DupStr(line);
+                    file.NameLen = static_cast<int>(strlen(file.Name));
+                    file.Ext = file.Name + file.NameLen;
+                    file.DosName = NULL;
+                    file.IsLink = 0;
+                    file.IsOffline = 0;
+                    file.Hidden = 0;
+                    file.Attr = 0;
+
+                    CHyperVItemData* ext = new CHyperVItemData();
+                    long st = 0;
+                    if (vtState.vt == VT_I4) st = vtState.lVal;
+                    else if (vtState.vt == VT_UI4) st = (long)vtState.ulVal;
+                    ext->Running = (st == 2);
+                    file.PluginData = reinterpret_cast<DWORD_PTR>(ext);
+                    dir->AddFile(NULL, file, pluginData);
                 }
 
-                CFileData file;
-                memset(&file, 0, sizeof(file));
-                file.Name = SalamanderGeneral->DupStr(line);
-                file.NameLen = static_cast<int>(strlen(file.Name));
-                file.Ext = file.Name + file.NameLen;
-                file.DosName = NULL;
-                file.IsLink = 0;
-                file.IsOffline = 0;
-                file.Hidden = 0;
-                file.Attr = 0;
-                CHyperVItemData* ext = new CHyperVItemData();
-                ext->Running = running;
-                file.PluginData = reinterpret_cast<DWORD_PTR>(ext);
-                dir->AddFile(NULL, file, pluginData);
+                VariantClear(&vtName);
+                VariantClear(&vtState);
+                pclsObj->Release();
             }
+            pEnumerator->Release();
         }
 
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-        CloseHandle(stdoutRead);
+        pSvc->Release();
+        pLoc->Release();
+        CoUninitialize();
         return TRUE;
     }
 
