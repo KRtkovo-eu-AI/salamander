@@ -70,8 +70,16 @@ void ShowLoadError(HWND parent, const wchar_t* text)
 
 std::wstring BuildCurrentVersion()
 {
-    const char* version = VERSINFO_SALAMANDER_VERSION;
-    int required = MultiByteToWideChar(CP_UTF8, 0, version, -1, nullptr, 0);
+    std::string version = VERSINFO_SALAMANDER_VERSION;
+    const size_t platformSuffix = version.find(" (");
+    if (platformSuffix != std::string::npos)
+    {
+        version.resize(platformSuffix);
+    }
+
+    version += VERSINFO_SAMANDARIN_SUFFIX;
+
+    int required = MultiByteToWideChar(CP_UTF8, 0, version.c_str(), -1, nullptr, 0);
     if (required <= 0)
     {
         return std::wstring();
@@ -79,7 +87,7 @@ std::wstring BuildCurrentVersion()
 
     std::wstring result;
     result.resize(static_cast<size_t>(required));
-    int converted = MultiByteToWideChar(CP_UTF8, 0, version, -1, result.data(), required);
+    int converted = MultiByteToWideChar(CP_UTF8, 0, version.c_str(), -1, result.data(), required);
     if (converted <= 0)
     {
         return std::wstring();
