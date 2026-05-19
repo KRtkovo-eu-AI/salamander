@@ -1494,10 +1494,10 @@ enum CSymbolsImageListIndexes
     symbolsCount          // TERMINATOR
 };
 
-extern HIMAGELIST HFindSymbolsImageList; // symbols for Find
-extern HIMAGELIST HMenuMarkImageList;    // check marks for menus
-extern HIMAGELIST HGrayToolBarImageList; // toolbar and menu in a gray variant (generated from the colored one)
-extern HIMAGELIST HHotToolBarImageList;  // toolbar and menu in color
+extern HIMAGELIST HFindSymbolsImageList; // symboly pro find
+extern HIMAGELIST HMenuMarkImageList;    // check marky pro menu
+extern HIMAGELIST HGrayToolBarImageList; // toolbar a menu v sedivem provedeni (pocitano z barevneho)
+extern HIMAGELIST HHotToolBarImageList;  // toolbar a menu v barevnem provedeni
 extern int ToolBarLockImageIndex;        // index ikony zamku v toolbarovych imagelistech
 extern HIMAGELIST HBottomTBImageList;    // bottom toolbar (F1 - F12)
 extern HIMAGELIST HHotBottomTBImageList; // bottom toolbar (F1 - F12)
@@ -2108,8 +2108,8 @@ extern DWORD EnablerRightUnlockTab;       // can a tab in the right panel be unl
 #define IDX_TB_TABSDUPLICATE 82     // Duplicate Tab
 
 #define IDX_TB_FD 83 // first "dynamic added" index
-// the following icons will be added to the bitmap dynamically
-// and some will be loaded from shell32.dll
+// nasledujici ikony budou pridany k bitmape dynamicky
+// a nektere budou nacteny z shell32.dll
 
 #define IDX_TB_CHANGEDRIVEL IDX_TB_FD + 0 // Change Drive Left
 #define IDX_TB_CHANGEDRIVER IDX_TB_FD + 1 // Change Drive Right

@@ -3442,10 +3442,10 @@ void CFilesWindow::RefreshDiskFreeSpace(BOOL check, BOOL doNotRefreshOtherPanel)
 
             if (!doNotRefreshOtherPanel)
             {
-                // if the path in the other panel has the same root, refresh the
-                // disk free space there as well (this is not perfect; ideally we would
-                // test whether the paths are on the same volume, but that would be too slow;
-                // this simplification is more than sufficient for normal use)
+                // if the other panel uses a path with the same root, we refresh
+                // disk-free-space there as well (it is not perfect - ideally we would
+                // test whether both paths are on the same volume, but that would be too slow;
+                // this simplification should be more than enough for normal use)
                 CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
                 if (otherPanel->Is(ptDisk) && HasTheSameRootPath(GetPath(), otherPanel->GetPath()))
                     otherPanel->RefreshDiskFreeSpace(TRUE, TRUE /* otherwise we'd recurse endlessly */);

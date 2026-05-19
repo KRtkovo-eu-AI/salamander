@@ -2734,7 +2734,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         int sizeIndex;
         for (sizeIndex = ICONSIZE_16; sizeIndex < ICONSIZE_COUNT; sizeIndex++)
         {
-            // folder icon
+            // ikonka adresare
             hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
             if (hIcon != NULL) // if we do not obtain the icon, the #4 one from shell32.dll remains
             {
@@ -2880,7 +2880,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     }
     else if (GetCurrentBPP() > 8)
     {
-        clrMap[2].from = RGB(255, 255, 255); // white -> light gray (so it's not so harsh)
+        clrMap[2].from = RGB(255, 255, 255); // bila -> svetle sedivou (at to tak nerve)
         clrMap[2].to = RGB(235, 235, 235);
         remapWhite = TRUE;
     }

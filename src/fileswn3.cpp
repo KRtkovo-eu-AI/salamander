@@ -455,7 +455,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                             if (resBut == IDNO)
                             {
                                 BOOL monitorWasEnabled = GetMonitorChanges();
-                                if (GetMonitorChanges()) // suppress change monitoring (auto-refresh)
+                                if (monitorWasEnabled) // need to suppress monitoring of changes (autorefresh)
                                 {
                                     DetachDirectory((CFilesWindow*)this);
                                     SetMonitorChanges(FALSE); // the changes won't be monitored anymore
