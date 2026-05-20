@@ -5,6 +5,52 @@
 #include <Wbemidl.h>
 #pragma comment(lib, "wbemuuid.lib")
 
+static HICON LoadPluginIconResource(int resourceId, int size)
+{
+    return (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(resourceId), IMAGE_ICON, size, size, SalamanderGeneral->GetIconLRFlags());
+}
+
+static HBITMAP CreateMenuBitmapFromIcon(HICON icon)
+{
+    if (icon == NULL)
+        return NULL;
+
+    HDC screenDc = GetDC(NULL);
+    if (screenDc == NULL)
+        return NULL;
+    HDC memDc = CreateCompatibleDC(screenDc);
+    HBITMAP bmp = CreateCompatibleBitmap(screenDc, 16, 16);
+    HGDIOBJ oldBmp = bmp ? SelectObject(memDc, bmp) : NULL;
+    if (bmp != NULL)
+    {
+        RECT r = {0, 0, 16, 16};
+        FillRect(memDc, &r, (HBRUSH)(COLOR_MENU + 1));
+        DrawIconEx(memDc, 0, 0, icon, 16, 16, 0, NULL, DI_NORMAL);
+    }
+    if (oldBmp != NULL)
+        SelectObject(memDc, oldBmp);
+    if (memDc != NULL)
+        DeleteDC(memDc);
+    ReleaseDC(NULL, screenDc);
+    return bmp;
+}
+
+static void SetMenuItemIcon(HMENU menu, UINT cmdId, int iconResourceId)
+{
+    HICON icon = LoadPluginIconResource(iconResourceId, 16);
+    HBITMAP bmp = CreateMenuBitmapFromIcon(icon);
+    if (bmp != NULL)
+    {
+        MENUITEMINFOA mi = {0};
+        mi.cbSize = sizeof(mi);
+        mi.fMask = MIIM_BITMAP;
+        mi.hbmpItem = bmp;
+        SetMenuItemInfoA(menu, cmdId, FALSE, &mi);
+    }
+    if (icon != NULL)
+        DestroyIcon(icon);
+}
+
 static std::string EscapePsSingleQuoted(const char* text)
 {
     std::string src = text ? text : "";
@@ -93,6 +139,61 @@ struct CHyperVItemData
     bool Running;
 };
 
+static int WINAPI HyperVGetSimpleIconIndex()
+{
+    return 0;
+}
+
+class CHyperVPluginDataInterface : public CPluginDataInterfaceAbstract
+{
+public:
+    HIMAGELIST ImageList;
+
+    CHyperVPluginDataInterface() : ImageList(NULL) {}
+    virtual ~CHyperVPluginDataInterface()
+    {
+        if (ImageList != NULL)
+            ImageList_Destroy(ImageList);
+    }
+
+    virtual BOOL WINAPI CallReleaseForFiles() { return TRUE; }
+    virtual BOOL WINAPI CallReleaseForDirs() { return TRUE; }
+    virtual void WINAPI ReleasePluginData(CFileData& file, BOOL isDir) { (void)isDir; CHyperVItemData* ext = (CHyperVItemData*)file.PluginData; if (ext != NULL) delete ext; file.PluginData = 0; }
+    virtual void WINAPI GetFileDataForUpDir(const char* archivePath, CFileData& upDir) { (void)archivePath; (void)upDir; }
+    virtual BOOL WINAPI GetFileDataForNewDir(const char* dirName, CFileData& dir) { (void)dirName; (void)dir; return TRUE; }
+    virtual HIMAGELIST WINAPI GetSimplePluginIcons(int iconSize)
+    {
+        int size = iconSize == SALICONSIZE_32 ? 32 : 16;
+        if (ImageList != NULL)
+        {
+            ImageList_Destroy(ImageList);
+            ImageList = NULL;
+        }
+        ImageList = ImageList_Create(size, size, ILC_COLOR32 | ILC_MASK, 1, 1);
+        if (ImageList == NULL)
+            return NULL;
+        HICON icon = LoadPluginIconResource(IDI_VM_ITEM, size);
+        if (icon != NULL)
+        {
+            ImageList_ReplaceIcon(ImageList, -1, icon);
+            DestroyIcon(icon);
+        }
+        return ImageList;
+    }
+    virtual BOOL WINAPI HasSimplePluginIcon(CFileData& file, BOOL isDir) { (void)file; (void)isDir; return TRUE; }
+    virtual HICON WINAPI GetPluginIcon(const CFileData* file, int iconSize, BOOL& destroyIcon) { (void)file; destroyIcon = TRUE; return LoadPluginIconResource(IDI_VM_ITEM, iconSize == SALICONSIZE_32 ? 32 : 16); }
+    virtual int WINAPI CompareFilesFromFS(const CFileData* file1, const CFileData* file2) { return lstrcmpiA(file1->Name, file2->Name); }
+    virtual void WINAPI SetupView(BOOL leftPanel, CSalamanderViewAbstract* view, const char* archivePath, const CFileData* upperDir)
+    { (void)leftPanel; (void)archivePath; (void)upperDir; view->SetPluginSimpleIconCallback(HyperVGetSimpleIconIndex); }
+    virtual void WINAPI ColumnFixedWidthShouldChange(BOOL leftPanel, const CColumn* column, int newFixedWidth) { (void)leftPanel; (void)column; (void)newFixedWidth; }
+    virtual void WINAPI ColumnWidthWasChanged(BOOL leftPanel, const CColumn* column, int newWidth) { (void)leftPanel; (void)column; (void)newWidth; }
+    virtual BOOL WINAPI GetInfoLineContent(int panel, const CFileData* file, BOOL isDir, int selectedFiles, int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize, char* buffer, DWORD* hotTexts, int& hotTextsCount) { (void)panel; (void)file; (void)isDir; (void)selectedFiles; (void)selectedDirs; (void)displaySize; (void)selectedSize; (void)hotTexts; hotTextsCount = 0; if (buffer) buffer[0] = 0; return FALSE; }
+    virtual BOOL WINAPI CanBeCopiedToClipboard() { return FALSE; }
+    virtual BOOL WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size) { (void)file; (void)isDir; if (size) size->SetUI64(0); return FALSE; }
+    virtual BOOL WINAPI GetLastWriteDate(const CFileData* file, BOOL isDir, SYSTEMTIME* date) { (void)file; (void)isDir; (void)date; return FALSE; }
+    virtual BOOL WINAPI GetLastWriteTime(const CFileData* file, BOOL isDir, SYSTEMTIME* time) { (void)file; (void)isDir; (void)time; return FALSE; }
+};
+
 static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
 {
     HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
@@ -173,7 +274,7 @@ public:
     virtual BOOL WINAPI ListCurrentPath(CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData, int& iconsType, BOOL forceRefresh)
     {
         (void)forceRefresh;
-        pluginData = NULL;
+        pluginData = new CHyperVPluginDataInterface();
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
 
@@ -286,9 +387,36 @@ public:
             SalamanderGeneral->AddPluginFSTimer(3000, this, 1);
     }
     virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; }
-    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU; }
-    virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon) { (void)fsName; (void)title; icon = NULL; destroyIcon = FALSE; return FALSE; }
-    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = FALSE; return NULL; }
+    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON; }
+    virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
+    {
+        char text[2 * MAX_PATH + 32];
+        text[0] = '\t';
+        lstrcpynA(text + 1, fsName, _countof(text) - 1);
+
+        if (Path[0] != '\0')
+        {
+            size_t currentLength = strlen(text);
+            if (currentLength < _countof(text) - 1)
+            {
+                text[currentLength++] = ':';
+                text[currentLength] = '\0';
+            }
+            size_t remaining = _countof(text) - currentLength;
+            int copyLimit = remaining > static_cast<size_t>(INT_MAX) ? INT_MAX : static_cast<int>(remaining);
+            lstrcpynA(text + currentLength, Path, copyLimit);
+        }
+
+        SalamanderGeneral->DuplicateAmpersands(text, _countof(text));
+        title = SalamanderGeneral->DupStr(text);
+        if (title == NULL)
+            return FALSE;
+
+        icon = LoadPluginIconResource(IDI_PLUGIN_MAIN, 16);
+        destroyIcon = (icon != NULL);
+        return TRUE;
+    }
+    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = TRUE; return LoadPluginIconResource(IDI_PLUGIN_MAIN, 16); }
     virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect) { (void)srcFSPath; (void)tgtFSPath; (void)keyState; *dropEffect = allowedEffects & DROPEFFECT_COPY; }
     virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
     virtual BOOL WINAPI GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset) { (void)text; (void)pathLen; (void)offset; return FALSE; }
@@ -316,6 +444,7 @@ public:
         if (type == fscmPanel || type == fscmPathInPanel)
         {
             AppendMenuA(menu, MF_STRING, 2005, "Create New Machine");
+            SetMenuItemIcon(menu, 2005, IDI_MENU_NEW_VM);
             UINT cmdIdOnly = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
             DestroyMenu(menu);
             if (cmdIdOnly == 2005)
@@ -357,6 +486,7 @@ public:
         const UINT ID_CREATE = 2005;
 
         AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
+        SetMenuItemIcon(menu, ID_CONNECT, IDI_MENU_CONNECT);
         SetMenuDefaultItem(menu, ID_CONNECT, FALSE);
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         if (running)
@@ -370,6 +500,7 @@ public:
         }
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         AppendMenuA(menu, MF_STRING, ID_CREATE, "Create New Machine");
+        SetMenuItemIcon(menu, ID_CREATE, IDI_MENU_NEW_VM);
 
         UINT cmdId = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
         DestroyMenu(menu);

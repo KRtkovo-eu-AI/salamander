@@ -54,7 +54,7 @@ public:
 
     virtual void WINAPI Connect(HWND parent, CSalamanderConnectAbstract* salamander);
 
-    virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract* pluginData) {}
+    virtual void WINAPI ReleasePluginDataInterface(CPluginDataInterfaceAbstract* pluginData) { if (pluginData != NULL) delete pluginData; }
 
     virtual CPluginInterfaceForArchiverAbstract* WINAPI GetInterfaceForArchiver() { return NULL; }
     virtual CPluginInterfaceForViewerAbstract* WINAPI GetInterfaceForViewer() { return NULL; }

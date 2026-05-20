@@ -19,3 +19,8 @@
 
 #include "versinfo.rh2"
 #include "versinfo.rc2"
+
+IDI_PLUGIN_MAIN ICON "res\\hyperv.ico"
+IDI_VM_ITEM ICON "res\\vm.ico"
+IDI_MENU_NEW_VM ICON "res\\hyperv_new.ico"
+IDI_MENU_CONNECT ICON "res\\connect.ico"
