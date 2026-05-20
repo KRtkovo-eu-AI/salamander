@@ -110,7 +110,17 @@ public static class EntryPoint
         _visualsEnabled = true;
     }
 
-    private static int ShowAbout(IntPtr parent) { MessageBox.Show(new WindowHandleWrapper(parent), "Hyper-V Machines plugin (managed core).", "About", MessageBoxButtons.OK, MessageBoxIcon.Information); return 0; }
+    private static int ShowAbout(IntPtr parent)
+    {
+        const string description = "Show local Hyper-V virtual machines in panel.";
+        const string copyright = "Copyleft 2026 Ondřej Kotas, KRtkovo.eu";
+        MessageBox.Show(new WindowHandleWrapper(parent),
+            description + Environment.NewLine + copyright,
+            "About",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+        return 0;
+    }
     private static int ShowConfiguration(IntPtr parent) { MessageBox.Show(new WindowHandleWrapper(parent), "No configuration yet.", "Configuration", MessageBoxButtons.OK, MessageBoxIcon.Information); return 0; }
 
     private static IntPtr ParseHandle(string value) => ulong.TryParse(value, out var parsed) ? new IntPtr(unchecked((long)parsed)) : IntPtr.Zero;
