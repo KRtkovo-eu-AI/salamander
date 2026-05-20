@@ -113,7 +113,7 @@ public static class EntryPoint
     private static int ShowAbout(IntPtr parent)
     {
         const string description = "Show local Hyper-V virtual machines in panel.";
-        const string copyright = "Copyleft 2026 Ondřej Kotas, KRtkovo.eu";
+        const string copyright = "Copyleft 2026 Ondrej Kotas, KRtkovo.eu";
         MessageBox.Show(new WindowHandleWrapper(parent),
             description + Environment.NewLine + copyright,
             "About",
