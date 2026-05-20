@@ -187,9 +187,11 @@ public:
     { (void)leftPanel; (void)archivePath; (void)upperDir; view->SetPluginSimpleIconCallback(HyperVGetSimpleIconIndex); }
     virtual void WINAPI ColumnFixedWidthShouldChange(BOOL leftPanel, const CColumn* column, int newFixedWidth) { (void)leftPanel; (void)column; (void)newFixedWidth; }
     virtual void WINAPI ColumnWidthWasChanged(BOOL leftPanel, const CColumn* column, int newWidth) { (void)leftPanel; (void)column; (void)newWidth; }
-    virtual void WINAPI GetInfoLineContent(int panel, const CFileData* file, BOOL isDir, int selectedFiles, int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize, char* buffer, DWORD* hotTexts, int& hotTextsCount) { (void)panel; (void)file; (void)isDir; (void)selectedFiles; (void)selectedDirs; (void)displaySize; (void)selectedSize; (void)hotTexts; hotTextsCount = 0; if (buffer) buffer[0] = 0; }
+    virtual BOOL WINAPI GetInfoLineContent(int panel, const CFileData* file, BOOL isDir, int selectedFiles, int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize, char* buffer, DWORD* hotTexts, int& hotTextsCount) { (void)panel; (void)file; (void)isDir; (void)selectedFiles; (void)selectedDirs; (void)displaySize; (void)selectedSize; (void)hotTexts; hotTextsCount = 0; if (buffer) buffer[0] = 0; return FALSE; }
     virtual BOOL WINAPI CanBeCopiedToClipboard() { return FALSE; }
-    virtual void WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size) { (void)file; (void)isDir; if (size) size->SetUI64(0); }
+    virtual BOOL WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size) { (void)file; (void)isDir; if (size) size->SetUI64(0); return FALSE; }
+    virtual BOOL WINAPI GetLastWriteDate(const CFileData* file, BOOL isDir, SYSTEMTIME* date) { (void)file; (void)isDir; (void)date; return FALSE; }
+    virtual BOOL WINAPI GetLastWriteTime(const CFileData* file, BOOL isDir, SYSTEMTIME* time) { (void)file; (void)isDir; (void)time; return FALSE; }
 };
 
 static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
