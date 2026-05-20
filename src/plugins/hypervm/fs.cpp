@@ -306,6 +306,7 @@ public:
         const UINT ID_CREATE = 2005;
 
         AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
+        SetMenuDefaultItem(menu, ID_CONNECT, FALSE);
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         if (running)
         {
