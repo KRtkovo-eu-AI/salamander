@@ -36,7 +36,7 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
 // rozhrani poskytujici upravene Windows controly pouzivane v Salamanderovi
-//CSalamanderGUIAbstract *SalamanderGUI = NULL;
+CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -124,7 +124,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // ziskame obecne rozhrani Salamandera
     SalamanderGeneral = salamander->GetSalamanderGeneral();
     // ziskame rozhrani poskytujici upravene Windows controly pouzivane v Salamanderovi
-    //  SalamanderGUI = salamander->GetSalamanderGUI();
+    SalamanderGUI = salamander->GetSalamanderGUI();
 
     // nastavime jmeno souboru s helpem
     SalamanderGeneral->SetHelpFileName("hypervm.chm");
@@ -183,17 +183,15 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
     salamander->SetChangeDriveMenuItem("	Hyper-V Machines", 0);
     ManagedBridge_EnsureInitialized(parent);
 
-    /*
-  CGUIIconListAbstract *iconList = SalamanderGUI->CreateIconList();
-  iconList->Create(16, 16, 1);
-  HICON hIcon = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_PLUGINICON), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-  iconList->ReplaceIcon(0, hIcon);
-  DestroyIcon(hIcon);
-  salamander->SetIconListForGUI(iconList); // o destrukci iconlistu se postara Salamander
+    CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
+    iconList->Create(16, 16, 1);
+    HICON hIcon = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_PLUGIN_MAIN), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    iconList->ReplaceIcon(0, hIcon);
+    DestroyIcon(hIcon);
+    salamander->SetIconListForGUI(iconList); // o destrukci iconlistu se postara Salamander
 
-  salamander->SetPluginIcon(0);
-  salamander->SetPluginMenuAndToolbarIcon(0);
-*/
+    salamander->SetPluginIcon(0);
+    salamander->SetPluginMenuAndToolbarIcon(0);
 }
 
 CPluginInterfaceForMenuExtAbstract* WINAPI

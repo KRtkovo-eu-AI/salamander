@@ -5,6 +5,52 @@
 #include <Wbemidl.h>
 #pragma comment(lib, "wbemuuid.lib")
 
+static HICON LoadPluginIconResource(int resourceId, int size)
+{
+    return (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(resourceId), IMAGE_ICON, size, size, SalamanderGeneral->GetIconLRFlags());
+}
+
+static HBITMAP CreateMenuBitmapFromIcon(HICON icon)
+{
+    if (icon == NULL)
+        return NULL;
+
+    HDC screenDc = GetDC(NULL);
+    if (screenDc == NULL)
+        return NULL;
+    HDC memDc = CreateCompatibleDC(screenDc);
+    HBITMAP bmp = CreateCompatibleBitmap(screenDc, 16, 16);
+    HGDIOBJ oldBmp = bmp ? SelectObject(memDc, bmp) : NULL;
+    if (bmp != NULL)
+    {
+        RECT r = {0, 0, 16, 16};
+        FillRect(memDc, &r, (HBRUSH)(COLOR_MENU + 1));
+        DrawIconEx(memDc, 0, 0, icon, 16, 16, 0, NULL, DI_NORMAL);
+    }
+    if (oldBmp != NULL)
+        SelectObject(memDc, oldBmp);
+    if (memDc != NULL)
+        DeleteDC(memDc);
+    ReleaseDC(NULL, screenDc);
+    return bmp;
+}
+
+static void SetMenuItemIcon(HMENU menu, UINT cmdId, int iconResourceId)
+{
+    HICON icon = LoadPluginIconResource(iconResourceId, 16);
+    HBITMAP bmp = CreateMenuBitmapFromIcon(icon);
+    if (bmp != NULL)
+    {
+        MENUITEMINFOA mi = {0};
+        mi.cbSize = sizeof(mi);
+        mi.fMask = MIIM_BITMAP;
+        mi.hbmpItem = bmp;
+        SetMenuItemInfoA(menu, cmdId, FALSE, &mi);
+    }
+    if (icon != NULL)
+        DestroyIcon(icon);
+}
+
 static std::string EscapePsSingleQuoted(const char* text)
 {
     std::string src = text ? text : "";
@@ -288,7 +334,7 @@ public:
     virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; }
     virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU; }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon) { (void)fsName; (void)title; icon = NULL; destroyIcon = FALSE; return FALSE; }
-    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = FALSE; return NULL; }
+    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = TRUE; return LoadPluginIconResource(IDI_VM_ITEM, 16); }
     virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect) { (void)srcFSPath; (void)tgtFSPath; (void)keyState; *dropEffect = allowedEffects & DROPEFFECT_COPY; }
     virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
     virtual BOOL WINAPI GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset) { (void)text; (void)pathLen; (void)offset; return FALSE; }
@@ -316,6 +362,7 @@ public:
         if (type == fscmPanel || type == fscmPathInPanel)
         {
             AppendMenuA(menu, MF_STRING, 2005, "Create New Machine");
+            SetMenuItemIcon(menu, 2005, IDI_MENU_NEW_VM);
             UINT cmdIdOnly = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
             DestroyMenu(menu);
             if (cmdIdOnly == 2005)
@@ -357,6 +404,7 @@ public:
         const UINT ID_CREATE = 2005;
 
         AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
+        SetMenuItemIcon(menu, ID_CONNECT, IDI_MENU_CONNECT);
         SetMenuDefaultItem(menu, ID_CONNECT, FALSE);
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         if (running)
@@ -370,6 +418,7 @@ public:
         }
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         AppendMenuA(menu, MF_STRING, ID_CREATE, "Create New Machine");
+        SetMenuItemIcon(menu, ID_CREATE, IDI_MENU_NEW_VM);
 
         UINT cmdId = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
         DestroyMenu(menu);

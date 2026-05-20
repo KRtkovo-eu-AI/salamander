@@ -13,3 +13,8 @@
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
+
+#define IDI_PLUGIN_MAIN                 8001
+#define IDI_VM_ITEM                     8002
+#define IDI_MENU_NEW_VM                 8003
+#define IDI_MENU_CONNECT                8004
