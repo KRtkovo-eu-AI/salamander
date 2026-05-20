@@ -44,6 +44,49 @@ static bool RunHiddenPowerShell(const std::string& script)
     return exitCode == 0;
 }
 
+static bool RunDetachedProcessAndWaitForInputIdle(const std::string& commandLine, HWND parent, DWORD timeoutMs)
+{
+    std::vector<char> mutableCmd(commandLine.begin(), commandLine.end());
+    mutableCmd.push_back('\0');
+
+    HCURSOR oldCursor = SetCursor(LoadCursor(NULL, IDC_APPSTARTING));
+    if (parent != NULL)
+        SetCapture(parent);
+
+    STARTUPINFOA si = {0};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi = {0};
+    BOOL created = CreateProcessA(NULL, mutableCmd.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+    if (!created)
+    {
+        if (parent != NULL)
+            ReleaseCapture();
+        SetCursor(oldCursor);
+        return false;
+    }
+
+    WaitForInputIdle(pi.hProcess, timeoutMs);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+
+    if (parent != NULL)
+        ReleaseCapture();
+    SetCursor(oldCursor);
+    return true;
+}
+
+static bool LaunchVmCreate(HWND parent)
+{
+    return ShellExecuteA(parent, "open", "C:\\Program Files\\Hyper-V\\VMCreate.exe", "", "", SW_SHOWNORMAL) > (HINSTANCE)32;
+}
+
+static bool LaunchVmConnect(const char* vmName, HWND parent)
+{
+    std::string vm = vmName ? vmName : "";
+    std::string cmdLine = "vmconnect.exe localhost \"" + vm + "\"";
+    return RunDetachedProcessAndWaitForInputIdle(cmdLine, parent, 10000);
+}
+
 
 struct CHyperVItemData
 {
@@ -234,7 +277,14 @@ public:
     }
 
     virtual BOOL WINAPI TryCloseOrDetach(BOOL forceClose, BOOL canDetach, BOOL& detach, int reason) { (void)forceClose; (void)canDetach; (void)reason; detach = FALSE; return TRUE; }
-    virtual void WINAPI Event(int event, DWORD param) { (void)event; (void)param; }
+    virtual void WINAPI Event(int event, DWORD param)
+    {
+        (void)param;
+        if (event == FSE_ACTIVATEREFRESH || event == FSE_TIMER)
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        if (event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER)
+            SalamanderGeneral->AddPluginFSTimer(3000, this, 1);
+    }
     virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; }
     virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU; }
     virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon) { (void)fsName; (void)title; icon = NULL; destroyIcon = FALSE; return FALSE; }
@@ -270,7 +320,8 @@ public:
             DestroyMenu(menu);
             if (cmdIdOnly == 2005)
             {
-                ShellExecuteA(parent, "open", "VMCreate.exe", "", "", SW_SHOWNORMAL);
+                if (!LaunchVmCreate(parent))
+                    SalamanderGeneral->SalMessageBox(parent, "Unable to start VMCreate.exe.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
                 SalamanderGeneral->PostRefreshPanelFS(this);
             }
             return;
@@ -328,7 +379,7 @@ public:
         bool success = false;
         if (cmdId == ID_CONNECT)
         {
-            success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; vmconnect.exe localhost '" + vm + "'");
+            success = LaunchVmConnect(item->Name, parent);
         }
         else if (cmdId == ID_START)
         {
@@ -341,6 +392,10 @@ public:
         else if (cmdId == ID_SHUTDOWN)
         {
             success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; Stop-VM -Name '" + vm + "' -ErrorAction Stop");
+        }
+        else if (cmdId == ID_CREATE)
+        {
+            success = LaunchVmCreate(parent);
         }
 
         if (!success)
@@ -378,8 +433,7 @@ public:
         if (isDir != 0 || file.Name == NULL || file.Name[0] == 0)
             return;
 
-        std::string vm = EscapePsSingleQuoted(file.Name);
-        bool success = RunHiddenPowerShell("$ErrorActionPreference='Stop'; Import-Module Hyper-V -ErrorAction Stop; vmconnect.exe localhost '" + vm + "'");
+        bool success = LaunchVmConnect(file.Name, SalamanderGeneral->GetMainWindowHWND());
         if (!success)
         {
             SalamanderGeneral->SalMessageBox(SalamanderGeneral->GetMainWindowHWND(),
