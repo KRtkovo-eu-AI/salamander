@@ -139,6 +139,59 @@ struct CHyperVItemData
     bool Running;
 };
 
+static int WINAPI HyperVGetSimpleIconIndex()
+{
+    return 0;
+}
+
+class CHyperVPluginDataInterface : public CPluginDataInterfaceAbstract
+{
+public:
+    HIMAGELIST ImageList;
+
+    CHyperVPluginDataInterface() : ImageList(NULL) {}
+    virtual ~CHyperVPluginDataInterface()
+    {
+        if (ImageList != NULL)
+            ImageList_Destroy(ImageList);
+    }
+
+    virtual BOOL WINAPI CallReleaseForFiles() { return TRUE; }
+    virtual BOOL WINAPI CallReleaseForDirs() { return TRUE; }
+    virtual void WINAPI ReleasePluginData(CFileData& file, BOOL isDir) { (void)isDir; CHyperVItemData* ext = (CHyperVItemData*)file.PluginData; if (ext != NULL) delete ext; file.PluginData = 0; }
+    virtual void WINAPI GetFileDataForUpDir(const char* archivePath, CFileData& upDir) { (void)archivePath; (void)upDir; }
+    virtual BOOL WINAPI GetFileDataForNewDir(const char* dirName, CFileData& dir) { (void)dirName; (void)dir; return TRUE; }
+    virtual HIMAGELIST WINAPI GetSimplePluginIcons(int iconSize)
+    {
+        int size = iconSize == SALICONSIZE_32 ? 32 : 16;
+        if (ImageList != NULL)
+        {
+            ImageList_Destroy(ImageList);
+            ImageList = NULL;
+        }
+        ImageList = ImageList_Create(size, size, ILC_COLOR32 | ILC_MASK, 1, 1);
+        if (ImageList == NULL)
+            return NULL;
+        HICON icon = LoadPluginIconResource(IDI_VM_ITEM, size);
+        if (icon != NULL)
+        {
+            ImageList_ReplaceIcon(ImageList, -1, icon);
+            DestroyIcon(icon);
+        }
+        return ImageList;
+    }
+    virtual BOOL WINAPI HasSimplePluginIcon(CFileData& file, BOOL isDir) { (void)file; (void)isDir; return TRUE; }
+    virtual HICON WINAPI GetPluginIcon(const CFileData* file, int iconSize, BOOL& destroyIcon) { (void)file; destroyIcon = TRUE; return LoadPluginIconResource(IDI_VM_ITEM, iconSize == SALICONSIZE_32 ? 32 : 16); }
+    virtual int WINAPI CompareFilesFromFS(const CFileData* file1, const CFileData* file2) { return lstrcmpiA(file1->Name, file2->Name); }
+    virtual void WINAPI SetupView(BOOL leftPanel, CSalamanderViewAbstract* view, const char* archivePath, const CFileData* upperDir)
+    { (void)leftPanel; (void)archivePath; (void)upperDir; view->SetPluginSimpleIconCallback(HyperVGetSimpleIconIndex); }
+    virtual void WINAPI ColumnFixedWidthShouldChange(BOOL leftPanel, const CColumn* column, int newFixedWidth) { (void)leftPanel; (void)column; (void)newFixedWidth; }
+    virtual void WINAPI ColumnWidthWasChanged(BOOL leftPanel, const CColumn* column, int newWidth) { (void)leftPanel; (void)column; (void)newWidth; }
+    virtual void WINAPI GetInfoLineContent(int panel, const CFileData* file, BOOL isDir, int selectedFiles, int selectedDirs, BOOL displaySize, const CQuadWord& selectedSize, char* buffer, DWORD* hotTexts, int& hotTextsCount) { (void)panel; (void)file; (void)isDir; (void)selectedFiles; (void)selectedDirs; (void)displaySize; (void)selectedSize; (void)hotTexts; hotTextsCount = 0; if (buffer) buffer[0] = 0; }
+    virtual BOOL WINAPI CanBeCopiedToClipboard() { return FALSE; }
+    virtual void WINAPI GetByteSize(const CFileData* file, BOOL isDir, CQuadWord* size) { (void)file; (void)isDir; if (size) size->SetUI64(0); }
+};
+
 static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
 {
     HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
@@ -219,7 +272,7 @@ public:
     virtual BOOL WINAPI ListCurrentPath(CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData, int& iconsType, BOOL forceRefresh)
     {
         (void)forceRefresh;
-        pluginData = NULL;
+        pluginData = new CHyperVPluginDataInterface();
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
 
@@ -361,7 +414,7 @@ public:
         destroyIcon = (icon != NULL);
         return TRUE;
     }
-    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = TRUE; return LoadPluginIconResource(IDI_VM_ITEM, 16); }
+    virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = TRUE; return LoadPluginIconResource(IDI_PLUGIN_MAIN, 16); }
     virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect) { (void)srcFSPath; (void)tgtFSPath; (void)keyState; *dropEffect = allowedEffects & DROPEFFECT_COPY; }
     virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
     virtual BOOL WINAPI GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset) { (void)text; (void)pathLen; (void)offset; return FALSE; }
