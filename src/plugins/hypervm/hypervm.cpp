@@ -181,7 +181,7 @@ CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
     SalamanderGeneral->GetPluginFSName(AssignedFSName, 0);
     AssignedFSNameLen = lstrlenA(AssignedFSName);
     salamander->SetChangeDriveMenuItem("	Hyper-V Machines", 0);
-    ManagedBridge_EnsureInitialized(parent);
+    (void)parent;
 
     CGUIIconListAbstract* iconList = SalamanderGUI->CreateIconList();
     iconList->Create(16, 16, 1);

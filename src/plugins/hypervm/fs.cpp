@@ -332,8 +332,35 @@ public:
             SalamanderGeneral->AddPluginFSTimer(3000, this, 1);
     }
     virtual void WINAPI ReleaseObject(HWND parent) { (void)parent; }
-    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU; }
-    virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon) { (void)fsName; (void)title; icon = NULL; destroyIcon = FALSE; return FALSE; }
+    virtual DWORD WINAPI GetSupportedServices() { return FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETFSICON; }
+    virtual BOOL WINAPI GetChangeDriveOrDisconnectItem(const char* fsName, char*& title, HICON& icon, BOOL& destroyIcon)
+    {
+        char text[2 * MAX_PATH + 32];
+        text[0] = '\t';
+        lstrcpynA(text + 1, fsName, _countof(text) - 1);
+
+        if (Path[0] != '\0')
+        {
+            size_t currentLength = strlen(text);
+            if (currentLength < _countof(text) - 1)
+            {
+                text[currentLength++] = ':';
+                text[currentLength] = '\0';
+            }
+            size_t remaining = _countof(text) - currentLength;
+            int copyLimit = remaining > static_cast<size_t>(INT_MAX) ? INT_MAX : static_cast<int>(remaining);
+            lstrcpynA(text + currentLength, Path, copyLimit);
+        }
+
+        SalamanderGeneral->DuplicateAmpersands(text, _countof(text));
+        title = SalamanderGeneral->DupStr(text);
+        if (title == NULL)
+            return FALSE;
+
+        icon = LoadPluginIconResource(IDI_PLUGIN_MAIN, 16);
+        destroyIcon = (icon != NULL);
+        return TRUE;
+    }
     virtual HICON WINAPI GetFSIcon(BOOL& destroyIcon) { destroyIcon = TRUE; return LoadPluginIconResource(IDI_VM_ITEM, 16); }
     virtual void WINAPI GetDropEffect(const char* srcFSPath, const char* tgtFSPath, DWORD allowedEffects, DWORD keyState, DWORD* dropEffect) { (void)srcFSPath; (void)tgtFSPath; (void)keyState; *dropEffect = allowedEffects & DROPEFFECT_COPY; }
     virtual void WINAPI GetFSFreeSpace(CQuadWord* retValue) { retValue->SetUI64(0); }
