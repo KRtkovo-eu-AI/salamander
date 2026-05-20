@@ -1,4 +1,4 @@
-LIBRARY CSDEMO.SPL
+LIBRARY hypervm.spl
 
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
