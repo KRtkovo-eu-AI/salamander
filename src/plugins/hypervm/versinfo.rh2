@@ -23,7 +23,7 @@
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "Copyleft 2026 Ond\xC5\x99ej Kotas, KRtkovo.eu"
+#define VERSINFO_COPYRIGHT   "Copyleft 2026 Ond" "\xC5\x99" "ej Kotas, KRtkovo.eu"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Managed demo plugin for Open Salamander"
