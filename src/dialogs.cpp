@@ -1805,6 +1805,34 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            if (dc != NULL)
+            {
+                const COLORREF background = DarkModeGetDialogBackgroundColor();
+                const COLORREF paletteText = DarkModeGetDialogTextColor();
+                const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                SetTextColor(dc, text);
+                SetBkColor(dc, background);
+                SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
+            }
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+
+        if (handled)
+            return brush;
+        break;
+    }
     }
 
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);
