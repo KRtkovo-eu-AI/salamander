@@ -4296,6 +4296,15 @@ void CFilesWindow::RefreshListBox(int suggestedXOffset,
                     break;
                 case COLUMN_ID_CUSTOM:
                 {
+                    // For plugin panels we avoid repeated callback probing during refresh.
+                    // Some plugins keep stale transfer pointers and can crash when queried while idling.
+                    // Keep at least the previous width and let drawing-time callbacks provide text.
+                    if (PanelType == ptPluginFS)
+                    {
+                        column->Width = max(column->MinWidth, column->Width);
+                        break;
+                    }
+
                     TransferActCustomData = column->CustomData;
                     int columnMaxWidth = column->MinWidth;
                     // ask the plugin
