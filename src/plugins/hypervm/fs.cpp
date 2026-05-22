@@ -259,8 +259,9 @@ static bool QueryVmState(const std::string& vmNameEscaped, std::string& state)
 class CHyperVFS : public CPluginFSInterfaceAbstract
 {
 public:
-    CHyperVFS() { Path[0] = 0; }
+    CHyperVFS() : RefreshPosted(FALSE) { Path[0] = 0; }
     char Path[MAX_PATH];
+    BOOL RefreshPosted;
 
     virtual BOOL WINAPI GetCurrentPath(char* userPart) { lstrcpynA(userPart, Path, MAX_PATH); return TRUE; }
     virtual BOOL WINAPI GetFullName(CFileData& file, int isDir, char* buf, int bufSize) { (void)isDir; lstrcpynA(buf, file.Name, bufSize); return TRUE; }
@@ -274,6 +275,7 @@ public:
     virtual BOOL WINAPI ListCurrentPath(CSalamanderDirectoryAbstract* dir, CPluginDataInterfaceAbstract*& pluginData, int& iconsType, BOOL forceRefresh)
     {
         (void)forceRefresh;
+        RefreshPosted = FALSE;
         pluginData = new CHyperVPluginDataInterface();
         iconsType = pitFromPlugin;
         dir->SetValidData(VALID_DATA_NONE);
@@ -381,8 +383,16 @@ public:
     virtual void WINAPI Event(int event, DWORD param)
     {
         (void)param;
-        if (event == FSE_ACTIVATEREFRESH || event == FSE_TIMER)
+        if (event == FSE_ACTIVATEREFRESH)
+        {
+            RefreshPosted = TRUE;
             SalamanderGeneral->PostRefreshPanelFS(this);
+        }
+        if (event == FSE_TIMER && !RefreshPosted)
+        {
+            RefreshPosted = TRUE;
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        }
         if (event == FSE_OPENED || event == FSE_ATTACHED || event == FSE_TIMER)
             SalamanderGeneral->AddPluginFSTimer(3000, this, 1);
     }
@@ -425,7 +435,17 @@ public:
     virtual void WINAPI ShowInfoDialog(const char* fsName, HWND parent) { (void)fsName; (void)parent; }
     virtual BOOL WINAPI ExecuteCommandLine(HWND parent, char* command, int& selFrom, int& selTo) { (void)parent; (void)command; (void)selFrom; (void)selTo; return FALSE; }
     virtual BOOL WINAPI QuickRename(const char* fsName, int mode, HWND parent, CFileData& file, BOOL isDir, char* newName, BOOL& cancel) { (void)fsName; (void)mode; (void)parent; (void)file; (void)isDir; (void)newName; cancel = FALSE; return FALSE; }
-    virtual void WINAPI AcceptChangeOnPathNotification(const char* fsName, const char* path, BOOL includingSubdirs) { (void)fsName; (void)path; (void)includingSubdirs; SalamanderGeneral->PostRefreshPanelFS(this); }
+    virtual void WINAPI AcceptChangeOnPathNotification(const char* fsName, const char* path, BOOL includingSubdirs)
+    {
+        (void)fsName;
+        (void)path;
+        (void)includingSubdirs;
+        if (!RefreshPosted)
+        {
+            RefreshPosted = TRUE;
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        }
+    }
     virtual BOOL WINAPI CreateDir(const char* fsName, int mode, HWND parent, char* newName, BOOL& cancel) { (void)fsName; (void)mode; (void)parent; (void)newName; cancel = FALSE; return FALSE; }
     virtual void WINAPI ViewFile(const char* fsName, HWND parent, CSalamanderForViewFileOnFSAbstract* salamander, CFileData& file) { (void)fsName; (void)parent; (void)salamander; (void)file; }
     virtual BOOL WINAPI Delete(const char* fsName, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError) { (void)fsName; (void)mode; (void)parent; (void)panel; (void)selectedFiles; (void)selectedDirs; cancelOrError = FALSE; return FALSE; }
