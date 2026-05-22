@@ -1036,10 +1036,12 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int resID = GetWindowLong(hwndStatic, GWL_ID);
             if (resID == IDI_MSGBOX_ICON || resID == IDS_MSGBOX_TEXT || resID == IDS_MSGBOX_URL)
             {
-                COLORREF textClr = GetSysColor(COLOR_WINDOWTEXT);
+                COLORREF textClr = DarkModeGetDialogTextColor();
+                COLORREF bgClr = DarkModeGetDialogBackgroundColor();
                 SetTextColor(hdcStatic, textClr);
-                SetBkColor(hdcStatic, GetSysColor(COLOR_WINDOW));
-                return (INT_PTR)(HBRUSH)(COLOR_WINDOW + 1);
+                SetBkColor(hdcStatic, bgClr);
+                HBRUSH brush = DarkModeGetDialogBrush();
+                return (INT_PTR)(brush != NULL ? brush : (HBRUSH)(COLOR_WINDOW + 1));
             }
             break;
         }
