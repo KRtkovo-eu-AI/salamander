@@ -1040,8 +1040,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 COLORREF bgClr = DarkModeGetDialogBackgroundColor();
                 SetTextColor(hdcStatic, textClr);
                 SetBkColor(hdcStatic, bgClr);
-                HBRUSH brush = DarkModeGetDialogBrush();
-                return (INT_PTR)(brush != NULL ? brush : (HBRUSH)(COLOR_WINDOW + 1));
+                return (INT_PTR)(HBRUSH)(COLOR_WINDOW + 1);
             }
             break;
         }
