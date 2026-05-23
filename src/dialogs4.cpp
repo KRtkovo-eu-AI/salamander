@@ -3333,6 +3333,15 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         IDC_FILEMASK_HINT,
         0};
 
+    auto applyRecycleBinLabelColors = [this]() {
+        for (int i = 0; kRecycleBinLabelIds[i] != 0; ++i)
+        {
+            HWND hCtrl = GetDlgItem(HWindow, kRecycleBinLabelIds[i]);
+            if (hCtrl != NULL)
+                DarkModeApplyStaticTextColors(HWindow, hCtrl);
+        }
+    };
+
     switch (uMsg)
     {
     case WM_CTLCOLORSTATIC:
@@ -3370,14 +3379,14 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
         DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, kRecycleBinLabelIds);
+        applyRecycleBinLabelColors();
         InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
     case WM_THEMECHANGED:
     {
-        DarkModeApplyStaticTextColors(HWindow, kRecycleBinLabelIds);
+        applyRecycleBinLabelColors();
         InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
@@ -3386,7 +3395,7 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
-            DarkModeApplyStaticTextColors(HWindow, kRecycleBinLabelIds);
+            applyRecycleBinLabelColors();
             InvalidateRect(HWindow, NULL, TRUE);
         }
         break;
