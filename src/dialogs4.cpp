@@ -3344,12 +3344,11 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     auto applyRecycleBinRadioTheme = [this]() {
         const int radioIds[] = {IDR_RECYCLE1, IDR_RECYCLE2, IDR_RECYCLE3, 0};
-        const bool useDark = DarkModeShouldUseDarkColors();
         for (int i = 0; radioIds[i] != 0; ++i)
         {
             HWND hRadio = GetDlgItem(HWindow, radioIds[i]);
             if (hRadio != NULL)
-                SetWindowTheme(hRadio, useDark ? L"" : nullptr, useDark ? L"" : nullptr);
+                DarkModeApplyTree(hRadio);
         }
     };
 
