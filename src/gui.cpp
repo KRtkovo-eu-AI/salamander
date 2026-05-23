@@ -1134,7 +1134,11 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             BOOL enabled = IsWindowEnabled(HWindow);
             if (!enabled)
             {
-                if (DarkModeShouldUseDarkColors())
+                const COLORREF dlgText = DarkModeGetDialogTextColor();
+                const COLORREF dlgBg = DarkModeGetDialogBackgroundColor();
+                if (DarkModeShouldUseDarkColors() ||
+                    dlgText != GetSysColor(COLOR_BTNTEXT) ||
+                    dlgBg != GetSysColor(COLOR_BTNFACE))
                     SetTextColor(hDC, DarkModeGetColors().readableText);
                 else
                     SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
