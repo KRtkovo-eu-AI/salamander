@@ -930,6 +930,8 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3 ||
                 ctrlId == IDC_FILEMASK_HINT)
             {
+                if (hCtl != NULL && (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3))
+                    SetWindowTheme(hCtl, L"", L"");
                 HDC dc = reinterpret_cast<HDC>(wParam);
                 if (dc != NULL)
                 {
