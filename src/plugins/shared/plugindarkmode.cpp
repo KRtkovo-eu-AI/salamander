@@ -4,16 +4,19 @@
 #include "precomp.h"
 #include "plugindarkmode.h"
 
-#include <uxtheme.h>
-#include <dwmapi.h>
 #include <commctrl.h>
 
 namespace
 {
+using fnSetWindowTheme = HRESULT(WINAPI*)(HWND, LPCWSTR, LPCWSTR);
+using fnDwmSetWindowAttribute = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+
 BOOL gHostPolicyAvailable = FALSE;
 BOOL gHostUseWindowsDarkScheme = FALSE;
 PluginDarkModeColors gHostColors = {CLR_INVALID, CLR_INVALID, CLR_INVALID};
 HBRUSH gDialogBrush = NULL;
+fnSetWindowTheme gSetWindowTheme = NULL;
+fnDwmSetWindowAttribute gDwmSetWindowAttribute = NULL;
 
 COLORREF EnsureReadable(COLORREF fg, COLORREF bg)
 {
@@ -48,7 +51,8 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
     GetClassNameW(hwnd, cls, _countof(cls));
     if (wcscmp(cls, L"SysListView32") == 0)
     {
-        SetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
         PluginDarkModeColors c = PluginDarkMode_GetColors();
         ListView_SetTextColor(hwnd, c.readableText);
         ListView_SetTextBkColor(hwnd, c.background);
@@ -57,7 +61,8 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
     }
     else if (wcscmp(cls, L"SysTreeView32") == 0)
     {
-        SetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
         PluginDarkModeColors c = PluginDarkMode_GetColors();
         TreeView_SetTextColor(hwnd, c.readableText);
         TreeView_SetBkColor(hwnd, c.background);
@@ -65,7 +70,8 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
     }
     else if (wcscmp(cls, L"SysHeader32") == 0 || wcscmp(cls, L"tooltips_class32") == 0 || wcscmp(cls, L"ScrollBar") == 0)
     {
-        SetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
         InvalidateRect(hwnd, NULL, TRUE);
     }
 
@@ -73,6 +79,22 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
         ApplyRecursive(child, dark);
 }
 } // namespace
+
+static void PluginDarkMode_EnsureApis()
+{
+    static bool loaded = false;
+    if (loaded)
+        return;
+    loaded = true;
+
+    HMODULE ux = LoadLibraryW(L"uxtheme.dll");
+    if (ux != NULL)
+        gSetWindowTheme = reinterpret_cast<fnSetWindowTheme>(GetProcAddress(ux, "SetWindowTheme"));
+
+    HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+    if (dwm != NULL)
+        gDwmSetWindowAttribute = reinterpret_cast<fnDwmSetWindowAttribute>(GetProcAddress(dwm, "DwmSetWindowAttribute"));
+}
 
 void PluginDarkMode_SetHostPolicyAvailable(BOOL available, BOOL useWindowsDarkScheme)
 {
@@ -89,6 +111,7 @@ void PluginDarkMode_SetHostColors(COLORREF text, COLORREF background)
 
 BOOL PluginDarkMode_ShouldUseDark()
 {
+    PluginDarkMode_EnsureApis();
     if (gHostPolicyAvailable)
         return gHostUseWindowsDarkScheme;
     return DetectSystemDarkFallback();
@@ -112,14 +135,17 @@ PluginDarkModeColors PluginDarkMode_GetColors()
 
 void PluginDarkMode_ApplyTitleBar(HWND hwnd)
 {
+    PluginDarkMode_EnsureApis();
     if (hwnd == NULL)
         return;
     const BOOL dark = PluginDarkMode_ShouldUseDark();
-    DwmSetWindowAttribute(hwnd, 20, &dark, sizeof(dark));
+    if (gDwmSetWindowAttribute != NULL)
+        gDwmSetWindowAttribute(hwnd, 20, &dark, sizeof(dark));
 }
 
 void PluginDarkMode_ApplyListTreeThemeRecursive(HWND hwnd)
 {
+    PluginDarkMode_EnsureApis();
     ApplyRecursive(hwnd, PluginDarkMode_ShouldUseDark());
 }
 
