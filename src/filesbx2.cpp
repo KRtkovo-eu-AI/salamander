@@ -85,9 +85,8 @@ CBottomBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RECT r;
         GetClientRect(HWindow, &r);
         r.left = r.right - GetSystemMetrics(SM_CXVSCROLL);
-        DarkModeMainFramePalette palette;
-        if (DarkMode_GetMainFramePalette(&palette))
-            FillRectWithColor(hDC, &r, palette.Fill);
+        if (DarkModeShouldUseDarkColors())
+            FillRectWithColor(hDC, &r, DarkModeGetDialogBackgroundColor());
         else
             FillRect(hDC, &r, HDialogBrush);
         HANDLES(EndPaint(HWindow, &ps));
@@ -222,9 +221,8 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
     else
         r.right = Width;
 
-    DarkModeMainFramePalette palette;
-    BOOL useDarkChrome = DarkMode_GetMainFramePalette(&palette);
-    COLORREF headerTextColor = useDarkChrome ? RGB(232, 232, 232) : GetSysColor(COLOR_BTNTEXT);
+    BOOL useDarkChrome = DarkModeShouldUseDarkColors();
+    COLORREF headerTextColor = useDarkChrome ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
 
     // clear the background
     RECT r2;
@@ -232,7 +230,7 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
     r2.top++;
     r2.bottom--;
     if (useDarkChrome)
-        FillRectWithColor(ItemBitmap.HMemDC, &r2, palette.Fill);
+        FillRectWithColor(ItemBitmap.HMemDC, &r2, DarkModeGetDialogBackgroundColor());
     else
         FillRect(ItemBitmap.HMemDC, &r2, HDialogBrush);
 
@@ -316,7 +314,7 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
     if (useDarkChrome)
     {
         HGDIOBJ oldPen = SelectObject(ItemBitmap.HMemDC, GetStockObject(DC_PEN));
-        SetDCPenColor(ItemBitmap.HMemDC, palette.LineLight);
+        SetDCPenColor(ItemBitmap.HMemDC, RGB(95, 95, 95));
         MoveToEx(ItemBitmap.HMemDC, r.left, r.top, NULL);
         LineTo(ItemBitmap.HMemDC, r.right, r.top);
         if (first)
@@ -330,7 +328,7 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
             LineTo(ItemBitmap.HMemDC, r.left, r.bottom - 2);
         }
 
-        SetDCPenColor(ItemBitmap.HMemDC, palette.LineDark);
+        SetDCPenColor(ItemBitmap.HMemDC, RGB(70, 70, 70));
         MoveToEx(ItemBitmap.HMemDC, r.left, r.bottom - 1, NULL);
         LineTo(ItemBitmap.HMemDC, r.right, r.bottom - 1);
         if (!last)

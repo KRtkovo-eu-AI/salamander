@@ -30,6 +30,7 @@
 #define WinLib_DarkMode_ApplyTitleBar DarkModeRefreshTitleBar
 #define WinLib_DarkMode_ApplyListTreeThemeRecursive DarkModeApplyTree
 #define WinLib_DarkMode_ApplyWindow DarkModeApplyWindow
+#define WinLib_DarkMode_ApplyStaticTextColors DarkModeApplyStaticTextColors
 
 static HBRUSH WinLib_DarkMode_GetDialogCtlColorBrush(UINT msg, HDC hdc, HWND hCtrl)
 {
@@ -71,6 +72,12 @@ static void WinLib_DarkMode_ApplyListTreeThemeRecursive(HWND root)
 static void WinLib_DarkMode_ApplyWindow(HWND hwnd)
 {
     UNREFERENCED_PARAMETER(hwnd);
+}
+
+static void WinLib_DarkMode_ApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
+{
+    UNREFERENCED_PARAMETER(hwndParent);
+    UNREFERENCED_PARAMETER(specificCtrl);
 }
 #endif
 
@@ -695,7 +702,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         TransferData(ttDataToWindow);
         WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
         WinLib_DarkMode_ApplyTitleBar(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
+        WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
         InvalidateRect(HWindow, NULL, TRUE);
         PostMessage(HWindow, WM_THEMECHANGED, 0, 0);
         return TRUE; // let DefDlgProc set the focus
@@ -774,7 +781,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
         WinLib_DarkMode_ApplyTitleBar(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
+        WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
         InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
@@ -785,7 +792,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
             WinLib_DarkMode_ApplyTitleBar(HWindow);
-            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
             InvalidateRect(HWindow, NULL, TRUE);
         }
         break;

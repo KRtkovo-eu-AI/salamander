@@ -25,6 +25,24 @@ COLORREF DarkenColor(COLORREF color, int amount)
 }
 } // namespace
 
+static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
+static void PatBltWithColor(HDC hDC, int left, int top, int width, int height, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    PatBlt(hDC, left, top, width, height, PATCOPY);
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
 #define COLUMN_L1_L2_MARGIN 5 // space between column L1 and L2
 #define STANDARD_BITMAP_SIZE 17
 

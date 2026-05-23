@@ -19,6 +19,20 @@
 #define TB_ICON_TB 3 // Number of points above and below the icon, including the border.
 #define TB_TEXT_TB 3
 
+static void FillRectWithColor(HDC hDC, const RECT* r, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, r, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
+static COLORREF GetToolBarBkColor()
+{
+    return DarkMode_ShouldUseDark() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+}
+
 void CToolBar::SetFont()
 {
     CALL_STACK_MESSAGE1("CToolBar::SetFont()");
