@@ -923,35 +923,6 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        if (DarkModeShouldUseDarkColors())
-        {
-            HWND hCtl = reinterpret_cast<HWND>(lParam);
-            if (hCtl != NULL)
-            {
-                wchar_t className[16];
-                if (GetClassNameW(hCtl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Button") == 0)
-                {
-                    LONG_PTR type = GetWindowLongPtr(hCtl, GWL_STYLE) & BS_TYPEMASK;
-                    if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
-                        SetWindowTheme(hCtl, L"", L"");
-                }
-            }
-            const int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
-            if (ctrlId == IDC_FILEMASK_HINT)
-            {
-                HDC dc = reinterpret_cast<HDC>(wParam);
-                if (dc != NULL)
-                {
-                    const DarkModeColors& colors = DarkModeGetColors();
-                    SetTextColor(dc, colors.readableText);
-                    SetBkColor(dc, colors.background);
-                    SetBkMode(dc, TRANSPARENT);
-                }
-                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-                return reinterpret_cast<INT_PTR>(dialogBrush);
-            }
-        }
-
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
@@ -1364,25 +1335,6 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        if (DarkModeShouldUseDarkColors())
-        {
-            HWND hCtl = reinterpret_cast<HWND>(lParam);
-            const int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
-            if (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3 ||
-                ctrlId == IDC_FILEMASK_HINT)
-            {
-                HDC dc = reinterpret_cast<HDC>(wParam);
-                if (dc != NULL)
-                {
-                    const DarkModeColors& colors = DarkModeGetColors();
-                    SetTextColor(dc, colors.readableText);
-                    SetBkColor(dc, colors.background);
-                    SetBkMode(dc, TRANSPARENT);
-                }
-                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-                return reinterpret_cast<INT_PTR>(dialogBrush);
-            }
-        }
 
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
@@ -3392,17 +3344,6 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
     };
 
-    auto applyRecycleBinRadioTheme = [this]() {
-        const int radioIds[] = {IDR_RECYCLE1, IDR_RECYCLE2, IDR_RECYCLE3, 0};
-        const bool useDark = DarkModeShouldUseDarkColors();
-        for (int i = 0; radioIds[i] != 0; ++i)
-        {
-            HWND hRadio = GetDlgItem(HWindow, radioIds[i]);
-            if (hRadio != NULL)
-                SetWindowTheme(hRadio, useDark ? L"" : nullptr, useDark ? L"" : nullptr);
-        }
-    };
-
     switch (uMsg)
     {
     case WM_CTLCOLORSTATIC:
@@ -3435,7 +3376,6 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
         DarkModeApplyTree(HWindow);
-        applyRecycleBinRadioTheme();
         applyRecycleBinLabelColors();
         InvalidateRect(HWindow, NULL, TRUE);
         break;
@@ -3443,7 +3383,6 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_THEMECHANGED:
     {
-        applyRecycleBinRadioTheme();
         applyRecycleBinLabelColors();
         InvalidateRect(HWindow, NULL, TRUE);
         break;
@@ -3453,7 +3392,6 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
-            applyRecycleBinRadioTheme();
             applyRecycleBinLabelColors();
             InvalidateRect(HWindow, NULL, TRUE);
         }

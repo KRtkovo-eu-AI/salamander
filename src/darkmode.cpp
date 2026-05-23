@@ -245,6 +245,18 @@ bool IsButtonTypeNeedingClassicFallback(HWND hwnd)
     return type == BS_GROUPBOX || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
 }
 
+bool IsRadioButtonControl(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    return type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
+}
+
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 {
     if (hwnd == NULL || gSetWindowTheme == nullptr)
@@ -963,8 +975,17 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
                 if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Static") == 0)
                 {
                     LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-                    if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                    const int ctrlId = GetDlgCtrlID(ctrl);
+                    if (ctrlId == IDC_FILEMASK_HINT)
+                    {
+                        SetTextColor(hdc, RGB(130, 180, 255));
+                    }
+                    else if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
                         SetTextColor(hdc, DarkModeGetColors().readableText);
+                }
+                else if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"SysLink") == 0)
+                {
+                    SetTextColor(hdc, RGB(130, 180, 255));
                 }
                 else
                     SetTextColor(hdc, textColor);
@@ -983,7 +1004,9 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     case WM_CTLCOLORBTN:
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
-        if (IsButtonTypeNeedingClassicFallback(ctrl))
+        if (IsRadioButtonControl(ctrl))
+            EnsureClassicButtonTheme(ctrl, true);
+        else if (IsButtonTypeNeedingClassicFallback(ctrl))
             EnsureClassicButtonTheme(ctrl, forceClassicButtons);
         else
             EnsureClassicButtonTheme(ctrl, false);
