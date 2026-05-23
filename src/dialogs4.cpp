@@ -941,6 +941,28 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         if (IsSLGIncomplete[0] != 0)
@@ -952,6 +974,9 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CHyperLink* hl = new CHyperLink(HWindow, IDC_CFGREG_INCOMPLETE_URL);
             hl->SetActionOpen(IsSLGIncomplete);
         }
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
@@ -1839,6 +1864,28 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageViewer::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         new CButton(HWindow, IDB_VIEWERFONT, BTF_RIGHTARROW);
@@ -1849,6 +1896,9 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -2296,6 +2346,28 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageUserMenu::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         RefreshGroupIconInUMItems();                                                          // if colors changed before first visiting the User Menu page and we did not receive WM_SYSCOLORCHANGE, handle it here
@@ -2311,6 +2383,9 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(1, IDL_MENUITEMS);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
