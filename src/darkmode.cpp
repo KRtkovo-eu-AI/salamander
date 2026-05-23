@@ -188,6 +188,7 @@ DWORD gBuildNumber = 0;
 bool gInitialized = false;
 bool gSupported = false;
 bool gEnabled = false;
+bool gWindowsDarkSchemeSelected = false;
 bool gScrollbarsHooked = false;
 
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
@@ -303,7 +304,7 @@ bool ShouldUseDarkColorsInternal()
 
 bool IsWindowsDarkSchemeSelected()
 {
-    return Configuration.UseWindowsDarkMode != FALSE;
+    return gWindowsDarkSchemeSelected;
 }
 
 bool ShouldApplyNativeDarkEnhancements()
@@ -533,6 +534,7 @@ void DarkModeSetEnabled(bool enabled)
     if (!gSupported)
         return;
 
+    gWindowsDarkSchemeSelected = enabled;
     bool newEnabled = enabled && ShouldApplyNativeDarkEnhancements();
     if (gEnabled == newEnabled)
         return;
