@@ -844,6 +844,36 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
+    case WM_INITDIALOG:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == BN_CLICKED)
@@ -1298,6 +1328,28 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageView::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         CMyListView* listView = new CMyListView(HWindow, IDC_VIEW_LIST);
@@ -1359,6 +1411,9 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -2921,6 +2976,28 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageHotPath::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_PAINT:
     {
         // Horrible mess - I need a message that arrives
@@ -2977,6 +3054,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
 
         DarkModeUpdateListViewColors(HListView);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -3193,11 +3273,36 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
