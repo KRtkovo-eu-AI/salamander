@@ -1072,6 +1072,21 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
             EnsureClassicButtonTheme(ctrl, false);
 
         setCommonColors(true);
+        if (ctrl != NULL)
+        {
+            wchar_t className[16];
+            if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Button") == 0)
+            {
+                const LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                const LONG_PTR type = style & BS_TYPEMASK;
+                if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON ||
+                    type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+                    type == BS_AUTO3STATE || type == BS_3STATE)
+                {
+                    SetTextColor(hdc, DarkModeGetColors().readableText);
+                }
+            }
+        }
         result = reinterpret_cast<LRESULT>(brush);
 #if DARKMODE_TRACE_CTLFLOW
         DarkModeTraceCtlColor(message, ctrl, hdc, textColor, background, brush, true);
