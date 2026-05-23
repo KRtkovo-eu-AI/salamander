@@ -3880,9 +3880,19 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HWND hItemLabel = GetDlgItem(HWindow, CConfigurationPage7Items[i]);
             HWND hMaskLabel = GetDlgItem(HWindow, CConfigurationPage7Masks[i]);
             if (hItemLabel != NULL)
+            {
                 SetWindowLongPtr(hItemLabel, GWL_STYLE, GetWindowLongPtr(hItemLabel, GWL_STYLE) | SS_OWNERDRAW);
+                SetWindowPos(hItemLabel, NULL, 0, 0, 0, 0,
+                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                InvalidateRect(hItemLabel, NULL, TRUE);
+            }
             if (hMaskLabel != NULL)
+            {
                 SetWindowLongPtr(hMaskLabel, GWL_STYLE, GetWindowLongPtr(hMaskLabel, GWL_STYLE) | SS_OWNERDRAW);
+                SetWindowPos(hMaskLabel, NULL, 0, 0, 0, 0,
+                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                InvalidateRect(hMaskLabel, NULL, TRUE);
+            }
         }
 
         EditLB = new CEditListBox(HWindow, IDC_C_LIST);
