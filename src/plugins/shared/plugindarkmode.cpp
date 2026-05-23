@@ -103,9 +103,13 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
     {
         const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
         const LONG_PTR type = style & BS_TYPEMASK;
-        if (type == BS_GROUPBOX && gSetWindowTheme != NULL)
+        if (gSetWindowTheme != NULL)
         {
-            gSetWindowTheme(hwnd, dark ? L"" : nullptr, nullptr);
+            if (type == BS_GROUPBOX)
+                gSetWindowTheme(hwnd, dark ? L"" : nullptr, nullptr);
+            else if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                     type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+                gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
             InvalidateRect(hwnd, NULL, TRUE);
         }
     }
@@ -291,6 +295,16 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
             LONG_PTR type = style & BS_TYPEMASK;
             if (type == BS_GROUPBOX && gSetWindowTheme != NULL)
                 gSetWindowTheme(ctrl, PluginDarkMode_ShouldUseDark() ? L"" : nullptr, nullptr);
+        }
+    }
+    if (ctrl != NULL && message == WM_CTLCOLORSTATIC)
+    {
+        wchar_t cls[16] = {0};
+        if (GetClassNameW(ctrl, cls, _countof(cls)) != 0 && lstrcmpiW(cls, L"Static") == 0)
+        {
+            LONG_PTR style = GetWindowLongPtrW(ctrl, GWL_STYLE);
+            if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
+                return FALSE;
         }
     }
     if (dc != NULL && (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORLISTBOX))

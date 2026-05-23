@@ -534,9 +534,17 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
         else if (wcscmp(className, L"Button") == 0)
         {
             const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-            if ((style & BS_GROUPBOX) == BS_GROUPBOX)
+            const LONG_PTR type = style & BS_TYPEMASK;
+            if (type == BS_GROUPBOX)
             {
                 EnsureClassicButtonTheme(hwnd, wantDark);
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
+            else if (gSetWindowTheme != nullptr &&
+                     (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                      type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON))
+            {
+                gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
