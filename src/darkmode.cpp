@@ -21,8 +21,65 @@
 #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
 #endif
 
+#ifndef DARKMODE_TRACE_CTLFLOW
+#define DARKMODE_TRACE_CTLFLOW 0
+#endif
+
 namespace
 {
+#if DARKMODE_TRACE_CTLFLOW
+bool IsDarkModeTraceControlId(int ctrlId)
+{
+    switch (ctrlId)
+    {
+#ifdef IDR_RECYCLE1
+    case IDR_RECYCLE1:
+#endif
+#ifdef IDR_RECYCLE2
+    case IDR_RECYCLE2:
+#endif
+#ifdef IDR_RECYCLE3
+    case IDR_RECYCLE3:
+#endif
+#ifdef IDC_SAVEONCLOSE
+    case IDC_SAVEONCLOSE:
+#endif
+#ifdef IDC_SETBYMAINWINDOW
+    case IDC_SETBYMAINWINDOW:
+#endif
+#ifdef IDC_FILEMASK_HINT
+    case IDC_FILEMASK_HINT:
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
+void DarkModeTraceCtlColor(UINT message, HWND ctrl, HDC hdc, COLORREF defaultTextColor, COLORREF defaultBackground,
+                           HBRUSH brush, bool fallbackApplied)
+{
+    if (ctrl == NULL)
+        return;
+    const int ctrlId = GetDlgCtrlID(ctrl);
+    if (!IsDarkModeTraceControlId(ctrlId))
+        return;
+    wchar_t className[32] = L"<null>";
+    GetClassNameW(ctrl, className, _countof(className));
+    const wchar_t* msgName = message == WM_CTLCOLORBTN ? L"WM_CTLCOLORBTN" : L"WM_CTLCOLORSTATIC";
+    COLORREF finalText = defaultTextColor;
+    COLORREF finalBk = defaultBackground;
+    if (hdc != NULL)
+    {
+        finalText = GetTextColor(hdc);
+        finalBk = GetBkColor(hdc);
+    }
+    TRACE_I("[DARKMODE_TRACE] msg=%S id=%d class=%S text=#%02X%02X%02X bg=#%02X%02X%02X brush=0x%p fallback=%d",
+            msgName, ctrlId, className, GetRValue(finalText), GetGValue(finalText), GetBValue(finalText),
+            GetRValue(finalBk), GetGValue(finalBk), GetBValue(finalBk), brush, fallbackApplied ? 1 : 0);
+}
+#endif
+
 // Helpers borrowed from win32-darkmode project (MIT licensed).
 template <typename T, typename T1, typename T2>
 constexpr T RvaToVa(T1 base, T2 rva)
@@ -998,6 +1055,9 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         SetBkColor(hdc, background);
         SetBkMode(hdc, TRANSPARENT);
         result = reinterpret_cast<LRESULT>(brush);
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTraceCtlColor(message, reinterpret_cast<HWND>(lParam), hdc, textColor, background, brush, true);
+#endif
         return true;
     }
 
@@ -1013,6 +1073,9 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
 
         setCommonColors(true);
         result = reinterpret_cast<LRESULT>(brush);
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTraceCtlColor(message, ctrl, hdc, textColor, background, brush, true);
+#endif
         return true;
     }
 

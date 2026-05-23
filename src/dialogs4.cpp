@@ -21,6 +21,18 @@
 #include "darkmode.h"
 #include <uxtheme.h>
 
+#ifndef DARKMODE_TRACE_CTLFLOW
+#define DARKMODE_TRACE_CTLFLOW 0
+#endif
+
+#if DARKMODE_TRACE_CTLFLOW
+static void DarkModeTracePageThemeEvent(const char* pageName, UINT uMsg)
+{
+    const char* msg = uMsg == WM_THEMECHANGED ? "WM_THEMECHANGED" : "WM_SETTINGCHANGE";
+    TRACE_I("[DARKMODE_TRACE] page=%s event=%s", pageName, msg);
+}
+#endif
+
 static bool DarkModeTryHandleCtlColorForDialogPage(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& outResult)
 {
     if (uMsg != WM_CTLCOLORSTATIC && uMsg != WM_CTLCOLORBTN)
@@ -3256,6 +3268,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_THEMECHANGED:
     {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageViewer", uMsg);
+#endif
         DarkModeUpdateListViewColors(HListView);
         DarkModeApplyStaticTextColors(HWindow, NULL);
         break;
@@ -3263,6 +3278,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SETTINGCHANGE:
     {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageViewer", uMsg);
+#endif
         if (DarkModeHandleSettingChange(uMsg, lParam))
             DarkModeUpdateListViewColors(HListView);
         break;
@@ -3368,6 +3386,9 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_THEMECHANGED:
     {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageSystem", uMsg);
+#endif
         applyRecycleBinLabelColors();
         InvalidateRect(HWindow, NULL, TRUE);
         break;
@@ -3375,6 +3396,9 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SETTINGCHANGE:
     {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageSystem", uMsg);
+#endif
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
             applyRecycleBinLabelColors();
