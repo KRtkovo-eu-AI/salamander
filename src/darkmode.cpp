@@ -241,18 +241,7 @@ bool IsButtonTypeNeedingClassicFallback(HWND hwnd)
         return false;
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
     LONG_PTR type = style & BS_TYPEMASK;
-    switch (type)
-    {
-    case BS_GROUPBOX:
-    case BS_AUTOCHECKBOX:
-    case BS_CHECKBOX:
-    case BS_AUTO3STATE:
-    case BS_3STATE:
-    case BS_AUTORADIOBUTTON:
-    case BS_RADIOBUTTON:
-        return true;
-    }
-    return false;
+    return type == BS_GROUPBOX;
 }
 
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
