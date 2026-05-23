@@ -719,6 +719,8 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DarkModeApplyTree(HWindow);
         DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
@@ -728,6 +730,8 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            InvalidateRect(HWindow, NULL, TRUE);
         }
         break;
     }

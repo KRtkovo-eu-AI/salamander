@@ -486,7 +486,8 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
     auto applyChromeTheme = [&](HWND ctrl, const wchar_t* className) {
         if (gSetWindowTheme == nullptr)
             return;
-        if (wcscmp(className, L"ReBarWindow32") == 0 || wcscmp(className, L"ToolbarWindow32") == 0)
+        if (wcscmp(className, L"ReBarWindow32") == 0 || wcscmp(className, L"ToolbarWindow32") == 0 ||
+            wcscmp(className, L"MenuBar") == 0)
         {
             gSetWindowTheme(ctrl, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
             InvalidateRect(ctrl, NULL, TRUE);
