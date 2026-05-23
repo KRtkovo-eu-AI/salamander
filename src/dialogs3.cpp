@@ -2028,6 +2028,30 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CPackDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, (uMsg == WM_CTLCOLOREDIT || uMsg == WM_CTLCOLORLISTBOX) ? OPAQUE : TRANSPARENT);
+            }
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH)); // install WordBreakProc into the edit line
@@ -2037,6 +2061,9 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowText(hSubject, Subject->Get());
 
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         // we can select only the name without the dot and extension
         PostMessage(GetDlgItem(HWindow, IDE_PATH), CB_SETEDITSEL, 0, MAKELPARAM(0, SelectionEnd));
         return FALSE;
