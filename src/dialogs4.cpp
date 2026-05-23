@@ -1355,6 +1355,26 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HWND hCtl = reinterpret_cast<HWND>(lParam);
+            const int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
+            if (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3 ||
+                ctrlId == IDC_FILEMASK_HINT)
+            {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                if (dc != NULL)
+                {
+                    const DarkModeColors& colors = DarkModeGetColors();
+                    SetTextColor(dc, colors.readableText);
+                    SetBkColor(dc, colors.background);
+                    SetBkMode(dc, TRANSPARENT);
+                }
+                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                return reinterpret_cast<INT_PTR>(dialogBrush);
+            }
+        }
+
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
