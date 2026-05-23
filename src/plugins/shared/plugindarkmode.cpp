@@ -302,18 +302,31 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
         {
             LONG_PTR style = GetWindowLongPtrW(ctrl, GWL_STYLE);
             LONG_PTR type = style & BS_TYPEMASK;
-            if (type == BS_GROUPBOX && gSetWindowTheme != NULL)
-                gSetWindowTheme(ctrl, PluginDarkMode_ShouldUseDark() ? L"" : nullptr, nullptr);
+            if (gSetWindowTheme != NULL)
+            {
+                const BOOL dark = PluginDarkMode_ShouldUseDark();
+                if (type == BS_GROUPBOX)
+                    gSetWindowTheme(ctrl, dark ? L"" : nullptr, nullptr);
+                else if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                         type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+                    gSetWindowTheme(ctrl, dark ? L"" : nullptr, dark ? L"" : nullptr);
+            }
         }
     }
     if (ctrl != NULL && message == WM_CTLCOLORSTATIC)
     {
-        wchar_t cls[16] = {0};
+        wchar_t cls[32] = {0};
         if (GetClassNameW(ctrl, cls, _countof(cls)) != 0 && lstrcmpiW(cls, L"Static") == 0)
         {
             LONG_PTR style = GetWindowLongPtrW(ctrl, GWL_STYLE);
             if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
                 return FALSE;
+            if ((style & SS_NOTIFY) != 0)
+                c.readableText = RGB(130, 180, 255);
+        }
+        else if (lstrcmpiW(cls, L"SysLink") == 0)
+        {
+            c.readableText = RGB(130, 180, 255);
         }
     }
     const bool isInput = (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORLISTBOX);
