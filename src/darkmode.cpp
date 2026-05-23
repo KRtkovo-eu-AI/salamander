@@ -236,15 +236,12 @@ bool IsButtonTypeNeedingClassicFallback(HWND hwnd)
 {
     if (hwnd == NULL)
         return false;
-    int ctrlId = GetDlgCtrlID(hwnd);
-    if (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3)
-        return true;
     wchar_t className[16];
     if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
         return false;
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
     LONG_PTR type = style & BS_TYPEMASK;
-    return type == BS_GROUPBOX;
+    return type == BS_GROUPBOX || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
 }
 
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
