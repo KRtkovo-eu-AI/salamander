@@ -847,6 +847,34 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
+        if (uMsg == WM_CTLCOLORSTATIC && DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            int ctrlId = GetDlgCtrlID(ctrl);
+            bool isColorCaption = false;
+            for (int i = 0; i < 5; i++)
+            {
+                if (ctrlId == CConfigurationPage7Items[i] || ctrlId == CConfigurationPage7Masks[i])
+                {
+                    isColorCaption = true;
+                    break;
+                }
+            }
+            if (isColorCaption)
+            {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                if (dc != NULL)
+                {
+                    const DarkModeColors& colors = DarkModeGetColors();
+                    SetTextColor(dc, colors.readableText);
+                    SetBkColor(dc, colors.background);
+                    SetBkMode(dc, TRANSPARENT);
+                }
+                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                return reinterpret_cast<INT_PTR>(dialogBrush);
+            }
+        }
+
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
