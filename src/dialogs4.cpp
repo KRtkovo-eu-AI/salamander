@@ -3868,6 +3868,8 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         int i;
         for (i = 0; i < 5; i++)
         {
+            new CStaticText(HWindow, CConfigurationPage7Items[i]);
+            new CStaticText(HWindow, CConfigurationPage7Masks[i]);
             Items[i] = new CColorArrowButton(HWindow, CConfigurationPage7ItemsBut[i], TRUE);
             Masks[i] = new CColorArrowButton(HWindow, CConfigurationPage7MasksBut[i], TRUE);
             // Keep color-caption labels readable in dark mode; some resource variants mark these statics
