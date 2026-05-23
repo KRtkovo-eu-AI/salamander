@@ -32,6 +32,35 @@ static COLORREF GetPanelBackgroundColor()
                                          : GetSysColor(COLOR_BTNFACE);
 }
 
+static COLORREF GetStatusBkColor(BOOL activeCaption, BOOL showPanelCaption)
+{
+    if (showPanelCaption)
+        return GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
+    return GetPanelBackgroundColor();
+}
+
+static COLORREF GetStatusTextColor(BOOL activeCaption, BOOL showPanelCaption, BOOL hot)
+{
+    if (hot)
+    {
+        if (showPanelCaption)
+            return GetCOLORREF(CurrentColors[activeCaption ? HOT_ACTIVE : HOT_INACTIVE]);
+        return GetCOLORREF(CurrentColors[HOT_PANEL]);
+    }
+    if (showPanelCaption)
+        return GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
+    return GetPanelDefaultTextColor();
+}
+
+static void FillRectSolid(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
 //
 // ****************************************************************************
 // CStatusWindow
@@ -761,6 +790,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
     HDC dc = ItemBitmap.HMemDC;
 
     BOOL isDirectoryLine = (Border & blTop) != 0;
+    const bool useDark = DarkModeShouldUseDarkColors();
 
     RECT r;
     r.left = 0;

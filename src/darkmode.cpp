@@ -679,6 +679,11 @@ bool DarkModeShouldUseDarkColors()
     return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
+BOOL DarkMode_ShouldUseDark()
+{
+    return DarkModeShouldUseDarkColors() ? TRUE : FALSE;
+}
+
 void DarkModeApplyWindow(HWND hwnd)
 {
     EnsureInitialized();

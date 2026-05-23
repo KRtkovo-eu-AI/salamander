@@ -24,6 +24,8 @@ void DarkModeSetEnabled(bool enabled);
 
 // Returns true if dark colors should currently be used.
 bool DarkModeShouldUseDarkColors();
+// Compatibility helper used by legacy call sites.
+BOOL DarkMode_ShouldUseDark();
 
 // Applies dark mode opt-in for the specified window (and keeps the opt-in
 // flag in sync when toggling the configuration).
