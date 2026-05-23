@@ -844,28 +844,6 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN:
-    {
-        LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
-        break;
-    }
-
     case WM_INITDIALOG:
     {
         DarkModeApplyTree(HWindow);
@@ -3848,9 +3826,6 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(1, IDC_C_LIST);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
