@@ -11,7 +11,6 @@
 //****************************************************************************
 
 #include "precomp.h"
-#include "plugindarkmode.h"
 //#include <windows.h>
 #ifdef _MSC_VER
 #include <crtdbg.h>
@@ -489,27 +488,6 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_THEMECHANGED:
-    case WM_SETTINGCHANGE:
-    {
-        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
-        InvalidateRect(HWindow, NULL, TRUE);
-        break;
-    }
-
-    case WM_CTLCOLORDLG:
-    case WM_CTLCOLORMSGBOX:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORSCROLLBAR:
-    {
-        LRESULT brush = 0;
-        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
-            return brush;
-        break;
-    }
     }
     return FALSE;
 }
