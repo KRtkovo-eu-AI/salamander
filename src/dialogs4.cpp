@@ -3838,6 +3838,10 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             Items[i] = new CColorArrowButton(HWindow, CConfigurationPage7ItemsBut[i], TRUE);
             Masks[i] = new CColorArrowButton(HWindow, CConfigurationPage7MasksBut[i], TRUE);
+            // Keep color-caption labels readable in dark mode; some resource variants mark these statics
+            // disabled and Windows then forces gray/black text regardless of our expected palette.
+            EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Items[i]), TRUE);
+            EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Masks[i]), TRUE);
         }
 
         EditLB = new CEditListBox(HWindow, IDC_C_LIST);
