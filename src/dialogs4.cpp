@@ -743,6 +743,35 @@ void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HWND ctrl = (HWND)lParam;
+            int ctrlID = ctrl != NULL ? GetDlgCtrlID(ctrl) : 0;
+            bool isTargetLabel = false;
+            for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
+            {
+                if (ctrlID == CConfigurationPage7Items[i] || ctrlID == CConfigurationPage7Masks[i])
+                {
+                    isTargetLabel = true;
+                    break;
+                }
+            }
+
+            if (isTargetLabel)
+            {
+                HDC dc = (HDC)wParam;
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+                return (INT_PTR)(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+            }
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         // ColorsChanged() calls a plug-in method (when colors change PLUGINEVENT_COLORSCHANGED
