@@ -20,6 +20,10 @@
 #include "gui.h"
 #include "darkmode.h"
 
+// Forward declarations: arrays are defined later in this file.
+extern int CConfigurationPage7Items[CFG_COLORS_BUTTONS];
+extern int CConfigurationPage7Masks[CFG_COLORS_BUTTONS];
+
 //****************************************************************************
 //
 // CHighlightMasksItem
