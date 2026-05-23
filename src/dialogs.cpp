@@ -1816,6 +1816,9 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E(LOW_MEMORY);
 
         SetWindowText(GetDlgItem(HWindow, IDS_ERROR), Error);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 

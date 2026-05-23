@@ -287,6 +287,11 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
             MultiMonCenterWindow(HWindow, NULL, FALSE);
 
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
+
         break;
     }
 
