@@ -21,6 +21,33 @@
 #include "darkmode.h"
 #include <uxtheme.h>
 
+static bool DarkModeTryHandleCtlColorForDialogPage(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& outResult)
+{
+    if (uMsg != WM_CTLCOLORSTATIC && uMsg != WM_CTLCOLORBTN)
+        return false;
+
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        outResult = static_cast<INT_PTR>(brush);
+        return true;
+    }
+
+    if (!DarkModeShouldUseDarkColors())
+        return false;
+
+    HDC dc = reinterpret_cast<HDC>(wParam);
+    if (dc != NULL)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        SetTextColor(dc, colors.readableText);
+        SetBkColor(dc, colors.background);
+        SetBkMode(dc, TRANSPARENT);
+    }
+    outResult = reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+    return true;
+}
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -923,22 +950,9 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -1335,23 +1349,9 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-
-        LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -3349,24 +3349,9 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-
-                SetTextColor(dc, colors.readableText);
-
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -3817,12 +3802,9 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if (isTargetLabel)
             {
-                HDC dc = (HDC)wParam;
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-                return (INT_PTR)(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+                INT_PTR result = 0;
+                if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+                    return result;
             }
         }
         break;
