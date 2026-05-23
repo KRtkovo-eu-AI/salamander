@@ -7804,10 +7804,21 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
             {
+                int leftTabX = 1;
+                int leftTabWidth = leftWidth;
+                if (LeftPanel != NULL)
+                {
+                    int treeReservedWidth = LeftPanel->GetTreeViewReservedWidth(leftWidth);
+                    leftTabX += treeReservedWidth;
+                    leftTabWidth -= treeReservedWidth;
+                    if (leftTabWidth < 0)
+                        leftTabWidth = 0;
+                }
+
                 UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
                 flags |= leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftTabWindow->HWindow, NULL,
-                                              1, TopRebarHeight, leftWidth, leftTabHeight,
+                                              leftTabX, TopRebarHeight, leftTabWidth, leftTabHeight,
                                               flags));
             }
 
