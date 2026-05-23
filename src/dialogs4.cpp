@@ -20,10 +20,6 @@
 #include "gui.h"
 #include "darkmode.h"
 
-// Forward declarations: arrays are defined later in this file.
-extern int CConfigurationPage7Items[CFG_COLORS_BUTTONS];
-extern int CConfigurationPage7Masks[CFG_COLORS_BUTTONS];
-
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -851,34 +847,6 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        if (uMsg == WM_CTLCOLORSTATIC && DarkModeShouldUseDarkColors() && lParam != 0)
-        {
-            HWND ctrl = reinterpret_cast<HWND>(lParam);
-            int ctrlId = GetDlgCtrlID(ctrl);
-            bool isColorCaption = false;
-            for (int i = 0; i < 5; i++)
-            {
-                if (ctrlId == CConfigurationPage7Items[i] || ctrlId == CConfigurationPage7Masks[i])
-                {
-                    isColorCaption = true;
-                    break;
-                }
-            }
-            if (isColorCaption)
-            {
-                HDC dc = reinterpret_cast<HDC>(wParam);
-                if (dc != NULL)
-                {
-                    const DarkModeColors& colors = DarkModeGetColors();
-                    SetTextColor(dc, colors.readableText);
-                    SetBkColor(dc, colors.background);
-                    SetBkMode(dc, TRANSPARENT);
-                }
-                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-                return reinterpret_cast<INT_PTR>(dialogBrush);
-            }
-        }
-
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
@@ -3868,31 +3836,10 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         int i;
         for (i = 0; i < 5; i++)
         {
-            new CStaticText(HWindow, CConfigurationPage7Items[i], 0);
-            new CStaticText(HWindow, CConfigurationPage7Masks[i], 0);
             Items[i] = new CColorArrowButton(HWindow, CConfigurationPage7ItemsBut[i], TRUE);
             Masks[i] = new CColorArrowButton(HWindow, CConfigurationPage7MasksBut[i], TRUE);
-            // Keep color-caption labels readable in dark mode; some resource variants mark these statics
-            // disabled and Windows then forces gray/black text regardless of our expected palette.
             EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Items[i]), TRUE);
             EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Masks[i]), TRUE);
-
-            HWND hItemLabel = GetDlgItem(HWindow, CConfigurationPage7Items[i]);
-            HWND hMaskLabel = GetDlgItem(HWindow, CConfigurationPage7Masks[i]);
-            if (hItemLabel != NULL)
-            {
-                SetWindowLongPtr(hItemLabel, GWL_STYLE, GetWindowLongPtr(hItemLabel, GWL_STYLE) | SS_OWNERDRAW);
-                SetWindowPos(hItemLabel, NULL, 0, 0, 0, 0,
-                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                InvalidateRect(hItemLabel, NULL, TRUE);
-            }
-            if (hMaskLabel != NULL)
-            {
-                SetWindowLongPtr(hMaskLabel, GWL_STYLE, GetWindowLongPtr(hMaskLabel, GWL_STYLE) | SS_OWNERDRAW);
-                SetWindowPos(hMaskLabel, NULL, 0, 0, 0, 0,
-                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                InvalidateRect(hMaskLabel, NULL, TRUE);
-            }
         }
 
         EditLB = new CEditListBox(HWindow, IDC_C_LIST);
@@ -4338,27 +4285,6 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
     case WM_DRAWITEM:
     {
         int idCtrl = (int)wParam;
-        for (int i = 0; i < 5; i++)
-        {
-            if (idCtrl == CConfigurationPage7Items[i] || idCtrl == CConfigurationPage7Masks[i])
-            {
-                DRAWITEMSTRUCT* dis = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
-                if (dis != NULL)
-                {
-                    const DarkModeColors& colors = DarkModeGetColors();
-                    HBRUSH bg = CreateSolidBrush(DarkModeShouldUseDarkColors() ? colors.background : GetSysColor(COLOR_BTNFACE));
-                    FillRect(dis->hDC, &dis->rcItem, bg);
-                    DeleteObject(bg);
-                    char text[128] = {0};
-                    GetWindowText((HWND)dis->hwndItem, text, _countof(text));
-                    SetBkMode(dis->hDC, TRANSPARENT);
-                    SetTextColor(dis->hDC, DarkModeShouldUseDarkColors() ? colors.readableText : GetSysColor(COLOR_BTNTEXT));
-                    RECT r = dis->rcItem;
-                    DrawText(dis->hDC, text, -1, &r, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-                }
-                return TRUE;
-            }
-        }
         if (idCtrl == IDC_C_LIST)
         {
             EditLB->OnDrawItem(lParam);
