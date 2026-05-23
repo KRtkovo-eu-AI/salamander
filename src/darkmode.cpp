@@ -299,7 +299,7 @@ bool IsButtonTypeNeedingClassicFallback(HWND hwnd)
         return false;
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
     LONG_PTR type = style & BS_TYPEMASK;
-    return type == BS_GROUPBOX || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
+    return type == BS_GROUPBOX;
 }
 
 bool IsRadioButtonControl(HWND hwnd)
