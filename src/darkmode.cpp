@@ -975,8 +975,8 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
                 if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Static") == 0)
                 {
                     LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-                    const int ctrlId = GetDlgCtrlID(ctrl);
-                    if (ctrlId == IDC_FILEMASK_HINT)
+                    const bool linkLikeStatic = (style & SS_NOTIFY) != 0;
+                    if (linkLikeStatic)
                     {
                         SetTextColor(hdc, RGB(130, 180, 255));
                     }
