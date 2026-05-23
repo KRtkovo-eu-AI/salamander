@@ -23,6 +23,7 @@ BOOL gHostPolicyAvailable = FALSE;
 BOOL gHostUseWindowsDarkScheme = FALSE;
 PluginDarkModeColors gHostColors = {CLR_INVALID, CLR_INVALID, CLR_INVALID};
 HBRUSH gDialogBrush = NULL;
+HBRUSH gInputBrush = NULL;
 fnSetWindowTheme gSetWindowTheme = NULL;
 fnDwmSetWindowAttribute gDwmSetWindowAttribute = NULL;
 thread_local int gThemeBatchDepth = 0;
@@ -246,10 +247,16 @@ void PluginDarkMode_ApplyListTreeThemeRecursive(HWND hwnd)
 
 HBRUSH PluginDarkMode_GetDialogCtlColorBrush(HDC dc, UINT)
 {
+    if (!PluginDarkMode_ShouldUseDark())
+        return NULL;
     PluginDarkModeColors c = PluginDarkMode_GetColors();
-    if (gDialogBrush != NULL)
-        DeleteObject(gDialogBrush);
-    gDialogBrush = CreateSolidBrush(c.background);
+    if (gDialogBrush == NULL)
+        gDialogBrush = CreateSolidBrush(c.background);
+    if (gInputBrush == NULL)
+    {
+        COLORREF inputBg = RGB(0x2A, 0x2A, 0x2A);
+        gInputBrush = CreateSolidBrush(inputBg);
+    }
     if (dc != NULL)
     {
         SetTextColor(dc, c.readableText);
@@ -286,6 +293,8 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
     HWND ctrl = reinterpret_cast<HWND>(lParam);
     PluginDarkModeColors c = PluginDarkMode_GetColors();
     HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(dc, message);
+    if (brush == NULL)
+        return FALSE;
     if (ctrl != NULL && message == WM_CTLCOLORBTN)
     {
         wchar_t cls[16] = {0};
@@ -308,7 +317,11 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
         }
     }
     if (dc != NULL && (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORLISTBOX))
+    {
         SetBkMode(dc, OPAQUE);
+        SetBkColor(dc, RGB(0x2A, 0x2A, 0x2A));
+        brush = gInputBrush != NULL ? gInputBrush : brush;
+    }
     else if (dc != NULL)
         SetBkMode(dc, TRANSPARENT);
     if (dc != NULL)
