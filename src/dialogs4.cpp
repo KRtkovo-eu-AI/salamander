@@ -3838,8 +3838,6 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             Items[i] = new CColorArrowButton(HWindow, CConfigurationPage7ItemsBut[i], TRUE);
             Masks[i] = new CColorArrowButton(HWindow, CConfigurationPage7MasksBut[i], TRUE);
-            EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Items[i]), TRUE);
-            EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Masks[i]), TRUE);
         }
 
         EditLB = new CEditListBox(HWindow, IDC_C_LIST);
