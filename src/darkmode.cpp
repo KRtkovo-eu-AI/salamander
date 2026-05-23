@@ -190,6 +190,7 @@ bool gSupported = false;
 bool gEnabled = false;
 bool gWindowsDarkSchemeSelected = false;
 bool gScrollbarsHooked = false;
+thread_local int gThemeChangeDepth = 0;
 
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
@@ -426,11 +427,13 @@ void ApplyControlTheme(HWND hwnd)
     }
 
     auto notifyThemeChanged = [](HWND target) {
-        if (!gPropagatingThemeChange)
+        if (!gPropagatingThemeChange && gThemeChangeDepth == 0)
         {
+            ++gThemeChangeDepth;
             gPropagatingThemeChange = true;
             SendMessageW(target, WM_THEMECHANGED, 0, 0);
             gPropagatingThemeChange = false;
+            --gThemeChangeDepth;
         }
     };
 
@@ -451,6 +454,71 @@ void ApplyControlTheme(HWND hwnd)
             gSetWindowTheme(hwnd, nullptr, nullptr);
         notifyThemeChanged(hwnd);
     }
+}
+
+void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
+{
+    if (hwnd == NULL)
+        return;
+
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return;
+
+    if (gSetWindowTheme != nullptr)
+    {
+        if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysTreeView32") == 0)
+        {
+            gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            const COLORREF bg = DarkModeGetColors().background;
+            const COLORREF fg = DarkModeGetColors().readableText;
+            if (wcscmp(className, L"SysListView32") == 0)
+            {
+                ListView_SetTextColor(hwnd, fg);
+                ListView_SetTextBkColor(hwnd, bg);
+                ListView_SetBkColor(hwnd, bg);
+            }
+            else
+            {
+                TreeView_SetTextColor(hwnd, fg);
+                TreeView_SetBkColor(hwnd, bg);
+            }
+            InvalidateRect(hwnd, NULL, TRUE);
+        }
+        else if (wcscmp(className, L"SysHeader32") == 0)
+        {
+            gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            const COLORREF bg = DarkModeGetColors().background;
+            const COLORREF fg = DarkModeGetColors().readableText;
+            SendMessage(hwnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(wantDark ? fg : CLR_DEFAULT));
+            SendMessage(hwnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(wantDark ? bg : CLR_DEFAULT));
+            InvalidateRect(hwnd, NULL, TRUE);
+        }
+        else if (wcscmp(className, L"tooltips_class32") == 0 || wcscmp(className, L"ScrollBar") == 0)
+        {
+            gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            InvalidateRect(hwnd, NULL, TRUE);
+        }
+        else if (wcscmp(className, L"Button") == 0)
+        {
+            const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            if ((style & BS_GROUPBOX) == BS_GROUPBOX)
+            {
+                EnsureClassicButtonTheme(hwnd, wantDark);
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
+        }
+        else if (wcscmp(className, L"Static") == 0)
+        {
+            const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            const LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+            if ((exStyle & WS_EX_STATICEDGE) == WS_EX_STATICEDGE || (style & SS_ETCHEDFRAME) == SS_ETCHEDFRAME)
+                InvalidateRect(hwnd, NULL, TRUE);
+        }
+    }
+
+    for (HWND child = GetWindow(hwnd, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
+        ApplyListTreeThemeRecursive(child, wantDark);
 }
 
 void EnsureInitialized()
@@ -589,6 +657,7 @@ void DarkModeApplyTree(HWND hwnd)
         return;
 
     DarkModeApplyWindow(hwnd);
+    ApplyListTreeThemeRecursive(hwnd, IsWindowsDarkSchemeSelected());
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
