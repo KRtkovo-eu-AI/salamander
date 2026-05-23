@@ -332,16 +332,21 @@ static void DestroyDarkModeBrushes()
 
 static COLORREF GetPaletteDialogTextColor()
 {
-    const COLORREF background = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    const COLORREF text = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
-    return DarkModeEnsureReadableForeground(text, background);
+    const DarkModeColors& colors = DarkModeGetColors();
+    return colors.readableText;
 }
 
 static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
 {
     const bool useDarkColors = preferDarkMode;
-    const COLORREF paletteBackground = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
-    const COLORREF paletteText = GetPaletteDialogTextColor();
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF schemeBackground = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : CLR_INVALID;
+    const COLORREF schemeText = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : CLR_INVALID;
+    DarkModeSetConfiguredColors(schemeText, schemeBackground, fallbackText, fallbackBackground);
+    const DarkModeColors& palette = DarkModeGetColors();
+    const COLORREF paletteBackground = palette.background;
+    const COLORREF paletteText = palette.readableText;
 
     if (useDarkColors)
     {
@@ -370,8 +375,8 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
         HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
     }
 
-    COLORREF dialogText = useDarkColors ? paletteText : GetSysColor(COLOR_BTNTEXT);
-    COLORREF dialogBackground = useDarkColors ? paletteBackground : GetSysColor(COLOR_BTNFACE);
+    COLORREF dialogText = palette.readableText;
+    COLORREF dialogBackground = palette.background;
     DarkModeConfigureDialogColors(dialogText, dialogBackground, HDialogBrush);
 }
 

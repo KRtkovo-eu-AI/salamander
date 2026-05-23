@@ -5,6 +5,14 @@
 
 #include <windows.h>
 
+struct DarkModeColors
+{
+    COLORREF text;
+    COLORREF background;
+    COLORREF readableText;
+    bool usingSchemeColors;
+};
+
 // Initializes the dark mode helpers. Safe to call multiple times.
 bool DarkModeInitialize();
 
@@ -37,6 +45,9 @@ void DarkModeFixScrollbars();
 
 // Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
+void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
+                                 COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor);
+const DarkModeColors& DarkModeGetColors();
 
 // Handles WM_CTLCOLOR* messages for dark mode aware parents. Returns true when
 // a dark brush was supplied and the caller should stop default processing.
@@ -49,4 +60,3 @@ COLORREF DarkModeGetDialogBackgroundColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
-

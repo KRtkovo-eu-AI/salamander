@@ -37,9 +37,8 @@ LRESULT ApplyCopyMoveDialogColors(WPARAM wParam, bool transparent)
     if (dc == NULL)
         return reinterpret_cast<LRESULT>(dialogBrush);
 
-    const COLORREF background = DarkModeGetDialogBackgroundColor();
-    const COLORREF paletteText = DarkModeGetDialogTextColor();
-    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+    const COLORREF background = DarkModeGetColors().background;
+    const COLORREF text = DarkModeGetColors().readableText;
     SetTextColor(dc, text);
     SetBkColor(dc, background);
     SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);
@@ -566,9 +565,8 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 HDC hdc = reinterpret_cast<HDC>(wParam);
                 if (hdc != NULL)
                 {
-                    const COLORREF background = DarkModeGetDialogBackgroundColor();
-                    const COLORREF paletteText = DarkModeGetDialogTextColor();
-                    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                    const COLORREF background = DarkModeGetColors().background;
+                    const COLORREF text = DarkModeGetColors().readableText;
                     SetTextColor(hdc, text);
                     SetBkColor(hdc, background);
                     SetBkMode(hdc, TRANSPARENT);

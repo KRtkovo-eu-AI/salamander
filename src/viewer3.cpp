@@ -57,7 +57,8 @@ void ApplyViewerMenuTheme(HWND hwnd)
     info.cbSize = sizeof(info);
     info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
 
-    const COLORREF background = DarkModeGetDialogBackgroundColor();
+    const DarkModeColors& dmColors = DarkModeGetColors();
+    const COLORREF background = dmColors.background;
     const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
     const bool useDarkColors = DarkModeShouldUseDarkColors() || luminance < 128;
 

@@ -1500,8 +1500,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             if (dc != NULL)
             {
                 const COLORREF background = DarkModeGetDialogBackgroundColor();
-                const COLORREF paletteText = DarkModeGetDialogTextColor();
-                const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                const COLORREF text = DarkModeGetColors().readableText;
                 SetTextColor(dc, text);
                 SetBkColor(dc, background);
                 SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
@@ -1740,9 +1739,8 @@ COverwriteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
             if (dc != NULL)
             {
-                const COLORREF background = DarkModeGetDialogBackgroundColor();
-                const COLORREF paletteText = DarkModeGetDialogTextColor();
-                const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                const COLORREF background = DarkModeGetColors().background;
+                const COLORREF text = DarkModeGetColors().readableText;
                 SetTextColor(dc, text);
                 SetBkColor(dc, background);
                 SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
@@ -1819,9 +1817,8 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
             if (dc != NULL)
             {
-                const COLORREF background = DarkModeGetDialogBackgroundColor();
-                const COLORREF paletteText = DarkModeGetDialogTextColor();
-                const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                const COLORREF background = DarkModeGetColors().background;
+                const COLORREF text = DarkModeGetColors().readableText;
                 SetTextColor(dc, text);
                 SetBkColor(dc, background);
                 SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);

@@ -194,6 +194,7 @@ bool gScrollbarsHooked = false;
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
 static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
@@ -663,21 +664,45 @@ void DarkModeFixScrollbars()
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
 {
-    gDialogTextColor = ResolveReadableForeground(textColor, backgroundColor);
+    gDialogTextColor = textColor;
     gDialogBackgroundColor = backgroundColor;
     gDialogBrushHandle = dialogBrush;
+    gColors.text = textColor;
+    gColors.background = backgroundColor;
+    gColors.readableText = ResolveReadableForeground(textColor, backgroundColor);
+    gColors.usingSchemeColors = true;
+}
+
+void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
+                                 COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor)
+{
+    const COLORREF text = (schemeTextColor == CLR_INVALID) ? fallbackTextColor : schemeTextColor;
+    const COLORREF background = (schemeBackgroundColor == CLR_INVALID) ? fallbackBackgroundColor : schemeBackgroundColor;
+    gColors.text = text;
+    gColors.background = background;
+    gColors.readableText = ResolveReadableForeground(text, background);
+    gColors.usingSchemeColors = (schemeTextColor != CLR_INVALID) && (schemeBackgroundColor != CLR_INVALID);
+    gDialogTextColor = gColors.text;
+    gDialogBackgroundColor = gColors.background;
+}
+
+const DarkModeColors& DarkModeGetColors()
+{
+    EnsureInitialized();
+    gColors.readableText = ResolveReadableForeground(gColors.text, gColors.background);
+    return gColors;
 }
 
 COLORREF DarkModeGetDialogTextColor()
 {
     EnsureInitialized();
-    return ResolveReadableForeground(gDialogTextColor, gDialogBackgroundColor);
+    return DarkModeGetColors().readableText;
 }
 
 COLORREF DarkModeGetDialogBackgroundColor()
 {
     EnsureInitialized();
-    return gDialogBackgroundColor;
+    return DarkModeGetColors().background;
 }
 
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background)
