@@ -316,7 +316,8 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
                 return FALSE;
         }
     }
-    if (dc != NULL && (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORLISTBOX))
+    const bool isInput = (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORLISTBOX);
+    if (dc != NULL && isInput)
     {
         SetBkMode(dc, OPAQUE);
         SetBkColor(dc, RGB(0x2A, 0x2A, 0x2A));
@@ -327,7 +328,7 @@ BOOL PluginDarkMode_HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, L
     if (dc != NULL)
     {
         SetTextColor(dc, c.readableText);
-        SetBkColor(dc, c.background);
+        SetBkColor(dc, isInput ? RGB(0x2A, 0x2A, 0x2A) : c.background);
     }
     *result = reinterpret_cast<LRESULT>(brush);
     return TRUE;

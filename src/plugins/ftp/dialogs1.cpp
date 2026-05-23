@@ -28,6 +28,7 @@ CCenteredDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontal and vertical centering of the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
         break; // Let DefDlgProc set the focus
     }
 
