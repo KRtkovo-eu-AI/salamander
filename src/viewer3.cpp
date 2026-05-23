@@ -59,14 +59,13 @@ void ApplyViewerMenuTheme(HWND hwnd)
 
     const DarkModeColors& dmColors = DarkModeGetColors();
     const COLORREF background = dmColors.background;
-    const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
-    const bool useDarkColors = DarkModeShouldUseDarkColors() || luminance < 128;
+    const bool useDarkColors = DarkModeShouldUseDarkColors();
 
     HBRUSH menuBrush = GetSysColorBrush(COLOR_MENU);
     if (useDarkColors)
     {
         HBRUSH brush = HDialogBrush;
-        if (brush == NULL || (!DarkModeShouldUseDarkColors() && luminance < 128))
+        if (brush == NULL)
         {
             brush = EnsureViewerMenuBrush(background, true);
         }

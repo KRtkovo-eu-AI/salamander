@@ -477,6 +477,22 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
     if (GetClassNameW(hwnd, className, _countof(className)) == 0)
         return;
 
+    auto invalidateParentChain = [](HWND ctrl) {
+        for (HWND p = GetParent(ctrl); p != NULL; p = GetParent(p))
+            InvalidateRect(p, NULL, TRUE);
+    };
+
+    auto applyChromeTheme = [&](HWND ctrl, const wchar_t* className) {
+        if (gSetWindowTheme == nullptr)
+            return;
+        if (wcscmp(className, L"ReBarWindow32") == 0 || wcscmp(className, L"ToolbarWindow32") == 0)
+        {
+            gSetWindowTheme(ctrl, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            InvalidateRect(ctrl, NULL, TRUE);
+            invalidateParentChain(ctrl);
+        }
+    };
+
     if (gSetWindowTheme != nullptr)
     {
         if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysTreeView32") == 0)
@@ -505,6 +521,8 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
             SendMessage(hwnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(wantDark ? fg : CLR_DEFAULT));
             SendMessage(hwnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(wantDark ? bg : CLR_DEFAULT));
             InvalidateRect(hwnd, NULL, TRUE);
+            invalidateParentChain(hwnd);
+            SendMessage(hwnd, WM_THEMECHANGED, 0, 0);
         }
         else if (wcscmp(className, L"tooltips_class32") == 0 || wcscmp(className, L"ScrollBar") == 0)
         {
@@ -528,6 +546,7 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 InvalidateRect(hwnd, NULL, TRUE);
         }
     }
+    applyChromeTheme(hwnd, className);
 
     for (HWND child = GetWindow(hwnd, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
         ApplyListTreeThemeRecursive(child, wantDark);
