@@ -926,12 +926,19 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (DarkModeShouldUseDarkColors())
         {
             HWND hCtl = reinterpret_cast<HWND>(lParam);
-            const int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
-            if (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3 ||
-                ctrlId == IDC_FILEMASK_HINT)
+            if (hCtl != NULL)
             {
-                if (hCtl != NULL && (ctrlId == IDR_RECYCLE1 || ctrlId == IDR_RECYCLE2 || ctrlId == IDR_RECYCLE3))
-                    SetWindowTheme(hCtl, L"", L"");
+                wchar_t className[16];
+                if (GetClassNameW(hCtl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Button") == 0)
+                {
+                    LONG_PTR type = GetWindowLongPtr(hCtl, GWL_STYLE) & BS_TYPEMASK;
+                    if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+                        SetWindowTheme(hCtl, L"", L"");
+                }
+            }
+            const int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
+            if (ctrlId == IDC_FILEMASK_HINT)
+            {
                 HDC dc = reinterpret_cast<HDC>(wParam);
                 if (dc != NULL)
                 {
