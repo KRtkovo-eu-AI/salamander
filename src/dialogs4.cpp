@@ -3876,6 +3876,13 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // disabled and Windows then forces gray/black text regardless of our expected palette.
             EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Items[i]), TRUE);
             EnableWindow(GetDlgItem(HWindow, CConfigurationPage7Masks[i]), TRUE);
+
+            HWND hItemLabel = GetDlgItem(HWindow, CConfigurationPage7Items[i]);
+            HWND hMaskLabel = GetDlgItem(HWindow, CConfigurationPage7Masks[i]);
+            if (hItemLabel != NULL)
+                SetWindowLongPtr(hItemLabel, GWL_STYLE, GetWindowLongPtr(hItemLabel, GWL_STYLE) | SS_OWNERDRAW);
+            if (hMaskLabel != NULL)
+                SetWindowLongPtr(hMaskLabel, GWL_STYLE, GetWindowLongPtr(hMaskLabel, GWL_STYLE) | SS_OWNERDRAW);
         }
 
         EditLB = new CEditListBox(HWindow, IDC_C_LIST);
@@ -4321,6 +4328,27 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
     case WM_DRAWITEM:
     {
         int idCtrl = (int)wParam;
+        for (int i = 0; i < 5; i++)
+        {
+            if (idCtrl == CConfigurationPage7Items[i] || idCtrl == CConfigurationPage7Masks[i])
+            {
+                DRAWITEMSTRUCT* dis = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
+                if (dis != NULL)
+                {
+                    const DarkModeColors& colors = DarkModeGetColors();
+                    HBRUSH bg = CreateSolidBrush(DarkModeShouldUseDarkColors() ? colors.background : GetSysColor(COLOR_BTNFACE));
+                    FillRect(dis->hDC, &dis->rcItem, bg);
+                    DeleteObject(bg);
+                    char text[128] = {0};
+                    GetWindowText((HWND)dis->hwndItem, text, _countof(text));
+                    SetBkMode(dis->hDC, TRANSPARENT);
+                    SetTextColor(dis->hDC, DarkModeShouldUseDarkColors() ? colors.readableText : GetSysColor(COLOR_BTNTEXT));
+                    RECT r = dis->rcItem;
+                    DrawText(dis->hDC, text, -1, &r, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                }
+                return TRUE;
+            }
+        }
         if (idCtrl == IDC_C_LIST)
         {
             EditLB->OnDrawItem(lParam);
