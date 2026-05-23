@@ -1007,13 +1007,8 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
         LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
         if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
             return;
-        HDC dc = GetDC(ctrl);
-        if (dc != NULL)
-        {
-            SetTextColor(dc, text);
-            SetBkMode(dc, TRANSPARENT);
-            ReleaseDC(ctrl, dc);
-        }
+        if (gSetWindowTheme != nullptr)
+            gSetWindowTheme(ctrl, IsWindowsDarkSchemeSelected() ? L"DarkMode_Explorer" : nullptr, nullptr);
         InvalidateRect(ctrl, NULL, TRUE);
     };
 

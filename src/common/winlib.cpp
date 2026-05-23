@@ -647,6 +647,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyStaticTextColors(HWindow, NULL);
         InvalidateRect(HWindow, NULL, TRUE);
+        PostMessage(HWindow, WM_THEMECHANGED, 0, 0);
         return TRUE; // let DefDlgProc set the focus
     }
 
