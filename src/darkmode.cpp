@@ -301,6 +301,16 @@ bool ShouldUseDarkColorsInternal()
     return gShouldAppsUseDarkMode() && !IsHighContrast();
 }
 
+bool IsWindowsDarkSchemeSelected()
+{
+    return Configuration.UseWindowsDarkMode != FALSE;
+}
+
+bool ShouldApplyNativeDarkEnhancements()
+{
+    return IsWindowsDarkSchemeSelected() && !IsHighContrast();
+}
+
 BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
 {
     DarkModeApplyTree(hwnd);
@@ -523,7 +533,7 @@ void DarkModeSetEnabled(bool enabled)
     if (!gSupported)
         return;
 
-    bool newEnabled = enabled && !IsHighContrast();
+    bool newEnabled = enabled && ShouldApplyNativeDarkEnhancements();
     if (gEnabled == newEnabled)
         return;
 
@@ -606,25 +616,34 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
     if (!gSupported)
         return false;
 
-    if (message != WM_SETTINGCHANGE)
+    if (message != WM_SETTINGCHANGE && message != WM_THEMECHANGED)
         return false;
 
-    bool isColor = false;
+    bool isColor = (message == WM_THEMECHANGED);
+    bool shouldRefresh = (message == WM_THEMECHANGED);
     if (lParam != 0)
     {
         if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"ImmersiveColorSet", -1, TRUE) == CSTR_EQUAL)
         {
-            RefreshColorPolicy();
             isColor = true;
+            shouldRefresh = true;
         }
         else if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"WindowsThemeElement", -1, TRUE) == CSTR_EQUAL)
         {
-            RefreshColorPolicy();
             isColor = true;
+            shouldRefresh = true;
         }
     }
     else
     {
+        shouldRefresh = true;
+    }
+
+    if (shouldRefresh)
+    {
+        const bool nativeEnhancements = ShouldApplyNativeDarkEnhancements();
+        if (gEnabled != nativeEnhancements)
+            DarkModeSetEnabled(nativeEnhancements);
         RefreshColorPolicy();
     }
 
@@ -828,4 +847,3 @@ HBRUSH DarkModeGetPanelFrameBrush()
         brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
     return brush;
 }
-
