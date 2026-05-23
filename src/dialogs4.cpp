@@ -3357,12 +3357,7 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 const DarkModeColors& colors = DarkModeGetColors();
 
-                HWND hCtl = reinterpret_cast<HWND>(lParam);
-                int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
-                if (ctrlId == IDC_FILEMASK_HINT)
-                    SetTextColor(dc, RGB(96, 160, 255));
-                else
-                    SetTextColor(dc, colors.readableText);
+                SetTextColor(dc, colors.readableText);
 
                 SetBkColor(dc, colors.background);
                 SetBkMode(dc, TRANSPARENT);
