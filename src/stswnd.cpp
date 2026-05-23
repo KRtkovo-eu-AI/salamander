@@ -816,7 +816,10 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         textR.top++;
         textR.right--;
         textR.bottom--;
-        FillRect(dc, &textR, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
+        if (useDark)
+            FillRectSolid(dc, &textR, GetStatusBkColor(activeCaption, TRUE));
+        else
+            FillRect(dc, &textR, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
     }
 
     // text
@@ -1104,13 +1107,14 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 COLORREF oldColor;
                 if (isDirectoryLine && Configuration.ShowPanelCaption)
                 {
-                    oldColor = SetTextColor(dc, GetCOLORREF(CurrentColors[activeCaption ? HOT_ACTIVE : HOT_INACTIVE]));
+                    oldColor = SetTextColor(dc, GetStatusTextColor(activeCaption, TRUE, TRUE));
                 }
                 else
                 {
-                    oldColor = SetTextColor(dc, GetCOLORREF(CurrentColors[HOT_PANEL]));
+                    oldColor = SetTextColor(dc, GetStatusTextColor(activeCaption, FALSE, TRUE));
                     if (showFlashText)
-                        SetTextColor(dc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+                        SetTextColor(dc, useDark ? GetStatusTextColor(activeCaption, FALSE, TRUE)
+                                                 : GetSysColor(COLOR_HIGHLIGHTTEXT));
                 }
                 HFONT hOldFont = NULL;
                 if (Configuration.SingleClick && HotItem != NULL)
@@ -2311,8 +2315,23 @@ BOOL CStatusWindow::GetFilterFrameRect(RECT* r)
 
 void CStatusWindow::OnColorsChanged()
 {
+    ItemBitmap.ReCreateForScreenDC();
+
     if (ToolBar != NULL)
+    {
         ToolBar->OnColorsChanged();
+        if (ToolBar->HWindow != NULL)
+        {
+            InvalidateRect(ToolBar->HWindow, NULL, TRUE);
+            UpdateWindow(ToolBar->HWindow);
+        }
+    }
+
+    if (HWindow != NULL)
+    {
+        InvalidateRect(HWindow, NULL, TRUE);
+        UpdateWindow(HWindow);
+    }
 }
 
 void CStatusWindow::SetFont()

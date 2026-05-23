@@ -428,6 +428,7 @@ void CToolBar::DrawItem(HDC hDC, int index)
         return;
     }
     BOOL vertical = (Style & TLB_STYLE_VERTICAL) != 0;
+    BOOL useDarkToolbar = DarkMode_ShouldUseDark();
 
     CToolBarItem* item = Items[index];
     int width = item->Width;
@@ -454,17 +455,23 @@ void CToolBar::DrawItem(HDC hDC, int index)
         r1.right = width;
         r1.bottom = Height;
     }
-    FillRect(CacheBitmap->HMemDC, &r1, HDialogBrush);
+    if (useDarkToolbar)
+        FillRectWithColor(CacheBitmap->HMemDC, &r1, GetToolBarBkColor());
+    else
+        FillRect(CacheBitmap->HMemDC, &r1, HDialogBrush);
 
     if (item->Style & TLBI_STYLE_SEPARATOR)
     {
+        COLORREF separatorDark = useDarkToolbar ? RGB(70, 70, 70) : GetSysColor(COLOR_BTNSHADOW);
+        COLORREF separatorLight = useDarkToolbar ? RGB(95, 95, 95) : GetSysColor(COLOR_BTNHIGHLIGHT);
         if (vertical)
         {
             int y = height / 2 - 1;
-            HPEN hOldPen = (HPEN)SelectObject(CacheBitmap->HMemDC, BtnShadowPen);
+            HGDIOBJ hOldPen = SelectObject(CacheBitmap->HMemDC, GetStockObject(DC_PEN));
+            SetDCPenColor(CacheBitmap->HMemDC, separatorDark);
             MoveToEx(CacheBitmap->HMemDC, 1, y, NULL);
             LineTo(CacheBitmap->HMemDC, Width - 1, y);
-            SelectObject(CacheBitmap->HMemDC, BtnHilightPen);
+            SetDCPenColor(CacheBitmap->HMemDC, separatorLight);
             MoveToEx(CacheBitmap->HMemDC, 1, y + 1, NULL);
             LineTo(CacheBitmap->HMemDC, Width - 1, y + 1);
             SelectObject(CacheBitmap->HMemDC, hOldPen);
@@ -472,10 +479,11 @@ void CToolBar::DrawItem(HDC hDC, int index)
         else
         {
             int x = width / 2 - 1;
-            HPEN hOldPen = (HPEN)SelectObject(CacheBitmap->HMemDC, BtnShadowPen);
+            HGDIOBJ hOldPen = SelectObject(CacheBitmap->HMemDC, GetStockObject(DC_PEN));
+            SetDCPenColor(CacheBitmap->HMemDC, separatorDark);
             MoveToEx(CacheBitmap->HMemDC, x, 1, NULL);
             LineTo(CacheBitmap->HMemDC, x, Height - 1);
-            SelectObject(CacheBitmap->HMemDC, BtnHilightPen);
+            SetDCPenColor(CacheBitmap->HMemDC, separatorLight);
             MoveToEx(CacheBitmap->HMemDC, x + 1, 1, NULL);
             LineTo(CacheBitmap->HMemDC, x + 1, Height - 1);
             SelectObject(CacheBitmap->HMemDC, hOldPen);
@@ -776,7 +784,10 @@ void CToolBar::DrawAllItems(HDC hDC)
                 r.top = offset;
                 r.right = Width;
                 r.bottom = offset + length;
-                FillRect(hDC, &r, HDialogBrush);
+                if (DarkMode_ShouldUseDark())
+                    FillRectWithColor(hDC, &r, GetToolBarBkColor());
+                else
+                    FillRect(hDC, &r, HDialogBrush);
             }
         }
     }
@@ -792,7 +803,10 @@ void CToolBar::DrawAllItems(HDC hDC)
                 r.top = 0;
                 r.right = offset + length;
                 r.bottom = Height;
-                FillRect(hDC, &r, HDialogBrush);
+                if (DarkMode_ShouldUseDark())
+                    FillRectWithColor(hDC, &r, GetToolBarBkColor());
+                else
+                    FillRect(hDC, &r, HDialogBrush);
             }
         }
     }

@@ -400,9 +400,8 @@ void CMenuPopup::DrawCheckBitmapVista(HDC hDC, CMenuItem* item, int yOffset, BOO
     if (item->HBmpItem != NULL)
     {
         // fill the entire area with the normal color
-        HBRUSH hOldBrush = (HBRUSH)SelectObject(SharedRes->CacheBitmap->HMemDC, HDialogBrush);
-        PatBlt(SharedRes->CacheBitmap->HMemDC, 0, 0, SharedRes->TextItemHeight + 1, item->Height, PATCOPY);
-        SelectObject(SharedRes->CacheBitmap->HMemDC, hOldBrush);
+        PatBltWithColor(SharedRes->CacheBitmap->HMemDC, 0, 0, SharedRes->TextItemHeight + 1, item->Height,
+                        SharedRes->NormalBkColor);
 
         // center the check mark if the line height is greater than the check mark height
         int myYOffset = 0;
@@ -564,9 +563,8 @@ void CMenuPopup::DrawCheckBitmap(HDC hDC, CMenuItem* item, int yOffset, BOOL sel
         (item->HBmpUnchecked != NULL && !(item->State & MENU_STATE_CHECKED)))
     {
         // fill the entire area with the normal color
-        HBRUSH hOldBrush = (HBRUSH)SelectObject(SharedRes->CacheBitmap->HMemDC, HDialogBrush);
-        PatBlt(SharedRes->CacheBitmap->HMemDC, 0, 0, SharedRes->TextItemHeight + 1, item->Height, PATCOPY);
-        SelectObject(SharedRes->CacheBitmap->HMemDC, hOldBrush);
+        PatBltWithColor(SharedRes->CacheBitmap->HMemDC, 0, 0, SharedRes->TextItemHeight + 1, item->Height,
+                        SharedRes->NormalBkColor);
 
         // center the check mark if the line height is greater than the check mark height
         int myYOffset = 0;
@@ -731,9 +729,8 @@ void CMenuPopup::DrawCheckImage(HDC hDC, CMenuItem* item, int yOffset, BOOL sele
 {
     CALL_STACK_MESSAGE_NONE
     // fill the entire area with the normal color
-    HBRUSH hOldBrush = (HBRUSH)SelectObject(SharedRes->CacheBitmap->HMemDC, HDialogBrush);
-    PatBlt(SharedRes->CacheBitmap->HMemDC, 0, 0, SharedRes->TextItemHeight + 1, item->Height, PATCOPY);
-    SelectObject(SharedRes->CacheBitmap->HMemDC, hOldBrush);
+    PatBltWithColor(SharedRes->CacheBitmap->HMemDC, 0, 0, SharedRes->TextItemHeight + 1, item->Height,
+                    SharedRes->NormalBkColor);
 
     // center the image if the line height is greater than the image height
     int myYOffset = 0;
@@ -903,12 +900,9 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
         return;
 
     // paint the background
-    HBRUSH hBkBrush;
+    COLORREF itemBkColor = SharedRes->NormalBkColor;
     if (selected && !(item->Type & MENU_TYPE_OWNERDRAW) && item->Type & MENU_TYPE_STRING)
-        hBkBrush = HMenuSelectedBkBrush;
-    else
-        hBkBrush = HDialogBrush;
-    HBRUSH hOldBrush = (HBRUSH)SelectObject(hDC, hBkBrush);
+        itemBkColor = SharedRes->SelectedBkColor;
     // to prevent flickering, if there is a check mark, shift the background fill
     int xO = 0;
     if (item->Height == SharedRes->TextItemHeight &&
@@ -917,8 +911,7 @@ void CMenuPopup::DrawItem(HDC hDC, CMenuItem* item, int yOffset, BOOL selected)
         (item->HBmpUnchecked != NULL && !(item->State & MENU_STATE_CHECKED) ||
          item->State & MENU_STATE_CHECKED || item->ImageIndex != -1 || item->HIcon != NULL))
         xO = SharedRes->TextItemHeight + 1;
-    PatBlt(hDC, xO, yOffset, Width - xO, item->Height, PATCOPY);
-    SelectObject(hDC, hOldBrush);
+    PatBltWithColor(hDC, xO, yOffset, Width - xO, item->Height, itemBkColor);
 
     if (!(item->Type & MENU_TYPE_OWNERDRAW))
     {
@@ -1255,7 +1248,7 @@ void CMenuPopup::DrawUpDownItem(HDC hDC, BOOL up)
     int yOffset = up ? 0 : 1; // move the down arrow one pixel down (for balance)
 
     // fill the rectangle
-    FillRect(hDC, &r, HDialogBrush);
+    FillRectWithColor(hDC, &r, SharedRes->NormalBkColor);
     // draw the arrow
     BitBlt(hDC, r.left + (r.right - r.left - w) / 2,
            arrowR.top + (arrowR.bottom - arrowR.top - h) / 2 + yOffset,
