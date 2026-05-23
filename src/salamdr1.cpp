@@ -3319,6 +3319,11 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
     {
         COLORREF rebarColor = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
         SendMessage(MainWindow->HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)rebarColor);
+        COLORSCHEME cs;
+        cs.dwSize = sizeof(cs);
+        cs.clrBtnHighlight = useDarkColors ? DarkenColor(rebarColor, 18) : GetSysColor(COLOR_3DHILIGHT);
+        cs.clrBtnShadow = useDarkColors ? DarkenColor(rebarColor, 38) : GetSysColor(COLOR_3DSHADOW);
+        SendMessage(MainWindow->HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&cs);
         MainWindow->UpdateRebarVisuals();
     }
 
