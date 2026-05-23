@@ -3324,6 +3324,15 @@ void CCfgPageSystem::EnableControls()
 INT_PTR
 CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    static const int kRecycleBinLabelIds[] = {
+        IDC_STATIC_1,
+        IDC_STATIC_2,
+        IDC_STATIC_3,
+        IDC_STATIC_4,
+        IDC_STATIC_5,
+        IDC_FILEMASK_HINT,
+        0};
+
     switch (uMsg)
     {
     case WM_CTLCOLORSTATIC:
@@ -3338,7 +3347,14 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (dc != NULL)
             {
                 const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
+
+                HWND hCtl = reinterpret_cast<HWND>(lParam);
+                int ctrlId = hCtl != NULL ? GetDlgCtrlID(hCtl) : 0;
+                if (ctrlId == IDC_FILEMASK_HINT)
+                    SetTextColor(dc, RGB(96, 160, 255));
+                else
+                    SetTextColor(dc, colors.readableText);
+
                 SetBkColor(dc, colors.background);
                 SetBkMode(dc, TRANSPARENT);
             }
@@ -3354,8 +3370,25 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
         DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
+        DarkModeApplyStaticTextColors(HWindow, kRecycleBinLabelIds);
         InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyStaticTextColors(HWindow, kRecycleBinLabelIds);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyStaticTextColors(HWindow, kRecycleBinLabelIds);
+            InvalidateRect(HWindow, NULL, TRUE);
+        }
         break;
     }
 
