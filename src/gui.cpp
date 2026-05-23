@@ -1133,7 +1133,12 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SetTextColor(hDC, RGB(0, 0, 255));
             BOOL enabled = IsWindowEnabled(HWindow);
             if (!enabled)
-                SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+            {
+                if (DarkModeShouldUseDarkColors())
+                    SetTextColor(hDC, DarkModeGetColors().readableText);
+                else
+                    SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+            }
 
             //        COLORREF textClr;
             //        if (Flags & STF_HYPERLINK_COLOR)
