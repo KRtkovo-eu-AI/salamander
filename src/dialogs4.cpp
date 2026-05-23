@@ -3122,6 +3122,7 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         DarkModeUpdateListViewColors(HListView);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
         break;
     }
 

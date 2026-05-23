@@ -3071,6 +3071,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (FoundFilesListView != NULL && FoundFilesListView->HWindow != NULL)
             DarkModeUpdateListViewColors(FoundFilesListView->HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
         break;
     }
 

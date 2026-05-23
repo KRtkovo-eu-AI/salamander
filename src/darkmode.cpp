@@ -231,6 +231,18 @@ bool ControlHasCaptionButton(HWND hwnd)
     return false;
 }
 
+bool IsButtonTypeNeedingClassicFallback(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    return type == BS_GROUPBOX;
+}
+
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 {
     if (hwnd == NULL || gSetWindowTheme == nullptr)
@@ -848,7 +860,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         if ((message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN) && lParam != 0)
         {
             HWND ctrl = reinterpret_cast<HWND>(lParam);
-            if (ControlHasCaptionButton(ctrl))
+            if (IsButtonTypeNeedingClassicFallback(ctrl))
                 EnsureClassicButtonTheme(ctrl, false);
         }
         return false;
@@ -881,7 +893,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (ctrl != NULL)
         {
-            if (ControlHasCaptionButton(ctrl))
+            if (IsButtonTypeNeedingClassicFallback(ctrl))
             {
                 EnsureClassicButtonTheme(ctrl, forceClassicButtons);
                 SetTextColor(hdc, textColor);
@@ -893,8 +905,14 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
             else
             {
                 EnsureClassicButtonTheme(ctrl, false);
-                LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-                if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                wchar_t className[16];
+                if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Static") == 0)
+                {
+                    LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                    if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                        SetTextColor(hdc, DarkModeGetColors().readableText);
+                }
+                else
                     SetTextColor(hdc, textColor);
             }
         }
@@ -911,7 +929,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     case WM_CTLCOLORBTN:
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
-        if (ControlHasCaptionButton(ctrl))
+        if (IsButtonTypeNeedingClassicFallback(ctrl))
             EnsureClassicButtonTheme(ctrl, forceClassicButtons);
         else
             EnsureClassicButtonTheme(ctrl, false);
@@ -934,6 +952,40 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     }
 
     return false;
+}
+
+void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
+{
+    EnsureInitialized();
+    if (hwndParent == NULL)
+        return;
+    const COLORREF text = DarkModeGetColors().readableText;
+    auto applyOne = [&](HWND ctrl) {
+        if (ctrl == NULL)
+            return;
+        wchar_t className[16];
+        if (GetClassNameW(ctrl, className, _countof(className)) == 0 || lstrcmpiW(className, L"Static") != 0)
+            return;
+        LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+        if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
+            return;
+        HDC dc = GetDC(ctrl);
+        if (dc != NULL)
+        {
+            SetTextColor(dc, text);
+            SetBkMode(dc, TRANSPARENT);
+            ReleaseDC(ctrl, dc);
+        }
+        InvalidateRect(ctrl, NULL, TRUE);
+    };
+
+    if (specificCtrl != NULL)
+        applyOne(specificCtrl);
+    else
+    {
+        for (HWND child = GetWindow(hwndParent, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
+            applyOne(child);
+    }
 }
 
 HBRUSH DarkModeGetPanelFrameBrush()

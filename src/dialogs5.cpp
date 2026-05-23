@@ -1007,6 +1007,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyTheme();
+        DarkModeApplyStaticTextColors(HWindow, NULL);
         break;
     }
 
