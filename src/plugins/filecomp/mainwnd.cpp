@@ -1743,8 +1743,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SETTINGCHANGE:
     case WM_THEMECHANGED:
     {
-        PluginDarkMode_ApplyTitleBar(HWindow);
-        PluginDarkMode_ApplyListTreeThemeRecursive(HWindow);
+        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
         // the scrollbar size may have changed; ensure the combo box recalculates the button size
         RECT r;
         GetWindowRect(ComboBox->HWindow, &r);

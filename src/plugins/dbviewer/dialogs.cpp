@@ -785,13 +785,17 @@ CColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_THEMECHANGED:
     case WM_SETTINGCHANGE:
-        PluginDarkMode_ApplyTitleBar(HWindow);
-        PluginDarkMode_ApplyListTreeThemeRecursive(HWindow);
+        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
         break;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
-        return reinterpret_cast<INT_PTR>(PluginDarkMode_GetDialogCtlColorBrush(reinterpret_cast<HDC>(wParam), uMsg));
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
 
     case WM_SIZE:
         RecalcLayout(LOWORD(lParam), HIWORD(lParam));

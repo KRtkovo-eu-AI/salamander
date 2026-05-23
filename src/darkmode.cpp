@@ -191,6 +191,7 @@ bool gEnabled = false;
 bool gWindowsDarkSchemeSelected = false;
 bool gScrollbarsHooked = false;
 thread_local int gThemeChangeDepth = 0;
+thread_local int gThemeBatchDepth = 0;
 
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
@@ -742,12 +743,21 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
         shouldRefresh = true;
     }
 
+    struct ThemeBatchScope
+    {
+        ThemeBatchScope() { ++gThemeBatchDepth; }
+        ~ThemeBatchScope() { --gThemeBatchDepth; }
+        bool IsRoot() const { return gThemeBatchDepth == 1; }
+    } scope;
+
     if (shouldRefresh)
     {
         const bool nativeEnhancements = ShouldApplyNativeDarkEnhancements();
         if (gEnabled != nativeEnhancements)
             DarkModeSetEnabled(nativeEnhancements);
         RefreshColorPolicy();
+        if (scope.IsRoot() && message == WM_THEMECHANGED)
+            gThemeChangeDepth = 0;
     }
 
     return isColor;
