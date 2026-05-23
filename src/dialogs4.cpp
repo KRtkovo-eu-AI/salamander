@@ -3810,6 +3810,32 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CTLCOLORSTATIC:
     {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HWND ctrl = (HWND)lParam;
+            int ctrlID = ctrl != NULL ? GetDlgCtrlID(ctrl) : 0;
+            bool isTargetLabel = false;
+            for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
+            {
+                if (ctrlID == CConfigurationPage7Items[i] || ctrlID == CConfigurationPage7Masks[i])
+                {
+                    isTargetLabel = true;
+                    break;
+                }
+            }
+            if (isTargetLabel)
+            {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                if (dc != NULL)
+                {
+                    const DarkModeColors& colors = DarkModeGetColors();
+                    SetTextColor(dc, colors.readableText);
+                    SetBkColor(dc, colors.background);
+                    SetBkMode(dc, TRANSPARENT);
+                }
+                return reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+            }
+        }
         INT_PTR result = 0;
         if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
             return result;

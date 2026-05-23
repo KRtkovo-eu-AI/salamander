@@ -1065,11 +1065,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (IsRadioButtonControl(ctrl))
-#if USE_DARKMODELIB
             EnsureClassicButtonTheme(ctrl, false);
-#else
-            EnsureClassicButtonTheme(ctrl, true);
-#endif
         else if (IsButtonTypeNeedingClassicFallback(ctrl))
             EnsureClassicButtonTheme(ctrl, forceClassicButtons);
         else
