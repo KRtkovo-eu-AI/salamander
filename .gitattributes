@@ -9,6 +9,9 @@
 *.sh         text eol=lf
 *.svg        text eol=lf
 *.po         text eol=lf
+src/third_party/darkmodelib/src/dmlib.rc text
+src/third_party/darkmodelib/dmlib_demo/manifest.rc text
+src/third_party/darkmodelib/dmlib_demo/demo.rc text
 
 # Denote all files that are truly binary and should not be modified.
 # (binary is a macro for -text -diff)

@@ -1130,10 +1130,20 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (hParent != NULL)
                 SendMessage(hParent, WM_CTLCOLORSTATIC, (WPARAM)hDC, (LPARAM)HWindow);
             if (Flags & STF_HYPERLINK_COLOR)
-                SetTextColor(hDC, RGB(0, 0, 255));
+            {
+                if (DarkModeShouldUseDarkColors())
+                    SetTextColor(hDC, RGB(120, 180, 255));
+                else
+                    SetTextColor(hDC, RGB(0, 0, 255));
+            }
             BOOL enabled = IsWindowEnabled(HWindow);
             if (!enabled)
-                SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+            {
+                if (DarkModeShouldUseDarkColors())
+                    SetTextColor(hDC, DarkModeGetColors().readableText);
+                else
+                    SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+            }
 
             //        COLORREF textClr;
             //        if (Flags & STF_HYPERLINK_COLOR)

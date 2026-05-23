@@ -1045,19 +1045,22 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WindowsVistaAndLater)
         {
             LRESULT brush = 0;
-            DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+            const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
             HDC hdcStatic = (HDC)wParam;
             HWND hwndStatic = (HWND)lParam;
             int resID = GetWindowLong(hwndStatic, GWL_ID);
             if (resID == IDI_MSGBOX_ICON || resID == IDS_MSGBOX_TEXT || resID == IDS_MSGBOX_URL)
             {
-                COLORREF textClr = DarkModeGetDialogTextColor();
-                COLORREF bgClr = DarkModeGetDialogBackgroundColor();
+                const DarkModeColors& dmColors = DarkModeGetColors();
+                COLORREF textClr = dmColors.readableText;
+                COLORREF bgClr = dmColors.background;
                 SetTextColor(hdcStatic, textClr);
                 SetBkColor(hdcStatic, bgClr);
                 HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
                 return (INT_PTR)dialogBrush;
             }
+            if (handled)
+                return brush;
             break;
         }
         else

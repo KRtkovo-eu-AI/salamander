@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "..\\shared\\plugindarkmode.h"
 
 TIndirectArray<CDialog> ModelessDlgs(2, 2, dtNoDelete); // array of "Welcome Message" dialogs
 
@@ -27,7 +28,28 @@ CCenteredDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontal and vertical centering of the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
         break; // Let DefDlgProc set the focus
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);

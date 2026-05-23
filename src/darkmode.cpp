@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 
 #include <delayimp.h>
@@ -188,11 +189,15 @@ DWORD gBuildNumber = 0;
 bool gInitialized = false;
 bool gSupported = false;
 bool gEnabled = false;
+bool gWindowsDarkSchemeSelected = false;
 bool gScrollbarsHooked = false;
+thread_local int gThemeChangeDepth = 0;
+thread_local int gThemeBatchDepth = 0;
 
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
 static HBRUSH gDialogBrushHandle = NULL;
+static DarkModeColors gColors = {GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT), false};
 static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
@@ -226,6 +231,18 @@ bool ControlHasCaptionButton(HWND hwnd)
     }
 
     return false;
+}
+
+bool IsButtonTypeNeedingClassicFallback(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    return type == BS_GROUPBOX || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
 }
 
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
@@ -299,6 +316,16 @@ bool ShouldUseDarkColorsInternal()
     if (!gShouldAppsUseDarkMode)
         return false;
     return gShouldAppsUseDarkMode() && !IsHighContrast();
+}
+
+bool IsWindowsDarkSchemeSelected()
+{
+    return gWindowsDarkSchemeSelected;
+}
+
+bool ShouldApplyNativeDarkEnhancements()
+{
+    return IsWindowsDarkSchemeSelected() && !IsHighContrast();
 }
 
 BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
@@ -414,11 +441,13 @@ void ApplyControlTheme(HWND hwnd)
     }
 
     auto notifyThemeChanged = [](HWND target) {
-        if (!gPropagatingThemeChange)
+        if (!gPropagatingThemeChange && gThemeChangeDepth == 0)
         {
+            ++gThemeChangeDepth;
             gPropagatingThemeChange = true;
             SendMessageW(target, WM_THEMECHANGED, 0, 0);
             gPropagatingThemeChange = false;
+            --gThemeChangeDepth;
         }
     };
 
@@ -439,6 +468,99 @@ void ApplyControlTheme(HWND hwnd)
             gSetWindowTheme(hwnd, nullptr, nullptr);
         notifyThemeChanged(hwnd);
     }
+}
+
+void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
+{
+    if (hwnd == NULL)
+        return;
+
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return;
+
+    auto invalidateParentChain = [](HWND ctrl) {
+        for (HWND p = GetParent(ctrl); p != NULL; p = GetParent(p))
+            InvalidateRect(p, NULL, TRUE);
+    };
+
+    auto applyChromeTheme = [&](HWND ctrl, const wchar_t* className) {
+        if (gSetWindowTheme == nullptr)
+            return;
+        if (wcscmp(className, L"ReBarWindow32") == 0 || wcscmp(className, L"ToolbarWindow32") == 0 ||
+            wcscmp(className, L"MenuBar") == 0)
+        {
+            gSetWindowTheme(ctrl, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            InvalidateRect(ctrl, NULL, TRUE);
+            invalidateParentChain(ctrl);
+        }
+    };
+
+    if (gSetWindowTheme != nullptr)
+    {
+        if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysTreeView32") == 0)
+        {
+            gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            const COLORREF bg = DarkModeGetColors().background;
+            const COLORREF fg = DarkModeGetColors().readableText;
+            if (wcscmp(className, L"SysListView32") == 0)
+            {
+                ListView_SetTextColor(hwnd, fg);
+                ListView_SetTextBkColor(hwnd, bg);
+                ListView_SetBkColor(hwnd, bg);
+            }
+            else
+            {
+                TreeView_SetTextColor(hwnd, fg);
+                TreeView_SetBkColor(hwnd, bg);
+            }
+            InvalidateRect(hwnd, NULL, TRUE);
+        }
+        else if (wcscmp(className, L"SysHeader32") == 0)
+        {
+            gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            const COLORREF bg = DarkModeGetColors().background;
+            const COLORREF fg = DarkModeGetColors().readableText;
+            SendMessage(hwnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(wantDark ? fg : CLR_DEFAULT));
+            SendMessage(hwnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(wantDark ? bg : CLR_DEFAULT));
+            InvalidateRect(hwnd, NULL, TRUE);
+            invalidateParentChain(hwnd);
+            SendMessage(hwnd, WM_THEMECHANGED, 0, 0);
+        }
+        else if (wcscmp(className, L"tooltips_class32") == 0 || wcscmp(className, L"ScrollBar") == 0)
+        {
+            gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            InvalidateRect(hwnd, NULL, TRUE);
+        }
+        else if (wcscmp(className, L"Button") == 0)
+        {
+            const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            const LONG_PTR type = style & BS_TYPEMASK;
+            if (type == BS_GROUPBOX)
+            {
+                EnsureClassicButtonTheme(hwnd, wantDark);
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
+            else if (gSetWindowTheme != nullptr &&
+                     (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                      type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON))
+            {
+                gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
+        }
+        else if (wcscmp(className, L"Static") == 0)
+        {
+            const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            const LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+            if ((exStyle & WS_EX_STATICEDGE) == WS_EX_STATICEDGE || (style & SS_ETCHEDFRAME) == SS_ETCHEDFRAME)
+                InvalidateRect(hwnd, NULL, TRUE);
+        }
+    }
+    applyChromeTheme(hwnd, className);
+
+    for (HWND child = GetWindow(hwnd, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
+        ApplyListTreeThemeRecursive(child, wantDark);
 }
 
 void EnsureInitialized()
@@ -523,7 +645,8 @@ void DarkModeSetEnabled(bool enabled)
     if (!gSupported)
         return;
 
-    bool newEnabled = enabled && !IsHighContrast();
+    gWindowsDarkSchemeSelected = enabled;
+    bool newEnabled = enabled && ShouldApplyNativeDarkEnhancements();
     if (gEnabled == newEnabled)
         return;
 
@@ -557,6 +680,11 @@ bool DarkModeShouldUseDarkColors()
     return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
+BOOL DarkMode_ShouldUseDark()
+{
+    return DarkModeShouldUseDarkColors() ? TRUE : FALSE;
+}
+
 void DarkModeApplyWindow(HWND hwnd)
 {
     EnsureInitialized();
@@ -571,11 +699,15 @@ void DarkModeApplyWindow(HWND hwnd)
 
 void DarkModeApplyTree(HWND hwnd)
 {
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::ApplyTree(hwnd);
+#endif
     EnsureInitialized();
     if (!gSupported || hwnd == NULL)
         return;
 
     DarkModeApplyWindow(hwnd);
+    ApplyListTreeThemeRecursive(hwnd, IsWindowsDarkSchemeSelected());
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
@@ -606,26 +738,44 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
     if (!gSupported)
         return false;
 
-    if (message != WM_SETTINGCHANGE)
+    if (message != WM_SETTINGCHANGE && message != WM_THEMECHANGED)
         return false;
 
-    bool isColor = false;
+    bool isColor = (message == WM_THEMECHANGED);
+    bool shouldRefresh = (message == WM_THEMECHANGED);
     if (lParam != 0)
     {
         if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"ImmersiveColorSet", -1, TRUE) == CSTR_EQUAL)
         {
-            RefreshColorPolicy();
             isColor = true;
+            shouldRefresh = true;
         }
         else if (CompareStringOrdinal(reinterpret_cast<LPCWSTR>(lParam), -1, L"WindowsThemeElement", -1, TRUE) == CSTR_EQUAL)
         {
-            RefreshColorPolicy();
             isColor = true;
+            shouldRefresh = true;
         }
     }
     else
     {
+        shouldRefresh = true;
+    }
+
+    struct ThemeBatchScope
+    {
+        ThemeBatchScope() { ++gThemeBatchDepth; }
+        ~ThemeBatchScope() { --gThemeBatchDepth; }
+        bool IsRoot() const { return gThemeBatchDepth == 1; }
+    } scope;
+
+    if (shouldRefresh)
+    {
+        const bool nativeEnhancements = ShouldApplyNativeDarkEnhancements();
+        if (gEnabled != nativeEnhancements)
+            DarkModeSetEnabled(nativeEnhancements);
         RefreshColorPolicy();
+        if (scope.IsRoot() && message == WM_THEMECHANGED)
+            gThemeChangeDepth = 0;
     }
 
     return isColor;
@@ -642,21 +792,45 @@ void DarkModeFixScrollbars()
 
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush)
 {
-    gDialogTextColor = ResolveReadableForeground(textColor, backgroundColor);
+    gDialogTextColor = textColor;
     gDialogBackgroundColor = backgroundColor;
     gDialogBrushHandle = dialogBrush;
+    gColors.text = textColor;
+    gColors.background = backgroundColor;
+    gColors.readableText = ResolveReadableForeground(textColor, backgroundColor);
+    gColors.usingSchemeColors = true;
+}
+
+void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
+                                 COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor)
+{
+    const COLORREF text = (schemeTextColor == CLR_INVALID) ? fallbackTextColor : schemeTextColor;
+    const COLORREF background = (schemeBackgroundColor == CLR_INVALID) ? fallbackBackgroundColor : schemeBackgroundColor;
+    gColors.text = text;
+    gColors.background = background;
+    gColors.readableText = ResolveReadableForeground(text, background);
+    gColors.usingSchemeColors = (schemeTextColor != CLR_INVALID) && (schemeBackgroundColor != CLR_INVALID);
+    gDialogTextColor = gColors.text;
+    gDialogBackgroundColor = gColors.background;
+}
+
+const DarkModeColors& DarkModeGetColors()
+{
+    EnsureInitialized();
+    gColors.readableText = ResolveReadableForeground(gColors.text, gColors.background);
+    return gColors;
 }
 
 COLORREF DarkModeGetDialogTextColor()
 {
     EnsureInitialized();
-    return ResolveReadableForeground(gDialogTextColor, gDialogBackgroundColor);
+    return DarkModeGetColors().readableText;
 }
 
 COLORREF DarkModeGetDialogBackgroundColor()
 {
     EnsureInitialized();
-    return gDialogBackgroundColor;
+    return DarkModeGetColors().background;
 }
 
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background)
@@ -666,6 +840,9 @@ COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF backgrou
 
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)
 {
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::UpdateListViewColors(listView, textColor, backgroundColor, applyHeaderColors);
+#endif
     EnsureInitialized();
 
     if (listView == NULL)
@@ -733,13 +910,17 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         if ((message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN) && lParam != 0)
         {
             HWND ctrl = reinterpret_cast<HWND>(lParam);
-            if (ControlHasCaptionButton(ctrl))
+            if (IsButtonTypeNeedingClassicFallback(ctrl))
                 EnsureClassicButtonTheme(ctrl, false);
         }
         return false;
     }
 
     HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
+#if USE_DARKMODELIB
+    if (DarkModeBackendDarkModelib::HandleCtlColor(message, wParam, lParam, result, DarkModeGetColors(), brush))
+        return true;
+#endif
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
@@ -766,7 +947,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (ctrl != NULL)
         {
-            if (ControlHasCaptionButton(ctrl))
+            if (IsButtonTypeNeedingClassicFallback(ctrl))
             {
                 EnsureClassicButtonTheme(ctrl, forceClassicButtons);
                 SetTextColor(hdc, textColor);
@@ -778,8 +959,14 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
             else
             {
                 EnsureClassicButtonTheme(ctrl, false);
-                LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
-                if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                wchar_t className[16];
+                if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Static") == 0)
+                {
+                    LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                    if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) == 0)
+                        SetTextColor(hdc, DarkModeGetColors().readableText);
+                }
+                else
                     SetTextColor(hdc, textColor);
             }
         }
@@ -796,7 +983,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     case WM_CTLCOLORBTN:
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
-        if (ControlHasCaptionButton(ctrl))
+        if (IsButtonTypeNeedingClassicFallback(ctrl))
             EnsureClassicButtonTheme(ctrl, forceClassicButtons);
         else
             EnsureClassicButtonTheme(ctrl, false);
@@ -821,6 +1008,38 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     return false;
 }
 
+void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
+{
+    EnsureInitialized();
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::ApplyStaticTextColors(hwndParent, specificCtrl, DarkModeGetColors());
+#endif
+    if (hwndParent == NULL)
+        return;
+    const COLORREF text = DarkModeGetColors().readableText;
+    auto applyOne = [&](HWND ctrl) {
+        if (ctrl == NULL)
+            return;
+        wchar_t className[16];
+        if (GetClassNameW(ctrl, className, _countof(className)) == 0 || lstrcmpiW(className, L"Static") != 0)
+            return;
+        LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+        if ((style & (SS_ICON | SS_BITMAP | SS_BLACKRECT | SS_GRAYRECT | SS_WHITERECT)) != 0)
+            return;
+        if (gSetWindowTheme != nullptr)
+            gSetWindowTheme(ctrl, IsWindowsDarkSchemeSelected() ? L"DarkMode_Explorer" : nullptr, nullptr);
+        InvalidateRect(ctrl, NULL, TRUE);
+    };
+
+    if (specificCtrl != NULL)
+        applyOne(specificCtrl);
+    else
+    {
+        for (HWND child = GetWindow(hwndParent, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
+            applyOne(child);
+    }
+}
+
 HBRUSH DarkModeGetPanelFrameBrush()
 {
     static HBRUSH brush = NULL;
@@ -828,4 +1047,3 @@ HBRUSH DarkModeGetPanelFrameBrush()
         brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
     return brush;
 }
-
