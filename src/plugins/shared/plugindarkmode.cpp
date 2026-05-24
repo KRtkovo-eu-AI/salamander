@@ -210,7 +210,10 @@ BOOL PluginDarkMode_ShouldUseDark()
     PluginDarkMode_EnsureApis();
     if (gHostPolicyAvailable)
         return gHostUseWindowsDarkScheme;
-    return DetectSystemDarkFallback();
+    // Plugin dark mode must follow host-selected "Windows Dark Mode (experimental)" policy only.
+    // If host policy is not provided, stay in light mode to avoid accidental dark activation
+    // based solely on OS/app defaults.
+    return FALSE;
 }
 
 PluginDarkModeColors PluginDarkMode_GetColors()
