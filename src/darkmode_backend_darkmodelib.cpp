@@ -36,7 +36,16 @@ void ApplyTree(HWND hwnd)
 {
 #if USE_DARKMODELIB
     if (hwnd != NULL)
+    {
+        static bool dmlibInitialized = false;
+        if (!dmlibInitialized)
+        {
+            dmlib::initDarkMode();
+            dmlibInitialized = true;
+        }
+        dmlib::setDarkWndNotifySafe(hwnd);
         dmlib::setDarkTitleBar(hwnd, true);
+    }
 #else
     (void)hwnd;
 #endif
