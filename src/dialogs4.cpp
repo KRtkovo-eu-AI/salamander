@@ -1860,8 +1860,8 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     {
         LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
         if (DarkModeShouldUseDarkColors())
         {
             HDC dc = reinterpret_cast<HDC>(wParam);
@@ -2342,8 +2342,8 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     {
         LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
         if (DarkModeShouldUseDarkColors())
         {
             HDC dc = reinterpret_cast<HDC>(wParam);
@@ -3047,8 +3047,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     {
         LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
         if (DarkModeShouldUseDarkColors())
         {
             HDC dc = reinterpret_cast<HDC>(wParam);
