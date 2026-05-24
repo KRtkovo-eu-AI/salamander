@@ -1046,10 +1046,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             LRESULT brush = 0;
             const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-#if USE_DARKMODELIB
-            if (handled)
-                return brush;
-#endif
+            DARKMODE_RETURN_IF_HANDLED(handled, brush);
             HDC hdcStatic = (HDC)wParam;
             HWND hwndStatic = (HWND)lParam;
             int resID = GetWindowLong(hwndStatic, GWL_ID);

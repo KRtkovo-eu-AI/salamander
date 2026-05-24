@@ -55,6 +55,20 @@ const DarkModeColors& DarkModeGetColors();
 // a dark brush was supplied and the caller should stop default processing.
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
 
+#if USE_DARKMODELIB
+#define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
+    do                                                    \
+    {                                                     \
+        if (handled)                                      \
+            return (brushResult);                         \
+    } while (0)
+#else
+#define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
+    do                                                    \
+    {                                                     \
+    } while (0)
+#endif
+
 // Returns a shared brush used for drawing dark-mode panel frames and borders.
 HBRUSH DarkModeGetPanelFrameBrush();
 COLORREF DarkModeGetDialogTextColor();
