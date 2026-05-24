@@ -75,7 +75,10 @@ bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
                         type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
                         type == BS_AUTO3STATE || type == BS_3STATE)
                     {
-                        textColor = EnsureReadableForBackground(colors.readableText, colors.background);
+                        // Follow darkmodelib demo behavior expectation: button labels in dark mode
+                        // must stay high-contrast (light) regardless of host palette drift.
+                        textColor = dmlib::isDarkTheme() ? RGB(0xF0, 0xF0, 0xF0)
+                                                         : EnsureReadableForBackground(colors.readableText, colors.background);
                     }
                 }
             }
