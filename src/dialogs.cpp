@@ -1492,6 +1492,10 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
     {
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+#if USE_DARKMODELIB
+        if (handled)
+            return brush;
+#endif
 
         if (DarkModeShouldUseDarkColors())
         {
@@ -1761,6 +1765,10 @@ COverwriteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+#if USE_DARKMODELIB
+        if (handled)
+            return brush;
+#endif
 
         if (DarkModeShouldUseDarkColors())
         {
@@ -1842,6 +1850,10 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+#if USE_DARKMODELIB
+        if (handled)
+            return brush;
+#endif
 
         if (DarkModeShouldUseDarkColors())
         {
