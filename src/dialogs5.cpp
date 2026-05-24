@@ -959,6 +959,10 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+#if USE_DARKMODELIB
+        if (handled)
+            return brush;
+#endif
 
         if (ShouldUsePluginsDarkPalette())
         {
