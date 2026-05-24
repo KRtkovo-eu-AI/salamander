@@ -12,6 +12,17 @@
 
 namespace DarkModeBackendDarkModelib
 {
+static COLORREF EnsureReadableForBackground(COLORREF text, COLORREF background)
+{
+    const int bgLum = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
+    const int fgLum = (GetRValue(text) * 30 + GetGValue(text) * 59 + GetBValue(text) * 11) / 100;
+    if (bgLum < 128 && fgLum < bgLum + 40)
+        return RGB(0xF0, 0xF0, 0xF0);
+    if (bgLum >= 128 && fgLum > bgLum - 40)
+        return RGB(0x20, 0x20, 0x20);
+    return text;
+}
+
 bool IsAvailable()
 {
 #if USE_DARKMODELIB
@@ -42,7 +53,24 @@ bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
         HDC hdc = reinterpret_cast<HDC>(wParam);
         if (hdc != NULL)
         {
-            SetTextColor(hdc, colors.readableText);
+            COLORREF textColor = colors.readableText;
+            if (message == WM_CTLCOLORBTN && lParam != 0)
+            {
+                HWND ctrl = reinterpret_cast<HWND>(lParam);
+                wchar_t className[16] = {0};
+                if (GetClassNameW(ctrl, className, _countof(className)) != 0 && lstrcmpiW(className, L"Button") == 0)
+                {
+                    LONG_PTR style = GetWindowLongPtr(ctrl, GWL_STYLE);
+                    LONG_PTR type = style & BS_TYPEMASK;
+                    if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON ||
+                        type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+                        type == BS_AUTO3STATE || type == BS_3STATE)
+                    {
+                        textColor = EnsureReadableForBackground(colors.readableText, colors.background);
+                    }
+                }
+            }
+            SetTextColor(hdc, textColor);
             SetBkColor(hdc, colors.background);
             SetBkMode(hdc, TRANSPARENT);
             result = reinterpret_cast<LRESULT>(dialogBrush != NULL ? dialogBrush : GetSysColorBrush(COLOR_BTNFACE));
@@ -94,4 +122,3 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
 #endif
 }
 } // namespace DarkModeBackendDarkModelib
-
