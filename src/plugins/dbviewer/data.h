@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -65,7 +66,7 @@ public:
     BOOL Open(const char* fileName);
     void Close();
 
-    // returns TRUE if the database is open
+    // return TRUE if the database is open and all variables are initialized
     BOOL IsOpened() { return Parser != NULL; }
 
     // "", "dbf", "csv"

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -268,10 +269,10 @@ public:
     size_t FormatShortFileSize(TCHAR* s, size_t slen, UINT64 size)
     {
         static const TCHAR expch[] = TEXT(" KMGTPEZY");
-        static const int maxexp = sizeof expch / sizeof TCHAR - 2;
+        static const int maxexp = sizeof(expch) / sizeof(TCHAR) - 2;
         size_t len = 0;
         int exp = 0;
-        //C4244 is OK: we only need the first few digits because we compute the short form "1,45TB"
+        //C4244 ok: we only need the first few digits because we compute the short form "1.45TB"
         double rs = (double)(__int64)size;
         while (rs >= 1024 && exp < maxexp)
         {

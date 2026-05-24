@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -191,7 +192,7 @@ BOOL C7zClient::FillItemData(IInArchive* archive, UINT32 index, C7zClient::CItem
     else
         itemData->SetMethod(GetAnsiString(propVariant.bstrVal));
 
-    /*  // 06F10701 is the ID for 7zAES, i.e. encryption
+    /*  // 06F10701 is the id for 7zAES -> so it's the password :)
 //  if (strstr(itemData->Method, "06F10701") != NULL)
   if (strstr(itemData->Method, "7zAES") != NULL)
     itemData->Encrypted = TRUE;
@@ -271,7 +272,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
         }
         fd.PluginData = (DWORD_PTR)itemData;
 
-        // Modification Time
+        // Creation Time
         archive->GetProperty(idx, kpidMTime, &propVariant);
         fd.LastWrite = propVariant.filetime;
 
@@ -333,7 +334,7 @@ BOOL C7zClient::AddFileDir(IInArchive* archive, UINT32 idx,
             // file length
             archive->GetProperty(idx, kpidSize, &propVariant);
             ::ConvertPropVariantToUInt64(propVariant, fd.Size.Value);
-            // Which is better? Checking *.lnk/pif/url extensions, Unix flags, or both? We do both.
+            // What is better? Check on *.lnk/pif/url extensions or Unix flags or both? We do both.
             fd.IsLink |= SalamanderGeneral->IsFileLink(fd.Ext);
 
             // file
@@ -535,7 +536,7 @@ int C7zClient::GetArchiveItemList(IInArchive* archive, TIndirectArray<CArchiveIt
         UString path;
         path = propVariant.bstrVal;
 
-        // Modification Time
+        // Creation Time
         archive->GetProperty(i, kpidMTime, &propVariant);
         FILETIME lastWrite = propVariant.filetime;
 
@@ -629,12 +630,12 @@ int C7zClient::DeleteMakeUpdateList(TIndirectArray<CArchiveItem>* archiveItems, 
 int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* archiveName,
                       TIndirectArray<CArchiveItemInfo>* deleteList, bool passwordIsDefined, UString& password)
 {
-    char tmpName[MAX_PATH];
+    CPathBuffer tmpName; // Heap-allocated for long path support
     DWORD err;
 
-    char srcPath[MAX_PATH];
-    strcpy(srcPath, archiveName);
-    char* rbackslash = _tcsrchr(srcPath, '\\');
+    CPathBuffer srcPath; // Heap-allocated for long path support
+    lstrcpyn(srcPath, archiveName, srcPath.Size());
+    char* rbackslash = _tcsrchr(srcPath.Get(), '\\');
     if (rbackslash != NULL)
         *rbackslash = '\0';
 
@@ -706,7 +707,7 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
         updateCallbackSpec->Password = password;
         updateCallbackSpec->AskPassword = passwordIsDefined;
 
-        // TODO: what about delete? Can the compression parameters be loaded, and do they need to be set at all?
+        // TODO: what about delete? is it possible to load compression parameters? and do they even need to be set?
         //    SetCompressionParams(outArchive, compr);
 
         // start update in a thread
@@ -730,13 +731,14 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
             // close the open archive
             inArchive->Close();
             // delete it
-            if (::DeleteFile(archiveName))
+            CWidePath wArchiveName(archiveName);
+            if (DeleteFileW(wArchiveName))
             {
                 DWORD err2;
                 // rename the tmp file to the archive
                 if (!SalamanderGeneral->SalMoveFile(tmpName, archiveName, &err2))
                 {
-                    SysError(IDS_CANT_MOVE_TMPARCHIVE, err2, FALSE, tmpName);
+                    SysError(IDS_CANT_MOVE_TMPARCHIVE, err2, FALSE, tmpName.Get());
                     throw OPER_CANCEL;
                 }
             }
@@ -775,7 +777,10 @@ int C7zClient::Delete(CSalamanderForOperationsAbstract* salamander, const char* 
     }
 
     delete archiveItems;
-    ::DeleteFile(tmpName);
+    {
+        CWidePath wTmpName(tmpName);
+        DeleteFileW(wTmpName);
+    }
 
     return ret;
 } /* C7zClient::Delete */
@@ -1078,9 +1083,9 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
                       const char* srcPath, BOOL isNewArchive, TIndirectArray<CFileItem>* fileList,
                       CCompressParams* compressParams, bool passwordIsDefined, UString password)
 {
-    char tmpName[MAX_PATH];
-    // strip the filename from archiveName, leaving the target path where we will extract
-    lstrcpy(tmpName, archiveName);
+    CPathBuffer tmpName; // Heap-allocated for long path support
+    // trim the filename from archiveName, leaving the target path where we will extract
+    lstrcpyn(tmpName, archiveName, tmpName.Size());
     SalamanderGeneral->CutDirectory(tmpName, NULL);
     DWORD err;
     if (!SalamanderGeneral->SalGetTempFileName(tmpName, "sal", tmpName, TRUE, &err))
@@ -1201,7 +1206,8 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
                 // close the open archive
                 inArchive->Close();
                 // delete it
-                if (!::DeleteFile(archiveName))
+                CWidePath wArchiveName2(archiveName);
+                if (!DeleteFileW(wArchiveName2))
                 {
                     Error(IDS_CANT_UPDATE_ARCHIVE, FALSE, archiveName);
                     throw OPER_CANCEL;
@@ -1212,7 +1218,7 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
             // rename the tmp file to the archive
             if (!SalamanderGeneral->SalMoveFile(tmpName, archiveName, &err2))
             {
-                SysError(IDS_CANT_MOVE_TMPARCHIVE, err2, FALSE, tmpName);
+                SysError(IDS_CANT_MOVE_TMPARCHIVE, err2, FALSE, tmpName.Get());
                 throw OPER_CANCEL;
             }
         }
@@ -1226,9 +1232,9 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
             //      else {
             if (FAILED(result) && ((FACILITY_WIN32 << 16) == (result & 0x7FFF0000)))
             {
-                // LastError encoded as HRESULT
-                // Oddly, E_OUTOFMEMORY as 0x8007000EL prints as "Not enough storage is available to complete this operation"
-                // even without truncating to 16 bits, while 0x80000002L prints as "Ran out of memory"
+                // LastError error encoded into HRESULT
+                // There is something strange: E_OUTOFMEMORY as 0x8007000EL prints as "Not enough storage is available to complete this operation"
+                // even when not truncated to 16 bits while 0x80000002L prints as "Ran out of memory"
                 SysError(IDS_7Z_FATAL_ERROR, (result == E_OUTOFMEMORY) ? 0x80000002L : (result & 0xFFFF), FALSE);
             }
             else
@@ -1269,7 +1275,10 @@ int C7zClient::Update(CSalamanderForOperationsAbstract* salamander, const char* 
     delete archiveItems;
     delete updateList;
 
-    ::DeleteFile(tmpName);
+    {
+        CWidePath wTmpName2(tmpName);
+        DeleteFileW(wTmpName2);
+    }
 
     return ret;
 } /* C7zClient::Update */

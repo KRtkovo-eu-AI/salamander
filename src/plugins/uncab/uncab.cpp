@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -85,12 +86,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // we reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "UnCAB" /* do not translate */, MB_OK | MB_ICONERROR);
+                   "UnCAB" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // let it load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnCAB" /* do not translate */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnCAB" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -119,9 +120,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM,
                                    VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
-                                   "UnCAB" /* do not translate */, "cab");
+                                   "UnCAB" /* neprekladat! */, "cab");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -265,7 +266,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
     FirstCAB = TRUE;
     HFDI hfdi;
     ERF err;
-    char arcPath[MAX_PATH + 2];
+    CPathBuffer arcPath;
     char* arcName;
     Dir = dir;
     Count = 0;
@@ -274,7 +275,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
     if (!SalamanderGeneral->CutDirectory(arcPath, &arcName))
         return FALSE;
     strcpy(NextCAB, arcName);
-    SalamanderGeneral->SalPathAddBackslash(arcPath, MAX_PATH + 2);
+    SalamanderGeneral->SalPathAddBackslash(arcPath, arcPath.Size());
 
     memset(&err, 0, sizeof(ERF));
     hfdi = FDICreate(Malloc, Free, ::Open, ::Read, ::Write, ::Close, ::Seek, cpuUNKNOWN, &err);
@@ -293,9 +294,9 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
         if (!*NextCAB)
             break;
         FirstCAB = FALSE;
-        char buffer[MAX_PATH + CB_MAX_CABINET_NAME + 1];
+        CPathBuffer buffer;
         strcpy(buffer, arcPath);
-        SalamanderGeneral->SalPathAppend(buffer, NextCAB, MAX_PATH + CB_MAX_CABINET_NAME + 1);
+        SalamanderGeneral->SalPathAppend(buffer, NextCAB, buffer.Size());
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(buffer);
         if (attr == -1 || attr & FILE_ATTRIBUTE_DIRECTORY)
         {
@@ -455,7 +456,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     HFDI hfdi;
     ERF err;
     Count = 0;
-    char rootDir[MAX_PATH + 2];
+    CPathBuffer rootDir;
     strcpy(rootDir, nameInArchive);
     char* c = strrchr(rootDir, '\\');
     if (!c)
@@ -756,13 +757,13 @@ BOOL CPluginInterfaceForArchiver::MakeFilesList(TIndirectArray2<char>& files, Sa
     const char* nextName;
     BOOL isDir;
     CQuadWord size;
-    char dir[MAX_PATH];
+    CPathBuffer dir; // Heap-allocated for long path support
     char* addDir;
     int dirLen;
     int errorOccured;
 
     lstrcpy(dir, targetDir);
-    addDir = dir + lstrlen(dir);
+    addDir = dir.Get() + lstrlen(dir);
     if (*(addDir - 1) != '\\')
     {
         *addDir++ = '\\';
@@ -802,7 +803,7 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray2<char>& mask
     char* dest;
     char* newMask;
     int newMaskLen;
-    char buffer[MAX_PATH];
+    CPathBuffer buffer; // Heap-allocated for long path support
 
     sour = masks;
     while (*sour)
@@ -1006,7 +1007,7 @@ CPluginInterfaceForArchiver::UnpackFile(char* fileName, DWORD size, WORD date, W
     if (!DoThisFile(fileName))
         return 0;
 
-    char message[MAX_PATH + 32];
+    CPathBuffer message;
     lstrcpy(message, LoadStr(IDS_EXTRACTING));
     lstrcat(message, fileName);
     if (Action != CA_UNPACK_ONE_FILE)
@@ -1027,8 +1028,8 @@ CPluginInterfaceForArchiver::UnpackFile(char* fileName, DWORD size, WORD date, W
         Abort = TRUE;
         return -1;
     }
-    strncpy_s(ret->FileName, TargetDir, _TRUNCATE);
-    if (!SalamanderGeneral->SalPathAppend(ret->FileName, fileName + RootLen, MAX_PATH))
+    strncpy_s((char*)ret->FileName, ret->FileName.Size(), TargetDir, _TRUNCATE);
+    if (!SalamanderGeneral->SalPathAppend(ret->FileName, fileName + RootLen, ret->FileName.Size()))
     {
         delete ret;
         ret = NULL;
@@ -1053,10 +1054,10 @@ CPluginInterfaceForArchiver::UnpackFile(char* fileName, DWORD size, WORD date, W
             return -1;
         }
     }
-    char nameInArc[MAX_PATH + MAX_PATH];
+    CPathBuffer nameInArc;
     strcpy(nameInArc, CurrentCABPath);
-    SalamanderGeneral->SalPathAppend(nameInArc, CurrentCAB, MAX_PATH + MAX_PATH);
-    SalamanderGeneral->SalPathAppend(nameInArc, fileName, MAX_PATH + MAX_PATH);
+    SalamanderGeneral->SalPathAppend(nameInArc, CurrentCAB, nameInArc.Size());
+    SalamanderGeneral->SalPathAppend(nameInArc, fileName, nameInArc.Size());
     char buf[100];
     FILETIME ft, lft;
     if (!DosDateTimeToFileTime(date, time, &lft))
@@ -1184,7 +1185,7 @@ CPluginInterfaceForArchiver::Open(char* pszFile, int oflag, int pmode)
         ret->Handle = CreateFile((LPTSTR)pszFile, fileaccess, FILE_SHARE_READ, NULL, filecreate, fileattrib, NULL);
         if (ret->Handle != INVALID_HANDLE_VALUE)
         {
-            lstrcpyn(ret->FileName, pszFile, MAX_PATH);
+            lstrcpyn(ret->FileName, pszFile, ret->FileName.Size());
             ret->Flags = 0;
             IOError = FALSE;
             ret->cabOffset = 0;
@@ -1221,7 +1222,7 @@ CPluginInterfaceForArchiver::Open(char* pszFile, int oflag, int pmode)
                 SafeSeek(ret, 0, FILE_BEGIN);
             }
 
-            return (INT_PTR)ret; //success
+            return (INT_PTR)ret; //sucess
         }
         char buf[1024];
         lstrcpy(buf, LoadStr(IDS_UNABLECREATE));
@@ -1394,7 +1395,7 @@ UINT CPluginInterfaceForArchiver::Write(INT_PTR hf, void* pv, UINT cb)
                 Abort = TRUE;
                 return -1;
             }
-            return written; // success
+            return written; // sucess
         }
 
         lstrcpy(buf, LoadStr(IDS_UNABLEWRITE));

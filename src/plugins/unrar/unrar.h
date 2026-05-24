@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -131,7 +132,7 @@ class CPluginInterfaceForArchiver : public CPluginInterfaceForArchiverAbstract
 {
 protected:
     CSalamanderForOperationsAbstract* Salamander;
-    char ArcFileName[MAX_PATH];
+    CPathBuffer ArcFileName;
     HANDLE ArcHandle;
     unsigned ArcFlags;
     BOOL List;
@@ -140,7 +141,7 @@ protected:
     CQuadWord ProgressTotal;
     const char* ArcRoot;
     DWORD RootLen;
-    char TargetName[MAX_PATH];
+    CPathBuffer TargetName;
     HANDLE TargetFile;
     BOOL Success;
     //char Password[MAX_PASSWORD];
@@ -268,7 +269,7 @@ typedef void(PASCAL* FRARSetCallback)(HANDLE hArcData, UNRARCALLBACK Callback, L
 
 //***********************************************************************************
 //
-// Routines from SHLWAPI.DLL
+// Rutiny ze SHLWAPI.DLL
 //
 
 //BOOL PathAppend(LPTSTR  pPath, LPCTSTR pMore);

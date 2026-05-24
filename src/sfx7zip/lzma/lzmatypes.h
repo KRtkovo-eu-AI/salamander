@@ -1,4 +1,4 @@
-/* 
+﻿/* 
 LzmaTypes.h 
 
 Types for LZMA Decoder

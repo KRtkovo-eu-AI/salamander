@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include <windows.h>
 #include <Sddl.h>
@@ -12,9 +11,9 @@
 
 #define MAX_LOADSTRING 100
 
-#define NOHANDLES(function) function // protects against polluting the source with HANDLES macros via CheckHnd
+#define NOHANDLES(function) function // obrana proti zanaseni maker HANDLES do zdrojaku pomoci CheckHnd
 
-// to avoid problems with semicolons in the macros defined below
+// aby nedochazelo k problemum se stredniky v nize nadefinovanych makrech
 inline void __TraceEmptyFunction() {}
 
 #define TRACE_E(str) __TraceEmptyFunction()
@@ -24,7 +23,7 @@ HINSTANCE hInst;                     // current instance
 TCHAR szTitle[MAX_LOADSTRING];       // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING]; // The title bar text
 
-// Forward declarations of functions included in this code module:
+// Foward declarations of functions included in this code module:
 ATOM MyRegisterClass(HINSTANCE hInstance);
 BOOL InitInstance(HINSTANCE, int);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -203,7 +202,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-// Message handler for about box.
+// Mesage handler for about box.
 LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -260,7 +259,7 @@ BOOL GetStringSid(LPTSTR* stringSid)
         return FALSE;
     }
 
-    // the caller must free the returned memory with LocalFree, see MSDN
+    // volajici musi uvolnit vracenou pamet pomoci LocalFree, viz MSDN
     ConvertSidToStringSid(pTokenUser->User.Sid, stringSid);
 
     free(pTokenUser);
@@ -316,11 +315,11 @@ BOOL GetSidMD5(BYTE* sidMD5)
     return TRUE;
 }
 
-// For more information, see:
+// Vice informaci viz:
 //   http://www.codeguru.com/cpp/w-p/win32/tutorials/print.php/c4545 (A NotQuiteNullDacl Class)
-//   http://forums.microsoft.com/msdn/ShowPost.aspx?PostID=748596&SiteID=1 (already handles Vista)
+//   http://forums.microsoft.com/msdn/ShowPost.aspx?PostID=748596&SiteID=1 (uz resi vistu)
 //   Programming Server-Side Applications for Microsoft Windows 2000, Richter/Clark, Microsoft Press 2000, Chapter 10, pp 458-460
-//   Ask Dr. Gui #49 (I cannot reliably find it online, so I am keeping it here):
+//   Ask Dr. Gui #49 (nemuzu ho poradne najit online, tak radeji vkladam sem):
 // Mutex Madness
 // Dear Dr. GUI:
 // I'm a French engineer and my English isn't perfect so I hope that you understand my question.
@@ -328,7 +327,7 @@ BOOL GetSidMD5(BYTE* sidMD5)
 // ghMutexExe = CreateMutex(NULL, FALSE , "APPLICOM_IO_MUTEX");
 // When I use my DLL with an application that is running in Real time priority, I can't run another application that uses the same DLL. When I use the function:
 // ghMutexExe = CreateMutex(NULL, FALSE , "APPLICOM_IO_MUTEX");
-// Returns NULL (ghMutexExe = NULL), and GetLastError returns 5 (Access is denied. ERROR_ACCESS_DENIED).
+// It returns NULL (ghMutexExe = NULL), and GetLastError returns 5 (Access is denied. ERROR_ACCESS_DENIED).
 // Can you help me?
 // Bertrand Lauret
 //
@@ -350,8 +349,8 @@ BOOL GetSidMD5(BYTE* sidMD5)
 // Dr. GUI thinks that in your case you should only set the security for specific objects because you are developing a DLL, which may not want to change the security for every object in the process.
 // The following function wraps CreateMutex with the additional functionality of creating security that is more relaxed than is the default for a service:
 /*
-    // grant the mutex all possible access rights (so opening it works, for example, between AsAdmin and User accounts)
-    // a cleaner solution would be to call ObtainAccessableMutex(), see its detailed comment
+    // pridelime mutexu vsechna mozna prava (aby napriklad fungovalo otevirani mezi AsAdmin a User ucty)
+    // cistejsi by bylo zavolani funkce ObtainAccessableMutex(), viz jeji obsahly komentar
     SECURITY_ATTRIBUTES secAttr;
     char secDesc[ SECURITY_DESCRIPTOR_MIN_LENGTH ];
     secAttr.nLength = sizeof(secAttr);
@@ -363,13 +362,13 @@ BOOL GetSidMD5(BYTE* sidMD5)
 */
 
 /*
-// according to http://forums.microsoft.com/msdn/ShowPost.aspx?PostID=748596&SiteID=1
-// the integrity level should be set on Vista, but I could not reproduce the problem on
-// Vista/Server2008, so for now I am leaving this only as a comment until we run into it
+// podle http://forums.microsoft.com/msdn/ShowPost.aspx?PostID=748596&SiteID=1
+// by se pod vistou mel nastavit integrity level, ale nedokazal jsem problem na Viste/Serveru2008 navodit
+// takze zatim nechavam pouze v komentari, dokud na to nenarazime
 //
 // Windows Integrity Mechanism Design
 // http://msdn.microsoft.com/en-us/library/bb625963.aspx
-if (windowsVistaAndLater) // FIXME: I did not encounter a case on Vista where I would need to handle the integrity level (between AdAdmin and a normal application)
+if (windowsVistaAndLater) // FIXME: nenarazil jsem na viste na to, ze bych musel integrity level resit (mezi AdAdmin / normalni aplikaci)
 {
   PSECURITY_DESCRIPTOR pSD;
   ConvertStringSecurityDescriptorToSecurityDescriptor(
@@ -458,9 +457,9 @@ ErrorExit:
 
 //****************************************************************************
 //
-// GetProcessIntegrityLevel (pulled from MSDN)
-// Returns TRUE on success and fills the DWORD pointed to by 'integrityLevel'
-// otherwise (on failure or on OSes older than Vista) returns FALSE
+// GetProcessIntegrityLevel (vytazeno z MSDN)
+// V pripade uspechu vrati TRUE a naplni DWORD na ktery odkazuje 'integrityLevel'
+// jinak (pri selhani nebo pod OS strasima nez Vista) vrati FALSE
 //
 
 #define SECURITY_MANDATORY_UNTRUSTED_RID (0x00000000L)
@@ -478,7 +477,7 @@ BOOL SalIsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD w
                                                                                VER_MINORVERSION, VER_GREATER_EQUAL),
                                                            VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
 
-    SecureZeroMemory(&osvi, sizeof(osvi)); // replacement for memset (does not require the RTL)
+    SecureZeroMemory(&osvi, sizeof(osvi)); // nahrada za memset (nevyzaduje RTLko)
     osvi.dwOSVersionInfoSize = sizeof(osvi);
     osvi.dwMajorVersion = wMajorVersion;
     osvi.dwMinorVersion = wMinorVersion;
@@ -501,7 +500,7 @@ BOOL GetProcessIntegrityLevel(DWORD* integrityLevel)
 
     BOOL WindowsVistaAndLater = SalIsWindowsVersionOrGreater(6, 0, 0);
 
-    if (WindowsVistaAndLater) // integrity levels were introduced starting with Windows Vista
+    if (WindowsVistaAndLater) // integrity levels byly zavedeny od Windows Vista
     {
         hProcess = GetCurrentProcess();
         if (OpenProcessToken(hProcess, TOKEN_QUERY, &hToken))

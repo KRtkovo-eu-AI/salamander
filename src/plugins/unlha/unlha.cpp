@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -30,7 +30,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
         DLLInstance = hinstDLL;
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 char* LoadStr(int resID)
@@ -59,12 +59,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "UnLHA" /* do not translate */, MB_OK | MB_ICONERROR);
+                   "UnLHA" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnLHA" /* DO NOT TRANSLATE */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnLHA" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -83,7 +83,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "UnLHA" /* do not translate! */, "lzh;lha;lzs");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -164,7 +164,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
 
     while ((gh = LHAGetHeader(f, &hdr)) == GH_SUCCESS)
     {
-        // if it ends with '\\', remove it (for directories)
+        // if it ends with '\', remove it (because of directories)
         int l = lstrlen(hdr.name) - 1;
         if (hdr.name[l] == '\\')
         {
@@ -253,7 +253,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
         ret = FALSE;
     }
 
-    // some files have already been listed, so do not discard them and display them
+    // some files have already been listed, so do not pack and display them
     if (!ret && count)
         ret = TRUE;
 
@@ -302,19 +302,19 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
 
     if (hdr.method == LHA_UNKNOWNMETHOD && hdr.original_size != 0 /* see below : */)
     {
-        // For unknown reasons, LHA sometimes packs zero-length files with a nonsensical method name...
-        // If the file length is 0, the method type is therefore ignored.
+        // I do not know why, but LHA sometimes packs zero-length files with a nonsensical method name...
+        // If the file length is 0, I therefore ignore the method type.
         SalamanderGeneral->ShowMessageBox(LoadStr(IDS_METHOD), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
         fclose(f);
         return FALSE;
     }
 
-    char justName[MAX_PATH];
+    CPathBuffer justName; // Heap-allocated for long path support
     lstrcpy(justName, nameInArchive);
     SalamanderGeneral->SalPathStripPath(justName);
-    char targetName[MAX_PATH];
+    CPathBuffer targetName; // Heap-allocated for long path support
     lstrcpy(targetName, targetDir);
-    SalamanderGeneral->SalPathAppend(targetName, justName, MAX_PATH);
+    SalamanderGeneral->SalPathAppend(targetName, justName, targetName.Size());
     BOOL skip;
     DWORD silent = 0;
 
@@ -341,7 +341,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
 
     if (!uf)
     {
-        if (iLHAErrorStrId != IDS_WRITEERROR) // SafeWriteFile handles write errors
+        if (iLHAErrorStrId != IDS_WRITEERROR) // because of SafeWriteFile
             SalamanderGeneral->ShowMessageBox(LoadStr(iLHAErrorStrId), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
         return FALSE;
     }
@@ -470,11 +470,11 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
         unpacked = FALSE;
 
         const char* name = SalamanderGeneral->SalPathFindFileName(hdr.name);
-        char nameBuf[MAX_PATH];
+        CPathBuffer nameBuf; // Heap-allocated for long path support
         int nameLen = (int)strlen(name);
         if (nameLen > 0 && name[nameLen - 1] == '\\') // due to SalPathFindFileName the '\\' can only be at the end; remove it before calling AgreeMask
         {
-            lstrcpyn(nameBuf, name, min(nameLen, MAX_PATH));
+            lstrcpyn(nameBuf, name, min(nameLen, nameBuf.Size()));
             name = nameBuf;
         }
         BOOL nameHasExt = strchr(name, '.') != NULL; // ".cvspass" is considered an extension on Windows
@@ -524,7 +524,7 @@ void CPluginInterfaceForArchiver::UnpackInnerBody(FILE* f, const char* targetDir
 {
     CALL_STACK_MESSAGE4("CPluginInterfaceForArchiver::UnpackInnerBody( , %s, %s, , %ld)", targetDir, fileName, bDir);
 
-    char message[MAX_PATH + 32];
+    CPathBuffer message;
     lstrcpy(message, LoadStr(IDS_UNPACKING));
     lstrcat(message, hdr.name);
     Salamander->ProgressDialogAddText(message, TRUE);
@@ -537,9 +537,9 @@ void CPluginInterfaceForArchiver::UnpackInnerBody(FILE* f, const char* targetDir
         return;
     }
 
-    char targetName[MAX_PATH];
-    strncpy_s(targetName, targetDir, _TRUNCATE);
-    if (!SalamanderGeneral->SalPathAppend(targetName, hdr.name + RootLen, MAX_PATH))
+    CPathBuffer targetName; // Heap-allocated for long path support
+    lstrcpyn(targetName, targetDir, targetName.Size());
+    if (!SalamanderGeneral->SalPathAppend(targetName, hdr.name + RootLen, targetName.Size()))
     {
         if (!(Silent & SF_LONGNAMES))
             switch (SalamanderGeneral->DialogError(SalamanderGeneral->GetMsgBoxParent(), BUTTONS_SKIPCANCEL,
@@ -557,9 +557,9 @@ void CPluginInterfaceForArchiver::UnpackInnerBody(FILE* f, const char* targetDir
         return;
     }
 
-    char nameInArc[MAX_PATH + MAX_PATH];
+    CPathBuffer nameInArc;
     lstrcpy(nameInArc, fileName);
-    SalamanderGeneral->SalPathAppend(nameInArc, hdr.name, MAX_PATH + MAX_PATH);
+    SalamanderGeneral->SalPathAppend(nameInArc, hdr.name, nameInArc.Size());
     char buf[100];
     GetInfo(buf, &hdr.last_modified_filetime, hdr.original_size);
     BOOL skip;
@@ -602,7 +602,7 @@ void CPluginInterfaceForArchiver::UnpackInnerBody(FILE* f, const char* targetDir
         {
             if (!uf)
             {
-                if (iLHAErrorStrId != IDS_WRITEERROR) // SafeWriteFile handles write errors
+                if (iLHAErrorStrId != IDS_WRITEERROR) // because of SafeWriteFile
                     SalamanderGeneral->ShowMessageBox(LoadStr(iLHAErrorStrId), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
                 Abort = TRUE;
                 Ret = FALSE;
@@ -659,14 +659,14 @@ BOOL CPluginInterfaceForArchiver::MakeFilesList(TDirectArray<int>& offsets, SalE
     const char* nextName;
     BOOL isDir;
     CQuadWord size;
-    char dir[MAX_PATH];
+    CPathBuffer dir; // Heap-allocated for long path support
     char* addDir;
     int dirLen;
     const CFileData* pfd;
     int errorOccured;
 
     lstrcpy(dir, targetDir);
-    addDir = dir + lstrlen(dir);
+    addDir = dir.Get() + lstrlen(dir);
     if (*(addDir - 1) != '\\')
     {
         *addDir++ = '\\';
@@ -723,7 +723,7 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray<char>& maskA
     char* dest;
     char* newMask;
     int newMaskLen;
-    char buffer[MAX_PATH];
+    CPathBuffer buffer; // Heap-allocated for long path support
 
     sour = masks;
     while (*sour)

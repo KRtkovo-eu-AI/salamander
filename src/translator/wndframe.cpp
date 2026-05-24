@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -94,7 +95,7 @@ BOOL CFrameWindow::OpenChildWindows()
 
     mcs.szTitle = "Navigator";
     mcs.lParam = (LPARAM)&TreeWindow;
-    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LONG)(LPMDICREATESTRUCT)&mcs) == NULL)
+    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LPARAM)&mcs) == NULL)
     {
         SetCursor(hOldCursor);
         return FALSE;
@@ -106,7 +107,7 @@ BOOL CFrameWindow::OpenChildWindows()
 
     mcs.szTitle = "Texts";
     mcs.lParam = (LPARAM)&TextWindow;
-    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LONG)(LPMDICREATESTRUCT)&mcs) == NULL)
+    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LPARAM)&mcs) == NULL)
     {
         SetCursor(hOldCursor);
         return FALSE;
@@ -117,7 +118,7 @@ BOOL CFrameWindow::OpenChildWindows()
 
     mcs.szTitle = "Resource Symbols";
     mcs.lParam = (LPARAM)&RHWindow;
-    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LONG)(LPMDICREATESTRUCT)&mcs) == NULL)
+    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LPARAM)&mcs) == NULL)
     {
         SetCursor(hOldCursor);
         return FALSE;
@@ -129,7 +130,7 @@ BOOL CFrameWindow::OpenChildWindows()
 
     mcs.szTitle = "Output";
     mcs.lParam = (LPARAM)&OutWindow;
-    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LONG)(LPMDICREATESTRUCT)&mcs) == NULL)
+    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LPARAM)&mcs) == NULL)
     {
         SetCursor(hOldCursor);
         return FALSE;
@@ -140,7 +141,7 @@ BOOL CFrameWindow::OpenChildWindows()
 
     mcs.szTitle = "Preview";
     mcs.lParam = (LPARAM)&PreviewWindow;
-    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LONG)(LPMDICREATESTRUCT)&mcs) == NULL)
+    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LPARAM)&mcs) == NULL)
     {
         SetCursor(hOldCursor);
         return FALSE;
@@ -227,7 +228,7 @@ BOOL CFrameWindow::OpenLayoutEditor()
 
     mcs.szTitle = "Layout Editor";
     mcs.lParam = (LPARAM)LayoutWindow;
-    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LONG)(LPMDICREATESTRUCT)&mcs) == NULL)
+    if (SendMessage(HMDIClient, WM_MDICREATE, 0, (LPARAM)&mcs) == NULL)
         return FALSE;
     //  if (Config.TreeWindowPlacement.length != 0)
     //    SetWindowPlacement(TreeWindow.HWindow, &Config.TreeWindowPlacement);
@@ -306,7 +307,7 @@ BOOL CFrameWindow::QueryClose()
     {
         if (Data.MUIMode)
         {
-            int ret = MessageBox(GetMsgParent(), "Do you want to close MUI package?", FRAMEWINDOW_NAME, MB_OKCANCEL | MB_ICONQUESTION);
+            int ret = TranslatorMessageBox(GetMsgParent(), "Do you want to close MUI package?", FRAMEWINDOW_NAME, MB_OKCANCEL | MB_ICONQUESTION);
             if (ret == IDCANCEL)
                 return FALSE;
         }
@@ -316,7 +317,7 @@ BOOL CFrameWindow::QueryClose()
             {
                 char buff[MAX_PATH + 100];
                 sprintf_s(buff, "Save changes to %s?", Data.ProjectFile);
-                int ret = MessageBox(GetMsgParent(), buff, FRAMEWINDOW_NAME, MB_YESNOCANCEL | MB_ICONQUESTION);
+                int ret = TranslatorMessageBox(GetMsgParent(), buff, FRAMEWINDOW_NAME, MB_YESNOCANCEL | MB_ICONQUESTION);
                 if (ret == IDCANCEL)
                     return FALSE;
                 if (ret == IDYES)
@@ -341,6 +342,8 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
 
     BOOL ret = FALSE;
     BOOL showOutro = TRUE;
+    BOOL quietAutomationActive = IsSupportedQuietAutomationActive();
+    BOOL quietAutomationSucceeded = FALSE;
     if (DataRH.Load(Data.FullIncludeFile) &&
         Data.LoadCheckLst(Data.FullCheckLstFile) &&
         Data.Load(Data.FullSourceFile, Data.FullTargetFile, FALSE) &&
@@ -361,8 +364,13 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
             if (QuietValidate && OutWindow.GetErrorLines() == 0 ||                           // validation completed successfully—exit quietly
                 QuietTranslate && (OutWindow.GetInfoLines() == 1 || completelyUntranslated)) // nothing to translate (the only info line is the header) or no text translated at all—report via exit code
             {
-                DestroyWindow(HWindow);
-                ExitProcess(QuietTranslate && completelyUntranslated ? 0 : 1); // terminate immediately to avoid showing the main window and other unwanted things; exit code 1 means validation succeeded
+                if (quietAutomationActive)
+                    quietAutomationSucceeded = TRUE;
+                else
+                {
+                    DestroyWindow(HWindow);
+                    ExitProcess(QuietTranslate && completelyUntranslated ? 0 : 1); // terminate immediately to avoid showing the main window; exit code 1 means validation succeeded
+                }
             }
         }
 
@@ -374,7 +382,7 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
             if (!dirty || Data.Save() && Data.SaveProject())
             {
                 DestroyWindow(HWindow);
-                ExitProcess(dirty ? 0 : 1); // terminate immediately to avoid showing the main window and other unwanted things; exit code 0 = changes saved, 1 = no changes detected
+                ExitProcess(dirty ? 0 : 1); // terminate immediately; exit code 0 = changes saved, 1 = no changes detected
             }
         }
 
@@ -405,7 +413,7 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
                 if (Data.Save() && Data.SaveProject())
                 {
                     DestroyWindow(HWindow);
-                    ExitProcess(1); // terminate immediately to avoid flashing the main window and other unwanted things; exit code 1 indicates success
+                    ExitProcess(1); // terminate immediately to avoid flashing the main window; exit code 1 indicates success
                 }
             }
         }
@@ -459,7 +467,7 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
                     if (Data.Save() && Data.SaveProject())
                     {
                         DestroyWindow(HWindow);
-                        ExitProcess(1); // exit immediately to avoid showing the main window and other unwanted things; exit code 1 means validation succeeded
+                        ExitProcess(1); // exit immediately to avoid showing the main window; exit code 1 means validation succeeded
                     }
                 }
             }
@@ -487,17 +495,24 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
                 *strrchr(fullSLTPath, '\\') = 0;
                 PathAppend(fullSLTPath, sltPath, MAX_PATH);
             }
+            if (quietAutomationActive && QuietImportSLT[0] == 0 && !QuietAutomationEnsureDirectory(fullSLTPath))
+            {
+                SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
+                wchar_t outputBuff2[10000];
+                swprintf_s(outputBuff2, L"Failed to create export directory %hs.", fullSLTPath);
+                OutWindow.AddLine(outputBuff2, mteError);
+            }
             PathAppend(fullSLTPath, strrchr(Data.ProjectFile, '\\'), MAX_PATH);
             char* ext = strrchr(fullSLTPath, '.') + 1;
             strcpy_s(ext, _countof(fullSLTPath) - (ext - fullSLTPath), QuietExportSpellChecker[0] != 0 ? "txt" : QuietExportSDC[0] != 0 ? "sdc"
                                                                                                                                         : "slt");
 
             BOOL doNotSaveData = TRUE;
-            if (QuietExportSpellChecker[0] != 0)
+            if (OutWindow.GetErrorLines() == 0 && QuietExportSpellChecker[0] != 0)
             {
                 Data.Export(fullSLTPath);
             }
-            else
+            else if (OutWindow.GetErrorLines() == 0)
             {
                 if (QuietExportSDC[0] != 0)
                 {
@@ -529,16 +544,34 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
             {
                 if (doNotSaveData || Data.Save() && Data.SaveProject())
                 {
-                    DestroyWindow(HWindow);
-                    ExitProcess(1); // terminate immediately to avoid flashing the main window; exit code 1 indicates success
+                    if (quietAutomationActive)
+                        quietAutomationSucceeded = TRUE;
+                    else
+                    {
+                        DestroyWindow(HWindow);
+                        ExitProcess(1); // terminate immediately to avoid flashing the main window; exit code 1 indicates success
+                    }
                 }
             }
         }
 
         ret = TRUE;
+        if (quietAutomationActive)
+        {
+            if (quietAutomationSucceeded)
+                QuietAutomationExit(qaecSuccess);
+            if (OutWindow.GetErrorLines() == 0)
+                SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
+            QuietAutomationExit(QuietAutomationFailureExitCode);
+        }
         OpenChildWindows();
         SetTitle();
         Config.AddRecentProject(Data.ProjectFile);
+    }
+    else if (quietAutomationActive)
+    {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
+        QuietAutomationExit(QuietAutomationFailureExitCode);
     }
 
     // display outro
@@ -569,6 +602,7 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
     QuietExportSLTForDiff = FALSE;
     QuietImportSLT[0] = 0;
     QuietExportSpellChecker[0] = 0;
+    ClearQuietAutomation();
     if (p > 3)
         return;
     if (p == 2)
@@ -596,6 +630,7 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
                 {
                     QuietValidate = _stricmp(argv[0], "-quiet-validate-all") == 0 ? 1 : 2;
                     Config.SetValidateAll(QuietValidate);
+                    PrepareQuietAutomation(_stricmp(argv[0], "-quiet-validate-all") == 0 ? qacValidateAll : qacValidateLayout, argv[1]);
                 }
             }
         }
@@ -626,11 +661,17 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
                 lstrcpy(QuietImportTrlProp, argv[1]);
             QuietExportSLTForDiff = _stricmp(argv[0], "-quiet-export-slt-for-diff") == 0;
             if (_stricmp(argv[0], "-quiet-export-slt") == 0 || QuietExportSLTForDiff)
+            {
                 lstrcpy(QuietExportSLT, argv[1]);
+                PrepareQuietAutomation(QuietExportSLTForDiff ? qacExportSLTForDiff : qacExportSLT, argv[2]);
+            }
             if (_stricmp(argv[0], "-quiet-export-sizes") == 0)
                 lstrcpy(QuietExportSDC, argv[1]);
             if (_stricmp(argv[0], "-quiet-import-slt") == 0)
+            {
                 lstrcpy(QuietImportSLT, argv[1]);
+                PrepareQuietAutomation(qacImportSLT, argv[2]);
+            }
             if (_stricmp(argv[0], "-quiet-export-spellcheck") == 0)
                 lstrcpy(QuietExportSpellChecker, argv[1]);
             if (_stricmp(argv[0], "-open-layout-editor") == 0)
@@ -644,12 +685,14 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
     SetTitle();
     if (Data.LoadProject(file))
     {
+        if (IsSupportedQuietAutomationActive())
+            PrepareQuietAutomation(QuietAutomationCommand, file);
         int qval = QuietValidate;
         int qtran = QuietTranslate;
         if (OpenLayoutEditorDialogID[0] != 0)
             Data.SelectedTreeItem = TREE_TYPE_DIALOG | atoi(OpenLayoutEditorDialogID);
         OpenProject(argv[1]);
-        if (qval)
+        if (qval && !IsSupportedQuietAutomationActive())
             PostMessage(HWindow, WM_VALIDATIONFAILED, 0, 0);
         if (qtran)
             PostMessage(HWindow, WM_UNTRANSLATEDFOUND, 0, 0);
@@ -658,6 +701,11 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
             if (ReadSharedMemory())
                 PostMessage(HWindow, WM_COMMAND, ID_TOOLS_EDITLAYOUT, 0);
         }
+    }
+    else if (IsSupportedQuietAutomationActive())
+    {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
+        QuietAutomationExit(QuietAutomationFailureExitCode);
     }
 
     QuietValidate = 0; // Resume normal behavior—no more automatic checks or forced shutdowns
@@ -671,6 +719,7 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
     QuietExportSLTForDiff = FALSE;
     QuietImportSLT[0] = 0;
     QuietExportSpellChecker[0] = 0;
+    ClearQuietAutomation();
 }
 
 BOOL CFrameWindow::OnSave()
@@ -735,7 +784,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CLOSE:
     {
-        PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0); // safely close the window
+        PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0); // bezpecny close-window
         return 0;
     }
 
@@ -752,15 +801,15 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_VALIDATIONFAILED:
     {
-        MessageBox(GetMsgParent(), "Quiet validation has failed. See Output window for errors.",
-                   ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), "Quiet validation has failed. See Output window for errors.",
+                             ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         return 0;
     }
 
     case WM_UNTRANSLATEDFOUND:
     {
-        MessageBox(GetMsgParent(), "Untranslated strings have been found. See list of these strings in Output window.",
-                   FRAMEWINDOW_NAME, MB_OK | MB_ICONINFORMATION);
+        TranslatorMessageBox(GetMsgParent(), "Untranslated strings have been found. See list of these strings in Output window.",
+                             FRAMEWINDOW_NAME, MB_OK | MB_ICONINFORMATION);
         return 0;
     }
 
@@ -1013,7 +1062,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 #ifdef _DEBUG
             // FIXME - for debugging
-            strcpy_s(project, "C:\\TRANSLATOR\\Salamand 2.53 beta 1\\projects\\czech\\salamand.atp");
+            strcpy_s(project, "C:\\TRANSLATOR\\Sally\\projects\\czech\\sally.atp");
 #endif
 
             CImportDialog dlg(HWindow, project);
@@ -1066,7 +1115,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = HWindow;
-            ofn.lpstrFilter = "Salamander Language Translation (*.slt)\0*.slt\0";
+            ofn.lpstrFilter = "Sally Language Translation (*.slt)\0*.slt\0";
             ofn.lpstrDefExt = "slt";
             ofn.lpstrFile = fileName;
             ofn.nMaxFile = MAX_PATH;
@@ -1096,7 +1145,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = HWindow;
-            ofn.lpstrFilter = "Salamander Language Translation (*.slt)\0*.slt\0";
+            ofn.lpstrFilter = "Sally Language Translation (*.slt)\0*.slt\0";
             ofn.lpstrFile = fileName;
             ofn.nMaxFile = MAX_PATH;
             ofn.nFilterIndex = 1;
@@ -1342,7 +1391,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (!IsProjectOpened() || Data.MUIMode)
                 return 0;
 
-            if (MessageBox(HWindow,
+            if (TranslatorMessageBox(HWindow,
                            "Do you really want to mark all changed texts in dialogs, menus, and "
                            "strings as Translated? Text is changed when Original text and Translated "
                            "text are different.",
@@ -1358,7 +1407,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (!IsProjectOpened() || Data.MUIMode)
                 return 0;
 
-            if (MessageBox(HWindow,
+            if (TranslatorMessageBox(HWindow,
                            "Do you really want to reset all dialogs layouts to original?",
                            FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES)
             {
@@ -1391,7 +1440,7 @@ CFrameWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         Data.Save();
                         Data.SaveProject();
                     }
-                    PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0); // safely close the window
+                    PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0); // bezpecny close-window
                 }
             }
             return 0;

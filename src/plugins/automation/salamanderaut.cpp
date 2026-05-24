@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -119,7 +120,7 @@ static void WINAPI ShowMsgBoxProc(void* pContext)
 
     if (msgbox.nDlgResult == 0)
     {
-        // the most likely reason for the failure is invalid arguments
+        // the most probable reason of failure is invalid arguments
         // to SalMessageBoxEx
         return E_INVALIDARG;
     }
@@ -416,7 +417,7 @@ void CSalamanderAutomation::OnEndExecution()
     CSalamanderPluginInternalViewerData viewerData;
     TCHAR caption[512];
     int cacheMode;
-    TCHAR szTempFile[MAX_PATH];
+    CPathBuffer szTempFile;
     HCURSOR hOldCursor;
 
     if (IsArgumentPresent(temp))
@@ -870,7 +871,7 @@ static void CALLBACK ShowQuestionDialogProc(void* pContext)
     ISalamanderPanel* pPanel = NULL;
     const char* currentT = NULL;
     _bstr_t pathT(path);
-    TCHAR szPath[MAX_PATH];
+    CPathBuffer szPath;
 
     // validate input
     if (lstrlen(pathT) >= MAX_PATH)
@@ -891,7 +892,7 @@ static void CALLBACK ShowQuestionDialogProc(void* pContext)
 
         if (FAILED(hr))
         {
-            // TODO: report a better error, e.g. "panel object expected"
+            // TODO: report better error, st. like "panel object expected"
             return hr;
         }
     }
@@ -910,7 +911,7 @@ static void CALLBACK ShowQuestionDialogProc(void* pContext)
         if (!SalamanderGeneral->GetPanelPath(
                 useSourcePanel ? PANEL_SOURCE : PANEL_TARGET,
                 szPath,
-                _countof(szPath),
+                szPath.Size(),
                 NULL,
                 NULL))
         {
@@ -920,8 +921,8 @@ static void CALLBACK ShowQuestionDialogProc(void* pContext)
         currentT = szPath;
     }
 
-    TCHAR szName[MAX_PATH];
-    StringCchCopy(szName, _countof(szName), pathT);
+    CPathBuffer szName;
+    StringCchCopy(szName, szName.Size(), pathT);
     int errTextID;
     BOOL ret = SalamanderGeneral->SalGetFullName(szName, &errTextID, currentT, NULL);
     if (!ret)

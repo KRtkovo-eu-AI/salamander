@@ -1,7 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "../../registry_names.h"
 
 // enables dumping of blocks that remain allocated on the heap after the plugin finishes
 // #define DUMP_MEM
@@ -223,7 +225,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_DESCRIPTION),
                                    "Renamer" /* do not translate! */);
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -286,9 +288,9 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     LastRemoveSourcePath = FALSE;
     UseCustomFont = FALSE;
     ConfirmESCClose = TRUE;
-    strcpy(Command, "notepad");
-    strcpy(Arguments, "\"$(Name)\"");
-    strcpy(InitDir, "$(FullPath)");
+    lstrcpy(Command, "notepad");
+    lstrcpy(Arguments, "\"$(Name)\"");
+    lstrcpy(InitDir, "$(FullPath)");
     if (regKey)
     {
         char buffer[4096];
@@ -325,9 +327,21 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
             registry->CloseKey(subKey);
         }
 
-        registry->GetValue(regKey, CONFIG_COMMAND, REG_SZ, Command, MAX_PATH);
-        registry->GetValue(regKey, CONFIG_ARGUMENTS, REG_SZ, Arguments, MAX_PATH);
-        registry->GetValue(regKey, CONFIG_INITDIR, REG_SZ, InitDir, MAX_PATH);
+        // Counter dialog settings
+        if (registry->OpenKey(regKey, SAL_REG_SUBKEY_COUNTER_A, subKey))
+        {
+            registry->GetValue(subKey, SAL_REG_VALUE_START_A, REG_DWORD, &LastCounterStart, sizeof(int));
+            registry->GetValue(subKey, SAL_REG_VALUE_STEP_A, REG_BINARY, &LastCounterStep, sizeof(double));
+            registry->GetValue(subKey, SAL_REG_VALUE_BASE_A, REG_DWORD, &LastCounterBase, sizeof(int));
+            registry->GetValue(subKey, SAL_REG_VALUE_MIN_WIDTH_A, REG_DWORD, &LastCounterMinWidth, sizeof(int));
+            registry->GetValue(subKey, SAL_REG_VALUE_FILL_A, REG_DWORD, &LastCounterFill, sizeof(int));
+            registry->GetValue(subKey, SAL_REG_VALUE_LEFT_A, REG_DWORD, &LastCounterLeft, sizeof(BOOL));
+            registry->CloseKey(subKey);
+        }
+
+        registry->GetValue(regKey, CONFIG_COMMAND, REG_SZ, Command, Command.Size());
+        registry->GetValue(regKey, CONFIG_ARGUMENTS, REG_SZ, Arguments, Arguments.Size());
+        registry->GetValue(regKey, CONFIG_INITDIR, REG_SZ, InitDir, InitDir.Size());
 
         registry->GetValue(regKey, CONFIG_CONFIRMESCCLOSE, REG_DWORD, &ConfirmESCClose, sizeof(BOOL));
     }
@@ -403,6 +417,17 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
         registry->SetValue(subKey, CONFIG_LASTSUBDIRS, REG_DWORD, &LastSubdirs, sizeof(BOOL));
         registry->SetValue(subKey, CONFIG_LASTREMOVESOURCE, REG_DWORD,
                            &LastRemoveSourcePath, sizeof(BOOL));
+        registry->CloseKey(subKey);
+    }
+    // Counter dialog settings
+    if (registry->CreateKey(regKey, SAL_REG_SUBKEY_COUNTER_A, subKey))
+    {
+        registry->SetValue(subKey, SAL_REG_VALUE_START_A, REG_DWORD, &LastCounterStart, sizeof(int));
+        registry->SetValue(subKey, SAL_REG_VALUE_STEP_A, REG_BINARY, &LastCounterStep, sizeof(double));
+        registry->SetValue(subKey, SAL_REG_VALUE_BASE_A, REG_DWORD, &LastCounterBase, sizeof(int));
+        registry->SetValue(subKey, SAL_REG_VALUE_MIN_WIDTH_A, REG_DWORD, &LastCounterMinWidth, sizeof(int));
+        registry->SetValue(subKey, SAL_REG_VALUE_FILL_A, REG_DWORD, &LastCounterFill, sizeof(int));
+        registry->SetValue(subKey, SAL_REG_VALUE_LEFT_A, REG_DWORD, &LastCounterLeft, sizeof(BOOL));
         registry->CloseKey(subKey);
     }
     registry->SetValue(regKey, CONFIG_COMMAND, REG_SZ, Command, -1);

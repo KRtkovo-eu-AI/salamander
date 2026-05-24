@@ -1,4 +1,4 @@
-/*
+﻿/*
  * PuTTY memory-handling header.
  */
 

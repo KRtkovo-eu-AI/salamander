@@ -1,4 +1,4 @@
-/* This is the build config file.
+﻿/* This is the build config file.
  *
  * With this you can setup what to inlcude/exclude automatically during any build.  Just comment
  * out the line that #define's the word for the thing you want to remove.  phew!

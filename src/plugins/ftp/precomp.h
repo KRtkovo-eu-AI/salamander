@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -15,6 +15,7 @@
 #include <process.h>
 #include <commctrl.h>
 #include <ostream> // for version 2.5 beta 7 and newer
+#include <string>
 #include <stdio.h>
 #include <time.h>
 
@@ -32,6 +33,7 @@
 #include "spl_gui.h"
 #include "spl_vers.h"
 #include "spl_zlib.h"
+
 
 #include "dbg.h"
 #include "mhandles.h"

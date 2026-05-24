@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -29,7 +30,7 @@ protected:
     BOOL bCalcSize;
     char* PBuffer;
     int iBufPos;
-    char FileName[MAX_PATH];
+    CPathBuffer FileName;
 
     virtual BOOL BufferedWrite(const void* pData, int nBytes);
 };

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <windows.h>
@@ -44,7 +45,7 @@ SEI_Release(THIS)
 //
 //  PARAMETERS:
 //    pIDFolder - Specifies the parent folder
-//    pDataObj  - Specifies the set of items selected in that folder.
+//    pDataObj  - Spefifies the set of items selected in that folder.
 //    hRegKey   - Specifies the type of the focused item in the selection.
 //
 //  RETURN VALUE:

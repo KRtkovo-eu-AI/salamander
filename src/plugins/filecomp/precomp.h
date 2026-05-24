@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -6,8 +7,8 @@
 #define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
 
 #include <windows.h>
-#include <CommDlg.h>
-#include <ShellAPI.h>
+#include <commdlg.h>
+#include <shellapi.h>
 #include <crtdbg.h>
 #include <tchar.h>
 #include <sys/stat.h>
@@ -19,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <zmouse.h>
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
@@ -43,7 +45,7 @@
 #include "winliblt.h"
 #include "auxtools.h"
 
-// get rid of some annoying warnings
+// get rid of some anoying warnings
 #pragma warning(disable : 4661)
 #pragma warning(disable : 4786)
 

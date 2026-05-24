@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -93,4 +94,4 @@ inline const char* GetNextPathComponent(const char* name)
     return name;
 }
 BOOL GetOpenFileName(HWND parent, const char* title, const char* filter,
-                     char* buffer, BOOL save = FALSE);
+                     char* buffer, int bufferSize, BOOL save = FALSE);

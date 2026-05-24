@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -143,7 +143,7 @@ public:
 extern HINSTANCE DLLInstance; // handle to the SPL - language-independent resources
 extern HINSTANCE HLanguage;   // handle to the SLG - language-dependent resources
 
-//extern COptions Options; // configuration
+//extern DWORD Options;// configuration
 struct COptions
 {
     BOOL ClearReadOnly;      // Clear read-only attribute when copying from archive

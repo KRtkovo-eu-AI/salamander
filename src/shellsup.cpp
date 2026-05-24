@@ -1,10 +1,18 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "menu.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
+#include "common/unicode/PanelPathPolicy.h"
+#include "common/clipboard/ClipboardOwnershipPolicy.h"
+#include "common/clipboard/HDropWideBuilder.h"
+#include "common/clipboard/HDropWideDataObject.h"
+#include "common/widepath.h"
+#include "common/IEnvironment.h"
 #include "cfgdlg.h"
 #include "plugins.h"
 #include "fileswnd.h"
@@ -20,6 +28,8 @@ extern "C"
 #include "tasklist.h"
 //#include "drivelst.h"
 
+#include <vector>
+
 //
 // ****************************************************************************
 // UseOwnRutine
@@ -27,8 +37,8 @@ extern "C"
 
 BOOL UseOwnRutine(IDataObject* pDataObject)
 {
-    return DropSourcePanel != NULL || // either it is being dragged from us
-           OurClipDataObject;         // or it is ours on the clipboard
+    return DropSourcePanel != NULL || // either it's being dragged from us
+           OurClipDataObject;         // or it's from us on the clipboard
 }
 
 //
@@ -41,8 +51,8 @@ BOOL MouseConfirmDrop(DWORD& effect, DWORD& defEffect, DWORD& grfKeyState)
     HMENU menu = CreatePopupMenu();
     if (menu != NULL)
     {
-        /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
-   keep synchronized with the AppendMenu() calls below...
+        /* used by export_mnu.py script which generates salmenu.mnu for Translator
+   keep synchronized with AppendMenu() calls below...
 MENU_TEMPLATE_ITEM MouseDropMenu1[] =
 {
 	{MNTT_PB, 0
@@ -145,6 +155,14 @@ BOOL DoCopyMove(BOOL copy, char* targetDir, CCopyMoveData* data, void* param)
     {
         tmp->Copy = copy;
         strcpy(tmp->TargetPath, targetDir);
+        if (panel != NULL && panel->Is(ptDisk) && sally::unicode::HasWidePathW(panel->GetPathW()))
+        {
+            tmp->TargetPathW = sally::unicode::MapRelatedAnsiPathToWidePath(targetDir, panel->GetPath(), panel->GetPathW());
+            if (tmp->TargetPathW.empty())
+                tmp->TargetPathW = AnsiToWide(targetDir);
+        }
+        else
+            tmp->TargetPathW = AnsiToWide(targetDir);
         tmp->Data = data;
         PostMessage(panel->HWindow, WM_USER_DROPCOPYMOVE, (WPARAM)tmp, 0);
         return TRUE;
@@ -196,8 +214,8 @@ void DoDragDropOper(BOOL copy, BOOL toArchive, const char* archiveOrFSName, cons
         }
         if (ok)
         {
-            lstrcpyn(tmp->ArchiveOrFSName, archiveOrFSName, MAX_PATH);
-            lstrcpyn(tmp->ArchivePathOrUserPart, archivePathOrUserPart, MAX_PATH);
+            lstrcpyn(tmp->ArchiveOrFSName, archiveOrFSName, tmp->ArchiveOrFSName.Size());
+            lstrcpyn(tmp->ArchivePathOrUserPart, archivePathOrUserPart, tmp->ArchivePathOrUserPart.Size());
             tmp->Data = data;
             PostMessage(panel->HWindow, WM_USER_DROPTOARCORFS, (WPARAM)tmp, 0);
             data = NULL;
@@ -229,7 +247,7 @@ void DoGetFSToFSDropEffect(const char* srcFSPath, const char* tgtFSPath,
                                             keyState, dropEffect);
     }
 
-    // if the FS did not respond or returned nonsense, give priority to Copy
+    // if the FS didn't respond or returned nonsense, we prioritize Copy
     if (*dropEffect != DROPEFFECT_COPY && *dropEffect != DROPEFFECT_MOVE &&
         *dropEffect != DROPEFFECT_NONE)
     {
@@ -241,7 +259,7 @@ void DoGetFSToFSDropEffect(const char* srcFSPath, const char* tgtFSPath,
             if ((*dropEffect & DROPEFFECT_MOVE) != 0)
                 *dropEffect = DROPEFFECT_MOVE;
             else
-                *dropEffect = DROPEFFECT_NONE; // drop target error
+                *dropEffect = DROPEFFECT_NONE; // drop-target error
         }
     }
 }
@@ -255,7 +273,7 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                           DWORD keyState, int& tgtType, int srcType)
 {
     CFilesWindow* panel = (CFilesWindow*)param;
-    isTgtFile = FALSE; // drop target is not a file yet -> we can still handle the operation ourselves
+    isTgtFile = FALSE; // not a drop target file yet -> we can handle the operation ourselves
     tgtType = idtttWindows;
     RECT r;
     GetWindowRect(panel->GetListBoxHWND(), &r);
@@ -265,40 +283,40 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
         if (panel->Is(ptZIPArchive))
         {
             int format = PackerFormatConfig.PackIsArchive(panel->GetZIPArchive());
-            if (format != 0) // we have found a supported archive
+            if (format != 0) // we found a supported archive
             {
                 format--;
                 if (PackerFormatConfig.GetUsePacker(format) &&
-                        (*effect & (DROPEFFECT_MOVE | DROPEFFECT_COPY)) != 0 || // archive editing is available, and the drop effect includes copy or move
+                        (*effect & (DROPEFFECT_MOVE | DROPEFFECT_COPY)) != 0 || // has edit? + effect is copy or move?
                     index == 0 && panel->Dirs->Count > 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0 &&
-                        (panel->GetZIPPath()[0] == 0 || panel->GetZIPPath()[0] == '\\' && panel->GetZIPPath()[1] == 0)) // drop onto a disk path
+                        (panel->GetZIPPath()[0] == 0 || panel->GetZIPPath()[0] == '\\' && panel->GetZIPPath()[1] == 0)) // drop to disk path
                 {
                     tgtType = idtttArchive;
                     DWORD origEffect = *effect;
-                    *effect &= (DROPEFFECT_MOVE | DROPEFFECT_COPY); // trim the effect to copy+move
+                    *effect &= (DROPEFFECT_MOVE | DROPEFFECT_COPY); // trim effect to copy+move
 
-                    if (index >= 0 && index < panel->Dirs->Count) // drop on a directory
+                    if (index >= 0 && index < panel->Dirs->Count) // drop on directory
                     {
                         panel->SetDropTarget(index);
                         int l = (int)strlen(panel->GetZIPPath());
-                        memcpy(panel->DropPath, panel->GetZIPPath(), l);
+                        memcpy(panel->DropPath.Get(), panel->GetZIPPath(), l);
                         if (index == 0 && strcmp(panel->Dirs->At(index).Name, "..") == 0)
                         {
                             if (l > 0 && panel->DropPath[l - 1] == '\\')
                                 panel->DropPath[--l] = 0;
                             int backSlash = 0;
-                            if (l == 0) // drop-path will be a drive (".." leads out of the archive)
+                            if (l == 0) // drop-path will be disk (".." leads out of archive)
                             {
                                 tgtType = idtttWindows;
                                 *effect = origEffect;
                                 l = (int)strlen(panel->GetZIPArchive());
-                                memcpy(panel->DropPath, panel->GetZIPArchive(), l);
+                                memcpy(panel->DropPath.Get(), panel->GetZIPArchive(), l);
                                 backSlash = 1;
                             }
                             char* s = panel->DropPath + l;
-                            while (--s >= panel->DropPath && *s != '\\')
+                            while (--s >= (char*)panel->DropPath && *s != '\\')
                                 ;
-                            if (s > panel->DropPath)
+                            if (s > (char*)panel->DropPath)
                                 *(s + backSlash) = 0;
                             else
                                 panel->DropPath[0] = 0;
@@ -307,20 +325,20 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                         {
                             if (l > 0 && panel->DropPath[l - 1] != '\\')
                                 panel->DropPath[l++] = '\\';
-                            if (l + panel->Dirs->At(index).NameLen >= MAX_PATH)
+                            if (l + (int)panel->Dirs->At(index).NameLen >= panel->DropPath.Size())
                             {
                                 TRACE_E("GetCurrentDir(): too long file name!");
                                 tgtType = idtttWindows;
-                                panel->SetDropTarget(-1); // hide the marker
+                                panel->SetDropTarget(-1); // hide marker
                                 return NULL;
                             }
-                            strcpy(panel->DropPath + l, panel->Dirs->At(index).Name);
+                            lstrcpyn(panel->DropPath + l, panel->Dirs->At(index).Name, panel->DropPath.Size() - l);
                         }
                         return panel->DropPath;
                     }
                     else
                     {
-                        panel->SetDropTarget(-1); // hide the marker
+                        panel->SetDropTarget(-1); // hide marker
                         return panel->GetZIPPath();
                     }
                 }
@@ -330,25 +348,25 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
         {
             if (panel->GetPluginFS()->NotEmpty())
             {
-                if (srcType == 2 /* FS */) // drag&drop from FS to FS (any FS among themselves, restrictions only in CPluginFSInterfaceAbstract::CopyOrMoveFromFS)
+                if (srcType == 2 /* FS */) // drag&drop from FS to FS (any FS between each other, restrictions in CPluginFSInterfaceAbstract::CopyOrMoveFromFS)
                 {
                     tgtType = idtttFullPluginFSPath;
                     int l = (int)strlen(panel->GetPluginFS()->GetPluginFSName());
-                    memcpy(panel->DropPath, panel->GetPluginFS()->GetPluginFSName(), l);
+                    memcpy(panel->DropPath.Get(), panel->GetPluginFS()->GetPluginFSName(), l);
                     panel->DropPath[l++] = ':';
-                    if (index >= 0 && index < panel->Dirs->Count) // drop on a directory
+                    if (index >= 0 && index < panel->Dirs->Count) // drop on directory
                     {
-                        if (panel == DropSourcePanel) // drag&drop within a single panel
+                        if (panel == DropSourcePanel) // drag&drop within one panel
                         {
                             if (panel->GetSelCount() == 0 &&
                                     index == panel->GetCaretIndex() ||
                                 panel->GetSel(index) != 0)
-                            {                             // directory onto itself
-                                panel->SetDropTarget(-1); // hide the marker (the copy goes to the active directory, not the focused subdirectory)
+                            {                             // directory into itself
+                                panel->SetDropTarget(-1); // hide marker (copy will go to current directory, not to focused subdirectory)
                                 if (!rButton && (keyState & (MK_CONTROL | MK_SHIFT | MK_ALT)) == 0)
                                 {
                                     tgtType = idtttWindows;
-                                    return NULL; // without modifier keys, the stop cursor remains (preventing accidental copying into the current directory)
+                                    return NULL; // without modifier STOP cursor stays (prevents accidental copying to current directory)
                                 }
                                 if (effect != NULL)
                                     *effect &= ~DROPEFFECT_MOVE;
@@ -364,11 +382,11 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
 
                         if (panel->GetPluginFS()->GetFullName(panel->Dirs->At(index),
                                                               (index == 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0) ? 2 : 1,
-                                                              panel->DropPath + l, MAX_PATH))
+                                                              panel->DropPath + l, panel->DropPath.Size() - l))
                         {
                             if (DropSourcePanel != NULL && DropSourcePanel->Is(ptPluginFS) &&
                                 DropSourcePanel->GetPluginFS()->NotEmpty() && effect != NULL)
-                            { // the source FS can influence the allowed drop effects
+                            { // source FS can affect allowed drop-effects
                                 DropSourcePanel->GetPluginFS()->GetAllowedDropEffects(1 /* drag-over-fs */, panel->DropPath,
                                                                                       effect);
                             }
@@ -378,13 +396,13 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                         }
                     }
 
-                    panel->SetDropTarget(-1);                       // hide the marker
-                    if (panel == DropSourcePanel && effect != NULL) // drag&drop within a single panel
+                    panel->SetDropTarget(-1);                       // hide marker
+                    if (panel == DropSourcePanel && effect != NULL) // drag&drop within one panel
                     {
                         if (!rButton && (keyState & (MK_CONTROL | MK_SHIFT | MK_ALT)) == 0)
                         {
                             tgtType = idtttWindows;
-                            return NULL; // without modifiers, the stop cursor remains (prevents accidental copying into the current directory)
+                            return NULL; // without modifier STOP cursor stays (prevents accidental copying to current directory)
                         }
                         *effect &= ~DROPEFFECT_MOVE;
                     }
@@ -392,7 +410,7 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                     {
                         if (DropSourcePanel != NULL && DropSourcePanel->Is(ptPluginFS) &&
                             DropSourcePanel->GetPluginFS()->NotEmpty() && effect != NULL)
-                        { // the source FS can influence the allowed drop effects
+                        { // source FS can influence the allowed drop effects
                             DropSourcePanel->GetPluginFS()->GetAllowedDropEffects(1 /* drag-over-fs */, panel->DropPath,
                                                                                   effect);
                         }
@@ -413,19 +431,19 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                 if ((*effect & posEff) != 0)
                 {
                     tgtType = idtttPluginFS;
-                    *effect &= posEff; // trim the effect to the FS capabilities
+                    *effect &= posEff; // trim effect to FS capabilities
 
-                    if (index >= 0 && index < panel->Dirs->Count) // drop on a directory
+                    if (index >= 0 && index < panel->Dirs->Count) // drop on directory
                     {
                         if (panel->GetPluginFS()->GetFullName(panel->Dirs->At(index),
                                                               (index == 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0) ? 2 : 1,
-                                                              panel->DropPath, MAX_PATH))
+                                                              panel->DropPath, panel->DropPath.Size()))
                         {
                             panel->SetDropTarget(index);
                             return panel->DropPath;
                         }
                     }
-                    panel->SetDropTarget(-1); // hide the marker
+                    panel->SetDropTarget(-1); // hide marker
                     if (panel->GetPluginFS()->GetCurrentPath(panel->DropPath))
                         return panel->DropPath;
                     else
@@ -436,21 +454,21 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                 }
             }
         }
-        panel->SetDropTarget(-1); // hide the marker
+        panel->SetDropTarget(-1); // hide marker
         return NULL;
     }
 
-    if (index >= 0 && index < panel->Dirs->Count) // drop on a directory
+    if (index >= 0 && index < panel->Dirs->Count) // drop on directory
     {
-        if (panel == DropSourcePanel) // drag&drop within a single panel
+        if (panel == DropSourcePanel) // drag&drop within one panel
         {
             if (panel->GetSelCount() == 0 &&
                     index == panel->GetCaretIndex() ||
                 panel->GetSel(index) != 0)
-            {                             // directory onto itself
-                panel->SetDropTarget(-1); // hide the marker (the copy/shortcut goes to the active directory, not the focused subdirectory)
+            {                             // directory into itself
+                panel->SetDropTarget(-1); // hide marker (copy/shortcut will go to current directory, not to focused subdirectory)
                 if (!rButton && (keyState & (MK_CONTROL | MK_SHIFT | MK_ALT)) == 0)
-                    return NULL; // Without modifiers, the stop cursor remains (preventing accidental copying into the current directory)
+                    return NULL; // without modifier STOP cursor stays (prevents accidental copying to current directory)
                 if (effect != NULL)
                     *effect &= ~DROPEFFECT_MOVE;
                 return panel->GetPath();
@@ -459,69 +477,69 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
 
         panel->SetDropTarget(index);
         int l = (int)strlen(panel->GetPath());
-        memcpy(panel->DropPath, panel->GetPath(), l);
+        memcpy(panel->DropPath.Get(), panel->GetPath(), l);
         if (strcmp(panel->Dirs->At(index).Name, "..") == 0)
         {
             char* s = panel->DropPath + l;
             if (l > 0 && *(s - 1) == '\\')
                 s--;
-            while (--s > panel->DropPath && *s != '\\')
+            while (--s > (char*)panel->DropPath && *s != '\\')
                 ;
-            if (s > panel->DropPath)
+            if (s > (char*)panel->DropPath)
                 *(s + 1) = 0;
         }
         else
         {
             if (panel->GetPath()[l - 1] != '\\')
                 panel->DropPath[l++] = '\\';
-            if (l + panel->Dirs->At(index).NameLen >= MAX_PATH)
+            if (l + (int)panel->Dirs->At(index).NameLen >= panel->DropPath.Size())
             {
                 TRACE_E("GetCurrentDir(): too long file name!");
-                panel->SetDropTarget(-1); // hide the marker
+                panel->SetDropTarget(-1); // hide marker
                 return NULL;
             }
-            strcpy(panel->DropPath + l, panel->Dirs->At(index).Name);
+            lstrcpyn(panel->DropPath + l, panel->Dirs->At(index).Name, panel->DropPath.Size() - l);
         }
         return panel->DropPath;
     }
     else
     {
         if (index >= panel->Dirs->Count && index < panel->Dirs->Count + panel->Files->Count)
-        {                                 // drop on a file
-            if (panel == DropSourcePanel) // drag&drop within a single panel
+        {                                 // drop on file
+            if (panel == DropSourcePanel) // drag&drop within one panel
             {
                 if (panel->GetSelCount() == 0 &&
                         index == panel->GetCaretIndex() ||
                     panel->GetSel(index) != 0)
-                {                             // file onto itself
-                    panel->SetDropTarget(-1); // hide the marker (the copy/shortcut goes to the active directory, not the focused file)
+                {                             // file into itself
+                    panel->SetDropTarget(-1); // hide marker (copy/shortcut will go to current directory, not to focused file)
                     if (!rButton && (keyState & (MK_CONTROL | MK_SHIFT | MK_ALT)) == 0)
-                        return NULL; // without modifiers, the stop cursor remains (prevents accidental copying into the current directory)
+                        return NULL; // without modifier STOP cursor stays (prevents accidental copying to current directory)
                     if (effect != NULL)
                         *effect &= ~DROPEFFECT_MOVE;
                     return panel->GetPath();
                 }
             }
-            char fullName[MAX_PATH];
+            CPathBuffer fullName; // Heap-allocated for long path support
             int l = (int)strlen(panel->GetPath());
-            memcpy(fullName, panel->GetPath(), l);
+            memcpy(fullName.Get(), panel->GetPath(), l);
             if (fullName[l - 1] != '\\')
                 fullName[l++] = '\\';
             CFileData* file = &(panel->Files->At(index - panel->Dirs->Count));
-            if (l + file->NameLen >= MAX_PATH)
+            if (l + (int)file->NameLen >= (int)fullName.Size())
             {
                 TRACE_E("GetCurrentDir(): too long file name!");
-                panel->SetDropTarget(-1); // hide the marker
+                panel->SetDropTarget(-1); // hide marker
                 return NULL;
             }
             strcpy(fullName + l, file->Name);
 
-            // if it is a shortcut, we need to analyze it
-            BOOL linkIsDir = FALSE;  // TRUE -> shortcut to a directory -> ChangePathToDisk
-            BOOL linkIsFile = FALSE; // TRUE -> shortcut to a file -> test the archive
-            char linkTgt[MAX_PATH];
+            // if it's a shortcut, perform its analysis
+            BOOL linkIsDir = FALSE;  // TRUE -> shortcut to directory -> ChangePathToDisk
+            BOOL linkIsFile = FALSE; // TRUE -> shortcut to file -> archive test
+            CPathBuffer linkTgt; // Heap-allocated for long path support
             linkTgt[0] = 0;
-            if (StrICmp(file->Ext, "lnk") == 0) // is it not a shortcut to a directory?
+            if (StrICmp(file->Ext, "lnk") == 0) // is it a directory shortcut?
             {
                 IShellLink* link;
                 if (CoCreateInstance(CLSID_ShellLink, NULL,
@@ -531,13 +549,13 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                     IPersistFile* fileInt;
                     if (link->QueryInterface(IID_IPersistFile, (LPVOID*)&fileInt) == S_OK)
                     {
-                        OLECHAR oleName[MAX_PATH];
-                        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullName, -1, oleName, MAX_PATH);
-                        oleName[MAX_PATH - 1] = 0;
+                        CWidePathBuffer oleName;
+                        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, fullName, -1, oleName, oleName.Size());
+                        oleName[oleName.Size() - 1] = 0;
                         if (fileInt->Load(oleName, STGM_READ) == S_OK &&
-                            link->GetPath(linkTgt, MAX_PATH, NULL, SLGP_UNCPRIORITY) == NOERROR)
+                            link->GetPath(linkTgt, linkTgt.Size(), NULL, SLGP_UNCPRIORITY) == NOERROR)
                         {
-                            DWORD attr = SalGetFileAttributes(linkTgt);
+                            DWORD attr = GetFileAttributesW(AnsiToWide(linkTgt).c_str());
                             if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY))
                                 linkIsDir = TRUE;
                             else
@@ -548,45 +566,45 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                     link->Release();
                 }
             }
-            if (linkIsDir) // link points to a directory, the path is fine, switch to it
+            if (linkIsDir) // link leads to directory, path is o.k., switch to it
             {
                 panel->SetDropTarget(index);
-                strcpy(panel->DropPath, linkTgt);
+                lstrcpyn(panel->DropPath, linkTgt, panel->DropPath.Size());
                 return panel->DropPath;
             }
 
             int format = PackerFormatConfig.PackIsArchive(linkIsFile ? linkTgt : fullName);
-            if (format != 0) // found a supported archive
+            if (format != 0) // we found a supported archive
             {
                 format--;
-                if (PackerFormatConfig.GetUsePacker(format) && // is edit available?
+                if (PackerFormatConfig.GetUsePacker(format) && // ma edit?
                     (*effect & (DROPEFFECT_MOVE | DROPEFFECT_COPY)) != 0)
                 {
                     tgtType = idtttArchiveOnWinPath;
-                    *effect &= (DROPEFFECT_MOVE | DROPEFFECT_COPY); // trim the effect to copy+move
+                    *effect &= (DROPEFFECT_MOVE | DROPEFFECT_COPY); // trim effect to copy+move
                     panel->SetDropTarget(index);
-                    strcpy(panel->DropPath, linkIsFile ? linkTgt : fullName);
+                    lstrcpyn(panel->DropPath, linkIsFile ? linkTgt : fullName, panel->DropPath.Size());
                     return panel->DropPath;
                 }
-                panel->SetDropTarget(-1); // hide the marker
+                panel->SetDropTarget(-1); // hide marker
                 return NULL;
             }
 
             if (HasDropTarget(fullName))
             {
-                isTgtFile = TRUE; // drop target file -> must be handled by the shell
+                isTgtFile = TRUE; // drop target file -> shell must handle it
                 panel->SetDropTarget(index);
-                strcpy(panel->DropPath, fullName);
+                lstrcpyn(panel->DropPath, fullName, panel->DropPath.Size());
                 return panel->DropPath;
             }
         }
-        panel->SetDropTarget(-1); // hide the marker
+        panel->SetDropTarget(-1); // hide marker
     }
 
-    if (panel == DropSourcePanel && effect != NULL) // drag&drop within a single panel
+    if (panel == DropSourcePanel && effect != NULL) // drag&drop v ramci jednoho panelu
     {
         if (!rButton && (keyState & (MK_CONTROL | MK_SHIFT | MK_ALT)) == 0)
-            return NULL; // without modifiers, the stop cursor remains (prevents accidental copying into the current directory)
+            return NULL; // without modifier STOP cursor stays (prevents accidental copying to current directory)
         *effect &= ~DROPEFFECT_MOVE;
     }
     return panel->GetPath();
@@ -594,11 +612,11 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
 
 const char* GetCurrentDirClipboard(POINTL& pt, void* param, DWORD* effect, BOOL rButton,
                                    BOOL& isTgtFile, DWORD keyState, int& tgtType, int srcType)
-{ // simpler version of the previous one for "paste" from the clipboard
+{ // jednodussi verze predchoziho pro "paste" z clipboardu
     CFilesWindow* panel = (CFilesWindow*)param;
     isTgtFile = FALSE;
     tgtType = idtttWindows;
-    if (panel->Is(ptZIPArchive) || panel->Is(ptPluginFS)) // not into archives or FS yet
+    if (panel->Is(ptZIPArchive) || panel->Is(ptPluginFS)) // do archivu a FS zatim ne
     {
         //    if (panel->Is(ptZIPArchive)) tgtType = idtttArchive;
         //    else tgtType = idtttPluginFS;
@@ -614,19 +632,19 @@ const char* GetCurrentDirClipboard(POINTL& pt, void* param, DWORD* effect, BOOL 
 
 int CountNumberOfItemsOnPath(const char* path)
 {
-    char s[MAX_PATH + 10];
-    lstrcpyn(s, path, MAX_PATH + 10);
-    if (SalPathAppend(s, "*.*", MAX_PATH + 10))
+    CPathBuffer s;
+    lstrcpyn(s, path, s.Size());
+    if (SalPathAppend(s, "*.*", s.Size()))
     {
-        WIN32_FIND_DATA fileData;
-        HANDLE search = HANDLES_Q(FindFirstFile(s, &fileData));
+        WIN32_FIND_DATAW fileData;
+        HANDLE search = SalFindFirstFileHW(s, &fileData);
         if (search != INVALID_HANDLE_VALUE)
         {
             int num = 0;
             do
             {
                 num++;
-            } while (FindNextFile(search, &fileData));
+            } while (SalLPFindNextFile(search, &fileData));
             HANDLES(FindClose(search));
             return num;
         }
@@ -642,7 +660,7 @@ void DropEnd(BOOL drop, BOOL shortcuts, void* param, BOOL ownRutine, BOOL isFake
     if (drop)
         MainWindow->FocusPanel(panel);
 
-    panel->SetDropTarget(-1); // hide the marker
+    panel->SetDropTarget(-1); // hide marker
     if (tgtType == idtttWindows &&
         !isFakeDataObject && (!ownRutine || shortcuts) && drop && // refresh panels
         (!MainWindow->LeftPanel->AutomaticRefresh ||
@@ -650,13 +668,13 @@ void DropEnd(BOOL drop, BOOL shortcuts, void* param, BOOL ownRutine, BOOL isFake
          MainWindow->LeftPanel->GetNetworkDrive() ||
          MainWindow->RightPanel->GetNetworkDrive()))
     {
-        BOOL again = TRUE; // keep loading while files are still appearing
+        BOOL again = TRUE; // as long as files keep coming, we load
         int numLeft = MainWindow->LeftPanel->NumberOfItemsInCurDir;
         int numRight = MainWindow->RightPanel->NumberOfItemsInCurDir;
         while (again)
         {
             again = FALSE;
-            Sleep(shortcuts ? 333 : 1000); // they run in another thread, give them time
+            Sleep(shortcuts ? 333 : 1000); // they work in another thread, give them time
 
             if ((!MainWindow->LeftPanel->AutomaticRefresh || MainWindow->LeftPanel->GetNetworkDrive()) &&
                 MainWindow->LeftPanel->Is(ptDisk))
@@ -674,7 +692,7 @@ void DropEnd(BOOL drop, BOOL shortcuts, void* param, BOOL ownRutine, BOOL isFake
             }
         }
 
-        // let the panels refresh
+        // let panels refresh
         HANDLES(EnterCriticalSection(&TimeCounterSection));
         int t1 = MyTimeCounter++;
         int t2 = MyTimeCounter++;
@@ -754,6 +772,115 @@ const char* EnumFileNames(int index, void* param)
         return NULL;
 }
 
+static BOOL CollectSelectedPathsW(CFilesWindow* panel, const int* indexes, int indexCount,
+                                  std::vector<std::wstring>& paths, BOOL& hasWideName)
+{
+    paths.clear();
+    hasWideName = FALSE;
+
+    if (panel == NULL || indexes == NULL || indexCount <= 0)
+        return FALSE;
+
+    std::wstring basePathW = panel->Is(ptDisk) ? std::wstring(panel->GetPathW()) : AnsiToWide(panel->GetPath());
+    if (!basePathW.empty() && basePathW.back() != L'\\')
+        basePathW += L'\\';
+
+    paths.reserve(indexCount);
+    for (int i = 0; i < indexCount; i++)
+    {
+        int idx = indexes[i];
+        if (idx < 0 || idx >= panel->Dirs->Count + panel->Files->Count)
+            return FALSE;
+
+        CFileData* file = (idx < panel->Dirs->Count) ? &panel->Dirs->At(idx) : &panel->Files->At(idx - panel->Dirs->Count);
+        std::wstring nameW = (file->NameW != NULL) ? std::wstring(file->NameW) : AnsiToWide(file->Name);
+        if (nameW.empty())
+            return FALSE;
+
+        if (file->UseWideName())
+            hasWideName = TRUE;
+
+        paths.push_back(basePathW + nameW);
+    }
+
+    return TRUE;
+}
+
+static BOOL SetClipboardHDropW(HWND owner, const std::vector<std::wstring>& paths, BOOL copy, BOOL salObject)
+{
+    std::vector<BYTE> payload;
+    if (!sally::clipboard::BuildHDropWidePayload(paths, payload))
+        return FALSE;
+
+    HGLOBAL hMem = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, payload.size()));
+    if (hMem == NULL)
+        return FALSE;
+
+    void* out = HANDLES(GlobalLock(hMem));
+    if (out == NULL)
+    {
+        NOHANDLES(GlobalFree(hMem));
+        return FALSE;
+    }
+    memcpy(out, payload.data(), payload.size());
+    HANDLES(GlobalUnlock(hMem));
+
+    if (!OpenClipboard(owner))
+    {
+        NOHANDLES(GlobalFree(hMem));
+        return FALSE;
+    }
+
+    BOOL ok = FALSE;
+    if (EmptyClipboard() && SetClipboardData(CF_HDROP, hMem) != NULL)
+    {
+        hMem = NULL; // ownership transferred to the clipboard
+
+        // Set preferred drop effect and Salamander marker while the clipboard is still open.
+        UINT cfPrefDrop = RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT);
+        UINT cfSalDataObject = RegisterClipboardFormat(SALCF_IDATAOBJECT);
+
+        HGLOBAL effect = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, sizeof(DWORD)));
+        if (effect != NULL)
+        {
+            DWORD* value = (DWORD*)HANDLES(GlobalLock(effect));
+            if (value != NULL)
+            {
+                *value = copy ? (DROPEFFECT_COPY | DROPEFFECT_LINK) : DROPEFFECT_MOVE;
+                HANDLES(GlobalUnlock(effect));
+                if (SetClipboardData(cfPrefDrop, effect) == NULL)
+                    NOHANDLES(GlobalFree(effect));
+            }
+            else
+                NOHANDLES(GlobalFree(effect));
+        }
+
+        if (salObject)
+        {
+            HGLOBAL salMarker = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, sizeof(DWORD)));
+            if (salMarker != NULL)
+            {
+                DWORD* marker = (DWORD*)HANDLES(GlobalLock(salMarker));
+                if (marker != NULL)
+                {
+                    *marker = 1;
+                    HANDLES(GlobalUnlock(salMarker));
+                    if (SetClipboardData(cfSalDataObject, salMarker) == NULL)
+                        NOHANDLES(GlobalFree(salMarker));
+                }
+                else
+                    NOHANDLES(GlobalFree(salMarker));
+            }
+        }
+
+        ok = TRUE;
+    }
+    if (hMem != NULL)
+        NOHANDLES(GlobalFree(hMem));
+    CloseClipboard();
+    return ok;
+}
+
 const char* EnumOneFileName(int index, void* param)
 {
     return index == 0 ? (char*)param : NULL;
@@ -763,8 +890,8 @@ void AuxInvokeCommand2(CFilesWindow* panel, CMINVOKECOMMANDINFO* ici)
 {
     CALL_STACK_MESSAGE_NONE
 
-    // temporarily lower the thread priority so a confused shell extension does not eat the CPU
-    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release it
+    // temporarily lower thread priority, so some confused shell extension doesn't eat CPU
+    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
 
@@ -781,11 +908,11 @@ void AuxInvokeCommand2(CFilesWindow* panel, CMINVOKECOMMANDINFO* ici)
 }
 
 void AuxInvokeCommand(CFilesWindow* panel, CMINVOKECOMMANDINFO* ici)
-{ // ATTENTION: also used from CSalamanderGeneral::OpenNetworkContextMenu()
+{ // POZOR: pouziva se i z CSalamanderGeneral::OpenNetworkContextMenu()
     CALL_STACK_MESSAGE_NONE
 
-    // temporarily lower the thread priority so a confused shell extension does not eat the CPU
-    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release it
+    // temporarily lower thread priority, so some confused shell extension doesn't eat CPU
+    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
 
@@ -805,8 +932,8 @@ void AuxInvokeAndRelease(IContextMenu2* menu, CMINVOKECOMMANDINFO* ici)
 {
     CALL_STACK_MESSAGE_NONE
 
-    // temporarily lower the thread priority so a confused shell extension does not eat the CPU
-    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release it
+    // temporarily lower thread priority, so some confused shell extension doesn't eat CPU
+    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
 
@@ -837,8 +964,8 @@ HRESULT AuxGetCommandString(IContextMenu2* menu, UINT_PTR idCmd, UINT uType, UIN
     HRESULT ret = E_UNEXPECTED;
     __try
     {
-        // for years we have been getting crashes when calling IContextMenu2::GetCommandString()
-        // the program does not depend on this call, so wrap it in a try/except block
+        // for years we've been getting crashes when calling IContextMenu2::GetCommandString()
+        // this call is not essential for program operation, so we wrap it in try/except block
         ret = menu->GetCommandString(idCmd, uType, pReserved, pszName, cchMax);
     }
     __except (CCallStack::HandleException(GetExceptionInformation(), 19))
@@ -849,11 +976,11 @@ HRESULT AuxGetCommandString(IContextMenu2* menu, UINT_PTR idCmd, UINT uType, UIN
 }
 
 void ShellActionAux5(UINT flags, CFilesWindow* panel, HMENU h)
-{ // ATTENTION: also used from CSalamanderGeneral::OpenNetworkContextMenu()
+{ // POZOR: pouziva se i z CSalamanderGeneral::OpenNetworkContextMenu()
     CALL_STACK_MESSAGE_NONE
 
-    // temporarily lower the thread priority so a confused shell extension does not eat the CPU
-    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release it
+    // temporarily lower thread priority, so some confused shell extension doesn't eat CPU
+    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
 
@@ -870,7 +997,7 @@ void ShellActionAux5(UINT flags, CFilesWindow* panel, HMENU h)
 }
 
 void ShellActionAux6(CFilesWindow* panel)
-{ // ATTENTION: also used from CSalamanderGeneral::OpenNetworkContextMenu()
+{ // POZOR: pouziva se i z CSalamanderGeneral::OpenNetworkContextMenu()
     __try
     {
         if (panel->ContextMenu != NULL)
@@ -890,7 +1017,7 @@ void ShellActionAux7(IDataObject* dataObject, CImpIDropSource* dropSource)
     __try
     {
         if (dropSource != NULL)
-            dropSource->Release(); // that one is ours, hopefully it will not crash ;-)
+            dropSource->Release(); // it's ours, hopefully it won't crash ;-)
         if (dataObject != NULL)
             dataObject->Release();
     }
@@ -904,24 +1031,24 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                            char* realDraggedPath, DWORD allowedEffects,
                            int srcType, const char* srcFSPath, BOOL leftMouseButton)
 {
-    if (SalShExtSharedMemView != NULL) // shared memory is available (when drag&drop fails we cannot handle it)
+    if (SalShExtSharedMemView != NULL) // shared memory is available (we can't handle drag&drop on error)
     {
         CALL_STACK_MESSAGE1("ShellAction::archive/FS::drag_files");
 
-        // create a "fake" directory
-        char fakeRootDir[MAX_PATH];
+        // create "fake" directory
+        CPathBuffer fakeRootDir; // Heap-allocated for long path support
         char* fakeName;
         if (SalGetTempFileName(NULL, "SAL", fakeRootDir, FALSE))
         {
             fakeName = fakeRootDir + strlen(fakeRootDir);
-            // jr: I found a note online: "Did implementing "IPersistStream" and providing the undocumented
-            // "OleClipboardPersistOnFlush" format solve the problem?" -- in case we need to
-            // get rid of the DROPFAKE method
-            if (SalPathAppend(fakeRootDir, "DROPFAKE", MAX_PATH))
+            // jr: Nasel jsem na netu zminku "Did implementing "IPersistStream" and providing the undocumented
+            // "OleClipboardPersistOnFlush" format solve the problem?" -- pro pripad, ze bychom se potrebovali
+            // zbavit DROPFAKE metody
+            if (SalPathAppend(fakeRootDir, "DROPFAKE", fakeRootDir.Size()))
             {
-                if (CreateDirectory(fakeRootDir, NULL))
+                if (SalLPCreateDirectory(fakeRootDir, NULL))
                 {
-                    // create objects for drag&drop
+                    // vytvorime objekty pro drag&drop
                     *fakeName = 0;
                     IDataObject* dataObject = CreateIDataObject(MainWindow->HWindow, fakeRootDir,
                                                                 1, EnumOneFileName, fakeName + 1);
@@ -933,7 +1060,7 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                                                                                               srcType, srcFSPath);
                         if (fakeDataObject != NULL)
                         {
-                            // initialize shared memory
+                            // shared memory initialization
                             WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
                             BOOL sharedMemOK = SalShExtSharedMemView->Size >= sizeof(CSalShExtSharedMem);
                             if (sharedMemOK)
@@ -952,16 +1079,16 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                                 DWORD dwEffect;
                                 HRESULT hr;
                                 DropSourcePanel = panel;
-                                LastWndFromGetData = NULL; // just in case fakeDataObject->GetData is not called
+                                LastWndFromGetData = NULL; // just in case, if fakeDataObject->GetData wasn't called
                                 hr = DoDragDrop(fakeDataObject, dropSource, allowedEffects, &dwEffect);
                                 DropSourcePanel = NULL;
-                                // Read the drag&drop results.
-                                // Note: dwEffect == 0 is returned for MOVE, so we use a workaround via dropSource->LastEffect;
-                                // for the reasons, see "Handling Shell Data Transfer Scenarios", section "Handling Optimized Move Operations":
+                                // read drag&drop results
+                                // Note: returns dwEffect == 0 for MOVE, so we use workaround via dropSource->LastEffect,
+                                // reasons see "Handling Shell Data Transfer Scenarios" section "Handling Optimized Move Operations":
                                 // http://msdn.microsoft.com/en-us/library/windows/desktop/bb776904%28v=vs.85%29.aspx
-                                // (in short: an optimized Move is performed, which means no copy to the target followed by deletion
-                                //            of the original is done, so the source does not accidentally delete the original
-                                //            before it has actually been moved; it receives DROPEFFECT_NONE or DROPEFFECT_COPY)
+                                // (in short: optimized Move is performed, meaning no copy to target followed by deletion
+                                //            of original, so source doesn't accidentally delete original (may not be moved yet), gets
+                                //            operation result DROPEFFECT_NONE or DROPEFFECT_COPY)
                                 if (hr == DRAGDROP_S_DROP && dropSource->LastEffect != DROPEFFECT_NONE)
                                 {
                                     WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
@@ -972,16 +1099,15 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                                         lstrcpyn(targetPath, SalShExtSharedMemView->TargetPath, 2 * MAX_PATH);
                                         if (leftMouseButton && dragFromPluginFSWithCopyAndMove)
                                             operation = (dropSource->LastEffect & DROPEFFECT_MOVE) ? SALSHEXT_MOVE : SALSHEXT_COPY;
-                                        else // archives + FS with Copy or Move (not both) + FS with Copy+Move when dragging with the right button, where the result from the right-button menu is not affected by changing the mouse cursor (the trick with the Copy cursor for a Move effect), so we take the result from the copy-hook (SalShExtSharedMemView->Operation)
+                                        else // archives + FS with Copy or Move (not both) + FS with Copy+Move when dragging with right button, where result from right button menu isn't affected by mouse cursor change (trick with Copy cursor during Move effect), so we take the result from copy-hook (SalShExtSharedMemView->Operation)
                                             operation = SalShExtSharedMemView->Operation;
                                     }
                                     ReleaseMutex(SalShExtSharedMemMutex);
 
-                                    if (!dropDone &&                 // copy-hook does not respond or the user selected Cancel in the drop menu (shown for right-button drag&drop)
-                                        dwEffect != DROPEFFECT_NONE) // Cancel detection: because the copy-hook did not kick in, the returned drop effect is valid, so compare it to Cancel
+                                    if (!dropDone &&                 // copy-hook doesn't respond or user chose Cancel in drop-menu (shown during D&D with right button)
+                                        dwEffect != DROPEFFECT_NONE) // Cancel detection: since copy-hook didn't trigger, returned drop-effect is valid, so we compare it to Cancel
                                     {
-                                        SalMessageBox(MainWindow->HWindow, LoadStr(IDS_SHEXT_NOTLOADEDYET),
-                                                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                                        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_SHEXT_NOTLOADEDYET));
                                     }
                                 }
                                 else
@@ -993,7 +1119,7 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                             }
                             else
                                 TRACE_E("Shared memory is too small!");
-                            fakeDataObject->Release(); // dataObject is released later in ShellActionAux7
+                            fakeDataObject->Release(); // dataObject will be released later in ShellActionAux7
                         }
                         else
                             TRACE_E(LOW_MEMORY);
@@ -1018,7 +1144,7 @@ void GetLeftTopCornert(POINT* pt, BOOL posByMouse, BOOL useSelection, CFilesWind
 {
     if (posByMouse)
     {
-        // coordinates according to the mouse position
+        // souradnice dle pozice mysi
         DWORD pos = GetMessagePos();
         pt->x = GET_X_LPARAM(pos);
         pt->y = GET_Y_LPARAM(pos);
@@ -1027,12 +1153,12 @@ void GetLeftTopCornert(POINT* pt, BOOL posByMouse, BOOL useSelection, CFilesWind
     {
         if (useSelection)
         {
-            // based on the position for the context menu
+            // dle pozice pro kontextove menu
             panel->GetContextMenuPos(pt);
         }
         else
         {
-            // top-left corner of the panel
+            // levy horni roh panelu
             RECT r;
             GetWindowRect(panel->GetListBoxHWND(), &r);
             pt->x = r.left;
@@ -1054,7 +1180,7 @@ void RemoveUselessSeparatorsFromMenu(HMENU h)
         mi.fMask = MIIM_TYPE;
         if (GetMenuItemInfo(h, i, TRUE, &mi) && (mi.fType & MFT_SEPARATOR))
         {
-            if (lastSep != -1 && lastSep == i + 1) // two separators in a row, remove one because it is redundant
+            if (lastSep != -1 && lastSep == i + 1) // two consecutive separators, delete one, it's redundant
                 DeleteMenu(h, i, MF_BYPOSITION);
             lastSep = i;
         }
@@ -1071,7 +1197,7 @@ BOOL ResourceGetDialogName(WCHAR* buff, int buffSize, char* name, int nameMax)
     if (style != 0xffff0001)
     {
         TRACE_E("ResourceGetDialogName(): resource is not DLGTEMPLATEEX!");
-        // reading the classic DLGTEMPLATE see Altap Translator, but it probably will not be necessary to implement
+        // reading classic DLGTEMPLATE, see altap translator, but probably won't need to be implemented
         return FALSE;
     }
 
@@ -1155,8 +1281,8 @@ BOOL ResourceGetDialogName(WCHAR* buff, int buffSize, char* name, int nameMax)
     return TRUE;
 }
 
-// Tries to load aclui.dll and retrieve the dialog name stored under ID 103 (Security tab)
-// if successful, it fills pageName with the dialog name and returns TRUE; otherwise it returns FALSE
+// tries to load aclui.dll and extract dialog name stored with ID 103 (Security tab)
+// on success fills dialog name into pageName and returns TRUE; otherwise returns FALSE
 BOOL GetACLUISecurityPageName(char* pageName, int pageNameMax)
 {
     BOOL ret = FALSE;
@@ -1165,7 +1291,7 @@ BOOL GetACLUISecurityPageName(char* pageName, int pageNameMax)
 
     if (hModule != NULL)
     {
-        HRSRC hrsrc = FindResource(hModule, MAKEINTRESOURCE(103), RT_DIALOG); // 103 - Security tab
+        HRSRC hrsrc = FindResource(hModule, MAKEINTRESOURCE(103), RT_DIALOG); // 103 - security zalozka
         if (hrsrc != NULL)
         {
             int size = SizeofResource(hModule, hrsrc);
@@ -1213,7 +1339,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         }
         if (action == saCopyToClipboard && !SalShExtRegistered)
             TRACE_E("Copy&paste from archives is not possible, shell extension utils\\salextx86.dll or utils\\salextx64.dll is missing!");
-        // we cannot do any more actions in the archive yet
+        // we do not support other archive operations yet
         return;
     }
     if (panel->Is(ptPluginFS) && dragFiles &&
@@ -1229,11 +1355,11 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         return;
     }
 
-    //  MainWindow->ReleaseMenuNew();  // Windows are not built for multiple context menus
+    //  MainWindow->ReleaseMenuNew();  // Windows nejsou staveny na vic kontextovych menu
 
-    BeginStopRefresh(); // we do not need any refreshes
+    BeginStopRefresh(); // zadne refreshe nepotrebujeme
 
-    int* indexes = NULL;
+    std::unique_ptr<int[]> indexes; // RAII: auto-deleted when scope exits
     int index = 0;
     int count = 0;
     if (useSelection)
@@ -1247,8 +1373,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         count = panel->GetSelCount();
         if (count != 0)
         {
-            indexes = new int[count];
-            panel->GetSelItems(count, indexes, action == saContextMenu); // we abandoned this (see GetSelItems): for context menus we start from the focused item and end with the item before the focused one (there is an intermediate wrap-around to the beginning of the name list); the system does the same, see Add To Windows Media Player List on MP3 files
+            indexes = std::make_unique<int[]>(count);
+            panel->GetSelItems(count, indexes.get(), action == saContextMenu); // we backed off from this (see GetSelItems): for context menus we start from focused item and end with item before focus (there's intermediate return to beginning of name list) (system does it too, see Add To Windows Media Player List on MP3 files)
         }
         else
         {
@@ -1263,16 +1389,16 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     else
         index = -1;
 
-    char targetPath[2 * MAX_PATH];
+    CPathBuffer targetPath;
     targetPath[0] = 0;
-    char realDraggedPath[2 * MAX_PATH];
+    CPathBuffer realDraggedPath;
     realDraggedPath[0] = 0;
     if (panel->Is(ptZIPArchive) && SalShExtRegistered)
     {
         if (dragFiles)
         {
-            // if a single archive subdirectory is dragged, determine which one it is (to change the path
-            // in the directory line and insert it into the command line)
+            // if dragging a single subdirectory of archive, determine which one (for changing path
+            // in directory-line and inserting into command-line)
             int i = -1;
             if (count == 1)
                 i = indexes[0];
@@ -1299,13 +1425,11 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
             BOOL dropDone = FALSE;
             int operation = SALSHEXT_NONE;
             DoDragFromArchiveOrFS(panel, dropDone, targetPath, operation, realDraggedPath,
-                                  DROPEFFECT_COPY, 1 /* archive */, NULL, action == saLeftDragFiles);
-
-            if (indexes != NULL)
-                delete[] (indexes);
+                                  DROPEFFECT_COPY, 1 /* archiv */, NULL, action == saLeftDragFiles);
+            // RAII: indexes auto-deleted when scope exits
             EndStopRefresh();
 
-            if (dropDone) // let the operation proceed
+            if (dropDone) // let the operation be performed
             {
                 char* p = DupStr(targetPath);
                 if (p != NULL)
@@ -1318,22 +1442,22 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         {
             if (action == saCopyToClipboard)
             {
-                if (SalShExtSharedMemView != NULL) // shared memory is available (we cannot handle copy & paste failures)
+                if (SalShExtSharedMemView != NULL) // shared memory is available (we can't handle copy&paste on error)
                 {
                     CALL_STACK_MESSAGE1("ShellAction::archive::clipcopy_files");
 
-                    // create a "fake" directory
-                    char fakeRootDir[MAX_PATH];
+                    // create "fake" directory
+                    CPathBuffer fakeRootDir; // Heap-allocated for long path support
                     char* fakeName;
                     if (SalGetTempFileName(NULL, "SAL", fakeRootDir, FALSE))
                     {
                         BOOL delFakeDir = TRUE;
                         fakeName = fakeRootDir + strlen(fakeRootDir);
-                        if (SalPathAppend(fakeRootDir, "CLIPFAKE", MAX_PATH))
+                        if (SalPathAppend(fakeRootDir, "CLIPFAKE", fakeRootDir.Size()))
                         {
-                            if (CreateDirectory(fakeRootDir, NULL))
+                            if (SalLPCreateDirectory(fakeRootDir, NULL))
                             {
-                                DWORD prefferedDropEffect = DROPEFFECT_COPY; // DROPEFFECT_MOVE (we used it for debugging purposes)
+                                DWORD prefferedDropEffect = DROPEFFECT_COPY; // DROPEFFECT_MOVE (we used for debugging purposes)
 
                                 // create objects for copy&paste
                                 *fakeName = 0;
@@ -1358,13 +1482,13 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                                 if (SalShExtPastedData.SetData(panel->GetZIPArchive(), panel->GetZIPPath(),
                                                                                panel->Files, panel->Dirs,
                                                                                panel->IsCaseSensitive(),
-                                                                               (count == 0) ? &index : indexes,
+                                                                               (count == 0) ? &index : indexes.get(),
                                                                                (count == 0) ? 1 : count))
                                                 {
                                                     BOOL clearSalShExtPastedData = TRUE;
                                                     if (OleSetClipboard(fakeDataObject) == S_OK)
-                                                    { // on a successful save - the system calls fakeDataObject->AddRef() +
-                                                        // store the default drop effect
+                                                    { // pri uspesnem ulozeni system vola fakeDataObject->AddRef() +
+                                                        // ulozime default drop-effect
                                                         if (OpenClipboard(MainWindow->HWindow))
                                                         {
                                                             if (SetClipboardData(cfPrefDrop, effect) != NULL)
@@ -1374,10 +1498,10 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                                         else
                                                             TRACE_E("OpenClipboard() has failed!");
 
-                                                        // our data are already on the clipboard (we must clean them up when Salamander exits)
+                                                        // our data is already on clipboard (we must clear it on Salamander exit)
                                                         OurDataOnClipboard = TRUE;
 
-                                                        // initialize shared memory
+                                                        // shared memory initialization
                                                         WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
                                                         BOOL sharedMemOK = SalShExtSharedMemView->Size >= sizeof(CSalShExtSharedMem);
                                                         if (sharedMemOK)
@@ -1396,27 +1520,27 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                                             lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste1, LoadStr(IDS_ARCUNABLETOPASTE1), 300);
                                                             lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste2, LoadStr(IDS_ARCUNABLETOPASTE2), 300);
 
-                                                            delFakeDir = FALSE; // everything is OK, the fake directory is used
+                                                            delFakeDir = FALSE; // everything is OK, fake-dir will be used
                                                             fakeDataObject->SetCutOrCopyDone();
                                                         }
                                                         else
                                                             TRACE_E("Shared memory is too small!");
                                                         ReleaseMutex(SalShExtSharedMemMutex);
 
-                                                        if (!sharedMemOK) // if communication with salextx86.dll or salextx64.dll cannot be established, there is no point in leaving the data object on the clipboard
+                                                        if (!sharedMemOK) // if it's not possible to establish communication with salextx86.dll or salextx64.dll, it makes no sense to leave data-object on clipboard
                                                         {
                                                             OleSetClipboard(NULL);
-                                                            OurDataOnClipboard = FALSE; // theoretically redundant (should be set in fakeDataObject::Release() a few lines below)
+                                                            OurDataOnClipboard = FALSE; // theoretically unnecessary (should be set in Release() of fakeDataObject - a few lines below)
                                                         }
-                                                        // clipboard change, verify it...
-                                                        IdleRefreshStates = TRUE;  // force a check of the state variables on the next Idle
-                                                        IdleCheckClipboard = TRUE; // also let it check the clipboard
+                                                        // clipboard changed, let's verify...
+                                                        IdleRefreshStates = TRUE;  // force state variable check on next Idle
+                                                        IdleCheckClipboard = TRUE; // also check clipboard
 
-                                                        // for COPY clear the CutToClip flag
+                                                        // on COPY clear CutToClip flag
                                                         if (panel->CutToClipChanged)
                                                             panel->ClearCutToClipFlag(TRUE);
                                                         CFilesWindow* anotherPanel = MainWindow->LeftPanel == panel ? MainWindow->RightPanel : MainWindow->LeftPanel;
-                                                        // for COPY clear the CutToClip flag on the other panel as well
+                                                        // on COPY also clear CutToClip flag for the other panel
                                                         if (anotherPanel->CutToClipChanged)
                                                             anotherPanel->ClearCutToClipFlag(TRUE);
                                                     }
@@ -1431,7 +1555,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                         }
                                         else
                                             TRACE_E(LOW_MEMORY);
-                                        fakeDataObject->Release(); // if fakeDataObject is on the clipboard, it is released when the application exits or when removed from the clipboard
+                                        fakeDataObject->Release(); // if fakeDataObject is on clipboard, it will be released at application end or when removed from clipboard
                                     }
                                     else
                                         TRACE_E(LOW_MEMORY);
@@ -1450,8 +1574,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     else
                         TRACE_E("Unable to create fake directory in TEMP for copy&paste from archive!");
                 }
-                if (indexes != NULL)
-                    delete[] (indexes);
+                // RAII: indexes auto-deleted when scope exits
                 EndStopRefresh();
                 return;
             }
@@ -1460,7 +1583,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
 
     if (panel->Is(ptPluginFS))
     {
-        // lower the thread priority to "normal" (so the operations do not overload the machine)
+        // lower thread priority to "normal" (so operations don't overload the machine)
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
 
         int panelID = MainWindow->LeftPanel == panel ? PANEL_LEFT : PANEL_RIGHT;
@@ -1468,9 +1591,9 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         int selectedDirs = 0;
         if (count > 0)
         {
-            // count how many directories are selected (the remaining selected items are files)
+            // count how many directories are selected (the rest of selected items are files)
             int i;
-            for (i = 0; i < panel->Dirs->Count; i++) // ".." cannot be selected, testing would be pointless
+            for (i = 0; i < panel->Dirs->Count; i++) // ".." can't be selected, test would be unnecessary
             {
                 if (panel->Dirs->At(i).Selected)
                     selectedDirs++;
@@ -1491,7 +1614,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                 panel->GetPluginFS()->NotEmpty() &&
                 panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_CONTEXTMENU)) // context-menu
             {
-                // calculate the top-left corner of the context menu
+                // calculate top-left corner of context menu
                 POINT p;
                 if (posByMouse)
                 {
@@ -1514,7 +1637,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     }
                 }
 
-                if (useSelection) // menu for items in the panel (click on an item)
+                if (useSelection) // menu for items in panel (click on item)
                 {
                     panel->GetPluginFS()->ContextMenu(panel->GetPluginFS()->GetPluginFSName(),
                                                       panel->GetListBoxHWND(), p.x, p.y, fscmItemsInPanel,
@@ -1522,13 +1645,13 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                 }
                 else
                 {
-                    if (onlyPanelMenu) // panel menu (click in the empty area of the panel)
+                    if (onlyPanelMenu) // panel menu (click behind items in panel)
                     {
                         panel->GetPluginFS()->ContextMenu(panel->GetPluginFS()->GetPluginFSName(),
                                                           panel->GetListBoxHWND(), p.x, p.y, fscmPanel,
                                                           panelID, 0, 0);
                     }
-                    else // menu for the current path (clicking the Change Drive button)
+                    else // menu for the current path (click on the change-drive button)
                     {
                         panel->GetPluginFS()->ContextMenu(panel->GetPluginFS()->GetPluginFSName(),
                                                           panel->GetListBoxHWND(), p.x, p.y, fscmPathInPanel,
@@ -1540,11 +1663,11 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
             {
                 if (dragFiles && SalShExtRegistered &&
                     panel->GetPluginFS()->NotEmpty() &&
-                    (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) || // FS umi "move from FS"
-                     panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)))  // FS umi "copy from FS"
+                    (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) || // FS can do "move from FS"
+                     panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)))  // FS can do "copy from FS"
                 {
-                    // if it drags a single FS subdirectory, determine which one (to change the path
-                    // in the directory line and insert it into the command line)
+                    // if dragging a single subdirectory of FS, determine which one (for changing path
+                    // in directory-line and inserting into command-line)
                     int i = -1;
                     if (count == 1)
                         i = indexes[0];
@@ -1579,8 +1702,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     int operation = SALSHEXT_NONE;
                     DWORD allowedEffects = (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) ? DROPEFFECT_MOVE : 0) |
                                            (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS) ? DROPEFFECT_COPY : 0);
-                    char srcFSPath[2 * MAX_PATH];
-                    strcpy(srcFSPath, panel->GetPluginFS()->GetPluginFSName());
+                    CPathBuffer srcFSPath;
+                    lstrcpyn(srcFSPath, panel->GetPluginFS()->GetPluginFSName(), srcFSPath.Size());
                     strcat(srcFSPath, ":");
                     if (!panel->GetPluginFS()->GetCurrentPath(srcFSPath + strlen(srcFSPath)))
                         srcFSPath[0] = 0;
@@ -1599,26 +1722,23 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
             }
         }
 
-        // raise the thread priority again, the operation has finished
+        // raise thread priority again, operation finished
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-
-        if (indexes != NULL)
-            delete[] (indexes);
+        // RAII: indexes auto-deleted when scope exits
         EndStopRefresh();
         return;
     }
 
     if (!panel->Is(ptDisk) && !panel->Is(ptZIPArchive))
     {
-        if (indexes != NULL)
-            delete[] (indexes);
+        // RAII: indexes auto-deleted when scope exits
         EndStopRefresh();
-        return; // Do not allow other panel types past this point.
+        return; // just to be safe, don't let other panel types through
     }
 
 #ifndef _WIN64
-    char redirectedDir[MAX_PATH];
-    char msg[300 + MAX_PATH];
+    CPathBuffer redirectedDir; // Heap-allocated for long path support
+    CPathBuffer msg;
 #endif // _WIN64
     switch (action)
     {
@@ -1629,16 +1749,16 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         if (useSelection)
         {
 #ifndef _WIN64
-            if (ContainsWin64RedirectedDir(panel, (count == 0) ? &index : indexes, (count == 0) ? 1 : count, redirectedDir, TRUE))
+            if (ContainsWin64RedirectedDir(panel, (count == 0) ? &index : indexes.get(), (count == 0) ? 1 : count, redirectedDir, TRUE))
             {
-                _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_ERROPENPROPSELCONTW64ALIAS), redirectedDir);
-                SalMessageBox(MainWindow->HWindow, msg, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                std::wstring errMsg = FormatStrW(LoadStrW(IDS_ERROPENPROPSELCONTW64ALIAS), AnsiToWide(redirectedDir).c_str());
+                gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), errMsg.c_str());
             }
             else
             {
 #endif // _WIN64
                 CTmpEnumData data;
-                data.Indexes = (count == 0) ? &index : indexes;
+                data.Indexes = (count == 0) ? &index : indexes.get();
                 data.Panel = panel;
                 IContextMenu2* menu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath(),
                                                           (count == 0) ? 1 : count,
@@ -1655,10 +1775,10 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     char pageName[200];
                     if (action == saPermissions)
                     {
-                        // force opening the Security tab; unfortunately we must pass the string for the OS localization
+                        // force opening Security tab; unfortunately we need to pass string for given OS localization
                         ici.lpParameters = pageName;
                         if (!GetACLUISecurityPageName(pageName, 200))
-                            lstrcpy(pageName, "Security"); // if the name could not be retrieved, use the English "Security" and accept that localized versions will quietly not work
+                            lstrcpy(pageName, "Security"); // if we failed to get the name, use English "Security" and silently won't work in localized versions
                     }
                     ici.lpDirectory = panel->GetPath();
                     ici.nShow = SW_SHOWNORMAL;
@@ -1681,43 +1801,73 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         {
 #ifndef _WIN64
             if (action == saCutToClipboard &&
-                ContainsWin64RedirectedDir(panel, (count == 0) ? &index : indexes, (count == 0) ? 1 : count, redirectedDir, FALSE))
+                ContainsWin64RedirectedDir(panel, (count == 0) ? &index : indexes.get(), (count == 0) ? 1 : count, redirectedDir, FALSE))
             {
-                _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_ERRCUTSELCONTW64ALIAS), redirectedDir);
-                SalMessageBox(MainWindow->HWindow, msg, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                std::wstring errMsg = FormatStrW(LoadStrW(IDS_ERRCUTSELCONTW64ALIAS), AnsiToWide(redirectedDir).c_str());
+                gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), errMsg.c_str());
             }
             else
             {
 #endif // _WIN64
-                CTmpEnumData data;
-                data.Indexes = (count == 0) ? &index : indexes;
-                data.Panel = panel;
-                IContextMenu2* menu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath(), (count == 0) ? 1 : count,
-                                                          EnumFileNames, &data);
-                if (menu != NULL)
+                int idxCount = (count == 0) ? 1 : count;
+                int* idxs = (count == 0) ? &index : indexes.get();
+                BOOL clipboardSet = FALSE;
+                BOOL usedUnicodeHDropFallback = FALSE;
+
+                // For Unicode filenames, avoid shell copy/cut through ANSI name enumeration.
+                // Prefer Unicode CF_HDROP for all disk selections and fall back to shell copy/cut only on failure.
+                if (panel->Is(ptDisk))
                 {
-                    CShellExecuteWnd shellExecuteWnd;
-                    CMINVOKECOMMANDINFO ici;
-                    ici.cbSize = sizeof(CMINVOKECOMMANDINFO);
-                    ici.fMask = 0;
-                    ici.lpVerb = (action == saCopyToClipboard) ? "copy" : "cut";
-                    ici.hwnd = shellExecuteWnd.Create(MainWindow->HWindow, "SEW: ShellAction::copy_cut_clipboard verb=%s", ici.lpVerb);
-                    ici.lpParameters = NULL;
-                    ici.lpDirectory = panel->GetPath();
-                    ici.nShow = SW_SHOWNORMAL;
-                    ici.dwHotKey = 0;
-                    ici.hIcon = 0;
+                    std::vector<std::wstring> selectedPathsW;
+                    BOOL salObject = sally::clipboard::ShouldTagAsSalamanderObject(TRUE);
+                    BOOL hasWideName = FALSE;
+                    if (CollectSelectedPathsW(panel, idxs, idxCount, selectedPathsW, hasWideName))
+                    {
+                        clipboardSet = SetClipboardHDropW(MainWindow->HWindow, selectedPathsW,
+                                                          action == saCopyToClipboard,
+                                                          salObject);
+                        usedUnicodeHDropFallback = clipboardSet;
+                        if (!clipboardSet)
+                            TRACE_E("Unable to place Unicode file list on clipboard, falling back to shell copy/cut.");
+                    }
+                }
 
-                    AuxInvokeAndRelease(menu, &ici);
+                if (!clipboardSet)
+                {
+                    CTmpEnumData data;
+                    data.Indexes = idxs;
+                    data.Panel = panel;
+                    IContextMenu2* menu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath(), idxCount,
+                                                              EnumFileNames, &data);
+                    if (menu != NULL)
+                    {
+                        CShellExecuteWnd shellExecuteWnd;
+                        CMINVOKECOMMANDINFO ici;
+                        ici.cbSize = sizeof(CMINVOKECOMMANDINFO);
+                        ici.fMask = 0;
+                        ici.lpVerb = (action == saCopyToClipboard) ? "copy" : "cut";
+                        ici.hwnd = shellExecuteWnd.Create(MainWindow->HWindow, "SEW: ShellAction::copy_cut_clipboard verb=%s", ici.lpVerb);
+                        ici.lpParameters = NULL;
+                        ici.lpDirectory = panel->GetPath();
+                        ici.nShow = SW_SHOWNORMAL;
+                        ici.dwHotKey = 0;
+                        ici.hIcon = 0;
 
-                    // clipboard change, verify it...
-                    IdleRefreshStates = TRUE;  // force a check of the state variables on the next Idle
-                    IdleCheckClipboard = TRUE; // also let it check the clipboard
+                        AuxInvokeAndRelease(menu, &ici);
+                        clipboardSet = TRUE;
+                    }
+                }
+
+                if (clipboardSet)
+                {
+                    // clipboard changed, let's verify...
+                    IdleRefreshStates = TRUE;  // force state variable check on next Idle
+                    IdleCheckClipboard = TRUE; // also check clipboard
 
                     BOOL repaint = FALSE;
                     if (panel->CutToClipChanged)
                     {
-                        // before CUT and COPY clear the CutToClip flag
+                        // before CUT and COPY clear CutToClip flag
                         panel->ClearCutToClipFlag(FALSE);
                         repaint = TRUE;
                     }
@@ -1726,17 +1876,13 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                      IsTheSamePath(panel->GetPath(), anotherPanel->GetPath());
                     if (anotherPanel->CutToClipChanged)
                     {
-                        // before CUT and COPY clear the CutToClip flag on the other panel as well
+                        // before CUT and COPY also clear CutToClip flag for the other panel
                         anotherPanel->ClearCutToClipFlag(!samePaths);
                     }
 
                     if (action != saCopyToClipboard)
                     {
-                        // for CUT set the file's CutToClip bit (ghosted)
-                        int idxCount = count;
-                        int* idxs = (idxCount == 0) ? &index : indexes;
-                        if (idxCount == 0)
-                            idxCount = 1;
+                        // in CUT case set file's CutToClip bit (ghosted)
                         int i;
                         for (i = 0; i < idxCount; i++)
                         {
@@ -1744,9 +1890,9 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                             CFileData* f = (idx < panel->Dirs->Count) ? &panel->Dirs->At(idx) : &panel->Files->At(idx - panel->Dirs->Count);
                             f->CutToClip = 1;
                             f->Dirty = 1;
-                            if (samePaths) // mark the file/directory in the other panel (quadratic complexity, not a concern ...)
+                            if (samePaths) // mark file/directory in the other panel (quadratic complexity, we don't care...)
                             {
-                                if (idx < panel->Dirs->Count) // search among directories
+                                if (idx < panel->Dirs->Count) // searching among directories
                                 {
                                     int total = anotherPanel->Dirs->Count;
                                     int k;
@@ -1761,7 +1907,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                         }
                                     }
                                 }
-                                else // search the files
+                                else // searching among files
                                 {
                                     int total = anotherPanel->Files->Count;
                                     int k;
@@ -1789,8 +1935,9 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     if (samePaths)
                         anotherPanel->RepaintListBox(DRAWFLAG_DIRTY_ONLY | DRAWFLAG_SKIP_VISTEST);
 
-                    // we also set the preferred drop effect + origin from Salamander
-                    SetClipCutCopyInfo(panel->HWindow, action == saCopyToClipboard, TRUE);
+                    // also set preferred drop effect + origin from Salamander
+                    SetClipCutCopyInfo(panel->HWindow, action == saCopyToClipboard,
+                                       sally::clipboard::ShouldTagAsSalamanderObject(usedUnicodeHDropFallback != FALSE));
                 }
 #ifndef _WIN64
             }
@@ -1805,12 +1952,35 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         CALL_STACK_MESSAGE1("ShellAction::drag_files");
         if (useSelection)
         {
+            int idxCount = (count == 0) ? 1 : count;
+            int* idxs = (count == 0) ? &index : indexes.get();
+
+            IDataObject* dataObject = NULL;
+            if (panel->Is(ptDisk))
+            {
+                std::vector<std::wstring> selectedPathsW;
+                BOOL hasWideName = FALSE;
+                if (CollectSelectedPathsW(panel, idxs, idxCount, selectedPathsW, hasWideName))
+                {
+                    sally::clipboard::HDropWideDataObject* wideDataObject = new sally::clipboard::HDropWideDataObject(selectedPathsW);
+                    if (wideDataObject != NULL)
+                    {
+                        if (wideDataObject->IsValid())
+                            dataObject = wideDataObject;
+                        else
+                            wideDataObject->Release();
+                    }
+                }
+            }
+
             CTmpEnumData data;
-            data.Indexes = (count == 0) ? &index : indexes;
-            data.Panel = panel;
-            IDataObject* dataObject = CreateIDataObject(MainWindow->HWindow, panel->GetPath(),
-                                                        (count == 0) ? 1 : count,
-                                                        EnumFileNames, &data);
+            if (dataObject == NULL)
+            {
+                data.Indexes = idxs;
+                data.Panel = panel;
+                dataObject = CreateIDataObject(MainWindow->HWindow, panel->GetPath(),
+                                               idxCount, EnumFileNames, &data);
+            }
             CImpIDropSource* dropSource = new CImpIDropSource(FALSE);
 
             if (dataObject != NULL && dropSource != NULL)
@@ -1831,36 +2001,36 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     {
         CALL_STACK_MESSAGE1("ShellAction::context_menu");
 
-        // calculate the top-left corner of the context menu
+        // calculate top-left corner of context menu
         POINT pt;
         GetLeftTopCornert(&pt, posByMouse, useSelection, panel);
 
         if (panel->Is(ptZIPArchive))
         {
-            if (useSelection) // only for items in the panel (not for the current panel path)
+            if (useSelection) // only for items in panel (not for current path in panel)
             {
-                // if command states need to be computed, do it (ArchiveMenu.UpdateItemsState uses them)
+                // if command states need to be calculated, do it (ArchiveMenu.UpdateItemsState uses them)
                 MainWindow->OnEnterIdle();
 
-                // let the enabler set the states and open the menu
+                // set states according to enablers and open menu
                 ArchiveMenu.UpdateItemsState();
                 DWORD cmd = ArchiveMenu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                                               pt.x, pt.y, panel->GetListBoxHWND(), NULL);
-                // send the result to the main window
+                // send result to main window
                 if (cmd != 0)
                     PostMessage(MainWindow->HWindow, WM_COMMAND, cmd, 0);
             }
             else
             {
-                if (onlyPanelMenu) // context menu on the panel background (behind the items) -> paste only
+                if (onlyPanelMenu) // context menu in panel (after items) -> just paste
                 {
-                    // if command states need to be computed, do it (ArchivePanelMenu.UpdateItemsState uses them)
+                    // if command states need to be calculated, do it (ArchivePanelMenu.UpdateItemsState uses them)
                     MainWindow->OnEnterIdle();
 
-                    // let the enabler set the states and open the menu
+                    // set states according to enablers and open menu
                     ArchivePanelMenu.UpdateItemsState();
 
-                    // if this is a "change directory" type paste, show it in the Paste item
+                    // If it's a paste of type "change directory", display it in Paste item
                     char text[220];
                     char tail[50];
                     tail[0] = 0;
@@ -1887,7 +2057,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
 
                     DWORD cmd = ArchivePanelMenu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                                                        pt.x, pt.y, panel->GetListBoxHWND(), NULL);
-                    // send the result to the main window
+                    // send result to main window
                     if (cmd != 0)
                         PostMessage(MainWindow->HWindow, WM_COMMAND, cmd, 0);
                 }
@@ -1896,7 +2066,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         else
         {
             BOOL uncRootPath = FALSE;
-            if (panel->ContextMenu != NULL) // we got a crash likely caused by recursive calls via the message loop in contextPopup.Track (panel->ContextMenu was nulled, apparently when leaving the inner recursive call)
+            if (panel->ContextMenu != NULL) // we got a crash probably caused by recursive call via message-loop in contextPopup.Track (panel->ContextMenu was nulled, probably when leaving inner recursive call)
             {
                 TRACE_E("ShellAction::context_menu: panel->ContextMenu must be NULL (probably forbidden recursive call)!");
             }
@@ -1905,7 +2075,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                 HMENU h = CreatePopupMenu();
 
                 UINT flags = CMF_NORMAL | CMF_EXPLORE;
-                // handle the Shift key press – extended context menu, under W2K it contains for example Run as...
+                // handle pressed shift - extended context menu, under W2K there's e.g. Run as...
 #define CMF_EXTENDEDVERBS 0x00000100 // rarely used verbs
                 BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
                 if (shiftPressed)
@@ -1921,8 +2091,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
 #ifndef _WIN64
                     if (IsWin64RedirectedDir(panel->GetPath(), NULL, TRUE))
                     {
-                        SalMessageBox(MainWindow->HWindow, LoadStr(IDS_ERROPENMENUFORW64ALIAS),
-                                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_ERROPENMENUFORW64ALIAS));
                     }
                     else
                     {
@@ -1930,20 +2099,20 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                         panel->ContextMenu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath());
                         if (panel->ContextMenu != NULL && h != NULL)
                         {
-                            // work around a bug in the TortoiseHg shell extension: it has a global variable with mapping of item IDs
-                            // in the THg menu and commands, i.e. in our case when two menus are obtained
-                            // (panel->ContextMenu and panel->ContextSubmenuNew) so this mapping gets overwritten
-                            // by a later obtained menu (QueryContextMenu call). As a result, commands from the menu obtained earlier
-                            // cannot be executed; in the original version this affected panel->ContextSubmenuNew,
-                            // which contains all panel context menu commands except Open and Explore:
-                            // to work around this problem we take advantage of the fact that from panel->ContextMenu menu we only take
-                            // Open and Explore, i.e. Windows commands unaffected by this bug, so
-                            // it is enough to obtain the menu (call QueryContextMenu) from panel->ContextSubmenuNew as
-                            // the second one in order
-                            // NOTE: we cannot always do this, because if only the New menu is added,
-                            //           it is reasonable to retrieve panel->ContextMenu as the second menu instead,
-                            //           so that its commands work correctly (e.g. THg does not add anything to the New menu at all,
-                            //           so the problem does not occur there)
+                            // bypass buggy TortoiseHg shell-extension: it has a global with mapping of menu item IDs
+                            // to THg commands, so in our case when two menus are obtained
+                            // (panel->ContextMenu and panel->ContextSubmenuNew) the mapping gets overwritten
+                            // by the later obtained menu (calling QueryContextMenu), so commands from the earlier
+                            // obtained menu can't be invoked, in original version it was menu panel->ContextSubmenuNew,
+                            // which contains all commands except Open and Explore for panel context menu:
+                            // to work around this problem we use the fact that from menu panel->ContextMenu we take
+                            // only Open and Explore, i.e. Windows commands not affected by this bug, so
+                            // we just need to obtain menu (call QueryContextMenu) from panel->ContextSubmenuNew as
+                            // second in order
+                            // NOTE: we can't always do this, because if only New menu is added,
+                            //       it's better to obtain menu panel->ContextMenu second,
+                            //       so its commands work (e.g. THg doesn't add to New menu at all,
+                            //       so no problem arises)
                             ShellActionAux5(flags, panel, h);
                             alreadyHaveContextMenu = TRUE;
                         }
@@ -1958,16 +2127,16 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     if (useSelection)
                     {
 #ifndef _WIN64
-                        if (ContainsWin64RedirectedDir(panel, (count == 0) ? &index : indexes, (count == 0) ? 1 : count, redirectedDir, TRUE))
+                        if (ContainsWin64RedirectedDir(panel, (count == 0) ? &index : indexes.get(), (count == 0) ? 1 : count, redirectedDir, TRUE))
                         {
-                            _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_ERROPENMENUSELCONTW64ALIAS), redirectedDir);
-                            SalMessageBox(MainWindow->HWindow, msg, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                            std::wstring errMsg = FormatStrW(LoadStrW(IDS_ERROPENMENUSELCONTW64ALIAS), AnsiToWide(redirectedDir).c_str());
+                            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), errMsg.c_str());
                         }
                         else
                         {
 #endif // _WIN64
                             CTmpEnumData data;
-                            data.Indexes = (count == 0) ? &index : indexes;
+                            data.Indexes = (count == 0) ? &index : indexes.get();
                             data.Panel = panel;
                             panel->ContextMenu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath(), (count == 0) ? 1 : count,
                                                                      EnumFileNames, &data);
@@ -1980,8 +2149,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
 #ifndef _WIN64
                         if (IsWin64RedirectedDir(panel->GetPath(), NULL, TRUE))
                         {
-                            SalMessageBox(MainWindow->HWindow, LoadStr(IDS_ERROPENMENUFORW64ALIAS),
-                                          LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_ERROPENMENUFORW64ALIAS));
                         }
                         else
                         {
@@ -1998,16 +2166,16 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                 BOOL clipCopy = FALSE;     // is it "our copy"?
                 BOOL clipCut = FALSE;      // is it "our cut"?
                 BOOL cmdDelete = FALSE;    // is it "our delete"?
-                BOOL cmdMapNetDrv = FALSE; // is this our "Map Network Drive"? (only for a UNC root, let us not complicate life)
-                DWORD cmd = 0;             // command number for the context menu (10000 = "our paste")
-                char pastePath[MAX_PATH];  // buffer for the path where "our paste" is executed (if it happens)
+                BOOL cmdMapNetDrv = FALSE; // is it "our Map Network Drive"? (only UNC root, we don't want to complicate things)
+                DWORD cmd = 0;             // command number for context menu (10000 = "our paste")
+                CPathBuffer pastePath; // Heap-allocated for long path support; buffer for path where "our paste" will be performed (if it happens)
                 if (panel->ContextMenu != NULL && h != NULL)
                 {
                     if (!alreadyHaveContextMenu)
                         ShellActionAux5(flags, panel, h);
                     RemoveUselessSeparatorsFromMenu(h);
 
-                    char cmdName[2000]; // we intentionally use 2000 instead of 200; shell extensions sometimes write twice as much (idea: Unicode = 2 * "number of characters"), etc.
+                    char cmdName[2000] = {0}; // intentionally 2000 instead of 200, shell-extensions sometimes write double (reasoning: unicode = 2 * "character count"), etc.
                     if (onlyPanelMenu)
                     {
                         if (panel->ContextSubmenuNew->MenuIsAssigned())
@@ -2029,7 +2197,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                 mi.cch = 500;
                                 if (GetMenuItemInfo(h, i, TRUE, &mi))
                                 {
-                                    if (mi.hSubMenu == NULL && (mi.fType & MFT_SEPARATOR) == 0) // not a submenu or a separator
+                                    if (mi.hSubMenu == NULL && (mi.fType & MFT_SEPARATOR) == 0) // not submenu nor separator
                                     {
                                         if (AuxGetCommandString(panel->ContextMenu, mi.wID, GCS_VERB, NULL, cmdName, 200) == NOERROR)
                                         {
@@ -2037,7 +2205,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                             {
                                                 InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
                                                 if (bckgndMenuInsert == 2)
-                                                    break; // we don't need any more items from here
+                                                    break; // we don't need more items from here
                                             }
                                         }
                                     }
@@ -2048,7 +2216,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                     TRACE_E("Unable to get item information from menu: " << GetErrorText(err));
                                 }
                             }
-                            if (bckgndMenuInsert > 0) // separate Explore + Open from the rest of the menu
+                            if (bckgndMenuInsert > 0) // separate Explore + Open from rest of menu
                             {
                                 // separator
                                 mi.cbSize = sizeof(mi);
@@ -2058,8 +2226,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                 InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
                             }
 
-                            /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
-   keep synchronized with the InsertMenuItem() calls below...
+                            /* used by export_mnu.py script which generates salmenu.mnu for Translator
+   keep synchronized with InsertMenuItem() calls below...
 MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 {
   {MNTT_PB, 0
@@ -2070,7 +2238,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 };
 */
 
-                            // add the Paste command (if it is a "change directory" type paste, show it in the Paste item)
+                            // add Paste command (if it's a paste of type "change directory", display it in Paste item)
                             char tail[50];
                             tail[0] = 0;
                             strcpy(itemName, LoadStr(IDS_MENU_EDIT_PASTE));
@@ -2092,7 +2260,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                             mi.wID = 10000;
                             InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
 
-                            // add the Paste Shortcuts command
+                            // add Paste Shortcuts command
                             mi.cbSize = sizeof(mi);
                             mi.fMask = MIIM_STATE | MIIM_ID | MIIM_TYPE;
                             mi.fType = MFT_STRING;
@@ -2101,7 +2269,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                             mi.wID = 10001;
                             InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
 
-                            // insert a separator if it is not there yet
+                            // if not already there, insert separator
                             MENUITEMINFO mi2;
                             memset(&mi2, 0, sizeof(mi2));
                             mi2.cbSize = sizeof(mi);
@@ -2122,9 +2290,9 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                     }
                     else
                     {
-                        // originally adding the New item was called before ShellActionAux5, but
-                        // under Windows XP calling ShellActionAux5 caused the new item
-                        // to be removed (when an Edit/Copy operation had been performed beforehand)
+                        // originally adding New item was called before ShellActionAux5, but
+                        // under Windows XP calling ShellActionAux5 caused deletion of New item
+                        // (in case Edit/Copy operation was performed first)
                         if (panel->ContextSubmenuNew->MenuIsAssigned())
                         {
                             MENUITEMINFO mi;
@@ -2147,15 +2315,12 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                         }
                     }
 
-                    if (GetMenuItemCount(h) > 0) // guard against a completely empty menu
+                    if (GetMenuItemCount(h) > 0) // protection against completely stripped menu
                     {
                         CMenuPopup contextPopup;
                         contextPopup.SetTemplateMenu(h);
                         cmd = contextPopup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
                                                  pt.x, pt.y, panel->GetListBoxHWND(), NULL);
-                        //            for testing only -- show the menu via the Windows API
-                        //            cmd = TrackPopupMenuEx(h, TPM_RETURNCMD | TPM_LEFTALIGN |
-                        //                                   TPM_LEFTBUTTON, pt.x, pt.y, panel->GetListBoxHWND(), NULL);
                     }
                     else
                         cmd = 0;
@@ -2173,7 +2338,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                             strcpy(pastePath, panel->GetPath());
                         if (cmd < 5000 && stricmp(cmdName, "paste") == 0 && count <= 1)
                         {
-                            if (useSelection) // paste into a subdirectory of panel->GetPath()
+                            if (useSelection) // paste into subdirectory of panel->GetPath()
                             {
                                 int specialIndex;
                                 if (count == 1) // select
@@ -2190,20 +2355,20 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                     if (s > pastePath && *(s - 1) != '\\')
                                         *s++ = '\\';
                                     strcpy(s, subdir);
-                                    cmd = 10000; // the command will be executed elsewhere
+                                    cmd = 10000; // command will be executed elsewhere
                                 }
                             }
                             else // paste into panel->GetPath()
                             {
                                 strcpy(pastePath, panel->GetPath());
-                                cmd = 10000; // the command will be executed elsewhere
+                                cmd = 10000; // command will be executed elsewhere
                             }
                         }
                         clipCopy = (cmd < 5000 && stricmp(cmdName, "copy") == 0);
                         clipCut = (cmd < 5000 && stricmp(cmdName, "cut") == 0);
                         cmdDelete = useSelection && (cmd < 5000 && stricmp(cmdName, "delete") == 0);
 
-                        // Map Network Drive command is 40 on XP, 43 on W2K, and only on Vista does it have a defined cmdName
+                        // Map Network Drive command is 40 under XP, 43 under W2K, and only under Vista it has defined cmdName
                         cmdMapNetDrv = uncRootPath && (stricmp(cmdName, "connectNetworkDrive") == 0 ||
                                                        !WindowsVistaAndLater && cmd == 40);
 
@@ -2212,35 +2377,35 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                             if (cmd < 5000 && stricmp(cmdName, "rename") == 0)
                             {
                                 int specialIndex;
-                                if (count == 1) // selected item
+                                if (count == 1) // select
                                 {
                                     panel->GetSelItems(1, &specialIndex);
                                 }
                                 else
                                     specialIndex = -1;           // focus
-                                panel->RenameFile(specialIndex); // only a drive is relevant (enabling "Rename" is not necessary)
+                                panel->RenameFile(specialIndex); // only disk is considered (enabling "Rename" is not needed)
                             }
                             else
                             {
-                                BOOL releaseLeft = FALSE;                  // disconnect the left panel from the drive?
-                                BOOL releaseRight = FALSE;                 // disconnect the right panel from the drive?
-                                if (!useSelection && cmd < 5000 &&         // directory context menu
+                                BOOL releaseLeft = FALSE;                  // disconnect left panel from disk?
+                                BOOL releaseRight = FALSE;                 // disconnect right panel from disk?
+                                if (!useSelection && cmd < 5000 &&         // it's a context menu for directory
                                     stricmp(cmdName, "properties") != 0 && // not necessary for properties
-                                    stricmp(cmdName, "find") != 0 &&       // not necessary for Find
-                                    stricmp(cmdName, "open") != 0 &&       // not necessary for Open
-                                    stricmp(cmdName, "explore") != 0 &&    // not necessary for Explore
-                                    stricmp(cmdName, "link") != 0)         // not necessary for Create Shortcut
+                                    stricmp(cmdName, "find") != 0 &&       // not necessary for find
+                                    stricmp(cmdName, "open") != 0 &&       // not necessary for open
+                                    stricmp(cmdName, "explore") != 0 &&    // not necessary for explore
+                                    stricmp(cmdName, "link") != 0)         // not necessary for create-short-cut
                                 {
-                                    char root[MAX_PATH];
+                                    CPathBuffer root;  // Heap-allocated for long path support
                                     GetRootPath(root, panel->GetPath());
-                                    if (strlen(root) >= strlen(panel->GetPath())) // menu for the whole drive - because of commands like "format..."
-                                    {                                             // for "format..." we must "take our hands off" the media
+                                    if (strlen(root) >= strlen(panel->GetPath())) // menu for entire disk - due to commands like
+                                    {                                             // for "format..." we must "hands off" the media
                                         CFilesWindow* win;
                                         int i;
                                         for (i = 0; i < 2; i++)
                                         {
                                             win = i == 0 ? MainWindow->LeftPanel : MainWindow->RightPanel;
-                                            if (HasTheSameRootPath(win->GetPath(), root)) // same drive (UNC or regular)
+                                            if (HasTheSameRootPath(win->GetPath(), root)) // stejny disk (UNC i normal)
                                             {
                                                 if (i == 0)
                                                     releaseLeft = TRUE;
@@ -2255,11 +2420,11 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 if (!useSelection || count == 0 && index < panel->Dirs->Count ||
                                     count == 1 && indexes[0] < panel->Dirs->Count)
                                 {
-                                    SetCurrentDirectoryToSystem(); // so the drive can also be unmapped from the panel
+                                    SetCurrentDirectoryToSystem(); // so disk from panel can be unmapped
                                 }
                                 else
                                 {
-                                    SetCurrentDirectory(panel->GetPath()); // for files whose names contain spaces: to make Open With work even for Microsoft Paint (under W2K it failed – reported "d:\documents.bmp was not found" for the file "D:\Documents and Settings\petr\My Documents\example.bmp")
+                                    EnvSetCurrentDirectoryA(gEnvironment, panel->GetPath()); // for files with spaces in name: so Open With works for Microsoft Paint too (failed under W2K - wrote "d:\documents.bmp was not found" for file "D:\Documents and Settings\petr\My Documents\example.bmp")
                                 }
 
                                 DWORD disks = GetLogicalDrives();
@@ -2281,10 +2446,10 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 ici.nShow = SW_SHOWNORMAL;
                                 ici.ptInvoke = pt;
 
-                                panel->FocusFirstNewItem = TRUE; // for both WinZip and its archives and the New menu (works well only when the panel is auto-refreshing)
+                                panel->FocusFirstNewItem = TRUE; // both for WinZip and its archives, and for New menu (works well only with panel autorefresh)
                                 if (cmd < 5000)
                                 {
-                                    BOOL changeToFixedDrv = cmd == 35; // "format" is not modal, requires switching to a fixed drive
+                                    BOOL changeToFixedDrv = cmd == 35; // "format" is not modal, change to fixed drive necessary
                                     if (releaseLeft)
                                     {
                                         if (changeToFixedDrv)
@@ -2306,32 +2471,32 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 
                                     AuxInvokeCommand(panel, (CMINVOKECOMMANDINFO*)&ici);
 
-                                    // we intercept cut/copy/paste, but just to be safe we still execute the refresh of the clipboard enablers:
-                                    IdleRefreshStates = TRUE;  // force a check of the state variables on the next Idle
-                                    IdleCheckClipboard = TRUE; // also let it check the clipboard
+                                    // we catch cut/copy/paste, but to be safe we still refresh clipboard enablers
+                                    IdleRefreshStates = TRUE;  // force state variable check on next Idle
+                                    IdleCheckClipboard = TRUE; // also check clipboard
 
                                     if (releaseLeft && !changeToFixedDrv)
                                         MainWindow->LeftPanel->HandsOff(FALSE);
                                     if (releaseRight && !changeToFixedDrv)
                                         MainWindow->RightPanel->HandsOff(FALSE);
 
-                                    //---  refresh directories that are not refreshed automatically
-                                    // report the change in the current directory and its subdirectories (just to be safe)
+                                    //---  refresh non-automatically refreshed directories
+                                    // report change in current directory and its subdirectories (just to be safe, who knows what was launched)
                                     MainWindow->PostChangeOnPathNotification(panel->GetPath(), TRUE);
                                 }
                                 else
                                 {
-                                    if (panel->ContextSubmenuNew->MenuIsAssigned()) // an exception might have occurred
+                                    if (panel->ContextSubmenuNew->MenuIsAssigned()) // exception could have occurred
                                     {
                                         AuxInvokeCommand2(panel, (CMINVOKECOMMANDINFO*)&ici);
 
-                                        //---  refresh directories that are not refreshed automatically
-                                        // report the change in the current directory (a new file/directory can probably only be created there)
+                                        //---  refresh non-automatically refreshed directories
+                                        // report change in current directory (new file/directory can probably only be created in it)
                                         MainWindow->PostChangeOnPathNotification(panel->GetPath(), FALSE);
                                     }
                                 }
 
-                                if (GetLogicalDrives() < disks) // unmapping
+                                if (GetLogicalDrives() < disks) // odmapovani
                                 {
                                     if (MainWindow->LeftPanel->CheckPath(FALSE) != ERROR_SUCCESS)
                                         MainWindow->LeftPanel->ChangeToRescuePathOrFixedDrive(MainWindow->LeftPanel->HWindow);
@@ -2349,14 +2514,14 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                         DestroyMenu(h);
                 }
 
-                if (cmd == 10000) // our own "paste" on pastePath
+                if (cmd == 10000) // our own "paste" to pastePath
                 {
                     if (!panel->ClipboardPaste(FALSE, FALSE, pastePath))
-                        panel->ClipboardPastePath(); // regular paste failed, we probably just need to change the current path
+                        panel->ClipboardPastePath(); // classic paste failed, we probably just need to change current path
                 }
                 else
                 {
-                    if (cmd == 10001) // our own "paste shortcuts" for pastePath
+                    if (cmd == 10001) // our own "paste shortcuts" to pastePath
                     {
                         panel->ClipboardPaste(TRUE, FALSE, pastePath);
                     }
@@ -2364,13 +2529,13 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                     {
                         if (clipCopy) // our own "copy"
                         {
-                            panel->ClipboardCopy(); // recursive ShellAction call
+                            panel->ClipboardCopy(); // recursive call to ShellAction
                         }
                         else
                         {
                             if (clipCut) // our own "cut"
                             {
-                                panel->ClipboardCut(); // recursive ShellAction call
+                                panel->ClipboardCut(); // recursive call to ShellAction
                             }
                             else
                             {
@@ -2380,7 +2545,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 }
                                 else
                                 {
-                                    if (cmdMapNetDrv) // is this our "Map Network Drive"? (only for a UNC root, let us not complicate life)
+                                    if (cmdMapNetDrv) // is it "our Map Network Drive"? (only UNC root, we don't want to complicate things)
                                     {
                                         panel->ConnectNet(TRUE);
                                     }
@@ -2394,10 +2559,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
         break;
     }
     }
-
-    if (count != 0)
-        delete[] (indexes);
-
+    // RAII: indexes auto-deleted when scope exits
     EndStopRefresh();
 }
 
@@ -2410,8 +2572,8 @@ void ExecuteAssociationAux(IContextMenu2* menu, CMINVOKECOMMANDINFO& ici)
 {
     CALL_STACK_MESSAGE_NONE
 
-    // temporarily lower the thread priority so a confused shell extension does not eat the CPU
-    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release it
+    // temporarily lower thread priority, so some confused shell extension doesn't eat CPU
+    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
 
@@ -2431,8 +2593,8 @@ void ExecuteAssociationAux2(IContextMenu2* menu, HMENU h, DWORD flags)
 {
     CALL_STACK_MESSAGE_NONE
 
-    // temporarily lower the thread priority so a confused shell extension does not eat the CPU
-    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release it
+    // temporarily lower thread priority, so some confused shell extension doesn't eat CPU
+    HANDLE hThread = GetCurrentThread(); // pseudo-handle, no need to release
     int oldThreadPriority = GetThreadPriority(hThread);
     SetThreadPriority(hThread, THREAD_PRIORITY_NORMAL);
 
@@ -2462,31 +2624,75 @@ void ExecuteAssociationAux3(IContextMenu2* menu)
 
 extern DWORD ExecuteAssociationTlsIndex; // allows only one call at a time (prevents recursion) in each thread
 
+// Wide version for Unicode filenames - uses ShellExecuteExW directly
+void ExecuteAssociationW(HWND hWindow, const char* path, const wchar_t* nameW)
+{
+    CALL_STACK_MESSAGE2("ExecuteAssociationW(, %s, <wide>)", path);
+
+    if (ExecuteAssociationTlsIndex == TLS_OUT_OF_INDEXES ||
+        TlsGetValue(ExecuteAssociationTlsIndex) == 0)
+    {
+        if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES)
+            TlsSetValue(ExecuteAssociationTlsIndex, (void*)1);
+
+        // Build wide full path
+        wchar_t fullPathW[SAL_MAX_LONG_PATH];
+        wchar_t pathW[SAL_MAX_LONG_PATH];
+
+        // Convert ANSI path to wide
+        MultiByteToWideChar(CP_ACP, 0, path, -1, pathW, SAL_MAX_LONG_PATH);
+
+        // Build full path: path + nameW
+        wcscpy(fullPathW, pathW);
+        int len = (int)wcslen(fullPathW);
+        if (len > 0 && fullPathW[len - 1] != L'\\')
+        {
+            fullPathW[len] = L'\\';
+            fullPathW[len + 1] = L'\0';
+        }
+        wcscat(fullPathW, nameW);
+
+        // Use ShellExecuteExW for Unicode filenames
+        SHELLEXECUTEINFOW sei = {0};
+        sei.cbSize = sizeof(sei);
+        sei.fMask = SEE_MASK_FLAG_NO_UI;
+        sei.hwnd = hWindow;
+        sei.lpVerb = NULL; // default verb (open)
+        sei.lpFile = fullPathW;
+        sei.lpDirectory = pathW;
+        sei.nShow = SW_SHOWNORMAL;
+        ShellExecuteExW(&sei);
+
+        if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES)
+            TlsSetValue(ExecuteAssociationTlsIndex, (void*)0);
+    }
+}
+
 void ExecuteAssociation(HWND hWindow, const char* path, const char* name)
 {
     CALL_STACK_MESSAGE3("ExecuteAssociation(, %s, %s)", path, name);
 
-    if (ExecuteAssociationTlsIndex == TLS_OUT_OF_INDEXES || // TLS is not allocated (always false)
-        TlsGetValue(ExecuteAssociationTlsIndex) == 0)       // this is not a recursive call
+    if (ExecuteAssociationTlsIndex == TLS_OUT_OF_INDEXES || // TLS not allocated (always false)
+        TlsGetValue(ExecuteAssociationTlsIndex) == 0)       // not a recursive call
     {
-        if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES) // a new call is not possible
+        if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES) // new call is not possible
             TlsSetValue(ExecuteAssociationTlsIndex, (void*)1);
 
-        //  MainWindow->ReleaseMenuNew();  // Windows are not built for multiple context menus
+        //  MainWindow->ReleaseMenuNew();  // Windows aren't designed for multiple context menus
 
         if (Configuration.UseSalOpen)
         {
-            // try to open the association via salopen.exe
-            char execName[MAX_PATH + 200]; // +200 is a reserve for longer names (silly Windows)
+            // try to open association via salopen.exe
+            CPathBuffer execName;
             strcpy(execName, path);
-            if (SalPathAppend(execName, name, MAX_PATH + 200) && SalOpenExecute(hWindow, execName))
+            if (SalPathAppend(execName, name, execName.Size()) && SalOpenExecute(hWindow, execName))
             {
-                if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES) // a new call is now possible
+                if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES) // new call is now possible
                     TlsSetValue(ExecuteAssociationTlsIndex, (void*)0);
-                return; // launched in the salopen.exe process
+                return; // done, it started in salopen.exe process
             }
 
-            // if salopen.exe fails, launch the classic way (there is a risk of open handles in the directory)
+            // if salopen.exe fails, we start the classic way (danger of open handles in directory)
         }
 
         IContextMenu2* menu = CreateIContextMenu2(hWindow, path, 1,
@@ -2501,7 +2707,7 @@ void ExecuteAssociation(HWND hWindow, const char* path, const char* name)
                 ExecuteAssociationAux2(menu, h, flags);
 
                 UINT cmd = GetMenuDefaultItem(h, FALSE, GMDI_GOINTOPOPUPS);
-                if (cmd == -1) // we did not find default item -> try searching only among verbs
+                if (cmd == -1) // we didn't find default item -> try searching only among verbs
                 {
                     DestroyMenu(h);
                     h = CreatePopupMenu();
@@ -2511,7 +2717,7 @@ void ExecuteAssociation(HWND hWindow, const char* path, const char* name)
 
                         cmd = GetMenuDefaultItem(h, FALSE, GMDI_GOINTOPOPUPS);
                         if (cmd == -1)
-                            cmd = 0; // try the "default verb" (index 0)
+                            cmd = 0; // try "default verb" (index 0)
                     }
                 }
                 if (cmd != -1)
@@ -2536,17 +2742,36 @@ void ExecuteAssociation(HWND hWindow, const char* path, const char* name)
             CALL_STACK_MESSAGE1("ExecuteAssociation::3");
             ExecuteAssociationAux3(menu);
         }
+        else
+        {
+            // Shell IContextMenu doesn't support long paths (> MAX_PATH).
+            // Fall back to ShellExecuteEx which may work on Windows 10+
+            CPathBuffer fullPath;
+            strcpy(fullPath, path);
+            if (SalPathAppend(fullPath, name, fullPath.Size()))
+            {
+                SHELLEXECUTEINFO sei = {0};
+                sei.cbSize = sizeof(sei);
+                sei.fMask = SEE_MASK_FLAG_NO_UI;
+                sei.hwnd = hWindow;
+                sei.lpVerb = NULL; // default verb (open)
+                sei.lpFile = fullPath;
+                sei.lpDirectory = path;
+                sei.nShow = SW_SHOWNORMAL;
+                ShellExecuteEx(&sei);
+            }
+        }
 
-        if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES) // a new call is possible now
+        if (ExecuteAssociationTlsIndex != TLS_OUT_OF_INDEXES) // new call is now possible
             TlsSetValue(ExecuteAssociationTlsIndex, (void*)0);
     }
     else
     {
         // TRACE_E("Attempt to call ExecuteAssociation() recursively! (skipping this call...)");
-        // ask whether Salamander should continue or generate a bug report
+        // ask whether Salamander should continue or generate bug report
         if (SalMessageBox(hWindow, LoadStr(IDS_SHELLEXTBREAK4), SALAMANDER_TEXT_VERSION,
                           MSGBOXEX_CONTINUEABORT | MB_ICONINFORMATION | MSGBOXEX_SETFOREGROUND) == IDABORT)
-        { // break
+        { // we break
             strcpy(BugReportReasonBreak, "Attempt to call ExecuteAssociation() recursively.");
             TaskList.FireEvent(TASKLIST_TODO_BREAK, GetCurrentProcessId());
             // freeze this thread
@@ -2556,26 +2781,26 @@ void ExecuteAssociation(HWND hWindow, const char* path, const char* name)
     }
 }
 
-// returns TRUE if it is "safe" to provide a special invisible window to the shell extension as the parent window,
-// which the shell extension may then destroy via DestroyWindow (this normally closes Explorer, but used to crash Salamander)
-// there are exceptions where the Salamander main window must be passed as the parent
+// returns TRUE if it's "safe" to provide shell extension a special invisible window as parent,
+// which shell extension can then e.g. destroy via DestroyWindow (which normally closes Explorer, but crashed Salamander)
+// there are exceptions when main Salamander window must be passed as parent
 BOOL CanUseShellExecuteWndAsParent(const char* cmdName)
 {
-    // for Map Network Drive we cannot use shellExecuteWnd, otherwise it hangs (MainWindow->HWindow gets disabled and the Map Network Drive window does not open)
+    // for Map Network Drive we can't use shellExecuteWnd, otherwise it hangs (MainWindows->HWindow gets disabled and Map Network Drive window doesn't open)
     if (WindowsVistaAndLater && stricmp(cmdName, "connectNetworkDrive") == 0)
         return FALSE;
 
-    // under Windows 8 Open With misbehaved – when selecting a custom program, the Open dialog did not appear
-    // https://forum.altap.cz/viewtopic.php?f=16&t=6730 a https://forum.altap.cz/viewtopic.php?t=6782
-    // the problem is that the code returns from Invoke, but later MS accesses the parent window, which we have already destroyed
-    // TODO: one possible solution would be to keep ShellExecuteWnd alive (a child window stretched over the entire Salamander area, completely in the background)
-    // we would just have to verify before passing it that it still exists (no one destroyed it)
-    // TODO2: I tried the idea and specifically under W8 with Open With it does not work; the Open dialog is not modal to our main window (or the Find window)
-    // for now we will pass Salamander's main window in this case
+    // under Windows 8 Open With was problematic - when choosing custom program, Open dialog didn't appear
+    // https://forum.altap.cz/viewtopic.php?f=16&t=6730 and https://forum.altap.cz/viewtopic.php?t=6782
+    // the problem is that code returns from invoke, but later MS accesses the parent window which we already destroyed
+    // TODO: a solution would be to keep ShellExecuteWnd alive (child window, stretched over entire Salamander area, completely in its background)
+    // we would just verify it's alive (that someone didn't destroy it) before passing it
+    // TODO2: I tried the proposal as exercise and under W8 with Open With it doesn't work, Open dialog is not modal to our main window (or Find window)
+    // for now we'll pass main Salamander window in this case
     if (Windows8AndLater && stricmp(cmdName, "openas") == 0)
         return FALSE;
 
-    // for the other cases (the majority) we can use ShellExecuteWnd
+    // for other cases (majority) ShellExecuteWnd can be used
     return TRUE;
 }
 
@@ -2589,28 +2814,28 @@ BOOL MakeFileAvailOfflineIfOneDriveOnWin81(HWND parent, const char *name)
 {
   CALL_STACK_MESSAGE2("MakeFileAvailOfflineIfOneDriveOnWin81(, %s)", name);
 
-  BOOL ret = TRUE;    // ATTENTION: missing support for OneDriveBusinessStorages, add it if needed!!!
-  if (Windows8_1AndLater && OneDrivePath[0] != 0 && strlen(name) < MAX_PATH)
+  BOOL ret = TRUE;    // WARNING: support for OneDriveBusinessStorages is missing, add if needed !!!
+  if (Windows8_1AndLater && OneDrivePath[0] != 0)
   {
-    char path[MAX_PATH];
+    CPathBuffer path; // Heap-allocated for long path support
     char *cutName;
-    strcpy_s(path, name);
-    if (CutDirectory(path, &cutName) && SalPathIsPrefix(OneDrivePath, path)) // handle it only under the OneDrive folder
+    strcpy_s(path, path.Size(), name);
+    if (CutDirectory(path, &cutName) && SalPathIsPrefix(OneDrivePath, path)) // we handle this only under OneDrive folder
     {
       BOOL makeOffline = FALSE;
-      WIN32_FIND_DATA findData;
-      HANDLE hFind = FindFirstFile(name, &findData);
+      WIN32_FIND_DATAW findData;
+      HANDLE hFind = SalFindFirstFileHW(name, &findData);
       if (hFind != INVALID_HANDLE_VALUE)
       {
-        makeOffline = IsFilePlaceholder(&findData);
-        FindClose(hFind);
+        makeOffline = IsFilePlaceholderW(&findData);
+        HANDLES(FindClose(hFind));
       }
 
-      if (makeOffline)  // convert the file to offline
+      if (makeOffline)  // convert file to offline
       {
-        // doing it this stupid way will not work; it is asynchronous and that offline conversion (download from the network)
-        // may happen a minute later or not at all; we have no control over it,
-        // wait until it can be done via some Win32 API
+        // this stupid approach doesn't work, it's asynchronous and the offline conversion (download from network)
+        // can take up to a minute or not happen at all, we have no control over it,
+        // we'll wait until it works somehow via Win32 API
 //        IContextMenu2 *menu = CreateIContextMenu2(parent, path, 1, EnumFileNamesFunction_OneFile, cutName);
 //        if (menu != NULL)
 //        {

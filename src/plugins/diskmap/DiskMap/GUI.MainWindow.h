@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -168,8 +169,8 @@ protected:
 #ifdef SALAMANDER
             if (this->_callback != NULL)
             {
-                TCHAR buff[2 * MAX_PATH + 1];
-                if (this->_diskMap->GetSelectedFileName(buff, ARRAYSIZE(buff)) <= MAX_PATH)
+                CPathBuffer buff;
+                if (this->_diskMap->GetSelectedFileName(buff, buff.Size()) <= MAX_PATH)
                 {
                     this->_callback->FocusFile(buff);
                 }
@@ -375,8 +376,8 @@ protected:
             this->_tooltip->SetPathFormat((ETooltipPathFormat)(this->_callback->GetPathFormat()));
         }
 #else
-        TCHAR buff[MAX_PATH];
-        int len = GetCurrentDirectory(ARRAYSIZE(buff), buff);
+        CPathBuffer buff;
+        int len = GetCurrentDirectory(buff.Size(), buff);
         if (len > 0)
         {
             this->SetPath(buff, TRUE);

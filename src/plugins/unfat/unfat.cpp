@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -69,7 +69,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 char* LoadStr(int resID)
@@ -91,7 +91,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
-    // this plugin is intended for the current version of Salamander and later, so check it
+    // this plugin is made for the current version of Salamander or newer - perform a check
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
@@ -124,7 +124,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "UnFAT" /* do not translate! */, "ima");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -317,7 +317,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
     if (errorOccured != SALENUM_CANCEL &&
         SalamanderGeneral->TestFreeSpace(hParent, targetDir, realTotalSize, LoadStr(IDS_PLUGINNAME)))
     {
-        char title[2 * MAX_PATH];
+        CPathBuffer title;
         sprintf(title, LoadStr(IDS_EXTRACTING_ARCHIVE), SalamanderGeneral->SalPathFindFileName(fileName));
         salamander->OpenProgressDialog(title, TRUE, NULL, FALSE);
         // set the maximum value for the TOTAL progress bar
@@ -326,24 +326,24 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
         BOOL toSkip = FALSE;
 
         CAllocWholeFileEnum allocWholeFileOnStart = awfNeededTest;
-        char skipPath[2 * MAX_PATH]; // all subdirectories and files under this path will be ignored
-        skipPath[0] = 0;             // disallow skipping for now
-        DWORD silentMask = 0;        // mask holding skip modes; 0 = no skip
+        CPathBuffer skipPath; // all subdirectories and files under this path will be ignored
+        skipPath[0] = 0;     // disallow skipping for now
+        DWORD silentMask = 0; // mask holding skip modes; 0 = no skip
         ret = TRUE;
         next(NULL, -1, NULL, NULL, NULL, nextParam, NULL); // reset the enumeration
         while ((name = next(NULL /* do not report errors the second time */, 1, &isDir, &size, &fileData, nextParam, NULL)) != NULL)
         {
-            char destPath[2 * MAX_PATH];
+            CPathBuffer destPath;
             strcpy(destPath, targetDir);
 
-            char nameInArchive[2 * MAX_PATH];
+            CPathBuffer nameInArchive;
             strcpy(nameInArchive, archiveRoot);
-            SalamanderGeneral->SalPathAppend(nameInArchive, name, 2 * MAX_PATH);
+            SalamanderGeneral->SalPathAppend(nameInArchive, name, nameInArchive.Size());
 
             // reset the FILE progress bar to its initial value
             salamander->ProgressSetSize(CQuadWord(0, 0), CQuadWord(-1, -1), TRUE);
 
-            if (SalamanderGeneral->SalPathAppend(destPath, name, 2 * MAX_PATH))
+            if (SalamanderGeneral->SalPathAppend(destPath, name, destPath.Size()))
             {
                 if (skipPath[0] != 0)
                 {
@@ -358,7 +358,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
                     // create the target path
                     BOOL skipped;
                     if (SalamanderSafeFile->SafeFileCreate(destPath, 0, 0, 0, TRUE, hParent, NULL, NULL, &silentMask, TRUE, &skipped,
-                                                           skipPath, 2 * MAX_PATH, NULL, NULL) == INVALID_HANDLE_VALUE)
+                                                           skipPath, skipPath.Size(), NULL, NULL) == INVALID_HANDLE_VALUE)
                     {
                         if (!skipped)
                         {
@@ -369,15 +369,15 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
                     // set the maximum value for the FILE progress bar
                     salamander->ProgressSetTotalSize(COPY_MIN_FILE_SIZE, CQuadWord(-1, -1));
                     // "extracting: %s..."
-                    char progressText[2 * MAX_PATH + 100];
-                    sprintf(progressText, LoadStr(IDS_EXTRACTING), nameInArchive);
+                    CPathBuffer progressText;
+                    sprintf(progressText, LoadStr(IDS_EXTRACTING), (const char*)nameInArchive);
                     salamander->ProgressDialogAddText(progressText, TRUE);
 
                     CQuadWord size2 = COPY_MIN_FILE_SIZE;
                     if (!salamander->ProgressAddSize((int)size2.Value, TRUE))
                     {
                         ret = FALSE;
-                        break; // Operation canceled
+                        break; // the operation was cancelled
                     }
                 }
                 else
@@ -392,7 +392,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
 
                     BOOL skipped;
                     if (!fatImage.UnpackFile(salamander, fileName, nameInArchive, fileData, destPath,
-                                             &silentMask, TRUE, &skipped, skipPath, 2 * MAX_PATH,
+                                             &silentMask, TRUE, &skipped, skipPath, skipPath.Size(),
                                              hParent, &allocWholeFileOnStart))
                     {
                         if (!skipped)
@@ -435,7 +435,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
 
     BOOL ret = TRUE;
 
-    char title[2 * MAX_PATH];
+    CPathBuffer title;
     sprintf(title, LoadStr(IDS_EXTRACTING_ARCHIVE), SalamanderGeneral->SalPathFindFileName(fileName));
     salamander->OpenProgressDialog(title, FALSE, NULL, FALSE);
     CQuadWord totalSize;
@@ -516,9 +516,9 @@ BOOL ExtractArchive(CSalamanderDirectoryAbstract const* dir, CSalamanderMaskGrou
             // set the maximum value for the FILE progress bar
             salamander->ProgressSetTotalSize(fileData->Size, CQuadWord(-1, -1));
 
-            char myTargetDir[2 * MAX_PATH];
-            lstrcpyn(myTargetDir, targetDir, 2 * MAX_PATH);
-            SalamanderGeneral->SalPathAppend(myTargetDir, path, 2 * MAX_PATH);
+            CPathBuffer myTargetDir;
+            lstrcpyn(myTargetDir, targetDir, myTargetDir.Size());
+            SalamanderGeneral->SalPathAppend(myTargetDir, path, myTargetDir.Size());
 
             SalamanderGeneral->SalPathAppend(path, fileData->Name, pathBufSize);
 
@@ -530,14 +530,14 @@ BOOL ExtractArchive(CSalamanderDirectoryAbstract const* dir, CSalamanderMaskGrou
                     unpack = FALSE; // the item lies under skipPath so it is ignored
                 }
                 else
-                    skipPath[0] = 0; // the item does not lie under skipPath, so discard skipPath
+                    skipPath[0] = 0; // the item does not belong under skipPath, discard skipPath
             }
 
             if (unpack)
             {
                 BOOL skipped;
                 if (!img->UnpackFile(salamander, archiveName, path, fileData, myTargetDir, silent,
-                                     TRUE, &skipped, skipPath, 2 * MAX_PATH, hParent, &allocWholeFileOnStart))
+                                     TRUE, &skipped, skipPath, skipPathMax, hParent, &allocWholeFileOnStart))
                 {
                     // skip || skip all || cancel || error
                     if (!skipped)
@@ -564,16 +564,16 @@ BOOL ExtractArchive(CSalamanderDirectoryAbstract const* dir, CSalamanderMaskGrou
         BOOL unpack = TRUE;
         if (skipPath[0] != 0)
         {
-            char testPath[2 * MAX_PATH];
-            lstrcpyn(testPath, targetDir, 2 * MAX_PATH);
-            SalamanderGeneral->SalPathAppend(testPath, path, 2 * MAX_PATH);
+            CPathBuffer testPath;
+            lstrcpyn(testPath, targetDir, testPath.Size());
+            SalamanderGeneral->SalPathAppend(testPath, path, testPath.Size());
 
             if (SalamanderGeneral->PathIsPrefix(skipPath, testPath))
             {
                 unpack = FALSE; // the item lies under skipPath so it is ignored
             }
             else
-                skipPath[0] = 0; // the item is not under skipPath, so clear skipPath
+                skipPath[0] = 0; // the item does not belong under skipPath, discard skipPath
         }
 
         if (unpack)
@@ -593,19 +593,19 @@ BOOL ExtractArchive(CSalamanderDirectoryAbstract const* dir, CSalamanderMaskGrou
         salamander->ProgressSetTotalSize(COPY_MIN_FILE_SIZE, CQuadWord(-1, -1));
 
         // an empty directory must be created explicitly
-        char dirName[MAX_PATH];
-        lstrcpyn(dirName, targetDir, MAX_PATH);
-        SalamanderGeneral->SalPathAppend(dirName, path, MAX_PATH);
+        CPathBuffer dirName; // Heap-allocated for long path support
+        lstrcpyn(dirName, targetDir, dirName.Size());
+        SalamanderGeneral->SalPathAppend(dirName, path, dirName.Size());
 
         // "extracting: %s..."
-        char progressText[MAX_PATH + 100];
+        CPathBuffer progressText;
         sprintf(progressText, LoadStr(IDS_EXTRACTING), path);
         salamander->ProgressDialogAddText(progressText, TRUE);
 
         // create the target path
         BOOL skipped;
         if (SalamanderSafeFile->SafeFileCreate(dirName, 0, 0, 0, TRUE, hParent, NULL, NULL, silent, TRUE, &skipped,
-                                               skipPath, 2 * MAX_PATH, NULL, NULL) == INVALID_HANDLE_VALUE)
+                                               skipPath, skipPathMax, NULL, NULL) == INVALID_HANDLE_VALUE)
         {
             if (!skipped)
                 return FALSE;
@@ -641,11 +641,11 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
             int err;
             if (maskGroup->PrepareMasks(err))
             {
-                char path[MAX_PATH];
+                CPathBuffer path; // Heap-allocated for long path support
                 path[0] = 0;
                 CQuadWord totalSize(0, 0);
                 CQuadWord realTotalSize(0, 0);
-                CalcSize(dir, maskGroup, path, MAX_PATH, &totalSize, &realTotalSize);
+                CalcSize(dir, maskGroup, path, path.Size(), &totalSize, &realTotalSize);
 
                 if (SalamanderGeneral->TestFreeSpace(SalamanderGeneral->GetMsgBoxParent(),
                                                      targetDir, realTotalSize, LoadStr(IDS_PLUGINNAME)))
@@ -653,7 +653,7 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                     if (delArchiveWhenDone)
                         archiveVolumes->Add(fileName, -2);
 
-                    char title[2 * MAX_PATH];
+                    CPathBuffer title;
                     sprintf(title, LoadStr(IDS_EXTRACTING_ARCHIVE), SalamanderGeneral->SalPathFindFileName(fileName));
                     salamander->OpenProgressDialog(title, TRUE, NULL, FALSE);
                     // set the maximum value for the TOTAL progress bar
@@ -665,9 +665,9 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                     {
                         path[0] = 0;
                         DWORD silent = 0;
-                        char skipPath[2 * MAX_PATH]; // all subdirectories and files under this path will be ignored
-                        skipPath[0] = 0;             // disallow skipping for now
-                        ret = ExtractArchive(dir, maskGroup, salamander, &fatImage, fileName, targetDir, path, MAX_PATH, &silent, skipPath, 2 * MAX_PATH);
+                        CPathBuffer skipPath; // all subdirectories and files under this path will be ignored
+                        skipPath[0] = 0;      // disallow skipping for now
+                        ret = ExtractArchive(dir, maskGroup, salamander, &fatImage, fileName, targetDir, path, path.Size(), &silent, skipPath, skipPath.Size());
                     }
 
                     salamander->CloseProgressDialog();

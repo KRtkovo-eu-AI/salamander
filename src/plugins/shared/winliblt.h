@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -14,29 +14,29 @@
 
 #pragma once
 
-// macros for omitting unneeded parts of WinLibLT (easier compilation):
-// ENABLE_PROPERTYDIALOG - if defined, the property sheet dialog (CPropertyDialog) can be used
+// macros to suppress unnecessary parts of WinLibLT (easier compilation):
+// ENABLE_PROPERTYDIALOG - if defined, property sheet dialog can be used (CPropertyDialog)
 
-// sets custom WinLib strings
-void SetWinLibStrings(const char* invalidNumber, // "not a number" (for numeric transfer buffers)
-                      const char* error);        // title "Error" (for numeric transfer buffers)
+// set custom texts for WinLib
+void SetWinLibStrings(const char* invalidNumber, // "not a number" (for number transfer buffers)
+                      const char* error);        // title "error" (for number transfer buffers)
 
-// Must be called before using WinLib; 'pluginName' is the plugin name (e.g. "DEMOPLUG"),
-// used to distinguish the class names of WinLib universal windows (it must differ between plugins,
-// or class-name collisions will occur and WinLib cannot work - only the first started
-// plugin will work); 'dllInstance' is the plugin module (used when registering WinLib universal classes)
+// must be called before using WinLib; 'pluginName' is the plugin name (e.g. "DEMOPLUG"),
+// used to distinguish universal window class names (must differ between plugins,
+// otherwise class name collisions occur and WinLib will not work - only the first started
+// plugin will work); 'dllInstance' is the plugin module (used when registering universal WinLib classes)
 BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance);
-// Must be called after using WinLib; 'dllInstance' is the plugin module (used when unregistering
-// WinLib universal classes)
+// must be called after using WinLib; 'dllInstance' is the plugin module (used when unregistering
+// the universal WinLib classes)
 void ReleaseWinLib(HINSTANCE dllInstance);
 
-// callback type for HTML Help integration
+// callback type for connecting to HTML help
 typedef void(WINAPI* FWinLibLTHelpCallback)(HWND hWindow, UINT helpID);
 
-// sets the callback for HTML Help integration
+// set callback for connecting to HTML help
 void SetupWinLibHelp(FWinLibLTHelpCallback helpCallback);
 
-// WinLib string constants (internal use only)
+// constants for WinLib strings (internal use in WinLib only)
 enum CWLS
 {
     WLS_INVALID_NUMBER,
@@ -46,20 +46,20 @@ enum CWLS
 };
 
 extern char CWINDOW_CLASSNAME[100];  // universal window class name
-extern char CWINDOW_CLASSNAME2[100]; // universal window class name - no CS_VREDRAW | CS_HREDRAW
+extern char CWINDOW_CLASSNAME2[100]; // universal window class name - does not have CS_VREDRAW | CS_HREDRAW
 
 // ****************************************************************************
 
 enum CObjectOrigin // used when destroying windows and dialogs
 {
     ooAllocated, // deallocated on WM_DESTROY
-    ooStatic,    // HWindow is set to NULL on WM_DESTROY
-    ooStandard   // for modal dialogs = ooStatic, for modeless dialogs = ooAllocated
+    ooStatic,    // HWindow set to NULL on WM_DESTROY
+    ooStandard   // for modal dlg = ooStatic, for modeless dlg = ooAllocated
 };
 
 // ****************************************************************************
 
-enum CObjectType // for identifying the object type
+enum CObjectType // for identifying object type
 {
     otBase,
     otWindow,
@@ -72,7 +72,7 @@ enum CObjectType // for identifying the object type
 
 // ****************************************************************************
 
-class CWindowsObject // base class for all Windows objects
+class CWindowsObject // base of all MS-Windows objects
 {
 public:
     HWND HWindow;
@@ -91,9 +91,9 @@ public:
         SetHelpID(helpID);
     }
 
-    virtual ~CWindowsObject() {} // so derived-class destructors are called
+    virtual ~CWindowsObject() {} // so derived destructors are called
 
-    virtual BOOL Is(int) { return FALSE; } // object type identifier
+    virtual BOOL Is(int) { return FALSE; } // object identification
     virtual int GetObjectType() { return otBase; }
 
     virtual BOOL IsAllocated() { return ObjectOrigin == ooAllocated; }
@@ -133,11 +133,11 @@ public:
     virtual BOOL Is(int type) { return type == otWindow; }
     virtual int GetObjectType() { return otWindow; }
 
-    // registers WinLib universal classes; called automatically (unregistration is also automatic)
+    // registers universal WinLib classes, called automatically (unregistration also automatic)
     static BOOL RegisterUniversalClass(HINSTANCE dllInstance);
 
-    // registers a custom universal class; WARNING: when unloading the plugin, the class must be unregistered,
-    // otherwise reloading the plugin will fail during registration (conflict with the old class)
+    // register a custom universal class; WARNING: on plugin unload you must unregister the class,
+    // otherwise reloading the plugin will fail on registration (conflict with the old class)
     static BOOL RegisterUniversalClass(UINT style,
                                        int cbClsExtra,
                                        int cbWndExtra,
@@ -159,7 +159,7 @@ public:
                 HWND hwndParent,        // handle of parent or owner window
                 HMENU hmenu,            // handle of menu or child-window identifier
                 HINSTANCE hinst,        // handle of application instance
-                LPVOID lpvParam);       // pointer to the object of the window being created
+                LPVOID lpvParam);       // pointer to the created window object
 
     HWND CreateEx(DWORD dwExStyle,        // extended window style
                   LPCTSTR lpszClassName,  // address of registered class name
@@ -172,7 +172,7 @@ public:
                   HWND hwndParent,        // handle of parent or owner window
                   HMENU hmenu,            // handle of menu or child-window identifier
                   HINSTANCE hinst,        // handle of application instance
-                  LPVOID lpvParam);       // pointer to the object of the window being created
+                  LPVOID lpvParam);       // pointer to the created window object
 
     void AttachToWindow(HWND hWnd);
     void AttachToControl(HWND dlg, int ctrlID);
@@ -192,7 +192,7 @@ protected:
 enum CTransferType
 {
     ttDataToWindow,  // data goes to the window
-    ttDataFromWindow // data comes from the window
+    ttDataFromWindow // data goes from the window
 };
 
 // ****************************************************************************
@@ -200,7 +200,7 @@ enum CTransferType
 class CTransferInfo
 {
 public:
-    int FailCtrlID; // INT_MAX - OK, otherwise the ID of the control with the error
+    int FailCtrlID; // INT_MAX - all ok, otherwise ID of the control with an error
     CTransferType Type;
 
     CTransferInfo(HWND hDialog, CTransferType type)
@@ -219,15 +219,15 @@ public:
     void RadioButton(int ctrlID, int ctrlValue, int& value);
     void CheckBox(int ctrlID, int& value); // 0-unchecked, 1-checked, 2-grayed
 
-    // validates a double value (fails if the input is not numeric); the decimal separator may be '.' or ',';
+    // validates double value (if not a number, it fails); decimal separator can be '.' or ',';
     // 'format' is used in sprintf when converting the number to a string (e.g. "%.2f" or "%g")
     void EditLine(int ctrlID, double& value, char* format, BOOL select = TRUE);
 
-    // validates an int value (fails if the input is not numeric)
+    // validates int value (if not a number, it fails)
     void EditLine(int ctrlID, int& value, BOOL select = TRUE);
 
 protected:
-    HWND HDialog; // handle of the dialog for which the transfer is performed
+    HWND HDialog; // handle of the dialog for which transfer is performed
 };
 
 // ****************************************************************************
@@ -236,8 +236,8 @@ class CDialog : public CWindowsObject
 {
 public:
 #ifdef ENABLE_PROPERTYDIALOG
-    CWindowsObject::HWindow;         // so CPropSheetPage compiles
-    CWindowsObject::SetObjectOrigin; // so CPropSheetPage compiles
+    CWindowsObject::HWindow;         // to make CPropSheetPage compilable
+    CWindowsObject::SetObjectOrigin; // to make CPropSheetPage compilable
 #endif                               // ENABLE_PROPERTYDIALOG
 
     CDialog(HINSTANCE modul, int resID, HWND parent,
@@ -280,7 +280,7 @@ protected:
 
     virtual void NotifDlgJustCreated() {}
 
-    BOOL Modal; // because dialogs are destroyed differently
+    BOOL Modal; // for dialog destruction handling
     HINSTANCE Modul;
     int ResID;
     HWND Parent;
@@ -297,12 +297,12 @@ class CPropSheetPage : protected CDialog
 public:
     CDialog::HWindow; // HWindow remains accessible
 
-    CDialog::SetObjectOrigin; // make permitted base-class methods accessible
+    CDialog::SetObjectOrigin; // expose allowed base methods
     CDialog::Transfer;
 
-    // tested with a page dialog resource using the style:
+    // tested with dialog resource style:
     // DS_CONTROL | DS_3DLOOK | WS_CHILD | WS_CAPTION;
-    // to use the title directly from the resource, just set 'title'==NULL and
+    // if we want to use the title directly from the resource, set 'title'==NULL and
     // 'flags'==0
     CPropSheetPage(char* title, HINSTANCE modul, int resID,
                    DWORD flags /* = PSP_USETITLE*/, HICON icon,
@@ -343,11 +343,11 @@ protected:
 class CPropertyDialog : public TIndirectArray<CPropSheetPage>
 {
 public:
-    // it is best to add the individual page objects to this object
-    // and then add them via Add as "static" pages (the default);
-    // 'startPage' and 'lastPage' may be a single variable (value in/reference out);
-    // for 'flags', see the help for 'PROPSHEETHEADER'; the main usable constants are
-    // PSH_NOAPPLYNOW, PSH_USECALLBACK and PSH_HASHELP (otherwise 'flags'==0 is sufficient)
+    // it is ideal to add objects of individual pages to this object
+    // and then add them as "static" (default option) via Add;
+    // 'startPage' and 'lastPage' can be the same variable (value in/out);
+    // 'flags' see help for 'PROPSHEETHEADER', mainly the constants
+    // PSH_NOAPPLYNOW, PSH_USECALLBACK and PSH_HASHELP (otherwise 'flags'==0 is enough)
     CPropertyDialog(HWND parent, HINSTANCE modul, char* caption,
                     int startPage, DWORD flags, HICON icon = NULL,
                     DWORD* lastPage = NULL, PFNPROPSHEETCALLBACK callback = NULL)
@@ -378,7 +378,7 @@ protected:
     DWORD Flags;
     PFNPROPSHEETCALLBACK Callback;
 
-    DWORD* LastPage; // last selected page (may be NULL if not needed)
+    DWORD* LastPage; // last selected page (can be NULL if not needed)
 
     friend class CPropSheetPage;
 };
@@ -390,7 +390,7 @@ protected:
 class CWindowsManager
 {
 public:
-    int WindowsCount; // number of windows currently managed by WinLib
+    int WindowsCount; // number of windows handled by WinLib (current state)
 
 public:
     CWindowsManager() { WindowsCount = 0; }
@@ -417,10 +417,10 @@ struct CWindowQueueItem
 class CWindowQueue
 {
 protected:
-    const char* QueueName; // queue name (for debugging only)
+    const char* QueueName; // queue name (debug only)
     CWindowQueueItem* Head;
 
-    struct CCS // access from multiple threads - synchronization required
+    struct CCS // access from multiple threads -> synchronization required
     {
         CRITICAL_SECTION cs;
 
@@ -439,17 +439,17 @@ public:
     }
     ~CWindowQueue();
 
-    BOOL Add(CWindowQueueItem* item); // adds an item to the queue; returns TRUE on success
+    BOOL Add(CWindowQueueItem* item); // adds an item to the queue, returns success
     void Remove(HWND hWindow);        // removes an item from the queue
     BOOL Empty();                     // returns TRUE if the queue is empty
 
-    // sends a message to all windows (using PostMessage; the windows may be in different threads)
+    // sends (PostMessage - windows may be in different threads) a message to all windows
     void BroadcastMessage(DWORD uMsg, WPARAM wParam, LPARAM lParam);
 
-    // broadcasts WM_CLOSE, then waits for the queue to become empty (the maximum wait time is 'forceWaitTime'
-    // or 'waitTime' depending on 'force'); returns TRUE if the queue is empty (all windows were closed)
-    // or if 'force' is TRUE; INFINITE means an unlimited wait
-    // Note: when 'force' is TRUE, it always returns TRUE; there is no point in waiting, so forceWaitTime = 0
+    // broadcasts WM_CLOSE, then waits for an empty queue (max time per 'force' is either 'forceWaitTime'
+    // or 'waitTime'); returns TRUE if the queue is empty (all windows closed)
+    // or if 'force' is TRUE; INFINITE means unlimited wait
+    // Note: when 'force' is TRUE it always returns TRUE, there is no point waiting, so forceWaitTime = 0
     BOOL CloseAllWindows(BOOL force, int waitTime = 1000, int forceWaitTime = 0);
 };
 

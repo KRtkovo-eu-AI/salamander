@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -11,17 +11,17 @@ class CTreePropHolderDlg;
 
 struct CElasticLayoutCtrl
 {
-    HWND HCtrl; // handle of the control to move
-    POINT Pos;  // control position relative to the bottom edge of the bounding box
+    HWND HCtrl; // handle of control that we want to move
+    POINT Pos;  // position of control relative to bottom edge of bounding box
 };
 
-// helper class for laying out dialog controls based on the dialog size
+// helper class used for control layout in dialog based on its size
 class CElasticLayout
 {
 public:
     CElasticLayout(HWND hWindow);
     void AddResizeCtrl(int resID);
-    // lays out the controls
+    // performs arrangement of controls
     void LayoutCtrls();
 
 protected:
@@ -30,25 +30,25 @@ protected:
     void FindMoveCtrls();
 
 protected:
-    // handle of the dialog whose layout we manage
+    // handle of dialog whose layout we ensure
     HWND HWindow;
-    // divider line from which controls start moving (lies on the bottom edge of ResizeCtrls)
-    // client coordinates, in pixels
+    // dividing line from which we move controls (lies on bottom edge of ResizeCntrls)
+    // client coordinates in points
     int SplitY;
-    // controls that resize with the dialog (typically list views)
+    // controls that we stretch with size (typically listview)
     TDirectArray<CElasticLayoutCtrl> ResizeCtrls;
-    // temporary array populated by FindMoveCtrls; ideally this would be a local variable, but
-    // for convenient calls to the FindMoveControls callback (to which it must be passed)
-    // it is stored as a class member
+    // temporary array filled from FindMoveCtrls; ideally it would be a local variable, but
+    // for convenient calling of callback FindMoveControls (where we need to pass it)
+    // we place it as a class attribute
     TDirectArray<CElasticLayoutCtrl> MoveCtrls;
 };
 
 class CPropSheetPage : protected CDialog
 {
 public:
-    CDialog::SetObjectOrigin; // expose selected base-class methods
-    CDialog::Transfer;
-    CDialog::HWindow; // HWindow also remains accessible
+    using CDialog::HWindow;         // HWindow remains also accessible
+    using CDialog::SetObjectOrigin; // access to allowed methods of parent
+    using CDialog::Transfer;
 
     CPropSheetPage(const TCHAR* title, HINSTANCE modul, int resID,
                    DWORD flags /* = PSP_USETITLE*/, HICON icon,
@@ -68,6 +68,7 @@ public:
     virtual BOOL Is(int type) { return type == otPropSheetPage || CDialog::Is(type); }
     virtual int GetObjectType() { return otPropSheetPage; }
     virtual BOOL IsAllocated() { return ObjectOrigin == ooAllocated; }
+    void SetDarkModeGroupBoxThemeEnabled(BOOL enabled) { DarkModeGroupBoxThemeEnabled = enabled; }
 
     static INT_PTR CALLBACK CPropSheetPageProc(HWND hwndDlg, UINT uMsg,
                                                WPARAM wParam, LPARAM lParam);
@@ -86,8 +87,9 @@ protected:
     HTREEITEM HTreeItem;
     BOOL* Expanded;
 
-    // if not NULL, resizing the dialog also updates the control layout
+    // if different from NULL, we change the layout of controls when dialog size changes
     CElasticLayout* ElasticLayout;
+    BOOL DarkModeGroupBoxThemeEnabled;
 
     friend class CPropertyDialog;
     friend class CTreePropDialog;
@@ -120,7 +122,7 @@ public:
     virtual int GetCurSel();
 
 protected:
-    HWND Parent; // dialog creation parameters
+    HWND Parent; // parameters for dialog creation
     HWND HWindow;
     HINSTANCE Modul;
     HICON Icon;
@@ -129,7 +131,7 @@ protected:
     DWORD Flags;
     PFNPROPSHEETCALLBACK Callback;
 
-    DWORD* LastPage; // last selected page (may be NULL if not needed)
+    DWORD* LastPage; // last selected page (can be NULL if not interested)
 
     friend class CPropSheetPage;
 };
@@ -138,8 +140,8 @@ protected:
 
 class CTreePropDialog;
 
-// gray shaded bar above the property sheet in the tree variant of PropertyDialog,
-// showing the name of the current page
+// gray shaded bar above property sheet in tree variant of PropertyDialog,
+// where the name of current page is displayed
 class CTPHCaptionWindow : protected CWindow
 {
 protected:
@@ -156,7 +158,7 @@ protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
-// show only the resize cursor over the grip control
+// on grip control we want only top-down cursor
 class CTPHGripWindow : public CWindow
 {
 public:
@@ -166,7 +168,7 @@ protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
-// dialog that hosts the tree view, shaded caption, and current property sheet
+// dialog that holds treeview, shaded title and current property sheet
 class CTreePropHolderDlg : public CDialog
 {
 protected:
@@ -177,17 +179,17 @@ protected:
     RECT ChildDialogRect;
     int CurrentPageIndex;
     CPropSheetPage* ChildDialog;
-    int ExitButton; // ID of the button that closed the dialog
+    int ExitButton; // ID of button that closed the dialog
 
     // dimensions in points
-    SIZE MinWindowSize;  // minimum dialog size (determined by the largest child dialog)
-    DWORD* WindowHeight; // current dialog height
-    int TreeWidth;       // tree view width, calculated from the contents
-    int CaptionHeight;   // caption height
-    SIZE ButtonSize;     // size of the buttons along the bottom edge of the dialog
+    SIZE MinWindowSize;  // minimal dimensions of dialog (determined by largest child dlg)
+    DWORD* WindowHeight; // current height of dialog
+    int TreeWidth;       // width of treeview, calculated based on content
+    int CaptionHeight;   // height of title
+    SIZE ButtonSize;     // dimensions of buttons on bottom edge of dialog
     int ButtonMargin;    // spacing between buttons
-    SIZE GripSize;       // size of the resize grip in the dialog's bottom-right corner
-    SIZE MarginSize;     // horizontal and vertical margins
+    SIZE GripSize;       // dimensions of resize grip in right bottom corner of dialog
+    SIZE MarginSize;     // horizontal and vertical margin
 
 public:
     CTreePropHolderDlg(HWND hParent, DWORD* windowHeight);
@@ -206,7 +208,7 @@ protected:
     friend class CTreePropDialog;
 };
 
-// page data holder for the tree version of PropertyDialog
+// data holder for pages in tree version of PropertyDialog
 class CTreePropDialog : public CPropertyDialog
 {
 protected:

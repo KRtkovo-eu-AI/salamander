@@ -1,10 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "svg.h"
+#include "common/unicode/helpers.h"
 
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg\nanosvg.h"
@@ -17,10 +18,10 @@ CSVGSprite SVGArrowMore;
 CSVGSprite SVGArrowLess;
 CSVGSprite SVGArrowDropDown;
 
-// Alternative: http://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers
-// (we could probably find one for shorter versions as well)
+// alternative: http://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers
+// (could probably be found for shorter versions too)
 //
-// The following solution has the advantage that constants are computed within the precompiler
+// the following solution has the advantage that for constants it will be computed at compile time
 // LOG2_k(n) returns floor(log2(n)) and is valid for values 0 <= n < 1 << k
 #define LOG2_2(n) ((n) & 0x2 ? 1 : 0)
 #define LOG2_4(n) ((n) & 0xC ? 2 + LOG2_2((n) >> 2) : LOG2_2(n))
@@ -50,7 +51,7 @@ DWORD GetSVGSysColor(int index)
 char* ReadSVGFile(const char* fileName)
 {
     char* buff = NULL;
-    HANDLE hFile = HANDLES_Q(CreateFile(fileName, GENERIC_READ,
+    HANDLE hFile = HANDLES_Q(CreateFileW(AnsiToWide(fileName).c_str(), GENERIC_READ,
                                         FILE_SHARE_READ, NULL,
                                         OPEN_EXISTING,
                                         FILE_FLAG_SEQUENTIAL_SCAN,
@@ -86,11 +87,11 @@ char* ReadSVGFile(const char* fileName)
     return buff;
 }
 
-// Renders icons for which we have an SVG representation
+// render icons for which we have SVG representation
 void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svgName, int iconSize, COLORREF bkColor, BOOL enabled)
 {
-    char svgFile[2 * MAX_PATH];
-    GetModuleFileName(NULL, svgFile, _countof(svgFile));
+    CPathBuffer svgFile;
+    GetModuleFileName(NULL, svgFile, svgFile.Size());
     char* s = strrchr(svgFile, '\\');
     if (s != NULL)
         sprintf(s + 1, "toolbars\\%s.svg", svgName);
@@ -125,7 +126,7 @@ void RenderSVGImage(NSVGrasterizer* rast, HDC hDC, int x, int y, const char* svg
 
         if (!enabled)
         {
-            DWORD disabledColor = GetSVGSysColor(COLOR_BTNSHADOW); // JRYFIXME - initial draft: where will we get the disabled color from?
+            DWORD disabledColor = GetSVGSysColor(COLOR_BTNSHADOW); // JRYFIXME - initial guess, where will we get the disabled color from?
             NSVGshape* shape = image->shapes;
             while (shape != NULL)
             {

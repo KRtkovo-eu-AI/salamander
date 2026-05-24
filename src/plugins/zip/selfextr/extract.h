@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -80,7 +81,7 @@ typedef struct
 #define SIG_CENTRFH 0x02014b50    //central file header signature
 #define SIG_EOCENTRDIR 0x06054b50 //end of central dir signature
 
-//general purpose bit flag masks
+//general purose bit flag masks
 #define GPF_ENCRYPTED 0x01 //indicate that file is encrypted
 #define GPF_DATADESCR 0x08 //compressed data are followed by data descriptor
 

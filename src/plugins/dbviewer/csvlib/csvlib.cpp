@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <stdio.h>
@@ -21,7 +22,7 @@
 #include "csvlib.h"
 
 // only an optimization detail
-extern BOOL IsAlphaNumeric[256]; // TRUE/FALSE array for characters (FALSE = not a letter or digit)
+extern BOOL IsAlphaNumeric[256]; // TRUE/FALSE array for characters (FALSE = not a letter nor a digit)
 extern BOOL IsAlpha[256];
 
 #define SizeOf(x) (sizeof(x) / sizeof(x[0]))
@@ -194,7 +195,7 @@ CCSVParser<CChar>::CCSVParser(const char* filename,
         bIsBigEndian = BOM == 0xFFFE;
     }
     else
-    { // Detect UTF-8
+    { // Detect UTF8
         BYTE b[3];
         fread(b, 1, 3, File);
         if (!memcmp(b, "\xEF\xBB\xBF", 3))

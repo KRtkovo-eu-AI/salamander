@@ -1,10 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "mapi.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
 
 CSimpleMAPI::CSimpleMAPI()
     : FileNames(10, 50), TotalSize(0, 0)
@@ -28,14 +30,13 @@ BOOL CSimpleMAPI::Init(HWND hParent)
         HLibrary = HANDLES_Q(LoadLibrary("mapi32.dll"));
         if (HLibrary == NULL)
         {
-            // Under NT 4.0 US + IE 4.01 US, mapi32.dll is not installed,
-            // but I found msoemapi.dll there. It has the required export and,
-            // more importantly, it works, so it is worth trying.
+            // under NT4.0 US + IE 4.01 US, mapi32.dll is not installed
+            // but I found msoemapi.dll there which has the necessary export and more importantly, it works,
+            // so why not try it...
             HLibrary = HANDLES_Q(LoadLibrary("msoemapi.dll"));
             if (HLibrary == NULL)
             {
-                SalMessageBox(hParent, LoadStr(IDS_EMAILFILES_MAPIERROR), LoadStr(IDS_ERRORTITLE),
-                              MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_EMAILFILES_MAPIERROR));
                 return FALSE;
             }
         }
@@ -45,8 +46,7 @@ BOOL CSimpleMAPI::Init(HWND hParent)
         if (MAPISendMail == NULL)
         {
             Release();
-            SalMessageBox(hParent, LoadStr(IDS_EMAILFILES_MAPIERROR), LoadStr(IDS_ERRORTITLE),
-                          MB_OK | MB_ICONEXCLAMATION);
+            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_EMAILFILES_MAPIERROR));
             return FALSE;
         }
     }
@@ -144,7 +144,7 @@ BOOL CSimpleMAPI::SendMail()
     message.nFileCount = FileNames.Count;
     message.lpFiles = fileDesc;
 
-    char* subject = (char*)malloc(subjectSize + strlen(LoadStr(IDS_EMAILFILES_SUBJECT)) + 2); // space for the email subject and the terminating NULL
+    char* subject = (char*)malloc(subjectSize + strlen(LoadStr(IDS_EMAILFILES_SUBJECT)) + 2); // space for "emailing" and the terminating NULL
     if (subject == NULL)
     {
         TRACE_E(LOW_MEMORY);
@@ -183,16 +183,14 @@ BOOL CSimpleMAPI::SendMail()
 
     free(subject);
     free(fileDesc);
-    // do not report anything, because different clients return different values
-    // for example, Outlook 6 on XP returned 1 when cancelling a message or 3
+    // report nothing because various clients return different values
+    // for example Outlook 6 on XP returned 1 when cancelling a message or 3
     // when cancelling the connection wizard (if it was not configured)
     /*
   if (ret != 0)
   {
-    char buff[50];
-    sprintf(buff, "error 3: %d", err);
-    SalMessageBox(hParent, buff, LoadStr(IDS_ERRORTITLE),
-                  MB_OK | MB_ICONEXCLAMATION);
+    std::wstring msg = FormatStrW(L"error 3: %d", err);
+    gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), msg.c_str());
     return FALSE;
   }
 */

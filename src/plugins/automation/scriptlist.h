@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -55,7 +56,7 @@ public:
     };
 
 private:
-    TCHAR m_szFileName[MAX_PATH];
+    CPathBuffer m_szFileName;
     TCHAR m_szDisplayName[64];
     CLSID m_clsidEngine;
     IActiveScript* m_pScript;
@@ -70,7 +71,7 @@ private:
     IActiveScriptError* m_pHardError;
     bool m_bSiteErrorDisplayed; ///< Message box shown in site's OnScriptError.
     class CScriptEngineShim* m_pShim;
-    HANDLE m_hAbortEvent; ///< Manual-reset event signaled when the user requests abort.
+    HANDLE m_hAbortEvent; ///< Manually reset event signaled when the user requested abort.
     HWND m_hwndAbortTarget;
 
     // statistics stuff
@@ -220,7 +221,7 @@ private:
     CScriptContainer* m_pChild;
     CScriptContainer* m_pParent;
     CScriptInfo* m_pScripts;
-    TCHAR m_szPath[MAX_PATH];
+    CPathBuffer m_szPath;
     PTSTR m_pszName;
 
     friend class CScriptLookup;

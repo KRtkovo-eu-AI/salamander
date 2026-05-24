@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /********************************************************************
@@ -68,14 +69,16 @@ extern "C"
         unsigned char header[282]; /* working space for header encode */
         int header_fill;
 
-        int e_o_s; /* set when the last packet in the logical bitstream has been buffered */
-        int b_o_s; /* set after the initial page of a logical bitstream has been written */
+        int e_o_s; /* set when we have buffered the last packet in the
+                             logical bitstream */
+        int b_o_s; /* set after we've written the initial page
+                             of a logical bitstream */
         long serialno;
         long pageno;
         ogg_int64_t packetno; /* sequence number for decode; the framing
                              knows where there's a hole in the data,
                              but we need coupling so that the codec
-                             (which is in a separate abstraction
+                             (which is in a seperate abstraction
                              layer) also knows about the gap */
         ogg_int64_t granulepos;
 
@@ -96,7 +99,7 @@ extern "C"
         ogg_int64_t packetno; /* sequence number for decode; the framing
 				knows where there's a hole in the data,
 				but we need coupling so that the codec
-				(which is in a separate abstraction
+				(which is in a seperate abstraction
 				layer) also knows about the gap */
     } ogg_packet;
 

@@ -1,9 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
 
 #include "versinfo.h"
+#include "translator.h"
 
 //*****************************************************************************
 //
@@ -75,7 +77,7 @@ BOOL CVersionBlock::AddChild(CVersionBlock* block)
 // CVersionInfo
 //
 
-#define ALIGN_DWORD(type, p) ((type)(((DWORD)p + 3) & ~3))
+#define ALIGN_DWORD(type, p) ((type)(((DWORD_PTR)(p) + 3) & ~3))
 
 CVersionInfo::CVersionInfo()
 {
@@ -252,7 +254,7 @@ BOOL CVersionInfo::ReadResource(HINSTANCE hInstance, int resID)
     {
         char errtext[3000];
         sprintf_s(errtext, "Multiple language resources for versioninfo resID: %d.", resID);
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
     TLangID = (WORD)langID;

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -110,8 +111,8 @@ void CRemoteComparator::RecieveMessage(const CMessage* message)
         return;
     CRCMessage* msg = (CRCMessage*)message;
 
-    char Path1[MAX_PATH];
-    char Path2[MAX_PATH];
+    CPathBuffer Path1; // Heap-allocated for long path support
+    CPathBuffer Path2;
     strcpy(Path1, msg->Path1);
     strcpy(Path2, msg->Path2);
 

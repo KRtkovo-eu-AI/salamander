@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -12,7 +13,7 @@ extern const char* SFX_TDREGVAL;
 
 int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* zip2sfxDir);
 
-// return values
+// return valueas
 //
 // lower word is one of the following values:
 //
@@ -22,6 +23,6 @@ int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* 
 // 3 unknown keyword in $()
 // 4 bad key
 //
-// higher word contains the index where the syntax error occurred in the target dir string
+// higher word contains index of where the syntax error occured in the target dir string
 DWORD ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                      const char** dirSpecLeft, const char** dirSpecRight, HKEY* Key);

@@ -1,11 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "menu.h"
 #include "mainwnd.h"
+#include "darkmode.h"
 
 //*****************************************************************************
 //
@@ -14,6 +15,29 @@
 
 #define MENUBAR_LR_MARGIN 8 // number of points before and after the text, including the vertical line
 #define MENUBAR_TB_MARGIN 4 // number of points above and below the text, including the horizontal line
+
+static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
+static COLORREF GetMenuBarBkColor(BOOL hot)
+{
+    if (!DarkMode_ShouldUseDark())
+        return GetSysColor(hot ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
+    return hot ? RGB(62, 62, 64) : RGB(45, 45, 48);
+}
+
+static COLORREF GetMenuBarTextColor(BOOL hot)
+{
+    if (!DarkMode_ShouldUseDark())
+        return GetSysColor(hot ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT);
+    return hot ? RGB(245, 245, 245) : RGB(232, 232, 232);
+}
 
 CMenuBar::CMenuBar(CMenuPopup* menu, HWND hNotifyWindow, CObjectOrigin origin)
     : CWindow(origin)
@@ -86,6 +110,8 @@ BOOL CMenuBar::CreateWnd(HWND hParent)
         return FALSE;
     }
     RefreshMinWidths();
+    InvalidateRect(HWindow, NULL, TRUE);
+    UpdateWindow(HWindow);
     return TRUE;
 }
 
@@ -109,6 +135,11 @@ void CMenuBar::SetFont()
     SelectObject(hDC, hOldFont);
     HANDLES(ReleaseDC(NULL, hDC));
     RefreshMinWidths();
+    if (HWindow != NULL)
+    {
+        InvalidateRect(HWindow, NULL, TRUE);
+        UpdateWindow(HWindow);
+    }
 }
 
 int CMenuBar::GetNeededWidth()
@@ -172,18 +203,17 @@ void CMenuBar::DrawItem(HDC hDC, int index, int x)
     RECT r2 = r;
     r2.top = 0;
     r2.bottom = 1;
-    FillRect(hDC, &r2, (HBRUSH)(COLOR_BTNFACE + 1));
+    FillRectWithColor(hDC, &r2, GetMenuBarBkColor(FALSE));
     r2.top = Height - 1;
     r2.bottom = Height;
-    FillRect(hDC, &r2, (HBRUSH)(COLOR_BTNFACE + 1));
+    FillRectWithColor(hDC, &r2, GetMenuBarBkColor(FALSE));
 
-    int bkColor = (HotIndex == index && !Closing) ? COLOR_HIGHLIGHT : COLOR_BTNFACE;
-    int textColor = (HotIndex == index && !Closing) ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT;
-    FillRect(hDC, &r, (HBRUSH)(UINT_PTR)(bkColor + 1));
+    BOOL hot = (HotIndex == index && !Closing);
+    FillRectWithColor(hDC, &r, GetMenuBarBkColor(hot));
 
     r.top += MENUBAR_TB_MARGIN - 1;
     r.left += MENUBAR_LR_MARGIN;
-    SetTextColor(hDC, GetSysColor(textColor));
+    SetTextColor(hDC, GetMenuBarTextColor(hot));
 
     // NOTE: Since Windows Vista Microsoft broke something in the rebar. Resizing
     // the window leads to redrawing all bands, as a result, the entire menu is redrawn and sometimes flickers
@@ -204,7 +234,7 @@ void CMenuBar::DrawItem(int index)
     HDC hDC = HANDLES(GetDC(HWindow));
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_BTNTEXT));
+    COLORREF oldTextColor = SetTextColor(hDC, GetMenuBarTextColor(FALSE));
     int x = 0;
     int i;
     for (i = 0; i < index; i++)
@@ -221,7 +251,7 @@ void CMenuBar::DrawAllItems(HDC hDC)
     CALL_STACK_MESSAGE1("CMenuBar::DrawAllItems()");
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     int oldBkMode = SetBkMode(hDC, TRANSPARENT);
-    COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_BTNTEXT));
+    COLORREF oldTextColor = SetTextColor(hDC, GetMenuBarTextColor(FALSE));
     int x = 0;
     int i;
     for (i = 0; i < Menu->Items.Count; i++)
@@ -238,7 +268,7 @@ void CMenuBar::DrawAllItems(HDC hDC)
     RECT r;
     GetClientRect(HWindow, &r);
     r.left = x;
-    FillRect((HDC)hDC, &r, HDialogBrush);
+    FillRectWithColor(hDC, &r, GetMenuBarBkColor(FALSE));
 }
 
 void CMenuBar::RefreshMinWidths()
@@ -396,7 +426,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
             case WM_KEYDOWN:
             {
                 BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-                if (msg.wParam == VK_MENU && (msg.lParam & 0x40000000) == 0 || // Alt down, but not auto-repeat
+                if (msg.wParam == VK_MENU && (msg.lParam & 0x40000000) == 0 || // Alt down, but not an autorepeat
                     (!shiftPressed && msg.wParam == VK_F10))
                 {
                     leaveLoop = TRUE;
@@ -556,7 +586,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
 
     // remove ourselves from monitoring closing messages
     MenuWindowQueue.Remove(HWindow);
-    // if we hooked the thread, we will also unhook it
+    // if we hooked, we will also unhook
     if (hOldHookProc != NULL)
         OldMenuHookTlsAllocator.UnhookThread(hOldHookProc);
 
@@ -584,7 +614,7 @@ void CMenuBar::EnterMenuInternal(int index, BOOL openWidthSelect, BOOL byMouse)
         PostMessage(hWndUnderCursor, WM_MOUSEMOVE, 0, MAKELPARAM(cursorPos.x, cursorPos.y));
     }
 
-    // we will deliver the delayed message
+    // we willdeliver the delayed message
     if (DispatchDelayedMsg)
     {
         TranslateMessage(&DelayedMsg);
@@ -715,7 +745,7 @@ BOOL CMenuBar::IsMenuBarMessage(CONST MSG* lpMsg)
         }
         else
         {
-            WheelDuringMenu = FALSE; // if the user scrolled the wheel and then typed a number (Alt+numXXX), scrolling is ignored
+            WheelDuringMenu = FALSE; // if the user scrolled the wheel and then typed a number (Alt+numXXX), we will ignore the scrolling
             HandlingVK_MENU = FALSE;
         }
         if (wParam == VK_F10)
@@ -754,7 +784,7 @@ BOOL CMenuBar::IsMenuBarMessage(CONST MSG* lpMsg)
             if (WheelDuringMenu)
             {
                 WheelDuringMenu = FALSE;
-                return TRUE; // suppress Alt release after Alt+Wheel; otherwise the window menu is entered without being shown
+                return TRUE; // suppress releasing Alt after Alt+Wheel, otherwise the window menu opens (without being shown)
             }
             // if the user did not use the wheel, we must not process the message
             // Alt+num064 (etc.) is used for inserting characters
@@ -826,11 +856,11 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
-        if (WindowsVistaAndLater) // On Vista, the rebar flickers
+        if (WindowsVistaAndLater) // under Vista the rebar flickers
             return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect((HDC)wParam, &r, HDialogBrush);
+        FillRectWithColor((HDC)wParam, &r, GetMenuBarBkColor(FALSE));
         return TRUE;
     }
 
@@ -908,7 +938,7 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int newHotIndex = HotIndex;
             if (hitItem)
             {
-                if (!HelpMode2 && !MenuLoop && !MouseIsTracked) // mouse leave tracking is needed only in track mode
+                if (!HelpMode2 && !MenuLoop && !MouseIsTracked) // capture is needed only in the track mode
                 {
                     TRACKMOUSEEVENT tme;
                     tme.cbSize = sizeof(tme);

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -23,7 +23,7 @@ BOOL CPluginFSInterface::TryCloseOrDetach(BOOL forceClose, BOOL canDetach, BOOL&
     {
         if (reason == FSTRYCLOSE_CHANGEPATH)
         {
-            if (canDetach && !Config.DisconnectCommandUsed) // "close or detach", not the "Disconnect" command
+            if (canDetach && !Config.DisconnectCommandUsed) // "close or detach" and it is not the "Disconnect" command
             {
                 int res;
                 if (!Config.AlwaysNotCloseCon)
@@ -88,7 +88,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             {
                 close = ret = TRUE; // this prompt proved to be very confusing and incomprehensible, so we simply prefer Disconnect
                                     /*
-        // "no path on the FTP server is accessible, disconnect?"
+        // "no path on the FTP is accessible, disconnect?"
         close = ret = (SalamanderGeneral->SalMessageBox(SalamanderGeneral->GetMsgBoxParent(),
                                                         LoadStr(IDS_NOPATHACCESSINPANEL),
                                                         LoadStr(IDS_FTPPLUGINTITLE),
@@ -168,12 +168,12 @@ void CPluginFSInterface::Event(int event, DWORD param)
 
     case FSE_TIMER: // delayed panel refresh (to give the connection time to return from the operation dialog to the panel)
     {
-        DWORD paramLimit = 4; // wait up to one second for the connection (we wait to see whether the worker will try to hand over the connection)
+        DWORD paramLimit = 4; // maximum one second waiting for the connection (we wait to see whether the worker will try to hand over the connection)
         DWORD ti;
         if (ControlConnection != NULL &&
             ControlConnection->GetIsSocketConnectedLastCallTime(&ti) && GetTickCount() - ti < 5000)
         {
-            paramLimit = 24; // wait up to five seconds for the connection (we know the worker is trying to hand it over)
+            paramLimit = 24; // maximum five seconds waiting for the connection (we know the worker is trying to hand it over)
         }
         if (param >= paramLimit || // param < paramLimit: start the refresh only if we have the connection, param >= paramLimit always allows the refresh
             ControlConnection != NULL && ControlConnection->IsConnected())
@@ -222,8 +222,8 @@ void CPluginFSInterface::ReleaseObject(HWND parent)
         }
         else
         {
-            // if we have not yet logged what caused the connection to close, do it now
-            // at least to the log (there is no point in showing a window; the user is probably no longer interested)
+            // if we have not yet written what led to closing the connection, do it now
+            // at least into the log (there is no point in showing a window, the user is probably no longer interested)
             ControlConnection->CheckCtrlConClose(TRUE, FALSE, parent, TRUE);
         }
 
@@ -319,7 +319,7 @@ BOOL CPluginFSInterface::GetNextDirectoryLineHotPath(const char* text, int pathL
             if (*root == '/' || *root == '\\')
                 root++; // skip '/' or '\\' from the disk root path
         }
-        if (DirLineHotPathType == ftpsptTandem) // for Tandem paths, skip "system" ("\\SYSTEM"); a shorter path makes no sense
+        if (DirLineHotPathType == ftpsptTandem) // for Tandem paths skip the "system" ("\\SYSTEM"), a shorter path makes no sense
             while (root < end && *root != '.')
                 root++;
     }
@@ -389,8 +389,8 @@ BOOL CPluginFSInterface::GetNextDirectoryLineHotPath(const char* text, int pathL
             break;
         }
 
-        case ftpsptNetware: // "/pub/altap/salamand" or "\pub\altap\salamand"
-        case ftpsptWindows: // "/pub/altap/salamand" or "\pub\altap\salamand"
+        case ftpsptNetware: // "/pub/altap/sally" or "\pub\altap\sally"
+        case ftpsptWindows: // "/pub/altap/sally" or "\pub\altap\sally"
         case ftpsptOS2:     // e.g. C:/DIR1/DIR2 or C:\DIR1\DIR2
         {                   // the separators are '/' and '\\'
             if (*s == '/' || *s == '\\')
@@ -400,7 +400,7 @@ BOOL CPluginFSInterface::GetNextDirectoryLineHotPath(const char* text, int pathL
             break;
         }
 
-        default: // Unix and others: "/pub/altap/salamand" (but also "/\dir-with-backslash")
+        default: // Unix and others: "/pub/altap/sally" (but also "/\dir-with-backslash")
         {        // the separator is '/'
             if (*s == '/')
                 s++;
@@ -487,14 +487,14 @@ BOOL CPluginFSInterface::GetPathForMainWindowTitle(const char* fsName, int mode,
 {
     CFTPServerPathType pathType = ControlConnection != NULL ? ControlConnection->GetFTPServerPathType(Path) : ftpsptUnknown;
     BOOL needFullPath = FALSE;
-    char root[2 * MAX_PATH];
-    char path[FTP_MAX_PATH];
+    CPathBuffer root;
+    CPathBuffer path;
     if (mode == 1) // "Directory Name Only" mode
     {
-        lstrcpyn(path, Path, FTP_MAX_PATH);
+        lstrcpyn(path, Path, path.Size());
         if (pathType == ftpsptUnknown)
             pathType = ftpsptUnix;
-        if (FTPCutDirectory(pathType, path, FTP_MAX_PATH, buf, bufSize, NULL)) // trimming succeeded
+        if (FTPCutDirectory(pathType, path, path.Size(), buf, bufSize, NULL)) // trimming succeeded
         {
             return TRUE;
         }
@@ -509,7 +509,7 @@ BOOL CPluginFSInterface::GetPathForMainWindowTitle(const char* fsName, int mode,
         {
             char* trimStart = NULL;
             char* trimEnd = NULL;
-            lstrcpyn(path, Path, FTP_MAX_PATH);
+            lstrcpyn(path, Path, path.Size());
             switch (pathType)
             {
             case ftpsptIBMz_VM: // "ACADEM:ANONYMOU.PICS" (+the root must end with a dot: "ACADEM:ANONYMOU.")
@@ -577,8 +577,8 @@ BOOL CPluginFSInterface::GetPathForMainWindowTitle(const char* fsName, int mode,
                 break;
             }
 
-            case ftpsptNetware: // "/pub/altap/salamand" or "\pub\altap\salamand"
-            case ftpsptWindows: // "/pub/altap/salamand" or "\pub\altap\salamand"
+            case ftpsptNetware: // "/pub/altap/sally" or "\pub\altap\sally"
+            case ftpsptWindows: // "/pub/altap/sally" or "\pub\altap\sally"
             {                   // the separators are '/' and '\\'
                 if (path[0] == '/' || path[0] == '\\')
                     trimStart = path + 1;
@@ -624,7 +624,7 @@ BOOL CPluginFSInterface::GetPathForMainWindowTitle(const char* fsName, int mode,
                 break;
             }
 
-            default: // Unix and others: "/pub/altap/salamand" (but also "/\dir-with-backslash")
+            default: // Unix and others: "/pub/altap/sally" (but also "/\dir-with-backslash")
             {        // the separator is '/'
                 if (path[0] == '/')
                     trimStart = path + 1;
@@ -645,7 +645,7 @@ BOOL CPluginFSInterface::GetPathForMainWindowTitle(const char* fsName, int mode,
                 memcpy(trimStart, "...", 3);
                 sprintf(root, "%s:", fsName);
                 int len = (int)strlen(root);
-                if (MakeUserPart(root + len, 2 * MAX_PATH - len, path))
+                if (MakeUserPart(root + len, root.Size() - len, path))
                 {
                     lstrcpyn(buf, root, bufSize);
                     return TRUE;
@@ -659,7 +659,7 @@ BOOL CPluginFSInterface::GetPathForMainWindowTitle(const char* fsName, int mode,
     {
         sprintf(root, "%s:", fsName);
         int len = (int)strlen(root);
-        if (MakeUserPart(root + len, 2 * MAX_PATH - len, Path))
+        if (MakeUserPart(root + len, root.Size() - len, Path))
         {
             lstrcpyn(buf, root, bufSize);
             return TRUE;
@@ -745,11 +745,11 @@ void CPluginFSInterface::SendUserFTPCommand(HWND parent)
         dlg.Execute() == IDOK)
     {
         // store the path for which we will report a change after the command is executed
-        char changedPath[2 * MAX_PATH];
+        CPathBuffer changedPath;
         const char* fsName = ControlConnection->GetEncryptControlConnection() == 1 ? AssignedFSNameFTPS : AssignedFSName;
         sprintf(changedPath, "%s:", fsName);
         int len = (int)strlen(changedPath);
-        MakeUserPart(changedPath + len, 2 * MAX_PATH - len);
+        MakeUserPart(changedPath + len, changedPath.Size() - len);
 
         char cmdBuf[FTPCOMMAND_MAX_SIZE + 2];
         char logBuf[FTPCOMMAND_MAX_SIZE + 2];
@@ -775,19 +775,19 @@ void CPluginFSInterface::SendUserFTPCommand(HWND parent)
         {
             BOOL run = FALSE;
             BOOL ok = TRUE;
-            char newPath[FTP_MAX_PATH];
+            CPathBuffer newPath;
             BOOL needChangeDir = reconnected; // after reconnect try to set the working directory again
-            if (!reconnected)                 // already connected for some time, verify that the working directory matches 'Path'
+            if (!reconnected)                 // already connected for a longer time, verify that the working directory matches 'Path'
             {
                 // use the cache, under normal circumstances the path should be there
-                ok = ControlConnection->GetCurrentWorkingPath(parent, newPath, FTP_MAX_PATH, FALSE,
+                ok = ControlConnection->GetCurrentWorkingPath(parent, newPath, newPath.Size(), FALSE,
                                                               &canRetry, retryMsgBuf, 300);
                 if (!ok && canRetry) // "retry" is allowed
                 {
                     run = TRUE;
                     retryMsgAux = retryMsgBuf;
                 }
-                if (ok && strcmp(newPath, Path) != 0) // the working directory on the server differs - change required
+                if (ok && strcmp(newPath, Path) != 0) // working directory on the server differs - change required
                     needChangeDir = TRUE;             // (assumption: the server returns the same working path string)
             }
             if (ok && needChangeDir) // working directory needs to be changed
@@ -795,16 +795,16 @@ void CPluginFSInterface::SendUserFTPCommand(HWND parent)
                 int panel;
                 BOOL notInPanel = !SalamanderGeneral->GetPanelWithPluginFS(this, panel);
                 BOOL success;
-                // SendChangeWorkingPath() calls ReconnectIfNeeded() on connection failure; this
+                // SendChangeWorkingPath() calls ReconnectIfNeeded() on connection failure, luckily that
                 // does not matter because the code preceding this call runs only when reconnect did not
                 // occur - "if (!reconnected)" - if reconnect happens, both code paths are the same
                 ok = ControlConnection->SendChangeWorkingPath(notInPanel, panel == PANEL_LEFT, parent, Path,
                                                               User, USER_MAX_SIZE, &success,
                                                               ftpReplyBuf, 700, NULL,
                                                               &TotalConnectAttemptNum, NULL, TRUE, NULL);
-                if (ok && !success && Path[0] != 0) // send succeeded, but the server reports an error (+ignore the error for an empty path) -> the user command cannot be sent
+                if (ok && !success && Path[0] != 0) // send succeeded, but the server reports an error (+ignore the error for an empty path) -> user command cannot
                 {                                   // be sent (it may be tied to the current path in the panel)
-                    char errBuf[900 + FTP_MAX_PATH];
+                    CPathBuffer errBuf;
                     _snprintf_s(errBuf, _TRUNCATE, LoadStr(IDS_CHANGEWORKPATHERROR), Path, ftpReplyBuf);
                     SalamanderGeneral->SalMessageBox(parent, errBuf, LoadStr(IDS_FTPERRORTITLE),
                                                      MB_OK | MB_ICONEXCLAMATION);
@@ -827,7 +827,7 @@ void CPluginFSInterface::SendUserFTPCommand(HWND parent)
                     {
                         int panel;
                         BOOL notInPanel = !SalamanderGeneral->GetPanelWithPluginFS(this, panel);
-                        ok = ControlConnection->GetCurrentWorkingPath(parent, newPath, FTP_MAX_PATH, TRUE,
+                        ok = ControlConnection->GetCurrentWorkingPath(parent, newPath, newPath.Size(), TRUE,
                                                                       &canRetry, retryMsgBuf, 300);
                         if (!ok && canRetry) // "retry" is allowed
                         {
@@ -844,7 +844,7 @@ void CPluginFSInterface::SendUserFTPCommand(HWND parent)
                         }
                     }
 
-                    if (ok) // command succeeded, report the command result to the user
+                    if (ok) // everything went well, report the command result to the user
                     {
                         char* s = logBuf + strlen(logBuf);
                         while (s > logBuf && (*(s - 1) == '\n' || *(s - 1) == '\r'))
@@ -856,7 +856,7 @@ void CPluginFSInterface::SendUserFTPCommand(HWND parent)
                 }
                 else
                 {
-                    if (dlg.RefreshWorkingPath) // Path may have changed, invalidate the listing for Path in the cache
+                    if (dlg.RefreshWorkingPath) // the Path may have changed, invalidate the Path listing cache
                         UploadListingCache.ReportUnknownChange(User, Host, Port, Path, GetFTPServerPathType(Path));
 
                     if (canRetry) // "retry" is allowed
@@ -927,7 +927,7 @@ void CPluginFSInterface::ContextMenu(const char* fsName, HWND parent, int menuX,
                     int type2, lastType = sctyUnknown;
                     while (SalamanderGeneral->EnumSalamanderCommands(&index, &salCmd, nameBuf, 200, &enabled, &type2))
                     {
-                        if (!enabled || salCmd == SALCMD_OPEN || // we cannot "open" files yet, so do not add it (we only support it for directories, where it is not useful)
+                        if (!enabled || salCmd == SALCMD_OPEN || // we cannot "open" files yet, so do not add it (we can do it only for directories and there it is uninteresting)
                             type2 == sctyForFocusedFile && isfocusedDir ||
                             (type2 != sctyForFocusedFile && type2 != sctyForFocusedFileOrDirectory &&
                              type2 != sctyForSelectedFilesAndDirectories))
@@ -1344,7 +1344,7 @@ CFTPListingPluginDataInterface::CFTPListingPluginDataInterface(TIndirectArray<CS
                     }
                     else
                     {
-                        if ((nameID == 10 /* size in blocks */ || nameID == 22 /* Physical Block Length */) &&
+                        if ((nameID == 10 /* block size */ || nameID == 22 /* Physical Block Length */) &&
                             BlocksColumnOffset == -1)
                         { // found the column with file sizes in blocks (take the first from the left)
                             BlocksColumnOffset = ItemDataSize;
@@ -1754,7 +1754,7 @@ void CFTPListingPluginDataInterface::GetLastWriteDateAndTime(const CFileData& fi
     if (TimeColumnOffset == -2 || DateColumnOffset == -2)
     {
         DWORD mask = (TimeColumnOffset == -2 ? VALID_DATA_TIME : 0) | (DateColumnOffset == -2 ? VALID_DATA_DATE : 0);
-        if ((ValidDataMask & mask) == mask) // safety check
+        if ((ValidDataMask & mask) == mask) // just to be sure
         {
             FILETIME ft;
             SYSTEMTIME st;

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -455,7 +456,7 @@ void CDialogData::SelCtrlsAlignTo(const CAlignToParams* params)
         if (!control->Selected)
             continue;
 
-        // when moving selected controls individually, retrieve their position
+        // when moving controls individually, keep their position
         if (!params->MoveAsGroup)
             control->GetTRect(&selR, FALSE);
 

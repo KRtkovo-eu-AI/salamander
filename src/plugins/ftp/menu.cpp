@@ -1,10 +1,11 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
-int GlobalShowLogUID = -1;      // UID of the log that FTPCMD_SHOWLOGS should display (-1 == none)
+int GlobalShowLogUID = -1;      // UID of the log FTPCMD_SHOWLOGS should display (-1 == none)
 int GlobalDisconnectPanel = -1; // panel for which disconnect is called (-1 == active panel - source)
 
 //
@@ -22,7 +23,7 @@ CPluginInterfaceForMenuExt::GetMenuItemState(int id, DWORD eventMask)
     case FTPCMD_TRMODEBINARY:
     {
         CPluginFSInterfaceAbstract* fs = SalamanderGeneral->GetPanelPluginFS(PANEL_SOURCE);
-        if (fs != NULL) // our FS; otherwise it would be NULL
+        if (fs != NULL) // it is our FS; otherwise it would be NULL
         {
             return ((CPluginFSInterface*)fs)->GetTransferModeCmdState(id);
         }
@@ -136,7 +137,7 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
     }
 
     case FTPCMD_CLOSECONNOTIF: // posted helper command ('salamander' and 'eventMask' are empty)
-    {                          // checks whether the user has already learned that the "control connection" was closed
+    {                          // checks whether the user has already learned about the closing of the "control connection"
         ClosedCtrlConChecker.Check(parent);
         return FALSE; // ignored
     }
@@ -153,10 +154,10 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     case FTPCMD_CHANGETGTPANELPATH:
     {
-        if (TargetPanelPath[0] != 0)
+        if (*TargetPanelPath != 0)
         {
             SalamanderGeneral->ChangePanelPath(TargetPanelPathPanel, TargetPanelPath);
-            TargetPanelPath[0] = 0;
+            *TargetPanelPath = 0;
         }
         return FALSE; // do not uncheck
     }
@@ -237,7 +238,7 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
                     break;
                 }
             }
-            workerWithCon->ForceClose(); // force-close the socket (nothing should be waiting for the socket to close; CloseSocket() would be enough, but we play it safe - SocketClosed is set to TRUE immediately after adding to ReturningConnections)
+            workerWithCon->ForceClose(); // force-close the socket (nothing should be waiting on close socket; CloseSocket() would be enough, but we play it safe - SocketClosed is set to TRUE immediately after adding to ReturningConnections)
             if (workerWithCon->CanDeleteFromRetCons())
                 DeleteSocket(workerWithCon);
         }

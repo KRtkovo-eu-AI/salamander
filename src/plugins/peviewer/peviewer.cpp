@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // vim: et:sw=2:ts=2
@@ -116,7 +117,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "PEVIEWER");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     // Default configuration.
     BuildDefaultDumperChain();
@@ -376,7 +377,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(LPCTSTR name, int left, int top, int wi
         return FALSE;
     }
 
-    TCHAR tempFileName[MAX_PATH];
+    CPathBuffer tempFileName;
     if (SalGeneral->SalGetTempFileName(NULL, _T("PEV"), tempFileName, TRUE, NULL))
     {
         TCHAR caption[2000];

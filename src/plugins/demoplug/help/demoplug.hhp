@@ -10,14 +10,14 @@ Full text search stop list file=..\..\shared\help\en\stop.stp
 Full-text search=Yes
 Index file=demoplug.hhk
 Language=0x409 English (United States)
-Title=Salamander Demo Plugin Help
+Title=Sally Demo Plugin Help
 
 [WINDOWS]
-$global_ssdefault=,"salamand.chm::\salamand.hhc","demoplug.hhk","hh\pages\introduction_intro.htm","hh\pages\introduction_intro.htm",,,,"Web Help",0x3520,,0x180e,,,,,,,,0
+$global_ssdefault=,"sally.chm::\sally.hhc","demoplug.hhk","hh\pages\introduction_intro.htm","hh\pages\introduction_intro.htm",,,,"Web Help",0x3520,,0x180e,,,,,,,,0
 
 [FILES]
-hh\salamander_help.css
-hh\salamander_help_shared.css
+hh\sally_help.css
+hh\sally_help_shared.css
 
 [ALIAS]
 IDH_ENTERDISKPATH=hh\pages\using_entrdskpath.htm
@@ -31,7 +31,7 @@ IDD_CFGPAGEVIEWER=hh\pages\configuration_viewer.htm
 #include "..\lang\lang.rh"
 
 [MERGE FILES]
-salamand.chm
+sally.chm
 zip.chm
 filecomp.chm
 7zip.chm
@@ -40,7 +40,7 @@ demoview.chm
 ftp.chm
 checksum.chm
 checkver.chm
-ieviewer.chm
+webviewer.chm
 mmviewer.chm
 pak.chm
 peviewer.chm

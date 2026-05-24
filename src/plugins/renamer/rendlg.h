@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -66,7 +67,7 @@ protected:
     BOOL TransferDontSaveHistory;
     BOOL WaitCursor;
     BOOL CloseOnEnable;
-    char TempFile[MAX_PATH];
+    CPathBuffer TempFile; // Heap-allocated for long path support
 
     CPreviewWindow* Preview;
     CComboboxEdit *MaskEdit, *NewName, *SearchFor, *ReplaceWith;
@@ -90,7 +91,7 @@ protected:
     BOOL SourceFilesValid;
     BOOL SourceFilesNeedUpdate;
     DWORD LastUpdateTime;
-    char Root[MAX_PATH];
+    CPathBuffer Root; // Heap-allocated for long path support
     int RootLen;
 
     BOOL Errors;
@@ -127,7 +128,7 @@ public:
 
     void LoadSelection();
     void ReloadSourceFiles();
-    BOOL LoadSubdir(char* path, const char* subdir);
+    BOOL LoadSubdir(char* path, int pathSize, const char* subdir);
 
     BOOL ReloadManualModeEdit();
 
@@ -145,7 +146,7 @@ public:
     BOOL BuildScript(CRenameScriptEntry*& script, int& count,
                      BOOL validate, BOOL& somethingToDo);
     int GetManualModeNewName(CSourceFile* file, int index,
-                             char* newName, char*& newPart);
+                             char* newName, int newNameSize, char*& newPart);
     void ExecuteScript(CRenameScriptEntry* script, int count);
     void Undo();
 

@@ -1,12 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include <windows.h>
 #include <crtdbg.h>
-#include <commctrl.h> // Need LPCOLORMAP.
+#include <commctrl.h> // need LPCOLORMAP
 #include <tchar.h>
 #include <ostream>
 #include <streambuf>
@@ -25,7 +25,7 @@
 
 HWND GetTopVisibleParent(HWND hParent)
 {
-    // Find the first parent that is not a child window (a POPUP/OVERLAPPED window).
+    // looking for a parent that is not a child window (it's a POPUP/OVERLAPPED window)
     HWND hIterator = hParent;
     while ((GetWindowLongPtr(hIterator, GWL_STYLE) & WS_CHILD) &&
            (hIterator = ::GetParent(hIterator)) != NULL &&
@@ -47,20 +47,20 @@ void MultiMonGetClipRectByRect(const RECT* rect, RECT* workClipRect, RECT* monit
 
 void MultiMonGetClipRectByWindow(HWND hByWnd, RECT* workClipRect, RECT* monitorClipRect)
 {
-    HMONITOR hMonitor; // Place the window on this monitor.
+    HMONITOR hMonitor; // place window on this monitor
     MONITORINFO mi;
     mi.cbSize = sizeof(mi);
 
-    if (hByWnd != NULL && IsWindowVisible(hByWnd) && !IsIconic(hByWnd)) // Note: the same condition is also used in MultiMonCenterWindow.
+    if (hByWnd != NULL && IsWindowVisible(hByWnd) && !IsIconic(hByWnd)) // warning: this condition is also in MultiMonCenterWindow
     {
         hMonitor = MonitorFromWindow(hByWnd, MONITOR_DEFAULTTONEAREST);
-        // Get the monitor work area.
+        // get the working area of the desktop
         GetMonitorInfo(hMonitor, &mi);
     }
     else
     {
-        // If the foreground window belongs to our application,
-        // center the window on the same desktop.
+        // if we find a foreground window belonging to our application,
+        // center the window on the same desktop
         HWND hForegroundWnd = GetForegroundWindow();
         DWORD processID;
         GetWindowThreadProcessId(hForegroundWnd, &processID);
@@ -70,14 +70,14 @@ void MultiMonGetClipRectByWindow(HWND hByWnd, RECT* workClipRect, RECT* monitorC
         }
         else
         {
-            // Otherwise, center the window on the primary desktop.
+            // otherwise center the window to the primary desktop
             POINT pt;
-            pt.x = 0; // Primary monitor.
+            pt.x = 0; // primary monitor
             pt.y = 0;
             hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
         }
 
-        // Get the desktop work area.
+        // get the working area of the desktop
         GetMonitorInfo(hMonitor, &mi);
     }
     *workClipRect = mi.rcWork;
@@ -89,18 +89,18 @@ void MultiMonCenterWindow(HWND hWindow, HWND hByWnd, BOOL findTopWindow)
 {
     if (hWindow == NULL)
     {
-        // Using a NULL HWND causes unwanted window flicker.
+        // working with NULL hwnd causes unwanted window flickering
         TRACE_E("MultiMonCenterWindow: hWindow == NULL");
         return;
     }
 
     if (IsZoomed(hWindow))
     {
-        // Do not move a maximized window.
+        // don't move a maximized window
         return;
     }
 
-    // Need to find the top-level window.
+    // we need to find a top-level window
     if (findTopWindow)
     {
         if (hByWnd != NULL)
@@ -112,7 +112,7 @@ void MultiMonCenterWindow(HWND hWindow, HWND hByWnd, BOOL findTopWindow)
     RECT clipR;
     MultiMonGetClipRectByWindow(hByWnd, &clipR, NULL);
     RECT byR;
-    if (hByWnd != NULL && IsWindowVisible(hByWnd) && !IsIconic(hByWnd)) // Note: the same condition is also used in MultiMonGetClipRectByWindow.
+    if (hByWnd != NULL && IsWindowVisible(hByWnd) && !IsIconic(hByWnd)) // warning: this condition is also in MultiMonGetClipRectByWindow
         GetWindowRect(hByWnd, &byR);
     else
         byR = clipR;
@@ -124,14 +124,14 @@ void MultiMonCenterWindowByRect(HWND hWindow, const RECT& clipR, const RECT& byR
 {
     if (hWindow == NULL)
     {
-        // Using a NULL HWND causes unwanted window flicker.
+        // working with NULL hwnd causes unwanted window flickering
         TRACE_E("MultiMonCenterWindowByRect: hWindow == NULL");
         return;
     }
 
     if (IsZoomed(hWindow))
     {
-        // Do not move a maximized window.
+        // don't move a maximized window
         return;
     }
 
@@ -140,20 +140,20 @@ void MultiMonCenterWindowByRect(HWND hWindow, const RECT& clipR, const RECT& byR
     int wndWidth = wndRect.right - wndRect.left;
     int wndHeight = wndRect.bottom - wndRect.top;
 
-    // Center it.
+    // center the window
     wndRect.left = byR.left + (byR.right - byR.left - wndWidth) / 2;
     wndRect.top = byR.top + (byR.bottom - byR.top - wndHeight) / 2;
     wndRect.right = wndRect.left + wndWidth;
     wndRect.bottom = wndRect.top + wndHeight;
 
-    // Keep it within bounds.
-    if (wndRect.left < clipR.left) // If the window is larger than clipR, leave its left part visible.
+    // check boundaries
+    if (wndRect.left < clipR.left) // if the window is larger than clipR, show its left part
     {
         wndRect.left = clipR.left;
         wndRect.right = wndRect.left + wndWidth;
     }
 
-    if (wndRect.top < clipR.top) // If the window is larger than clipR, leave its top part visible.
+    if (wndRect.top < clipR.top) // if the window is larger than clipR, show its top part
     {
         wndRect.top = clipR.top;
         wndRect.bottom = wndRect.top + wndHeight;
@@ -161,7 +161,7 @@ void MultiMonCenterWindowByRect(HWND hWindow, const RECT& clipR, const RECT& byR
 
     if (wndWidth <= clipR.right - clipR.left)
     {
-        // If the window is smaller than clipR, make sure it does not extend past the right edge of clipR.
+        // if the window is smaller than clipR, prevent it from extending right beyond the clipR boundary
         if (wndRect.right >= clipR.right)
         {
             wndRect.left = clipR.right - wndWidth;
@@ -170,14 +170,14 @@ void MultiMonCenterWindowByRect(HWND hWindow, const RECT& clipR, const RECT& byR
     }
     else
     {
-        // If the window is larger than clipR.
+        // if the window is larger than clipR
         if (wndRect.left > clipR.left)
-            wndRect.left = clipR.left; // Use as much space as possible.
+            wndRect.left = clipR.left; // use maximum space
     }
 
     if (wndHeight <= clipR.bottom - clipR.top)
     {
-        // If the window is smaller than clipR, make sure it does not extend past the bottom edge of clipR.
+        // if the window is smaller than clipR, prevent it from extending down beyond the clipR boundary
         if (wndRect.bottom >= clipR.bottom)
         {
             wndRect.top = clipR.bottom - wndHeight;
@@ -186,9 +186,9 @@ void MultiMonCenterWindowByRect(HWND hWindow, const RECT& clipR, const RECT& byR
     }
     else
     {
-        // If the window is larger than clipR.
+        // if the window is larger than clipR
         if (wndRect.top > clipR.top)
-            wndRect.top = clipR.top; // Use as much space as possible.
+            wndRect.top = clipR.top; // use maximum space
     }
 
     SetWindowPos(hWindow, NULL, wndRect.left, wndRect.top, 0, 0,
@@ -240,10 +240,10 @@ BOOL MultiMonGetDefaultWindowPos(HWND hByWnd, POINT* p)
             HMONITOR hTmpMonitor = MonitorFromWindow(wnd.HWindow, MONITOR_DEFAULTTONEAREST);
             if (hTmpMonitor != hMonitor)
             {
-                // The dummy-window trick works fine under MSVC, but when Salamander runs without MSVC
-                // the window opens on the primary monitor (I do not know why, even though it has a parent).
+                // trick with dummy window works nice under MSVC, but when running salamander without MSVC
+                // the window opens on the primary monitor (I did not find out why, when it has a parent)
 
-                // Work around it by moving the window to our monitor.
+                // we help ourselves -- we move the window to our monitor
                 MONITORINFO tmpInfo;
                 tmpInfo.cbSize = sizeof(tmpInfo);
                 GetMonitorInfo(hTmpMonitor, &tmpInfo);
@@ -272,12 +272,12 @@ BOOL MultiMonEnsureRectVisible(RECT* rect, BOOL partialOK)
     RECT intersectRect;
     BOOL intersect = IntersectRect(&intersectRect, rect, &clipRect);
     if (EqualRect(&intersectRect, rect))
-        return FALSE; // The entire rectangle is on one monitor, so return FALSE.
+        return FALSE; // we are entirely on one of the monitors, nothing to do
 
     if (intersect && partialOK)
-        return FALSE; // The rectangle is already partially visible, so return FALSE.
+        return FALSE; // we are partially visible, nothing to do
 
-    // Ensure the rectangle does not extend beyond the monitor work area.
+    // ensure the rectangle does not exceed the monitor
     if (rect->right - rect->left > clipRect.right - clipRect.left)
         rect->right = clipRect.right - clipRect.left + rect->left;
     if (rect->bottom - rect->top > clipRect.bottom - clipRect.top)
@@ -311,6 +311,6 @@ BOOL MultiMonEnsureRectVisible(RECT* rect, BOOL partialOK)
         rect->bottom += y;
     }
 
-    // We changed one of the values, so return TRUE.
+    // we changed some values, return TRUE
     return TRUE;
 }

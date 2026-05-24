@@ -1,4 +1,4 @@
-#ifndef PUTTY_PGSSAPI_H
+﻿#ifndef PUTTY_PGSSAPI_H
 #define PUTTY_PGSSAPI_H
 
 #include "putty.h"

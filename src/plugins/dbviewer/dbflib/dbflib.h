@@ -1,9 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
-/* Define some useful types */
+/* Define some usefull types */
 #ifndef U8
 #define U8 unsigned char
 #endif
@@ -153,14 +154,14 @@ typedef struct _dbf_header
     U32 recordsCnt;    /* total number of records in file */
     U32 fieldsCnt;     /* number of fields per record, including memo fields */
     U32 memoFieldsCnt; /* number of memo fields per record */
-    U32 recordSize;    /* total record size as in the master DBF file */
+    U32 recordSize;    /* total size of record as in master DBF file */
     U32 headerSize;    /* total size of file header */
     U32 codePage;      /* codepage of DBF_FLDTYPE_CHAR fields */
 } DBF_HEADER, *DBF_HEADER_PTR;
 
 typedef struct _dbf_field
 {
-    U32 len;         /* total field length in bytes */
+    U32 len;         /* total len of field in bytes */
     U32 decimals;    /* count of decimal digits */
     U32 posInRecord; /* position of field in record */
     U8 type;         /* see DBF_FTYPE_XXX */

@@ -1,4 +1,4 @@
-// x86.h
+﻿// x86.h
 
 #ifndef __X86_H
 #define __X86_H

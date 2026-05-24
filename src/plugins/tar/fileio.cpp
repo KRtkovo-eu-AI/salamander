@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -406,7 +407,7 @@ CZippedFile::GetBlock(unsigned short size, unsigned short* read /* = NULL*/)
 {
     if (size > BUFSIZE)
     {
-        TRACE_E("GetBlock - pozadovan prilis velky blok.");
+        TRACE_E("GetBlock - requested block is too large.");
         ErrorCode = IDS_ERR_INTERNAL;
         Ok = FALSE;
         return NULL;

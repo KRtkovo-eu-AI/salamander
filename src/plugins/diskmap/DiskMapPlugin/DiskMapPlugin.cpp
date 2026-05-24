@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // DiskMapPlugin.cpp : Defines the entry point for the DLL application.
@@ -31,7 +32,7 @@ const char* CONFIG_PATHFORMAT = "Tooltip Path Format";
 
 char* LoadStr(int resID);
 
-TCHAR szPluginWebsite[] = TEXT("www.altap.cz"); // original domain not running: http://salamander.diskmap.net
+TCHAR szPluginWebsite[] = TEXT("https://github.com/0xeb/sally"); // original domain not running: http://salamander.diskmap.net
 
 HINSTANCE DLLInstance = NULL; // handle to SPL - language-independent resources
 HINSTANCE HLanguage = NULL;   // handle to SLG - language-dependent resources
@@ -66,14 +67,14 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 
 class CSalamanderCallback : public CSalamanderCallbackAbstract
 {
-    TCHAR FocusPathBuf[MAX_PATH];
+    CPathBuffer FocusPathBuf;
 
 public:
     BOOL FocusFile(TCHAR const* fileName)
     {
         if (SalamanderGeneral->SalamanderIsNotBusy(NULL))
         {
-            lstrcpyn(FocusPathBuf, fileName, MAX_PATH);
+            lstrcpyn(FocusPathBuf, fileName, FocusPathBuf.Size());
             SalamanderGeneral->PostMenuExtCommand(MENUCMD_FAKE_FOCUS, TRUE);
             Sleep(500);          // the switch to the panel happens, so this wait occurs in the viewer's inactive window and therefore does not matter
             FocusPathBuf[0] = 0; // after 0.5 second we no longer care about the focus (handles the case where we hit the beginning of Salamander's BUSY mode)
@@ -84,10 +85,10 @@ public:
     }
     BOOL DoFocusFile()
     {
-        char focusPath[MAX_PATH];
-        lstrcpyn(focusPath, FocusPathBuf, MAX_PATH);
+        CPathBuffer focusPath; // Heap-allocated for long path support
+        lstrcpyn(focusPath, FocusPathBuf, focusPath.Size());
         FocusPathBuf[0] = 0;
-        if (focusPath[0] != 0) // only if we were not unlucky (that is, we did not hit the start of Salamander's BUSY mode)
+        if (focusPath[0] != 0) // only if we were not unlucky (we did not hit the beginning of Salamander's BUSY mode)
         {
             LPTSTR name;
             if (SalamanderGeneral->CutDirectory(focusPath, &name))
@@ -101,10 +102,10 @@ public:
     }
     BOOL DoOpenFolder()
     {
-        char focusPath[MAX_PATH];
-        lstrcpyn(focusPath, FocusPathBuf, MAX_PATH);
+        CPathBuffer focusPath; // Heap-allocated for long path support
+        lstrcpyn(focusPath, FocusPathBuf, focusPath.Size());
         FocusPathBuf[0] = 0;
-        if (focusPath[0] != 0) // only if we did not enter at the start of Salamander's BUSY mode
+        if (focusPath[0] != 0) // only if we were not unlucky (we did not hit the beginning of Salamander's BUSY mode)
         {
             SalamanderGeneral->SkipOneActivateRefresh(); // the main window will not refresh when switching from the viewer
             //SalamanderGeneral->ChangePanelPath(PANEL_SOURCE, focusPath);
@@ -117,7 +118,7 @@ public:
     {
         if (SalamanderGeneral->SalamanderIsNotBusy(NULL))
         {
-            lstrcpyn(FocusPathBuf, path, MAX_PATH);
+            lstrcpyn(FocusPathBuf, path, FocusPathBuf.Size());
             SalamanderGeneral->PostMenuExtCommand(MENUCMD_FAKE_OPEN, TRUE);
             Sleep(500);          // the switch to the panel happens, so this wait occurs in the viewer's inactive window and therefore does not matter
             FocusPathBuf[0] = 0; // after 0.5 second we no longer care about the focus (handles the case where we hit the beginning of Salamander's BUSY mode)
@@ -212,8 +213,8 @@ RELOAD:
         if ((5000 - (act - buffer) == size + 1) && (act > buffer))
         {
             // if the string was exactly at the end of the buffer, it could
-            // have been truncated; if we can move the window
-            // to the beginning of the buffer, load the string again
+            // be a truncated string -- if we can move the window
+            // to the beginning of the buffer, load the string once again
             act = buffer;
             goto RELOAD;
         }
@@ -703,8 +704,9 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
         // the current path is needed to convert relative paths to absolute ones
         int type;
         BOOL curPathIsDisk = FALSE;
-        char curPath[MAX_PATH] = "";
-        if (SalamanderGeneral->GetPanelPath(PANEL_SOURCE, curPath, MAX_PATH, &type, NULL))
+        CPathBuffer curPath; // Heap-allocated for long path support
+        curPath[0] = 0;
+        if (SalamanderGeneral->GetPanelPath(PANEL_SOURCE, curPath, curPath.Size(), &type, NULL))
         {
             if (type != PATH_TYPE_WINDOWS)
                 curPath[0] = 0; // we take only disk paths
@@ -714,7 +716,7 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
 
         //TODO: there should be a prompt asking the user for the path and confirming it...
 
-        if (curPathIsDisk) // 'path' is the path to a file or directory; perform the requested action on it
+        if (curPathIsDisk) // 'path' is the path to a file/directory, perform the requested action with it
         {
             //TRACE_I("Opening(" << curPath << ")." /*"): " << GetErrorText(error)*/);
             OpenDiskMapWindow(parent, curPath);
@@ -724,7 +726,7 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
             //TRACE_I("Not disk.");
         }
 
-        return FALSE; // do not deselect items in the panel
+        return FALSE; // do not unselect items in the panel
     }
     default:
         SalamanderGeneral->ShowMessageBox("Unknown command.", "DEMOPLUG", MSGBOX_ERROR);

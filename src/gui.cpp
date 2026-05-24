@@ -1,14 +1,16 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "svg.h"
+#include "ui/IPrompter.h"
 #include "gui.h"
 #include "toolbar.h"
 #include "menu.h"
 #include "tooltip.h"
+#include "darkmode.h"
 #include <uxtheme.h>
 #include <vssym32.h>
 
@@ -17,12 +19,26 @@
 
 #include "mainwnd.h"
 
+static std::string StaticTextWideToAnsi(const std::wstring& text)
+{
+    if (text.empty())
+        return std::string();
+
+    int required = WideCharToMultiByte(CP_ACP, 0, text.c_str(), (int)text.size(), NULL, 0, NULL, NULL);
+    if (required <= 0)
+        return std::string();
+
+    std::string result(required, '\0');
+    WideCharToMultiByte(CP_ACP, 0, text.c_str(), (int)text.size(), &result[0], required, NULL, NULL);
+    return result;
+}
+
 //****************************************************************************
 //
 // CGuiBitmap
 //
 
-// support for drawing the disabled button variant
+// support for the silly drawing of the disabled button variant
 class CGuiBitmap : public CBitmap
 {
 public:
@@ -96,7 +112,6 @@ CProgressBar::CProgressBar(HWND hDlg, int ctrlID)
         }
         HANDLES(ReleaseDC(NULL, hDC));
     }
-    Text = NULL;
 
     // get the default font from the dialog
     HFont = (HFONT)SendMessage(hDlg, WM_GETFONT, 0, 0);
@@ -109,8 +124,6 @@ CProgressBar::~CProgressBar()
     Stop();
     if (Bitmap != NULL)
         delete (Bitmap);
-    if (Text != NULL)
-        free(Text);
 }
 
 void CProgressBar::SetProgress(DWORD progress, const char* text)
@@ -160,9 +173,9 @@ void CProgressBar::Paint(HDC hDC)
         releaseDC = TRUE;
     }
 
-    // if we have a bitmap, use the cached DC
+    // if we have a bitmap, use the cache
     HDC hMemDC = NULL;
-    if (Bitmap != NULL && Progress != -1) // Caching for Progress == -1 is pointless; there is nothing to flicker.
+    if (Bitmap != NULL && Progress != -1) // caching Progress==-1 is pointless, there's nothing to flicker
         hMemDC = Bitmap->HMemDC;
     else
         hMemDC = hDC;
@@ -226,18 +239,18 @@ void CProgressBar::Paint(HDC hDC)
         // prepare and measure the string
         char buff[50];
 
-        char* progress;
+        const char* progress;
         int progressLen;
 
-        if (Text != NULL)
+        if (!Text.empty())
         {
-            progress = Text;
-            progressLen = (int)strlen(progress);
+            progress = Text.c_str();
+            progressLen = (int)Text.length();
         }
         else
         {
             progress = buff;
-            progressLen = sprintf(progress, "%d %%", (int)((Progress /*+ 5*/) / 10)); // we do not round the progress, because otherwise 100% is visible from 99.5%-100%, which annoys some users (notable with FTP, where it can last half a minute)
+            progressLen = sprintf(buff, "%d %%", (int)((Progress /*+ 5*/) / 10)); // we do not round the progress, beacause otherwise 100% is visible from 99.5%-100%, which annoys some users (notable with FTP, where it can last half a minute)
         }
 
         SIZE sz;
@@ -352,21 +365,14 @@ CProgressBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL paint = TRUE;
         BOOL textChanged = FALSE;
 
-        if ((text != NULL || Text != NULL) &&
-            (text == NULL || Text == NULL || strcmp(text, Text) != 0))
+        if ((text != NULL || !Text.empty()) &&
+            (text == NULL || Text.empty() || strcmp(text, Text.c_str()) != 0))
         {
             textChanged = TRUE;
-            if (Text != NULL)
-            {
-                free(Text);
-                Text = NULL;
-            }
             if (text != NULL)
-            {
-                Text = DupStr(text);
-                if (Text == NULL)
-                    TRACE_E(LOW_MEMORY);
-            }
+                Text = text;
+            else
+                Text.clear();
         }
 
         if (progress == (DWORD)-1)
@@ -454,7 +460,9 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
     TextLen = 0;
     Text2 = NULL;
     Text2Len = 0;
+    UseWideText = FALSE;
     AlpDX = NULL;
+    AlpDXAllocated = 0;
     Allocated = 0;
     Bitmap = NULL;
     HFont = NULL;
@@ -464,7 +472,6 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
     Alignment = 0; // left
     PathSeparator = '\\';
     MouseIsTracked = FALSE;
-    ToolTipText = NULL;
     HToolTipNW = NULL;
     ToolTipID = 0;
     HintMode = FALSE;
@@ -528,8 +535,6 @@ CStaticText::CStaticText(HWND hDlg, int ctrlID, DWORD flags)
 
 CStaticText::~CStaticText()
 {
-    if (ToolTipText != NULL)
-        free(ToolTipText);
     if (Text != NULL)
         free(Text);
     if (Text2 != NULL)
@@ -551,7 +556,7 @@ BOOL CStaticText::SetText(const char* text)
 
     if (text == NULL)
         text = "";
-    if (Text != NULL && strcmp(Text, text) == 0)
+    if (!UseWideText && Text != NULL && strcmp(Text, text) == 0)
         return TRUE;
 
     int l = (int)strlen(text) + 1;
@@ -572,7 +577,7 @@ BOOL CStaticText::SetText(const char* text)
                 free(newText);
                 return FALSE;
             }
-            char* newText2 = (char*)realloc(Text2, l + ST_ALLOC_GRANULARITY + 3); // 3: space for "..." (can remove W and add "...")
+            char* newText2 = (char*)realloc(Text2, l + ST_ALLOC_GRANULARITY + 3); // 3: space for "..." (I can remove W and add "...")
             if (newText2 == NULL)
             {
                 TRACE_E(LOW_MEMORY);
@@ -581,13 +586,101 @@ BOOL CStaticText::SetText(const char* text)
                 return FALSE;
             }
             AlpDX = newAlpDX;
+            AlpDXAllocated = l + ST_ALLOC_GRANULARITY;
             Text2 = newText2;
         }
         Text = newText;
         Allocated = l + ST_ALLOC_GRANULARITY;
     }
+    // Allocated tracks ANSI byte capacity of Text; AlpDX is sized in ints to
+    // hold TextLen (which is l-1 here). A prior SetTextW under a DBCS code
+    // page can leave Allocated sized for the multi-byte ANSI fallback while
+    // AlpDXAllocated is sized only for the wide codepoint count — the new
+    // ANSI text can then fit Allocated while overrunning AlpDX. Realloc
+    // AlpDX whenever its tracked capacity is short for the new TextLen.
+    else if ((Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS)) &&
+             (AlpDX == NULL || l > AlpDXAllocated))
+    {
+        const int needAlpDX = l + ST_ALLOC_GRANULARITY;
+        int* newAlpDX = (int*)realloc(AlpDX, needAlpDX * sizeof(int));
+        if (newAlpDX == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return FALSE;
+        }
+        AlpDX = newAlpDX;
+        AlpDXAllocated = needAlpDX;
+    }
     memmove(Text, text, l);
+    TextW.clear();
+    Text2W.clear();
+    UseWideText = FALSE;
     TextLen = l - 1;
+
+    PrepareForPaint();
+
+    InvalidateRect(HWindow, NULL, FALSE);
+    UpdateWindow(HWindow);
+    return TRUE;
+}
+
+BOOL CStaticText::SetTextW(const wchar_t* text)
+{
+    std::wstring newText = text != NULL ? text : L"";
+    if (UseWideText && TextW == newText)
+        return TRUE;
+
+    std::string fallbackText = StaticTextWideToAnsi(newText);
+    int l = (int)fallbackText.size() + 1;
+    if (Allocated < l)
+    {
+        char* newTextA = (char*)realloc(Text, l + ST_ALLOC_GRANULARITY);
+        if (newTextA == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return FALSE;
+        }
+        if (Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS))
+        {
+            const int needAlpDX = max(1, (int)newText.size()) + ST_ALLOC_GRANULARITY;
+            int* newAlpDX = (int*)realloc(AlpDX, needAlpDX * sizeof(int));
+            if (newAlpDX == NULL)
+            {
+                TRACE_E(LOW_MEMORY);
+                free(newTextA);
+                return FALSE;
+            }
+            AlpDX = newAlpDX;
+            AlpDXAllocated = needAlpDX;
+        }
+        Text = newTextA;
+        Allocated = l + ST_ALLOC_GRANULARITY;
+    }
+    // Allocated tracks the ANSI byte capacity of Text. AlpDX, however, must
+    // hold TextLen ints, and TextLen for wide text is the wide codepoint
+    // count — which can exceed the ANSI fallback length (e.g. CJK chars on a
+    // DBCS code page, or characters that fall back to '?'). Realloc AlpDX
+    // whenever its tracked capacity is short for the new wide TextLen, even
+    // when the ANSI fallback still fits in Allocated.
+    else if ((Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS)) &&
+             (AlpDX == NULL || (int)newText.size() > AlpDXAllocated))
+    {
+        const int needAlpDX = max(1, (int)newText.size()) + ST_ALLOC_GRANULARITY;
+        int* newAlpDX = (int*)realloc(AlpDX, needAlpDX * sizeof(int));
+        if (newAlpDX == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return FALSE;
+        }
+        AlpDX = newAlpDX;
+        AlpDXAllocated = needAlpDX;
+    }
+
+    memmove(Text, fallbackText.c_str(), l);
+    TextW = newText;
+    Text2W.clear();
+    UseWideText = TRUE;
+    TextLen = (int)TextW.size();
 
     PrepareForPaint();
 
@@ -605,12 +698,28 @@ BOOL CStaticText::SetTextToDblQuotesIfNeeded(const char* text)
         int len = (int)strlen(text);
         if (len > 0 && (text[0] <= ' ' || text[len - 1] <= ' ') && len < 2 * MAX_PATH)
         {
-            char buf[2 * MAX_PATH + 2];
+            CPathBuffer buf;
             sprintf(buf, "\"%s\"", text); // spaces at the beginning and end will be visible in quotes (otherwise they are invisible)
             return SetText(buf);
         }
     }
     return SetText(text);
+}
+
+BOOL CStaticText::SetTextToDblQuotesIfNeededW(const wchar_t* text)
+{
+    if (text != NULL)
+    {
+        int len = (int)wcslen(text);
+        if (len > 0 && (text[0] <= L' ' || text[len - 1] <= L' ') && len < 2 * MAX_PATH)
+        {
+            std::wstring quoted = L"\"";
+            quoted += text;
+            quoted += L"\"";
+            return SetTextW(quoted.c_str());
+        }
+    }
+    return SetTextW(text);
 }
 
 void CStaticText::PrepareForPaint()
@@ -628,7 +737,134 @@ void CStaticText::PrepareForPaint()
     HDC hDC = HANDLES(GetDC(HWindow));
     HFONT hOldFont = (HFONT)SelectObject(hDC, HFont);
     SIZE sz;
-    if (Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS))
+    if (UseWideText)
+    {
+        if (Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS))
+        {
+            if (Flags & STF_END_ELLIPSIS)
+            {
+                int fitChars;
+                GetTextExtentExPointW(hDC, TextW.c_str(), TextLen, Width, &fitChars, AlpDX, &sz);
+
+                if (fitChars < TextLen)
+                {
+                    SIZE ellipsisSZ;
+                    GetTextExtentPoint32W(hDC, L"...", 3, &ellipsisSZ);
+                    int ellipsisWidth = ellipsisSZ.cx;
+
+                    while (fitChars > 0 && AlpDX[fitChars - 1] + ellipsisWidth > Width)
+                        fitChars--;
+                    if (fitChars > 0)
+                    {
+                        Text2W.assign(TextW.c_str(), TextW.c_str() + fitChars);
+                        TextWidth = AlpDX[fitChars - 1];
+                        Text2Len = fitChars;
+                    }
+                    else
+                    {
+                        Text2W.clear();
+                        TextWidth = 0;
+                        Text2Len = 0;
+                    }
+                    Text2W += L"...";
+                    TextWidth += ellipsisWidth;
+                    Text2Len += 3;
+
+                    Text2Draw = TRUE;
+                }
+                else
+                {
+                    TextWidth = sz.cx;
+                    Text2W.clear();
+                }
+            }
+            else
+            {
+                GetTextExtentExPointW(hDC, TextW.c_str(), TextLen, 0, NULL, AlpDX, &sz);
+
+                if (sz.cx > Width)
+                {
+                    SIZE ellipsisSZ;
+                    GetTextExtentPoint32W(hDC, L"...", 3, &ellipsisSZ);
+                    int ellipsisWidth = ellipsisSZ.cx;
+
+                    const wchar_t separator = (wchar_t)(unsigned char)PathSeparator;
+                    const wchar_t* p = TextW.c_str() + TextLen - 1;
+                    while (*p != separator && p > TextW.c_str())
+                        p--;
+                    const wchar_t* p2 = p;
+                    if (p > TextW.c_str())
+                        p--;
+                    int pIndex = (int)(p - TextW.c_str());
+
+                    if (ellipsisWidth + sz.cx - AlpDX[pIndex] > Width)
+                    {
+                        while (pIndex < TextLen && (ellipsisWidth + sz.cx - AlpDX[pIndex] > Width))
+                            pIndex++;
+
+                        pIndex++;
+                        Text2W = L"...";
+                        Text2Len = 3;
+                        TextWidth = ellipsisWidth;
+                        if (pIndex < TextLen)
+                        {
+                            Text2W.append(TextW.c_str() + pIndex);
+                            Text2Len += TextLen - pIndex;
+                            TextWidth += sz.cx - AlpDX[pIndex - 1];
+                        }
+                    }
+                    else
+                    {
+                        int rightPartWidth = sz.cx - AlpDX[pIndex];
+                        while (pIndex >= 0 && (AlpDX[pIndex] + ellipsisWidth + rightPartWidth) > Width)
+                            pIndex--;
+
+                        Text2Len = 0;
+                        TextWidth = 0;
+                        Text2W.clear();
+                        if (pIndex >= 0)
+                        {
+                            Text2W.assign(TextW.c_str(), TextW.c_str() + pIndex + 1);
+                            Text2Len += pIndex + 1;
+                            TextWidth += AlpDX[pIndex];
+                        }
+                        Text2W += L"...";
+                        Text2Len += 3;
+                        TextWidth += ellipsisWidth;
+                        Text2W.append(p2);
+                        Text2Len += TextLen - (int)(p2 - TextW.c_str());
+                        TextWidth += rightPartWidth;
+                    }
+
+                    Text2Draw = TRUE;
+                }
+                else
+                {
+                    TextWidth = sz.cx;
+                    Text2W.clear();
+                }
+            }
+            TextHeight = sz.cy;
+        }
+        else
+        {
+            if (Flags & STF_HANDLEPREFIX)
+            {
+                RECT r;
+                GetClientRect(HWindow, &r);
+                DrawTextW(hDC, TextW.c_str(), TextLen, &r, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
+                TextWidth = r.right;
+                TextHeight = r.bottom;
+            }
+            else
+            {
+                GetTextExtentPoint32W(hDC, TextW.c_str(), TextLen, &sz);
+                TextWidth = sz.cx + 1;
+                TextHeight = sz.cy;
+            }
+        }
+    }
+    else if (Flags & (STF_PATH_ELLIPSIS | STF_END_ELLIPSIS))
     {
         if (Flags & STF_END_ELLIPSIS)
         {
@@ -825,27 +1061,18 @@ BOOL CStaticText::TextHitTest(POINT* screenCursorPos)
 
 BOOL CStaticText::SetToolTipText(const char* text)
 {
-    if (text != NULL && ToolTipText != NULL && strcmp(ToolTipText, text) == 0)
+    if (text != NULL && !ToolTipText.empty() && strcmp(ToolTipText.c_str(), text) == 0)
         return TRUE;
 
     if (text == NULL)
     {
-        if (ToolTipText != NULL)
-            free(ToolTipText);
-        ToolTipText = NULL;
+        ToolTipText.clear();
         HToolTipNW = NULL;
         ToolTipID = 0;
         return TRUE;
     }
 
-    char* newText = DupStr(text);
-    if (newText == NULL)
-        return FALSE;
-
-    if (ToolTipText != NULL)
-        free(ToolTipText);
-
-    ToolTipText = newText;
+    ToolTipText = text;
     HToolTipNW = NULL;
     ToolTipID = 0;
 
@@ -856,9 +1083,7 @@ BOOL CStaticText::SetToolTipText(const char* text)
 
 void CStaticText::SetToolTip(HWND hNotifyWindow, DWORD id)
 {
-    if (ToolTipText != NULL)
-        free(ToolTipText);
-    ToolTipText = NULL;
+    ToolTipText.clear();
 
     HToolTipNW = hNotifyWindow;
     ToolTipID = id;
@@ -871,7 +1096,7 @@ void CStaticText::EnableHintToolTip(BOOL enable)
 
 BOOL CStaticText::ToolTipAssigned()
 {
-    return ToolTipText != NULL || HToolTipNW != NULL;
+    return !ToolTipText.empty() || HToolTipNW != NULL;
 }
 
 void CStaticText::DrawFocus(HDC hDC)
@@ -891,8 +1116,10 @@ void CStaticText::DrawFocus(HDC hDC)
     r.right = xOffset + TextWidth;
     r.bottom = TextHeight;
 
-    int oldColor = SetTextColor(hDC, GetSysColor(COLOR_BTNFACE));
-    int oldBkColor = SetBkColor(hDC, GetSysColor(COLOR_BTNTEXT));
+    DarkModeColors colors;
+    DarkMode_GetColors(&colors);
+    int oldColor = SetTextColor(hDC, colors.DialogBackground);
+    int oldBkColor = SetBkColor(hDC, colors.DialogText);
     POINT oldBrushPoint;
     SetBrushOrgEx(hDC, 0, 0, &oldBrushPoint); // under XP with the Normal skin the paint misbehaved if the static was placed on a gradient background (FTP configuration)
     DrawFocusRect(hDC, &r);
@@ -914,7 +1141,7 @@ BOOL CStaticText::ShowHint()
 
     MainWindow->ToolTip->SetCurrentToolTip(HWindow, 1, -1);
     MainWindow->ToolTip->Show(r.left + xOffset, r.bottom, FALSE, TRUE, HWindow);
-    // Show is called with modal == TRUE, so execution returns here only after the tooltip is closed.
+    // note: Show has the parameter 'modal'==TRUE, so control returns here only after the tooltip is closed
     return TRUE;
 }
 
@@ -964,7 +1191,7 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             p.y = GET_Y_LPARAM(messagePos);
             if (TextHitTest(&p))
             {
-                if (ToolTipText != NULL)
+                if (!ToolTipText.empty())
                     SetCurrentToolTip(HWindow, 1);
                 else if (HToolTipNW != NULL)
                     SetCurrentToolTip(HWindow, ToolTipID);
@@ -988,7 +1215,7 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam == TRUE)
             break;
-        // if we are hidden, we must dismiss the tooltip
+        // if someone hides us, we must dismiss the tooltip
         if (MainWindow != NULL && MainWindow->ToolTip != NULL && MainWindow->ToolTip->HWindow != NULL)
             MainWindow->ToolTip->Hide();
         //PostMessage(MainWindow->ToolTip->HWindow, WM_CANCELMODE, 0, 0);
@@ -1005,8 +1232,8 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_TTGETTEXT:
     {
-        if (ToolTipText != NULL)
-            lstrcpyn((char*)lParam, ToolTipText, TOOLTIP_TEXT_MAX);
+        if (!ToolTipText.empty())
+            lstrcpyn((char*)lParam, ToolTipText.c_str(), TOOLTIP_TEXT_MAX);
         return 0;
     }
 
@@ -1065,7 +1292,7 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         PAINTSTRUCT ps;
         HANDLES(BeginPaint(HWindow, &ps));
 
-        // if we have a bitmap, draw into it; otherwise draw directly to the screen
+        // if we have a bitmap,we will draw into it, otherwise directly to the screen
         HDC hDC;
         if (Bitmap != NULL)
             hDC = Bitmap->HMemDC;
@@ -1083,7 +1310,19 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             // under XPTheme we have to let Windows erase the background
             BOOL bkErased = FALSE;
-            if (IsAppThemed())
+            DarkModeColors colors;
+            BOOL useDark = DarkMode_GetColors(&colors);
+            if (useDark)
+            {
+                HBRUSH hBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
+                if (hBrush != NULL)
+                {
+                    FillRect(hDC, &r, hBrush);
+                    HANDLES(DeleteObject(hBrush));
+                }
+                bkErased = TRUE;
+            }
+            else if (IsAppThemed())
             {
                 DrawThemeParentBackground(HWindow, hDC, &r);
                 bkErased = TRUE;
@@ -1096,10 +1335,10 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (hParent != NULL)
                 SendMessage(hParent, WM_CTLCOLORSTATIC, (WPARAM)hDC, (LPARAM)HWindow);
             if (Flags & STF_HYPERLINK_COLOR)
-                SetTextColor(hDC, RGB(0, 0, 255));
+                SetTextColor(hDC, useDark ? RGB(88, 166, 255) : RGB(0, 0, 255));
             BOOL enabled = IsWindowEnabled(HWindow);
             if (!enabled)
-                SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+                SetTextColor(hDC, colors.DisabledText);
 
             //        COLORREF textClr;
             //        if (Flags & STF_HYPERLINK_COLOR)
@@ -1121,36 +1360,37 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 else
                     drawFlags |= DT_LEFT;
                 // because ClearType spills beyond the control and leaves stray colored dots, we must
-                // clip everything; the issue is visible in Salamander 2.51's Plugins Manager when scrolling
-                // the plugin list up and down: a red dot remains before the URL
+                // clip everything; the issue is visible in the Plugins Manager Salamander 2.51 when scrolling
+                // the plugin list, leaving a red dot before the URL
                 // if (!ClipDraw)
                 drawFlags |= DT_NOCLIP;
 
                 if (UIState & UISF_HIDEACCEL)
                     drawFlags |= DT_HIDEPREFIX;
 
-                DrawText(hDC, Text, TextLen, &r, drawFlags);
+                if (UseWideText)
+                    DrawTextW(hDC, TextW.c_str(), TextLen, &r, drawFlags);
+                else
+                    DrawTextA(hDC, Text, TextLen, &r, drawFlags);
             }
             else
             {
-                const char* text;
-                int textLen;
-                if (Text2Draw)
-                {
-                    text = Text2;
-                    textLen = Text2Len;
-                }
-                else
-                {
-                    text = Text;
-                    textLen = TextLen;
-                }
                 DWORD drawFlags = (bkErased) ? 0 : ETO_OPAQUE;
-                // if (ClipDraw) // same problem as above
                 drawFlags |= ETO_CLIPPED;
 
                 int xOffset = GetTextXOffset();
-                ExtTextOut(hDC, r.left + xOffset, r.top, drawFlags, &r, text, textLen, NULL);
+                if (UseWideText)
+                {
+                    const wchar_t* text = Text2Draw ? Text2W.c_str() : TextW.c_str();
+                    int textLen = Text2Draw ? Text2Len : TextLen;
+                    ExtTextOutW(hDC, r.left + xOffset, r.top, drawFlags, &r, text, textLen, NULL);
+                }
+                else
+                {
+                    const char* text = Text2Draw ? Text2 : Text;
+                    int textLen = Text2Draw ? Text2Len : TextLen;
+                    ExtTextOutA(hDC, r.left + xOffset, r.top, drawFlags, &r, text, textLen, NULL);
+                }
             }
 
             if (Flags & STF_DOTUNDERLINE)
@@ -1180,7 +1420,16 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DrawThemeParentBackground(HWindow, hDC, &r);
             }
             else
-                FillRect(hDC, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+            {
+                DarkModeColors colors;
+                DarkMode_GetColors(&colors);
+                HBRUSH hBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
+                if (hBrush != NULL)
+                {
+                    FillRect(hDC, &r, hBrush);
+                    HANDLES(DeleteObject(hBrush));
+                }
+            }
         }
 
         if ((GetWindowLongPtr(HWindow, GWL_STYLE) & WS_TABSTOP) && GetFocus() == HWindow)
@@ -1241,7 +1490,7 @@ CHyperLink::CHyperLink(HWND hDlg, int ctrlID, DWORD flags)
 void CHyperLink::SetActionOpen(const char* file)
 {
     EnableHintToolTip(FALSE);
-    lstrcpyn(File, file, MAX_PATH);
+    lstrcpyn(File.Get(), file, SAL_MAX_LONG_PATH);
 }
 
 void CHyperLink::SetActionPostCommand(WORD command)
@@ -1269,7 +1518,7 @@ BOOL CHyperLink::ExecuteIt()
         if (err <= 32)
         {
             ret = FALSE;
-            SalMessageBox(HDialog, GetErrorText(err), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), GetErrorTextW(err));
         }
     }
     if (Command != 0)
@@ -1281,15 +1530,15 @@ BOOL CHyperLink::ExecuteIt()
 
 void CHyperLink::OnContextMenu(int x, int y)
 {
-    /* used by the export_mnu.py script, which generates salmenu.mnu for Translator
+    /* used by the export_mnu.py script that generates salmenu.mnu for the Translator
        keep synchronized with the InsertMenu() call below...
-    MENU_TEMPLATE_ITEM HyperLinkMenu[] =
-    {
-      {MNTT_PB, 0
-      {MNTT_IT, IDS_COPYTOCLIPBOARD
-      {MNTT_PE, 0
-    };
-    */
+MENU_TEMPLATE_ITEM HyperLinkMenu[] = 
+{
+  {MNTT_PB, 0
+  {MNTT_IT, IDS_COPYTOCLIPBOARD
+  {MNTT_PE, 0
+};
+*/
     HMENU hMenu = CreatePopupMenu();
     InsertMenu(hMenu, 0, MF_BYPOSITION, 1, LoadStr(IDS_COPYTOCLIPBOARD));
     DWORD cmd = TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON,
@@ -1635,7 +1884,6 @@ CButton::CButton(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin origin)
     Captured = FALSE;
     Space = FALSE;
     MouseIsTracked = FALSE;
-    ToolTipText = NULL;
     HToolTipNW = NULL;
     ToolTipID = 0;
     Hot = FALSE;
@@ -1646,8 +1894,6 @@ CButton::CButton(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin origin)
 
 CButton::~CButton()
 {
-    if (ToolTipText != NULL)
-        free(ToolTipText);
 }
 
 DWORD
@@ -1771,7 +2017,7 @@ int CButton::HitTest(LPARAM lParam)
         RECT r = ClientRect;
         r.left = r.right - GetDropPartWidth() - 1;
         if (PtInRect(&r, p))
-            return 2; // drop-down part
+            return 2; // drop down
     }
 
     return 1; // button
@@ -1779,6 +2025,9 @@ int CButton::HitTest(LPARAM lParam)
 
 void CButton::PaintFace(HDC hdc, const RECT* rect, BOOL enabled)
 {
+    DarkModeColors colors;
+    BOOL useDark = DarkMode_GetColors(&colors);
+
     RECT r = *rect;
     if (Flags & BTF_RIGHTARROW)
         r.right -= (int)((double)SVGArrowRight.GetWidth() * 1.5);
@@ -1813,7 +2062,12 @@ void CButton::PaintFace(HDC hdc, const RECT* rect, BOOL enabled)
                     RECT fillR = {0};
                     fillR.right = bm.bmWidth;
                     fillR.bottom = bm.bmHeight;
-                    FillRect(tmpFaceBitmap.HMemDC, &fillR, (HBRUSH)(COLOR_BTNFACE + 1));
+                    HBRUSH hFillBrush = NULL;
+                    if (useDark)
+                        hFillBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
+                    FillRect(tmpFaceBitmap.HMemDC, &fillR, hFillBrush != NULL ? hFillBrush : (HBRUSH)(COLOR_BTNFACE + 1));
+                    if (hFillBrush != NULL)
+                        HANDLES(DeleteObject(hFillBrush));
                     DrawIcon(tmpFaceBitmap.HMemDC, 0, 0, hIcon);
                     HBITMAP hBmp = tmpFaceBitmap.CreateCopyBitmap();
                     DrawState(hdc, NULL, NULL, (LPARAM)hBmp, 0,
@@ -1841,7 +2095,7 @@ void CButton::PaintFace(HDC hdc, const RECT* rect, BOOL enabled)
 
         HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
         int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-        int oldTextColor = SetTextColor(hdc, GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
+        int oldTextColor = SetTextColor(hdc, useDark ? (enabled ? colors.DialogText : colors.DisabledText) : GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
         RECT r2 = r;
         r2.top--;
         DWORD dtFlags = DT_CENTER | DT_VCENTER | DT_SINGLELINE;
@@ -1905,22 +2159,13 @@ BOOL CButton::SetToolTipText(const char* text)
 {
     if (text == NULL)
     {
-        if (ToolTipText != NULL)
-            free(ToolTipText);
-        ToolTipText = NULL;
+        ToolTipText.clear();
         HToolTipNW = NULL;
         ToolTipID = 0;
         return TRUE;
     }
 
-    char* newText = DupStr(text);
-    if (newText == NULL)
-        return FALSE;
-
-    if (ToolTipText != NULL)
-        free(ToolTipText);
-
-    ToolTipText = newText;
+    ToolTipText = text;
     HToolTipNW = NULL;
     ToolTipID = 0;
     return TRUE;
@@ -1928,9 +2173,7 @@ BOOL CButton::SetToolTipText(const char* text)
 
 void CButton::SetToolTip(HWND hNotifyWindow, DWORD id)
 {
-    if (ToolTipText != NULL)
-        free(ToolTipText);
-    ToolTipText = NULL;
+    ToolTipText.clear();
 
     HToolTipNW = hNotifyWindow;
     ToolTipID = id;
@@ -1938,7 +2181,7 @@ void CButton::SetToolTip(HWND hNotifyWindow, DWORD id)
 
 BOOL CButton::ToolTipAssigned()
 {
-    return ToolTipText != NULL || HToolTipNW != NULL;
+    return !ToolTipText.empty() || HToolTipNW != NULL;
 }
 
 LRESULT
@@ -2018,6 +2261,8 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hdc != NULL)
         {
             BOOL enabled = IsWindowEnabled(HWindow);
+            DarkModeColors colors;
+            BOOL useDark = DarkMode_GetColors(&colors);
             //BOOL down = enabled && (ButtonPressed && Pressed || (Flags & BTF_CHECKBOX) && Checked);
             BOOL checked = enabled && (Flags & BTF_CHECKBOX) && Checked;
             BOOL down = enabled && ButtonPressed && Pressed;
@@ -2054,9 +2299,13 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
                 // erase the background, the button has transparent areas
-                HBRUSH hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
+                HBRUSH hBrush = NULL;
+                if (useDark)
+                    hBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
                 //          if (!(ButtonPressed && Pressed) && (Flags & BTF_CHECKBOX) && Checked) hBrush = HDitherBrush;
-                FillRect(hMemDC, &ClientRect, hBrush);
+                FillRect(hMemDC, &ClientRect, hBrush != NULL ? hBrush : (HBRUSH)(COLOR_BTNFACE + 1));
+                if (hBrush != NULL)
+                    HANDLES(DeleteObject(hBrush));
 
                 // draw the button background
                 DrawThemeBackground(hTheme, hMemDC, BP_PUSHBUTTON, state, &ClientRect, NULL);
@@ -2072,10 +2321,26 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     r.top += 4;
                     r.right = r.left + 1;
                     r.bottom -= 4;
-                    FillRect(hMemDC, &r, (HBRUSH)(COLOR_GRAYTEXT + 1));
+                    if (useDark)
+                    {
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(colors.Border));
+                        FillRect(hMemDC, &r, hBrush != NULL ? hBrush : (HBRUSH)(COLOR_GRAYTEXT + 1));
+                        if (hBrush != NULL)
+                            HANDLES(DeleteObject(hBrush));
+                    }
+                    else
+                        FillRect(hMemDC, &r, (HBRUSH)(COLOR_GRAYTEXT + 1));
                     r.left = r.right;
                     r.right = r.left + 1;
-                    FillRect(hMemDC, &r, (HBRUSH)(COLOR_3DHILIGHT + 1));
+                    if (useDark)
+                    {
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
+                        FillRect(hMemDC, &r, hBrush != NULL ? hBrush : (HBRUSH)(COLOR_3DHILIGHT + 1));
+                        if (hBrush != NULL)
+                            HANDLES(DeleteObject(hBrush));
+                    }
+                    else
+                        FillRect(hMemDC, &r, (HBRUSH)(COLOR_3DHILIGHT + 1));
 
                     if (DropDownPressed && Pressed)
                     {
@@ -2114,13 +2379,22 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 // otherwise we draw it ourselves
                 HBRUSH hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
+                HBRUSH hDarkBrush = NULL;
                 if (/*!(ButtonPressed && Pressed) && */ (Flags & BTF_CHECKBOX) && Checked)
                 {
                     hBrush = HDitherBrush;
                     SetTextColor(hMemDC, GetSysColor(COLOR_BTNFACE));
                     SetBkColor(hMemDC, GetSysColor(COLOR_3DHILIGHT));
                 }
+                if (useDark)
+                {
+                    COLORREF fillColor = checked ? colors.InactiveSelection : colors.DialogBackground;
+                    hDarkBrush = HANDLES(CreateSolidBrush(fillColor));
+                    hBrush = hDarkBrush;
+                }
                 FillRect(hMemDC, &ClientRect, hBrush);
+                if (hDarkBrush != NULL)
+                    HANDLES(DeleteObject(hDarkBrush));
 
                 RECT fr = ClientRect;
                 fr.left += 4;
@@ -2181,8 +2455,8 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         r.right++;
                         r.bottom++;
                     }
-                    int oldColor = SetTextColor(hMemDC, GetSysColor(COLOR_BTNFACE));
-                    int oldBkColor = SetBkColor(hMemDC, GetSysColor(COLOR_BTNTEXT));
+                    int oldColor = SetTextColor(hMemDC, useDark ? colors.DialogBackground : GetSysColor(COLOR_BTNFACE));
+                    int oldBkColor = SetBkColor(hMemDC, useDark ? colors.DialogText : GetSysColor(COLOR_BTNTEXT));
                     DrawFocusRect(hMemDC, &r);
                     SetTextColor(hMemDC, oldColor);
                     SetBkColor(hMemDC, oldBkColor);
@@ -2419,7 +2693,7 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (HitTest(lParam) != 0)
                 {
-                    if (ToolTipText != NULL)
+                    if (!ToolTipText.empty())
                         SetCurrentToolTip(HWindow, 1);
                     else if (HToolTipNW != NULL)
                         SetCurrentToolTip(HWindow, ToolTipID);
@@ -2455,8 +2729,8 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_TTGETTEXT:
     {
-        if (ToolTipText != NULL)
-            lstrcpyn((char*)lParam, ToolTipText, TOOLTIP_TEXT_MAX);
+        if (!ToolTipText.empty())
+            lstrcpyn((char*)lParam, ToolTipText.c_str(), TOOLTIP_TEXT_MAX);
         return 0;
     }
 
@@ -2670,9 +2944,10 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     HBITMAP hTmpMaskBitmap;
     HBITMAP hTmpGrayBitmap;
     HBITMAP hTmpColorBitmap;
+    COLORREF toolbarBkColor = DarkMode_ShouldUseDark() ? RGB(45, 45, 48) : GetSysColor(COLOR_BTNFACE);
     CreateToolbarBitmaps(HInstance,
                          IDB_EDTLBTB,
-                         RGB(255, 0, 255), GetSysColor(COLOR_BTNFACE),
+                         RGB(255, 0, 255), toolbarBkColor,
                          hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
                          FALSE, svgIcons, TLBHDR_COUNT);
     HHotImageList = ImageList_Create(iconSize, iconSize, ILC_MASK | ILC_COLORDDB, TLBHDR_COUNT, 1);
@@ -2802,11 +3077,25 @@ void CToolbarHeader::OnPaint(HDC hDC, BOOL hideAccel, BOOL prefixOnly)
 {
     RECT r;
     GetClientRect(HWindow, &r);
-    DrawEdge(hDC, &r, BDR_SUNKENOUTER, BF_RECT);
+    DarkModeColors colors;
+    BOOL useDark = DarkMode_GetColors(&colors);
+    if (useDark)
+    {
+        HBRUSH hBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
+        FillRect(hDC, &r, hBrush);
+        HANDLES(DeleteObject(hBrush));
+
+        HBRUSH hBorderBrush = HANDLES(CreateSolidBrush(colors.Border));
+        FrameRect(hDC, &r, hBorderBrush);
+        HANDLES(DeleteObject(hBorderBrush));
+    }
+    else
+        DrawEdge(hDC, &r, BDR_SUNKENOUTER, BF_RECT);
     r.left += 5;
     char buff[100];
     GetWindowText(HWindow, buff, 100);
     SetBkMode(hDC, TRANSPARENT);
+    COLORREF oldTextColor = SetTextColor(hDC, useDark ? colors.DialogText : GetSysColor(COLOR_WINDOWTEXT));
     HFONT hOldFont = (HFONT)SelectObject(hDC, (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
     DWORD dtFlags = DT_SINGLELINE | DT_LEFT | DT_VCENTER;
     if (hideAccel)
@@ -2815,6 +3104,7 @@ void CToolbarHeader::OnPaint(HDC hDC, BOOL hideAccel, BOOL prefixOnly)
         dtFlags |= DT_PREFIXONLY;
     DrawText(hDC, buff, -1, &r, dtFlags);
     SelectObject(hDC, hOldFont);
+    SetTextColor(hDC, oldTextColor);
 }
 
 LRESULT
@@ -2887,12 +3177,29 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return TRUE;
     }
 
+    case WM_SETTINGCHANGE:
+    case WM_THEMECHANGED:
+    {
+        InvalidateRect(HWindow, NULL, TRUE);
+        if (ToolBar != NULL)
+            InvalidateRect(ToolBar->HWindow, NULL, TRUE);
+        break;
+    }
+
     case WM_ERASEBKGND:
     {
         HDC hdc = (HDC)wParam;
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect(hdc, &r, (HBRUSH)(COLOR_3DFACE + 1));
+        DarkModeColors colors;
+        if (DarkMode_GetColors(&colors))
+        {
+            HBRUSH hBrush = HANDLES(CreateSolidBrush(colors.DialogBackground));
+            FillRect(hdc, &r, hBrush);
+            HANDLES(DeleteObject(hBrush));
+        }
+        else
+            FillRect(hdc, &r, (HBRUSH)(COLOR_3DFACE + 1));
         return 1;
     }
     }
@@ -2953,10 +3260,10 @@ CAnimate::IsGood()
 void
 CAnimate::Paint(HDC hdc)
 {
-  // just to be safe, synchronize access to the bitmap
+  // just to be safe, we synchronize access to the bitmap
   HANDLES(EnterCriticalSection(&GDICriticalSection));
 
-  // if no DC is provided, obtain our own
+  // if no DC is provided, we obtain our own
   HDC hDC;
   if (hdc == NULL)
     hDC = HANDLES(GetDC(HWindow));
@@ -3046,8 +3353,8 @@ CAnimate::ThreadF(void *param)
   handles[0] = animate->HTerminateEvent;  // must be at index zero because it has priority
   handles[1] = animate->HRunEvent;
 
-  // raise the thread priority so the animation does not stutter
-  // we can afford it because it takes almost no time
+  // raise the thread priority so the animation doesn't buffer
+  // we can afford it because it consumes almost no time
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
   while (TRUE)
@@ -3055,9 +3362,9 @@ CAnimate::ThreadF(void *param)
     DWORD wait = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
 
     if (wait == WAIT_OBJECT_0)
-      break;  // terminate the thread
+      break;  // we need to terminate the thread
 
-    if (animate->SleepThread)     // stop the animation
+    if (animate->SleepThread)     // we should stop the animation
     {
       animate->FirstFrame();          // move to the first frame
       ResetEvent(animate->HRunEvent); // and disable running
@@ -3067,8 +3374,8 @@ CAnimate::ThreadF(void *param)
     animate->Paint();
     // move to the next one
     animate->NextFrame();
-    // 1000 ms / 40 ms = 25 frames per second, like in a movie
-    WaitForSingleObject(animate->HTerminateEvent, 40); // if we are terminating, do not wait here unnecessarily
+    // 1000ms / 40ms = 25 frames per second, just like in a movie
+    WaitForSingleObject(animate->HTerminateEvent, 40); // if we should exit, we wll not wait unnecessarily
   }
   TRACE_I("End");
   return 0;
@@ -3089,7 +3396,7 @@ CAnimate::AuxThreadEH(void *param)
   {
     TRACE_I("Thread in CAnimate: calling ExitProcess(1).");
 //    ExitProcess(1);
-    TerminateProcess(GetCurrentProcess(), 1);  // more forceful exit
+    TerminateProcess(GetCurrentProcess(), 1);  // harder exit (this call still performs some operations)
     return 1;
   }
 #endif // CALLSTK_DISABLE
@@ -3341,7 +3648,7 @@ void CondenseStaticTexts(HWND hWindow, int* staticsArr)
     while (staticsArr[count] != 0)
         count++;
     if (count < 2)
-        return; // nothing to do
+        return; // there isnothing to do
 
     HFONT hFont = (HFONT)SendDlgItemMessage(hWindow, staticsArr[0], WM_GETFONT, 0, 0);
     HDC hDC = HANDLES(GetDC(hWindow));
@@ -3388,7 +3695,7 @@ BOOL CALLBACK FindHorizLines(HWND hwnd, LPARAM lParam)
 {
     RECT r;
     GetClientRect(hwnd, &r);
-    if (r.bottom == 0) // horizontal line with zero height
+    if (r.bottom == 0) // horizontal line 0 points high
     {
         LONG style = GetWindowLong(hwnd, GWL_STYLE);
         if ((style & SS_TYPEMASK) == SS_ETCHEDHORZ)
@@ -3426,7 +3733,7 @@ struct CDataForFindHorizLineLabel
 BOOL CALLBACK FindHorizLineLabel(HWND hwnd, LPARAM lParam)
 {
     CDataForFindHorizLineLabel* data = (CDataForFindHorizLineLabel*)lParam;
-    if (data->Line != hwnd) // skip the line whose label we are looking for
+    if (data->Line != hwnd) // skip the line for which we search a label
     {
         RECT r;
         GetWindowRect(hwnd, &r);
@@ -3454,7 +3761,7 @@ BOOL CALLBACK FindHorizLineLabel(HWND hwnd, LPARAM lParam)
                     }
                     else
                     {
-                        if (stricmp(className, "Button") == 0) // this is a button (check box, radio button, or push button)
+                        if (stricmp(className, "Button") == 0) // it's a button (check box, radio button, or push button)
                         {
                             if (((style & BS_TYPEMASK) == BS_CHECKBOX ||
                                  (style & BS_TYPEMASK) == BS_AUTOCHECKBOX ||
@@ -3491,7 +3798,7 @@ struct CDataForFindGroupBoxLabel
 BOOL CALLBACK FindGroupBoxLabel(HWND hwnd, LPARAM lParam)
 {
     CDataForFindGroupBoxLabel* data = (CDataForFindGroupBoxLabel*)lParam;
-    if (data->GroupBox != hwnd) // skip the group box whose label we are looking for
+    if (data->GroupBox != hwnd) // skip the group box for which we search a label
     {
         RECT r;
         GetWindowRect(hwnd, &r);
@@ -3595,7 +3902,7 @@ void ArrangeHorizontalLines(HWND hWindow)
                                           -lf.lfHeight < 16 ? 20
                                                             : // < 150% DPI
                                           -lf.lfHeight < 21 ? 25
-                                                            : 27; // >= 200% DPI
+                                                            : 27; // < 200% DPI : == 200% DPI
                         if (p2.x + (data.LineRect.right - data.LineRect.left) > p.x + boxSize + txtR.right + 2 * spaceWidth)
                         {
                             MoveWindow(data.Label, p.x, p.y, boxSize + txtR.right + spaceWidth, labelRect.bottom - labelRect.top, TRUE);

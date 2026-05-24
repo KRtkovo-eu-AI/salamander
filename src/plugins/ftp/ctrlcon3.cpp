@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -64,7 +64,7 @@ void CSendCmdUserIfaceWaitWnd::Init(HWND parent, const char* logCmd, const char*
 {
     char buf[500];
     char errBuf[300];
-    if (waitWndText == NULL) // use the standard wait window text
+    if (waitWndText == NULL) // standard text of the wait window
     {
         lstrcpyn(errBuf, logCmd, 300); // trim the CRLF from the command
         char* s = errBuf + strlen(errBuf);
@@ -153,7 +153,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
     CSetWaitCursorWindow* winParent = NULL;
     if (parentIsEnabled) // we cannot leave the parent enabled (the wait window is not modal)
     {
-        // save the current focus in 'parent' (if focus is not in 'parent', store NULL)
+        // store the focus from 'parent' (if the focus is not from 'parent', store NULL)
         focusedWnd = GetFocus();
         HWND hwnd = focusedWnd;
         while (hwnd != NULL && hwnd != parent)
@@ -229,7 +229,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
 
             if (aborting && auxCanSendOOBData)
             {
-                // notify the server of the abort (see RFC 959: sending the ABOR command)
+                // notify the server about the abort (see RFC 959 - sending the ABOR command)
                 HANDLES(EnterCriticalSection(&SocketCritSect));
                 if (Socket != INVALID_SOCKET &&
                     BytesToWriteCount == 0) // "always true" (all data should have been sent)
@@ -319,11 +319,11 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
                     {
                         if (userIface->HandleESC(parent, state == sfcsSendCommand, allowCmdAbort))
                         {                                                  // cancel
-                            if (allowCmdAbort && state == sfcsSendCommand) // command cancel -> start aborting the command
+                            if (allowCmdAbort && state == sfcsSendCommand) // cancel for the command -> start aborting the command
                             {
                                 state = sfcsAbortCommand;
-                                // allBytesWritten = TRUE;   // we must wait until the command is sent before starting the abort
-                                // we will not show the wait dialog again; in theory, sending should never stall, so we do not handle it (the user will wait without the dialog)
+                                // allBytesWritten = TRUE;   // we must wait until the command is sent before starting to send the abort
+                                // we will not display the wait window again; in theory sending should never stall -> ignore it (the user will wait without the wait window)
                             }
                             else // cannot use abort (we must close the connection) or cancel while aborting the command
                             {
@@ -380,14 +380,14 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
                             { // replies of type FTP_D1_MAYBESUCCESS are logged only (we are waiting for the server's "last word")
                                 if (event != ccsevClosed)
                                 {
-                                    if (!aborting) // send the command unless it is being aborted
-                                    {              // state can also be sfcsAbortCommand; then we must abort the command even if it has just succeeded (the user requested an abort)
+                                    if (!aborting) // send command
+                                    {              // state can also be sfcsAbortCommand; then we must abort the command even if it succeeded just now (the user ordered an abort)
                                         if (state != sfcsAbortCommand)
                                         {
                                             state = sfcsDone;
                                             *ftpReplyCode = replyCode;
                                             CopyStr(ftpReplyBuf, ftpReplyBufSize, reply, replySize);
-                                            ret = TRUE; // SUCCESS, we have the server reply! (when sending, only one server reply matters)
+                                            ret = TRUE; // SUCCESS, we have the server's reply! (for sending we only care about a single server reply)
                                         }
                                         // else; // continue waiting for the abort command (we have not sent ABOR yet)
                                         SkipFTPReply(replySize);
@@ -408,8 +408,8 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
                                         {
                                             // this is the reply for the sent or aborted command; we will still try to read
                                             // additional server replies (some servers send one more for ABOR)
-                                            if (!cmdReplyReceived) // return the first reply (it should belong to the command, but it may also be for ABOR)
-                                            {                      // ignore any possible second reply (to ABOR)
+                                            if (!cmdReplyReceived) // return the first reply (it should belong to the command but it may be
+                                            {                      // for ABOR as well) - ignore any possible second reply (to ABOR)
                                                 state = sfcsDone;
                                                 *ftpReplyCode = replyCode;
                                                 CopyStr(ftpReplyBuf, ftpReplyBufSize, reply, replySize);
@@ -493,7 +493,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
                         switch (event)
                         {
                         case ccsevUserIfaceFinished:
-                            break; // CanFinishSending() should return TRUE now
+                            break; // CanFinishSending() will hopefully return TRUE now
 
                         case ccsevTimeout:
                         {
@@ -563,7 +563,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
                     switch (event)
                     {
                     // case ccsevESC:   // (the user cannot press ESC during a 0 ms timeout)
-                    case ccsevTimeout: // no message is pending -> display the error from Write directly
+                    case ccsevTimeout: // no message is waiting -> display the error from Write directly
                     {
                         opFatalErrorTextID = !aborting ? IDS_SENDCOMMANDERROR : IDS_ABORTCOMMANDERROR;
                         opFatalError = error;
@@ -622,7 +622,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
 
                         if (event == ccsevClosed)
                         {
-                            if (state == sendState) // unexpected close
+                            if (state == sendState) // close without a cause
                             {
                                 fatalErrorTextID = IDS_CONNECTIONLOSTERROR;
                                 state = sfcsFatalError;
@@ -653,7 +653,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
                 Logs.LogMessage(logUID, buf, -1, TRUE); // add the last error text to the log
             }
             fatalErrLogMsg = TRUE;
-            if (canRetry == NULL || donotRetry) // "retry" is not possible or useful
+            if (canRetry == NULL || donotRetry) // "retry" is not possible or does not make sense
             {
                 *s = 0;
                 SalamanderGeneral->SalMessageBox(parent, buf, LoadStr(IDS_FTPERRORTITLE),
@@ -707,7 +707,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
         }
     }
 
-    if (parentIsEnabled) // if the parent was disabled, enable it again
+    if (parentIsEnabled) // if we disabled the parent, enable it again
     {
         // remove the wait cursor over the parent
         if (winParent != NULL)
@@ -744,7 +744,7 @@ BOOL CControlConnectionSocket::SendFTPCommand(HWND parent, const char* ftpCmd, c
             SetupKeepAliveTimer();
         }
     }
-    else // connection interrupted or timed out (the socket is no longer usable)
+    else // connection interrupted or timeout (the socket cannot be used anymore)
     {
         CloseSocket(NULL); // close the socket (if it is open); the system will attempt a "graceful" shutdown (we will not learn the result)
         Logs.SetIsConnected(logUID, IsConnected());
@@ -794,8 +794,8 @@ BOOL CControlConnectionSocket::GetCurrentWorkingPath(HWND parent, char* path, in
         {
             HANDLES(EnterCriticalSection(&SocketCritSect));
             if (FTP_DIGIT_1(ftpReplyCode) == FTP_D1_SUCCESS && // success is returned (should be 257)
-                    FTPGetDirectoryFromReply(replyBuf, (int)strlen(replyBuf), WorkingPath, FTP_MAX_PATH) ||
-                FTP_DIGIT_1(ftpReplyCode) != FTP_D1_SUCCESS) // failed (e.g. "not defined; use CWD to set the working directory") -> temporarily use an empty path
+                    FTPGetDirectoryFromReply(replyBuf, (int)strlen(replyBuf), WorkingPath, WorkingPath.Size()) ||
+                FTP_DIGIT_1(ftpReplyCode) != FTP_D1_SUCCESS) // failure returned (e.g. "not defined; use CWD to set the working directory") -> temporarily use an empty path
             {
                 if (FTP_DIGIT_1(ftpReplyCode) != FTP_D1_SUCCESS)
                     WorkingPath[0] = 0; // temporarily use an empty path
@@ -864,10 +864,10 @@ BOOL CControlConnectionSocket::SendChangeWorkingPath(BOOL notInPanel, BOOL leftP
 
     BOOL ret = FALSE;
     *success = FALSE;
-    char cmdBuf[50 + FTP_MAX_PATH];
-    char logBuf[50 + FTP_MAX_PATH];
+    CPathBuffer cmdBuf;
+    CPathBuffer logBuf;
     char replyBuf[700];
-    char newPath[FTP_MAX_PATH];
+    CPathBuffer newPath;
     BOOL reconnected = FALSE;
     int attemptNum = 1;
     if (totalAttemptNum != NULL)
@@ -896,10 +896,10 @@ BOOL CControlConnectionSocket::SendChangeWorkingPath(BOOL notInPanel, BOOL leftP
             const char* p;
 
             BOOL needChangeDir = i == 0 && reconnected && startPath != NULL; // after reconnect try to set 'startPath' again
-            if (i == 0 && !reconnected && startPath != NULL)                 // we have been connected for a while; check whether the working directory matches 'startPath'
-            {
+            if (i == 0 && !reconnected && startPath != NULL)                 // we have been connected for a while, check
+            {                                                                // whether the working directory matches 'startPath'
                 // use the cache; under normal circumstances the path should be there
-                if (GetCurrentWorkingPath(parent, newPath, FTP_MAX_PATH, FALSE, &canRetry, retryMsgBuf, 300))
+                if (GetCurrentWorkingPath(parent, newPath, newPath.Size(), FALSE, &canRetry, retryMsgBuf, 300))
                 {
                     if (strcmp(newPath, startPath) != 0) // the working directory on the server differs - change required
                         needChangeDir = TRUE;            // (assumption: the server always returns the same working path string)
@@ -924,7 +924,7 @@ BOOL CControlConnectionSocket::SendChangeWorkingPath(BOOL notInPanel, BOOL leftP
                 p = path;
                 i = 1; // end of the loop
             }
-            if (PrepareFTPCommand(cmdBuf, 50 + FTP_MAX_PATH, logBuf, 50 + FTP_MAX_PATH,
+            if (PrepareFTPCommand(cmdBuf, cmdBuf.Size(), logBuf, logBuf.Size(),
                                   ftpcmdChangeWorkingPath, NULL, p))
             {
                 int ftpReplyCode;
@@ -992,7 +992,7 @@ CControlConnectionSocket::GetFTPServerPathType(const char* path)
     CALL_STACK_MESSAGE2("CControlConnectionSocket::GetFTPServerPathType(%s)", path);
 
     HANDLES(EnterCriticalSection(&SocketCritSect));
-    CFTPServerPathType type = ::GetFTPServerPathType(ServerFirstReply, ServerSystem, path);
+    CFTPServerPathType type = ::GetFTPServerPathType(ServerFirstReply.c_str(), ServerSystem.c_str(), path);
     HANDLES(LeaveCriticalSection(&SocketCritSect));
 
     return type;
@@ -1004,7 +1004,7 @@ BOOL CControlConnectionSocket::IsServerSystem(const char* systemName)
 
     HANDLES(EnterCriticalSection(&SocketCritSect));
     char sysName[201];
-    FTPGetServerSystem(ServerSystem, sysName);
+    FTPGetServerSystem(ServerSystem.c_str(), sysName);
     HANDLES(LeaveCriticalSection(&SocketCritSect));
 
     return _stricmp(sysName, systemName) == 0;
@@ -1033,16 +1033,16 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
     }
     CFTPServerPathType pathType = ftpsptEmpty;
     BOOL donotTestPath = FALSE;
-    char newPath[FTP_MAX_PATH];
-    char prevUsedPath[FTP_MAX_PATH];
+    CPathBuffer newPath;
+    CPathBuffer prevUsedPath;
     BOOL fileNameAlreadyCut = FALSE;
     if (ret)
     {
         if (path[0] == 0) // only right after connecting - otherwise the path change (Shift+F7) to
         {                 // a relative path (e.g. "ftp://localhost") is ignored
                           // + when optimizing ChangePath() called right after obtaining the working directory
-            // forceRefresh should only be FALSE, and this is always preceded by a GetCurrentWorkingPath() call, so it should always
-            // use the cached path (without touching the connection)
+            // forceRefresh should be only FALSE + it is always preceded by a GetCurrentWorkingPath() call -> it should always
+            // take the path from the cache (does not touch the connection)
             ret = GetCurrentWorkingPath(parent, path, pathBufSize, forceRefresh, NULL, NULL, 0);
             if (ret)
             {
@@ -1052,7 +1052,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
         }
         else
         {
-            if (parsedPath &&                    // parsedPath is always TRUE except when connecting from the "Connect to FTP Server" dialog
+            if (parsedPath &&                    // except for connecting from the "Connect to FTP Server" dialog it is always TRUE
                 (*path == '/' || *path == '\\')) // 'path' always starts with '/' or '\\' ("always true")
             {
                 pathType = GetFTPServerPathType(path + 1);
@@ -1060,7 +1060,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                     pathType == ftpsptOS2 && GetFTPServerPathType("") == ftpsptOS2) // OS/2 paths get confused with the Unix path "/C:/path", so distinguish OS/2 paths even just by the SYST reply
                 {                                                                   // VMS + MVS + IBM_z/VM + OS/2 do not have '/' or '\\' at the start of the path
                     memmove(path, path + 1, strlen(path) + 1);                      // remove the '/' or '\\' character from the start of the path
-                    if (path[0] == 0)                                               // generic root -> fill it in according to the system type
+                    if (path[0] == 0)                                               // generic root -> supplement it according to the system type
                     {
                         if (pathType == ftpsptOpenVMS)
                             lstrcpyn(path, "[000000]", pathBufSize);
@@ -1074,7 +1074,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                                 {
                                     if (rescuePath[0] == 0 || !FTPGetIBMz_VMRootPath(path, pathBufSize, rescuePath))
                                     {
-                                        lstrcpyn(path, "/", pathBufSize); // the tested server supported the Unix root "/"; maybe someone will report this, then we will handle it further...
+                                        lstrcpyn(path, "/", pathBufSize); // the tested server supported the Unix root "/"; maybe someone will report it, then we will handle it further...
                                     }
                                 }
                                 else
@@ -1083,7 +1083,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                                     {
                                         if (rescuePath[0] == 0 || !FTPGetOS2RootPath(path, pathBufSize, rescuePath))
                                         {
-                                            lstrcpyn(path, "/", pathBufSize); // try at least the Unix root "/"; we do not know anything else; maybe someone will report this, then we will handle it further...
+                                            lstrcpyn(path, "/", pathBufSize); // try at least the Unix root "/", we know nothing else; maybe someone will report it, then we will handle it further...
                                         }
                                     }
                                 }
@@ -1095,13 +1095,13 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                         if (pathType == ftpsptOpenVMS && mode == 3 && !fileNameAlreadyCut &&
                             cutFileName != NULL && !cutDirectory)
                         { // try whether it is a file name (with VMS it is distinguished by syntax)
-                            lstrcpyn(prevUsedPath, path, FTP_MAX_PATH);
+                            lstrcpyn(prevUsedPath, path, prevUsedPath.Size());
                             BOOL fileNameCouldBeCut;
-                            if (FTPCutDirectory(pathType, prevUsedPath, FTP_MAX_PATH, newPath,
-                                                FTP_MAX_PATH, &fileNameCouldBeCut) &&
+                            if (FTPCutDirectory(pathType, prevUsedPath, prevUsedPath.Size(), newPath,
+                                                newPath.Size(), &fileNameCouldBeCut) &&
                                 fileNameCouldBeCut) // with VMS, 'fileNameCouldBeCut' == TRUE means it is definitely a file
                             {
-                                lstrcpyn(cutFileName, newPath, MAX_PATH);
+                                lstrcpyn(cutFileName, newPath, cutFileNameBufSize);
                                 lstrcpyn(path, prevUsedPath, pathBufSize);
                                 fileNameAlreadyCut = TRUE;
                                 if (pathWasCut != NULL)
@@ -1119,7 +1119,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
     }
 
     char replyBuf[700];
-    char errBuf[900 + FTP_MAX_PATH];
+    CPathBuffer errBuf;
     if (ret && showChangeInLog && // if it should be shown in the log
         !cutDirectory)            // only on the first pass (do not report shortening due to a faulty listing)
     {
@@ -1132,7 +1132,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
     {
         if (donotTestPath)
             donotTestPath = FALSE;                  // path change - we must test the modified one
-        lstrcpyn(prevUsedPath, path, FTP_MAX_PATH); // remember the previous path on the server (returned by the server)
+        lstrcpyn(prevUsedPath, path, prevUsedPath.Size()); // remember the previous path on the server (returned by the server)
         if (!FTPCutDirectory(pathType, path, pathBufSize, NULL, 0, NULL))
         {
             if (rescuePath[0] != 0) // try the rescue path as well
@@ -1141,8 +1141,8 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                 pathType = GetFTPServerPathType(path);
                 rescuePath[0] = 0; // do not try it next time (avoid loops)
             }
-            else // no need to report any error (listing already reported an error); we tried silently
-            {    // to find an accessible path, but it did not work
+            else // no need to report any error (listing already reported an error); we quietly tried
+            {    // to find an accessible path (which did not work)
                 ret = FALSE;
             }
         }
@@ -1163,12 +1163,12 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
         lstrcpyn(hostTmp, Host, HOST_MAX_SIZE);
         unsigned short portTmp = Port;
         char listCmd[FTPCOMMAND_MAX_SIZE + 2];
-        lstrcpyn(listCmd, UseLIST_aCommand ? LIST_a_CMD_TEXT : (ListCommand != NULL && *ListCommand != 0 ? ListCommand : LIST_CMD_TEXT),
+        lstrcpyn(listCmd, UseLIST_aCommand ? LIST_a_CMD_TEXT : (!ListCommand.empty() ? ListCommand.c_str() : LIST_CMD_TEXT),
                  FTPCOMMAND_MAX_SIZE);
         strcat(listCmd, "\r\n");
         BOOL isFTPS = EncryptControlConnection == 1;
         int useListingsCacheAux = UseListingsCache;
-        BOOL resuscitateKeepAlive = (IsConnected() && KeepAliveEnabled && KeepAliveMode == kamNone); // if keep-alive has already turned off (the resuscitation interval expired), we must restart it
+        BOOL resuscitateKeepAlive = (IsConnected() && KeepAliveEnabled && KeepAliveMode == kamNone); // if keep-alive has already turned off (revival time expired), we must restart it
         KeepAliveStart = GetTickCount();                                                             // beware, it is not enough to do it simply; 'resuscitateKeepAlive' must be used
         HANDLES(LeaveCriticalSection(&SocketCritSect));
 
@@ -1203,9 +1203,9 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                                                            cachedListing, cachedListingLen,
                                                            cachedListingDate,
                                                            cachedListingStartTime);
-                char pathSearchedInCache[FTP_MAX_PATH];
+                CPathBuffer pathSearchedInCache;
                 if (useListingsCacheAux && !forceRefresh)
-                    lstrcpyn(pathSearchedInCache, path, FTP_MAX_PATH);
+                    lstrcpyn(pathSearchedInCache, path, pathSearchedInCache.Size());
                 else
                     pathSearchedInCache[0] = 0;
 
@@ -1234,7 +1234,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                         retryMsgAux = NULL;
                         if (success) // the server reports success - retrieve the new path
                         {
-                            if (GetCurrentWorkingPath(parent, newPath, FTP_MAX_PATH, forceRefresh,
+                            if (GetCurrentWorkingPath(parent, newPath, newPath.Size(), forceRefresh,
                                                       &canRetry, retryMsgBuf, 300))
                             {
                                 if (cutDirectory && strcmp(newPath, prevUsedPath) == 0)
@@ -1259,7 +1259,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                                             errBuf[0] = 0; // any possible message is unnecessary; the printed error would only be confusing
                                         }
                                     }
-                                    break; // fatal error or success (path changed); possibly: the path is cached and the listing is taken from the cache
+                                    break; // fatal error or success (path changed) + possibly: the path is cached, take the listing from the cache
                                 }
                             }
                             else
@@ -1286,19 +1286,19 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
 
                         // try to shorten the path (a successful path change would not reach this point)
                         BOOL fileNameCouldBeCut;
-                        if (!FTPCutDirectory(pathType, path, pathBufSize, newPath, FTP_MAX_PATH, &fileNameCouldBeCut))
+                        if (!FTPCutDirectory(pathType, path, pathBufSize, newPath, newPath.Size(), &fileNameCouldBeCut))
                         {
                             if (rescuePath[0] != 0) // try the rescue path as well
                             {
                                 lstrcpyn(path, rescuePath, pathBufSize);
                                 fileNameAlreadyCut = TRUE;
                                 pathType = GetFTPServerPathType(path);
-                                rescuePath[0] = 0; // do not try it again next time (avoid loops)
+                                rescuePath[0] = 0; // do not try it next time (avoid loops)
                             }
                             else
                             {
                                 // even if we did not find any accessible path, we do not want a disconnect, therefore do the following:
-                                if (GetCurrentWorkingPath(parent, newPath, FTP_MAX_PATH, TRUE,
+                                if (GetCurrentWorkingPath(parent, newPath, newPath.Size(), TRUE,
                                                           &canRetry, retryMsgBuf, 300))
                                 {
                                     if (newPath[0] == 0) // we care only about the case when there is no current path on the server (otherwise we should not get here - rescuePath would be used)
@@ -1307,7 +1307,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                                             *pathWasCut = TRUE; // we are on a path other than the requested one
                                         if (pathBufSize > 0)
                                             path[0] = 0; // there is no current path on the server
-                                        break;           // try listing now...
+                                        break;           // go try listing...
                                     }
                                 }
                                 else
@@ -1332,7 +1332,7 @@ BOOL CControlConnectionSocket::ChangeWorkingPath(BOOL notInPanel, BOOL leftPanel
                         {
                             errBuf[0] = 0; // in 'mode' 3 this is not reported as an error (we are trying to focus on the file)
                             if (cutFileName != NULL)
-                                lstrcpyn(cutFileName, newPath, MAX_PATH);
+                                lstrcpyn(cutFileName, newPath, cutFileNameBufSize);
                         }
                         else
                         {
@@ -1406,7 +1406,7 @@ void CControlConnectionSocket::GiveConnectionToWorker(CFTPWorker* newWorker, HWN
     if (IsConnected()) // only if the connection is open
     {
         // first stop keep-alive:
-        // save the focus from 'parent' (if the focus is not in 'parent', store NULL)
+        // store the focus from 'parent' (if the focus is not from 'parent', store NULL)
         HWND focusedWnd = GetFocus();
         HWND hwnd = focusedWnd;
         while (hwnd != NULL && hwnd != parent)
@@ -1470,12 +1470,12 @@ void CControlConnectionSocket::GiveConnectionToWorker(CFTPWorker* newWorker, HWN
                 HANDLES(EnterCriticalSection(&SocketCritSect));
                 HANDLES(EnterCriticalSection(&newWorker->SocketCritSect));
 
-                // pass the connection information and socket data to the worker
+                // pass the worker information about the connection and the socket data
                 newWorker->ControlConnectionUID = UID;
                 if (HaveWorkingPath)
                 {
                     newWorker->HaveWorkingPath = TRUE;
-                    lstrcpyn(newWorker->WorkingPath, WorkingPath, FTP_MAX_PATH);
+                    lstrcpyn(newWorker->WorkingPath, WorkingPath, newWorker->WorkingPath.Size());
                 }
                 newWorker->CurrentTransferMode = CurrentTransferMode;
                 newWorker->ResetBuffersAndEvents();
@@ -1537,12 +1537,12 @@ void CControlConnectionSocket::GetConnectionFromWorker(CFTPWorker* workerWithCon
             HANDLES(EnterCriticalSection(&SocketCritSect));
             HANDLES(EnterCriticalSection(&workerWithCon->SocketCritSect));
 
-            // take over the connection information and socket data from the worker
+            // take over from the worker the information about the connection and the socket data
             workerWithCon->ControlConnectionUID = -1;
             if (workerWithCon->HaveWorkingPath)
             {
                 HaveWorkingPath = TRUE;
-                lstrcpyn(WorkingPath, workerWithCon->WorkingPath, FTP_MAX_PATH);
+                lstrcpyn(WorkingPath, workerWithCon->WorkingPath, WorkingPath.Size());
             }
             CurrentTransferMode = workerWithCon->CurrentTransferMode;
             ResetBuffersAndEvents();
@@ -1558,9 +1558,7 @@ void CControlConnectionSocket::GetConnectionFromWorker(CFTPWorker* workerWithCon
             workerWithCon->ReadBytesCount = 0;
             workerWithCon->ReadBytesOffset = 0;
             workerWithCon->ReadBytesAllocatedSize = 0;
-            if (ConnectionLostMsg != NULL)
-                SalamanderGeneral->Free(ConnectionLostMsg);
-            ConnectionLostMsg = NULL;
+            ConnectionLostMsg.clear();
             int logUID = LogUID; // log UID of this connection
 
             HANDLES(LeaveCriticalSection(&workerWithCon->SocketCritSect));
@@ -1588,7 +1586,7 @@ void CControlConnectionSocket::GetConnectionFromWorker(CFTPWorker* workerWithCon
             // restart keep-alive
             ReleaseKeepAlive();
             WaitForEndOfKeepAlive(SalamanderGeneral->GetMsgBoxParent(), 0); // cannot open the wait window (it is in state 'kamNone')
-            SetupKeepAliveTimer(TRUE);                                      // set up the keep-alive timer; run the keep-alive command immediately (the connection may have been inactive for an unknown length of time, so avoid losing it unnecessarily)
+            SetupKeepAliveTimer(TRUE);                                      // set up the keep-alive timer; trigger the keep-alive command right away (we do not know how long the connection was inactive, so let us avoid losing it)
         }
     }
 }

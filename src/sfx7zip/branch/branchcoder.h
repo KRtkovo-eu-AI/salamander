@@ -1,4 +1,4 @@
-// BranchCoder.h
+﻿// BranchCoder.h
 
 #ifndef __BRANCH_CODER_H
 #define __BRANCH_CODER_H

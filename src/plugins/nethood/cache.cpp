@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -708,7 +709,7 @@ UINT CNethoodCache::GetPathStatus(
     int cTokens;
     int iToken = 0;
 
-    // Consumer cannot be specified without also returning the node.
+    // Consumer cannot be specified without also returning ther node.
     assert(node || !pEventConsumer);
 
     if (node)
@@ -1007,17 +1008,17 @@ CNethoodCache::Node CNethoodCache::NewNode(
 
     if ((token.GetTokenClassification() & CUncPathParser::TokenServer) != 0)
     {
-        TCHAR szRemoteName[MAX_PATH];
+        CPathBuffer szRemoteName;
 
-        token.GetPathUpToCurrentToken(szRemoteName, COUNTOF(szRemoteName));
+        token.GetPathUpToCurrentToken(szRemoteName, szRemoteName.Size());
         nodeData.SetType(CNethoodCacheNode::TypeServer);
         nodeData.SetName(szRemoteName);
     }
     else if ((token.GetTokenClassification() & CUncPathParser::TokenShare) != 0)
     {
-        TCHAR szShareName[MAX_PATH];
+        CPathBuffer szShareName;
 
-        token.GetPathUpToCurrentToken(szShareName, COUNTOF(szShareName));
+        token.GetPathUpToCurrentToken(szShareName, szShareName.Size());
         nodeData.SetType(CNethoodCacheNode::TypeShare);
         nodeData.SetName(szShareName);
     }
@@ -2111,7 +2112,7 @@ void CNethoodCacheEnumerationThread::ProcessShareInfo(
     NETRESOURCE sNetResource = {
         0,
     };
-    TCHAR szRemoteName[MAX_PATH];
+    CPathBuffer szRemoteName;
 
     sNetResource.dwScope = RESOURCE_GLOBALNET;
     sNetResource.dwType = RESOURCETYPE_DISK;
@@ -2119,17 +2120,17 @@ void CNethoodCacheEnumerationThread::ProcessShareInfo(
     sNetResource.dwUsage = RESOURCEUSAGE_CONNECTABLE;
 
 #ifdef _UNICODE
-    StringCchPrintf(szRemoteName, COUNTOF(szRemoteName), L"%s\\%s",
+    StringCchPrintf(szRemoteName, szRemoteName.Size(), L"%s\\%s",
                     pszServerName, sShareInfo.shi1_netname);
     sNetResource.lpComment = sShareInfo.shi1_remark;
 #else
-    StringCchPrintf(szRemoteName, COUNTOF(szRemoteName), "%s\\%ls",
+    StringCchPrintf(szRemoteName, szRemoteName.Size(), "%s\\%ls",
                     pszServerName, sShareInfo.shi1_netname);
-    char szComment[MAX_PATH];
+    CPathBuffer szComment; // Heap-allocated for long path support
     if (sShareInfo.shi1_remark && *sShareInfo.shi1_remark != L'\0')
     {
         if (WideCharToMultiByte(CP_ACP, 0, sShareInfo.shi1_remark,
-                                -1, szComment, COUNTOF(szComment), NULL, NULL) > 0)
+                                -1, szComment, szComment.Size(), NULL, NULL) > 0)
         {
             sNetResource.lpComment = szComment;
         }
@@ -2360,7 +2361,7 @@ DWORD CNethoodCacheEnumerationThread::EnumHiddenSharesNt(__in PCTSTR pszServerNa
     DWORD res;
 
 #ifndef _UNICODE
-    WCHAR szServerNameW[MAX_PATH];
+    WCHAR szServerNameW[32768];
     if (!MultiByteToWideChar(CP_ACP, 0, pszServerName, -1, szServerNameW, COUNTOF(szServerNameW)))
     {
         return GetLastError();
@@ -2440,7 +2441,7 @@ BOOL CNethoodCacheEnumerationThread::ResolveNetShortcut(
     if (path[0] == '\\')
         return FALSE; // UNC path -> not a NetHood location
 
-    char name[MAX_PATH];
+    CPathBuffer name; // Heap-allocated for long path support
     name[0] = path[0];
     name[1] = TEXT(':');
     name[2] = TEXT('\\');
@@ -2449,8 +2450,8 @@ BOOL CNethoodCacheEnumerationThread::ResolveNetShortcut(
         return FALSE; // not a local fixed path -> not a NetHood location
 
     BOOL tryTarget = FALSE; // if TRUE, it is worth trying to find the "target.lnk" file
-    lstrcpyn(name, path, MAX_PATH);
-    if (SalamanderGeneral->SalPathAppend(name, "desktop.ini", MAX_PATH))
+    lstrcpyn(name, path, name.Size());
+    if (SalamanderGeneral->SalPathAppend(name, "desktop.ini", name.Size()))
     {
         HANDLE hFile = HANDLES_Q(CreateFile(name, GENERIC_READ,
                                             FILE_SHARE_WRITE | FILE_SHARE_READ, NULL,
@@ -2498,8 +2499,8 @@ BOOL CNethoodCacheEnumerationThread::ResolveNetShortcut(
 
     if (tryTarget)
     {
-        lstrcpyn(name, path, MAX_PATH);
-        if (SalamanderGeneral->SalPathAppend(name, "target.lnk", MAX_PATH))
+        lstrcpyn(name, path, name.Size());
+        if (SalamanderGeneral->SalPathAppend(name, "target.lnk", name.Size()))
         {
             WIN32_FIND_DATA data;
             HANDLE find = HANDLES_Q(FindFirstFile(name, &data));
@@ -2515,12 +2516,12 @@ BOOL CNethoodCacheEnumerationThread::ResolveNetShortcut(
                     IPersistFile* fileInt;
                     if (link->QueryInterface(IID_IPersistFile, (LPVOID*)&fileInt) == S_OK)
                     {
-                        OLECHAR oleName[MAX_PATH];
-                        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name, -1, oleName, MAX_PATH);
-                        oleName[MAX_PATH - 1] = 0;
+                        OLECHAR oleName[32768];
+                        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name, -1, oleName, COUNTOF(oleName));
+                        oleName[COUNTOF(oleName) - 1] = 0;
                         if (fileInt->Load(oleName, STGM_READ) == S_OK)
                         {
-                            if (link->GetPath(name, MAX_PATH, &data, SLGP_UNCPRIORITY) == NOERROR)
+                            if (link->GetPath(name, name.Size(), &data, SLGP_UNCPRIORITY) == NOERROR)
                             {                                        // Skip Resolve; it's not critical here and would slow things down.
                                 StringCchCopy(path, MAX_PATH, name); // Finally we know where the shortcut points.
                                 ok = TRUE;
@@ -2539,9 +2540,9 @@ BOOL CNethoodCacheEnumerationThread::ResolveNetShortcut(
 
 DWORD CNethoodCacheEnumerationThread::EnumNetworkShortcuts()
 {
-    TCHAR szShortcutsPath[MAX_PATH];
-    TCHAR szFindMask[MAX_PATH];
-    TCHAR szShortcut[MAX_PATH];
+    CPathBuffer szShortcutsPath;
+    CPathBuffer szFindMask;
+    CPathBuffer szShortcut;
     HANDLE hFind;
     WIN32_FIND_DATA wfd;
     BOOL res;
@@ -2551,9 +2552,9 @@ DWORD CNethoodCacheEnumerationThread::EnumNetworkShortcuts()
         return NO_ERROR;
     }
 
-    StringCchCopy(szFindMask, COUNTOF(szFindMask), szShortcutsPath);
+    StringCchCopy(szFindMask, szFindMask.Size(), szShortcutsPath);
     if (!SalamanderGeneral->SalPathAppend(szFindMask, TEXT("*"),
-                                          COUNTOF(szShortcutsPath)))
+                                          szFindMask.Size()))
     {
         return NO_ERROR;
     }
@@ -2574,10 +2575,10 @@ DWORD CNethoodCacheEnumerationThread::EnumNetworkShortcuts()
                 (wfd.cFileName[0] != TEXT('.') || wfd.cFileName[1] != 0 &&
                                                       (wfd.cFileName[1] != TEXT('.') || wfd.cFileName[2] != 0)))
             { // directories except empty names, "." and ".."
-                StringCchCopy(szShortcut, COUNTOF(szShortcut),
+                StringCchCopy(szShortcut, szShortcut.Size(),
                               szShortcutsPath);
                 if (SalamanderGeneral->SalPathAppend(szShortcut,
-                                                     wfd.cFileName, COUNTOF(szShortcut)))
+                                                     wfd.cFileName, szShortcut.Size()))
                 {
                     AddNetworkShortcut(wfd.cFileName, szShortcut);
                 }

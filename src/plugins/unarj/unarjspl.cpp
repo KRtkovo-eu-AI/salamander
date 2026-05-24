@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -118,7 +119,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "UnARJ" /* do not translate! */, "arj");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -460,7 +461,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     RootLen = 0;
     AllocateWholeFile = TRUE;
     TestAllocateWholeFile = TRUE;
-    char justName[MAX_PATH];
+    CPathBuffer justName; // Heap-allocated for long path support
     lstrcpy(justName, nameInArchive);
     SalamanderGeneral->SalPathStripPath(justName);
 
@@ -499,8 +500,8 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
                 }
                 char buf[100];
                 GetInfo(buf, &header.Time, header.Size);
-                lstrcpy(TargetName, targetDir);
-                SalamanderGeneral->SalPathAppend(TargetName, justName, MAX_PATH);
+                lstrcpyn(TargetName, targetDir, TargetName.Size());
+                SalamanderGeneral->SalPathAppend(TargetName, justName, TargetName.Size());
                 BOOL skip;
                 CQuadWord q = CQuadWord(header.Size, 0);
                 bool allocate = CQuadWord(2, 0) < q && q < CQuadWord(0, 0x80000000);
@@ -760,7 +761,7 @@ int CPluginInterfaceForArchiver::ProcessDataProc(const void* buffer, DWORD size)
                 Abort = TRUE;
                 return 0;
             }
-            return 1; // success
+            return 1; // sucess
         }
         lstrcpy(buf, LoadStr(IDS_UNABLEWRITE));
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
@@ -868,12 +869,12 @@ BOOL CPluginInterfaceForArchiver::ErrorProc(int error, BOOL flags)
 void CPluginInterfaceForArchiver::SwitchToFirstVol(const char* arcName)
 {
     CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::SwitchToFirstVol(%s)", arcName);
-    lstrcpy(ArcFileName, arcName);
+    lstrcpyn(ArcFileName, arcName, ArcFileName.Size());
     char* ext = PathFindExtension(ArcFileName);
     if (lstrlen(ext) > 3 &&
         isdigit(ext[2]) && isdigit(ext[3]))
     {
-        char oldExt[MAX_PATH];
+        CPathBuffer oldExt; // Heap-allocated for long path support
         lstrcpy(oldExt, ext);
         lstrcpy(ext, ".arj");
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(ArcFileName);
@@ -890,13 +891,13 @@ BOOL CPluginInterfaceForArchiver::MakeFilesList(TIndirectArray2<char>& files, Sa
     const char* nextName;
     BOOL isDir;
     CQuadWord size;
-    char dir[MAX_PATH];
+    CPathBuffer dir; // Heap-allocated for long path support
     char* addDir;
     int dirLen;
     int errorOccured;
 
     lstrcpy(dir, targetDir);
-    addDir = dir + lstrlen(dir);
+    addDir = dir.Get() + lstrlen(dir);
     if (*(addDir - 1) != '\\')
     {
         *addDir++ = '\\';
@@ -959,7 +960,7 @@ BOOL CPluginInterfaceForArchiver::DoThisFile(CARJHeaderData* hdr, const char* ar
 {
     CALL_STACK_MESSAGE3("CPluginInterfaceForArchiver::DoThisFile(, %s, %s)", arcName,
                         targetDir);
-    char message[MAX_PATH + 32];
+    CPathBuffer message;
 
     lstrcpy(message, LoadStr(IDS_EXTRACTING));
     lstrcat(message, hdr->FileName);
@@ -990,11 +991,11 @@ BOOL CPluginInterfaceForArchiver::DoThisFile(CARJHeaderData* hdr, const char* ar
             return FALSE;
         }
     }
-    lstrcpy(TargetName, targetDir);
-    SalamanderGeneral->SalPathAppend(TargetName, hdr->FileName + RootLen, MAX_PATH);
-    char nameInArc[MAX_PATH + ARJ_MAX_PATH];
+    lstrcpyn(TargetName, targetDir, TargetName.Size());
+    SalamanderGeneral->SalPathAppend(TargetName, hdr->FileName + RootLen, TargetName.Size());
+    CPathBuffer nameInArc;
     lstrcpy(nameInArc, arcName);
-    SalamanderGeneral->SalPathAppend(nameInArc, hdr->FileName, MAX_PATH + ARJ_MAX_PATH);
+    SalamanderGeneral->SalPathAppend(nameInArc, hdr->FileName, nameInArc.Size());
     char buf[100];
     GetInfo(buf, &hdr->Time, hdr->Size);
     BOOL skip;
@@ -1048,7 +1049,7 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray2<char>& mask
     char* dest;
     char* newMask;
     int newMaskLen;
-    char buffer[MAX_PATH];
+    CPathBuffer buffer; // Heap-allocated for long path support
 
     sour = masks;
     while (*sour)

@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -93,10 +94,10 @@ extern HICON FTPOperIcon;     // (16x16) icon of the operation dialog
 extern HICON FTPOperIconBig;  // large (32x32) icon of the operation dialog
 extern HCURSOR DragCursor;    // cursor for the drag&drop list box in the Connect dialog
 extern HFONT FixedFont;       // font for the Welcome Message dialog (fixed so text layout works better)
-extern HFONT SystemFont;      // system font (dialogs, wait window, etc.)
+extern HFONT SystemFont;      // environment font (dialogs, wait window, etc.)
 extern HICON WarningIcon;     // small (16x16) "warning" icon for the operation dialog
 
-// generic Salamander interface - valid from startup until the plugin is closed
+// generic Salamander interface - valid from startup until the plug-in is closed
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 
 // ZLIB compression/decompression interface;
@@ -105,12 +106,12 @@ extern CSalamanderZLIBAbstract* SalZLIB;
 // interface providing customized Windows controls used in Salamander
 extern CSalamanderGUIAbstract* SalamanderGUI;
 
-// FS name assigned by Salamander after the plugin is loaded
-extern char AssignedFSName[MAX_PATH];
+// FS name assigned by Salamander after the plug-in is loaded
+extern CPathBuffer AssignedFSName;
 extern int AssignedFSNameLen; // length of AssignedFSName
 
-// FS name for FTP over SSL (FTPS) assigned by Salamander after the plugin loads
-extern char AssignedFSNameFTPS[MAX_PATH];
+// FS name for FTP over SSL (FTPS) assigned by Salamander after the plug-in loads
+extern CPathBuffer AssignedFSNameFTPS;
 extern int AssignedFSNameIndexFTPS; // index of AssignedFSNameFTPS
 extern int AssignedFSNameLenFTPS;   // length of AssignedFSNameFTPS
 
@@ -121,7 +122,7 @@ extern unsigned char* UpperCase;
 // frequently used error message
 extern const char* LOW_MEMORY;
 
-extern const char* SAVEBITS_CLASSNAME; // window class for CWaitWindow
+extern const char* SAVEBITS_CLASSNAME; // class for CWaitWindow
 
 extern int GlobalShowLogUID;      // UID of the log that FTPCMD_SHOWLOGS should show (-1 == none)
 extern int GlobalDisconnectPanel; // panel for which disconnect is called (-1 == active panel - source)
@@ -132,7 +133,7 @@ extern BOOL WindowsVistaAndLater; // Windows Vista or later from the NT line
 
 // global variables for the FTPCMD_CHANGETGTPANELPATH command
 extern int TargetPanelPathPanel;
-extern char TargetPanelPath[MAX_PATH];
+extern CPathBuffer TargetPanelPath;
 
 extern char UserDefinedSuffix[100]; // preloaded string for marking user-defined "server types"
 
@@ -191,7 +192,7 @@ void ConnectFTPServer(HWND parent, int panel);
 void OrganizeBookmarks(HWND parent);
 
 // copies the contents of 'newStr' into 'str', reallocates 'str' if needed; sets 'err' (if not NULL) to TRUE
-// on out-of-memory; if 'clearMem' is TRUE, clears memory that is no longer used (for passwords)
+// on low memory; if 'clearMem' is TRUE, wipes memory that stops being used (due to passwords)
 void UpdateStr(char*& str, const char* newStr, BOOL* err = NULL, BOOL clearMem = FALSE);
 
 // scrambling and the reverse process used for storing passwords in the registry
@@ -221,12 +222,12 @@ void GetMyDocumentsPath(char* initDir);
 char* GetTypeNameForUser(char* typeName, char* buf, int bufSize);
 
 // loads from resources the standard column name identified by 'id' (columns for
-// "server type" - support for translating user-defined parsers);
+// "server type" - solution for translating user-defined parsers);
 // returns TRUE if 'id' is known
 BOOL LoadStdColumnStrName(char* buf, int bufSize, int id);
 
 // loads from resources the standard column description identified by 'id' (columns for
-// "server type" - support for translating user-defined parsers)
+// "server type" - solution for translating user-defined parsers)
 // returns TRUE if 'id' is known
 BOOL LoadStdColumnStrDescr(char* buf, int bufSize, int id);
 
@@ -238,7 +239,7 @@ BOOL ConvertStringTxtToReg(char* buf, int bufSize, const char* txtStr);
 
 // RegEdit cannot import strings with EOLs from .reg files -> replace EOLs (CRLF with '|',
 // LF with '!' and CR with '$');
-// converts a registry string to a normal string; returns FALSE if the result
+// converts a registry string to a regular string; returns FALSE if the result
 // did not fit into the buffer
 BOOL ConvertStringRegToTxt(char* buf, int bufSize, const char* regStr);
 
@@ -274,7 +275,7 @@ enum CSrvTypeColumnTypes
     stctExt,  // 2, extension appended to the name (without stctName it makes no sense)
     stctSize, // 3, size (UNSIGNED INT64) - default empty value in the column is "0" + directories always have value "0" and the panel shows "DIR"
     stctDate, // 4, date (NOTE: CFileData stores UTC time - requires a local->UTC conversion) - default empty value in the column is "1.1.1602" (adjusted according to regional settings)
-    stctTime, // 5, time (NOTE: CFileData stores UTC time - conversion from UTC to local time is required) - the default empty value in the column is "0:00:00" (adjusted according to regional settings)
+    stctTime, // 5, time (NOTE: CFileData stores UTC time - requires a local->UTC conversion) - default empty value in the column is "0:00:00" (adjusted according to regional settings)
     stctType, // 6, file type description (works only if 'stctExt' is present)
     // general columns stored outside CFileData (attached before CFileData::PluginData)
     // NOTE: numbering must match 'stctFirstGeneral'
@@ -354,11 +355,11 @@ public:
     void LoadFromObj(CSrvTypeColumn* copyFrom);
 
     // loads column data from a string (the structure must be new);
-    // returns whether the operation succeeded
+    // returns success of the operation
     BOOL LoadFromStr(const char* str);
 
-    // stores the data in buffer 'buf' of size 'bufSize'; returns FALSE only if the data
-    // do not fit in the buffer
+    // stores the data to buffer 'buf' of size 'bufSize'; returns FALSE only if the data
+    // do not fit into the buffer
     BOOL SaveToStr(char* buf, int bufSize, BOOL ignoreColWidths = FALSE);
 
     // allocates a copy of the structure, returns NULL on error
@@ -385,16 +386,16 @@ protected:
     BOOL LoadStr(const char** str, char** result, int limit);
 };
 
-// verifies whether the column list is valid (contains a visible Name column
-// in the first position + the Ext column is visible and can only be in the second
-// position + variable names are unique and non-empty + column names and descriptions
-// are non-empty + except for the "general/any" type, types in the column list are not
-// repeated + the empty value has a format permitted by the column type); returns TRUE
-// if the list is valid, otherwise returns FALSE and stores the resource ID of the error description in 'errResID' (if not NULL)
+// verifies whether the column list is valid (contains a visible Name column at position one
+// + the Ext column is visible and can be only at position two + variable names are
+// unique and non-empty + column names and descriptions are non-empty + except for the "general/any" type
+// the types in the column list are not repeated + the empty value has a permitted
+// format according to the column type); returns TRUE if the list is valid, otherwise returns FALSE and
+// in 'errResID' (if not NULL) the ID of the error description in resources
 BOOL ValidateSrvTypeColumns(TIndirectArray<CSrvTypeColumn>* columns, int* errResID);
 
-// returns TRUE if the identifier is valid, otherwise returns FALSE and stores the resource ID
-// of the error description in 'errResID' (if not NULL)
+// returns TRUE if the identifier is OK, otherwise returns FALSE and in 'errResID' (if not NULL)
+// returns the ID of the error description in resources
 BOOL IsValidIdentifier(const char* s, int* errResID);
 
 class CFTPAutodetCondNode;
@@ -418,7 +419,7 @@ struct CServerType
     // !!! NOTE: when adding a new variable it is necessary to update all structure methods !!!
 
     // helper variable for listing parser autodetection - no need to initialize/copy, etc.
-    BOOL ParserAlreadyTested; // TRUE if this server type has already been tried against the listing (unsuccessfully)
+    BOOL ParserAlreadyTested; // TRUE if this server type has already been tried on the listing (unsuccessfully)
 
     CServerType() : Columns(5, 5) { Init(); }
     ~CServerType() { Release(); }
@@ -426,11 +427,11 @@ struct CServerType
     void Init();    // initializes all object variables
     void Release(); // releases and initializes all object variables
 
-    // sets the structure, returns FALSE on failure
+    // sets the structure, returns FALSE on error
     BOOL Set(const char* typeName, const char* autodetectCond, int columnsCount,
              const char* columnsStr[], const char* rulesForParsing);
 
-    // sets the structure (everything except 'typeName' is taken from 'copyFrom'); returns FALSE on failure
+    // sets the structure (except for 'typeName' it takes everything from 'copyFrom'), returns FALSE on error
     BOOL Set(const char* typeName, CServerType* copyFrom);
 
     // loads the structure, returns TRUE if the item is valid (should be added to the list)
@@ -463,8 +464,8 @@ public:
     // adds a server type to the list
     BOOL AddServerType(const char* typeName, CServerType* copyFrom);
 
-    // adds names to the combo box and returns the index of server type 'serverType' in 'index' (if
-    // not found, 'index' is set to -1); 'serverType' may also be NULL ('index' is set to -1)
+    // adds names to the combo box + returns the index of type 'serverType' in 'index' (if
+    // not found, returns 'index'==-1); 'serverType' may also be NULL (returns 'index'==-1)
     void AddNamesToCombo(HWND combo, const char* serverType, int& index);
 
     // adds names to the list box
@@ -480,9 +481,9 @@ public:
     BOOL CopyItemsFrom(CServerTypeList* list);
 
     // returns TRUE if the list already contains the name 'typeName' (regardless of "user defined");
-    // if 'exclude' is not NULL, it is the item to exclude from the search (used when renaming so
-    // the item being renamed is not found); the index of the found item is returned in 'index'
-    // (if not NULL), or -1 if the item is not found
+    // if 'exclude' is not NULL, it is an item to exclude from the search (used when renaming so
+    // the item being renamed is not found); in 'index' (if not NULL)
+    // returns the index of the found item (-1 if the item is not found)
     BOOL ContainsTypeName(const char* typeName, CServerType* exclude, int* index = NULL);
 };
 
@@ -503,8 +504,8 @@ struct CFTPServer
     int SavePassword;                // TRUE = password should be stored on media (registry/config file)
     int ProxyServerUID;              // proxy server: -2 = default, -1 = not used, otherwise the proxy server UID from Config.FTPProxyServerList
     char* TargetPanelPath;           // if not NULL or "", the target path in the panel should be set (max. MAX_PATH-1 characters)
-    char* ServerType;                // server type (for listing) - NULL == auto-detect, otherwise a textual name (format see CServerType::TypeName; the list of server types will gradually expand) (max. SERVERTYPE_MAX_SIZE-1 characters)
-    char* ListCommand;               // command for listing - NULL == LIST_CMD_TEXT, otherwise the command text
+    char* ServerType;                // server type (for listing) - NULL == auto-detect, otherwise a textual name (format see CServerType::TypeName; the server list will gradually expand) (max. SERVERTYPE_MAX_SIZE-1 characters)
+    std::string ListCommand;         // command for listing - empty == LIST_CMD_TEXT, otherwise the command text
     int TransferMode;                // 0 - default, 1 - binary, 2 - ascii, 3 - auto (uses Config.ASCIIFileMasks)
     int Port;                        // port of the server we connect to (standard FTP port is IPPORT_FTP)
     int UsePassiveMode;              // 0 - PORT mode, 1 - PASV mode, 2 - according to configuration (Config.PassiveMode)
@@ -517,12 +518,12 @@ struct CFTPServer
     int UseServerSpeedLimit;         // 1 = use the ServerSpeedLimit limit; 2 = default limit, 0 = no limit
     double ServerSpeedLimit;         // total speed limit for this server
     int UseListingsCache;            // cache for viewed files and listings: 2 = default setting, 1 = use cache, 0 = do not use cache
-    char* InitFTPCommands;           // list of FTP commands to send to the server immediately after connecting
+    std::string InitFTPCommands;     // list of FTP commands to send to the server immediately after connecting
     int EncryptControlConnection;    // 0 - no, 1 - yes
     int EncryptDataConnection;       // 0 - no, 1 - yes
     int CompressData;                // 0 - no; 1-9 - zlib levels; -1 - default, based on configuration
 
-    // !!! NOTE: when adding a new variable, all methods of this structure must be updated !!
+    // !!! NOTE: when adding a new variable it is necessary to update all structure methods !!!
 
     CFTPServer() { Init(); }
     ~CFTPServer() { Release(); }
@@ -532,8 +533,8 @@ struct CFTPServer
     // releases and zeroes the structure data
     void Release();
 
-    // allocates a copy of the structure; returns NULL on failure
-    // WARNING: clears user-name, password, and save-passwd when anonymous connection is enabled
+    // allocates a copy of the structure, returns NULL on error
+    // NOTE: clears user-name, password, and save-passwd when anonymous connection is enabled
     CFTPServer* MakeCopy();
 
     // sets the structure, returns FALSE on error
@@ -566,7 +567,7 @@ struct CFTPServer
              int encryptDataConnection,
              int compressData);
 
-    // sets the structure based on source 'src', returns FALSE on failure
+    // sets the structure based on source 'src', returns FALSE on error
     BOOL Set(const CFTPServer& src)
     {
         return Set(src.ItemName,
@@ -589,8 +590,8 @@ struct CFTPServer
                    src.UseServerSpeedLimit,
                    src.ServerSpeedLimit,
                    src.UseListingsCache,
-                   src.InitFTPCommands,
-                   src.ListCommand,
+                   src.InitFTPCommands.c_str(),
+                   src.ListCommand.c_str(),
                    src.KeepAliveSendEvery,
                    src.KeepAliveStopAfter,
                    src.KeepAliveCommand,
@@ -599,14 +600,14 @@ struct CFTPServer
                    src.CompressData);
     }
 
-    // Loads the structure; returns TRUE if the item is valid (it should be added to the list).
+    // loads the structure, returns TRUE if the item is valid (should be added to the list)
     BOOL Load(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
     // saves the structure
     void Save(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
 
-    // returns TRUE if the plaintext password can be obtained;
-    // if a master password is used and has not been entered, asks the user for it (the dialog is shown with hParent as parent);
-    // if the user did not enter the correct master password or the password could not be decrypted with it, returns FALSE
+    // returns TRUE if the (plain) password can be obtained;
+    // if a master password is used and not entered, asks the user for it (the window is shown via 'hParent);
+    // if the user did not enter the correct master password or it could not decrypt the password, returns FALSE
     BOOL EnsurePasswordCanBeDecrypted(HWND hParent);
 };
 
@@ -617,8 +618,8 @@ class CFTPServerList : public TIndirectArray<CFTPServer>
 public:
     CFTPServerList() : TIndirectArray<CFTPServer>(10, 10) {}
 
-    // copies (allocates) all list items into 'dstList' (clears it completely first)
-    // WARNING: clears user name, password, and save-passwd when anonymous connection is enabled
+    // copies (allocates) all list items into list 'dstList' (first completely deletes it)
+    // NOTE: clears user-name, password, and save-passwd when anonymous connection is enabled
     BOOL CopyMembersToList(CFTPServerList& dstList);
 
     // adds a bookmark to the FTP server list
@@ -731,32 +732,32 @@ struct CProxyScriptParams // helper structure for running proxy scripts
     CProxyScriptParams();
 };
 
-// validates or executes a proxy script step by step; during validation, '*execPoint',
+// validates or gradually executes a proxy script; during validation '*execPoint',
 // 'scriptParams', 'hostBuf', 'port', 'sendCmdBuf', and 'logCmdBuf' are NULL and 'lastCmdReply'==-1;
-// the function returns TRUE if the script is valid (FALSE on error, with the error text in 'errDescrBuf');
+// the function returns TRUE if the script is OK (FALSE on error, with the error text in 'errDescrBuf');
 // 'script' is the proxy script text; '*execPoint' ('execPoint' must not be NULL) is
-// the current execution position; if it is NULL, validation/execution starts at the beginning
-// of the script; 'lastCmdReply' is the result of the command from the previous
-// line (-1 = the previous line was skipped or this is the first line); on input, 'scriptParams'
-// contains the values of the individual variables; possible results of the
+// the current execution position (the script is executed step by step); if it is NULL, we start
+// validation/execution from the beginning of the script; 'lastCmdReply' is the result of the command from the previous
+// line (-1 = previous line was skipped or this is the first line); 'scriptParams'
+// contains the input values of individual variables; possible results of the
 // ProcessProxyScript function:
-// - script error: the function returns FALSE, the error position is returned in '*execPoint', and the error
+// - script error: the function returns FALSE + the error position is returned in '*execPoint' + the error
 //   description is in 'errDescrBuf'
 // - missing variable value: the function returns TRUE and scriptParams->NeedUserInput()
-//   returns TRUE ('*execPoint' is unchanged)
-// - successfully determined host:port to connect to (only at the beginning of the script): returns TRUE,
-//   and 'hostBuf' and 'port' receive the destination; '*execPoint' points to the start
+//   returns TRUE (the value of '*execPoint' does not change)
+// - successfully determined host:port to connect to (only at the beginning of the script): returns TRUE
+//   and returns the connection target in 'hostBuf'+'port'; '*execPoint' points to the start
 //   of the next script line
-// - successfully determined command to send to the server (not possible at the beginning of the script): returns
-//   TRUE, 'sendCmdBuf' contains the command (including CRLF at the end), and 'logCmdBuf' contains the
+// - successfully determined which command to send to the server (not possible at the beginning of the script): returns
+//   TRUE and 'sendCmdBuf' contains the command (including CRLF at the end), 'logCmdBuf' contains the
 //   log text (the password is replaced with "(hidden)"); '*execPoint' points to the start
 //   of the next script line
-// - end of script (not possible at the beginning of the script): returns TRUE, 'sendCmdBuf' is an empty
-//   string, and '*execPoint' points to the end of the script;
+// - end of script (not possible at the beginning of the script): returns TRUE and 'sendCmdBuf' is an empty
+//   string; '*execPoint' points to the end of the script;
 // 'hostBuf' (if not NULL) is a buffer of size HOST_MAX_SIZE characters; 'sendCmdBuf'
 // and 'logCmdBuf' (if not NULL) are buffers of size FTPCOMMAND_MAX_SIZE characters;
 // 'errDescrBuf' is a buffer of size 300 characters; 'proxyHostNeeded' (if not NULL)
-// is set to TRUE if ProxyHost must be specified (the connection is made to it)
+// returns TRUE if ProxyHost must be specified (we connect to it)
 BOOL ProcessProxyScript(const char* script, const char** execPoint, int lastCmdReply,
                         CProxyScriptParams* scriptParams, char* hostBuf, unsigned short* port,
                         char* sendCmdBuf, char* logCmdBuf, char* errDescrBuf,
@@ -770,7 +771,7 @@ const char* GetProxyScriptText(CFTPProxyServerType type, BOOL textForDialog);
 // returns the default port for a proxy server of the given type
 unsigned short GetProxyDefaultPort(CFTPProxyServerType type);
 
-// returns TRUE if the given proxy server type uses a proxy server password
+// returns TRUE if the given proxy server type uses a password for the proxy server
 BOOL HavePassword(CFTPProxyServerType type);
 
 // returns TRUE if the given proxy server type uses the proxy server address and port
@@ -819,7 +820,7 @@ struct CFTPProxyServer
 
     char* ProxyScript; // only for ProxyType==fpstOwnScript (otherwise NULL): script for connecting to the FTP server
 
-    // !!! NOTE: when adding a new variable, all methods of this structure must be updated !
+    // !!! NOTE: when adding a new variable it is necessary to update all structure methods !!!
 
     CFTPProxyServer(int proxyUID) { Init(proxyUID); }
     ~CFTPProxyServer() { Release(); }
@@ -829,10 +830,10 @@ struct CFTPProxyServer
     // releases and zeroes the structure data
     void Release();
 
-    // allocates a copy of the structure, returns NULL on failure
+    // allocates a copy of the structure, returns NULL on error
     CFTPProxyServer* MakeCopy();
 
-    // allocates a CFTPProxyForDataCon structure, returns NULL on failure
+    // allocates a CFTPProxyForDataCon structure, returns NULL on error
     CFTPProxyForDataCon* AllocProxyForDataCon(DWORD proxyHostIP, const char* host,
                                               DWORD hostIP, unsigned short hostPort);
 
@@ -848,7 +849,7 @@ struct CFTPProxyServer
     // sets ProxyUser
     BOOL SetProxyUser(const char* proxyUser);
 
-    // sets the structure; returns FALSE on failure
+    // sets the structure, returns FALSE on error
     BOOL Set(int proxyUID,
              const char* proxyName,
              CFTPProxyServerType proxyType,
@@ -860,7 +861,7 @@ struct CFTPProxyServer
              int saveProxyPassword,
              const char* proxyScript);
 
-    // sets the structure based on source 'src', returns FALSE on failure
+    // sets the structure based on source 'src', returns FALSE on error
     BOOL Set(const CFTPProxyServer& src)
     {
         return Set(src.ProxyUID,
@@ -875,7 +876,7 @@ struct CFTPProxyServer
                    src.ProxyScript);
     }
 
-    // Loads the structure; returns TRUE if the item is valid (it should be added to the list).
+    // loads the structure, returns TRUE if the item is valid (should be added to the list)
     BOOL Load(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
     // saves the structure
     void Save(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
@@ -901,7 +902,7 @@ public:
     // (non-empty and unique among the other proxy servers)
     BOOL IsProxyNameOK(CFTPProxyServer* proxyServer, const char* proxyName);
 
-    // copies (allocates) all elements of the list into 'dstList' (first clears it completely)
+    // copies (allocates) all elements of the list into the list 'dstList' (first deletes it completely)
     BOOL CopyMembersToList(CFTPProxyServerList& dstList);
 
     // fills the "Proxy Server" combo box; 'combo' is the combo box; 'focusProxyUID' is the UID of the server
@@ -976,9 +977,9 @@ public:
     // returns TRUE if the server list contains an item whose password is not encrypted with AES (only scrambled)
     BOOL ContainsUnsecuredPassword();
 
-    // returns TRUE if the plain password for the proxy server with UID 'proxyServerUID' can be obtained;
-    // if a master password is used and has not been entered, asks the user for it (the window is shown with 'hParent' as the parent);
-    // if the user does not enter the correct master password or the password cannot be decrypted with it, returns FALSE
+    // returns TRUE if the (plain) password for the proxy server with UID 'proxyServerUID' can be obtained;
+    // if a master password is used and not entered, asks the user for it (window is shown via 'hParent)
+    // if the user did not enter the correct master password or it could not decrypt the password, returns FALSE
     BOOL EnsurePasswordCanBeDecrypted(HWND hParent, int proxyServerUID);
 };
 
@@ -1036,16 +1037,16 @@ public:
     int UseMaxClosedConLogs;     // TRUE = use MaxClosedConLogs
     int MaxClosedConLogs;        // maximum number of logs of closed connections (older ones are discarded)
     int AlwaysShowLogForActPan;  // TRUE = activate the log when the FTP connection becomes active in the panel
-    int DisableLoggingOfWorkers; // TRUE = disable logging of workers' communication with the server
+    int DisableLoggingOfWorkers; // TRUE = disable logging of worker communication with the server
 
     WINDOWPLACEMENT LogsDlgPlacement;            // position of the Logs dialog
     WINDOWPLACEMENT OperDlgPlacement;            // position of the Operations dialog (user's last setting)
     double OperDlgSplitPos;                      // position of the splitter between list views in the Operations dialog
-    int CloseOperationDlgIfSuccessfullyFinished; // TRUE = automatically close the operations dialog when an operation finishes without errors or prompts, if the dialog was left untouched
+    int CloseOperationDlgIfSuccessfullyFinished; // TRUE = automatically close the operations dialog when an operation finishes without errors/questions in the untouched dialog
     int CloseOperationDlgWhenOperFinishes;       // TRUE = close the operations dialog after the operation completes (if no Solve Error dialog is open)
     int OpenSolveErrIfIdle;                      // TRUE = automatically open the Solve Error dialog when it is idle
 
-    char* CommandHistory[COMMAND_HISTORY_SIZE]; // history of FTP commands (from the "Send FTP Command" dialog)
+    char* CommandHistory[COMMAND_HISTORY_SIZE]; // history of FTP commands (from the "Send FTP Command" command)
     int SendSecretCommand;                      // last state of the "Secret command" checkbox in the "Send FTP Command" dialog
 
     char* HostAddressHistory[HOSTADDRESS_HISTORY_SIZE]; // history of server addresses in the Connect to FTP Server dialog
@@ -1253,7 +1254,7 @@ class CTopIndexMem
 {
 protected:
     // path for the last remembered top index (note it is case-sensitive)
-    char Path[FTP_MAX_PATH];
+    CPathBuffer Path;
     int TopIndexes[TOP_INDEX_MEM_SIZE]; // remembered top indices
     int TopIndexesCount;                // number of remembered top indices
 
@@ -1373,21 +1374,21 @@ public:
     // prepares data in file.PluginData for further use (deallocates and clears strings)
     void ClearPluginData(CFileData& file);
 
-    // stores the allocated string 'str' in column 'column' of the 'file' structure;
+    // stores the allocated string 'str' into the structure 'file' into column 'column';
     // 'str' is deallocated when ReleasePluginData() is called for 'file'; when
-    // overwriting a string, the overwritten string is deallocated
+    // overwriting a string the overwritten string is deallocated
     void StoreStringToColumn(CFileData& file, int column, char* str);
 
-    // stores day 'day' in column 'column' of the 'file' structure in a CFTPDate structure
+    // stores day 'day' into the structure 'file' into column 'column' into a CFTPDate structure
     void StoreDayToColumn(CFileData& file, int column, BYTE day);
 
-    // stores month 'month' in column 'column' of the 'file' structure in a CFTPDate structure
+    // stores month 'month' into the structure 'file' into column 'column' into a CFTPDate structure
     void StoreMonthToColumn(CFileData& file, int column, BYTE month);
 
-    // stores year 'year' in column 'column' of the 'file' structure in a CFTPDate structure
+    // stores year 'year' into the structure 'file' into column 'column' into a CFTPDate structure
     void StoreYearToColumn(CFileData& file, int column, WORD year);
 
-    // stores date 'day'+'month'+'year' in column 'column' of the 'file' structure in a CFTPDate structure
+    // stores date 'day'+'month'+'year' into the structure 'file' into column 'column' into a CFTPDate structure
     void StoreDateToColumn(CFileData& file, int column, BYTE day, BYTE month, WORD year);
 
     // stores time 'hour'+'minute'+'second'+'millisecond' into the structure 'file' into column 'column'
@@ -1395,22 +1396,22 @@ public:
     void StoreTimeToColumn(CFileData& file, int column, BYTE hour, BYTE minute,
                            BYTE second, WORD millisecond);
 
-    // stores the number 'number' in column 'column' of the 'file' structure
+    // stores number 'number' into the structure 'file' into column 'column'
     void StoreNumberToColumn(CFileData& file, int column, __int64 number);
 
     // returns a string from the structure 'file' from column 'column'
     char* GetStringFromColumn(const CFileData& file, int column);
 
-    // returns the date from column 'column' of the 'file' structure in the corresponding part of the 'stVal' structure
+    // returns (in the relevant part of the structure 'stVal') the date from the structure 'file' from column 'column'
     void GetDateFromColumn(const CFileData& file, int column, SYSTEMTIME* stVal);
 
-    // returns the date from column 'column' of the 'file' structure in 'date'
+    // returns in 'date' the date from the structure 'file' from column 'column'
     void GetDateFromColumn(const CFileData& file, int column, CFTPDate* date);
 
-    // returns the time from column 'column' of the 'file' structure in the corresponding part of the 'stVal' structure
+    // returns (in the relevant part of the structure 'stVal') the time from the structure 'file' from column 'column'
     void GetTimeFromColumn(const CFileData& file, int column, SYSTEMTIME* stVal);
 
-    // returns the time from column 'column' of the 'file' structure in 'time'
+    // returns in 'time' the time from the structure 'file' from column 'column'
     void GetTimeFromColumn(const CFileData& file, int column, CFTPTime* time);
 
     // returns a number from the structure 'file' from column 'column';
@@ -1420,9 +1421,9 @@ public:
     // finds the "Rights" column with textual content; if it does not exist, returns -1
     int FindRightsColumn();
 
-    // if the size of file 'file' is known, returns TRUE, stores the size in 'size', and
-    // sets 'inBytes' to TRUE/FALSE depending on whether the size is in bytes or blocks;
-    // if the file size is not known, returns FALSE and leaves 'size' and 'inBytes' unchanged
+    // if the size of the file 'file' is known, returns TRUE and the size in 'size' and
+    // in 'inBytes' returns TRUE/FALSE depending on whether the size is in bytes/blocks;
+    // if the file size is not known, returns FALSE and does not modify 'size' or 'inBytes'
     BOOL GetSize(const CFileData& file, CQuadWord& size, BOOL& inBytes);
 
     // returns the base name - currently used only when trimming version numbers from
@@ -1432,9 +1433,9 @@ public:
     // an auxiliary buffer (size at least MAX_PATH) into which the adjusted name is stored
     void GetBasicName(const CFileData& file, char** name, char** ext, char* buffer);
 
-    // returns the date and time of the last write to the file; sets 'dateAndTimeValid' to
-    // FALSE if this date and time are not known; also returns "empty values":
-    // for the date, date->Day == 0; for the time, time->Hour == 24
+    // returns the date and time of the last write to the file; in 'dateAndTimeValid' returns
+    // FALSE if this date+time is not known; also returns "empty values":
+    // for the date it sets date->Day == 0, for the time it sets time->Hour == 24
     void GetLastWriteDateAndTime(const CFileData& file, BOOL* dateAndTimeValid,
                                  CFTPDate* date, CFTPTime* time);
 
@@ -1498,16 +1499,16 @@ protected:
     char Host[HOST_MAX_SIZE]; // host (FTP server)
     int Port;                 // port on which the FTP server runs
     char User[USER_MAX_SIZE]; // user
-    char Path[FTP_MAX_PATH];  // current path on FTP (remote path; note that it is case-sensitive)
+    CPathBuffer Path;  // current path on FTP (remote path; note that it is case-sensitive)
 
     CFTPErrorState ErrorState;
     BOOL IsDetached;          // is this FS detached? (FALSE = it is in a panel)
     CTopIndexMem TopIndexMem; // top-index memory for ExecuteOnFS()
 
     CControlConnectionSocket* ControlConnection; // "control connection" socket to the FTP server (NULL == never connected)
-    char RescuePath[FTP_MAX_PATH];               // fallback path on FTP - try it when ChangePath() can no longer shorten the path
-    char HomeDir[FTP_MAX_PATH];                  // default path on FTP - set after logging into the server
-    BOOL OverwritePathListing;                   // if TRUE, PathListing should be overwritten with a new listing if one is obtained - handles the situation when ChangePath is called and ListCurrentPath is no longer invoked because the path did not change
+    CPathBuffer RescuePath;               // rescue path on FTP - try when ChangePath() can no longer shorten the path
+    CPathBuffer HomeDir;                  // default path on FTP - set after logging into the server
+    BOOL OverwritePathListing;                   // if TRUE, PathListing should be overwritten with a new listing (once/if we obtain it) - handles the situation when ChangePath is called and ListCurrentPath is no longer invoked because the path did not change
     char* PathListing;                           // if not NULL, contains at least part (can also be "") of the listing of the current path
     int PathListingLen;                          // length of the string in PathListing
     CFTPDate PathListingDate;                    // date when the listing was obtained (needed for "year_or_time")
@@ -1530,7 +1531,7 @@ protected:
 
     BOOL InformAboutUnknownSrvType;   // TRUE until the user is informed that we cannot find a listing parser (unsupported server type)
     BOOL NextRefreshCanUseOldListing; // TRUE only if only the configuration changed (parsers, columns) and therefore it is not necessary to read the listing from the server again
-    BOOL NextRefreshWontClearCache;   // TRUE only if the refresh was triggered by a "change on path" notification, so the current path does not need to be cleared from the cache (done elsewhere)
+    BOOL NextRefreshWontClearCache;   // TRUE only if the refresh happened based on a "change on path" notification and it is therefore not necessary to clear the current path from the cache (done elsewhere)
 
     int TransferMode; // file transfer mode (binary/ascii/auto) (values of type CTransferMode)
 
@@ -1542,10 +1543,10 @@ public:
     CPluginFSInterface();
     ~CPluginFSInterface();
 
-    // creates the user part of an FTP path in the format "//user@host:port/path"; 'buffer' is
-    // the output buffer of size 'bufferSize' bytes; 'path' is the FTP path; if
-    // 'path' is NULL, the current FTP path is used; if 'ignorePath' is TRUE, the user part
-    // is created without the FTP path; returns TRUE if 'buffer'
+    // creates the user-part of an FTP path - format "//user@host:port/path"; 'buffer' is
+    // the buffer for the result with size 'bufferSize' bytes; 'path' is the FTP path, if
+    // 'path' is NULL the current FTP path is used; if 'ignorePath' is TRUE the user-part
+    // path is created without the FTP path; returns TRUE if the buffer 'buffer'
     // is large enough for the result (otherwise the result is truncated and FALSE is returned)
     BOOL MakeUserPart(char* buffer, int bufferSize, char* path = NULL, BOOL ignorePath = FALSE);
 
@@ -1645,16 +1646,16 @@ public:
     // simply calls IsListCommandLIST_a() on the control connection
     BOOL IsListCommandLIST_a();
 
-    // opens the operation progress window and starts the operation on the active "control connection"
-    // (the items are processed by a worker created from the active control connection
-    // in the panel (when called, ControlConnection is guaranteed to be non-NULL));
-    // 'parent' is the thread's "foreground" window (after ESC is pressed, it is used to
-    // determine whether ESC was pressed in this window and not, for example, in another application; in the main thread it is
+    // opens the operation progress window and runs it in the active "control connection"
+    // (the items are processed in a worker created based on the active control connection
+    // in the panel (when called, ControlConnection is guaranteed to be not NULL));
+    // 'parent' is the "foreground" window of the thread (after pressing ESC it is used to
+    // determine whether ESC was pressed in this window and not in another application; in the main thread it is
     // SalamanderGeneral->GetMsgBoxParent() or a dialog opened by the plugin); returns TRUE
-    // if the operation starts successfully (otherwise an error occurs and the operation is canceled)
+    // when the operation starts successfully (otherwise an error occurs and the operation is cancelled)
     BOOL RunOperation(HWND parent, int operUID, CFTPOperation* oper, HWND dropTargetWnd);
 
-    // returns TRUE if there is a "control connection" with UID 'controlConUID'
+    // returns TRUE if the "control connection" has the UID 'controlConUID'
     BOOL ContainsConWithUID(int controlConUID);
 
     // simply forwards the call to ControlConnection->GetConnectionFromWorker

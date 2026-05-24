@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -70,14 +70,14 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
     CALL_STACK_MESSAGE4("RestoreFile(%s, %s, %s)", fileName, sourcePath, targetPath);
 
     BOOL ret = TRUE;
-    char srcpath[2 * MAX_PATH];
-    char dstpath[2 * MAX_PATH];
+    CPathBuffer srcpath; // Heap-allocated for long path support
+    CPathBuffer dstpath; // Heap-allocated for long path support
 
     // prepare source and target paths
-    lstrcpyn(srcpath, sourcePath, 2 * MAX_PATH);
-    lstrcpyn(dstpath, targetPath, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(srcpath, fileName, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(dstpath, fileName, 2 * MAX_PATH);
+    lstrcpyn(srcpath, sourcePath, srcpath.Size());
+    lstrcpyn(dstpath, targetPath, dstpath.Size());
+    SalamanderGeneral->SalPathAppend(srcpath, fileName, srcpath.Size());
+    SalamanderGeneral->SalPathAppend(dstpath, fileName, dstpath.Size());
 
     // open source file
     SAFE_FILE srcfile;
@@ -135,7 +135,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
     if (skipped)
     {
         SalamanderSafeFile->SafeFileClose(&srcfile);
-        // the file was skipped in the progress dialog
+        // skip file in progress
         FileProgress = 0;
         TotalProgress += size.Value;
         UpdateRestoreProgress();
@@ -147,8 +147,8 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
     // recover encrypted files from backup
     if (real)
     {
-        // OpenEncryptedFileRaw (and related APIs) unfortunately writes to the output file itself; we open the file
-        // with SafeFileCreate anyway for error handling, but then we need to close it
+        // OpenEncryptedFileRaw (and others) unfortunately has own write to output file, we will open file
+        // with SafeFileCreate anyway for error handling, but we need to close it
         SalamanderSafeFile->SafeFileClose(&dstfile);
 
         // restore
@@ -158,7 +158,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
         if ((result = OpenEncryptedFileRaw(dstpath, CREATE_FOR_IMPORT, &context)) != ERROR_SUCCESS ||
             (result = WriteEncryptedFileRaw(RestoreCallback, (PVOID)&ctx, context)) != ERROR_SUCCESS)
         {
-            if (result != ERROR_CANCELLED) // return if the user canceled
+            if (result != ERROR_CANCELLED) // return on cancel from user
             {
                 SetLastError(result);
                 String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
@@ -167,7 +167,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
         }
         CloseEncryptedFileRaw(context);
     }
-    else // otherwise, just copy
+    else // otherwise only copy
     {
         BYTE* buffer = new BYTE[COPY_BUFFER_SIZE];
 
@@ -202,7 +202,7 @@ static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char
         }
         SetFileAttributes(dstpath, attr | FILE_ATTRIBUTE_ENCRYPTED);
     }
-    // On cancel, remove the incomplete file
+    // on cancel remove incomplete file
     else if (Progress->GetWantCancel())
     {
         DeleteFile(dstpath);
@@ -216,11 +216,12 @@ static BOOL RestoreDir(const char* fileName, const char* sourcePath, const char*
     CALL_STACK_MESSAGE4("RestoreDir(%s, %s, %s)", fileName, sourcePath, targetPath);
 
     // prepare source and target paths
-    char srcpath[2 * MAX_PATH], dstpath[2 * MAX_PATH];
-    lstrcpyn(srcpath, sourcePath, 2 * MAX_PATH);
-    lstrcpyn(dstpath, targetPath, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(srcpath, fileName, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(dstpath, fileName, 2 * MAX_PATH);
+    CPathBuffer srcpath; // Heap-allocated for long path support
+    CPathBuffer dstpath; // Heap-allocated for long path support
+    lstrcpyn(srcpath, sourcePath, srcpath.Size());
+    lstrcpyn(dstpath, targetPath, dstpath.Size());
+    SalamanderGeneral->SalPathAppend(srcpath, fileName, srcpath.Size());
+    SalamanderGeneral->SalPathAppend(dstpath, fileName, dstpath.Size());
 
     // update progress
     FileProgress = 0;
@@ -315,7 +316,7 @@ BOOL RestoreEncryptedFiles(const char* targetPath, HWND parent)
     CALL_STACK_MESSAGE2("RestoreEncryptedFiles(%s, )", targetPath);
 
     // check EFS support on target path
-    char resolvedPath[MAX_PATH];
+    CPathBuffer resolvedPath; // Heap-allocated for long path support
     UndeleteGetResolvedRootPath(targetPath, resolvedPath);
 
     DWORD flags;
@@ -326,8 +327,8 @@ BOOL RestoreEncryptedFiles(const char* targetPath, HWND parent)
     }
 
     // init
-    char sourcePath[MAX_PATH];
-    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, sourcePath, MAX_PATH, NULL, NULL);
+    CPathBuffer sourcePath; // Heap-allocated for long path support
+    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, sourcePath, sourcePath.Size(), NULL, NULL);
     int selfiles, seldirs;
     SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &selfiles, &seldirs);
     BOOL focused = (selfiles == 0 && seldirs == 0);
@@ -364,7 +365,7 @@ BOOL RestoreEncryptedFiles(const char* targetPath, HWND parent)
     if (!SalamanderGeneral->TestFreeSpace(parent, targetPath, CQuadWord().SetUI64(GrandTotal), String<char>::LoadStr(IDS_RESTORE)))
         return FALSE;
 
-    // TODO: check whether sourcePath == targetPath; this is an error
+    // todo: test if sourcePath == targetPath - it is error
 
     // open progress
     CRestoreProgressDlg dlg(parent, ooStatic);

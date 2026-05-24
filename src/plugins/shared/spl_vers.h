@@ -1,6 +1,6 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -22,11 +22,11 @@
 #define VERSINFO_xstr(s) VERSINFO_str(s)
 #define VERSINFO_str(s) #s
 
-#define VERSINFO_SALAMANDER_MAJOR 5
+#define VERSINFO_SALAMANDER_MAJOR 1
 #define VERSINFO_SALAMANDER_MINORA 0
 #define VERSINFO_SALAMANDER_MINORB 0
 
-#if (VERSINFO_SALAMANDER_MINORB == 0) // omit the trailing zero in the hundredths place: 2.50 -> 2.5
+#if (VERSINFO_SALAMANDER_MINORB == 0) // we don't write zero in hundredths 2.50 -> 2.5
 #define VERSINFO_SALAMANDER_VERSION VERSINFO_xstr(VERSINFO_SALAMANDER_MAJOR) "." VERSINFO_xstr(VERSINFO_SALAMANDER_MINORA) VERSINFO_BETAVERSION_TXT
 #define VERSINFO_SAL_SHORT_VERSION VERSINFO_xstr(VERSINFO_SALAMANDER_MAJOR) VERSINFO_xstr(VERSINFO_SALAMANDER_MINORA) VERSINFO_BETAVERSIONSHORT_TXT
 #else
@@ -34,8 +34,8 @@
 #define VERSINFO_SAL_SHORT_VERSION VERSINFO_xstr(VERSINFO_SALAMANDER_MAJOR) VERSINFO_xstr(VERSINFO_SALAMANDER_MINORA) VERSINFO_xstr(VERSINFO_SALAMANDER_MINORB) VERSINFO_BETAVERSIONSHORT_TXT
 #endif
 
-#ifdef VERSINFO_MAJOR      // defined only when used from a plugin
-#if (VERSINFO_MINORB == 0) // omit the trailing zero in the hundredths place: 2.50 -> 2.5
+#ifdef VERSINFO_MAJOR      // defined only if used from plugin
+#if (VERSINFO_MINORB == 0) // we don't write zero in hundredths 2.50 -> 2.5
 #define VERSINFO_VERSION VERSINFO_xstr(VERSINFO_MAJOR) "." VERSINFO_xstr(VERSINFO_MINORA) VERSINFO_BETAVERSION_TXT
 #define VERSINFO_VERSION_NO_PLATFORM VERSINFO_xstr(VERSINFO_MAJOR) "." VERSINFO_xstr(VERSINFO_MINORA) VERSINFO_BETAVERSION_TXT_NO_PLATFORM
 #else
@@ -45,14 +45,23 @@
 #endif
 
 #ifdef _WIN64
+#ifdef _M_ARM64
+#define SAL_VER_PLATFORM "ARM64"
+#else
 #define SAL_VER_PLATFORM "x64"
+#endif
 #else // _WIN64
 #define SAL_VER_PLATFORM "x86"
 #endif // _WIN64
 
 // VERSINFO_BUILDNUMBER:
 //
-// Used to easily distinguish all module versions across Salamander releases (it is the last component of the version number of all plugins and Salamander). Increment it for every version (IB, DB, PB, beta, release, or even a test build sent to a single user). An overview of the different version types is in doc\versions.txt. Always add a comment describing which Salamander version a newly used build number belongs to.
+// Used for easy differentiation of versions of all modules between individual
+// Salamander versions (this is the last component of the version number of all
+// plugins and Salamander). Increment with each version (IB, DB, PB, beta,
+// release or even just test version sent to one user). Overview of different
+// version types is in file doc\versions.txt. Always add a comment describing
+// which Salamander version the newly used build number belongs to.
 //
 // Overview of used VERSINFO_BUILDNUMBER values:
 // 9 - 2.5 beta 9
@@ -92,51 +101,57 @@
 // 181 - 4.0 (SDK)
 // 182 - 4.0 (CB182)
 // 183 - 5.0
+// 184 - 1.0.5
+// 185 - 1.0.6
+// 186 - 1.0.7
+// 187 - 1.0.8
+// 188 - 1.0.9
 
-// ! IMPORTANT: new build numbers must be added to the "default" branch first, and only then
-//             to the other branch (the complete list is only in the "default" branch)
-#define VERSINFO_BUILDNUMBER 183
+// ! IMPORTANT: new build numbers must be written to the "default" branch first,
+//              and only then to the side branch (complete list is only in "default" branch)
+#define VERSINFO_BUILDNUMBER 188
 
 // VERSINFO_BETAVERSION_TXT:
 //
-// Changes with every build; for a release version, VERSINFO_BETAVERSION_TXT will be "".
-// If a special beta fix build such as 2.5 beta 9a is released, increment
+// Changes with each build, for release version VERSINFO_BETAVERSION_TXT="".
+// If we release special fix beta versions like 2.5 beta 9a, we increment
 // VERSINFO_BUILDNUMBER by one and set VERSINFO_BETAVERSION_TXT==" beta 9a".
 //
-// VERSINFO_BETAVERSIONSHORT_TXT is used to name bug reports; it should be as short as possible
+// VERSINFO_BETAVERSIONSHORT_TXT is used for naming bug reports, it's the shortest form
 
-// examples ("x86" is for the 32-bit version, "x64" for the 64-bit version; in the following examples,
+// examples ("x86" is for 32-bit version, "x64" for 64-bit version, in the following examples
 // x86/x64 are interchangeable): " (x86)" (for release versions), " beta 2 (x64)", " beta 2 (SDK x86)",
 // " RC1 (x64)", " beta 2 (IB21 x86)", " beta 2 (DB21 x64)", " beta 2 (PB21 x86)"
 #define VERSINFO_BETAVERSION_TXT " (" SAL_VER_PLATFORM ")"
-#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM "" // copy the line above + remove SAL_VER_PLATFORM + if the parentheses are empty, remove them + remove extra spaces
+#define VERSINFO_BETAVERSION_TXT_NO_PLATFORM "" // copy of line above + delete SAL_VER_PLATFORM + if parenthesis is empty, delete it + delete extra spaces
 
-// examples (see the previous paragraph for x86/x64): "x86" (for release versions), "B2x64", "B2SDKx86",
+// examples (x86/x64 see previous paragraph): "x86" (for release versions), "B2x64", "B2SDKx86",
 // "RC1x64", "B2IB21x86", "B2DB21x64", "B2PB21x86"
 #define VERSINFO_BETAVERSIONSHORT_TXT SAL_VER_PLATFORM
 
 // LAST_VERSION_OF_SALAMANDER:
 //
-// Support for checking whether the Salamander version is current, performed by internal plugins
-// (distributed in the same package as Salamander) during the entry point
-// (SalamanderPluginEntry); see CSalamanderPluginEntryAbstract::GetVersion()
-// (in spl_base.h). This is mainly for simplicity: an internal plugin can call
-// any method from the Salamander interface because, after checking against the latest
-// Salamander version, it knows Salamander contains it (the only remaining risk is loading
-// into a newer Salamander version, which must also contain these methods).
+// Support for checking Salamander version currency, which internal plugins
+// (distributed in one package with Salamander) perform during entry-point
+// (SalamanderPluginEntry) see method CSalamanderPluginEntryAbstract::GetVersion()
+// (in spl_base.h). Used mainly for simplicity: internal plugin can call
+// any method from Salamander interface, because after checking for the last
+// Salamander version it is certain that Salamander contains it (it only risks
+// load into a newer Salamander version, which must also contain these methods).
 //
-// It is also used in the opposite direction: to ensure Salamander will call all plugin
-// methods (including the newest ones), an internal plugin returns this version as the version
-// it was built for (see the SalamanderPluginGetReqVer plugin export).
+// It is also used in reverse: so that an internal plugin is certain that
+// Salamander will call all its methods (including the newest ones), it returns
+// this version as the version the plugin was built for (see plugin export
+// SalamanderPluginGetReqVer).
 //
-// If a plugin returns a version lower than LAST_VERSION_OF_SALAMANDER from
-// SalamanderPluginGetReqVer (for backward compatibility with older Salamander
-// versions), it should add the SalamanderPluginGetSDKVer export and return
-// LAST_VERSION_OF_SALAMANDER from it (the SDK version used to build the plugin), so that
-// Salamander (for example the current or a newer version) can also use plugin methods that
-// were not yet present in the version returned by SalamanderPluginGetReqVer.
+// If a plugin returns a lower version from SalamanderPluginGetReqVer than
+// LAST_VERSION_OF_SALAMANDER (for backward compatibility with older versions
+// of Salamander), it should add the export SalamanderPluginGetSDKVer and return
+// LAST_VERSION_OF_SALAMANDER from it (SDK version used to build the plugin),
+// so that Salamander (e.g. current or newer) can also use plugin methods that
+// did not yet exist in the version returned from SalamanderPluginGetReqVer.
 //
-// When changing the interface, follow the procedure in doc\how_to_change.txt.
+// When making changes to the interface, follow the procedure described in doc\how_to_change.txt.
 //
 // Overview of used LAST_VERSION_OF_SALAMANDER values:
 //   1  - 1.6 beta 4 + 5
@@ -155,13 +170,13 @@
 //   14 - 2.5 beta 10
 //   15 - 2.5 beta 10a
 //   16 - 2.5 beta 11
-//   17 - 2.5 beta 12 (internal only; RC1 was released instead)
+//   17 - 2.5 beta 12 (internal only, we released RC1 instead)
 //   18 - 2.5 RC1
 //   19 - 2.5 RC2
 //   20 - 2.5 RC3
 //   21 - 2.5
 //   22 - 2.51
-//   23 - 2.52 beta 1 (WARNING: SDK incompatible with previous and later versions)
+//   23 - 2.52 beta 1 (WARNING: incompatible SDK with previous and subsequent versions)
 //   29 - 2.52 beta 2
 //   31 - 2.52
 //   39 - 2.53 beta 1 + 2.53 beta 1a
@@ -181,14 +196,18 @@
 //   76 - 3.06
 //   79 - 3.07
 //   81 - 3.08
-// ! IMPORTANT: all VC2008 versions must be < 100, all VC2019 versions must be >= 100,
-//             new version numbers must be added to the "default" branch first, and only then
-//             to the other branch (the complete list is only in the "default" branch)
+// ! IMPORTANT: all versions from VC2008 must be < 100, all versions from VC2019 must be >= 100,
+//              new version numbers must be written to the "default" branch first,
+//              and only then to the side branch (complete list is only in "default" branch)
 //   101 - 4.0 beta 1 (DB177)
 //   102 - 4.0
 //   103 - 5.0
+//   104 - 5.0 + broken transitional wide plugin FS ABI (must not be used for FS plugins)
+//   105 - 5.0 + fixed optional wide plugin FS path ABI
 
-#define LAST_VERSION_OF_SALAMANDER 103
-#define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Open Salamander 5.0 (" SAL_VER_PLATFORM ") or later."
+#define LAST_VERSION_OF_SALAMANDER 105
+#define SALLY_PLUGIN_BROKEN_WIDE_FS_VERSION 104
+#define SALLY_PLUGIN_WIDE_FS_VERSION 105
+#define REQUIRE_LAST_VERSION_OF_SALAMANDER "This plugin requires Sally 1.0 (" SAL_VER_PLATFORM ") or later."
 
 #endif // __SPL_VERS_H

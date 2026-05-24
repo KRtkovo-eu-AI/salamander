@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -40,8 +41,8 @@ CTwain::CTwain()
     AppIdentity.ProtocolMajor = TWON_PROTOCOLMAJOR;
     AppIdentity.ProtocolMinor = TWON_PROTOCOLMINOR;
     AppIdentity.SupportedGroups = DG_IMAGE | DG_CONTROL;
-    strcpy(AppIdentity.Manufacturer, "Open Salamander");
-    strcpy(AppIdentity.ProductFamily, "Open Salamander plugin");
+    strcpy(AppIdentity.Manufacturer, "Sally");
+    strcpy(AppIdentity.ProductFamily, "Sally plugin");
     strcpy(AppIdentity.ProductName, PLUGIN_NAME_EN);
 
     memset(&SrcIdentity, 0, sizeof(SrcIdentity));
@@ -68,8 +69,8 @@ BOOL CTwain::InitTwain(CViewerWindow* viewer)
     Viewer = viewer;
     HParent = Viewer->HWindow;
 
-    TCHAR buff[MAX_PATH];
-    GetWindowsDirectory(buff, SizeOf(buff));
+    CPathBuffer buff;
+    GetWindowsDirectory(buff, buff.Size());
     if (buff[(_tcslen(buff) - 1)] != '\\')
         _tcscat(buff, _T("\\"));
     _tcscat(buff, _T("TWAIN_32.DLL"));
@@ -135,7 +136,7 @@ CTwain::CallTwainProc(TW_IDENTITY* origin,
     {
         TW_STATUS twStatus;
         (*DSMEntry)(origin, dest, DG_CONTROL, DAT_STATUS, MSG_GET, &twStatus);
-        int resID = IDS_TWCC_BUMMER; // unknown error
+        int resID = IDS_TWCC_BUMMER; // uknown error
         switch (twStatus.ConditionCode)
         {
         case TWCC_LOWMEMORY:

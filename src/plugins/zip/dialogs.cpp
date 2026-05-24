@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -45,7 +46,7 @@ LRESULT CALLBACK TextControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         RECT r;
         PAINTSTRUCT ps;
-        char txt[MAX_PATH];
+        CPathBuffer txt; // Heap-allocated for long path support
 
         GetClientRect(hWnd, &r);
         BeginPaint(hWnd, &ps);
@@ -63,7 +64,7 @@ LRESULT CALLBACK TextControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         HFONT hOldFont = (HFONT)SelectObject(ps.hdc, hCurrentFont);
         SetTextColor(ps.hdc, color);
         int prevBkMode = SetBkMode(ps.hdc, TRANSPARENT);
-        int len = GetWindowText(hWnd, txt, MAX_PATH);
+        int len = GetWindowText(hWnd, txt, txt.Size());
         DrawText(ps.hdc, txt, lstrlen(txt), &r, format);
         SetBkMode(ps.hdc, prevBkMode);
         SelectObject(ps.hdc, hOldFont);
@@ -339,7 +340,7 @@ BOOL CPackDialog::OnInit(WPARAM wParam, LPARAM lParam)
 BOOL CPackDialog::OnMultiVol(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 {
     CALL_STACK_MESSAGE3("CPackDialog::OnMultiVol(0x%X, 0x%X, )", wNotifyCode, wID);
-    char name[MAX_PATH];
+    CPathBuffer name; // Heap-allocated for long path support
 
     switch (wNotifyCode)
     {
@@ -354,7 +355,7 @@ BOOL CPackDialog::OnMultiVol(WORD wNotifyCode, WORD wID, HWND hwndCtl)
             {
                 MakeFileName(1, SendDlgItemMessage(Dlg, IDC_SEQNAME, BM_GETCHECK, 0, 0) == BST_CHECKED,
                              ZipFile, name, Config->WinZipNames && SendDlgItemMessage(Dlg, IDC_SELFEXTR, BM_GETCHECK, 0, 0) == BST_UNCHECKED);
-                SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)name);
+                SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)name.Get());
                 InvalidateRect(GetDlgItem(Dlg, IDC_ARCHIVE), NULL, TRUE);
                 UpdateWindow(GetDlgItem(Dlg, IDC_ARCHIVE));
             }
@@ -385,7 +386,7 @@ BOOL CPackDialog::OnMultiVol(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 BOOL CPackDialog::OnSeqName(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 {
     CALL_STACK_MESSAGE3("CPackDialog::OnSeqName(0x%X, 0x%X, )", wNotifyCode, wID);
-    char name[MAX_PATH];
+    CPathBuffer name; // Heap-allocated for long path support
 
     switch (wNotifyCode)
     {
@@ -394,7 +395,7 @@ BOOL CPackDialog::OnSeqName(WORD wNotifyCode, WORD wID, HWND hwndCtl)
         {
             MakeFileName(1, SendDlgItemMessage(Dlg, wID, BM_GETCHECK, 0, 0) == BST_CHECKED,
                          ZipFile, name, Config->WinZipNames && SendDlgItemMessage(Dlg, IDC_SELFEXTR, BM_GETCHECK, 0, 0) == BST_UNCHECKED);
-            SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)name);
+            SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)name.Get());
             InvalidateRect(GetDlgItem(Dlg, IDC_ARCHIVE), NULL, TRUE);
             UpdateWindow(GetDlgItem(Dlg, IDC_ARCHIVE));
         }
@@ -406,19 +407,19 @@ BOOL CPackDialog::OnSeqName(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 BOOL CPackDialog::OnSelfExtr(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 {
     CALL_STACK_MESSAGE3("CPackDialog::OnSelfExtr(0x%X, 0x%X, )", wNotifyCode, wID);
-    char name[MAX_PATH];
+    CPathBuffer name; // Heap-allocated for long path support
     switch (wNotifyCode)
     {
     case BN_CLICKED:
         if (SendDlgItemMessage(Dlg, wID, BM_GETCHECK, 0, 0) == BST_CHECKED)
         {
             EnableWindow(GetDlgItem(Dlg, IDC_ADVANCED), TRUE);
-            char path[MAX_PATH + 4], ext[MAX_PATH];
+            CPathBuffer path, ext; // Heap-allocated for long path support
             SplitPath2(ZipFile, path, name, ext);
             strcat(path, name);
             strcat(path, ".exe");
-            *(path + MAX_PATH - 1) = 0; // just to be sure
-            SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)path);
+            *(path.Get() + path.Size() - 1) = 0; // just to be sure
+            SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)path.Get());
             InvalidateRect(GetDlgItem(Dlg, IDC_ARCHIVE), NULL, TRUE);
             UpdateWindow(GetDlgItem(Dlg, IDC_ARCHIVE));
             SetWindowText(Dlg, LoadStr(IDS_CREAETARCH));
@@ -430,7 +431,7 @@ BOOL CPackDialog::OnSelfExtr(WORD wNotifyCode, WORD wID, HWND hwndCtl)
             {
                 MakeFileName(1, SendDlgItemMessage(Dlg, IDC_SEQNAME, BM_GETCHECK, 0, 0) == BST_CHECKED,
                              ZipFile, name, Config->WinZipNames);
-                SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)name);
+                SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)name.Get());
             }
             else
             {
@@ -707,7 +708,7 @@ BOOL CPackDialog::OnOK(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 void CPackDialog::ResetControls()
 {
     CALL_STACK_MESSAGE1("CPackDialog::ResetControls()");
-    char archive[MAX_PATH + 4]; // leave room so the self-extractor suffix does not overflow the buffer
+    CPathBuffer archive; // Heap-allocated for long path support
 
     if (PackOptions->Action & PA_MULTIVOL)
         SendDlgItemMessage(Dlg, IDC_MULTIVOL, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
@@ -729,13 +730,13 @@ void CPackDialog::ResetControls()
     }
     if (PackOptions->Action & PA_SELFEXTRACT)
     {
-        char name[MAX_PATH], ext[MAX_PATH];
+        CPathBuffer name, ext; // Heap-allocated for long path support
         SplitPath2(ZipFile, archive, name, ext);
         lstrcat(archive, name);
         lstrcat(archive, ".exe");
-        *(archive + MAX_PATH - 1) = 0; // just to be sure
+        *(archive.Get() + archive.Size() - 1) = 0; // just to be sure
     }
-    SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)archive);
+    SendDlgItemMessage(Dlg, IDC_ARCHIVE, WM_SETTEXT, 0, (LPARAM)archive.Get());
 }
 
 INT_PTR PackDialog(HWND parent, CZipPack* packObject, CConfiguration* config,
@@ -1501,7 +1502,7 @@ BOOL CChangeDiskDialog3::OnInit(WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE3("CChangeDiskDialog3::OnInit(0x%IX, 0x%IX)", wParam, lParam);
     char buf[128];
-    char buf2[MAX_PATH + 1];
+    CPathBuffer buf2;
 
     sprintf(buf, LoadStr(IDS_CHDISKTEXT2), VolumeNumber);
     SendDlgItemMessage(Dlg, IDC_CHDISKTEXT, WM_SETTEXT, 0, (LPARAM)buf);
@@ -1510,7 +1511,7 @@ BOOL CChangeDiskDialog3::OnInit(WPARAM wParam, LPARAM lParam)
     {
         SendDlgItemMessage(Dlg, IDC_SEQNAME, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
         RenumberName(VolumeNumber, OldName, buf2, Last, *Flags & CHD_WINZIP);
-        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf2);
+        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf2.Get());
     }
     else
     {
@@ -1531,15 +1532,15 @@ BOOL CChangeDiskDialog3::OnSeqNames(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 {
     CALL_STACK_MESSAGE3("CChangeDiskDialog3::OnSeqNames(0x%X, 0x%X, )",
                         wNotifyCode, wID);
-    char buf[MAX_PATH + 1];
-    char buf2[MAX_PATH + 1];
+    CPathBuffer buf;
+    CPathBuffer buf2;
 
     if (SendDlgItemMessage(Dlg, wID, BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
-        GetDlgItemText(Dlg, IDC_FILENAME, buf, MAX_PATH - 1);
+        GetDlgItemText(Dlg, IDC_FILENAME, buf, buf.Size() - 1);
         *Flags |= CHD_SEQNAMES;
         RenumberName(VolumeNumber, buf, buf2, Last, *Flags & CHD_WINZIP);
-        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf2);
+        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf2.Get());
         EnableWindow(GetDlgItem(Dlg, IDC_WINZIP), TRUE);
     }
     else
@@ -1555,7 +1556,7 @@ BOOL CChangeDiskDialog3::OnWinZip(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 {
     CALL_STACK_MESSAGE3("CChangeDiskDialog3::OnWinZip(0x%X, 0x%X, )",
                         wNotifyCode, wID);
-    char buf[MAX_PATH + 1];
+    CPathBuffer buf;
 
     if (SendDlgItemMessage(Dlg, IDC_SEQNAME, BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
@@ -1564,7 +1565,7 @@ BOOL CChangeDiskDialog3::OnWinZip(WORD wNotifyCode, WORD wID, HWND hwndCtl)
         else
             *Flags &= ~CHD_WINZIP;
         RenumberName(VolumeNumber, OldName, buf, Last, *Flags & CHD_WINZIP);
-        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf);
+        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf.Get());
     }
     return TRUE;
 }
@@ -1576,7 +1577,7 @@ BOOL CChangeDiskDialog3::OnBrowse(WORD wNotifyCode, WORD wID, HWND hwndCtl)
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(ofn));
     char buf[128];
-    char buf2[MAX_PATH + 1];
+    CPathBuffer buf2;
 
     ofn.lStructSize = sizeof(OPENFILENAME);
     ofn.hwndOwner = Dlg;
@@ -1589,9 +1590,9 @@ BOOL CChangeDiskDialog3::OnBrowse(WORD wNotifyCode, WORD wID, HWND hwndCtl)
     ofn.lpstrCustomFilter = NULL;
     ofn.nMaxCustFilter = 0;
     ofn.nFilterIndex = 1;
-    GetDlgItemText(Dlg, IDC_FILENAME, buf2, MAX_PATH - 1);
+    GetDlgItemText(Dlg, IDC_FILENAME, buf2, buf2.Size() - 1);
     ofn.lpstrFile = buf2;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = buf2.Size();
     ofn.lpstrFileTitle = NULL;
     ofn.nMaxFileTitle = 0;
     ofn.lpstrInitialDir = NULL;
@@ -1606,7 +1607,7 @@ BOOL CChangeDiskDialog3::OnBrowse(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 
     if (SalamanderGeneral->SafeGetOpenFileName(&ofn))
     {
-        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf2);
+        SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)buf2.Get());
     }
     /*
   else

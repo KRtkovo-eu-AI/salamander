@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -9,6 +10,10 @@
 #include "execute.h"
 #include "cfgdlg.h"
 #include "shellib.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
+#include "common/IEnvironment.h"
+#include "common/fsutil.h"
 
 //******************************************************************************
 //
@@ -21,6 +26,15 @@ CComboboxEdit::CComboboxEdit()
     SelStart = 0;
     SelEnd = -1;
 }
+
+#ifndef _UNICODE
+CComboboxEdit::CComboboxEdit(BOOL unicodeWnd)
+    : CWindow(ooAllocated, unicodeWnd)
+{
+    SelStart = 0;
+    SelEnd = -1;
+}
+#endif
 
 LRESULT
 CComboboxEdit::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -57,7 +71,7 @@ void CComboboxEdit::GetSel(DWORD* start, DWORD* end)
 
 void CComboboxEdit::ReplaceText(const char* text)
 {
-    // we must restore the selection because the combo box lost it
+    // we must refresh the selection because the dumb combobox forgot it
     SendMessage(HWindow, EM_SETSEL, SelStart, SelEnd);
     SendMessage(HWindow, EM_REPLACESEL, TRUE, (LPARAM)text);
 }
@@ -124,7 +138,7 @@ const char* FILEDATA_FILETIME = "FileTime";
 const char* FILEDATA_FILEATTR = "FileAttributes";
 const char* FILEDATA_FILEDOSNAME = "FileDOSName";
 
-// pro Make File List
+// for Make File List
 const char* FILEDATA_FILENAMEPART = "FileNamePart";
 const char* FILEDATA_FILEEXTENSION = "FileExtension";
 
@@ -333,7 +347,7 @@ CExecuteItem CommandExecutes[] =
 
 // Arguments - External View/Edit
 
-/* used by the export_mnu.py script, which generates salmenu.mnu for Translator
+/* used by the export_mnu.py script that generates salmenu.mnu for the Translator
    keep synchronized with the array below...
 MENU_TEMPLATE_ITEM ArgumentsExecutes[] = 
 {
@@ -389,7 +403,7 @@ CExecuteItem ArgumentsExecutes[] =
 
 // Initial directory
 
-/* used by the export_mnu.py script, which generates salmenu.mnu for Translator
+/* used by the export_mnu.py script that generates salmenu.mnu for the Translator
    keep synchronized with the array below...
 MENU_TEMPLATE_ITEM InitDirExecutes[] = 
 {
@@ -577,10 +591,10 @@ struct CExecuteExpData
 {
     const char* Name;
     const char* DosName;
-    char Buffer[MAX_PATH];
+    CPathBuffer Buffer;
     BOOL* FileNameUsed;
 
-    CUserMenuAdvancedData* UserMenuAdvancedData; // used only for User Menu; otherwise NULL here
+    CUserMenuAdvancedData* UserMenuAdvancedData; // applies only to User Menu, otherwise NULL here
 };
 
 const char* WINAPI ExecuteExpDrive(HWND msgParent, void* param) // drive ("D:", "\\server\share") without backslash
@@ -723,8 +737,8 @@ const char* WINAPI ExecuteExpNamePart(HWND msgParent, void* param)
     }
     strcpy(data->Buffer, s + 1);
     char* ss = strrchr(data->Buffer, '.');
-    //  if (ss != NULL && ss != data->Buffer)   // extension is present ('.' not at the beginning of the name, e.g. ".cvspass")
-    if (ss != NULL) // An extension is present (".cvspass" is considered an extension in Windows)
+    //  if (ss != NULL && ss != data->Buffer)   // extension is present ('.' not at the begining of the name, e.g. ".cvspass")
+    if (ss != NULL) // extension is present (".cvspass" is considered an extension in Windows)
         *ss = 0;
     return data->Buffer;
 }
@@ -742,8 +756,8 @@ const char* WINAPI ExecuteExpExtPart(HWND msgParent, void* param)
     }
     strcpy(data->Buffer, s + 1);
     s = strrchr(data->Buffer, '.');
-    //  if (s != NULL && s != data->Buffer)   // extension is present ('.' not at the beginning of the name, e.g. ".cvspass")
-    if (s != NULL) // An extension is present here (".cvspass" is considered an extension in Windows)
+    //  if (s != NULL && s != data->Buffer)   // extension is present ('.' not at the begining of the name, e.g. ".cvspass")
+    if (s != NULL) // extension is present (".cvspass" is considered an extension in Windows)
         return s + 1;
     return "";
 }
@@ -761,8 +775,8 @@ const char* WINAPI ExecuteExpDOSNamePart(HWND msgParent, void* param)
     }
     strcpy(data->Buffer, s + 1);
     char* ss = strrchr(data->Buffer, '.');
-    //  if (ss != NULL && ss != data->Buffer)   // extension is present ('.' not at the beginning of the name, e.g. ".cvspass")
-    if (ss != NULL) // An extension is present (".cvspass" is considered an extension in Windows)
+    //  if (ss != NULL && ss != data->Buffer)   // extension is present ('.' not at the begining of the name, e.g. ".cvspass")
+    if (ss != NULL) // extension is present (".cvspass" is considered an extension in Windows)
         *ss = 0;
     return data->Buffer;
 }
@@ -780,8 +794,8 @@ const char* WINAPI ExecuteExpDOSExtPart(HWND msgParent, void* param)
     }
     strcpy(data->Buffer, s + 1);
     s = strrchr(data->Buffer, '.');
-    //  if (s != NULL && s != data->Buffer)   // extension is present ('.' not at the beginning of the name, e.g. ".cvspass")
-    if (s != NULL) // extension present (".cvspass" is considered an extension in Windows)
+    //  if (s != NULL && s != data->Buffer)   // extension is present ('.' not at the begining of the name, e.g. ".cvspass")
+    if (s != NULL) // extension is present (".cvspass" is considered an extension in Windows)
         return s + 1;
     return "";
 }
@@ -805,7 +819,7 @@ const char* WINAPI ExecuteExpFullPath(HWND msgParent, void* param) // full path 
 const char* WINAPI ExecuteExpWinDir(HWND msgParent, void* param) // full path to the Windows directory
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    GetWindowsDirectory(data->Buffer, MAX_PATH);
+    EnvGetWindowsDirectoryA(gEnvironment, data->Buffer, data->Buffer.Size());
     char* s = data->Buffer + strlen(data->Buffer);
     if (s > data->Buffer && *(s - 1) != '\\')
         strcat(data->Buffer, "\\");
@@ -815,7 +829,7 @@ const char* WINAPI ExecuteExpWinDir(HWND msgParent, void* param) // full path to
 const char* WINAPI ExecuteExpSysDir(HWND msgParent, void* param) // full path to the System directory
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    GetSystemDirectory(data->Buffer, MAX_PATH);
+    EnvGetSystemDirectoryA(gEnvironment, data->Buffer, data->Buffer.Size());
     char* s = data->Buffer + strlen(data->Buffer);
     if (s > data->Buffer && *(s - 1) != '\\')
         strcat(data->Buffer, "\\");
@@ -825,7 +839,7 @@ const char* WINAPI ExecuteExpSysDir(HWND msgParent, void* param) // full path to
 const char* WINAPI ExecuteExpSalDir(HWND msgParent, void* param) // full path to the Salamander directory
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    GetModuleFileName(HInstance, data->Buffer, MAX_PATH);
+    GetModuleFileName(HInstance, data->Buffer, data->Buffer.Size());
     *(strrchr(data->Buffer, '\\') + 1) = 0;
     return data->Buffer;
 }
@@ -849,9 +863,9 @@ const char* WINAPI ExecuteExpDOSFullPath(HWND msgParent, void* param) // DOS ful
 const char* WINAPI ExecuteExpDOSWinDir(HWND msgParent, void* param) // DOS full path to the Windows directory
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    char path[MAX_PATH];
-    GetWindowsDirectory(path, MAX_PATH);
-    GetShortPathName(path, data->Buffer, MAX_PATH);
+    CPathBuffer path; // Heap-allocated for long path support
+    EnvGetWindowsDirectoryA(gEnvironment, path, path.Size());
+    GetShortPathName(path, data->Buffer, data->Buffer.Size());
     char* s = data->Buffer + strlen(data->Buffer);
     if (s > data->Buffer && *(s - 1) != '\\')
         strcat(data->Buffer, "\\");
@@ -861,9 +875,9 @@ const char* WINAPI ExecuteExpDOSWinDir(HWND msgParent, void* param) // DOS full 
 const char* WINAPI ExecuteExpDOSSysDir(HWND msgParent, void* param) // DOS full path to the System directory
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    char path[MAX_PATH];
-    GetSystemDirectory(path, MAX_PATH);
-    GetShortPathName(path, data->Buffer, MAX_PATH);
+    CPathBuffer path; // Heap-allocated for long path support
+    EnvGetSystemDirectoryA(gEnvironment, path, path.Size());
+    GetShortPathName(path, data->Buffer, data->Buffer.Size());
     char* s = data->Buffer + strlen(data->Buffer);
     if (s > data->Buffer && *(s - 1) != '\\')
         strcat(data->Buffer, "\\");
@@ -896,7 +910,7 @@ const char* WINAPI ExecuteExpFullPath2(HWND msgParent, void* param) // full path
 const char* WINAPI ExecuteExpWinDir2(HWND msgParent, void* param) // full path to the Windows directory without trailing '\\'
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    GetWindowsDirectory(data->Buffer, MAX_PATH);
+    EnvGetWindowsDirectoryA(gEnvironment, data->Buffer, data->Buffer.Size());
     char* s = data->Buffer + strlen(data->Buffer);
     if (s > data->Buffer && *(s - 1) == '\\')
         *(s - 1) = 0;
@@ -906,7 +920,7 @@ const char* WINAPI ExecuteExpWinDir2(HWND msgParent, void* param) // full path t
 const char* WINAPI ExecuteExpSysDir2(HWND msgParent, void* param) // full path to the System directory without trailing '\\'
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    GetSystemDirectory(data->Buffer, MAX_PATH);
+    EnvGetSystemDirectoryA(gEnvironment, data->Buffer, data->Buffer.Size());
     char* s = data->Buffer + strlen(data->Buffer);
     if (s > data->Buffer && *(s - 1) == '\\')
         *(s - 1) = 0;
@@ -916,7 +930,7 @@ const char* WINAPI ExecuteExpSysDir2(HWND msgParent, void* param) // full path t
 const char* WINAPI ExecuteExpSalDir2(HWND msgParent, void* param) // full path to the Salamander directory without trailing '\\'
 {
     CExecuteExpData* data = (CExecuteExpData*)param;
-    GetModuleFileName(HInstance, data->Buffer, MAX_PATH);
+    GetModuleFileName(HInstance, data->Buffer, data->Buffer.Size());
     char* s = strrchr(data->Buffer, '\\');
     if (s == NULL)
     {
@@ -942,7 +956,7 @@ struct CFileDataExpData
     const CFileData* FileData;
     BOOL IsDir;          // this is a file, not a directory
     DWORD ValidFileData; // mask of valid data in CFileData
-    char Path[MAX_PATH]; // path to the current panel (only for Make File List)
+    CPathBuffer Path; // path to the current panel (only for Make File List)
     char Buffer[2000];
 };
 
@@ -1006,7 +1020,7 @@ const char* WINAPI FileDataExpFileSize(HWND msgParent, void* param)
     if (!data->IsDir || sizeValid && data->FileData->SizeValid || plSizeValid)
         NumberToStr(data->Buffer, plSizeValid ? plSize : data->FileData->Size);
     else
-        CopyMemory(data->Buffer, DirColumnStr, DirColumnStrLen + 1);
+        CopyMemory(data->Buffer, DirColumnStr.c_str(), DirColumnStrLen + 1);
     return data->Buffer;
 }
 
@@ -1036,7 +1050,7 @@ const char* WINAPI FileDataExpFileSizeNoSpaces(HWND msgParent, void* param)
         _ui64toa(plSizeValid ? plSize.Value : data->FileData->Size.Value, data->Buffer, 10);
     }
     else
-        CopyMemory(data->Buffer, DirColumnStr, DirColumnStrLen + 1);
+        CopyMemory(data->Buffer, DirColumnStr.c_str(), DirColumnStrLen + 1);
     return data->Buffer;
 }
 
@@ -1209,8 +1223,8 @@ const char* WINAPI MFLFileDataExpPath(HWND msgParent, void* param)
 const char* WINAPI MFLFileDataExpDOSPath(HWND msgParent, void* param)
 {
     CFileDataExpData* data = (CFileDataExpData*)param;
-    char dosPath[MAX_PATH];
-    if (!GetShortPathName(data->Path, dosPath, MAX_PATH))
+    CPathBuffer dosPath; // Heap-allocated for long path support
+    if (!GetShortPathName(data->Path, dosPath, dosPath.Size()))
     {
         TRACE_E("Unexpected situation in FileDataExpDOSPath().");
         return MFLFileDataExpPath(msgParent, param);
@@ -1647,10 +1661,10 @@ CSalamanderVarStrEntry InitDirExpArray[] =
     {
         {EXECUTE_DRIVE, ExecuteExpDrive},
         {EXECUTE_PATH, ExecuteExpPath2},         // j.r. I have no idea why the special versions of variables without
-        {EXECUTE_FULLPATH, ExecuteExpFullPath2}, // without trailing backslashes; anyway, I have now added a call to
+        {EXECUTE_FULLPATH, ExecuteExpFullPath2}, // trailing backslashes are used; anyway, I added a call to
         {EXECUTE_WINDIR, ExecuteExpWinDir2},     // RemoveDoubleBackslahesFromPath so we could probably switch to the
         {EXECUTE_SYSDIR, ExecuteExpSysDir2},     // versions with backslashes at the end -- we would just trim the
-        {EXECUTE_SALDIR, ExecuteExpSalDir2},     // remove the last backslash (unless this is the root)
+        {EXECUTE_SALDIR, ExecuteExpSalDir2},     // last backslash in ExpandInitDir() (unless it's the root)
         {NULL, NULL}};
 
 // !!! do not use InfoLineExpArray directly; use GetInfoLineExpArray()
@@ -1701,15 +1715,15 @@ CSalamanderVarStrEntry MakeFileListExpArray[] =
 BOOL BrowseDirCommand(HWND hParent, int editlineResID, int filterResID)
 {
     CALL_STACK_MESSAGE2("BrowseDirCommand(, %d)", editlineResID);
-    char path[MAX_PATH];
+    CPathBuffer path; // Heap-allocated for long path support
     SendMessage(GetDlgItem(hParent, editlineResID), WM_GETTEXT,
-                MAX_PATH, (LPARAM)path);
+                path.Size(), (LPARAM)path.Get());
 
     CALL_STACK_MESSAGE1("BrowseDirCommand::GetOpenFileName");
     if (GetTargetDirectory(hParent, hParent, LoadStr(IDS_BROWSEDIRECTORY_TITLE), LoadStr(IDS_BROWSEDIRECTORY_TEXT), path, FALSE, path))
     {
-        CALL_STACK_MESSAGE2("BrowseDirCommand::SendMessage( , , ,%s)", path);
-        SendMessage(GetDlgItem(hParent, editlineResID), WM_SETTEXT, 0, (LPARAM)path);
+        CALL_STACK_MESSAGE2("BrowseDirCommand::SendMessage( , , ,%s)", path.Get());
+        SendMessage(GetDlgItem(hParent, editlineResID), WM_SETTEXT, 0, (LPARAM)path.Get());
         return TRUE;
     }
     return FALSE;
@@ -1733,22 +1747,19 @@ BOOL ValidateUserMenuArguments(HWND msgParent, const char* varText, int& errorPo
     if (userMenuValidationData->MustHandleItemsAsGroup &&
         userMenuValidationData->MustHandleItemsOneByOne)
     { // incompatible work with selection
-        SalMessageBox(msgParent, LoadStr(IDS_INCOMPATIBLEARGS),
-                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_INCOMPATIBLEARGS));
         return FALSE;
     }
     if (userMenuValidationData->UsedCompareType == 5)
     { // collision of multiple Compare parameter types
-        SalMessageBox(msgParent, LoadStr(IDS_COMPAREARGSCOLISION),
-                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_COMPAREARGSCOLISION));
         return FALSE;
     }
     if (userMenuValidationData->UsedCompareType != 0 &&
         (!userMenuValidationData->UsedCompareLeftOrActive ||
          !userMenuValidationData->UsedCompareRightOrInactive))
     { // both Compare parameters are not used together -> nonsense
-        SalMessageBox(msgParent, LoadStr(IDS_COMPARENEEDSBOTHARGS),
-                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_COMPARENEEDSBOTHARGS));
         return FALSE;
     }
     return TRUE;
@@ -1818,12 +1829,23 @@ BOOL ExpandArguments(HWND msgParent, const char* name, const char* dosName, cons
     return ExpandVarString(msgParent, varText, buffer, bufferLen, ArgumentsExpArray, &data);
 }
 
+std::wstring ExpandArgumentsW(HWND msgParent, const char* name, const char* dosName, const char* varText,
+                              BOOL* fileNameUsed)
+{
+    CExecuteExpData data;
+    data.Name = name;
+    data.DosName = dosName;
+    data.FileNameUsed = fileNameUsed;
+    data.UserMenuAdvancedData = NULL;
+    return ExpandVarStringW(msgParent, varText, ArgumentsExpArray, &data);
+}
+
 BOOL ValidateInitDir(HWND msgParent, const char* varText, int& errorPos1, int& errorPos2)
 {
     CALL_STACK_MESSAGE2("ValidateInitDir(, %s, ,)", varText);
     if (*varText == 0)
     {
-        SalMessageBox(msgParent, LoadStr(IDS_EXP_EMPTYSTR), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_EXP_EMPTYSTR));
         errorPos1 = errorPos2 = 0;
         return FALSE;
     }
@@ -1834,7 +1856,7 @@ BOOL ValidateInfoLineItems(HWND msgParent, const char* varText, int& errorPos1, 
 {
     CALL_STACK_MESSAGE2("ValidateInfoLineItems(, %s, ,)", varText);
     return ValidateVarString(msgParent, varText, errorPos1, errorPos2,
-                             GetInfoLineExpArray(TRUE /* TRUE and FALSE are equivalent for validation. */));
+                             GetInfoLineExpArray(TRUE /* for validation there is no difference between TRUE and FALSE */));
 }
 
 BOOL ExpandInfoLineItems(HWND msgParent, const char* varText, CPluginDataInterfaceEncapsulation* pluginData,
@@ -1920,6 +1942,21 @@ BOOL ExpandInitDir(HWND msgParent, const char* name, const char* dosName, const 
         return FALSE;
 }
 
+std::wstring ExpandInitDirW(HWND msgParent, const char* name, const char* dosName, const char* varText,
+                            BOOL ignoreEnvVarNotFoundOrTooLong)
+{
+    CExecuteExpData data;
+    data.Name = name;
+    data.DosName = dosName;
+    data.FileNameUsed = NULL;
+    data.UserMenuAdvancedData = NULL;
+    std::wstring result = ExpandVarStringW(msgParent, varText, InitDirExpArray, &data,
+                                           ignoreEnvVarNotFoundOrTooLong);
+    if (!result.empty())
+        RemoveDoubleBackslashesW(result);
+    return result;
+}
+
 BOOL ExpandCommand(HWND msgParent, const char* varText, char* buffer, int bufferLen,
                    BOOL ignoreEnvVarNotFoundOrTooLong)
 {
@@ -1941,6 +1978,21 @@ BOOL ExpandCommand(HWND msgParent, const char* varText, char* buffer, int buffer
         return FALSE;
 }
 
+std::wstring ExpandCommandW(HWND msgParent, const char* varText,
+                            BOOL ignoreEnvVarNotFoundOrTooLong)
+{
+    CExecuteExpData data;
+    data.Name = NULL;
+    data.DosName = NULL;
+    data.FileNameUsed = NULL;
+    data.UserMenuAdvancedData = NULL;
+    std::wstring result = ExpandVarStringW(msgParent, varText, CommandExpArray, &data,
+                                           ignoreEnvVarNotFoundOrTooLong);
+    if (!result.empty())
+        RemoveDoubleBackslashesW(result);
+    return result;
+}
+
 BOOL ExpandHotPath(HWND msgParent, const char* varText, char* buffer, int bufferLen,
                    BOOL ignoreEnvVarNotFoundOrTooLong)
 {
@@ -1960,6 +2012,21 @@ BOOL ExpandHotPath(HWND msgParent, const char* varText, char* buffer, int buffer
     }
     else
         return FALSE;
+}
+
+std::wstring ExpandHotPathW(HWND msgParent, const char* varText,
+                            BOOL ignoreEnvVarNotFoundOrTooLong)
+{
+    CExecuteExpData data;
+    data.Name = NULL;
+    data.DosName = NULL;
+    data.FileNameUsed = NULL;
+    data.UserMenuAdvancedData = NULL;
+    std::wstring result = ExpandVarStringW(msgParent, varText, HotPathExpArray, &data,
+                                           ignoreEnvVarNotFoundOrTooLong);
+    if (!result.empty())
+        RemoveDoubleBackslashesW(result);
+    return result;
 }
 
 const CExecuteItem*
@@ -2126,9 +2193,9 @@ TrackExecuteMenu(HWND hParent, int buttonResID, int editlineResID,
 BOOL BrowseCommand(HWND hParent, int editlineResID, int filterResID)
 {
     CALL_STACK_MESSAGE2("BrowseCommand(, %d)", editlineResID);
-    char file[MAX_PATH];
+    CPathBuffer file; // Heap-allocated for long path support
     SendMessage(GetDlgItem(hParent, editlineResID), WM_GETTEXT,
-                MAX_PATH, (LPARAM)file);
+                file.Size(), (LPARAM)file.Get());
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
     ofn.lStructSize = sizeof(OPENFILENAME);
@@ -2142,7 +2209,7 @@ BOOL BrowseCommand(HWND hParent, int editlineResID, int filterResID)
         s++;
     }
     ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = file.Size();
     ofn.nFilterIndex = 1;
     //  ofn.lpstrFileTitle = file;
     //  ofn.nMaxFileTitle = MAX_PATH;
@@ -2151,10 +2218,10 @@ BOOL BrowseCommand(HWND hParent, int editlineResID, int filterResID)
     CALL_STACK_MESSAGE1("BrowseCommand::GetOpenFileName");
     if (GetOpenFileName(&ofn))
     {
-        if (SalGetFullName(file))
+        if (SalGetFullName(file, NULL, NULL, NULL, NULL, file.Size()))
         {
-            CALL_STACK_MESSAGE2("BrowseCommand::SendMessage( , , ,%s)", file);
-            SendMessage(GetDlgItem(hParent, editlineResID), WM_SETTEXT, 0, (LPARAM)file);
+            CALL_STACK_MESSAGE2("BrowseCommand::SendMessage( , , ,%s)", file.Get());
+            SendMessage(GetDlgItem(hParent, editlineResID), WM_SETTEXT, 0, (LPARAM)file.Get());
             return TRUE;
         }
     }
@@ -2163,9 +2230,8 @@ BOOL BrowseCommand(HWND hParent, int editlineResID, int filterResID)
         DWORD error = CommDlgExtendedError();
         if (error == FNERR_INVALIDFILENAME)
         {
-            char buff[MAX_PATH + 100];
-            sprintf(buff, LoadStr(IDS_COMDLG_INVALIDFILENAME), file);
-            SalMessageBox(hParent, buff, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            std::wstring msg = FormatStrW(LoadStrW(IDS_COMDLG_INVALIDFILENAME), AnsiToWide(file).c_str());
+            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), msg.c_str());
         }
     }
     return FALSE;

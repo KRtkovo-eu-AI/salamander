@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -77,10 +77,10 @@ BOOL CCHMFile::Open(const char* fileName, BOOL quiet /* = FALSE*/)
 {
     CALL_STACK_MESSAGE3("CCHMFile::Open(%s, %d)", fileName, quiet);
 
-    char dllPath[MAX_PATH];
-    if (!GetModuleFileName(DLLInstance, dllPath, MAX_PATH))
+    CPathBuffer dllPath; // Heap-allocated for long path support
+    if (!GetModuleFileName(DLLInstance, dllPath, dllPath.Size()))
         return FALSE;
-    lstrcpy(strrchr(dllPath, '\\') + 1, "chmlib.dll");
+    lstrcpy(strrchr(dllPath.Get(), '\\') + 1, "chmlib.dll");
 
     HMODULE hDLL = LoadLibrary(dllPath);
     if (hDLL != NULL)
@@ -100,7 +100,7 @@ BOOL CCHMFile::Open(const char* fileName, BOOL quiet /* = FALSE*/)
         }
         else
         {
-            // cannot obtain the last write time; use the current time
+            // can not obtain last write, use current time
             SYSTEMTIME st;
             GetLocalTime(&st);
             SystemTimeToFileTime(&st, &FileTime);
@@ -241,7 +241,7 @@ BOOL CCHMFile::EnumObjects(CSalamanderDirectoryAbstract* dir, CPluginDataInterfa
 
     SEnumObjHelper* helper = new SEnumObjHelper(this, dir, pluginData);
     ChmEnumerate(CHM, CHM_ENUMERATE_NORMAL, ChmEnumObjectsCallBack, (void*)helper);
-    // For debugging
+    // for DEBUG purposes
     //  ChmEnumerate(CHM, CHM_ENUMERATE_ALL, ChmEnumObjectsCallBack, (void *) helper);
     delete helper;
 
@@ -253,15 +253,15 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
 {
     CALL_STACK_MESSAGE5("CCHMFile::ExtractObject( , %s, %s, , %u, %d)", srcPath, path, silent, toSkip);
 
-    char nameInArc[MAX_PATH + MAX_PATH];
+    CPathBuffer nameInArc;
     strcpy(nameInArc, FileName);
-    SalamanderGeneral->SalPathAppend(nameInArc, srcPath, MAX_PATH + MAX_PATH);
-    SalamanderGeneral->SalPathAppend(nameInArc, fileData->Name, MAX_PATH + MAX_PATH);
+    SalamanderGeneral->SalPathAppend(nameInArc, srcPath, nameInArc.Size());
+    SalamanderGeneral->SalPathAppend(nameInArc, fileData->Name, nameInArc.Size());
 
     ///
-    char name[MAX_PATH];
+    CPathBuffer name; // Heap-allocated for long path support
     strcpy(name, path);
-    if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, MAX_PATH))
+    if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, name.Size()))
         return UNPACK_ERROR;
 
     char fileInfo[100];
@@ -277,11 +277,11 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
     // set file time
     SetFileTime(file, &ft, &ft, &ft);
 
-    // the overall operation can continue; only skip this file
+    // the overall operation can continue; skip only
     if (toSkip)
         return UNPACK_ERROR;
 
-    // The overall operation cannot continue. Cancel.
+    // the overall operation cannot continue; cancel
     if (file == INVALID_HANDLE_VALUE)
         return UNPACK_CANCEL;
 
@@ -337,14 +337,14 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
             break;
         }
 
-        if (!salamander->ProgressAddSize((int)len, TRUE)) // delayedPaint==TRUE so we do not slow the operation down
+        if (!salamander->ProgressAddSize((int)len, TRUE)) // delayedPaint==TRUE so we do not slow down
         {
             salamander->ProgressDialogAddText(LoadStr(IDS_CANCELOPER), FALSE);
             salamander->ProgressEnableCancel(FALSE);
 
             ret = UNPACK_CANCEL;
             whole = FALSE;
-            break; // interrupt the operation
+            break; // interrupt the action
         }
     } // while
 
@@ -357,14 +357,14 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
         if (ret == UNPACK_OK)
             ret = UNPACK_CANCEL;
 
-        // because the file is created with the read-only attribute, we must clear that attribute
-        // so the file can be deleted
+        // because it is created with the read-only attribute, we must clear the R attribute
+        // to allow the file to be deleted
         attrs &= ~FILE_ATTRIBUTE_READONLY;
         if (!SetFileAttributes(name, attrs))
             Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
 
         // the user canceled the operation
-        // delete the incomplete file
+        // delete the incomplete file afterwards
         if (!DeleteFile(name))
             Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError());
     }
@@ -381,16 +381,16 @@ BOOL CCHMFile::UnpackDir(const char* dirName, const CFileData* fileData)
         return UNPACK_ERROR;
 
     /*
-      DWORD attrs = fileData->Attr;
+  DWORD attrs = fileData->Attr;
 
-      // set attributes for the directory
-      if (Options.ClearReadOnly)
-        // clear the ReadOnly attribute
-        attrs &= ~FILE_ATTRIBUTE_READONLY;
+  // set attrs to dir
+  if (Options.ClearReadOnly)
+    // set ReadOnly Attribute
+    attrs &= ~FILE_ATTRIBUTE_READONLY;
 
-      if (!SetFileAttributes(dirName, attrs))
-        Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
-    */
+  if (!SetFileAttributes(dirName, attrs))
+    Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
+*/
 
     return UNPACK_OK;
 }

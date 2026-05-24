@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -42,13 +42,13 @@ const CConfiguration DefConfig =
     {
         6,                            // Compression level
         EM_ZIP20,                     // Encryption Method
-        false,                        // Do not add empty directories to the ZIP archive.
+        false,                        //don't add empty directories to zip
         true,                         //create temporary backup of zip
-        true,                         //display extended pack options dialog
+        true,                         //display exteded pack options dialog
         false,                        //set zip file time to the newest file time
         {"1423", {0}, {0}, {0}, {0}}, //volume sizes
         {0, 0, 0, 0, 0},              //volume size units
-        true,                         // whether automatic volume size was used last time
+        true,                         //automatic volume size last used
         false,                        //automatically expand multi-volume archives on non-removable disks
         0,                            //config version (0 - default; 1 - beta 3; 2 - beta 4)
         "english.sfx",                //default sfx package
@@ -58,8 +58,8 @@ const CConfiguration DefConfig =
         TRUE,                         // winzip compatible multi-volume archive names
         // Custom columns:
         TRUE, // Show custom column Packed Size
-        0,    // LOWORD/HIWORD: left/right panel width for the Packed Size column
-        0     // LO/HI-WORD: fixed width of the Packed Size column in the left/right panel
+        0,    // LO/HI-WORD: left/right panel: Width for Packed Size column
+        0     // LO/HI-WORD: left/right panel: FixedWidth for Packed Size column
 };
 
 const CExtendedOptions DefOptions;
@@ -77,7 +77,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     {
         DLLInstance = hinstDLL;
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 #endif //SSZIP
 
@@ -250,7 +250,7 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     CALL_STACK_MESSAGE3("CZipCommon::CZipCommon(%s, %s, )", zipName, zipRoot);
     Config = ::Config;
     ZipFile = 0;
-    lstrcpy(ZipName, zipName);
+    lstrcpyn(ZipName, zipName, ZipName.Size());
     ZipRoot = zipRoot;
     RootLen = lstrlen(ZipRoot);
     ZeroZip = false;
@@ -263,8 +263,8 @@ CZipCommon::CZipCommon(const char* zipName, const char* zipRoot,
     Unix = FALSE;
     ArchiveVolumes = archiveVolumes;
 
-    DWORD ret = GetCurrentDirectory(MAX_PATH + 1, OriginalCurrentDir);
-    if (!ret || ret > MAX_PATH + 1)
+    DWORD ret = GetCurrentDirectory(OriginalCurrentDir.Size(), OriginalCurrentDir);
+    if (!ret || ret > (DWORD)OriginalCurrentDir.Size())
         *OriginalCurrentDir = 0;
 }
 
@@ -323,12 +323,12 @@ int CZipCommon::CheckZip()
 int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
                      unsigned* bytesRead, bool* skipAll)
 {
-    CALL_STACK_MESSAGE_NONE // performance-critical method
+    CALL_STACK_MESSAGE_NONE // time-critical method
                             //  CALL_STACK_MESSAGE3("CZipCommon::Read(, , 0x%X, , ) file: %s", bytesToRead, file->FileName);
-        unsigned long read; // number of bytes read by ReadFile()
-    unsigned long toRead;   // number of bytes requested from ReadFile()
+        unsigned long read; //number of butes read by ReadFile()
+    unsigned long toRead;   //number of butes read by ReadFile()
     int result;             //temp variable
-    int errorID;            // error message identifier
+    int errorID;            //error string identifier
     int lastError;          //value returned by GetLastError()
 
     if (file->Size > file->FilePointer)
@@ -352,7 +352,7 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
                 file->FilePointer + toRead <= file->RealFilePointer + file->BufferPosition)
             {
                 int offset = int(file->FilePointer - file->RealFilePointer);
-                // if the requested data are fully in the buffer, just copy them
+                // if the requested data are entirely in the buffer, just copy them
                 memcpy(buffer, file->InputBuffer + offset, toRead);
                 file->FilePointer += toRead;
                 if (bytesRead)
@@ -511,7 +511,7 @@ int CZipCommon::Flush(CFile* file, const void* buffer, unsigned bytesToWrite,
                       bool* skipAll)
 {
     CALL_STACK_MESSAGE3("CZipCommon::Flush(, , 0x%X, ) file: %s", bytesToWrite, file->FileName);
-    unsigned long bytesWritten; // number of bytes written by WriteFile()
+    unsigned long bytesWritten; //number of butes read by ReadFile()
     int result;                 //temp variable
     int errorID = 0;            //error string identifier
 
@@ -668,7 +668,7 @@ int CZipCommon::ProcessError(int errorID, int lastError, const char* fileName,
     if (skipAll && *skipAll)
         exitCode = ERR_SKIP;
     else
-    { // Process the error and display the appropriate dialog
+    { //process error and display proper dialog
         if (lastError)
         {
             char lastErrorBuf[1024]; //temp variable
@@ -693,7 +693,7 @@ int CZipCommon::ProcessError(int errorID, int lastError, const char* fileName,
 
         if (flags & PE_QUIET)
             result = DIALOG_CANCEL;
-        else // display the dialog
+        else //display dialog
             if (flags & PE_NORETRY)
                 if (flags & PE_NOSKIP)
                 {
@@ -789,7 +789,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
     QWORD i;
     unsigned size;
     bool retry;
-    char lastFile[MAX_PATH];
+    CPathBuffer lastFile; // Heap-allocated for long path support
 
     do
     {
@@ -863,7 +863,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                         break;
                     }
             }
-            position -= bufSize - 3; //three overlapping bytes
+            position -= bufSize - 3; //tree overlapping bytes
             i--;
         }
         if (!error && !found && position + 64 * 1024 + 22 >= ZipFile->Size)
@@ -909,8 +909,8 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                     break;
                                 }
                                 ZipFile->FilePointer = EOCentrDirOffs + sizeof(CEOCentrDirRecord);
-                                // skipAll=true prevents Read from showing an EOF error. We show a better
-                                // error ourselves immediately
+                                // skipAll=true prevents Read showing EOF error. We show a better
+                                // error ourselves immediatelly
                                 bool skipAll = true;
                                 if (Read(ZipFile, Comment, EOCentrDir.CommentLen, NULL, &skipAll))
                                 {
@@ -1079,11 +1079,11 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     Zip64 = true;
     if (zip64Record.DiskNum < 0xFFFF)
     {
-        // we keep this value unchanged so we can later recognize a weird ZIP file
-        // and refuse to modify it; so far we have encountered only one file
-        // like this, and deleting files inside the archive caused
-        // the archive data to become corrupted
-        // TODO: save mansion.zip in a repository of weird ZIPs and add a correct reference here
+        // we keep this value unfixed so we can later recognize a weird ZIP file
+        // and refuse its modification, so far we have encountered a single file
+        // like this and we had trouble with deleting files inside the archive,
+        // which ended with the corrupted archive data)
+        // TODO save manison.zip to some repository for the weird ZIPs and put a correct reference here
         //EOCentrDir.DiskNum = __UINT16(zip64Record.DiskNum);
     }
     if (EOCentrDir.StartDisk == 0xFFFF)
@@ -1131,7 +1131,7 @@ int CZipCommon::CheckForExtraBytes()
 
     ExtraBytes = 0;
 
-    // extra bytes are not checked: too much work for little benefit
+    // do not check for extra bytes - too much work for little benefit
     if (MultiVol)
         return 0;
 
@@ -1474,7 +1474,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
             *dest++ = *sour++;
         }
     }
-    if (dest > outputName && *(dest - 1) == '\\') // Skip the trailing slash if the name specifies a directory
+    if (dest > outputName && *(dest - 1) == '\\') //skip last slash if name specifies a directory
     {
         dest--;
         // set the directory attribute; some archivers do not set attributes
@@ -1493,7 +1493,7 @@ int CZipCommon::ProcessName(CFileHeader* fileHeader, char* outputName)
     if (!(fileHeader->Flag & GPF_UTF8) && ((fileHeader->Version >> 8 == HS_FAT /*0*/) ||
                                            (fileHeader->Version >> 8 == HS_HPFS /*6*/) ||
                                            //       ((fileHeader->Version >> 8 == HS_NTFS/*11*/) && ((fileHeader->Version & 0x0F) == 0x50)) // Patera 2010.03.30: This doesn't make sense -> disabled
-                                           // The following line was inspired by the MultiArc plugin for FAR
+                                           // The following line got inspiration in MultiArc plugin of FAR
                                            ((fileHeader->Version >> 8 == HS_NTFS /*11*/) && (((fileHeader->Version & 0xFF) <= 20) || ((fileHeader->Version & 0xFF) >= 25)))))
         // ZIP built-in to WinXP writes Version 0x0b14 and uses OEM
         // AS writes version 0x0016 and uses OEM
@@ -1747,7 +1747,7 @@ LABEL_QuickSortNames:
         }
     } while (i <= j); // do they have to match?
 
-    // the following "nice" code was replaced with code that uses significantly less stack space (max. log(N) recursion depth)
+    // the following "nice" code was replaced with code that saves a lot of stack (max. log(N) recursion depth)
     //  if (left < j) QuickSortNames(left, j, names, unix);
     //  if (i < right) QuickSortNames(i, right, names, unix);
 
@@ -1793,7 +1793,7 @@ bool BSearchName(LPCTSTR name, int ItemNumber, int left, int right, TIndirectArr
     {
         mid = (left + right) >> 1;
         c = respectCase ? _tcscmp(name, names[mid]->Name) : SalamanderGeneral->StrICmp(name, names[mid]->Name);
-        // Files match only when ItemNumber matches or either ItemNumber is -1
+        // Files are matched only when the ItemNumber also matches
         if (c == 0)
         {
             if ((ItemNumber == names[mid]->ItemNumber) || (-1 == names[mid]->ItemNumber) || (-1 == ItemNumber))
@@ -1850,7 +1850,7 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
     for (cnt = 0; readSize < CentrDirSize && !errorID; cnt++)
     {
         unsigned int s;
-        if (centrDir) // for deleting files
+        if (centrDir) //for files deletion
         {
             centralHeader = (CFileHeader*)(centrDir + readSize);
             if (readSize + sizeof(CFileHeader) > CentrDirSize ||
@@ -1931,7 +1931,7 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
         }
         if (!errorID)
         {
-            if (centrDir) // when deleting files
+            if (centrDir) //for files deletion
                 MatchedTotalSize += CQuadWord().SetUI64(fileInfo->CompSize);
             else
                 MatchedTotalSize += CQuadWord().SetUI64(fileInfo->Size);
@@ -1947,9 +1947,9 @@ int CZipCommon::MatchFiles(TIndirectArray2<CFileInfo>& files, TIndirectArray2<CE
 void CZipCommon::DetectRemovable()
 {
     CALL_STACK_MESSAGE1("CZipCommon::DetectRemovable()");
-    char pathRoot[MAX_PATH];
+    CPathBuffer pathRoot; // Heap-allocated for long path support
     const char* sour = ZipName;
-    char* dest = pathRoot;
+    char* dest = pathRoot.Get();
 
     while (*sour && *sour != '\\')
         *dest++ = *sour++;
@@ -2263,8 +2263,7 @@ int MakeFileName(int number, bool seqNames, const char* archive,
         ext = archive + strlen(archive); // ".cvspass" is extension in Windows
     int namelen = (int)(ext - archive);
 
-    char buf[MAX_PATH + 12];
-    memcpy(buf, archive, namelen);
+    CPathBuffer buf;    memcpy(buf, archive, namelen);
 
     if (winZipNames)
         sprintf(buf + namelen, ".z%02d", number);
@@ -2384,7 +2383,15 @@ DWORD ExpandSfxSettings(CSfxSettings* settings, void* buffer, DWORD size)
     GET_STRING(settings->IconFile);
     GET_DWORD(settings->IconIndex);
     GET_DWORD(settings->MBoxStyle);
-    GET_STRING_ALLOC(settings->MBoxText);
+    {
+        DWORD s;
+        GET_DWORD(s);
+        if (size < s)
+            return -1;
+        size -= s;
+        settings->MBoxText.assign(ptr, s);
+        ptr += s;
+    }
     GET_STRING(settings->MBoxTitle);
     GET_STRING(settings->WaitFor);
     if (size > 0)
@@ -2396,11 +2403,11 @@ DWORD ExpandSfxSettings(CSfxSettings* settings, void* buffer, DWORD size)
     {
         // add default values
         CSfxLang* lang = NULL;
-        char file[MAX_PATH];
-        GetModuleFileName(DLLInstance, file, MAX_PATH);
+        CPathBuffer file; // Heap-allocated for long path support
+        GetModuleFileName(DLLInstance, file, file.Size());
         SalamanderGeneral->CutDirectory(file);
-        SalamanderGeneral->SalPathAppend(file, "sfx", MAX_PATH);
-        SalamanderGeneral->SalPathAppend(file, settings->SfxFile, MAX_PATH);
+        SalamanderGeneral->SalPathAppend(file, "sfx", file.Size());
+        SalamanderGeneral->SalPathAppend(file, settings->SfxFile, file.Size());
         if (LoadSfxFileData(file, &lang) == 0)
         {
             strcpy(settings->Vendor, lang->Vendor);
@@ -2443,7 +2450,7 @@ DWORD PackSfxSettings(CSfxSettings* settings, char*& buffer, DWORD& size)
     PUT_STRING(settings->IconFile);
     PUT_DWORD(settings->IconIndex);
     PUT_DWORD(settings->MBoxStyle);
-    PUT_STRING(settings->MBoxText);
+    PUT_STRING(settings->MBoxText.c_str());
     PUT_STRING(settings->MBoxTitle);
     PUT_STRING(settings->WaitFor);
     PUT_STRING(settings->Vendor);
@@ -2538,7 +2545,7 @@ BOOL PathAppend(LPTSTR  pPath, LPCTSTR pMore)
     return TRUE;
   }
   int len = lstrlen(pPath);
-  // add a backslash before appending
+  // trim the trailing backslash before appending
   if (len > 1 && pPath[len - 1] != '\\' && pMore[0] != '\\')
   {
     pPath[len] = '\\';

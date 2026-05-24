@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -13,18 +13,18 @@
 #pragma once
 
 // MHANDLES_ENABLE macro - enables handle monitoring
-// WARNING: call HANDLES_CAN_USE_TRACE() immediately after initializing the "dbg.h" module
-//        (after SalamanderDebug and SalamanderVersion have been initialized)
-// WARNING: MHANDLES are initialized/destroyed at the "lib" level; if a plugin
-//        uses the "lib" (or "compiler") level, it must ensure that MHANDLES are not
-//        used at those levels (see #pragma init_seg (lib))
-// NOTE: use CheckHnd.exe to simplify the placement of HANDLES() and HANDLES_Q() macros
+// WARNING: call HANDLES_CAN_USE_TRACE() right after initializing the "dbg.h" module
+//          (after initializing SalamanderDebug and SalamanderVersion)
+// WARNING: MHANDLES are initialized/terminated at the "lib" level; if a plugin
+//          uses the "lib" (or "compiler") level, it must ensure it does not use
+//          MHANDLES at those levels (see #pragma init_seg (lib))
+// NOTE: for easier placement of HANDLES() and HANDLES_Q() macros use CheckHnd.exe
 
 #define NOHANDLES(function) function
 
 #ifndef MHANDLES_ENABLE
 
-// to avoid semicolon problems in the macros defined below
+// to avoid problems with semicolons in the macros defined below
 inline void __HandlesEmptyFunction() {}
 
 #define HANDLES_CAN_USE_TRACE() __HandlesEmptyFunction()
@@ -221,7 +221,7 @@ struct C__HandlesHandle
 {
     C__HandlesType Type;
     C__HandlesOrigin Origin;
-    HANDLE Handle; // generic, for all handle types
+    HANDLE Handle; // universal, for all handle types
 
     C__HandlesHandle() {}
 
@@ -285,16 +285,16 @@ typedef unsigned int uintptr_t;
 class C__Handles
 {
 public:
-    // message box helper objects; this one is here only to guarantee construction/destruction order
+    // objects for working with message boxes, here only to guarantee construction/destruction order
     std::ostream __MessagesStrStream;
     C__Messages __Messages;
 
 protected:
     C_HandlesDataArray Handles;       // all monitored handles
-    C__HandlesData TemporaryHandle;   // used during insertion, set by SetInfo()
-    C__HandlesOutputType OutputType;  // message output type
+    C__HandlesData TemporaryHandle;   // set by SetInfo() when adding
+    C__HandlesOutputType OutputType;  // output type for messages
     CRITICAL_SECTION CriticalSection; // for multi-thread synchronization
-    BOOL CanUseTrace;                 // TRUE only after the "dbg.h" module is initialized and TRACE_ macros can be used
+    BOOL CanUseTrace;                 // TRUE only after "dbg.h" module initialization, when TRACE_ macros can be used
 
 public:
     C__Handles();
@@ -680,7 +680,7 @@ public:
 protected:
     void AddHandle(C__HandlesHandle handle); // adds TemporaryHandle
 
-    // removes the handle, returns TRUE on success
+    // removes handle, returns TRUE on success
     BOOL DeleteHandle(C__HandlesType& type, HANDLE handle,
                       C__HandlesOrigin* origin,
                       C__HandlesType expType);

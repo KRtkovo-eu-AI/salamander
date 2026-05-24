@@ -1,0 +1,10 @@
+H:\_projects\salamander\src\plugins\samandarin\managed\bin\Release\Samandarin.Managed.dll
+H:\_projects\salamander\src\plugins\samandarin\managed\bin\Release\Samandarin.Managed.pdb
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.csproj.AssemblyReference.cache
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.GeneratedMSBuildEditorConfig.editorconfig
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.AssemblyInfoInputs.cache
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.AssemblyInfo.cs
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.csproj.CoreCompileInputs.cache
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.sourcelink.json
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.dll
+H:\_projects\salamander\src\plugins\samandarin\managed\obj\Release\Samandarin.Managed.pdb

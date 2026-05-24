@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -543,7 +544,7 @@ BOOL IsValidFullPath(const char* name, int len)
     CALL_STACK_MESSAGE_NONE
     int i = 0;
 
-    // Validate the drive/UNC root.
+    // validujem drive/unc root
     if (name[0] == '\\' && name[1] == '\\') // UNC
     {
         i += 2;
@@ -646,7 +647,7 @@ char* Replace(char* string, char s, char d)
     }
     return string;
 }
-BOOL GetOpenFileName(HWND parent, const char* title, const char* filter, char* buffer, BOOL save)
+BOOL GetOpenFileName(HWND parent, const char* title, const char* filter, char* buffer, int bufferSize, BOOL save)
 {
     CALL_STACK_MESSAGE4("GetOpenFileName(, %s, %s, , %d)", title, filter, save);
     OPENFILENAME ofn;
@@ -659,7 +660,7 @@ BOOL GetOpenFileName(HWND parent, const char* title, const char* filter, char* b
     ofn.hwndOwner = parent;
     ofn.lpstrFilter = buf;
     ofn.lpstrFile = buffer;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = bufferSize;
     ofn.lpstrTitle = title;
     //ofn.lpfnHook = OFNHookProc;
     ofn.Flags = OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR /*| OFN_ENABLEHOOK*/;

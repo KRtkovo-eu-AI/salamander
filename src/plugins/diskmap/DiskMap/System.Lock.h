@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -15,7 +16,7 @@ public:
     }
     BOOL TryEnter()
     {
-        return InterlockedExchange(&this->_lock, 1) == 0; // before the write, 0 means the lock was acquired; otherwise it was already locked (1)
+        return InterlockedExchange(&this->_lock, 1) == 0; // before writing, 0 means acquire the lock; otherwise it was already locked (1)
     }
     void Enter()
     {

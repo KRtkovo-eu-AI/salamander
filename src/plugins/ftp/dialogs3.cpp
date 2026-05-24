@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -146,15 +147,15 @@ void CConfigPageServers::MoveItem(HWND list, int fromIndex, int toIndex)
         TmpServerTypeList->ResetState();
 }
 
-char ImpExpInitDir[MAX_PATH] = "";
+CPathBuffer ImpExpInitDir; // Heap-allocated for long path support
 
 void CConfigPageServers::OnExportServer(CServerType* serverType)
 {
-    if (ImpExpInitDir[0] == 0)
+    if (*ImpExpInitDir == 0)
         GetMyDocumentsPath(ImpExpInitDir);
-    char fileName[MAX_PATH];
+    CPathBuffer fileName; // Heap-allocated for long path support
     lstrcpyn(fileName, serverType->TypeName[0] == '*' ? serverType->TypeName + 1 : serverType->TypeName,
-             MAX_PATH - 4);
+             fileName.Size() - 4);
     strcat(fileName, ".str");
     SalamanderGeneral->SalMakeValidFileNameComponent(fileName);
 
@@ -171,7 +172,7 @@ void CConfigPageServers::OnExportServer(CServerType* serverType)
         s++;
     }
     ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = fileName.Size();
     ofn.lpstrInitialDir = ImpExpInitDir;
     ofn.lpstrDefExt = "str";
     ofn.nFilterIndex = 1;
@@ -179,16 +180,16 @@ void CConfigPageServers::OnExportServer(CServerType* serverType)
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT |
                 OFN_NOTESTFILECREATE | OFN_HIDEREADONLY;
 
-    char buf[200 + MAX_PATH];
+    CPathBuffer buf;
     if (SalamanderGeneral->SafeGetSaveFileName(&ofn))
     {
         HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-        s = strrchr(fileName, '\\');
+        s = strrchr(fileName.Get(), '\\');
         if (s != NULL)
         {
-            memcpy(ImpExpInitDir, fileName, s - fileName);
-            ImpExpInitDir[s - fileName] = 0;
+            memcpy(ImpExpInitDir.Get(), fileName.Get(), s - fileName.Get());
+            ImpExpInitDir.Get()[s - fileName.Get()] = 0;
         }
 
         if (SalamanderGeneral->SalGetFileAttributes(fileName) != 0xFFFFFFFF) // so a read-only file can be overwritten
@@ -231,9 +232,9 @@ void CConfigPageServers::OnImportServer()
     CServerType* serverType = new CServerType;
     if (TmpServerTypeList != NULL && serverType != NULL)
     {
-        if (ImpExpInitDir[0] == 0)
+        if (*ImpExpInitDir == 0)
             GetMyDocumentsPath(ImpExpInitDir);
-        char fileName[MAX_PATH];
+        CPathBuffer fileName; // Heap-allocated for long path support
         fileName[0] = 0;
         OPENFILENAME ofn;
         memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -248,22 +249,22 @@ void CConfigPageServers::OnImportServer()
             s++;
         }
         ofn.lpstrFile = fileName;
-        ofn.nMaxFile = MAX_PATH;
+        ofn.nMaxFile = fileName.Size();
         ofn.nFilterIndex = 1;
         ofn.lpstrInitialDir = ImpExpInitDir;
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 
-        char buf[300 + MAX_PATH];
+        CPathBuffer buf;
         char typeBuf[SERVERTYPE_MAX_SIZE + 101];
         if (SalamanderGeneral->SafeGetOpenFileName(&ofn))
         {
             HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-            s = strrchr(fileName, '\\');
+            s = strrchr(fileName.Get(), '\\');
             if (s != NULL)
             {
-                memcpy(ImpExpInitDir, fileName, s - fileName);
-                ImpExpInitDir[s - fileName] = 0;
+                memcpy(ImpExpInitDir.Get(), fileName.Get(), s - fileName.Get());
+                ImpExpInitDir.Get()[s - fileName.Get()] = 0;
             }
 
             HANDLE file = HANDLES_Q(CreateFile(fileName, GENERIC_READ,
@@ -599,7 +600,7 @@ CEditServerTypeDlg::CEditServerTypeDlg(HWND parent, CServerType* serverType)
         }
     }
     if (!ok)
-        ColumnsData.DestroyMembers(); // safeguard in case an error was overlooked
+        ColumnsData.DestroyMembers(); // safeguard against a potential overlooked error
 
     RawListing = NULL;
     RawListIncomplete = FALSE;
@@ -663,7 +664,7 @@ void CEditServerTypeDlg::Validate(CTransferInfo& ti)
             delete parser; // the parser is OK, delete it again
         else               // display the error and mark the error in the "rules for parsing" edit box
         {
-            if (errorResID != -1) // some "reasonable" error was found, report it
+            if (errorResID != -1) // some "reasonable" error was found, comment on it
             {
                 char buf[300];
                 sprintf(buf, LoadStr(IDS_STPAR_UNABLECOMPPARSER), LoadStr(errorResID));
@@ -767,7 +768,7 @@ void CEditServerTypeDlg::Transfer(CTransferInfo& ti)
                 }
             }
             if (!ok)
-                ServerType->Columns.DestroyMembers(); // safeguard against a possible missed error
+                ServerType->Columns.DestroyMembers(); // safeguard against a potential overlooked error
         }
 
         // if the data changed, we must change the server type to "user defined"
@@ -829,7 +830,7 @@ void CEditServerTypeDlg::RefreshListView(BOOL onlySet, int selIndex)
     CanReadListViewChanges = FALSE;
     //  LockWindowUpdate(HListView);    // do not use - it makes the entire Windows flicker
     SendMessage(HListView, WM_SETREDRAW, FALSE, 0);
-    // I see no reason to hide the window here; there are few columns and calling SetColumnWidths()
+    // I see no reason to dim the window here; there are few columns and calling SetColumnWidths()
     // does not cause the list view to flicker
     //  SetWindowPos(HListView, NULL, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_NOZORDER);
 
@@ -920,7 +921,7 @@ void CEditServerTypeDlg::RefreshListView(BOOL onlySet, int selIndex)
         ListView_SetItemState(HListView, selIndex, state, state);
         ListView_EnsureVisible(HListView, selIndex, FALSE);
     }
-    //  LockWindowUpdate(NULL);  // do not use - the entire Windows UI flickers
+    //  LockWindowUpdate(NULL);  // do not use - it makes the entire Windows flicker
     //  SetWindowPos(HListView, NULL, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_NOZORDER);
     SendMessage(HListView, WM_SETREDRAW, TRUE, 0);
 
@@ -1229,7 +1230,7 @@ CEditRulesControlWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         "add_string_to_column(<column-id>, string-expression)",
                         "month_3(<column-id>, \"jan feb mar apr may jun jul aug sep oct nov dec\")",
                         "month_txt(<column-id>)",
-                        "month_txt(<column-id>, \"Jan. Feb. März Apr. Mai Juni Juli Aug. Sept. Okt. Nov. Dez.\")",
+                        "month_txt(<column-id>, \"Jan. Feb. M�rz Apr. Mai Juni Juli Aug. Sept. Okt. Nov. Dez.\")",
                         "positive_number(<column-id>)",
                         "cut_end_of_string(<column-id>, number)",
                         "skip_to_number()",
@@ -1589,7 +1590,7 @@ MENU_TEMPLATE_ITEM EditServerTypeADCondMenu[] =
             }
             else // display the error and mark the error in the "rules for parsing" edit box
             {
-                if (errorResID != -1) // a "reasonable" error was found; report it
+                if (errorResID != -1) // some "reasonable" error was found, comment on it
                 {
                     char buf[300];
                     sprintf(buf, LoadStr(IDS_STPAR_UNABLECOMPPARSER), LoadStr(errorResID));

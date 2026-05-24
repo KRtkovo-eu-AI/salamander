@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -53,7 +53,7 @@ struct CSalZLIB
     UINT avail_in;  /* number of bytes available at next_in */
     ULONG total_in; /* total number of input bytes read so far */
 
-    BYTE* next_out;  /* where to write the next output byte */
+    BYTE* next_out;  /* next output byte should be put there */
     UINT avail_out;  /* remaining free space at next_out */
     ULONG total_out; /* total number of bytes output so far */
 

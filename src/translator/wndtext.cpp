@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -9,6 +10,7 @@
 #include "wndframe.h"
 #include "config.h"
 #include "datarh.h"
+#include "translator.h"
 
 const char* TEXTWINDOW_NAME = "Texts (Alt+3)";
 
@@ -397,7 +399,7 @@ BOOL CTextWindow::CanLeaveText()
         (Mode != TREE_TYPE_DIALOG || strIndex == 0 ||
          !Data.DlgData[groupIndex]->Controls[strIndex]->IsStaticText()))
     {
-        MessageBox(GetMsgParent(), "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         SetFocus(HTranslated);
         return FALSE;
     }
@@ -663,8 +665,8 @@ CTextWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                       NULL, //HMenu
                                       HInstance,
                                       NULL);
-        DefEditWndProc = (WNDPROC)GetWindowLongW(HTranslated, GWL_WNDPROC);
-        SetWindowLongW(HTranslated, GWL_WNDPROC, (LONG)EditWindowProcW);
+        DefEditWndProc = (WNDPROC)GetWindowLongPtrW(HTranslated, GWLP_WNDPROC);
+        SetWindowLongPtrW(HTranslated, GWLP_WNDPROC, (LONG_PTR)EditWindowProcW);
 
         SendMessage(HTranslated, EM_LIMITTEXT, 5000, 0); // Limit the buffer size
 
@@ -684,8 +686,8 @@ CTextWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     NULL, //HMenu
                                     HInstance,
                                     NULL);
-        DefEditWndOriginalProc = (WNDPROC)GetWindowLongW(HOriginal, GWL_WNDPROC);
-        SetWindowLongW(HOriginal, GWL_WNDPROC, (LONG)EditWindowOriginalProcW);
+        DefEditWndOriginalProc = (WNDPROC)GetWindowLongPtrW(HOriginal, GWLP_WNDPROC);
+        SetWindowLongPtrW(HOriginal, GWLP_WNDPROC, (LONG_PTR)EditWindowOriginalProcW);
 
         HFONT hFont = (HFONT)SendMessage(ListView.HWindow, WM_GETFONT, 0, 0);
         SendMessage(HOriginalLabel, WM_SETFONT, (WPARAM)hFont, TRUE);
@@ -735,7 +737,7 @@ CTextWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CLOSE:
     {
-        PostMessage(FrameWindow.HWindow, WM_COMMAND, CM_CLOSE, 0); // safely close the window
+        PostMessage(FrameWindow.HWindow, WM_COMMAND, CM_CLOSE, 0); // bezpecny close-window
         return 0;
     }
 

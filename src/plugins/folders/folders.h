@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -10,7 +11,7 @@ extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderGUIAbstract* SalamanderGUI;
 
 // FS name assigned by Salamander after the plugin is loaded
-extern char AssignedFSName[MAX_PATH];
+extern CPathBuffer AssignedFSName; // Heap-allocated for long path support
 
 BOOL InitFS();
 void ReleaseFS();

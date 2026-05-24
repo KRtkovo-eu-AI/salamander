@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -18,8 +18,8 @@ void CFTPWorker::OpenActDataCon(CFTPWorkerSubState waitForListen, char* errBuf, 
 
     HANDLES(LeaveCriticalSection(&WorkerCritSect));
 
-    // Since we are already in CSocketsThread::CritSect, these calls
-    // are allowed even from CSocket::SocketCritSect (there is no risk of deadlock).
+    // Since we are already inside the CSocketsThread::CritSect section, these calls
+    // are possible even from the CSocket::SocketCritSect section (no risk of deadlock).
     GetLocalIP(&localIP, NULL); // it should hardly be able to return an error
     BOOL retOpenForListening = FALSE;
     BOOL listenError = TRUE;
@@ -41,12 +41,12 @@ void CFTPWorker::OpenActDataCon(CFTPWorkerSubState waitForListen, char* errBuf, 
         int serverTimeout = Config.GetServerRepliesTimeout() * 1000;
         if (serverTimeout < 1000)
             serverTimeout = 1000; // at least one second
-        // Since we are already in CSocketsThread::CritSect, this call
-        // is possible even from CSocket::SocketCritSect and CFTPWorker::WorkerCritSect (there is no risk of deadlock).
+        // Since we are already inside the CSocketsThread::CritSect section, this call
+        // is possible even from the CSocket::SocketCritSect and CFTPWorker::WorkerCritSect sections (no risk of deadlock).
         SocketsThread->AddTimer(Msg, UID, GetTickCount() + serverTimeout,
                                 WORKER_LISTENTIMEOUTTIMID, NULL); // ignore error; at worst the user presses Stop
     }
-    else // failed to open a "listen" socket for receiving the data connection from the server
+    else // failed to open a "listen" socket for receiving the data connection from
     {    // the server (a local operation that should almost never happen) or cannot open a connection to the proxy server
         if (WorkerDataCon != NULL)
         {
@@ -69,7 +69,7 @@ void CFTPWorker::OpenActDataCon(CFTPWorkerSubState waitForListen, char* errBuf, 
         {
             if (error != NO_ERROR)
             {
-                FTPGetErrorText(error, errBuf, 50 + FTP_MAX_PATH);
+                FTPGetErrorText(error, errBuf, errBuf.Size());
                 char* s = errBuf + strlen(errBuf);
                 while (s > errBuf && (*(s - 1) == '\n' || *(s - 1) == '\r'))
                     s--;
@@ -78,7 +78,7 @@ void CFTPWorker::OpenActDataCon(CFTPWorkerSubState waitForListen, char* errBuf, 
             }
             else
                 _snprintf_s(ErrorDescr, _TRUNCATE, LoadStr(IDS_PROXYERRUNABLETOCON));
-            _snprintf_s(errBuf, 50 + FTP_MAX_PATH, _TRUNCATE, LoadStr(IDS_LOGMSGDATCONERROR), ErrorDescr);
+            _snprintf_s(errBuf, errBuf.Size(), _TRUNCATE, LoadStr(IDS_LOGMSGDATCONERROR), ErrorDescr);
             lstrcpyn(ErrorDescr, errBuf, FTPWORKER_ERRDESCR_BUFSIZE); // we want the error text to contain "data con. err.:"
             CorrectErrorDescr();
 
@@ -112,7 +112,7 @@ void CFTPWorker::WaitForListen(CFTPWorkerEvent event, BOOL& handleShouldStop, ch
             HANDLES(LeaveCriticalSection(&WorkerCritSect));
             // Since we are already inside the CSocketsThread::CritSect section, this call
             // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
-            if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a graceful shutdown
+            if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                 WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
             WorkerDataCon->FreeFlushData();
             DeleteSocket(WorkerDataCon);
@@ -143,19 +143,19 @@ void CFTPWorker::WaitForListen(CFTPWorkerEvent event, BOOL& handleShouldStop, ch
                 BOOL ok = WorkerDataCon->GetListenIPAndPort(&listenOnIP, &listenOnPort);
                 if (!ok)
                 {
-                    if (!WorkerDataCon->GetProxyError(errBuf, 50 + FTP_MAX_PATH, NULL, 0, TRUE))
+                    if (!WorkerDataCon->GetProxyError(errBuf, errBuf.Size(), NULL, 0, TRUE))
                         errBuf[0] = 0;
                 }
                 HANDLES(EnterCriticalSection(&WorkerCritSect));
 
                 if (ok)
                 {
-                    PrepareFTPCommand(buf, 200 + FTP_MAX_PATH, errBuf, 50 + FTP_MAX_PATH,
+                    PrepareFTPCommand(buf, buf.Size(), errBuf, errBuf.Size(),
                                       ftpcmdSetPort, &cmdLen, listenOnIP, listenOnPort); // cannot report an error
                     sendCmd = TRUE;
                     SubState = waitForPORTRes;
                 }
-                else // error while opening the "listen" port on the proxy server - retry...
+                else // error while opening the "listen" port on the proxy server - perform a retry...
                 {
                     // Close the data connection.
                     if (WorkerDataCon != NULL)
@@ -163,7 +163,7 @@ void CFTPWorker::WaitForListen(CFTPWorkerEvent event, BOOL& handleShouldStop, ch
                         HANDLES(LeaveCriticalSection(&WorkerCritSect));
                         // Since we are already inside the CSocketsThread::CritSect section, this call
                         // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
-                        if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a "graceful" shutdown
+                        if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                             WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                         WorkerDataCon->FreeFlushData();
                         DeleteSocket(WorkerDataCon);
@@ -192,11 +192,11 @@ void CFTPWorker::WaitForListen(CFTPWorkerEvent event, BOOL& handleShouldStop, ch
             if (WorkerDataCon != NULL)
             {
                 HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                if (!WorkerDataCon->GetProxyTimeoutDescr(errBuf, 50 + FTP_MAX_PATH))
+                if (!WorkerDataCon->GetProxyTimeoutDescr(errBuf, errBuf.Size()))
                     errBuf[0] = 0;
                 // Since we are already inside the CSocketsThread::CritSect section, this call
                 // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
-                if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a graceful shutdown
+                if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                     WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                 WorkerDataCon->FreeFlushData();
                 DeleteSocket(WorkerDataCon);
@@ -218,7 +218,7 @@ void CFTPWorker::WaitForListen(CFTPWorkerEvent event, BOOL& handleShouldStop, ch
             CorrectErrorDescr();
 
             // Write the timeout to the log.
-            _snprintf_s(errBuf, 50 + FTP_MAX_PATH, _TRUNCATE, "%s\r\n", ErrorDescr);
+            _snprintf_s(errBuf, errBuf.Size(), _TRUNCATE, "%s\r\n", ErrorDescr);
             Logs.LogMessage(LogUID, errBuf, -1, TRUE);
 
             // "Manually" close the control connection.
@@ -267,8 +267,8 @@ void CFTPWorker::WaitForPASVRes(CFTPWorkerEvent event, char* reply, int replySiz
                 int logUID = LogUID;
                 HANDLES(LeaveCriticalSection(&WorkerCritSect));
 
-                // Since we are already in CSocketsThread::CritSect, these calls
-                // can also be called while holding CSocket::SocketCritSect (no deadlock risk).
+                // Since we are already inside the CSocketsThread::CritSect section, these calls
+                // They can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                 if (WorkerDataCon != NULL)
                 {
                     WorkerDataCon->SetPassive(ip, port, logUID);
@@ -311,13 +311,13 @@ void CFTPWorker::WaitForPASVRes(CFTPWorkerEvent event, char* reply, int replySiz
         break;
     }
 
-    case fweCmdConClosed: // connection closed/timed out (see ErrorDescr) -> try to restore it
+    case fweCmdConClosed: // connection closed/timed out (description see ErrorDescr) -> try to restore it
     {
         if (WorkerDataCon != NULL)
         {
             HANDLES(LeaveCriticalSection(&WorkerCritSect));
-            // Since we are already in CSocketsThread::CritSect, this call
-            // can also be called while holding CSocket::SocketCritSect (no deadlock risk).
+            // Since we are already inside the CSocketsThread::CritSect section, this call
+            // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
             DeleteSocket(WorkerDataCon); // no connection has been established yet; it will only be deallocated
             WorkerDataCon = NULL;
             HANDLES(EnterCriticalSection(&WorkerCritSect));
@@ -343,14 +343,14 @@ void CFTPWorker::WaitForPORTRes(CFTPWorkerEvent event, BOOL& nextLoop, BOOL& con
         break;
     }
 
-    case fweCmdConClosed: // connection closed/timed out (see ErrorDescr for details) -> try to reestablish it
+    case fweCmdConClosed: // connection closed/timed out (description see ErrorDescr) -> try to restore it
     {
         if (WorkerDataCon != NULL)
         {
             HANDLES(LeaveCriticalSection(&WorkerCritSect));
             // Since we are already inside the CSocketsThread::CritSect section, this call
             // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
-            if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a graceful shutdown
+            if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                 WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
             WorkerDataCon->FreeFlushData();
             DeleteSocket(WorkerDataCon);
@@ -377,7 +377,7 @@ void CFTPWorker::SetTypeA(BOOL& handleShouldStop, char* errBuf, char* buf, int& 
             HANDLES(LeaveCriticalSection(&WorkerCritSect));
             // Since we are already inside the CSocketsThread::CritSect section, this call
             // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
-            if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a "graceful" shutdown
+            if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                 WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
             WorkerDataCon->FreeFlushData();
             DeleteSocket(WorkerDataCon);
@@ -392,7 +392,7 @@ void CFTPWorker::SetTypeA(BOOL& handleShouldStop, char* errBuf, char* buf, int& 
     {
         if (CurrentTransferMode != trMode) // we need ASCII mode; set it if necessary
         {
-            PrepareFTPCommand(buf, 200 + FTP_MAX_PATH, errBuf, 50 + FTP_MAX_PATH,
+            PrepareFTPCommand(buf, buf.Size(), errBuf, errBuf.Size(),
                               ftpcmdSetTransferMode, &cmdLen, asciiTrMode); // cannot report an error
             sendCmd = TRUE;
             SubState = waitForTYPERes;
@@ -413,7 +413,7 @@ void CFTPWorker::WaitForTYPERes(CFTPWorkerEvent event, int replyCode, BOOL& next
     // case fweCmdInfoReceived:  // ignore "1xx" replies (they are only written to the log)
     case fweCmdReplyReceived:
     {
-        if (FTP_DIGIT_1(replyCode) == FTP_D1_SUCCESS) // a success reply was received (it should be 200)
+        if (FTP_DIGIT_1(replyCode) == FTP_D1_SUCCESS) // success is returned (should be 200)
             CurrentTransferMode = trMode;             // the transfer mode was changed
         else
             CurrentTransferMode = ctrmUnknown; // unknown error; it may not matter at all, but we will not cache the data transfer mode
@@ -430,7 +430,7 @@ void CFTPWorker::WaitForTYPERes(CFTPWorkerEvent event, int replyCode, BOOL& next
             HANDLES(LeaveCriticalSection(&WorkerCritSect));
             // Since we are already inside the CSocketsThread::CritSect section, this call
             // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
-            if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a graceful shutdown
+            if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                 WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
             WorkerDataCon->FreeFlushData();
             DeleteSocket(WorkerDataCon);
@@ -452,7 +452,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                             BOOL& conClosedRetryItem, BOOL& lookForNewWork,
                                             BOOL& handleShouldStop, BOOL* listingNotAccessible)
 {
-    // NOTE: this method is also used to list the target path during upload (UploadDirGetTgtPathListing==TRUE).
+    // NOTE: this method is also used for listing the target path during upload (UploadDirGetTgtPathListing==TRUE)!!!
     if (listingNotAccessible != NULL)
         *listingNotAccessible = FALSE;
     char* tgtPath = NULL;
@@ -487,16 +487,16 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
             }
 
             if (UploadDirGetTgtPathListing)
-                lstrcpyn(ftpPath, tgtPath, FTP_MAX_PATH);
+                lstrcpyn(ftpPath, tgtPath, ftpPath.Size());
             else
-                lstrcpyn(ftpPath, CurItem->Path, FTP_MAX_PATH);
+                lstrcpyn(ftpPath, CurItem->Path, ftpPath.Size());
             CFTPServerPathType type = Oper->GetFTPServerPathType(ftpPath);
-            if (UploadDirGetTgtPathListing || FTPPathAppend(type, ftpPath, FTP_MAX_PATH, CurItem->Name, TRUE))
-            { // we have the path; send CWD to the server for the directory being explored
-                _snprintf_s(errText, 200 + FTP_MAX_PATH, _TRUNCATE, LoadStr(IDS_LOGMSGLISTINGPATH), ftpPath);
+            if (UploadDirGetTgtPathListing || FTPPathAppend(type, ftpPath, ftpPath.Size(), CurItem->Name, TRUE))
+            { // we have the path; send CWD to the server to enter the inspected directory
+                _snprintf_s(errText, errText.Size(), _TRUNCATE, LoadStr(IDS_LOGMSGLISTINGPATH), ftpPath);
                 Logs.LogMessage(LogUID, errText, -1, TRUE);
 
-                PrepareFTPCommand(buf, 200 + FTP_MAX_PATH, errBuf, 50 + FTP_MAX_PATH,
+                PrepareFTPCommand(buf, buf.Size(), errBuf, errBuf.Size(),
                                   ftpcmdChangeWorkingPath, &cmdLen, ftpPath); // cannot report an error
                 sendCmd = TRUE;
                 SubState = fwssWorkExplWaitForCWDRes;
@@ -534,7 +534,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                         }
                         else
                         {
-                            PrepareFTPCommand(buf, 200 + FTP_MAX_PATH, errBuf, 50 + FTP_MAX_PATH,
+                            PrepareFTPCommand(buf, buf.Size(), errBuf, errBuf.Size(),
                                               ftpcmdPrintWorkingPath, &cmdLen); // cannot report an error
                             sendCmd = TRUE;
                             SubState = fwssWorkExplWaitForPWDRes;
@@ -543,7 +543,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                 }
                 else // an error occurred; display it to the user and continue processing the next queue item
                 {
-                    CopyStr(errText, 200 + FTP_MAX_PATH, reply, replySize);
+                    CopyStr(errText, errText.Size(), reply, replySize);
                     Queue->UpdateItemState(CurItem, sqisFailed,
                                            UploadDirGetTgtPathListing ? ITEMPR_UNABLETOCWDONLYPATH : ITEMPR_UNABLETOCWD,
                                            NO_ERROR, SalamanderGeneral->DupStr(errText) /* low memory = the error will be without details */,
@@ -578,18 +578,18 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                         handleShouldStop = TRUE; // check whether the worker should stop
                     else
                     {
-                        if (UploadDirGetTgtPathListing || FTPGetDirectoryFromReply(reply, replySize, ftpPath, FTP_MAX_PATH))
-                        { // We have the working path; check whether a cycle (infinite loop) is occurring
+                        if (UploadDirGetTgtPathListing || FTPGetDirectoryFromReply(reply, replySize, ftpPath, ftpPath.Size()))
+                        { // we have the working path; check whether a cycle (endless loop) is occurring
                             BOOL cycle = FALSE;
                             if (!UploadDirGetTgtPathListing)
                             {
-                                lstrcpyn(WorkingPath, ftpPath, FTP_MAX_PATH);
+                                lstrcpyn(WorkingPath, ftpPath, WorkingPath.Size());
                                 HaveWorkingPath = TRUE;
 
                                 // Check whether the path did not shorten (jump to the parent directory = guaranteed endless loop).
-                                lstrcpyn(ftpPath, CurItem->Path, FTP_MAX_PATH);
+                                lstrcpyn(ftpPath, CurItem->Path, ftpPath.Size());
                                 CFTPServerPathType type = Oper->GetFTPServerPathType(ftpPath);
-                                if (FTPPathAppend(type, ftpPath, FTP_MAX_PATH, CurItem->Name, TRUE))
+                                if (FTPPathAppend(type, ftpPath, ftpPath.Size(), CurItem->Name, TRUE))
                                 { // perform the test only if composing the path succeeds - "always true"
                                     if (!FTPIsTheSameServerPath(type, WorkingPath, ftpPath) &&
                                         FTPIsPrefixOfServerPath(type, WorkingPath, ftpPath))
@@ -597,7 +597,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                         cycle = TRUE;
                                     }
                                 }
-                                // Check whether we have already visited this path, which would mean that we have entered an infinite loop.
+                                // Check whether we have already visited this path, which would mean entering an endless loop.
                                 if (!cycle && Oper->IsAlreadyExploredPath(WorkingPath))
                                     cycle = TRUE;
                             }
@@ -608,7 +608,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                 Queue->UpdateItemState(CurItem, sqisFailed, ITEMPR_DIREXPLENDLESSLOOP, NO_ERROR, NULL, Oper);
                                 lookForNewWork = TRUE;
                             }
-                            else // everything is OK; allocate the data connection socket
+                            else // everything is OK; allocate the data connection
                             {
                                 if (WorkerDataCon != NULL)
                                     TRACE_E("Unexpected situation in CFTPWorker::HandleEventInWorkingState2(): WorkerDataCon is not NULL before starting data-connection!");
@@ -628,8 +628,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                     if (WorkerDataCon != NULL)
                                     {
                                         HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                                        // Since we are already in CSocketsThread::CritSect, this call
-                                        // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                                        // Since we are already inside the CSocketsThread::CritSect section, this call
+                                        // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                                         DeleteSocket(WorkerDataCon); // it will only be deallocated
                                         WorkerDataCon = NULL;
                                         HANDLES(EnterCriticalSection(&WorkerCritSect));
@@ -651,15 +651,15 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                     WorkerDataConState = wdcsOnlyAllocated;
 
                                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                                    // Since we are already in CSocketsThread::CritSect, this call
-                                    // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                                    // Since we are already inside the CSocketsThread::CritSect section, this call
+                                    // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                                     WorkerDataCon->SetPostMessagesToWorker(TRUE, Msg, UID,
                                                                            WORKER_DATACON_CONNECTED,
                                                                            WORKER_DATACON_CLOSED, -1 /* not needed for listings */,
                                                                            WORKER_DATACON_LISTENINGFORCON);
                                     WorkerDataCon->SetGlobalLastActivityTime(Oper->GetGlobalLastActivityTime());
                                     // exploring directories for delete/change-attr and upload listing are not measured (the meter is used
-                                    // differently, see SMPLCMD_APPROXBYTESIZE + upload: the meter is for upload, but this is download)
+                                    // otherwise see SMPLCMD_APPROXBYTESIZE + upload: the meter is for upload, but this is download)
                                     if (CurItem->Type != fqitDeleteExploreDir &&
                                         CurItem->Type != fqitChAttrsExploreDir &&
                                         CurItem->Type != fqitChAttrsExploreDirLink &&
@@ -671,7 +671,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
 
                                     if (Oper->GetUsePassiveMode()) // passive mode (PASV)
                                     {
-                                        PrepareFTPCommand(buf, 200 + FTP_MAX_PATH, errBuf, 50 + FTP_MAX_PATH,
+                                        PrepareFTPCommand(buf, buf.Size(), errBuf, errBuf.Size(),
                                                           ftpcmdPassive, &cmdLen); // cannot report an error
                                         sendCmd = TRUE;
                                         SubState = fwssWorkExplWaitForPASVRes;
@@ -692,7 +692,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                     pwdErr = TRUE; // an error occurred; display it to the user and continue processing the next queue item
                 if (pwdErr)
                 {
-                    CopyStr(errText, 200 + FTP_MAX_PATH, reply, replySize);
+                    CopyStr(errText, errText.Size(), reply, replySize);
                     Queue->UpdateItemState(CurItem, sqisFailed, ITEMPR_UNABLETOPWD, NO_ERROR,
                                            SalamanderGeneral->DupStr(errText) /* low memory = the error will be without details */,
                                            Oper);
@@ -756,9 +756,9 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                 if (WorkerDataCon != NULL)
                 {
                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                    // Since we are already in CSocketsThread::CritSect, this call
-                    // is allowed even from CSocket::SocketCritSect (no deadlock risk)
-                    if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a "graceful" shutdown
+                    // Since we are already inside the CSocketsThread::CritSect section, this call
+                    // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
+                    if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                         WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                     DeleteSocket(WorkerDataCon);
                     WorkerDataCon = NULL;
@@ -774,8 +774,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                 GetLocalTime(&StartTimeOfListing);
                 StartLstTimeOfListing = IncListingCounter();
 
-                Oper->GetListCommand(buf, 200 + FTP_MAX_PATH);
-                lstrcpyn(errBuf, buf, 50 + FTP_MAX_PATH);
+                Oper->GetListCommand(buf, buf.Size());
+                lstrcpyn(errBuf, buf, errBuf.Size());
                 cmdLen = (int)strlen(buf);
                 CommandTransfersData = TRUE;
                 sendCmd = TRUE;
@@ -791,8 +791,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
             if (WorkerDataCon != NULL)
             {
                 HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                // Since we are already in CSocketsThread::CritSect, this call
-                // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                // Since we are already inside the CSocketsThread::CritSect section, this call
+                // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                 WorkerDataCon->ActivateConnection();
                 HANDLES(EnterCriticalSection(&WorkerCritSect));
             }
@@ -823,7 +823,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
             case fweCmdReplyReceived:
             {
                 ListCmdReplyCode = replyCode;
-                CopyStr(errText, 200 + FTP_MAX_PATH, reply, replySize);
+                CopyStr(errText, errText.Size(), reply, replySize);
                 if (ListCmdReplyText != NULL)
                     SalamanderGeneral->Free(ListCmdReplyText);
                 ListCmdReplyText = SalamanderGeneral->DupStr(errText); /* low memory = we will do without the reply description */
@@ -835,9 +835,9 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
                     if (FTP_DIGIT_1(replyCode) != FTP_D1_SUCCESS ||
                         !WorkerDataCon->IsTransfering(&trFinished) && !trFinished)
-                    { // the server returned a listing error or the connection was not established
-                        // Since we are already in CSocketsThread::CritSect, this call
-                        // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                    { // the server returns a listing error or the connection was not established
+                        // Since we are already inside the CSocketsThread::CritSect section, this call
+                        // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                         if (WorkerDataCon->IsConnected())
                         {                                       // close the "data connection", the system will attempt a "graceful"
                             WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
@@ -867,15 +867,15 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                     if (WorkerDataCon != NULL)
                     {
                         HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                        // Since we are already in CSocketsThread::CritSect, this call
-                        // is allowed even from CSocket::SocketCritSect (no deadlock risk)
-                        if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a "graceful" shutdown
+                        // Since we are already inside the CSocketsThread::CritSect section, this call
+                        // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
+                        if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                             WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                         HANDLES(EnterCriticalSection(&WorkerCritSect));
                     }
                 }
 
-                // If we do not have to wait for the data connection to finish, proceed to processing the LIST command reply code.
+                // If we do not have to wait for the "data connection" to finish, proceed to processing the LIST command replyCode.
                 SubState = waitForDataConFinish ? fwssWorkExplWaitForDataConFinish : fwssWorkExplProcessLISTRes;
                 if (!waitForDataConFinish)
                     nextLoop = TRUE;
@@ -887,9 +887,9 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                 if (WorkerDataCon != NULL)
                 {
                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                    // Since we are already in CSocketsThread::CritSect, this call
-                    // is allowed even from CSocket::SocketCritSect (no deadlock risk)
-                    if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a "graceful" shutdown
+                    // Since we are already inside the CSocketsThread::CritSect section, this call
+                    // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
+                    if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                         WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                     DeleteSocket(WorkerDataCon);
                     WorkerDataCon = NULL;
@@ -910,8 +910,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
             if (WorkerDataCon != NULL)
             {
                 HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                // Since we are already in CSocketsThread::CritSect, this call
-                // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                // Since we are already inside the CSocketsThread::CritSect section, this call
+                // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                 con = WorkerDataCon->IsConnected();
                 HANDLES(EnterCriticalSection(&WorkerCritSect));
             }
@@ -935,9 +935,9 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                 if (WorkerDataCon != NULL)
                 {
                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                    // Since we are already in CSocketsThread::CritSect, this call
-                    // is allowed even from CSocket::SocketCritSect (no deadlock risk)
-                    if (WorkerDataCon->IsConnected())       // close the "data connection"; the system will attempt a "graceful" shutdown
+                    // Since we are already inside the CSocketsThread::CritSect section, this call
+                    // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
+                    if (WorkerDataCon->IsConnected())       // close the "data connection", the system will attempt a "graceful"
                         WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                     DeleteSocket(WorkerDataCon);
                     WorkerDataCon = NULL;
@@ -958,20 +958,20 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                     BOOL lowMem, noDataTransTimeout;
                     int sslErrorOccured;
                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                    // Since we are already in CSocketsThread::CritSect, this call
-                    // is allowed even from CSocket::SocketCritSect (no deadlock risk)
-                    if (WorkerDataCon->IsConnected()) // close the "data connection"; the system will attempt a "graceful" shutdown
+                    // Since we are already inside the CSocketsThread::CritSect section, this call
+                    // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
+                    if (WorkerDataCon->IsConnected()) // close the "data connection", the system will attempt a "graceful"
                     {
                         WorkerDataCon->CloseSocketEx(NULL); // shutdown (we will not learn about the result)
                         TRACE_E("Unexpected situation in CFTPWorker::HandleEventInWorkingState2(): data connection has left opened!");
                     }
                     WorkerDataCon->GetError(&err, &lowMem, NULL, &noDataTransTimeout, &sslErrorOccured, NULL);
-                    if (!WorkerDataCon->GetProxyError(errBuf, 50 + FTP_MAX_PATH, NULL, 0, TRUE))
+                    if (!WorkerDataCon->GetProxyError(errBuf, errBuf.Size(), NULL, 0, TRUE))
                         errBuf[0] = 0;
                     if (lowMem) // the "data connection" reports out-of-memory ("always false")
                     {
-                        // Since we are already inside CSocketsThread::CritSect, this call
-                        // can also be called while holding CSocket::SocketCritSect (no deadlock risk).
+                        // Since we are already inside the CSocketsThread::CritSect section, this call
+                        // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                         DeleteSocket(WorkerDataCon);
                         WorkerDataCon = NULL;
                         HANDLES(EnterCriticalSection(&WorkerCritSect));
@@ -984,11 +984,11 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                     else
                     {
                         if (err != NO_ERROR && !IsConnected())
-                        { // the LIST reply arrived, but while waiting for the transfer to finish over the data connection
-                            // both connections were interrupted (data connection and control connection) -> RETRY
+                        { // the LIST reply did arrive, but while waiting for the transfer to finish through the data connection
+                            // the connection was interrupted (both data connection and control connection) -> RETRY
 
-                            // Since we are already in CSocketsThread::CritSect, this call
-                            // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                            // Since we are already inside the CSocketsThread::CritSect section, this call
+                            // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                             DeleteSocket(WorkerDataCon);
                             WorkerDataCon = NULL;
                             HANDLES(EnterCriticalSection(&WorkerCritSect));
@@ -1010,7 +1010,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                             {
                                 // obtain the data from the "data connection"
                                 allocatedListing = WorkerDataCon->GiveData(&allocatedListingLen, &decomprErr);
-                                if (decomprErr) // on decompression error, discard the result and report the error
+                                if (decomprErr) // on decompression error discard the result and display the error
                                 {
                                     listingIsNotOK = TRUE;
                                     allocatedListingLen = 0;
@@ -1018,8 +1018,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                     allocatedListing = NULL;
                                 }
                             }
-                            // Since we are already in CSocketsThread::CritSect, this call
-                            // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                            // Since we are already inside the CSocketsThread::CritSect section, this call
+                            // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                             DeleteSocket(WorkerDataCon);
                             WorkerDataCon = NULL;
                             HANDLES(EnterCriticalSection(&WorkerCritSect));
@@ -1032,10 +1032,10 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                               FTP_DIGIT_1(listCmdReplyCode) == FTP_D1_ERROR))
                                 {
                                     HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                                    if (IsConnected()) // close the control connection manually
+                                    if (IsConnected()) // "Manually" close the control connection.
                                     {
-                                        // Since we are already in CSocketsThread::CritSect, this call
-                                        // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                                        // Since we are already inside the CSocketsThread::CritSect section, this call
+                                        // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                                         ForceClose(); // Sending QUIT would be cleaner, but a certificate change is very unlikely, so it is not worth bothering with that ;-)
                                     }
                                     HANDLES(EnterCriticalSection(&WorkerCritSect));
@@ -1058,7 +1058,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                     else
                                     {
                                         if (sslErrorOccured != SSLCONERR_NOERROR)
-                                            lstrcpyn(errText, LoadStr(IDS_ERRDATACONSSLCONNECTERROR), 200 + FTP_MAX_PATH);
+                                            lstrcpyn(errText, LoadStr(IDS_ERRDATACONSSLCONNECTERROR), errText.Size());
                                         else
                                         {
                                             errText[0] = 0;
@@ -1066,15 +1066,15 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                 (FTP_DIGIT_2(listCmdReplyCode) == FTP_D2_CONNECTION ||
                                                  FTP_DIGIT_2(listCmdReplyCode) != FTP_D2_CONNECTION && !isVMSFileNotFound) &&
                                                 ListCmdReplyText != NULL)
-                                            { // if we do not have an error description from the server, use the system description
-                                                lstrcpyn(errText, ListCmdReplyText, 200 + FTP_MAX_PATH);
+                                            { // if we do not have a network error description from the server, use the system description
+                                                lstrcpyn(errText, ListCmdReplyText, errText.Size());
                                             }
 
-                                            if (errText[0] == 0 && errBuf[0] != 0) // try to get the error text from the proxy server
-                                                lstrcpyn(errText, errBuf, 200 + FTP_MAX_PATH);
+                                            if (errText[0] == 0 && errBuf[0] != 0) // try to take the error text from the proxy server
+                                                lstrcpyn(errText, errBuf, errText.Size());
 
                                             if (errText[0] == 0 && decomprErr)
-                                                lstrcpyn(errText, LoadStr(IDS_ERRDATACONDECOMPRERROR), 200 + FTP_MAX_PATH);
+                                                lstrcpyn(errText, LoadStr(IDS_ERRDATACONDECOMPRERROR), errText.Size());
                                         }
 
                                         // Item error; record this state into it.
@@ -1119,7 +1119,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                         unsigned short port;
                                         Oper->GetUserHostPort(NULL, host, &port);
                                         Oper->GetUser(userTmp, USER_MAX_SIZE);
-                                        Oper->GetListCommand(buf, 200 + FTP_MAX_PATH);
+                                        Oper->GetListCommand(buf, buf.Size());
                                         ListingCache.AddOrUpdatePathListing(host, port, userTmp, pathType, WorkingPath,
                                                                             buf, Oper->GetEncryptControlConnection(),
                                                                             allocatedListing, allocatedListingLen,
@@ -1133,14 +1133,14 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                 Oper->GetListingServerType(listingServerType);
                                 BOOL err2 = allocatedListing == NULL;
 
-                                if (UploadDirGetTgtPathListing) // upload listing: store the listing in cache
+                                if (UploadDirGetTgtPathListing) // upload listing: store the listing in the cache
                                 {
                                     err2 |= welcomeReply == NULL || systReply == NULL;
                                     if (!err2)
                                     {
                                         unsigned short port;
                                         Oper->GetUserHostPort(userTmp, host, &port);
-                                        // UploadListingCache.ListingFinished() can be called only because we are in CSocketsThread::CritSect
+                                        // The call UploadListingCache.ListingFinished() is possible only because we are in the CSocketsThread::CritSect section.
                                         err2 = !UploadListingCache.ListingFinished(userTmp, host, port, tgtPath,
                                                                                    pathType, allocatedListing, allocatedListingLen,
                                                                                    listingDate, welcomeReply, systReply,
@@ -1148,7 +1148,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                         uploadFinished = !err2;
                                     }
                                 }
-                                else // download + delete + change attributes: parse the listing and add new items to the queue
+                                else // download + delete + change-attrs: parse the listing and add new items to the queue
                                 {
                                     BOOL isVMS = pathType == ftpsptOpenVMS;
                                     BOOL isAS400 = pathType == ftpsptAS400;
@@ -1179,7 +1179,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                     err2 |= ftpQueueItems == NULL || !HaveWorkingPath;
                                     if (!err2)
                                     {
-                                        if (listingServerType[0] != 0) // this is not autodetection; find the matching listingServerType
+                                        if (listingServerType[0] != 0) // this is not autodetection; find listingServerType
                                         {
                                             int i;
                                             for (i = 0; i < serverTypeListCount; i++)
@@ -1201,7 +1201,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                     {
                                                         needSimpleListing = FALSE; // we parsed the listing successfully
                                                     }
-                                                    break; // we found the required server type; stop
+                                                    break; // we found the required server type; finish
                                                 }
                                             }
                                             if (i == serverTypeListCount)
@@ -1301,18 +1301,18 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                         if (needSimpleListing) // unknown listing format
                                         {                      // write "Unknown Server Type" to the log
                                             lstrcpyn(errText, LoadStr(listingServerType[0] == 0 ? IDS_LOGMSGUNKNOWNSRVTYPE : IDS_LOGMSGUNKNOWNSRVTYPE2),
-                                                     199 + FTP_MAX_PATH);
+                                                     errText.Size());
                                             Logs.LogMessage(LogUID, errText, -1, TRUE);
 
                                             // Item error; record this state into it.
                                             Queue->UpdateItemState(CurItem, sqisFailed, ITEMPR_UNABLETOPARSELISTING, NO_ERROR, NULL, Oper);
                                             lookForNewWork = TRUE;
                                         }
-                                        else // log which parser parsed it
+                                        else // log which parser handled it
                                         {
                                             if (listingServerType[0] != 0) // "always true"
                                             {
-                                                _snprintf_s(errText, 200 + FTP_MAX_PATH, _TRUNCATE, LoadStr(IDS_LOGMSGPARSEDBYSRVTYPE), listingServerType);
+                                                _snprintf_s(errText, errText.Size(), _TRUNCATE, LoadStr(IDS_LOGMSGPARSEDBYSRVTYPE), listingServerType);
                                                 Logs.LogMessage(LogUID, errText, -1, TRUE);
                                             }
 
@@ -1373,7 +1373,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
 
                                                 case fqitChAttrsExploreDir: // explore directories for attribute changes (also adds an item for changing directory attributes) (object of class CFTPQueueItemChAttrExplore)
                                                 {
-                                                    if (selDirs) // relevant only when attributes are to be set on the inspected directory
+                                                    if (selDirs) // relevant only when attributes should be set on the inspected directory
                                                     {
                                                         skip = FALSE;
                                                         type = fqitChAttrsDir;
@@ -1386,7 +1386,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                         if (rights != NULL && GetAttrsFromUNIXRights(&actAttr, &attrDiff, rights))
                                                         {
                                                             DWORD changeMask = (~attrAndMask | attrOrMask) & 0777;
-                                                            if ((attrDiff & changeMask) == 0 &&                                                  // we do not change any unknown attributes
+                                                            if ((attrDiff & changeMask) == 0 &&                                                  // we do not change any unknown attribute
                                                                 (actAttr & changeMask) == (((actAttr & attrAndMask) | attrOrMask) & changeMask)) // we do not change any known attribute
                                                             {                                                                                    // nothing to do (no attribute change)
                                                                 skip = TRUE;
@@ -1395,7 +1395,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                             {
                                                                 if (((attrDiff & attrAndMask) & attrOrMask) != (attrDiff & attrAndMask))
                                                                 {                        // problem: an unknown attribute needs to be preserved, which we cannot do
-                                                                    actAttr |= attrDiff; // put at least 'x' there, since we cannot preserve the current 's' or 't' value or whatever is there now (see UNIX permissions)
+                                                                    actAttr |= attrDiff; // put at least 'x' there when we do not know 's' or 't' or whatever is there now (see UNIX permissions)
                                                                     attrErr = TRUE;
                                                                 }
                                                                 actAttr = (actAttr & attrAndMask) | attrOrMask;
@@ -1405,7 +1405,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                         {
                                                             actAttr = attrOrMask; // assume no permissions (actAttr==0)
                                                             if (((~attrAndMask | attrOrMask) & 0777) != 0777)
-                                                            { // problem: permissions are unknown and some attribute should be preserved (we do not know its value, so we cannot preserve it)
+                                                            { // problem: permissions are unknown and some attribute must be preserved (we do not know its value -> we cannot keep it)
                                                                 attrErr = TRUE;
                                                             }
                                                         }
@@ -1456,7 +1456,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                     // case fqitChAttrsExploreDirLink:  // explore a directory link for attribute changes (object of class CFTPQueueItem)
                                                 }
 
-                                                BOOL parentItemAdded = FALSE;       // TRUE = ftpQueueItems ends with a "parent" item (for example when deleting a directory (Delete and Move) or changing directory attributes (Change Attrs))
+                                                BOOL parentItemAdded = FALSE;       // TRUE = there is a "parent" item at the end of ftpQueueItems (for example deleting a directory (Delete and Move), changing directory attributes (Change Attrs))
                                                 int parentUID = CurItem->ParentUID; // parent UID for items created by expanding the directory
                                                 if (item != NULL)
                                                 {
@@ -1484,7 +1484,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                 }
                                                 else
                                                 {
-                                                    if (!skip) // only if this is not skipping the item but a low-memory error
+                                                    if (!skip) // only if it is not skipping the item but a low-memory error
                                                     {
                                                         TRACE_E(LOW_MEMORY);
                                                         err2 = TRUE;
@@ -1494,7 +1494,7 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                 if (!err2)
                                                 {
                                                     // For items created by exploring the directory (does not apply to a possible "parent" item at the end of the array):
-                                                    // set the parents and count items in the "Skipped" and "Failed" states, and those not in "Done"
+                                                    // set the parents and count items in the states "Skipped", "Failed", and those other than Done
                                                     int count = ftpQueueItems->Count - (parentItemAdded ? 1 : 0);
                                                     int childItemsNotDone = 0;
                                                     int childItemsSkipped = 0;
@@ -1534,8 +1534,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                                                         CFTPQueueItemDir* parentItem = (CFTPQueueItemDir*)(ftpQueueItems->At(ftpQueueItems->Count - 1)); // it must necessarily be a descendant of CFTPQueueItemDir (each "parent" item has the counts Skipped+Failed+NotDone)
                                                         parentItem->SetStateAndNotDoneSkippedFailed(childItemsNotDone, childItemsSkipped,
                                                                                                     childItemsFailed, childItemsUINeeded);
-                                                        // Now all new items are represented only by the "parent" item -> count
-                                                        // the new NotDone + Skipped + Failed + UINeeded only for this item
+                                                        // Now all new items are represented only by the "parent" item -> count the new
+                                                        // NotDone + Skipped + Failed + UINeeded apply only to this item
                                                         childItemsNotDone = 1;
                                                         childItemsFailed = 0;
                                                         childItemsSkipped = 0;
@@ -1598,14 +1598,14 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
 
                                                         // Inform all potentially sleeping workers that new work has appeared.
                                                         HANDLES(LeaveCriticalSection(&WorkerCritSect));
-                                                        // Since we are already in CSocketsThread::CritSect, this call
-                                                        // is allowed even from CSocket::SocketCritSect (no deadlock risk)
+                                                        // Since we are already inside the CSocketsThread::CritSect section, this call
+                                                        // It can also be called from the CSocket::SocketCritSect section (no risk of deadlock).
                                                         Oper->PostNewWorkAvailable(FALSE);
                                                         HANDLES(EnterCriticalSection(&WorkerCritSect));
                                                     }
                                                     else
                                                     {
-                                                        err2 = TRUE; // out of memory -> record the error in the item
+                                                        err2 = TRUE; // out of memory -> write the error into the item
                                                         Queue->UnlockForMoreOperations();
                                                     }
                                                 }
@@ -1645,8 +1645,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
 
             // If we are exploring directories for delete/change-attr or doing an upload listing, we must
             // reset the speed meter (explore speed and upload listing are not measured; this
-            // moment can therefore be the start of speed measurement for delete/change-attr/upload operations),
-            // so that the time left is shown correctly in the operation dialog
+            // that moment can therefore be the start of measuring speed for delete/change-attr/upload operations),
+            // so that the time-left is shown correctly in the operation dialog.
             if (delOrChangeAttrExpl || UploadDirGetTgtPathListing)
             {
                 Oper->GetGlobalTransferSpeedMeter()->Clear();
@@ -1660,8 +1660,8 @@ void CFTPWorker::HandleEventInWorkingState2(CFTPWorkerEvent event, BOOL& sendQui
                 postActivate = TRUE;       // trigger to continue working
                 reportWorkerChange = TRUE; // we need to hide any progress while fetching the listing
 
-                // Since we are already in CSocketsThread::CritSect, this call
-                // is allowed even from CSocket::SocketCritSect and CFTPWorker::WorkerCritSect (no deadlock risk).
+                // Since we are already inside the CSocketsThread::CritSect section, this call
+                // It can also be called from the CSocket::SocketCritSect and CFTPWorker::WorkerCritSect sections (no risk of deadlock).
                 SocketsThread->DeleteTimer(UID, WORKER_STATUSUPDATETIMID); // cancel any timer from the previous work
             }
             break;

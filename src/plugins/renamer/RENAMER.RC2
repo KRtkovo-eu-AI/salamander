@@ -1,4 +1,12 @@
-﻿//
+﻿//****************************************************************************
+//
+// Copyright (c) 2023 Open Salamander Authors
+//
+// This is a part of the Open Salamander SDK library.
+//
+//****************************************************************************
+
+//
 // renamer.rc2 - resources Microsoft Visual C++ does not edit directly
 //
 
@@ -11,7 +19,3 @@
 
 #include "versinfo.rh2"
 #include "versinfo.rc2"
-
-IDI_RENAMER ICON "renamer.ico"
-IDI_WARNING ICON "warning.ico"
-IDB_RENAMER BITMAP "renamer.bmp"

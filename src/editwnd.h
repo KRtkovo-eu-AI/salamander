@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -34,14 +34,13 @@ protected:
 // ****************************************************************************
 //
 
-// text in the combo box in command line; we cache it so it will not flicker
+// text in the combo box in command line; we cach it so it will not flicker
 // because it is handled from the main thread we can operate via ItemBitmap
 
 class CInnerText : public CWindow
 {
 protected:
-    char* Message;
-    int Allocated;
+    std::string Message;
     int Height, Width;
     CEditWindow* EditWindow;
 
@@ -68,8 +67,8 @@ protected:
     BOOL Enabled;
     BOOL Tracking;
 
-    char* LastText; // when the window was temporarily hidden, its contents were stored here
-    // the following two variables are relevant only when LastText != NULL
+    std::string LastText; // when the window was temporarily hidden, its contents were stored here
+    // the following two variables are relevant only when LastText is not empty
     int LastSelStart; // selection position
     int LastSelEnd;
 

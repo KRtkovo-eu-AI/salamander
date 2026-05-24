@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -25,7 +26,7 @@ class CNextVolumeDialog : public CDlgRoot
     char* VolumePath;
     char* DiskName;
     int CabNumber;
-    char CurrentPath[MAX_PATH];
+    CPathBuffer CurrentPath;
 
 public:
     CNextVolumeDialog(HWND parent, char* volumeName, char* volumePath, char* diskName,
@@ -35,7 +36,7 @@ public:
         VolumePath = volumePath;
         DiskName = diskName;
         CabNumber = cabNumber;
-        lstrcpyn(CurrentPath, VolumeName, MAX_PATH);
+        lstrcpyn(CurrentPath, VolumeName, CurrentPath.Size());
         SalamanderGeneral->CutDirectory(CurrentPath);
     }
     INT_PTR Proceed();

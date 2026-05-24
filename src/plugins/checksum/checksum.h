@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -14,7 +15,7 @@ typedef enum eHASH_TYPE
     HT_SHA1,
     HT_SHA256,
     HT_SHA512,
-    HT_COUNT // Not a hash type, but the count of known hash types
+    HT_COUNT // Not a hash type but # of known hash types
 } eHASH_TYPE;
 
 typedef struct SHashInfo
@@ -92,7 +93,7 @@ INT_PTR OnConfiguration(HWND hParent);
 
 // focus handling from the Verify dialog
 #define CMD_FOCUSFILE 99
-extern char Focus_Path[MAX_PATH];
+extern CPathBuffer Focus_Path;
 
 #define DUMP_MEM_OBJECTS
 

@@ -1,18 +1,21 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "cfgdlg.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
+#include "common/IEnvironment.h"
 #include "dialogs.h"
 #include "mainwnd.h"
 #include "plugins.h"
 #include "geticon.h"
 #include "logo.h"
 
-// should be a multiple of IL_ITEMS_IN_ROW
-// to fully use the space in the bitmap
+// should be a multiple of IL_ITEMS_IN_ROW value
+// to fully utilize the space in the bitmap
 #define ICONS_IN_LIST 100
 
 //
@@ -22,11 +25,11 @@
 
 CIconCache::CIconCache()
     : TDirectArray<CIconData>(50, 30),
-      IconsCache(10, 5),     // one item is a CIconList holding ICONS_IN_LIST icons
-      ThumbnailsCache(1, 20) // obtaining thumbnails is slow, relocation is trivial by comparison
+      IconsCache(10, 5),     // one item is CIconList holding ICONS_IN_LIST icons
+      ThumbnailsCache(1, 20) // getting thumbnails is slow, relocation is a trifle
 {
     IconsCount = 0;
-    IconSize = ICONSIZE_COUNT; // not set yet; trying to add an icon without calling SetIconSize() first triggers TRACE_E
+    IconSize = ICONSIZE_COUNT; // not set yet; attempt to add icon without calling SetIconSize() first will cause TRACE_E
     DataIfaceForFS = NULL;
 }
 
@@ -41,7 +44,7 @@ inline int CompareDWORDS(const char* s1, const char* s2, int length)
     const char* end = s1 + length;
     while (s1 <= end)
     {
-        //    if ((res = *(DWORD *)s1 - *(DWORD *)s2) != 0) return res;  // this does not work (try 0x8 and 0x0 as 4-bit numbers)
+        //    if ((res = *(DWORD *)s1 - *(DWORD *)s2) != 0) return res;  // this doesn't work (try 0x8 and 0x0 in 4-bit numbers)
         if (*(DWORD*)s1 > *(DWORD*)s2)
             return 1;
         else
@@ -57,12 +60,12 @@ inline int CompareDWORDS(const char* s1, const char* s2, int length)
 
 void CIconCache::SortArray(int left, int right, CPluginDataInterfaceEncapsulation* dataIface)
 {
-    if (dataIface != NULL) // this is pitFromPlugin: let the plugin compare the items itself (the comparison must not treat any two listing items as equal)
-    {                      // with no two identical listing items)
+    if (dataIface != NULL) // this is pitFromPlugin: let the plugin compare items itself (it must be comparison
+    {                      // with no ties between any two listing items)
         DataIfaceForFS = dataIface;
         BOOL ok = TRUE;
         int i;
-        for (i = left; i <= right; i++) // one paranoid check
+        for (i = left; i <= right; i++) // one paranoid test
         {
             if (Data[i].GetFSFileData() == NULL)
             {
@@ -75,7 +78,7 @@ void CIconCache::SortArray(int left, int right, CPluginDataInterfaceEncapsulatio
             SortArrayForFSInt(left, right);
         DataIfaceForFS = NULL;
     }
-    else // standard sorting by name
+    else // classic sorting by name
     {
         SortArrayInt(left, right);
     }
@@ -107,8 +110,7 @@ LABEL_SortArrayInt:
         }
     } while (i <= j);
 
-    // The following "nice" code was replaced with code that saves substantially more stack
-    // space (maximum recursion depth log(N)).
+    // the following "nice" code was replaced with code that significantly saves stack space (max. log(N) recursion nesting)
     //  if (left < j) SortArrayInt(left, j);
     //  if (i < right) SortArrayInt(i, right);
 
@@ -116,7 +118,7 @@ LABEL_SortArrayInt:
     {
         if (i < right)
         {
-            if (j - left < right - i) // Both halves need to be sorted: recurse into the smaller one and process the other via goto.
+            if (j - left < right - i) // need to sort both "halves", so we send the smaller one to recursion, process the other via "goto"
             {
                 SortArrayInt(left, j);
                 left = i;
@@ -170,7 +172,7 @@ LABEL_SortArrayForFSInt:
         }
     } while (i <= j);
 
-    // The following "nice" code was replaced with code that uses significantly less stack (maximum recursion depth log(N)).
+    // the following "nice" code was replaced with code that significantly saves stack space (max. log(N) recursion nesting)
     //  if (left < j) SortArrayForFSInt(left, j);
     //  if (i < right) SortArrayForFSInt(i, right);
 
@@ -178,7 +180,7 @@ LABEL_SortArrayForFSInt:
     {
         if (i < right)
         {
-            if (j - left < right - i) // Both halves need to be sorted, so recurse into the smaller one and process the other using goto.
+            if (j - left < right - i) // need to sort both "halves", so we send the smaller one to recursion, process the other via "goto"
             {
                 SortArrayForFSInt(left, j);
                 left = i;
@@ -210,7 +212,7 @@ LABEL_SortArrayForFSInt:
 BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEncapsulation* dataIface,
                           const CFileData* file)
 {
-    if (Count == 0 || dataIface != NULL && file == NULL) // verify that 'file' is valid
+    if (Count == 0 || dataIface != NULL && file == NULL) // verify validity of 'file''
     {
         if (dataIface != NULL && file == NULL)
             TRACE_E("CIconCache::GetIndex(): 'file' may not be NULL when 'dataIface' is not NULL! item=" << name);
@@ -218,8 +220,8 @@ BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEnca
         return FALSE;
     }
 
-    if (dataIface != NULL) // this is pitFromPlugin: let the plugin compare the items itself (the comparison must not treat any two listing items as equal)
-    {                      // with no two identical listing items)
+    if (dataIface != NULL) // this is pitFromPlugin: let the plugin compare items itself (it must be comparison
+    {                      // with no ties between any two listing items)
         int l = 0, r = Count - 1, m;
         int res;
         while (1)
@@ -234,7 +236,7 @@ BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEnca
                         "for item: "
                         << At(m).NameAndData);
                 index = 0;
-                return FALSE; // error -> return as if not found: insert at the beginning of the array
+                return FALSE; // error -> return maybe: not found, insert at beginning of array
             }
             if (res == 0) // found
             {
@@ -245,7 +247,7 @@ BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEnca
             {
                 if (l == r || l > m - 1) // not found
                 {
-                    index = m; // it should be at this position
+                    index = m; // should be at this position
                     return FALSE;
                 }
                 r = m - 1;
@@ -254,7 +256,7 @@ BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEnca
             {
                 if (l == r) // not found
                 {
-                    index = m + 1; // it should be just after this position
+                    index = m + 1; // should be after this position
                     return FALSE;
                 }
                 l = m + 1;
@@ -279,7 +281,7 @@ BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEnca
             {
                 if (l == r || l > m - 1) // not found
                 {
-                    index = m; // it should be at this position
+                    index = m; // should be at this position
                     return FALSE;
                 }
                 r = m - 1;
@@ -288,7 +290,7 @@ BOOL CIconCache::GetIndex(const char* name, int& index, CPluginDataInterfaceEnca
             {
                 if (l == r) // not found
                 {
-                    index = m + 1; // it should be just after this position
+                    index = m + 1; // should be after this position
                     return FALSE;
                 }
                 l = m + 1;
@@ -309,7 +311,7 @@ void CIconCache::Release()
     DestroyMembers();
     IconsCount = 0;
 
-    // destroy the raw data from ThumbnailsCache
+    // destruction of raw data from ThumbnailsCache
     for (i = 0; i < ThumbnailsCache.Count; i++)
     {
         CThumbnailData* data = &ThumbnailsCache[i];
@@ -321,19 +323,19 @@ void CIconCache::Release()
 
 void CIconCache::Destroy()
 {
-    // free the allocated data and the array itself
+    // free allocated data and array itself
     Release();
 
-    // destroy the image lists from IconsCache
+    // destruction of image lists from IconsCache
     IconsCache.DestroyMembers();
 }
 
 void CIconCache::ColorsChanged()
 {
     CALL_STACK_MESSAGE1("CIconCache::ColorsChanged()");
-    // this function is called when the screen colors or color depth change
-    // the second case is not handled; it would be necessary to reconstruct the bitmaps
-    // in the image lists for the current color depth
+    // this function is called when colors or screen color depth change
+    // the second case is not handled -- would need to reconstruct bitmaps
+    // in image lists for current color depth
     COLORREF bkColor = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
     int i;
     for (i = 0; i < IconsCache.Count; i++)
@@ -343,12 +345,12 @@ void CIconCache::ColorsChanged()
             il->SetBkColor(bkColor);
     }
 
-    // thumbnails need to be redrawn if the background color changed; icons with transparent
-    // parts will be drawn onto the new background color
+    // thumbnails need to be redrawn if background color changed, icons with transparent
+    // parts will be drawn with new background color
     for (i = 0; i < Count; i++)
     {
         CIconData* icon = &At(i);
-        if (icon->GetFlag() == 5 /* valid thumbnail */)
+        if (icon->GetFlag() == 5 /* o.k. thumbnail */)
             icon->SetFlag(6 /* old thumbnail version */);
     }
 }
@@ -410,7 +412,7 @@ int CIconCache::AllocThumbnail()
 {
     CALL_STACK_MESSAGE1("CIconCache::AllocThumbnail()");
 
-    // structure for holding thumbnails
+    // structure for holding thumbnail
     CThumbnailData data;
     memset(&data, 0, sizeof(CThumbnailData));
 
@@ -422,7 +424,7 @@ int CIconCache::AllocThumbnail()
         return -1;
     }
 
-    // returns the index of the added item
+    // return index of added element
     return index;
 }
 
@@ -448,7 +450,7 @@ BOOL CIconCache::GetIcon(int iconIndex, CIconList** iconList, int* iconListIndex
     if (iconIndex >= 0 && iconIndex < IconsCount)
     {
         int cache = iconIndex / ICONS_IN_LIST; // cache
-        int index = iconIndex % ICONS_IN_LIST; // index within the cache
+        int index = iconIndex % ICONS_IN_LIST; // index within cache
         if (cache < IconsCache.Count)
         {
             *iconList = IconsCache[cache];
@@ -475,8 +477,8 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
     int index1 = 0;
     int index2 = 0;
 
-    if (dataIface != NULL) // This is pitFromPlugin: let the plugin compare the items itself.
-    {                      // with no two identical listing items)
+    if (dataIface != NULL) // this is pitFromPlugin: let the plugin compare items itself (it must be comparison
+    {                      // with no ties between any two listing items)
         const CFileData *file1, *file2;
 
         if (index1 < Count)
@@ -510,7 +512,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
         while (1)
         {
             res = dataIface->CompareFilesFromFS(file1, file2);
-            if (res == 0) // identical -> copy them (icons and masks)
+            if (res == 0) // match -> perform copy (icon and mask)
             {
                 CIconList* srcIconList;
                 int srcIconListIndex;
@@ -521,12 +523,12 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                 DWORD flag = icons->At(index2).GetFlag();
 
                 if ((flag == 1 || flag == 2) &&  // valid or old icon
-                    At(index1).GetFlag() == 0 && // we care about the icon (if it switched to a thumbnail, the old icon is no longer needed)
+                    At(index1).GetFlag() == 0 && // we need an icon (if switched to thumbnail, we don't need the old icon)
                     GetIcon(At(index1).GetIndex(), &dstIconList, &dstIconListIndex) &&
                     icons->GetIcon(icons->At(index2).GetIndex(), &srcIconList, &srcIconListIndex))
                 {
                     dstIconList->Copy(dstIconListIndex, srcIconList, srcIconListIndex);
-                    At(index1).SetFlag((flag == 1 && transferIconsAndThumbnailsAsNew) ? 1 : 2); // now it is the old (or valid/new) icon version
+                    At(index1).SetFlag((flag == 1 && transferIconsAndThumbnailsAsNew) ? 1 : 2); // now it's an old (or valid/new) icon version
                 }
             }
 
@@ -544,7 +546,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                     }
                 }
                 else
-                    break; // nothing left to merge
+                    break; // nothing more to merge
             }
 
             if (res == 0 || res > 0) // index2++
@@ -561,7 +563,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                     }
                 }
                 else
-                    break; // nothing left to merge
+                    break; // nothing more to merge
             }
         }
     }
@@ -586,7 +588,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
         while (1)
         {
             res = CompareDWORDS(name1, name2, length);
-            if (res == 0) // match -> copy the icons and masks, or the thumbnail
+            if (res == 0) // match -> perform copy (icon and mask) || thumbnail
             {
                 CIconList* srcIconList;
                 int srcIconListIndex;
@@ -597,12 +599,12 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                 DWORD flag = icons->At(index2).GetFlag();
 
                 if ((flag == 1 || flag == 2) &&  // valid or old icon
-                    At(index1).GetFlag() == 0 && // we care about the icon (if it switched to a thumbnail, the old icon is no longer needed)
+                    At(index1).GetFlag() == 0 && // we need an icon (if switched to thumbnail, we don't need the old icon)
                     GetIcon(At(index1).GetIndex(), &dstIconList, &dstIconListIndex) &&
                     icons->GetIcon(icons->At(index2).GetIndex(), &srcIconList, &srcIconListIndex))
                 {
                     dstIconList->Copy(dstIconListIndex, srcIconList, srcIconListIndex);
-                    At(index1).SetFlag((flag == 1 && transferIconsAndThumbnailsAsNew) ? 1 : 2); // now it is the old (or valid/new) icon version
+                    At(index1).SetFlag((flag == 1 && transferIconsAndThumbnailsAsNew) ? 1 : 2); // now it's an old (or valid/new) icon version
                 }
                 else
                 {
@@ -610,19 +612,19 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                     CThumbnailData* tgtThumbnailData;
 
                     if ((flag == 5 || flag == 6) &&  // valid or old thumbnail
-                        At(index1).GetFlag() == 4 && // we care about the thumbnail (if it switched to an icon, the old thumbnail is no longer needed)
+                        At(index1).GetFlag() == 4 && // we need thumbnail (if switched to icon, we don't need the old thumbnail)
                         GetThumbnail(At(index1).GetIndex(), &tgtThumbnailData) &&
                         icons->GetThumbnail(icons->At(index2).GetIndex(), &srcThumbnailData))
                     {
-                        // the old thumbnail does not need to be copied; it is enough to pass its
+                        // old thumbnail doesn't need to be copied -- just pass its
                         // geometry and raw data to the target thumbnail
-                        *tgtThumbnailData = *srcThumbnailData; // pass the old data to the new cache
-                        srcThumbnailData->Bits = NULL;         // the old cache is going away and must not deallocate the data
+                        *tgtThumbnailData = *srcThumbnailData; // pass old data to new cache
+                        srcThumbnailData->Bits = NULL;         // old cache is destroyed and data must not be deallocated
 
                         int newFlag = 6;
-                        // if we are copying a valid thumbnail, check the file stamp (size+date); if appropriate,
-                        // mark the copied thumbnail as valid immediately (the risk of the file changing without
-                        // changing size+date is negligible, while the speed gain is huge)
+                        // if copying a valid thumbnail, we check the file stamp (size+date), possibly
+                        // mark the copied thumbnail as valid right away (threat of file change without change
+                        // in size+date is negligible and speed gain is huge)
                         if (flag == 5 && !forceReloadThumbnails)
                         {
                             if (transferIconsAndThumbnailsAsNew)
@@ -630,7 +632,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                             else
                             {
                                 int offset = length + 4;
-                                offset -= (offset & 0x3); // offset % 4  (4-byte alignment)
+                                offset -= (offset & 0x3); // offset % 4  (zarovnani po ctyrech bytech)
                                 if (*(CQuadWord*)(name1 + offset) == *(CQuadWord*)(name2 + offset) &&
                                     CompareFileTime((FILETIME*)(name1 + offset + sizeof(CQuadWord)),
                                                     (FILETIME*)(name2 + offset + sizeof(CQuadWord))) == 0)
@@ -639,7 +641,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                                 }
                             }
                         }
-                        At(index1).SetFlag(newFlag); // now it is the old (or valid/new) thumbnail version
+                        At(index1).SetFlag(newFlag); // now it's an old (or valid/new) thumbnail version
                     }
                 }
             }
@@ -652,7 +654,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                     length = (int)strlen(name1);
                 }
                 else
-                    break; // nothing left to merge
+                    break; // nothing more to merge
             }
 
             if (res == 0 || res > 0) // index2++
@@ -660,7 +662,7 @@ void CIconCache::GetIconsAndThumbsFrom(CIconCache* icons, CPluginDataInterfaceEn
                 if (++index2 < icons->Count)
                     name2 = icons->At(index2).NameAndData;
                 else
-                    break; // nothing left to merge
+                    break; // nothing more to merge
             }
         }
     }
@@ -673,10 +675,10 @@ void CIconCache::SetIconSize(CIconSizeEnum iconSize)
         TRACE_E("CIconCache::SetIconSize() unexpected iconSize==ICONSIZE_COUNT");
         return;
     }
-    if (iconSize == IconSize) // if the size is not changing, there is nothing to do
+    if (iconSize == IconSize) // if size doesn't change, nothing to do
         return;
 
-    // discard the current icons
+    // discard current icons
     int i;
     for (i = 0; i < Count; i++)
     {
@@ -695,10 +697,10 @@ void CIconCache::SetIconSize(CIconSizeEnum iconSize)
 // CAssociations
 //
 
-BOOL ReadDirectoryIconAndTypeAux(CIconList* iconList, int index, CIconSizeEnum iconSize)
+// SEH wrapper: shell calls may crash due to buggy shell extensions.
+// Kept in a separate function because SEH prevents C++ object unwinding.
+static BOOL ReadDirectoryIconAndTypeSEH(const char* systemDir, CIconList* iconList, int index, CIconSizeEnum iconSize)
 {
-    char systemDir[MAX_PATH];
-    GetSystemDirectory(systemDir, MAX_PATH);
     SHFILEINFO shi;
     HICON hIcon;
     __try
@@ -722,8 +724,15 @@ BOOL ReadDirectoryIconAndTypeAux(CIconList* iconList, int index, CIconSizeEnum i
     return FALSE;
 }
 
+BOOL ReadDirectoryIconAndTypeAux(CIconList* iconList, int index, CIconSizeEnum iconSize)
+{
+    CPathBuffer systemDir;
+    EnvGetSystemDirectoryA(gEnvironment, systemDir, systemDir.Size());
+    return ReadDirectoryIconAndTypeSEH(systemDir, iconList, index, iconSize);
+}
+
 BOOL GetIconFromAssocAux(BOOL initFlagAndIndexes, HKEY root, const char* keyName, LONG size,
-                         CAssociationData& data, char* iconLocation, char* type)
+                         CAssociationData& data, char* iconLocation, int iconLocationSize, char* type, int typeSize)
 {
     BOOL found = FALSE;
     if (initFlagAndIndexes)
@@ -732,29 +741,29 @@ BOOL GetIconFromAssocAux(BOOL initFlagAndIndexes, HKEY root, const char* keyName
         data.SetIndexAll(-1);
     }
     iconLocation[0] = 0;
-    char keyNameBuf[MAX_PATH];
-    lstrcpyn(keyNameBuf, keyName, min(size, MAX_PATH));
+    CPathBuffer keyNameBuf; // Heap-allocated for long path support
+    lstrcpyn(keyNameBuf, keyName, min(size, keyNameBuf.Size()));
     HKEY openKey;
 
     if (type != NULL)
     {
         type[0] = 0;
 
-        // get the file-type string as the value "" of the keyName subkey
+        // file-type string obtained as value "" of subkey keyName
         if (HANDLES_Q(RegOpenKey(root, keyNameBuf, &openKey)) == ERROR_SUCCESS)
         {
-            LONG typeSize = MAX_PATH;
-            if (SalRegQueryValue(openKey, "", type, &typeSize) != ERROR_SUCCESS)
+            LONG tSize = typeSize;
+            if (SalRegQueryValue(openKey, "", type, &tSize) != ERROR_SUCCESS)
                 type[0] = 0;
             HANDLES(RegCloseKey(openKey));
         }
     }
 
-    if (size - 1 + 7 <= MAX_PATH) // test whether opening via associations is possible
+    if (size - 1 + 7 <= keyNameBuf.Size()) // test na moznost otevirani pres asociace
     {
-        memmove(keyNameBuf + size - 1, "\\Shell", 7);
+        memmove(keyNameBuf + size - 1, SAL_REG_SUBKEY_SHELL_A, sizeof(SAL_REG_SUBKEY_SHELL_A));
         if (HANDLES_Q(RegOpenKey(root, keyNameBuf, &openKey)) == ERROR_SUCCESS)
-        { // if "\\shell" contains any subkey, it can be opened (association for Enter)
+        { // if "\\shell" contains any subkey, it can be opened (association on Enter)
             DWORD keys;
             if (RegQueryInfoKey(openKey, NULL, NULL, NULL, &keys, NULL,
                                 NULL, NULL, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
@@ -766,10 +775,10 @@ BOOL GetIconFromAssocAux(BOOL initFlagAndIndexes, HKEY root, const char* keyName
         }
     }
 
-    if (size - 1 + 21 <= MAX_PATH)
+    if (size - 1 + 21 <= keyNameBuf.Size())
     {
-        memmove(keyNameBuf + size - 1, "\\ShellEx\\IconHandler", 21);
-        // if "\\ShellEx\\IconHandler" is present, the icon must be loaded from the file
+        memmove(keyNameBuf + size - 1, SAL_REG_SUBKEY_SHELLEX_ICON_HANDLER_A, sizeof(SAL_REG_SUBKEY_SHELLEX_ICON_HANDLER_A));
+        // if contains "\\ShellEx\\IconHandler", must be extracted from file
         if (HANDLES_Q(RegOpenKey(root, keyNameBuf, &openKey)) == ERROR_SUCCESS)
         {
             found = TRUE;
@@ -779,33 +788,33 @@ BOOL GetIconFromAssocAux(BOOL initFlagAndIndexes, HKEY root, const char* keyName
         }
     }
 
-    if (!found && size - 1 + 13 <= MAX_PATH)
+    if (!found && size - 1 + 13 <= keyNameBuf.Size())
     {
-        memmove(keyNameBuf + size - 1, "\\DefaultIcon", 13);
+        memmove(keyNameBuf.Get() + size - 1, SAL_REG_SUBKEY_DEFAULT_ICON_A, sizeof(SAL_REG_SUBKEY_DEFAULT_ICON_A));
         if (HANDLES_Q(RegOpenKey(root, keyNameBuf, &openKey)) == ERROR_SUCCESS)
         {
-            char buf[MAX_PATH];
-            size = MAX_PATH; // get the path to the icon
+            CPathBuffer buf; // Heap-allocated for long path support
+            size = buf.Size(); // getting path to icon
             DWORD type2 = REG_SZ;
-            DWORD err = SalRegQueryValueEx(openKey, "", 0, &type2,
-                                           (LPBYTE)buf, (LPDWORD)&size);
+            DWORD err = SalRegQueryValueEx(openKey, SAL_REG_VALUE_DEFAULT_A, 0, &type2,
+                                           (LPBYTE)buf.Get(), (LPDWORD)&size);
             if (err == ERROR_SUCCESS && size > 1)
             {
                 found = TRUE;
 
                 if (type2 == REG_EXPAND_SZ)
                 {
-                    DWORD auxRes = ExpandEnvironmentStrings(buf, iconLocation, MAX_PATH + 10);
-                    if (auxRes == 0 || auxRes > MAX_PATH + 10)
+                    DWORD auxRes = ExpandEnvironmentStrings(buf, iconLocation, iconLocationSize);
+                    if (auxRes == 0 || (int)auxRes > iconLocationSize)
                     {
                         TRACE_E("ExpandEnvironmentStrings failed.");
-                        strcpy(iconLocation, buf);
+                        lstrcpyn(iconLocation, buf, iconLocationSize);
                     }
                 }
                 else
-                    strcpy(iconLocation, buf);
+                    lstrcpyn(iconLocation, buf, iconLocationSize);
 
-                // remove quotes in the case "\"file_name\",icon_number" (for example "\"C:\\Program Files\\VideoLAN\\VLC\\vlc.exe\",0")
+                // remove quotes in case "\"filename\",icon_number" (e.g. "\"C:\\Program Files\\VideoLAN\\VLC\\vlc.exe\",0")
                 char* num = strrchr(iconLocation, ',');
                 if (num != NULL)
                 {
@@ -819,15 +828,15 @@ BOOL GetIconFromAssocAux(BOOL initFlagAndIndexes, HKEY root, const char* keyName
                     char* numBeg = numEnd + 1;
                     while (*++numEnd >= '0' && *numEnd <= '9')
                         ;
-                    if (numBeg < numEnd && *numEnd == 0 &&                                   // the icon number is after the last comma
-                        *iconLocation == '"' && num - 1 > iconLocation && *(num - 1) == '"') // there are quotes at the beginning and before the comma
-                    {                                                                        // remove the quotes
+                    if (numBeg < numEnd && *numEnd == 0 &&                                   // icon number is after the last comma
+                        *iconLocation == '"' && num - 1 > iconLocation && *(num - 1) == '"') // quotes at the beginning and before the comma
+                    {                                                                        // remove quotes
                         memmove(iconLocation, iconLocation + 1, (num - 1) - (iconLocation + 1));
                         memmove(num - 2, num, numEnd - num + 1);
                     }
                 }
 
-                char* s = buf; // distinguish "%1" from "...%variable%..."
+                char* s = buf; // distinguish type "%1" from "...%variable%..."
                 while (*s != 0)
                 {
                     if (*s == '%')
@@ -837,7 +846,7 @@ BOOL GetIconFromAssocAux(BOOL initFlagAndIndexes, HKEY root, const char* keyName
                         {
                             while (*s != 0 && *s != ' ' && *s != '%')
                                 s++;
-                            if (*s != '%') // not an environment variable -> dynamic type
+                            if (*s != '%') // not an env. variable -> dynamic type
                             {
                                 data.SetIndexAll(-2);
                                 break;
@@ -881,10 +890,10 @@ void CAssociations::Release()
 
 void CAssociations::Destroy()
 {
-    // free the allocated data and the array itself
+    // free allocated data and array itself
     Release();
 
-    // destroy the image lists from IconsCache
+    // destruction of image lists from IconsCache
     int i;
     for (i = 0; i < ICONSIZE_COUNT; i++)
         Icons[i].IconsCache.DestroyMembers();
@@ -893,9 +902,9 @@ void CAssociations::Destroy()
 void CAssociations::ColorsChanged()
 {
     CALL_STACK_MESSAGE1("CAssociations::ColorsChanged()");
-    // this function is called when the screen colors or color depth change
-    // the second case is not handled; it would be necessary to reconstruct the bitmaps
-    // in the image lists for the current color depth
+    // this function is called when colors or screen color depth change
+    // the second case is not handled -- would need to reconstruct bitmaps
+    // in image lists for current color depth
     COLORREF bkColor = GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]);
     int j;
     for (j = 0; j < ICONSIZE_COUNT; j++)
@@ -908,7 +917,7 @@ void CAssociations::ColorsChanged()
                 il->SetBkColor(bkColor);
         }
     }
-    // FIXME: it would be enough to set the background only for the relevant icon list
+    // FIXME: it would be enough to set background only for the relevant iconlist
     int i;
     for (i = 0; i < ICONSIZE_COUNT; i++)
         SimpleIconLists[i]->SetBkColor(bkColor);
@@ -938,7 +947,7 @@ BOOL CAssociations::GetIndex(const char* name, int& index)
         {
             if (l == r || l > m - 1) // not found
             {
-                index = m; // it should be at this position
+                index = m; // should be at this position
                 return FALSE;
             }
             r = m - 1;
@@ -947,7 +956,7 @@ BOOL CAssociations::GetIndex(const char* name, int& index)
         {
             if (l == r) // not found
             {
-                index = m + 1; // it should be just after this position
+                index = m + 1; // should be after this position
                 return FALSE;
             }
             l = m + 1;
@@ -1010,7 +1019,7 @@ BOOL CAssociations::GetIcon(int iconIndex, CIconList** iconList, int* iconListIn
     if (iconIndex >= 0 && iconIndex < Icons[iconSize].IconsCount)
     {
         int cache = iconIndex / ICONS_IN_LIST; // cache
-        int index = iconIndex % ICONS_IN_LIST; // index within the cache
+        int index = iconIndex % ICONS_IN_LIST; // index within cache
         if (cache < Icons[iconSize].IconsCache.Count)
         {
             *iconList = Icons[iconSize].IconsCache[cache];
@@ -1056,8 +1065,7 @@ LABEL_SortArray:
         }
     } while (i <= j);
 
-    // We replaced the following "nice" code with code that uses substantially less stack space
-    //  // (maximum recursion depth of log(N)).
+    // the following "nice" code was replaced with code that significantly saves stack space (max. log(N) recursion nesting)
     //  if (left < j) SortArray(left, j);
     //  if (i < right) SortArray(i, right);
 
@@ -1065,7 +1073,7 @@ LABEL_SortArray:
     {
         if (i < right)
         {
-            if (j - left < right - i) // Both "halves" must be sorted, so recurse into the smaller one and process the other via "goto"
+            if (j - left < right - i) // need to sort both "halves", so we send the smaller one to recursion, process the other via "goto"
             {
                 SortArray(left, j);
                 left = i;
@@ -1102,13 +1110,13 @@ void CAssociations::InsertData(const char* /*origin*/, int index, BOOL overwrite
     //          ": type=" << (type == NULL ? "" : type));
 
     size = (LONG)(s - e) + 4;
-    size -= (size & 0x3); // size % 4 (alignment to four bytes)
+    size -= (size & 0x3); // size % 4  (alignment to four bytes)
     int iLen = (int)strlen(iconLocation) + 1;
     data.ExtensionAndData = (char*)malloc(size + iLen);
-    memcpy(data.ExtensionAndData, e, size);                   // extension + null padding +
+    memcpy(data.ExtensionAndData, e, size);                   // extension + zero padding +
     memcpy(data.ExtensionAndData + size, iconLocation, iLen); // icon-location
     if (type[0] != 0)
-        data.Type = DupStr(type); // error -> only the file type stays hidden
+        data.Type = DupStr(type); // error -> file-type just won't be shown
     else
         data.Type = NULL;
     if (overwriteItem)
@@ -1125,50 +1133,50 @@ void CAssociations::InsertData(const char* /*origin*/, int index, BOOL overwrite
 
 void CAssociations::ReadAssociations(BOOL showWaitWnd)
 {
-    //---  bring up the wait dialog and hourglass
+    //---  show wait dialog + hourglass
     HCURSOR oldCur;
     HWND parent = (MainWindow != NULL) ? MainWindow->HWindow : NULL;
-    // The wait window was problematic:
-    // if I use Open With on a file and choose, for example, NOTEPAD, it opens,
-    // then SHCNE_ASSOCCHANGED notifications are broadcast for the association change,
-    // which calls this function, shows the wait window, and pulls it to the front,
-    // taking the whole Salamander window with it, so I disable it temporarily
+    // wait window was causing problems:
+    // if I do Open With over a file and choose for example NOTEPAD, it opens
+    // then a notification about association change SHCNE_ASSOCCHANGED is sent
+    // as a result this function is called, which displays the window and pulls it up
+    // with it pulls up all of Salamander, so I temporarily disable it
     CWaitWindow waitWnd(parent, IDS_READINGASSOCIATIONS, FALSE, ooStatic);
     BOOL closeDialog = FALSE;
     if (!ExistSplashScreen())
     {
         if (showWaitWnd)
-            waitWnd.Create(); // j.r. for debugging desktop shortcuts
+            waitWnd.Create(); //j.r. for debugging shortcuts from desktop
         oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
         closeDialog = TRUE;
     }
     else
         IfExistSetSplashScreenText(LoadStr(IDS_STARTUP_ASSOCIATIONS));
-    //---  clear the array and cache
+    //---  clear array + cache
     Release();
-    //---  iterate through the registry records for classes (extensions)
-    char ext[MAX_PATH + 4];
-    char extType[MAX_PATH];
+    //---  iterate through registry records about classes (extensions)
+    CPathBuffer ext;
+    CPathBuffer extType; // Heap-allocated for long path support
     char *s, *e;
 
-    char iconLocation[MAX_PATH + 10];
-    char type[MAX_PATH];
+    CPathBuffer iconLocation;
+    CPathBuffer type; // Heap-allocated for long path support
     HKEY extKey, openKey;
     LONG size;
     CAssociationData data;
 
-    char errBuf[200 + MAX_PATH];
+    CPathBuffer errBuf;
 
     HKEY systemFileAssoc = NULL;
-    if (HANDLES_Q(RegOpenKey(HKEY_CLASSES_ROOT, "SystemFileAssociations", &systemFileAssoc)) != ERROR_SUCCESS)
+    if (HANDLES_Q(RegOpenKey(HKEY_CLASSES_ROOT, SAL_REG_KEY_SYSTEM_FILE_ASSOCIATIONS_A, &systemFileAssoc)) != ERROR_SUCCESS)
     {
         systemFileAssoc = NULL;
     }
 
-    // Windows 2000 and later also store "Open With..." associations separately for each user
-    // in HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts
+    // Windows 2000 and newer also have "Open With..." associations stored for each user separately
+    // in key HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts
     HKEY explorerFileExts;
-    if (HANDLES_Q(RegOpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts",
+    if (HANDLES_Q(RegOpenKey(HKEY_CURRENT_USER, SAL_REG_KEY_EXPLORER_FILEEXTS_A,
                              &explorerFileExts)) != ERROR_SUCCESS)
     {
         explorerFileExts = NULL;
@@ -1178,44 +1186,44 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
     LONG enumRet;
     FILETIME ft;
     while (1)
-    { // enumerate all extensions one by one
-        DWORD extS = MAX_PATH;
+    { // sequentially enumerate all extensions
+        DWORD extS = ext.Size() - 1; // RegEnumKeyEx expects size excluding null terminator
         if ((enumRet = RegEnumKeyEx(HKEY_CLASSES_ROOT, i, ext, &extS, NULL, NULL, NULL, &ft)) == ERROR_SUCCESS)
-        { // open the extension key
+        { // open extension key
             if (ext[0] == '.' && HANDLES_Q(RegOpenKey(HKEY_CLASSES_ROOT, ext, &extKey)) == ERROR_SUCCESS)
             {
-                size = MAX_PATH; // get the association type
+                size = extType.Size(); // getting association type
                 iconLocation[0] = 0;
                 data.SetFlag(0);
                 data.SetIndexAll(-1);
                 type[0] = 0;
                 BOOL tryPerceivedType = FALSE;
-                BOOL addExt = (SalRegQueryValue(extKey, "", extType, &size) == ERROR_SUCCESS && size > 1);
+                BOOL addExt = (SalRegQueryValue(extKey, SAL_REG_VALUE_DEFAULT_A, extType, &size) == ERROR_SUCCESS && size > 1);
                 if (addExt)
                 {
-                    // test the icon type (static/dynamic, see .h)
-                    tryPerceivedType = !GetIconFromAssocAux(FALSE, HKEY_CLASSES_ROOT, extType, size, data, iconLocation, type);
+                    // test for icon type (static/dynamic see .h)
+                    tryPerceivedType = !GetIconFromAssocAux(FALSE, HKEY_CLASSES_ROOT, extType, size, data, iconLocation, iconLocation.Size(), type, type.Size());
                 }
                 else
                     tryPerceivedType = TRUE;
                 if (tryPerceivedType && systemFileAssoc != NULL)
                 {
                     // first try to find 'ext' under the SystemFileAssociations key
-                    if (GetIconFromAssocAux(FALSE, systemFileAssoc, ext, (LONG)strlen(ext) + 1, data, iconLocation, NULL))
+                    if (GetIconFromAssocAux(FALSE, systemFileAssoc, ext, (LONG)strlen(ext) + 1, data, iconLocation, iconLocation.Size(), NULL, 0))
                         addExt = TRUE;
                     else
-                    { // also try the key from the PerceivedType value, if it is defined
-                        size = MAX_PATH;
-                        if (SalRegQueryValueEx(extKey, "PerceivedType", NULL, NULL, (BYTE*)extType, (DWORD*)&size) == ERROR_SUCCESS && size > 1)
+                    { // also try the key from the PerceivedType value (if defined)
+                        size = extType.Size();
+                        if (SalRegQueryValueEx(extKey, SAL_REG_VALUE_PERCEIVED_TYPE_A, NULL, NULL, (BYTE*)extType.Get(), (DWORD*)&size) == ERROR_SUCCESS && size > 1)
                         {
-                            extType[MAX_PATH - 1] = 0; // just in case (the value may not be a string, so the null terminator may be missing)
-                            if (GetIconFromAssocAux(FALSE, systemFileAssoc, extType, (LONG)strlen(extType) + 1, data, iconLocation, NULL))
+                            extType[extType.Size() - 1] = 0; // just to be sure (value may not be string type, then null-terminator may be missing)
+                            if (GetIconFromAssocAux(FALSE, systemFileAssoc, extType, (LONG)strlen(extType) + 1, data, iconLocation, iconLocation.Size(), NULL, 0))
                                 addExt = TRUE;
                         }
                     }
                 }
                 if (addExt)
-                {                // convert the extension to lowercase and add it to the array
+                {                // convert ext. to lowercase + add to array
                     e = ext + 1; // skip '.'
                     s = e;
                     while (*s != 0)
@@ -1223,7 +1231,7 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
                         *s = LowerCase[*s];
                         s++;
                     }
-                    *(DWORD*)s = 0; // zero the end of the string
+                    *(DWORD*)s = 0; // zero the end of string
 
                     InsertData("", Count, FALSE, e, s, data, size, iconLocation, type);
                 }
@@ -1234,13 +1242,13 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
         {
             if (enumRet != ERROR_NO_MORE_ITEMS)
             {
-                // For one reported user, this returns
-                // one ERROR_MORE_DATA and then many ERROR_OUTOFMEMORY errors on Microsoft Windows Server 2003,
-                // Standard Edition Service Pack 2 (Build 3790). Increasing the buffer to 10000 does not help;
-                // enumeration must be stopped at the first error, otherwise it starts looping and eating memory
-                // (apparently an internal Windows bug). Nobody else reported it, so we do not investigate further.
-                _snprintf_s(errBuf, _TRUNCATE, LoadStr(IDS_UNABLETOGETASSOC), GetErrorText(enumRet));
-                SalMessageBox(parent, errBuf, LoadStr(IDS_UNABLETOGETASSOCTITLE), MB_OK | MB_ICONEXCLAMATION);
+                // for one user (Bernard Vander Beken <Bernard.VanderBeken@deceuninck.com>) comes here
+                // one ERROR_MORE_DATA error, then a lot of ERROR_OUTOFMEMORY, has Microsoft Windows Server 2003,
+                // Standard Edition Service Pack 2 (Build 3790), increasing buffer to 10000 doesn't help, must
+                // terminate enumeration on first error, otherwise starts to cycle and eat memory (apparently
+                // an internal Windows error), nobody else reported it, so we don't deal with it further
+                std::wstring msg = FormatStrW(LoadStrW(IDS_UNABLETOGETASSOC), GetErrorTextW(enumRet));
+                gPrompter->ShowError(LoadStrW(IDS_UNABLETOGETASSOCTITLE), msg.c_str());
             }
             break; // end of enumeration
         }
@@ -1249,28 +1257,28 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
     if (Count > 1)
         SortArray(0, Count - 1);
 
-    // Windows XP also stores associations (see PerceivedType) under HKEY_CLASSES_ROOT\SystemFileAssociations,
-    // so load any extensions that are still unknown from this key as well
+    // Windows XP has associations (see PerceivedType) also stored in key HKEY_CLASSES_ROOT\SystemFileAssociations,
+    // we load extensions not yet known from this key
     if (systemFileAssoc != NULL)
     {
         i = 0;
         while (1)
-        { // enumerate all extensions one by one
-            DWORD extS = MAX_PATH;
+        { // sequentially enumerate all extensions
+            DWORD extS = ext.Size() - 1; // RegEnumKeyEx expects size excluding null terminator
             if ((enumRet = RegEnumKeyEx(systemFileAssoc, i, ext, &extS, NULL, NULL, NULL, &ft)) == ERROR_SUCCESS)
-            { // open the extension key
+            { // open extension key
                 if (ext[0] == '.')
                 {
                     e = ext + 1; // skip '.'
                     s = ext;
                     while (*++s != 0)
                         *s = LowerCase[*s];
-                    *(DWORD*)s = 0; // zero the end of the string
+                    *(DWORD*)s = 0; // zero the end of string
 
                     int index;
-                    if (!GetIndex(e, index)) // not found; it makes sense to check and add it if needed
+                    if (!GetIndex(e, index)) // not found, makes sense to examine + possibly add
                     {
-                        if (GetIconFromAssocAux(TRUE, systemFileAssoc, ext, (LONG)strlen(ext) + 1, data, iconLocation, NULL))
+                        if (GetIconFromAssocAux(TRUE, systemFileAssoc, ext, (LONG)strlen(ext) + 1, data, iconLocation, iconLocation.Size(), NULL, 0))
                         {
                             InsertData("SystemFileAssociations: ", index, FALSE, e, s, data, size, iconLocation, "");
                         }
@@ -1281,13 +1289,13 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
             {
                 if (enumRet != ERROR_NO_MORE_ITEMS)
                 {
-                    // For one reported user, this returns
-                    // one ERROR_MORE_DATA and then many ERROR_OUTOFMEMORY errors on Microsoft Windows Server 2003,
-                    // Standard Edition Service Pack 2 (Build 3790). Increasing the buffer to 10000 does not help;
-                    // enumeration must be stopped at the first error, otherwise it starts looping and eating memory
-                    // (apparently an internal Windows bug). Nobody else reported it, so we do not investigate further.
-                    _snprintf_s(errBuf, _TRUNCATE, LoadStr(IDS_UNABLETOGETASSOC), GetErrorText(enumRet));
-                    SalMessageBox(parent, errBuf, LoadStr(IDS_UNABLETOGETASSOCTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    // for one user (Bernard Vander Beken <Bernard.VanderBeken@deceuninck.com>) comes here
+                    // one ERROR_MORE_DATA error, then a lot of ERROR_OUTOFMEMORY, has Microsoft Windows Server 2003,
+                    // Standard Edition Service Pack 2 (Build 3790), increasing buffer to 10000 doesn't help, must
+                    // terminate enumeration on first error, otherwise starts to cycle and eat memory (apparently
+                    // an internal Windows error), nobody else reported it, so we don't deal with it further
+                    std::wstring msg = FormatStrW(LoadStrW(IDS_UNABLETOGETASSOC), GetErrorTextW(enumRet));
+                    gPrompter->ShowError(LoadStrW(IDS_UNABLETOGETASSOCTITLE), msg.c_str());
                 }
                 break; // end of enumeration
             }
@@ -1299,69 +1307,69 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
     {
         i = 0;
         while (1)
-        { // enumerate all extensions one by one
-            DWORD extS = MAX_PATH;
+        { // sequentially enumerate all extensions
+            DWORD extS = ext.Size() - 1; // RegEnumKeyEx expects size excluding null terminator
             if (RegEnumKeyEx(explorerFileExts, i, ext, &extS, NULL, NULL, NULL, &ft) == ERROR_SUCCESS)
-            { // open the extension key
+            { // open extension key
                 if (ext[0] == '.' && HANDLES_Q(RegOpenKey(explorerFileExts, ext, &extKey)) == ERROR_SUCCESS)
                 {
                     e = ext + 1; // skip '.'
                     s = ext;
                     while (*++s != 0)
                         *s = LowerCase[*s];
-                    *(DWORD*)s = 0; // zero the end of the string
+                    *(DWORD*)s = 0; // zero the end of string
 
                     int index;
                     BOOL found = GetIndex(e, index);
-                    if (WindowsVistaAndLater && HANDLES_Q(RegOpenKey(extKey, "UserChoice", &openKey)) == ERROR_SUCCESS)
-                    {                    // try whether it is associated through the UserChoice key; if so, it is the highest-priority record, so overwrite any association already found
-                        size = MAX_PATH; // get the association type
-                        if (SalRegQueryValueEx(openKey, "Progid", NULL, NULL, (BYTE*)extType, (DWORD*)&size) == ERROR_SUCCESS && size > 1)
+                    if (WindowsVistaAndLater && HANDLES_Q(RegOpenKey(extKey, SAL_REG_SUBKEY_USER_CHOICE_A, &openKey)) == ERROR_SUCCESS)
+                    {                    // try if associated via UserChoice key, if so, it's the highest priority record, so we possibly overwrite the existing association
+                        size = extType.Size(); // getting association type
+                        if (SalRegQueryValueEx(openKey, SAL_REG_VALUE_PROGID_A, NULL, NULL, (BYTE*)extType.Get(), (DWORD*)&size) == ERROR_SUCCESS && size > 1)
                         {
-                            extType[MAX_PATH - 1] = 0; // just in case (the value may not be a string, so the null terminator may be missing)
+                            extType[extType.Size() - 1] = 0; // just to be sure (value may not be string type, then null-terminator may be missing)
 
-                            if (GetIconFromAssocAux(TRUE, HKEY_CLASSES_ROOT, extType, (LONG)strlen(extType) + 1, data, iconLocation, type))
+                            if (GetIconFromAssocAux(TRUE, HKEY_CLASSES_ROOT, extType, (LONG)strlen(extType) + 1, data, iconLocation, iconLocation.Size(), type, type.Size()))
                             {
-                                InsertData("UserChoice: ", index, found, e, s, data, size, iconLocation, type); // found==TRUE means overwriting the association already found with the one from UserChoice
+                                InsertData("UserChoice: ", index, found, e, s, data, size, iconLocation, type); // found==TRUE means overwrite found association with the one from UserChoice
                                 found = TRUE;
                             }
                         }
                         HANDLES(RegCloseKey(openKey));
                     }
-                    if (!found) // Check whether it is associated through the OpenWithProgids key
+                    if (!found) // also try if associated via OpenWithProgids key
                     {
-                        if (WindowsVistaAndLater && HANDLES_Q(RegOpenKey(extKey, "OpenWithProgids", &openKey)) == ERROR_SUCCESS)
+                        if (WindowsVistaAndLater && HANDLES_Q(RegOpenKey(extKey, SAL_REG_SUBKEY_OPEN_WITH_PROGIDS_A, &openKey)) == ERROR_SUCCESS)
                         {
                             DWORD j = 0;
-                            size = MAX_PATH; // get the association type
+                            size = extType.Size(); // getting association type
                             while (RegEnumValue(openKey, j++, extType, (DWORD*)&size, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
-                            { // enumerate all association types one by one
+                            { // sequentially enumerate all association types
                                 if (extType[0] != 0)
                                 {
-                                    extType[MAX_PATH - 1] = 0; // just in case (the value may not be a string, so the null terminator may be missing)
+                                    extType[extType.Size() - 1] = 0; // just to be sure (value may not be string type, then null-terminator may be missing)
 
-                                    if (GetIconFromAssocAux(TRUE, HKEY_CLASSES_ROOT, extType, (LONG)strlen(extType) + 1, data, iconLocation, type))
+                                    if (GetIconFromAssocAux(TRUE, HKEY_CLASSES_ROOT, extType, (LONG)strlen(extType) + 1, data, iconLocation, iconLocation.Size(), type, type.Size()))
                                     {
                                         InsertData("OpenWithProgids: ", index, FALSE, e, s, data, size, iconLocation, type);
                                         found = TRUE;
                                         break;
                                     }
                                 }
-                                size = MAX_PATH; // get the association type
+                                size = extType.Size(); // getting association type
                             }
                             HANDLES(RegCloseKey(openKey));
                         }
                     }
 
-                    if (SalRegQueryValueEx(extKey, "Application", NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
+                    if (SalRegQueryValueEx(extKey, SAL_REG_VALUE_APPLICATION_A, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
                     {
-                        if (found) // found, mark that it has an association
+                        if (found) // found, set that it has association
                         {
                             CAssociationData* iconData = &(At(index));
                             iconData->SetFlag(1); // files with this extension can be opened
-                                                  // iconData->SetIndexAll(-1);  // switching to a static icon causes problems for CDR and CPT Corel files with thumbnails in their icons, so leave the icon configured in HKEY_CLASSES_ROOT
+                                                  // iconData->SetIndexAll(-1);  // switching to static icon causes problems with CDR and CPT Corel files with previews in icons, better leave icon in settings from HKEY_CLASSES_ROOT
                         }
-                        else // not found, insert it as a static icon
+                        else // not found, insert as static icon
                         {
                             data.SetFlag(1); // files with this extension can be opened
                             data.SetIndexAll(-1);
@@ -1379,7 +1387,7 @@ void CAssociations::ReadAssociations(BOOL showWaitWnd)
         HANDLES(RegCloseKey(explorerFileExts));
     }
 
-    // add fixed icons of all sizes to the CAssociations cache bitmap
+    // adding fixed icons of all sizes to cache-bitmap CAssociations
     int iconSize;
     for (iconSize = 0; iconSize < ICONSIZE_COUNT; iconSize++)
     {
@@ -1444,7 +1452,7 @@ BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum 
         int i = At(index).GetIndex(iconSize);
         if (i == -1)
             At(index).SetIndex(-3, iconSize);  // not loaded -> loading
-        addtoIconCache = (i == -1 || i == -2); // dynamic or static not loaded/not loading
+        addtoIconCache = (i == -1 || i == -2); // dynamic or not loaded/loading static
         return At(index).GetFlag() != 0;
     }
     else
@@ -1462,8 +1470,8 @@ BOOL CAssociations::IsAssociatedStatic(char* ext, const char*& iconLocation, CIc
         int i = At(index).GetIndex(iconSize);
         if (i == -1)
         {
-            At(index).SetIndex(-3, iconSize);          // nenactena -> nacitana
-            iconLocation = At(index).ExtensionAndData; // unloaded static item
+            At(index).SetIndex(-3, iconSize);          // not loaded -> loading
+            iconLocation = At(index).ExtensionAndData; // not loaded/loading static
         }
         else
             iconLocation = NULL;

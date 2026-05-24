@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -80,7 +80,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 char* LoadStr(int resID)
@@ -103,7 +103,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
-    // this plugin requires the current Salamander version or newer; check the version
+    // this plugin is built for the current version of Salamander and newer - perform a check
     if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
     { // we reject older versions
         MessageBox(salamander->GetParentWindow(),
@@ -154,7 +154,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "UnISO" /* do not translate! */, "iso;isz;nrg;bin;img;pdi;cdi;cif;ncd;c2d;dmg");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -194,7 +194,7 @@ BOOL Error(int resID, BOOL quiet, ...)
 BOOL Error(char* msg, DWORD err, BOOL quiet)
 {
     if (!quiet)
-        if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // actual error
+        if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // it is an error
         {
             char buf[1024];
             sprintf(buf, "%s\n\n%s", msg, SalamanderGeneral->GetErrorText(err));
@@ -299,33 +299,33 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
-    /*  GENERAL RULES FOR IMPLEMENTING Connect (for more complex plugins with a configuration version: the
-                                                    ConfigVersion variable and the CURRENT_CONFIG_VERSION constant):
-        - with each change, increase the CURRENT_CONFIG_VERSION number
-          (in the first version, CURRENT_CONFIG_VERSION = 1, not 0, so an upgrade can be distinguished
-           from an installation)
-        - in the base part (before the "if (ConfigVersion < YYY)" conditions):
-          - write the code for the initial plugin installation (the state when the plugin does not yet
-           have a record in Salamander)
-          - for AddCustomPacker and AddCustomUnpacker, pass the condition "ConfigVersion < XXX" in the
-           'update' parameter, where XXX is the number of the last version in which the extensions for
-           custom packers or unpackers changed (XXX for packers may differ from XXX for unpackers)
-          - AddMenuItem, SetChangeDriveMenuItem, and SetThumbnailLoader work the same on every plugin
-           load (installation and upgrades do not differ; they always start from a clean state)
-        - in the upgrade section (after the base part):
-          - add the condition "if (ConfigVersion < XXX)", where XXX is the new value of the
-           CURRENT_CONFIG_VERSION constant, and add a comment for that version;
-           in the body of that condition, call:
-            - if extensions were added for the "panel archiver", call
-             "AddPanelArchiver(PPP, EEE, TRUE)", where PPP are only the new extensions separated by
-             semicolons and EEE is TRUE/FALSE ("panel view+edit"/"panel view only")
-            - if extensions were added for the "viewer", call "AddViewer(PPP, TRUE)", where PPP are
-             only the new extensions separated by semicolons
-            - if some old extensions for the "viewer" need to be removed, call
-             "ForceRemoveViewer(PPP)" for each such extension PPP
-            - if some extensions for the "panel archiver" need to be removed, let Petr know;
-             nobody has needed this yet, so it is not implemented
-      */
+    /*  GENERAL RULES FOR IMPLEMENTING CONNECT (for more complex plugins with a configuration version - the
+                                                ConfigVersion variable and the CURRENT_CONFIG_VERSION constant):
+    - with each change you need to increase the CURRENT_CONFIG_VERSION number
+      (in the first version CURRENT_CONFIG_VERSION = 1, not 0, so an upgrade can be distinguished from
+       an installation)
+    - in the base part (before the "if (ConfigVersion < YYY)" conditions):
+      - write the code for the first installation of the plugin (the state where the plugin does not yet have a record
+        in Salamander)
+      - for AddCustomPacker and AddCustomUnpacker calls provide the condition "ConfigVersion < XXX" in the 'update'
+        parameter, where XXX is the number of the last version in which the extensions for custom packers or
+        unpackers changed (XXX for packers may differ from unpackers)
+      - AddMenuItem, SetChangeDriveMenuItem, and SetThumbnailLoader work the same every time the plugin is loaded
+        (installation/upgrades make no difference - we always start on a clean slate)
+    - in the upgrade section (after the base part):
+      - add a condition "if (ConfigVersion < XXX)", where XXX is the new value of the
+        CURRENT_CONFIG_VERSION constant + add a comment from that version;
+        in the body of that condition call:
+        - if extensions were added for the "panel archiver", call
+          "AddPanelArchiver(PPP, EEE, TRUE)", where PPP are only the new extensions separated
+          by a semicolon and EEE is TRUE/FALSE ("panel view+edit"/"panel view only")
+        - if extensions were added for the "viewer", call "AddViewer(PPP, TRUE)",
+          where PPP are only the new extensions separated by a semicolon
+        - if some old extensions for the "viewer" need to be removed, call
+          "ForceRemoveViewer(PPP)" for each such extension PPP
+        - if extensions for the "panel archiver" need to be removed, let Petr know; nobody has
+          needed it yet, so it is not implemented
+  */
 
     // Davide, when you add more extensions you need to increase CURRENT_CONFIG_VERSION, see ^^^
 
@@ -360,7 +360,7 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
         salamander->AddPanelArchiver("c2d", FALSE, TRUE);
     }
 
-    if (ConfigVersion < 4) // addition of MDF
+    if (ConfigVersion < 4) // addition of MDF/MDS
     {
         salamander->AddViewer("*.mdf", TRUE);
         salamander->AddPanelArchiver("mdf", FALSE, TRUE);
@@ -509,7 +509,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
 
     // unpack
     BOOL delTempDir = TRUE;
-    if (errorOccured != SALENUM_CANCEL && // test whether no error occurred and the user did not request to cancel the operation (Cancel button)
+    if (errorOccured != SALENUM_CANCEL && // test to see whether an error occurred and the user did not request to cancel the operation (Cancel button)
         SalamanderGeneral->TestFreeSpace(SalamanderGeneral->GetMsgBoxParent(),
                                          targetDir, totalSize, LoadStr(IDS_UNPACKING_ARCHIVE)))
     {
@@ -527,10 +527,10 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
         while ((name = next(NULL /* we do not print the errors a second time */, 1, &isDir, &size, &fileData, nextParam, NULL)) != NULL)
         {
             // directories do not interest us; they are created while unpacking files
-            char destPath[MAX_PATH];
-            strncpy_s(destPath, targetDir, _TRUNCATE);
+            CPathBuffer destPath; // Heap-allocated for long path support
+            lstrcpyn(destPath, targetDir, destPath.Size());
 
-            if (SalamanderGeneral->SalPathAppend(destPath, name, MAX_PATH))
+            if (SalamanderGeneral->SalPathAppend(destPath, name, destPath.Size()))
             {
                 if (isDir)
                 {
@@ -546,7 +546,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
                     salamander->ProgressDialogAddText(name, TRUE); // delayedPaint==TRUE, so we do not slow things down
 
                     //  if the destination path does not exist -> create it
-                    char* lastComp = strrchr(destPath, '\\');
+                    char* lastComp = strrchr(destPath.Get(), '\\');
                     if (lastComp != NULL)
                     {
                         *lastComp = '\0';
@@ -621,15 +621,15 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     salamander->OpenProgressDialog(LoadStr(IDS_UNPACKING_ARCHIVE), FALSE, NULL, FALSE);
     salamander->ProgressSetTotalSize(fileData->Size + CQuadWord(1, 0), CQuadWord(-1, -1));
 
-    char name[MAX_PATH];
-    strncpy_s(name, targetDir, _TRUNCATE);
+    CPathBuffer name; // Heap-allocated for long path support
+    lstrcpyn(name, targetDir, name.Size());
     const char* lastComp = strrchr(nameInArchive, '\\');
     if (lastComp != NULL)
         lastComp++;
     else
         lastComp = nameInArchive;
 
-    if (SalamanderGeneral->SalPathAppend(name, lastComp, MAX_PATH))
+    if (SalamanderGeneral->SalPathAppend(name, lastComp, name.Size()))
     {
         DWORD silent = 0;
         BOOL toSkip = FALSE;
@@ -637,9 +637,9 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
 
         salamander->ProgressDialogAddText(name, TRUE); // delayedPaint==TRUE, so we do not slow things down
 
-        char srcPath[MAX_PATH];
+        CPathBuffer srcPath; // Heap-allocated for long path support
         strcpy(srcPath, nameInArchive);
-        char* lComp = strrchr(srcPath, '\\');
+        char* lComp = strrchr(srcPath.Get(), '\\');
         if (lComp != NULL)
             *lComp = '\0';
 
@@ -707,12 +707,12 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
     CPluginDataInterfaceAbstract* pluginData = NULL;
     if (ListArchive(salamander, fileName, dir, pluginData))
     {
-        char path[MAX_PATH];
+        CPathBuffer path; // Heap-allocated for long path support
         path[0] = 0;
 
         CQuadWord totalSize(0, 0);
         CQuadWord fileCount(0, 0);
-        CalcSize(dir, mask, path, MAX_PATH, totalSize, fileCount);
+        CalcSize(dir, mask, path, path.Size(), totalSize, fileCount);
 
         BOOL delTempDir = TRUE;
         if (SalamanderGeneral->TestFreeSpace(SalamanderGeneral->GetMsgBoxParent(),
@@ -733,11 +733,11 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
 
                 DWORD silent = 0;
                 BOOL toSkip = FALSE;
-                char strTarget[MAX_PATH];
+                CPathBuffer strTarget; // Heap-allocated for long path support
                 strcpy(strTarget, targetDir);
                 char srcPath[ISO_MAX_PATH_LEN];
                 srcPath[0] = '\0';
-                ret = isoImage.ExtractAllItems(salamander, srcPath, dir, modmask, strTarget, MAX_PATH, silent, toSkip) != UNPACK_CANCEL;
+                ret = isoImage.ExtractAllItems(salamander, srcPath, dir, modmask, strTarget, strTarget.Size(), silent, toSkip) != UNPACK_CANCEL;
             }
 
             salamander->CloseProgressDialog();
@@ -783,8 +783,8 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
                          name, left, top, width, height,
                          showCmd, alwaysOnTop, returnLock, enumFilesSourceUID, enumFilesCurrentIndex);
 
-    // We do not set 'lock' or 'lockOwner'; we only need 'name' to remain valid
-    // within this method.
+    // we do not set 'lock' or 'lockOwner'; we only need the validity of the file 'name'
+    // within this method
 
     HCURSOR hOldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
@@ -812,7 +812,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
   }
 */
 
-    char tempFileName[MAX_PATH];
+    CPathBuffer tempFileName; // Heap-allocated for long path support
     if (SalamanderGeneral->SalGetTempFileName(NULL, "ISO", tempFileName, TRUE, NULL))
     {
         char caption[2000];
@@ -878,7 +878,7 @@ BOOL CPluginInterfaceForViewer::CanViewFile(const char* name)
 
 CPluginDataInterface::CPluginDataInterface()
 {
-    // initially display the 'missing CCD file' warning
+    // initialy display the 'missing CCD file' warning
     DisplayMissingCCDWarning = TRUE;
 }
 

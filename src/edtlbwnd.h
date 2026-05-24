@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -74,7 +74,7 @@ protected:
     CEditLBEdit* EditLine;
     HWND HDlg;
     EDTLB_DISPINFO DispInfo;
-    char Buffer[MAX_PATH];
+    CPathBuffer Buffer;
     int ItemsCount;
     BOOL SaveDisabled;
     DWORD Flags;
@@ -114,7 +114,7 @@ public:
 
     BOOL SetCurSel(int index);
 
-    // returns index of the selected item - for a new item it is 1 more than
+    // returns index of the selected item - for a new item it is one more than
     // the number of items
     BOOL GetCurSel(int& index);
     // returns -1 for an empty item

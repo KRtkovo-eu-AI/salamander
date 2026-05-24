@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -32,7 +33,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontal and vertical centering of the dialog to the parent
         if (Parent != NULL)
             SalGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // let DefDlgProc set the focus
+        break; // want focus from DefDlgProc
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);

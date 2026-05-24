@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -291,7 +292,7 @@ enum CTransformationEnum
     eloSelect,              // [] Modify the current selection.
     eloMove,                // [deltaX, deltaY] Move the control by the given offsets.
     eloResize,              // [edge, delta] Resize the control; 'edge' selects the side, 'delta' is the amount in dialog units.
-    eloResizeDlg,           // [horizontal, delta] Resize the dialog; when 'horizontal' is TRUE adjust the width, otherwise the height; 'delta' is the amount in dialog units.
+    eloResizeDlg,           // [horizontal, delta] Resize the dialog; when 'horizontal' is TRUE adjust the width, otherwise the height.
     eloResizeControls,      // [resize] Resize command adjusts control width or height according to 'resize'.
     eloSizeToContent,       // [] Size to Content command.
     eloSetSize,             // [width, height] Set explicit control size; -1 keeps the current dimension.
@@ -515,11 +516,11 @@ public:
     BOOL SelCtrlsGetOuterRectPx(HWND hDialog, RECT* r);
     BOOL SelCtrlsGetOuterRect(RECT* r);
 
-    // Methods that modify the selection.
+    // metody menici selection
     void SelectControlsGroup(HWND hDialog, HWND hControl, BOOL keepSelection, BOOL forceVertical);
     void ModifySelection(HWND hDialog, CModifySelectionMode mode, HWND hControl);
     void SelectControlsByCage(BOOL add, const RECT* cageR);
-    void SelectNextPrevControl(BOOL next); // handles Tab/Shift+Tab
+    void SelectNextPrevControl(BOOL next); // reakce na Tab/Shift+Tab
     void SelectControlByID(int id);
 
     void SetHighlightControl(int index);
@@ -571,8 +572,8 @@ public:
     void Clean()
     {
         LanguageID = 0x0409;
-        lstrcpyW(Author, L"Open Salamander");
-        lstrcpyW(Web, L"www.altap.cz");
+        lstrcpyW(Author, L"Sally");
+        lstrcpyW(Web, L"https://github.com/0xeb/sally");
         lstrcpyW(Comment, L"");
         lstrcpyW(HelpDir, L"");
         lstrcpyW(SLGIncomplete, L"");

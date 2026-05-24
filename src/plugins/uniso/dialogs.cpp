@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -71,7 +72,7 @@ CConfigurationDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
     {
-        // enabler for 'show boot disk as file'
+        // toggle the 'show boot disk as file' option
         if (HIWORD(wParam) == BN_CLICKED && LOWORD(wParam) == IDC_CFG_SESSIONASDIR)
         {
             BOOL enable = IsDlgButtonChecked(HWindow, IDC_CFG_SESSIONASDIR) == BST_CHECKED;

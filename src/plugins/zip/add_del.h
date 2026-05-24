@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -9,7 +10,7 @@
 #define AF_DEL 1       //don't add file, but delete it if moving files to zip \
                        //does matter only on directories
 #define AF_NOADD 2     //don't add file and don't delete it if moving files to zip
-#define AF_OVERWRITE 3 //for unix files when overwriting, same as AF_ADD
+#define AF_OVERWRITE 3 //for unix files when ovewriting, same as AF_ADD
 
 struct CAddInfo
 {
@@ -84,7 +85,7 @@ public:
     char* NewCentrDir;
     DWORD ZipAttr;
     CFile* TempFile;
-    char TempName[MAX_PATH + 1];
+    CPathBuffer TempName;
     //bool                Backup;
     CQuadWord AddTotalSize;
     int SizeToAdd;

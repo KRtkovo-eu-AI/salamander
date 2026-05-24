@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -13,6 +13,8 @@
 #define FIND_LINE_LEN 10000                  // must be > FIND_TEXT_LEN and the max line length for REGEXP (different macro for GREP)
 #define TEXT_MAX_LINE_LEN 10000              // when a line is longer we ask about switching to hex mode; must be <= FIND_LINE_LEN
 #define RECOGNIZE_FILE_TYPE_BUFFER_LEN 10000 // how many characters from the start of the file to use to recognize the file type (RecognizeFileType())
+
+#include "common/unicode/ViewerBomText.h"
 
 #define VIEWER_HISTORY_SIZE 30 // number of remembered strings
 
@@ -123,6 +125,7 @@ public:
     ~CViewerWindow();
 
     void OpenFile(const char* file, const char* caption, BOOL wholeCaption); // does not manage Lock
+    void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption); // does not manage Lock
 
     virtual BOOL Is(int type) { return type == otViewerWindow || CWindow::Is(type); }
     BOOL IsGood() { return Buffer != NULL && ViewerFont != NULL; }
@@ -164,17 +167,19 @@ public:
 
 protected:
     void FatalFileErrorOccured(DWORD repeatCmd = -1); // called when a file error occurs (viewer refresh/clear is required)
+    HANDLE OpenViewedFile(DWORD flags) const;
+    void ClearViewedFile();
 
     void OnVScroll();
 
     void CodeCharacters(unsigned char* start, unsigned char* end);
     // if 'hFile' is NULL, Prepare/LoadBefore/LoadBehind open and close the file themselves
-    // if 'hFile' points to a variable (initialize it to NULL before the first call),
-    // the methods open the file and store the file handle in that variable if opening succeeds.
-    // On subsequent calls, they do not open the file again and reuse the handle from that variable.
-    // They do not close the handle on return; the caller must ensure that.
-    // This is an optimization for network drives, where repeatedly opening and closing the file
-    // caused severe delays during searching.
+    // if 'hFile' points to a variable (initialize its value to NULL at the start),
+    // the methods open the file and store the file handle into that variable (when opening succeeds).
+    // On the next call they do not open the file again and reuse the handle from that variable.
+    // They also do not close the handle when exiting; the caller must handle that.
+    // This is an optimization for network drives where repeatedly opening/closing the file
+    // slowed down searching terribly.
     BOOL LoadBefore(HANDLE* hFile);
     BOOL LoadBehind(HANDLE* hFile);
 
@@ -202,6 +207,10 @@ protected:
                          __int64& previousLineEnd, BOOL allowWrap,
                          BOOL takeLineBegin, BOOL& fatalErr, int* lines, __int64* firstLineEndOff = NULL,
                          __int64* firstLineCharLen = NULL, BOOL addLineIfSeekIsWrap = FALSE);
+    BOOL FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 minSeek, __int64& lineBegin,
+                                __int64& previousLineEnd, BOOL allowWrap,
+                                BOOL takeLineBegin, BOOL& fatalErr, int* lines, __int64* firstLineEndOff = NULL,
+                                __int64* firstLineCharLen = NULL, BOOL addLineIfSeekIsWrap = FALSE);
 
     // if a read error occurs, fatalErr == TRUE; ExitTextMode is TRUE when switching to hex mode
     __int64 FindBegin(__int64 seek, BOOL& fatalErr);
@@ -280,6 +289,22 @@ protected:
 
     // if a read error occurs, fatalErr == TRUE; ExitTextMode does not arise here (it does not become TRUE)
     HGLOBAL GetSelectedText(BOOL& fatalErr); // text for clipboard and drag & drop operations
+    HGLOBAL GetSelectedTextW(BOOL& fatalErr, int* textLen); // decoded Unicode text for clipboard and drag & drop operations
+
+    BOOL HasDecodedTextMode() const { return Type == vtText && Sally::Unicode::IsDecodedEncoding(TextEncoding); }
+    BOOL HasDecodedTextEncoding() const { return Sally::Unicode::IsDecodedEncoding(TextEncoding); }
+    __int64 TextStartOffset() const { return HasDecodedTextEncoding() ? TextContentOffset : 0; }
+    __int64 ClampToTextStart(__int64 offset) const { return max(offset, TextStartOffset()); }
+    BOOL DecodeTextRange(HANDLE* hFile, __int64 start, __int64 end, Sally::Unicode::DecodedRun& run,
+                         BOOL& fatalErr, bool flush = true);
+    BOOL ReadDecodedScalar(HANDLE* hFile, __int64 offset, Sally::Unicode::DecodedRun& scalar, BOOL& fatalErr);
+    BOOL ReadDecodedTextLine(HANDLE* hFile, __int64 lineOffset, __int64 maxCells,
+                             Sally::Unicode::DecodedRun& visualLine, __int64& lineEnd,
+                             __int64& nextLineBegin, BOOL& eol, BOOL& wrapped,
+                             int& eolBytes, BOOL& fatalErr);
+    void PaintDecodedText(HDC dc, const RECT& fullLine, int lines, int columns, int clipFirstRow,
+                          int clipLastRow, BOOL& fatalErr, BOOL& setFindOffset);
+    BOOL FindDecodedLiteral(HANDLE* hFile, BOOL forward, WORD flags, BOOL& foundMatch, BOOL& fatalErr);
 
     void SetToolTipOffset(__int64 offset);
 
@@ -307,7 +332,8 @@ protected:
     int SalMessageBoxViewerPaintBlocked(HWND hParent, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType);
 
     unsigned char* Buffer; // buffer with size VIEW_BUFFER_SIZE
-    char* FileName;        // currently viewed file
+    std::string FileName;   // currently viewed file, ANSI compatibility mirror
+    std::wstring FileNameW; // currently viewed file, exact UTF-16 path when available
     __int64 Seek,          // offset of byte 0 in Buffer within the file
         Loaded,            // number of valid bytes in Buffer
         OriginX,           // first displayed column (in characters)
@@ -371,16 +397,18 @@ protected:
     int CodeType;        // numeric encoding identifier; CodeTables memory for this viewer window
     BOOL UseCodeTable;   // should CodeTable be used for recoding?
     char CodeTable[256]; // code table
+    Sally::Unicode::BomEncoding TextEncoding; // BOM-marked text decoding mode
+    __int64 TextContentOffset;                // first raw byte after the BOM in decoded text mode
 
-    char CurrentDir[MAX_PATH]; // path for the open dialog
+    char CurrentDir[SAL_MAX_LONG_PATH]; // path for the open dialog
 
     BOOL WaitForViewerRefresh;   // TRUE - waiting for WM_USER_VIEWERREFRESH; other commands are skipped
     __int64 LastSeekY;           // SeekY before the error
     __int64 LastOriginX;         // OriginX before the error
     DWORD RepeatCmdAfterRefresh; // command to repeat after refresh (-1 = no command)
 
-    char* Caption;     // if not NULL, contains the proposed viewer window caption
-    BOOL WholeCaption; // meaningful if Caption != NULL. TRUE -> only
+    std::string Caption;   // if not empty, contains the proposed viewer window caption
+    BOOL WholeCaption; // meaningful if Caption is not empty. TRUE -> only
                        // Caption is displayed in the viewer title; FALSE -> append
                        // the standard " - Viewer" to Caption.
 
@@ -411,7 +439,7 @@ protected:
 
 BOOL InitializeViewer();
 void ReleaseViewer();
-void ClearViewerHistory(BOOL dataOnly); // clears histories; for dataOnly==FALSE also clears the Find dialog combo box (if any)
+void ClearViewerHistory(BOOL dataOnly); // clears histories; for dataOnly==FALSE also clears the Find dialog combobox (if any)
 void UpdateViewerColors(SALCOLOR* colors);
 
 extern const char* CVIEWERWINDOW_CLASSNAME; // viewer window class
@@ -440,3 +468,7 @@ BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, 
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
                 int enumFileNamesLastFileIndex);
+BOOL OpenViewerW(const wchar_t* nameW, const char* nameA, CViewType mode, int left, int top,
+                 int width, int height, UINT showCmd, BOOL returnLock, HANDLE* lock,
+                 BOOL* lockOwner, CSalamanderPluginViewerData* viewerData,
+                 int enumFileNamesSourceUID, int enumFileNamesLastFileIndex);

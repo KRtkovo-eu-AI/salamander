@@ -1,8 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
-// text.h - Czech version
+// text.h - english version
 
 STRING(STR_TITLE, "Samorozbalitelný ZIP archiv")
 STRING(STR_ERROR, "Chyba")

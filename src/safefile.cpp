@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -12,6 +12,10 @@
 #include "cfgdlg.h"
 #include "zip.h"
 #include "spl_file.h"
+#include "common/IFileSystem.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
+#include "common/widepath.h"
 
 CSalamanderSafeFile SalSafeFile;
 
@@ -40,10 +44,9 @@ BOOL CSalamanderSafeFile::SafeFileOpen(SAFE_FILE* file,
         *pressedButton = DIALOG_CANCEL;
 
     HANDLE hFile;
-    int fileNameLen = (int)strlen(fileName);
     do
     {
-        hFile = fileNameLen >= MAX_PATH ? INVALID_HANDLE_VALUE : HANDLES_Q(CreateFile(fileName, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, dwFlagsAndAttributes, NULL));
+        hFile = HANDLES_Q(CreateFileW(AnsiToWide(fileName).c_str(), dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, dwFlagsAndAttributes, NULL));
         if (hFile == INVALID_HANDLE_VALUE)
         {
             DWORD dlgRet;
@@ -51,7 +54,7 @@ BOOL CSalamanderSafeFile::SafeFileOpen(SAFE_FILE* file,
                 dlgRet = DIALOG_SKIP;
             else
             {
-                DWORD lastError = fileNameLen >= MAX_PATH ? ERROR_FILENAME_EXCED_RANGE : GetLastError();
+                DWORD lastError = GetLastError();
                 dlgRet = DialogError(hParent, (flags & BUTTONS_MASK), fileName,
                                      GetErrorText(lastError), LoadStr(IDS_ERROROPENINGFILE));
             }
@@ -129,33 +132,35 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
     // check whether the target already exists
     DWORD attrs;
     HANDLE hFile;
-    int fileNameLen = (int)strlen(fileName);
     while (1)
     {
-        attrs = fileNameLen < MAX_PATH ? SalGetFileAttributes(fileName) : 0xFFFFFFFF;
+        attrs = GetFileAttributesW(AnsiToWide(fileName).c_str());
         if (attrs == 0xFFFFFFFF)
             break;
 
-        // it already exists; we’ll check whether it’s just a collision with a DOS-style name (the full name of the existing file/directory is different)
+        // it already exists; we'll check whether it's just a collision with a DOS-style name (the full name of the existing file/directory is different)
         if (!isDir)
         {
-            WIN32_FIND_DATA data;
-            HANDLE find = HANDLES_Q(FindFirstFile(fileName, &data));
+            WIN32_FIND_DATAW data;
+            HANDLE find = SalFindFirstFileHW(fileName, &data);
             if (find != INVALID_HANDLE_VALUE)
             {
                 HANDLES(FindClose(find));
                 const char* tgtName = SalPathFindFileName(fileName);
-                if (StrICmp(tgtName, data.cAlternateFileName) == 0 && // match only for the DOS name
-                    StrICmp(tgtName, data.cFileName) != 0)            // (the full name is different)
+                char cFileNameA[MAX_PATH], cAltNameA[14];
+                WideCharToMultiByte(CP_ACP, 0, data.cFileName, -1, cFileNameA, MAX_PATH, NULL, NULL);
+                WideCharToMultiByte(CP_ACP, 0, data.cAlternateFileName, -1, cAltNameA, 14, NULL, NULL);
+                if (StrICmp(tgtName, cAltNameA) == 0 &&    // match only for the DOS name
+                    StrICmp(tgtName, cFileNameA) != 0)      // (the full name is different)
                 {
-                    // rename ("clean up") the file/directory with the conflicting DOS name to a temporary 8.3 name (which doesn’t require an extra DOS name)
-                    char tmpName[MAX_PATH + 20];
-                    char origFullName[MAX_PATH];
-                    lstrcpyn(tmpName, fileName, MAX_PATH);
+                    // rename ("clean up") the file/directory with the conflicting DOS name to a temporary 8.3 name (which doesn't require an extra DOS name)
+                    CPathBuffer tmpName;       // Heap-allocated for long path support
+                    CPathBuffer origFullName;  // Heap-allocated for long path support
+                    lstrcpyn(tmpName, fileName, tmpName.Size());
                     CutDirectory(tmpName);
-                    SalPathAddBackslash(tmpName, MAX_PATH + 20);
+                    SalPathAddBackslash(tmpName, tmpName.Size());
                     char* tmpNamePart = tmpName + strlen(tmpName);
-                    if (SalPathAppend(tmpName, data.cFileName, MAX_PATH))
+                    if (SalPathAppend(tmpName, cFileNameA, tmpName.Size()))
                     {
                         strcpy(origFullName, tmpName);
                         DWORD num = (GetTickCount() / 10) % 0xFFF;
@@ -167,11 +172,11 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
                             DWORD e = GetLastError();
                             if (e != ERROR_FILE_EXISTS && e != ERROR_ALREADY_EXISTS)
                             {
-                                tmpName[0] = 0;
+                                *tmpName = 0;
                                 break;
                             }
                         }
-                        if (tmpName[0] != 0) // if we managed to "clean up" the conflicting file/directory, try creating the target file/directory
+                        if (*tmpName != 0) // if we managed to "clean up" the conflicting file/directory, try creating the target
                         {                    // file/directory and then restore the original name to the "cleaned" file/directory
                             hFile = INVALID_HANDLE_VALUE;
                             //              if (!isDir)   // file
@@ -193,7 +198,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
                                     CloseHandle(hFile);
                                     hFile = INVALID_HANDLE_VALUE;
                                     //                  if (!isDir)
-                                    DeleteFile(fileName);
+                                    gFileSystem->DeleteFile(AnsiToWide(fileName).c_str());
                                     //                  else RemoveDirectory(fileName);
                                     if (!::SalMoveFile(tmpName, origFullName))
                                         TRACE_E("Fatal unexpected situation in CSalamanderGeneral::SafeCreateFile(): unable to rename file from tmp-name to original long file name! " << origFullName);
@@ -211,7 +216,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
         if (attrs & FILE_ATTRIBUTE_DIRECTORY)
         {
             int ret;
-            // directory
+            // it is a directory
             if (isDir)
             {
                 // if we wanted a directory, that is fine
@@ -285,7 +290,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
                 else
                 {
                     char fibuffer[500];
-                    HANDLE file2 = HANDLES_Q(CreateFile(fileName, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                    HANDLE file2 = HANDLES_Q(CreateFileW(AnsiToWide(fileName).c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
                     if (file2 != INVALID_HANDLE_VALUE)
                     {
@@ -379,42 +384,13 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
 
     if (attrs == 0xFFFFFFFF)
     {
-        if (fileNameLen > MAX_PATH - 1)
-        {
-            // Name too long -- offer Skip / Skip All / Cancel
-            int ret;
-            if (silentMask != NULL && (*silentMask & (isDir ? SILENT_SKIP_DIR_CREATE : SILENT_SKIP_FILE_CREATE)) && allowSkip)
-                ret = DIALOG_SKIP;
-            else
-            {
-                // ERROR: filename+error, buttons skip/skip all/cancel
-                ret = DialogError(hParent, allowSkip ? BUTTONS_SKIPCANCEL : BUTTONS_OK, fileName, ::GetErrorText(ERROR_FILENAME_EXCED_RANGE),
-                                  LoadStr(isDir ? IDS_ERRORCREATINGDIR : IDS_ERRORCREATINGFILE));
-            }
-            switch (ret)
-            {
-            case DIALOG_SKIPALL:
-                if (silentMask != NULL)
-                    *silentMask |= (isDir ? SILENT_SKIP_DIR_CREATE : SILENT_SKIP_FILE_CREATE);
-                // no break here
-            case DIALOG_SKIP:
-            {
-                if (skipped != NULL)
-                    *skipped = TRUE;
-                if (isDir && skipPath != NULL)
-                    lstrcpyn(skipPath, fileName, skipPathMax); // the user wants to retrieve the skipped path
-            }
-            }
-            return INVALID_HANDLE_VALUE;
-        }
-
-        char namecopy[MAX_PATH];
-        strcpy(namecopy, fileName);
+        CPathBuffer namecopy;  // Heap-allocated for long path support
+        lstrcpyn(namecopy, fileName, namecopy.Size());
         // if it is a file, obtain the directory name
         if (!isDir)
         {
             char* ptr = strrchr(namecopy, '\\');
-            // is there a path that we could create?
+            // does a path exist that we could create?
             if (ptr == NULL)
                 goto CREATE_FILE;
             // if so, keep only the path
@@ -422,7 +398,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
             // does the path already exist?
             while (1)
             {
-                attrs = SalGetFileAttributes(namecopy);
+                attrs = GetFileAttributesW(AnsiToWide(namecopy).c_str());
                 if (attrs != 0xFFFFFFFF)
                 {
                     // yes - proceed to create the file
@@ -461,7 +437,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
             }
         }
         // create the directory path
-        char root[MAX_PATH];
+        CPathBuffer root;  // Heap-allocated for long path support
         GetRootPath(root, namecopy);
         // if the directory is the root directory, there is a problem
         if (strlen(namecopy) <= strlen(root))
@@ -488,8 +464,8 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
             return INVALID_HANDLE_VALUE;
         }
         char* ptr;
-        char namecpy2[MAX_PATH];
-        strcpy(namecpy2, namecopy);
+        CPathBuffer namecpy2;  // Heap-allocated for long path support
+        lstrcpyn(namecpy2, namecopy, namecpy2.Size());
         // find the first existing directory
         while (1)
         {
@@ -523,7 +499,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
                 break;
             while (1)
             {
-                attrs = SalGetFileAttributes(namecpy2);
+                attrs = GetFileAttributesW(AnsiToWide(namecpy2).c_str());
                 if (attrs != 0xFFFFFFFF)
                 {
                     // do we have a directory or a file?
@@ -572,7 +548,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
             *++ptr = '\\';
             *++ptr = '\0';
         }
-        // add another backslash
+        // add another one
         const char* src = namecopy + strlen(namecpy2);
         while (*src == '\\')
             src++;
@@ -588,7 +564,7 @@ CSalamanderSafeFile::SafeFileCreate(const char* fileName,
             namecpy2[len += (int)(slash - src)] = '\0';
             if (namecpy2[len - 1] <= ' ' || namecpy2[len - 1] == '.')
                 invalidPath = TRUE; // spaces and dots at the end of the directory name being created are undesirable
-            while (invalidPath || !CreateDirectory(namecpy2, NULL))
+            while (invalidPath || !SalLPCreateDirectory(namecpy2, NULL))
             {
                 // failed to create the directory, display an error
                 int ret;
@@ -637,14 +613,14 @@ CREATE_FILE:
                                              CREATE_ALWAYS, dwFlagsAndAttributes, NULL))) == INVALID_HANDLE_VALUE)
         {
             DWORD err = GetLastError();
-            // handles the situation where a file needs to be overwritten on Samba:
-            // the file has permissions 440+another_owner and is in a directory where the current user can write
-            // (it can be deleted, but it cannot be overwritten directly because it cannot be opened for writing;
-            //  workaround: delete the file and create it again)
-            // (on Samba, deletion of read-only files can be allowed, which makes it possible to delete
-            //  a read-only file; otherwise it cannot be deleted because Windows cannot delete a read-only
-            //  file, and the "read-only" attribute cannot be cleared because the current user is not the owner)
-            if (DeleteFile(fileName)) // if it is read-only, it can be deleted only on Samba with "delete readonly" enabled
+            // handles the situation when a file needs to be overwritten on Samba:
+            // the file has permissions 440+different_owner and is in a directory where the current user can write to
+            // (it can be deleted, but not overwritten directly (cannot be opened for writing) - we work around it:
+            //  delete and create the file again)
+            // (on Samba it is possible to allow deleting read-only files, which allows deleting a read-only file,
+            //  otherwise it cannot be deleted because Windows cannot delete a read-only file and at the same time
+            //  the "read-only" attribute cannot be cleared on that file because the current user is not the owner)
+            if (gFileSystem->DeleteFile(AnsiToWide(fileName).c_str()).success) // if it is read-only, it can be deleted only on Samba with "delete readonly" allowed
             {                         // add the handle to HANDLES at the end only if the SAFE_FILE structure is being filled
                 hFile = NOHANDLES(CreateFile(fileName, dwDesiredAccess, dwShareMode, NULL,
                                              CREATE_ALWAYS, dwFlagsAndAttributes, NULL));
@@ -745,8 +721,8 @@ CREATE_FILE:
                 SetEndOfFile(hFile);
 
                 CloseHandle(hFile);
-                ClearReadOnlyAttr(fileName); // in case it ended up read-only so we can handle it
-                DeleteFile(fileName);
+                ClearReadOnlyAttrW(AnsiToWide(fileName).c_str()); // in case it ended up read-only so we can handle it
+                gFileSystem->DeleteFile(AnsiToWide(fileName).c_str());
 
                 allocateWholeFile = NULL; // next time we will no longer try to preallocate
                 goto CREATE_FILE;
@@ -757,7 +733,7 @@ CREATE_FILE:
     // return the result - if we got this far, we return success
     if (isDir)
         return (void*)1; // for a directory, just return anything other than INVALID_HANDLE_VALUE
-    if (file != NULL)    // initialize the SAFE_FILE structure
+    if (file != NULL)    // our task is to initialize the SAFE_FILE structure
     {
         file->FileName = DupStr(fileName);
         if (file->FileName == NULL)
@@ -889,7 +865,7 @@ BOOL CSalamanderSafeFile::SafeFileRead(SAFE_FILE* file, LPVOID lpBuffer,
     long currentSeekHi = 0;
     DWORD currentSeekLo = SetFilePointer(file->HFile, 0, &currentSeekHi, FILE_CURRENT);
     if (currentSeekLo == 0xFFFFFFFF && GetLastError() != NO_ERROR)
-        goto READ_ERROR; // Failed to set the offset, try again
+        goto READ_ERROR; // cannot set the offset, try again
 
     while (TRUE)
     {
@@ -947,7 +923,7 @@ BOOL CSalamanderSafeFile::SafeFileRead(SAFE_FILE* file, LPVOID lpBuffer,
                     HANDLES(CloseHandle(file->HFile)); // close the invalid handle because we could not read from it anyway
                 }
 
-                file->HFile = HANDLES_Q(CreateFile(file->FileName, file->dwDesiredAccess, file->dwShareMode, NULL,
+                file->HFile = HANDLES_Q(CreateFileW(AnsiToWide(file->FileName).c_str(), file->dwDesiredAccess, file->dwShareMode, NULL,
                                                    file->dwCreationDisposition, file->dwFlagsAndAttributes, NULL));
                 if (file->HFile != INVALID_HANDLE_VALUE) // opened; now set the offset
                 {
@@ -999,7 +975,7 @@ BOOL CSalamanderSafeFile::SafeFileWrite(SAFE_FILE* file, LPVOID lpBuffer,
     long currentSeekHi = 0;
     DWORD currentSeekLo = SetFilePointer(file->HFile, 0, &currentSeekHi, FILE_CURRENT);
     if (currentSeekLo == 0xFFFFFFFF && GetLastError() != NO_ERROR)
-        goto WRITE_ERROR; // cannot set the offset; retry
+        goto WRITE_ERROR; // cannot set the offset, try again
 
     while (TRUE)
     {
@@ -1031,7 +1007,7 @@ BOOL CSalamanderSafeFile::SafeFileWrite(SAFE_FILE* file, LPVOID lpBuffer,
                     HANDLES(CloseHandle(file->HFile)); // close the invalid handle because we could not read from it anyway
                 }
 
-                file->HFile = HANDLES_Q(CreateFile(file->FileName, file->dwDesiredAccess, file->dwShareMode, NULL,
+                file->HFile = HANDLES_Q(CreateFileW(AnsiToWide(file->FileName).c_str(), file->dwDesiredAccess, file->dwShareMode, NULL,
                                                    file->dwCreationDisposition, file->dwFlagsAndAttributes, NULL));
                 if (file->HFile != INVALID_HANDLE_VALUE) // opened; now set the offset
                 {
@@ -1040,7 +1016,7 @@ BOOL CSalamanderSafeFile::SafeFileWrite(SAFE_FILE* file, LPVOID lpBuffer,
                     LONG hi = currentSeekHi;
                     lo = SetFilePointer(file->HFile, lo, &hi, FILE_BEGIN);
                     if (lo == 0xFFFFFFFF && GetLastError() != NO_ERROR)
-                        goto WRITE_ERROR; // could not set the offset; try again
+                        goto WRITE_ERROR; // cannot set the offset, try again
                     if (lo != (long)currentSeekLo || hi != currentSeekHi)
                     {
                         SetLastError(ERROR_SEEK_ON_DEVICE);

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -28,13 +28,13 @@ public:
     CShrinkImage();
     ~CShrinkImage();
 
-    // Allocates internal data for shrinking and returns TRUE on success.
-    // Returns FALSE if the allocation fails.
+    // allocates internal data for shrinking and returns TRUE on success
+    // returns FALSE if the allocations fail
     BOOL Alloc(DWORD origWidth, DWORD origHeight,
                WORD newWidth, WORD newHeight,
                DWORD* outBuff, BOOL processTopDown);
 
-    // Destroys allocated buffers and reinitializes member variables.
+    // destroys allocated buffers and initializes variables
     void Destroy();
 
     void ProcessRows(DWORD* inBuff, DWORD rowCount);
@@ -54,61 +54,60 @@ protected:
 class CSalamanderThumbnailMaker : public CSalamanderThumbnailMakerAbstract
 {
 protected:
-    CFilesWindow* Window; // Panel window whose icon reader we operate within.
+    CFilesWindow* Window; // panel window in whose icon-reader we operate
 
-    DWORD* Buffer;  // Dedicated buffer for image rows supplied by the plugin.
-    int BufferSize; // Size of the 'Buffer' buffer.
-    BOOL Error;     // If TRUE, an error occurred while processing the thumbnail, so the result is unusable.
-    int NextLine;   // Index of the next row to process.
+    DWORD* Buffer;  // private buffer for row data from the plugin
+    int BufferSize; // size of 'Buffer'
+    BOOL Error;     // if TRUE, an error occurred while processing the thumbnail (result not usable)
+    int NextLine;   // index of the next processed row
 
-    DWORD* ThumbnailBuffer;    // Buffer that holds the reduced image.
-    DWORD* AuxTransformBuffer; // Auxiliary buffer of the same size as ThumbnailBuffer.
-                               // Used to hand off data during transformations; afterwards the buffers swap roles.
-    int ThumbnailMaxWidth;     // Maximum theoretical thumbnail width (in points).
-    int ThumbnailMaxHeight;    // Maximum theoretical thumbnail height (in points).
-    int ThumbnailRealWidth;    // Actual width of the reduced image (in points).
-    int ThumbnailRealHeight;   // Actual height of the reduced image (in points).
+    DWORD* ThumbnailBuffer;    // downsized image
+    DWORD* AuxTransformBuffer; // helper buffer the same size as ThumbnailBuffer (used to move data during transform + buffers are swapped after transform)
+    int ThumbnailMaxWidth;     // maximum theoretical thumbnail dimensions (in pixels)
+    int ThumbnailMaxHeight;
+    int ThumbnailRealWidth;  // actual dimensions of the downsized image (in pixels)
+    int ThumbnailRealHeight; //
 
-    // Parameters of the image being processed.
+    // parameters of the processed image
     int OriginalWidth;
     int OriginalHeight;
     DWORD PictureFlags;
     BOOL ProcessTopDown;
 
-    CShrinkImage Shrinker; // Handles image shrinking.
+    CShrinkImage Shrinker; // handles image shrinking
     BOOL ShrinkImage;
 
 public:
     CSalamanderThumbnailMaker(CFilesWindow* window);
     ~CSalamanderThumbnailMaker();
 
-    // Cleans up the object—call before processing another thumbnail or
-    // whenever the object no longer needs one (finished or not).
-    // The 'thumbnailMaxSize' parameter specifies the maximum thumbnail width
-    // and height in points; if it equals -1, the limit is ignored.
+    // clears the object - called before processing the next thumbnail or when
+    // the thumbnail from this object is no longer needed (ready or not)
+    // parameter 'thumbnailMaxSize' specifies the maximum possible width and height
+    // of the thumbnail in pixels; if it is -1, it is ignored
     void Clear(int thumbnailMaxSize = -1);
 
-    // Returns TRUE if the complete thumbnail is already available in this object
-    // (successfully obtained from the plugin).
+    // returns TRUE if a complete thumbnail is ready in this object (it was obtained
+    // from the plugin)
     BOOL ThumbnailReady();
 
-    // Performs thumbnail transformations according to PictureFlags.
-    // SSTHUMB_MIRROR_VERT is already handled; SSTHUMB_MIRROR_HOR and SSTHUMB_ROTATE_90CW remain.
+    // performs thumbnail transform according to PictureFlags (SSTHUMB_MIRROR_VERT is already done,
+    // SSTHUMB_MIRROR_HOR and SSTHUMB_ROTATE_90CW remain)
     void TransformThumbnail();
 
-    // Converts the finished thumbnail to a DDB and stores its dimensions and raw data in 'data'.
+    // converts finished thumbnail to a DDB and stores its dimensions and raw data in 'data'
     BOOL RenderToThumbnailData(CThumbnailData* data);
 
-    // If the full thumbnail was not created and no error occurred (see 'Error'),
-    // fill the remainder of the thumbnail with white so undefined parts do not
-    // show leftovers from the previous thumbnail. If fewer than three rows
-    // were produced, leave it empty (the thumbnail would be useless anyway).
+    // if the whole thumbnail was not created and no error occurred (see 'Error'), fills
+    // the rest of the thumbnail with white (so the undefined part does not show
+    // leftovers of the previous thumbnail); if not even three thumbnail rows were created,
+    // nothing is filled (the thumbnail would be useless anyway)
     void HandleIncompleteImages();
 
     BOOL IsOnlyPreview() { return (PictureFlags & SSTHUMB_ONLY_PREVIEW) != 0; }
 
     // *********************************************************************************
-    // Methods of the CSalamanderThumbnailMakerAbstract interface.
+    // methods of the CSalamanderThumbnailMakerAbstract interface
     // *********************************************************************************
 
     virtual BOOL WINAPI SetParameters(int picWidth, int picHeight, DWORD flags);

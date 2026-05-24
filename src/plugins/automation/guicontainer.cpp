@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -248,7 +249,7 @@ HRESULT CSalamanderGuiContainerBase::ContainerPutMember(
         }
         else
         {
-            // Setting a non-existent member to NULL is a no-op.
+            // Setting non-existent member to NULL is no-op.
             _ASSERT(pComponent == NULL);
         }
 
@@ -281,7 +282,7 @@ HRESULT CSalamanderGuiContainerBase::ContainerPutMember(
 
     if (FAILED(hr))
     {
-        // Not a component.
+        // It's not a component.
 
         if (pComponent)
         {

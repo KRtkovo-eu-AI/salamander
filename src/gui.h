@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -8,18 +8,18 @@
 //
 // CProgressBar
 //
-// The class is always allocated (CObjectOrigin origin = ooAllocated)
+// Class is always allocated (CObjectOrigin origin = ooAllocated)
 
 class CProgressBar : public CWindow
 {
 public:
-    // hDlg is the parent window (dialog or window)
-    // ctrlID is the child window ID
+    // hDlg is parent window (dialog or window)
+    // ctrlID is child window ID
     CProgressBar(HWND hDlg, int ctrlID);
     ~CProgressBar();
 
-    // SetProgress can be called from any thread; internally it posts WM_USER_SETPROGRESS
-    // the thread progress bars themselves must, however, be running
+    // SetProgress can be called from any thread, internally sends WM_USER_SETPROGRESS
+    // progress bar thread must run
     void SetProgress(DWORD progress, const char* text = NULL);
     void SetProgress2(const CQuadWord& progressCurrent, const CQuadWord& progressTotal,
                       const char* text = NULL);
@@ -39,58 +39,60 @@ protected:
     int Width, Height;
     DWORD Progress;
     CBitmap* Bitmap;     // bitmap for memDC -> paint cache
-    int BarX;            // X coordinate of the rectangle for unknown progress (for Progress == -1)
-    BOOL MoveBarRight;   // is the rectangle moving to the right?
-    DWORD SelfMoveTime;  // 0: after calling SetProgress(-1), the rectangle moves by only one step (0 is the default value)
-                         // >0: time in [ms] for which it continues moving after SetProgress(-1) is called
-    DWORD SelfMoveTicks; // stored GetTickCount() value from the last call to SetSelfMoveTime()
-    DWORD SelfMoveSpeed; // rectangle movement speed: the value is in [ms] and specifies after what time the rectangle moves
-                         // the minimum is 10 ms, the default value is 50 ms, i.e. 20 moves per second
-                         // beware of low values, the animation itself can then noticeably load the CPU
-    BOOL TimerIsRunning; // is the timer running?
-    char* Text;          // if not NULL, it is displayed instead of the number
-    HFONT HFont;         // font for the progress bar
+    int BarX;            // X coordinate of rectangle for unknown progress (for Progress==-1)
+    BOOL MoveBarRight;   // is rectangle moving right?
+    DWORD SelfMoveTime;  // 0: after calling SetProgress(-1) the rectangle moves only one increment (0 is default value)
+                         // more than 0: time in [ms], how long we will continue to move after calling SetProgress(-1)
+    DWORD SelfMoveTicks; // stored value of GetTickCount() during the last call to SetSelfMoveTime()
+    DWORD SelfMoveSpeed; // speed of rectangle movement: value is in [ms] and indicates the time between rectangle movements
+                         // minimum is 10ms, default value is 50ms -- so 20 movements per second
+                         // be careful with low values, animation can noticeably load the processor
+    BOOL TimerIsRunning; // is timer running?
+    std::string Text;   // if not empty, will be displayed instead of number
+    HFONT HFont;         // font for progress bar
 };
 
 //****************************************************************************
 //
 // CStaticText
 //
-// The class is always allocated (CObjectOrigin origin = ooAllocated)
+// Class is always allocated (CObjectOrigin origin = ooAllocated)
 
 class CStaticText : public CWindow
 {
 public:
-    // hDlg is the parent window (dialog or window)
-    // ctrlID is the child window ID
+    // hDlg is parent window (dialog or window)
+    // ctrlID is child window ID
     // flags is a combination of values from the STF_* family (shared\spl_gui.h)
     CStaticText(HWND hDlg, int ctrlID, DWORD flags);
     ~CStaticText();
 
-    // sets Text; returns TRUE on success and FALSE if memory is insufficient
+    // sets Text, returns TRUE on success and FALSE on memory shortage
     BOOL SetText(const char* text);
+    BOOL SetTextW(const wchar_t* text);
 
-    // note: the returned Text may be NULL
+    // warning, returned Text may be NULL
     const char* GetText() { return Text; }
 
-    // sets Text (if it starts or ends with a space, it is wrapped in double quotes),
-    // returns TRUE on success and FALSE if memory is insufficient
+    // sets Text (if it starts or ends with a space, puts it in double quotes),
+    // returns TRUE on success and FALSE on memory shortage
     BOOL SetTextToDblQuotesIfNeeded(const char* text);
+    BOOL SetTextToDblQuotesIfNeededW(const wchar_t* text);
 
-    // some filesystems may use a different path-component separator
-    // it must be different from '\0'
+    // on some filesystems there can be a different path separator
+    // must be different from '\0';
     void SetPathSeparator(char separator);
 
-    // assigns the text that will be shown as the tooltip
+    // assigns text that will be displayed as tooltip
     BOOL SetToolTipText(const char* text);
 
-    // assigns the window and ID to which WM_USER_TTGETTEXT is sent when the tooltip is shown
+    // assigns window and id that will receive WM_USER_TTGETTEXT when tooltip is displayed
     void SetToolTip(HWND hNotifyWindow, DWORD id);
 
-    // if set to TRUE, the tooltip can be triggered by clicking the text or
-    // pressing Up/Down/Space when the control has focus
-    // the tooltip is then shown just below the text and remains visible
-    // by default it is set to FALSE
+    // if set to TRUE, tooltip can be invoked by clicking on text or
+    // pressing Up/Down/Space keys, if control has focus
+    // tooltip will then be displayed just below the text and remain displayed
+    // implicitly set to FALSE
     void EnableHintToolTip(BOOL enable);
 
     //    void UpdateControl();
@@ -101,37 +103,48 @@ protected:
     void PrepareForPaint();
 
     BOOL TextHitTest(POINT* screenCursorPos);
-    int GetTextXOffset(); // returns the X text offset based on Alignment, Width, and TextWidth
+    int GetTextXOffset(); // based on Alignment, Width and TextWidth variables returns X text offset
     void DrawFocus(HDC hDC);
 
     BOOL ToolTipAssigned();
 
     BOOL ShowHint();
 
-    DWORD Flags;         // flags controlling the control behavior
+    DWORD Flags;         // flags for control behavior
     char* Text;          // allocated text
+    std::wstring TextW;  // wide text source when Unicode rendering is needed
     int TextLen;         // string length
-    char* Text2;         // allocated text containing the ellipsis; used only with STF_END_ELLIPSIS or STF_PATH_ELLIPSIS
-    int Text2Len;        // length of Text2
+    char* Text2;         // allocated text containing ellipsis; used only with STF_END_ELLIPSIS or STF_PATH_ELLIPSIS
+    std::wstring Text2W; // wide ellipsized text for Unicode rendering
+    int Text2Len;        // Text2 length
     int* AlpDX;          // array of substring lengths; used only with STF_END_ELLIPSIS or STF_PATH_ELLIPSIS
-    int TextWidth;       // text width in pixels
-    int TextHeight;      // text height in pixels
-    int Allocated;       // size of the allocated buffer for 'Text' and 'AlpDX'
-    int Width, Height;   // dimensions of the static control
-    CBitmap* Bitmap;     // drawing cache; used only with STF_CACHED_PAINT
-    HFONT HFont;         // font handle used for drawing the text
-    BOOL DestroyFont;    // if HFont is allocated, it is TRUE; otherwise it is FALSE
-    BOOL ClipDraw;       // drawing must be clipped because it would go outside otherwise
-    BOOL Text2Draw;      // the buffer containing the ellipsis will be drawn
+    int AlpDXAllocated;  // AlpDX capacity, in ints. Tracked separately from
+                         // Allocated (which is ANSI byte capacity of Text)
+                         // because SetTextW sizes AlpDX by wide codepoint count
+                         // — under DBCS code pages or when wide-then-ANSI calls
+                         // interleave, Allocated and AlpDX capacity diverge.
+                         // GetTextExtentExPointW writes TextLen ints into AlpDX,
+                         // so this must be >= TextLen whenever ellipsis flags
+                         // are set.
+    int TextWidth;       // text width in points
+    int TextHeight;      // text height in points
+    int Allocated;       // size of allocated buffer 'Text' (ANSI bytes)
+    BOOL UseWideText;    // render using TextW/Text2W instead of ANSI buffers
+    int Width, Height;   // static dimensions
+    CBitmap* Bitmap;     // cache for drawing; used only with STF_CACHED_PAINT
+    HFONT HFont;         // font handle used for text drawing
+    BOOL DestroyFont;    // if HFont is allocated, is TRUE, otherwise is FALSE
+    BOOL ClipDraw;       // need to clip drawing, otherwise we would go out of bounds
+    BOOL Text2Draw;      // we will draw from buffer containing ellipsis
     int Alignment;       // 0=left, 1=center, 2=right
-    char PathSeparator;  // path-component separator; '\\' by default
-    BOOL MouseIsTracked; // we enabled mouse-leave tracking
+    char PathSeparator;  // path separator; implicitly '\\'
+    BOOL MouseIsTracked; // we installed mouse leave tracking
     // tooltip support
-    char* ToolTipText; // string that will be shown as our tooltip
+    std::string ToolTipText; // string that will be displayed as our tooltip
     HWND HToolTipNW;   // notification window
-    DWORD ToolTipID;   // and the ID under which the tooltip should ask for the text
-    BOOL HintMode;     // should the tooltip be shown as a Hint?
-    WORD UIState;      // accelerator display state
+    DWORD ToolTipID;   // and ID under which tool tip should ask for text
+    BOOL HintMode;     // should we display tooltip as Hint?
+    WORD UIState;      // display of accelerators
 };
 
 //****************************************************************************
@@ -142,8 +155,8 @@ protected:
 class CHyperLink : public CStaticText
 {
 public:
-    // hDlg is the parent window (dialog or window)
-    // ctrlID is the child window ID
+    // hDlg is parent window (dialog or window)
+    // ctrlID is child window ID
     // flags is a combination of values from the STF_* family (shared\spl_gui.h)
     CHyperLink(HWND hDlg, int ctrlID, DWORD flags = STF_UNDERLINE | STF_HYPERLINK_COLOR);
 
@@ -157,8 +170,8 @@ protected:
     BOOL ExecuteIt();
 
 protected:
-    char File[MAX_PATH]; // if not zero, it is passed to ShellExecute
-    WORD Command;        // if not zero, it is posted on action
+    CPathBuffer File; // if different from 0, passed to ShellExecute
+    WORD Command;        // if different from 0, posted on action
     HWND HDialog;        // parent dialog
 };
 
@@ -166,7 +179,7 @@ protected:
 //
 // CColorRectangle
 //
-// paints the entire object area with Color
+// renders the entire area of the object with Color
 // combine with WS_EX_CLIENTEDGE
 //
 
@@ -233,23 +246,23 @@ protected:
     BOOL Space;
     RECT ClientRect;
     // tooltip support
-    BOOL MouseIsTracked;  // we enabled mouse-leave tracking
-    char* ToolTipText;    // string that will be shown as our tooltip
+    BOOL MouseIsTracked;  // we installed mouse leave tracking
+    std::string ToolTipText;  // string that will be displayed as our tooltip
     HWND HToolTipNW;      // notification window
-    DWORD ToolTipID;      // and the ID under which the tooltip should ask for the text
-    DWORD DropDownUpTime; // time in [ms] when the drop-down was released, to guard against a new press
+    DWORD ToolTipID;      // and ID under which tool tip should ask for text
+    DWORD DropDownUpTime; // time in [ms], when drop down was released, to protect against new pressing
     // XP Theme support
     BOOL Hot;
-    WORD UIState; // accelerator display state
+    WORD UIState; // display of accelerators
 
 public:
     CButton(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin origin = ooAllocated);
     ~CButton();
 
-    // assigns the text that will be shown as the tooltip
+    // assigns text that will be displayed as tooltip
     BOOL SetToolTipText(const char* text);
 
-    // assigns the window and ID to which WM_USER_TTGETTEXT is sent when the tooltip is shown
+    // assigns window and id that will receive WM_USER_TTGETTEXT when tooltip is displayed
     void SetToolTip(HWND hNotifyWindow, DWORD id);
 
     DWORD GetFlags();
@@ -260,7 +273,7 @@ protected:
 
     virtual void PaintFace(HDC hdc, const RECT* rect, BOOL enabled);
 
-    int HitTest(LPARAM lParam); // returns 0: nowhere; 1: button; 2: drop-down
+    int HitTest(LPARAM lParam); // returns 0: nowhere; 1: button; 2: drop down
     void PaintFrame(HDC hDC, const RECT* r, BOOL down);
     void PaintDrop(HDC hDC, const RECT* r, BOOL enabled);
     int GetDropPartWidth();
@@ -275,7 +288,7 @@ protected:
 //
 // CColorArrowButton
 //
-// background with text followed by an arrow; used to expand the menu
+// background with text, followed by an arrow - used for menu expansion
 //
 
 class CColorArrowButton : public CButton
@@ -321,9 +334,9 @@ protected:
     HIMAGELIST HHotImageList;
     HIMAGELIST HGrayImageList;
 #endif
-    DWORD ButtonMask;   // buttons in use
-    HWND HNotifyWindow; // where commands are sent
-    WORD UIState;       // accelerator display state
+    DWORD ButtonMask;   // used buttons
+    HWND HNotifyWindow; // where I send commands
+    WORD UIState;       // display of accelerators
 
 public:
     CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD buttonMask);
@@ -351,50 +364,50 @@ protected:
 class CAnimate: public CWindow
 {
   protected:
-    HBITMAP          HBitmap;             // bitmap from which we take the individual animation frames
-    int              FramesCount;         // number of frames in the bitmap
-    int              FirstLoopFrame;      // when looping, we jump from the end back to this frame
-    SIZE             FrameSize;           // frame size in pixels
-    CRITICAL_SECTION GDICriticalSection;  // critical section for access to GDI resources
+    HBITMAP          HBitmap;             // bitmap from which we take individual animation frames
+    int              FramesCount;         // number of frames in bitmap
+    int              FirstLoopFrame;      // if we are looping, from the end we transition to this frame
+    SIZE             FrameSize;           // frame size in points
+    CRITICAL_SECTION GDICriticalSection;  // critical section for GDI resource access
     CRITICAL_SECTION DataCriticalSection; // critical section for data access
     HANDLE           HThread;
-    HANDLE           HRunEvent;           // if signed, the animation thread is running
-    HANDLE           HTerminateEvent;     // if signed, the thread terminates
+    HANDLE           HRunEvent;           // if set, animation thread is running
+    HANDLE           HTerminateEvent;     // if set, thread terminates
     COLORREF         BkColor;
 
-    // control variables used when HRunEvent is signed
-    BOOL             SleepThread;         // the thread should sleep, HRunEvent will be reset
+    // control variables, come into play when HRunEvent is set
+    BOOL             SleepThread;         // thread should sleep, HRunEvent will be reset
 
-    int              CurrentFrame;        // zero-based index of the currently displayed frame
+    int              CurrentFrame;        // zero-based index of currently displayed frame
     int              NestedCount;
-    BOOL             MouseIsTracked;      // we enabled mouse-leave tracking
+    BOOL             MouseIsTracked;      // we installed mouse leave tracking
 
   public:
-    // 'hBitmap'          is the bitmap from which we draw the frames during animation;
-    //                    the frames must be stacked vertically and must have constant height
-    // 'framesCount'      specifies the total number of frames in the bitmap
-    // 'firstLoopFrame'   zero-based frame index to which we return after reaching
-    //                    the end during cyclic animation
+    // 'hBitmap'          is the bitmap from which we draw frames during animation;
+    //                    frames must be below each other and must have constant height
+    // 'framesCount'      gives the total number of frames in the bitmap
+    // 'firstLoopFrame'   zero-based index of the frame where we return during looping
+    //                    animation after reaching the end
     CAnimate(HBITMAP hBitmap, int framesCount, int firstLoopFrame, COLORREF bkColor, CObjectOrigin origin = ooAllocated);
     BOOL IsGood();                // did the constructor complete successfully?
 
-    void Start();                 // if not animating, start it
-    void Stop();                  // stops the animation and shows the initial frame
-    void GetFrameSize(SIZE *sz);  // returns the size in pixels needed to display a frame
+    void Start();                 // if we are not animating, we start
+    void Stop();                  // stops animation and displays the first frame
+    void GetFrameSize(SIZE *sz);  // returns the size in points needed to display a frame
 
   protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-    void Paint(HDC hdc = NULL);   // displays the current frame; if hdc is NULL, obtain the window DC
-    void FirstFrame();            // sets Frame to the initial frame
-    void NextFrame();             // sets Frame to the next frame; skip the initial sequence
+    void Paint(HDC hdc = NULL);   // display current frame; if hdc is NULL, get window DC
+    void FirstFrame();            // set Frame to first frame
+    void NextFrame();             // set Frame to next frame; skip first sequence
 
-    // thread bodies
+    // thread body
     static unsigned ThreadF(void *param);
     static unsigned AuxThreadEH(void *param);
     static DWORD WINAPI AuxThreadF(void *param);
 
-    // ThreadF is a friend so it can access our data
+    // ThreadF will be friend, to be able to access our data
     friend static unsigned ThreadF(void *param);
 };
 */
@@ -417,52 +430,51 @@ BOOL ChangeToIconButton(HWND hParent, int ctrlID, int iconID);
 //  ****************************************************************************
 // VerticalAlignChildToChild
 //
-// used to align the "browse" button next to an edit line / combo box
-// (in Resource Workshop it is hard to place the button correctly next to a combo box)
-// adjusts the size and position of child window 'alignID' so that it sits at the same height
-// (and has the same height) as child 'toID'
+// used to align "browse" button after editline / combobox (in resource workshop there is a problem to hit the button after combobox)
+// modifies size and position of child window 'alignID' so that it fits at the same height (and is the same high) as child 'toID'
 void VerticalAlignChildToChild(HWND hParent, int alignID, int toID);
 
 //
 //  ****************************************************************************
 // CondenseStaticTexts
 //
-// moves static texts so that they follow each other closely; the distance between them
-// will equal the width of a space in the dialog font; 'staticsArr' is an array of static IDs terminated by zero
+// condenses static texts so that they will follow closely - the distance between them will be
+// the width of dialog font space; 'staticsArr' is an array of static IDs ending with zero
 void CondenseStaticTexts(HWND hWindow, int* staticsArr);
 
 //
 //  ****************************************************************************
 // ArrangeHorizontalLines
 //
-// finds horizontal lines and extends them from the right up to the text they follow
-// it also finds checkboxes and radio buttons that serve as groupbox labels and shortens
-// them according to their text and the current dialog font (eliminating unnecessary
-// gaps caused by different display DPI settings)
+// finds horizontal lines and pushes them from the right to the text they follow
+// also finds checkboxes and radioboxes that form labels for groupboxes and shortens
+// them according to their text and current font in the dialog (eliminates unnecessary
+// spaces created due to different screen DPI)
 void ArrangeHorizontalLines(HWND hWindow);
 
 //
 //  ****************************************************************************
 // GetWindowFontHeight
 //
-// gets the current font for hWindow and returns its height
+// for hWindow gets the current font and returns its height
 int GetWindowFontHeight(HWND hWindow);
 
 //
 //  ****************************************************************************
-// GetWindowFontHeight
+// CreateCheckboxImagelist
 //
-// creates an imagelist containing the two checkbox states (unchecked and checked)
-// and returns its handle; 'itemSize' is the width and height of one item in pixels
+// creates an imagelist containing two states of checkbox (unchecked and checked)
+// and returns its handle; 'itemSize' is the width and height of one item in points
 HIMAGELIST CreateCheckboxImagelist(int itemSize);
 
 //
 //  ****************************************************************************
 // SalLoadIcon
 //
-// loads the icon specified by 'hInst' and 'iconName' and returns its handle, or NULL on error;
-// 'iconSize' specifies the requested icon size; the function is High DPI ready
+// loads the icon specified by 'hInst' and 'iconName', returns its handle or NULL in case of
+// error; 'iconSize' specifies the desired size of the icon; function is High DPI ready
+// and returns its handle; 'itemSize' is the width and height of one item in points
 //
-// Note: the old LoadIcon() API cannot handle larger icon sizes, so we introduce this
-// function, which loads icons using the newer LoadIconWithScaleDown()
+// Note: old API LoadIcon() cannot handle larger icons, so we introduce this
+// function, which reads icons using the new LoadIconWithScaleDown()
 HICON SalLoadIcon(HINSTANCE hInst, LPCTSTR iconName, CIconSizeEnum iconSize);

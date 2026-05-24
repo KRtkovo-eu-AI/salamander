@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -509,7 +510,7 @@ UINT_PTR CALLBACK SaveAsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPar
         psai->Compression = GetItemData(hDlg, IDC_SAVE_COMPRESSION);
         psai->Flags = 0;
         psai->Flip = psai->Flags |= GetItemData(hDlg, IDC_SAVE_FLIP);
-        // Note: must remain ^= to annihilate double flip flags
+        // Note: must remain ^= to anihilate double flip flags
         psai->Flags ^= psai->Rotation = GetItemData(hDlg, IDC_SAVE_ROTATION);
         psai->Colors = GetItemData(hDlg, IDC_SAVE_BIT_DEPTH);
         if (IsDlgButtonChecked(hDlg, IDC_SAVE_INVERT))
@@ -574,7 +575,7 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
     static SAVEAS_INFO sai = {PVCS_DEFAULT, 0, 0, 0, 0, 0, ""};
     SAVEAS_INFO lsai;
     TCHAR errBuff[1000];
-    TCHAR fileName[MAX_PATH];
+    CPathBuffer fileName;
     LPTSTR s;
     int* pCnt = NULL;
     struct
@@ -589,7 +590,7 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
     } ofn;
     int ret;
     DWORD format;
-    TCHAR initDir[MAX_PATH] = _T("");
+    CPathBuffer initDir;
 
     if (((pvii.Format == PVF_ICO) || (pvii.Format == PVF_PNG) || (pvii.Format == PVF_TGA) || (pvii.Format == PVF_TIFF) || (pvii.Format == PVF_ANI) || (pvii.Format == PVF_PSD)) && (pvii.Colors == PV_COLOR_TC32))
     {
@@ -623,17 +624,17 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
     lsai = sai;
     if (pInitDir)
     {
-        lstrcpyn(initDir, pInitDir, SizeOf(initDir));
+        lstrcpyn(initDir, pInitDir, initDir.Size());
     }
     else
     {
         if (FileName[0] == '<')
         {
-            lstrcpyn(initDir, G.Save.InitDir, SizeOf(initDir));
+            lstrcpyn(initDir, G.Save.InitDir, initDir.Size());
         }
         else
         {
-            lstrcpyn(initDir, FileName, SizeOf(initDir));
+            lstrcpyn(initDir, FileName, initDir.Size());
             if (!SalamanderGeneral->CutDirectory(initDir))
                 initDir[0] = 0;
         }
@@ -708,7 +709,7 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
     if (ofn.ofn.nFilterIndex > filtersDoubledCount / 2)
         ofn.ofn.nFilterIndex = filtersDoubledCount / 2;
     ofn.ofn.lpstrFile = fileName;
-    ofn.ofn.nMaxFile = SizeOf(fileName);
+    ofn.ofn.nMaxFile = fileName.Size();
     ofn.ofn.lpstrInitialDir = initDir;
     ofn.ofn.lpfnHook = SaveAsDlgProc;
     ofn.ofn.lpTemplateName = MAKEINTRESOURCE(IDD_SAVEEX);
@@ -804,7 +805,7 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
                     // yes, it does -> make it lower-case like extension
                     _tcslwr(fileName + ofn.ofn.nFileOffset);
                 }
-                if ((ext - fileName) + strlen(s) < _countof(fileName))
+                if ((ext - fileName) + strlen(s) < (size_t)fileName.Size())
                     _tcscat(ext, s); // append the default suffix
                 else
                 {
@@ -820,7 +821,7 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
         if (hFile != INVALID_HANDLE_VALUE)
         {
             CloseHandle(hFile);
-            _stprintf(errBuff, LoadStr(IDS_SAVE_ERR_EXISTS_OVERWRITE), fileName);
+            _stprintf(errBuff, LoadStr(IDS_SAVE_ERR_EXISTS_OVERWRITE), (const char*)fileName);
             ret = SalamanderGeneral->SalMessageBox(HWindow, errBuff,
                                                    LoadStr(IDS_ERRORTITLE), MB_ICONEXCLAMATION | MB_YESNOCANCEL);
             if (ret == IDCANCEL)
@@ -849,7 +850,7 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
                 if ((ret != 0xFFFFFFFF) && (ret & FILE_ATTRIBUTE_READONLY))
                 {
                     // R/O attrib
-                    _stprintf(errBuff, LoadStr(IDS_READ_ONLY_REWRITE), fileName);
+                    _stprintf(errBuff, LoadStr(IDS_READ_ONLY_REWRITE), (const char*)fileName);
                     ret = SalamanderGeneral->SalMessageBox(HWindow, errBuff,
                                                            LoadStr(IDS_ERRORTITLE), MB_ICONEXCLAMATION | MB_YESNOCANCEL);
                     if (ret == IDCANCEL)
@@ -886,8 +887,8 @@ BOOL CRendererWindow::OnFileSaveAs(LPCTSTR pInitDir)
     ret = SaveImage(fileName, format, &lsai);
 
     // report the change on the path (our file has appeared)
-    TCHAR changedPath[MAX_PATH];
-    lstrcpyn(changedPath, fileName, MAX_PATH);
+    CPathBuffer changedPath;
+    lstrcpyn(changedPath, fileName, changedPath.Size());
     SalamanderGeneral->CutDirectory(changedPath);
     SalamanderGeneral->PostChangeOnPathNotification(changedPath, FALSE);
 
@@ -1030,10 +1031,10 @@ int CRendererWindow::SaveImage(LPCTSTR fileName, DWORD format, SAVEAS_INFO_PTR p
     pbi.pViewer = Viewer;
     pbi.lastCheckTicks = pbi.lastUpdateTicks = GetTickCount();
 #ifdef _UNICODE
-    char fileNameA[_MAX_PATH];
+    CPathBuffer fileNameA;
 
-    WideCharToMultiByte(CP_ACP, 0, fileName, -1, fileNameA, sizeof(fileNameA), NULL, NULL);
-    fileNameA[sizeof(fileNameA) - 1] = 0;
+    WideCharToMultiByte(CP_ACP, 0, fileName, -1, fileNameA, fileNameA.Size(), NULL, NULL);
+    fileNameA[fileNameA.Size() - 1] = 0;
     int saveRet = PVW32DLL.PVSaveImage(PVHandle, fileNameA, &sii, SaveProgressProcedure, &pbi, pvii.CurrentImage);
 #else
     int saveRet = PVW32DLL.PVSaveImage(PVHandle, fileName, &sii, SaveProgressProcedure, &pbi, pvii.CurrentImage);

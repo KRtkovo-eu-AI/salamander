@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -63,7 +64,7 @@ public:
             if (sizeof(CChar) > 1)
                 CalcMappingIfNeeded(hdc, lpString, cbCount);
             const CChar* s = lpString;
-            if (cbCount >= BufferSize) // Reallocate the buffer if needed
+            if (cbCount >= BufferSize) // realloc buffer if needed
             {
                 size_t newSize = __max(cbCount + 1, BufferSize * 2);
                 CChar* buf = (CChar*)realloc(Buffer, newSize * sizeof(CChar));

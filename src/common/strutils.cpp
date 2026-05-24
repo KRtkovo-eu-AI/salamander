@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -33,23 +33,23 @@ int ConvertU2A(const WCHAR* src, int srcLen, char* buf, int bufSize, BOOL compos
     int res = WideCharToMultiByte(codepage, compositeCheck ? WC_COMPOSITECHECK : 0, src, srcLen, buf, bufSize, NULL, NULL);
     if (srcLen != -1 && res > 0)
         res++;
-    if (compositeCheck && res == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) // some code pages do not support WC_COMPOSITECHECK
+    if (compositeCheck && res == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) // some codepages don't support WC_COMPOSITECHECK
     {
         res = WideCharToMultiByte(codepage, 0, src, srcLen, buf, bufSize, NULL, NULL);
         if (srcLen != -1 && res > 0)
             res++;
     }
     if (res > 0 && res <= bufSize)
-        buf[res - 1] = 0; // success, null-terminate the string
+        buf[res - 1] = 0; // success, terminate string with null
     else
     {
         if (res > bufSize || res == 0 && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
         {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            buf[bufSize - 1] = 0; // buffer too small: return an error, but leave the partially converted string in the buffer
+            buf[bufSize - 1] = 0; // small buffer, return error, but leave partially translated string in buffer
         }
         else
-            buf[0] = 0; // other error: ensure the buffer is empty
+            buf[0] = 0; // other error, ensure empty buffer
         res = 0;
     }
     return res;
@@ -86,7 +86,7 @@ char* ConvertAllocU2A(const WCHAR* src, int srcLen, BOOL compositeCheck, UINT co
     int len = WideCharToMultiByte(codepage, flags = (compositeCheck ? WC_COMPOSITECHECK : 0), src, srcLen, NULL, 0, NULL, NULL);
     if (srcLen != -1 && len > 0)
         len++;
-    if (compositeCheck && len == 0) // some code pages do not support WC_COMPOSITECHECK
+    if (compositeCheck && len == 0) // some codepages don't support WC_COMPOSITECHECK
     {
         len = WideCharToMultiByte(codepage, flags = 0, src, srcLen, NULL, 0, NULL, NULL);
         if (srcLen != -1 && len > 0)
@@ -105,7 +105,7 @@ char* ConvertAllocU2A(const WCHAR* src, int srcLen, BOOL compositeCheck, UINT co
         if (srcLen != -1 && res > 0)
             res++;
         if (res > 0 && res <= len)
-            txt[res - 1] = 0; // success, null-terminate the string
+            txt[res - 1] = 0; // success, terminate string with null
         else
         {
             DWORD err = GetLastError();
@@ -143,16 +143,16 @@ int ConvertA2U(const char* src, int srcLen, WCHAR* buf, int bufSizeInChars, UINT
     if (srcLen != -1 && res > 0)
         res++;
     if (res > 0 && res <= bufSizeInChars)
-        buf[res - 1] = 0; // success, null-terminate the string
+        buf[res - 1] = 0; // success, terminate string with null
     else
     {
         if (res > bufSizeInChars || res == 0 && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
         {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            buf[bufSizeInChars - 1] = 0; // buffer too small: return an error, but leave the partially converted string in the buffer
+            buf[bufSizeInChars - 1] = 0; // small buffer, return error, but leave partially translated string in buffer
         }
         else
-            buf[0] = 0; // other error: ensure the buffer is empty
+            buf[0] = 0; // other error, ensure empty buffer
         res = 0;
     }
     return res;
@@ -201,7 +201,7 @@ WCHAR* ConvertAllocA2U(const char* src, int srcLen, UINT codepage)
         if (srcLen != -1 && res > 0)
             res++;
         if (res > 0 && res <= len)
-            txt[res - 1] = 0; // success, null-terminate the string
+            txt[res - 1] = 0; // success, terminate string with null
         else
         {
             DWORD err = GetLastError();
@@ -291,7 +291,7 @@ LPTSTR FindString( // Return value: pointer to matched substring of text, or nul
   res = ConvertU2A(s1 = L"ahoj", 4, buf, 4, TRUE);
   res = ConvertU2A(s1 = L"ahoj", 4, buf, 3, TRUE);
   res = ConvertU2A(s1 = L"D:\\\x0061\x0308", -1, buf, 10, TRUE);  // L"D:\\\x00e4"
-  res = ConvertU2A(s2 = L"D:\\\x00e1", -1, buf, 4);
+  res = ConvertU2A(s2 = L"D:\\á", -1, buf, 4);
   res = ConvertU2A(s1 = L"D:\\\xfb01-\x0061\x0308-\x00e4.txt", -1, buf, 10, TRUE);
   res = ConvertU2A(s2 = L"fi", -1, buf, 4);
 
@@ -302,21 +302,21 @@ LPTSTR FindString( // Return value: pointer to matched substring of text, or nul
   f = FindString(LOCALE_USER_DEFAULT, 0, s1, -1, L"a", -1, &fLen);  // DOES NOT WORK !!!
   WCHAR *ss = wcsstr(s1, L"\x00e4");
 / *  
-Read X:\ZUMPA\!\unicode\ch05.pdf - what should Unicode searching actually look like?
+Read X:\ZUMPA\!\unicode\ch05.pdf - what should that Unicode search look like anyway ???
 
-Move this elsewhere, then verify and debug it later:
+Move somewhere + check and debug later:
 Some time ago I implemented a FindString function which in most cases takes only O(n) time (around 1.5*n CompareString
 calls most of which return immediately). In the end I didn't use it because I wasn't sure whether the relevant statement
 in the CompareString documentation can be relied on in a strict sense: "If the two strings are of different lengths,
 they are compared up to the length of the shortest one. If they are equal to that point, then the return value will
 indicate that the longer string is greater." More specifically, the function fails for TCHAR strings that are lexically
-before any of their substrings (from the beginning). For example, when looking for the precomposed U+00E1 form, the function will not
-find the U+0061 U+0301 representation if it sorts before U+0061 in the specified locale. In other
-words: The function assumes that CompareString(lcid, flags, string, m, string, n) never returns CSTR_GREATER_THAN if
+before any of their substrings (from the beginning). For example, when looking for "á" = {U+00E1}, the function will not
+find the "a?" = {U+0061, U+0301} representation, if it sorts before "a" = {U+0061} in the specified locale. In other
+words: The function assumes that CompareString(lcid, flags, string, m, string, n never returns CSTR_GREATER_THAN if
 m <= n and the strings agree in the first m TCHARs.
 
-It might be useful to use the "StringInfo Class", which can split a string
-into display characters (a sequence of WCHARs corresponding to one displayed character).
+It might be useful to use "StringInfo Class", which can break down a string
+into displayable characters (WCHAR sequences corresponding to a single displayed character).
 
 * /
 
@@ -330,7 +330,7 @@ into display characters (a sequence of WCHARs corresponding to one displayed cha
 
   res = CompareString(LOCALE_USER_DEFAULT, 0, s1, -1, s2, -1);
 
-  res = ConvertA2U("sample CP1251 text", -1, wbuf, 10, 1251);
+  res = ConvertA2U("Âëŕäčěčđ", -1, wbuf, 10, 1251);
   res = ConvertA2U("ahoj", 0, wbuf, 10);
   res = ConvertA2U("ahoj", -1, wbuf, 5);
   res = ConvertA2U("ahoj", -1, wbuf, 4);
@@ -352,10 +352,10 @@ into display characters (a sequence of WCHARs corresponding to one displayed cha
     res = ConvertU2A(L"D:\\\xfb01-\x0061\x0308-\x00e4.txt", -1, TRUE);
 
     WCHAR *wres;
-    wres = ConvertA2U("sample CP1251 text", -1, 1251);
+    wres = ConvertA2U("Âëŕäčěčđ", -1, 1251);
     wres = ConvertA2U("", -1);
-    wres = ConvertA2U("hello with accents", 0);
-    wres = ConvertA2U("hello with accents", 2);
-    wres = ConvertA2U("hello with accents", -1);
+    wres = ConvertA2U("ahoj čěšťíňká", 0);
+    wres = ConvertA2U("ahoj čěšťíňká", 2);
+    wres = ConvertA2U("ahoj čěšťíňká", -1);
   }
 */

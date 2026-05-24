@@ -1,4 +1,4 @@
-/* BranchX86.h */
+﻿/* BranchX86.h */
 
 #ifndef __BRANCHX86_H
 #define __BRANCHX86_H

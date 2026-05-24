@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -132,7 +133,7 @@ MENU_TEMPLATE_ITEM PopupMenuTemplate[] =
 
 struct CButtonData
 {
-    int ImageIndex;                   // zero-based index
+    int ImageIndex;                   // zero base index
     WORD ToolTipResID;                // resource ID with the tooltip string
     WORD ID;                          // universal command
     CViewerWindowEnablerEnum Enabler; // control variable for enabling the button
@@ -171,7 +172,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         }
     }
 
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 //
@@ -304,7 +305,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "MMVIEWER");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -567,7 +568,7 @@ struct CTVData
     BOOL Success;
     HANDLE Continue;
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
-    int EnumFilesCurrentIndex; // index of the first file in the viewer in the source
+    int EnumFilesCurrentIndex; // index of the first file in the viewer within the source
 };
 
 unsigned WINAPI ViewerThreadBody(void* param)
@@ -641,10 +642,10 @@ unsigned WINAPI ViewerThreadBody(void* param)
     }
 
     CALL_STACK_MESSAGE1("ViewerThreadBody::SetEvent");
-    char name[MAX_PATH];
-    strcpy(name, data->Name);
+    CPathBuffer name; // Heap-allocated for long path support
+    lstrcpyn(name, data->Name, name.Size());
     BOOL openFile = data->Success;
-    SetEvent(data->Continue); // allow the main thread to continue; the data are invalid from this point on (=NULL)
+    SetEvent(data->Continue); // let the main thread continue, data are invalid from this point (=NULL)
     data = NULL;
 
     // if everything went smoothly, open the requested file in the window
@@ -957,9 +958,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HDWP hdwp = BeginDeferWindowPos(2);
             if (hdwp != NULL)
             {
-                // + 4: when increasing the window width, the last 4 pixels of the rebar were not redrawn
-                // in the rebar; even after several hours, the cause was not found; it works in Salamander;
-                // for now, this is handled this way; the root cause can be investigated later
+                // + 4: when increasing the window width the last 4 points of the rebar were not redrawn
+                // in the rebar; even after several hours I did not find the cause; it works in Salamander;
+                // for now I'm handling it like this; maybe I'll remember later where the problem is
                 hdwp = DeferWindowPos(hdwp, HRebar, NULL,
                                       0, 0, r.right + 4, rebarHeight,
                                       SWP_NOACTIVATE | SWP_NOZORDER);
@@ -1136,7 +1137,7 @@ void WINAPI MMVOperationFromDisk(const char* sourcePath, SalEnumSelection2 next,
 
     while ((name = next(data->Parent, 1, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != NULL)
     {
-        //if (errorOccured == SALENUM_ERROR); // SALENUM_CANCEL cannot occur here
+        //if (errorOccured == SALENUM_ERROR); // SALENUM_CANCEL cannot arrive here
         //  data->Success = FALSE; // Petr: I think skipped files do not block further processing (the user knows about them)
 
         if (!isDir)
@@ -1163,7 +1164,7 @@ void WINAPI MMVOperationFromDisk(const char* sourcePath, SalEnumSelection2 next,
         }
     }
 
-    if (errorOccured == SALENUM_CANCEL || // Petr: Skipped files should not prevent further processing (the user is aware of them), but if the user pressed Cancel, abort the operation
+    if (errorOccured == SALENUM_CANCEL || // Petr: I think skipped files do not block further processing (the user knows about them), but if the user pressed Cancel we abort the operation
         data->ProcessedFiles == 0)
     {
         data->Success = FALSE;
@@ -1181,7 +1182,7 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
     int ret = FALSE;
 
     COutput output;
-    char fname[MAX_PATH];
+    CPathBuffer fname; // Heap-allocated for long path support
     fname[0] = '\0';
     char* s = LoadStr(IDS_HTMLEXPFILTER);
     if (GetOpenFileName(parent, NULL, s, fname, LoadStr(IDS_HTMLEXT), TRUE))
@@ -1535,7 +1536,7 @@ BOOL GetOpenFileName(HWND parent, const char* title, char* filter, char* buffer,
     CALL_STACK_MESSAGE4("GetOpenFileName(, %s, %s, , %d)", title, filter, save);
     OPENFILENAME ofn;
 
-    char fileName[MAX_PATH];
+    CPathBuffer fileName; // Heap-allocated for long path support
 
     memset(&ofn, 0, sizeof(OPENFILENAME));
     ofn.lStructSize = sizeof(OPENFILENAME);
@@ -1557,7 +1558,7 @@ BOOL GetOpenFileName(HWND parent, const char* title, char* filter, char* buffer,
     else
         strcpy(fileName, buffer);
     ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = fileName.Size();
     ofn.lpstrTitle = title;
     ofn.lpstrDefExt = ext + 1;
     //ofn.lpfnHook = OFNHookProc;

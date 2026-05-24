@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -254,7 +255,7 @@ protected:
     int BytesPerLine;
     QWORD ViewOffset;
     QWORD SiblinkSize;
-    char Path[MAX_PATH];
+    CPathBuffer Path; // Heap-allocated for long path support
     BOOL PaintEnabled;
     int HScrollOffs;
     QWORD FocusedDiffOffset;

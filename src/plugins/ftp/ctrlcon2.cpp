@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -191,7 +192,7 @@ BOOL CDynString::Append(const char* str, int len)
             Buffer = newBuf;
             Allocated = size;
         }
-        else // insufficient memory
+        else // insufficient memory, tough luck...
         {
             TRACE_E(LOW_MEMORY);
             return FALSE;
@@ -258,7 +259,7 @@ void CControlConnectionSocket::CloseControlConnection(HWND parent)
         serverTimeout = 1000; // at least a second
     SetStartTime();
 
-    // Remember the focused window in 'parent' (store NULL if the focus is not within 'parent')
+    // Remember the focus from 'parent' (if the focus is not from 'parent', store NULL)
     HWND focusedWnd = GetFocus();
     HWND hwnd = focusedWnd;
     while (hwnd != NULL && hwnd != parent)
@@ -362,7 +363,7 @@ void CControlConnectionSocket::CloseControlConnection(HWND parent)
                     int replySize;
 
                     HANDLES(EnterCriticalSection(&SocketCritSect));
-                    while (ReadFTPReply(&reply, &replySize)) // while we have any server replies
+                    while (ReadFTPReply(&reply, &replySize)) // process responses from the server as long as we have any
                     {
                         Logs.LogMessage(logUID, reply, replySize);
 
@@ -411,7 +412,7 @@ void CControlConnectionSocket::CloseControlConnection(HWND parent)
 
     if (!socketClosed)
     {
-        CloseSocket(NULL); // close the socket (if it is open); the system will attempt a "graceful" shutdown (the result is unknown)
+        CloseSocket(NULL); // close the socket (if it is open); the system will attempt a "graceful" shutdown (we won't learn the result)
         Logs.SetIsConnected(logUID, IsConnected());
         Logs.RefreshListOfLogsInLogsDlg(); // show the "connection inactive" notification
     }
@@ -441,11 +442,11 @@ void CControlConnectionSocket::CheckCtrlConClose(BOOL notInPanel, BOOL leftPanel
         }
     }
     int logUID = LogUID;
-    char* auxConnectionLostMsg = ConnectionLostMsg;
+    std::string auxConnectionLostMsg = ConnectionLostMsg;
     HANDLES(LeaveCriticalSection(&EventCritSect));
 
-    if (found ||                      // the ccsevClosed event is still pending; the user still does not know that the connection is closed
-        auxConnectionLostMsg != NULL) // we cached the message captured when the connection closed (at that moment it only went into the log)
+    if (found ||                           // the ccsevClosed event is waiting for us�the user still does not know that the connection is closed
+        !auxConnectionLostMsg.empty()) // we cached the message captured when the connection closed (at that moment it only went into the log)
     {
         char errBuf[300];
         errBuf[0] = 0;
@@ -459,7 +460,7 @@ void CControlConnectionSocket::CheckCtrlConClose(BOOL notInPanel, BOOL leftPanel
             BOOL haveErr = FALSE;
 
             HANDLES(EnterCriticalSection(&SocketCritSect));
-            while (ReadFTPReply(&reply, &replySize, &replyCode)) // while we have a server response
+            while (ReadFTPReply(&reply, &replySize, &replyCode)) // process responses from the server as long as we have any
             {
                 Logs.LogMessage(logUID, reply, replySize, TRUE);
 
@@ -478,15 +479,14 @@ void CControlConnectionSocket::CheckCtrlConClose(BOOL notInPanel, BOOL leftPanel
 
             if (errBuf[0] == 0)
             {
-                if (auxConnectionLostMsg != NULL) // we cached the message captured when the connection closed (at that moment it only went into the log)
-                {                                 // show it again in a message box
+                if (!auxConnectionLostMsg.empty()) // we cached the message captured when the connection closed (at that moment it only went into the log)
+                {                                  // show it again in a message box
                     HANDLES(EnterCriticalSection(&SocketCritSect));
-                    if (ConnectionLostMsg != NULL)
-                        lstrcpyn(errBuf, ConnectionLostMsg, 300);
+                    if (!ConnectionLostMsg.empty())
+                        lstrcpyn(errBuf, ConnectionLostMsg.c_str(), 300);
                     else
                         errBuf[0] = 0;
-                    SalamanderGeneral->Free(ConnectionLostMsg); // no longer needed
-                    ConnectionLostMsg = NULL;
+                    ConnectionLostMsg.clear(); // it is no longer needed
                     HANDLES(LeaveCriticalSection(&SocketCritSect));
                 }
                 else
@@ -506,21 +506,18 @@ void CControlConnectionSocket::CheckCtrlConClose(BOOL notInPanel, BOOL leftPanel
         else // we cached the message captured when the connection closed (at that moment it only went into the log)
         {    // show it again in a message box
             HANDLES(EnterCriticalSection(&SocketCritSect));
-            if (ConnectionLostMsg != NULL)
-                lstrcpyn(errBuf, ConnectionLostMsg, 300);
+            if (!ConnectionLostMsg.empty())
+                lstrcpyn(errBuf, ConnectionLostMsg.c_str(), 300);
             else
                 errBuf[0] = 0;
-            SalamanderGeneral->Free(ConnectionLostMsg); // no longer needed
-            ConnectionLostMsg = NULL;
+            ConnectionLostMsg.clear(); // it is no longer needed
             HANDLES(LeaveCriticalSection(&SocketCritSect));
         }
 
         if (quiet)
         {
             HANDLES(EnterCriticalSection(&SocketCritSect));
-            if (ConnectionLostMsg != NULL)
-                SalamanderGeneral->Free(ConnectionLostMsg);
-            ConnectionLostMsg = SalamanderGeneral->DupStr(errBuf);
+            ConnectionLostMsg = errBuf;
             HANDLES(LeaveCriticalSection(&SocketCritSect));
         }
         else
@@ -572,8 +569,8 @@ BOOL CControlConnectionSocket::ReadFTPReply(char** reply, int* replySize, int* r
     CALL_STACK_MESSAGE1("CControlConnectionSocket::ReadFTPReply(, ,)");
 
 #ifdef _DEBUG
-    if (SocketCritSect.RecursionCount == 0 /* does not catch the situation where
-      another thread uses the section */
+    if (SocketCritSect.RecursionCount == 0 /* does not catch the situation when
+      the section is used by another thread */
     )
         TRACE_E("Incorrect call to CControlConnectionSocket::ReadFTPReply: not from section SocketCritSect!");
 #endif
@@ -586,8 +583,8 @@ void CControlConnectionSocket::SkipFTPReply(int replySize)
     CALL_STACK_MESSAGE2("CControlConnectionSocket::SkipFTPReply(%d)", replySize);
 
 #ifdef _DEBUG
-    if (SocketCritSect.RecursionCount == 0 /* does not catch the situation where
-      another thread uses the section */
+    if (SocketCritSect.RecursionCount == 0 /* does not catch the situation when
+      the section is used by another thread */
     )
         TRACE_E("Incorrect call to CControlConnectionSocket::SkipFTPReply: not from section SocketCritSect!");
 #endif
@@ -622,9 +619,9 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
     HANDLES(EnterCriticalSection(&SocketCritSect));
 
     BOOL ret = FALSE;
-    if (Socket != INVALID_SOCKET) // socket is connected
+    if (Socket != INVALID_SOCKET) // the socket is connected
     {
-        if (BytesToWriteCount == BytesToWriteOffset) // nothing is waiting to be sent; we can send
+        if (BytesToWriteCount == BytesToWriteOffset) // nothing is waiting to be sent, we can transmit
         {
             if (BytesToWriteCount != 0)
                 TRACE_E("Unexpected value of BytesToWriteCount.");
@@ -637,7 +634,7 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
                     // a command in the SendFTPCommand() method must be adjusted
 
                     int sentLen = send(Socket, buffer + len, bytesToWrite - len, 0);
-                    if (sentLen != SOCKET_ERROR) // at least some data was sent successfully (or rather accepted by Windows; delivery is uncertain)
+                    if (sentLen != SOCKET_ERROR) // at least something was sent successfully (or rather taken over by Windows; delivery is uncertain)
                     {
                         len += sentLen;
                         if (len >= bytesToWrite) // has everything been sent?
@@ -649,16 +646,16 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
                     else
                     {
                         DWORD err = WSAGetLastError();
-                        if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer has buffer space available)
+                        if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer have buffer space)
                         {
                             ret = TRUE;
                             break; // stop sending (the rest will be done after FD_WRITE)
                         }
-                        else // sending error
+                        else // send error
                         {
                             if (error != NULL)
                                 *error = err;
-                            break; // return an error
+                            break; // return the error
                         }
                     }
                 }
@@ -669,24 +666,24 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
                     // a command in the SendFTPCommand() method must be adjusted
 
                     int sentLen = SSLLib.SSL_write(SSLConn, buffer + len, bytesToWrite - len);
-                    if (sentLen >= 0) // at least some data was sent successfully (or rather accepted by Windows; delivery is uncertain)
+                    if (sentLen >= 0) // at least something was sent successfully (or rather taken over by Windows; delivery is uncertain)
                     {
                         len += sentLen;
                         if (len >= bytesToWrite) // has everything been sent?
                         {
                             ret = TRUE;
-                            break; // stop sending (nothing is left)
+                            break; // stop sending (there is nothing left)
                         }
                     }
                     else
                     {
                         DWORD err = SSLtoWS2Error(SSLLib.SSL_get_error(SSLConn, sentLen));
-                        if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer has buffer space)
+                        if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer have buffer space)
                         {
                             ret = TRUE;
                             break; // stop sending (the rest will be done after FD_WRITE)
                         }
-                        else // sending error
+                        else // send error
                         {
                             if (error != NULL)
                                 *error = err;
@@ -695,7 +692,7 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
                     }
                 }
 
-            if (ret) // send succeeded; 'len' holds the number of bytes sent (the rest will be sent after FD_WRITE)
+            if (ret) // successful send, 'len' holds the number of bytes sent (the rest is sent after FD_WRITE is received)
             {
                 if (allBytesWritten != NULL)
                     *allBytesWritten = (len >= bytesToWrite);
@@ -713,7 +710,7 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
                             BytesToWrite = newBuf;
                             BytesToWriteAllocatedSize = newSize;
                         }
-                        else // insufficient memory to store the data in our buffer (only TRACE reports the error)
+                        else // not enough memory to store data in our buffer (only TRACE reports the error)
                         {
                             TRACE_E(LOW_MEMORY);
                             ret = FALSE;
@@ -728,7 +725,7 @@ BOOL CControlConnectionSocket::Write(const char* buffer, int bytesToWrite, DWORD
                 }
             }
         }
-        else // not everything has been sent yet — incorrect use of Write
+        else // not everything has been sent yet � incorrect use of Write
         {
             TRACE_E("Incorrect use of CControlConnectionSocket::Write(): called again before waiting for ccsevWriteDone event.");
         }
@@ -805,7 +802,7 @@ BOOL CControlConnectionSocket::SendKeepAliveCmd(int logUID, const char* ftpCmd)
 void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
 {
     CALL_STACK_MESSAGE3("CControlConnectionSocket::ReceiveNetEvent(0x%IX, %d)", lParam, index);
-    DWORD eventError = WSAGETSELECTERROR(lParam); // extract the event error code
+    DWORD eventError = WSAGETSELECTERROR(lParam); // extract error code of event
     switch (WSAGETSELECTEVENT(lParam))            // extract event
     {
     case FD_CLOSE: // sometimes arrives before the final FD_READ; we must first try FD_READ and, if it succeeds, post FD_CLOSE again (another FD_READ may succeed before it)
@@ -825,19 +822,19 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
         BOOL genEvent = FALSE;
         if (eventError == NO_ERROR)
         {
-            if (Socket != INVALID_SOCKET) // socket is connected
+            if (Socket != INVALID_SOCKET) // the socket is connected
             {
                 BOOL lowMem = FALSE;
                 if (ReadBytesAllocatedSize - ReadBytesCount < CRTLCON_BYTESTOREADONSOCKET) // the 'ReadBytes' buffer is small
                 {
-                    if (ReadBytesOffset > 0) // can data be shifted within the buffer?
+                    if (ReadBytesOffset > 0) // is it possible to move data within the buffer?
                     {
                         memmove(ReadBytes, ReadBytes + ReadBytesOffset, ReadBytesCount - ReadBytesOffset);
                         ReadBytesCount -= ReadBytesOffset;
                         ReadBytesOffset = 0;
                     }
 
-                    if (ReadBytesAllocatedSize - ReadBytesCount < CRTLCON_BYTESTOREADONSOCKET) // the 'ReadBytes' buffer is still too small
+                    if (ReadBytesAllocatedSize - ReadBytesCount < CRTLCON_BYTESTOREADONSOCKET) // the 'ReadBytes' buffer is still small
                     {
                         int newSize = ReadBytesCount + CRTLCON_BYTESTOREADONSOCKET +
                                       CRTLCON_BYTESTOREADONSOCKETPREALLOC;
@@ -847,7 +844,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                             ReadBytes = newBuf;
                             ReadBytesAllocatedSize = newSize;
                         }
-                        else // insufficient memory to store the data in our buffer (only TRACE reports the error)
+                        else // not enough memory to store data in our buffer (only TRACE reports the error)
                         {
                             TRACE_E(LOW_MEMORY);
                             lowMem = TRUE;
@@ -865,7 +862,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                         {
                             if (len > 0)
                             {
-                                ReadBytesCount += len; // adjust the number of bytes read by the newly read bytes
+                                ReadBytesCount += len; // adjust the number of bytes read by the newly received ones
                                 ret = TRUE;
                                 genEvent = TRUE;
                                 if (WSAGETSELECTEVENT(lParam) == FD_CLOSE)
@@ -888,7 +885,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                         {
                             if (len > 0)
                             {
-                                ReadBytesCount += len; // increment the number of bytes read by the newly read bytes
+                                ReadBytesCount += len; // adjust the number of bytes read by the newly received ones
                                 ret = TRUE;
                                 genEvent = TRUE;
                                 if (WSAGETSELECTEVENT(lParam) == FD_CLOSE)
@@ -912,7 +909,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                 // do not generate an event for this unexpected error (solution: the user presses ESC)
             }
         }
-        else // FD_READ error report (according to the documentation, only WSAENETDOWN)
+        else // reporting an error in FD_READ (according to the help only WSAENETDOWN)
         {
             if (WSAGETSELECTEVENT(lParam) != FD_CLOSE) // let FD_CLOSE handle the error itself
             {
@@ -925,7 +922,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
             char* reply;
             int replySize;
             int replyCode;
-            while (ReadFTPReply(&reply, &replySize, &replyCode)) // while we have a server response
+            while (ReadFTPReply(&reply, &replySize, &replyCode)) // process responses from the server as long as we have any
             {
                 Logs.LogMessage(LogUID, reply, replySize);
                 BOOL run = TRUE;
@@ -988,7 +985,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                         if (kaDataConnection->FinishDataTransfer(replyCode))
                         { // release the data connection via the SocketsThread method call
                             HANDLES(EnterCriticalSection(&SocketCritSect));
-                            kaDataConnection = KeepAliveDataCon; // prevent double destruction (if the main thread is waiting for destruction, KeepAliveDataCon is already NULL here)
+                            kaDataConnection = KeepAliveDataCon; // prevent double destruction (if the main thread waits for destruction, it is already NULL)
                             KeepAliveDataCon = NULL;
                             KeepAliveDataConState = kadcsNone;
                             HANDLES(LeaveCriticalSection(&SocketCritSect));
@@ -1038,12 +1035,12 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
 
                     // consume extra messages from the server (e.g. WarFTPD generates them when LISTing an inaccessible directory)
                     HANDLES(EnterCriticalSection(&SocketCritSect));
-                    while (ReadFTPReply(&reply, &replySize, &replyCode)) // while we have a server response
+                    while (ReadFTPReply(&reply, &replySize, &replyCode)) // process responses from the server as long as we have any
                     {
                         Logs.LogMessage(LogUID, reply, replySize);
                         SkipFTPReply(replySize);
                     }
-                    break; // stop...
+                    break; // abort...
                 }
                 HANDLES(EnterCriticalSection(&SocketCritSect));
                 if (!run)
@@ -1087,7 +1084,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
         {
             if (BytesToWriteCount > BytesToWriteOffset) // we have remaining data, send the rest from the 'BytesToWrite' buffer
             {
-                if (Socket != INVALID_SOCKET) // socket is connected
+                if (Socket != INVALID_SOCKET) // the socket is connected
                 {
                     int len = 0;
                     if (!SSLConn)
@@ -1096,24 +1093,24 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                         {
                             int sentLen = send(Socket, BytesToWrite + BytesToWriteOffset + len,
                                                BytesToWriteCount - BytesToWriteOffset - len, 0);
-                            if (sentLen != SOCKET_ERROR) // at least some data was sent successfully (or rather accepted by Windows; delivery is uncertain)
+                            if (sentLen != SOCKET_ERROR) // at least something was sent successfully (or rather taken over by Windows; delivery is uncertain)
                             {
                                 len += sentLen;
                                 if (len >= BytesToWriteCount - BytesToWriteOffset) // has everything been sent?
                                 {
                                     ret = TRUE;
-                                    break; // stop sending (nothing left)
+                                    break; // stop sending (there is nothing left)
                                 }
                             }
                             else
                             {
                                 err = WSAGetLastError();
-                                if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer has buffer space)
+                                if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer have buffer space)
                                 {
                                     ret = TRUE;
                                     break; // stop sending (the rest will be done after FD_WRITE)
                                 }
-                                else // another error - reset the buffer
+                                else // different error - reset the buffer
                                 {
                                     BytesToWriteOffset = 0;
                                     BytesToWriteCount = 0;
@@ -1128,7 +1125,7 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                         {
                             int sentLen = SSLLib.SSL_write(SSLConn, BytesToWrite + BytesToWriteOffset + len,
                                                            BytesToWriteCount - BytesToWriteOffset - len);
-                            if (sentLen >= 0) // at least some data was sent successfully (or rather accepted by Windows; delivery is uncertain)
+                            if (sentLen >= 0) // at least something was sent successfully (or rather taken over by Windows; delivery is uncertain)
                             {
                                 len += sentLen;
                                 if (len >= BytesToWriteCount - BytesToWriteOffset) // has everything been sent?
@@ -1140,12 +1137,12 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                             else
                             {
                                 err = SSLtoWS2Error(SSLLib.SSL_get_error(SSLConn, sentLen));
-                                if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer has buffer space)
+                                if (err == WSAEWOULDBLOCK) // nothing else can be sent (Windows no longer have buffer space)
                                 {
                                     ret = TRUE;
                                     break; // stop sending (the rest will be done after FD_WRITE)
                                 }
-                                else // another error - reset the buffer
+                                else // different error - reset the buffer
                                 {
                                     BytesToWriteOffset = 0;
                                     BytesToWriteCount = 0;
@@ -1171,17 +1168,17 @@ void CControlConnectionSocket::ReceiveNetEvent(LPARAM lParam, int index)
                 {
                     // May occur: the main thread manages to call CloseSocket() before FD_WRITE is delivered
                     //TRACE_E("Unexpected situation in CControlConnectionSocket::ReceiveNetEvent(FD_WRITE): Socket is not connected.");
-                    BytesToWriteCount = 0; // error: reset the buffer
+                    BytesToWriteCount = 0; // error � reset the buffer
                     BytesToWriteOffset = 0;
                     // do not generate an event for this unexpected error (solution: the user presses ESC)
                 }
             }
         }
-        else // FD_WRITE error report (according to the documentation, only WSAENETDOWN)
+        else // reporting an error in FD_WRITE (according to the help only WSAENETDOWN)
         {
             genEvent = TRUE;
             err = eventError;
-            BytesToWriteCount = 0; // error — reset the buffer
+            BytesToWriteCount = 0; // error � reset the buffer
             BytesToWriteOffset = 0;
         }
         if (genEvent && (KeepAliveMode == kamProcessing || KeepAliveMode == kamWaitingForEndOfProcessing))
@@ -1219,7 +1216,7 @@ void CControlConnectionSocket::SocketWasClosed(DWORD error)
     AddEvent(ccsevClosed, error, 0);
 
     // Inform the user about the control connection closing if it does not happen
-    // during a socket operation (which would report a timeout or a "kick"
+    // during a socket operation (when the user would be told about a timeout or a "kick"
     // leading to disconnection from the FTP server)
     ClosedCtrlConChecker.Add(this);
 
@@ -1280,14 +1277,14 @@ void CClosedCtrlConChecker::Check(HWND parent)
     CmdNotPost = TRUE;
 
     int k;
-    for (k = 0; k < CtrlConSockets.Count; k++) // for all stored closed control connections (they may already be deallocated)
+    for (k = 0; k < CtrlConSockets.Count; k++) // for all stored closed control connections (may already be deallocated)
     {
         CControlConnectionSocket* ctrlCon = CtrlConSockets[k];
         int i;
-        for (i = 0; i < FTPConnections.Count; i++) // try to find an FS using 'ctrlCon' ('FS' may already be closed)
+        for (i = 0; i < FTPConnections.Count; i++) // try to find a FS using 'ctrlCon' (the FS may already be closed)
         {
             CPluginFSInterface* fs = FTPConnections[i];
-            if (fs->Contains(ctrlCon)) // found an FS with a closed control connection
+            if (fs->Contains(ctrlCon)) // found a FS with a closed control connection
             {
                 fs->CheckCtrlConClose(parent); // if the user has not been informed yet, notify them now
                 break;
@@ -1371,8 +1368,8 @@ public:
         CALL_STACK_MESSAGE1("CLogsDlgThread::Body()");
 
         // 'sendWMClose': the dialog sets this to TRUE when WM_CLOSE is received
-        // while a modal dialog is open over the log dialog; once that
-        // modal dialog closes, WM_CLOSE is sent to the log dialog again
+        // while a modal dialog is open above the logs dialog; once that
+        // modal dialog finishes, WM_CLOSE is sent to the logs dialog again
         BOOL sendWMClose = FALSE;
         LogsDlg->SendWMClose = &sendWMClose;
 
@@ -1386,12 +1383,12 @@ public:
         else
         {
             HWND dlg = LogsDlg->HWindow;
-            if (AlwaysOnTop) // handle always-on-top at least statically (it is not in the system menu)
+            if (AlwaysOnTop) // handle always-on-top at least "statically" (not in the system menu)
                 SetWindowPos(dlg, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
             SetForegroundWindow(dlg);
 
-            // Message loop – wait until the modeless dialog ends
+            // Message loop � wait until the modeless dialog ends
             MSG msg;
             while (GetMessage(&msg, NULL, 0, 0))
             {
@@ -1578,7 +1575,7 @@ void CLogs::SetLogToEdit(HWND edit, int logUID, BOOL update)
 void CLogs::ConfigChanged()
 {
     HANDLES(EnterCriticalSection(&LogCritSect));
-    if (!Config.EnableLogging) // clear the data
+    if (!Config.EnableLogging) // tear down the data
     {
         Data.DestroyMembers();
         if (!Data.IsGood())
@@ -1685,8 +1682,8 @@ void CLogs::LimitClosedConLogs()
             for (i = Data.Count - 1; i >= 0; i--)
             {
                 CLogData* d = Data[i];
-                if (d->CtrlCon == NULL && !d->WorkerIsAlive && // log for a closed connection (dead log)
-                    d->DisconnectNum < firstSurvival)          // this log is too old
+                if (d->CtrlCon == NULL && !d->WorkerIsAlive && // log of a closed connection (dead log)
+                    d->DisconnectNum < firstSurvival)          // it is an overly old log
                 {
                     Data.Delete(i);
                     if (!Data.IsGood())
@@ -1849,7 +1846,7 @@ BOOL CLogs::ActivateLogsDlg(int showLogUID)
             if (t != NULL)
             {
                 if ((LogsThread = t->Create(AuxThreadQueue)) == NULL)
-                { // thread did not start, error
+                { // the thread did not start, error
                     delete t;
                     delete LogsDlg;
                     LogsDlg = NULL;
@@ -1911,11 +1908,11 @@ void CLogs::RefreshListOfLogsInLogsDlg()
 
 void CLogs::SaveLog(HWND parent, const char* itemName, int uid)
 { // itemName == NULL - "save all as..."
-    static char initDir[MAX_PATH] = "";
-    if (initDir[0] == 0)
+    static CPathBuffer initDir;
+    if (*initDir == 0)
         GetMyDocumentsPath(initDir);
-    char fileName[MAX_PATH];
-    strcpy(fileName, "ftp.log");
+    CPathBuffer fileName; // Heap-allocated for long path support
+    lstrcpyn(fileName, "ftp.log", fileName.Size());
 
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -1930,7 +1927,7 @@ void CLogs::SaveLog(HWND parent, const char* itemName, int uid)
         s++;
     }
     ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = fileName.Size();
     ofn.lpstrInitialDir = initDir;
     ofn.lpstrDefExt = "log";
     ofn.nFilterIndex = 1;
@@ -1938,16 +1935,16 @@ void CLogs::SaveLog(HWND parent, const char* itemName, int uid)
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT |
                 OFN_NOTESTFILECREATE | OFN_HIDEREADONLY;
 
-    char buf[200 + MAX_PATH];
+    CPathBuffer buf;
     if (SalamanderGeneral->SafeGetSaveFileName(&ofn))
     {
         HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-        s = strrchr(fileName, '\\');
+        s = strrchr(fileName.Get(), '\\');
         if (s != NULL)
         {
-            memcpy(initDir, fileName, s - fileName);
-            initDir[s - fileName] = 0;
+            memcpy(initDir, fileName.Get(), s - fileName.Get());
+            initDir[s - fileName.Get()] = 0;
         }
 
         if (SalamanderGeneral->SalGetFileAttributes(fileName) != 0xFFFFFFFF) // so that a read-only file can be overwritten
@@ -1983,7 +1980,7 @@ void CLogs::SaveLog(HWND parent, const char* itemName, int uid)
                     }
 
                     if (uid != -1)
-                        break; // writing only one log, stop
+                        break; // writing only one log, stop here
 
                     if (i + 1 < Data.Count) // write a separator
                     {
@@ -2003,7 +2000,7 @@ void CLogs::SaveLog(HWND parent, const char* itemName, int uid)
 
             HANDLES(CloseHandle(file));
             SetCursor(oldCur);
-            if (err != NO_ERROR) // display the error
+            if (err != NO_ERROR) // report the error
             {
                 sprintf(buf, LoadStr(IDS_SAVELOGERROR), SalamanderGeneral->GetErrorText(err));
                 SalamanderGeneral->SalMessageBox(parent, buf, LoadStr(IDS_FTPERRORTITLE),

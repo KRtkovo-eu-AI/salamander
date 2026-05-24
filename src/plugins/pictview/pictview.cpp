@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -444,7 +445,7 @@ const char* WINAPI GetExtText(int msgID)
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-    if (fdwReason == DLL_PROCESS_ATTACH) // start PictView.spl
+    if (fdwReason == DLL_PROCESS_ATTACH) // start PictView.dll
     {
         DLLInstance = hinstDLL;
     }
@@ -707,7 +708,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
             {
                 G.Save.RememberPath = TRUE; // compatible with previous version of PictView
             }
-            if (!registry->GetValue(hSaveKey, CONFIG_SAVE_INIT_DIR, REG_SZ, G.Save.InitDir, MAX_PATH))
+            if (!registry->GetValue(hSaveKey, CONFIG_SAVE_INIT_DIR, REG_SZ, G.Save.InitDir, SizeOf(G.Save.InitDir)))
             {
                 G.Save.InitDir[0] = 0;
             }
@@ -1226,8 +1227,8 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     case CMD_INTERNAL_FOCUS:
     {
-        TCHAR focusPath[MAX_PATH];
-        lstrcpyn(focusPath, Focus_Path, SizeOf(focusPath));
+        CPathBuffer focusPath;
+        lstrcpyn(focusPath, Focus_Path, focusPath.Size());
         Focus_Path[0] = 0;
         if (focusPath[0] != 0) // only if we were lucky (we did not hit the start of Salamander's BUSY mode)
         {
@@ -1243,14 +1244,14 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     case CMD_INTERNAL_SAVEAS:
     {
-        TCHAR panelPath[MAX_PATH];
+        CPathBuffer panelPath;
         HWND hWindow = ghSaveAsWindow;
 
         ghSaveAsWindow = NULL;
 
-        if (!SalamanderGeneral->GetLastWindowsPanelPath(PANEL_SOURCE, panelPath, SizeOf(panelPath)))
+        if (!SalamanderGeneral->GetLastWindowsPanelPath(PANEL_SOURCE, panelPath, panelPath.Size()))
         {
-            if (!SalamanderGeneral->GetLastWindowsPanelPath(PANEL_TARGET, panelPath, SizeOf(panelPath)))
+            if (!SalamanderGeneral->GetLastWindowsPanelPath(PANEL_TARGET, panelPath, panelPath.Size()))
             {
                 // Failure -> use the stored directory
                 panelPath[0] = 0;
@@ -1358,9 +1359,9 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 BOOL LoadPictViewDll(HWND hParentWnd)
 {
-    TCHAR path[_MAX_PATH];
+    CPathBuffer path;
 
-    if (!GetModuleFileName(DLLInstance, path, SizeOf(path)))
+    if (!GetModuleFileName(DLLInstance, path, path.Size()))
     {
         TRACE_E("GetModuleFileName failed");
         return FALSE;
@@ -1507,18 +1508,18 @@ BOOL InitEXIF(HWND hParent, BOOL bSilent)
     if (EXIFLibrary != NULL)
         return TRUE;
 
-    TCHAR path[MAX_PATH];
+    CPathBuffer path;
     EXIFINITTRANSLATIONS initTransl;
 
-    GetModuleFileName(DLLInstance, path, SizeOf(path));
+    GetModuleFileName(DLLInstance, path, path.Size());
     _tcscpy((LPTSTR)_tcsrchr(path, '\\') + 1, _T("exif.dll"));
     EXIFLibrary = LoadLibrary(path); // load EXIF.DLL
     if (EXIFLibrary == NULL)
     {
         if (!bSilent)
         {
-            TCHAR errText[2 * MAX_PATH];
-            _stprintf(errText, LoadStr(IDS_LOADEXIF), path);
+            TCHAR errText[32768];
+            _stprintf(errText, LoadStr(IDS_LOADEXIF), (const char*)path);
             SalamanderGeneral->SalMessageBox(hParent, errText, LoadStr(IDS_PLUGINNAME),
                                              MB_ICONEXCLAMATION | MB_OK);
         }
@@ -1594,7 +1595,7 @@ void ReleaseViewer()
 class CViewerThread : public CThread
 {
 protected:
-    TCHAR Name[MAX_PATH];
+    TCHAR Name[32768];
     int Left, Top, Width, Height;
     UINT ShowCmd;
     BOOL AlwaysOnTop;
@@ -1615,7 +1616,7 @@ public:
                   BOOL* success, int enumFilesSourceUID,
                   int enumFilesCurrentIndex) : CThread(PLUGIN_NAME_EN)
     {
-        lstrcpyn(Name, name, MAX_PATH);
+        lstrcpyn(Name, name, SizeOf(Name));
         Left = left;
         Top = top;
         Width = width;
@@ -1639,7 +1640,7 @@ public:
 /*
 unsigned WINAPI ViewerThreadBody(void *param)
 {
-  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.dll %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
   SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
   TRACE_I("Begin");
   RECT    r;
@@ -1691,11 +1692,11 @@ unsigned WINAPI ViewerThreadBody(void *param)
   }
 
   CALL_STACK_MESSAGE1("ViewerThreadBody::SetEvent");
-  char name[MAX_PATH];
+  CPathBuffer name; // Heap-allocated for long path support
   BOOL openFile = data->Success;
   int  ShowCmd = data->ShowCmd;
 
-  strcpy(name, data->Name);
+  lstrcpyn(name, data->Name, name.Size());
   SetEvent(data->Continue);    // let the main thread continue; from this point the data are invalid (=NULL)
   data = NULL;
 
@@ -1758,7 +1759,7 @@ unsigned __stdcall ViewerThread(void *param)
 unsigned
 CViewerThread::Body()
 {
-    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.dll %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
     SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
     TRACE_I("Begin");
 
@@ -2002,10 +2003,10 @@ BOOL CPluginInterfaceForViewer::CanViewFile(LPCTSTR name)
         memset(&oiei, 0, sizeof(oiei));
         oiei.cbSize = sizeof(oiei);
 #ifdef _UNICODE
-        char nameA[_MAX_PATH];
+        CPathBuffer nameA;
 
-        WideCharToMultiByte(CP_ACP, 0, name, -1, nameA, sizeof(nameA), NULL, NULL);
-        nameA[sizeof(nameA) - 1] = 0;
+        WideCharToMultiByte(CP_ACP, 0, name, -1, nameA, nameA.Size(), NULL, NULL);
+        nameA[nameA.Size() - 1] = 0;
         oiei.FileName = nameA;
 #else
         oiei.FileName = name;
@@ -2282,7 +2283,7 @@ void CViewerWindow::UpdateEnablers()
         IsWindowVisible(HWindow) && (Renderer.FileName == NULL || *Renderer.FileName != '<' || _tcscmp(Renderer.FileName, pDeletedTitle) == 0))
     {
         BOOL srcBusy, noMoreFiles;
-        TCHAR fileName[MAX_PATH] = _T("");
+        CPathBuffer fileName;
         LPCTSTR openedFileName = Renderer.FileName;
 
         if (Renderer.FileName != NULL && _tcscmp(Renderer.FileName, pDeletedTitle) == 0)
@@ -2490,7 +2491,7 @@ void FillMenuHistory(CGUIMenuPopupAbstract* popup, int cmdFirst, BOOL filesHisto
     }
     else
     {
-        TCHAR buff[MAX_PATH + 3];
+        TCHAR buff[32768 + 3];
         mi.String = buff;
         int index = 0;
         while (history[index] != NULL && index < historySize)
@@ -2729,7 +2730,7 @@ void CViewerWindow::ToggleFullScreen()
         {
             // This is an ugly patch, maybe not needed for W2K+:
             // If the window already covers entire monitor area (although not in maximized state),
-            // the second (originally the only) SetWindowPos in fact would not do anything.
+            // the second (originallly the only) SetWindowPos in fact would not do anything.
             // As a result, the renderer would not get resized, window frame would stay and
             // the window title and rebar/menu area would display rubbish
             SetWindowPos(HWindow, HWND_TOPMOST, maxRect.left, maxRect.top,

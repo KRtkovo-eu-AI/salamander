@@ -1,12 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// The __DEBUG_WINLIB macro enables several checks for subtle WinLib bugs
+// macro __DEBUG_WINLIB enables several tests for tricky WinLib errors
 
-// WinLib string constants (for internal WinLib use only)
+// constants for WinLib strings (internal use only in WinLib)
 enum CWLS
 {
     WLS_INVALID_NUMBER,
@@ -15,26 +15,26 @@ enum CWLS
     WLS_COUNT
 };
 
-// Set custom strings used by WinLib
-void SetWinLibStrings(const TCHAR* invalidNumber, // "not a number" (for numeric transfer buffers)
-                      const TCHAR* error);        // title "error" (for numeric transfer buffers)
+// set custom text to WinLib
+void SetWinLibStrings(const TCHAR* invalidNumber, // "not a number" (for number transfer buffer)
+                      const TCHAR* error);        // title "error" (for number transfer buffer)
 
 extern HINSTANCE HInstance;
-extern const TCHAR* CWINDOW_CLASSNAME;  // universal window class name
-extern const TCHAR* CWINDOW_CLASSNAME2; // universal window class name - no CS_VREDRAW | CS_HREDRAW
+extern const TCHAR* CWINDOW_CLASSNAME;  // name of universal window class
+extern const TCHAR* CWINDOW_CLASSNAME2; // name of universal window class - does not have CS_VREDRAW | CS_HREDRAW
 
 #ifndef _UNICODE
-extern const WCHAR* CWINDOW_CLASSNAMEW;  // Unicode universal window class name
-extern const WCHAR* CWINDOW_CLASSNAME2W; // Unicode universal window class name - no CS_VREDRAW | CS_HREDRAW
+extern const WCHAR* CWINDOW_CLASSNAMEW;  // name of Unicode universal window class
+extern const WCHAR* CWINDOW_CLASSNAME2W; // name of Unicode universal window class - does not have CS_VREDRAW | CS_HREDRAW
 #endif                                   // _UNICODE
 
 class CWinLibHelp;
 
-// Must be called before WinLib is used
+// must be called before using WinLib
 BOOL InitializeWinLib();
-// Must be called after WinLib is no longer used
+// must be called after using WinLib
 void ReleaseWinLib();
-// Must be called before help is used
+// must be called before using help
 BOOL SetupWinLibHelp(CWinLibHelp* winLibHelp);
 
 class CWinLibHelp
@@ -47,16 +47,16 @@ public:
 
 // ****************************************************************************
 
-enum CObjectOrigin // used when destroying windows and dialogs
+enum CObjectOrigin // used during window and dialog destruction
 {
-    ooAllocated, // deallocated on WM_DESTROY
-    ooStatic,    // HWindow is set to NULL on WM_DESTROY
-    ooStandard   // for modal dialogs = ooStatic, for modeless dialogs = ooAllocated
+    ooAllocated, // will be deallocated on WM_DESTROY
+    ooStatic,    // HWindow will be set to NULL on WM_DESTROY
+    ooStandard   // for modal dlg = ooStatic, for non-modal dlg = ooAllocated
 };
 
 // ****************************************************************************
 
-enum CObjectType // for object type identification
+enum CObjectType // for recognizing object type
 {
     otBase,
     otWindow,
@@ -67,7 +67,7 @@ enum CObjectType // for object type identification
 
 // ****************************************************************************
 
-class CWindowsObject // base class for all Windows objects
+class CWindowsObject // base class of all MS-Windows objects
 {
 public:
     HWND HWindow;
@@ -103,9 +103,9 @@ public:
         SetHelpID(helpID);
     }
 
-    virtual ~CWindowsObject() {} // so derived destructors are called
+    virtual ~CWindowsObject() {} // so that destructor is called for descendants
 
-    virtual BOOL Is(int) { return FALSE; } // object type identification
+    virtual BOOL Is(int) { return FALSE; } // object identification
     virtual int GetObjectType() { return otBase; }
 
     virtual BOOL IsAllocated() { return ObjectOrigin == ooAllocated; }
@@ -122,8 +122,8 @@ public:
 protected:
     CObjectOrigin ObjectOrigin;
 #ifndef _UNICODE
-    // for windows: on create, TRUE = the window is Unicode, otherwise ANSI; on attach, TRUE = our window procedure
-    // is Unicode, otherwise ANSI; for dialogs: TRUE = the dialog is Unicode, otherwise ANSI
+    // windows: create: TRUE = window is Unicode, else ANSI; attach: TRUE = our window procedure
+    // is Unicode, else ANSI; dialogs: TRUE = dialog is Unicode, else ANSI
     BOOL UnicodeWnd;
 #endif // _UNICODE
 };
@@ -202,7 +202,7 @@ public:
                 HWND hwndParent,        // handle of parent or owner window
                 HMENU hmenu,            // handle of menu or child-window identifier
                 HINSTANCE hinst,        // handle of application instance
-                LPVOID lpvParam);       // pointer to the window object being created
+                LPVOID lpvParam);       // pointer to created window object
 
     HWND CreateEx(DWORD dwExStyle,        // extended window style
                   LPCTSTR lpszClassName,  // address of registered class name
@@ -215,7 +215,7 @@ public:
                   HWND hwndParent,        // handle of parent or owner window
                   HMENU hmenu,            // handle of menu or child-window identifier
                   HINSTANCE hinst,        // handle of application instance
-                  LPVOID lpvParam);       // pointer to the window object being created
+                  LPVOID lpvParam);       // pointer to created window object
 
 #ifndef _UNICODE
     HWND CreateW(LPCWSTR lpszClassName,  // address of registered class name
@@ -228,7 +228,7 @@ public:
                  HWND hwndParent,        // handle of parent or owner window
                  HMENU hmenu,            // handle of menu or child-window identifier
                  HINSTANCE hinst,        // handle of application instance
-                 LPVOID lpvParam);       // pointer to the window object being created
+                 LPVOID lpvParam);       // pointer to created window object
 
     HWND CreateExW(DWORD dwExStyle,        // extended window style
                    LPCWSTR lpszClassName,  // address of registered class name
@@ -241,7 +241,7 @@ public:
                    HWND hwndParent,        // handle of parent or owner window
                    HMENU hmenu,            // handle of menu or child-window identifier
                    HINSTANCE hinst,        // handle of application instance
-                   LPVOID lpvParam);       // pointer to the window object being created
+                   LPVOID lpvParam);       // pointer to created window object
 #endif                                     // _UNICODE
 
     void AttachToWindow(HWND hWnd);
@@ -278,8 +278,8 @@ protected:
 
 enum CTransferType
 {
-    ttDataToWindow,  // data to the window
-    ttDataFromWindow // data from the window
+    ttDataToWindow,  // data goes to window
+    ttDataFromWindow // data comes from window
 };
 
 // ****************************************************************************
@@ -287,7 +287,7 @@ enum CTransferType
 class CTransferInfo
 {
 public:
-    int FailCtrlID; // INT_MAX = no error, otherwise the ID of the failing control
+    int FailCtrlID; // INT_MAX - all ok, otherwise ID of control with error
     CTransferType Type;
 
     CTransferInfo(HWND hDialog, CTransferType type)
@@ -303,7 +303,7 @@ public:
     void EnsureControlIsFocused(int ctrlID);
 
     void EditLine(int ctrlID, TCHAR* buffer, DWORD bufferSizeInChars, BOOL select = TRUE);
-    void EditLine(int ctrlID, double& value, TCHAR* format, BOOL select = TRUE); // format, e.g. _T("%.2lf")
+    void EditLine(int ctrlID, double& value, TCHAR* format, BOOL select = TRUE); // format e.g. _T("%.2lf")
     void EditLine(int ctrlID, int& value, BOOL select = TRUE);
     void EditLine(int ctrlID, __int64& value, BOOL select = TRUE, BOOL unsignedNum = FALSE /* signed number */,
                   BOOL hexMode = FALSE /* decimal mode */, BOOL ignoreOverflow = FALSE, BOOL quiet = FALSE);
@@ -316,7 +316,7 @@ public:
 #endif // _UNICODE
 
 protected:
-    HWND HDialog; // handle of the dialog for which the transfer is performed
+    HWND HDialog; // dialog handle for which transfer is performed
 };
 
 // ****************************************************************************
@@ -324,8 +324,8 @@ protected:
 class CDialog : public CWindowsObject
 {
 public:
-    CWindowsObject::SetObjectOrigin; // needed so CPropSheetPage compiles
-    CWindowsObject::HWindow;         // needed so CPropSheetPage compiles
+    using CWindowsObject::HWindow;         // for CPropSheetPage compilability
+    using CWindowsObject::SetObjectOrigin; // for CPropSheetPage compilability
 
 #ifdef _UNICODE
     CDialog(HINSTANCE modul, int resID, HWND parent, CObjectOrigin origin = ooStandard) : CWindowsObject(origin)
@@ -368,7 +368,7 @@ public:
     void SetParent(HWND parent) { Parent = parent; }
     HWND GetParent() { return Parent; }
     INT_PTR Execute(); // modal dialog
-    HWND Create();     // modeless dialog
+    HWND Create();     // non-modal dialog
 
     static INT_PTR CALLBACK CDialogProc(HWND hwndDlg, UINT uMsg,
                                         WPARAM wParam, LPARAM lParam);
@@ -378,7 +378,7 @@ protected:
 
     virtual void NotifDlgJustCreated() {}
 
-    BOOL Modal; // because of the way the dialog is destroyed
+    BOOL Modal; // due to dialog destruction method
     HINSTANCE Modul;
     int ResID;
     HWND Parent;
@@ -389,14 +389,14 @@ protected:
 
 struct CWindowData
 {
-    // if window objects (Wnd) are allocated on the stack (typically modal dialogs, e.g. SalMessageBox())
-    // and the thread terminates, the stack becomes invalid and the window objects are no longer accessible,
-    // so we only access the objects (Wnd) while the window handles (HWnd) are still valid
+    // if window objects (Wnd) are placed on stack (typically modal dialogs, e.g., SalMessageBox())
+    // and thread termination occurs, stack becomes invalid and window objects are no longer accessible,
+    // we solve this by accessing objects (Wnd) only while valid window handles (HWnd) exist
     HWND HWnd;
     CWindowsObject* Wnd;
 };
 
-#define WNDMGR_CACHE_SIZE 256 // (2kB cache) must be consistent with GetCacheIndex
+#define WNDMGR_CACHE_SIZE 256 // (2kB cache) must be in sync with GetCacheIndex
 
 inline int GetCacheIndex(HWND hWnd)
 {
@@ -421,7 +421,7 @@ public:
     int search, cache, maxWndCount;
 #endif
 
-    CWinLibCS CS; // public so Windows Manager changes can be prevented locally
+    CWinLibCS CS; // is public to locally prevent changes in Windows Manager
 
 public:
     CWindowsManager();
@@ -432,7 +432,7 @@ public:
     int GetCount();
 
 private:
-    HWND LastHWnd[WNDMGR_CACHE_SIZE]; // last-request cache
+    HWND LastHWnd[WNDMGR_CACHE_SIZE]; // last request - cache
     CWindowsObject* LastWnd[WNDMGR_CACHE_SIZE];
 
     inline BOOL GetIndex(HWND hWnd, int& index);
@@ -477,7 +477,7 @@ BOOL CWindowsManager::GetIndex(HWND hWnd, int& index)
         {
             if (l == r) // not found
             {
-                index = m + 1; // should be after this position
+                index = m + 1; // should be right after this position
                 CS.Leave();
                 return FALSE;
             }
@@ -503,7 +503,7 @@ struct CWindowQueueItem
 class CWindowQueue
 {
 protected:
-    const TCHAR* QueueName; // queue name (for debugging only)
+    const TCHAR* QueueName; // queue name (debug purposes only)
     CWindowQueueItem* Head;
     int Count;
     CWinLibCS CS; // access from multiple threads -> synchronization required
@@ -517,12 +517,12 @@ public:
     }
     ~CWindowQueue();
 
-    BOOL Add(CWindowQueueItem* item); // adds an item to the queue, returns success status
-    void Remove(HWND hWindow);        // removes an item from the queue
-    BOOL Empty();                     // returns TRUE if the queue is empty
-    int GetWindowCount();             // returns the number of windows in the queue
+    BOOL Add(CWindowQueueItem* item); // adds item to queue, returns success
+    void Remove(HWND hWindow);        // removes item from queue
+    BOOL Empty();                     // returns TRUE if queue is empty
+    int GetWindowCount();             // returns count of windows in queue
 
-    // posts the message to all windows (PostMessage - windows may be in different threads)
+    // sends message to all windows (PostMessage - windows can be in different threads)
     void BroadcastMessage(DWORD uMsg, WPARAM wParam, LPARAM lParam);
 };
 

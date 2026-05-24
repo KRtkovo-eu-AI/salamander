@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -37,7 +38,7 @@ public:
 
 class CPackDialog : public CDlgRoot
 {
-    CZipPack* PackObject; // used in advanced self-extr settings dialog
+    CZipPack* PackObject; //used in adcanced self-extr settings dialog
     CConfiguration* Config;
     CExtendedOptions* PackOptions;
     //unsigned            CustomVolSize;//in KB
@@ -172,14 +173,14 @@ class CChangeDiskDialog2 : public CDlgRoot
 {
     //int     VolumeNumber;
     char* FileName;
-    char CurrentPath[MAX_PATH];
+    CPathBuffer CurrentPath;
 
 public:
     CChangeDiskDialog2(HWND parent, /*int volNum,*/ char* fileName) : CDlgRoot(parent)
     {
         //VolumeNumber = volNumber;
         FileName = fileName;
-        strcpy(CurrentPath, FileName);
+        lstrcpyn(CurrentPath, FileName, CurrentPath.Size());
         SalamanderGeneral->CutDirectory(CurrentPath);
     }
 
@@ -199,7 +200,7 @@ class CChangeDiskDialog3 : public CDlgRoot
     bool Last;
     char* OldName;
     unsigned* Flags;
-    char CurrentPath[MAX_PATH];
+    CPathBuffer CurrentPath;
 
 public:
     CChangeDiskDialog3(HWND parent, int volNum, bool last,
@@ -209,7 +210,7 @@ public:
         Last = last;
         OldName = fileName;
         Flags = flags;
-        strcpy(CurrentPath, OldName);
+        lstrcpyn(CurrentPath, OldName, CurrentPath.Size());
         SalamanderGeneral->CutDirectory(CurrentPath);
     }
 
@@ -399,7 +400,7 @@ public:
 
 class CCreateSFXDialog : public CDlgRoot
 {
-    CZipPack* PackObject; // used in advanced self-extr settings dialog
+    CZipPack* PackObject; //used in adcanced self-extr settings dialog
     CExtendedOptions* PackOptions;
     char* ZipName;
     char* ExeName;

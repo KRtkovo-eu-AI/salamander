@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -87,7 +88,7 @@ protected:
         if (pidl == NULL)
             return 0;
         DWORD res = 0;
-        res += sizeof pidl->mkid.cb;
+        res += sizeof(pidl->mkid.cb);
         while (pidl->mkid.cb != 0)
         {
             res += pidl->mkid.cb;
@@ -102,7 +103,7 @@ protected:
     //      piMalloc - Pointer to the allocator interface that should allocate memory.
     //  cbSize   - Size of the ITEMIDLIST to create.
     //  RETURN VALUE:
-    //      Returns a pointer to the new ITEMIDLIST, or NULL if a problem occurred.
+    //      Returns a pointer to the new ITEMIDLIST, or NULL if a problem occured.
     LPITEMIDLIST PIDL_Create(DWORD size)
     {
         LPITEMIDLIST res = (LPITEMIDLIST)CoTaskMemAlloc(size);

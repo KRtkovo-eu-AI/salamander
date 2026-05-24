@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -174,9 +174,9 @@ CVersionInfo::LoadBlock(const BYTE*& ptr, CVersionBlock* parent)
         }
     }
 
-    // Skip the VERSIONINFO and the Key string.
+    // skip VERSIONINFO and Key string
     ptr += sizeof(VERSIONINFO) + sizeof(WCHAR) * wcslen(block->Key);
-    // Skip the padding.
+    // skip Padding
     ptr = ALIGN_DWORD(BYTE*, ptr);
 
     switch (block->Type)
@@ -211,20 +211,20 @@ CVersionInfo::LoadBlock(const BYTE*& ptr, CVersionBlock* parent)
             return NULL;
         }
 
-        // Skip Value.
+        // skip Value
         ptr += valSize;
-        // Skip the padding.
+        // skip padding
         ptr = ALIGN_DWORD(BYTE*, ptr);
 
         if (block->Type == vbtString || block->Type == vbtVar)
         {
-            // String and Var blocks have no children, so we exit.
+            // String and Var have no children, so we exit
             return block;
         }
     }
     }
 
-    // Add child blocks.
+    // add child blocks
     while (ptr < terminatorPtr)
     {
         CVersionBlock* child = LoadBlock(ptr, block);
@@ -416,14 +416,14 @@ BOOL CVersionInfo::SaveBlock(CVersionBlock* block, BYTE*& ptr, const BYTE* maxPt
         return FALSE;
     }
 
-    BYTE* oldPtr = ptr; // store it for the subsequent size calculation of us and our children
+    BYTE* oldPtr = ptr; // save for subsequent size calculation of us and our children
 
     // wLength
-    WORD* wLength = (WORD*)ptr; // keep it for setting later
+    WORD* wLength = (WORD*)ptr; // save for subsequent assignment
     ptr += 2;
 
     // wValueLength
-    WORD* wValueLength = (WORD*)ptr; // keep it for setting later
+    WORD* wValueLength = (WORD*)ptr; // save for subsequent assignment
     *wValueLength = 0;
     ptr += 2;
 
@@ -436,7 +436,7 @@ BOOL CVersionInfo::SaveBlock(CVersionBlock* block, BYTE*& ptr, const BYTE* maxPt
     memcpy(ptr, block->Key, size);
     ptr += size;
 
-    // Padding.
+    // padding
     ptr = ALIGN_DWORD(BYTE*, ptr);
 
     switch (block->Type)
@@ -490,14 +490,14 @@ BOOL CVersionInfo::SaveBlock(CVersionBlock* block, BYTE*& ptr, const BYTE* maxPt
     }
     }
 
-    // If there are no children, store the size without padding.
+    // if there are no children, store size without padding
     if (block->Children.Count == 0)
         *wLength = (WORD)(ptr - oldPtr);
 
-    // Padding.
+    // padding
     ptr = ALIGN_DWORD(BYTE*, ptr);
 
-    // Children.
+    // children
     int i;
     for (i = 0; i < block->Children.Count; i++)
     {
@@ -506,7 +506,7 @@ BOOL CVersionInfo::SaveBlock(CVersionBlock* block, BYTE*& ptr, const BYTE* maxPt
             return FALSE;
     }
 
-    // Otherwise include the padding as well.
+    // otherwise with padding
     if (block->Children.Count > 0)
         *wLength = (WORD)(ptr - oldPtr);
 
@@ -522,7 +522,7 @@ BOOL CVersionInfo::UpdateResource(HANDLE hUpdateRes, int resID)
         return FALSE;
     }
     memset(buff, 0, 50000);
-    BYTE* ptr = buff; // note: the pointer value will be modified
+    BYTE* ptr = buff; // WARNING: value will be modified
     if (!SaveBlock(Root, ptr, ptr + 49999))
     {
         free(buff);

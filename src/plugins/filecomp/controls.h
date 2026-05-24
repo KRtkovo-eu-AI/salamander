@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -15,7 +16,7 @@ extern HBRUSH HDitheredBrush;
 class CFileHeaderWindow : public CWindow
 {
 protected:
-    char Text[MAX_PATH];
+    CPathBuffer Text; // Heap-allocated for long path support
     int TextLen;
     COLORREF BkColor;
     HBRUSH BkgndBrush;

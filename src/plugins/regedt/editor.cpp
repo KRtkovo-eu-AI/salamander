@@ -1,11 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
 
-char Command[MAX_PATH];
-char Arguments[MAX_PATH];
-char InitDir[MAX_PATH];
+CPathBuffer Command; // Heap-allocated for long path support
+CPathBuffer Arguments;
+CPathBuffer InitDir;
 
 const char* EXP_FULLNAME = "FullName";
 const char* EXP_DRIVE = "Drive";
@@ -29,7 +30,7 @@ const char* EXP_DOSSYSDIR = "DOSSysDir";
 
 struct CExpData
 {
-    char Buffer[MAX_PATH];
+    CPathBuffer Buffer; // Heap-allocated for long path support
     const char* LongName;
     const char* DosName;
 };
@@ -191,11 +192,11 @@ ExecuteWinDir(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteWinDir(, )");
     CExpData* data = (CExpData*)param;
-    UINT l = GetWindowsDirectory(data->Buffer, MAX_PATH);
-    if (l < 0 || l >= MAX_PATH)
+    UINT l = GetWindowsDirectory(data->Buffer, data->Buffer.Size());
+    if (l < 0 || l >= data->Buffer.Size())
         *data->Buffer = 0;
     else
-        SG->SalPathAddBackslash(data->Buffer, MAX_PATH);
+        SG->SalPathAddBackslash(data->Buffer, data->Buffer.Size());
     return data->Buffer;
 }
 
@@ -204,13 +205,13 @@ ExecuteDOSWinDir(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteDOSWinDir(, )");
     CExpData* data = (CExpData*)param;
-    UINT l = GetWindowsDirectory(data->Buffer, MAX_PATH);
-    if (l < 0 || l >= MAX_PATH)
+    UINT l = GetWindowsDirectory(data->Buffer, data->Buffer.Size());
+    if (l < 0 || l >= data->Buffer.Size())
         *data->Buffer = 0;
     else
     {
-        if (GetShortPathName(data->Buffer, data->Buffer, MAX_PATH))
-            SG->SalPathAddBackslash(data->Buffer, MAX_PATH);
+        if (GetShortPathName(data->Buffer, data->Buffer, data->Buffer.Size()))
+            SG->SalPathAddBackslash(data->Buffer, data->Buffer.Size());
         else
             *data->Buffer = 0;
     }
@@ -222,11 +223,11 @@ ExecuteSysDir(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteSysDir(, )");
     CExpData* data = (CExpData*)param;
-    UINT l = GetSystemDirectory(data->Buffer, MAX_PATH);
-    if (l < 0 || l >= MAX_PATH)
+    UINT l = GetSystemDirectory(data->Buffer, data->Buffer.Size());
+    if (l < 0 || l >= data->Buffer.Size())
         *data->Buffer = 0;
     else
-        SG->SalPathAddBackslash(data->Buffer, MAX_PATH);
+        SG->SalPathAddBackslash(data->Buffer, data->Buffer.Size());
     return data->Buffer;
 }
 
@@ -235,13 +236,13 @@ ExecuteDOSSysDir(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteDOSSysDir(, )");
     CExpData* data = (CExpData*)param;
-    UINT l = GetSystemDirectory(data->Buffer, MAX_PATH);
-    if (l < 0 || l >= MAX_PATH)
+    UINT l = GetSystemDirectory(data->Buffer, data->Buffer.Size());
+    if (l < 0 || l >= data->Buffer.Size())
         *data->Buffer = 0;
     else
     {
-        if (GetShortPathName(data->Buffer, data->Buffer, MAX_PATH))
-            SG->SalPathAddBackslash(data->Buffer, MAX_PATH);
+        if (GetShortPathName(data->Buffer, data->Buffer, data->Buffer.Size()))
+            SG->SalPathAddBackslash(data->Buffer, data->Buffer.Size());
         else
             *data->Buffer = 0;
     }
@@ -275,8 +276,8 @@ ExecuteWinDir2(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteWinDir2(, )");
     CExpData* data = (CExpData*)param;
-    UINT l = GetWindowsDirectory(data->Buffer, MAX_PATH);
-    if (l < 0 || l >= MAX_PATH)
+    UINT l = GetWindowsDirectory(data->Buffer, data->Buffer.Size());
+    if (l < 0 || l >= data->Buffer.Size())
         *data->Buffer = 0;
     else
         SG->SalPathRemoveBackslash(data->Buffer);
@@ -288,8 +289,8 @@ ExecuteSysDir2(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteSysDir2(, )");
     CExpData* data = (CExpData*)param;
-    UINT l = GetSystemDirectory(data->Buffer, MAX_PATH);
-    if (l < 0 || l >= MAX_PATH)
+    UINT l = GetSystemDirectory(data->Buffer, data->Buffer.Size());
+    if (l < 0 || l >= data->Buffer.Size())
         *data->Buffer = 0;
     else
         SG->SalPathRemoveBackslash(data->Buffer);
@@ -301,7 +302,7 @@ ExecuteSalDir(HWND msgParent, void* param)
 {
     CALL_STACK_MESSAGE1("ExecuteSalDir(, )");
     CExpData* data = (CExpData*)param;
-    GetModuleFileName(NULL, data->Buffer, MAX_PATH); // hInstance==NULL: we want the path to the EXE, not to the DLL
+    GetModuleFileName(NULL, data->Buffer, data->Buffer.Size()); // hInstance==NULL: we want the path to the EXE, not to the DLL
     *(strrchr(data->Buffer, '\\') + 1) = 0;
     return data->Buffer;
 }
@@ -410,21 +411,21 @@ BOOL ExpandArguments(const char* varText, char* arguments,
 BOOL ExecuteEditor(const char* tempFile)
 {
     CALL_STACK_MESSAGE2("ExecuteEditor(%s)", tempFile);
-    char command[MAX_PATH];
-    char directory[MAX_PATH];
-    char arguments[MAX_PATH];
+    CPathBuffer command; // Heap-allocated for long path support
+    CPathBuffer directory;
+    CPathBuffer arguments;
 
-    char longName[MAX_PATH];
-    char dosName[MAX_PATH];
+    CPathBuffer longName;
+    CPathBuffer dosName;
 
     // expand the initdir
     SG->CutDirectory(strcpy(longName, tempFile));
-    if (!GetShortPathName(longName, dosName, MAX_PATH))
+    if (!GetShortPathName(longName, dosName, dosName.Size()))
         dosName[0] = 0;
 
     int e1, e2;
     if (!SG->ValidateVarString(GetParent(), Command, e1, e2, ExpCommandVariables) ||
-        !ExpandCommand(Command, command, MAX_PATH, FALSE))
+        !ExpandCommand(Command, command, command.Size(), FALSE))
         return FALSE;
 
     if (!SG->ValidateVarString(GetParent(), InitDir, e1, e2, ExpInitDirVariables) ||
@@ -432,7 +433,7 @@ BOOL ExecuteEditor(const char* tempFile)
         return FALSE;
 
     // expand the arguments
-    if (!GetShortPathName(tempFile, dosName, MAX_PATH))
+    if (!GetShortPathName(tempFile, dosName, dosName.Size()))
         dosName[0] = 0;
 
     if (!SG->ValidateVarString(GetParent(), Arguments, e1, e2, ExpArgumentsVariables) ||
@@ -443,9 +444,9 @@ BOOL ExecuteEditor(const char* tempFile)
     if (!*command)
         return Error(IDS_PROCESS);
     TBuffer<char> cmdLine;
-    if (!cmdLine.Reserve((int)strlen(command) + 3 + (int)strlen(arguments) + 1))
+    if (!cmdLine.Reserve((int)lstrlen(command) + 3 + (int)lstrlen(arguments) + 1))
         return Error(IDS_LOWMEM);
-    SalPrintf(cmdLine.Get(), cmdLine.GetSize(), "\"%s\" %s", command, arguments);
+    SalPrintf(cmdLine.Get(), cmdLine.GetSize(), "\"%s\" %s", command.Get(), arguments.Get());
 
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
@@ -456,7 +457,7 @@ BOOL ExecuteEditor(const char* tempFile)
     si.wShowWindow = SW_SHOWNORMAL;
 
     if (!CreateProcess(NULL, cmdLine.Get(), NULL, NULL, FALSE, CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS,
-                       NULL, directory[0] ? directory : NULL, &si, &pi))
+                       NULL, *directory ? directory.Get() : NULL, &si, &pi))
         return Error(IDS_PROCESS);
 
     CloseHandle(pi.hProcess);

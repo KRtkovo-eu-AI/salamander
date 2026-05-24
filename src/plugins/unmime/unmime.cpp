@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -41,10 +41,10 @@ LPCTSTR KEY_APPENDCHARSET = _T("Append Charset");
 LPCTSTR KEY_LISTATTACHMENTS = _T("List Attachments");
 LPCTSTR KEY_DONTSHOWANYMORE = _T("DontShowAnymore");
 
-// ConfigVersion: 0 - default (without loading configuration),
-//                1 - version with configuration in the registry (already used, but without a configuration number)
+// ConfigVersion: 0 - default (before any configuration is loaded),
+//                1 - version with configuration in the registry (used before, only without a configuration number)
 //                2 - version after introducing the configuration number + yEnc
-//                3 - added support for CNM (Mercury + Pegasus Mail (PMail))
+//                3 - Added support for CNM (Mercury + Pegasus Mail (PMail))
 
 int ConfigVersion = 0;
 #define CURRENT_CONFIG_VERSION 3
@@ -56,7 +56,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
         DLLInstance = hinstDLL;
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 char* LoadStr(int resID)
@@ -80,17 +80,17 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
-    // this plugin is built for the current version of Salamander and later - check it
+    // this plugin is built for the current version of Salamander and newer - perform a check
     if (salamander->GetVersion() < LAST_VERSION_OF_SALAMANDER)
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "UnMIME" /* DO NOT TRANSLATE */, MB_OK | MB_ICONERROR);
+                   "UnMIME" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnMIME" /* do not translate */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnMIME" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -106,9 +106,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM,
                                    VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
-                                   "UnMIME" /* DO NOT TRANSLATE */, "eml;b64;uue;xxe;hqx;ntx;cnm");
+                                   "UnMIME" /* neprekladat! */, "eml;b64;uue;xxe;hqx;ntx;cnm");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -214,11 +214,11 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     salamander->AddPanelArchiver("eml;b64;uue;xxe;hqx;ntx;cnm", FALSE, FALSE);
 
     // upgrade section:
-    if (ConfigVersion < 2) // version after adding the configuration number + yEnc
+    if (ConfigVersion < 2) // version after introducing the configuration number + yEnc
     {
         salamander->AddPanelArchiver("ntx", FALSE, TRUE); // add the "ntx" extension
     }
-    if (ConfigVersion < 3) // cnm: file format used by the Mercury & PMail email system
+    if (ConfigVersion < 3) // cnm: file format used by Mercury & PMail emailing system
     {
         salamander->AddPanelArchiver("cnm", FALSE, TRUE); // add the "cnm" extension
     }
@@ -255,7 +255,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
     CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::ListArchive(, %s, ,)", fileName);
     pluginData = &PluginDataInterface;
 
-    // Allocate ArchiveData; it will hold data about the contents of the "archive"
+    // allocate ArchiveData - it will hold data about the contents of the "archive"
     CArchiveData* ArchiveData = new CArchiveData;
     ArchiveData->RefCount = 0;
 
@@ -267,7 +267,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
         CloseHandle(hFile);
     }
 
-    // file analysis
+    // analyze the file
     if (!ParseMailFile(fileName, &ArchiveData->ParserOutput, G.bAppendCharset))
     {
         delete ArchiveData;
@@ -400,7 +400,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
     if (!SalamanderGeneral->TestFreeSpace(SalamanderGeneral->GetMsgBoxParent(), targetDir, totalSize, LoadStr(IDS_PLUGINNAME)))
         return FALSE;
     // openprogressdialog
-    char title[MAX_PATH + 32];
+    CPathBuffer title;
     sprintf(title, LoadStr(IDS_EXTRTITLE), SalamanderGeneral->SalPathFindFileName(fileName));
     Salamander->OpenProgressDialog(title, TRUE, NULL, FALSE);
     // extraction
@@ -436,7 +436,7 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
         CloseHandle(hFile);
     }
     // openprogressdialog
-    char title[MAX_PATH + 32];
+    CPathBuffer title;
     sprintf(title, LoadStr(IDS_EXTRTITLE), SalamanderGeneral->SalPathFindFileName(fileName));
     Salamander->OpenProgressDialog(title, TRUE, NULL, FALSE);
     Salamander->ProgressDialogAddText(LoadStr(IDS_PARSE), FALSE);

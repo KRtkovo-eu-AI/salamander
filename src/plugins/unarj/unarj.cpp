@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /* UNARJ.C, UNARJ, R JUNG, 07/29/96
@@ -64,7 +65,7 @@ extern LPTSTR PathFindExtension(LPTSTR pszPath);
 //
 
 HANDLE ArcFile = INVALID_HANDLE_VALUE;
-char ArcName[MAX_PATH];
+CPathBuffer ArcName; // Heap-allocated for long path support
 DWORD ArcFileSize;
 DWORD ArcFilePos;
 
@@ -609,7 +610,7 @@ void __fastcall FillInputBuffer()
     while (1)
     {
         if (ReadFile(ArcFile, InputBuffer, toRead, &read, NULL) && toRead == read)
-            break; //success
+            break; //sucess
         if (!ErrorProc(AE_ACCESS, EF_RETRY))
             throw 0;
         SafeSeek(ArcFilePos);
@@ -664,7 +665,7 @@ void Read(void* buffer, DWORD size)
         while (1)
         {
             if (ReadFile(ArcFile, (char*)buffer + i, size, &read, NULL) && size == read)
-                break; //success
+                break; //sucess
             if (!ErrorProc(AE_ACCESS, EF_RETRY))
                 throw 0;
             SafeSeek(ArcFilePos);
@@ -680,15 +681,15 @@ void NextVolume(BOOL forceQuestion)
     CloseHandle(ArcFile);
     ArcFile = INVALID_HANDLE_VALUE;
 
-    char prevName[MAX_PATH];
-    char* ptr = strrchr(ArcName, '\\');
+    CPathBuffer prevName; // Heap-allocated for long path support
+    char* ptr = strrchr(ArcName.Get(), '\\');
     if (!ptr)
-        ptr = ArcName;
+        ptr = ArcName.Get();
     else
         ptr++;
     strcpy(prevName, ptr);
 
-    char* ext = PathFindExtension(ArcName);
+    char* ext = PathFindExtension(ArcName.Get());
     if (lstrcmpi(ext, ".arj") == 0)
     {
         lstrcpy(ext, ".a01");

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -407,7 +407,7 @@ BOOL CSocket::Connect(DWORD ip, unsigned short port, DWORD* error, BOOL calledFr
     ShouldPostFD_WRITE = FALSE;
 
     BOOL addCalled = FALSE;
-    if (Msg == -1) // the socket is not in SocketsThread; add it
+    if (Msg == -1) // the socket is not in SocketsThread, add it
     {
         if (!SocketsThread->AddSocket(this)) // we are inside CSocketsThread::CritSect, so this call is possible even from CSocket::SocketCritSect
         {
@@ -426,10 +426,10 @@ BOOL CSocket::Connect(DWORD ip, unsigned short port, DWORD* error, BOOL calledFr
     Socket = socket(AF_INET, SOCK_STREAM, 0);
     if (Socket != INVALID_SOCKET)
     {
-        // disable the Nagle algorithm to avoid unnecessary waiting
-        // WARNING: when downloading on a local network, frequent dropouts occurred, the transfer often
-        //          restarted, and no speedup was observed, so this was abandoned
-        //          (this was still in accept())
+        // disable the Nagle algorithm, we do not want any unnecessary waiting
+        // WARNING: when downloading on a local network there were frequent dropouts, the transfer often
+        //          restarted, and I did not notice any speedup, so I decided
+        //          to give this up (this was still at accept())
         // BOOL noDelayOn = TRUE;
         // setsockopt(Socket, IPPROTO_TCP, TCP_NODELAY, (char *)&noDelayOn, sizeof(noDelayOn));
 
@@ -446,7 +446,7 @@ BOOL CSocket::Connect(DWORD ip, unsigned short port, DWORD* error, BOOL calledFr
             if (connect(Socket, (SOCKADDR*)&addr, sizeof(addr)) == SOCKET_ERROR)
             {
                 DWORD err = WSAGetLastError();
-                if (err == WSAEWOULDBLOCK) // normal response when connecting a non-blocking socket
+                if (err == WSAEWOULDBLOCK) // normal reaction to connecting a non-blocking socket
                 {
                     ret = TRUE;
                 }
@@ -456,7 +456,7 @@ BOOL CSocket::Connect(DWORD ip, unsigned short port, DWORD* error, BOOL calledFr
                         *error = WSAGetLastError();
                 }
             }
-            else // connect returned NO_ERROR, behaves like the blocking variant of "connect", should never happen
+            else // returned NO_ERROR, behaves like the blocking variant of "connect", should never happen
             {
                 TRACE_E("CSocket::Connect(): connect has returned unexpected value!");
             }
@@ -712,7 +712,7 @@ BOOL CSocket::OpenForListeningWithProxy(DWORD listenOnIP, unsigned short listenO
 class CGetHostByNameThread : public CThread
 {
 protected:
-    char* Address; // address being looked up
+    std::string Address; // address being looked up
     int HostUID;   // hostUID from the GetHostByAddress call that created this thread
     int SocketMsg; // Msg from the socket object that should receive the result
     int SocketUID; // UID from the socket object that should receive the result
@@ -721,7 +721,7 @@ public:
     CGetHostByNameThread(const char* address, int hostUID, int socketMsg,
                          int socketUID) : CThread("GetHostByName")
     {
-        Address = SalamanderGeneral->DupStr(address);
+        Address = address != NULL ? address : "";
         HostUID = hostUID;
         SocketMsg = socketMsg;
         SocketUID = socketUID;
@@ -729,20 +729,18 @@ public:
 
     virtual ~CGetHostByNameThread()
     {
-        if (Address != NULL)
-            SalamanderGeneral->Free(Address);
     }
 
     virtual unsigned Body()
     {
-        CALL_STACK_MESSAGE2("CGetHostByNameThread::Body(%s)", Address);
+        CALL_STACK_MESSAGE2("CGetHostByNameThread::Body(%s)", Address.c_str());
         // obtain the IP address by calling gethostbyname
         HOSTENT* host = NULL;
         int err = 0;
         DWORD ip = INADDR_NONE; // error
-        if (Address != NULL)
+        if (!Address.empty())
         {
-            host = gethostbyname(Address);
+            host = gethostbyname(Address.c_str());
             if (host == NULL)
                 err = WSAGetLastError();
             else
@@ -797,7 +795,7 @@ BOOL CSocket::GetHostByAddress(const char* address, int hostUID)
         if (t != NULL)
         {
             if (t->Create(SocketsThreadQueue) == NULL)
-                delete t; // thread failed to start, error
+                delete t; // the thread did not start, error
             else
                 maybeOK = TRUE; // the thread is running, the address lookup may succeed
         }
@@ -885,7 +883,7 @@ BOOL CSocket::GetProxyError(char* errBuf, int errBufSize, char* formatBuf, int f
     CALL_STACK_MESSAGE1("CSocket::GetProxyError(, , ,)");
 
     HANDLES(EnterCriticalSection(&SocketCritSect));
-    BOOL ret = FALSE; // FALSE = not an error reported by the proxy server (for example, an error connecting to the proxy server)
+    BOOL ret = FALSE; // FALSE = it is not an error reported by the proxy server (but for example an error connecting to the proxy server)
     if (ProxyErrorCode != pecNoError)
     {
         ret = TRUE;
@@ -1201,7 +1199,7 @@ void CSocket::Socks5SendRequest(int request, int index, BOOL* csLeft, BOOL isCon
             len = 255; // longer named addresses simply cannot be entered in a SOCKS 5 request
         buf[4] = (unsigned char)len;
         memcpy(buf + 5, HostAddress, len);
-        len++; // for the address-length byte
+        len++; // for the byte with the address length
     }
     else
     {
@@ -1579,7 +1577,7 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
             {                  // process the first response from the SOCKS5 proxy server
                 if (read == 2) // the response should have 2 bytes (the first byte is the version, but they do not say what it should be set to, so we ignore it)
                 {
-                    if (buf[1] == 0 /* no authentication */)
+                    if (buf[1] == 0 /* anonymous */)
                     {
                         SocketState = ssSocks5_WaitForCon;
                         BOOL csLeft;
@@ -1635,7 +1633,7 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
                         if (!csLeft)
                             HANDLES(LeaveCriticalSection(&SocketCritSect));
                     }
-                    else // the server rejected us, aborting
+                    else // the server rejected us, we are done
                     {
                         ProxyErrorCode = pecUserPassAuthFail;
                         SocketState = ssConnectFailed;
@@ -1754,7 +1752,7 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
             int read = 2;
             if (ProxyReceiveBytes(lParam, buf, &read, index, FALSE, TRUE /* listen */, FALSE))
             {                  // process the first response from the SOCKS5 proxy server
-                if (read == 2) // the response should have 2 bytes (the first byte is the version, but its expected value is not specified, so we ignore it)
+                if (read == 2) // the response should have 2 bytes (the first byte is the version, but they do not say what it should be set to, so we ignore it)
                 {
                     if (buf[1] == 0 /* anonymous */)
                     {
@@ -1813,7 +1811,7 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
                         if (!csLeft)
                             HANDLES(LeaveCriticalSection(&SocketCritSect));
                     }
-                    else // the server rejected us, terminate
+                    else // the server rejected us, we are done
                     {
                         ProxyErrorCode = pecUserPassAuthFail;
                         SocketState = ssListenFailed;
@@ -1833,13 +1831,13 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
             break;
         }
 
-        case ssSocks4_WaitForListenRes:  // waiting for the proxy to open a port for "listen" and return the IP+port where it is listening or an error (timeout should be handled outside - timeout for calling ListeningForConnection())
+        case ssSocks4_WaitForListenRes:  // waiting for the proxy to open a port for "listen" and return the IP+port where it listens or an error (timeout should be handled outside - timeout for calling ListeningForConnection())
         case ssSocks4A_WaitForListenRes: // waiting for the proxy to open a port for "listen" and return the IP+port where it listens or an error (timeout should be handled outside - timeout for calling ListeningForConnection())
         {
             int read = 8;
             if (ProxyReceiveBytes(lParam, buf, &read, index, FALSE, TRUE /* listen */, FALSE))
             {                                 // process the SOCKS4 proxy server response
-                if (read == 8 && buf[0] == 0) // the response should have 8 bytes and the "version" should be 0
+                if (read == 8 && buf[0] == 0) // the response should have 8 bytes + "version" should be 0
                 {
                     if (buf[1] == 90) // reply code == success
                     {
@@ -1875,12 +1873,12 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
             break;
         }
 
-        case ssSocks5_WaitForListenRes: // waiting for the proxy to open a port for "listen" and return the IP+port where it is listening, or return an error (timeout should be handled outside - timeout for calling ListeningForConnection())
+        case ssSocks5_WaitForListenRes: // waiting for the proxy to open a port for "listen" and return the IP+port where it listens or an error (timeout should be handled outside - timeout for calling ListeningForConnection())
         {
             int read = 10;
             if (ProxyReceiveBytes(lParam, buf, &read, index, FALSE, TRUE /* listen */, FALSE))
             {                                                 // process the SOCKS5 proxy server response
-                if (read == 10 && buf[0] == 5 && buf[3] == 1) // the response should have 10 bytes, the "version" should be 5, and the address type should be 1 (IPv4)
+                if (read == 10 && buf[0] == 5 && buf[3] == 1) // the response should have 10 bytes + "version" should be 5 + address type should be 1 (IPv4)
                 {
                     if (buf[1] == 0) // reply code == success
                     {
@@ -1973,12 +1971,12 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
                             PostMessage(SocketsThread->GetHiddenWindow(), WM_APP_SOCKET_MIN + index,
                                         (WPARAM)Socket, MAKELPARAM(FD_WRITE, NO_ERROR));
                         }
-                        if (event == FD_CLOSE) // this close occurred after successfully connecting to the FTP server, it will be processed later...
+                        if (event == FD_CLOSE) // this close occurred after a successful connection from the FTP server, it will be processed later...
                         {
                             PostMessage(SocketsThread->GetHiddenWindow(), WM_APP_SOCKET_MIN + index,
                                         (WPARAM)Socket, lParam);
                         }
-                        ConnectionAccepted(TRUE, NO_ERROR, FALSE); // report successful connection establishment
+                        ConnectionAccepted(TRUE, NO_ERROR, FALSE); // announce a successful connection establishment
                         HANDLES(LeaveCriticalSection(&SocketCritSect));
                     }
                     else // error
@@ -2152,7 +2150,7 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
                 if (!csLeft)
                     HANDLES(LeaveCriticalSection(&SocketCritSect));
             }
-            // else HANDLES(LeaveCriticalSection(&SocketCritSect));  // ProxyReceiveBytes() returns FALSE, so SocketCritSect has already been left
+            // else HANDLES(LeaveCriticalSection(&SocketCritSect));  // ProxyReceiveBytes() returns FALSE = the SocketCritSect section has already been left
             break;
         }
 
@@ -2190,7 +2188,7 @@ void CSocket::ReceiveNetEventInt(LPARAM lParam, int index)
 void CSocket::ReceiveNetEvent(LPARAM lParam, int index)
 {
     CALL_STACK_MESSAGE3("CSocket::ReceiveNetEvent(0x%IX, %d)", lParam, index);
-    DWORD eventError = WSAGETSELECTERROR(lParam); // extract the event error code
+    DWORD eventError = WSAGETSELECTERROR(lParam); // extract error code of event
     switch (WSAGETSELECTEVENT(lParam))
     {
     case FD_CLOSE:
@@ -2230,7 +2228,7 @@ void CSocket::ReceiveNetEvent(LPARAM lParam, int index)
                     {
                         int r = SSLLib.SSL_read(SSLConn, buf, 500);
                         if (r <= 0)
-                            break; // loop until an error or zero (0 = graceful close)
+                            break; // loop until an error or zero (0 = gracefully closed)
                         else
                         {
                             if (OurShutdown) // shutdown was initiated by the client
@@ -2268,18 +2266,18 @@ void CSocket::ReceiveNetEvent(LPARAM lParam, int index)
             TRACE_E("Incorrect call to CSocket::ReceiveNetEvent(FD_ACCEPT): from section SocketCritSect!");
 #endif
 
-        if (eventError == NO_ERROR) // accept only error-free events, ignore the rest (the connection is retried until timeout)
+        if (eventError == NO_ERROR) // only accept without error, ignore the rest (the connection is retried until timeout)
         {
-            if (Socket != INVALID_SOCKET) // the socket is still valid (otherwise ignore it - the user probably aborted)
+            if (Socket != INVALID_SOCKET) // the socket is connected (otherwise ignore it - the user probably aborted)
             {
                 SOCKADDR_IN addr;
                 memset(&addr, 0, sizeof(addr));
                 int len = sizeof(addr);
                 SOCKET sock = accept(Socket, (SOCKADDR*)&addr, &len);
                 if (sock != INVALID_SOCKET &&
-                    // according to the help, calling WSAAsyncSelect is not necessary, but supposedly some versions of Windows Sockets
-                    // do not do it automatically, so it is necessary - an anomaly occurred: when stepping through sending
-                    // the LIST command, it generates FD_XXX twice (the second set arrives after the first FD_CLOSE -> it cannot be delivered)
+                    // according to the help calling WSAAsyncSelect is not necessary, but supposedly some versions of Windows Sockets
+                    // do not do it automatically, so it must be done - an anomaly occurred: when stepping through sending
+                    // the LIST command it generates FD_XXX twice (the second set arrives after the first FD_CLOSE -> it is undeliverable)
                     WSAAsyncSelect(sock, socketsWindow, Msg, FD_READ | FD_WRITE | FD_CLOSE) != SOCKET_ERROR)
                 {
                     closesocket(Socket); // close the "listen" socket, it will no longer be needed - calling CloseSocketEx is undesirable
@@ -2356,7 +2354,7 @@ CSocket::GetSocket()
 void CSocket::SetCertificate(CCertificate* certificate)
 {
     HANDLES(EnterCriticalSection(&SocketCritSect));
-    CCertificate* old = pCertificate; // ensures AddRef is called before Release (in case pCertificate == certificate)
+    CCertificate* old = pCertificate; // ensures AddRef is called via Release (in case pCertificate == certificate)
     pCertificate = certificate;
     if (pCertificate)
         pCertificate->AddRef();
@@ -2658,7 +2656,7 @@ void CSocketsThread::ReceiveMsgData()
             CSocket* s = Sockets[index];
             if (s != NULL && s->GetUID() == data->SocketUID) // it is the recipient of the message (it was waiting)
                 s->ReceiveHostByAddressInt(data->IP, data->HostUID, data->Err, index);
-            else // This is an IP that did not arrive because the socket was canceled or swapped.
+            else // IP that did not arrive because the socket was cancelled or swapped,
             {    // when sockets are swapped, find the target socket sequentially and deliver the IP
                 int i;
                 for (i = 0; i < Sockets.Count; i++)
@@ -2763,7 +2761,7 @@ void CSocketsThread::ReceivePostMessage()
             CSocket* s = Sockets[index];
             if (s != NULL && s->GetUID() == data->SocketUID) // it is the recipient of the message (it was waiting)
                 s->ReceivePostMessage(data->ID, data->Param);
-            else // this is a message that did not arrive because the socket was canceled or swapped
+            else // a message that did not arrive because the socket was cancelled or swapped,
             {    // when sockets are swapped, find the target socket sequentially and deliver the message
                 int i;
                 for (i = 0; i < Sockets.Count; i++)
@@ -2814,7 +2812,7 @@ int CSocketsThread::FindIndexForNewTimer(DWORD timeoutAbs, int leftIndex)
         if (actTimeoutAbs == timeoutAbs)
         {
             while (++m < Timers.Count && Timers[m]->TimeoutAbs - timeoutAbsBase == timeoutAbs)
-                ;     // return the index after the last timer with the same timeout
+                ;     // return the index after the last identical timer
             return m; // found
         }
         else if (actTimeoutAbs > timeoutAbs)
@@ -2845,7 +2843,7 @@ BOOL CSocketsThread::AddTimer(int socketMsg, int socketUID, DWORD timeoutAbs, DW
         Timers.Insert(i, data);
         if (Timers.IsGood())
         {
-            if (i == 0 && !Terminating) // inserting the timer with the shortest time to timeout
+            if (i == 0 && !Terminating) // inserting the timer with the shortest time into the timeout
             {
                 DWORD ti = timeoutAbs - GetTickCount();
                 if ((int)ti > 0) // if the new timer has not yet expired (the time difference can also be negative), adjust or start the Windows timer
@@ -2901,7 +2899,7 @@ BOOL CSocketsThread::DeleteTimer(int socketUID, DWORD id)
             ret = TRUE;
         }
     }
-    if (setTimer) // a timer with the nearest timeout was canceled, adjust the timeout
+    if (setTimer) // a timer with the nearest timeout was cancelled, adjust the timeout
     {
         if (Timers.Count > 0 && !Terminating)
         {
@@ -2930,12 +2928,12 @@ void CSocketsThread::ReceiveTimer()
     HANDLES(EnterCriticalSection(&CritSect));
 
     // guard against recursive calls to ReceiveTimer() - there is no point posting WM_TIMER until the first run completes
-    // after processing the first call to ReceiveTimer(), a new timer will be started or WM_TIMER posted
+    // processing the first call to ReceiveTimer(), a new timer will be started or WM_TIMER posted
     if (LockedTimers == -1)
     {
         DWORD ti = GetTickCount();
         int last = FindIndexForNewTimer(ti, 0);
-        if (last > 0) // if any timer has timed out
+        if (last > 0) // if any timer timeout occurred
         {
             LockedTimers = last; // protect the timers being processed from deletion and array shifting
             int i;
@@ -2948,7 +2946,7 @@ void CSocketsThread::ReceiveTimer()
                     CSocket* s = Sockets[index];
                     if (s != NULL && s->GetUID() == timer->SocketUID) // it is the recipient of the message (it was waiting)
                         s->ReceiveTimer(timer->ID, timer->Param);
-                    else // This is a timer that did not arrive because the socket was canceled or swapped.
+                    else // a timer that did not arrive because the socket was cancelled or swapped,
                     {    // when sockets are swapped, find the target socket sequentially and deliver the timer
                         int j;
                         for (j = 0; j < Sockets.Count; j++)
@@ -3042,8 +3040,8 @@ CSocketsThread::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     //  SLOW_CALL_STACK_MESSAGE5("CSocketsThread::WindowProc(0x%X, 0x%X, 0x%X, 0x%X)", hwnd, uMsg, wParam, lParam);
 
     if (GetTickCount() - LastWM_TIMER_Processing >= 500 && uMsg != WM_TIMER)
-    {                                             // if 1000 ms has passed since the last WM_TIMER, insert one for processing manually, because most likely
-                                                  // the thread simply is not "idle", so the system does not send WM_TIMER (unfortunately, it is a low-priority message)
+    {                                             // if 1000 ms passed since the last WM_TIMER, insert it for processing manually, because most likely
+                                                  // the thread simply is not "idle", and therefore the system does not send WM_TIMER (it is unfortunately a low-priority message)
         LastWM_TIMER_Processing = GetTickCount(); // store when WM_TIMER was last processed
         if (SocketsThread != NULL)
             SocketsThread->ReceiveTimer();

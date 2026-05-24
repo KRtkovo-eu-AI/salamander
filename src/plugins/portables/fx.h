@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -185,7 +186,7 @@ namespace Fx
 
         /// Returns information about attributes that are valid for
         /// the enumerated items.
-        /// \return Combination of VALID_DATA_xxx flags.
+        /// \return Combinatation of VALID_DATA_xxx flags.
         virtual DWORD WINAPI GetValidData() const;
     };
 

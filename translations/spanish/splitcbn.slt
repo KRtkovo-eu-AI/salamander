@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\spanish\splitcbn.atp"
+PROJECTNAME,"translator\sally 4.0\projects\spanish\splitcbn.atp"
 TEXTVERSION,"1.11 (x86)"
 VERSION,"1,1,1,180"
 
@@ -125,7 +125,7 @@ COMMENT,"Versión en español"
 64,1,"&Combinar ficheros..."
 67,1,"Acerca del Plugin"
 68,1,"Dividir y combinar ficheros."
-69,1,"Generado por Open Salamander"
+69,1,"Generado por Sally"
 70,1,"Pulse Ctrl-C para salir."
 71,1,"Este fichero por lotes regenerará el fichero '%s'."
 72,1,"B"

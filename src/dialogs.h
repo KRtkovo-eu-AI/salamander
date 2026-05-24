@@ -1,8 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include <string>
+#include "ui/UnicodeNameInputController.h"
 
 //
 // ****************************************************************************
@@ -36,18 +39,30 @@ protected:
     int PathBufSize;
     char** History;
     int HistoryCount;
+    wchar_t** HistoryW;
+    int HistoryWCount;
     BOOL DirectoryHelper;
     int SelectionEnd;
 
+    // Unicode support for filenames that cannot be represented in ANSI
+    BOOL UseUnicodeInput;       // latch Unicode input mode across dialog retries
+    std::wstring PathW;         // Unicode input path (set via SetUnicodePath)
+    std::wstring ResultW;       // Unicode result (populated on OK)
+    CUnicodeNameInputController UnicodeInput;
+
 public:
-    // 'history' determines whether the dialog will contain a combo box (TRUE) or an edit line (FALSE)
-    // 'directoryHelper' specifies if a resource with a button behind the edit line will be used to select a directory
+    // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)
+    // 'directoryHelper' specifies if a resource with a button behind the editline will be used to select a directory
     // 'selectionEnd' specifies up to which character the name is selected (used for quick rename), -1 == all
     CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char* title,
                     CTruncatedString* subject, DWORD helpID,
-                    char* history[], int historyCount, BOOL directoryHelper);
+                    char* history[], int historyCount, BOOL directoryHelper,
+                    wchar_t* historyW[] = NULL, int historyWCount = 0);
 
     void SetSelectionEnd(int selectionEnd);
+    void SetUnicodePath(const std::wstring& pathW);
+    const std::wstring& GetUnicodeResult() const { return ResultW; }
+    BOOL IsUnicodeMode() const { return UseUnicodeInput; }
     virtual void Transfer(CTransferInfo& ti);
 
 protected:
@@ -57,7 +72,8 @@ protected:
 class CEditNewFileDialog : public CCopyMoveDialog
 {
 public:
-    CEditNewFileDialog(HWND parent, char* path, int pathBufSize, CTruncatedString* subject, char* history[], int historyCount);
+    CEditNewFileDialog(HWND parent, char* path, int pathBufSize, CTruncatedString* subject,
+                       char* history[], int historyCount, wchar_t* historyW[] = NULL, int historyWCount = 0);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -78,6 +94,8 @@ protected:
     int PathBufSize;
     char** History;
     int HistoryCount;
+    wchar_t** HistoryW;
+    int HistoryWCount;
     CCriteriaData* CriteriaInOut; // used to transfer data in and out of the dialog (on OK)
     CCriteriaData* Criteria;      // allocated because static declaration would require juggling headers
     BOOL HavePermissions;
@@ -91,14 +109,25 @@ protected:
 
     CButton* MoreButton;
 
+    // Unicode support for filenames that cannot be represented in ANSI
+    BOOL UseUnicodeInput;
+    std::wstring PathW;         // Unicode input path (set via SetUnicodePath)
+    std::wstring ResultW;       // Unicode result (populated on OK)
+    CUnicodeNameInputController UnicodeInput;
+
 public:
-    // 'history' determines whether the dialog will contain a combo box (TRUE) or an edit line (FALSE)
-    // 'directoryHelper' specifies if a resource with a button behind the edit line will be used to select a directory
+    // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)
+    // 'directoryHelper' specifies if a resource with a button behind the editline will be used to select a directory
     CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSize, char* title,
                         CTruncatedString* subject, DWORD helpID,
                         char* history[], int historyCount, CCriteriaData* criteriaInOut,
-                        BOOL havePermissions, BOOL supportsADS);
+                        BOOL havePermissions, BOOL supportsADS,
+                        wchar_t* historyW[] = NULL, int historyWCount = 0);
     ~CCopyMoveMoreDialog();
+
+    void SetUnicodePath(const std::wstring& pathW);
+    const std::wstring& GetUnicodeResult() const { return ResultW; }
+    BOOL IsUnicodeMode() const { return UseUnicodeInput; }
 
     virtual void Validate(CTransferInfo& ti);
     virtual void Transfer(CTransferInfo& ti);
@@ -123,15 +152,15 @@ class CMessageBox : public CCommonDialog
 {
 protected:
     DWORD Flags;
-    char* Title;
-    char* CheckText;
+    std::string Title;
+    std::string CheckText;
     CTruncatedString Text;
     BOOL* Check;
     HICON HOwnIcon;
     MSGBOXEX_CALLBACK HelpCallback;
-    char* AliasBtnNames;
-    char* URL;
-    char* URLText;
+    std::string AliasBtnNames;
+    std::string URL;
+    std::string URLText;
     // for WM_COPY:
     int ButtonsID[MESSAGEBOX_MAXBUTTONS]; // IDs of the buttons after remapping
     int BackgroundSeparator;              // Y offset dividing white/gray (Vista+)
@@ -277,7 +306,7 @@ public:
     HWND GetNextOpenedDlg(int* index);
 
     // ensures all open dialogs are closed
-    // call only from the main thread (otherwise another dialog might open and won't
+    // call only from the main thread (otherwise another dialog might open and it won't
     // know it should terminate)
     void PostCancelToAllDlgs();
 
@@ -367,8 +396,10 @@ protected:
     BOOL CacheIsDirty;
     char OperationCache[100];
     char PrepositionCache[100];
-    char SourceCache[2 * MAX_PATH];
-    char TargetCache[2 * MAX_PATH];
+    CPathBuffer SourceCache;
+    CPathBuffer TargetCache;
+    std::wstring SourceCacheW;
+    std::wstring TargetCacheW;
 
     // values are stored and drawn only when the timer fires
     BOOL OperationProgressCacheIsDirty;
@@ -384,7 +415,7 @@ class CFileErrorDlg : public CCommonDialog
 {
 public:
     CFileErrorDlg(HWND parent, const char* caption, const char* file, const char* error,
-                  BOOL noSkip = FALSE, int altRes = 0);
+                  BOOL noSkip = FALSE, int altRes = 0, const wchar_t* fileW = NULL);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -392,6 +423,7 @@ protected:
     const char *Caption,
         *File,
         *Error;
+    const wchar_t* FileW;
 };
 
 //
@@ -433,13 +465,16 @@ class CErrorCopyingPermissionsDlg : public CCommonDialog
 {
 public:
     CErrorCopyingPermissionsDlg(HWND parent, const char* sourceFile,
-                                const char* targetFile, DWORD error);
+                                const char* targetFile, DWORD error,
+                                const wchar_t* sourceFileW = NULL, const wchar_t* targetFileW = NULL);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     const char* SourceFile;
     const char* TargetFile;
+    const wchar_t* SourceFileW;
+    const wchar_t* TargetFileW;
     DWORD Error;
 };
 
@@ -449,12 +484,14 @@ protected:
 class CErrorCopyingDirTimeDlg : public CCommonDialog
 {
 public:
-    CErrorCopyingDirTimeDlg(HWND parent, const char* targetFile, DWORD error);
+    CErrorCopyingDirTimeDlg(HWND parent, const char* targetFile, DWORD error,
+                            const wchar_t* targetFileW = NULL);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     const char* TargetFile;
+    const wchar_t* TargetFileW;
     DWORD Error;
 };
 
@@ -466,7 +503,8 @@ class COverwriteDlg : public CCommonDialog
 public:
     COverwriteDlg(HWND parent, const char* sourceName, const char* sourceAttr,
                   const char* targetName, const char* targetAttr, BOOL yesnocancel = FALSE,
-                  BOOL dirOverwrite = FALSE);
+                  BOOL dirOverwrite = FALSE, const wchar_t* sourceNameW = NULL,
+                  const wchar_t* targetNameW = NULL);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -475,6 +513,8 @@ protected:
         *SourceAttr,
         *TargetName,
         *TargetAttr;
+    const wchar_t *SourceNameW,
+        *TargetNameW;
 };
 
 //
@@ -549,7 +589,8 @@ class CCannotMoveDlg : public CCommonDialog
 {
 public:
     CCannotMoveDlg(HWND parent, int resID, char* sourceName, char* targetName,
-                   char* error);
+                   char* error, const wchar_t* sourceNameW = NULL,
+                   const wchar_t* targetNameW = NULL);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -557,6 +598,8 @@ protected:
     char *SourceName,
         *TargetName,
         *Error;
+    const wchar_t *SourceNameW,
+        *TargetNameW;
 };
 
 //
@@ -588,7 +631,7 @@ class CColorGraph;
 class CDriveInfo : public CCommonDialog
 {
 protected:
-    char VolumePath[MAX_PATH]; // which drive information should be shown (either the root or a junction point)
+    CPathBuffer VolumePath; // which drive information should be shown (either the root or a junction point)
     char OldVolumeName[1000];  // for change detection
     CColorGraph* Graph;
     HICON HDriveIcon;
@@ -632,10 +675,10 @@ private:
     BOOL SelectionContainsDirectory;
 
 public:
-    char Mask[MAX_PATH]; // which files will be converted?
+    CPathBuffer Mask; // which files will be converted?
     int Change;          // which conversion should be performed?
     BOOL SubDirs;        // include subdirectories?
-    int CodeType;        // which encoding is selected (0 = none)
+    int CodeType;        // selected encoding (0 = none)
     int EOFType;         // selected line endings (0 = none)
                          // 1 = CRLF
                          // 2 = LF
@@ -728,7 +771,11 @@ protected:
 class CChangeDirDlg : public CCommonDialog
 {
 public:
-    CChangeDirDlg(HWND parent, char* path, BOOL* sendDirectlyToPlugin);
+    CChangeDirDlg(HWND parent, char* path, int pathBufSize, BOOL* sendDirectlyToPlugin);
+
+    void SetUnicodePath(const std::wstring& pathW);
+    const std::wstring& GetUnicodeResult() const { return ResultW; }
+    BOOL IsUnicodeMode() const { return !PathW.empty(); }
 
     virtual void Transfer(CTransferInfo& ti);
 
@@ -736,7 +783,13 @@ protected:
     INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     char* Path;
+    int PathBufSize;
     BOOL* SendDirectlyToPlugin;
+
+    // Unicode support
+    std::wstring PathW;
+    std::wstring ResultW;
+    HWND HUnicodeEdit;
 };
 
 //
@@ -747,12 +800,15 @@ class CPackerConfig;
 class CPackDialog : public CCommonDialog
 {
 public:
-    CPackDialog(HWND parent, char* path, const char* pathAlt,
+    CPackDialog(HWND parent, char* path, int pathBufSize, const char* pathAlt,
                 CTruncatedString* subject, CPackerConfig* config);
 
     virtual void Transfer(CTransferInfo& ti);
 
     void SetSelectionEnd(int selectionEnd);
+    void SetUnicodePath(const std::wstring& pathW);
+    const std::wstring& GetUnicodeResult() const { return ResultW; }
+    BOOL IsUnicodeMode() const { return !PathW.empty(); }
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -761,6 +817,10 @@ protected:
     BOOL ChangeExtension(char* name, const char* ext);
 
     char* Path;
+    int PathBufSize;
+    std::wstring PathW;         // Unicode input path
+    std::wstring ResultW;       // Unicode result
+    HWND HUnicodeEdit;          // Overlay Unicode edit control
     const char* PathAlt;
     CTruncatedString* Subject;
     CPackerConfig* PackerConfig;
@@ -775,11 +835,15 @@ class CUnpackerConfig;
 class CUnpackDialog : public CCommonDialog
 {
 public:
-    CUnpackDialog(HWND parent, char* path, const char* pathAlt, char* mask,
+    CUnpackDialog(HWND parent, char* path, int pathBufSize, const char* pathAlt, char* mask,
                   CTruncatedString* subject, CUnpackerConfig* config,
                   BOOL* delArchiveWhenDone);
 
     virtual void Transfer(CTransferInfo& ti);
+
+    void SetUnicodePath(const std::wstring& pathW);
+    const std::wstring& GetUnicodeResult() const { return ResultW; }
+    BOOL IsUnicodeMode() const { return !PathW.empty(); }
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -788,6 +852,10 @@ protected:
 
     char *Mask,
         *Path;
+    int PathBufSize;
+    std::wstring PathW;         // Unicode input path
+    std::wstring ResultW;       // Unicode result
+    HWND HUnicodeEdit;          // Overlay Unicode edit control
     const char* PathAlt;
     CTruncatedString* Subject;
     CUnpackerConfig* UnpackerConfig;
@@ -831,7 +899,7 @@ protected:
 
 protected:
     CBitmap* Bitmap;         // includes the text
-    CBitmap* OriginalBitmap; // bitmap only, without text
+    CBitmap* OriginalBitmap; // graphics only, without text
     HFONT HNormalFont;
     HFONT HBoldFont;
     RECT OpenSalR;
@@ -935,7 +1003,7 @@ protected:
     char* IconFile;
     int* IconIndex;
     BOOL Dirty;
-    HICON* Icons;     // array of icon handles
+    HICON* Icons;     // array of enumerated icon handles
     DWORD IconsCount; // number of icons in the array
 
 public:
@@ -947,7 +1015,7 @@ public:
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-    void GetShell32(char* fileName);
+    void GetShell32(char* fileName, int fileNameSize);
 
     BOOL LoadIcons();    // enumerates icons and fills the Icons array
     void DestroyIcons(); // clears the Icons array
@@ -968,7 +1036,7 @@ protected:
     HIMAGELIST HImageList;      // image list for the listview
     BOOL RefreshPanels;         // should the panels be refreshed after closing the dialog?
     BOOL DrivesBarChange;       // should the Drives bars be refreshed after closing the dialog?
-    char FocusPlugin[MAX_PATH]; // empty if no plugin should get focus; otherwise contains its path
+    CPathBuffer FocusPlugin; // empty if no plugin should get focus; otherwise contains its path
     CHyperLink* Url;
     char ShowInBarText[200];        // text taken from the checkbox when the dialog opens
     char ShowInChDrvText[200];      // text taken from the checkbox when the dialog opens
@@ -988,8 +1056,8 @@ protected:
     void InitColumns();     // add columns to the listview
     void SetColumnWidths(); // set optimal column widths
     void RefreshListView(BOOL setOnly = TRUE, int selIndex = -1, const CPluginData* selectPlugin = NULL, BOOL setColumnWidths = FALSE);
-    void OnSelChanged();                                                    // the selected item in the list view changed
-    CPluginData* GetSelectedPlugin(int* index = NULL, int* lvIndex = NULL); // returns NULL if no item is selected; index returns the index into the Plugins array; lvIndex returns the index within the list view and can be NULL
+    void OnSelChanged();                                                    // selected item in the listview changed
+    CPluginData* GetSelectedPlugin(int* index = NULL, int* lvIndex = NULL); // returns NULL if no item is selected; index returns index to the Plugins array; lvIndex returns index within listview, can be NULL
     void EnableButtons(CPluginData* plugin);
     void OnContextMenu(int x, int y); // show the context menu for the selected item at coordinates x, y
     void OnMove(BOOL up);
@@ -1025,7 +1093,7 @@ protected:
     void RefreshListView(BOOL setOnly = TRUE);
 
     WORD GetHotKey(BYTE* virtKey = NULL, BYTE* mods = NULL);
-    CPluginMenuItem* GetSelectedItem(int* orgIndex); // orgIndex receives the index into the Plugin->MenuItems array; it may be NULL
+    CPluginMenuItem* GetSelectedItem(int* orgIndex); // orgIndex returns index to Plugin array->MenuItems; may be NULL
     CPluginMenuItem* GetItem(int index);
     void EnableButtons();
     void HandleConflictWarning();
@@ -1066,8 +1134,8 @@ protected:
 class CWaitWindow : public CWindow
 {
 protected:
-    char* Caption;
-    char* Text;
+    std::string Caption;
+    std::string Text;
     SIZE TextSize;
     HWND HParent;
     HWND HForegroundWnd;
@@ -1167,9 +1235,9 @@ struct CImportOldKey
 class CImportConfigDialog : public CCommonDialog
 {
 public:
-    // array corresponding to the SalamanderConfigurationRoots array; TRUE: configuration exists, FALSE: does not exist
+    // array corresponding to SalamanderConfigurationRoots array; TRUE:the configuration exists, FALSE:it doesn't
     BOOL ConfigurationExist[SALCFG_ROOTS_COUNT];
-    // pointer to an array of the same size where the dialog stores TRUE for configurations to be deleted
+    // pointer to the same sized array where the dialog stores TRUE for configurations to delete
     BOOL* DeleteConfigurations;
     // dialog returns here which configuration the user wants to import; -1 -> none
     // index points into the SalamanderConfigurationRoots array
@@ -1213,7 +1281,7 @@ public:
     BOOL Initialize(const char* slgSearchPath = NULL, HINSTANCE pluginDLL = NULL);
 
     int GetLanguagesCount() { return Items.Count; }
-    BOOL GetSLGName(char* path, int index = 0); // returns the xxxx.slg for the item at index 'index'
+    BOOL GetSLGName(char* path, int index = 0); // returns xxxx.slg of the item at index 'index'
     BOOL SLGNameExists(const char* slgName);    // checks whether 'slgName' exists in 'Items'
 
     void FillControls();
@@ -1286,8 +1354,8 @@ protected:
 public:
     CSharesDialog(HWND hParent);
 
-    const char* GetFocusedPath(); // returns the path of the selected share; call only after Execute() returns
-                                  // returns NULL if the "Focus" button was not pressed and the dialog returned IDOK
+    const char* GetFocusedPath(); // returns the path of the selected share; call only after the dialog returns
+                                  // returns NULL if "Focus" wasn't clicked and the dialog returned IDOK
                                   // from Execute()
 
 protected:
@@ -1299,7 +1367,7 @@ protected:
     void Refresh();     // loads shared folders and adds them to the listview
     static int CALLBACK SortFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort);
     void SortItems();                        // sorts items based on the SortBy variable
-    int GetFocusedIndex();                   // returns the index into the SharetDirs array, or -1 if no item is selected
+    int GetFocusedIndex();                   // returns index to SharetDirs array or -1 if no item is selected
     void DeleteShare(const char* shareName); // request the system to remove the share
     void OnContextMenu(int x, int y);        // shows the context menu for the selected item at coordinates x, y
     void EnableControls();                   // button enabler
@@ -1349,8 +1417,8 @@ public:
     CDisconnectDialog(CFilesWindow* panel);
     ~CDisconnectDialog();
 
-    const char* GetFocusedPath();                 // returns the path of the selected share; call only after Execute() returns
-                                                  // returns NULL if the "Focus" button was not pressed and the dialog returned IDOK
+    const char* GetFocusedPath();                 // returns the path of the selected share; call only after the dialog returns
+                                                  // returns NULL if "Focus" wasn't clicked and the dialog returned IDOK
                                                   // from Execute()
     BOOL NoConnection() { return NoConncection; } // returns TRUE if the dialog wasn't opened because there was no connection
 
@@ -1446,7 +1514,7 @@ protected:
     int OriginalHeight;   // full dialog height
     int OriginalButtonsY; // Y position of the buttons in client coordinates
     int SpacerHeight;     // spacer used when shrinking/expanding the dialog
-    BOOL Expanded;        // is the dialog currently expanded?
+    BOOL Expanded;        // are we currently expanded?
 
 public:
     CCompareDirsDialog(HWND hParent, BOOL enableByDateAndTime, BOOL enableBySize,
@@ -1482,8 +1550,8 @@ protected:
     CProgressBar* Progress;
     CProgressBar* TotalProgress;
 
-    char DelayedSource[2 * MAX_PATH]; // text displayed later
-    char DelayedTarget[2 * MAX_PATH]; // text displayed later
+    CPathBuffer DelayedSource; // text displayed later
+    CPathBuffer DelayedTarget; // text displayed later
     BOOL DelayedSourceDirty;
     BOOL DelayedTargetDirty;
 
@@ -1499,7 +1567,7 @@ protected:
     CITaskBarList3* TaskBarList3; // pointer to the interface owned by the Salamander main window
 
 public:
-    CCmpDirProgressDialog(HWND hParent, BOOL hasProgress, CITaskBarList3* taskBarList3); // if 'hasProgress' is TRUE, the dialog with a progress bar is used
+    CCmpDirProgressDialog(HWND hParent, BOOL hasProgress, CITaskBarList3* taskBarList3); // if 'hasProgress' is TRUE, the dialog shows a progress bar
 
     // text setup
     void SetSource(const char* text);
@@ -1520,7 +1588,7 @@ public:
     // changes progress relatively
     void AddSize(const CQuadWord& size);
 
-    // distributes messages; returns FALSE if the user canceled the operation
+    // distributes messages; returns FALSE if the user cancelled the operation
     BOOL Continue();
 
     void FlushDataToControls(); // passes stored values to controls for display
@@ -1559,7 +1627,7 @@ protected:
 
 protected:
     const char* ErrText;
-    char DrvPath[MAX_PATH];
+    CPathBuffer DrvPath;
     int CounterForAllowedUseOfTimer;
 };
 

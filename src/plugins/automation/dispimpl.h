@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -24,11 +25,11 @@
     }
 
 /*
-	We must implement IDispatchEx for the VBScript engine.
-	We used to use a simple StdDispatch implementation, but VB requires
-	IDispatchEx and if it does not get it, it simply casts
-	the interface pointer to IDispatch, which does not work well
-	with the aggregated StdDispatch interface and caused strange
+	We must implement IDispatchEx for the very stupid VBScript engine.
+	We used to use simple StdDispatch implementation, but VB insists
+	on IDispatchEx and if it doesn't get it it simply !!!CASTS!!!
+	the interface pointer to the IDispatch which is not very good
+	with the aggregated StdDispatch interface and it caused strange
 	crashes.
 */
 
@@ -210,8 +211,8 @@ public:
 
         if (SUCCEEDED(hr) && pVarResult != NULL && V_VT(pVarResult) == VT_DISPATCH)
         {
-            // it seems that standard DispInvoke is not able
-            // to coerce the return value to a proper pointer to
+            // it seems that std DispInvoke is not able
+            // to coerce return value to proper pointer to
             // IDispatch in case of dual interface objects
 
             IDispatch* pdisp;

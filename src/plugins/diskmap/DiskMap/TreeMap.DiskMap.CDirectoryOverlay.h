@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -31,10 +32,14 @@ protected:
 
     BOOL DrawMinorDirectory(BYTE* p, int pw, int ph, int cshx, int cshy, int cshw, int cshh, int txt_heigth)
     {
-        if (cshx >= pw)
+        if (cshx < 0 || cshx >= pw)
             return FALSE;
-        if (cshy >= ph)
+        if (cshy < 0 || cshy >= ph)
             return FALSE;
+        if (cshx + cshw > pw)
+            cshw = pw - cshx;
+        if (cshy + cshh > ph)
+            cshh = ph - cshy;
         if (cshw < 6)
             return FALSE;
         if (cshh < 6)
@@ -176,10 +181,14 @@ protected:
 
     BOOL DrawMajorDirectory(BYTE* p, int pw, int ph, int cshx, int cshy, int cshw, int cshh, BYTE* txt_data, int txt_width, int txt_heigth)
     {
-        if (cshx >= pw)
+        if (cshx < 0 || cshx >= pw)
             return FALSE;
-        if (cshy >= ph)
+        if (cshy < 0 || cshy >= ph)
             return FALSE;
+        if (cshx + cshw > pw)
+            cshw = pw - cshx;
+        if (cshy + cshh > ph)
+            cshh = ph - cshy;
         if (cshw < 6)
             return FALSE;
         if (cshh < 6)
@@ -369,8 +378,8 @@ protected:
         if (dta != NULL)
         {
             NONCLIENTMETRICS ncm;
-            ncm.cbSize = sizeof ncm;
-            SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+            ncm.cbSize = sizeof(ncm);
+            SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
 
             HFONT hfnormal = CreateFontIndirect(&ncm.lfStatusFont);
 
@@ -420,7 +429,7 @@ protected:
                         else //text pixel
                         {
                             if (tx > titlewidth)
-                                titlewidth = tx; //extend the maximum text width
+                                titlewidth = tx; //extend the maximum text length
 
                             txt_data[cxp] = 0xff; //text pixel will be white
 
@@ -429,7 +438,7 @@ protected:
                                 for (int px = 0; px < 4; px++)
                                 {
                                     if ((px == 0) && (py == 0))
-                                        continue; //center pixel not needed
+                                        continue; //no need for the center
 
                                     int txa = CDirectoryOverlay_shadowdata[py * 4 + px];
                                     if (tx - px > 0)

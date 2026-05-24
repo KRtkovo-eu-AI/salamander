@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -85,7 +86,7 @@ protected:
 class CExtOptionsDialog : public CCommonDialog
 {
 private:
-    char Archive[MAX_PATH];
+    CPathBuffer Archive;
 
     char Password[PASSWORD_LEN];
     char ConfirmedPassword[PASSWORD_LEN];
@@ -106,7 +107,7 @@ public:
     BOOL IsPasswordDefined() { return Encrypt; }
     char* GetPassword() { return Password; }
     BOOL GetNotAgain() { return NotAgain; }
-    void SetArchiveName(const char* archiveName) { lstrcpy(Archive, archiveName); }
+    void SetArchiveName(const char* archiveName) { lstrcpyn(Archive, archiveName, Archive.Size()); }
     void SetTitle(const char* title) { Title = title; }
 
 protected:

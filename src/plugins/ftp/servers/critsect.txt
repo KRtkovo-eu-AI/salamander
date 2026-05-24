@@ -1,4 +1,4 @@
-Critical sections that do not enter any other critical section (primitive):
+Sekce bez vstupu do jinych sekci (primitivni):
   CLogs::LogCritSect
   CListingCache::CacheCritSect
   CControlConnectionSocket::EventCritSect
@@ -11,11 +11,11 @@ Critical sections that do not enter any other critical section (primitive):
   CSynchronizedDWORD::ValueCS
   CFTPProxyServerList::ProxyServerListCS
 
-While holding CClosedCtrlConChecker::DataSect, code may enter:
+Ze sekce CClosedCtrlConChecker::DataSect se vstupuje do:
   CControlConnectionSocket::EventCritSect
   CSocket::SocketCritSect
 
-While holding CSocketsThread::CritSect, code may enter:
+Ze sekce CSocketsThread::CritSect se vstupuje do:
   CSocket::SocketCritSect
   CControlConnectionSocket::EventCritSect
   CLogs::LogCritSect
@@ -31,7 +31,7 @@ While holding CSocketsThread::CritSect, code may enter:
   CSynchronizedDWORD::ValueCS
   CUploadListingCache::UploadLstCacheCritSect
 
-While holding CSocket::SocketCritSect, code may enter:
+Ze sekce CSocket::SocketCritSect se vstupuje do:
   CControlConnectionSocket::EventCritSect
   CLogs::LogCritSect
   CFTPQueue::QueueCritSect
@@ -47,7 +47,7 @@ While holding CSocket::SocketCritSect, code may enter:
   CUploadListingCache::UploadLstCacheCritSect
   CFTPProxyServerList::ProxyServerListCS
 
-While holding CFTPOperationsList::OpListCritSect, code may enter:
+Ze sekce CFTPOperationsList::OpListCritSect se vstupuje do:
   CFTPQueue::QueueCritSect
   CFTPOperation::OperCritSect
   CFTPWorkersList::WorkersListCritSect
@@ -56,7 +56,7 @@ While holding CFTPOperationsList::OpListCritSect, code may enter:
   CFTPDiskThread::DiskCritSect
   CUploadListingCache::UploadLstCacheCritSect
 
-While holding CFTPWorkersList::WorkersListCritSect, code may enter:
+Ze sekce CFTPWorkersList::WorkersListCritSect se vstupuje do:
   CFTPQueue::QueueCritSect
   CFTPWorker::WorkerCritSect
   CFTPOperation::OperCritSect
@@ -64,7 +64,7 @@ While holding CFTPWorkersList::WorkersListCritSect, code may enter:
   CFTPDiskThread::DiskCritSect
   CUploadListingCache::UploadLstCacheCritSect
 
-While holding CFTPWorker::WorkerCritSect, code may enter:
+Ze sekce CFTPWorker::WorkerCritSect se vstupuje do:
   CFTPQueue::QueueCritSect
   CFTPOperation::OperCritSect
   CLogs::LogCritSect
@@ -73,18 +73,18 @@ While holding CFTPWorker::WorkerCritSect, code may enter:
   CConfiguration::ConParamsCS
   CUploadListingCache::UploadLstCacheCritSect
 
-While holding CFTPOperation::OperCritSect, code may enter:
+Ze sekce CFTPOperation::OperCritSect se vstupuje do:
   CLogs::LogCritSect
   CConfiguration::ConParamsCS
   CTransferSpeedMeter::TransferSpeedMeterCS
 
-While holding CFTPQueue::QueueCritSect, code may enter:
+Ze sekce CFTPQueue::QueueCritSect se vstupuje do:
   CFTPOperation::OperCritSect
   CTransferSpeedMeter::TransferSpeedMeterCS
   CUploadListingCache::UploadLstCacheCritSect
 
-While holding CConfiguration::ServerTypeListCS, code may enter:
+Ze sekce CConfiguration::ServerTypeListCS se vstupuje do:
   CFTPOperation::OperCritSect
 
-While holding CUploadListingCache::UploadLstCacheCritSect, code may enter:
+Ze sekce CUploadListingCache::UploadLstCacheCritSect se vstupuje do:
   CConfiguration::ServerTypeListCS

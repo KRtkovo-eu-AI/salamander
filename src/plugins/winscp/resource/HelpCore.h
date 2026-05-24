@@ -1,4 +1,4 @@
-#ifndef HelpCoreH
+﻿#ifndef HelpCoreH
 #define HelpCoreH
 
 #define HELP_UNKNOWN_KEY                  "ssh#verifying_the_host_key"

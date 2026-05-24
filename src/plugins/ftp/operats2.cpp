@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -30,8 +30,8 @@ public:
         CALL_STACK_MESSAGE1("COperationDlgThread::Body()");
 
         // 'sendWMClose': the dialog sets it to TRUE when WM_CLOSE is received
-        // while a modal dialog is open over the operation dialog - once that
-        // modal dialog closes, WM_CLOSE is sent to the operation dialog again
+        // when a modal dialog above the operation dialog is open - once that
+        // modal dialog closes, WM_CLOSE is sent again to the operation dialog
         BOOL sendWMClose = FALSE;
         OperDlg->SendWMClose = &sendWMClose;
         if (OperDlg->Create() == NULL || OperDlg->CloseDlg)
@@ -44,7 +44,7 @@ public:
         else
         {
             HWND dlg = OperDlg->HWindow; // safely stored window handle (valid even after OperDlg is destroyed)
-            if (AlwaysOnTop)             // handle always-on-top at least statically (it is not in the system menu)
+            if (AlwaysOnTop)             // handle always-on-top at least "statically" (it's not in the system menu)
                 SetWindowPos(dlg, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
             SetForegroundWindow(dlg);
@@ -91,15 +91,15 @@ BOOL CFTPOperation::SetConnection(CFTPProxyServer* proxyServer, const char* host
     BOOL err = (host == NULL || *host == 0);
     Host = SalamanderGeneral->DupStr(host);
     Port = port;
-    User = SalamanderGeneral->DupStr((user != NULL && *user == 0) ? NULL : user); // remains NULL if user is NULL
+    User = SalamanderGeneral->DupStr((user != NULL && *user == 0) ? NULL : user); // remains NULL if it is NULL
     Password = SalamanderGeneral->DupStr((password != NULL && *password == 0) ? NULL : password);
     Account = SalamanderGeneral->DupStr((account != NULL && *account == 0) ? NULL : account);
-    InitFTPCommands = SalamanderGeneral->DupStr((initFTPCommands != NULL && *initFTPCommands == 0) ? NULL : initFTPCommands);
+    InitFTPCommands = (initFTPCommands != NULL && *initFTPCommands != 0) ? initFTPCommands : "";
     UsePassiveMode = usePassiveMode;
     SizeCmdIsSupported = TRUE;
-    ListCommand = SalamanderGeneral->DupStr(listCommand);
-    ServerSystem = SalamanderGeneral->DupStr(serverSystem);
-    ServerFirstReply = SalamanderGeneral->DupStr(serverFirstReply);
+    ListCommand = listCommand != NULL ? listCommand : "";
+    ServerSystem = serverSystem != NULL ? serverSystem : "";
+    ServerFirstReply = serverFirstReply != NULL ? serverFirstReply : "";
     ServerIP = serverIP;
     UseListingsCache = useListingsCache;
     HostIP = hostIP;
@@ -119,7 +119,7 @@ BOOL CFTPOperation::SetConnection(CFTPProxyServer* proxyServer, const char* host
     {
         ProxyScriptText = GetProxyScriptText(proxyType, FALSE);
         if (ProxyScriptText[0] == 0)
-            ProxyScriptText = GetProxyScriptText(fpstNotUsed, FALSE); // undefined script means the "not used (direct connection)" script for SOCKS 4/4A/5 and HTTP 1.1
+            ProxyScriptText = GetProxyScriptText(fpstNotUsed, FALSE); // undefined script = "not used (direct connection)" script - SOCKS 4/4A/5, HTTP 1.1
     }
     if (!err)
     {
@@ -131,7 +131,7 @@ BOOL CFTPOperation::SetConnection(CFTPProxyServer* proxyServer, const char* host
                                &proxyScriptParams, connectToHost, &ConnectToPort,
                                NULL, NULL, errBuf, NULL))
         {
-            if (proxyScriptParams.NeedUserInput()) // this should theoretically never happen (already verified by running it in the panel)
+            if (proxyScriptParams.NeedUserInput()) // theoretically should not happen (already verified by running it in the panel)
             {
                 err = TRUE;
                 TRACE_E("CFTPOperation::SetConnection(): unexpected situation: proxy script needs user input!");
@@ -153,7 +153,7 @@ void CFTPOperation::SetBasicData(char* operationSubject, const char* listingServ
     CALL_STACK_MESSAGE1("CFTPOperation::SetBasicData()");
 
     OperationSubject = SalamanderGeneral->DupStr(operationSubject);
-    ListingServerType = SalamanderGeneral->DupStr(listingServerType); // remains NULL if user is NULL
+    ListingServerType = SalamanderGeneral->DupStr(listingServerType); // remains NULL if it is NULL
 }
 
 void CFTPOperation::SetOperationDelete(const char* sourcePath, char srcPathSeparator,
@@ -426,7 +426,7 @@ void CFTPOperation::AddToNotDoneSkippedFailed(int notDone, int skipped, int fail
     {
         BOOL softRefresh = state == opstFinishedWithErrors || // FIXME: once a window with the operation queue exists, we must replace OperationDlg->DlgWillCloseIfOpFinWithSkips with a different detection of whether the worker closes (passing the connection back to the panel)
                            state == opstFinishedWithSkips && (OperationDlg != NULL ? !OperationDlg->DlgWillCloseIfOpFinWithSkips : TRUE);
-        PostChangeOnPathNotifications(softRefresh); // the connection is free now (at least for this operation), so we can afford to refresh the listing
+        PostChangeOnPathNotifications(softRefresh); // the line is free now (at least for this operation), so we can afford listing refreshes
     }
     HANDLES(LeaveCriticalSection(&OperCritSect));
 }
@@ -517,7 +517,7 @@ BOOL CFTPOperation::ActivateOperationDlg(HWND dropTargetWnd)
                 else
                     ret = TRUE; // success
             }
-            else // out of memory, error
+            else // low memory, error
             {
                 delete OperationDlg;
                 OperationDlg = NULL;
@@ -528,7 +528,7 @@ BOOL CFTPOperation::ActivateOperationDlg(HWND dropTargetWnd)
             }
         }
         else
-            TRACE_E(LOW_MEMORY); // out of memory, error
+            TRACE_E(LOW_MEMORY); // low memory, error
     }
     HANDLES(LeaveCriticalSection(&OperCritSect));
     return ret;
@@ -806,11 +806,11 @@ void CFTPOperation::SetServerSystem(const char* reply, int replySize)
 {
     CALL_STACK_MESSAGE2("CFTPOperation::SetServerSystem(, %d)", replySize);
     HANDLES(EnterCriticalSection(&OperCritSect));
-    if (ServerSystem == NULL)
+    if (ServerSystem.empty())
     {
         char buf[700];
         CopyStr(buf, 700, reply, replySize); // store the first server reply (source of information about the server version)
-        ServerSystem = SalamanderGeneral->DupStr(buf);
+        ServerSystem = buf;
     }
     HANDLES(LeaveCriticalSection(&OperCritSect));
 }
@@ -819,11 +819,11 @@ void CFTPOperation::SetServerFirstReply(const char* reply, int replySize)
 {
     CALL_STACK_MESSAGE2("CFTPOperation::SetServerFirstReply(, %d)", replySize);
     HANDLES(EnterCriticalSection(&OperCritSect));
-    if (ServerFirstReply == NULL)
+    if (ServerFirstReply.empty())
     {
         char buf[700];
         CopyStr(buf, 700, reply, replySize); // store the first server reply (source of information about the server version)
-        ServerFirstReply = SalamanderGeneral->DupStr(buf);
+        ServerFirstReply = buf;
     }
     HANDLES(LeaveCriticalSection(&OperCritSect));
 }
@@ -849,7 +849,7 @@ BOOL CFTPOperation::PrepareNextScriptCmd(char* buf, int bufSize, char* logBuf, i
     char proxyLogCmdBuf[FTPCOMMAND_MAX_SIZE];
     BOOL ret = TRUE;
     if (*proxyScriptExecPoint == NULL)
-        *proxyScriptExecPoint = ProxyScriptStartExecPoint; // prepare the first script command
+        *proxyScriptExecPoint = ProxyScriptStartExecPoint; // we should prepare the first script command
     if (ProcessProxyScript(ProxyScriptText, proxyScriptExecPoint, proxyScriptLastCmdReply,
                            &proxyScriptParams, NULL, NULL, proxySendCmdBuf,
                            proxyLogCmdBuf, errDescrBuf, NULL))
@@ -860,7 +860,7 @@ BOOL CFTPOperation::PrepareNextScriptCmd(char* buf, int bufSize, char* logBuf, i
             int resID = 0;
             if (proxyScriptParams.NeedProxyHost)
             {
-                resID = IDS_WORKERUNKNOWNPROXYHOST; // we indicate that it is required, but the user cannot enter it; if that ever becomes necessary (it should not for now, because login in the panel already succeeded without ProxyHost, so it is not expected here either), add a dialog for entering ProxyHost...
+                resID = IDS_WORKERUNKNOWNPROXYHOST; // we do say we need it, but the user cannot provide it - if it is ever required (should not happen yet because the login in the panel succeeded even without ProxyHost, so it likely will not be needed here either), add a dialog for entering ProxyHost...
                 TRACE_E("CFTPOperation::PrepareNextScriptCmd(): unexpected situation: ProxyHost is empty!");
             }
             if (proxyScriptParams.NeedProxyPassword)
@@ -918,7 +918,7 @@ void CFTPOperation::GetInitFTPCommands(char* buf, int bufSize)
 {
     CALL_STACK_MESSAGE1("CFTPOperation::GetInitFTPCommands(,)");
     HANDLES(EnterCriticalSection(&OperCritSect));
-    lstrcpyn(buf, InitFTPCommands != NULL ? InitFTPCommands : "", bufSize);
+    lstrcpyn(buf, InitFTPCommands.c_str(), bufSize);
     HANDLES(LeaveCriticalSection(&OperCritSect));
 }
 
@@ -1500,7 +1500,7 @@ void CFTPOperation::SetCertificate(CCertificate* certificate)
     CALL_STACK_MESSAGE1("CFTPOperation::SetCertificate()");
 
     HANDLES(EnterCriticalSection(&OperCritSect));
-    CCertificate* old = pCertificate; // ensures AddRef is called before Release (in case pCertificate == certificate)
+    CCertificate* old = pCertificate; // ensures AddRef is called via Release (in case pCertificate == certificate)
     pCertificate = certificate;
     if (pCertificate)
         pCertificate->AddRef();
@@ -1684,7 +1684,7 @@ void CFTPOperation::PostNewWorkAvailable(BOOL onlyOneItem)
 BOOL CFTPOperation::GiveWorkToSleepingConWorker(CFTPWorker* sourceWorker)
 {
     CALL_STACK_MESSAGE1("CFTPOperation::GiveWorkToSleepingConWorker()");
-    return WorkersList.GiveWorkToSleepingConWorker(sourceWorker); // synchronization is handled within WorkersList (the OperCritSect section is not needed here)
+    return WorkersList.GiveWorkToSleepingConWorker(sourceWorker); // synchronization is inside WorkersList (the OperCritSect section is not needed here)
 }
 
 CFTPServerPathType
@@ -1693,7 +1693,7 @@ CFTPOperation::GetFTPServerPathType(const char* path)
     CALL_STACK_MESSAGE2("CFTPOperation::GetFTPServerPathType(%s)", path);
 
     HANDLES(EnterCriticalSection(&OperCritSect));
-    CFTPServerPathType type = ::GetFTPServerPathType(ServerFirstReply, ServerSystem, path);
+    CFTPServerPathType type = ::GetFTPServerPathType(ServerFirstReply.c_str(), ServerSystem.c_str(), path);
     HANDLES(LeaveCriticalSection(&OperCritSect));
 
     return type;
@@ -1705,7 +1705,7 @@ BOOL CFTPOperation::IsServerSystem(const char* systemName)
 
     HANDLES(EnterCriticalSection(&OperCritSect));
     char sysName[201];
-    FTPGetServerSystem(ServerSystem, sysName);
+    FTPGetServerSystem(ServerSystem.c_str(), sysName);
     HANDLES(LeaveCriticalSection(&OperCritSect));
 
     return _stricmp(sysName, systemName) == 0;
@@ -1767,7 +1767,7 @@ void CFTPOperation::GetListCommand(char* buf, int bufSize)
 {
     CALL_STACK_MESSAGE2("CFTPOperation::GetListCommand(, %d)", bufSize);
     HANDLES(EnterCriticalSection(&OperCritSect));
-    lstrcpyn(buf, (ListCommand != NULL && *ListCommand != 0 ? ListCommand : LIST_CMD_TEXT), bufSize);
+    lstrcpyn(buf, (!ListCommand.empty() ? ListCommand.c_str() : LIST_CMD_TEXT), bufSize);
     if (bufSize > 2 && bufSize > (int)strlen(buf) + 2)
         strcat(buf, "\r\n");
     HANDLES(LeaveCriticalSection(&OperCritSect));
@@ -1794,7 +1794,7 @@ char* CFTPOperation::AllocServerSystemReply()
 {
     CALL_STACK_MESSAGE1("CFTPOperation::AllocServerSystemReply()");
     HANDLES(EnterCriticalSection(&OperCritSect));
-    char* ret = SalamanderGeneral->DupStr(HandleNULLStr(ServerSystem));
+    char* ret = SalamanderGeneral->DupStr(ServerSystem.c_str());
     HANDLES(LeaveCriticalSection(&OperCritSect));
     return ret;
 }
@@ -1803,7 +1803,7 @@ char* CFTPOperation::AllocServerFirstReply()
 {
     CALL_STACK_MESSAGE1("CFTPOperation::AllocServerFirstReply()");
     HANDLES(EnterCriticalSection(&OperCritSect));
-    char* ret = SalamanderGeneral->DupStr(HandleNULLStr(ServerFirstReply));
+    char* ret = SalamanderGeneral->DupStr(ServerFirstReply.c_str());
     HANDLES(LeaveCriticalSection(&OperCritSect));
     return ret;
 }
@@ -2107,7 +2107,7 @@ void CFTPQueueItem::SetItem(int parentUID, CFTPQueueItemType type, CFTPQueueItem
 
 BOOL CFTPQueueItem::HasErrorToSolve(BOOL* canSkip, BOOL* canRetry)
 {
-    BOOL solvableErr = ProblemID != ITEMPR_INVALIDPATHTODIR && // not an unsolvable problem (where Retry cannot help)
+    BOOL solvableErr = ProblemID != ITEMPR_INVALIDPATHTODIR && // not an unsolvable problem (no Retry can help)
                        ProblemID != ITEMPR_DIREXPLENDLESSLOOP &&
                        ProblemID != ITEMPR_INVALIDPATHTOLINK;
     if (canSkip != NULL)
@@ -2161,7 +2161,7 @@ void CFTPQueueItem::GetProblemDescr(char* buf, int bufSize)
                 FTPGetErrorText(WinError, errBuf, 300);
             else
                 lstrcpyn(errBuf, LoadStr(IDS_UNKNOWNERROR), 300);
-            char* s = errBuf + strlen(errBuf); // Trim the EOL and '.'.
+            char* s = errBuf + strlen(errBuf); // orizneme EOL a '.'
             while (--s >= errBuf && (*s == '\r' || *s == '\n' || *s == '.'))
                 ;
             *(s + 1) = 0;
@@ -2240,7 +2240,7 @@ void CFTPQueueItem::GetProblemDescr(char* buf, int bufSize)
             }
             if (attrs == NULL)
                 attrs = LoadStr(IDS_OPERDOPPR_UNKEXISTATTR);
-            _snprintf_s(buf, bufSize, _TRUNCATE, LoadStr(IDS_OPERDOPPR_UNKNOWNATTRS), attrs); // attrs might even be NULL (on failure); _snprintf_s can cope with that
+            _snprintf_s(buf, bufSize, _TRUNCATE, LoadStr(IDS_OPERDOPPR_UNKNOWNATTRS), attrs); // attrs might even be NULL (on error); sprintf can cope with that
             break;
         }
 
@@ -2277,7 +2277,7 @@ void CFTPQueueItem::GetProblemDescr(char* buf, int bufSize)
                 FTPGetErrorText(WinError, errBuf, 300);
             else
                 lstrcpyn(errBuf, LoadStr(IDS_UNKNOWNERROR), 300);
-            char* s = errBuf + strlen(errBuf); // Trim the EOL and '.'.
+            char* s = errBuf + strlen(errBuf); // orizneme EOL a '.'
             while (--s >= errBuf && (*s == '\r' || *s == '\n' || *s == '.'))
                 ;
             *(s + 1) = 0;
@@ -2309,7 +2309,7 @@ void CFTPQueueItem::GetProblemDescr(char* buf, int bufSize)
                     else
                         lstrcpyn(errBuf, LoadStr(IDS_UNKNOWNERROR), 300);
                 }
-                char* s = errBuf + strlen(errBuf); // Trim the EOL and '.'.
+                char* s = errBuf + strlen(errBuf); // orizneme EOL a '.'
                 while (--s >= errBuf && (*s == '\r' || *s == '\n' || *s == '.'))
                     ;
                 *(s + 1) = 0;
@@ -2548,7 +2548,7 @@ void CFTPQueueItemAncestor::ChangeStateAndCounters(CFTPQueueItemState state, CFT
         break;
     }
     }
-    queue->UpdateCounters((CFTPQueueItem*)this, FALSE); // handle the state change by virtually removing the item and adding it back after the state change
+    queue->UpdateCounters((CFTPQueueItem*)this, FALSE); // handle the state change by virtually removing the item and adding it back after the state changes
     State = state;
     queue->UpdateCounters((CFTPQueueItem*)this, TRUE);
     if (((CFTPQueueItem*)this)->IsItemInSimpleErrorState())
@@ -2591,7 +2591,7 @@ void CFTPQueueItemDir::SetStateAndNotDoneSkippedFailed(int childItemsNotDone, in
     ChildItemsSkipped = childItemsSkipped;
     ChildItemsFailed = childItemsFailed;
     ChildItemsUINeeded = childItemsUINeeded;
-    if (GetItemState() == sqisWaiting) // if the item is ready to process, check whether it needs to be delayed or must fail because of child items
+    if (GetItemState() == sqisWaiting) // if the item is ready to process, check whether
     {                                  // it needs to be delayed or must fail because of child items
         if (ChildItemsNotDone - ChildItemsSkipped - ChildItemsFailed - ChildItemsUINeeded > 0)
             SetStateInternal(sqisDelayed);

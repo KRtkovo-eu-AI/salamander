@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -38,7 +38,6 @@ CFilesMap::CFilesMap()
 
 CFilesMap::~CFilesMap()
 {
-    Map = NULL;
     DestroyMap();
 }
 
@@ -104,7 +103,7 @@ BOOL CFilesMap::CreateMap()
     {
         // Brief || Detailed
         // items are stored top to bottom and then left to right (Brief view)
-        char formatedFileName[MAX_PATH];
+        CPathBuffer formatedFileName;  // Heap-allocated for long path support
         HDC dc = HANDLES(GetDC(Panel->GetListBoxHWND()));
         HFONT hOldFont = (HFONT)SelectObject(dc, Font);
         int width = Panel->ListBox->GetItemWidth();
@@ -119,7 +118,7 @@ BOOL CFilesMap::CreateMap()
                     AlterFileName(formatedFileName, f->Name, -1, Configuration.FileNameFormat, 0, isDir);
 
                     const char* s = formatedFileName;
-                    // suppress ".."
+                    // skip the ".."
                     if (*s == '.' && *(s + 1) == '.' && *(s + 2) == 0)
                         s = NULL;
 
@@ -418,7 +417,7 @@ void CFilesMap::SetPoint(int x, int y)
             }
             item = GetMapItem(col, row);
 
-            if (item == NULL) // Several crashes occurred in CFilesMap::SetPoint; cause unknown
+            if (item == NULL) // there were several crashes in CFilesMap::SetPoint; cause unknown
                 continue;     // this avoids a crash; at worst, selection will not work
 
             BOOL inOld = PointInRect(col, row, oldRect);

@@ -1,4 +1,4 @@
-﻿// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
+// WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __CHECKVER_VERSINFO_RH2
 #define __CHECKVER_VERSINFO_RH2
 
@@ -9,16 +9,18 @@
 // defines for plugin.SPL and plugin.SLG VERSIONINFO
 // look at shared\versinfo.rc
 
+// Bump CheckVer's file version when updater resources/protocol handling change
+// so stale language files are rejected by VERSIONINFO validation.
 #define VERSINFO_MAJOR       1
 #define VERSINFO_MINORA      2
-#define VERSINFO_MINORB      6
+#define VERSINFO_MINORB      7
 
 #include "spl_vers.h" // pull in the version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2000-2023 Open Salamander Authors"
-#define VERSINFO_COMPANY     "Open Salamander"
+#define VERSINFO_COPYRIGHT   "Copyright © 2000-2026 Sally Authors"
+#define VERSINFO_COMPANY     "Sally"
 
-#define VERSINFO_DESCRIPTION "Check Version plugin for Open Salamander"
+#define VERSINFO_DESCRIPTION "Check Version plugin for Sally"
 
 #ifdef _LANG
 #define VERSINFO_INTERNAL    "ENGLISH"
@@ -29,7 +31,7 @@
 #endif
 
 // for SLG translators
-#define VERSINFO_SLG_WEB     "www.altap.cz"
+#define VERSINFO_SLG_WEB     "https://github.com/0xeb/sally"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif // __CHECKVER_VERSINFO_RH2

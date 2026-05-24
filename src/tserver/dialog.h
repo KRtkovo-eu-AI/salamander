@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -29,7 +30,7 @@ public:
         : CDialog(modul, resID, parent) {};
 
 protected:
-    virtual BOOL DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 //****************************************************************************
@@ -48,7 +49,7 @@ public:
     virtual void Transfer(CTransferInfo& ti);
 
 protected:
-    virtual BOOL DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 //****************************************************************************
@@ -72,7 +73,7 @@ public:
     void EnableControls();
 
 protected:
-    virtual BOOL DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 //****************************************************************************
@@ -93,7 +94,7 @@ public:
     virtual void Transfer(CTransferInfo& ti);
 
 protected:
-    virtual BOOL DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 BOOL DoSetupDialog(HWND hWindow);

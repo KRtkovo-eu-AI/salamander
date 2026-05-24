@@ -1,4 +1,4 @@
-#ifndef _TYPES_H_
+﻿#ifndef _TYPES_H_
 #define _TYPES_H_
 
 /* i386, 32-bit, Windows */

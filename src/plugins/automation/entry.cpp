@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -69,7 +70,7 @@ static void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 /// Returns the object representing the plugin.
 /// \param salamander Pointer to the CSalamanderPluginEntryAbstract interface.
-/// \return If the function succeeds, the return value is a pointer to the
+/// \return If the function succeeds, the return value is pointer to the
 ///         plugin object. If the function fails, the return value is NULL.
 CPluginInterfaceAbstract*
     WINAPI
@@ -126,14 +127,14 @@ CPluginInterfaceAbstract*
         NULL);
 
     // Setup plugin home page.
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &g_oAutomationPlugin;
 }
 
-/// Returns the version of Open Salamander required to run this plugin.
-/// \return The return value is the required version of Open Salamander.
-///         For a list of version values, see \e spl_vers.h.
+/// Returns version of Open Salamander required to run this plugin.
+/// \return The return value is required version of Open Salamander.
+///         For list of version values see \e spl_vers.h.
 int WINAPI SalamanderPluginGetReqVer()
 {
     return LAST_VERSION_OF_SALAMANDER;

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -61,13 +61,13 @@ BOOL CISO9660::Open(BOOL quiet)
 
     // detecting CD-ROM Volume Descriptor Set
     BOOL isoDescriptors = FALSE;
-    // Read the Volume Descriptor (2 KB) until we find it, but only up to 1 MB
+    // Read the VolumeDescriptor (2k) until we find it, but only up to to 1MB
     while (!terminate)
     {
         // Try to read a block
         if (Image->ReadBlock(block, SECTOR_SIZE, sector) != SECTOR_SIZE)
         {
-            // Read failed, possibly due to EOF.
+            // Something went wrong, probably EOF?
             Error(IDS_ERROR_READING_SECTOR, quiet, block);
             ret = FALSE;
             break;
@@ -85,14 +85,14 @@ BOOL CISO9660::Open(BOOL quiet)
                 memcpy(&PVD, sector, SECTOR_SIZE);
                 break;
 
-            case 0x02: // supplementary/enhanced volume descriptor
+            case 0x02: // suplementary/enhanced volume descriptor
                 memcpy(&SVD, sector, SECTOR_SIZE);
 
                 // Joliet has FileStructureVersion = 1
                 if (SVD.FileStructureVersion == 1)
                     Ext = extJoliet;
-                // Patera 2009-02-03: The following check seems correct, unlike the one above...
-                // Raptor provided "Pantera Safari.ISO" with a corrupted FileStructureVersion
+                // Patera 2009.02.03: The following check seems correct and not the above one...
+                // Raptor provided "Pantera Safari.ISO" with corruped FileStructureVersion
                 if ((SVD.EscapeSequences[0] == 0x25) && (SVD.EscapeSequences[1] == 0x2F) && ((SVD.EscapeSequences[2] == 0x40) || (SVD.EscapeSequences[2] == 0x43) || (SVD.EscapeSequences[2] == 0x45)))
                     Ext = extJoliet;
                 break;
@@ -170,7 +170,7 @@ void CISO9660::ExtractExtFileName(char* fileName, const char* src, CDirectoryRec
         srcSU++;
     }
 
-    // check whether the 'system use area' contains any extension
+    // check whether there is any extension in the 'system use area'
     if (srcSU < srcEnd && (Ext != extJoliet))
     {
         EExt ext = extNone;
@@ -181,8 +181,8 @@ void CISO9660::ExtractExtFileName(char* fileName, const char* src, CDirectoryRec
         if (strncmp((char*)rrHeader.Signature, "RR", 2) == 0)
             ext = extRockRidge; // this is a RockRidge entry
 
-        char extFileName[2 * MAX_PATH + 1];
-        ZeroMemory(extFileName, sizeof(extFileName));
+        CPathBuffer extFileName;
+        ZeroMemory(extFileName.Get(), extFileName.Size());
 
         switch (ext)
         {
@@ -225,8 +225,8 @@ void CISO9660::ExtractExtFileName(char* fileName, const char* src, CDirectoryRec
 //
 void CISO9660::ExtractFileName(char* fileName, const char* src, CISO9660::CDirectoryRecord& dr)
 {
-    char tmpFileName[2 * MAX_PATH + 1];
-    ZeroMemory(tmpFileName, sizeof(tmpFileName));
+    CPathBuffer tmpFileName;
+    ZeroMemory(tmpFileName.Get(), tmpFileName.Size());
 
     ExtractExtFileName(tmpFileName, src, dr);
 
@@ -249,22 +249,22 @@ void CISO9660::ExtractFileName(char* fileName, const char* src, CISO9660::CDirec
 
 void CISO9660::ConvJolietName(char* dest, const char* src, int nLen)
 {
-    char tmp[2 * MAX_PATH];
-    ZeroMemory(&tmp, sizeof(tmp));
+    CPathBuffer tmp;
+    ZeroMemory(tmp.Get(), tmp.Size());
 
-    memcpy(tmp, src, nLen);
+    memcpy(tmp.Get(), src, nLen);
 
-    WCHAR* uname = (WCHAR*)tmp;
+    WCHAR* uname = (WCHAR*)tmp.Get();
     int i;
     for (i = 0; i < (nLen / 2); i++)
         uname[i] = (WORD)ROTATE(uname[i]);
 
-    char final[2 * MAX_PATH];
-    ZeroMemory(&final, sizeof(final));
-    WideCharToMultiByte(CP_ACP, 0, uname, nLen / 2, final, sizeof(final) - 1, 0, 0);
-    final[sizeof(final) - 1] = 0;
+    CPathBuffer final_buf;
+    ZeroMemory(final_buf.Get(), final_buf.Size());
+    WideCharToMultiByte(CP_ACP, 0, uname, nLen / 2, final_buf, final_buf.Size() - 1, 0, 0);
+    final_buf.Get()[final_buf.Size() - 1] = 0;
 
-    strcpy(dest, final);
+    strcpy(dest, final_buf);
 }
 
 BOOL CISO9660::AddFileDir(const char* path, char* fileName, CDirectoryRecord& dr,
@@ -405,7 +405,7 @@ BOOL CISO9660::AddBootRecord(char* path, int session,
         //    dr.RecordingDateAndTime = ;
         dr.DataLength = BootRecordInfo->Length;
 
-        char fileName[MAX_PATH];
+        CPathBuffer fileName; // Heap-allocated for long path support
         if (session == -1)
         {
             session = 1;
@@ -458,7 +458,7 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
     {
         delete[] data;
         Error(IDS_ERROR_LISTING_IMAGE, FALSE, block);
-        // if reading the root sector fails
+        // if reading the sector with the root fails
         return (block == (DWORD)Root.LocationOfExtent - ExtentOffset) ? ERR_CONTINUE : ERR_TERMINATE;
     }
 
@@ -490,19 +490,19 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
             {
                 if (dirRecord.LengthOfFileIdentifier > 1)
                 {
-                    char dirName[2 * MAX_PATH];
-                    ZeroMemory(&dirName, sizeof(dirName));
+                    CPathBuffer dirName;
+                    ZeroMemory(dirName.Get(), dirName.Size());
                     ConvJolietName(dirName, (data + offset + 33), dirRecord.LengthOfFileIdentifier);
                     if (AddFileDir(path, dirName, dirRecord, dir, pluginData))
                     {
                         int pathLen = (int)strlen(path);
                         strcat(path, "\\");
                         strcat(path, dirName);
-                        // recurse only when everything is OK
+                        // descend only when everything is OK
                         if (ret == ERR_OK)
                         {
                             ret = ListDirectoryRe(path, &dirRecord, dir, pluginData);
-                            // if we return with a termination error, keep processing as much as possible
+                            // if we surface with a termination error, keep processing as much as possible
                             if (ret == ERR_TERMINATE)
                                 ret = ERR_CONTINUE;
                         }
@@ -517,8 +517,8 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
                 char firstChar = data[offset + 33];
                 if (firstChar != 0x00 && firstChar != 0x01)
                 {
-                    char extFileName[2 * MAX_PATH + 1];
-                    ZeroMemory(extFileName, sizeof(extFileName));
+                    CPathBuffer extFileName;
+                    ZeroMemory(extFileName.Get(), extFileName.Size());
                     ExtractExtFileName(extFileName, (data + offset + 33), dirRecord);
 
                     if (AddFileDir(path, extFileName, dirRecord, dir, pluginData))
@@ -531,7 +531,7 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
                         if (ret == ERR_OK)
                         {
                             ret = ListDirectoryRe(path, &dirRecord, dir, pluginData);
-                            // if we return with a termination error, continue processing as much as possible
+                            // if we surface with a termination error, keep processing as much as possible
                             if (ret == ERR_TERMINATE)
                                 ret = ERR_CONTINUE;
                         }
@@ -544,14 +544,14 @@ int CISO9660::ListDirectoryRe(char* path, CDirectoryRecord* root,
         }
         else
         {
-            char fileName[2 * MAX_PATH + 1];
-            ZeroMemory(&fileName, sizeof(fileName));
+            CPathBuffer fileName;
+            ZeroMemory(fileName.Get(), fileName.Size());
 
             char* src = (data + offset + 33);
             if (Ext == extJoliet)
             {
                 ConvJolietName(fileName, src, dirRecord.LengthOfFileIdentifier);
-                src = fileName;
+                src = fileName.Get();
             }
 
             ExtractFileName(fileName, src, dirRecord);
@@ -574,9 +574,9 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
     CALL_STACK_MESSAGE6("CISO9660::UnpackFile( , %s, %s, %s, , %u, %d)", srcPath, path, nameInArc, silent, toSkip);
 
     ///
-    char name[MAX_PATH];
-    strncpy_s(name, path, _TRUNCATE);
-    if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, MAX_PATH))
+    CPathBuffer name; // Heap-allocated for long path support
+    lstrcpyn(name, path, name.Size());
+    if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, name.Size()))
     {
         Error(IDS_ERR_TOO_LONG_NAME);
         return UNPACK_ERROR;
@@ -595,7 +595,7 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
     // set file time
     file.SetFileTime(&ft, &ft, &ft);
 
-    // the overall operation can continue; skip this file only
+    // the overall operation can continue further: skip only
     if (toSkip)
         return UNPACK_ERROR;
 
@@ -659,14 +659,14 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
 
         block++;
 
-        if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE so we do not slow the operation down
+        if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE, so we do not slow things down
         {
             salamander->ProgressDialogAddText(LoadStr(IDS_CANCELING_OPERATION), FALSE);
             salamander->ProgressEnableCancel(FALSE);
 
             ret = UNPACK_CANCEL;
             bFileComplete = FALSE;
-            break; // operation interrupted
+            break; // action interrupted
         }
 
         ULONG written;
@@ -700,8 +700,8 @@ int CISO9660::UnpackFile(CSalamanderForOperationsAbstract* salamander, const cha
         if (!SetFileAttributes(name, attrs))
             Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
 
-        // the user canceled the operation
-        // delete the incomplete file
+        // the user cancelled the operation
+        // delete the incomplete file afterwards
         if (!DeleteFile(name))
             Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError());
     }
@@ -779,7 +779,7 @@ BOOL CISO9660::ReadBootRecord(BYTE* data, BOOL quiet)
     if (!Options.BootImageAsFile)
         return FALSE;
 
-    // check for the El Torito specification
+    // check for El Torito specification
     if (memcmp(BR.BootSystemIdentifier + 0, "EL TORITO SPECIFICATION", 23) == 0)
     {
         DWORD sector = 0;
@@ -803,6 +803,6 @@ BOOL CISO9660::ReadBootRecord(BYTE* data, BOOL quiet)
         delete[] catalog;
     }
 
-    // Finally
+    // and finally
     return result;
 }

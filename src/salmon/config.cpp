@@ -1,14 +1,16 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
 
-#include <Objbase.h>
-#include <WTypes.h>
+#include <objbase.h>
+#include <wtypes.h>
 
 #include "config.h"
+#include "../registry_names.h"
 
-const char* DB_ROOT_KEY = "Software\\Open Salamander\\Bug Reporter";
+const char* DB_ROOT_KEY = SAL_REG_KEY_BUG_REPORTER_DB_A;
 const char* CONFIG_EMAIL_REG = "Email";
 
 CConfiguration Config;

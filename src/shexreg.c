@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include <windows.h>
 #include <shlobj.h>
@@ -13,42 +13,43 @@
 #define INITGUID
 #include "lstrfix.h"
 #include "shexreg.h"
+#include "registry_names.h"
 #pragma data_seg()
 
-#define NOHANDLES(function) function // prevent HANDLE macros from polluting the source, using CheckHnd
+#define NOHANDLES(function) function // obrana proti zanaseni maker HANDLES do zdrojaku pomoci CheckHnd
 
 //const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalShExt_SharedMemMutex"; // salshext.dll (Sal 2.5 beta 1)
 //const char *SALSHEXT_SHAREDMEMNAME = "SalShExt_SharedMem";           // salshext.dll (Sal 2.5 beta 1)
-//const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex"; // salexten.dll - work-in-progress version, before 2.5 beta 2
-//const char *SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem";           // salexten.dll - work-in-progress version, before 2.5 beta 2
-//const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex2";// salexten.dll (since version 2.5 beta 2) + salamext.dll
-//const char *SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem2";          // salexten.dll (since version 2.5 beta 2) + salamext.dll
-//const char *SALSHEXT_DOPASTEEVENTNAME = "SalExten_DoPasteEvent2";    // salamext.dll - work-in-progress version for 2.52 beta 1, used only on Vista+
-//const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex3";// salamext.dll (since version 2.52 beta 1)
-//const char *SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem3";          // salamext.dll (since version 2.52 beta 1)
-//const char *SALSHEXT_DOPASTEEVENTNAME = "SalExten_DoPasteEvent3";    // salamext.dll (since version 2.52 beta 1, used only on Vista+)
-const char* SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex4"; // salextx86.dll and salextx64.dll (since version 3.0 beta 1)
-const char* SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem4";           // salextx86.dll and salextx64.dll (since version 3.0 beta 1)
-const char* SALSHEXT_DOPASTEEVENTNAME = "SalExten_DoPasteEvent4";     // salextx86.dll and salextx64.dll (since version 3.0 beta 1, used only on Vista+)
+//const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex"; // salexten.dll - pracovni verze, pred 2.5 beta 2
+//const char *SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem";           // salexten.dll - pracovni verze, pred 2.5 beta 2
+//const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex2";// salexten.dll (od verze 2.5 beta 2) + salamext.dll
+//const char *SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem2";          // salexten.dll (od verze 2.5 beta 2) + salamext.dll
+//const char *SALSHEXT_DOPASTEEVENTNAME = "SalExten_DoPasteEvent2";    // salamext.dll - pracovni verze pro 2.52 beta 1, pouzivala se jen pod Vista+
+//const char *SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex3";// salamext.dll (od verze 2.52 beta 1)
+//const char *SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem3";          // salamext.dll (od verze 2.52 beta 1)
+//const char *SALSHEXT_DOPASTEEVENTNAME = "SalExten_DoPasteEvent3";    // salamext.dll (od verze 2.52 beta 1, pouziva se jen pod Vista+)
+const char* SALSHEXT_SHAREDMEMMUTEXNAME = "SalExten_SharedMemMutex5"; // salextx64.dll (Sally 1.0)
+const char* SALSHEXT_SHAREDMEMNAME = "SalExten_SharedMem5";           // salextx64.dll (Sally 1.0)
+const char* SALSHEXT_DOPASTEEVENTNAME = "SalExten_DoPasteEvent5";     // salextx64.dll (Sally 1.0)
 
 //const char *SHEXREG_OPENSALAMANDER = "ServantSalamander";                                // salshext.dll (Sal 2.5 beta 1)
 //const char *SHEXREG_OPENSALAMANDER_DESCR = "Shell Extension for Servant Salamander";     // salshext.dll (Sal 2.5 beta 1)
-//const char *SHEXREG_OPENSALAMANDER = "ServantSalamander25";                              // salexten.dll - 2.5 beta 2 through RC1
-//const char *SHEXREG_OPENSALAMANDER_DESCR = "Shell Extension for Servant Salamander 2.5"; // salexten.dll - 2.5 beta 2 through RC1
-//const char* SHEXREG_OPENSALAMANDER = "AltapSalamanderVer" SALSHEXT_SHAREDNAMESAPPENDIX;  // salexten.dll - until 4.0
-const char* SHEXREG_OPENSALAMANDER = "OpenSalamanderVer" SALSHEXT_SHAREDNAMESAPPENDIX;
+//const char *SHEXREG_OPENSALAMANDER = "ServantSalamander25";                              // salexten.dll - 2.5 beta 2 az RC1
+//const char *SHEXREG_OPENSALAMANDER_DESCR = "Shell Extension for Servant Salamander 2.5"; // salexten.dll - 2.5 beta 2 az RC1
+//const char* SHEXREG_OPENSALAMANDER = "AltapSalamanderVer" SALSHEXT_SHAREDNAMESAPPENDIX;  // salexten.dll - do 4.0
+const char* SHEXREG_OPENSALAMANDER = "SallyVer" SALSHEXT_SHAREDNAMESAPPENDIX;
 #ifdef INSIDE_SALAMANDER
 #include "versinfo.rh2"
-const char* SHEXREG_OPENSALAMANDER_DESCR = "Shell Extension (%s) for Open Salamander " VERSINFO_VERSION;
+const char* SHEXREG_OPENSALAMANDER_DESCR = "Shell Extension (%s) for Sally " VERSINFO_VERSION;
 #endif // INSIDE_SALAMANDER
 
 #ifdef ENABLE_SH_MENU_EXT
 
 //
-// ============================================= shared part
+// ============================================= spolecna cast
 //
 /*
-const char *SHELLEXT_ROOT_REG = "Software\\Altap\\Servant Salamander\\Shell Extension";
+const char *SHELLEXT_ROOT_REG = SAL_REG_KEY_SHELL_EXTENSION_ROOT_A;
 const char *SHELLEXT_CONTEXTMENU = "Context Menu";
 const char *SHELLEXT_VERSION = "Version";
 
@@ -97,16 +98,16 @@ SECLoadRegistry()
   lstrcat(key, "\\");
   lstrcat(key, SHELLEXT_CONTEXTMENU);
 
-  // open the Shell Extensions key
+  // otevru klic Shell Extensions
   res = NOHANDLES(RegOpenKeyEx(HKEY_CURRENT_USER, key, 0, KEY_READ, &hKey));
   if (res != ERROR_SUCCESS) return FALSE;
 
-  // check the version - do we need to load the data again?
+  // zkontroluju verzi - je potreba nacist znovu data?
   bufferSize = sizeof(DWORD);
   res = SalRegQueryValueEx(hKey, SHELLEXT_VERSION, 0, &gettedType, (BYTE *)&version, &bufferSize);
   if (res == ERROR_SUCCESS)
   {
-    // data are always loaded on the first launch
+    // po prvni spusteni nacitam vzdy data
     if (ShellExtConfigVersion != 0 && ShellExtConfigVersion == version)
       reRead = FALSE;
     else
@@ -115,21 +116,21 @@ SECLoadRegistry()
   else
     ShellExtConfigVersion = 0;
 
-  // load the data if necessary
+  // je-li treba, nactu data
   if (reRead)
   {
     HKEY hItemKey;
     int i = 1;
 
 //    MessageBox(NULL, "loading registry", "shellext.dll", MB_OK);
-    // discard the stored data
+    // zrusim drzena data
     SECDeleteAllItems();
 
-    // and load new ones
+    // a nactu nova
     lstrcpy(key, "1");
     while (NOHANDLES(RegOpenKeyEx(hKey, key, 0, KEY_READ, &hItemKey)) == ERROR_SUCCESS) 
     {
-      // now create and load one item
+      // ted vytvorim a nactu jednu polozku
       CShellExtConfigItem *item;
       if (SECAddItem(&item) != -1)
       {
@@ -146,7 +147,7 @@ SECLoadRegistry()
       wsprintf(key, "%d", ++i);
     }
 
-    // load individual configuration variables
+    // nactu jednotlive promenne konfigurace
     bufferSize = sizeof(BOOL);
     SalRegQueryValueEx(hKey, SHELLEXT_CM_SUBMENU, 0, &gettedType, (BYTE *)&ShellExtConfigSubmenu, &bufferSize);
     bufferSize = sizeof(ShellExtConfigSubmenuName);
@@ -194,7 +195,7 @@ SECGetItemIndex(UINT cmd, int *index)
 }
 
 
-// extracts the item name
+// vytahne nazev polozky 
 const char *
 SECGetName(int index)
 {
@@ -206,7 +207,7 @@ SECGetName(int index)
   return item->Name;
 }
 
-// remove all items from the list
+// vyhodi ze seznamu vsechny polozky
 void 
 SECDeleteAllItems()
 {
@@ -229,7 +230,7 @@ SECAddItem(CShellExtConfigItem **refItem)
   CShellExtConfigItem *iterator = ShellExtConfigFirst;
   int index;
 
-  // allocate the item
+  // naalokuju polozku
   item = (CShellExtConfigItem*)NOHANDLES(GlobalAlloc(GMEM_FIXED, sizeof(CShellExtConfigItem)));
 
   if (refItem != NULL)
@@ -238,10 +239,10 @@ SECAddItem(CShellExtConfigItem **refItem)
   if (item == NULL)
     return -1;
 
-  // initialization of variables
+  // inicializace promennych
   SECClearItem(item);
 
-  // append it to the end of the list
+  // pripojim ji na konec seznamu
   index = 0;
   if (ShellExtConfigFirst == NULL)
   {
@@ -258,7 +259,7 @@ SECAddItem(CShellExtConfigItem **refItem)
     iterator->Next = item;
   }
 
-  // return its index
+  // vratim jeji index
   return index;
 }
 */
@@ -312,7 +313,7 @@ BOOL MyDeleteKey(HKEY key, const char* keyName, REGSAM regView)
 }
 
 //
-// ============================================= SalShExt only
+// ============================================= pouze SalShExt
 //
 
 #ifndef INSIDE_SALAMANDER
@@ -337,27 +338,27 @@ HRESULT DllUnregisterServerBody(REGSAM regView)
 
     wsprintf(key, "CLSID\\%s", shellExtIID);
     MyDeleteKey(HKEY_CLASSES_ROOT, key, regView);
-    wsprintf(key, "Software\\Classes\\CLSID\\%s", shellExtIID);
+    wsprintf(key, SAL_REG_FMT_SOFTWARE_CLASSES_CLSID_A, shellExtIID);
     MyDeleteKey(HKEY_CURRENT_USER, key, regView);
     wsprintf(key, "directory\\shellex\\CopyHookHandlers\\%s", SHEXREG_OPENSALAMANDER);
     MyDeleteKey(HKEY_CLASSES_ROOT, key, regView);
-    wsprintf(key, "Software\\Classes\\directory\\shellex\\CopyHookHandlers\\%s", SHEXREG_OPENSALAMANDER);
+    wsprintf(key, SAL_REG_FMT_SOFTWARE_CLASSES_DIRECTORY_COPY_HOOK_A, SHEXREG_OPENSALAMANDER);
     MyDeleteKey(HKEY_CURRENT_USER, key, regView);
 
 #ifdef ENABLE_SH_MENU_EXT
 
     wsprintf(key, "*\\shellex\\ContextMenuHandlers\\%s", SHEXREG_OPENSALAMANDER);
     MyDeleteKey(HKEY_CLASSES_ROOT, key, regView);
-    wsprintf(key, "Software\\Classes\\*\\shellex\\ContextMenuHandlers\\%s", SHEXREG_OPENSALAMANDER);
+    wsprintf(key, SAL_REG_FMT_SOFTWARE_CLASSES_STAR_CONTEXT_MENU_A, SHEXREG_OPENSALAMANDER);
     MyDeleteKey(HKEY_CURRENT_USER, key, regView);
     wsprintf(key, "Directory\\shellex\\ContextMenuHandlers\\%s", SHEXREG_OPENSALAMANDER);
     MyDeleteKey(HKEY_CLASSES_ROOT, key, regView);
-    wsprintf(key, "Software\\Classes\\Directory\\shellex\\ContextMenuHandlers\\%s", SHEXREG_OPENSALAMANDER);
+    wsprintf(key, SAL_REG_FMT_SOFTWARE_CLASSES_DIRECTORY_CONTEXT_MENU_A, SHEXREG_OPENSALAMANDER);
     MyDeleteKey(HKEY_CURRENT_USER, key, regView);
 
 #endif // ENABLE_SH_MENU_EXT
 
-    lstrcpy(key, "Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved");
+    lstrcpy(key, SAL_REG_KEY_SHELL_EXT_APPROVED_A);
     if (NOHANDLES(RegOpenKeyEx(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WRITE | regView, &hKey)) == ERROR_SUCCESS)
     {
         RegDeleteValue(hKey, shellExtIID);
@@ -371,8 +372,8 @@ STDAPI DllUnregisterServer()
     return DllUnregisterServerBody(0);
 }
 
-// used to unregister the shell extension for the "other platform" (x86 for x64 and vice versa),
-// used by remove.exe and setup.exe (uninstalls the previous version during upgrades)
+// slouzi pro odregistrovani shell extensiony "druhe platformy" (x86 pro x64 a naopak),
+// pouziva remove.exe a setup.exe (pri upgradech odinstalovava predchozi verzi)
 STDAPI DllUnregisterServerOtherPlatform()
 {
 #ifdef _WIN64
@@ -385,7 +386,7 @@ STDAPI DllUnregisterServerOtherPlatform()
 #endif // INSIDE_SALAMANDER
 
 //
-// ============================================= Open Salamander only
+// ============================================= pouze Open Salamander
 //
 
 #ifdef INSIDE_SALAMANDER
@@ -394,18 +395,18 @@ BOOL FileExists(const char* fileName);
 
 BOOL MyCreateKey(HKEY hKey, const char* name, HKEY* createdKey, REGSAM regView)
 {
-    DWORD createType; // info whether the key was created or just opened
+    DWORD createType; // info jestli byl klic vytvoren nebo jen otevren
     LONG res = NOHANDLES(RegCreateKeyEx(hKey, name, 0, NULL, REG_OPTION_NON_VOLATILE,
                                         KEY_READ | KEY_WRITE | regView, NULL, createdKey,
                                         &createType));
     return res == ERROR_SUCCESS;
 }
 
-// our version of RegQueryValueEx, unlike the API version, ensures
-// that a null terminator is added for REG_SZ, REG_MULTI_SZ, and REG_EXPAND_SZ
-// NOTE: when determining the required buffer size, it returns one or two extra
-//       characters (two only for REG_MULTI_SZ) in case the string needs to be
-//       terminated with a null character or null characters
+// nase varianta funkce RegQueryValueEx, narozdil od API varianty zajistuje
+// pridani null-terminatoru pro typy REG_SZ, REG_MULTI_SZ a REG_EXPAND_SZ
+// POZOR: pri zjistovani potrebne velikosti bufferu vraci o jeden nebo dva (dva
+//        jen u REG_MULTI_SZ) znaky vic pro pripad, ze by string bylo potreba
+//        zakoncit nulou/nulami
 LONG SalRegQueryValueEx(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved,
                         LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData);
 
@@ -423,66 +424,65 @@ BOOL CheckVersionOfDLL(const char* name)
     HMODULE dll = LoadLibrary(name);
     if (dll != NULL)
     {
-        FDllCheckVersion DllCheckVersion = (FDllCheckVersion)GetProcAddress(dll, "DllCheckVersion"); // our export
+        FDllCheckVersion DllCheckVersion = (FDllCheckVersion)GetProcAddress(dll, "DllCheckVersion"); // nas export
         if (DllCheckVersion != NULL && DllCheckVersion(&CLSID_ShellExtension) == S_OK)
-            ok = TRUE; // the file version is OK
+            ok = TRUE; // verze souboru je OK
         FreeLibrary(dll);
     }
     return ok;
 }
 
-// Notes for UNINSTALL: (the uninstall routine is implemented in DllUnregisterServer())
-// - since version 2.5 RC2, this is no longer used: delete the file from TEMP (the default value in HKEY_CLASSES_ROOT\CLSID\{C78B6131-F3EA-11D2-94A1-00E0292A01E3}\InProcServer32)
-//   (allow for the possibility that it cannot be deleted immediately; be able to schedule deletion after the next reboot)
-// - since version 3.0 B1, allow for the possibility that utils\salextx86.dll and salextx64.dll cannot be deleted immediately; be able to schedule deletion after the next reboot
-// - delete HKEY_CLASSES_ROOT\CLSID\{C78B61??-F3EA-11D2-94A1-00E0292A01E3} (the current CLSID is in CLSID_ShellExtension)
-// - delete HKEY_CLASSES_ROOT\Directory\shellex\CopyHookHandlers\AltapSalamander?? (the current key name is in SHEXREG_OPENSALAMANDER)
-// - delete the value {C78B61??-F3EA-11D2-94A1-00E0292A01E3} from the key HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved
-//   (the current CLSID is in CLSID_ShellExtension)
-// - if the macro ENABLE_SH_MENU_EXT is defined:
-//   - delete HKEY_CLASSES_ROOT\*\shellex\ContextMenuHandlers\AltapSalamander?? (the current key name is in SHEXREG_OPENSALAMANDER)
-//   - delete HKEY_CLASSES_ROOT\Directory\shellex\ContextMenuHandlers\AltapSalamander?? (the current key name is in SHEXREG_OPENSALAMANDER)
-// - everything said above about the HKEY_CLASSES_ROOT key must also be attempted under the key
-//   HKEY_CURRENT_USER\Software\Classes (used when the user does not have permission to write to
+// Info pro UNINSTALL: (rutina pro uninstall je implementovana v DllUnregisterServer())
+// - od verze 2.5 RC2 uz se nepouziva: - delete souboru z TEMPu (default value v HKEY_CLASSES_ROOT\CLSID\{C78B6131-F3EA-11D2-94A1-00E0292A01E3}\InProcServer32) (pocitat s tim, ze nemusi jit smazat hned - umet naplanovat po rebootu masiny)
+// - od verze 3.0 B1: pocitat s tim, ze utils\salextx86.dll a salextx64.dll nemusi jit smazat hned - umet naplanovat po rebootu masiny
+// - smazat HKEY_CLASSES_ROOT\CLSID\{C78B61??-F3EA-11D2-94A1-00E0292A01E3} (aktualni CLSID je v CLSID_ShellExtension)
+// - smazat HKEY_CLASSES_ROOT\Directory\shellex\CopyHookHandlers\AltapSalamander?? (aktualni jmeno klice je v SHEXREG_OPENSALAMANDER)
+// - smazat v klici HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved
+//   hodnotu {C78B61??-F3EA-11D2-94A1-00E0292A01E3} (aktualni CLSID je v CLSID_ShellExtension)
+// - je-li definovano makro ENABLE_SH_MENU_EXT:
+//   - smazat HKEY_CLASSES_ROOT\*\shellex\ContextMenuHandlers\AltapSalamander?? (aktualni jmeno klice je v SHEXREG_OPENSALAMANDER)
+//   - smazat HKEY_CLASSES_ROOT\Directory\shellex\ContextMenuHandlers\AltapSalamander?? (aktualni jmeno klice je v SHEXREG_OPENSALAMANDER)
+// - vse co bylo receno o klici HKEY_CLASSES_ROOT je potreba zkusit smazat tez z klice
+//   HKEY_CURRENT_USER\Software\Classes (vyuziva se pokud user nema prava pro zapis do
 //   HKEY_CLASSES_ROOT)
 BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, REGSAM regView)
 {
     HKEY hKey;
-    char key[MAX_PATH];
-    char shellExtIID[MAX_PATH];
-    char shellExtPath[MAX_PATH];
+    char key[32768];
+    char shellExtIID[32768];
+    char shellExtPath[32768];
     char* str;
-    WCHAR buff2[MAX_PATH];
+    WCHAR buff2[32768];
     BOOL registered;
     HKEY classesKey;
 
     if (!doNotLoadDLL && !CheckVersionOfDLL(shellExtensionPath))
         return FALSE;
 
-    StringFromGUID2(&CLSID_ShellExtension, buff2, MAX_PATH);
+    StringFromGUID2(&CLSID_ShellExtension, buff2, 32768);
     WideCharToMultiByte(CP_ACP,
                         0,
                         buff2,
                         -1,
                         shellExtIID,
-                        MAX_PATH,
+                        32768,
                         NULL,
                         NULL);
-    shellExtIID[MAX_PATH - 1] = 0;
+    shellExtIID[32768 - 1] = 0;
 
-    // determine whether our shell extension is already registered and, if so, where its DLL is and whether it is the correct version
+    // zjistime jestli uz je nase shell extensiona registrovana, pripadne kde je jeji DLL a jestli je to spravna verze
     registered = FALSE;
     lstrcpy(key, "CLSID\\");
     lstrcat(key, shellExtIID);
     lstrcat(key, "\\InProcServer32");
     if (NOHANDLES(RegOpenKeyEx(HKEY_CLASSES_ROOT, key, 0, KEY_READ | regView, &hKey)) == ERROR_SUCCESS)
     {
-        if (MyGetValue(hKey, NULL /* default value */, REG_SZ, shellExtPath, MAX_PATH))
+        if (MyGetValue(hKey, NULL /* default value */, REG_SZ, shellExtPath, 32768))
         {
-            if (doNotLoadDLL && FileExists(shellExtPath) ||       // if the DLL cannot be loaded, at least verify that it exists
-                !doNotLoadDLL && CheckVersionOfDLL(shellExtPath)) // otherwise load it and read its version
+            if (doNotLoadDLL && FileExists(shellExtPath) ||       // kdyz ho nemuzu loadit, aspon overim, ze existuje
+                !doNotLoadDLL && CheckVersionOfDLL(shellExtPath)) // jinak ho naloadim a zjistim od nej jeho verzi
             {
-                registered = TRUE; // the DLL is registered + it is the correct DLL version
+                registered = TRUE; // DLL je registrovane + je to spravna verze DLL
             }
         }
         NOHANDLES(RegCloseKey(hKey));
@@ -504,7 +504,7 @@ BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, RE
                           (BYTE*)shellExtIID, lstrlen(shellExtIID) + 1);
             NOHANDLES(RegCloseKey(hKey));
         }
-        // else;  // we handle the failure to open the key under HKEY_CLASSES_ROOT further below (doing it here would be pointless)
+        // else;  // chybu otevirani klice pod HKEY_CLASSES_ROOT resime az dale (zde uz by bylo zbytecne)
 
         lstrcpy(key, "Directory\\shellex\\ContextMenuHandlers\\");
         lstrcat(key, SHEXREG_OPENSALAMANDER);
@@ -533,11 +533,11 @@ BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, RE
         {
             if (classesKey == HKEY_CLASSES_ROOT)
             {
-                if (NOHANDLES(RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Classes", 0,
+                if (NOHANDLES(RegOpenKeyEx(HKEY_CURRENT_USER, SAL_REG_KEY_SOFTWARE_CLASSES_A, 0,
                                            KEY_READ | KEY_WRITE | regView, &classesKey)) == ERROR_SUCCESS)
                 {
                     if (MyCreateKey(classesKey, "CLSID", &hKey, regView))
-                        NOHANDLES(RegCloseKey(hKey)); // the "CLSID" key may not exist at this point, so create it
+                        NOHANDLES(RegCloseKey(hKey)); // klic "CLSID" ta tomto miste nemusi existovat, vytvorime si ho
                     goto REG_TRY_AGAIN;
                 }
             }
@@ -552,7 +552,7 @@ BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, RE
             RegSetValueEx(hKey, NULL, 0, REG_SZ,
                           (BYTE*)shellExtensionPath, lstrlen(shellExtensionPath) + 1);
             str = "Apartment";
-            RegSetValueEx(hKey, "ThreadingModel", 0, REG_SZ, (BYTE*)str, lstrlen(str) + 1);
+            RegSetValueEx(hKey, SAL_REG_VALUE_THREADING_MODEL_A, 0, REG_SZ, (BYTE*)str, lstrlen(str) + 1);
             NOHANDLES(RegCloseKey(hKey));
         }
 
@@ -565,8 +565,8 @@ BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, RE
             NOHANDLES(RegCloseKey(hKey));
         }
 
-        // without "As Admin" this is "dead code", at least on Vista+
-        wsprintf(key, "Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved");
+        // bez "As Admin" je tohle "dead code", aspon pod Vista+
+        wsprintf(key, SAL_REG_KEY_SHELL_EXT_APPROVED_A);
         if (MyCreateKey(HKEY_LOCAL_MACHINE, key, &hKey, regView))
         {
             char descrBuf[200];
@@ -581,8 +581,8 @@ BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, RE
         if (classesKey != HKEY_CLASSES_ROOT)
             NOHANDLES(RegCloseKey(classesKey));
 
-        // this should inform the shell that shell extensions need to be reloaded
-        // (however, it does not work for the copy hook; hopefully it will at least work for the menu)
+        // tohle by melo shell informovat o tom, ze je potreba reloadnout shell extensiony
+        // (ovsem pro copy-hook to nefunguje; tak snad bude aspon pro menu)
         SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0);
     }
 
@@ -594,7 +594,7 @@ BOOL SECRegisterToRegistry(const char* shellExtensionPath, BOOL doNotLoadDLL, RE
 BOOL SECSaveRegistry()
 {
     HKEY hKey;
-    char key[MAX_PATH];
+    char key[32768];
     DWORD bufferSize;
     DWORD gettedType;
 
@@ -609,7 +609,7 @@ BOOL SECSaveRegistry()
         int i = 1;
         CShellExtConfigItem* iterator = ShellExtConfigFirst;
 
-        // increment the version number by one
+        // zvetsim cislo verze o jednicku
         ShellExtConfigVersion = 0;
         bufferSize = sizeof(DWORD);
         res = SalRegQueryValueEx(hKey, SHELLEXT_VERSION, 0, &gettedType, (BYTE*)&version, &bufferSize);
@@ -617,7 +617,7 @@ BOOL SECSaveRegistry()
             ShellExtConfigVersion = version;
         ShellExtConfigVersion++;
 
-        // remove the existing items from the registry
+        // podrezeme stavajici polozky v registry
         MyClearKey(hKey, 0);
 
         RegSetValueEx(hKey, SHELLEXT_VERSION, 0, REG_DWORD,
@@ -653,7 +653,7 @@ BOOL SECSaveRegistry()
         RegSetValueEx(hKey, SHELLEXT_VERSION, 0, REG_DWORD,
                       (BYTE*)&ShellExtConfigVersion, sizeof(DWORD));
 
-        // save the individual configuration variables
+        // ulozim jednotlive promenne konfigurace
         RegSetValueEx(hKey, SHELLEXT_CM_SUBMENU, 0, REG_DWORD, (BYTE*)&ShellExtConfigSubmenu, sizeof(BOOL));
         RegSetValueEx(hKey, SHELLEXT_CM_SUBMENUNAME, 0, REG_SZ, (BYTE*)ShellExtConfigSubmenuName, strlen(ShellExtConfigSubmenuName) + 1);
 
@@ -697,7 +697,7 @@ BOOL SECDeleteItem(int index)
     return TRUE;
 }
 
-// swap two items in the list
+// prohodi dve polozky v seznamu
 BOOL SECSwapItems(int index1, int index2)
 {
     CShellExtConfigItem* item1;
@@ -724,7 +724,7 @@ BOOL SECSwapItems(int index1, int index2)
     return TRUE;
 }
 
-// set the item name
+// nastavi nazev polozky
 BOOL SECSetName(int index, const char* name)
 {
     CShellExtConfigItem* item = SECGetItem(index);

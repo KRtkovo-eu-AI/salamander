@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //---------------------------------------------------------------------------
@@ -159,8 +160,8 @@ bool TSalamandConfiguration::IteratePanelColumns(int& Column, bool& Show,
 //---------------------------------------------------------------------------
 AnsiString __fastcall TSalamandConfiguration::ModuleFileName()
 {
-    char FileName[MAX_PATH];
-    if (GetModuleFileName(FPlugin->GetDLLInstance(), FileName, sizeof(FileName)) == 0)
+    CPathBuffer FileName;
+    if (GetModuleFileName(FPlugin->GetDLLInstance(), FileName, FileName.Size()) == 0)
     {
         assert(false);
     }
@@ -260,7 +261,7 @@ AnsiString __fastcall TSalamandConfiguration::DecryptPassword(AnsiString Passwor
             if (!PasswordManager->AskForMasterPassword(FPlugin->ParentWindow()))
             {
                 // prompt for master password was either cancelled, then we abort
-                // below after decrypting fails.
+                // below after decrupting fails.
                 // or we are in process of clearing master password (AskForMasterPassword
                 // automatically fails) and decrypting below should succeed
                 HaveMasterPassword = false;

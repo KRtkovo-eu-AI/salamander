@@ -1,13 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include <windows.h>
 
-// MS_INIT ensures that static-object constructors run in the correct order
-// and in the "lib" init segment (before "user")
+// The MS_INIT module ensures calling static object constructors in the correct order
+// and at the "lib" level (before "user")
 
 #pragma warning(3 : 4706) // warning C4706: assignment within conditional expression
 

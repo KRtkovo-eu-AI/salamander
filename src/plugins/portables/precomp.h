@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -22,7 +23,7 @@
 #define _WIN32_WINNT 0x0501
 
 #include <windows.h>
-#include <CommDlg.h>
+#include <commdlg.h>
 #include <windowsx.h>
 #include <shlwapi.h>
 #include <shellapi.h>

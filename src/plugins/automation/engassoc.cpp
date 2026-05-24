@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -122,8 +123,8 @@ HRESULT CScriptEngineAssociations::QueryHardcodedScriptEngineAssociation(
     PCTSTR pszExt,
     __out CLSID* clsidEngine)
 {
-    // Windows really makes it hard for us to use the JScript engine.
-    // Use a hardcoded association for .js files if everything else fails.
+    // Windows really makes hard time for us to use the JScript engine.
+    // Use hardcoded association for .js files if everything else fails.
 
     if (_tcsicmp(pszExt, _T(".js")) == 0)
     {

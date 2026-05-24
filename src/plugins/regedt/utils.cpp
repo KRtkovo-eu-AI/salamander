@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -139,13 +140,9 @@ BOOL RegOperationError(int lastError, int error, int title, int keyRoot, LPWSTR 
     int l = (int)strlen(strcpy(buf, LoadStr(error)));
     SG->GetErrorText(lastError, buf + l, 1024 - l);
 
-    char fullName[MAX_FULL_KEYNAME]; // buffer for the full REG name shown in an error dialog
-    l = WStrToStr(fullName, MAX_FULL_KEYNAME, PredefinedHKeys[keyRoot].KeyName) - 1;
-    fullName[l++] = '\\';
-    l += WStrToStr(fullName + l, MAX_FULL_KEYNAME - l, keyName) - 1;
-    fullName[l] = 0; // just in case
+    std::string fullName = WideToLocal(PredefinedHKeys[keyRoot].KeyName) + "\\" + WideToLocal(keyName);
 
-    int res = skip ? SG->DialogError(GetParent(), BUTTONS_RETRYSKIPCANCEL, fullName, buf, LoadStr(title)) : SG->DialogError(GetParent(), BUTTONS_RETRYCANCEL, fullName, buf, LoadStr(title));
+    int res = skip ? SG->DialogError(GetParent(), BUTTONS_RETRYSKIPCANCEL, fullName.c_str(), buf, LoadStr(title)) : SG->DialogError(GetParent(), BUTTONS_RETRYCANCEL, fullName.c_str(), buf, LoadStr(title));
     switch (res)
     {
     case DIALOG_RETRY:
@@ -206,7 +203,7 @@ void SaveHistory(HKEY regKey, const char* keyPattern, LPWSTR* history, CSalamand
 BOOL TestForCancel()
 {
     CALL_STACK_MESSAGE_NONE
-    //  CALL_STACK_MESSAGE1("TestForCancel()");  // Petr: call-stack is too slow
+    //  CALL_STACK_MESSAGE1("TestForCancel()");  // Petr: prilis pomaly call-stack
     static DWORD nextTest;
     if ((int)(GetTickCount() - nextTest) < 0)
         return FALSE;
@@ -530,7 +527,7 @@ BOOL GetOpenFileName(HWND parent, const char* title, const char* filter, char* b
     CALL_STACK_MESSAGE4("GetOpenFileName(, %s, %s, , %d)", title, filter, save);
     OPENFILENAME ofn;
     char buf[200];
-    char fileName[MAX_PATH];
+    CPathBuffer fileName; // Heap-allocated for long path support
     lstrcpyn(buf, filter, 200);
     Replace(buf, '\t', '\0');
 
@@ -545,9 +542,9 @@ BOOL GetOpenFileName(HWND parent, const char* title, const char* filter, char* b
         ofn.lpstrInitialDir = buffer;
     }
     else
-        strcpy(fileName, buffer);
+        lstrcpyn(fileName, buffer, fileName.Size());
     ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = fileName.Size();
     ofn.lpstrTitle = title;
     //ofn.lpfnHook = OFNHookProc;
     ofn.Flags = OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR /*| OFN_ENABLEHOOK*/;
@@ -576,10 +573,10 @@ BOOL RemoveFSNameFromPath(LPWSTR path)
     {
         if (*iterator == L':')
         {
-            char fsName[MAX_PATH];
+            CPathBuffer fsName; // Heap-allocated for long path support
             if (iterator - path)
             {
-                int len = (int)WStrToStr(fsName, MAX_PATH, path, (int)(iterator - path));
+                int len = (int)WStrToStr(fsName, fsName.Size(), path, (int)(iterator - path));
                 if (len == (int)strlen(AssignedFSName) && SG->StrNICmp(fsName, AssignedFSName, len) == 0)
                 {
                     memmove(path, iterator + 1, (wcslen(iterator + 1) + 1) * 2);

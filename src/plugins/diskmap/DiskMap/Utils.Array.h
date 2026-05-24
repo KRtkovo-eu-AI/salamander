@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -92,7 +93,7 @@ public:
         {
             free(Blocks[_count / BlockSize]);
         }
-        if (!_count) // all elements used up
+        if (!_count) //used them all
         {
             free(Blocks);
             Blocks = NULL;
@@ -104,7 +105,7 @@ public:
         CDynamicArray * const &operator[](float index); // function is never called, but if it is missing
         // MSVC does terrible things
 	*/
-    DATA_TYPE& operator[](int index) // returns the element at the given position
+    DATA_TYPE& operator[](int index) //returns the element at the position
     {
         return Blocks[index / BlockSize][index % BlockSize];
     }
@@ -155,7 +156,7 @@ public:
     DATA_TYPE*& At(int index)
     {
 #ifdef _DEBUG
-        if (index < 0 && index > _count)
+        if (index < 0 || index >= _count)
             Beep(1000, 100);
 #endif
         return (DATA_TYPE*&)(CAutoIndirectArrayBase::operator[](index));
@@ -164,7 +165,7 @@ public:
     DATA_TYPE*& operator[](int index)
     {
 #ifdef _DEBUG
-        if (index < 0 && index > _count)
+        if (index < 0 || index >= _count)
             Beep(1000, 100);
 #endif
         return (DATA_TYPE*&)(CAutoIndirectArrayBase::operator[](index));

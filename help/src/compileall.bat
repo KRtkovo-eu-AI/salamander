@@ -22,7 +22,7 @@ call compile.bat %HELP_ROOT%copy_to_salbin.bat >%HELP_ROOT%result.log
 popd
 
 set PLUGIN_LIST=(zip filecomp demoplug demoview demomenu 7zip dbviewer diskmap^
- ftp checksum checkver ieviewer mmviewer pak\spl peviewer pictview regedt renamer splitcbn tar unarj^
+ ftp checksum checkver webviewer mmviewer pak\spl peviewer pictview regedt renamer splitcbn tar unarj^
  uncab unchm undelete unfat uniso unlha unmime unrar wmobile winscp nethood automation)
 
 for %%i in %PLUGIN_LIST% do (
@@ -33,17 +33,17 @@ for %%i in %PLUGIN_LIST% do (
 )
 
 echo.
-echo Go to INDEX tab in opened HTML Help to create salamand.chw file.
+echo Go to INDEX tab in opened HTML Help to create sally.chw file.
 echo.
 
 for %%t in (Debug_x86 Release_x86 Debug_x64 Release_x64) do (
-  call :my_del "%OPENSAL_BUILD_DIR%salamander\%%t\help\english\salamand.chw"
+  call :my_del "%OPENSAL_BUILD_DIR%salamander\%%t\help\english\sally.chw"
 )
 
-call "%OPENSAL_BUILD_DIR%salamander\Debug_x86\help\english\salamand.chm"
+call "%OPENSAL_BUILD_DIR%salamander\Debug_x86\help\english\sally.chm"
 
 for %%t in (          Release_x86 Debug_x64 Release_x64) do (
-  call :mycopy_bat "%OPENSAL_BUILD_DIR%salamander\Debug_x86\help\english\salamand.chw" "%OPENSAL_BUILD_DIR%salamander\%%t\help\english\salamand.chw"
+  call :mycopy_bat "%OPENSAL_BUILD_DIR%salamander\Debug_x86\help\english\sally.chw" "%OPENSAL_BUILD_DIR%salamander\%%t\help\english\sally.chw"
 )
 
 echo.

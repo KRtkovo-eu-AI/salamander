@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -75,7 +76,7 @@ private:
         PERSISTENT_ENTRY(const PERSISTENT_ENTRY& e)
         {
             // Transfer ownership of the values to this entry.
-            // Reduces overhead of excessive allocating/copying
+            // Reduces overhead of excesive allocating/copying
             // between temporary instances.
 
             this->name = e.name;

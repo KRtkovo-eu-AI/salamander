@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -68,7 +69,7 @@ MENU_TEMPLATE_ITEM PopupMenuTemplate[] =
 
 struct CButtonData
 {
-    int ImageIndex;                   // zero-based index
+    int ImageIndex;                   // zero base index
     WORD ToolTipResID;                // resource ID with the tooltip string
     WORD ID;                          // universal command
     CViewerWindowEnablerEnum Enabler; // control variable for enabling the button
@@ -115,7 +116,7 @@ void ReleaseViewer()
 class CViewerThread : public CThread
 {
 protected:
-    char Name[MAX_PATH];
+    CPathBuffer Name; // Heap-allocated for long path support
     int Left, Top, Width, Height;
     UINT ShowCmd;
     BOOL AlwaysOnTop;
@@ -127,7 +128,7 @@ protected:
     BOOL* Success;
 
     int EnumFilesSourceUID;    // source UID for enumerating files in the viewer
-    int EnumFilesCurrentIndex; // index of the first file in the viewer within the source
+    int EnumFilesCurrentIndex; // index of the first viewer file within the source
 
 public:
     CViewerThread(const char* name, int left, int top, int width, int height,
@@ -136,7 +137,7 @@ public:
                   BOOL* success, int enumFilesSourceUID,
                   int enumFilesCurrentIndex) : CThread("DMV Viewer")
     {
-        lstrcpyn(Name, name, MAX_PATH);
+        lstrcpyn(Name, name, Name.Size());
         Left = left;
         Top = top;
         Width = width;
@@ -389,8 +390,8 @@ BOOL CViewerWindow::InitializeGraphics()
     hTmpColorBitmap = HANDLES(LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16)));
     BOOL ok = SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
                                                            hTmpGrayBitmap, hTmpMaskBitmap);
-    if (ok) // insert the acquired bitmap handles into HANDLES (manual insertion example)
-    {       // here DeleteObject follows immediately, so NOHANDLES with DeleteObject would be simpler
+    if (ok) // insert the acquired bitmap handles into HANDLES (example of manual insertion; simpler
+    {       // in this situation (DeleteObject immediately follows) to use the NOHANDLES macro for DeleteObject)
         HANDLES_ADD(__htBitmap, __hoCreateDIBitmap, hTmpGrayBitmap);
         HANDLES_ADD(__htBitmap, __hoCreateDIBitmap, hTmpMaskBitmap);
     }
@@ -508,7 +509,7 @@ void FillMenuFilter(CGUIMenuPopupAbstract* popup, int cmdFirst, int filterCount)
     mi.Type = MENU_TYPE_STRING;
     mi.State = 0;
 
-    char buff[MAX_PATH + 3];
+    CPathBuffer buff; // Heap-allocated for long path support
     mi.String = buff;
     int index = 0;
     while (index < filterCount)
@@ -583,7 +584,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
-        DragAcceptFiles(HWindow, FALSE); // disable drag-and-drop file opening
+        DragAcceptFiles(HWindow, FALSE); // allow opening files via drag and drop
         if (CfgSavePosition)
         {
             CfgWindowPlacement.length = sizeof(WINDOWPLACEMENT);
@@ -623,12 +624,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DROPFILES: // allow opening files via drag and drop
     {
         UINT drag;
-        char path[MAX_PATH];
+        CPathBuffer path; // Heap-allocated for long path support
 
         drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // determine how many files were dropped onto the window
         if (drag > 0)
         {
-            DragQueryFile((HDROP)wParam, 0, path, MAX_PATH);
+            DragQueryFile((HDROP)wParam, 0, path, path.Size());
             OpenFile(path);
         }
         DragFinish((HDROP)wParam);
@@ -661,8 +662,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (hdwp != NULL)
             {
                 // +4: without this offset the last four pixels of the rebar failed to repaint while resizing the window.
-                // the cause was not found after several hours; Salamander itself works fine.
-                // keep this workaround for now and revisit it if the root cause becomes clear.
+                // I could not track down the cause even after spending several hours on it (Salamander itself works fine).
+                // Leave the workaround in place for now and revisit once we rediscover the root cause.
                 hdwp = HANDLES(DeferWindowPos(hdwp, HRebar, NULL,
                                               0, 0, r.right + 4, rebarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
@@ -727,9 +728,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL ok = FALSE;
                 BOOL srcBusy = FALSE;
                 BOOL noMoreFiles = FALSE;
-                char fileName[MAX_PATH];
-                fileName[0] = 0;
-                if (shiftPressed) // legacy hotkey: use Backspace instead (see PictView, File/Other Files for keys and menu commands)
+                CPathBuffer fileName; // Heap-allocated for long path support
+                if (shiftPressed) // legacy hot-key: use Backspace (keys + commands in the menu see PictView, menu File/Other Files)
                 {
                     ok = SalamanderGeneral->GetPreviousFileNameForViewer(EnumFilesSourceUID,
                                                                          &EnumFilesCurrentIndex,
@@ -852,8 +852,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case CM_VIEWER_OPEN:
         {
-            char file[MAX_PATH];
-            file[0] = 0;
+            CPathBuffer file; // Heap-allocated for long path support
             OPENFILENAME ofn;
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
@@ -869,10 +868,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 s++;
             }
             ofn.lpstrFile = file;
-            ofn.nMaxFile = MAX_PATH;
+            ofn.nMaxFile = file.Size();
             ofn.nFilterIndex = 1;
-            char curDir[MAX_PATH];
-            lstrcpyn(curDir, Name, MAX_PATH);
+            CPathBuffer curDir; // Heap-allocated for long path support
+            lstrcpyn(curDir, Name, curDir.Size());
             SalamanderGeneral->CutDirectory(curDir);
             ofn.lpstrInitialDir = curDir[0] != 0 ? curDir : NULL;
             ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
@@ -901,7 +900,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         case CM_VIEWER_PASTE:
         {
             SalamanderGeneral->SalMessageBox(HWindow, "TODO: Paste", LoadStr(IDS_PLUGINNAME), MB_ICONINFORMATION | MB_OK);
-            Enablers[vwePaste] = FALSE; // OK only if it was Cut (Copy should not change it)
+            Enablers[vwePaste] = FALSE; // it's OK only if it was Cut (Copy should not change it)
             UpdateEnablers();
             break;
         }
@@ -957,7 +956,7 @@ void CViewerWindow::OpenFile(const char* name, BOOL setLock)
         SetEvent(Lock);
         Lock = NULL; // from now on it's up to the disk cache
     }
-    lstrcpyn(Name, name, MAX_PATH);
+    lstrcpyn(Name, name, Name.Size());
     InvalidateRect(HWindow, NULL, TRUE);
     InvalidateRect(Renderer.HWindow, NULL, TRUE);
 }

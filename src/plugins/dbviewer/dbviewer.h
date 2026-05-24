@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -109,7 +110,7 @@ enum CViewerWindowEnablerEnum
 class CViewerWindow : public CWindow
 {
 public:
-    HANDLE Lock; // 'lock' object or NULL (becomes signaled only after the file is closed)
+    HANDLE Lock; // 'lock' object or NULL (goes to the signaled state once the file is closed)
     CRendererWindow Renderer;
     int ConversionsCount; // number of conversions retrieved including "Don't convert"; without separators
     CCSVConfig CfgCSV;
@@ -124,7 +125,7 @@ public:
     HIMAGELIST HHotToolBarImageList;  // toolbar and menu in a colored variant
 
     DWORD Enablers[vweCount];
-    BOOL IsSrcFileSelected; // valid only if Enablers[vweSelSrcFile]==TRUE: TRUE/FALSE means the source file is selected/unselected
+    BOOL IsSrcFileSelected; // valid only if Enablers[vweSelSrcFile]==TRUE: TRUE/FALSE source file is selected/unselected
 
 public:
     CViewerWindow(int enumFilesSourceUID, int enumFilesCurrentIndex);

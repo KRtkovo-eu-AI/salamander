@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -41,7 +41,7 @@ struct CDecompressionObject
     char* OutputMemPtr;  // current position in the buffer for unpacked data
     DWORD OutputMemSize; // size of buffer for unpacked data
 
-    //public fields, should be initialized before calling Inflate()
+    //public fields, should be intialized before calling Inflate()
     uch* SlideWin;    //circular buffer
     unsigned WinSize; //size of sliding window, should be at least 32K
 

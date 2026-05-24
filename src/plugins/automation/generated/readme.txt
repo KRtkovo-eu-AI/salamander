@@ -1,3 +1,1 @@
-CommentsTranslationProject: TRANSLATED
-
-This directory contains only automatically generated files.
+This directory contains only automatically generated files from salamander.idl via MIDL compiler.

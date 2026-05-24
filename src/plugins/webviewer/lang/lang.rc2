@@ -1,0 +1,22 @@
+//
+// lang.rc2 - resources Microsoft Visual C++ does not edit directly
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// Add manually edited resources here...
+
+#include "..\versinfo.rh2"
+#include "versinfo.rc2"
+
+STRINGTABLE
+{
+ IDS_PLUGIN_DESCRIPTION, "Lightweight HTML, XML, and Markdown viewer based on Microsoft Edge WebView2."
+ IDS_ABOUT, "About Plugin"
+ IDS_PLUGINNAME, "Web Viewer"
+ IDS_UNABLETOOPENIE, "Unable to open Web Viewer.\nPlease ensure the Microsoft Edge WebView2 Runtime is installed."
+ IDS_ERRORTITLE, "Error"
+}

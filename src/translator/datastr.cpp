@@ -1,7 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+
+#include "translator.h"
 
 //*****************************************************************************
 //
@@ -48,7 +51,7 @@ BOOL CStrData::LoadStrings(WORD group, const wchar_t* original, const wchar_t* t
         {
             if (!data->MUIMode)
             {
-                MessageBox(GetMsgParent(), "Original and translated file has different string ids.",
+                TranslatorMessageBox(GetMsgParent(), "Original and translated file has different string ids.",
                            ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                 return FALSE;
             }
@@ -186,7 +189,7 @@ int CData::FindStrData(WORD id)
 
 BOOL CData::FindStringWithID(WORD id, int* index, int* subIndex, int* lvIndex)
 {
-    // Search strings.
+    // prohledame strings
     for (int i = 0; i < StrData.Count; i++)
     {
         CStrData* strData = StrData[i];
@@ -218,7 +221,7 @@ BOOL CData::FindStringWithID(WORD id, int* index, int* subIndex, int* lvIndex)
 
 BOOL CData::GetStringWithID(WORD id, wchar_t* buf, int bufSize)
 {
-    // Search strings.
+    // prohledame strings
     for (int i = 0; i < StrData.Count; i++)
     {
         CStrData* strData = StrData[i];

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -36,7 +37,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontally and vertically center the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // let DefDlgProc handle focus
+        break; // want focus from DefDlgProc
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -98,7 +99,7 @@ protected:
             break;
         }
 
-        case WM_APP + 1000: // detach from the dialog (it is already centered)
+        case WM_APP + 1000: // we should detach from the dialog (already centered)
         {
             DetachWindow();
             delete this; // a bit of a hack, but nobody will touch 'this' anymore, so it's fine

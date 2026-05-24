@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -128,7 +129,7 @@ HRESULT AbortableModalDialogWrapper(
     {
         hr = SALAUT_E_ABORT;
 
-        // Pump out the WM_QUIT we generated. Any messages
+        // Pump out the WM_QUIT we generated. The eventual messages
         // before WM_QUIT are lost.
         MSG msg;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))

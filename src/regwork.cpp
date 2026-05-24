@@ -1,10 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "mainwnd.h"
+#include "ui/IPrompter.h"
 
 CRegistryWorkerThread RegistryWorkerThread;
 
@@ -12,9 +14,9 @@ CRegistryWorkerThread RegistryWorkerThread;
 
 BOOL ClearKeyAux(HKEY key)
 {
-    char name[MAX_PATH];
+    CPathBuffer name;
     HKEY subKey;
-    while (RegEnumKey(key, 0, name, MAX_PATH) == ERROR_SUCCESS)
+    while (RegEnumKey(key, 0, name, name.Size() - 1) == ERROR_SUCCESS)
     {
         if (HANDLES_Q(RegOpenKeyEx(key, name, 0, KEY_READ | KEY_WRITE, &subKey)) == ERROR_SUCCESS)
         {
@@ -27,7 +29,7 @@ BOOL ClearKeyAux(HKEY key)
             return FALSE;
     }
 
-    DWORD size = MAX_PATH;
+    DWORD size = name.Size();
     while (RegEnumValue(key, 0, name, &size, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
         if (RegDeleteValue(key, name) != ERROR_SUCCESS)
         {
@@ -35,7 +37,7 @@ BOOL ClearKeyAux(HKEY key)
             break;
         }
         else
-            size = MAX_PATH;
+            size = name.Size();
 
     return TRUE;
 }
@@ -61,8 +63,7 @@ BOOL CreateKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& createdKey, BO
             }
             else
             {
-                SalMessageBox(parent, GetErrorText(res), LoadStr(IDS_ERRORSAVECONFIG),
-                              MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORSAVECONFIG), GetErrorTextW(res));
             }
         }
         return FALSE;
@@ -87,8 +88,7 @@ BOOL OpenKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& openedKey, BOOL 
             }
             else
             {
-                SalMessageBox(parent, GetErrorText(res),
-                              LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), GetErrorTextW(res));
             }
         }
         return FALSE;
@@ -129,8 +129,7 @@ BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buf
                 }
                 else
                 {
-                    SalMessageBox(parent, LoadStr(IDS_UNEXPECTEDVALUETYPE),
-                                  LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                    gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), LoadStrW(IDS_UNEXPECTEDVALUETYPE));
                 }
             }
             return FALSE;
@@ -148,8 +147,7 @@ BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buf
                 }
                 else
                 {
-                    SalMessageBox(parent, GetErrorText(res),
-                                  LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                    gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), GetErrorTextW(res));
                 }
             }
         }
@@ -176,8 +174,7 @@ BOOL GetValue2Aux(HWND parent, HKEY hKey, const char* name, DWORD type1, DWORD t
             }
             else
             {
-                SalMessageBox(parent, LoadStr(IDS_UNEXPECTEDVALUETYPE),
-                              LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), LoadStrW(IDS_UNEXPECTEDVALUETYPE));
             }
             return FALSE;
         }
@@ -192,8 +189,7 @@ BOOL GetValue2Aux(HWND parent, HKEY hKey, const char* name, DWORD type1, DWORD t
             }
             else
             {
-                SalMessageBox(parent, GetErrorText(res),
-                              LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), GetErrorTextW(res));
             }
         }
         return FALSE;
@@ -226,8 +222,7 @@ BOOL SetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type,
             }
             else
             {
-                SalMessageBox(parent, GetErrorText(res),
-                              LoadStr(IDS_ERRORSAVECONFIG), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORSAVECONFIG), GetErrorTextW(res));
             }
         }
         return FALSE;
@@ -259,8 +254,7 @@ BOOL GetSizeAux(HWND parent, HKEY hKey, const char* name, DWORD type, DWORD& buf
             }
             else
             {
-                SalMessageBox(parent, LoadStr(IDS_UNEXPECTEDVALUETYPE),
-                              LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), LoadStrW(IDS_UNEXPECTEDVALUETYPE));
             }
             return FALSE;
         }
@@ -275,8 +269,7 @@ BOOL GetSizeAux(HWND parent, HKEY hKey, const char* name, DWORD type, DWORD& buf
             }
             else
             {
-                SalMessageBox(parent, GetErrorText(res),
-                              LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORLOADCONFIG), GetErrorTextW(res));
             }
         }
         return FALSE;
@@ -733,7 +726,7 @@ BOOL CRegistryWorkerThread::CInUseHandler::CanUseThread(CRegistryWorkerThread* t
             t->InUse = TRUE;
             T = t; // destructor will set T->InUse = FALSE
         }
-        // otherwise this is a recursive call (due to the message loop and thus message dispatch), so we reject running the work in the thread
+        // otherwise // this is a recursive call (due to the message loop and thus message distribution) = we reject running the work there
         return ret;
     }
     return FALSE;

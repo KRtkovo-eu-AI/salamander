@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -84,7 +85,7 @@ CParserVQF::GetFileInfo(COutputInterface* output)
                 {'(', 'c', ')', ' ', IDS_VQF_COPYRIGHT, NULL},
                 {'F', 'I', 'L', 'E', IDS_VQF_ORIGFILENAME, NULL},
 
-                // TODO: The exact meaning of these tags is unknown and must be determined.
+                //TODO I do not know exactly what these tags mean, you will have to find out
                 {'L', 'Y', 'R', 'C', IDS_VQF_LYRC, NULL},
                 {'W', 'O', 'R', 'D', IDS_VQF_WORD, NULL},
                 {'M', 'U', 'S', 'C', IDS_VQF_MUSC, NULL},

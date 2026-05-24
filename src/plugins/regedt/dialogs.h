@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -177,8 +178,8 @@ protected:
     DWORD& Size;
     BOOL DefaultValue;
     DWORD Allocated;
-    char TempFile[MAX_PATH];
-    char TempDir[MAX_PATH];
+    CPathBuffer TempFile; // Heap-allocated for long path support
+    CPathBuffer TempDir; // Heap-allocated for long path support
     BOOL Edit;
 
 public:

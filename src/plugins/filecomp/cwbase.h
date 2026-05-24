@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -49,7 +50,7 @@ protected:
     const int& CancelFlag; // 0 ... keep going, otherwise finish
     CFCFileData Files[2];
 
-    // work buffers for StrictCompare prevent repeated reallocation when
+    // work buffers for StrictCompare are to prevent offten re-allocation when
     // called multiple times
     struct CStrictData
     {

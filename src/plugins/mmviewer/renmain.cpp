@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -36,7 +37,7 @@ CRendererWindow::~CRendererWindow()
 
 void CRendererWindow::OnFileOpen()
 {
-    char file[MAX_PATH];
+    CPathBuffer file; // Heap-allocated for long path support
     file[0] = 0;
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -51,7 +52,7 @@ void CRendererWindow::OnFileOpen()
         s++;
     }
     ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = file.Size();
     ofn.nFilterIndex = 1;
     ofn.lpstrInitialDir = NULL;
     ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
@@ -89,7 +90,7 @@ BOOL CRendererWindow::OpenFile(const char* name)
     }
     else
     {
-        char buff[2 * MAX_PATH];
+        CPathBuffer buff; // Heap-allocated for long path support
         sprintf(buff, LoadStr(IDS_ERROR_OPENING), name);
         SalGeneral->SalMessageBox(HWindow, buff, LoadStr(IDS_PLUGIN_NAME), MB_ICONEXCLAMATION);
 
@@ -149,9 +150,9 @@ void CRendererWindow::SetupScrollBars()
 
 void CRendererWindow::SetViewerTitle()
 {
-    char title[MAX_PATH + 300];
+    CPathBuffer title; // Heap-allocated for long path support
     if (FileName[0] != 0)
-        sprintf(title, "%s - %s", FileName, LoadStr(IDS_PLUGIN_NAME));
+        sprintf(title, "%s - %s", FileName.Get(), LoadStr(IDS_PLUGIN_NAME));
     else
         sprintf(title, "%s", LoadStr(IDS_PLUGIN_NAME));
 
@@ -227,7 +228,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
         BOOL ok = FALSE;
         BOOL srcBusy = FALSE;
         BOOL noMoreFiles = FALSE;
-        char fileName[MAX_PATH];
+        CPathBuffer fileName; // Heap-allocated for long path support
         fileName[0] = 0;
         int enumFilesCurrentIndex = EnumFilesCurrentIndex;
         if (LOWORD(wParam) == CM_FILE_PREV || LOWORD(wParam) == CM_FILE_LAST)
@@ -265,7 +266,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
                     FileName[0] = 0;
                 }
 
-                // Set the index even if opening fails so the user can move to the next/previous image
+                // set the index even if it fails so the user can move to the next/previous image
                 EnumFilesCurrentIndex = enumFilesCurrentIndex;
             }
         }
@@ -276,10 +277,10 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
 
     case CM_FILES_EXPORT_HTML:
     {
-        char fname[MAX_PATH];
+        CPathBuffer fname; // Heap-allocated for long path support
         char* ext = LoadStr(IDS_HTMLEXT);
-        strcpy(fname, FileName);
-        char* b = strrchr(fname, '.'); // ".cvspass" is an extension in Windows
+        lstrcpyn(fname, FileName, fname.Size());
+        char* b = strrchr(fname.Get(), '.'); // ".cvspass" is an extension in Windows
         if (b)
             *b = 0;
         strcat(fname, ext);
@@ -312,9 +313,9 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam)
 
     case CM_FILES_EXPORT_XML:
     {
-        char fname[MAX_PATH];
-        strcpy(fname, FileName);
-        char* b = strrchr(fname, '.'); // ".cvspass" is an extension in Windows
+        CPathBuffer fname; // Heap-allocated for long path support
+        lstrcpyn(fname, FileName, fname.Size());
+        char* b = strrchr(fname.Get(), '.'); // ".cvspass" is an extension in Windows
         if (b)
             *b = 0;
         strcat(fname, ".xml");
@@ -482,7 +483,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (Output.GetCount())
             return 1;
-        // Let Windows erase the background for us if we have nothing to show...
+        // Let Windows erase the bground for us if we have nothing to show...
         break;
     }
 

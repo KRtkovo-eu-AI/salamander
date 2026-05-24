@@ -1,6 +1,5 @@
 //
 //
-// CommentsTranslationProject: TRANSLATED
 //
 
 #include <windows.h>
@@ -20,5 +19,5 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }

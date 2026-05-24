@@ -1,11 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include "selfextr/comdefs.h"
 
-//types definitions
+//types defintions
 
 //basic types
 typedef unsigned __int8 __UINT8;
@@ -141,7 +142,7 @@ typedef struct
     // [variable size] zip64 extensible data sector
 } CZip64EOCentrDirRecord;
 
-typedef struct // May immediately follow (actually be included in) CZip64EOCentrDirRecord
+typedef struct // May immediatelly follow (actually be included in) CZip64EOCentrDirRecord
 {
     __UINT16 Method;     // compression method
     __UINT64 CompSize;   // compressed size
@@ -245,7 +246,7 @@ struct CSfxSettings
     char IconFile[MAX_PATH];
     DWORD IconIndex;
     UINT MBoxStyle;
-    char* MBoxText;
+    std::string MBoxText;
     char MBoxTitle[SE_MAX_TITLE];
     char WaitFor[MAX_PATH];
 
@@ -263,7 +264,6 @@ struct CSfxSettings
         *IconFile = 0;
         IconIndex = 0;
         MBoxStyle = MB_OK;
-        MBoxText = NULL;
         *MBoxTitle = 0;
         *WaitFor = 0;
     }
@@ -282,16 +282,12 @@ struct CSfxSettings
         strcpy(IconFile, origin.IconFile);
         IconIndex = origin.IconIndex;
         MBoxStyle = origin.MBoxStyle;
-        MBoxText = DupStr(origin.MBoxText);
+        MBoxText = origin.MBoxText;
         strcpy(MBoxTitle, origin.MBoxTitle);
         strcpy(WaitFor, origin.WaitFor);
     }
 
-    ~CSfxSettings()
-    {
-        if (MBoxText)
-            free(MBoxText);
-    }
+    ~CSfxSettings() {}
 
     CSfxSettings& operator=(const CSfxSettings& origin)
     {
@@ -307,33 +303,15 @@ struct CSfxSettings
         strcpy(IconFile, origin.IconFile);
         IconIndex = origin.IconIndex;
         MBoxStyle = origin.MBoxStyle;
-        if (MBoxText)
-            free(MBoxText);
-        MBoxText = DupStr(origin.MBoxText);
+        MBoxText = origin.MBoxText;
         strcpy(MBoxTitle, origin.MBoxTitle);
         strcpy(WaitFor, origin.WaitFor);
         return *this;
     }
 
-    char* SetMBoxText(const char* text)
+    void SetMBoxText(const char* text)
     {
-        if (MBoxText)
-            free(MBoxText);
-        MBoxText = DupStr(text);
-        return MBoxText;
-    }
-
-private:
-    char* DupStr(const char* str)
-    {
-        if (str)
-        {
-            char* ret = (char*)malloc(strlen(str) + 1);
-            strcpy(ret, str);
-            return ret;
-        }
-        else
-            return NULL;
+        MBoxText = text ? text : "";
     }
 };
 
@@ -356,7 +334,7 @@ extern const SYSTEMTIME MinZipTime;
 
 #define ZIP64_HEADER_ID 0x0001 //zip64 extra header id
 
-//general purpose bit flag masks
+//general purose bit flag masks
 #define GPF_ENCRYPTED 0x01 //indicate that file is encrypted
 #define GPF_DATADESCR 0x08 //compressed data are followed by data descriptor
 #define GPF_UTF8 0x800     //the filename and comment fields for this file are encoded in UTF-8 \
@@ -459,7 +437,7 @@ extern const SYSTEMTIME MinZipTime;
 #define PE_QUIET 0x4
 
 //all files attributes in ZIP are masked before usage
-//also when compressing attributes are masked before stored
+//also when compressing atrrributes are masked before stored
 //this preserve displaying some confusing attributes in archive,
 //like 'compressed' or 'temporary'
 

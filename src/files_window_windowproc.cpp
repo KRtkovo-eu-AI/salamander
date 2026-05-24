@@ -1,0 +1,1561 @@
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "precomp.h"
+
+#include "cfgdlg.h"
+#include "menu.h"
+#include "mainwnd.h"
+#include "plugins.h"
+#include "fileswnd.h"
+#include "filesbox.h"
+#include "stswnd.h"
+#include "snooper.h"
+#include "shellib.h"
+#include "drivelst.h"
+extern "C"
+{
+#include "shexreg.h"
+}
+#include "salshlib.h"
+#include "zip.h"
+#include "common/unicode/PanelPathPolicy.h"
+
+//****************************************************************************
+
+// define GUID for "Lock Volume" event (e.g. "chkdsk /f E:", where E: is USB stick): {50708874-C9AF-11D1-8FEF-00A0C9A06D32}
+GUID GUID_IO_LockVolume = {0x50708874, 0xC9AF, 0x11D1, 0x8F, 0xEF, 0x00, 0xA0, 0xC9, 0xA0, 0x6D, 0x32};
+//
+// In Ioevent.h from DDK is the definition of this constant (and many others):
+//
+//  Volume lock event.  This event is signalled when an attempt is made to
+//  lock a volume.  There is no additional data.
+//
+// DEFINE_GUID( GUID_IO_VOLUME_LOCK, 0x50708874L, 0xc9af, 0x11d1, 0x8f, 0xef, 0x00, 0xa0, 0xc9, 0xa0, 0x6d, 0x32 );
+
+BOOL IsCustomEventGUID(LPARAM lParam, REFGUID guidEvent)
+{
+    BOOL ret = FALSE;
+    __try
+    {
+        DEV_BROADCAST_HDR* data = (DEV_BROADCAST_HDR*)lParam;
+        if (data != NULL)
+        {
+            if (data->dbch_devicetype == DBT_DEVTYP_HANDLE)
+            {
+                DEV_BROADCAST_HANDLE* d = (DEV_BROADCAST_HANDLE*)data;
+                if (IsEqualGUID(d->dbch_eventguid, guidEvent))
+                    ret = TRUE;
+            }
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+    }
+    return ret;
+}
+
+//****************************************************************************
+//
+// WindowProc
+//
+
+LRESULT
+CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    SLOW_CALL_STACK_MESSAGE4("CFilesWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
+    BOOL setWait;
+    BOOL probablyUselessRefresh;
+    HCURSOR oldCur;
+    switch (uMsg)
+    {
+        //---  stretching the listbox across the entire window
+    case WM_SIZE:
+    {
+        if (ListBox != NULL && ListBox->HWindow != NULL && StatusLine != NULL && DirectoryLine != NULL)
+        {
+            int width = LOWORD(lParam);
+            int height = HIWORD(lParam);
+
+            int dlHeight = 3;
+            int stHeight = 0;
+            int windowsCount = 1;
+            if (DirectoryLine->HWindow != NULL)
+            {
+                dlHeight = DirectoryLine->GetNeededHeight();
+                RECT r;
+                GetClientRect(DirectoryLine->HWindow, &r);
+                r.left += DirectoryLine->GetToolBarWidth();
+                InvalidateRect(DirectoryLine->HWindow, &r, FALSE);
+                windowsCount++;
+            }
+            if (StatusLine->HWindow != NULL)
+            {
+                stHeight = StatusLine->GetNeededHeight();
+                InvalidateRect(StatusLine->HWindow, NULL, FALSE);
+                windowsCount++;
+            }
+
+            HDWP hdwp = HANDLES(BeginDeferWindowPos(windowsCount));
+            if (hdwp != NULL)
+            {
+                if (DirectoryLine->HWindow != NULL)
+                    hdwp = HANDLES(DeferWindowPos(hdwp, DirectoryLine->HWindow, NULL,
+                                                  0, 0, width, dlHeight,
+                                                  SWP_NOACTIVATE | SWP_NOZORDER));
+
+                hdwp = HANDLES(DeferWindowPos(hdwp, ListBox->HWindow, NULL,
+                                              0, dlHeight, width, height - stHeight - dlHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
+
+                if (StatusLine->HWindow != NULL)
+                    hdwp = HANDLES(DeferWindowPos(hdwp, StatusLine->HWindow, NULL,
+                                                  0, height - stHeight, width, stHeight,
+                                                  SWP_NOACTIVATE | SWP_NOZORDER));
+
+                HANDLES(EndDeferWindowPos(hdwp));
+            }
+            break;
+        }
+        break;
+    }
+
+    case WM_ERASEBKGND:
+    {
+        if (ListBox != NULL && ListBox->HWindow != NULL && DirectoryLine != NULL)
+        {
+            if (DirectoryLine->HWindow == NULL)
+            {
+                RECT r;
+                GetClientRect(HWindow, &r);
+                r.bottom = 3;
+                FillRect((HDC)wParam, &r, HDialogBrush);
+            }
+        }
+        return TRUE;
+    }
+
+    case WM_DEVICECHANGE:
+    {
+        switch (wParam)
+        {
+        case 0x8006 /* DBT_CUSTOMEVENT */:
+        {
+            //          TRACE_I("WM_DEVICECHANGE: DBT_CUSTOMEVENT");
+
+            if (IsCustomEventGUID(lParam, GUID_IO_LockVolume))
+            { // works on XP when "chkdsk /f e:" is run ("e:" is removable USB stick) and also unfortunately when opening .ifo and .vob files (DVD) and when running Ashampoo Burning Studio 6 -- request "lock volume"
+                if (UseSystemIcons || UseThumbnails)
+                    SleepIconCacheThread();                 // pause icon/thumbnail reading
+                DetachDirectory((CFilesWindow*)this, TRUE); // close change notifications + DeviceNotification
+
+                HANDLES(EnterCriticalSection(&TimeCounterSection));
+                int t1 = MyTimeCounter++;
+                HANDLES(LeaveCriticalSection(&TimeCounterSection));
+                BOOL salIsActive = GetForegroundWindow() == MainWindow->HWindow;
+                PostMessage(HWindow, WM_USER_REFRESH_DIR_EX, salIsActive, t1); // refresh will restore icon/thumbnail reading + re-open change notifications + DeviceNotification; we know it's probably an unnecessary refresh
+            }
+            break;
+        }
+
+        case DBT_DEVICEQUERYREMOVE:
+        {
+            //          TRACE_I("WM_DEVICECHANGE: DBT_DEVICEQUERYREMOVE");
+            DetachDirectory((CFilesWindow*)this, TRUE, FALSE); // without closing DeviceNotification
+            return TRUE;                                       // allow removal of this device
+        }
+
+        case DBT_DEVICEQUERYREMOVEFAILED:
+        {
+            //          TRACE_I("WM_DEVICECHANGE: DBT_DEVICEQUERYREMOVEFAILED");
+            if (sally::unicode::HasWidePathW(GetPathW()))
+                ChangeDirectoryW(this, GetPathW(), MyGetDriveType(GetPath()) == DRIVE_REMOVABLE);
+            else
+                ChangeDirectory(this, GetPath(), MyGetDriveType(GetPath()) == DRIVE_REMOVABLE);
+            return TRUE;
+        }
+
+        case DBT_DEVICEREMOVEPENDING:
+        case DBT_DEVICEREMOVECOMPLETE:
+        {
+            //          if (wParam == DBT_DEVICEREMOVEPENDING) TRACE_I("WM_DEVICECHANGE: DBT_DEVICEREMOVEPENDING");
+            //          else TRACE_I("WM_DEVICECHANGE: DBT_DEVICEREMOVECOMPLETE");
+            DetachDirectory((CFilesWindow*)this, TRUE); // close DeviceNotification
+            if (MainWindow->LeftPanel == this)
+            {
+                if (!ChangeLeftPanelToFixedWhenIdleInProgress)
+                    ChangeLeftPanelToFixedWhenIdle = TRUE;
+            }
+            else
+            {
+                if (!ChangeRightPanelToFixedWhenIdleInProgress)
+                    ChangeRightPanelToFixedWhenIdle = TRUE;
+            }
+            return TRUE;
+        }
+
+            //        default: TRACE_I("WM_DEVICECHANGE: other message: " << wParam); break;
+        }
+        break;
+    }
+
+    case WM_USER_DROPUNPACK:
+    {
+        // TRACE_I("WM_USER_DROPUNPACK received!");
+        char* tgtPath = (char*)wParam;
+        int operation = (int)lParam;
+        if (operation == SALSHEXT_COPY) // unpack
+        {
+            ProgressDialogActivateDrop = LastWndFromGetData;
+            UnpackZIPArchive(NULL, FALSE, tgtPath);
+            ProgressDialogActivateDrop = NULL; // for further use of progress dialog we must clear the global variable
+            SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATH, tgtPath, NULL);
+        }
+        free(tgtPath);
+        return 0;
+    }
+
+    case WM_USER_DROPFROMFS:
+    {
+        TRACE_I("WM_USER_DROPFROMFS received: " << (lParam == SALSHEXT_COPY ? "Copy" : (lParam == SALSHEXT_MOVE ? "Move" : "Unknown")));
+        char* tgtPath = (char*)wParam;
+        int operation = (int)lParam;
+        if (Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&
+            (operation == SALSHEXT_COPY && GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS) ||
+             operation == SALSHEXT_MOVE && GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS)) &&
+            Dirs->Count + Files->Count > 0)
+        {
+            int count = GetSelCount();
+            if (count > 0 || GetCaretIndex() != 0 ||
+                Dirs->Count == 0 || strcmp(Dirs->At(0).Name, "..") != 0) // check if we are not working only with ".."
+            {
+                BeginSuspendMode(); // the snooper takes a break
+                BeginStopRefresh(); // just to prevent path change notifications from being distributed
+
+                UserWorkedOnThisPath = TRUE;
+                StoreSelection(); // store selection for the Restore Selection command
+
+                ProgressDialogActivateDrop = LastWndFromGetData;
+
+                int selectedDirs = 0;
+                if (count > 0)
+                {
+                    // count how many directories are selected (remaining selected items are files)
+                    int i;
+                    for (i = 0; i < Dirs->Count; i++) // ".." cannot be selected, test would be unnecessary
+                    {
+                        if (Dirs->At(i).Selected)
+                            selectedDirs++;
+                    }
+                }
+                else
+                    count = 0;
+
+                int panel = MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT;
+                BOOL copy = (operation == SALSHEXT_COPY);
+                BOOL operationMask = FALSE;
+                BOOL cancelOrHandlePath = FALSE;
+                CPathBuffer targetPath; // Heap-allocated for long path support
+                lstrcpyn(targetPath, tgtPath, targetPath.Size() - 1);
+                if (tgtPath[0] == '\\' && tgtPath[1] == '\\' || // UNC path
+                    tgtPath[0] != 0 && tgtPath[1] == ':')       // classic disk path (C:\path)
+                {
+                    int l = (int)strlen(targetPath);
+                    if (l > 3 && targetPath[l - 1] == '\\')
+                        targetPath[l - 1] = 0; // krom "c:\" zrusime koncovy backslash
+                }
+                targetPath[strlen(targetPath) + 1] = 0; // ensure two zeros at the end of the string
+
+                // lower the thread priority to "normal" (so operations do not overload the machine too much)
+                SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+
+                BOOL ret = GetPluginFS()->CopyOrMoveFromFS(copy, 5, GetPluginFS()->GetPluginFSName(),
+                                                           HWindow, panel,
+                                                           count - selectedDirs, selectedDirs,
+                                                           targetPath, operationMask,
+                                                           cancelOrHandlePath,
+                                                           ProgressDialogActivateDrop);
+
+                // raise the thread priority again, the operation has finished
+                SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+
+                if (ret && !cancelOrHandlePath)
+                {
+                    if (targetPath[0] != 0) // change focus to 'targetPath'
+                    {
+                        lstrcpyn(NextFocusName, targetPath, NextFocusName.Size());
+                        // RefreshDirectory may not run - source may not have changed - to be safe we post a message
+                        PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0);
+                    }
+
+                    // successful operation, but we do not deselect the source because it's a drag&drop
+                    //            SetSel(FALSE, -1, TRUE);   // explicitni prekresleni
+                    //            PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0);  // sel-change notify
+                    UpdateWindow(MainWindow->HWindow);
+                }
+
+                ProgressDialogActivateDrop = NULL;              // for further use of progress dialog we must clear the global variable
+                if (tgtPath[0] == '\\' && tgtPath[1] == '\\' || // UNC path
+                    tgtPath[0] != 0 && tgtPath[1] == ':')       // classic disk path (C:\path)
+                {
+                    SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATH, tgtPath, NULL);
+                }
+
+                EndStopRefresh();
+                EndSuspendMode(); // now the file monitor starts again
+            }
+        }
+        free(tgtPath);
+        return 0;
+    }
+
+    case WM_USER_UPDATEPANEL:
+    {
+        // someone has distributed messages (a messagebox was opened) and it's necessary to update
+        // the content of the panel
+        RefreshListBox(0, -1, -1, FALSE, FALSE);
+        return 0;
+    }
+
+    case WM_USER_ENTERMENULOOP:
+    case WM_USER_LEAVEMENULOOP:
+    {
+        // just pass to the main window
+        return SendMessage(MainWindow->HWindow, uMsg, wParam, lParam);
+    }
+
+    case WM_USER_CONTEXTMENU:
+    {
+        CMenuPopup* popup = (CMenuPopup*)(CGUIMenuPopupAbstract*)wParam;
+        // if Alt+F1(2) menu is open over this panel and RClick belongs to it,
+        // pass it the notification
+        if (OpenedDrivesList != NULL && OpenedDrivesList->GetMenuPopup() == popup)
+        {
+            return OpenedDrivesList->OnContextMenu((BOOL)lParam, -1, PANEL_SOURCE, NULL);
+        }
+        return FALSE; //p.s. do not execute command, do not open submenu
+    }
+
+    case WM_TIMER:
+    {
+        if (wParam == IDT_SM_END_NOTIFY)
+        {
+            KillTimer(HWindow, IDT_SM_END_NOTIFY);
+            if (SmEndNotifyTimerSet) // it's not just a "stray" WM_TIMER
+                PostMessage(HWindow, WM_USER_SM_END_NOTIFY_DELAYED, 0, 0);
+            SmEndNotifyTimerSet = FALSE;
+            return 0;
+        }
+        else
+        {
+            if (wParam == IDT_REFRESH_DIR_EX)
+            {
+                KillTimer(HWindow, IDT_REFRESH_DIR_EX);
+                if (RefreshDirExTimerSet) // it's not just a "stray" WM_TIMER
+                    PostMessage(HWindow, WM_USER_REFRESH_DIR_EX_DELAYED, FALSE, RefreshDirExLParam);
+                RefreshDirExTimerSet = FALSE;
+                return 0;
+            }
+            else
+            {
+                if (wParam == IDT_ICONOVRREFRESH)
+                {
+                    KillTimer(HWindow, IDT_ICONOVRREFRESH);
+                    if (IconOvrRefreshTimerSet && // it's not just a "stray" WM_TIMER
+                        Configuration.EnableCustomIconOverlays && Is(ptDisk) &&
+                        (UseSystemIcons || UseThumbnails) && IconCache != NULL)
+                    {
+                        //              TRACE_I("Timer IDT_ICONOVRREFRESH: refreshing icon overlays");
+                        LastIconOvrRefreshTime = GetTickCount();
+                        SleepIconCacheThread();
+                        WakeupIconCacheThread();
+                    }
+                    IconOvrRefreshTimerSet = FALSE;
+                    return 0;
+                }
+                else
+                {
+                    if (wParam == IDT_INACTIVEREFRESH)
+                    {
+                        KillTimer(HWindow, IDT_INACTIVEREFRESH);
+                        if (InactiveRefreshTimerSet) // it's not just a "stray" WM_TIMER
+                        {
+                            //                TRACE_I("Timer IDT_INACTIVEREFRESH: posting refresh!");
+                            PostMessage(HWindow, WM_USER_INACTREFRESH_DIR, FALSE, InactRefreshLParam);
+                        }
+                        InactiveRefreshTimerSet = FALSE;
+                        return 0;
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    case WM_USER_REFRESH_DIR_EX:
+    {
+        if (!RefreshDirExTimerSet)
+        {
+            if (SetTimer(HWindow, IDT_REFRESH_DIR_EX, wParam ? 5000 : 200, NULL))
+            {
+                RefreshDirExTimerSet = TRUE;
+                RefreshDirExLParam = lParam;
+            }
+            else
+                PostMessage(HWindow, WM_USER_REFRESH_DIR_EX_DELAYED, FALSE, lParam);
+        }
+        else // waiting for WM_USER_REFRESH_DIR_EX_DELAYED to be sent
+        {
+            if (RefreshDirExLParam < lParam) // take the "newer" time
+                RefreshDirExLParam = lParam;
+
+            KillTimer(HWindow, IDT_REFRESH_DIR_EX); // restart timer so slow is slow (5000ms) and fast is fast (200ms) - in short, it must not depend on the type of previous refresh
+            if (!SetTimer(HWindow, IDT_REFRESH_DIR_EX, wParam ? 5000 : 200, NULL))
+            {
+                RefreshDirExTimerSet = FALSE;
+                PostMessage(HWindow, WM_USER_REFRESH_DIR_EX_DELAYED, FALSE, lParam);
+            }
+        }
+        return 0;
+    }
+
+    case WM_USER_SM_END_NOTIFY:
+    {
+        if (!SmEndNotifyTimerSet)
+        {
+            if (SetTimer(HWindow, IDT_SM_END_NOTIFY, 200, NULL))
+            {
+                SmEndNotifyTimerSet = TRUE;
+                return 0;
+            }
+            else
+                uMsg = WM_USER_SM_END_NOTIFY_DELAYED;
+        }
+        else
+            return 0;
+        // note: break is missing here -- if timer creation fails, WM_USER_SM_END_NOTIFY_DELAYED will be executed immediately
+    }
+        //--- suspend mode has ended, check if we need a refresh
+    case WM_USER_SM_END_NOTIFY_DELAYED:
+    {
+        if (SnooperSuspended || StopRefresh)
+            return 0;                        // wait for the next WM_USER_SM_END_NOTIFY_DELAYED
+        if (PluginFSNeedRefreshAfterEndOfSM) // should the plug-in FS be refreshed?
+        {
+            PluginFSNeedRefreshAfterEndOfSM = FALSE;
+            PostMessage(HWindow, WM_USER_REFRESH_PLUGINFS, 0, 0); // try to execute it now
+        }
+
+        if (NeedRefreshAfterEndOfSM) // should a refresh happen?
+        {
+            NeedRefreshAfterEndOfSM = FALSE;
+            lParam = RefreshAfterEndOfSMTime;
+            wParam = FALSE; // we will not set RefreshFinishedEvent
+        }
+        else
+            return 0;
+    }
+        //--- a change in directory content was detected during suspend mode
+    case WM_USER_S_REFRESH_DIR:
+    {
+        if (uMsg == WM_USER_S_REFRESH_DIR && // content change detected during suspend mode
+            !IconCacheValid && UseSystemIcons && Is(ptDisk) && GetNetworkDrive())
+        {
+            // TRACE_I("Delaying refresh from suspend mode until all icons are read.");
+            NeedRefreshAfterIconsReading = TRUE;
+            RefreshAfterIconsReadingTime = max(RefreshAfterIconsReadingTime, (int)lParam);
+            if (wParam)
+                SetEvent(RefreshFinishedEvent); // probably unnecessary, but it's in the description of WM_USER_S_REFRESH_DIR
+            return 0;                           // we noted the change message (refresh will be posted after icon reading finishes), end processing
+        }
+
+        setWait = FALSE;
+        if (lParam >= LastRefreshTime)
+        {                                                          // it's not an unnecessary old refresh
+            setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // is it waiting already?
+            if (setWait)
+                oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
+            DWORD err = CheckPath(FALSE, NULL, ERROR_SUCCESS, !SnooperSuspended && !StopRefresh);
+            if (err == ERROR_SUCCESS)
+            {
+                if (GetMonitorChanges()) // snooper might have removed it from the list
+                {
+                    if (sally::unicode::HasWidePathW(GetPathW()))
+                        ChangeDirectoryW(this, GetPathW(), MyGetDriveType(GetPath()) == DRIVE_REMOVABLE);
+                    else
+                        ChangeDirectory(this, GetPath(), MyGetDriveType(GetPath()) == DRIVE_REMOVABLE);
+                }
+            }
+            else
+            {
+                if (err == ERROR_USER_TERMINATED)
+                {
+                    DetachDirectory(this);
+                    ChangeToRescuePathOrFixedDrive(HWindow);
+                }
+            }
+        }
+    }
+        //--- icon reading has finished, check if we need a refresh
+    case WM_USER_ICONREADING_END:
+    {
+        //      TRACE_I("WM_USER_ICONREADING_END");
+        probablyUselessRefresh = FALSE;
+        if (uMsg == WM_USER_ICONREADING_END)
+        {
+            IconCacheValid = TRUE;
+            EndOfIconReadingTime = GetTickCount();
+            if (NeedRefreshAfterIconsReading) // should a refresh happen?
+            {
+                //          TRACE_I("Doing delayed refresh (all icons are read).");
+                NeedRefreshAfterIconsReading = FALSE;
+                lParam = RefreshAfterIconsReadingTime;
+                wParam = FALSE; // we will not post RefreshFinishedEvent
+                setWait = FALSE;
+                probablyUselessRefresh = TRUE; // probably just a refresh incorrectly triggered by the system after loading icons from a network drive
+                                               //          TRACE_I("delayed refresh (after reading of all icons): probablyUselessRefresh=TRUE");
+            }
+            else
+            {
+                if (NeedIconOvrRefreshAfterIconsReading) // refresh icon-overlays
+                {
+                    NeedIconOvrRefreshAfterIconsReading = FALSE;
+
+                    if (Configuration.EnableCustomIconOverlays && Is(ptDisk) &&
+                        (UseSystemIcons || UseThumbnails) && IconCache != NULL)
+                    {
+                        //              TRACE_I("NeedIconOvrRefreshAfterIconsReading: refreshing icon overlays");
+                        LastIconOvrRefreshTime = GetTickCount();
+                        SleepIconCacheThread();
+                        WakeupIconCacheThread();
+                    }
+                }
+                return 0;
+            }
+        }
+    }
+        //--- a change in directory content was detected
+    case WM_USER_REFRESH_DIR:
+    case WM_USER_REFRESH_DIR_EX_DELAYED:
+    case WM_USER_INACTREFRESH_DIR:
+    {
+        //      if (uMsg == WM_USER_INACTREFRESH_DIR) TRACE_I("WM_USER_INACTREFRESH_DIR");
+        if (uMsg != WM_USER_ICONREADING_END)
+        {
+            if (GetTickCount() - EndOfIconReadingTime < 1000)
+            {
+                probablyUselessRefresh = TRUE; // within 1 second after icon reading finishes we still expect unnecessary refresh caused by icon reading
+                                               //          TRACE_I("less than second after reading of icons was finished: probablyUselessRefresh=TRUE");
+            }
+            else
+            {
+                probablyUselessRefresh = (uMsg == WM_USER_REFRESH_DIR_EX_DELAYED || uMsg == WM_USER_INACTREFRESH_DIR); // it's a delayed refresh that can also be unnecessary (this way we prevent an infinite loop when reading icons from a network disk which triggers another refresh)
+                                                                                                                       //          TRACE_I("WM_USER_REFRESH_DIR_EX_DELAYED or WM_USER_INACTREFRESH_DIR: probablyUselessRefresh=" << probablyUselessRefresh);
+            }
+        }
+        if ((uMsg == WM_USER_REFRESH_DIR && wParam || // content change reported by snooper
+             uMsg == WM_USER_ICONREADING_END ||       // or notification of icon reading end (may arrive late, icons may be read again)
+             uMsg == WM_USER_INACTREFRESH_DIR) &&     // or delayed refresh in inactive window (it's refresh required by snooper or at end of suspend mode)
+            !IconCacheValid &&
+            UseSystemIcons && Is(ptDisk) && GetNetworkDrive())
+        {
+            //        TRACE_I("Delaying refresh until all icons are read.");
+            NeedRefreshAfterIconsReading = TRUE;
+            RefreshAfterIconsReadingTime = max(RefreshAfterIconsReadingTime, (int)lParam);
+            // we noted the change message (refresh will be posted after icon reading finishes), end processing
+        }
+        else
+        {
+            if (SnooperSuspended || StopRefresh)
+            { // suspend mode is already enabled (working with internal data -> cannot refresh it)
+                NeedRefreshAfterEndOfSM = TRUE;
+                RefreshAfterEndOfSMTime = max(RefreshAfterEndOfSMTime, (int)lParam);
+                if ((uMsg == WM_USER_S_REFRESH_DIR || uMsg == WM_USER_SM_END_NOTIFY_DELAYED) && setWait)
+                {
+                    SetCursor(oldCur);
+                }
+            }
+            else // it's not a refresh in suspend mode
+            {
+                if (lParam >= LastRefreshTime) // it's not an unnecessary old refresh
+                {
+                    BOOL isInactiveRefresh = FALSE;
+                    BOOL skipRefresh = FALSE;
+                    if ((uMsg == WM_USER_REFRESH_DIR && wParam ||     // content change reported by snooper
+                         uMsg == WM_USER_ICONREADING_END ||           // or notification of icon reading end (delayed refresh required by snooper + at end of suspend mode)
+                         uMsg == WM_USER_INACTREFRESH_DIR) &&         // or delayed refresh in inactive window (it's refresh required by snooper or at end of suspend mode)
+                        GetForegroundWindow() != MainWindow->HWindow) // inactive main window of Salamander: slow down refreshes if needed
+                    {
+                        //              TRACE_I("Refresh from snooper in inactive window");
+                        isInactiveRefresh = TRUE;
+                        if (LastInactiveRefreshStart != LastInactiveRefreshEnd) // some refresh already occurred since last deactivation
+                        {
+                            DWORD delay = 20 * (LastInactiveRefreshEnd - LastInactiveRefreshStart);
+                            //                TRACE_I("Calculated delay between refreshes is " << delay);
+                            if (delay < MIN_DELAY_BETWEENINACTIVEREFRESHES)
+                                delay = MIN_DELAY_BETWEENINACTIVEREFRESHES;
+                            if (delay > MAX_DELAY_BETWEENINACTIVEREFRESHES)
+                                delay = MAX_DELAY_BETWEENINACTIVEREFRESHES;
+                            //                TRACE_I("Delay between refreshes is " << delay);
+                            DWORD ti = GetTickCount();
+                            //                TRACE_I("Last refresh was before " << ti - LastInactiveRefreshEnd);
+                            if (InactiveRefreshTimerSet ||                 // timer is already running, just wait for it
+                                ti - LastInactiveRefreshEnd + 100 < delay) // +100 so timer is not set "unnecessarily" (so refresh delay is at least 100ms)
+                            {
+                                //                  TRACE_I("Delaying refresh");
+                                if (!InactiveRefreshTimerSet) // timer is not running yet, let's create it
+                                {
+                                    //                    TRACE_I("Setting timer");
+                                    if (SetTimer(HWindow, IDT_INACTIVEREFRESH, max(200, delay - (ti - LastInactiveRefreshEnd)), NULL))
+                                    {
+                                        InactiveRefreshTimerSet = TRUE;
+                                        InactRefreshLParam = lParam;
+                                        skipRefresh = TRUE;
+                                    }
+                                }
+                                else // timer is already running, just wait for it
+                                {
+                                    //                    TRACE_I("Timer already set");
+                                    if (lParam > InactRefreshLParam)
+                                        InactRefreshLParam = lParam; // take the newer time into InactRefreshLParam
+                                    skipRefresh = TRUE;
+                                }
+                            }
+                        }
+                    }
+                    if (!skipRefresh)
+                    {
+                        if (uMsg == WM_USER_REFRESH_DIR || uMsg == WM_USER_REFRESH_DIR_EX_DELAYED ||
+                            uMsg == WM_USER_ICONREADING_END || uMsg == WM_USER_INACTREFRESH_DIR)
+                        {
+                            setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // is it waiting already?
+                            if (setWait)
+                                oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
+                        }
+                        CPathBuffer pathBackup; // Heap-allocated for long path support
+                        CPanelType typeBackup;
+                        if (isInactiveRefresh)
+                        {
+                            lstrcpyn(pathBackup, GetPath(), pathBackup.Size()); // we're only interested in disk paths and paths to archives (for plugin-FS the snooper doesn't inform us about changes)
+                            typeBackup = GetPanelType();
+                            LastInactiveRefreshStart = GetTickCount();
+                        }
+
+                        HANDLES(EnterCriticalSection(&TimeCounterSection));
+                        LastRefreshTime = MyTimeCounter++;
+                        HANDLES(LeaveCriticalSection(&TimeCounterSection));
+
+                        RefreshDirectory(probablyUselessRefresh, FALSE, isInactiveRefresh);
+
+                        if (isInactiveRefresh)
+                        {
+                            if (typeBackup != GetPanelType() || StrICmp(pathBackup, GetPath()) != 0)
+                            { // if the path has changed (probably someone just deleted the directory displayed in the panel), we perform any other refresh without waiting (it can be expected that they will also delete the newly displayed directory, so we can quickly "back out" from it)
+                                LastInactiveRefreshEnd = LastInactiveRefreshStart;
+                            }
+                            else
+                            {
+                                LastInactiveRefreshEnd = GetTickCount();
+                                if ((int)(LastInactiveRefreshEnd - LastInactiveRefreshStart) <= 0)
+                                    LastInactiveRefreshEnd = LastInactiveRefreshStart + 1; // they must not be the same (that's the state "no refresh yet")
+                            }
+                        }
+                        /*  // Petr: I don't know why LastRefreshTime was set only here - logically if a change occurs during refresh, another refresh is necessary - it failed in Nethood because the enumeration thread managed to post refresh before RefreshDirectory completed, so it was ignored (it's a refresh during refresh)
+              HANDLES(EnterCriticalSection(&TimeCounterSection));
+              LastRefreshTime = MyTimeCounter++;
+              HANDLES(LeaveCriticalSection(&TimeCounterSection));
+*/
+                        if (setWait)
+                            SetCursor(oldCur);
+                    }
+                }
+                //          else TRACE_I("Skipping useless refresh (it's time is older than time of last refresh)");
+            }
+        }
+        if (wParam)
+            SetEvent(RefreshFinishedEvent);
+        return 0;
+    }
+
+    case WM_USER_REFRESH_PLUGINFS:
+    {
+        if (SnooperSuspended || StopRefresh)
+        { // suspend mode is already enabled (working with internal data -> cannot refresh it)
+            // additionally we may be inside the plug-in -> multiple calls to plug-in methods are not supported
+            PluginFSNeedRefreshAfterEndOfSM = TRUE;
+        }
+        else
+        { // we are not inside the plug-in
+            if (Is(ptPluginFS))
+            {
+                if (GetPluginFS()->NotEmpty())
+                    GetPluginFS()->Event(FSE_ACTIVATEREFRESH, GetPanelCode());
+            }
+        }
+        return 0;
+    }
+
+    case WM_USER_REFRESHINDEX:
+    case WM_USER_REFRESHINDEX2:
+    {
+        BOOL isDir = (int)wParam < Dirs->Count;
+        CFileData* file = isDir ? &Dirs->At((int)wParam) : (((int)wParam < Dirs->Count + Files->Count) ? &Files->At((int)wParam - Dirs->Count) : NULL);
+
+        if (uMsg == WM_USER_REFRESHINDEX)
+        {
+            // if it was loading a "static" association icon, we store it in Associations (counts
+            // also with thumbnails - condition on Flag==1 or 2 will not fail)
+            if (file != NULL && !isDir &&                                   // it's a file
+                (!Is(ptPluginFS) || GetPluginIconsType() != pitFromPlugin)) // it's not an icon from plug-in
+            {
+                CPathBuffer buf; // extension in lowercase
+                char *s1 = buf, *s2 = file->Ext;
+                while (*s2 != 0)
+                    *s1++ = LowerCase[*s2++];
+                *((DWORD*)s1) = 0;
+                int index;
+                CIconSizeEnum iconSize = IconCache->GetIconSize();
+                if (Associations.GetIndex(buf, index) &&             // extension has an icon (association)
+                    (Associations[index].GetIndex(iconSize) == -1 || // it's an icon that is being loaded
+                     Associations[index].GetIndex(iconSize) == -3))
+                {
+                    int icon;
+                    CIconList* srcIconList;
+                    int srcIconListIndex;
+                    memmove(buf, file->Name, file->NameLen);
+                    *(DWORD*)(buf + file->NameLen) = 0;
+                    if (IconCache->GetIndex(buf, icon, NULL, NULL) &&                                 // icon-thread is loading it
+                        (IconCache->At(icon).GetFlag() == 1 || IconCache->At(icon).GetFlag() == 2) && // icon is loaded new or old
+                        IconCache->GetIcon(IconCache->At(icon).GetIndex(),
+                                           &srcIconList, &srcIconListIndex)) // will we get the loaded icon
+                    {                                                        // icon for extension -> icon-thread already loaded it
+                        CIconList* dstIconList;
+                        int dstIconListIndex;
+                        int i = Associations.AllocIcon(&dstIconList, &dstIconListIndex, iconSize);
+                        if (i != -1) // we got space for a new icon
+                        {            // copy it from IconCache to Associations
+                            Associations[index].SetIndex(i, iconSize);
+
+                            BOOL leaveSection;
+                            if (!IconCacheValid)
+                            {
+                                HANDLES(EnterCriticalSection(&ICSectionUsingIcon));
+                                leaveSection = TRUE;
+                            }
+                            else
+                                leaveSection = FALSE;
+
+                            dstIconList->Copy(dstIconListIndex, srcIconList, srcIconListIndex);
+
+                            if (leaveSection)
+                            {
+                                HANDLES(LeaveCriticalSection(&ICSectionUsingIcon));
+                            }
+
+                            if (!StopIconRepaint)
+                            {
+                                // repaint panels only if they match icon size
+                                if (iconSize == GetIconSizeForCurrentViewMode())
+                                    RepaintIconOnly(-1); // all of ours
+
+                                CFilesWindow* otherPanel = MainWindow->GetOtherPanel(this);
+                                if (iconSize == otherPanel->GetIconSizeForCurrentViewMode())
+                                    otherPanel->RepaintIconOnly(-1); // and all of neighbors'
+                            }
+                            else
+                                PostAllIconsRepaint = TRUE;
+                        }
+                    }
+                }
+            }
+        }
+
+        // perform redrawing of affected index
+        if (file != NULL) // file is only used here for NULL test
+        {
+            if (!StopIconRepaint) // if icon repainting is enabled
+                RepaintIconOnly((int)wParam);
+            else
+                PostAllIconsRepaint = TRUE;
+        }
+        return 0;
+    }
+
+    case WM_USER_DROPCOPYMOVE:
+    {
+        CTmpDropData* data = (CTmpDropData*)wParam;
+        if (data != NULL)
+        {
+            FocusFirstNewItem = TRUE;
+            DropCopyMove(data->Copy, data->TargetPath, data->TargetPathW.c_str(), data->Data);
+            DestroyCopyMoveData(data->Data);
+            delete data;
+        }
+        return 0;
+    }
+
+    case WM_USER_DROPTOARCORFS:
+    {
+        CTmpDragDropOperData* data = (CTmpDragDropOperData*)wParam;
+        if (data != NULL)
+        {
+            FocusFirstNewItem = TRUE;
+            DragDropToArcOrFS(data);
+            delete data->Data;
+            delete data;
+        }
+        return 0;
+    }
+
+    case WM_USER_CHANGEDIR:
+    {
+        // perform post-processing only for paths we obtained as text (not directly by dropping a directory)
+        CPathBuffer buff;  // Heap-allocated for long path support
+        lstrcpyn(buff, (char*)lParam, buff.Size());
+        if (!(BOOL)wParam || PostProcessPathFromUser(HWindow, buff))
+            ChangeDir(buff, -1, NULL, 3 /*change-dir*/, NULL, (BOOL)wParam);
+        return 0;
+    }
+
+    case WM_USER_FOCUSFILE:
+    {
+        // We must bring the window forward here because during ChangeDir call a messagebox
+        // may pop up (path does not exist) and it would be left behind Find.
+        SetForegroundWindow(MainWindow->HWindow);
+        if (IsIconic(MainWindow->HWindow))
+        {
+            ShowWindow(MainWindow->HWindow, SW_RESTORE);
+        }
+        if (Is(ptDisk) && IsTheSamePath(GetPath(), (char*)lParam) ||
+            ChangeDir((char*)lParam))
+        {
+            strcpy(NextFocusName, (char*)wParam);
+            SendMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0);
+            //        SetForegroundWindow(MainWindow->HWindow);  // it's already too late here - moved above
+            UpdateWindow(MainWindow->HWindow);
+        }
+        return 0;
+    }
+
+    case WM_USER_VIEWFILE:
+    {
+        COpenViewerData* data = (COpenViewerData*)wParam;
+        ViewFile(data->FileName, (BOOL)lParam, 0xFFFFFFFF, data->EnumFileNamesSourceUID,
+                 data->EnumFileNamesLastFileIndex);
+        return 0;
+    }
+
+    case WM_USER_EDITFILE:
+    {
+        EditFile((char*)wParam);
+        return 0;
+    }
+
+    case WM_USER_VIEWFILEWITH:
+    {
+        COpenViewerData* data = (COpenViewerData*)wParam;
+        ViewFile(data->FileName, FALSE, (DWORD)lParam, data->EnumFileNamesSourceUID, // FIXME_X64 - verify casting to (DWORD)
+                 data->EnumFileNamesLastFileIndex);
+        return 0;
+    }
+
+    case WM_USER_EDITFILEWITH:
+    {
+        EditFile((char*)wParam, (DWORD)lParam); // FIXME_X64 - verify casting to (DWORD)
+        return 0;
+    }
+
+        //    case WM_USER_RENAME_NEXT_ITEM:
+        //    {
+        //      int index = GetCaretIndex();
+        //      QuickRenameOnIndex(index + (wParam ? 1 : -1));
+        //      return 0;
+        //    }
+
+    case WM_USER_DONEXTFOCUS: // if RefreshDirectory didn't manage it, we do it here
+    {
+        DontClearNextFocusName = FALSE;
+        if (NextFocusName[0] != 0) // if there is something to focus
+        {
+            int total = Files->Count + Dirs->Count;
+            int found = -1;
+            int i;
+            for (i = 0; i < total; i++)
+            {
+                CFileData* f = (i < Dirs->Count) ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
+                if (StrICmp(f->Name, NextFocusName) == 0)
+                {
+                    if (strcmp(f->Name, NextFocusName) == 0) // file found exactly
+                    {
+                        NextFocusName[0] = 0;
+                        NextFocusNameW.clear();
+                        SetCaretIndex(i, FALSE);
+                        break;
+                    }
+                    if (found == -1)
+                        found = i; // file found (ignore-case)
+                }
+            }
+            if (i == total && found != -1)
+            {
+                NextFocusName[0] = 0;
+                NextFocusNameW.clear();
+                SetCaretIndex(found, FALSE);
+            }
+        }
+        return 0;
+    }
+
+    case WM_USER_SELCHANGED:
+    {
+        int count = GetSelCount();
+        if (count != 0)
+        {
+            CQuadWord selectedSize(0, 0);
+            BOOL displaySize = (ValidFileData & (VALID_DATA_SIZE | VALID_DATA_PL_SIZE)) != 0;
+            int totalCount = Dirs->Count + Files->Count;
+            int files = 0;
+            int dirs = 0;
+
+            CQuadWord plSize;
+            BOOL plSizeValid = FALSE;
+            BOOL testPlSize = (ValidFileData & VALID_DATA_PL_SIZE) && PluginData.NotEmpty();
+            BOOL sizeValid = (ValidFileData & VALID_DATA_SIZE) != 0;
+            int i;
+            for (i = 0; i < totalCount; i++)
+            {
+                BOOL isDir = i < Dirs->Count;
+                CFileData* f = isDir ? &Dirs->At(i) : &Files->At(i - Dirs->Count);
+                if (i == 0 && isDir && strcmp(Dirs->At(0).Name, "..") == 0)
+                    continue;
+                if (f->Selected == 1)
+                {
+                    if (isDir)
+                        dirs++;
+                    else
+                        files++;
+                    plSizeValid = testPlSize && PluginData.GetByteSize(f, isDir, &plSize);
+                    if (plSizeValid || sizeValid && (!isDir || f->SizeValid))
+                        selectedSize += plSizeValid ? plSize : f->Size;
+                    else
+                        displaySize = FALSE; // file of unknown size or directory without known/calculated size
+                }
+            }
+            if (files > 0 || dirs > 0)
+            {
+                char buff[1000];
+                DWORD varPlacements[100];
+                int varPlacementsCount = 100;
+                BOOL done = FALSE;
+                if (Is(ptZIPArchive) || Is(ptPluginFS))
+                {
+                    if (PluginData.NotEmpty())
+                    {
+                        if (PluginData.GetInfoLineContent(MainWindow->LeftPanel == this ? PANEL_LEFT : PANEL_RIGHT,
+                                                          NULL, FALSE, files, dirs,
+                                                          displaySize, selectedSize, buff,
+                                                          varPlacements, varPlacementsCount))
+                        {
+                            done = TRUE;
+                            if (StatusLine->SetText(buff))
+                                StatusLine->SetSubTexts(varPlacements, varPlacementsCount);
+                        }
+                        else
+                            varPlacementsCount = 100; // may have been corrupted
+                    }
+                }
+                if (!done)
+                {
+                    char text[200];
+                    if (displaySize)
+                    {
+                        ExpandPluralBytesFilesDirs(text, 200, selectedSize, files, dirs, TRUE);
+                        LookForSubTexts(text, varPlacements, &varPlacementsCount);
+                    }
+                    else
+                        ExpandPluralFilesDirs(text, 200, files, dirs, epfdmSelected, FALSE);
+                    if (StatusLine->SetText(text) && displaySize)
+                        StatusLine->SetSubTexts(varPlacements, varPlacementsCount);
+                    varPlacementsCount = 100; // may have been corrupted
+                }
+            }
+            else
+                TRACE_E("Unexpected situation in CFilesWindow::WindowProc(WM_USER_SELCHANGED)");
+        }
+
+        if (count == 0)
+        {
+            LastFocus = INT_MAX;
+            int index = GetCaretIndex();
+            ItemFocused(index); // when deselecting
+        }
+        IdleRefreshStates = TRUE; // on the next Idle we force state variables check
+        return 0;
+    }
+
+    case WM_CREATE:
+    {
+        //---  add this panel to the array of sources for file enumeration in viewers
+        EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
+
+        //---  create the listbox with files and directories
+        ListBox = new CFilesBox(this);
+        if (ListBox == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+        //---  create the status line with information about the current file
+        StatusLine = new CStatusWindow(this, blBottom, ooStatic);
+        if (StatusLine == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+        ToggleStatusLine();
+        //---  create the status line with information about the current directory
+        DirectoryLine = new CStatusWindow(this, blTop, ooStatic);
+        if (DirectoryLine == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return -1;
+        }
+        DirectoryLine->SetLeftPanel(MainWindow->LeftPanel == this);
+        ToggleDirectoryLine();
+        //---  set the view type + read directory contents
+        SetThumbnailSize(Configuration.ThumbnailSize); // ListBox must exist
+        if (!ListBox->CreateEx(WS_EX_WINDOWEDGE,
+                               CFILESBOX_CLASSNAME,
+                               "",
+                               WS_BORDER | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                               0, 0, 0, 0, // dummy
+                               HWindow,
+                               (HMENU)IDC_FILES,
+                               HInstance,
+                               ListBox))
+        {
+            TRACE_E("Unable to create listbox.");
+            return -1;
+        }
+        RegisterDragDrop();
+
+        int index;
+        switch (GetViewMode())
+        {
+            //        case vmThumbnails: index = 0; break;
+            //        case vmBrief: index = 1; break;
+        case vmDetailed:
+            index = 2;
+            break;
+        default:
+        {
+            TRACE_E("Unsupported ViewMode=" << GetViewMode());
+            index = 2;
+        }
+        }
+        SelectViewTemplate(index, FALSE, FALSE);
+        ShowWindow(ListBox->HWindow, SW_SHOW);
+
+        // synchronize AutomaticRefresh variable and directory-line settings
+        SetAutomaticRefresh(AutomaticRefresh, TRUE);
+
+        return 0;
+    }
+
+    case WM_DESTROY:
+    {
+        //---  remove this panel from the list of sources for file enumeration in viewers
+        EnumFileNamesRemoveSourceUID(HWindow);
+
+        CancelUI(); // cancel QuickSearch and QuickEdit
+        LastRefreshTime = INT_MAX;
+        BeginStopRefresh();
+        DetachDirectory(this);
+        //---  free child windows
+        RevokeDragDrop();
+        ListBox->DetachWindow();
+        delete ListBox;
+        ListBox = NULL; // for safety, so errors show up
+
+        StatusLine->DestroyWindow();
+        delete StatusLine;
+        StatusLine = NULL;
+
+        DirectoryLine->DestroyWindow();
+        delete DirectoryLine;
+        DirectoryLine = NULL; // crash fix
+                              //---
+        return 0;
+    }
+
+    case WM_USER_ENUMFILENAMES: // finding next/previous name for viewer
+    {
+        HANDLES(EnterCriticalSection(&FileNamesEnumDataSect));
+
+        if (InactiveRefreshTimerSet) // if there is a delayed refresh here, we must execute it immediately, otherwise we will enumerate over outdated listing; if it takes longer it's ok, GetFileNameForViewer will wait for the result...
+        {
+            //        TRACE_I("Refreshing during enumeration (refresh in inactive window was delayed)");
+            KillTimer(HWindow, IDT_INACTIVEREFRESH);
+            InactiveRefreshTimerSet = FALSE;
+            LastInactiveRefreshEnd = LastInactiveRefreshStart;
+            SendMessage(HWindow, WM_USER_INACTREFRESH_DIR, FALSE, InactRefreshLParam);
+        }
+
+        if ((int)wParam /* reqUID */ == FileNamesEnumData.RequestUID && // no other request was made (this would then be useless)
+            EnumFileNamesSourceUID == FileNamesEnumData.SrcUID &&       // source did not change
+            !FileNamesEnumData.TimedOut)                                // someone is still waiting for the result
+        {
+            if (Files != NULL && Is(ptDisk))
+            {
+                BOOL selExists = FALSE;
+                if (FileNamesEnumData.PreferSelected) // if necessary, find out if there is a selection
+                {
+                    int i;
+                    for (i = 0; i < Files->Count; i++)
+                    {
+                        if (Files->At(i).Selected)
+                        {
+                            selExists = TRUE;
+                            break;
+                        }
+                    }
+                }
+
+                int index = FileNamesEnumData.LastFileIndex;
+                int count = Files->Count;
+                BOOL indexNotFound = TRUE;
+                if (index == -1) // search from first or from last
+                {
+                    if (FileNamesEnumData.RequestType == fnertFindPrevious)
+                        index = count; // search previous + start from last
+                                       // else  // search next + start from first
+                }
+                else
+                {
+                    if (FileNamesEnumData.LastFileName[0] != 0) // we know the full filename at 'index', check if array was scattered/squeezed + if necessary find the new index
+                    {
+                        int pathLen = (int)strlen(GetPath());
+                        if (StrNICmp(GetPath(), FileNamesEnumData.LastFileName, pathLen) == 0)
+                        { // path to file must match path in panel ("always true")
+                            const char* name = FileNamesEnumData.LastFileName + pathLen;
+                            if (*name == '\\' || *name == '/')
+                                name++;
+
+                            CFileData* f = (index >= 0 && index < count) ? &Files->At(index) : NULL;
+                            BOOL nameIsSame = f != NULL && StrICmp(name, f->Name) == 0;
+                            if (nameIsSame)
+                                indexNotFound = FALSE;
+                            if (f == NULL || !nameIsSame)
+                            { // name at index 'index' is not FileNamesEnumData.LastFileName, try to find new index of this name
+                                int i;
+                                for (i = 0; i < count && StrICmp(name, Files->At(i).Name) != 0; i++)
+                                    ;
+                                if (i != count) // new index found
+                                {
+                                    indexNotFound = FALSE;
+                                    index = i;
+                                }
+                            }
+                        }
+                        else
+                            TRACE_E("Unexpected situation in WM_USER_ENUMFILENAMES: paths are different!");
+                    }
+                    if (index >= count)
+                    {
+                        if (FileNamesEnumData.RequestType == fnertFindNext)
+                            index = count - 1;
+                        else
+                            index = count;
+                    }
+                    if (index < 0)
+                        index = 0;
+                }
+
+                int wantedViewerType = 0;
+                BOOL onlyAssociatedExtensions = FALSE;
+                if (FileNamesEnumData.OnlyAssociatedExtensions) // does the viewer want filtering by associated extensions?
+                {
+                    if (FileNamesEnumData.Plugin != NULL) // viewer from plug-in
+                    {
+                        int pluginIndex = Plugins.GetIndex(FileNamesEnumData.Plugin);
+                        if (pluginIndex != -1) // "always true"
+                        {
+                            wantedViewerType = -1 - pluginIndex;
+                            onlyAssociatedExtensions = TRUE;
+                        }
+                    }
+                    else // internal viewer
+                    {
+                        wantedViewerType = VIEWER_INTERNAL;
+                        onlyAssociatedExtensions = TRUE;
+                    }
+                }
+
+                BOOL preferSelected = selExists && FileNamesEnumData.PreferSelected;
+                switch (FileNamesEnumData.RequestType)
+                {
+                case fnertFindNext: // next
+                {
+                    CDynString strViewerMasks;
+                    if (!onlyAssociatedExtensions || MainWindow->GetViewersAssoc(wantedViewerType, &strViewerMasks))
+                    {
+                        CMaskGroup masks;
+                        int errorPos;
+                        if (!onlyAssociatedExtensions || masks.PrepareMasks(errorPos, strViewerMasks.GetString()))
+                        {
+                            while (index + 1 < count)
+                            {
+                                index++;
+                                CFileData* f = &(Files->At(index));
+                                if (f->Selected || !preferSelected)
+                                {
+                                    if (!onlyAssociatedExtensions || masks.AgreeMasks(f->Name, f->Ext))
+                                    {
+                                        FileNamesEnumData.Found = TRUE;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                            TRACE_E("Unexpected situation in WM_USER_ENUMFILENAMES: grouped viewer's masks can't be prepared for use!");
+                    }
+                    break;
+                }
+
+                case fnertFindPrevious: // previous
+                {
+                    CDynString strViewerMasks;
+                    if (!onlyAssociatedExtensions || MainWindow->GetViewersAssoc(wantedViewerType, &strViewerMasks))
+                    {
+                        CMaskGroup masks;
+                        int errorPos;
+                        if (!onlyAssociatedExtensions || masks.PrepareMasks(errorPos, strViewerMasks.GetString()))
+                        {
+                            while (index - 1 >= 0)
+                            {
+                                index--;
+                                CFileData* f = &(Files->At(index));
+                                if (f->Selected || !preferSelected)
+                                {
+                                    if (!onlyAssociatedExtensions || masks.AgreeMasks(f->Name, f->Ext))
+                                    {
+                                        FileNamesEnumData.Found = TRUE;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                            TRACE_E("Unexpected situation in WM_USER_ENUMFILENAMES: grouped viewer's masks can't be prepared for use!");
+                    }
+                    break;
+                }
+
+                case fnertIsSelected: // check marking
+                {
+                    if (!indexNotFound && index >= 0 && index < Files->Count)
+                    {
+                        FileNamesEnumData.IsFileSelected = Files->At(index).Selected;
+                        FileNamesEnumData.Found = TRUE;
+                    }
+                    break;
+                }
+
+                case fnertSetSelection: // set marking
+                {
+                    if (!indexNotFound && index >= 0 && index < Files->Count)
+                    {
+                        SetSel(FileNamesEnumData.Select, Dirs->Count + index, TRUE);
+                        PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0);
+                        FileNamesEnumData.Found = TRUE;
+                    }
+                    break;
+                }
+                }
+                if (FileNamesEnumData.Found)
+                {
+                    lstrcpyn(FileNamesEnumData.FileName, GetPath(), MAX_PATH);
+                    SalPathAppend(FileNamesEnumData.FileName, Files->At(index).Name, MAX_PATH);
+                    FileNamesEnumData.LastFileIndex = index;
+                }
+                else
+                    FileNamesEnumData.NoMoreFiles = TRUE;
+            }
+            else
+                TRACE_E("Unexpected situation in handling of WM_USER_ENUMFILENAMES: srcUID was not changed before changing path from disk or invalidating of listing!");
+            SetEvent(FileNamesEnumDone);
+        }
+        HANDLES(LeaveCriticalSection(&FileNamesEnumDataSect));
+        return 0;
+    }
+
+    case WM_SETFOCUS:
+    {
+        SetFocus(ListBox->HWindow);
+        break;
+    }
+    }
+
+    return CWindow::WindowProc(uMsg, wParam, lParam);
+}
+
+void CFilesWindow::ClearCutToClipFlag(BOOL repaint)
+{
+    CALL_STACK_MESSAGE_NONE
+    int total = Dirs->Count;
+    int i;
+    for (i = 0; i < total; i++)
+    {
+        CFileData* f = &Dirs->At(i);
+        if (f->CutToClip != 0)
+        {
+            f->CutToClip = 0;
+            f->Dirty = 1;
+        }
+    }
+    total = Files->Count;
+    for (i = 0; i < total; i++)
+    {
+        CFileData* f = &Files->At(i);
+        if (f->CutToClip != 0)
+        {
+            f->CutToClip = 0;
+            f->Dirty = 1;
+        }
+    }
+    CutToClipChanged = FALSE;
+    if (repaint)
+        RepaintListBox(DRAWFLAG_DIRTY_ONLY | DRAWFLAG_SKIP_VISTEST);
+}
+
+void CFilesWindow::OpenDirHistory()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::OpenDirHistory()");
+    if (!MainWindow->DirHistory->HasPaths())
+        return;
+
+    BeginStopRefresh(); // the snooper takes a break
+
+    CMenuPopup menu;
+
+    RECT r;
+    GetWindowRect(HWindow, &r);
+    BOOL exludeRect = FALSE;
+    int y = r.top;
+    if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+    {
+        if (DirectoryLine->GetTextFrameRect(&r))
+        {
+            y = r.bottom;
+            exludeRect = TRUE;
+            menu.SetMinWidth(r.right - r.left);
+        }
+    }
+
+    MainWindow->DirHistory->FillHistoryPopupMenu(&menu, 1, -1, FALSE);
+    DWORD cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_VERTICAL, r.left, y, HWindow, exludeRect ? &r : NULL);
+    if (cmd != 0)
+        MainWindow->DirHistory->Execute(cmd, FALSE, this, TRUE, FALSE);
+
+    EndStopRefresh(); // now the snooper starts again
+}
+
+void CFilesWindow::OpenStopFilterMenu()
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::OpenStopFilterMenu()");
+
+    BeginStopRefresh(); // the snooper takes a break
+
+    CMenuPopup menu;
+
+    RECT r;
+    GetWindowRect(HWindow, &r);
+    BOOL exludeRect = FALSE;
+    int y = r.top;
+    if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+    {
+        if (DirectoryLine->GetFilterFrameRect(&r))
+        {
+            y = r.bottom;
+            exludeRect = TRUE;
+        }
+    }
+
+    /* used by the export_mnu.py script that generates salmenu.mnu for Translator
+   keep synchronized with InsertItem() calls below...
+MENU_TEMPLATE_ITEM StopFilterMenu[] = 
+{
+  {MNTT_PB, 0
+  {MNTT_IT, IDS_HIDDEN_ATTRIBUTE
+  {MNTT_IT, IDS_HIDDEN_FILTER
+  {MNTT_IT, IDS_HIDDEN_HIDECMD
+  {MNTT_PE, 0
+};
+*/
+    MENU_ITEM_INFO mii;
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID | MENU_MASK_STATE;
+    mii.Type = MENU_TYPE_STRING;
+
+    mii.String = LoadStr(IDS_HIDDEN_ATTRIBUTE);
+    mii.ID = 1;
+    mii.State = (HiddenDirsFilesReason & HIDDEN_REASON_ATTRIBUTE) ? 0 : MENU_STATE_GRAYED;
+    menu.InsertItem(-1, TRUE, &mii);
+
+    mii.String = LoadStr(IDS_HIDDEN_FILTER);
+    mii.ID = 2;
+    mii.State = (HiddenDirsFilesReason & HIDDEN_REASON_FILTER) ? 0 : MENU_STATE_GRAYED;
+    menu.InsertItem(-1, TRUE, &mii);
+
+    mii.String = LoadStr(IDS_HIDDEN_HIDECMD);
+    mii.ID = 3;
+    mii.State = (HiddenDirsFilesReason & HIDDEN_REASON_HIDECMD) ? 0 : MENU_STATE_GRAYED;
+    menu.InsertItem(-1, TRUE, &mii);
+
+    DWORD cmd = menu.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_VERTICAL, r.left, y, HWindow, exludeRect ? &r : NULL);
+    switch (cmd)
+    {
+    case 1:
+    {
+        PostMessage(MainWindow->HWindow, WM_COMMAND, CM_TOGGLEHIDDENFILES, 0);
+        break;
+    }
+
+    case 2:
+    {
+        ChangeFilter(TRUE);
+        break;
+    }
+
+    case 3:
+    {
+        ShowHideNames(0);
+        break;
+    }
+    }
+
+    EndStopRefresh(); // now the snooper starts again
+}
+
+// fill the popup based on available columns
+BOOL CFilesWindow::FillSortByMenu(CMenuPopup* popup)
+{
+    CALL_STACK_MESSAGE1("CFilesWindow::FillSortByMenu()");
+
+    // remove existing items
+    popup->RemoveAllItems();
+
+    /* used by the export_mnu.py script that generates salmenu.mnu for Translator
+   keep synchronized with InsertItem() calls below...
+MENU_TEMPLATE_ITEM SortByMenu[] = 
+{
+  {MNTT_PB, 0
+  {MNTT_IT, IDS_COLUMN_MENU_NAME
+  {MNTT_IT, IDS_COLUMN_MENU_EXT
+  {MNTT_IT, IDS_COLUMN_MENU_TIME
+  {MNTT_IT, IDS_COLUMN_MENU_SIZE
+  {MNTT_IT, IDS_COLUMN_MENU_ATTR
+  {MNTT_IT, IDS_MENU_LEFT_SORTOPTIONS
+  {MNTT_PE, 0
+};
+*/
+
+    // temporary solution for 1.6 beta 6: always fill (regardless of ValidFileData)
+    // items Name, Ext, Date, Size
+    // order must correspond with CSortType enum
+    int textResID[5] = {IDS_COLUMN_MENU_NAME, IDS_COLUMN_MENU_EXT, IDS_COLUMN_MENU_TIME, IDS_COLUMN_MENU_SIZE, IDS_COLUMN_MENU_ATTR};
+    int leftCmdID[5] = {CM_LEFTNAME, CM_LEFTEXT, CM_LEFTTIME, CM_LEFTSIZE, CM_LEFTATTR};
+    int rightCmdID[5] = {CM_RIGHTNAME, CM_RIGHTEXT, CM_RIGHTTIME, CM_RIGHTSIZE, CM_RIGHTATTR};
+    int imgIndex[5] = {IDX_TB_SORTBYNAME, IDX_TB_SORTBYEXT, IDX_TB_SORTBYDATE, IDX_TB_SORTBYSIZE, -1};
+    int* cmdID = MainWindow->LeftPanel == this ? leftCmdID : rightCmdID;
+    MENU_ITEM_INFO mii;
+    int i;
+    for (i = 0; i < 5; i++)
+    {
+        mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_IMAGEINDEX | MENU_MASK_ID | MENU_MASK_STATE;
+        mii.Type = MENU_TYPE_STRING;
+        mii.String = LoadStr(textResID[i]);
+        mii.ImageIndex = imgIndex[i];
+        mii.ID = cmdID[i];
+        mii.State = 0;
+        if (SortType == (CSortType)i)
+            mii.State = MENU_STATE_CHECKED;
+        popup->InsertItem(-1, TRUE, &mii);
+    }
+    // separator
+    mii.Mask = MENU_MASK_TYPE;
+    mii.Type = MENU_TYPE_SEPARATOR;
+    popup->InsertItem(-1, TRUE, &mii);
+    // options
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_STRING | MENU_MASK_ID;
+    mii.Type = MENU_TYPE_STRING;
+    mii.String = LoadStr(IDS_MENU_LEFT_SORTOPTIONS);
+    mii.ID = CM_SORTOPTIONS;
+    popup->InsertItem(-1, TRUE, &mii);
+
+    return TRUE;
+}
+
+void CFilesWindow::SetThumbnailSize(int size)
+{
+    if (size < THUMBNAIL_SIZE_MIN || size > THUMBNAIL_SIZE_MAX)
+    {
+        TRACE_E("size=" << size);
+        size = THUMBNAIL_SIZE_DEFAULT;
+    }
+    if (ListBox == NULL)
+    {
+        TRACE_E("ListBox == NULL");
+    }
+    else
+    {
+        if (size != ListBox->ThumbnailWidth || size != ListBox->ThumbnailHeight)
+        {
+            // clear icon-cache
+            SleepIconCacheThread();
+            IconCache->Release();
+            EndOfIconReadingTime = GetTickCount() - 10000;
+
+            ListBox->ThumbnailWidth = size;
+            ListBox->ThumbnailHeight = size;
+        }
+    }
+}
+
+int CFilesWindow::GetThumbnailSize()
+{
+    if (ListBox == NULL)
+    {
+        TRACE_E("ListBox == NULL");
+        return THUMBNAIL_SIZE_DEFAULT;
+    }
+    else
+    {
+        if (ListBox->ThumbnailWidth != ListBox->ThumbnailHeight)
+            TRACE_E("ThumbnailWidth != ThumbnailHeight");
+        return ListBox->ThumbnailWidth;
+    }
+}
+
+void CFilesWindow::SetFont()
+{
+    if (DirectoryLine != NULL)
+        DirectoryLine->SetFont();
+    //if (ListBox != NULL)  // this is set from the SetFont() call
+    //  ListBox->SetFont();
+    if (StatusLine != NULL)
+        StatusLine->SetFont();
+}
+
+//****************************************************************************
+
+void CFilesWindow::LockUI(BOOL lock)
+{
+    if (DirectoryLine != NULL && DirectoryLine->HWindow != NULL)
+        EnableWindow(DirectoryLine->HWindow, !lock);
+    if (StatusLine != NULL && StatusLine->HWindow != NULL)
+        EnableWindow(StatusLine->HWindow, !lock);
+    if (ListBox->HeaderLine.HWindow != NULL)
+        EnableWindow(ListBox->HeaderLine.HWindow, !lock);
+}

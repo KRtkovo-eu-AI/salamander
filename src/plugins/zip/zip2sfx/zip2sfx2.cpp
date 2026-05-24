@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 //#include <windows.h>
@@ -110,29 +110,29 @@ BOOL WriteSFXHeader()
     offs += ++l;
     header.ArchiveNameOffs = offs;
     //l = lstrlen(archName);
-    //ArchiveDataOffs += l; // we did not account for this before
+    //ArchiveDataOffs += l; // we accounted for this earlier
     //offs += ++l;
     offs++;
     header.TargetDirSpecOffs = offs;
     offs += (sdr - sdl) + 1;
     if (td == SE_REGVALUE)
     {
-        offs += sizeof(LONG); // prepend the HKEY value; even the 64-bit build stores only a 32-bit key; known roots (e.g. HKEY_CURRENT_USER) are defined as 32-bit IDs
+        offs += sizeof(LONG); // prepend the HKEY value; even the 64-bit build stores only a 32-bit key for known roots (e.g. HKEY_CURRENT_USER)
         const char* bs = StrNChr(sdl, sdr - sdl, '\\');
         if (!bs)
             offs += 1; // add a separator character between the subkey and value
     }
     header.MBoxStyle = (lstrlen(Settings.MBoxTitle) ||
-                        Settings.MBoxText && lstrlen(Settings.MBoxText))
+                        !Settings.MBoxText.empty())
                            ? Settings.MBoxStyle
                            : -1;
     header.MBoxTitleOffs = offs;
     l = lstrlen(Settings.MBoxTitle);
     offs += ++l;
     header.MBoxTextOffs = offs;
-    if (Settings.MBoxText)
+    if (!Settings.MBoxText.empty())
     {
-        l = lstrlen(Settings.MBoxText);
+        l = lstrlen(Settings.MBoxText.c_str());
         offs += ++l;
     }
     else
@@ -213,7 +213,7 @@ BOOL WriteSFXHeader()
     }
     if (!Write(ExeFile, Settings.MBoxTitle, lstrlen(Settings.MBoxTitle) + 1))
         return FALSE;
-    const char* str = Settings.MBoxText ? Settings.MBoxText : "";
+    const char* str = Settings.MBoxText.c_str();
     if (!Write(ExeFile, str, lstrlen(str) + 1))
         return FALSE;
     str = Settings.Flags & SE_REMOVEAFTER ? Settings.WaitFor : "";

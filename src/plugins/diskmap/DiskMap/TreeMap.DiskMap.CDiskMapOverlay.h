@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -40,7 +41,7 @@ public:
     BOOL Paint(CZBitmap* pix, HDC refDC)
     {
         if (this->_selected == FALSE)
-            return TRUE; //nothing is drawn
+            return TRUE; //ok, but nothing to draw
 
         int width = pix->GetWidth();
         int height = pix->GetHeight();

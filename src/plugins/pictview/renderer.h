@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -6,7 +7,7 @@
 #include "lib/pvw32dll.h"
 
 // Path to focus, used by menu File/Focus
-extern TCHAR Focus_Path[MAX_PATH];
+extern TCHAR Focus_Path[32768];
 
 // Used by SaveAs dlg to get the current path in the source(=active) panel
 extern HWND ghSaveAsWindow;
@@ -199,7 +200,7 @@ protected:
     void OnDelete(BOOL toRecycle);
     void OnCopyTo();
 
-    BOOL RenameFileInternal(LPCTSTR oldPath, LPCTSTR oldName, TCHAR (&newName)[MAX_PATH], BOOL* tryAgain);
+    BOOL RenameFileInternal(LPCTSTR oldPath, LPCTSTR oldName, TCHAR* newName, int newNameSize, BOOL* tryAgain);
 
     void FreeComment(void);
     void DuplicateComment(void);

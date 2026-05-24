@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -60,7 +60,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 char* LoadStr(int resID)
@@ -115,7 +115,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "UnCHM" /* do not translate! */, "chm");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -155,7 +155,7 @@ BOOL Error(int resID, BOOL quiet, ...)
 BOOL Error(char* msg, DWORD err, BOOL quiet)
 {
     if (!quiet)
-        if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // actual error
+        if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // this is an error
         {
             char buf[1024];
             sprintf(buf, "%s\n\n%s", msg, SalamanderGeneral->GetErrorText(err));
@@ -335,18 +335,18 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
         DWORD silent = 0;
         BOOL toSkip = FALSE;
 
-        char currentPath[MAX_PATH];
-        strcpy(currentPath, archiveRoot);
+        CPathBuffer currentPath; // Heap-allocated for long path support
+        lstrcpyn(currentPath, archiveRoot, currentPath.Size());
 
         ret = TRUE;
         next(NULL, -1, NULL, NULL, NULL, nextParam, NULL);
         while ((name = next(NULL /* do not report errors the second time */, 1, &isDir, &size, &fileData, nextParam, NULL)) != NULL)
         {
             // directories do not concern us; they are created when unpacking files
-            char destPath[MAX_PATH];
-            strcpy(destPath, targetDir);
+            CPathBuffer destPath; // Heap-allocated for long path support
+            lstrcpyn(destPath, targetDir, destPath.Size());
 
-            if (SalamanderGeneral->SalPathAppend(destPath, name, MAX_PATH))
+            if (SalamanderGeneral->SalPathAppend(destPath, name, destPath.Size()))
             {
                 if (isDir)
                 {
@@ -362,7 +362,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
                     salamander->ProgressDialogAddText(name, TRUE); // delayedPaint==TRUE so we do not slow down
 
                     //  if the path we are unpacking to does not exist -> create it
-                    char* lastComp = strrchr(destPath, '\\');
+                    char* lastComp = strrchr(destPath.Get(), '\\');
                     if (lastComp != NULL)
                     {
                         *lastComp = '\0';
@@ -419,24 +419,24 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     salamander->OpenProgressDialog(LoadStr(IDS_UNPACKING_ARCHIVE), FALSE, NULL, FALSE);
     salamander->ProgressSetTotalSize(fileData->Size + CQuadWord(1, 0), CQuadWord(-1, -1));
 
-    char name[MAX_PATH];
-    strcpy(name, targetDir);
+    CPathBuffer name; // Heap-allocated for long path support
+    lstrcpyn(name, targetDir, name.Size());
     const char* lastComp = strrchr(nameInArchive, '\\');
     if (lastComp != NULL)
         lastComp++;
     else
         lastComp = nameInArchive;
 
-    if (SalamanderGeneral->SalPathAppend(name, lastComp, MAX_PATH))
+    if (SalamanderGeneral->SalPathAppend(name, lastComp, name.Size()))
     {
         DWORD silent = 0;
         BOOL toSkip = FALSE;
 
         salamander->ProgressDialogAddText(name, TRUE); // delayedPaint==TRUE so we do not slow down
 
-        char srcPath[MAX_PATH];
-        lstrcpy(srcPath, nameInArchive);
-        char* lComp = strrchr(srcPath, '\\');
+        CPathBuffer srcPath; // Heap-allocated for long path support
+        lstrcpyn(srcPath, nameInArchive, srcPath.Size());
+        char* lComp = strrchr(srcPath.Get(), '\\');
         if (lComp != NULL)
             *lComp = '\0';
 
@@ -494,11 +494,11 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
     CPluginDataInterfaceAbstract* pluginData = NULL;
     if (ListArchive(salamander, fileName, dir, pluginData))
     {
-        char path[MAX_PATH];
+        CPathBuffer path; // Heap-allocated for long path support
 
         CQuadWord totalSize(0, 0);
         CQuadWord fileCount(0, 0);
-        CalcSize(dir, mask, path, MAX_PATH, totalSize, fileCount);
+        CalcSize(dir, mask, path, path.Size(), totalSize, fileCount);
 
         if (delArchiveWhenDone)
             archiveVolumes->Add(fileName, -2);
@@ -520,13 +520,13 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
             {
                 DWORD silent = 0;
                 BOOL toSkip = FALSE;
-                char strTarget[MAX_PATH];
-                lstrcpy(strTarget, targetDir);
-                char srcPath[MAX_PATH];
+                CPathBuffer strTarget; // Heap-allocated for long path support
+                lstrcpyn(strTarget, targetDir, strTarget.Size());
+                CPathBuffer srcPath; // Heap-allocated for long path support
                 srcPath[0] = '\0';
 
                 chm.ButtonFlags = BUTTONS_SKIPCANCEL;
-                ret = chm.ExtractAllObjects(salamander, srcPath, dir, modmask, strTarget, MAX_PATH, silent, toSkip) != UNPACK_CANCEL;
+                ret = chm.ExtractAllObjects(salamander, srcPath, dir, modmask, strTarget, strTarget.Size(), silent, toSkip) != UNPACK_CANCEL;
             }
 
             salamander->CloseProgressDialog();

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 //#include <windows.h>
@@ -21,7 +21,7 @@ unsigned WinPos;
 unsigned char* SlideWin = NULL;
 DWORD UCSize;
 DWORD Crc;
-struct huft* fixed_tl = NULL; // must be initialized to NULL
+struct huft* fixed_tl = NULL; // !! must be NULL initialized
 struct huft* fixed_td;        //before calling inflate
 int fixed_bl,
     fixed_bd;
@@ -32,7 +32,7 @@ unsigned char* InEnd;
    version 1.0b, August 1999
    
    based on file inflate.c distributed with infozip,
-   written by  Mark Adler
+   writen by  Mark Adler
    version c16b, 29 March 1998 */
 
 /*
@@ -100,7 +100,7 @@ unsigned char* InEnd;
       end-of-block.  Note however that the static length tree defines
       288 codes just to fill out the Huffman codes.  Codes 286 and 287
       cannot be used though, since there is no length base or extra bits
-      defined for them.  Similarly, there are up to 30 distance codes.
+      defined for them.  Similarily, there are up to 30 distance codes.
       However, static trees define 32 codes (all 5 bits) to fill out the
       Huffman codes, but the last two had better not show up in the data.
    7. Unzip can check dynamic Huffman blocks for complete code sets.
@@ -156,8 +156,8 @@ int huft_build(const unsigned* b,       /* code lengths in bits (all assumed <= 
    stream to find repeated byte strings.  This is implemented here as a
    circular buffer.  The index is updated simply by incrementing and then
    and'ing with 0x7fff (32K-1) (window size - 1). */
-// The sliding window is defined in CDecompressionObject and can be
-// any size greater than or equal to 32K
+// sliding window is defined in CDecompressionObject and could be
+// any size greater or equal 32K
 
 /* Tables for deflate from PKZIP's appnote.txt. */
 static const unsigned border[] = {/* Order of the bit length code lengths */
@@ -178,7 +178,7 @@ static const unsigned short cpdext[] = {/* Extra bits for distance codes */
                                         7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
                                         12, 12, 13, 13};
 
-/* ANDing with mask_bits[n] masks the lower n bits */
+/* And'ing with mask_bits[n] masks the lower n bits */
 const unsigned short mask_bits[] = {
     0x0000,
     0x0001, 0x0003, 0x0007, 0x000f, 0x001f, 0x003f, 0x007f, 0x00ff,
@@ -194,7 +194,7 @@ const unsigned short mask_bits[] = {
    where NEEDBITS makes sure that b has at least j bits in it, and
    DUMPBITS removes the bits from b.  The macros use the variable k
    for the number of bits in b.  Normally, b and k are register
-   variables for speed and are initialized at the beginning of a
+   variables for speed and are initialized at the begining of a
    routine that uses these macros from a global bit buffer and count.
 
    In order to not ask for more bits than there are in the compressed
@@ -276,15 +276,15 @@ unsigned long NextByte()
    the longer codes.  The time it costs to decode the longer codes is
    then traded against the time it takes to make longer tables.
 
-   The results of this trade are reflected in the variables lbits and
-   dbits below.  lbits is the number of bits the first-level table for
-   literal/length codes can decode in one step, and dbits is the same
-   thing for the distance codes.  Subsequent tables are also less than
-   or equal to those sizes.  These values may be adjusted either when
-   all of the codes are shorter than that, in which case the longest
-   code length in bits is used, or when the shortest code is *longer*
-   than the requested table size, in which case the length of the
-   shortest code in bits is used.
+   This results of this trade are in the variables lbits and dbits
+   below.  lbits is the number of bits the first level table for literal/
+   length codes can decode in one step, and dbits is the same thing for
+   the distance codes.  Subsequent tables are also less than or equal to
+   those sizes.  These values may be adjusted either when all of the
+   codes are shorter than that, in which case the longest code length in
+   bits is used, or when the shortest code is *longer* than the requested
+   table size, in which case the length of the shortest code in bits is
+   used.
 
    There are two different values for the two tables, since they code a
    different number of possibilities each.  The literal/length table
@@ -292,8 +292,8 @@ unsigned long NextByte()
    bits.  The distance table codes 30 possible values, or a little less
    than five bits, flat.  The optimum values for speed end up being
    about one bit more than those, so lbits is 8+1 and dbits is 5+1.
-   The optimum values may differ from machine to machine, and possibly
-   even between compilers.
+   The optimum values may differ though from machine to machine, and
+   possibly even between compilers.  Your mileage may vary.
  */
 
 static const int lbits = 9; /* bits in base literal/length lookup table */
@@ -303,7 +303,7 @@ static const int dbits = 6; /* bits in base distance lookup table */
 
 /* inflate (decompress) the codes in a deflated (compressed) block.
    Return an error code or zero if it all goes ok. */
-int inflate_codes(struct huft* tl, // literal/length decoder tables
+int inflate_codes(struct huft* tl, //literal/length
                   struct huft* td, //distance decoder tables
                   int bl, int bd)  //number of bits decoded by tl[] and td[]
 {
@@ -323,7 +323,7 @@ int inflate_codes(struct huft* tl, // literal/length decoder tables
     /* inflate the coded data */
     ml = mask_bits[bl]; /* precompute masks for speed */
     md = mask_bits[bd];
-    while (1) /* loop until the end of the block */
+    while (1) /* do until end of block */
     {
         NEEDBITS((unsigned)bl)
         if ((e = (t = tl + ((unsigned)b & ml))->e) > 16)
@@ -338,7 +338,7 @@ int inflate_codes(struct huft* tl, // literal/length decoder tables
                 NEEDBITS(e)
             } while ((e = (t = t->v.t + ((unsigned)b & mask_bits[e]))->e) > 16);
         DUMPBITS(t->b)
-        if (e == 16) /* then it is a literal */
+        if (e == 16) /* then it's a literal */
         {
             SlideWin[w++] = (unsigned char)t->v.n;
             if (w == WSIZE)
@@ -393,7 +393,7 @@ int inflate_codes(struct huft* tl, // literal/length decoder tables
             d = w - t->v.n - ((unsigned)b & mask_bits[e]);
             DUMPBITS(e)
 
-            /* copy the data */
+            /* do the copy */
             do
             {
                 n -= (e = (e = WSIZE - ((d &= WSIZE - 1) > w ? d : w)) > n ? n : e);
@@ -460,7 +460,7 @@ int inflate_stored()
     k = BitCount;
     w = WinPos;
 
-    // align to the next byte boundary
+    // go to byte boundary
     n = k & 7;
     DUMPBITS(n);
 
@@ -473,8 +473,8 @@ int inflate_stored()
         return 1; // error in compressed data
     DUMPBITS(16)
 
-    // old copy routine; the new one should be faster
-    // read and output the uncompressed data
+    ///* old copy routine, the new should be faster (I hope so)
+    // read and output the compressed data
     while (n--)
     {
         NEEDBITS(8)
@@ -505,49 +505,49 @@ int inflate_stored()
     }
 
     /*
-      // copy bytes from input to the output
-      while (n)
+  //copy bytes from intup to the output
+  while (n)
+  {
+    if(n <= decompress->Output->WinSize - decompress->Output->WinPos)
+      outBytes = n;
+    else
+      outBytes = decompress->Output->WinSize - decompress->Output->WinPos;
+
+    n -= outBytes;
+    while (outBytes)
+    {
+      if (outBytes <= decompress->Input->BytesLeft)
+        inBytes = outBytes;
+      else
+        inBytes = decompress->Input->BytesLeft;
+
+      memcpy(decompress->Output->SlideWin + decompress->Output->WinPos,
+              decompress->Input->NextByte, inBytes);
+      decompress->Input->NextByte += inBytes;
+      decompress->Input->BytesLeft -= inBytes;
+      decompress->Output->WinPos += inBytes;
+      outBytes -= inBytes;
+      if(!decompress->Input->BytesLeft && outBytes)
       {
-        if(n <= decompress->Output->WinSize - decompress->Output->WinPos)
-          outBytes = n;
-        else
-          outBytes = decompress->Output->WinSize - decompress->Output->WinPos;
-
-        n -= outBytes;
-        while (outBytes)
+        decompress->Input->Refill(decompress);
+        if (decompress->Input->Error)
         {
-          if (outBytes <= decompress->Input->BytesLeft)
-            inBytes = outBytes;
-          else
-            inBytes = decompress->Input->BytesLeft;
-
-          memcpy(decompress->Output->SlideWin + decompress->Output->WinPos,
-                  decompress->Input->NextByte, inBytes);
-          decompress->Input->NextByte += inBytes;
-          decompress->Input->BytesLeft -= inBytes;
-          decompress->Output->WinPos += inBytes;
-          outBytes -= inBytes;
-          if(!decompress->Input->BytesLeft && outBytes)
-          {
-            decompress->Input->Refill(decompress);
-            if (decompress->Input->Error)
-            {
-              TRACE_E("inflate_stored: input error");
-              return 4;
-            }
-          }
+          TRACE_E("inflate_stored: input error");
+          return 4;
         }
+      }
+    }
 
-        if(decompress->Output->WinPos == decompress->Output->WinSize)
-        {
-          if(decompress->Output->Flush(decompress->Output->WinPos, decompress))
-          {
-            TRACE_E("inflate_stored: flush returned error");
-            return 5;
-          }
-          decompress->Output->WinPos = 0;
-        }
-      }*/
+    if(decompress->Output->WinPos == decompress->Output->WinSize)
+    {
+      if(decompress->Output->Flush(decompress->Output->WinPos, decompress))
+      {
+        TRACE_E("inflate_stored: flush returned error");
+        return 5;
+      }
+      decompress->Output->WinPos = 0;
+    }
+  }*/
 
     // restore the globals from the locals
     BitBuf = b; // restore global bit buffer
@@ -585,7 +585,7 @@ int inflate_fixed()
         }
 
         // distance table
-        for (i = 0; i < 30; i++) // create an incomplete code set
+        for (i = 0; i < 30; i++) // make an incomplete code set
             l[i] = 5;
         fixed_bd = 5;
         if ((i = huft_build(l, 30, 0, cpdist, cpdext,
@@ -768,7 +768,7 @@ int inflate_dynamic()
         return i;
     }
 
-    /* free the decoding tables and return */
+    /* free the decoding tables, return */
     huft_free(tl);
     huft_free(td);
     return 0;
@@ -819,15 +819,15 @@ int Inflate()
     int r; /* result code */
 
     /*
-    #ifdef DEBUG
-      unsigned h = 0;       // maximum number of allocated struct huft nodes
-    #endif
-    */
+#ifdef DEBUG
+  unsigned h = 0;       // maximum struct huft's malloc'ed
+#endif
+*/
 
     UCSize = 0;
     Crc = INIT_CRC;
 
-    /* initialize the window and bit buffer */
+    /* initialize window, bit buffer */
     WinPos = 0;
     BitCount = 0;
     BitBuf = 0;
@@ -1035,7 +1035,7 @@ int huft_build(const unsigned* b,       /* code lengths in bits (all assumed <= 
                 if ((unsigned)w + j > el && (unsigned)w < el)
                     j = el - w; /* make EOB code end at table */
                 z = 1 << j;     /* table entries for j-bit table */
-                l[h] = j;       /* save table size on the stack */
+                l[h] = j;       /* set table size in stack */
 
                 /* allocate and link in new table */
                 if ((q = (struct huft*)malloc((z + 1) * sizeof(struct huft))) ==
@@ -1089,11 +1089,11 @@ int huft_build(const unsigned* b,       /* code lengths in bits (all assumed <= 
 
             /* backup over finished tables */
             while ((i & ((1 << w) - 1)) != x[h])
-                w -= l[--h]; /* No need to update q. */
+                w -= l[--h]; /* don't need to update q */
         }
     }
 
-    /* Return the actual size of the base table */
+    /* return actual size of base table */
     *m = l[0];
 
     /* Return true (1) if we were given an incomplete table */

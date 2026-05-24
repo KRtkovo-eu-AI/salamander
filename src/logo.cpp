@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "mainwnd.h"
@@ -166,7 +166,7 @@ BOOL CSplashScreen::PrepareBitmap()
     svgGrad.AlphaBlend(hDC, 0, GradientY, gradSize.cx, Height - GradientY, SVGSTATE_ORIGINAL);
     svgHand.AlphaBlend(hDC, Width - handSize.cx, 0, handSize.cx, handSize.cy, SVGSTATE_ORIGINAL);
 
-    // static text
+    // fixed texts
     PaintText(SALAMANDER_TEXT_VERSION,
               VersionR.left,
               VersionR.top,
@@ -421,8 +421,8 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         hl = new CHyperLink(HWindow, IDC_ABOUT_WWW);
         if (hl != NULL)
         {
-            const char* url = english ? "https://www.altap.cz" : "https://www.altap.cz/cz";
-            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url + 8);
+            const char* url = "https://github.com/0xeb/sally";
+            SetDlgItemText(HWindow, IDC_ABOUT_WWW, url + 8); // skip "https://"
             hl->SetActionOpen(url);
         }
 
@@ -457,7 +457,7 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (WindowsVistaAndLater)
                 return (BOOL)(UINT_PTR)HGradientBkBrush;
             else
-                return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH); // this still worked correctly on XP
+                return (BOOL)(UINT_PTR)GetStockObject(NULL_BRUSH); // under XP this still worked fine
         }
         break;
     }

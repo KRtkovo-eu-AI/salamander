@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -46,7 +47,7 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 int SalamanderVersion = 0;
 
 // running Salamander version text (for example, "2.52 beta 3 (PB 32)")
-char SalamanderTextVersion[MAX_PATH];
+CPathBuffer SalamanderTextVersion; // Heap-allocated for long path support
 
 // ****************************************************************************
 
@@ -72,9 +73,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     }
     if (fdwReason == DLL_PROCESS_DETACH)
     {
-        // if Altap Salamander is blocked from accessing the internet by a firewall and Salamander is closed while checkver is running,
-        // TRACE is destroyed before this function is called, causing a crash in TRACE_I,
-        // so TRACE must not be called here
+        // if Altap Salamander is blocked from accessing the internet by the firewall and Salamander is closed while checkver is running,
+        // TRACE is destroyed before this function is called, which leads to a crash in TRACE_I,
+        // therefore TRACE must not be called here
         //TRACE_I("CheckVer DLL_PROCESS_DETACH");
         DeleteCriticalSection(&MainDialogIDSection);
         if (HModulesEnumDone != NULL)
@@ -144,15 +145,15 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "CHECKVER");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     // load-on-start
     SalGeneral->SetFlagLoadOnSalamanderStart(TRUE);
 
     DWORD loadInfo = salamander->GetLoadInformation();
 
-    // immediately after Salamander is installed, perform the version check with the window open so that
-    // the user can see what is happening and understand why Internet access must be allowed
+    // immediately after Salamander is installed, perform the version check with an open window so that
+    // it is visible what is happening and the user understands why internet access must be allowed
     // in the personal firewall
     if (loadInfo & LOADINFO_NEWSALAMANDERVER)
         LoadedOnSalInstall = TRUE;
@@ -163,7 +164,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the Salamander version
     int index = 0;
-    char salModule[MAX_PATH];
+    CPathBuffer salModule; // Heap-allocated for long path support
     SalGeneral->EnumInstalledModules(&index, salModule, SalamanderTextVersion);
 
     // find out whether the user disabled saving the configuration on exit, in that case
@@ -369,7 +370,7 @@ unsigned WINAPI ThreadMessageLoopBody(void* param)
     }
 
     data->Success = HMainDialog != NULL;
-    SetEvent(data->Continue); // let the main thread continue; from this point on, the data are no longer valid (=NULL)
+    SetEvent(data->Continue); // let the main thread continue; from this point on the data are invalid (=NULL)
     data = NULL;
 
     MSG msg;

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -6,6 +7,7 @@
 #include "wndout.h"
 #include "datarh.h"
 #include "config.h"
+#include "translator.h"
 
 //*****************************************************************************
 //
@@ -104,7 +106,7 @@ BOOL CMenuData::LoadMenu(LPCSTR original, LPCSTR translated, CData* data)
                               "Translated menu item ID: %s",
                       oID == 0 ? "POPUP" : DataRH.GetIdentifier(oID),
                       tID == 0 ? "POPUP" : DataRH.GetIdentifier(tID));
-            MessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
 
@@ -124,7 +126,7 @@ BOOL CMenuData::LoadMenu(LPCSTR original, LPCSTR translated, CData* data)
                               "Translated menu item ID: %s",
                       oID == 0 ? "POPUP" : DataRH.GetIdentifier(oID),
                       tID == 0 ? "POPUP" : DataRH.GetIdentifier(tID));
-            MessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
         // we support only text items and separators (stored as empty strings or via MF_SEPARATOR as in the German menu automation)
@@ -133,7 +135,7 @@ BOOL CMenuData::LoadMenu(LPCSTR original, LPCSTR translated, CData* data)
             sprintf_s(errBuf, "Original menu item has not string nor is separator.\n\n"
                               "Original menu item ID: %s",
                       oID == 0 ? "POPUP" : DataRH.GetIdentifier(oID));
-            MessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
         if (!IS_STRING_ITEM(tFlags) && MENU_ITEM_TYPE(tFlags) != MF_SEPARATOR)
@@ -141,7 +143,7 @@ BOOL CMenuData::LoadMenu(LPCSTR original, LPCSTR translated, CData* data)
             sprintf_s(errBuf, "Translated menu item has not string nor is separator.\n\n"
                               "Translated menu item ID: %s",
                       tID == 0 ? "POPUP" : DataRH.GetIdentifier(tID));
-            MessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
 
@@ -268,7 +270,7 @@ BOOL CMenuData::LoadMenuEx(LPCSTR original, LPCSTR translated, CData* data)
         if (oResinfo != tResinfo)
         {
             sprintf_s(errBuf, "Original and translated menu item has different resinfo.");
-            MessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errBuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
 

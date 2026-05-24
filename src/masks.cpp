@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -71,7 +71,7 @@ BOOL AgreeMask(const char* filename, const char* mask, BOOL hasExtension, BOOL e
     }
     if (*mask == '*')
         mask++;                        // asterisk '*' afterwards -> represents "" -> everything is ok
-    if (!hasExtension && *mask == '.') // without an extension, the mask "*.*" must still match...
+    if (!hasExtension && *mask == '.') // without extension mask "*.*" must still match...
         return *(mask + 1) == 0 || (*(mask + 1) == '*' && *(mask + 2) == 0);
     else
         return *mask == 0;
@@ -88,11 +88,11 @@ char* MaskName(char* buffer, int bufSize, const char* name, const char* mask)
         return buffer;
     }
 
-    // the first dot in the mask separates the two parts of the working mask: the first for the name,
+    // the first dot in the mask separates two operational parts: the first for the name,
     // the second for the extension (example: "a.b.c.d" + "*.*.old": "a.b.c" + "*" = "a.b.c";
     // "d" + "*.old" = "d.old" -> the result is the combination "a.b.c.d.old")
 
-    int ignPoints = 0; // how many dots the name contains (this section corresponds to the text of the mask from the start to the first dot); the rest corresponds to the extension (after the first dot)
+    int ignPoints = 0; // how many dots the name contains (this section corresponds to the text of the mask from the start to the first dot); the rest matches the extension (after the fisrt dot)
     const char* n = name;
     while (*n != 0)
         if (*n++ == '.')
@@ -204,10 +204,10 @@ char* MaskName(char* buffer, int bufSize, const char* name, const char* mask)
 // Functions for quick-search
 // the '/' character represents any number of characters (like '*' in a standard mask)
 
-// returns TRUE if this is a character used in place of '*'
-// it must be a character that is not allowed in file names
-// and at the same time, it should be easy to type (see the '<' on a German keyboard;
-// for a backslash on a German keyboard, you must press AltGr+\)
+// returns TRUE if it is a wildcard character replacing '*'
+// it must be a character not allowed in file names
+// and at the same time, it should be easy to type (see the '<' on the German keyboard;
+// for the backslash on the German keyboard you must press AltGr+\)
 BOOL IsQSWildChar(char ch)
 {
     return (ch == '/' || ch == '\\' || ch == '<');
@@ -249,7 +249,7 @@ BOOL AgreeQSMaskAux(const char* filename, BOOL hasExtension, const char* filenam
         if (!wholeString && *mask == 0)
         {
             offset = (int)(filename - filenameBase);
-            return TRUE; // end of mask, 'offset' = how far it extends into the file name
+            return TRUE; // end of mask, 'offset' = how far it reaches into the file name
         }
         if (LowerCase[*filename] == LowerCase[*mask])
         {
@@ -342,7 +342,7 @@ CMaskGroup::operator=(const CMaskGroup& s)
     if (!s.NeedPrepare)
     {
         int errpos = 0;
-        if (!PrepareMasks(errpos)) // an error should not occur because the source mask is valid
+        if (!PrepareMasks(errpos)) // an error shouldn't occur, the source mask is valid
             TRACE_E("CMaskGroup::operator= Internal error, PrepareMasks() failed.");
     }
     return *this;
@@ -359,7 +359,7 @@ void CMaskGroup::ReleaseMasksHashArray()
             {
                 free(MasksHashArray[i].Mask);
                 CMasksHashEntry* next = MasksHashArray[i].Next;
-                while (next != NULL) // if there are multiple masks in the same hash bucket
+                while (next != NULL) // if there are multiple masks at the same entry (hash)
                 {
                     CMasksHashEntry* nextNext = next->Next;
                     if (next->Mask != NULL)
@@ -441,8 +441,8 @@ BOOL CMaskGroup::PrepareMasks(int& errorPos, const char* masksString)
 
     const char* useMasksString = masksString == NULL ? MasksString : masksString;
     const char* s = useMasksString;
-    char buf[MAX_PATH];
-    char maskBuf[MAX_PATH];
+    CPathBuffer buf;      // Heap-allocated for long path support
+    CPathBuffer maskBuf;  // Heap-allocated for long path support
     int excludePos = -1;   // if not -1, all following masks are exclude type
                            // and will be inserted at the beginning of the array
     int hashableMasks = 0; // number of masks that can be hashed (MASK_OPTIMIZE_EXTENSION + CMaskItemFlags::Exclude==0)
@@ -588,7 +588,7 @@ BOOL CMaskGroup::PrepareMasks(int& errorPos, const char* masksString)
         s++;
     }
 
-    if (hashableMasks >= 10) // only do this if there are at least 10 of them
+    if (hashableMasks >= 10) // to be worthwhile there should be at least 10
     {
         MasksHashArraySize = 2 * hashableMasks;
         MasksHashArray = (CMasksHashEntry*)malloc(MasksHashArraySize * sizeof(CMasksHashEntry));
@@ -609,7 +609,7 @@ BOOL CMaskGroup::PrepareMasks(int& errorPos, const char* masksString)
                         MasksHashArray[hash].Mask = mask;
                         PreparedMasks.Detach(i2);
                         if (!PreparedMasks.IsGood())
-                            PreparedMasks.ResetState(); // Detach always succeeds (at worst the array will not be shifted, which is fine)
+                            PreparedMasks.ResetState(); // Detach always succeeds (at most the array won't shift, which is fine)
                     }
                     else
                     {
@@ -658,7 +658,7 @@ BOOL CMaskGroup::PrepareMasks(int& errorPos, const char* masksString)
 #endif // _DEBUG
 */
         }
-        else // out of memory -> mask searching will not be accelerated
+        else // out of memory -> we simply won't accelerate searching in masks
         {
             TRACE_E(LOW_MEMORY);
             MasksHashArraySize = 0;
@@ -686,7 +686,7 @@ BOOL CMaskGroup::AgreeMasks(const char* fileName, const char* fileExt)
             fileExt++;
     }
     const char* ext = fileExt;
-    if (*ext == 0 && *fileName == '.' && *(ext - 1) != '.') // this may be the ".cvspass" case; ".." has no extension
+    if (*ext == 0 && *fileName == '.' && *(ext - 1) != '.') // may be the ".cvspass" case; ".." has no extension
     {
         TRACE_E("CMaskGroup::AgreeMasks: Unexpected situation: fileName starts with '.' but fileExt points to end of name: " << fileName);
         ext = fileName + 1;

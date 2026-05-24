@@ -1,4 +1,5 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -56,7 +57,7 @@ INT_PTR CALLBACK InternetProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         if ((GetKeyState(VK_CONTROL) & 0x8000) == 0 && (GetKeyState(VK_SHIFT) & 0x8000) == 0)
             SalGeneral->OpenHtmlHelp(hWindow, HHCDisplayContext, IDD_INTERNET, FALSE);
-        return TRUE; // never let F1 propagate to the parent
+        return TRUE; // never let F1 reach the parent
     }
 
     case WM_APP + 55:
@@ -180,15 +181,12 @@ CDataDefaults CfgData;
 
 void EnableControls(HWND hWindow)
 {
-    // helper that toggles the checkbox states
+    // helper that toggles the remaining scheduling checkbox states
     CAutoCheckModeEnum mode = achmNever;
     int i;
     for (i = 0; i < achmCount; i++)
         if (IsDlgButtonChecked(hWindow, AutoCheckModeID[i]) == BST_CHECKED)
             mode = AutoCheckModeEval[i];
-
-    for (i = 0; i < achmCount; i++)
-        EnableWindow(GetDlgItem(hWindow, AutoCheckModeID[i]), CfgInternetConnection != inetNone);
 
     BOOL autoConnectWasEnabled = IsWindowEnabled(GetDlgItem(hWindow, IDC_CFG_AUTOCONNECT));
     EnableWindow(GetDlgItem(hWindow, IDC_CFG_AUTOCONNECT), mode != achmNever);
@@ -203,58 +201,16 @@ void EnableControls(HWND hWindow)
         CheckDlgButton(hWindow, IDC_CFG_AUTOCLOSE, BST_UNCHECKED);
     if (mode != achmNever && (!autoConnectWasEnabled || !autoCloseWasEnabled && closeEnabled)) // enable the "silent" mode by default
         CheckDlgButton(hWindow, IDC_CFG_AUTOCLOSE, BST_CHECKED);
-
-    // enable/disable logic for the list box
-    HWND hListBox = GetDlgItem(hWindow, IDC_CFG_FILTER);
-    int index = (int)SendMessage(hListBox, LB_GETCURSEL, 0, 0);
-    if (index == LB_ERR)
-    {
-        HWND hFocus = GetFocus();
-        if (hFocus == hListBox || hFocus == GetDlgItem(hWindow, IDC_CFG_REMOVE))
-        {
-            SetFocus(GetDlgItem(hWindow, IDOK));
-            SendMessage(hWindow, DM_SETDEFID, IDOK, 0);
-            SendMessage(GetDlgItem(hWindow, IDC_CFG_REMOVE), BM_SETSTYLE,
-                        BS_PUSHBUTTON, MAKELPARAM(TRUE, 0));
-        }
-        EnableWindow(GetDlgItem(hWindow, IDC_CFG_REMOVE), FALSE);
-        EnableWindow(hListBox, FALSE);
-    }
 }
 
 void LoadCfgDlgControls(HWND hWindow)
 {
-    // populate the dialog with data
-    int resID = 0;
-    switch (CfgInternetConnection)
-    {
-    case inetPhone:
-        resID = IDS_INTERNET_PHONE;
-        break;
-    case inetLAN:
-        resID = IDS_INTERNET_LAN;
-        break;
-    case inetNone:
-        resID = IDS_INTERNET_NONE;
-        break;
-    default:
-        TRACE_E("InternetConnection=" << InternetConnection);
-        break;
-    }
-    SetDlgItemText(hWindow, IDC_CFG_INTERNET, LoadStr(resID));
-
     int i;
     for (i = 0; i < achmCount; i++)
         CheckDlgButton(hWindow, AutoCheckModeID[i],
                        AutoCheckModeEval[i] == CfgData.AutoCheckMode ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(hWindow, IDC_CFG_AUTOCONNECT, CfgData.AutoConnect ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(hWindow, IDC_CFG_AUTOCLOSE, CfgData.AutoClose ? BST_CHECKED : BST_UNCHECKED);
-    CheckDlgButton(hWindow, IDC_CFG_BETA, CfgData.CheckBetaVersion ? BST_CHECKED : BST_UNCHECKED);
-    CheckDlgButton(hWindow, IDC_CFG_PB, CfgData.CheckPBVersion ? BST_CHECKED : BST_UNCHECKED);
-    CheckDlgButton(hWindow, IDC_CFG_RELEASE, CfgData.CheckReleaseVersion ? BST_CHECKED : BST_UNCHECKED);
-
-    // fill in the filter items
-    FiltersFillListBox(GetDlgItem(hWindow, IDC_CFG_FILTER));
     EnableControls(hWindow);
 }
 
@@ -285,7 +241,7 @@ INT_PTR CALLBACK CfgDlgProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lPara
     {
         if ((GetKeyState(VK_CONTROL) & 0x8000) == 0 && (GetKeyState(VK_SHIFT) & 0x8000) == 0)
             SalGeneral->OpenHtmlHelp(hWindow, HHCDisplayContext, IDD_CONFIGURATION, FALSE);
-        return TRUE; // never let F1 propagate to the parent
+        return TRUE; // never let F1 reach the parent
     }
 
     case WM_COMMAND:
@@ -301,62 +257,12 @@ INT_PTR CALLBACK CfgDlgProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lPara
             return TRUE;
         }
 
-        case IDC_CFG_REMOVE:
-        {
-            HWND hListBox = GetDlgItem(hWindow, IDC_CFG_FILTER);
-            int index = (int)SendMessage(hListBox, LB_GETCURSEL, 0, 0);
-            if (index != LB_ERR)
-            {
-                char itemName[1024];
-                if (SendMessage(hListBox, LB_GETTEXT, index, (LPARAM)itemName) != LB_ERR)
-                {
-                    char buff[1024];
-                    sprintf(buff, LoadStr(IDS_REMOVE_CNFRM), itemName);
-                    int ret = SalGeneral->SalMessageBox(hWindow, buff, LoadStr(IDS_PLUGINNAME),
-                                                        MB_ICONQUESTION | MB_YESNO);
-                    if (ret == IDYES)
-                    {
-                        SendMessage(hListBox, LB_DELETESTRING, index, 0);
-                        SendMessage(hListBox, LB_SETCURSEL, 0, 0);
-                        EnableControls(hWindow);
-                    }
-                }
-            }
-            return 0;
-        }
-
-        case IDC_CFG_CHANGE:
-        {
-            int oldCfgInternetConnection = CfgInternetConnection;
-            if (OpenInternetDialog(hWindow, &CfgInternetConnection, &CfgInternetProtocol))
-            {
-                if (oldCfgInternetConnection != CfgInternetConnection)
-                {
-                    CfgData = DataDefaults[CfgInternetConnection];
-                    LoadCfgDlgControls(hWindow);
-                }
-            }
-            return 0;
-        }
-
         case IDC_CFG_DEFAULTS:
         {
-            BOOL reset = TRUE;
-            HWND hListBox = GetDlgItem(hWindow, IDC_CFG_FILTER);
-            int index = (int)SendMessage(hListBox, LB_GETCURSEL, 0, 0);
-            if (index != LB_ERR)
-            {
-                int ret = SalGeneral->SalMessageBox(hWindow, LoadStr(IDS_SETDEF_CNFRM), LoadStr(IDS_PLUGINNAME),
-                                                    MB_ICONQUESTION | MB_YESNO);
-                if (ret == IDNO)
-                    reset = FALSE;
-            }
-            if (reset)
-            {
-                DestroyFilters();
-                CfgData = DataDefaults[CfgInternetConnection];
-                LoadCfgDlgControls(hWindow);
-            }
+            CfgInternetConnection = inetLAN;
+            CfgInternetProtocol = inetpHTTP;
+            CfgData = DataDefaults[CfgInternetConnection];
+            LoadCfgDlgControls(hWindow);
             return 0;
         }
 
@@ -376,7 +282,7 @@ INT_PTR CALLBACK CfgDlgProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lPara
                 }
             }
             BOOL autoConnect = IsDlgButtonChecked(hWindow, IDC_CFG_AUTOCONNECT) == BST_CHECKED;
-            if (Data.AutoConnect != autoConnect) // NextOpenOrCheckTime now means: open the dialog only / open it with an automatic version check
+            if (Data.AutoConnect != autoConnect) // meaning of NextOpenOrCheckTime changed: just open the dialog / open it with an automatic version check
             {
                 Data.AutoConnect = autoConnect;
                 updateNextOpenOrCheckTime = TRUE;
@@ -385,7 +291,7 @@ INT_PTR CALLBACK CfgDlgProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lPara
             }
             if (updateNextOpenOrCheckTime)
             {
-                if (!autoConnect || LastCheckTime.wYear == 0)                      // this is not an automatic check, or we have not performed one yet
+                if (!autoConnect || LastCheckTime.wYear == 0)                      // no automatic check or we have not performed one yet
                     ZeroMemory(&NextOpenOrCheckTime, sizeof(NextOpenOrCheckTime)); // opening the window and optionally performing a check on the first load-on-start (ASAP)
                 else
                     GetFutureTime(&NextOpenOrCheckTime, &LastCheckTime, GetWaitDays()); // base the next check on the date of the last check
@@ -394,12 +300,11 @@ INT_PTR CALLBACK CfgDlgProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lPara
                 MainDlgAutoOpen2 = FALSE;
             }
             Data.AutoClose = IsDlgButtonChecked(hWindow, IDC_CFG_AUTOCLOSE) == BST_CHECKED;
-            Data.CheckBetaVersion = IsDlgButtonChecked(hWindow, IDC_CFG_BETA) == BST_CHECKED;
-            Data.CheckPBVersion = IsDlgButtonChecked(hWindow, IDC_CFG_PB) == BST_CHECKED;
-            Data.CheckReleaseVersion = IsDlgButtonChecked(hWindow, IDC_CFG_RELEASE) == BST_CHECKED;
-            FiltersLoadFromListBox(GetDlgItem(hWindow, IDC_CFG_FILTER));
-            InternetConnection = CfgInternetConnection;
-            InternetProtocol = CfgInternetProtocol;
+            Data.CheckBetaVersion = FALSE;
+            Data.CheckPBVersion = FALSE;
+            Data.CheckReleaseVersion = TRUE;
+            InternetConnection = inetLAN;
+            InternetProtocol = inetpHTTP;
         }
         case IDCANCEL:
         {
@@ -554,9 +459,9 @@ MENU_TEMPLATE_ITEM AppendToSystemMenu[] =
             {
                 if (tvData->FirstLoadAfterInstall)
                 {
-                    // on the first load after installation (without loading a configuration, i.e. installation on a machine without Salamander), the window
-                    // is shown after two seconds so that a user with a personal firewall can see why
-                    // Salamander is trying to access the internet (without a firewall, checkver should finish faster, so the user
+                    // on the first load after installation (without loading a configuration, i.e. installation on a machine without Salamander) the window
+                    // is shown after two seconds so that the user, if using a personal firewall, sees why
+                    // Salamander is accessing the internet (without a firewall, checkver should finish faster and the user
                     // would not see the CheckVer window at all)
                     if (!SetTimer(hWindow, 665, 2000, NULL))
                         ShowMinNA_IfNotShownYet(hWindow, TRUE, TRUE); // if the timer cannot be created, show the window immediately
@@ -599,7 +504,7 @@ MENU_TEMPLATE_ITEM AppendToSystemMenu[] =
     {
         if ((GetKeyState(VK_CONTROL) & 0x8000) == 0 && (GetKeyState(VK_SHIFT) & 0x8000) == 0)
             SalGeneral->OpenHtmlHelp(hWindow, HHCDisplayContext, IDD_MAIN, FALSE);
-        return TRUE; // never let F1 propagate to the parent
+        return TRUE; // never let F1 reach the parent
     }
 
     case WM_SIZE:
@@ -613,23 +518,23 @@ MENU_TEMPLATE_ITEM AppendToSystemMenu[] =
     {
         if (LOWORD(wParam) == CM_OPENFILE)
         {
-            char file[MAX_PATH];
-            lstrcpy(file, "salupdate_en.txt");
+            CPathBuffer file; // Heap-allocated for long path support
+            lstrcpyn(file, "salupdate_en.txt", file.Size());
             OPENFILENAME ofn;
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = hWindow;
             ofn.lpstrFilter = "*.txt\0*.txt\0*.*\0*.*\0";
             ofn.lpstrFile = file;
-            ofn.nMaxFile = MAX_PATH;
+            ofn.nMaxFile = file.Size();
             ofn.nFilterIndex = 1;
             //  ofn.lpstrFileTitle = file;
             //  ofn.nMaxFileTitle = MAX_PATH;
             ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_LONGNAMES | OFN_EXPLORER;
 
-            char buf[MAX_PATH];
-            GetModuleFileName(DLLInstance, buf, MAX_PATH);
-            char* s = strrchr(buf, '\\');
+            CPathBuffer buf; // Heap-allocated for long path support
+            GetModuleFileName(DLLInstance, buf, buf.Size());
+            char* s = strrchr(buf.Get(), '\\');
             if (s != NULL)
             {
                 *s = 0;
@@ -769,7 +674,7 @@ MENU_TEMPLATE_ITEM AppendToSystemMenu[] =
 
             if (MainDlgAutoOpen2 && IsTimeExpired(&NextOpenOrCheckTime) && Data.AutoCheckMode != achmNever)
             {
-                GetFutureTime(&NextOpenOrCheckTime, 1); // if opening the dialog and any subsequent check did not complete successfully (and therefore did not set NextOpenOrCheckTime), schedule the next attempt for tomorrow
+                GetFutureTime(&NextOpenOrCheckTime, 1); // if opening the dialog and the check did not finish successfully (and therefore did not set NextOpenOrCheckTime), schedule another attempt for tomorrow
                                                         //            TRACE_I("New on Close: NextOpenOrCheckTime: " << NextOpenOrCheckTime.wDay << "." << NextOpenOrCheckTime.wMonth << "." << NextOpenOrCheckTime.wYear);
             }
 
@@ -803,7 +708,7 @@ MENU_TEMPLATE_ITEM AppendToSystemMenu[] =
         }
         else
         {
-            if (autoClose && ++ErrorsSinceLastCheck >= 4) // report only the fourth error (ignore the first three to minimize user disruption)
+            if (autoClose && ++ErrorsSinceLastCheck >= 4) // report only the fourth error (ignore the first three to bother the user as little as possible)
             {
                 autoClose = FALSE;
                 ErrorsSinceLastCheck = 0;

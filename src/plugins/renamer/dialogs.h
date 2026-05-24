@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -24,6 +25,14 @@ extern char* NewNameHistory[MAX_HISTORY_ENTRIES];
 extern char* SearchHistory[MAX_HISTORY_ENTRIES];
 extern char* ReplaceHistory[MAX_HISTORY_ENTRIES];
 extern char* CommandHistory[MAX_HISTORY_ENTRIES];
+
+// Last used Counter dialog settings (persisted to registry)
+extern int LastCounterStart;
+extern double LastCounterStep;
+extern int LastCounterBase;
+extern int LastCounterMinWidth;
+extern int LastCounterFill;
+extern BOOL LastCounterLeft;
 
 BOOL InitDialogs();
 void ReleaseDialogs();

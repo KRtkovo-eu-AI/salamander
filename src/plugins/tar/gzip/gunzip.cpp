@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1073,7 +1074,7 @@ BOOL CGZip::Initialize(unsigned int& errorCode)
     // read the original file name when present
     if ((flags & ORIG_NAME) != 0)
     {
-        char buffer[MAX_PATH], *tmp;
+        CPathBuffer buffer; char* tmp; // Heap-allocated for long path support
         unsigned char src;
         tmp = buffer;
         while (Ok && (src = FReadByte()) != '\0' && tmp - buffer < sizeof(buffer) - 1)

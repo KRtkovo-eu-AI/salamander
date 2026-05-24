@@ -1,4 +1,4 @@
-/* 7zAlloc.h */
+﻿/* 7zAlloc.h */
 
 #ifndef __7Z_ALLOC_H
 #define __7Z_ALLOC_H

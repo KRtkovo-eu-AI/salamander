@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -36,7 +37,7 @@ SConfig Config = {
     {662, 301, 230, 80, 80, 229, 279, 430, 860}, // CalcDlgWidths
     {433, 301, 230, 80, 80},                     // VerDlgWidths
     {
-        // Register all known algorithms here
+        // Register all known algorthms here
         {HT_CRC, true, IDS_COLUMN_CRC, IDS_COPYTOCBOARD_CRC, IDS_SAVE_FILTER_CRC, IDS_VERIFY_CRC, _T(".sfv"), "CRC", CRCFactory},
         {HT_MD5, true, IDS_COLUMN_MD5, IDS_COPYTOCBOARD_MD5, IDS_SAVE_FILTER_MD5, IDS_VERIFY_MD5, _T(".md5"), "MD5", MD5Factory},
         {HT_SHA1, true, IDS_COLUMN_SHA1, IDS_COPYTOCBOARD_SHA1, IDS_SAVE_FILTER_SHA1, IDS_VERIFY_SHA1, _T(".sha1"), "SHA1", SHA1Factory},
@@ -128,7 +129,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "Checksum" /* do not translate! */);
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -275,7 +276,7 @@ CPluginInterface::GetInterfaceForMenuExt()
 //  CPluginInterfaceForMenuExt
 //
 
-char Focus_Path[MAX_PATH] = "";
+CPathBuffer Focus_Path; // Heap-allocated for long path support
 
 BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander,
                                                  HWND parent, int id, DWORD eventMask)
@@ -300,14 +301,14 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     case CMD_FOCUSFILE:
     {
-        if (Focus_Path[0] != 0) // only if we were lucky enough not to hit the start of Salamander's BUSY mode
+        if (*Focus_Path != 0) // only if we were lucky enough not to hit the start of Salamander's BUSY mode
         {
             char* fname;
             if (SalamanderGeneral->CutDirectory(Focus_Path, &fname))
             {
                 SalamanderGeneral->SkipOneActivateRefresh(); // prevent the main window from refreshing when switching from the Verify dialog
                 SalamanderGeneral->FocusNameInPanel(PANEL_SOURCE, Focus_Path, fname);
-                Focus_Path[0] = 0;
+                *Focus_Path = 0;
             }
         }
         return TRUE;

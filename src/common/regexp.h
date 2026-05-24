@@ -1,13 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
 //*****************************************************************************
 //*****************************************************************************
 //
-// original regexp.h
+// Original regexp.h
 //
 //*****************************************************************************
 //*****************************************************************************
@@ -37,12 +37,12 @@ void regerror(const char* error);
 //*****************************************************************************
 //*****************************************************************************
 //
-// my section of regexp.h
+// My part of regexp.h
 //
 //*****************************************************************************
 //*****************************************************************************
 
-// Errors that may occur during regexp compilation and search.
+// Errors that can occur during compilation and searching of regular expressions
 enum CRegExpErrors
 {
     reeNoError,
@@ -60,7 +60,7 @@ enum CRegExpErrors
     reeInternalDisaster,
 };
 
-// Function that returns the error text.
+// Function that returns the text of the occurred error
 const char* RegExpErrorText(CRegExpErrors err);
 
 // search flags
@@ -75,18 +75,18 @@ const char* RegExpErrorText(CRegExpErrors err);
 class CRegularExpression
 {
 public:
-    static const char* LastError; // Last error text.
+    static const char* LastError; // Text of last error
 
 protected:
     const char* LastErrorText;
     char* OriginalPattern;
-    regexp* Expression; // Compiled regular expression.
+    regexp* Expression; // Compiled regular expression
     WORD Flags;
 
-    char* Line;                // Line buffer.
-    const char* OrigLineStart; // Pointer to the start of the original text (passed to SetLine() as 'start').
-    int Allocated;             // Number of allocated bytes.
-    int LineLength;            // Current line length.
+    char* Line;                // Buffer for line
+    const char* OrigLineStart; // Pointer to the beginning of original text (passed to SetLine() as 'start')
+    int Allocated;             // How many bytes are allocated
+    int LineLength;            // Current length of line
 
 public:
     CRegularExpression()
@@ -115,33 +115,33 @@ public:
     const char* GetPattern() const { return OriginalPattern; }
 
     const char* GetLastErrorText() const { return LastErrorText; }
-    BOOL Set(const char* pattern, WORD flags); // Returns FALSE on error (call GetLastErrorText).
-    BOOL SetFlags(WORD flags);                 // Returns FALSE on error (call GetLastErrorText).
+    BOOL Set(const char* pattern, WORD flags); // Returns FALSE on error (call GetLastErrorText method)
+    BOOL SetFlags(WORD flags);                 // Returns FALSE on error (call GetLastErrorText method)
 
-    BOOL SetLine(const char* start, const char* end); // Sets the line of text to search in; returns FALSE on error (call GetLastErrorText).
+    BOOL SetLine(const char* start, const char* end); // Line of text to search in, returns FALSE on error (call GetLastErrorText method)
 
     int SearchForward(int start, int& foundLen);
     int SearchBackward(int length, int& foundLen);
 
-    // Replaces variables \1 ... \9 with the text captured by the corresponding groups.
-    // 'pattern' is the replacement pattern for the matched text, 'buffer' is the output
-    // buffer, 'bufSize' is the maximum buffer size including the terminating NULL
-    // character, and 'count' receives the number of characters copied to 'buffer'
-    // Returns TRUE if the entire expanded text fit in 'buffer'
+    // Replaces variables \1 ... \9 with text captured by corresponding parentheses
+    // 'pattern' is the pattern used to replace found match, 'buffer' buffer
+    // for output, 'bufSize' maximum size of text including terminating NULL
+    // character, in variable 'count' returns the number of characters copied to buffer
+    // Returns TRUE if the expression fits completely into the buffer
     BOOL ExpandVariables(char* pattern, char* buffer,
                          int bufSize, int* count);
 
     // Return values
     //
-    // 0 the text was not found, nothing was copied to 'buffer'
-    // 1 the text was replaced successfully
+    // 0 Searched text was not found, nothing was copied to 'buffer'
+    // 1 Text was successfully replaced
     // 2 'buffer' is too small
     int ReplaceForward(int start, char* pattern, BOOL global,
                        char* buffer, int bufSize);
 
 protected:
-    // Reverses the regular expression for backward search.
-    // THE EXPRESSION MUST BE SYNTACTICALLY CORRECT, OR IT WILL NOT WORK PROPERLY!
-    // e.g. "a)b(d)(" -> "((d)b)a", which is incorrect
+    // Reverses regular expression - for backward searching
+    // EXPRESSION MUST BE SYNTACTICALLY CORRECT! OTHERWISE IT DOES NOT WORK CORRECTLY!
+    // e.g., "a)b(d)(" -> "((d)b)a" which is incorrect
     void ReverseRegExp(char*& dstExpEnd, char* srcExp, char* srcExpEnd);
 };

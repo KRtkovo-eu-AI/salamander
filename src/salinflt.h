@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -32,21 +32,21 @@ struct huft
 struct CDecompressionObject
 {
     const char* Data;    // start of data
-    const char* DataPtr; // current position in the data
+    const char* DataPtr; // current position in data
     const char* DataEnd; // end of data
 
     DWORD Crc; // CRC32 of unpacked data
 
     char* OutputMem;     // buffer for unpacked data
-    char* OutputMemPtr;  // current position in the buffer for unpacked data
-    DWORD OutputMemSize; // size of the buffer for unpacked data
+    char* OutputMemPtr;  // current position in buffer for unpacked data
+    DWORD OutputMemSize; // size of buffer for unpacked data
 
-    // public fields; should be initialized before calling Inflate()
-    uch* SlideWin;    // circular buffer
-    unsigned WinSize; // size of sliding window, should be at least 32K
+    //public fields, should be intialized before calling Inflate()
+    uch* SlideWin;    //circular buffer
+    unsigned WinSize; //size of sliding window, should be at least 32K
 
-    // internal fields
-    unsigned WinPos; // current position in sliding window
+    //internal fields
+    unsigned WinPos; //current position in sliding window
 
     ulg BitBuf;        //bit buffer
     unsigned BitCount; //number of bits in bit buffer */
@@ -84,7 +84,7 @@ __forceinline uch NextByte(CDecompressionObject* decompress)
     else
     {
         if (decompress->DataPtr == decompress->DataEnd)
-            decompress->DataPtr++; // the error state occurs only when decompress->DataPtr > decompress->DataEnd
+            decompress->DataPtr++; // error state is only when decompress->DataPtr > decompress->DataEnd
         return 0 /* error */;
     }
 }

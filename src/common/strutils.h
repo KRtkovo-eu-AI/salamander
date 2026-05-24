@@ -1,55 +1,55 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// The SAFE_ALLOC macro removes the code that checks whether memory allocation succeeded (see allochan.*)
+// macro SAFE_ALLOC removes code that tests whether memory allocation succeeded (see allochan.*)
 
-// Converts a Unicode (UTF-16) string to an ANSI multibyte string; 'src' is the Unicode string;
-// 'srcLen' is the length of the Unicode string (excluding the terminating null; if -1 is passed,
-// the length is determined from the terminating null); 'bufSize' (must be greater than 0) is the size of the destination buffer
-// 'buf' for the ANSI string; if 'compositeCheck' is TRUE, the WC_COMPOSITECHECK flag is used
-// (see MSDN); it must not be used for file names (NTFS distinguishes between names written as
-// precomposed and composite, i.e. it does not normalize names); 'codepage' is the code page of the
-// ANSI string; returns the number of characters written to 'buf' (including the terminating null); on error
-// returns 0 (see GetLastError()); always ensures 'buf' is null-terminated (even on error);
-// if 'buf' is too small, the function returns 0, but at least part of the string is converted into 'buf'
+// conversion of Unicode string (UTF-16) to ANSI multibyte string; 'src' is Unicode string;
+// 'srcLen' is length of Unicode string (without null terminator; if -1 is passed, the length is determined
+// according to null terminator); 'bufSize' (must be greater than 0) is the size of target buffer
+// 'buf' for ANSI string; if 'compositeCheck' is TRUE, it uses WC_COMPOSITECHECK flag
+// (see MSDN), must not be used for file names (NTFS distinguishes names written as
+// precomposed and composite, i.e., does not normalize names); 'codepage' is code page
+// of ANSI string; returns number of characters written to 'buf' (including null terminator); on error
+// returns zero (details see GetLastError()); always ensures null-terminated 'buf' (even on error);
+// if 'buf' is small, the function returns zero, but at least part of the string is converted to 'buf'
 int ConvertU2A(const WCHAR* src, int srcLen, char* buf, int bufSize,
                BOOL compositeCheck = FALSE, UINT codepage = CP_ACP);
 
-// Converts a Unicode (UTF-16) string to an allocated ANSI multibyte string (the caller is
-// responsible for freeing the string); 'src' is the Unicode string; 'srcLen' is the length of the Unicode
-// string (excluding the terminating null; if -1 is passed, the length is determined from the terminating null);
-// if 'compositeCheck' is TRUE, the WC_COMPOSITECHECK flag is used (see MSDN); it must not be used
-// for file names (NTFS distinguishes between names written as precomposed and composite, i.e.
-// it does not normalize names); 'codepage' is the code page of the ANSI string; returns the allocated
-// ANSI string; on error returns NULL (see GetLastError())
+// conversion of Unicode string (UTF-16) to allocated ANSI multibyte string (caller is
+// responsible for deallocation of string); 'src' is Unicode string; 'srcLen' is length of Unicode
+// string (without null terminator; if -1 is passed, the length is determined according to null terminator);
+// if 'compositeCheck' is TRUE, it uses WC_COMPOSITECHECK flag (see MSDN), must not be used
+// for file names (NTFS distinguishes names written as precomposed and composite, i.e.,
+// does not normalize names); 'codepage' is code page of ANSI string; returns allocated
+// ANSI string; on error returns NULL (details see GetLastError())
 char* ConvertAllocU2A(const WCHAR* src, int srcLen, BOOL compositeCheck = FALSE, UINT codepage = CP_ACP);
 
-// Converts an ANSI multibyte string to a Unicode (UTF-16) string; 'src' is the ANSI string;
-// 'srcLen' is the length of the ANSI string (excluding the terminating null; if -1 is passed,
-// the length is determined from the terminating null); 'bufSize' (must be greater than 0) is the size of the destination buffer
-// 'buf' for the Unicode string; 'codepage' is the code page of the ANSI string;
-// returns the number of characters written to 'buf' (including the terminating null); on error returns 0
-// (see GetLastError()); always ensures 'buf' is null-terminated (even on error);
-// if 'buf' is too small, the function returns 0, but at least part of the string is converted into 'buf'
+// conversion of ANSI multibyte string to Unicode string (UTF-16); 'src' is ANSI string;
+// 'srcLen' is length of ANSI string (without null terminator; if -1 is passed, the length is determined
+// according to null terminator); 'bufSize' (must be greater than 0) is the size of target buffer
+// 'buf' for Unicode string; 'codepage' is code page of ANSI string;
+// returns number of characters written to 'buf' (including null terminator); on error returns zero
+// (details see GetLastError()); always ensures null-terminated 'buf' (even on error);
+// if 'buf' is small, the function returns zero, but at least part of the string is converted to 'buf'
 int ConvertA2U(const char* src, int srcLen, WCHAR* buf, int bufSizeInChars,
                UINT codepage = CP_ACP);
 
-// Converts an ANSI multibyte string to an allocated Unicode (UTF-16) string (the caller is responsible for freeing
-// the string); 'src' is the ANSI string; 'srcLen' is the length of the ANSI
-// string (excluding the terminating null; if -1 is passed, the length is determined from the terminating null);
-// 'codepage' is the code page of the ANSI string; returns the allocated Unicode string; on
-// error returns NULL (see GetLastError())
+// conversion of ANSI multibyte string to allocated (caller is responsible for deallocation
+// of string) Unicode string (UTF-16); 'src' is ANSI string; 'srcLen' is length of ANSI
+// string (without null terminator; if -1 is passed, the length is determined according to null terminator);
+// 'codepage' is code page of ANSI string; returns allocated Unicode string; on
+// error returns NULL (details see GetLastError())
 WCHAR* ConvertAllocA2U(const char* src, int srcLen, UINT codepage = CP_ACP);
 
-// Copies 'txt' into a newly allocated string; returns NULL on out of memory (only possible when
-// allochan.* is not used) or if 'txt'==NULL
+// copies string 'txt' to newly allocated string, NULL = not enough memory (can only happen if
+// allochan.* is not used) or 'txt'==NULL
 WCHAR* DupStr(const WCHAR* txt);
 
-// Holds a pointer to allocated memory and frees it when overwritten by another pointer to allocated memory
-// and when destroyed
+// holds pointer to allocated memory, takes care of its deallocation when overwritten by another pointer to
+// allocated memory and during its destruction
 template <class PTR_TYPE>
 class CAllocP
 {
@@ -80,6 +80,6 @@ public:
     }
 };
 
-// Holds an allocated string and frees it when overwritten by another allocated string
-// and when destroyed
+// holds allocated string, takes care of deallocation when overwritten by another string (also allocated)
+// and during its destruction
 typedef CAllocP<WCHAR> CStrP;

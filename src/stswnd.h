@@ -1,8 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include <string>
 
 //
 // ****************************************************************************
@@ -18,9 +20,9 @@ enum CBorderLines
 
 enum CSecurityIconState
 {
-    sisNone = 0x00,      // Icon is not displayed
-    sisUnsecured = 0x01, // Icon of an unlocked lock displayed
-    sisSecured = 0x02    // Icon of a locked lock displayed
+    sisNone = 0x00,      // icon not shown
+    sisUnsecured = 0x01, // unlocked lock icon shown
+    sisSecured = 0x02    // locked lock icon shown
 };
 
 /*
@@ -33,28 +35,28 @@ enum
 //
 // CHotTrackItem
 //
-// Item holds the index of the first character, the number of characters, and the offset of the first character in points
-// and their length in points; for the displayed path a list of these items is created and kept
-// in an array
+// item contains the index of the first character, number of characters, offset of the first
+// character in pixels, and their length in pixels; for the displayed path a list of these
+// items is created and kept in an array
 //
-// for the path "\\john\c\winnt
+// for path "\\john\c\winnt
 //
-// the following items are created:
+// these items are created:
 //
-// (0, 9,  0, length of the first nine characters)   = \\john\c\
-// (0, 14, 0, length of 14 characters)              = \\john\c\winnt
+// (0, 9,  0, length of first nine characters)   = \\john\c\
+// (0, 14, 0, length of 14 characters)          = \\john\c\winnt
 //
 // for "DIR: 12"
 //
-// (0, 3, 0, length of the three characters "DIR")
-// (5, 2, point offset of "12", length of two characters "12")
+// (0, 3, 0, length of three characters DIR)
+// (5, 2, pixel offset "12", length of two characters "12")
 
 struct CHotTrackItem
 {
-    WORD Offset;       // Offset of the first character in characters
-    WORD Chars;        // Number of characters
-    WORD PixelsOffset; // Offset of the first character in points
-    WORD Pixels;       // Their length in points
+    WORD Offset;       // offset of the first character in characters
+    WORD Chars;        // number of characters
+    WORD PixelsOffset; // offset of the first character in pixels
+    WORD Pixels;       // length in pixels
 };
 
 class CStatusWindow : public CWindow
@@ -67,65 +69,68 @@ protected:
     TDirectArray<CHotTrackItem> HotTrackItems;
     BOOL HotTrackItemsMeasured;
 
-    int Border; // Separator line on the top/bottom
+    int Border; // separator line at top/bottom
     char* Text;
-    int TextLen; // Number of characters in 'Text' pointer without the terminator
+    std::wstring TextW;
+    BOOL UseWideText;
+    int TextLen; // number of characters in 'Text' without terminator
     char* Size;
-    int PathLen;          // -1 (the path occupies the entire Text); otherwise the path length in Text (the remainder is the filter)
-    BOOL History;         // Show the history drop-down arrow between the text and the size?
-    BOOL Hidden;          // Show the filter symbol?
-    int HiddenFilesCount; // how many files are filtered out?
-    int HiddenDirsCount;  // And directories
+    int PathLen;          // -1 (path is the whole Text), otherwise path length in Text (rest is filter)
+    BOOL History;         // show arrow between text and size?
+    BOOL Hidden;          // show filter symbol?
+    int HiddenFilesCount; // number of filtered files
+    int HiddenDirsCount;  // and directories
     BOOL WholeTextVisible;
 
-    BOOL ShowThrobber;             // TRUE if the 'progress' throbber should be shown after the text/hidden filter (regardless of the window's existence)
-    BOOL DelayedThrobber;          // TRUE if the timer to show the throbber is already running
-    DWORD DelayedThrobberShowTime; // The GetTickCount() value when the delayed throbber should appear (0 = do not show with a delay)
-    BOOL Throbber;                 // Show the 'progress' throbber after the text/hidden filter? (TRUE only if the window exists)
-    int ThrobberFrame;             // Index of the current animation frame
-    char* ThrobberTooltip;         // Tooltip; if NULL, nothing is displayed
-    int ThrobberID;                // identifier of the throbber (-1 = invalid)
+    BOOL ShowThrobber;             // TRUE if the 'progress' throbber should be shown after text/hidden filter (independent of window existence)
+    BOOL DelayedThrobber;          // TRUE if timer for showing throbber is already running
+    DWORD DelayedThrobberShowTime; // GetTickCount() value when delayed throbber should be shown (0 = not delayed)
+    BOOL Throbber;                 // show 'progress' throbber after text/hidden filter? (TRUE only if window exists)
+    int ThrobberFrame;             // index aktualniho policka animace
+    std::string ThrobberTooltip;   // if empty, it will not be shown
+    int ThrobberID;                // throbber identification number (-1 = invalid)
 
     CSecurityIconState Security;
-    char* SecurityTooltip; // Tooltip; if NULL, nothing is displayed
+    std::string SecurityTooltip; // if empty, it will not be shown
 
-    int Allocated;
-    int* AlpDX; // Array of lengths (from the first up to the X-th character in the string)
+    int Allocated;      // Text allocation, including terminator
+    int AlpDXAllocated; // AlpDX allocation, in int elements
+    int* AlpDX; // array of lengths (from 0th to Xth character in the string)
     BOOL Left;
 
-    int ToolBarWidth; // Current toolbar width
+    int ToolBarWidth; // current toolbar width
 
-    int EllipsedChars; // Number of characters omitted after the root; otherwise -1
-    int EllipsedWidth; // Length of the omitted string after the root; otherwise -1
+    int EllipsedChars; // number of omitted characters after root; otherwise -1
+    int EllipsedWidth; // length of omitted string after root; otherwise -1
 
-    CHotTrackItem* HotItem;     // Highlighted item
-    CHotTrackItem* LastHotItem; // Last highlighted item
-    BOOL HotSize;               // The size item is highlighted
-    BOOL HotHistory;            // The history item is highlighted
-    BOOL HotZoom;               // The zoom item is highlighted
-    BOOL HotHidden;             // The filter symbol is highlighted
-    BOOL HotSecurity;           // The lock symbol is highlighted
+    CHotTrackItem* HotItem;     // highlighted item
+    CHotTrackItem* LastHotItem; // last highlighted item
+    BOOL HotSize;               // size item is highlighted
+    BOOL HotHistory;            // history item is highlighted
+    BOOL HotZoom;               // zoom item is highlighted
+    BOOL HotHidden;             // filter symbol is highlighted
+    BOOL HotSecurity;           // lock symbol is highlighted
 
-    RECT TextRect;     // Rectangle where the text was erased
-    RECT HiddenRect;   // Rectangle where the filter symbol was erased
-    RECT SizeRect;     // Rectangle where the size text was erased
-    RECT HistoryRect;  // Rectangle where the history drop-down was erased
-    RECT ZoomRect;     // Rectangle where the zoom drop-down was erased
-    RECT ThrobberRect; // Rectangle where the throbber was erased
-    RECT SecurityRect; // Rectangle where the lock was erased
+    RECT TextRect;     // where we drew the text
+    RECT HiddenRect;   // where we drew the filter symbol
+    RECT SizeRect;     // where we drew the size text
+    RECT HistoryRect;  // where we drew the history dropdown
+    RECT ZoomRect;     // where we drew the zoom dropdown
+    RECT ThrobberRect; // where we drew the throbber
+    RECT SecurityRect; // where we drew the lock
     int MaxTextRight;
     BOOL MouseCaptured;
     BOOL RButtonDown;
     BOOL LButtonDown;
-    POINT LButtonDownPoint; // Where the user pressed the left button
+    POINT LButtonDownPoint; // where the user pressed LButton
 
     int Height;
-    int Width; // Width
+    int Width; // dimensions
 
-    BOOL NeedToInvalidate; // For SetAutomatic() - has a change occurred that requires repainting?
+    BOOL NeedToInvalidate; // for SetAutomatic() - change occurred, need to repaint?
 
-    DWORD* SubTexts;     // Array of DWORDs: LOWORD = position, HIWORD = length
-    DWORD SubTextsCount; // Number of items in SubTexts array
+    DWORD* SubTexts;     // DWORD array: LOWORD position, HIWORD length
+    DWORD SubTextsCount; // number of items in SubTexts array
 
     IDropTarget* IDropTargetPtr;
 
@@ -134,12 +139,13 @@ public:
     ~CStatusWindow();
 
     BOOL SetSubTexts(DWORD* subTexts, DWORD subTextsCount);
-    // Sets 'text' text into the status line; 'pathLen' specifies the path length (the rest is the filter),
-    // if 'pathLen' is not used (the path equals the entire 'text') it is set to -1
+    // sets 'text' in the status line, 'pathLen' defines the path length (rest is filter),
+    // if 'pathLen' is not used (path is the full 'text') it equals -1
     BOOL SetText(const char* text, int pathLen = -1);
+    BOOL SetTextW(const wchar_t* text, int pathLen = -1);
 
-    // Builds the HotTrackItems array: for disks and archives based on backslashes
-    // and asks the plugin for FS entries
+    // builds HotTrackItems array: for disks and archivers based on backslashes
+    // and for FS it asks the plugin
     void BuildHotTrackItems();
 
     void GetHotText(char* buffer, int bufSize);
@@ -152,11 +158,11 @@ public:
     void SetSize(const CQuadWord& size);
     void SetHidden(int hiddenFiles, int hiddenDirs);
     void SetHistory(BOOL history);
-    void SetThrobber(BOOL show, int delay = 0, BOOL calledFromDestroyWindow = FALSE); // Call only from the main (GUI) thread, just like the other object methods
-    // Sets the text displayed as the tooltip when the mouse hovers over the throbber; the object makes its own copy
-    // If NULL, no tooltip is shown
+    void SetThrobber(BOOL show, int delay = 0, BOOL calledFromDestroyWindow = FALSE); // call only from the main (GUI) thread, same as other methods
+    // sets text shown as tooltip when hovering the throbber, the object makes a copy
+    // if NULL, the tooltip will not be shown
     void SetThrobberTooltip(const char* throbberTooltip);
-    int ChangeThrobberID(); // Changes ThrobberID and returns its new value
+    int ChangeThrobberID(); // changes ThrobberID and returns its new value
     BOOL IsThrobberVisible(int throbberID) { return ShowThrobber && ThrobberID == throbberID; }
     void HideThrobberAndSecurityIcon();
 
@@ -168,7 +174,7 @@ public:
     void LayoutWindow();
     void Paint(HDC hdc, BOOL highlightText = FALSE, BOOL highlightHotTrackOnly = FALSE);
     void Repaint(BOOL flashText = FALSE, BOOL hotTrackOnly = FALSE);
-    void InvalidateAndUpdate(BOOL update); // May also be called when HWindow == NULL
+    void InvalidateAndUpdate(BOOL update); // can be called even for HWindow == NULL
     void FlashText(BOOL hotTrackOnly = FALSE);
 
     BOOL FindHotTrackItem(int xPos, int& index);
@@ -178,13 +184,13 @@ public:
 
     BOOL IsLeft() { return Left; }
 
-    BOOL SetDriveIcon(HICON hIcon);     // The icon is copied into the image list - the caller is responsible for destruction
-    void SetDrivePressed(BOOL pressed); // Presses the drive icon
+    BOOL SetDriveIcon(HICON hIcon);     // icon is copied into imagelist - destruction must be handled by caller
+    void SetDrivePressed(BOOL pressed); // zamackne drive ikonku
 
-    BOOL GetTextFrameRect(RECT* r);   // Returns the rectangle around the text in screen coordinates
-    BOOL GetFilterFrameRect(RECT* r); // Returns the rectangle around the filter symbol in screen coordinates
+    BOOL GetTextFrameRect(RECT* r);   // returns rectangle around text in screen coordinates
+    BOOL GetFilterFrameRect(RECT* r); // returns rectangle around filter symbol in screen coordinates
 
-    // The screen color depth may have changed; CacheBitmap needs to be rebuilt
+    // display color depth may have changed; need to rebuild CacheBitmap
     void OnColorsChanged();
 
     void SetFont();
@@ -195,9 +201,9 @@ protected:
     void RegisterDragDrop();
     void RevokeDragDrop();
 
-    // Creates an image list with a single item that will be used to display drag progress
-    // After the drag finishes, the image list must be released
-    // Input is the point relative to which dxHotspot and dyHotspot offsets are calculated
+    // creates imagelist with one item, used for displaying drag progress
+    // after drag ends this imagelist must be released
+    // input is a point for which dxHotspot and dyHotspot offsets are computed
     HIMAGELIST CreateDragImage(const char* text, int& dxHotspot, int& dyHotspot, int& imgWidth, int& imgHeight);
 
     void PaintThrobber(HDC hDC);

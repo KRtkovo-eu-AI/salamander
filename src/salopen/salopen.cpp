@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include <windows.h>
 #include <shlobj.h>
@@ -15,7 +15,7 @@ HANDLE Heap = NULL;
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 
-// callback that returns the names of selected files for creating the following interfaces
+// callback that returns names of selected files for creating the next interface
 typedef const char* (*CEnumFileNamesFunction)(int index, void* param);
 
 void my_memcpy(void* dst, const void* src, int len)
@@ -27,7 +27,7 @@ void my_memcpy(void* dst, const void* src, int len)
 }
 
 // for VS2019
-#pragma intrinsic(memcpy) // so we can build with speed optimization without compiler complaints
+#pragma intrinsic(memcpy) // so we can compile with speed optimization and the compiler does not complain
 #pragma function(memcpy)  // error C2169:  'memcpy': intrinsic function, cannot be defined
 void* memcpy(void* dst, const void* src, size_t len)
 {
@@ -54,7 +54,7 @@ int StrNICmp(const char* s1, const char* s2, int n)
     {
         res = (unsigned)LowerCase[*s1++] - (unsigned)LowerCase[*s2++];
         if (res != 0)
-            return (res < 0) ? -1 : 1; // < or >
+            return (res < 0) ? -1 : 1; // < a >
     }
     return 0;
 }
@@ -66,7 +66,7 @@ int StrICmp(const char* s1, const char* s2)
     {
         res = (unsigned)LowerCase[*s1] - (unsigned)LowerCase[*s2++];
         if (res != 0)
-            return (res < 0) ? -1 : 1; // < or >
+            return (res < 0) ? -1 : 1; // < a >
         if (*s1++ == 0)
             return 0; // ==
     }
@@ -221,7 +221,7 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
                         *name = c;
                         dir = name;
                     }
-                    //          else TRACE_E("BindToObject error: " << hex << ret); // dir remains
+                    //          else TRACE_E("BindToObject error: " << hex << ret); // dir zustava
                     IMalloc* alloc;
                     if (pidlUpperDir != NULL && SUCCEEDED(CoGetMalloc(1, &alloc)))
                     {
@@ -282,7 +282,7 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
                                                 if (lstrlen(name) <= 3 && StrNICmp(name, root, 2) == 0) // name = "c:" or "c:\"
                                                 {
                                                     pidlFolder = idList;
-                                                    break; // PIDL found
+                                                    break; // pidl found (retrieved)
                                                 }
                                             }
                                         }
@@ -299,7 +299,7 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
                     }
                     else
                     {
-                        if (rootFolder == CSIDL_NETWORK) // we must obtain a complex PIDL; otherwise mapping does not work
+                        if (rootFolder == CSIDL_NETWORK) // must get a complex pidl, otherwise mapping does not work
                         {
                             BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
                             HCURSOR oldCur;
@@ -372,7 +372,7 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
                                                             LPSHELLFOLDER swap = shellFolderObj;
                                                             shellFolderObj = folder2;
                                                             folder2 = swap;
-                                                            break; // PIDL found
+                                                            break; // pidl found (retrieved)
                                                         }
                                                     }
                                                 }
@@ -403,7 +403,7 @@ BOOL GetShellFolder(const char* dir, IShellFolder*& shellFolderObj, LPITEMIDLIST
                 if (pidlFolder == NULL)
                     pidlFolder = GetItemIdListForFileName(shellFolderObj, dir);
 
-                // shellFolderObj + pidlFolder together represent the "dir" folder
+                // shellFolderObj + pidlFolder  -> dohromady "dir" folder
             }
             //      else TRACE_E("BindToObject error: " << hex << ret);
             IMalloc* alloc;
@@ -505,7 +505,7 @@ void DoExecuteAssociation(HWND hWindow, const char* path, const char* name)
             menu->QueryContextMenu(h, 0, 0, -1, CMF_NORMAL | CMF_EXPLORE);
 
             UINT cmd = GetMenuDefaultItem(h, FALSE, GMDI_GOINTOPOPUPS);
-            if (cmd == -1) // default item not found -> try searching only among verbs
+            if (cmd == -1) // nenasli jsme default item -> zkusime hledat jen mezi verby
             {
                 DestroyMenu(h);
                 h = CreatePopupMenu();
@@ -515,7 +515,7 @@ void DoExecuteAssociation(HWND hWindow, const char* path, const char* name)
 
                     cmd = GetMenuDefaultItem(h, FALSE, GMDI_GOINTOPOPUPS);
                     if (cmd == -1)
-                        cmd = 0; // try the "default verb" (index 0)
+                        cmd = 0; // zkusime "default verb" (index 0)
                 }
             }
             if (cmd != -1)
@@ -568,10 +568,10 @@ LONG __stdcall MyUnhandledExceptionFilter(EXCEPTION_POINTERS* ExceptionInfo)
 {
     //  DWORD written;
     //  WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),
-    //            "SALOPEN: An exception has occurred!\n",
+    //            "SALOPEN: An exception has occured!\n",
     //            34, &written, NULL);
     //  ExitProcess(666);
-    TerminateProcess(GetCurrentProcess(), 666); // more forceful exit; this still makes one call
+    TerminateProcess(GetCurrentProcess(), 666); // tvrdsi exit (tenhle jeste neco vola)
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -617,7 +617,7 @@ LRESULT CALLBACK MyWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 // EnableExceptionsOn64
 //
 
-// We want to receive SEH exceptions even on x64 Windows 7 SP1 and later.
+// Chceme se dozvedet o SEH Exceptions i na x64 Windows 7 SP1 a dal
 // http://blog.paulbetts.org/index.php/2010/07/20/the-case-of-the-disappearing-onload-exception-user-mode-callback-exceptions-in-x64/
 // http://connect.microsoft.com/VisualStudio/feedback/details/550944/hardware-exceptions-on-x64-machines-are-silently-caught-in-wndproc-messages
 // http://support.microsoft.com/kb/976038
@@ -749,7 +749,7 @@ void WinMainCRTStartup()
                         GetCurrentProcess(), &fm,  // this process file-mapping
                         0, FALSE, DUPLICATE_SAME_ACCESS))
     {
-        void* ptr = MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0); // FIXME_X64 we do not pass x86/x64-incompatible data, do we?
+        void* ptr = MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0); // FIXME_X64 nepredavame x86/x64 nekompatibilni data?
         if (ptr != NULL)
         {
             // lets copy file name from file-mapping (shared memory)
@@ -770,8 +770,8 @@ void WinMainCRTStartup()
         ExitProcess(1);
     }
 
-    // Create a hidden window and launch the menu from it.
-    // On W2K+ this is probably no longer necessary.
+    // create a hidden window and launch the menu from it
+    // on W2K+ probably no longer needed
     HINSTANCE hInstance = GetModuleHandle(NULL);
     WNDCLASS CWindowClass;
     CWindowClass.style = CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW;

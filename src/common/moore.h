@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 // ****************************************************************************
 // Boyer-Moore substring search algorithm
@@ -51,7 +51,7 @@ public:
     void SetFlags(WORD flags);
     void Set(const char* pattern, WORD flags);
     // for patterns containing '\0'
-    // the pattern buffer must be (length + 1) characters long (for compatibility with C strings)
+    // buffer pattern must have length (length + 1) characters (compatibility with strings)
     void Set(const char* pattern, const int length, WORD flags);
 
     inline int SearchForward(const char* text, int length, int start);
@@ -61,24 +61,26 @@ protected:
     int Minimum(int a, int b) { return (a < b) ? a : b; }
     int Maximum(int a, int b) { return (a > b) ? a : b; }
 
-    int* Fail1;            // fail array for the current character
-    int* Fail2;            // fail array for substring occurrence from the right
-    char* OriginalPattern; // original search pattern
-    char* Pattern;         // search pattern in the corresponding flag-dependent form
+    int* Fail1;            // fail array for current character
+    int* Fail2;            // fail array for substring occurrence from right
+    char* OriginalPattern; // original pattern to search for
+    char* Pattern;         // pattern to search for in appropriate form (Flag)
     int Length;            // pattern length
 
 private:
     BOOL Initialize(); // called only from SetFlags
 
-    WORD Flags; // modify via SetFlags
+    WORD Flags; // change through SetFlags
 };
 
+//
 // ****************************************************************************
 // SearchForward
-// returns the index of Pattern or -1
+// returns pattern position or -1
 // text - text to search in
-// length - length of the text string
-// start - index of the first character, starting at 0
+// length - length of text string
+// start - first character numbered from 0
+//
 
 int CSearchData::SearchForward(const char* text, int length, int start)
 {
@@ -117,11 +119,13 @@ int CSearchData::SearchForward(const char* text, int length, int start)
     return -1;
 }
 
+//
 // ****************************************************************************
 // SearchBackward
-// returns the index of Pattern or -1
+// returns pattern position or -1
 // text - text to search in
-// length - length of the text string
+// length - length of text string
+//
 
 int CSearchData::SearchBackward(const char* text, int length)
 {

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -67,7 +67,7 @@ char* String<char>::LoadStr(int resID)
 
     RELOAD:
         int size = LoadStringA(hInstance, resID, StrAct, STRBUFSIZE - (int)(StrAct - StringBuffer));
-        // size contains the number of copied characters, excluding the terminator
+        // size contains number of copied characters without terminator
         //    DWORD error = GetLastError();
         if (size != 0 /* || error == NO_ERROR*/) // error is NO_ERROR even if string doesn't exist, we cannot use it
         {
@@ -206,7 +206,7 @@ char* String<char>::AddNumberSuffix(char* filename, int n)
     if (ext != NULL && (ext - filename) != ((int)strlen(filename) - 4))
         ext = NULL;
 
-    char temp[MAX_PATH + 50];
+    CPathBuffer temp; // Heap-allocated for long path support
     if (ext == NULL)
     {
         sprintf(temp, "%s (%d)", filename, n++);

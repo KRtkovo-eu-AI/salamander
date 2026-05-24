@@ -1,10 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
 
 #include <crtdbg.h>
 #include <ostream>
+#include <string>
 #include <stdio.h>
 #include <commctrl.h>
 #include <limits.h>
@@ -489,6 +491,47 @@ int CTabList::GetSelectedIndex()
     return index;
 }
 
+void CTabList::CopyLineToClipboard(HWND hOwner)
+{
+    int sel = GetSelectedIndex();
+    if (sel == -1)
+        return;
+
+    // Build tab-separated text from visible columns
+    std::wstring line;
+    int visibleCount = 0;
+    for (int i = 0; i < HEADER_ITEMS; i++)
+    {
+        if (*(&(ConfigData.ViewColumnVisible_Type) + i))
+            visibleCount++;
+    }
+
+    for (int col = 0; col < visibleCount; col++)
+    {
+        WCHAR buff[1000];
+        buff[0] = 0;
+        GetText(sel, ColumnIndex[col], buff, _countof(buff));
+        if (col > 0)
+            line += L'\t';
+        line += buff;
+    }
+
+    if (OpenClipboard(hOwner))
+    {
+        EmptyClipboard();
+        SIZE_T cb = (line.size() + 1) * sizeof(WCHAR);
+        HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, cb);
+        if (hMem != NULL)
+        {
+            WCHAR* pMem = (WCHAR*)GlobalLock(hMem);
+            memcpy(pMem, line.c_str(), cb);
+            GlobalUnlock(hMem);
+            SetClipboardData(CF_UNICODETEXT, hMem);
+        }
+        CloseClipboard();
+    }
+}
+
 void CTabList::GetText(int iItem, int index, WCHAR* buff, int buffMax, BOOL preferEndOfText)
 {
     switch (index)
@@ -575,10 +618,10 @@ void CTabList::GetText(int iItem, int index, WCHAR* buff, int buffMax, BOOL pref
         const WCHAR* s = Data.Messages[iItem].Message;
         if (preferEndOfText) // we want to return the end of the text (e.g., for a tooltip)
         {
-            int len = wcslen(s);
-            if (len + 1 > buffMax)
+            size_t len = wcslen(s);
+            if (len + 1 > (size_t)buffMax)
             {
-                s += len - (buffMax - 1);
+                s += len - ((size_t)buffMax - 1);
                 if (IS_LOW_SURROGATE(*s))
                     s++; // UTF-16 can contain surrogate pairs; skip the second code unit so the text does not start in the middle of a character
             }
@@ -792,7 +835,7 @@ CTabList::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // draw ERRORS in red
                 if (cd->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
                 {
-                    int index = cd->nmcd.dwItemSpec;
+                    int index = (int)cd->nmcd.dwItemSpec;
                     if (index >= 0 && index < Data.Messages.Count)
                     {
                         if (IsErrorMsg(Data.Messages[index].Type))

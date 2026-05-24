@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -38,7 +39,7 @@ public:
     {
         this->_parent = parent;
         this->_namelen = _tcslen(name);
-        this->_name = (TCHAR*)malloc((this->_namelen + 1) * sizeof TCHAR);
+        this->_name = (TCHAR*)malloc((this->_namelen + 1) * sizeof(TCHAR));
         _tcscpy(this->_name, name);
 
         this->_datasize = datasize;
@@ -97,8 +98,8 @@ public:
     void LoadFileInfo(TCHAR* displayName, TCHAR* typeName)
     {
         SHFILEINFO shfi;
-        TCHAR path[2 * MAX_PATH + 1];
-        //SHGetFileInfo(buff, 0, &shfi, sizeof shfi, SHGFI_ICON | SHGFI_SHELLICONSIZE | SHGFI_DISPLAYNAME | SHGFI_TYPENAME);
+        CPathBuffer path;
+        //SHGetFileInfo(buff, 0, &shfi, sizeof(shfi), SHGFI_ICON | SHGFI_SHELLICONSIZE | SHGFI_DISPLAYNAME | SHGFI_TYPENAME);
         UINT flags = 0;
         if (displayName)
         {
@@ -112,15 +113,15 @@ public:
         }
         if (flags)
         {
-            int len = (int)this->GetFullName(path, 2 * MAX_PATH);
+            int len = (int)this->GetFullName(path, path.Size());
             DWORD_PTR result = 0;
             if (len <= MAX_PATH)
             {
-                result = SHGetFileInfo(path, 0, &shfi, sizeof shfi, flags);
+                result = SHGetFileInfo(path, 0, &shfi, sizeof(shfi), flags);
             }
             else
             {
-                result = SHGetFileInfo(this->_name, 0, &shfi, sizeof shfi, flags | SHGFI_USEFILEATTRIBUTES);
+                result = SHGetFileInfo(this->_name, 0, &shfi, sizeof(shfi), flags | SHGFI_USEFILEATTRIBUTES);
             }
 
             if (result != 0)

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -9,6 +10,7 @@
 #include "dialogs.h"
 #include "split.h"
 #include "combine.h"
+#include "plugindarkmode.h"
 
 // *****************************************************************************
 //
@@ -195,7 +197,7 @@ namespace split
     static INT_PTR CALLBACK SplitDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         CALL_STACK_MESSAGE4("SplitDlgProc( , 0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
-        char text[MAX_PATH + 100];
+        CPathBuffer text; // Heap-allocated for long path support
 
         switch (uMsg)
         {
@@ -257,7 +259,7 @@ namespace split
             }
 
             case IDOK:
-                GetDlgItemText(hWnd, IDC_EDIT_DIR, pszTargetDir, MAX_PATH);
+                GetDlgItemText(hWnd, IDC_EDIT_DIR, pszTargetDir, SAL_MAX_LONG_PATH);
                 EndDialog(hWnd, TRUE);
                 break;
 
@@ -299,7 +301,7 @@ namespace split
             case IDC_BUTTON_BROWSE:
             {
                 HWND parent = SalamanderGeneral->GetMsgBoxParent();
-                GetDlgItemText(hWnd, IDC_EDIT_DIR, text, MAX_PATH);
+                GetDlgItemText(hWnd, IDC_EDIT_DIR, text, text.Size());
                 if (SalamanderGeneral->GetTargetDirectory(hWnd, parent, LoadStr(IDS_SPLIT),
                                                           LoadStr(IDS_SELECTDIR), text, FALSE, text))
                     SetDlgItemText(hWnd, IDC_EDIT_DIR, text);
@@ -363,7 +365,7 @@ namespace combine
     {
         int index;
         //HICON hIcon;
-        char text[MAX_PATH];
+        CPathBuffer text; // Heap-allocated for long path support
     };
 
     static BOOL AddFile(LPTSTR fullName, BOOL bUpdateArray = TRUE)
@@ -382,8 +384,8 @@ namespace combine
             files->Add(dup);
         }
 
-        char dir[MAX_PATH];
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, dir, MAX_PATH, NULL, NULL);
+        CPathBuffer dir; // Heap-allocated for long path support
+        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, dir, dir.Size(), NULL, NULL);
         const char* name = SalamanderGeneral->SalPathFindFileName(fullName);
         ITEMDATA* pid = new ITEMDATA;
         if ((name - fullName - 1) == (int)strlen(dir) && !_memicmp(dir, fullName, name - fullName - 1))
@@ -466,7 +468,7 @@ namespace combine
     {
         CALL_STACK_MESSAGE1("OnAdd()");
         OPENFILENAME ofn;
-        char* filenames = new char[MAX_PATH * 100];
+        char* filenames = new char[SAL_MAX_LONG_PATH];
         if (filenames == NULL)
         {
             SalamanderGeneral->SalMessageBox(hDialog, LoadStr(IDS_OUTOFMEM), LoadStr(IDS_COMBINE),
@@ -484,10 +486,10 @@ namespace combine
         ofn.lpstrFilter = filter;
         ofn.lpstrCustomFilter = NULL;
         ofn.lpstrFile = filenames;
-        ofn.nMaxFile = MAX_PATH * 100;
+        ofn.nMaxFile = SAL_MAX_LONG_PATH;
         ofn.lpstrTitle = LoadStr(IDS_ADDTITLE);
-        char initdir[MAX_PATH];
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, initdir, MAX_PATH, NULL, NULL);
+        CPathBuffer initdir; // Heap-allocated for long path support
+        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, initdir, initdir.Size(), NULL, NULL);
         ofn.lpstrInitialDir = initdir;
         ofn.Flags = OFN_ALLOWMULTISELECT | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_READONLY | OFN_NOCHANGEDIR;
 
@@ -499,9 +501,9 @@ namespace combine
                 filenames[i - 1] = 0;
             while (filenames[i])
             {
-                char fullname[MAX_PATH];
+                CPathBuffer fullname; // Heap-allocated for long path support
                 strcpy(fullname, filenames);
-                if (!SalamanderGeneral->SalPathAppend(fullname, filenames + i, MAX_PATH))
+                if (!SalamanderGeneral->SalPathAppend(fullname, filenames + i, fullname.Size()))
                 {
                     SalamanderGeneral->SalMessageBox(hDialog, LoadStr(IDS_TOOLONGNAME2), LoadStr(IDS_COMBINE),
                                                      MB_OK | MB_ICONEXCLAMATION);
@@ -527,7 +529,7 @@ namespace combine
     {
         CALL_STACK_MESSAGE1("OnBrowse()");
         OPENFILENAME ofn;
-        char filename[MAX_PATH];
+        CPathBuffer filename; // Heap-allocated for long path support
         filename[0] = 0;
         ZeroMemory(&ofn, sizeof(ofn));
         ofn.lStructSize = sizeof(ofn);
@@ -539,10 +541,10 @@ namespace combine
         ofn.lpstrFilter = filter;
         ofn.lpstrCustomFilter = NULL;
         ofn.lpstrFile = filename;
-        ofn.nMaxFile = MAX_PATH;
+        ofn.nMaxFile = filename.Size();
         ofn.lpstrTitle = LoadStr(IDS_BROWSETITLE);
-        char initdir[MAX_PATH];
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, initdir, MAX_PATH, NULL, NULL);
+        CPathBuffer initdir; // Heap-allocated for long path support
+        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, initdir, initdir.Size(), NULL, NULL);
         ofn.lpstrInitialDir = initdir;
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
         if (SalamanderGeneral->SafeGetSaveFileName(&ofn))
@@ -660,7 +662,7 @@ namespace combine
                 break;
 
             case IDOK:
-                GetDlgItemText(hWnd, IDC_EDIT_TARGET, targetName, MAX_PATH);
+                GetDlgItemText(hWnd, IDC_EDIT_TARGET, targetName, SAL_MAX_LONG_PATH);
                 EndDialog(hWnd, TRUE);
                 break;
 
@@ -734,16 +736,13 @@ namespace combine
             BOOL selected = (dis->itemState & ODS_SELECTED);
             BOOL focused = selected && GetFocus() == GetDlgItem(hWnd, dis->CtlID);
 
-            if (selected)
-                FillRect(hDC, &r, (HBRUSH)(COLOR_HIGHLIGHT + 1));
-            else
-                FillRect(hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
+            PluginDarkMode_FillOwnerDrawBackground(hDC, &r, selected, focused);
 
             if (pid->index != -1)
             {
                 DrawIconEx(hDC, r.left + 2, r.top + 1, /*pid->hIcon*/ hFileIcon, 16, 16, 0, NULL, DI_NORMAL);
                 r.left += 21;
-                SetTextColor(hDC, GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_WINDOWTEXT));
+                SetTextColor(hDC, PluginDarkMode_GetOwnerDrawTextColor(selected, TRUE));
                 SetBkMode(hDC, TRANSPARENT);
                 DrawText(hDC, pid->text, -1, &r, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
                 r.left -= 21;
@@ -991,13 +990,13 @@ void CRCDialog(TIndirectArray<char>& files, BOOL bf, UINT32 oc, HWND parent,
     {
       SalamanderGUI->ArrangeHorizontalLines(hWnd);
       CenterWindow(hWnd);
-      char text[MAX_PATH];
-      sprintf(text, LoadStr(IDS_FILECRCTITLE), 
+      CPathBuffer text; // Heap-allocated for long path support
+      sprintf(text.Get(), LoadStr(IDS_FILECRCTITLE), 
         SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL)->Name);
       SetDlgItemText(hWnd, IDC_STATIC_CRCTITLE, text);
-      sprintf(text, LoadStr(IDS_CRCHEX), lParam);
+      sprintf(text.Get(), LoadStr(IDS_CRCHEX), lParam);
       SetDlgItemText(hWnd, IDC_EDIT_CRC1, text);
-      sprintf(text, LoadStr(IDS_CRCDEC), lParam);
+      sprintf(text.Get(), LoadStr(IDS_CRCDEC), lParam);
       SetDlgItemText(hWnd, IDC_EDIT_CRC2, text);
 
       SendDlgItemMessage(hWnd, IDC_ICON_OK, STM_SETIMAGE, IMAGE_ICON,

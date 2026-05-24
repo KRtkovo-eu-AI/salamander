@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -11,8 +12,8 @@ enum CParserResultEnum
     preOpenError,      // error while opening the file
     preReadError,      // error while reading from the file
     preWriteError,     // error while writing to the file
-    preSeekError,      // error while seeking in the file
-    preCorruptedFile,  // corrupted file
+    preSeekError,      // error while setting the position in the file
+    preCorruptedFile,  // corruped file
     preExtensionError, // unable to initialize Windows extensions e.g. WMA
     preCount           // another error
 };

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -769,11 +770,11 @@ BOOL CRawEditValDialog::ExportToTempFile()
     if (!SG->SalGetTempFileName(NULL, "SAL", TempDir, FALSE, NULL))
         return Error(IDS_CREATETEMP);
 
-    SG->SalPathAddBackslash(strcpy(TempFile, TempDir), MAX_PATH);
+    SG->SalPathAddBackslash(strcpy(TempFile, TempDir), TempFile.Size());
     int tlen = (int)strlen(TempFile);
     TempFile[tlen++] = '_';
-    int len = min(MAX_PATH - tlen - 1, (int)wcslen(KeyName));
-    WStrToStr(TempFile + tlen, MAX_PATH, KeyName, len);
+    int len = min(TempFile.Size() - tlen - 1, (int)wcslen(KeyName));
+    WStrToStr(TempFile.Get() + tlen, TempFile.Size(), KeyName, len);
     TempFile[len + tlen] = 0;
     ReplaceUnsafeCharacters(TempFile + tlen);
 
@@ -939,9 +940,9 @@ void CConfigDialog::Validate(CTransferInfoEx& ti)
 {
     CALL_STACK_MESSAGE1("CConfigDialog::Validate()");
     int e1, e2;
-    char buffer[MAX_PATH];
+    CPathBuffer buffer; // Heap-allocated for long path support
 
-    ti.EditLine(IDE_COMMAND, buffer, MAX_PATH);
+    ti.EditLine(IDE_COMMAND, buffer, buffer.Size());
     if (!SG->ValidateVarString(HWindow, buffer, e1, e2, ExpCommandVariables))
     {
         ti.ErrorOn(IDE_COMMAND);
@@ -950,7 +951,7 @@ void CConfigDialog::Validate(CTransferInfoEx& ti)
         return;
     }
 
-    ti.EditLine(IDE_ARGUMENTS, buffer, MAX_PATH);
+    ti.EditLine(IDE_ARGUMENTS, buffer, buffer.Size());
     if (!SG->ValidateVarString(HWindow, buffer, e1, e2, ExpArgumentsVariables))
     {
         ti.ErrorOn(IDE_ARGUMENTS);
@@ -959,7 +960,7 @@ void CConfigDialog::Validate(CTransferInfoEx& ti)
         return;
     }
 
-    ti.EditLine(IDE_INITDIR, buffer, MAX_PATH);
+    ti.EditLine(IDE_INITDIR, buffer, buffer.Size());
     if (!SG->ValidateVarString(HWindow, buffer, e1, e2, ExpInitDirVariables))
     {
         ti.ErrorOn(IDE_INITDIR);
@@ -972,9 +973,9 @@ void CConfigDialog::Validate(CTransferInfoEx& ti)
 void CConfigDialog::Transfer(CTransferInfoEx& ti)
 {
     CALL_STACK_MESSAGE1("CConfigDialog::Transfer()");
-    ti.EditLine(IDE_COMMAND, Command, MAX_PATH);
-    ti.EditLine(IDE_ARGUMENTS, Arguments, MAX_PATH);
-    ti.EditLine(IDE_INITDIR, InitDir, MAX_PATH);
+    ti.EditLine(IDE_COMMAND, Command, Command.Size());
+    ti.EditLine(IDE_ARGUMENTS, Arguments, Arguments.Size());
+    ti.EditLine(IDE_INITDIR, InitDir, InitDir.Size());
 }
 
 INT_PTR
@@ -1034,9 +1035,9 @@ CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (cmd == 1)
                 {
-                    char path[MAX_PATH];
+                    CPathBuffer path; // Heap-allocated for long path support
                     path[0] = 0;
-                    GetDlgItemText(HWindow, IDE_COMMAND, path, MAX_PATH);
+                    GetDlgItemText(HWindow, IDE_COMMAND, path, path.Size());
                     if (GetOpenFileName(HWindow, NULL, LoadStr(IDS_EXEFILES), path))
                         SetDlgItemText(HWindow, IDE_COMMAND, path);
                 }
@@ -1212,8 +1213,8 @@ void CExportDialog::Validate(CTransferInfoEx& ti)
         ti.ErrorOn(IDE_NAME);
     }
 
-    char buffer2[MAX_PATH];
-    ti.EditLine(IDE_FILE, buffer2, MAX_PATH);
+    CPathBuffer buffer2; // Heap-allocated for long path support
+    ti.EditLine(IDE_FILE, buffer2, buffer2.Size());
     if (strlen(buffer2) == 0)
     {
         SG->SalMessageBox(HWindow, LoadStr(IDS_EMPTY), LoadStr(IDS_ERROR), MB_ICONERROR);
@@ -1241,13 +1242,13 @@ CExportDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case IDB_BROWSE:
         {
-            char path[MAX_PATH];
+            CPathBuffer path; // Heap-allocated for long path support
             path[0] = 0;
-            GetDlgItemText(HWindow, IDE_FILE, path, MAX_PATH);
+            GetDlgItemText(HWindow, IDE_FILE, path, path.Size());
             SG->SalPathRemoveBackslash(path);
             if (GetOpenFileName(HWindow, NULL, LoadStr(IDS_REGFILES), path, TRUE))
             {
-                SG->SalPathAddExtension(path, ".reg", MAX_PATH);
+                SG->SalPathAddExtension(path, ".reg", path.Size());
                 SetDlgItemText(HWindow, IDE_FILE, path);
             }
             return TRUE;

@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 //#include <windows.h>
@@ -36,7 +37,7 @@ DWORD ArcSize;
 DWORD EOCentrDirOffs;
 BOOL Encrypt = FALSE;
 
-char ExeName[MAX_PATH]; // exe
+CPathBuffer ExeName; // Heap-allocated for long path support
 HANDLE ExeFile = INVALID_HANDLE_VALUE;
 
 char* Param = NULL; // pointer to parameter (either 'p' or 's' followed by a filename)
@@ -188,12 +189,11 @@ BOOL ProcessCommandline(int argc, char* argv[])
 DWORD SalGetFileAttributes(const char* fileName)
 {
     int fileNameLen = (int)strlen(fileName);
-    char fileNameCopy[3 * MAX_PATH];
-    // If the path ends with a space or dot, we must append '\\'; otherwise
-    // GetFileAttributes trims trailing spaces/dots and works with a different path.
-    // This does not work for files, but it is still better than getting attributes
-    // for a different file or directory (for "c:\\file.txt   " it works with
-    // the name "c:\\file.txt").
+    char fileNameCopy[32768];
+    // if the path ends with a trailing space or dot we must append '\\'; otherwise
+    // GetFileAttributes trims that character and works with a different path.
+    // The workaround still beats returning attributes of another file or directory
+    // (for "c:\\file.txt   " it ends up working with "c:\\file.txt").
     if (fileNameLen > 0 && (fileName[fileNameLen - 1] <= ' ' || fileName[fileNameLen - 1] == '.') &&
         fileNameLen + 1 < _countof(fileNameCopy))
     {
@@ -202,7 +202,7 @@ DWORD SalGetFileAttributes(const char* fileName)
         fileNameCopy[fileNameLen + 1] = 0;
         return GetFileAttributes(fileNameCopy);
     }
-    else // ordinary path, nothing special to handle, just call Windows GetFileAttributes
+    else // ordinary path, nothing special here, just call the Windows GetFileAttributes
     {
         return GetFileAttributes(fileName);
     }
@@ -238,7 +238,7 @@ BOOL LoadSettings()
         {
             if (Read(file, SettingsTextData, fsiz))
             {
-                char zip2sfxDir[MAX_PATH];
+                CPathBuffer zip2sfxDir; // Heap-allocated for long path support
                 GetZip2SfxDir(zip2sfxDir);
 
                 SettingsTextData[fsiz] = 0;
@@ -412,7 +412,7 @@ BOOL main2()
         return FALSE;
     if (Param && *Param == 's')
     {
-        char zip2sfxDir[MAX_PATH];
+        CPathBuffer zip2sfxDir; // Heap-allocated for long path support
         GetZip2SfxDir(zip2sfxDir);
 
         ImportSFXSettings(SettingsTextData, &Settings, zip2sfxDir);

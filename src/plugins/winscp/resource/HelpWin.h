@@ -1,4 +1,4 @@
-#ifndef HelpWinH
+﻿#ifndef HelpWinH
 #define HelpWinH
 
 #define HELP_ERROR                   "messages"

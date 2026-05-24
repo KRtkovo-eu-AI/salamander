@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -16,7 +17,7 @@ BOOL InitFS();
 void ReleaseFS();
 
 // FS-name assigned by Salamander after plugin is loaded
-extern char AssignedFSName[MAX_PATH];
+extern CPathBuffer AssignedFSName;
 
 // image-list for simple FS icons
 extern HIMAGELIST DFSImageList;
@@ -29,7 +30,7 @@ extern BOOL ConfigShowZeroFiles;
 extern BOOL ConfigShowEmptyDirs;
 extern BOOL ConfigShowMetafiles;
 extern BOOL ConfigEstimateDamage;
-extern char ConfigTempPath[MAX_PATH];
+extern CPathBuffer ConfigTempPath;
 extern BOOL ConfigDontShowEncryptedWarning;
 extern BOOL ConfigDontShowSamePartitionWarning;
 
@@ -142,8 +143,8 @@ public:
 class CTopIndexMem
 {
 protected:
-    // path for the last stored top-index
-    char Path[MAX_PATH];
+    // path for last stored top-index
+    CPathBuffer Path; // Heap-allocated for long path support
     int TopIndexes[TOP_INDEX_MEM_SIZE]; // stored top-index list
     int TopIndexesCount;                // count of stored top-index
 
@@ -155,7 +156,7 @@ public:
         TopIndexesCount = 0;
     } // clear memory
     void Push(const char* path, int topIndex);        // store top-index for given path
-    BOOL FindAndPop(const char* path, int& topIndex); // find the top index for the given path; FALSE if not found
+    BOOL FindAndPop(const char* path, int& topIndex); // search top-index for given path, FALSE->not found
 };
 
 class CPluginInterfaceForFS : public CPluginInterfaceForFSAbstract
@@ -241,8 +242,8 @@ protected:
                                                           const char* pluginFSName, int pluginFSNameIndex,
                                                           CFileData& file, int isDir);
 
-    char Path[MAX_PATH]; // current path
-    char Root[MAX_PATH]; // root of volume
+    CPathBuffer Path; // Heap-allocated for long path support; current path
+    CPathBuffer Root; // Heap-allocated for long path support; root of volume
     FILE_RECORD_I<char>* CurrentDir;
 
     BOOL FatalError;          // TRUE when ListCurrentPath failed (fatal error), ChangePath will be called
@@ -259,7 +260,7 @@ protected:
     DWORD SilentMask;
     QWORD FileProgress, TotalProgress, FileTotal, GrandTotal;
     CCopyProgressDlg* Progress;
-    char SourcePath[MAX_PATH];
+    CPathBuffer SourcePath; // Heap-allocated for long path support
     char AllSubstChar;
     BOOL BackupEncryptedFiles;
 
@@ -344,8 +345,8 @@ public:
     virtual void WINAPI ShowSecurityInfo(HWND parent) {}
 
     BOOL GetTempDirOutsideRoot(HWND parent, char* buffer, char** ret);
-#if defined(_DEBUG) && _WIN32_WINNT >= 0x0501 // some debug features work on Windows XP and later (NTFS 5.0)
-    // NOTE: the following functions are quick, dirty, minimal tests (no error handling, etc.)
+#if defined(_DEBUG) && _WIN32_WINNT >= 0x0501 // some debug feauters works from Windows XP (NTFS 5.0)
+    // NOTE: following functions are just quitch, dirty, and minimal tests (no error handling, etc)
     // included only in debug build
     void DumpSpecifiedFiles(FILE* file, FILE_RECORD_I<char>* dir, char* path, int pathSize);
     void DumpDirItemInfo(FILE* file, const DIR_ITEM_I<char>* di);

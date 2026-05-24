@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -134,12 +135,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "TAR" /* do not translate */, MB_OK | MB_ICONERROR);
+                   "TAR" /* do not translate! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // let Salamander load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "TAR" /* do not translate */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "TAR" /* do not translate! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -158,9 +159,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM,
                                    VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
-                                   "TAR" /* do not translate */, "tar;tgz;taz;tbz;gz;bz;bz2;z;rpm;cpio;deb");
+                                   "TAR" /* do not translate! */, "tar;tgz;taz;tbz;gz;bz;bz2;z;rpm;cpio;deb");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -438,7 +439,7 @@ BOOL CPluginInterfaceForViewer::ViewFile(const char* name, int left, int top, in
         return FALSE;
     }
     // obtain a name for the temporary text file with the results
-    char tempFileName[MAX_PATH];
+    CPathBuffer tempFileName; // Heap-allocated for long path support
     if (!SalamanderGeneral->SalGetTempFileName(NULL, "RPV", tempFileName, TRUE, NULL))
     {
         SetCursor(hOldCur);

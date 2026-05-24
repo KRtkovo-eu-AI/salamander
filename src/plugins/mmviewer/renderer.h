@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -17,7 +18,7 @@ class CRendererWindow : public CWindow
 public:
     COutput Output; // interface for working with the open database
     CViewerWindow* Viewer;
-    char FileName[MAX_PATH]; // name of the currently opened file; 0 if none is open
+    CPathBuffer FileName; // Heap-allocated for long path support; name of the currently opened file; 0 if none is open
 
     BOOL Creating; // the window is being created -- do not erase the background yet
 

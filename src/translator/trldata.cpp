@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -355,9 +356,10 @@ BOOL CData::Save()
         }
         if (!ret)
         {
+            SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
             DWORD err = GetLastError();
             sprintf_s(errtext, "Error updating resource file %s.\n%s", Data.FullTargetFile, GetErrorText(err));
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         }
         if (ret)
         {
@@ -393,26 +395,29 @@ BOOL CData::Save()
                 if (!MoveFile(buff, Data.FullTargetFile))
                 {
                     ret = FALSE;
+                    SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                     DWORD err = GetLastError();
                     sprintf_s(errtext, "Error moving file %s to %s.\n%s", buff, Data.FullTargetFile, GetErrorText(err));
-                    MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                    TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                 }
             }
             else
             {
                 ret = FALSE;
+                SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                 DWORD err = GetLastError();
                 sprintf_s(errtext, "Error moving file %s to %s.\n%s", Data.FullTargetFile, buff, GetErrorText(err));
-                MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             }
         }
     }
     else
     {
         ret = FALSE;
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(errtext, "Error copying file %s to %s.\n%s", Data.FullTargetFile, buff, GetErrorText(err));
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
     }
     if (ret)
     {
@@ -435,14 +440,19 @@ BOOL CALLBACK EnumResLangProc(HANDLE hModule, LPCTSTR lpszType, LPCTSTR lpszName
     return TRUE; // continue enumeration to discover additional languages for diagnostics
 }
 
+static UINT_PTR GetResourceValue(LPCTSTR value)
+{
+    return reinterpret_cast<UINT_PTR>(value);
+}
+
 BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName, LPARAM lParam)
 {
     char errtext[3000];
     CData* data = (CData*)lParam;
-    if ((((DWORD)lpszName) & 0xFFFF0000) != 0 && !data->MUIMode) // in MUIMode we must accept quirky MS resources that use strings instead of IDs
+    if (!IS_INTRESOURCE(lpszName) && !data->MUIMode) // in MUIMode we must accept quirky MS resources that use strings instead of IDs
     {
         sprintf_s(errtext, "Non integer identifier: %s.", lpszName);
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         data->EnumReturn = FALSE;
         return FALSE;
     }
@@ -453,7 +463,7 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         DWORD err = GetLastError();
         sprintf_s(errtext, "EnumResourceLanguages() failed for resource type: %d name: %d\n%s",
                   (WORD)(UINT_PTR)lpszType, (WORD)(UINT_PTR)lpszName, GetErrorText(err));
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         data->EnumReturn = FALSE;
         return FALSE;
     }
@@ -463,14 +473,14 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
     {
         sprintf_s(errtext, "Multiple language resources for resource type: %d name: %d.",
                   (WORD)(UINT_PTR)lpszType, (WORD)(UINT_PTR)lpszName);
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         data->EnumReturn = FALSE;
         return FALSE;
     }
 
-    switch ((DWORD)lpszType)
+    switch (GetResourceValue(lpszType))
     {
-    case (DWORD)RT_DIALOG:
+    case (UINT_PTR)RT_DIALOG:
     {
         CDialogData* dlgData = new CDialogData;
         if (dlgData == NULL)
@@ -479,7 +489,7 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
             data->EnumReturn = FALSE;
             return FALSE;
         }
-        dlgData->ID = (WORD)(((DWORD)lpszName) & 0x0000FFFF);
+        dlgData->ID = (WORD)GetResourceValue(lpszName);
         if (data->MUIMode)
             dlgData->ID = (WORD)data->MUIDialogID++;
         dlgData->TLangID = (WORD)langID;
@@ -502,23 +512,26 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
                 }
                 else
                 {
+                    SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                     sprintf_s(errtext, (oBuff == NULL) ? "LockResource failed on RT_DIALOG id:%d in original file." : "LockResource failed on RT_DIALOG id:%d in translated file.",
                               dlgData->ID);
-                    MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                    TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                 }
             }
             else
             {
+                SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                 sprintf_s(errtext, (oHglb == NULL) ? "LoadResource failed on RT_DIALOG id:%d in original file." : "LoadResource failed on RT_DIALOG id:%d in translated file.",
                           dlgData->ID);
-                MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             }
         }
         else
         {
+            SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
             sprintf_s(errtext, (oHrsrc == NULL) ? "Cannot find RT_DIALOG id:%d in original file." : "Cannot find RT_DIALOG id:%d in translated file.",
                       dlgData->ID);
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         }
 
         if (!added)
@@ -538,7 +551,7 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         break;
     }
 
-    case (DWORD)RT_MENU:
+    case (UINT_PTR)RT_MENU:
     {
         CMenuData* menuData = new CMenuData;
         if (menuData == NULL)
@@ -547,7 +560,7 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
             data->EnumReturn = FALSE;
             return FALSE;
         }
-        menuData->ID = (WORD)(((DWORD)lpszName) & 0x0000FFFF);
+        menuData->ID = (WORD)GetResourceValue(lpszName);
         if (data->MUIMode)
             menuData->ID = (WORD)data->MUIMenuID++;
         menuData->TLangID = (WORD)langID;
@@ -587,8 +600,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
                             tBuff += sizeof(WORD) + tOffset;
                             if (oOffset != 0 || tOffset != 0)
                             {
+                                SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                                 sprintf_s(errtext, "Non zero offsets are not supported");
-                                MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                                TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                                 data->EnumReturn = FALSE;
                                 delete menuData;
                                 return FALSE;
@@ -597,8 +611,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
                         }
                         else
                         {
+                            SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                             sprintf_s(errtext, "MENUEX templates are not supported");
-                            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                            TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                             data->EnumReturn = FALSE;
                             delete menuData;
                             return FALSE;
@@ -609,9 +624,10 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         }
         else
         {
+            SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
             sprintf_s(errtext, (oHrsrc == NULL) ? "Cannot find RT_MENU id:%d in original file." : "Cannot find RT_MENU id:%d in translated file.",
                       menuData->ID);
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         }
 
         if (!added)
@@ -631,7 +647,7 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         break;
     }
 
-    case (DWORD)RT_STRING:
+    case (UINT_PTR)RT_STRING:
     {
         CStrData* strData = new CStrData;
         if (strData == NULL)
@@ -640,7 +656,7 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
             data->EnumReturn = FALSE;
             return FALSE;
         }
-        strData->ID = (WORD)(((DWORD)lpszName) & 0x0000FFFF);
+        strData->ID = (WORD)GetResourceValue(lpszName);
         if (data->MUIMode)
             strData->ID = (WORD)data->MUIStringID++;
         strData->TLangID = (WORD)langID;
@@ -664,9 +680,10 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         }
         else
         {
+            SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
             sprintf_s(errtext, (oHrsrc == NULL) ? "Cannot find RT_STRING id:%d in original file." : "Cannot find RT_STRING id:%d in translated file.",
                       strData->ID);
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         }
         if (!added)
         {
@@ -689,8 +706,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
 
     default:
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         sprintf_s(errtext, "Unknown resource type : %s.", lpszType);
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         data->EnumReturn = FALSE;
         return FALSE;
     }
@@ -845,8 +863,9 @@ BOOL CData::Load(const char* original, const char* translated, BOOL import)
                 ret &= LoadSLGSignature(hDstModule);
                 if (!ret)
                 {
+                    SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                     sprintf_s(errtext, "Error opening file %s.\nThe valid SLG signature cannot be found.", translated);
-                    MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                    TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                 }
             }
 
@@ -854,9 +873,10 @@ BOOL CData::Load(const char* original, const char* translated, BOOL import)
         }
         else
         {
+            SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
             DWORD err = GetLastError();
             sprintf_s(errtext, "Error opening file %s.\n%s", translated, GetErrorText(err));
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             ret = FALSE;
         }
 
@@ -864,9 +884,10 @@ BOOL CData::Load(const char* original, const char* translated, BOOL import)
     }
     else
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(errtext, "Error opening file %s.\n%s", original, GetErrorText(err));
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         ret = FALSE;
     }
 
@@ -994,7 +1015,7 @@ BOOL CData::Import(const char* project, BOOL trlPropOnly, BOOL onlyDlgLayouts)
                        "SLT file for this module, use menu File / Export Translation as Text File "
                        "(Ctrl+D key).",
                   project);
-        if (MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
+        if (TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
         {
             swprintf_s(buff, L"Importing old translation was cancelled.");
             OutWindow.AddLine(buff, mteError);
@@ -1024,7 +1045,7 @@ BOOL CData::Import(const char* project, BOOL trlPropOnly, BOOL onlyDlgLayouts)
         else
             SLGSignature.SLTDataChanged(); // Treat importing only SLG properties as if the SLG was edited manually.
         if (!onlyDlgLayouts &&
-            SLGSignature.HelpDirExist == oldData.SLGSignature.HelpDirExist) // Do not copy HelpDir when importing translation properties from salamand.atp into a plug-in.
+            SLGSignature.HelpDirExist == oldData.SLGSignature.HelpDirExist) // Do not copy HelpDir when importing translation properties from sally.atp into a plug-in.
         {
             lstrcpyW(SLGSignature.HelpDir, oldData.SLGSignature.HelpDir);
         }
@@ -1324,9 +1345,10 @@ BOOL CData::Export(const char* fileName)
     if (hFile == INVALID_HANDLE_VALUE)
     {
         char buf[MAX_PATH + 100];
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(buf, "Error writing file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
 
@@ -1412,11 +1434,11 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
          - After changes
            - SLT missing
              - No SLT import performed                 -> OK
-             - SLT imported previously                 -> ask (new SLT version should be archived; manual merge might be required to avoid data loss)
+             - SLT imported previously                 -> ask (new SLT version should be archived; manual merge might be required)
            - SLT exists
              - No SLT import performed                 -> ask (overwriting unknown file)
              - CRC matches last import source          -> OK
-             - CRC differs from last import source     -> ask (probably an updated SLT that should not be overwritten—rename, export to a new file, then merge)
+             - CRC differs from last import source     -> ask (probably an updated SLT—rename, export to a new file, then merge)
     */
     if (!withoutVerInfo)
     {
@@ -1433,7 +1455,7 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                "If changes in both files are relevant, you can merge them and then import "
                                "resulting SLT file.",
                           fileName);
-                res = MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
+                res = TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
             }
             else
             {
@@ -1441,12 +1463,15 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                 {
                     DWORD existingFileCRC;
                     if (!GetFileCRC(fileName, &existingFileCRC))
+                    {
+                        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                         return FALSE;
+                    }
                     else
                     {
                         wchar_t crcTxt[50];
                         swprintf_s(crcTxt, L"%08X SLT", existingFileCRC);
-                        if (wcscmp(SLGSignature.CRCofImpSLT, crcTxt) == 0) // CRC matches the SLT used for the last import/export—assume it is the same file and overwrite silently; no changes are expected as the SLG has not been modified since the import/export.
+                        if (wcscmp(SLGSignature.CRCofImpSLT, crcTxt) == 0) // CRC matches the SLT used for the last import/export—assume it is the same file and overwrite silently.
                         {
                         }
                         else // Existing SLT differs from what we imported/exported—likely updated; warn before overwriting.
@@ -1461,7 +1486,7 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                            "If changes in both files are relevant, you can merge them and then import "
                                            "resulting SLT file.",
                                       fileName);
-                            res = MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
+                            res = TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
                         }
                     }
                 }
@@ -1480,7 +1505,7 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                            "If changes in both files are relevant, you can merge them and then import "
                                            "resulting SLT file.",
                                       fileName);
-                            res = MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
+                            res = TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
                         }
                         else
                         {
@@ -1488,7 +1513,10 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                             {
                                 DWORD existingFileCRC;
                                 if (!GetFileCRC(fileName, &existingFileCRC))
+                                {
+                                    SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
                                     return FALSE;
+                                }
                                 else
                                 {
                                     wchar_t crcTxt[50];
@@ -1496,7 +1524,7 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                     if (wcscmp(SLGSignature.CRCofImpSLT, crcTxt) == 0) // CRC matches the SLT used for the last import/export—overwrite silently.
                                     {
                                     }
-                                    else // Existing SLT differs from stored CRC—likely updated; warn before overwriting.
+                                    else // Existing SLT differs from stored CRC—warn before overwriting.
                                     {
                                         sprintf_s(buf, "Target file already exists and differs from the SLT file from which you "
                                                        "have imported translation or to which you have exported translation. It is likely to "
@@ -1508,7 +1536,7 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                                        "If changes in both files are relevant, you can merge them and then import "
                                                        "resulting SLT file.",
                                                   fileName);
-                                        res = MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
+                                        res = TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2);
                                     }
                                 }
                             }
@@ -1543,7 +1571,7 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                        "Do you want to continue with export without checking for changes in original "
                                        "SLT file?",
                                   fileName);
-                        if (MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
+                        if (TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
                         {
                             swprintf_s(outputBuff, L"Exporting translation to SLT text archive was cancelled.");
                             OutWindow.AddLine(outputBuff, mteError);
@@ -1559,9 +1587,10 @@ BOOL CData::ExportAsTextArchive(const char* fileName, BOOL withoutVerInfo)
                                         CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
     if (hFile == INVALID_HANDLE_VALUE)
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(buf, "Error writing file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         swprintf_s(outputBuff, L"Exporting translation to SLT text archive FAILED.");
         OutWindow.AddLine(outputBuff, mteError);
         return FALSE;
@@ -1759,9 +1788,10 @@ BOOL CData::ExportDialogsAndControlsSizes(const char* fileName)
                                         CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
     if (hFile == INVALID_HANDLE_VALUE)
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(buf, "Error writing file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         swprintf_s(outputBuff, L"Exporting dialogs and controls sizes to SDC text file FAILED.");
         OutWindow.AddLine(outputBuff, mteError);
         return FALSE;
@@ -2310,9 +2340,10 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
                                         OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
     if (hFile == INVALID_HANDLE_VALUE)
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(buf, "Error reading file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         swprintf_s(outputBuff, L"Importing translation from SLT text archive FAILED.");
         OutWindow.AddLine(outputBuff, mteError);
         return FALSE;
@@ -2321,8 +2352,9 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
     DWORD size = GetFileSize(hFile, NULL);
     if (size == 0xFFFFFFFF || size == 0)
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         sprintf_s(buf, "Error reading file %s.", fileName);
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         HANDLES(CloseHandle(hFile));
         swprintf_s(outputBuff, L"Importing translation from SLT text archive FAILED.");
         OutWindow.AddLine(outputBuff, mteError);
@@ -2332,6 +2364,7 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
     char* data = (char*)malloc(size + 2);
     if (data == NULL)
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         TRACE_E("Out of memory");
         HANDLES(CloseHandle(hFile));
         swprintf_s(outputBuff, L"Importing translation from SLT text archive FAILED.");
@@ -2342,9 +2375,10 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
     DWORD read;
     if (!ReadFile(hFile, data, size, &read, NULL) || read != size)
     {
+        SetQuietAutomationFailureExitCode(qaecRuntimeFailure);
         DWORD err = GetLastError();
         sprintf_s(buf, "Error reading file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         free(data);
         HANDLES(CloseHandle(hFile));
         swprintf_s(outputBuff, L"Importing translation from SLT text archive FAILED.");
@@ -2370,7 +2404,7 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
                        "If changes in both files are relevant, you can merge them and then import "
                        "resulting SLT file.",
                   fileName);
-        if (MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
+        if (TranslatorMessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
         {
             free(data);
             HANDLES(CloseHandle(hFile));
@@ -2595,7 +2629,7 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
     if (!ret /*&& lineNumber > 1*/) // Do not report a bad BOM here.
     {
         sprintf_s(buf, "Syntax error in file %s on line %d.", fileName, lineNumber - 1);
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
 
         swprintf_s(outputBuff, L"Syntax error in file %hs on line %d.", fileName, lineNumber - 1);
         OutWindow.AddLine(outputBuff, mteError);

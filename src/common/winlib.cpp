@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -25,9 +25,43 @@
 #include "array.h"
 
 #include "winlib.h"
+#ifdef INSIDE_SALAMANDER
+#include "darkmode.h"
+#endif
 
-// precaution against a runtime check failure in the debug build: the original macro casts rgb to WORD,
-// so it reports data loss in the RED component
+#ifdef INSIDE_SALAMANDER
+#define WinLib_DarkMode_GetDialogCtlColorBrush DarkMode_GetDialogCtlColorBrush
+#define WinLib_DarkMode_OnSettingChange DarkMode_OnSettingChange
+#define WinLib_DarkMode_ApplyTitleBar DarkMode_ApplyTitleBar
+#define WinLib_DarkMode_ApplyListTreeThemeRecursive DarkMode_ApplyListTreeThemeRecursive
+#else
+static HBRUSH WinLib_DarkMode_GetDialogCtlColorBrush(UINT msg, HDC hdc, HWND hCtrl)
+{
+    UNREFERENCED_PARAMETER(msg);
+    UNREFERENCED_PARAMETER(hdc);
+    UNREFERENCED_PARAMETER(hCtrl);
+    return NULL;
+}
+
+static BOOL WinLib_DarkMode_OnSettingChange(LPARAM lParam)
+{
+    UNREFERENCED_PARAMETER(lParam);
+    return FALSE;
+}
+
+static void WinLib_DarkMode_ApplyTitleBar(HWND hwnd)
+{
+    UNREFERENCED_PARAMETER(hwnd);
+}
+
+static void WinLib_DarkMode_ApplyListTreeThemeRecursive(HWND root)
+{
+    UNREFERENCED_PARAMETER(root);
+}
+#endif
+
+// Precaution against runtime check failure in debug version: original macro version casts rgb to WORD,
+// so reports data loss (RED component)
 #undef GetGValue
 #define GetGValue(rgb) ((BYTE)(((rgb) >> 8) & 0xFF))
 
@@ -72,7 +106,7 @@ BOOL InitializeWinLib()
 
 void ReleaseWinLib()
 {
-    // we must detach open windows from WinLib because WinLib is shutting down ...
+    // we must disconnect open windows from WinLib, because WinLib is ending ...
     int c = WindowsManager.GetCount();
     if (c > 0)
         TRACE_ET(_T("ReleaseWinLib(): WindowsManager still contains opened windows: ") << c);
@@ -103,7 +137,7 @@ BOOL WinLibIsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WOR
                                                                                VER_MINORVERSION, VER_GREATER_EQUAL),
                                                            VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
 
-    SecureZeroMemory(&osvi, sizeof(osvi)); // replacement for memset (does not require the RTL)
+    SecureZeroMemory(&osvi, sizeof(osvi)); // replacement for memset (doesn't require RTL)
     osvi.dwOSVersionInfoSize = sizeof(osvi);
     osvi.dwMajorVersion = wMajorVersion;
     osvi.dwMinorVersion = wMinorVersion;
@@ -111,11 +145,12 @@ BOOL WinLibIsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WOR
     return VerifyVersionInfoW(&osvi, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR, dwlConditionMask) != FALSE;
 }
 
+//
 // ****************************************************************************
 // CWindow
 //
-// lpvParam - if CWindow::CWindowProc is called during CreateWindow
-//            (it is in the window class), it must contain the address of the window object being created
+// lpvParam - in case CWindow::CWindowProc is called during CreateWindow
+//            (it is in the window class), must contain the address of the created window object
 
 HWND CWindow::CreateEx(DWORD dwExStyle,        // extended window style
                        LPCTSTR lpszClassName,  // address of registered class name
@@ -128,7 +163,7 @@ HWND CWindow::CreateEx(DWORD dwExStyle,        // extended window style
                        HWND hwndParent,        // handle of parent or owner window
                        HMENU hmenu,            // handle of menu or child-window identifier
                        HINSTANCE hinst,        // handle of application instance
-                       LPVOID lpvParam)        // pointer to the created window object
+                       LPVOID lpvParam)        // pointer to created window object
 {
     HWND hWnd = CreateWindowEx(dwExStyle,
                                lpszClassName,
@@ -144,8 +179,8 @@ HWND CWindow::CreateEx(DWORD dwExStyle,        // extended window style
                                lpvParam);
     if (hWnd != 0)
     {
-        if (WindowsManager.GetWindowPtr(hWnd) == NULL) // if it is not in WindowsManager yet
-            AttachToWindow(hWnd);                      // then add it -> subclassing
+        if (WindowsManager.GetWindowPtr(hWnd) == NULL) // if it's not yet in WindowsManager
+            AttachToWindow(hWnd);                      // then we add it -> subclassing
     }
     return hWnd;
 }
@@ -160,7 +195,7 @@ HWND CWindow::Create(LPCTSTR lpszClassName,  // address of registered class name
                      HWND hwndParent,        // handle of parent or owner window
                      HMENU hmenu,            // handle of menu or child-window identifier
                      HINSTANCE hinst,        // handle of application instance
-                     LPVOID lpvParam)        // pointer to the created window object
+                     LPVOID lpvParam)        // pointer to created window object
 {
     return CreateEx(0,
                     lpszClassName,
@@ -189,7 +224,7 @@ HWND CWindow::CreateExW(DWORD dwExStyle,        // extended window style
                         HWND hwndParent,        // handle of parent or owner window
                         HMENU hmenu,            // handle of menu or child-window identifier
                         HINSTANCE hinst,        // handle of application instance
-                        LPVOID lpvParam)        // pointer to the created window object
+                        LPVOID lpvParam)        // pointer to created window object
 {
     HWND hWnd = CreateWindowExW(dwExStyle,
                                 lpszClassName,
@@ -205,8 +240,8 @@ HWND CWindow::CreateExW(DWORD dwExStyle,        // extended window style
                                 lpvParam);
     if (hWnd != 0)
     {
-        if (WindowsManager.GetWindowPtr(hWnd) == NULL) // if it is not in WindowsManager yet
-            AttachToWindow(hWnd);                      // then add it -> subclassing
+        if (WindowsManager.GetWindowPtr(hWnd) == NULL) // if it's not yet in WindowsManager
+            AttachToWindow(hWnd);                      // then we add it -> subclassing
     }
     return hWnd;
 }
@@ -221,7 +256,7 @@ HWND CWindow::CreateW(LPCWSTR lpszClassName,  // address of registered class nam
                       HWND hwndParent,        // handle of parent or owner window
                       HMENU hmenu,            // handle of menu or child-window identifier
                       HINSTANCE hinst,        // handle of application instance
-                      LPVOID lpvParam)        // pointer to the created window object
+                      LPVOID lpvParam)        // pointer to created window object
 {
     return CreateExW(0,
                      lpszClassName,
@@ -275,7 +310,7 @@ void CWindow::AttachToWindow(HWND hWnd)
 #ifndef _UNICODE
         || DefWndProc == CWindow::CWindowProcW
 #endif    // _UNICODE
-        ) // that would be recursion
+        ) // to by byla rekurze
     {
         TRACE_CT(_T("This should never happen."));
         DefWndProc = GetDefWindowProc();
@@ -328,8 +363,8 @@ CWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return TRUE;
         }
         if (GetWindowLongPtr(HWindow, GWL_STYLE) & WS_CHILD)
-            break;   // if we do not handle F1 and this is a child window, let F1 fall through to the parent
-        return TRUE; // if this is not a child window, stop processing F1
+            break;   // if we don't process F1 and if it's a child window, we let F1 fall through to parent
+        return TRUE; // if it's not a child, we end F1 processing
     }
     }
 #ifndef _UNICODE
@@ -363,11 +398,11 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
     CWindow* wnd;
     switch (uMsg)
     {
-    case WM_CREATE: // first message - attach the object to the window
+    case WM_CREATE: // first message - connecting object to window
     {
         // handle MDI_CHILD_WINDOW
-        if (((CREATESTRUCT*)lParam)->dwExStyle & WS_EX_MDICHILD)                                 // CREATESTRUCTA and CREATESTRUCTW do not differ in dwExStyle or lpCreateParams
-            wnd = (CWindow*)((MDICREATESTRUCT*)((CREATESTRUCT*)lParam)->lpCreateParams)->lParam; // MDICREATESTRUCTA and MDICREATESTRUCTW do not differ in lParam
+        if (((CREATESTRUCT*)lParam)->dwExStyle & WS_EX_MDICHILD)                                 // CREATESTRUCTA and CREATESTRUCTW do not differ for dwExStyle or lpCreateParams
+            wnd = (CWindow*)((MDICREATESTRUCT*)((CREATESTRUCT*)lParam)->lpCreateParams)->lParam; // MDICREATESTRUCTA and MDICREATESTRUCTW do not differ for lParam
         else
             wnd = (CWindow*)((CREATESTRUCT*)lParam)->lpCreateParams;
         if (wnd == NULL)
@@ -382,17 +417,18 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
             if (wnd->UnicodeWnd != unicode)
                 TRACE_C("Incompatible windows procedure.");
 #endif                                                // _UNICODE
-                                                      //--- insert the window into the window list by hwnd
+                                                      // insertion of window by hwnd into window list
             if (!WindowsManager.AddWindow(hwnd, wnd)) // error
             {
                 TRACE_ET(_T("Unable to create window."));
                 return FALSE;
             }
+            WinLib_DarkMode_ApplyTitleBar(hwnd);
         }
         break;
     }
 
-    case WM_DESTROY: // last message - detach the object from the window
+    case WM_DESTROY: // last message - disconnecting object from window
     {
         wnd = (CWindow*)WindowsManager.GetWindowPtr(hwnd);
 #ifndef _UNICODE
@@ -401,23 +437,23 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 #endif // _UNICODE
         if (wnd != NULL && wnd->Is(otWindow))
         {
-            // Petr: moved this below wnd->WindowProc() so messages are still delivered during WM_DESTROY
-            //       (Lukas needed this)
+            // Petr: moved below wnd->WindowProc() so that messages still arrive during WM_DESTROY
+            //       (needed by Lukas)
             // WindowsManager.DetachWindow(hwnd);
 
             LRESULT res = wnd->WindowProc(uMsg, wParam, lParam);
 
-            // now back to the old procedure again (because of subclassing)
+            // now back to old procedure (because of subclassing)
             WindowsManager.DetachWindow(hwnd);
 
-            // if the current WndProc is different from ours, do not change it,
-            // because someone else in the subclass chain has already restored the original WndProc
+            // if current WndProc is different from ours, we won't change it,
+            // because someone in the subclassing chain already returned the original WndProc
 #ifdef _UNICODE
             WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(wnd->HWindow, GWLP_WNDPROC);
             if (currentWndProc == CWindow::CWindowProc)
                 SetWindowLongPtr(wnd->HWindow, GWLP_WNDPROC, (LONG_PTR)wnd->DefWndProc);
 #else  // _UNICODE
-            if (wnd->UnicodeWnd) // if our window procedure is Unicode, we must use the "W" API variants
+            if (wnd->UnicodeWnd) // if our window procedure is Unicode, we must use "W" variants of API functions
             {
                 WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtrW(wnd->HWindow, GWLP_WNDPROC);
                 if (currentWndProc == CWindow::CWindowProcW || currentWndProc == CWindow::CWindowProc)
@@ -434,9 +470,9 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
             if (wnd->IsAllocated())
                 delete wnd;
             else
-                wnd->HWindow = NULL; // no longer attached
+                wnd->HWindow = NULL; // no longer connected
             if (res == 0)
-                return 0; // the application processed the message
+                return 0; // application has processed it
             wnd = NULL;
         }
         break;
@@ -458,11 +494,18 @@ CWindow::CWindowProcInt(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 #endif // _UNICODE
     }
     }
-    //--- call the WindowProc(...) method of the corresponding window object
+    // calling WindowProc(...) method of the corresponding window object
+    if ((uMsg == WM_SETTINGCHANGE && WinLib_DarkMode_OnSettingChange(lParam)) ||
+        uMsg == WM_THEMECHANGED)
+    {
+        WinLib_DarkMode_ApplyTitleBar(hwnd);
+        WinLib_DarkMode_ApplyListTreeThemeRecursive(hwnd);
+    }
+
     LRESULT lResult;
     if (wnd != NULL)
         lResult = wnd->WindowProc(uMsg, wParam, lParam);
-    else // an error occurred, or the message was received before WM_CREATE
+    else // error or message came before WM_CREATE
     {
 #ifndef _UNICODE
         lResult = unicode ? DefWindowProcW(hwnd, uMsg, wParam, lParam) : DefWindowProcA(hwnd, uMsg, wParam, lParam);
@@ -639,7 +682,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         TransferData(ttDataToWindow);
-        return TRUE; // let DefDlgProc set the focus
+        return TRUE; // I want focus from DefDlgProc
     }
 
     case WM_HELP:
@@ -650,7 +693,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                (GetKeyState(VK_CONTROL) & 0x8000) != 0,
                                (GetKeyState(VK_SHIFT) & 0x8000) != 0);
         }
-        return TRUE; // do not let F1 fall through to the parent even if we do not call WinLibHelp->OnHelp()
+        return TRUE; // we don't let F1 fall through to parent even if we don't call WinLibHelp->OnHelp()
     }
 
     case WM_CONTEXTMENU:
@@ -658,6 +701,18 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WinLibHelp != NULL)
             WinLibHelp->OnContextMenu((HWND)wParam, LOWORD(lParam), HIWORD(lParam));
         return TRUE;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    {
+        HBRUSH hBrush = WinLib_DarkMode_GetDialogCtlColorBrush(uMsg, (HDC)wParam, (HWND)lParam);
+        if (hBrush != NULL)
+            return (INT_PTR)hBrush;
+        break;
     }
 
     case WM_COMMAND:
@@ -672,7 +727,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 memset(&hi, 0, sizeof(hi));
                 hi.cbSize = sizeof(hi);
                 hi.iContextType = HELPINFO_WINDOW;
-                hi.dwContextId = ResID; // WM_HELP also receives ResID rather than HelpID, so keep it consistent
+                hi.dwContextId = ResID; // in WM_HELP also comes ResID and not HelpID, so that it's consistent
                 GetCursorPos(&hi.MousePos);
                 WinLibHelp->OnHelp(HWindow, HelpID, &hi, FALSE, FALSE);
             }
@@ -696,6 +751,25 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (WinLib_DarkMode_OnSettingChange(lParam))
+        {
+            WinLib_DarkMode_ApplyTitleBar(HWindow);
+            WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+        }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        WinLib_DarkMode_ApplyTitleBar(HWindow);
+        WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
     }
     return FALSE;
 }
@@ -706,7 +780,7 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     CDialog* dlg;
     switch (uMsg)
     {
-    case WM_INITDIALOG: // first message - attach the object to the dialog
+    case WM_INITDIALOG: // first message - connecting object to dialog
     {
         dlg = (CDialog*)lParam;
         if (dlg == NULL)
@@ -717,25 +791,26 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
         {
             dlg->HWindow = hwndDlg;
-            //--- register the window in the window list under hwndDlg
+            // insertion of window by hwndDlg into window list
             if (!WindowsManager.AddWindow(hwndDlg, dlg)) // error
             {
                 TRACE_ET(_T("Unable to create dialog."));
                 return TRUE;
             }
-            dlg->NotifDlgJustCreated(); // introduced as a place to adjust the dialog layout
+            WinLib_DarkMode_ApplyTitleBar(hwndDlg);
+            dlg->NotifDlgJustCreated(); // introduced as place for dialog layout adjustment
         }
         break;
     }
 
-    case WM_DESTROY: // last message - detach the object from the dialog
+    case WM_DESTROY: // last message - disconnecting object from dialog
     {
         dlg = (CDialog*)WindowsManager.GetWindowPtr(hwndDlg);
-        INT_PTR ret = FALSE; // in case the dialog does not handle it
+        INT_PTR ret = FALSE; // in case it doesn't process it
         if (dlg != NULL && dlg->Is(otDialog))
         {
-            // Petr: moved this below dlg->DialogProc() so messages are still delivered during WM_DESTROY
-            //       (Lukas needed this)
+            // Petr: moved below dlg->DialogProc() so that messages still arrive during WM_DESTROY
+            //       (needed by Lukas)
             // WindowsManager.DetachWindow(hwndDlg);
 
             ret = dlg->DialogProc(uMsg, wParam, lParam);
@@ -744,7 +819,7 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (dlg->IsAllocated())
                 delete dlg;
             else
-                dlg->HWindow = NULL; // detachment information
+                dlg->HWindow = NULL; // disconnect information
         }
         return ret;
     }
@@ -761,12 +836,15 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 #endif
     }
     }
-    //--- call the DialogProc(...) method of the corresponding dialog object
+    // calling DialogProc(...) method of the corresponding dialog object
     INT_PTR dlgRes;
     if (dlg != NULL)
         dlgRes = dlg->DialogProc(uMsg, wParam, lParam);
     else
-        dlgRes = FALSE; // error or the message did not arrive between WM_INITDIALOG and WM_DESTROY
+        dlgRes = FALSE; // error or message didn't come between WM_INITDIALOG and WM_DESTROY
+
+    if (dlg != NULL && uMsg == WM_INITDIALOG)
+        WinLib_DarkMode_ApplyListTreeThemeRecursive(hwndDlg);
 
     return dlgRes;
 }
@@ -835,7 +913,7 @@ void CWindowsManager::DetachWindow(HWND hWnd)
         return;
 
     CS.Enter();
-    if (LastHWnd[GetCacheIndex(hWnd)] == hWnd) // we must clear the cache
+    if (LastHWnd[GetCacheIndex(hWnd)] == hWnd) // we must clean the cache
     {
         LastHWnd[GetCacheIndex(hWnd)] = NULL;
         LastWnd[GetCacheIndex(hWnd)] = NULL;
@@ -849,7 +927,7 @@ void CWindowsManager::DetachWindow(HWND hWnd)
         {
             ResetState();
             TRACE_ET(_T("Unable to detach window from WindowsManager. hwnd = ") << hWnd);
-            At(i).Wnd = NULL; // at least this way...
+            At(i).Wnd = NULL; // at least like this...
         }
     }
     else
@@ -911,9 +989,9 @@ int CWindowsManager::GetCount()
 CWindowQueue::~CWindowQueue()
 {
     if (!Empty())
-        TRACE_ET(_T("Some window is still opened in ") << QueueName << _T(" queue!")); // should not happen...
-                                                                                       // there is no multithreading risk here anymore (the app is shutting down and the threads have been terminated)
-                                                                                       // deallocate at least some memory
+        TRACE_ET(_T("Some window is still opened in ") << QueueName << _T(" queue!")); // shouldn't happen...
+    // here multi-threading is no longer a threat (software is ending, threads are/were terminated)
+    // we deallocate at least some memory
     CWindowQueueItem* last;
     CWindowQueueItem* item = Head;
     while (item != NULL)
@@ -948,7 +1026,7 @@ void CWindowQueue::Remove(HWND hWindow)
     CWindowQueueItem* item = Head;
     while (item != NULL)
     {
-        if (item->HWindow == hWindow) // found, remove it
+        if (item->HWindow == hWindow) // found, remove
         {
             if (last != NULL)
                 last->Next = item->Next;
@@ -1001,7 +1079,7 @@ void CWindowQueue::BroadcastMessage(DWORD uMsg, WPARAM wParam, LPARAM lParam)
 BOOL CTransferInfo::GetControl(HWND& ctrlHWnd, int ctrlID, BOOL ignoreIsGood)
 {
     if (!ignoreIsGood && !IsGood())
-        return FALSE; // no point in processing further
+        return FALSE; // next ones don't make sense to process
     ctrlHWnd = GetDlgItem(HDialog, ctrlID);
     if (ctrlHWnd == NULL)
     {
@@ -1021,8 +1099,8 @@ void CTransferInfo::EnsureControlIsFocused(int ctrlID)
         HWND wnd = GetFocus();
         while (wnd != NULL && wnd != ctrl)
             wnd = ::GetParent(wnd);
-        if (wnd == NULL) // Set focus only if ctrl is not an ancestor of the focused window.
-        {                // This occurs, for example, with the edit box in a combo box.
+        if (wnd == NULL) // we focus only if ctrl is not an ancestor of GetFocus
+        {                // such as edit-line in combo-box
             SendMessage(HDialog, WM_NEXTDLGCTL, (WPARAM)ctrl, TRUE);
         }
     }
@@ -1107,8 +1185,8 @@ void CTransferInfo::EditLine(int ctrlID, double& value, TCHAR* format, BOOL sele
             BOOL decPoints = FALSE;
             BOOL expPart = FALSE;
             if (*s == _T('-') || *s == _T('+'))
-                s++;        // skip the sign
-            while (*s != 0) // convert comma to period
+                s++;        // skip sign
+            while (*s != 0) // convert comma to dot
             {
                 if (!expPart && !decPoints && (*s == _T(',') || *s == _T('.')))
                 {
@@ -1121,7 +1199,7 @@ void CTransferInfo::EditLine(int ctrlID, double& value, TCHAR* format, BOOL sele
                     {
                         expPart = TRUE;
                         if (*(s + 1) == _T('+') || *(s + 1) == _T('-'))
-                            s++; // skip +/- after E
+                            s++; // skip +- after E
                     }
                     else
                     {
@@ -1139,10 +1217,10 @@ void CTransferInfo::EditLine(int ctrlID, double& value, TCHAR* format, BOOL sele
             if (*s == 0)
             {
                 TCHAR* stopString;                  // dummy
-                value = _tcstod(buff, &stopString); // only if the string is a number
+                value = _tcstod(buff, &stopString); // only if it's a number
             }
             else
-                value = 0; // on error, set it to zero
+                value = 0; // on error we give zero
             break;
         }
         }
@@ -1173,8 +1251,8 @@ void CTransferInfo::EditLine(int ctrlID, int& value, BOOL select)
 
             TCHAR* s = buff;
             if (*s == _T('-') || *s == _T('+'))
-                s++;        // skip the sign
-            while (*s != 0) // validate the number
+                s++;        // skip sign
+            while (*s != 0) // number check
             {
                 if (*s < _T('0') || *s > _T('9'))
                 {
@@ -1187,7 +1265,7 @@ void CTransferInfo::EditLine(int ctrlID, int& value, BOOL select)
             }
 
             TCHAR* endptr;
-            value = _tcstoul(buff, &endptr, 10); // replacement for atoi / _ttoi, which return 2147483647 instead of 4000000000 because they use signed int
+            value = _tcstoul(buff, &endptr, 10); // replacement for atoi / _ttoi, which instead of 4000000000 returns 2147483647 (because it is SIGNED INT)
             break;
         }
         }
@@ -1227,10 +1305,10 @@ void CTransferInfo::EditLine(int ctrlID, __int64& value, BOOL select, BOOL unsig
             TCHAR* s = buff;
             BOOL minus = !unsignedNum && *s == _T('-');
             if (!unsignedNum && *s == _T('-') || *s == _T('+'))
-                s++; // skip the sign
+                s++; // skip sign
             unsigned __int64 num = 0;
             BOOL overflow = FALSE;
-            while (*s != 0) // validate the number
+            while (*s != 0) // number check
             {
                 if ((*s < _T('0') || *s > _T('9')) && (!hexMode || *s < _T('A') || *s > _T('F')))
                 {
@@ -1245,7 +1323,7 @@ void CTransferInfo::EditLine(int ctrlID, __int64& value, BOOL select, BOOL unsig
                 else
                 {
                     if (hexMode && num > 0x0fffffffffffffffui64 ||
-                        !hexMode && num > 1844674407370955161ui64 || // max. is 18446744073709551615ui64
+                        !hexMode && num > 1844674407370955161ui64 || // max is 18446744073709551615ui64
                         !hexMode && num == 1844674407370955161ui64 && *s > _T('5'))
                     {
                         overflow = TRUE; // unsigned overflow
@@ -1257,11 +1335,11 @@ void CTransferInfo::EditLine(int ctrlID, __int64& value, BOOL select, BOOL unsig
             }
             if (*s != 0)
             {
-                value = 0; // on error, set it to zero
+                value = 0; // on error we give zero
                 break;
             }
 
-            // on overflow, use the limit values (inspired by value = _ttoi64(buff))
+            // on overflow we give boundary values (inspiration: value = _ttoi64(buff))
             if (unsignedNum)
             {
                 if (overflow)
@@ -1294,7 +1372,7 @@ void CTransferInfo::EditLine(int ctrlID, __int64& value, BOOL select, BOOL unsig
             }
             if (overflow)
             {
-                if (ignoreOverflow) // report overflow only via TRACE_E
+                if (ignoreOverflow) // we report overflow only via TRACE_E
                 {
                     TRACE_ET(_T("CTransferInfo::EditLine(") << ctrlID << _T("): ") << (unsignedNum ? _T("unsigned ") : _T("")) << _T("int64 overflow has occured!"));
                 }

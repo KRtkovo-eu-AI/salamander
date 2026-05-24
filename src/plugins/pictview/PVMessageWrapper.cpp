@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -190,7 +191,7 @@ bool PVMessageWithProgress::Exec(TProgressProc Progress, void* AppSpecific)
         {
             if (pHdr->State == PVState_Progressing)
             {
-                // Forward progress update and check for cancellation.
+                // Forward progress update and check for cancellatiom
                 if (Progress(pHdr->ProgressValue, AppSpecific))
                 {
                     LONG state = InterlockedExchange(&pHdr->State, PVState_Cancelled);

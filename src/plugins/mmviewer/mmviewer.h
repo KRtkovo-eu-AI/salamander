@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -142,7 +143,7 @@ enum CViewerWindowEnablerEnum
 class CViewerWindow : public CWindow
 {
 public:
-    HANDLE Lock; // 'lock' object or NULL (becomes signaled only after the file is closed)
+    HANDLE Lock; // 'lock' object or NULL (signaled only after we close the file)
     CRendererWindow Renderer;
 
     HWND HRebar; // holds the MenuBar and ToolBar

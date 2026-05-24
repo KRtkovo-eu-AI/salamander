@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -19,11 +20,18 @@ CBandParams BandsParams[2];
 
 const char* MAINWINDOW_CLASSNAME = "SFC Window Class";
 
-CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UINT showCmd)
+CMainWindow::CMainWindow(const char* path1, const char* path2, CCompareOptions* options, UINT showCmd,
+                         const wchar_t* path1W, const wchar_t* path2W)
 {
     CALL_STACK_MESSAGE1("CMainWindow::CMainWindow(, , )");
-    Path1 = path1;
-    Path2 = path2;
+    // Store owned copies of paths
+    Path1Str = path1 ? path1 : "";
+    Path2Str = path2 ? path2 : "";
+    Path1WStr = path1W ? path1W : L"";
+    Path2WStr = path2W ? path2W : L"";
+    // Set convenience pointers
+    Path1 = Path1Str.c_str();
+    Path2 = Path2Str.c_str();
     FileView[fviLeft] = NULL;
     FileView[fviRight] = NULL;
     Active = 0;
@@ -705,7 +713,7 @@ BOOL CMainWindow::RebuildFileViewScripts(BOOL& cancel)
         SetForegroundWindow(HWindow);
         UpdateWindow(HWindow);
 
-        return TRUE; // success
+        return TRUE; // ok
     }
 
     // something went wrong
@@ -734,7 +742,7 @@ void CMainWindow::ResetComboBox(BOOL* cancel)
             size_t line1 = TextChanges[i].InsertPos;   // Line number of 1st inserted line.
             const char* path0 = SG->SalPathFindFileName(Path1);
             const char* path1 = SG->SalPathFindFileName(Path2);
-            char buf[MAX_PATH * 3];
+            CPathBuffer buf; // Heap-allocated for long path support
 
             ++i;
 
@@ -743,35 +751,35 @@ void CMainWindow::ResetComboBox(BOOL* cancel)
                 if (inserted)
                 {
                     // change
-                    char buf2[MAX_PATH * 2];
+                    CPathBuffer buf2; // Heap-allocated for long path support
                     if (deleted > 1)
-                        sprintf(buf2, LoadStr(IDS_CHANGEFROM2), i, line0 + 1, line0 + deleted, path0);
+                        sprintf((char*)buf2, LoadStr(IDS_CHANGEFROM2), i, line0 + 1, line0 + deleted, path0);
                     else
-                        sprintf(buf2, LoadStr(IDS_CHANGEFROM1), i, line0 + 1, path0);
+                        sprintf((char*)buf2, LoadStr(IDS_CHANGEFROM1), i, line0 + 1, path0);
                     if (inserted > 1)
-                        sprintf(buf, LoadStr(IDS_CHANGETO2), buf2, line1 + 1, line1 + inserted, path1);
+                        sprintf((char*)buf, LoadStr(IDS_CHANGETO2), buf2.Get(), line1 + 1, line1 + inserted, path1);
                     else
-                        sprintf(buf, LoadStr(IDS_CHANGETO1), buf2, line1 + 1, path1);
+                        sprintf((char*)buf, LoadStr(IDS_CHANGETO1), buf2.Get(), line1 + 1, path1);
                 }
                 else
                 {
                     // delete
                     if (deleted > 1)
-                        sprintf(buf, LoadStr(IDS_DELETE2), i, line0 + 1, line0 + deleted, path0);
+                        sprintf((char*)buf, LoadStr(IDS_DELETE2), i, line0 + 1, line0 + deleted, path0);
                     else
-                        sprintf(buf, LoadStr(IDS_DELETE1), i, line0 + 1, path0);
+                        sprintf((char*)buf, LoadStr(IDS_DELETE1), i, line0 + 1, path0);
                 }
             }
             else
             {
                 // insert
                 if (inserted > 1)
-                    sprintf(buf, LoadStr(IDS_ADD2), i, line1 + 1, line1 + inserted, path0, line0, path1);
+                    sprintf((char*)buf, LoadStr(IDS_ADD2), i, line1 + 1, line1 + inserted, path0, line0, path1);
                 else
-                    sprintf(buf, LoadStr(IDS_ADD1), i, line1 + 1, path0, line0, path1);
+                    sprintf((char*)buf, LoadStr(IDS_ADD1), i, line1 + 1, path0, line0, path1);
             }
 
-            LRESULT ret = SendMessage(ComboBox->HWindow, CB_ADDSTRING, 0, (LPARAM)buf);
+            LRESULT ret = SendMessage(ComboBox->HWindow, CB_ADDSTRING, 0, (LPARAM)buf.Get());
             if (ret == CB_ERR || ret == CB_ERRSPACE)
             {
                 TRACE_E("CB_ADDSTRING has failed, i = " << DWORD(i));
@@ -840,7 +848,8 @@ void CMainWindow::RestoreRebarLayout()
 }
 
 void CMainWindow::SpawnWorker(const char* path1, const char* path2,
-                              BOOL recompare, const CCompareOptions& options)
+                              BOOL recompare, const CCompareOptions& options,
+                              const wchar_t* path1W, const wchar_t* path2W)
 {
     CALL_STACK_MESSAGE3("CMainWindow::SpawnWorker(%s, %s, )", path1, path2);
 
@@ -871,7 +880,7 @@ void CMainWindow::SpawnWorker(const char* path1, const char* path2,
     CCompareOptions opt = options;
     opt.DetailedDifferences = DetailedDifferences ? 1 : 0;
     CFilecompWorker* worker = new CFilecompWorker(HWindow, HWindow, path1,
-                                                  path2, opt, CancelWorker, WorkerEvent);
+                                                  path2, opt, CancelWorker, WorkerEvent, path1W, path2W);
     if (!worker)
         Error(HWindow, IDS_LOWMEM);
     else
@@ -880,14 +889,14 @@ void CMainWindow::SpawnWorker(const char* path1, const char* path2,
         if (!worker->Create(ThreadQueue))
         {
             delete worker;
-            SetEvent(WorkerEvent); // so we do not wait for it unnecessarily
-            TRACE_I("Nepovedlo se spustit diff worker thread.");
+            SetEvent(WorkerEvent); // so we do not wait for it in vain
+            TRACE_I("Failed to start diff worker thread.");
         }
         else
         {
             EnableInput(FALSE);
-            char buf[MAX_PATH * 2 + 200];
-            sprintf(buf, LoadStr(IDS_MAINWNDHEADERCOMPUTING), SG->SalPathFindFileName(path1),
+            CPathBuffer buf; // Heap-allocated for long path support
+            sprintf((char*)buf, LoadStr(IDS_MAINWNDHEADERCOMPUTING), SG->SalPathFindFileName(path1),
                     SG->SalPathFindFileName(path2));
             SetWindowText(HWindow, buf);
             SetWait(TRUE);
@@ -962,8 +971,8 @@ bool CMainWindow::TextFilesDiffer(CTextCompareResults<CChar>* res, char* message
     TTextFileViewWindow<CChar>* leftFileView = (TTextFileViewWindow<CChar>*)FileView[fviLeft];
     TTextFileViewWindow<CChar>* rightFileView = (TTextFileViewWindow<CChar>*)FileView[fviRight];
 
-    // take ownership of the data; from now on, it must be deallocated here
-    // after it is passed via CTextCompareResults
+    // taking ownership of the data; from now on I must release it
+    // passed in CTextCompareResults
     leftFileView->SetData(res->Files[0].Text, res->Files[0].Lines, res->Files[0].LineScript);
     rightFileView->SetData(res->Files[1].Text, res->Files[1].Lines, res->Files[1].LineScript);
 
@@ -976,8 +985,10 @@ bool CMainWindow::TextFilesDiffer(CTextCompareResults<CChar>* res, char* message
     {
         DifferencesCount = int(ChangesToLines[ViewMode].size());
 
-        strcpy(Path1, res->Files[0].Name);
-        strcpy(Path2, res->Files[1].Name);
+        Path1Str = res->Files[0].Name;
+        Path2Str = res->Files[1].Name;
+        Path1 = Path1Str.c_str();
+        Path2 = Path2Str.c_str();
         LeftHeader->SetText(Path1);
         RightHeader->SetText(Path2);
 
@@ -1076,7 +1087,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
-        if (wParam == 666) // post CM_EXIT; the modal dialog should be gone by now
+        if (wParam == 666) // we should post CM_EXIT; the modal dialog should be gone by now
         {
             KillTimer(HWindow, 666);
             PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0);
@@ -1167,7 +1178,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             UINT state = GetMenuState(GetMenu(HWindow), CM_PREVDIFF, MF_BYCOMMAND);
             if (state & (MF_DISABLED | MF_GRAYED))
             {
-                if (DifferencesCount > 0) // Petr: when the view is scrolled away, Alt+Arrow should focus the difference (finding it manually is a pain); with only one difference, it did not work at all, otherwise it only worked by switching to previous/next
+                if (DifferencesCount > 0) // Petr: when I scroll the view somewhere else I want Alt+Arrow to focus the difference (hunting it manually is a pain); with just one diff it did not work at all, otherwise only by jumping to next/previous
                     SelectDifference(SelectedDifference, CM_PREVDIFF);
                 return 0;
             }
@@ -1198,7 +1209,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             UINT state = GetMenuState(GetMenu(HWindow), CM_NEXTDIFF, MF_BYCOMMAND);
             if (state & (MF_DISABLED | MF_GRAYED))
             {
-                if (DifferencesCount > 0) // Petr: when the view is scrolled away, Alt+Arrow should focus the difference (finding it manually is a pain); with only one difference, it did not work at all, otherwise it only worked by switching to previous/next
+                if (DifferencesCount > 0) // Petr: when I scroll the view somewhere else I want Alt+Arrow to focus the difference (hunting it manually is a pain); with just one diff it did not work at all, otherwise only by jumping previous/next
                     SelectDifference(SelectedDifference, CM_NEXTDIFF);
                 return 0;
             }
@@ -1207,7 +1218,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_NEXTDIFF:
             if (DataValid)
-                SelectDifference(SelectedDifference + 1, CM_NEXTDIFF); // handle the DifferencesCount test later
+                SelectDifference(SelectedDifference + 1, CM_NEXTDIFF); // guard the DifferencesCount test later
             return 0;
 
         case CM_LASTDIFF:
@@ -1217,8 +1228,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_COMPARE:
         {
-            char path1[MAX_PATH];
-            char path2[MAX_PATH];
+            CPathBuffer path1; // Heap-allocated for long path support
+            CPathBuffer path2;
             if (DataValid)
             {
                 strcpy(path1, Path1);
@@ -1264,7 +1275,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
 
                 // start the worker
-                SpawnWorker(Path1, Path2, TRUE, Options);
+                SpawnWorker(Path1, Path2, TRUE, Options, Path1WStr.c_str(), Path2WStr.c_str());
             }
             return 0;
         }
@@ -1561,7 +1572,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             POINT pt;
             int count, view = -1;
-            char path1[MAX_PATH], path2[MAX_PATH];
+            CPathBuffer path1, path2; // Heap-allocated for long path support
             CCompareOptions options = DefCompareOptions;
 
             if (DragQueryPoint(drop, &pt))
@@ -1579,19 +1590,19 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 goto LDROPERROR;
             if (count >= 1)
             {
-                DragQueryFile(drop, 0, path1, MAX_PATH);
+                DragQueryFile(drop, 0, path1, path1.Size());
                 if (SG->SalGetFileAttributes(path1) & FILE_ATTRIBUTE_DIRECTORY)
                 {
-                    Error(HWindow, IDS_NOTVALIDFILE, path1);
+                    Error(HWindow, IDS_NOTVALIDFILE, path1.Get());
                     goto LDROPERROR;
                 }
             }
             if (count >= 2)
             {
-                DragQueryFile(drop, 1, path2, MAX_PATH);
+                DragQueryFile(drop, 1, path2, path2.Size());
                 if (SG->SalGetFileAttributes(path1) & FILE_ATTRIBUTE_DIRECTORY)
                 {
-                    Error(HWindow, IDS_NOTVALIDFILE, path2);
+                    Error(HWindow, IDS_NOTVALIDFILE, path2.Get());
                     goto LDROPERROR;
                 }
             }
@@ -1856,7 +1867,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         DetailedDifferences = FALSE;
                         CheckMenuItem(GetMenu(HWindow), CM_DETAILDIFF, MF_BYCOMMAND | (DetailedDifferences ? MF_CHECKED : MF_UNCHECKED));
                         // and compare again
-                        SpawnWorker(Path1, Path2, FALSE, Options);
+                        SpawnWorker(Path1, Path2, FALSE, Options, Path1WStr.c_str(), Path2WStr.c_str());
                         return 0;
                     }
                 }
@@ -1950,8 +1961,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 ((CHexFileViewWindow*)FileView[fviRight])->SetData(res->FirstChange, res->Files[1].Name, res->Files[0].Size))
             {
                 Options = res->Options;
-                strcpy(Path1, res->Files[0].Name);
-                strcpy(Path2, res->Files[1].Name);
+                Path1Str = res->Files[0].Name;
+                Path2Str = res->Files[1].Name;
+                Path1 = Path1Str.c_str();
+                Path2 = Path2Str.c_str();
                 LeftHeader->SetText(Path1);
                 RightHeader->SetText(Path2);
 
@@ -2017,7 +2030,8 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WN_SET_PROGRESS:
         {
-            TCHAR buf[MAX_PATH * 2 + 400], fmt[128];
+            CPathBuffer buf; // Heap-allocated for long path support
+            TCHAR fmt[128];
             if (HIWORD(lParam))
             {
                 CQuadWord qLPARAM(LOWORD(lParam), 0);
@@ -2027,7 +2041,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 _tcscpy(fmt, LoadStr(IDS_MAINWNDHEADERCOMPUTING_PROGRESS));
             }
-            _stprintf(buf, fmt, SG->SalPathFindFileName(Path1), SG->SalPathFindFileName(Path2),
+            _stprintf(buf.Get(), fmt, SG->SalPathFindFileName(Path1), SG->SalPathFindFileName(Path2),
                       LOWORD(lParam), HIWORD(lParam));
             SetWindowText(HWindow, buf);
             return 0;
@@ -2094,7 +2108,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 PostMessage(HWindow, WM_COMMAND, CM_EXIT, 0);
         }
 
-        TCHAR buf[MAX_PATH * 2 + 400];
+        CPathBuffer buf; // Heap-allocated for long path support
         if (DataValid)
         {
             //        if (DifferencesCount || (WN_NO_DIFFERENCE == wParam))
@@ -2107,7 +2121,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
                 _tcscpy(fmt, LoadStr((WN_NO_DIFFERENCE == wParam) ? IDS_MAINWNDHEADER_NODIF : IDS_MAINWNDHEADERCOMPUTING2));
-            _stprintf(buf, fmt, SG->SalPathFindFileName(Path1), encoding[0], SG->SalPathFindFileName(Path2), encoding[1], DifferencesCount);
+            _stprintf(buf.Get(), fmt, SG->SalPathFindFileName(Path1), encoding[0], SG->SalPathFindFileName(Path2), encoding[1], DifferencesCount);
             //        }
             //        else
             //        {
@@ -2228,11 +2242,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_ACTIVATEWINDOW:
     {
-        // if the window is disabled, a message box is likely displayed above it;
-        // bringing this window to the front would activate it (this happened in an older SS version
-        // when the user compared two identical files: this window appeared first,
-        // then a message box reporting the match popped up, and finally this message arrived,
-        // stealing focus from the message box and activating the window underneath)
+        // if the window is disabled, a message box is likely sitting on top of it;
+        // bringing this window to the front would activate it (an issue in an older SS version
+        // where comparing identical files showed this window, then a message box about the match,
+        // and finally this message arrived, stealing focus from the box and activating the window underneath)
         if (IsWindowEnabled(HWindow))
         {
             ShowWindow(HWindow, ShowCmd /*SW_SHOW*/);

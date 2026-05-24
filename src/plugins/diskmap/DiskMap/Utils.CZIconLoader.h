@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -68,8 +69,8 @@ public:
     }
     static HICON LoadIconSync(CZFile* file, DWORD flags)
     {
-        TCHAR path[2 * MAX_PATH + 1];
-        file->GetFullName(path, ARRAYSIZE(path));
+        CPathBuffer path;
+        file->GetFullName(path, path.Size());
         return CZIconLoader::LoadIconSync(path, flags);
     }
     static HICON LoadIconSync(TCHAR* path, DWORD flags)
@@ -77,7 +78,7 @@ public:
         flags |= SHGFI_ICON;     //get the icon
         flags &= SHGFI_ICONMASK; //remove unwanted flags
         SHFILEINFO shfi;
-        if (SHGetFileInfo(path, 0, &shfi, sizeof shfi, flags) == 0)
+        if (SHGetFileInfo(path, 0, &shfi, sizeof(shfi), flags) == 0)
             return NULL;
         return shfi.hIcon;
     }

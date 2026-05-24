@@ -1,14 +1,14 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// The following functions do not crash when passed invalid pointers (including NULL):
-// lstrcpy, lstrcpyn, lstrlen, and lstrcat (these are defined with the A or W suffix, so
-// we do not redefine them directly). For easier debugging, we need them to crash,
-// because otherwise the error is only discovered later, when it may no longer be clear
-// what caused it
+// The following functions do not crash when working with invalid memory (not even when working with NULL):
+// lstrcpy, lstrcpyn, lstrlen and lstrcat (they are defined with suffix A or W, therefore
+// we do not redefine them directly), for the sake of easier bug debugging we need them to crash,
+// because otherwise the error is discovered later in a place where it may not be clear what caused it
+// to happen
 #define lstrcpyA _sal_lstrcpyA
 #define lstrcpyW _sal_lstrcpyW
 #define lstrcpynA _sal_lstrcpynA

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -11,7 +12,7 @@
 #define WM_USER_KEYDOWN WM_APP + 667
 
 // configuration data
-enum CAutoCheckModeEnum // how often the plugin window is shown
+enum CAutoCheckModeEnum // how often the plugin window is activated
 {
     achmNever,
     achmDay,
@@ -81,7 +82,7 @@ extern SYSTEMTIME LastCheckTime;       // when the check was last performed (zer
 extern SYSTEMTIME NextOpenOrCheckTime; // the earliest time the plugin window should open automatically and optionally perform a check (zeroed out if it should happen at the first load-on-start (ASAP))
 extern int ErrorsSinceLastCheck;       // how many times we have already failed to perform the automatic check
 
-extern char SalamanderTextVersion[MAX_PATH]; // running Salamander version text (for example, "2.52 beta 3 (PB 32)")
+extern CPathBuffer SalamanderTextVersion; // Heap-allocated for long path support; running Salamander version text (for example, "2.52 beta 3 (PB 32)")
 
 extern DWORD MainDialogID;                   // unique dialog counter
 extern CRITICAL_SECTION MainDialogIDSection; // and its lock

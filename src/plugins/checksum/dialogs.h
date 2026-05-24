@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -144,7 +145,7 @@ public:
     CCalculateDialog(HWND parent, BOOL alwaysOnTop, TSeedFileList* pFileList, const char* sourcePath);
 
 protected:
-    BOOL AddDir(char (&path)[MAX_PATH + 50], size_t root, BOOL* ignoreAll);
+    BOOL AddDir(CPathBuffer& path, size_t root, BOOL* ignoreAll);
     BOOL GetFileList();
     virtual void OnThreadEnd();
     void EnableButtons(BOOL bEnable);
@@ -169,7 +170,7 @@ protected:
 struct FILEINFO
 {
     // nothing in this structure changes after it is added to the array = no synchronized access needed
-    char fileName[MAX_PATH];
+    CPathBuffer fileName; // Heap-allocated for long path support
     char digest[DIGEST_MAX_SIZE];
     CQuadWord size;
     BOOL bFileExist;

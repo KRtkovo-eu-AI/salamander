@@ -1,4 +1,4 @@
-/* BranchTypes.h */
+﻿/* BranchTypes.h */
 
 #ifndef __BRANCHTYPES_H
 #define __BRANCHTYPES_H

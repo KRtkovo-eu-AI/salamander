@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <Import Project="$(NuGetPackageRoot)prismsharp\1.0.0-beta\build\PrismSharp.targets" Condition="Exists('$(NuGetPackageRoot)prismsharp\1.0.0-beta\build\PrismSharp.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\1.0.2420.47\build\Microsoft.Web.WebView2.targets')" />
+  </ImportGroup>
+</Project>

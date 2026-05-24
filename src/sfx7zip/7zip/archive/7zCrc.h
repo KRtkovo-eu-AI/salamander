@@ -1,4 +1,4 @@
-/* 7zCrc.h */
+﻿/* 7zCrc.h */
 
 #ifndef __7Z_CRC_H
 #define __7Z_CRC_H

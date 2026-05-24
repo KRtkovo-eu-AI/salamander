@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -13,7 +14,7 @@ struct CCompareOptions
     // Consider all files as text files.
     int ForceText;
 
-    // Consider all files as binary files.
+    // Consider all files as binaty files.
     int ForceBinary;
 
     // Ignore changes in horizontal white space.
@@ -73,9 +74,9 @@ struct CChange
         struct
         {
             size_t Deleted;   // Length of subsequence deleted from the first sequence.
-            size_t Inserted;  // Length of subsequence inserted to the second sequence.
+            size_t Inserted;  // Length of subsequence inserted to the seccond sequence.
             size_t DeletePos; // Position in the first sequence.
-            size_t InsertPos; // Position in the second sequence.
+            size_t InsertPos; // Position in the seccond sequence.
         };
         struct
         {
@@ -258,7 +259,8 @@ protected:
 
 struct CWorkerFileData
 {
-    TCHAR Name[MAX_PATH];
+    std::string Name;
+    std::wstring NameW; // Wide path for Unicode/long path filenames
     HANDLE File;
     QWORD Size;
 
@@ -302,7 +304,8 @@ public:
     };
 
     CFilecompWorker(HWND parent, HWND mainWindow, const char* name0, const char* name1,
-                    const CCompareOptions& options, const int& cancelFlag, HANDLE event);
+                    const CCompareOptions& options, const int& cancelFlag, HANDLE event,
+                    const wchar_t* name0W = NULL, const wchar_t* name1W = NULL);
 
 protected:
     HWND Parent;

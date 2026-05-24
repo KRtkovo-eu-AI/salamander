@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -47,7 +48,7 @@ const char* CONFIG_SIZECOLFW = "SizeColFW";
 const char* CONFIG_SIZECOLW = "SizeColW";
 
 // FS name assigned by Salamander after loading the plug-in
-char AssignedFSName[MAX_PATH] = "";
+CPathBuffer AssignedFSName;
 
 CThreadQueue ThreadQueue("RegEdt Find Dialogs, Workers, and Changes Monitor");
 CWindowQueueEx WindowQueue;
@@ -220,12 +221,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // cannot call Error here because it uses SG->SalMessageBox (SG not initialized + incompatible interface)
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "Registry Editor" /* do not translate! */, MB_OK | MB_ICONERROR);
+                   "Registry Editor" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "Registry Editor" /* do not translate! */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "Registry Editor" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -258,7 +259,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    NULL,
                                    "reg");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     // obtain our FS name (it may differ from "reg"; Salamander can adjust it)
     SG->GetPluginFSName(AssignedFSName, 0);
@@ -316,10 +317,10 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     // default values
     DialogWidth = DialogHeight = -1;
     wcscpy(RecentFullPath, L"\\");
-    strcpy(Command, "");
-    strcpy(Arguments, "\"$(Name)\"");
-    strcpy(InitDir, "$(FullPath)");
-    strcpy(LastExportPath, "");
+    *Command = 0;
+    lstrcpy(Arguments, "\"$(Name)\"");
+    lstrcpy(InitDir, "$(FullPath)");
+    *LastExportPath = 0;
     if (regKey)
     {
         registry->GetValue(regKey, CONFIG_RECENTPATH, REG_BINARY, RecentFullPath, MAX_FULL_KEYNAME * 2);
@@ -339,10 +340,10 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
             DialogWidth = DialogHeight = -1;
         }
         registry->GetValue(regKey, CONFIG_MAXIMIZED, REG_DWORD, &Maximized, sizeof(BOOL));
-        registry->GetValue(regKey, CONFIG_COMMAND, REG_SZ, Command, MAX_PATH);
-        registry->GetValue(regKey, CONFIG_ARGUMENTS, REG_SZ, Arguments, MAX_PATH);
-        registry->GetValue(regKey, CONFIG_INITDIR, REG_SZ, InitDir, MAX_PATH);
-        registry->GetValue(regKey, CONFIG_EXPORTDIR, REG_SZ, LastExportPath, MAX_PATH);
+        registry->GetValue(regKey, CONFIG_COMMAND, REG_SZ, Command, Command.Size());
+        registry->GetValue(regKey, CONFIG_ARGUMENTS, REG_SZ, Arguments, Arguments.Size());
+        registry->GetValue(regKey, CONFIG_INITDIR, REG_SZ, InitDir, InitDir.Size());
+        registry->GetValue(regKey, CONFIG_EXPORTDIR, REG_SZ, LastExportPath, LastExportPath.Size());
 
         registry->GetValue(regKey, CONFIG_TYPEDATECOLFW, REG_DWORD, &TypeDateColFW, sizeof(int));
         registry->GetValue(regKey, CONFIG_TYPEDATECOLW, REG_DWORD, &TypeDateColW, sizeof(int));

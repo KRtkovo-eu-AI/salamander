@@ -1,4 +1,4 @@
-/* 7zTypes.h */
+﻿/* 7zTypes.h */
 
 #ifndef __COMMON_TYPES_H
 #define __COMMON_TYPES_H

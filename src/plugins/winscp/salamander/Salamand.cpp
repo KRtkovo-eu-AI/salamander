@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //---------------------------------------------------------------------------
@@ -376,7 +377,7 @@ bool CPluginInterface::Init(CSalamanderPluginEntryAbstract* Salamander)
         if (SalamanderVersion < LAST_VERSION_OF_SALAMANDER)
         {
             MessageBox(Salamander->GetParentWindow(), REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                       "WinSCP" /* do not translate */, MB_OK | MB_ICONERROR);
+                       "WinSCP" /* neprekladat! */, MB_OK | MB_ICONERROR);
         }
         else
         {
@@ -387,11 +388,11 @@ bool CPluginInterface::Init(CSalamanderPluginEntryAbstract* Salamander)
             assert(Application);
             SetParentWindow(SalamanderGeneral()->GetMainWindowHWND());
 
-            InitializeWinLib("WinSCP" /* do not translate */, DLLInstance);
+            InitializeWinLib("WinSCP" /* neprekladat! */, DLLInstance);
 
 #ifndef IDE
             HLanguage = Salamander->LoadLanguageModule(Salamander->GetParentWindow(),
-                                                       "WinSCP (SFTP/SCP Client)" /* do not translate */);
+                                                       "WinSCP (SFTP/SCP Client)" /* neprekladat! */);
             if (HLanguage == NULL)
             {
                 return NULL;
@@ -416,7 +417,7 @@ bool CPluginInterface::Init(CSalamanderPluginEntryAbstract* Salamander)
 
             Salamander->SetPluginHomePageURL(SalLoadStr(SAL_HOMEPAGE));
 
-            char FSName[MAX_PATH];
+            CPathBuffer FSName;
             SalamanderGeneral()->GetPluginFSName(FSName, 0);
             FFSNames[0] = FSName;
             assert(!FFSNames[0].IsEmpty());

@@ -1,11 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include <memory>
 #include <time.h>
 
 #include "cfgdlg.h"
+#include "ui/IPrompter.h"
 #include "pwdmngr.h"
 #include "plugins.h"
 #include "spl_crypt.h"
@@ -29,6 +31,25 @@ CSalamanderCryptAbstract* GetSalamanderCrypt();
    The following macros assume that the mode value is correct.
 */
 #define PASSWORD_MANAGER_AES_MODE 3 // DO NOT CHANGE; for example, CMasterPasswordVerifier is declared "hardcoded"
+
+struct CSecureByteArrayDeleter
+{
+    CSecureByteArrayDeleter(int size)
+        : Size(size)
+    {
+    }
+
+    void operator()(BYTE* buffer) const
+    {
+        if (buffer != NULL)
+        {
+            SecureZeroMemory(buffer, Size);
+            delete[] buffer;
+        }
+    }
+
+    int Size;
+};
 
 //****************************************************************************
 //
@@ -127,7 +148,7 @@ BOOL UnscramblePassword(char* password)
         InitUnscrambleTable = FALSE;
     }
 
-    char* backup = DupStr(password); // backup for TRACE_E
+    std::string backup = password; // backup for TRACE_E
 
     char* s = password;
     int last = 31;
@@ -158,11 +179,10 @@ BOOL UnscramblePassword(char* password)
     }
     if (!ok)
     {
-        password[0] = 0; // some error occurred; clear the password
-        TRACE_E("Unable to unscramble password! scrambled=" << backup);
+        password[0] = 0; // some error occured; clear the password
+        TRACE_E("Unable to unscramble password! scrambled=" << backup.c_str());
     }
-    memset(backup, 0, lstrlen(backup)); // wipe the memory that contained the password
-    free(backup);
+    memset(&backup[0], 0, backup.size()); // wipe the memory that contained the password
     return ok;
 }
 
@@ -189,7 +209,7 @@ void CChangeMasterPassword::Validate(CTransferInfo& ti)
         GetDlgItemText(HWindow, IDC_CHMP_CURRENTPWD, curPwd, SAL_AES_MAX_PWD_LENGTH);
         if (!PwdManager->VerifyMasterPassword(curPwd))
         {
-            SalMessageBox(HWindow, LoadStr(IDS_WRONG_MASTERPASSWORD), LoadStr(IDS_WARNINGTITLE), MB_OK | MB_ICONEXCLAMATION);
+            gPrompter->ShowError(LoadStrW(IDS_WARNINGTITLE), LoadStrW(IDS_WRONG_MASTERPASSWORD));
             SetDlgItemText(HWindow, IDC_CHMP_CURRENTPWD, "");
             ti.ErrorOn(IDC_CHMP_CURRENTPWD);
             return;
@@ -202,8 +222,7 @@ void CChangeMasterPassword::Validate(CTransferInfo& ti)
         GetDlgItemText(HWindow, IDC_CHMP_NEWPWD, newPwd, SAL_AES_MAX_PWD_LENGTH);
         if (newPwd[0] != 0 && !PwdManager->IsPasswordSecure(newPwd))
         {
-            if (SalMessageBox(HWindow, LoadStr(IDS_INSECUREPASSWORD), LoadStr(IDS_WARNINGTITLE),
-                              MB_YESNO | MB_ICONWARNING) == IDNO)
+            if (gPrompter->AskYesNo(LoadStrW(IDS_WARNINGTITLE), LoadStrW(IDS_INSECUREPASSWORD)).type == PromptResult::kNo)
             {
                 ti.ErrorOn(IDC_CHMP_NEWPWD);
                 return;
@@ -301,7 +320,7 @@ void CEnterMasterPassword::Validate(CTransferInfo& ti)
         GetDlgItemText(HWindow, IDC_MPR_PASSWORD, curPwd, SAL_AES_MAX_PWD_LENGTH);
         if (!PwdManager->VerifyMasterPassword(curPwd))
         {
-            SalMessageBox(HWindow, LoadStr(IDS_WRONG_MASTERPASSWORD), LoadStr(IDS_WARNINGTITLE), MB_OK | MB_ICONEXCLAMATION);
+            gPrompter->ShowError(LoadStrW(IDS_WARNINGTITLE), LoadStrW(IDS_WRONG_MASTERPASSWORD));
             SetDlgItemText(HWindow, IDC_MPR_PASSWORD, "");
             ti.ErrorOn(IDC_MPR_PASSWORD);
             return;
@@ -348,7 +367,7 @@ void CRemoveMasterPassword::Validate(CTransferInfo& ti)
         GetDlgItemText(HWindow, IDC_RMP_CURRENTPWD, curPwd, SAL_AES_MAX_PWD_LENGTH);
         if (!PwdManager->VerifyMasterPassword(curPwd))
         {
-            SalMessageBox(HWindow, LoadStr(IDS_WRONG_MASTERPASSWORD), LoadStr(IDS_WARNINGTITLE), MB_OK | MB_ICONEXCLAMATION);
+            gPrompter->ShowError(LoadStrW(IDS_WARNINGTITLE), LoadStrW(IDS_WRONG_MASTERPASSWORD));
             SetDlgItemText(HWindow, IDC_RMP_CURRENTPWD, "");
             ti.ErrorOn(IDC_RMP_CURRENTPWD);
             return;
@@ -484,8 +503,6 @@ CCfgPageSecurity::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CPasswordManager::CPasswordManager()
 {
     UseMasterPassword = FALSE;
-    PlainMasterPassword = NULL;
-    OldPlainMasterPassword = NULL;
     MasterPasswordVerifier = NULL;
 
     SalamanderCrypt = GetSalamanderCrypt();
@@ -493,11 +510,7 @@ CPasswordManager::CPasswordManager()
 
 CPasswordManager::~CPasswordManager()
 {
-    if (PlainMasterPassword != NULL)
-    {
-        free(PlainMasterPassword);
-        PlainMasterPassword = NULL;
-    }
+    PlainMasterPassword.clear();
     if (MasterPasswordVerifier != NULL)
     {
         delete MasterPasswordVerifier;
@@ -532,7 +545,7 @@ BOOL CPasswordManager::EncryptPassword(const char* plainPassword, BYTE** encrypt
         *encryptedPassword = NULL;
     if (encryptedPasswordSize != NULL)
         *encryptedPasswordSize = 0;
-    if (encrypt && (!UseMasterPassword || PlainMasterPassword == NULL))
+    if (encrypt && (!UseMasterPassword || PlainMasterPassword.empty()))
     {
         TRACE_E("CPasswordManager::EncryptPassword(): Unexpected situation, Master Password was not entered. Call AskForMasterPassword() first.");
         return FALSE;
@@ -558,7 +571,7 @@ BOOL CPasswordManager::EncryptPassword(const char* plainPassword, BYTE** encrypt
 
         CSalAES aes;
         WORD dummy; // unnecessary weakness, ignored
-        int ret = SalamanderCrypt->AESInit(&aes, PASSWORD_MANAGER_AES_MODE, PlainMasterPassword, strlen(PlainMasterPassword), *encryptedPassword + 1, &dummy);
+        int ret = SalamanderCrypt->AESInit(&aes, PASSWORD_MANAGER_AES_MODE, PlainMasterPassword.c_str(), (int)PlainMasterPassword.length(), *encryptedPassword + 1, &dummy);
         if (ret != SAL_AES_ERR_GOOD_RETURN)
             TRACE_E("CPasswordManager::EncryptPassword(): unexpected state, ret=" << ret);       // should not happen
         SalamanderCrypt->AESEncrypt(&aes, *encryptedPassword + 1 + 16, scrambledPasswordLen);    // run the scrambled password through AES encryption
@@ -598,7 +611,7 @@ BOOL CPasswordManager::DecryptPassword(const BYTE* encryptedPassword, int encryp
     }
     // if the password is encrypted with AES and we do not know the master password, we fail
     BOOL encrypted = IsPasswordEncrypted(encryptedPassword, encryptedPasswordSize);
-    if (encrypted && (!UseMasterPassword || PlainMasterPassword == NULL) && OldPlainMasterPassword == NULL)
+    if (encrypted && (!UseMasterPassword || PlainMasterPassword.empty()) && OldPlainMasterPassword.empty())
     {
         TRACE_I("CPasswordManager::DecryptPassword(): Master Password was not entered. Call AskForMasterPassword() first.");
         return FALSE;
@@ -609,17 +622,20 @@ BOOL CPasswordManager::DecryptPassword(const BYTE* encryptedPassword, int encryp
         return FALSE;
     }
 
+    BOOL usingOldPassword = FALSE;
     const char* plainMasterPassword;
     plainMasterPassword = NULL;
-    if (OldPlainMasterPassword != NULL)
-        plainMasterPassword = OldPlainMasterPassword;
+    if (!OldPlainMasterPassword.empty())
+    {
+        plainMasterPassword = OldPlainMasterPassword.c_str();
+        usingOldPassword = TRUE;
+    }
     else
-        plainMasterPassword = PlainMasterPassword;
+        plainMasterPassword = PlainMasterPassword.c_str();
 
-TRY_DECRYPT_AGAIN:
-
-    BYTE* tmpBuff = (BYTE*)malloc(encryptedPasswordSize + 1); // +1 for the terminator so we can call unscramble after AES
-    memcpy(tmpBuff, encryptedPassword, encryptedPasswordSize);
+    std::unique_ptr<BYTE[], CSecureByteArrayDeleter> tmpBuff(new BYTE[encryptedPasswordSize + 1],
+                                                             CSecureByteArrayDeleter(encryptedPasswordSize + 1)); // +1 for the terminator so we can call unscramble after AES
+    memcpy(tmpBuff.get(), encryptedPassword, encryptedPasswordSize);
     tmpBuff[encryptedPasswordSize] = 0; // terminator required by UnscramblePassword
 
     int pwdOffset = 1; // signature
@@ -628,25 +644,22 @@ TRY_DECRYPT_AGAIN:
         // decrypt the data with AES first
         CSalAES aes;
         WORD dummy;                                                                                                                                 // unnecessary weakness; ignore it
-        int ret = SalamanderCrypt->AESInit(&aes, PASSWORD_MANAGER_AES_MODE, plainMasterPassword, strlen(plainMasterPassword), tmpBuff + 1, &dummy); // the salt follows the signature in 16 bytes
+        int ret = SalamanderCrypt->AESInit(&aes, PASSWORD_MANAGER_AES_MODE, plainMasterPassword, strlen(plainMasterPassword), tmpBuff.get() + 1, &dummy); // the salt follows the signature in 16 bytes
         if (ret != SAL_AES_ERR_GOOD_RETURN)
             TRACE_E("CPasswordManager::DecryptPassword(): unexpected state, ret=" << ret);        // should not happen
-        SalamanderCrypt->AESDecrypt(&aes, tmpBuff + 1 + 16, encryptedPasswordSize - 1 - 16 - 10); // decrypt the password
+        SalamanderCrypt->AESDecrypt(&aes, tmpBuff.get() + 1 + 16, encryptedPasswordSize - 1 - 16 - 10); // decrypt the password
         BYTE mac[10];                                                                             // MAC is used to verify the correctness of the master password
         SalamanderCrypt->AESEnd(&aes, mac, NULL);
         if (memcmp(mac, &tmpBuff[encryptedPasswordSize - 10], 10) != 0)
         {
-            memset(tmpBuff, 0, encryptedPasswordSize); // clear the buffer that held the plain password
-            free(tmpBuff);
-
-            if (plainMasterPassword == OldPlainMasterPassword && UseMasterPassword && PlainMasterPassword != NULL)
-            { // handle the case where the password is encrypted with the new master password
+            if (usingOldPassword && UseMasterPassword && !PlainMasterPassword.empty())
+            {   // handle the case where the password is encrypted with the new master password
                 // (the password cannot be decrypted with the old master password, but can with the new one,
                 // therefore, the message that the password cannot be decrypted would be misleading,
                 // because when the user tries to decrypt it with the new master password, it succeeds
                 // meaning the user has no way to identify the undecryptable password)
-                plainMasterPassword = PlainMasterPassword;
-                goto TRY_DECRYPT_AGAIN;
+                plainMasterPassword = PlainMasterPassword.c_str();
+                usingOldPassword = FALSE;
             }
 
             TRACE_I("CPasswordManager::DecryptPassword(): wrong master password, password cannot be decrypted!");
@@ -656,20 +669,15 @@ TRY_DECRYPT_AGAIN:
         tmpBuff[encryptedPasswordSize - 10] = 0; // terminator for unscramble (placed over the first MAC byte)
     }
     // data are stored scrambled; skip the signature and optional AES salt
-    if (!UnscramblePassword((char*)tmpBuff + pwdOffset))
+    if (!UnscramblePassword((char*)tmpBuff.get() + pwdOffset))
     {
-        memset(tmpBuff, 0, encryptedPasswordSize); // clear the buffer that held the plain password
-        free(tmpBuff);
         return FALSE;
     }
 
     if (plainPassword != NULL)
     {
-        *plainPassword = DupStr((char*)tmpBuff + pwdOffset);
+        *plainPassword = DupStr((char*)tmpBuff.get() + pwdOffset);
     }
-
-    memset(tmpBuff, 0, encryptedPasswordSize); // clear the buffer that held the plain password
-    free(tmpBuff);
 
     return TRUE;
 }
@@ -684,17 +692,17 @@ BOOL CPasswordManager::IsPasswordEncrypted(const BYTE* encryptedPassword, int en
 
 void CPasswordManager::SetMasterPassword(HWND hParent, const char* password)
 {
-    if (OldPlainMasterPassword != NULL)
+    if (!OldPlainMasterPassword.empty())
     {
         TRACE_E("CPasswordManager::SetMasterPassword() unexpected situation, OldPlainMasterPassword != NULL");
     }
 
-    if (PlainMasterPassword != NULL)
+    if (!PlainMasterPassword.empty())
     {
         // if a master password is set, during this method we move it into OldPlainMasterPassword,
         // so that plugins can decrypt the passwords that were encrypted for them
-        OldPlainMasterPassword = PlainMasterPassword;
-        PlainMasterPassword = NULL;
+        OldPlainMasterPassword = std::move(PlainMasterPassword);
+        PlainMasterPassword.clear();
     }
 
     if (MasterPasswordVerifier != NULL)
@@ -713,17 +721,13 @@ void CPasswordManager::SetMasterPassword(HWND hParent, const char* password)
     {
         // master password set/changed
         UseMasterPassword = TRUE;
-        PlainMasterPassword = DupStr(password);
-        CreateMasterPasswordVerifier(PlainMasterPassword);
-        Plugins.PasswordManagerEvent(hParent, OldPlainMasterPassword == NULL ? PME_MASTERPASSWORDCREATED : PME_MASTERPASSWORDCHANGED);
+        PlainMasterPassword = password;
+        CreateMasterPasswordVerifier(PlainMasterPassword.c_str());
+        Plugins.PasswordManagerEvent(hParent, OldPlainMasterPassword.empty() ? PME_MASTERPASSWORDCREATED : PME_MASTERPASSWORDCHANGED);
     }
 
     // the thread has returned from calling Plugins.PasswordManagerEvent(), so we can discard OldPlainMasterPassword
-    if (OldPlainMasterPassword != NULL)
-    {
-        free(OldPlainMasterPassword);
-        OldPlainMasterPassword = NULL;
-    }
+    OldPlainMasterPassword.clear();
 }
 
 BOOL CPasswordManager::EnterMasterPassword(const char* password)
@@ -733,10 +737,10 @@ BOOL CPasswordManager::EnterMasterPassword(const char* password)
         TRACE_E("CPasswordManager::EnterMasterPassword(): Unexpected situation, Master Password is not used.");
         return FALSE;
     }
-    if (PlainMasterPassword != NULL)
+    if (!PlainMasterPassword.empty())
     {
         // if an attempt is made to insert the current password again, silently ignore it
-        if (strcmp(PlainMasterPassword, password) == 0)
+        if (PlainMasterPassword == password)
             return TRUE;
 
         TRACE_E("CPasswordManager::EnterMasterPassword(): Unexpected situation, Master Password is already entered.");
@@ -748,7 +752,7 @@ BOOL CPasswordManager::EnterMasterPassword(const char* password)
         return FALSE;
     }
 
-    PlainMasterPassword = DupStr(password);
+    PlainMasterPassword = password;
 
     return TRUE;
 }
@@ -786,9 +790,9 @@ BOOL CPasswordManager::VerifyMasterPassword(const char* password)
     }
 
     // if the plaintext master password is cached, we can perform a simple comparison
-    if (PlainMasterPassword != NULL)
+    if (!PlainMasterPassword.empty())
     {
-        return (strcmp(PlainMasterPassword, password) == 0);
+        return (PlainMasterPassword == password);
     }
 
     if (MasterPasswordVerifier == NULL)
@@ -813,8 +817,10 @@ BOOL CPasswordManager::VerifyMasterPassword(const char* password)
 void CPasswordManager::NotifyAboutMasterPasswordChange(HWND hParent)
 {
     BOOL set = IsUsingMasterPassword();
-    SalMessageBox(hParent, LoadStr(set ? IDS_MASTERPASSWORD_SET : IDS_MASTERPASSWORD_REMOVED), LoadStr(IDS_MASTERPASSWORD_CHANGED_TITLE),
-                  MB_OK | (set ? MB_ICONINFORMATION : MB_ICONWARNING));
+    if (set)
+        gPrompter->ShowInfo(LoadStrW(IDS_MASTERPASSWORD_CHANGED_TITLE), LoadStrW(IDS_MASTERPASSWORD_SET));
+    else
+        gPrompter->ShowError(LoadStrW(IDS_MASTERPASSWORD_CHANGED_TITLE), LoadStrW(IDS_MASTERPASSWORD_REMOVED));
 }
 
 BOOL CPasswordManager::Save(HKEY hKey)

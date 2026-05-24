@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -13,6 +14,6 @@
 
 #pragma once
 
-// Returns TRUE when window 'hWnd' belongs to the process with 'dwProcessId'.
-// The function walks through parent processes.
+// returns TRUE when window 'hWnd' belongs to process with 'dwProcessId'
+// function walks through parent processes
 BOOL WindowBelongsToProcessID(HWND hWnd, DWORD dwProcessId);

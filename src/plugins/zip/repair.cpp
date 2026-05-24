@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -63,7 +64,7 @@ CZipRepair::RepeairArchive()
 {
   CALL_STACK_MESSAGE1("CZipRepair::RepeairArchive()");
 
-  char targetName[MAX_PATH];
+  CPathBuffer targetName; // Heap-allocated for long path support
 
   lstrcpy(targetName, ZipName);
   PathRemoveExtension(targetName);
@@ -121,7 +122,7 @@ CZipRepair::DoRepairFiles()
 {
   CALL_STACK_MESSAGE1("CZipRepair::DoRepairFiles()");
   DWORD offs;
-  char dummy[MAX_PATH];
+  CPathBuffer dummy; // Heap-allocated for long path support
   dummy[0] = 0;
   CFileInfo info;
   int ret;

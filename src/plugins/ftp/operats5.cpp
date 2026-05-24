@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -54,7 +54,7 @@ BOOL CFTPWorkersList::InformWorkersAboutStop(int workerInd, CFTPWorker** victims
             if (*foundVictims < maxVictims)
             {
                 CFTPWorker* worker = Workers[workerInd];
-                if (worker->InformAboutStop()) // add it to the victims (CloseDataConnectionOrPostShouldStop() will be called on it later)
+                if (worker->InformAboutStop()) // add them among the victims (CloseDataConnectionOrPostShouldStop() will be called on them later)
                     *(victims + (*foundVictims)++) = worker;
             }
             else
@@ -67,7 +67,7 @@ BOOL CFTPWorkersList::InformWorkersAboutStop(int workerInd, CFTPWorker** victims
         while (*foundVictims < maxVictims && i < Workers.Count)
         {
             CFTPWorker* worker = Workers[i++];
-            if (worker->InformAboutStop()) // add it to the victims (CloseDataConnectionOrPostShouldStop() will be called on it later)
+            if (worker->InformAboutStop()) // add them among the victims (CloseDataConnectionOrPostShouldStop() will be called on them later)
                 *(victims + (*foundVictims)++) = worker;
         }
         ret = i < Workers.Count;
@@ -90,7 +90,7 @@ BOOL CFTPWorkersList::InformWorkersAboutPause(int workerInd, CFTPWorker** victim
             if (*foundVictims < maxVictims)
             {
                 CFTPWorker* worker = Workers[workerInd];
-                if (worker->InformAboutPause(pause)) // add it to the victims (PostShouldPauseOrResume() will be called on it later)
+                if (worker->InformAboutPause(pause)) // add them among the victims (PostShouldPauseOrResume() will be called on them later)
                     *(victims + (*foundVictims)++) = worker;
             }
             else
@@ -103,7 +103,7 @@ BOOL CFTPWorkersList::InformWorkersAboutPause(int workerInd, CFTPWorker** victim
         while (*foundVictims < maxVictims && i < Workers.Count)
         {
             CFTPWorker* worker = Workers[i++];
-            if (worker->InformAboutPause(pause)) // add it to the victims (PostShouldPauseOrResume() will be called on it later)
+            if (worker->InformAboutPause(pause)) // add them among the victims (PostShouldPauseOrResume() will be called on them later)
                 *(victims + (*foundVictims)++) = worker;
         }
         ret = i < Workers.Count;
@@ -161,7 +161,7 @@ BOOL CFTPWorkersList::ForceCloseWorkers(int workerInd, CFTPWorker** victims,
             worker->ForceCloseDiskWork();
             if (*foundVictims < maxVictims)
             {
-                if (!worker->SocketClosedAndDataConDoesntExist()) // add it to the victims (ForceClose() will be called on it later)
+                if (!worker->SocketClosedAndDataConDoesntExist()) // add them among the victims (ForceClose() will be called on them later)
                     *(victims + (*foundVictims)++) = worker;
             }
             else
@@ -175,7 +175,7 @@ BOOL CFTPWorkersList::ForceCloseWorkers(int workerInd, CFTPWorker** victims,
         {
             CFTPWorker* worker = Workers[i++];
             worker->ForceCloseDiskWork();
-            if (!worker->SocketClosedAndDataConDoesntExist()) // add it to the victims (ForceClose() will be called on it later)
+            if (!worker->SocketClosedAndDataConDoesntExist()) // add them among the victims (ForceClose() will be called on them later)
                 *(victims + (*foundVictims)++) = worker;
         }
         ret = i < Workers.Count;
@@ -286,7 +286,7 @@ void CFTPWorkersList::GetListViewDataFor(int index, NMLVDISPINFO* lvdi, char* bu
     {
         Workers[index]->GetListViewData(itemData, buf, bufSize);
     }
-    else // for an invalid index (the list view has not refreshed yet), we must return at least an empty item
+    else // for an invalid index (listview has not refreshed yet) we must return at least an empty item
     {
         if (itemData->mask & LVIF_IMAGE)
             itemData->iImage = 0; // we have only one icon so far
@@ -469,7 +469,7 @@ BOOL CFTPWorkersList::GiveWorkToSleepingConWorker(CFTPWorker* sourceWorker)
 {
     CALL_STACK_MESSAGE1("CFTPWorkersList::GiveWorkToSleepingConWorker()");
 
-    // WARNING: we may already be inside CSocketsThread::CritSect (and CSocket::SocketCritSect)!!!
+    // ATTENTION: we may already be inside CSocketsThread::CritSect (and CSocket::SocketCritSect) !!!
 
     BOOL ret = FALSE;
     HANDLES(EnterCriticalSection(&WorkersListCritSect));
@@ -536,7 +536,7 @@ BOOL CFTPWorkersList::SearchWorkerWithNewError(int* index, DWORD lastErrorOccure
 
     HANDLES(EnterCriticalSection(&WorkersListCritSect));
     BOOL res = FALSE;
-    if (LastFoundErrorOccurenceTime + 1 < lastErrorOccurenceTime + 1) // +1 is here because -1 is used as the initial value
+    if (LastFoundErrorOccurenceTime + 1 < lastErrorOccurenceTime + 1) // +1 is here because -1 is used as initialization values
     {                                                                 // it makes sense to search
         int foundIndex = -1;
         DWORD foundErrorOccurenceTime = -1;
@@ -545,7 +545,7 @@ BOOL CFTPWorkersList::SearchWorkerWithNewError(int* index, DWORD lastErrorOccure
         {
             CFTPWorker* worker = Workers[i];
             DWORD workerErrorOccurenceTime = worker->GetErrorOccurenceTime();
-            if (workerErrorOccurenceTime != -1 &&                                         // the worker has an error (except for an error forced by the user while resolving the login/password during reconnect wait)
+            if (workerErrorOccurenceTime != -1 &&                                         // the worker contains an error (except for an error forced by the user while resolving login/password during reconnect wait)
                 workerErrorOccurenceTime >= LastFoundErrorOccurenceTime + 1 &&            // it's a "new" error
                 (foundIndex == -1 || foundErrorOccurenceTime > workerErrorOccurenceTime)) // the first one found so far or the "oldest" (we handle errors in the order they occurred)
             {
@@ -570,7 +570,7 @@ void CFTPWorkersList::PostNewWorkAvailable(BOOL onlyOneItem)
 {
     CALL_STACK_MESSAGE2("CFTPWorkersList::PostNewWorkAvailable(%d)", onlyOneItem);
 
-    // WARNING: we may already be inside CSocketsThread::CritSect (and CSocket::SocketCritSect)!!!
+    // ATTENTION: we may already be inside CSocketsThread::CritSect (and CSocket::SocketCritSect) !!!
 
     if (onlyOneItem)
     {
@@ -610,7 +610,7 @@ void CFTPWorkersList::PostNewWorkAvailable(BOOL onlyOneItem)
         }
         HANDLES(LeaveCriticalSection(&WorkersListCritSect));
 
-        if (worker != NULL) // if there is at least one "sleeping" worker, post a "wake-up" to it
+        if (worker != NULL) // if there is at least one "sleeping" worker, post a "wake-up" to them
             SocketsThread->PostSocketMessage(msg, uid, WORKER_WAKEUP, NULL);
     }
     else
@@ -792,8 +792,8 @@ CFTPFileToClose::CFTPFileToClose(const char* path, const char* name, HANDLE file
 {
     File = file;
     DeleteIfEmpty = deleteIfEmpty;
-    lstrcpyn(FileName, path, MAX_PATH);
-    if (!SalamanderGeneral->SalPathAppend(FileName, name, MAX_PATH))
+    lstrcpyn(FileName, path, FileName.Size());
+    if (!SalamanderGeneral->SalPathAppend(FileName, name, FileName.Size()))
         TRACE_E("Unexpected situation in CFTPFileToClose::CFTPFileToClose(): too long file name!");
     SetDateAndTime = setDateAndTime;
     if (SetDateAndTime && date != NULL)
@@ -839,8 +839,8 @@ void CFTPDiskWork::CopyFrom(CFTPDiskWork* work)
 
     Type = work->Type;
 
-    lstrcpyn(Path, work->Path, MAX_PATH);
-    lstrcpyn(Name, work->Name, MAX_PATH);
+    lstrcpyn(Path, work->Path, Path.Size());
+    lstrcpyn(Name, work->Name, Name.Size());
 
     ForceAction = work->ForceAction;
     AlreadyRenamedName = work->AlreadyRenamedName;
@@ -945,7 +945,7 @@ BOOL CFTPDiskThread::CancelWork(const CFTPDiskWork* work, BOOL* workIsInProgress
             ret = TRUE;
             if (i == 0)
             {
-                Work[0] = NULL; // the first item may still be the one being processed, so it cannot be removed from the array (it is set to NULL to detect its cancellation)
+                Work[0] = NULL; // the first item may currently be processed, cannot remove it from the array (it is rewritten to NULL to detect its cancellation)
                 if (workIsInProgress != NULL)
                     *workIsInProgress = WorkIsInProgress;
             }
@@ -1118,7 +1118,7 @@ void DoCreateDir(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL& 
                 }
                 }
             }
-            else // cannot create directory
+            else // cannot create dir
             {
                 switch (localWork.CannotCreateDir)
                 {
@@ -1147,7 +1147,7 @@ void DoCreateDir(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL& 
             }
         }
 
-        if (action == 1) // autorename (already exists, cannot create, and force-action cases)
+        if (action == 1) // autorename (for already exists, cannot create, and force action)
         {
             BOOL ok = FALSE;
             if (!isValid)
@@ -1171,7 +1171,7 @@ void DoCreateDir(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL& 
             {
                 if (firstRound && !isValid && nameLen < rest) // test the "validated" name
                     memcpy(pathEnd, localWork.Name, nameLen + 1);
-                else // append numbering to the end of the name (directories have no extension), e.g. "(2)", and trim it if necessary so the name fits in the full path
+                else // append numbering to the end of the name (directories have no extension) (e.g. "(2)") + trim if necessary so the name fits into the full path
                 {
                     if (firstRound && (tooLongName || !isValid) ||
                         winErr == ERROR_FILE_EXISTS || winErr == ERROR_ALREADY_EXISTS)
@@ -1211,7 +1211,7 @@ void DoCreateDir(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL& 
                         }
                     }
                     else
-                        break; // another attempt to create the directory would be pointless (it is not a name collision, a syntax error, or an overly long name); return an error
+                        break; // another attempt to create the directory makes no sense (it's not a name collision, syntax error, or overly long name), return an error
                 }
                 // allocate the new name
                 if (localWork.NewTgtName != NULL)
@@ -1238,7 +1238,7 @@ void DoCreateDir(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL& 
                 {
                     workDone = TRUE;
                     ok = TRUE;
-                    break; // success, return OK and the new name
+                    break; // success, return OK + the new name
                 }
                 firstRound = FALSE;
             }
@@ -1297,7 +1297,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
     if (isValid)
     {
         strcpy(fullName, localWork.Path);
-        if (!SalamanderGeneral->SalPathAppend(fullName, localWork.Name, MAX_PATH))
+        if (!SalamanderGeneral->SalPathAppend(fullName, localWork.Name, localWork.Name.Size()))
         {
             winErr = ERROR_FILENAME_EXCED_RANGE; // "file name is too long"
             tooLongName = TRUE;
@@ -1332,7 +1332,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
             }
             else
             {
-                workDone = TRUE; // if the operation is canceled, delete the newly created file
+                workDone = TRUE; // if the operation is cancelled, delete the newly created file
                 localWork.OpenedFile = file;
                 localWork.FileSize.Set(0, 0);
                 localWork.CanOverwrite = TRUE;       // the file was newly created (not resumed)
@@ -1532,7 +1532,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
             char* pathEnd = fullName + strlen(fullName);
             if (pathEnd > fullName && *(pathEnd - 1) != '\\')
                 *pathEnd++ = '\\';
-            int rest = MAX_PATH - (int)(pathEnd - fullName);
+            int rest = localWork.Name.Size() - (int)(pathEnd - fullName);
             if (rest < 0)
                 rest = 0; // theoretically should never happen, but Windows extensions can do it (see paths starting with "\\?\")
             int suffixCounter = 1;
@@ -1542,7 +1542,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
                 char* s = localWork.Name + strlen(localWork.Name);
                 while (--s >= localWork.Name)
                 {
-                    if (*s == ')') // search from the end for " (number)"
+                    if (*s == ')') // searching from the end for " (number)"
                     {
                         char* end = s + 1;
                         int num = 0;
@@ -1595,7 +1595,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
                                 memcpy(localWork.Name + off, suffix, suffixLen);
                                 memcpy(localWork.Name + off + suffixLen, nameBackup + extOffset, nameLen - extOffset + 1);
                             }
-                            else // the entire extension will not fit, shorten the name without preserving the extension
+                            else // the entire extension will not fit, shorten the name without respecting the extension
                             {
                                 memcpy(localWork.Name, nameBackup, rest - (suffixLen + 1));
                                 memcpy(localWork.Name + rest - (suffixLen + 1), suffix, suffixLen + 1);
@@ -1621,7 +1621,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
                         }
                     }
                     else
-                        break; // another attempt to create the file makes no sense (it is not a name collision, invalid name syntax, or an overly long name), return an error
+                        break; // another attempt to create the file makes no sense (it's not a name collision, syntax error, or overly long name), return an error
                 }
                 // allocate the new name
                 if (localWork.NewTgtName != NULL)
@@ -1648,7 +1648,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
                 }
                 else
                 {
-                    workDone = TRUE; // if the operation is canceled, delete the newly created file
+                    workDone = TRUE; // if the operation is cancelled, delete the newly created file
                     ok = TRUE;
                     localWork.OpenedFile = file;
                     localWork.FileSize.Set(0, 0);
@@ -1673,7 +1673,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
             break;
         }
 
-        case 2: // resume (for the already exists, transfer failed, and force action cases); if reduceFileSize==TRUE, we also need to shrink the file
+        case 2: // resume (for already exists, transfer failed, and force action) + if reduceFileSize==TRUE we also need to shrink the file
         case 3: // resume or overwrite (for already exists, transfer failed, and force action)
         {
             file = HANDLES_Q(CreateFile(fullName,
@@ -1711,7 +1711,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
                     {
                         DWORD resumeOverlap = Config.GetResumeOverlap();
                         if (resumeOverlap == 0)
-                            resumeOverlap = 1; // at least one byte (only possible if the user has just changed it in the configuration)
+                            resumeOverlap = 1; // at least by one byte (this threatens only if the user just changed it in configuration)
                         if (size < CQuadWord(resumeOverlap, 0))
                             resumeOverlap = (DWORD)size.Value;
                         size -= CQuadWord(resumeOverlap, 0);
@@ -1750,7 +1750,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
 
                     if (ok)
                     {
-                        // workDone = TRUE;  // when cancelling the operation we will not delete the file; this is a resume
+                        // workDone = TRUE;  // when cancelling the operation we will not delete the file, it's a resume
                         localWork.OpenedFile = file;
                         localWork.FileSize = size;
                         localWork.CanOverwrite = (action == 3 /* resume or overwrite */); // FALSE = the file was resumed
@@ -1759,7 +1759,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
                         break; // success, we are done
                     }
                 }
-                else // error determining the file size; close the file and fail
+                else // error when determining the file size, close the file and finish with an error
                 {
                     HANDLES(CloseHandle(file)); // no need to delete the file because it existed a moment ago (it likely hasn't disappeared => we did not create it)
                 }
@@ -1779,9 +1779,9 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
             // break;  // resume or overwrite - if resume fails we try overwrite as well
         }
         // case 3:  // resume or overwrite - if resume fails we try overwrite as well
-        case 4: // overwrite (for already exists, transfer failed, and force action)
+        case 4: // overwrite (pri already exists, transfer failed i force action)
         {
-            if (action == 4) // check whether it is read-only (via the attribute only), but only if we have not done so already
+            if (action == 4) // check whether it happens to be read-only (only via the attribute), but only if we have not done so already
             {
                 attr = SalamanderGeneral->SalGetFileAttributes(fullName);
                 if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_READONLY))
@@ -1813,7 +1813,7 @@ void DoCreateFile(CFTPDiskWork& localWork, char* fullName, BOOL& workDone, BOOL&
 
             if (file != INVALID_HANDLE_VALUE) // the file is open
             {
-                workDone = TRUE; // if the operation is canceled, delete the newly created file
+                workDone = TRUE; // if the operation is cancelled, delete the newly created file
                 localWork.OpenedFile = file;
                 localWork.FileSize.Set(0, 0);
                 localWork.CanOverwrite = TRUE;
@@ -1858,12 +1858,12 @@ void DoCheckOrWriteToFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
             {
                 writeFile = FALSE;
                 if (localWork.CheckFromOffset >= fileSize)
-                { // unexpected error: we are supposed to check file contents beyond the end of the file; the file probably changed recently (should not happen, it is opened "share-read-only")
+                { // unexpected error: we are supposed to check file contents past the end of the file - the file probably changed recently (should not happen, it is opened "share-read-only")
                     localWork.State = sqisFailed;
                     localWork.ProblemID = ITEMPR_RESUMETESTFAILED;
                     needCopyBack = TRUE;
                 }
-                else // set the file pointer
+                else // set the seek position in the file
                 {
                     CQuadWord curSeek = localWork.CheckFromOffset;
                     curSeek.LoDWord = SetFilePointer(localWork.WorkFile, curSeek.LoDWord, (LONG*)&curSeek.HiDWord, FILE_BEGIN);
@@ -1879,7 +1879,7 @@ void DoCheckOrWriteToFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
                     {
                         char buf[4096];                                                                           // buffer for reading from disk
                         int bytesToCheck = (localWork.WriteOrReadFromOffset - localWork.CheckFromOffset).LoDWord; // the size of the verified tail of the file is under 1GB, so this truncation is possible
-                        if (bytesToCheck > localWork.ValidBytesInFlushDataBuffer)                                 // optionally trim to the flush buffer size (we do not need to verify the entire segment at once)
+                        if (bytesToCheck > localWork.ValidBytesInFlushDataBuffer)                                 // optionally trim by the flush buffer size (we do not need to verify the entire segment at once)
                             bytesToCheck = localWork.ValidBytesInFlushDataBuffer;
                         while (bytesToCheck > 0)
                         {
@@ -1901,7 +1901,7 @@ void DoCheckOrWriteToFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
                                     bytesToCheck -= check;
                                     flushBufOffset += check;
                                 }
-                                else // the file contents differ from the flush buffer (resume: the file has changed since last time)
+                                else // the file contains something different than the flush buffer (resume: the file changed since last time)
                                 {
                                     localWork.State = sqisFailed;
                                     localWork.ProblemID = ITEMPR_RESUMETESTFAILED;
@@ -1924,7 +1924,7 @@ void DoCheckOrWriteToFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
                     localWork.ProblemID = ITEMPR_RESUMETESTFAILED;
                     needCopyBack = TRUE;
                 }
-                else // set the file pointer
+                else // set the seek position in the file
                 {
                     if (!skipSetSeekForWrite)
                     {
@@ -1957,7 +1957,7 @@ void DoCheckOrWriteToFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
                         {
                             if (localWork.WriteOrReadFromOffset + CQuadWord(writtenBytes, 0) < fileSize)
                             {                                     // if the write finished before the end of the file, call SetEndOfFile (trim unwanted old data that should be overwritten)
-                                SetEndOfFile(localWork.WorkFile); // we do not check for success; it does not really matter
+                                SetEndOfFile(localWork.WorkFile); // we do not test success; it does not really matter
                             }
                         }
                     }
@@ -1989,7 +1989,7 @@ void DoCreateAndWriteFile(CFTPDiskWork& localWork, BOOL& needCopyBack, BOOL& wor
         {
             file = f;
             localWork.OpenedFile = f;
-            workDone = TRUE;     // if canceled, close the file handle and delete the file
+            workDone = TRUE;     // if cancelled, close the file handle and delete the file
             needCopyBack = TRUE; // return the handle of the created file
         }
         else // error while creating the file
@@ -2019,21 +2019,21 @@ void DoCreateAndWriteFile(CFTPDiskWork& localWork, BOOL& needCopyBack, BOOL& wor
 
 void DoListDirectory(CFTPDiskWork& localWork, BOOL& needCopyBack)
 {
-    char srcPath[MAX_PATH + 10];
-    lstrcpyn(srcPath, localWork.Path, MAX_PATH);
-    if (SalamanderGeneral->SalPathAppend(srcPath, localWork.Name, MAX_PATH))
+    CPathBuffer srcPath;
+    lstrcpyn(srcPath, localWork.Path, srcPath.Size());
+    if (SalamanderGeneral->SalPathAppend(srcPath, localWork.Name, srcPath.Size()))
     {
         localWork.DiskListing = new TIndirectArray<CDiskListingItem>(100, 500);
         if (localWork.DiskListing != NULL && localWork.DiskListing->IsGood())
         {
-            SalamanderGeneral->SalPathAppend(srcPath, "*.*", MAX_PATH + 10); // cannot fail
+            SalamanderGeneral->SalPathAppend(srcPath, "*.*", srcPath.Size()); // cannot fail
             char* srcPathEnd = strrchr(srcPath, '\\');                       // cannot fail either
             WIN32_FIND_DATA fileData;
             HANDLE search = HANDLES_Q(FindFirstFile(srcPath, &fileData));
             if (search == INVALID_HANDLE_VALUE)
             {
                 DWORD err = GetLastError();
-                if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // this is an error, not just an empty listing
+                if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES) // this is an error - i.e. it's not just an empty listing
                 {
                     localWork.State = sqisFailed;
                     localWork.ProblemID = ITEMPR_UPLOADCANNOTLISTSRCPATH;
@@ -2051,7 +2051,7 @@ void DoListDirectory(CFTPDiskWork& localWork, BOOL& needCopyBack)
                     BOOL isDir = (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
                     CQuadWord size(fileData.nFileSizeLow, fileData.nFileSizeHigh);
                     if (!isDir && (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 &&
-                        srcPathEnd != NULL && (srcPathEnd + 1) - srcPath + strlen(fileData.cFileName) < MAX_PATH)
+                        srcPathEnd != NULL && (srcPathEnd + 1) - srcPath + strlen(fileData.cFileName) < srcPath.Size())
                     { // it's a link and the full link name is not too long
                         strcpy(srcPathEnd + 1, fileData.cFileName);
                         DWORD err; // obtain the target file size
@@ -2117,9 +2117,9 @@ void DoListDirectory(CFTPDiskWork& localWork, BOOL& needCopyBack)
 
 void DoDeleteDir(CFTPDiskWork& localWork, BOOL& needCopyBack)
 {
-    char delPath[MAX_PATH + 10];
-    lstrcpyn(delPath, localWork.Path, MAX_PATH);
-    if (SalamanderGeneral->SalPathAppend(delPath, localWork.Name, MAX_PATH))
+    CPathBuffer delPath;
+    lstrcpyn(delPath, localWork.Path, delPath.Size());
+    if (SalamanderGeneral->SalPathAppend(delPath, localWork.Name, delPath.Size()))
     {
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(delPath);
         BOOL chAttrs = SalamanderGeneral->ClearReadOnlyAttr(delPath, attr); // so it can be deleted ...
@@ -2137,7 +2137,7 @@ void DoDeleteDir(CFTPDiskWork& localWork, BOOL& needCopyBack)
             }
         }
     }
-    else // disk path is too long
+    else // the path on disk is too long
     {
         localWork.State = sqisFailed;
         localWork.ProblemID = ITEMPR_INVALIDPATHTODIR;
@@ -2147,9 +2147,9 @@ void DoDeleteDir(CFTPDiskWork& localWork, BOOL& needCopyBack)
 
 void DoDeleteFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
 {
-    char delPath[MAX_PATH + 10];
-    lstrcpyn(delPath, localWork.Path, MAX_PATH);
-    if (SalamanderGeneral->SalPathAppend(delPath, localWork.Name, MAX_PATH))
+    CPathBuffer delPath;
+    lstrcpyn(delPath, localWork.Path, delPath.Size());
+    if (SalamanderGeneral->SalPathAppend(delPath, localWork.Name, delPath.Size()))
     {
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(delPath);
         BOOL chAttrs = SalamanderGeneral->ClearReadOnlyAttr(delPath, attr); // so it can be deleted ...
@@ -2178,11 +2178,11 @@ void DoDeleteFile(CFTPDiskWork& localWork, BOOL& needCopyBack)
 
 void DoOpenFileForReading(CFTPDiskWork& localWork, BOOL& needCopyBack)
 {
-    char fileName[MAX_PATH];
-    lstrcpyn(fileName, localWork.Path, MAX_PATH);
+    CPathBuffer fileName; // Heap-allocated for long path support
+    lstrcpyn(fileName, localWork.Path, fileName.Size());
     DWORD winError = NO_ERROR;
     BOOL ok = FALSE;
-    if (SalamanderGeneral->SalPathAppend(fileName, localWork.Name, MAX_PATH))
+    if (SalamanderGeneral->SalPathAppend(fileName, localWork.Name, fileName.Size()))
     {
         HANDLE in = HANDLES_Q(CreateFile(fileName, GENERIC_READ,
                                          FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
@@ -2328,8 +2328,8 @@ CFTPDiskThread::Body()
     localWork.NewTgtName = NULL;
     localWork.OpenedFile = NULL;
     localWork.DiskListing = NULL;
-    char fullName[MAX_PATH];
-    char nameBackup[MAX_PATH];
+    CPathBuffer fullName; // Heap-allocated for long path support
+    CPathBuffer nameBackup;
     char suffix[20];
 #ifdef TRACE_ENABLE
     char errBuf[300];
@@ -2547,10 +2547,10 @@ CFTPDiskThread::Body()
                 }
             }
 
-            // determine whether the work needs to be canceled
+            // determine whether the work needs to be cancelled
             HANDLES(EnterCriticalSection(&DiskCritSect));
             BOOL doCancel = FALSE;
-            if (work != NULL && Work.Count > 0 && work == Work[0]) // the work being processed was not canceled
+            if (work != NULL && Work.Count > 0 && work == Work[0]) // the work being processed was not cancelled
             {
                 if (needCopyBack)
                 {
@@ -2562,7 +2562,7 @@ CFTPDiskThread::Body()
             }
             else
                 doCancel = work != NULL;
-            if (Work.Count > 0) // remove the processed item or NULL (if it was canceled)
+            if (Work.Count > 0) // remove the processed item or NULL (if it was cancelled)
             {
                 Work.Detach(0);
                 if (!Work.IsGood())
@@ -2583,16 +2583,16 @@ CFTPDiskThread::Body()
                     HANDLES(CloseHandle(localWork.OpenedFile));
                     localWork.OpenedFile = NULL;
                 }
-                if (localWork.DiskListing != NULL) // on cancel, deallocate the listing
+                if (localWork.DiskListing != NULL) // on cancel deallocate the allocated listing
                 {
                     delete localWork.DiskListing;
                     localWork.DiskListing = NULL;
                 }
-                if (!doCancel) // inform the worker of the work results
+                if (!doCancel) // inform the worker about the work results
                 {
                     SocketsThread->PostSocketMessage(localWork.SocketMsg, localWork.SocketUID, localWork.MsgID, work);
                 }
-                else // the work was canceled, perform cleanup (as if the work never happened)
+                else // the work was cancelled, perform cleanup (as if the work never happened)
                 {
                     switch (localWork.Type)
                     {
@@ -2625,7 +2625,7 @@ CFTPDiskThread::Body()
                             if (!DeleteFile(localWork.Name)) // the created file cannot have the read-only attribute
                                 TRACE_E("CFTPDiskThread::Body(): cancelling disk operation: unable to remove target file: " << localWork.Name);
                         }
-                        // break; // no break here intentionally
+                        // break; // intentionally no break here!
                     }
                     case fdwtCheckOrWriteFile:
                     {

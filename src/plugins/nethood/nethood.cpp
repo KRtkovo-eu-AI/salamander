@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -14,7 +15,7 @@
 #include "nethood.h"
 #include "cache.h"
 #include "nethoodfs.h"
-#include "nethoodfs2.h"
+#include "nethood_fs_operations.h"
 #include "nethooddata.h"
 #include "nethoodmenu.h"
 #include "globals.h"
@@ -178,13 +179,13 @@ CNethoodPluginInterface::Connect(
     __in HWND parent,
     __in CSalamanderConnectAbstract* salamander)
 {
-    TCHAR szFileMenu[MAX_PATH];
+    CPathBuffer szFileMenu;
     int iIcon = -1;
 
     szFileMenu[0] = TEXT(',');
     szFileMenu[1] = TEXT('\t');
 
-    LoadString(GetLangInstance(), IDS_MENUITEM, &szFileMenu[2], COUNTOF(szFileMenu) - 2);
+    LoadString(GetLangInstance(), IDS_MENUITEM, &szFileMenu[2], szFileMenu.Size() - 2);
 
     g_oIcons.Load();
 

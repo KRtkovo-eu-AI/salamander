@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 /****************************************************************************************\
 **                                                                                      **
@@ -447,7 +447,7 @@ BOOL CBinHexDecoder::DecodeChar(char c)
     default:
         return TRUE;
     }
-    // Control jumps here when the breaks above are hit; a bit of a hack.
+    // execution jumps here once the breaks above reach the end; a bit of a hack, sorry...
     bFinished = TRUE;
     eCharState = CS_END;
     return TRUE;
@@ -536,7 +536,7 @@ void CBinHexDecoder::DecodeBinary(BYTE b)
         {
             if (!bCalcSize && iResourceLength)
             {
-                // The resource fork will be lost
+                // We are gonna loose the resource fork
                 if (!(G.nDontShowAnymore & DSA_RESOURCE_FORK_LOST))
                 {
                     BOOL checked = FALSE;
@@ -667,7 +667,7 @@ static BOOL Decode(CDecoder* pDec, BOOL bOnlyOneFile)
         if (InputFile.iCurrentLine >= pNextMarker->iLine)
         {
             iNextMarker++;
-            char text[MAX_PATH + 32]; // must be longer than MAX_PATH due to "too long name" (see below)
+            CPathBuffer text;
             if (pNextMarker->iMarkerType == MARKER_START)
             {
                 CStartMarker* pStartMarker = (CStartMarker*)pNextMarker;
@@ -682,13 +682,13 @@ static BOOL Decode(CDecoder* pDec, BOOL bOnlyOneFile)
                 }
                 else
                 {
-                    strncpy_s(text, MAX_PATH, pszDir, _TRUNCATE);
-                    if (!SalamanderGeneral->SalPathAppend(text, pStartMarker->cFileName, MAX_PATH))
+                    strncpy_s((char*)text, text.Size(), pszDir, _TRUNCATE);
+                    if (!SalamanderGeneral->SalPathAppend(text, pStartMarker->cFileName, text.Size()))
                     { // too long name - reported in SalamanderSafeFile->SafeFileCreate
                         char* end = text + strlen(text);
                         if (end > text && *(end - 1) != '\\')
                             *end++ = '\\';
-                        strncpy_s(end, _countof(text) - (end - text), pStartMarker->cFileName, _TRUNCATE);
+                        strncpy_s(end, text.Size() - (end - (char*)text), pStartMarker->cFileName, _TRUNCATE);
                     }
                     strcpy_s(pszText2, MAX_PATH, pszArcName);
                     SalamanderGeneral->SalPathAppend(pszText2, pStartMarker->cFileName, MAX_PATH);

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -62,7 +62,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     }
-    return TRUE; // Allow the DLL to load
+    return TRUE; // DLL can be loaded
 }
 
 LPCTSTR LoadStr(int resID)
@@ -84,17 +84,17 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
-    // this plugin is intended for the current Salamander version and later, so perform a check
+    // this plugin is built for the current Salamander version and newer - perform a check
     if (salamander->GetVersion() < LAST_VERSION_OF_SALAMANDER)
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "UnRAR" /* DO NOT TRANSLATE */, MB_OK | MB_ICONERROR);
+                   "UnRAR" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnRAR" /* DO NOT TRANSLATE */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "UnRAR" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -112,9 +112,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM,
                                    VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
-                                   "UnRAR" /* DO NOT TRANSLATE */, "rar");
+                                   "UnRAR" /* neprekladat! */, "rar");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -202,7 +202,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     memset(&Config, 0, sizeof(Config));
     Config.ListInfoPackedSize = TRUE;
 
-    if (regKey != NULL) // load from registry
+    if (regKey != NULL) // load z registry
     {
         registry->GetValue(regKey, CONFIG_OPTIONS, REG_DWORD, &Config.Options, sizeof(DWORD));
         Config.Options &= OP_SAVED_IN_REGISTRY;
@@ -368,7 +368,7 @@ BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* 
     if (NotWholeArchListed && !(Config.Options & OP_NO_VOL_ATTENTION))
         AttentionDialog(SalamanderGeneral->GetMainWindowHWND());
 
-    // some files have already been listed, so do not discard them; display them
+    // some files have already been listed, so do not pack and display them
     if (!ret && count)
         ret = TRUE;
 
@@ -433,7 +433,7 @@ BOOL CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract
         (attr = SalamanderGeneral->SalGetFileAttributes(fv)) != -1 &&
         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
     {
-        _tcscpy(ArcFileName, fv);
+        lstrcpyn(ArcFileName, fv, ArcFileName.Size());
     }
     else
     {
@@ -584,7 +584,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     //  FirstFile = TRUE;
     AllocateWholeFile = TRUE;
     TestAllocateWholeFile = TRUE;
-    TCHAR justName[MAX_PATH];
+    CPathBuffer justName;
     lstrcpy(justName, nameInArchive);
     SalamanderGeneral->SalPathStripPath(justName);
     PluginData = (CPluginDataInterface*)pluginDataPar;
@@ -600,7 +600,7 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
         (attr = SalamanderGeneral->SalGetFileAttributes(fv)) != -1 &&
         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
     {
-        _tcscpy(ArcFileName, fv);
+        lstrcpyn(ArcFileName, fv, ArcFileName.Size());
     }
     else
     {
@@ -653,9 +653,9 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
                     ContinuedFileDialog(SalamanderGeneral->GetMsgBoxParent(), header.FileName);
                     goto UOF_NEXT;
                 }
-                strncpy_s(TargetName, targetDir, _TRUNCATE);
+                strncpy_s((char*)TargetName, TargetName.Size(), targetDir, _TRUNCATE);
                 DestroyIllegalChars(justName);
-                if (!SalamanderGeneral->SalPathAppend(TargetName, justName, MAX_PATH))
+                if (!SalamanderGeneral->SalPathAppend(TargetName, justName, TargetName.Size()))
                 {
                     TargetName[0] = 0;
                     Error(IDS_TOOLONGNAME);
@@ -910,14 +910,14 @@ BOOL CPluginInterfaceForArchiver::Init()
 {
     CALL_STACK_MESSAGE1("CPluginInterfaceForArchiver::Init()");
     ArchiveVolumes = NULL;
-    char buf[MAX_PATH + 12];
-    if (!GetModuleFileName(DLLInstance, buf, 1024))
+    CPathBuffer buf;
+    if (!GetModuleFileName(DLLInstance, buf, buf.Size()))
         return Error(IDS_ERRMODULEFN);
     SalamanderGeneral->CutDirectory(buf);
-    SalamanderGeneral->SalPathAppend(buf, "unrar.dll", MAX_PATH + 12);
+    SalamanderGeneral->SalPathAppend(buf, "unrar.dll", buf.Size());
     UnRarDll = LoadLibrary(buf);
     if (!UnRarDll)
-        return Error(IDS_ERRLOADLIB, buf);
+        return Error(IDS_ERRLOADLIB, buf.Get());
 
     FRARGetDllVersion RARGetDllVersion = (FRARGetDllVersion)GetProcAddress(UnRarDll, "RARGetDllVersion");
     if (RARGetDllVersion == NULL || RARGetDllVersion() < RAR_DLL_VERSION)
@@ -1027,7 +1027,7 @@ BOOL CPluginInterfaceForArchiver::OpenArchive()
     // for RAR4 archives with encrypted file names we get here after the callback when an incorrect password is entered,
     // and because PasswordForOpenArchive == TRUE when calling RAROpenArchiveEx, SF_ALLENRYPT is set even after merely clicking OK in the password dialog,
     // which ensures we do not ask for the password again (instead an error message about the wrong password appears)
-    if ((oad.Flags & 0x0080) /* encrypted block headers */)
+    if ((oad.Flags & 0x0080) /* block headers encrypted */)
     {
         if (!(PluginData->Silent & SF_ALLENRYPT))
         {
@@ -1058,7 +1058,7 @@ BOOL CPluginInterfaceForArchiver::ReadHeader(CFileHeader* header)
     {
     case 0:
     {
-        // Not every char representable in ANSI page can be represented in OEM page used by RAR files
+        // Not every char representable in ANSI page can be reprsented in OEM page used by RAR files
         // e.g. the Ellipsis character 0x2026
         if (headerData.FileNameW[0])
         {
@@ -1216,7 +1216,7 @@ int CPluginInterfaceForArchiver::ChangeVolProc(char* arcName, int mode)
         if (List)
         {
             NotWholeArchListed = TRUE;
-            return -1; // list only until asking for another volume is required
+            return -1; // list only while it works without asking for additional volumes
         }
         if (NextVolumeDialog(SalamanderGeneral->GetMsgBoxParent(), arcName) != IDOK)
         {
@@ -1311,7 +1311,7 @@ int CPluginInterfaceForArchiver::ProcessDataProc(unsigned char* addr, int size)
                 return -1;
             }
             Success = TRUE;
-            return 1; // success
+            return 1; // sucess
         }
         lstrcpy(buf, LoadStr(IDS_UNABLEWRITE));
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
@@ -1363,14 +1363,14 @@ int CPluginInterfaceForArchiver::NeedPassword(char* password, int size)
 BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFirstVolume)
 {
     CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::SwitchToFirstVol(%s)", arcName);
-    lstrcpy(ArcFileName, arcName);
+    lstrcpyn(ArcFileName, arcName, ArcFileName.Size());
     LPTSTR ext = PathFindExtension(ArcFileName);
     if (!ext)
         return TRUE;
     if (lstrlen(ext) > 3 &&
         isdigit(ext[2]) && isdigit(ext[3]))
     {
-        TCHAR oldExt[MAX_PATH];
+        CPathBuffer oldExt;
         lstrcpy(oldExt, ext);
         if (isdigit(ext[1]))
         {
@@ -1383,11 +1383,11 @@ BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFi
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(ArcFileName);
         if (attr == -1 || attr & FILE_ATTRIBUTE_DIRECTORY)
         {
-            TCHAR path[MAX_PATH];
+            CPathBuffer path;
             _tcscpy(path, ArcFileName);
             if (NextVolumeDialog(SalamanderGeneral->GetMsgBoxParent(), path, LoadStr(IDS_SELECTFIRST)) == IDOK)
             {
-                _tcscpy(ArcFileName, path);
+                lstrcpyn(ArcFileName, path, ArcFileName.Size());
                 if (saveFirstVolume)
                     *saveFirstVolume = TRUE;
                 return TRUE;
@@ -1417,22 +1417,22 @@ BOOL CPluginInterfaceForArchiver::SwitchToFirstVol(LPCTSTR arcName, BOOL* saveFi
         if (digits && *iterator == '.')
         {
             // the file is named according to the new convention
-            TCHAR path[MAX_PATH];
+            CPathBuffer path;
 
-            _tcsncpy_s(path, ArcFileName, part - ArcFileName);
-            _stprintf_s(path + (part - ArcFileName), _countof(path) - (part - ArcFileName), _T(".part%0*d.rar"), digits, 1);
+            _tcsncpy_s(path, path.Size(), ArcFileName, part - ArcFileName);
+            _stprintf_s(path + (part - ArcFileName), path.Size() - (part - ArcFileName), _T(".part%0*d.rar"), digits, 1);
 
             DWORD attr = SalamanderGeneral->SalGetFileAttributes(path);
             if (!(attr & FILE_ATTRIBUTE_DIRECTORY))
             {
-                strcpy(ArcFileName, path);
+                lstrcpyn(ArcFileName, path, ArcFileName.Size());
                 if (saveFirstVolume)
                     *saveFirstVolume = TRUE;
                 return TRUE;
             }
             if (NextVolumeDialog(SalamanderGeneral->GetMsgBoxParent(), path, LoadStr(IDS_SELECTFIRST)) == IDOK)
             {
-                _tcscpy(ArcFileName, path);
+                lstrcpyn(ArcFileName, path, ArcFileName.Size());
                 if (saveFirstVolume)
                     *saveFirstVolume = TRUE;
             }
@@ -1453,7 +1453,7 @@ BOOL CPluginInterfaceForArchiver::MakeFilesList(TIndirectArray2<CRARExtractInfo>
     LPCTSTR nextName;
     BOOL isDir;
     CQuadWord size;
-    TCHAR dir[MAX_PATH];
+    CPathBuffer dir;
     LPTSTR addDir;
     int dirLen;
     const CFileData* pFileData;
@@ -1517,7 +1517,7 @@ BOOL CPluginInterfaceForArchiver::MakeFilesList(TIndirectArray2<CRARExtractInfo>
             ProgressTotal += size;
         }
     }
-    return errorOccured != SALENUM_CANCEL && // check that no error occurred and the user did not cancel the operation (Cancel button)
+    return errorOccured != SALENUM_CANCEL && // test whether no error occurred and the user did not request to abort the operation (Cancel button)
            SalamanderGeneral->TestFreeSpace(SalamanderGeneral->GetMsgBoxParent(), targetDir, ProgressTotal, LoadStr(IDS_PLUGINNAME));
 }
 
@@ -1525,7 +1525,7 @@ BOOL CPluginInterfaceForArchiver::DoThisFile(CFileHeader* header, const char* ar
 {
     CALL_STACK_MESSAGE3("CPluginInterfaceForArchiver::DoThisFile(, %s, %s)", arcName,
                         targetDir);
-    char message[MAX_PATH + 32];
+    CPathBuffer message;
 
     lstrcpy(message, LoadStr(IDS_EXTRACTING));
     lstrcat(message, header->FileName);
@@ -1560,8 +1560,8 @@ BOOL CPluginInterfaceForArchiver::DoThisFile(CFileHeader* header, const char* ar
         }
         RARSetPassword(ArcHandle, PluginData->Password);
     }
-    strncpy_s(TargetName, targetDir, _TRUNCATE);
-    if (!SalamanderGeneral->SalPathAppend(TargetName, header->FileName + RootLen, MAX_PATH))
+    strncpy_s((char*)TargetName, TargetName.Size(), targetDir, _TRUNCATE);
+    if (!SalamanderGeneral->SalPathAppend(TargetName, header->FileName + RootLen, TargetName.Size()))
     {
         TargetName[0] = 0;
         if (PluginData->Silent & SF_LONGNAMES)
@@ -1578,9 +1578,9 @@ BOOL CPluginInterfaceForArchiver::DoThisFile(CFileHeader* header, const char* ar
             return FALSE;
         }
     }
-    char nameInArc[MAX_PATH + MAX_PATH];
+    CPathBuffer nameInArc;
     lstrcpy(nameInArc, arcName);
-    SalamanderGeneral->SalPathAppend(nameInArc, header->FileName, MAX_PATH + MAX_PATH);
+    SalamanderGeneral->SalPathAppend(nameInArc, header->FileName, nameInArc.Size());
     char buf[100];
     GetInfo(buf, &header->Time, header->Size);
     DestroyIllegalChars(TargetName + 2);
@@ -1639,7 +1639,7 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray2<char>& mask
     LPCTSTR sour;
     LPTSTR dest;
     size_t newMaskLen;
-    TCHAR buffer[MAX_PATH];
+    CPathBuffer buffer;
 
     sour = masks;
     while (*sour)
@@ -1654,7 +1654,7 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray2<char>& mask
                 else
                     break;
             }
-            if (dest == buffer + MAX_PATH - 1)
+            if (dest == (char*)buffer + buffer.Size() - 1)
             {
                 SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGMASK), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
                 return FALSE;
@@ -1768,7 +1768,7 @@ void GetInfo(char* buffer, FILETIME* lastWrite, CQuadWord& size)
 
 //***********************************************************************************
 //
-// Routines from SHLWAPI.DLL
+// Rutiny ze SHLWAPI.DLL
 //
 
 LPTSTR PathFindExtension(LPTSTR pszPath)
@@ -1783,7 +1783,7 @@ LPTSTR PathFindExtension(LPTSTR pszPath)
     LPTSTR iterator = pszPath + len - 1;
     while (iterator >= pszPath)
     {
-        if (*iterator == '.') // On Windows, ".cvspass" is treated as an extension.
+        if (*iterator == '.') // ".cvspass" is considered an extension on Windows
         {
             return iterator;
         }
@@ -1802,7 +1802,7 @@ LPTSTR PathFindExtension(LPTSTR pszPath)
 void CPluginDataInterface::ReleasePluginData(CFileData& file, BOOL isDir)
 {
     // file.PluginData is NULL for folders not having extra items in the archive - see GetFileDataForUpDir & GetFileDataForNewDir
-    delete (CRARFileData*)file.PluginData; // Deleting NULL is valid
+    delete (CRARFileData*)file.PluginData; // However, delete NULL is perfectly OK
 }
 
 // Callback called by Salamander to obtain custom column text - see spl_com.h / FColumnGetText

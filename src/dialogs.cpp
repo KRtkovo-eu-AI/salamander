@@ -1,8 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
 
 #include "mainwnd.h"
 #include "plugins.h"
@@ -93,8 +96,7 @@ BOOL CChangeAttrDialog::GetAndValidateTime(CTransferInfo* ti, int resIDDate, int
     FILETIME dummyFT;
     if (!SystemTimeToFileTime(&st2, &dummyFT))
     {
-        SalMessageBox(HWindow, LoadStr(IDS_INVALIDDATE), LoadStr(IDS_ERRORTITLE),
-                      MB_OK | MB_ICONEXCLAMATION);
+        gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_INVALIDDATE));
         ti->ErrorOn(resIDDate);
         return FALSE;
     }
@@ -126,7 +128,7 @@ void CChangeAttrDialog::Transfer(CTransferInfo& ti)
         DateTime_SetSystemtime(HModifiedDate, GDT_NONE, &TimeModified);
         DateTime_SetSystemtime(HCreatedDate, GDT_NONE, &TimeCreated);
         DateTime_SetSystemtime(HAccessedDate, GDT_NONE, &TimeAccessed);
-        // populate the time fields
+        // fill in the times
         DateTime_SetSystemtime(HModifiedTime, GDT_VALID, &TimeModified);
         DateTime_SetSystemtime(HCreatedTime, GDT_VALID, &TimeCreated);
         DateTime_SetSystemtime(HAccessedTime, GDT_VALID, &TimeAccessed);
@@ -301,21 +303,27 @@ unsigned ThreadProgressDlgBody(void* parameter)
     if (data->ConvertData != NULL)
         convertDataCopy = *data->ConvertData;
     CConvertData* convertData = (data->ConvertData != NULL ? &convertDataCopy : NULL);
-    char workPath1[MAX_PATH];
-    lstrcpyn(workPath1, data->Script->WorkPath1, MAX_PATH);
+    CPathBuffer workPath1; // Heap-allocated for long path support
+    lstrcpyn(workPath1, data->Script->WorkPath1, workPath1.Size());
+    std::wstring workPath1W = data->Script->WorkPath1W;
     BOOL workPath1InclSubDirs = data->Script->WorkPath1InclSubDirs;
-    char workPath2[MAX_PATH];
-    lstrcpyn(workPath2, data->Script->WorkPath2, MAX_PATH);
+    CPathBuffer workPath2; // Heap-allocated for long path support
+    lstrcpyn(workPath2, data->Script->WorkPath2, workPath2.Size());
+    std::wstring workPath2W = data->Script->WorkPath2W;
     BOOL workPath2InclSubDirs = data->Script->WorkPath2InclSubDirs;
 
     CProgressDialog dlg(NULL, data->Script, data->Caption, attrsData, convertData, TRUE, data);
     INT_PTR res = dlg.Execute();
-    if (res == 0 || res == -1 || res == IDABORT) // failed to open the dialog or start the worker thread
+    if (res == 0 || res == -1 || res == IDABORT) // failed to open the dialog or worker thread
         SetEvent(data->ContEvent);               // let the main thread continue (opening the dialog or starting the operation failed)
 
-    if (workPath1[0] != 0)
+    if (!workPath1W.empty())
+        MainWindow->PostChangeOnPathNotificationW(workPath1W.c_str(), workPath1InclSubDirs);
+    else if (workPath1[0] != 0)
         MainWindow->PostChangeOnPathNotification(workPath1, workPath1InclSubDirs);
-    if (workPath2[0] != 0)
+    if (!workPath2W.empty())
+        MainWindow->PostChangeOnPathNotificationW(workPath2W.c_str(), workPath2InclSubDirs);
+    else if (workPath2[0] != 0)
         MainWindow->PostChangeOnPathNotification(workPath2, workPath2InclSubDirs);
     TRACE_I("End");
     return 0;
@@ -473,17 +481,24 @@ BOOL CProgressDialog::FlushCachedData()
             OperationText->SetText(OperationCache);
         if (Source != NULL && Script != NULL)
         {
-            if (Script->RemapNameFrom != NULL)
+            if (!SourceCacheW.empty() && Script->RemapNameFrom == NULL)
+                Source->SetTextToDblQuotesIfNeededW(SourceCacheW.c_str());
+            else if (Script->RemapNameFrom != NULL)
             {
-                char name[MAX_PATH];
-                Source->SetTextToDblQuotesIfNeeded(RemapNames(name, MAX_PATH, SourceCache, Script));
+                CPathBuffer name; // Heap-allocated for long path support
+                Source->SetTextToDblQuotesIfNeeded(RemapNames(name, name.Size(), SourceCache, Script));
             }
             else
                 Source->SetTextToDblQuotesIfNeeded(SourceCache);
         }
         SetWindowText(HPreposition, PrepositionCache);
         if (Target != NULL)
-            Target->SetTextToDblQuotesIfNeeded(TargetCache);
+        {
+            if (!TargetCacheW.empty())
+                Target->SetTextToDblQuotesIfNeededW(TargetCacheW.c_str());
+            else
+                Target->SetTextToDblQuotesIfNeeded(TargetCache);
+        }
         CacheIsDirty = FALSE;
     }
 
@@ -518,7 +533,7 @@ void CProgressDialog::SetDlgTitle(BOOL minimized)
             sprintf(buf, "(%d %%) %s", (int)((min(1000, SummaryProgress) /*+ 5*/) / 10), Caption); // no rounding (100% must appear only at 100% and not at 99.5%)
         else
             sprintf(buf, "(%s) %s", LoadStr(AutoPaused ? IDS_PROGDLGQUEUEPAUSED : IDS_PROGDLGPAUSED),
-                    AutoPaused && Script != NULL && Script->WaitInQueueSubject != NULL ? Script->WaitInQueueSubject : Caption);
+                    AutoPaused && Script != NULL && !Script->WaitInQueueSubject.empty() ? Script->WaitInQueueSubject.c_str() : Caption);
         char oldCaption[200];
         ::GetWindowText(HWindow, oldCaption, 200);
         oldCaption[199] = 0;
@@ -658,15 +673,15 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SetDlgItemText(HWindow, IDB_PAUSERESUME, LoadStr(ShowPause ? IDS_PROGDLGPAUSE : IDS_PROGDLGRESUME));
                 SetDlgTitle(IsIconic(RunningInOwnThread ? HWindow : MainWindow->HWindow));
 
-                if (Script->WaitInQueueFrom != NULL && Script->WaitInQueueTo != NULL)
+                if (!Script->WaitInQueueFrom.empty() && !Script->WaitInQueueTo.empty())
                 {
                     if (OperationText != NULL)
                         OperationText->SetText(LoadStr(IDS_COPYINGFROM));
                     if (Source != NULL)
-                        Source->SetTextToDblQuotesIfNeeded(Script->WaitInQueueFrom);
+                        Source->SetTextToDblQuotesIfNeeded(Script->WaitInQueueFrom.c_str());
                     SetWindowText(HPreposition, LoadStr(IDS_COPYINGTO));
                     if (Target != NULL)
-                        Target->SetTextToDblQuotesIfNeeded(Script->WaitInQueueTo);
+                        Target->SetTextToDblQuotesIfNeeded(Script->WaitInQueueTo.c_str());
                 }
             }
         }
@@ -683,7 +698,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             WorkerNotSuspended = NULL;
             HANDLES(CloseHandle(WContinue));
             WContinue = NULL;
-            EndDialog(HWindow, IDABORT); // abort
+            EndDialog(HWindow, IDABORT); // fatal error
         }
         else
         {
@@ -721,8 +736,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // do not draw data immediately, only on the timer
             lstrcpyn(OperationCache, data->Operation, 100);
             lstrcpyn(PrepositionCache, data->Preposition, 100);
-            lstrcpyn(SourceCache, data->Source, 2 * MAX_PATH);
-            lstrcpyn(TargetCache, data->Target, 2 * MAX_PATH);
+            lstrcpyn(SourceCache, data->Source, SourceCache.Size());
+            lstrcpyn(TargetCache, data->Target, TargetCache.Size());
+            SourceCacheW = data->SourceW != NULL ? data->SourceW : L"";
+            TargetCacheW = data->TargetW != NULL ? data->TargetW : L"";
             CacheIsDirty = TRUE;
         }
 
@@ -791,6 +808,15 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         char** data = (char**)lParam;
         switch (wParam)
         {
+        case 100:
+        {
+            void** dataW = (void**)lParam;
+            CFileErrorDlg dlg(HWindow, (const char*)dataW[1], (const char*)dataW[2], (const char*)dataW[4],
+                              FALSE, 0, (const wchar_t*)dataW[3]);
+            *(int*)dataW[0] = (int)dlg.Execute();
+            break;
+        }
+
         case 0:
         {
             CFileErrorDlg dlg(HWindow, data[1], data[2], data[3]);
@@ -798,15 +824,35 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 101:
+        {
+            void** dataW = (void**)lParam;
+            COverwriteDlg dlg(HWindow, (const char*)dataW[1], (const char*)dataW[3],
+                              (const char*)dataW[4], (const char*)dataW[6], FALSE, FALSE,
+                              (const wchar_t*)dataW[2], (const wchar_t*)dataW[5]);
+            *(int*)dataW[0] = (int)dlg.Execute();
+            break;
+        }
+
+        case 107:
+        {
+            void** dataW = (void**)lParam;
+            COverwriteDlg dlg(HWindow, (const char*)dataW[1], (const char*)dataW[3],
+                              (const char*)dataW[4], (const char*)dataW[6], FALSE, TRUE,
+                              (const wchar_t*)dataW[2], (const wchar_t*)dataW[5]);
+            *(int*)dataW[0] = (int)dlg.Execute();
+            break;
+        }
+
         case 1:
         {
-            char tmpName[MAX_PATH];
-            char tmpName2[MAX_PATH];
+            CPathBuffer tmpName; // Heap-allocated for long path support
+            CPathBuffer tmpName2; // Heap-allocated for long path support
             char *filename1, *filename2;
             if (Script != NULL && Script->RemapNameFrom != NULL)
             {
-                filename1 = RemapNames(tmpName, MAX_PATH, data[1], Script);
-                filename2 = RemapNames(tmpName2, MAX_PATH, data[3], Script);
+                filename1 = RemapNames(tmpName, tmpName.Size(), data[1], Script);
+                filename2 = RemapNames(tmpName2, tmpName2.Size(), data[3], Script);
             }
             else
             {
@@ -832,6 +878,15 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 103:
+        {
+            void** dataW = (void**)lParam;
+            CCannotMoveDlg dlg(HWindow, IDD_CANNOTMOVE, (char*)dataW[1], (char*)dataW[3], (char*)dataW[5],
+                               (const wchar_t*)dataW[2], (const wchar_t*)dataW[4]);
+            *(int*)dataW[0] = (int)dlg.Execute();
+            break;
+        }
+
         case 4:
         {
             CCannotMoveDlg dlg(HWindow, IDD_RENAMEDIR, data[1], data[2], data[3]);
@@ -839,9 +894,27 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 104:
+        {
+            void** dataW = (void**)lParam;
+            CCannotMoveDlg dlg(HWindow, IDD_RENAMEDIR, (char*)dataW[1], (char*)dataW[3], (char*)dataW[5],
+                               (const wchar_t*)dataW[2], (const wchar_t*)dataW[4]);
+            *(int*)dataW[0] = (int)dlg.Execute();
+            break;
+        }
+
         case 5:
         {
             CFileErrorDlg dlg(HWindow, data[0], data[1], data[2], FALSE, IDD_ERROR3);
+            dlg.Execute();
+            break;
+        }
+
+        case 105:
+        {
+            void** dataW = (void**)lParam;
+            CFileErrorDlg dlg(HWindow, (const char*)dataW[0], (const char*)dataW[1], (const char*)dataW[3],
+                              FALSE, IDD_ERROR3, (const wchar_t*)dataW[2]);
             dlg.Execute();
             break;
         }
@@ -881,10 +954,29 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 110:
+        {
+            void** dataW = (void**)lParam;
+            CErrorCopyingPermissionsDlg dlg(HWindow, (const char*)dataW[1], (const char*)dataW[3],
+                                            (DWORD)(DWORD_PTR)dataW[5],
+                                            (const wchar_t*)dataW[2], (const wchar_t*)dataW[4]);
+            *(int*)dataW[0] = (int)dlg.Execute();
+            break;
+        }
+
         case 11:
         {
             CErrorCopyingDirTimeDlg dlg(HWindow, data[1], (DWORD)(DWORD_PTR)data[2]);
             *(int*)data[0] = (int)dlg.Execute();
+            break;
+        }
+
+        case 111:
+        {
+            void** dataW = (void**)lParam;
+            CErrorCopyingDirTimeDlg dlg(HWindow, (const char*)dataW[1], (DWORD)(DWORD_PTR)dataW[3],
+                                        (const wchar_t*)dataW[2]);
+            *(int*)dataW[0] = (int)dlg.Execute();
             break;
         }
 
@@ -918,7 +1010,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam == IDT_REPAINT)
         {
-            if (!FlushCachedData()) // WM_USER_SETDIALOG was not received, so the timer can be safely canceled
+            if (!FlushCachedData()) // WM_USER_SETDIALOG did not arrive, we can safely cancel the timer
             {
                 TimerIsRunning = FALSE;
                 KillTimer(HWindow, IDT_REPAINT);
@@ -993,7 +1085,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 */
                         secs.Value++;                                                        // add one second so we finish the operation with "time left: 1 sec" (instead of 0 sec)
 
-                        // rounding calculation (approximately 10% error; rounded to nice values: 1, 2, 5, 10, 20, 40)
+                        // rounding calculation (roughly 10% error + rounded to nice numbers 1,2,5,10,20,40)
                         CQuadWord dif = (secs + CQuadWord(5, 0)) / CQuadWord(10, 0);
                         int expon = 0;
                         while (dif >= CQuadWord(50, 0))
@@ -1205,7 +1297,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
     {
         if (CanClose)
         {
-            if (!IsWindowEnabled(HWindow)) // a modal dialog is open over this dialog (a message box asking whether to cancel the operation or reporting an operation error)
+            if (!IsWindowEnabled(HWindow)) // there is a modal dialog above this dialog (a message box asking about operation canceling or reporting an error)
                 CloseAllOwnedEnabledDialogs(HWindow);
             CancelWorker = TRUE; // set worker cancel
             EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
@@ -1235,7 +1327,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 SetThreadPriority(Worker, THREAD_PRIORITY_NORMAL);
             AcceptCommands = TRUE;
         }
-        if (!IsWindowEnabled(HWindow)) // a modal window is open over this dialog (a message box asking whether to cancel the operation or reporting an operation error)
+        if (!IsWindowEnabled(HWindow)) // there is a modal window above this dialog (a message box asking about operation canceling or reporting an error)
         {
             HWND dlg = GetLastActivePopup(HWindow);
             if (dlg != NULL && dlg != HWindow)
@@ -1270,7 +1362,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         {
             // Prior to Windows Vista we only called GetNextWindow(), which was enough to reach the next window in the Z-order.
             // Vista introduced new hidden helper windows such as "MSCTFIME UI" and "Default IME" that sit between us and
-            // our window (main, viewer, etc.). So we skip hidden windows here.
+            // our window (main, viver, ect.). So we skip hidden windows here.
             BOOL valid;
             HWND hNext = HWindow;
             do
@@ -1350,10 +1442,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                     PostMessage(HWindow, WM_TIMER, IDT_UPDATESTATUS, 0); // send one more timer so the "stopped" status is displayed
                 }
 
-                int ret = SalMessageBox(HWindow, LoadStr(IDS_CANCELOPERATION),
-                                        LoadStr(IDS_QUESTION),
-                                        MB_YESNO | MB_ICONQUESTION /*| MSGBOXEX_ESCAPEENABLED*/); // Escape key is not a good
-                // idea -- Zarevak accidentally started deleting a large batch of files, then began hitting Escape (the machine was
+                PromptResult res = gPrompter->AskYesNo(LoadStrW(IDS_QUESTION), LoadStrW(IDS_CANCELOPERATION));
+                // Escape key is not enabled -- Zarevak accidentally started deleting a large batch of files, then began hitting Escape (the machine was
                 // heavily loaded so it did not respond immediately) canceling the confirmation, therefore the confirmation can
                 // no longer be closed with Escape.
 
@@ -1361,7 +1451,7 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
                 StatusPaused = FALSE; // now time-left and speed can be displayed again
 
-                if (ret == IDYES)
+                if (res.type == PromptResult::kYes)
                 {
                     CancelWorker = TRUE; // set cancel of the worker
                     EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
@@ -1379,10 +1469,10 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 if ((CancelWorker || ShowPause) && // only if it's Cancel or the operation isn't paused
                     WorkerNotSuspended != NULL)
                 {
-                    SetEvent(WorkerNotSuspended); // may be NULL if the message box was closed by IDOK via WM_CLOSE
+                    SetEvent(WorkerNotSuspended); // may be NULL if the message box was closed from IDOK via WM_CLOSE
                 }
             }
-            return TRUE; // only the worker can close the dialog using IDOK ...
+            return TRUE; // only the worker using IDOK will terminate the dialog ...
         }
 
         case CM_RESUMEOPER:   // resume posted from the operations queue
@@ -1478,8 +1568,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 SetThreadPriority(Worker, THREAD_PRIORITY_NORMAL);
             AcceptCommands = TRUE;
         }
-        if (wParam == FALSE) // when deactivated, we leave the directories shown in the panels
-        {                    // so other software can delete or disconnect them
+        if (wParam == FALSE) // when deactivated we leave directories shown in the panels,
+        {                    // so they can be deleted, disconnected, etc. from other software
             if (!RunningInOwnThread && CanChangeDirectory())
                 SetCurrentDirectoryToSystem();
         }
@@ -1539,10 +1629,11 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 //
 
 CFileErrorDlg::CFileErrorDlg(HWND parent, const char* caption, const char* file, const char* error,
-                             BOOL noSkip, int altRes) : CCommonDialog(HLanguage, altRes == 0 ? (noSkip ? IDD_CREATEDIRERR : IDD_CANNOTOPEN) : altRes, parent)
+                             BOOL noSkip, int altRes, const wchar_t* fileW) : CCommonDialog(HLanguage, altRes == 0 ? (noSkip ? IDD_CREATEDIRERR : IDD_CANNOTOPEN) : altRes, parent)
 {
     Caption = caption;
     File = file;
+    FileW = fileW;
     Error = error;
 }
 
@@ -1558,7 +1649,12 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         CStaticText* name;
         if ((name = new CStaticText(HWindow, IDS_FILENAME, STF_PATH_ELLIPSIS)) != NULL)
-            name->SetTextToDblQuotesIfNeeded(File);
+        {
+            if (FileW != NULL)
+                name->SetTextToDblQuotesIfNeededW(FileW);
+            else
+                name->SetTextToDblQuotesIfNeeded(File);
+        }
         else
             TRACE_E(LOW_MEMORY);
 
@@ -1651,7 +1747,8 @@ MENU_TEMPLATE_ITEM FileErrorDlgMenu[] =
 
 COverwriteDlg::COverwriteDlg(HWND parent, const char* sourceName, const char* sourceAttr,
                              const char* targetName, const char* targetAttr, BOOL yesnocancel,
-                             BOOL dirOverwrite) : CCommonDialog(HLanguage,
+                             BOOL dirOverwrite, const wchar_t* sourceNameW,
+                             const wchar_t* targetNameW) : CCommonDialog(HLanguage,
                                                                 dirOverwrite ? IDD_DIROVERWRITE : (yesnocancel ? IDD_OVERWRITE2 : IDD_OVERWRITE),
                                                                 parent)
 {
@@ -1659,6 +1756,8 @@ COverwriteDlg::COverwriteDlg(HWND parent, const char* sourceName, const char* so
     SourceAttr = sourceAttr;
     TargetName = targetName;
     TargetAttr = targetAttr;
+    SourceNameW = sourceNameW;
+    TargetNameW = targetNameW;
 }
 
 INT_PTR
@@ -1671,11 +1770,21 @@ COverwriteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         CStaticText *source, *target;
         if ((source = new CStaticText(HWindow, IDS_SOURCENAME, STF_PATH_ELLIPSIS)) != NULL)
-            source->SetTextToDblQuotesIfNeeded(SourceName);
+        {
+            if (SourceNameW != NULL)
+                source->SetTextToDblQuotesIfNeededW(SourceNameW);
+            else
+                source->SetTextToDblQuotesIfNeeded(SourceName);
+        }
         else
             TRACE_E(LOW_MEMORY);
         if ((target = new CStaticText(HWindow, IDS_TARGETNAME, STF_PATH_ELLIPSIS)) != NULL)
-            target->SetTextToDblQuotesIfNeeded(TargetName);
+        {
+            if (TargetNameW != NULL)
+                target->SetTextToDblQuotesIfNeededW(TargetNameW);
+            else
+                target->SetTextToDblQuotesIfNeeded(TargetName);
+        }
         else
             TRACE_E(LOW_MEMORY);
 
@@ -1760,11 +1869,15 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 //
 
 CCannotMoveDlg::CCannotMoveDlg(HWND parent, int resID, char* sourceName,
-                               char* targetName, char* error) : CCommonDialog(HLanguage, resID, parent)
+                               char* targetName, char* error,
+                               const wchar_t* sourceNameW,
+                               const wchar_t* targetNameW) : CCommonDialog(HLanguage, resID, parent)
 {
     SourceName = sourceName;
     TargetName = targetName;
     Error = error;
+    SourceNameW = sourceNameW;
+    TargetNameW = targetNameW;
 }
 
 INT_PTR
@@ -1777,11 +1890,21 @@ CCannotMoveDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         CStaticText *source, *target;
         if ((source = new CStaticText(HWindow, IDS_SOURCENAME, STF_PATH_ELLIPSIS)) != NULL)
-            source->SetTextToDblQuotesIfNeeded(SourceName);
+        {
+            if (SourceNameW != NULL)
+                source->SetTextToDblQuotesIfNeededW(SourceNameW);
+            else
+                source->SetTextToDblQuotesIfNeeded(SourceName);
+        }
         else
             TRACE_E(LOW_MEMORY);
         if ((target = new CStaticText(HWindow, IDS_TARGETNAME, STF_PATH_ELLIPSIS)) != NULL)
-            target->SetTextToDblQuotesIfNeeded(TargetName);
+        {
+            if (TargetNameW != NULL)
+                target->SetTextToDblQuotesIfNeededW(TargetNameW);
+            else
+                target->SetTextToDblQuotesIfNeeded(TargetName);
+        }
         else
             TRACE_E(LOW_MEMORY);
 
@@ -1815,7 +1938,7 @@ CCannotMoveDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 void BrowseFileName(HWND hParent, int editlineResID, const char* name)
 {
     CALL_STACK_MESSAGE3("BrowseFileName(, %d, %s)", editlineResID, name);
-    char file[MAX_PATH];
+    CPathBuffer file; // Heap-allocated for long path support
     strcpy(file, name);
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -1830,7 +1953,7 @@ void BrowseFileName(HWND hParent, int editlineResID, const char* name)
         s++;
     }
     ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = file.Size();
     ofn.nFilterIndex = 1;
     //  ofn.lpstrFileTitle = file;
     //  ofn.nMaxFileTitle = MAX_PATH;
@@ -1838,9 +1961,9 @@ void BrowseFileName(HWND hParent, int editlineResID, const char* name)
 
     if (SafeGetSaveFileName(&ofn))
     {
-        if (SalGetFullName(file))
+        if (SalGetFullName(file, NULL, NULL, NULL, NULL, file.Size()))
         {
-            SendMessage(GetDlgItem(hParent, editlineResID), WM_SETTEXT, 0, (LPARAM)file);
+            SendMessage(GetDlgItem(hParent, editlineResID), WM_SETTEXT, 0, (LPARAM)file.Get());
         }
     }
 }
@@ -1861,7 +1984,7 @@ void CFileListDialog::Transfer(CTransferInfo& ti)
     ti.RadioButton(IDC_FL_CLIPBOARD, 0, Configuration.FileListDestination);
     ti.RadioButton(IDC_FL_VIEWER, 1, Configuration.FileListDestination);
     ti.RadioButton(IDC_FL_FILE, 2, Configuration.FileListDestination);
-    ti.EditLine(IDC_FL_FILENAME, Configuration.FileListName, MAX_PATH);
+    ti.EditLine(IDC_FL_FILENAME, Configuration.FileListName, Configuration.FileListName.Size());
     ti.CheckBox(IDC_FL_APPEND, Configuration.FileListAppend);
 
     char** history = Configuration.FileListHistory;
@@ -1879,8 +2002,8 @@ void CFileListDialog::Transfer(CTransferInfo& ti)
         }
         else
         {
-            char buff[MAX_PATH];
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buff);
+            CPathBuffer buff; // Heap-allocated for long path support
+            SendMessage(hWnd, WM_GETTEXT, buff.Size(), (LPARAM)buff.Get());
             AddValueToStdHistoryValues(history, FILELIST_HISTORY_SIZE, buff, FALSE);
         }
     }
@@ -1896,8 +2019,8 @@ void CFileListDialog::Validate(CTransferInfo& ti)
 
     if (ti.GetControl(hWnd, IDC_FL_LINE))
     {
-        char buff[MAX_PATH];
-        SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buff);
+        CPathBuffer buff; // Heap-allocated for long path support
+        SendMessage(hWnd, WM_GETTEXT, buff.Size(), (LPARAM)buff.Get());
         int errorPos1, errorPos2;
         if (!ValidateMakeFileList(HWindow, buff, errorPos1, errorPos2))
         {
@@ -1915,12 +2038,12 @@ void CFileListDialog::Validate(CTransferInfo& ti)
             // DefaultDir restoration
             MainWindow->UpdateDefaultDir(TRUE);
 
-            char buffFile[MAX_PATH];
-            SendMessage(hWnd, WM_GETTEXT, MAX_PATH, (LPARAM)buffFile);
+            CPathBuffer buffFile; // Heap-allocated for long path support
+            SendMessage(hWnd, WM_GETTEXT, buffFile.Size(), (LPARAM)buffFile.Get());
             int errTextID;
-            if (!SalGetFullName(buffFile, &errTextID, MainWindow->GetActivePanel()->Is(ptDisk) ? MainWindow->GetActivePanel()->GetPath() : NULL))
+            if (!SalGetFullName(buffFile, &errTextID, MainWindow->GetActivePanel()->Is(ptDisk) ? MainWindow->GetActivePanel()->GetPath() : NULL, NULL, NULL, buffFile.Size()))
             {
-                SalMessageBox(HWindow, LoadStr(errTextID), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(errTextID));
                 ti.ErrorOn(IDC_FL_FILENAME);
                 return;
             }
@@ -1935,22 +2058,19 @@ void CFileListDialog::Validate(CTransferInfo& ti)
 
             // must not be a directory
             DWORD attr;
-            attr = SalGetFileAttributes(buffFile);
+            attr = GetFileAttributesW(AnsiToWide(buffFile).c_str());
 
             if (attr != 0xFFFFFFFF && (attr & FILE_ATTRIBUTE_DIRECTORY))
             {
-                SalMessageBox(HWindow, LoadStr(IDS_NAMEALREADYUSEDFORDIR),
-                              LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_NAMEALREADYUSEDFORDIR));
                 ti.ErrorOn(IDC_FL_FILENAME);
                 return;
             }
             // if not appending, ask whether to overwrite
             if (!append && attr != 0xFFFFFFFF)
             {
-                char text[300];
-                sprintf(text, LoadStr(IDS_FILEALREADYEXIST), buffFile);
-                if (SalMessageBox(HWindow, text, LoadStr(IDS_QUESTION),
-                                  MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES)
+                std::wstring msg = FormatStrW(LoadStrW(IDS_FILEALREADYEXIST), AnsiToWide(buffFile).c_str());
+                if (gPrompter->AskYesNo(LoadStrW(IDS_QUESTION), msg.c_str()).type != PromptResult::kYes)
                 {
                     ti.ErrorOn(IDC_FL_FILENAME);
                     return;
@@ -1980,7 +2100,7 @@ CFileListDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_FILELISTLINE_HINT));
 
-        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FL_FILENAME)); // install WordBreakProc into the edit line
+        InstallWordBreakProc(GetDlgItem(HWindow, IDC_FL_FILENAME)); // install WordBreakProc into the editline
 
         HWND hCombo = GetDlgItem(HWindow, IDC_FL_LINE);
         EditLine->AttachToWindow(GetWindow(hCombo, GW_CHILD));
@@ -1998,14 +2118,14 @@ CFileListDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case IDC_FL_FNBROWSE:
         {
-            char buffFile[MAX_PATH];
+            CPathBuffer buffFile; // Heap-allocated for long path support
             // DefaultDir restoration
             MainWindow->UpdateDefaultDir(TRUE);
 
-            SendMessage(GetDlgItem(HWindow, IDC_FL_FILENAME), WM_GETTEXT, MAX_PATH, (LPARAM)buffFile);
-            if (!SalGetFullName(buffFile, NULL, MainWindow->GetActivePanel()->Is(ptDisk) ? MainWindow->GetActivePanel()->GetPath() : NULL))
+            SendMessage(GetDlgItem(HWindow, IDC_FL_FILENAME), WM_GETTEXT, buffFile.Size(), (LPARAM)buffFile.Get());
+            if (!SalGetFullName(buffFile, NULL, MainWindow->GetActivePanel()->Is(ptDisk) ? MainWindow->GetActivePanel()->GetPath() : NULL, NULL, NULL, buffFile.Size()))
             { // we cannot do it, so let Windows Browse handle it however it wants...
-                SendMessage(GetDlgItem(HWindow, IDC_FL_FILENAME), WM_GETTEXT, MAX_PATH, (LPARAM)buffFile);
+                SendMessage(GetDlgItem(HWindow, IDC_FL_FILENAME), WM_GETTEXT, buffFile.Size(), (LPARAM)buffFile.Get());
             }
 
             BrowseFileName(HWindow, IDC_FL_FILENAME, buffFile);
@@ -2070,14 +2190,14 @@ CBetaExpiredDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         hl = new CHyperLink(HWindow, IDC_BETAEXPIREDURL);
         if (hl != NULL)
         {
-            // if the language is Czech or Slovak, automatically show the Czech version of the website
+            // if the environment is Czech or Slovak, we will automatically show the Czech version of the web
             BOOL english = LanguageID != 0x405 /* Czech */ && LanguageID != 0x41B /* Slovak */;
 
             const char* url =
 #ifndef THIS_IS_EAP_VERSION
-                english ? "https://www.altap.cz/salamander/downloads/beta" : "https://www.altap.cz/cz/salamander/downloads/beta";
+                "https://github.com/0xeb/sally/releases";
 #else  // THIS_IS_EAP_VERSION
-                english ? "https://www.altap.cz/salamander/downloads/eap" : "https://www.altap.cz/cz/salamander/downloads/eap";
+                "https://github.com/0xeb/sally/releases";
 #endif // THIS_IS_EAP_VERSION
 
             SetDlgItemText(HWindow, IDC_BETAEXPIREDURL, url + 8);
@@ -2100,7 +2220,7 @@ CBetaExpiredDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         sprintf(buff, orig, today, expired);
         SetDlgItemText(HWindow, IDC_BETAEXPIREDDATE, buff);
 
-        // The OK button will display countdown numbers; store the original text.
+        // the OK button will show numbers counting down, store the original text
         GetDlgItemText(HWindow, IDOK, OldOK, 100);
 
         EnableWindow(GetDlgItem(HWindow, IDOK), FALSE);
@@ -2158,8 +2278,7 @@ void CSetSpeedLimDialog::Validate(CTransferInfo& ti)
         GetDlgItemText(HWindow, IDE_SETSPLIMNUMBER, speedLimitText, 20);
         if (!GetSpeedLimit(sel, speedLimitText, NULL))
         {
-            SalMessageBox(HWindow, LoadStr(IDS_SPEEDLIMITSIZE), LoadStr(IDS_ERRORTITLE),
-                          MB_OK | MB_ICONEXCLAMATION);
+            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), LoadStrW(IDS_SPEEDLIMITSIZE));
             ti.ErrorOn(IDE_SETSPLIMNUMBER);
         }
     }
@@ -2186,7 +2305,7 @@ void CSetSpeedLimDialog::Transfer(CTransferInfo& ti)
             {
                 speedLimNum /= 1024;
                 speedLimUnits++;
-                if (speedLimNum == 0 || speedLimUnits > 3) // cannot occur; defensive check
+                if (speedLimNum == 0 || speedLimUnits > 3) // should not happen, just for peace of mind
                 {
                     TRACE_E("CSetSpeedLimDialog::Transfer(): unexpected situation!");
                     speedLimNum = 4;

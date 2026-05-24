@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -132,7 +133,7 @@ CSalamanderProgressAutomation::~CSalamanderProgressAutomation()
     }
 
     // ProgressAddSize return non-zero if the operation should continue
-    // our logic is quite opposite - we return true, if the dialog has been
+    // our logic is quite oposite - we return true, if the dialogg has been
     // cancelled and the operation should be aborted
     *cancelled = m_pOperation->ProgressAddSize(0, TRUE) ? VARIANT_FALSE : VARIANT_TRUE;
 

@@ -1,10 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "mainwnd.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
 #include "usermenu.h"
 #include "snooper.h"
 #include "cfgdlg.h"
@@ -69,12 +71,19 @@ MyDummySetUnhandledExceptionFilter(
 {
     return NULL;
 }
+#elif defined _M_ARM64
+// ARM64: patching SetUnhandledExceptionFilter is not implemented
+// The function will return FALSE, so no patching occurs
 #else
-#error "This code works only for x86 and x64!"
+#error "This code works only for x86, x64, and ARM64!"
 #endif
 
 BOOL PreventSetUnhandledExceptionFilterAux()
 {
+#ifdef _M_ARM64
+    // ARM64: patching not implemented, just return FALSE
+    return FALSE;
+#else
     HMODULE hKernel32 = LoadLibrary(_T("kernel32.dll"));
     if (hKernel32 == NULL)
         return FALSE;
@@ -100,11 +109,11 @@ BOOL PreventSetUnhandledExceptionFilterAux()
     newJump[0] = 0xE9; // JMP rel32
     memcpy(&newJump[1], &dwRelativeAddr, sizeof(pNewFunc));
 #elif _M_X64
-    // We must use R10 or R11 because these are "scratch" registers
-    // that do not need to be preserved across function calls.
-    // For more information, see: Register Usage for x64 64-Bit
+    // We must use R10 or R11, because these are "scratch" registers
+    // which need not to be preserved accross function calls
+    // For more info see: Register Usage for x64 64-Bit
     // http://msdn.microsoft.com/en-us/library/ms794547.aspx
-    // Thanks to Matthew Smith.
+    // Thanks to Matthew Smith!!!
     newJump[0] = 0x49; // MOV R11, ...
     newJump[1] = 0xBB; // ...
     memcpy(&newJump[2], &pNewFunc, sizeof(pNewFunc));
@@ -125,6 +134,7 @@ BOOL PreventSetUnhandledExceptionFilterAux()
         //FlushInstructionCache(GetCurrentProcess(), pOrgEntry, 20);
     }
     return bRet;
+#endif // !_M_ARM64
 }
 
 BOOL PreventSetUnhandledExceptionFilter()
@@ -264,22 +274,22 @@ CCallStack::CCallStack(BOOL dontSuspend)
         OldUnhandledExceptionFilter = SetUnhandledExceptionFilter(TopLevelExceptionFilter);
 
         // Try to disable the unhandled exception filter for subsequent calls.
-        // If a DLL (plugin, shell extension) that uses a different RTL is loaded
-        // into the Salamander process, that RTL takes over this filter during its
-        // initialization. Also, since MSVC 2005, various sanity checks no longer
-        // throw exceptions, but instead display a message and call
+        // When a DLL library (plugin, shell extension) that uses a different RTL is
+        // loaded into Salamander process, that RTL installs this filter during its
+        // initialization. Additionally, starting with MSVC 2005, various sanity checks no
+        // longer throw exceptions but instead print a message and directly call
         // UnhandledExceptionFilter(), which opens the Watson dialog.
-        // This used to make Salamander crash without a bug report, for example
-        // with the TortoiseSVN shell extension.
-        // The following call should let us catch all unhandled crashes, including
-        // MSVC 2005 sanity checks.
+        // For example, Salamander used to crash without a bug report
+        // from TortoiseSVN shell extension. The call below should
+        // ensure we catch all unhandled crashes including MSVC 2005 sanity
+        // checks.
         //
-        // More on this topic: "A proposal to make Dr.Watson invocation configurable":
+        // More on this topic in "A proposal to make Dr.Watson invocation configurable":
         // http://connect.microsoft.com/VisualStudio/feedback/ViewFeedback.aspx?FeedbackID=101337
-        // and two hard-core solutions:
+        // and two hardcore solutions:
         // http://www.debuginfo.com/articles/debugfilters.html
         // http://blog.kalmbachnet.de/?postid=75
-        // 3/2012 - x64 update: http://blog.kalmbach-software.de/2008/04/02/unhandled-exceptions-in-vc8-and-above-for-x86-and-x64/
+        // 3/2012 - update pro x64: http://blog.kalmbach-software.de/2008/04/02/unhandled-exceptions-in-vc8-and-above-for-x86-and-x64/
         PreventSetUnhandledExceptionFilter();
     }
 
@@ -359,7 +369,7 @@ CCallStack::~CCallStack()
         //    TRACE_I("CCallStack::~CCallStack(): MonitoredItemsSize=" << MonitoredItemsSize);
         if (OldestItemIndex != -1)
         {
-            while (1) // Process the queue once more and print the final states of critical call-stack calls
+            while (1) // go through the queue again and print final states of critical call-stack invocations
             {
                 if (!MonitoredItems[OldestItemIndex].NotAlreadyReported) // if it was already reported, print final values
                 {
@@ -404,7 +414,7 @@ CCallStack::~CCallStack()
 
         if (BugReportThread != NULL)
         {
-            // when this thread terminates, execution reaches this code once more because CCallStack also exits for this thread
+            // by ending this thread, the code enters here one more time because CCallStack exited for it as well
             SetEvent(TBRData.TerminateEvent);           // terminate the bug report thread
             WaitForSingleObject(BugReportThread, 1000); // wait at most one second for the thread to finish
             NOHANDLES(CloseHandle(BugReportThread));
@@ -442,7 +452,7 @@ void CCallStack::ReleaseBeforeExitThreadBody()
         //    TRACE_I("CCallStack::~CCallStack(): MonitoredItemsSize=" << MonitoredItemsSize);
         if (OldestItemIndex != -1)
         {
-            while (1) // go through the queue again and print the final values of critical call-stack invocations
+            while (1) // go through the queue again and print final states of critical call-stack invocations
             {
                 if (!MonitoredItems[OldestItemIndex].NotAlreadyReported) // if it was already reported, print final values
                 {
@@ -620,10 +630,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         if (res != DIALOG_IGNORE)
         {
             HKEY hSalamander;
-            if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hSalamander)) // write data only if a configuration exists in the registry (which should almost always be the case)
+            if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hSalamander)) // write data only if a configuration exists in the registry (hich should almost always be the cas)
             {
                 HKEY actKey;
-                if (OpenKey(hSalamander, SALAMANDER_CONFIG_REG, actKey)) // write data only if a configuration exists in the registry (which should almost always be the case)
+                if (OpenKey(hSalamander, SALAMANDER_CONFIG_REG, actKey)) // write data only if a configuration exists in the registry (hich should almost always be the cas)
                 {
                     CloseKey(actKey);
                     if (CreateKey(hSalamander, SALAMANDER_CONFIG_REG, actKey))
@@ -688,13 +698,7 @@ CCallStack::ThreadBugReportF(void* param)
                 if (data->ShellExtCrashID != -1)
                 {
                     // crash shell extension
-                    MSGBOXEX_PARAMS params;
-                    memset(&params, 0, sizeof(params));
-                    params.HParent = NULL;
-                    params.Flags = MSGBOXEX_OK | MSGBOXEX_ICONINFORMATION | MB_SETFOREGROUND;
-                    params.Caption = SALAMANDER_TEXT_VERSION;
-                    params.Text = LoadStr(IDS_SHELLEXTCRASH);
-                    SalMessageBoxEx(&params);
+                    gPrompter->ShowInfo(AnsiToWide(SALAMANDER_TEXT_VERSION).c_str(), LoadStrW(IDS_SHELLEXTCRASH));
                 }
             }
             data->ExitProcess = TRUE; // terminate the thread
@@ -745,7 +749,7 @@ BOOL CCallStack::CreateBugReportFile(EXCEPTION_POINTERS* Exception, DWORD thread
             {
                 __try
                 {
-                    PrintBugReportLine((void*)file, "Open Salamander Bug Report File", FALSE);
+                    PrintBugReportLine((void*)file, "Sally Bug Report File", FALSE);
                     PrintBugReportLine((void*)file, "", FALSE);
 
 #ifndef CALLSTK_DISABLE
@@ -791,10 +795,10 @@ int CCallStack::HandleException(EXCEPTION_POINTERS* e, DWORD shellExtCrashID, co
     // in the DEBUG version we check for a debugger; in SDK/RELEASE version we rather skip this test
 #if defined(_DEBUG) && !defined(ENABLE_BUGREPORT_DEBUGGING)
     if (IsDebuggerPresent())              // if the software is currently being debugged, showing the Bug Report dialog makes no sense
-        return EXCEPTION_CONTINUE_SEARCH; // propagate the exception further; the debugger will catch it
+        return EXCEPTION_CONTINUE_SEARCH; // pass the exception on ... the debugger will catch it
 #endif
 
-    static char bugReportPath[MAX_PATH];
+    static CPathBuffer bugReportPath;
 
     // request salmon to generate the minidump
     SalmonFireAndWait(e, bugReportPath);
@@ -850,7 +854,7 @@ int CCallStack::HandleException(EXCEPTION_POINTERS* e, DWORD shellExtCrashID, co
             reportInThisThread = TBRData.EventProcessedRet == FALSE; // if generation failed in the thread, try here too
     }
 
-    // if the bug-report thread did not run or failed to generate the report, we will try again in this thread
+    // if the bug-report thread didn't run or failed to generate the report, we will try again in this thread
     if (reportInThisThread)
     {
         // Concurrent generation of two reports caused issues (with a 200 ms
@@ -924,7 +928,7 @@ void CCallStack::CheckCallFrequency(DWORD_PTR callerAddress, LARGE_INTEGER* push
                 act = MonitoredItemsSize - 1;
         }
     }
-    if (OldestItemIndex != -1) // first remove stale items (make room for a new one)
+    if (OldestItemIndex != -1) // first remove outdated items (make space for a new one)
     {
         while (1)
         {
@@ -932,7 +936,7 @@ void CCallStack::CheckCallFrequency(DWORD_PTR callerAddress, LARGE_INTEGER* push
                 break;
             else
             {
-                if (!MonitoredItems[OldestItemIndex].NotAlreadyReported) // if it was already reported, log the final values
+                if (!MonitoredItems[OldestItemIndex].NotAlreadyReported) // if it was reported, print final values
                 {
                     TRACE_I("Info for Too Frequently Used Call Stack Message: call address: 0x" << std::hex << MonitoredItems[OldestItemIndex].CallerAddress << std::dec << ", total push-time: " << (DWORD)(MonitoredItems[OldestItemIndex].PushesPerfTime * 1000 / CCallStack::SavedPerfFreq.QuadPart) << "ms, total number of calls in monitored period: " << MonitoredItems[OldestItemIndex].NumberOfCalls);
                 }
@@ -1003,7 +1007,7 @@ void CCallStack::CheckCallFrequency(DWORD_PTR callerAddress, LARGE_INTEGER* push
 // CCallStackMessage
 //
 
-// to avoid including the entire intrin.h
+// so I do not include the entire intrin.h
 extern "C"
 {
     void* _AddressOfReturnAddress(void);

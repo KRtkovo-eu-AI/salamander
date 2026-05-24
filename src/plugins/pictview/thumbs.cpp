@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -30,7 +31,7 @@ class CEnumFiles
 {
     int iFiles, iDirs, index;
     const CFileData* pFile;
-    TCHAR path[_MAX_PATH];
+    TCHAR path[32768];
 
 public:
     CEnumFiles(void);
@@ -149,7 +150,7 @@ const CFileData* CEnumFiles::GetFile(LPTSTR fileName)
     }
     if (ret)
     {
-        _sntprintf(fileName, _MAX_PATH, _T("%s%s%s"), path,
+        _sntprintf(fileName, SAL_MAX_LONG_PATH, _T("%s%s%s"), path,
                    (path[_tcslen(path) - 1] == '\\') ? _T("") : _T("\\"), ret->Name);
     }
     return ret;
@@ -199,7 +200,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
 {
     int fileCnt, processed = 0;
     CEnumFiles fileEnum;
-    TCHAR path[_MAX_PATH];
+    CPathBuffer path;
     sThumbProgressData pd;
     const CFileData* pFile = NULL;
     int flags = 0;
@@ -240,17 +241,17 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
         PVOpenImageExInfo oiei;
         PVSaveImageInfo sii;
         EXIFREPLACETHUMBNAIL ReplaceThumbnail;
-        TCHAR newFile[_MAX_PATH];
+        CPathBuffer newFile;
 
         CALL_STACK_MESSAGE1("PVW32DLL.PVOpenImageEx");
         flags &= FL_KEEP;
         memset(&oiei, 0, sizeof(oiei));
         oiei.cbSize = sizeof(oiei);
 #ifdef _UNICODE
-        char pathA[_MAX_PATH];
+        CPathBuffer pathA;
 
-        WideCharToMultiByte(CP_ACP, 0, path, -1, pathA, sizeof(pathA), NULL, NULL);
-        pathA[sizeof(pathA) - 1] = 0;
+        WideCharToMultiByte(CP_ACP, 0, path, -1, pathA, pathA.Size(), NULL, NULL);
+        pathA[pathA.Size() - 1] = 0;
         oiei.FileName = pathA;
 #else
         oiei.FileName = path;
@@ -263,7 +264,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
         {
             if (!(flags & FL_NON_IMG_SKIP_ALL))
             {
-                _stprintf(newFile, LoadStr(IDS_ERROR_OPENING_CONTINUE), code, PVW32DLL.PVGetErrorText(code));
+                _stprintf((char*)newFile, LoadStr(IDS_ERROR_OPENING_CONTINUE), code, PVW32DLL.PVGetErrorText(code));
                 switch (SalamanderGeneral->DialogError(hProgress, BUTTONS_SKIPCANCEL,
                                                        str ? str + 1 : path, newFile, LoadStr(IDS_ERRORTITLE)))
                 {
@@ -343,7 +344,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
                 sii.Height = PV_THUMB_CREATE_HEIGHT;
                 sii.Width = pvii.Width * PV_THUMB_CREATE_HEIGHT / pvii.Height;
             }
-            /* Handle pathological cases */
+            /* Handle patological cases */
             if (!sii.Height)
                 sii.Height = 1;
             if (!sii.Width)
@@ -372,12 +373,12 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
                     {
                         str = (LPTSTR)_tcsrchr(path, '\\');
 #ifdef _UNICODE
-                        char pathA[_MAX_PATH], newFileA[_MAX_PATH];
+                        CPathBuffer pathA, newFileA;
 
-                        WideCharToMultiByte(CP_ACP, 0, path, -1, pathA, sizeof(pathA), NULL, NULL);
-                        pathA[sizeof(pathA) - 1] = 0;
-                        WideCharToMultiByte(CP_ACP, 0, newFile, -1, newFileA, sizeof(newFileA), NULL, NULL);
-                        newFileA[sizeof(newFileA) - 1] = 0;
+                        WideCharToMultiByte(CP_ACP, 0, path, -1, pathA, pathA.Size(), NULL, NULL);
+                        pathA[pathA.Size() - 1] = 0;
+                        WideCharToMultiByte(CP_ACP, 0, newFile, -1, newFileA, newFileA.Size(), NULL, NULL);
+                        newFileA[newFileA.Size() - 1] = 0;
                         if (!ReplaceThumbnail(pathA, newFileA, pd.wfd.Buffer, pd.wfd.Size))
                         {
 #else
@@ -386,7 +387,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
 #endif
                             // SalamanderGeneral->SalGetTempFileName created the file
                             DeleteFile(newFile);
-                            _stprintf(newFile, LoadStr(IDS_REGENERATE_THUMB_WRITEFILE), str ? str + 1 : path);
+                            _stprintf((char*)newFile, LoadStr(IDS_REGENERATE_THUMB_WRITEFILE), str ? str + 1 : (const char*)path);
                             SalamanderGeneral->ShowMessageBox(newFile, LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
                         }
                         else
@@ -402,7 +403,7 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander)
                                 else
                                 {
                                     int ret = GetLastError();
-                                    TCHAR errBuff[MAX_PATH + 20];
+                                    TCHAR errBuff[32768 + 20];
                                     int btns = BUTTONS_SKIPCANCEL;
 
                                     SalamanderGeneral->GetErrorText(ret, errBuff, SizeOf(errBuff));
@@ -834,10 +835,10 @@ BOOL CPluginInterfaceForThumbLoader::LoadThumbnail(LPCTSTR filename, int thumbWi
         pvoi.Flags = PVFF_FAST | (G.IgnoreThumbnails ? 0 : (fastThumbnail ? PVOF_THUMBNAIL : 0));
 
 #ifdef _UNICODE
-        char filenameA[_MAX_PATH];
+        CPathBuffer filenameA;
 
-        WideCharToMultiByte(CP_ACP, 0, filename, -1, filenameA, sizeof(filenameA), NULL, NULL);
-        filenameA[sizeof(filenameA) - 1] = 0;
+        WideCharToMultiByte(CP_ACP, 0, filename, -1, filenameA, filenameA.Size(), NULL, NULL);
+        filenameA[filenameA.Size() - 1] = 0;
         pvoi.FileName = filenameA;
 #else
         pvoi.FileName = filename;

@@ -1,10 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "codetbl.h"
+#include "ui/IPrompter.h"
+#include "common/unicode/helpers.h"
+#include "common/widepath.h"
 #include "cfgdlg.h"
 
 CCodeTables CodeTables;
@@ -18,11 +21,11 @@ char* ReadTable(const char* fileName, char* table)
 { // reads the 'fileName' file, converts it using 'table'; returns an error message on failure, otherwise NULL
     CALL_STACK_MESSAGE2("ReadTable(%s,)", fileName);
     char* text = NULL;
-    HANDLE hFile = HANDLES_Q(CreateFile(fileName, GENERIC_READ,
-                                        FILE_SHARE_READ, NULL,
-                                        OPEN_EXISTING,
-                                        FILE_FLAG_SEQUENTIAL_SCAN,
-                                        NULL));
+    HANDLE hFile = SalCreateFileH(fileName, GENERIC_READ,
+                                  FILE_SHARE_READ, NULL,
+                                  OPEN_EXISTING,
+                                  FILE_FLAG_SEQUENTIAL_SCAN,
+                                  NULL);
     if (hFile != INVALID_HANDLE_VALUE)
     {
         if (GetFileSize(hFile, NULL) == 256)
@@ -51,6 +54,18 @@ char* ReadTable(const char* fileName, char* table)
     return text;
 }
 
+// Helper functions to avoid std::wstring in SEH blocks
+static void ShowCodeTableError(const char* text)
+{
+    gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), AnsiToWide(text).c_str());
+}
+
+static void ShowFileReadError(const char* fileName)
+{
+    std::wstring msg = FormatStrW(LoadStrW(IDS_FILEREADERROR), AnsiToWide(fileName).c_str());
+    gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), msg.c_str());
+}
+
 void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
              char* fileMem, DWORD fileSize, char* fileName, char* fileNameEnd, char* textBuf,
              char* winCodePage, DWORD* identifier, char* description)
@@ -60,7 +75,7 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
     char* name;
     char table[256];
 
-    char convertCfgFileName[MAX_PATH]; // for error messages
+    char convertCfgFileName[MAX_PATH]; // for error messages; kept as char[] due to SEH __try constraint
     strcpy(convertCfgFileName, fileName);
 
     BOOL comment;
@@ -169,7 +184,7 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
                                 {
                                     if (*beg == '\\' || beg + 1 < txt && *(beg + 1) == ':') // full-name (UNC, normal)
                                     {
-                                        char fullName[MAX_PATH];
+                                        char fullName[MAX_PATH]; // kept as char[] due to SEH __try constraint
                                         l = (int)min(txt - beg, MAX_PATH - 1);
                                         memcpy(fullName, beg, l);
                                         fullName[l] = 0;
@@ -287,7 +302,7 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
 
             if (text != NULL)
             {
-                SalMessageBox(hWindow, text, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                ShowCodeTableError(text);
             }
         }
         if (winCodePage[0] == 0)
@@ -300,9 +315,7 @@ void InitAux(HWND hWindow, TIndirectArray<CCodeTablesData>& Data,
     __except (HandleFileException(GetExceptionInformation(), fileMem, fileSize))
     {
         // file error
-        char buf[MAX_PATH + 100];
-        sprintf(buf, LoadStr(IDS_FILEREADERROR), fileName);
-        SalMessageBox(hWindow, buf, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        ShowFileReadError(fileName);
     }
 }
 
@@ -315,21 +328,21 @@ CCodeTable::CCodeTable(HWND hWindow, const char* dirName)
     strcpy(DirectoryName, dirName);
     State = ctsDefaultValues;
 
-    char fileName[MAX_PATH];
-    GetModuleFileName(HInstance, fileName, MAX_PATH);
+    CPathBuffer fileName; // Heap-allocated for long path support
+    GetModuleFileName(HInstance, fileName, fileName.Size());
     char* fileNameEnd = strrchr(fileName, '\\') + 1;
     sprintf(fileNameEnd, "convert\\%s\\", dirName);
     fileNameEnd += strlen(fileNameEnd);
     strcpy(fileNameEnd, "convert.cfg");
 
-    HANDLE hFile = HANDLES_Q(CreateFile(fileName, GENERIC_READ,
-                                        FILE_SHARE_READ, NULL,
-                                        OPEN_EXISTING,
-                                        FILE_FLAG_SEQUENTIAL_SCAN,
-                                        NULL));
+    HANDLE hFile = SalCreateFileH(fileName, GENERIC_READ,
+                                  FILE_SHARE_READ, NULL,
+                                  OPEN_EXISTING,
+                                  FILE_FLAG_SEQUENTIAL_SCAN,
+                                  NULL);
     if (hFile != INVALID_HANDLE_VALUE)
     {
-        char textBuf[MAX_PATH + 500];
+        CPathBuffer textBuf;
         DWORD err = NO_ERROR;
         DWORD fileSize = GetFileSize(hFile, NULL);
         if (fileSize != 0xFFFFFFFF)
@@ -361,8 +374,8 @@ CCodeTable::CCodeTable(HWND hWindow, const char* dirName)
 
         if (err != NO_ERROR)
         {
-            sprintf(textBuf, LoadStr(IDS_VIEWERERROPENCODES), fileName, GetErrorText(err));
-            SalMessageBox(hWindow, textBuf, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            std::wstring msg = FormatStrW(LoadStrW(IDS_VIEWERERROPENCODES), AnsiToWide(fileName).c_str(), GetErrorTextW(err));
+            gPrompter->ShowError(LoadStrW(IDS_ERRORTITLE), msg.c_str());
         }
     }
     else // if convert\\xxx\\convert.cfg is missing, "load" the default configuration
@@ -451,22 +464,24 @@ void CCodeTables::PreloadAllConversions()
     HANDLES(EnterCriticalSection(&PreloadCS));
     Preloaded.DestroyMembers();
 
-    char path[MAX_PATH];
-    GetModuleFileName(NULL, path, MAX_PATH);
+    CPathBuffer path; // Heap-allocated for long path support
+    GetModuleFileName(NULL, path, path.Size());
     lstrcpy(strrchr(path, '\\') + 1, "convert\\*.*");
 
-    WIN32_FIND_DATA find;
-    HANDLE hFind = HANDLES_Q(FindFirstFile(path, &find));
+    WIN32_FIND_DATAW find;
+    HANDLE hFind = SalFindFirstFileHW(path, &find);
     if (hFind != INVALID_HANDLE_VALUE)
     {
         do
         {
             if (find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                if (find.cFileName[0] != 0 && strcmp(find.cFileName, ".") != 0 && strcmp(find.cFileName, "..") != 0)
+                char cFileNameA[MAX_PATH];
+                WideCharToMultiByte(CP_ACP, 0, find.cFileName, -1, cFileNameA, MAX_PATH, NULL, NULL);
+                if (cFileNameA[0] != 0 && strcmp(cFileNameA, ".") != 0 && strcmp(cFileNameA, "..") != 0)
                 {
                     // try to open the internal convert.cfg file
-                    CCodeTable* table = new CCodeTable(NULL, find.cFileName);
+                    CCodeTable* table = new CCodeTable(NULL, cFileNameA);
                     if (table == NULL)
                     {
                         TRACE_E(LOW_MEMORY);
@@ -486,7 +501,7 @@ void CCodeTables::PreloadAllConversions()
                         delete table; //  we are not interested in the default table -- discard it
                 }
             }
-        } while (FindNextFile(hFind, &find));
+        } while (SalLPFindNextFile(hFind, &find));
         HANDLES(FindClose(hFind));
     }
 }
@@ -602,7 +617,7 @@ BOOL CCodeTables::Init(HWND hWindow)
                 Table = NULL;
             }
             PreloadAllConversions();
-            char dirName[MAX_PATH];
+            CPathBuffer dirName; // Heap-allocated for long path support
             GetBestPreloadedConversion(Configuration.ConversionTable, dirName);
             FreePreloadedConversions();
             strcpy(Configuration.ConversionTable, dirName);
@@ -975,7 +990,7 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                     }
                     if (*s >= 128)
                         nonAscii++;
-                    if (IsNotAlphaNorNum[*s]) // character is not alphanumeric
+                    if (IsNotAlphaNorNum[*s]) // character is neither alpha nor numeric
                     {
                         if (*s == '?')
                         {
@@ -1044,7 +1059,7 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                             if (c1 == 2 && c2 == 1)
                             {
                                 if (s > (const unsigned char*)testBuf && IsAlpha[*(s - 1)])
-                                    penalty += PENALTY_UPPER_TO_LOWER; // the word "Úrok" would otherwise be re-encoded as MACCE (uppercase 'U' changes to lowercase 'r' in MACCE)
+                                    penalty += PENALTY_UPPER_TO_LOWER; // the word "Interest" would otherwise be re-encoded as MACCE (uppercase 'U' changes to lowercase 'r' in MACCE)
                             }
                             else
                             {
@@ -1066,12 +1081,11 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                     s++;
                 }
 
-                if (s == end) // this is text
-                // && penalty / patternLen <= 5)  // and it is not a completely unreadable mess (Lukas's test:
-                // characters 0x04 -> only EBCDIC passed, but the ratio was
-                // 10 -> unreadable) - WARNING: unusable, because
-                // configuration files and .inf files also look like a complete mess
-                // according to 'penalty'
+                if (s == end) // this is a text
+                // && penalty / patternLen <= 5)  // and not a totally unreadable mess (Lukas' test:
+                // characters 0x04 -> only EBCDIC passed, but ratio was
+                // 10 -> unreadable) - WARNING: unusable because
+                // configuraiton files and .inf files also look like complete mess based on 'penalty'
                 {
                     if (isText != NULL)
                         *isText = TRUE;
@@ -1083,7 +1097,7 @@ void CCodeTables::RecognizeFileType(const char* pattern, int patternLen, BOOL fo
                             strcpy(codePage, lastCodePage);
 
                         if (i == -1 && nonAscii * 200 < patternLen)
-                            break; // fewer than 0.5% non-ASCII characters -> ASCII, stop searching
+                            break; // under 0.5% non-ASCII characters -> ASCII, stop searching
                     }
                 }
             }

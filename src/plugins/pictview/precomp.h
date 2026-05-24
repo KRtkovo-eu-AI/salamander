@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -49,7 +50,7 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
-#include "lukas\gdi.h"
+#include "plugcore\gdi.h"
 
 // When we have an old version of windowsx.h
 #ifndef GET_Y_LPARAM

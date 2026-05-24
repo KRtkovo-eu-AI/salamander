@@ -1,4 +1,6 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -8,6 +10,14 @@ CCS DialogStackCS;
 
 // TODO: use it!
 BOOL MinBeepWhenDone;
+
+// Last used Counter dialog settings (persisted to registry)
+int LastCounterStart = 0;
+double LastCounterStep = 1.0;
+int LastCounterBase = 'd';
+int LastCounterMinWidth = 0;
+int LastCounterFill = ' ';
+BOOL LastCounterLeft = FALSE;
 
 HICON
 GetSH32DirIcon()
@@ -631,9 +641,13 @@ void CAddCounterDialog::Validate(CTransferInfo& ti)
 void CAddCounterDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CAddCounterDialog::Transfer()");
-    int start = 0, base = 'd', minwidth = 0, fill = ' ';
-    double step = 1;
-    BOOL left = FALSE;
+    // Use last-used values (persisted to registry) instead of hardcoded defaults
+    int start = LastCounterStart;
+    int base = LastCounterBase;
+    int minwidth = LastCounterMinWidth;
+    int fill = LastCounterFill;
+    double step = LastCounterStep;
+    BOOL left = LastCounterLeft;
     char stepStr[100];
 
     ti.EditLine(IDE_START, start);
@@ -667,6 +681,14 @@ void CAddCounterDialog::Transfer(CTransferInfo& ti)
         SG->MultiMonCenterWindow(HWindow, Parent, FALSE);
     else
     {
+        // Save current values for next dialog open
+        LastCounterStart = start;
+        LastCounterStep = step;
+        LastCounterBase = base;
+        LastCounterMinWidth = minwidth;
+        LastCounterFill = fill;
+        LastCounterLeft = left;
+
         int i = 0;
         if (start > 0 || step != 1 || base != 'd' || minwidth > 0)
             i += sprintf(Buffer, "%d", start);
@@ -927,9 +949,9 @@ void CConfigDialog::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CConfigDialog::Validate()");
     int e1, e2;
-    char buffer[MAX_PATH];
+    CPathBuffer buffer; // Heap-allocated for long path support
 
-    ti.EditLine(IDE_COMMAND, buffer, MAX_PATH);
+    ti.EditLine(IDE_COMMAND, buffer, buffer.Size());
     if (!SG->ValidateVarString(HWindow, buffer, e1, e2, ExpCommandVariables))
     {
         ti.ErrorOn(IDE_COMMAND);
@@ -938,7 +960,7 @@ void CConfigDialog::Validate(CTransferInfo& ti)
         return;
     }
 
-    ti.EditLine(IDE_ARGUMENTS, buffer, MAX_PATH);
+    ti.EditLine(IDE_ARGUMENTS, buffer, buffer.Size());
     if (!SG->ValidateVarString(HWindow, buffer, e1, e2, ExpArgumentsVariables))
     {
         ti.ErrorOn(IDE_ARGUMENTS);
@@ -947,7 +969,7 @@ void CConfigDialog::Validate(CTransferInfo& ti)
         return;
     }
 
-    ti.EditLine(IDE_INITDIR, buffer, MAX_PATH);
+    ti.EditLine(IDE_INITDIR, buffer, buffer.Size());
     if (!SG->ValidateVarString(HWindow, buffer, e1, e2, ExpInitDirVariables))
     {
         ti.ErrorOn(IDE_INITDIR);
@@ -960,9 +982,9 @@ void CConfigDialog::Validate(CTransferInfo& ti)
 void CConfigDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CConfigDialog::Transfer()");
-    ti.EditLine(IDE_COMMAND, Command, MAX_PATH);
-    ti.EditLine(IDE_ARGUMENTS, Arguments, MAX_PATH);
-    ti.EditLine(IDE_INITDIR, InitDir, MAX_PATH);
+    ti.EditLine(IDE_COMMAND, Command, Command.Size());
+    ti.EditLine(IDE_ARGUMENTS, Arguments, Arguments.Size());
+    ti.EditLine(IDE_INITDIR, InitDir, InitDir.Size());
     ti.CheckBox(IDC_CONFIRMESCCLOSE, ConfirmESCClose);
 }
 
@@ -1025,10 +1047,10 @@ CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (cmd == 1)
                 {
-                    char path[MAX_PATH];
+                    CPathBuffer path; // Heap-allocated for long path support
                     path[0] = 0;
-                    GetDlgItemText(HWindow, IDE_COMMAND, path, MAX_PATH);
-                    if (GetOpenFileName(HWindow, NULL, LoadStr(IDS_EXEFILES), path))
+                    GetDlgItemText(HWindow, IDE_COMMAND, path, path.Size());
+                    if (GetOpenFileName(HWindow, NULL, LoadStr(IDS_EXEFILES), path, path.Size()))
                         SetDlgItemText(HWindow, IDE_COMMAND, path);
                 }
                 else if (cmd == 30)

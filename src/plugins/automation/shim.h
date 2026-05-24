@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -55,7 +56,7 @@ public:
     virtual HRESULT InterruptScript(IActiveScript* pScript);
 
     /// Allows the shim to control, whether particular error will be displayed
-    /// or suppressed.
+    /// or supressed.
     /// \return If the error should be displayed, the return value is true.
     virtual bool DisplayErrorHook(__in EXCEPINFO* ei, __in_opt BSTR src, __in bool bDebug);
 

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -50,7 +51,7 @@ CWpdDevice::~CWpdDevice()
 
 void WINAPI CWpdDevice::FinalRelease()
 {
-    // Device must be closed when releasing the object.
+    // Device must be closed whend releasing the object.
     _ASSERTE(m_cOpen == 0);
 }
 

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -271,7 +272,7 @@ CPluginInterfaceForArchiver::UnpackArchive(CSalamanderForOperationsAbstract* sal
     //   moves the files to the correct location on disk (handles overwriting files, etc.):
 
     BOOL ret = FALSE;
-    char tmpExtractDir[MAX_PATH];
+    CPathBuffer tmpExtractDir;
     DWORD err;
     if (!SalamanderGeneral->SalGetTempFileName(targetDir, "Sal", tmpExtractDir, FALSE, &err))
     {
@@ -401,14 +402,14 @@ CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract* sal
     // unpacking without a progress dialog
 
     // instead of unpacking we only create a test file
-    char name[MAX_PATH];
+    CPathBuffer name;
     strcpy(name, targetDir);
     const char* lastComp = strrchr(nameInArchive, '\\');
     if (lastComp != NULL)
         lastComp++;
     else
         lastComp = nameInArchive;
-    if (SalamanderGeneral->SalPathAppend(name, lastComp, MAX_PATH))
+    if (SalamanderGeneral->SalPathAppend(name, lastComp, name.Size()))
     {
         HANDLE file = HANDLES_Q(CreateFile(name, GENERIC_WRITE,
                                            FILE_SHARE_READ, NULL,
@@ -456,7 +457,7 @@ CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract* sal
     while ((name = next(SalamanderGeneral->GetMsgBoxParent(), 3, &dosName, &isDir, &size,
                         &attr, &lastWrite, nextParam, &errorOccured)) != NULL)
     {
-        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot occur here
+        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot appear here
             TRACE_I("Not all files and directories from disk will be packed.");
 
         totalSize += size;
@@ -474,7 +475,7 @@ CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract* sal
         }
     }
 
-    char archivePath[MAX_PATH];
+    CPathBuffer archivePath;
     char* s = (char*)strrchr(fileName, '\\');
     if (s != NULL)
     {
@@ -611,9 +612,9 @@ CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbstract
     CPluginDataInterfaceAbstract *pluginData = NULL;
     if (ListArchive(salamander, fileName, dir, pluginData))
     {
-      char path[MAX_PATH];
+      CPathBuffer path;
       path[0] = 0;
-      EnumAllItems(dir, path, MAX_PATH);
+      EnumAllItems(dir, path, path.Size());
       dir->Clear(pluginData);
       if (pluginData != NULL) PluginInterface.ReleasePluginDataInterface(pluginData);
     }
@@ -623,7 +624,7 @@ CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbstract
 
     BOOL ret = FALSE;
     if (delArchiveWhenDone)
-        archiveVolumes->Add(fileName, -2); // FIXME: once the plugin supports multi-volume archives, we must add all archive volumes here (to delete the entire archive)
+        archiveVolumes->Add(fileName, -2); // FIXME: once the plugin learns multi-volume archives we must add all archive volumes here (to delete the entire archive)
     salamander->OpenProgressDialog("Unpacking DemoPlug Archive", FALSE, NULL, FALSE);
     salamander->ProgressSetTotalSize(CQuadWord(100, 0), CQuadWord(-1, -1));
 
@@ -706,15 +707,15 @@ CPluginInterfaceForArchiver::GetCacheInfo(char* tempPath, BOOL* ownDelete, BOOL*
 
 void ClearTEMPIfNeeded(HWND parent)
 {
-    char tmpDir[2 * MAX_PATH];
+    CPathBuffer tmpDir;
     GetMyDocumentsPath(tmpDir);
     if (tmpDir[0] != 0 &&
-        SalamanderGeneral->SalPathAppend(tmpDir, "DemoPlug Temporary Copies", 2 * MAX_PATH))
+        SalamanderGeneral->SalPathAppend(tmpDir, "DemoPlug Temporary Copies", tmpDir.Size()))
     {
-        SalamanderGeneral->SalPathAddBackslash(tmpDir, 2 * MAX_PATH);
+        SalamanderGeneral->SalPathAddBackslash(tmpDir, tmpDir.Size());
         char* tmpDirEnd = tmpDir + strlen(tmpDir);
         // add the mask (if it does not fit, there is no point in searching)
-        if (SalamanderGeneral->SalPathAppend(tmpDir, "SAL*.tmp", 2 * MAX_PATH))
+        if (SalamanderGeneral->SalPathAppend(tmpDir, "SAL*.tmp", tmpDir.Size()))
         {
             TIndirectArray<char> tmpDirs(10, 50);
 
@@ -797,9 +798,9 @@ CPluginInterfaceForArchiver::DeleteTmpCopy(const char* fileName, BOOL firstFile)
     CALL_STACK_MESSAGE3("CPluginInterfaceForArchiver::DeleteTmpCopy(%s, %d)", fileName, firstFile);
 
     /*
-  // message box test (use message boxes only in extreme situations) - it causes problems
+  // message box test (message boxes should be used only in an extreme situation) - it makes a mess
   // if another plugin has its own modal dialog open (cosmetic issue: the message box for this dialog is not modal
-  // and activates the dialog's parent after it is closed)
+  // and after closing it activates the dialog's parent)
   char buf[500];
   sprintf(buf, "File \"%s\" will be deleted.", fileName);
   SalamanderGeneral->SalMessageBox(SalamanderGeneral->GetMsgBoxParent(),
@@ -807,8 +808,8 @@ CPluginInterfaceForArchiver::DeleteTmpCopy(const char* fileName, BOOL firstFile)
                                    MB_OK | MB_ICONINFORMATION);
 */
 
-    // if this is a critical shutdown, it is not a good time for slow file deletion (our process will be killed soon),
-    // at the first subsequent plugin start in the first Salamander instance, this will be deleted normally,
+    // if this is a critical shutdown it is not a good time for slow file deletion (our process will be killed soon),
+    // at the first subsequent plugin start in the first Salamander instance this will be deleted "calmly",
     // we probably cannot come up with anything better
     if (SalamanderGeneral->IsCriticalShutdown())
         return;
@@ -849,8 +850,8 @@ CPluginInterfaceForArchiver::PrematureDeleteTmpCopy(HWND parent, int copiesCount
 {
     CALL_STACK_MESSAGE2("CPluginInterfaceForArchiver::PrematureDeleteTmpCopy(, %d)", copiesCount);
 
-    // if this is a critical shutdown, it is not a good time for slow file deletion (our process will be killed soon),
-    // at the first subsequent plugin start in the first Salamander instance, this will be deleted normally,
+    // if this is a critical shutdown it is not a good time for slow file deletion (our process will be killed soon),
+    // at the first subsequent plugin start in the first Salamander instance this will be deleted "calmly",
     // we probably cannot come up with anything better
     if (SalamanderGeneral->IsCriticalShutdown())
         return FALSE; // during a critical shutdown we do not ask any questions

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // stdafx.h : include file for standard system include files,
@@ -26,7 +27,7 @@
 #include <algorithm>
 #include <functional>
 
-#ifndef __clang__ // we’ll work around clang-cl, which doesn’t support this MS extension; we’re using it for comment-guard during comments translation
+#ifndef __clang__ // we’ll work around clang-cl, which doesn’t support this MS extension; we’re using it for commnet-guard during comments translation
 #import <msxml6.dll>
 #import <mshtml.tlb>
 #endif

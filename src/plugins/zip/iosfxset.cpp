@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -211,7 +211,7 @@ GetString(char* buffer, DWORD size, const char* textData)
 }
 
 const char*
-GetStringAlloc(char*& buffer, const char* textData)
+GetStringAlloc(std::string& buffer, const char* textData)
 {
     CALL_STACK_MESSAGE_NONE
     const char* sour = textData;
@@ -227,9 +227,7 @@ GetStringAlloc(char*& buffer, const char* textData)
     }
     if (*sour != '"')
     {
-        if (buffer)
-            free(buffer);
-        buffer = NULL;
+        buffer.clear();
         return sour;
     }
     sour++;
@@ -247,8 +245,8 @@ GetStringAlloc(char*& buffer, const char* textData)
         len++;
     }
     // copy the string
-    buffer = (char*)realloc(buffer, len + 1);
-    char* dest = buffer;
+    buffer.resize(len);
+    char* dest = &buffer[0];
     sour = save;
     while (*sour)
     {
@@ -259,7 +257,6 @@ GetStringAlloc(char*& buffer, const char* textData)
     }*/
         *dest++ = *sour++;
     }
-    *dest = 0;
     return sour;
 }
 
@@ -295,16 +292,16 @@ void HandlePathRelativeToZip2Sfx(char* path, const char* zip2sfxDir)
     if (zip2sfxDir[0] != 0 &&
         !(path[0] != 0 && path[1] == ':' || path[0] == '\\' && path[1] == '\\'))
     { // relative path and we know the path to zip2sfx.exe
-        char joinedPath[MAX_PATH];
+        CPathBuffer joinedPath; // Heap-allocated for long path support
         if (path[0] == '\\')
             GetRootPath(joinedPath, zip2sfxDir);
         else
-            lstrcpyn(joinedPath, zip2sfxDir, MAX_PATH);
+            lstrcpyn(joinedPath, zip2sfxDir, joinedPath.Size());
         int len = (int)strlen(joinedPath);
         const char* pathAux = path[0] == '\\' ? path + 1 : path;
         if (strlen(pathAux) + len < MAX_PATH)
         {
-            strcpy(joinedPath + len, pathAux);
+            strcpy(joinedPath.Get() + len, pathAux);
             strcpy(path, joinedPath);
         }
         else
@@ -312,18 +309,18 @@ void HandlePathRelativeToZip2Sfx(char* path, const char* zip2sfxDir)
     }
 }
 
-// Return values
+// return values
 //
 // 0 OK
-// Invalid target_dir specified:
-//   1 invalid temp
+// invalid target_dir specified:
+//   1 bad temp
 //   2 missing right parenthesis
 //   3 unknown keyword in $()
-//   4 invalid key name
+//   4 bad key name
 // 5 missing settings version
-// 6 invalid settings version
-// 7 invalid data format
-// 8 Agree/Disagree buttons used for a standard message box
+// 6 incorrect settings version
+// 7 incorrect data format
+// 8 agree disagree buttons used for classical message box
 
 int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* zip2sfxDir)
 {
@@ -622,7 +619,7 @@ int ImportSFXSettings(const char* textData, CSfxSettings* settings, const char* 
 // 3 unknown keyword in $()
 // 4 bad key name
 //
-// higher word contains the index of where the syntax error occurred in the target dir string
+// higher word contains index of where the syntax error occured in the target dir string
 
 DWORD
 ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
@@ -683,7 +680,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
             // also check that the string inside the brackets is valid
             if (iterator - path + 2 <= 0)
             {
-                return 3 + (2 << 16); // empty parentheses
+                return 3 + (2 << 16); // empty brackets
             }
             if (path[1] == '(')
             {
@@ -691,7 +688,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
                 {
                     if (iterator[1] != 0)
                     {
-                        return 1 + (DWORD)(((iterator - path) + 1) << 16); // nothing may follow $(Temp)
+                        return 1 + (DWORD)(((iterator - path) + 1) << 16); // nothing may follow after $(Temp)
                     }
                     if (targetDir)
                         *targetDir = SE_TEMPDIREX;
@@ -724,7 +721,7 @@ ParseTargetDir(const char* path, unsigned* targetDir, const char** subDir,
 
                 return 3 + (2 << 16); // invalid keyword
             }
-            else // optionally fill dirSpec
+            else // otherwise fill dirSpec
             {
                 if (path[1] == '[')
                 {
@@ -1081,7 +1078,7 @@ BOOL CZipPack::ExportSFXSettings(CFile* outFile, CSfxSettings* settings)
 
     if (WriteSFXComment(outFile, SFX_COMMENT_MBOX))
         return FALSE;
-    const char* str = settings->MBoxText ? settings->MBoxText : "";
+    const char* str = settings->MBoxText.c_str();
     sprintf(buf1, "%s=\"", SFX_MBOXTEXT);
     if (Write(outFile, buf1, lstrlen(buf1), NULL))
         return FALSE;

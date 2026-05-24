@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 /****************************************************************************************\
 **                                                                                      **
@@ -129,10 +129,10 @@ int iErrorStr;
 
 #define MIN_WEIGHT 5
 
-// List of header names used to recognize a header block. 'name' is the header name,
-// 'main' is a boolean indicating whether the header appears only in the headers
-// of the entire mail; 'weight' is the header-name weight. For a block to qualify
-// as a header, the sum of the header-name weights must be at least MIN_WEIGHT.
+// List of header names - used to recognize the header block. 'name' is the header name,
+// 'main' is a boolean that determines whether the header appears only in the main headers
+// of the entire mail; 'weight' is the name weight - for a block to qualify as a header, the sum
+// of the header-name weights must be at least MIN_WEIGHT.
 
 static struct HEADERINFO
 {
@@ -194,7 +194,7 @@ static struct HEADERINFO
 // MIN_WEIGHT.
 
 static BOOL bHeaderNamesSorted = FALSE; // the list of names is sorted during the first pass
-// ParseMailFile sorts it and sets bHeaderNamesSorted to TRUE
+// of ParseMailFile and bHeaderNamesSorted is set to TRUE
 
 // comparison function for qsort and bsearch
 static int __cdecl compare_header_names(const void* elem1, const void* elem2)
@@ -296,7 +296,7 @@ void CInputFile::RestorePosition()
 
 // ****************************************************************************
 //
-// CParserOutput methods
+//  CParserOutput methods
 //
 
 void CParserOutput::StartBlock(int iType, int iLine)
@@ -533,8 +533,8 @@ static void ParseContentType(LPCSTR pszText, LPSTR pszType, int iMaxType, LPSTR 
 static BOOL GetParameter(LPSTR pszText, LPCSTR pszParam, LPSTR pszBuffer, int iBufferSize)
 {
     CALL_STACK_MESSAGE3("GetParameter(%s, , , %d)", pszText, iBufferSize);
-    // create lowercase copies of the strings so the search can be case-insensitive,
-    // StrStrI is avoided because it may not be available on all systems
+    // create lowercase copies of the strings so I can search case-insensitively,
+    // I was afraid to use StrStrI... (I do not know if it is available on all systems)
     char* text = new char[strlen(pszText) + 1];
     strcpy(text, pszText);
     CharLower(text);
@@ -642,7 +642,7 @@ static void DestroyIllegalChars(LPSTR pszPath)
     }
 }
 
-////// NAMES OF DECODED FILES //////////////////////////////////////////////
+////// DECODED FILE NAMES ///////////////////////////////////////////////////////
 
 static void SetDefaultFileName(BOOL bAppendCharset)
 {
@@ -683,16 +683,16 @@ static void SetDefaultMIMEFileName(LPCSTR pszType, LPCSTR pszSubType, BOOL bAppe
 
 static void InsertSuffix(char* filename, int suffix)
 {
-    char temp[MAX_PATH];
+    CPathBuffer temp; // Heap-allocated for long path support
     char* ext = strrchr(filename, '.');
-    if (ext != NULL) // ".cvspass" is treated as a file extension on Windows
+    if (ext != NULL) // ".cvspass" is an extension in Windows
     {
         *ext++ = 0;
-        sprintf(temp, "%s(%ld).%s", filename, suffix, ext);
+        sprintf(temp.Get(), "%s(%ld).%s", filename, suffix, ext);
     }
     else
-        sprintf(temp, "%s(%ld)", filename, suffix);
-    strcpy(filename, temp);
+        sprintf(temp.Get(), "%s(%ld)", filename, suffix);
+    lstrcpyn(filename, temp, MAX_PATH); // filename buffer size is MAX_PATH
 }
 
 static int __cdecl compare_file_names(const void* elem1, const void* elem2)
@@ -722,7 +722,7 @@ static void MakeNamesUnique(CParserOutput* pOutput)
     }
     // sort the index
     qsort(index, numblocks, sizeof(char*), compare_file_names);
-    // identical names are now adjacent, so we can detect them easily
+    // identical names now lie next to each other and we can easily catch them
     int k, l;
     for (k = 1, l = 0; k < numblocks; k++)
     {
@@ -817,27 +817,27 @@ static BOOL DecodeWord(const char*& p, char*& q)
 static void DecodeSpecialWords(LPSTR pszText)
 {
     CALL_STACK_MESSAGE2("DecodeSpecialWords(%s)", pszText);
-    char temp[MAX_PATH];
+    CPathBuffer temp; // Heap-allocated for long path support
     int i = 0, j = 0;
     while (pszText[i])
     {
         if (pszText[i] == '=' && pszText[i + 1] == '?')
         {
             const char* p = pszText + i + 2;
-            char* q = temp + j;
+            char* q = temp.Get() + j;
             if (!DecodeWord(p, q))
                 temp[j++] = pszText[i++];
             else
             {
                 i = (int)(p - pszText);
-                j = (int)(q - temp);
+                j = (int)(q - temp.Get());
             }
         }
         else
             temp[j++] = pszText[i++];
     }
     temp[j] = 0;
-    strcpy(pszText, temp);
+    lstrcpyn(pszText, temp, MAX_PATH); // pszText buffer size is MAX_PATH
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -872,7 +872,7 @@ static void EndCalcSize(CParserOutput* pOutput)
     }
 }
 
-//FUNCTIONS FOR SAVING/RESTORING PARSER STATE ///////////////////////////////
+////// FUNCTIONS FOR SAVING/RESTORING PARSER STATE //////////////////////////////
 
 static void SaveState()
 {
@@ -945,7 +945,7 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
     bEnd = FALSE;
     // are we on a UU header?
     char text[8];
-    char filename[MAX_PATH];
+    CPathBuffer filename; // Heap-allocated for long path support
     const char* line = cLine;
     SkipWSP(line);
     GetWord(line, text, 8, " \t");
@@ -954,7 +954,7 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
     SkipWSP(line);
     if (!*line)
         return FALSE;
-    while (*line && *line != ' ' && *line != '\t') // does a sequence of octal digits follow?
+    while (*line && *line != ' ' && *line != '\t') // is a sequence of octal digits following?
         if ((BYTE)*line < (BYTE)'0' || (BYTE)*line > (BYTE)'7')
             return FALSE;
         else
@@ -962,12 +962,12 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
     SkipWSP(line);
     if (!*line)
         return FALSE;
-    GetWord(line, filename, MAX_PATH, " \t"); // the file name also has to be present
+    GetWord(line, filename, filename.Size(), " \t"); // the file name also has to be present
     SkipWSP(line);
     if (*line)
-        return FALSE; // nothing else must follow
+        return FALSE; // and nothing more
 
-    // we found a uuencoded header
+    // we found a UU header
     SaveState(); // save the position in case we need to return
     int iLineStart = InputFile.iCurrentLine;
     int size = 0;
@@ -1040,13 +1040,14 @@ static BOOL TestUUBlock(CParserOutput* pOutput, BOOL& bEnd)
 
 static BOOL TestYEncBlock(CParserOutput* pOutput, BOOL& bEnd)
 {
-    // is this the header?
+    // are we on a header?
     if (memcmp(cLine, "=ybegin", 7))
         return FALSE;
 
     // yes, extract the attributes line, size, part, and name
     const char* line = cLine + 8;
-    char text[50], value[50], filename[MAX_PATH];
+    char text[50], value[50];
+    CPathBuffer filename; // Heap-allocated for long path support
     int size, part = 0, attrLine = 0, attrSize = 0, attrName = 0, partsize;
     while (*line)
     {
@@ -1067,7 +1068,7 @@ static BOOL TestYEncBlock(CParserOutput* pOutput, BOOL& bEnd)
         else if (!strcmp(text, "name"))
         {
             attrName = 1;
-            strncpy_s(filename, line, _TRUNCATE);
+            lstrcpyn(filename, line, filename.Size());
             TrimChars(filename, " \"");
             line = "";
         }
@@ -1172,7 +1173,7 @@ static BOOL TestYEncBlock(CParserOutput* pOutput, BOOL& bEnd)
             p->iSize = pDecoder->iDecodedSize;
             strcpy(p->cCharset, "us-ascii");
             if (part)
-                sprintf(p->cFileName, "%s.%03d", filename, part);
+                sprintf(p->cFileName, "%s.%03d", filename.Get(), part);
             else
                 strcpy(p->cFileName, filename);
             DestroyIllegalChars(p->cFileName);
@@ -1354,8 +1355,8 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                     }
                     goback = TRUE;
                 }
-                else // Handling the previous multipart case
-                {    // was not properly terminated, but we are at a boundary
+                else // Handling the case when the previous multipart
+                {    // was not properly terminated, yet we are at a boundary
                     int i;
                     for (i = STACKTOP - 1; i >= 0; i--) // one of the previous ones.
                         if (IsBoundary(cBoundaries[i], &bEnd2))
@@ -1414,7 +1415,7 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                 while ((cNextLine[0] == ' ' || cNextLine[0] == '\t') && !IsWhiteLine(cNextLine))
                 {
                     if (strlen(cLine) + strlen(cNextLine + 1) >= LINE_MAX)
-                        break; // overflow check
+                        break; // overflow test
                     pDummyDecoder->DecodeLine(cNextLine, bLast);
                     strcat(cLine, cNextLine + 1);
                     bLast = bNextLast;
@@ -1430,7 +1431,7 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                         char cType[20], cSubType[20];
                         ParseContentType(cText, cType, sizeof(cType), cSubType, sizeof(cSubType));
                         if (iMultipart < MULTIPARTSTACK_MAX && !_stricmp(cType, "multipart"))
-                        { // if the message is multipart, we care about the boundary string that separates the individual parts
+                        { // if the message is multipart, we care about the string that separates the individual parts
                             char cBoundary[BOUNDARY_MAX];
                             if (GetParameter(cText, "boundary", cBoundary, BOUNDARY_MAX))
                             {
@@ -1480,16 +1481,16 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                     }
                     else if (!_stricmp(cName, "Content-Location"))
                     {
-                        char cDisp[MAX_PATH];
+                        CPathBuffer cDisp; // Heap-allocated for long path support
                         char* p = cText;
-                        GetWord(p, cDisp, sizeof(cDisp), " \t();"); // Perhaps a better separators needed. Entire line needed in examined examples
+                        GetWord(p, cDisp, cDisp.Size(), " \t();"); // Perhaps a better separators needed. Entire line needed in examined examples
                         if (!_strnicmp(cDisp, "file:", 5) || !_strnicmp(cDisp, "http:", 5))
                         {
-                            char* p2 = strrchr(cDisp, '\\');
-                            p = strrchr(cDisp, '/');
+                            char* p2 = strrchr(cDisp.Get(), '\\');
+                            p = strrchr(cDisp.Get(), '/');
                             p = max(p, p2);
                             if (p && p[1])
-                            { // Do not take an empty file name from URLs such as http://www.altap.cz/
+                            { // Do not take empty fname from from e.g. http://github.com/0xeb/sally/
                                 iNameOrigin = 3;
                                 bNextBlockIsAttachment = TRUE;
                                 strcpy(cFileName, p + 1);
@@ -1504,10 +1505,10 @@ BOOL ParseMailFile(LPCTSTR pszFileName, CParserOutput* pOutput, BOOL bAppendChar
                         }
                         else if (!*p)
                         {
-                            // Hack: Handle .MHT files created by MSIE7 or the Windows 7 problem reporting tool:
+                            // Hack: Handle .MHT files created by MSIE7 or Win7 problem report creation tool:
                             // Content-Location: screenshot_0001.jpeg
-                            // No example using file: has been found yet.
-                            // Should we also look for \\ and /?
+                            // But right now I cannot find any example with file: :-(((
+                            // Should we look for \ and / as well?
                             iNameOrigin = 3;
                             bNextBlockIsAttachment = TRUE;
                             strcpy(cFileName, cDisp);

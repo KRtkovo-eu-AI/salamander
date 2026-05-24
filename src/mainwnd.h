@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -43,6 +43,7 @@ class CMenuBar;
 class CMenuNew;
 class CToolTip;
 class CAnimate;
+class CPathBuffer;
 
 //****************************************************************************
 //
@@ -74,39 +75,28 @@ protected:
 
 struct CHotPathItem
 {
-    // Name and Path are allocated to save memory (people expect unlimited hot paths)
+    // Name and Path use std::string to support unlimited length
     // moreover, in the case of Path, MAX_PATH would be too small (escaping + variables)
-    char* Name;   // name under which the path appears in the menu
-    char* Path;   // path escaped (double '$' characters) for variables like $(SalDir), etc.
-    BOOL Visible; // is the path present in the ChangeDrive menu
+    std::string Name; // name under which the path appears in the menu
+    std::string Path; // path escaped (double '$' characters) for variables like $(SalDir), etc.
+    BOOL Visible;     // is the path present in the ChangeDrive menu
 
     CHotPathItem()
     {
-        Name = NULL;
-        Path = NULL;
         Visible = TRUE;
     }
 
     void CopyFrom(const CHotPathItem* src)
     {
-        Empty();
-        Name = DupStr(src->Name);
-        Path = DupStr(src->Path);
+        Name = src->Name;
+        Path = src->Path;
         Visible = src->Visible;
     }
 
     void Empty()
     {
-        if (Name != NULL)
-        {
-            free(Name);
-            Name = NULL;
-        }
-        if (Path != NULL)
-        {
-            free(Path);
-            Path = NULL;
-        }
+        Name.clear();
+        Path.clear();
         Visible = TRUE;
     }
 };
@@ -138,12 +128,8 @@ public:
     // sets the attributes
     void Set(DWORD index, const char* name, const char* path)
     {
-        if (Items[index].Name != NULL)
-            free(Items[index].Name);
-        if (Items[index].Path != NULL)
-            free(Items[index].Path);
-        Items[index].Name = DupStr(name);
-        Items[index].Path = DupStr(path);
+        Items[index].Name = name ? name : "";
+        Items[index].Path = path ? path : "";
     }
 
     void Set(DWORD index, const char* name, const char* path, BOOL visible)
@@ -154,9 +140,7 @@ public:
 
     void SetPath(DWORD index, const char* path)
     {
-        if (Items[index].Path != NULL)
-            free(Items[index].Path);
-        Items[index].Path = DupStr(path);
+        Items[index].Path = path ? path : "";
     }
 
     void SetVisible(DWORD index, BOOL visible)
@@ -166,7 +150,7 @@ public:
 
     void GetName(int index, char* buffer, int bufferSize)
     {
-        if (index < 0 || index >= HOT_PATHS_COUNT || Items[index].Name == NULL)
+        if (index < 0 || index >= HOT_PATHS_COUNT || Items[index].Name.empty())
         {
             if (bufferSize > 0)
                 *buffer = 0;
@@ -174,13 +158,13 @@ public:
         else
         {
             if (bufferSize > 0)
-                lstrcpyn(buffer, Items[index].Name, bufferSize);
+                lstrcpyn(buffer, Items[index].Name.c_str(), bufferSize);
         }
     }
 
     void GetPath(int index, char* buffer, int bufferSize)
     {
-        if (index < 0 || index >= HOT_PATHS_COUNT || Items[index].Path == NULL)
+        if (index < 0 || index >= HOT_PATHS_COUNT || Items[index].Path.empty())
         {
             if (bufferSize > 0)
                 *buffer = 0;
@@ -188,22 +172,22 @@ public:
         else
         {
             if (bufferSize > 0)
-                lstrcpyn(buffer, Items[index].Path, bufferSize);
+                lstrcpyn(buffer, Items[index].Path.c_str(), bufferSize);
         }
     }
 
     int GetNameLen(int index)
     {
-        if (index >= 0 && index < HOT_PATHS_COUNT && Items[index].Name != NULL)
-            return lstrlen(Items[index].Name);
+        if (index >= 0 && index < HOT_PATHS_COUNT && !Items[index].Name.empty())
+            return (int)Items[index].Name.length();
         else
             return 0;
     }
 
     int GetPathLen(int index)
     {
-        if (index >= 0 && index < HOT_PATHS_COUNT && Items[index].Path != NULL)
-            return lstrlen(Items[index].Path);
+        if (index >= 0 && index < HOT_PATHS_COUNT && !Items[index].Path.empty())
+            return (int)Items[index].Path.length();
         else
             return 0;
     }
@@ -212,7 +196,7 @@ public:
     int GetUnassignedHotPathIndex();
 
     BOOL GetVisible(int index) { return Items[index].Visible; }
-    BOOL CleanName(char* name); // trims spaces and returns TRUE if name is not empty
+    BOOL CleanName(char* name); // trims spaces and returns TRUE if the name is valid
 
     BOOL SwapItems(int index1, int index2); // swaps two items in the array
 
@@ -324,6 +308,7 @@ enum CMainWindowsHitTestEnum
 struct CChangeNotifData
 {
     char Path[MAX_PATH];
+    wchar_t* PathW;
     BOOL IncludingSubdirs;
 };
 
@@ -354,7 +339,7 @@ struct CDynString
             free(Buffer);
     }
 
-    BOOL Append(const char* str, int len); // returns TRUE on success; if 'len' is -1, "len = strlen(str)" is used
+    BOOL Append(const char* str, int len); // returns TRUE on success; if 'len' is -1 the length is calculated using "len = strlen(str)"
 
     const char* GetString() const { return Buffer; }
 };
@@ -403,7 +388,7 @@ public:
 
     CUserMenuItems* UserMenuItems;
     CViewerMasks* ViewerMasks;
-    CRITICAL_SECTION ViewerMasksCS; // critical section used only to synchronize access to 'ViewerMasks' (writes anywhere and reads outside the main thread)
+    CRITICAL_SECTION ViewerMasksCS; // section used only for synchronizing access to 'ViewerMasks' (writes anywhere and reads outside the main thread)
     CViewerMasks* AltViewerMasks;
     CEditorMasks* EditorMasks;
     CHighlightMasks* HighlightMasks;
@@ -418,7 +403,7 @@ public:
     CMenuNew* ContextMenuNew;          // handles commands from the New menu
     IContextMenu2* ContextMenuChngDrv; // handles commands from the Change Drive Menu
 
-    char SelectionMask[MAX_PATH]; // mask for select/deselect
+    CPathBuffer SelectionMask; // mask for select/deselect
 
     BOOL CanClose;                    // can the main window be closed? (has the application fully started?)
     BOOL CanCloseButInEndSuspendMode; // TRUE if CanClose was TRUE but is temporarily FALSE because a message loop is running while processing WM_USER_END_SUSPMODE
@@ -441,7 +426,7 @@ public:
 
     int ActivateSuspMode; // counter of WM_ACTIVATEAPP activations/deactivations; some messages may get lost
 
-    RECT WindowRect; // current window rectangle
+    RECT WindowRect; // current window position
 
     BOOL CaptionIsActive; // is the main window caption active?
 
@@ -458,7 +443,7 @@ public:
 
     BOOL LockedUI;
     HWND LockedUIToolWnd;
-    char* LockedUIReason;
+    std::string LockedUIReason;
 
     CITaskBarList3 TaskBarList3; // controls progress on the taskbar since Windows 7
 
@@ -487,7 +472,7 @@ public:
 
     void EnterViewerMasksCS() { HANDLES(EnterCriticalSection(&ViewerMasksCS)); }
     void LeaveViewerMasksCS() { HANDLES(LeaveCriticalSection(&ViewerMasksCS)); }
-    BOOL GetViewersAssoc(int wantedViewerType, CDynString* strViewerMasks); // helper method: collects all masks associated with viewer type "wantedViewerType"; returns TRUE on success (if there is enough memory for the string)
+    BOOL GetViewersAssoc(int wantedViewerType, CDynString* strViewerMasks); // helper: collects all masks associated with the given viewer type "wantedViewerType"; returns TRUE on success (when enough memory for the string)
 
     void ClearHistory(); // clears all histories
 
@@ -500,20 +485,26 @@ public:
     // and to all opened FS from plugins (both panels and FS can respond by refreshing their content);
     // can be called from any thread
     void PostChangeOnPathNotification(const char* path, BOOL includingSubdirs);
+    void PostChangeOnPathNotificationW(const wchar_t* path, BOOL includingSubdirs);
 
     // these functions have no effect if CFilesWindow::CanBeFocused is not satisfied
     void ChangePanel(BOOL force = FALSE);                                   // respects EditMode; activates the inactive panel; (ignores ZOOM if force is TRUE)
-    void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // clears EditMode because it sets focus to the panel
+    void FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive = FALSE); // clears EditMode because focus is put into the panel
     void FocusLeftPanel();                                                  // calls FocusPanel for the left panel
 
     // compares directories in the left and right panels
     void CompareDirectories(DWORD flags); // flags are a combination of COMPARE_DIRECTORIES_xxx
 
     // ensures DirHistory->AddPathUnique is called and correctly updates the panel's SetHistory
+    // pathOrArchiveOrFSNameW / archivePathOrFSUserPartW carry the wide source-of-truth so the
+    // history can replay through ChangePathToDiskW / ChangePathToArchiveW; pass nullptr when
+    // only the ANSI byte stream is available (plugin FS today).
     void DirHistoryAddPathUnique(int type, const char* pathOrArchiveOrFSName,
                                  const char* archivePathOrFSUserPart, HICON hIcon,
                                  CPluginFSInterfaceAbstract* pluginFS,
-                                 CPluginFSInterfaceEncapsulation* curPluginFS);
+                                 CPluginFSInterfaceEncapsulation* curPluginFS,
+                                 const wchar_t* pathOrArchiveOrFSNameW = nullptr,
+                                 const wchar_t* archivePathOrFSUserPartW = nullptr);
 
     // ensures DirHistory->RemoveActualPath is called and correctly updates the panel's SetHistory
     void DirHistoryRemoveActualPath(CFilesWindow* panel);
@@ -532,7 +523,7 @@ public:
     void SaveConfig(HWND parent = NULL); // parent: NULL = MainWindow->HWindow
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
     void SavePanelConfig(CFilesWindow* panel, HKEY hSalamander, const char* reg);
-    void LoadPanelConfig(char* panelPath, CFilesWindow* panel, HKEY hSalamander, const char* reg);
+    void LoadPanelConfig(CPathBuffer& panelPath, std::wstring& panelPathW, CFilesWindow* panel, HKEY hSalamander, const char* reg);
     void DeleteOldConfigurations(BOOL* deleteConfigurations, BOOL autoImportConfig,
                                  const char* autoImportConfigFromKey, BOOL doNotDeleteImportedCfg);
 
@@ -584,7 +575,7 @@ public:
     BOOL ToggleBottomToolBar();
     BOOL ToggleUserMenuToolBar(BOOL storePos = TRUE);
     BOOL ToggleHotPathsBar(BOOL storePos = TRUE);
-    // If 'twoDriveBars' is TRUE, the user wants to toggle two drive bars; otherwise only one
+    // If 'twoDriveBars' is TRUE, the user wants two drive lists; otherwise only one
     BOOL ToggleDriveBar(BOOL twoDriveBars, BOOL storePos = TRUE);
 
     void ToggleToolBarGrips();
@@ -675,7 +666,7 @@ public:
     BOOL CanEnterHelpMode();
     void OnContextHelp();
     HWND SetHelpCapture(POINT point, BOOL* pbDescendant);
-    BOOL ProcessHelpMsg(MSG& msg, DWORD* pContext, HWND* hDirtyWindow); // hDirtyWindow: returns the window to which WM_USER_HELP_MOUSEMOVE was sent and which needs to receive WM_USER_HELP_MOUSELEAVE
+    BOOL ProcessHelpMsg(MSG& msg, DWORD* pContext, HWND* hDirtyWindow); // hDirtyWindow: returns the window to which we sent WM_USER_HELP_MOUSEMOVE and that needs to receive WM_USER_HELP_MOUSELEAVE
     void ExitHelpMode();
     DWORD MapClientArea(POINT point);
     DWORD MapNonClientArea(int iHit);
@@ -690,7 +681,7 @@ public:
     void RebuildDriveBarsIfNeeded(BOOL useDrivesMask, DWORD drivesMask, BOOL checkCloudStorages,
                                   DWORD cloudStoragesMask);
 
-    // Sets DoNotLoadAnyPlugins and when it is FALSE, it sends refreshes to panels loading thumbnails
+    // it sets DoNotLoadAnyPlugins and when it is FALSE, it sends refreshes to panels loading thumbnails
     void SetDoNotLoadAnyPlugins(BOOL doNotLoad);
 
     // based on 'show', shows or hides two drive bars

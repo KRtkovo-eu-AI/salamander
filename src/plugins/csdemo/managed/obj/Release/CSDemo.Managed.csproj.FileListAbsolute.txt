@@ -1,0 +1,10 @@
+H:\_projects\salamander\src\plugins\csdemo\managed\bin\Release\CSDemo.Managed.dll
+H:\_projects\salamander\src\plugins\csdemo\managed\bin\Release\CSDemo.Managed.pdb
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.csproj.AssemblyReference.cache
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.GeneratedMSBuildEditorConfig.editorconfig
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.AssemblyInfoInputs.cache
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.AssemblyInfo.cs
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.csproj.CoreCompileInputs.cache
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.sourcelink.json
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.dll
+H:\_projects\salamander\src\plugins\csdemo\managed\obj\Release\CSDemo.Managed.pdb

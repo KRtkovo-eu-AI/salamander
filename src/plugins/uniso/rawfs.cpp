@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -72,9 +72,9 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
             throw UNPACK_ERROR;
         }
 
-        char name[MAX_PATH];
-        strncpy_s(name, path, _TRUNCATE);
-        if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, MAX_PATH))
+        CPathBuffer name; // Heap-allocated for long path support
+        lstrcpyn(name, path, name.Size());
+        if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, name.Size()))
         {
             Error(IDS_ERR_TOO_LONG_NAME);
             throw UNPACK_ERROR;
@@ -94,11 +94,11 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
         // set file time
         file.SetFileTime(&ft, &ft, &ft);
 
-        // the overall operation can continue; skip only this file
+        // the overall operation can continue further: skip only
         if (toSkip)
             throw UNPACK_ERROR;
 
-        // the overall operation cannot continue; cancel
+        // the overall operation cannot continue any further: cancel
         if (hFile == INVALID_HANDLE_VALUE)
             throw UNPACK_CANCEL;
 
@@ -112,8 +112,8 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
     }
 */
 
-        // it is possible that the extent does not need to be subtracted here; there is no data to test this, so it is unclear
-        // but it is more likely that it should be subtracted
+        // it is possible that the extent does not need to be subtracted here; there is no data to test with, so I don't know :(
+        // but the more probable variant is that it should be subtracted
         DWORD block = fp->Extent - ExtentOffset;
         CQuadWord remain = fileData->Size;
 
@@ -164,7 +164,7 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
             ULONG written;
             if (!file.Write(sector, nbytes, &written, name, NULL))
             {
-                // The error message has already been displayed by SafeWriteFile().
+                // Error message was already displayed by SafeWriteFile()
                 ret = UNPACK_CANCEL;
                 bFileComplete = FALSE;
                 break;
@@ -184,13 +184,13 @@ int CRawFS::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char*
         if (!bFileComplete)
         {
             // because it was created with the read-only attribute, we must clear
-            // the read-only attribute so the file can be deleted
+            // the R attribute so the file can be deleted
             attrs &= ~FILE_ATTRIBUTE_READONLY;
             if (!SetFileAttributes(name, attrs))
                 Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
 
-            // user canceled the operation
-            // delete the incomplete file
+            // the user cancelled the operation
+            // delete the incomplete file afterwards
             if (!DeleteFile(name))
                 Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError());
         }

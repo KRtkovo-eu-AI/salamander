@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -101,7 +102,7 @@ protected:
 
     /// Inserts temporary member.
     /// \param pszName Name of the member.
-    /// \return Returns DISPID assigned to the member.
+    /// \return Returs DISPID assigned to the member.
     DISPID InsertMember(LPCOLESTR pszName);
 
     HRESULT ContainerGetMember(
@@ -138,7 +139,7 @@ protected:
         return T::GetProgId();
     }
 
-    /// Implemented - overridden.
+    /// Implemented - overriden.
     virtual ISalamanderGuiComponentInternal* GetChildNoAddRef()
     {
         return this->m_pChild;
@@ -149,7 +150,7 @@ protected:
         this->AddComponent(pComponent);
     }
 
-    /// Overridden - inherited from CUnknownImpl.
+    /// Overriden - inherited from CUnknownImpl.
     void FinalRelease()
     {
         ISalamanderGuiComponentInternal* pChild = this->m_pChild;

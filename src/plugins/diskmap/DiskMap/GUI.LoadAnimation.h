@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -42,8 +43,8 @@ public:
         this->_hfnormal = NULL;
 
         NONCLIENTMETRICS ncm;
-        ncm.cbSize = sizeof ncm;
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+        ncm.cbSize = sizeof(ncm);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
         this->_hfnormal = CreateFontIndirect(&ncm.lfStatusFont);
 
         this->_title = new CZResourceString(IDS_DISKMAP_LOAD_TITLE);
@@ -93,7 +94,7 @@ public:
         }
         GetTextExtentPoint32(hdc, this->_escinfo->GetString(), (int)this->_escinfo->GetLength(), &sz);
         this->_escinfoWidth = sz.cx;
-        this->_lineHeight = sz.cy; // TODO: Improve this.
+        this->_lineHeight = sz.cy; //TODO nicer!
         SelectObject(hdc, fo);
         this->_headersWidth = width;
         //return TRUE;

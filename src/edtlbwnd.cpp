@@ -1,11 +1,19 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "edtlbwnd.h"
 #include "gui.h"
+#include "darkmode.h"
+
+static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HBRUSH hBrush = HANDLES(CreateSolidBrush(color));
+    FillRect(hDC, rect, hBrush);
+    HANDLES(DeleteObject(hBrush));
+}
 
 //****************************************************************************
 //
@@ -139,9 +147,9 @@ CEditListBox::CEditListBox(HWND hDlg, int ctrlID, DWORD flags, CObjectOrigin ori
     int itemHeight = max(tm.tmHeight + 4, IconSizes[ICONSIZE_16]);
     SendMessage(HWindow, LB_SETITEMHEIGHT, 0, MAKELPARAM(itemHeight, 0));
 
-    // MakeDragList subclasses the list box, and we stop receiving basic messages
-    // such as WM_LBUTTONDOWN, WM_MOUSEMOVE, etc. This makes this function unusable,
-    // so drag-and-drop support is implemented directly here.
+    // MakeDragList subclasses the list box and we stop receiving basic messages
+    // such as WM_LBUTTONDOWN, WM_MOUSEMOVE, ect. That makes this function unusable,
+    // so we implement drag&drop support ourselves.
     //  MakeDragList(HWindow);
     //  DragNotify = RegisterWindowMessage(DRAGLISTMSGSTRING);
 }
@@ -483,6 +491,7 @@ void CEditListBox::OnBeginEdit(int start, int end)
                      HInstance,
                      EditLine);
 
+    DarkMode_ApplyListTreeThemeRecursive(EditLine->HWindow);
     SendMessage(EditLine->HWindow, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
     SetFocus(EditLine->HWindow);
     if (index != ItemsCount)
@@ -491,13 +500,13 @@ void CEditListBox::OnBeginEdit(int start, int end)
         DispInfo.ItemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, index, 0);
         DispInfo.Buffer = Buffer;
         DispInfo.Index = index;
-        DispInfo.BufferLen = MAX_PATH - 1;
+        DispInfo.BufferLen = Buffer.Size() - 1;
         DispInfo.Buffer[0] = 0;
         NotifyParent(&DispInfo, EDTLBN_GETDISPINFO);
-        DispInfo.Buffer[MAX_PATH - 1] = 0;
+        DispInfo.Buffer[Buffer.Size() - 1] = 0;
         SetWindowText(EditLine->HWindow, Buffer);
     }
-    SendMessage(EditLine->HWindow, EM_SETLIMITTEXT, MAX_PATH, 0);
+    SendMessage(EditLine->HWindow, EM_SETLIMITTEXT, Buffer.Size(), 0);
     SendMessage(EditLine->HWindow, EM_SETSEL, start, end);
     ShowWindow(EditLine->HWindow, SW_SHOW);
     if (Flags & ELB_RIGHTARROW)
@@ -535,8 +544,8 @@ BOOL CEditListBox::OnSaveEdit()
             DispInfo.ItemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, index, 0);
             DispInfo.Index = index;
             DispInfo.Buffer = Buffer;
-            DispInfo.BufferLen = MAX_PATH - 1;
-            GetWindowText(EditLine->HWindow, DispInfo.Buffer, MAX_PATH);
+            DispInfo.BufferLen = Buffer.Size() - 1;
+            GetWindowText(EditLine->HWindow, DispInfo.Buffer, Buffer.Size());
             BOOL ret = !NotifyParent(&DispInfo, EDTLBN_GETDISPINFO);
             SaveDisabled = oldSD;
             return ret;
@@ -549,6 +558,40 @@ BOOL CEditListBox::OnSaveEdit()
 void CEditListBox::PaintButton()
 {
     HDC hDC = HANDLES(GetDC(HWindow));
+    DarkModeColors colors;
+    if (DarkMode_GetColors(&colors))
+    {
+        FillRectWithColor(hDC, &ButtonRect, ButtonPressed ? colors.InactiveSelection : colors.InputBackground);
+
+        HPEN hBorderPen = HANDLES(CreatePen(PS_SOLID, 1, colors.Border));
+        HPEN hOldPen = (HPEN)SelectObject(hDC, hBorderPen);
+        HBRUSH hOldBrush = (HBRUSH)SelectObject(hDC, HANDLES(GetStockObject(NULL_BRUSH)));
+        Rectangle(hDC, ButtonRect.left, ButtonRect.top, ButtonRect.right, ButtonRect.bottom);
+        SelectObject(hDC, hOldBrush);
+        SelectObject(hDC, hOldPen);
+        HANDLES(DeleteObject(hBorderPen));
+
+        int centerX = (ButtonRect.left + ButtonRect.right) / 2;
+        int centerY = (ButtonRect.top + ButtonRect.bottom) / 2;
+        POINT arrow[3] = {
+            {centerX - 2, centerY - 4},
+            {centerX - 2, centerY + 4},
+            {centerX + 3, centerY},
+        };
+        HPEN hArrowPen = HANDLES(CreatePen(PS_SOLID, 1, colors.InputText));
+        HBRUSH hArrowBrush = HANDLES(CreateSolidBrush(colors.InputText));
+        hOldPen = (HPEN)SelectObject(hDC, hArrowPen);
+        hOldBrush = (HBRUSH)SelectObject(hDC, hArrowBrush);
+        Polygon(hDC, arrow, 3);
+        SelectObject(hDC, hOldBrush);
+        SelectObject(hDC, hOldPen);
+        HANDLES(DeleteObject(hArrowBrush));
+        HANDLES(DeleteObject(hArrowPen));
+
+        HANDLES(ReleaseDC(HWindow, hDC));
+        return;
+    }
+
     DWORD flags = DFCS_SCROLLRIGHT;
     if (ButtonPressed)
         flags |= DFCS_PUSHED;
@@ -582,22 +625,24 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
         }
         else
         {
+            DarkModeColors colors;
+            DarkMode_GetColors(&colors);
             COLORREF bkColor;
             if (lpdis->itemState & ODS_SELECTED)
             {
                 if (lpdis->itemState & ODS_FOCUS)
-                    bkColor = COLOR_HIGHLIGHT;
+                    bkColor = colors.Highlight;
                 else
-                    bkColor = COLOR_3DFACE;
+                    bkColor = colors.InactiveSelection;
             }
             else
-                bkColor = COLOR_WINDOW;
+                bkColor = colors.InputBackground;
 
             RECT itemRect = lpdis->rcItem;
+            FillRectWithColor(lpdis->hDC, &itemRect, bkColor);
             if (Flags & ELB_SHOWICON)
                 itemRect.left += IconSizes[ICONSIZE_16];
 
-            FillRect(lpdis->hDC, &itemRect, (HBRUSH)(UINT_PTR)(bkColor + 1));
             INT_PTR itemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, lpdis->itemID, 0);
             if (itemID == -1)
             {
@@ -614,21 +659,21 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                 dtp.cbSize = sizeof(dtp);
                 dtp.iLeftMargin = dtp.iRightMargin = 4;
                 int oldBkMode = SetBkMode(lpdis->hDC, TRANSPARENT);
-                int color;
+                COLORREF color;
                 if (lpdis->itemState & ODS_SELECTED && lpdis->itemState & ODS_FOCUS)
-                    color = COLOR_HIGHLIGHTTEXT;
+                    color = colors.HighlightText;
                 else
-                    color = COLOR_WINDOWTEXT;
-                int oldColor = SetTextColor(lpdis->hDC, GetSysColor(color));
+                    color = colors.InputText;
+                int oldColor = SetTextColor(lpdis->hDC, color);
                 DispInfo.ToDo = edtlbGetData;
                 DispInfo.ItemID = itemID;
                 DispInfo.Index = lpdis->itemID;
                 DispInfo.Buffer = Buffer;
-                DispInfo.BufferLen = MAX_PATH - 1;
+                DispInfo.BufferLen = Buffer.Size() - 1;
                 DispInfo.Buffer[0] = 0;
                 DispInfo.Bold = FALSE;
                 NotifyParent(&DispInfo, EDTLBN_GETDISPINFO);
-                DispInfo.Buffer[MAX_PATH - 1] = 0;
+                DispInfo.Buffer[Buffer.Size() - 1] = 0;
 
                 if (Flags & ELB_SHOWICON)
                 {
@@ -637,7 +682,7 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                         // If a brush is passed to DrawIconEx as (HBRUSH)(COLOR_WINDOW + 1),
                         // under NT 4.0 US with 256 colors a black spot appears in the background;
                         // this patch fixes the problem.
-                        HBRUSH hBrush = HANDLES(CreateSolidBrush(GetSysColor(COLOR_WINDOW)));
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(bkColor));
                         int iconSize = IconSizes[ICONSIZE_16];
                         DrawIconEx(lpdis->hDC, lpdis->rcItem.left + 1, lpdis->rcItem.top + 1,
                                    DispInfo.HIcon, iconSize, iconSize, 0, hBrush /*(HBRUSH)(COLOR_WINDOW + 1)*/, DI_NORMAL);
@@ -647,8 +692,8 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                     {
                         // must clear the background
                         RECT r = lpdis->rcItem;
-                        r.right = IconSizes[ICONSIZE_16] + 2;
-                        FillRect(lpdis->hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
+                        r.right = r.left + IconSizes[ICONSIZE_16] + 2;
+                        FillRectWithColor(lpdis->hDC, &r, bkColor);
                     }
                 }
 
@@ -768,6 +813,36 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CEditListBox::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_ERASEBKGND:
+    {
+        HBRUSH hBrush = DarkMode_GetDialogCtlColorBrush(WM_CTLCOLORLISTBOX, (HDC)wParam, HWindow);
+        if (hBrush != NULL)
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            FillRect((HDC)wParam, &r, hBrush);
+            return 1;
+        }
+        break;
+    }
+
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORSTATIC:
+    {
+        HBRUSH hBrush = DarkMode_GetDialogCtlColorBrush(uMsg, (HDC)wParam, (HWND)lParam);
+        if (hBrush != NULL)
+            return (LRESULT)hBrush;
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    case WM_THEMECHANGED:
+    {
+        DarkMode_ApplyListTreeThemeRecursive(HWindow);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == EN_KILLFOCUS)
@@ -835,7 +910,7 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_KEYUP:
     {
-        if (Dragging) // We do not want the list box to process this while dragging.
+        if (Dragging) // We don't want the listbox processing this if we are dragging.
             return 0;
         break;
     }
@@ -1077,7 +1152,7 @@ CEditListBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (Dragging)
         {
             LRESULT ret = CWindow::WindowProc(uMsg, wParam, lParam);
-            return ret | DLGC_WANTMESSAGE; // handle Escape
+            return ret | DLGC_WANTMESSAGE; // we want Escape
         }
         break;
     }

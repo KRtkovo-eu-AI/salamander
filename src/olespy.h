@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -11,7 +11,7 @@
 // Details on finding OLE leaks are described in OLESPY.CPP.
 
 // Attaches our IMallocSpy to OLE; COM must be initialized first.
-// If it returns TRUE, the following functions can be called.
+// If it returns TRUE, the followed functions can be called.
 BOOL OleSpyRegister();
 
 // Detaches the Spy from OLE; OleSpyDump can still be called after this function.

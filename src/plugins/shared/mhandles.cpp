@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -38,7 +38,7 @@ C__Handles __Handles;
 
 //*****************************************************************************
 //
-// embedded MESSAGES module (displaying message boxes in the current or a separate thread)
+// embedded module MESSAGES (displaying message boxes in the current or its own thread)
 //
 //*****************************************************************************
 
@@ -52,15 +52,15 @@ char __ErrorBuffer[__ERROR_BUFFER_SIZE] = "";
 const char* __MessagesTitle = "Message";
 HWND __MessagesParent = NULL;
 
-// Ensures the current thread has access to the module's functions and data.
+// ensure the current thread has access to functions and module data
 void EnterMessagesModul();
-// Call only after the current thread no longer needs access to the module's functions and data.
+// call when the current thread no longer needs access to functions and module data
 void LeaveMessagesModul();
 
-// Returns a pointer to a global buffer containing the sprintf result.
+/// returns pointer to a global buffer filled with a sprintf string
 const char* spf(const char* formatString, ...);
 
-// Returns a pointer to a global buffer containing the error description.
+/// returns pointer to a global buffer filled with an error description
 const char* err(DWORD error);
 
 #define MESSAGE(parent, str, buttons) \
@@ -76,28 +76,22 @@ const char* err(DWORD error);
         .MessageBoxT(__MessagesStringBuf.c_str(), \
                      __MessagesTitle, (buttons))
 
-/*
- * Shows a message box with the specified text and error icon. It does not run in a new
- * thread and dispatches messages for the calling thread.
- */
+/** shows message box with given text and error icon, not in a new
+    thread, dispatches messages of the calling thread */
 #define MESSAGE_E(parent, str, buttons) \
     MESSAGE(parent, str, MB_ICONEXCLAMATION | (buttons))
 
-/*
- * Shows a message box with the specified text and information icon. It runs in a new
- * thread and does not dispatch messages for the calling thread.
- */
+/** shows message box with given text and info icon, in a new thread,
+    does not dispatch messages of the calling thread */
 #define MESSAGE_TI(str, buttons) \
     MESSAGE_T(str, MB_ICONINFORMATION | (buttons))
 
-/*
- * shows a message box with the specified text and error icon, in a new thread,
- *     does not dispatch the calling thread's messages
- */
+/** shows message box with given text and error icon, in a new thread,
+    does not dispatch messages of the calling thread */
 #define MESSAGE_TE(str, buttons) \
     MESSAGE_T(str, MB_ICONEXCLAMATION | (buttons))
 
-// module-wide critical section - used as a monitor
+// critical section for the whole module - monitor
 CRITICAL_SECTION __MessagesCriticalSection;
 
 const char* __MessagesLowMemory = "Insufficient memory.";
@@ -138,15 +132,15 @@ struct C__MessageBoxData
 };
 
 int CALLBACK __MessagesMessageBoxThreadF(C__MessageBoxData* data)
-{ // must not wait for a response from the calling thread, because it will not respond
-    // therefore parent==NULL -> no window disabling, etc.
+{ // must not wait for response from the calling thread because it will not respond
+    // therefore parent==NULL -> no window disabling etc.
     data->Return = MessageBox(NULL, data->Text, data->Caption, data->Type | MB_SETFOREGROUND);
     return 0;
 }
 
 int C__Messages::MessageBoxT(LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 {
-    __Handles.__MessagesStrStream.flush(); // flush into the buffer (lpText)
+    __Handles.__MessagesStrStream.flush(); // flush to buffer (in lpText)
 
     C__MessageBoxData data;
     data.Caption = lpCaption;
@@ -154,7 +148,7 @@ int C__Messages::MessageBoxT(LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
     data.Return = 0;
 
     int len = (int)strlen(lpText) + 1;
-    char* message = (char*)malloc(len); // backup copy of the text
+    char* message = (char*)malloc(len); // text backup
     if (message != NULL)
     {
         memcpy(message, lpText, len);
@@ -162,9 +156,9 @@ int C__Messages::MessageBoxT(LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
     }
     else
         data.Text = __MessagesLowMemory;
-    LeaveMessagesModul(); // other threads and message loops can start interfering now
+    LeaveMessagesModul(); // now other threads + message loops can start acting up
 
-    // Run MessageBox in a new thread so it does not dispatch this thread's messages
+    // launch MessageBox in a new thread so it does not dispatch messages of this thread
     DWORD threadID;
     HANDLE thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)__MessagesMessageBoxThreadF, &data, 0, &threadID);
     if (thread != NULL)
@@ -177,23 +171,23 @@ int C__Messages::MessageBoxT(LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
     if (message != NULL)
         free(message);
 
-    __MessagesStringBuf.erase(); // prepare for the next message
+    __MessagesStringBuf.erase(); // prepare for next message
 
     return data.Return;
 }
 
 int C__Messages::MessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 {
-    __Handles.__MessagesStrStream.flush(); // flush into the buffer (lpText)
+    __Handles.__MessagesStrStream.flush(); // flush to buffer (in lpText)
 
     int len = (int)strlen(lpText) + 1;
-    char* message = (char*)malloc(len); // backup copy of the text
+    char* message = (char*)malloc(len); // text backup
     char* txt = message;
     if (txt != NULL)
         memcpy(txt, lpText, len);
     else
         txt = (char*)__MessagesLowMemory;
-    LeaveMessagesModul(); // other threads and message loops can start interfering now
+    LeaveMessagesModul(); // now other threads + message loops can start acting up
 
     if (!IsWindow(hWnd))
         hWnd = NULL;
@@ -202,7 +196,7 @@ int C__Messages::MessageBox(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT u
     if (message != NULL)
         free(message);
 
-    __MessagesStringBuf.erase(); // prepare for the next message
+    __MessagesStringBuf.erase(); // prepare for next message
 
     return ret;
 }
@@ -239,7 +233,7 @@ const char* err(DWORD error)
 
 //*****************************************************************************
 //
-// end of embedded MESSAGES module
+// end of embedded module MESSAGES
 //
 //*****************************************************************************
 
@@ -695,7 +689,7 @@ C__Handles::~C__Handles()
         else if (Handles[i].Handle.Origin == __hoGetStockObject)
             Handles.Delete(i);
     }
-    // check and list remaining open handles
+    // check + output of remaining ones
     if (Handles.Count != 0)
     {
         if (MESSAGE_E(NULL, "Some monitored handles remained opened.\n"
@@ -704,7 +698,7 @@ C__Handles::~C__Handles()
         {
             if (CanUseTrace)
             {
-                SalamanderDebug->TraceConnectToServer(); // in case the server has not been started
+                SalamanderDebug->TraceConnectToServer(); // in case the server wasn't started
                 TRACE_I("List of opened handles:");
                 for (int i = 0; i < Handles.Count; i++)
                 {
@@ -723,7 +717,7 @@ C__Handles::~C__Handles()
         {
             if (CanUseTrace)
             {
-                SalamanderDebug->TraceConnectToServer(); // in case the server has not been started
+                SalamanderDebug->TraceConnectToServer(); // in case the server wasn't started
                 TRACE_I(__HandlesMessageNumberOpened << Handles.Count);
             }
         }
@@ -742,7 +736,7 @@ C__Handles::SetInfo(const char* file, int line, C__HandlesOutputType outputType)
     ::EnterCriticalSection(&CriticalSection);
     if (CriticalSection.RecursionCount > 1)
     {
-        DebugBreak(); // Recursive HANDLES call - another hidden message loop, see call stack
+        DebugBreak(); // recursive handles call !!! another masked message loop - see call-stack
     }
     OutputType = outputType;
     TemporaryHandle.File = file;
@@ -845,7 +839,7 @@ BOOL C__Handles::DeleteHandle(C__HandlesType& type, HANDLE handle,
             {
                 C__HandlesOrigin org = Handles[i].Handle.Origin;
                 if (org != __hoLoadAccelerators && org != __hoLoadIcon &&
-                    org != __hoGetStockObject) // not a handle exempt from release (we prioritize handles that must be released)
+                    org != __hoGetStockObject) // not a handle that does not have to be released (we prioritize handles that must be released)
                 {
                     if (origin != NULL)
                         *origin = org;
@@ -860,7 +854,7 @@ BOOL C__Handles::DeleteHandle(C__HandlesType& type, HANDLE handle,
             }
         }
     }
-    if (foundTypeOK != -1) // found only a handle that does not need to be released
+    if (foundTypeOK != -1) // found only a handle that does not have to be released
     {
         type = Handles[foundTypeOK].Handle.Type;
         if (origin != NULL)
@@ -868,7 +862,7 @@ BOOL C__Handles::DeleteHandle(C__HandlesType& type, HANDLE handle,
         Handles.Delete(foundTypeOK);
         return TRUE;
     }
-    if (found != -1) // found only a handle with the same numeric value
+    if (found != -1) // found only a handle with matching number
     {
 #if defined(_DEBUG) || defined(__HANDLES_DEBUG)
         if (CanUseTrace)
@@ -1016,7 +1010,7 @@ C__Handles::CreateFile(LPCTSTR lpFileName, DWORD dwDesiredAccess,
                               dwFlagsAndAttributes, hTemplateFile);
     char paramsBuf[MAX_PATH + 200];
     const char* params = NULL;
-    if (ret == INVALID_HANDLE_VALUE) // format parameters into the buffer only when an error occurs (so they can be displayed)
+    if (ret == INVALID_HANDLE_VALUE) // parameters to buffer only when error occurs (can be displayed)
     {
 #ifdef __BORLANDC__
         _snprintf(paramsBuf, MAX_PATH + 200,
@@ -1938,8 +1932,8 @@ BOOL C__Handles::DuplicateHandle(HANDLE hSourceProcessHandle, HANDLE hSourceHand
                        MB_OK);
         }
 
-        // GetCurrentProcess returns a pseudo-handle, so this construct is not correct;
-        // process IDs should be compared rather than their handles ...
+        // GetCurrentProcess returns a pseudo-handle, so this construction
+        // is not correct; process IDs should be compared instead of their handles ...
 
         if ((dwOptions & DUPLICATE_CLOSE_SOURCE) &&
             hSourceProcessHandle == GetCurrentProcess())
@@ -2142,7 +2136,7 @@ BOOL C__Handles::FreeLibrary(HMODULE hLibModule)
     C__HandlesData tmpTemporaryHandle = TemporaryHandle;
     ::LeaveCriticalSection(&CriticalSection);
 
-    BOOL ret = ::FreeLibrary(hLibModule); // calls DLL global destructors, may contain a message loop
+    BOOL ret = ::FreeLibrary(hLibModule); // contains calls to DLL global destructors, may contain a message loop
 
     ::EnterCriticalSection(&CriticalSection);
     OutputType = tmpOutputType;
@@ -2158,7 +2152,7 @@ VOID C__Handles::FreeLibraryAndExitThread(HMODULE hLibModule, DWORD dwExitCode)
     C__HandlesData tmpTemporaryHandle = TemporaryHandle;
     ::LeaveCriticalSection(&CriticalSection);
 
-    ::FreeLibraryAndExitThread(hLibModule, dwExitCode); // calls DLL global destructors, may contain a message loop
+    ::FreeLibraryAndExitThread(hLibModule, dwExitCode); // contains calls to DLL global destructors, may contain a message loop
 
     ::EnterCriticalSection(&CriticalSection);
     OutputType = tmpOutputType;
@@ -2393,7 +2387,7 @@ HDWP C__Handles::DeferWindowPos(HDWP hWinPosInfo, HWND hWnd, HWND hWndInsertAfte
 {
     HDWP ret = ::DeferWindowPos(hWinPosInfo, hWnd, hWndInsertAfter, x, y, cx, cy, uFlags);
 
-    if (ret != hWinPosInfo) // the structure was reallocated; we must update the tracked handle value
+    if (ret != hWinPosInfo) // structure was reallocated - we must update the tracked handle value
     {
         CheckClose(TRUE, (HANDLE)hWinPosInfo, __htDeferWindowPos, __GetHandlesOrigin(__hoDeferWindowPos), ERROR_SUCCESS, FALSE);
         CheckCreate(ret != NULL, __htDeferWindowPos, __hoDeferWindowPos, (HANDLE)ret, GetLastError());

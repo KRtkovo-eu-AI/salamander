@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -88,7 +89,7 @@ HRESULT CSalamanderPanelAutomation::RaiseChPPErr(int nErr)
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelAutomation::get_Path(
     /* [retval][out] */ BSTR* path)
 {
-    TCHAR szPath[MAX_PATH];
+    CPathBuffer szPath;
     int type;
     TCHAR* pszArchiveOrFs;
     _bstr_t pathT;
@@ -96,7 +97,7 @@ HRESULT CSalamanderPanelAutomation::RaiseChPPErr(int nErr)
     if (!SalamanderGeneral->GetPanelPath(
             m_nPanel,
             szPath,
-            _countof(szPath),
+            szPath.Size(),
             &type,
             &pszArchiveOrFs))
     {

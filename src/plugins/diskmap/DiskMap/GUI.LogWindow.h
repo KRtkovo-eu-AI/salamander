@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -63,6 +64,7 @@ protected:
             this->_hWnd, NULL, CWindow::s_hInstance, NULL);
         if (this->_hWndListView)
         {
+            PluginDarkMode_ApplyListTreeThemeRecursive(this->_hWndListView);
             DWORD exStyle = LVS_EX_FULLROWSELECT;
             //if (DllGetVersion())
             //if (Shell >= 5.80) exStyle |= LVS_EX_LABELTIP;

@@ -1,25 +1,23 @@
-CommentsTranslationProject: TRANSLATED
-
 UNIX:
 /pub/d
-d - relative
+d - relativni
 / - root
 
 VMS:
 PUB$DEVICE:[PUB.VMS]
 PUB$DEVICE:[PUB]
 [PUB.VMS]
-PUB$DEVICE:[PUB]FILE.TXT;1 - file
-[.VMS] - relative
+PUB$DEVICE:[PUB]FILE.TXT;1 - soubor
+[.VMS] - relativni
 [000000] - root
 PUB$DEVICE:[000000] - root
-PUB$DEVICE:[PUB.aa^.bb] - "aa^.bb" is the directory name ("^." is the escape sequence for '.')
-PUB$DEVICE:[PUB]FI^.LE.TXT;1 - "FI^.LE.TXT;1" is the file name ("^." is the escape sequence for '.')
+PUB$DEVICE:[PUB.aa^.bb] - "aa^.bb" je jmeno adresare ("^." je escape-sekvence pro '.')
+PUB$DEVICE:[PUB]FI^.LE.TXT;1 - "FI^.LE.TXT;1" je jmeno souboru ("^." je escape-sekvence pro '.')
 
 MVS:
 'VEA0016.MAIN.CLIST'
 'VEA0016.MAIN.CLIST.'
-MAIN.CLIST - relative
+MAIN.CLIST - relativni
 '' - root
 
 NOVELL/WINDOWS-NT:
@@ -27,24 +25,24 @@ NOVELL/WINDOWS-NT:
 /PUB/DIR
 \PUB\DIR\
 /PUB/DIR/
-DIR - relative
+DIR - relativni
 / - root
 \ - root
 
 IBM z/VM (CMS):
 ACADEM:ANONYMOU.PICS
-ACADEM:ANONYMOU. - root (note: the trailing '.' is required)
+ACADEM:ANONYMOU. - root (pozor: '.' na konci povinna)
 
 OS/2:
 C:/dir1/dir2
-dir2 - relative
+dir2 - relativni
 C:/ - root
-(for safety we also handle backslashes:)
+(pro sychr pocitame i s backslashem:)
 C:\dir1\dir2
-dir2 - relative
+dir2 - relativni
 C:\ - root
 
 Tandem:
 \SYSTEM.$VVVVV.SUBVOLUM.FILENAME
-SUBVOLUM - relative
-\SYSTEM ('\\' + text up to the first dot) - path root
+SUBVOLUM - relativni
+\SYSTEM ('\\' + text do prvni tecky) - root cesty

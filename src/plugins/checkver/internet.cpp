@@ -1,4 +1,5 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -9,12 +10,12 @@
 #include "checkver.rh2"
 #include "lang\lang.rh"
 
-const char* SCRIPT_URL_FTP_EN = "ftp://ftp.altap.cz/pub/altap/salamand/checkver/salupdate40_en.txt";
-const char* SCRIPT_URL_FTP_CZ = "ftp://ftp.altap.cz/pub/altap/salamand/checkver/salupdate40_cz.txt";
-const char* SCRIPT_URL_HTTP = "https://www.altap.cz/salupdate40/";
-const char* SCRIPT_URL_HTTP_AFTERINSTALL = "https://www.altap.cz/salupdatenew40/";
+const char* GITHUB_RELEASES_API_URL = "https://api.github.com/repos/0xeb/sally/releases/latest";
+const char* GITHUB_API_HEADERS =
+    "Accept: application/vnd.github+json\r\n"
+    "X-GitHub-Api-Version: 2022-11-28\r\n";
 
-const char* AGENT_NAME = "Open Salamander CheckVer Plugin";
+const char* AGENT_NAME = "Sally CheckVer Plugin";
 
 // limitation - may be called from only one thread; otherwise buffer overwrites are not handled
 const char* GetInetErrorText(DWORD dError)
@@ -124,12 +125,12 @@ DWORD WINAPI ThreadDownload(void* param)
     CTDData* data = (CTDData*)param;
     DWORD dialogID = data->MainDialogID;
     BOOL firstLoadAfterInstall = data->FirstLoadAfterInstall;
-    SetEvent(data->Continue); // let the main thread continue; from this point on, the data are no longer valid (=NULL)
+    SetEvent(data->Continue); // let the main thread continue; from this point on the data are invalid (=NULL)
     data = NULL;
 
     // lock the DLL to prevent it from being unloaded while this function runs
-    char buff[MAX_PATH];
-    GetModuleFileName(DLLInstance, buff, MAX_PATH);
+    CPathBuffer buff; // Heap-allocated for long path support
+    GetModuleFileName(DLLInstance, buff, buff.Size());
     HINSTANCE hLock = LoadLibrary(buff);
 
     BOOL exit = FALSE;
@@ -181,41 +182,12 @@ DWORD WINAPI ThreadDownload(void* param)
     if (dialogID == GetMainDialogID() && !exit)
     {
         AddLogLine(LoadStr(IDS_INET_CONNECT), FALSE);
-
-        const char* scriptURL_FTP = strcmp(LoadStr(IDS_UPDATE_SCRIPT_LANG), "CZ") == 0 ? SCRIPT_URL_FTP_CZ : SCRIPT_URL_FTP_EN;
-
-        switch (InternetProtocol)
-        {
-        case inetpFTPPassive:
-        {
-            // FTP - passive mode (gets through firewalls more often than standard FTP, but slower)
-            hUrl = InternetOpenUrl(hSession, scriptURL_FTP, NULL, 0,
-                                   INTERNET_FLAG_DONT_CACHE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_PASSIVE, 0);
-            break;
-        }
-
-        case inetpFTP:
-        {
-            // FTP - standard mode
-            hUrl = InternetOpenUrl(hSession, scriptURL_FTP, NULL, 0,
-                                   INTERNET_FLAG_DONT_CACHE | INTERNET_FLAG_RELOAD, 0);
-            break;
-        }
-
-        default:
-        {
-            // adjusted to allow version checking behind a firewall (tested at SPS)
-            // HTTP (experimentally much faster than FTP passive at SPS, probably due to HTTP caching;
-            //       usually passes through firewalls)
-            char scriptURL[200];
-            _snprintf_s(scriptURL, _TRUNCATE, "%s?version=%s&lang=%s",
-                        firstLoadAfterInstall ? SCRIPT_URL_HTTP_AFTERINSTALL : SCRIPT_URL_HTTP,
-                        SalamanderTextVersion, LoadStr(IDS_UPDATE_SCRIPT_LANG));
-            hUrl = InternetOpenUrl(hSession, scriptURL, NULL, 0,
-                                   INTERNET_FLAG_DONT_CACHE | INTERNET_FLAG_RELOAD, 0);
-            break;
-        }
-        }
+        (void)firstLoadAfterInstall;
+        hUrl = InternetOpenUrl(hSession, GITHUB_RELEASES_API_URL, GITHUB_API_HEADERS, -1,
+                               INTERNET_FLAG_DONT_CACHE | INTERNET_FLAG_RELOAD |
+                                   INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_PRAGMA_NOCACHE |
+                                   INTERNET_FLAG_SECURE,
+                               0);
 
         if (hUrl == NULL)
         {
@@ -234,16 +206,76 @@ DWORD WINAPI ThreadDownload(void* param)
 
     if (dialogID == GetMainDialogID() && !exit)
     {
-        AddLogLine(LoadStr(IDS_INET_READ), FALSE);
-        bResult = InternetReadFile(hUrl, LoadedScript, LOADED_SCRIPT_MAX, &dwBytesRead);
-        if (!bResult)
+        DWORD statusCode = 0;
+        DWORD statusCodeSize = sizeof(statusCode);
+        if (!HttpQueryInfo(hUrl, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &statusCode,
+                           &statusCodeSize, NULL) ||
+            statusCode < 200 || statusCode >= 300)
         {
             EnterCriticalSection(&MainDialogIDSection);
             if (dialogID == MainDialogID)
             {
-                DWORD err = GetLastError();
+                char statusText[128];
+                _snprintf_s(statusText, _TRUNCATE, "HTTP %lu", statusCode);
                 char buff2[1024];
-                sprintf(buff2, LoadStr(IDS_INET_READ_FAILED), GetInetErrorText(err));
+                sprintf(buff2, LoadStr(IDS_INET_CONNECT_FAILED), statusText);
+                AddLogLine(buff2, TRUE);
+            }
+            LeaveCriticalSection(&MainDialogIDSection);
+            exit = TRUE;
+        }
+    }
+
+    if (dialogID == GetMainDialogID() && !exit)
+    {
+        AddLogLine(LoadStr(IDS_INET_READ), FALSE);
+        LoadedScriptSize = 0;
+        while (true)
+        {
+            DWORD bytesToRead = LOADED_SCRIPT_MAX - LoadedScriptSize;
+            if (bytesToRead == 0)
+            {
+                EnterCriticalSection(&MainDialogIDSection);
+                if (dialogID == MainDialogID)
+                {
+                    char buff2[1024];
+                    sprintf(buff2, LoadStr(IDS_INET_READ_FAILED), "Response too large");
+                    AddLogLine(buff2, TRUE);
+                }
+                LeaveCriticalSection(&MainDialogIDSection);
+                exit = TRUE;
+                break;
+            }
+
+            dwBytesRead = 0;
+            bResult = InternetReadFile(hUrl, LoadedScript + LoadedScriptSize, bytesToRead, &dwBytesRead);
+            if (!bResult)
+            {
+                EnterCriticalSection(&MainDialogIDSection);
+                if (dialogID == MainDialogID)
+                {
+                    DWORD err = GetLastError();
+                    char buff2[1024];
+                    sprintf(buff2, LoadStr(IDS_INET_READ_FAILED), GetInetErrorText(err));
+                    AddLogLine(buff2, TRUE);
+                }
+                LeaveCriticalSection(&MainDialogIDSection);
+                exit = TRUE;
+                break;
+            }
+
+            LoadedScriptSize += dwBytesRead;
+            if (dwBytesRead == 0)
+                break;
+        }
+
+        if (!exit && LoadedScriptSize == 0)
+        {
+            EnterCriticalSection(&MainDialogIDSection);
+            if (dialogID == MainDialogID)
+            {
+                char buff2[1024];
+                sprintf(buff2, LoadStr(IDS_INET_READ_FAILED), "GitHub returned an empty response");
                 AddLogLine(buff2, TRUE);
             }
             LeaveCriticalSection(&MainDialogIDSection);
@@ -261,16 +293,13 @@ DWORD WINAPI ThreadDownload(void* param)
     if (dialogID == GetMainDialogID())
     {
         if (!exit)
-        {
             AddLogLine(LoadStr(IDS_INET_SUCCESS), FALSE);
-            LoadedScriptSize = dwBytesRead;
-        }
         else
             LoadedScriptSize = 0;
         PostMessage(HMainDialog, WM_USER_DOWNLOADTHREAD_EXIT, !exit, 0); // thread ends; data are loaded
         FreeLibrary(hLock);                                              // release the lock
         LeaveCriticalSection(&MainDialogIDSection);
-        return 0; // let the thread exit normally
+        return 0; // let the thread die naturally
     }
     else
     {
@@ -301,7 +330,7 @@ StartDownloadThread(BOOL firstLoadAfterInstall)
     HANDLE hThread = CreateThread(NULL, 0, ThreadDownload, &data, 0, &threadID);
     if (hThread == NULL)
         TRACE_E("Unable to create Check Version Download thread.");
-    else // wait until the thread picks up the data
+    else // wait until the thread takes the data
         WaitForSingleObject(data.Continue, INFINITE);
 
     CloseHandle(data.Continue);

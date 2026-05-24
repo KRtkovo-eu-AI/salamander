@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -765,7 +766,7 @@ static const char* FunctionNames[] =
         NULL // terminator!
 };
 
-// look up the function in FunctionNames and return its 'index' and TRUE
+// look up the function in FunctionNames and return its index plus TRUE
 // return FALSE when it is missing
 BOOL FindFunction(const char* name, int* index)
 {
@@ -1046,7 +1047,7 @@ BOOL CDataRH::Load(const char* fileName)
         char buf[MAX_PATH + 100];
         DWORD err = GetLastError();
         sprintf_s(buf, "Error opening file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
 
@@ -1055,7 +1056,7 @@ BOOL CDataRH::Load(const char* fileName)
     {
         char buf[MAX_PATH + 100];
         sprintf_s(buf, "Error reading file %s.", fileName);
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         HANDLES(CloseHandle(hFile));
         return FALSE;
     }
@@ -1074,7 +1075,7 @@ BOOL CDataRH::Load(const char* fileName)
         char buf[MAX_PATH + 100];
         DWORD err = GetLastError();
         sprintf_s(buf, "Error reading file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         free(Data);
         Data = NULL;
         HANDLES(CloseHandle(hFile));
@@ -1104,7 +1105,7 @@ BOOL CDataRH::Load(const char* fileName)
                               "\n"
                               "Open file in MSVC?",
                       fileName, line);
-            int ret = MessageBox(GetMsgParent(), errbuf, ERROR_TITLE, MB_OKCANCEL | MB_ICONEXCLAMATION);
+            int ret = TranslatorMessageBox(GetMsgParent(), errbuf, ERROR_TITLE, MB_OKCANCEL | MB_ICONEXCLAMATION);
             if (ret == IDOK)
                 GotoEditor(fileName, line);
 
@@ -1214,7 +1215,7 @@ BOOL CDataRH::Load(const char* fileName)
                           "\n"
                           "Open file in MSVC?",
                   originalFile, originalFileLine, LoadStr(errorResID));
-        int ret = MessageBox(GetMsgParent(), errbuf, ERROR_TITLE, MB_OKCANCEL | MB_ICONEXCLAMATION);
+        int ret = TranslatorMessageBox(GetMsgParent(), errbuf, ERROR_TITLE, MB_OKCANCEL | MB_ICONEXCLAMATION);
         if (ret == IDOK)
             GotoEditor(originalFile, originalFileLine);
 

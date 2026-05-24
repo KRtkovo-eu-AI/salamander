@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -40,7 +41,7 @@ protected:
         /// Pointer to the next sibling in the chain.
         CNode* m_pNextSibling;
 
-        /// Pointer to the first child in the chain.
+        /// Pointer to the the first child in the chain.
         CNode* m_pFirstChild;
 
         /// Pointer to the parent node.

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -179,8 +179,8 @@ void CEditSrvTypeColumnDlg::Transfer(CTransferInfo& ti)
         }
         else
         {
-            // if the user has custom text, retrieve it; otherwise use the indexes from the last selection
-            // in the combo box (finding the index by looking up the string in the list is impossible because duplicate strings may occur)
+            // if the user has custom text, pull it out, otherwise use indexes from the last selection
+            // in the combo (finding the index by looking up the string in the list is impossible, duplicate strings may occur)
             if (LastUsedIndexForName == -1)
                 GetWindowText(comboName, bufName, STC_NAME_MAX_SIZE);
             if (LastUsedIndexForDescr == -1)
@@ -219,8 +219,8 @@ void CEditSrvTypeColumnDlg::Transfer(CTransferInfo& ti)
                 }
                 if (add && GetColumnTypeName(buf, 100, (CSrvTypeColumnTypes)i))
                 {
-                    SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)buf); // add the string
-                    SendMessage(combo, CB_SETITEMDATA, count++, i);   // associate the corresponding column type with it
+                    SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)buf); // add the string and
+                    SendMessage(combo, CB_SETITEMDATA, count++, i);   // associate which column type it is
                     if (Edit && (int)(ColumnsData->At(*EditedColumn)->Type) == i)
                     {
                         focus = count - 1; // when editing we focus our type
@@ -871,10 +871,10 @@ void CSrvTypeTestParserDlg::ParseListingToListView()
 
 void CSrvTypeTestParserDlg::LoadTextFromFile()
 {
-    static char initDir[MAX_PATH] = "";
-    if (initDir[0] == 0)
+    static CPathBuffer initDir;
+    if (*initDir == 0)
         GetMyDocumentsPath(initDir);
-    char fileName[MAX_PATH];
+    CPathBuffer fileName; // Heap-allocated for long path support
     fileName[0] = 0;
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -889,21 +889,21 @@ void CSrvTypeTestParserDlg::LoadTextFromFile()
         s++;
     }
     ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = fileName.Size();
     ofn.nFilterIndex = 1;
     ofn.lpstrInitialDir = initDir;
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 
-    char buf[300 + MAX_PATH];
+    CPathBuffer buf;
     if (SalamanderGeneral->SafeGetOpenFileName(&ofn))
     {
         HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-        s = strrchr(fileName, '\\');
+        s = strrchr(fileName.Get(), '\\');
         if (s != NULL)
         {
-            memcpy(initDir, fileName, s - fileName);
-            initDir[s - fileName] = 0;
+            memcpy(initDir, fileName.Get(), s - fileName.Get());
+            initDir[s - fileName.Get()] = 0;
         }
 
         HANDLE file = HANDLES_Q(CreateFile(fileName, GENERIC_READ,
@@ -957,7 +957,7 @@ void CSrvTypeTestParserDlg::LoadTextFromFile()
 
             HANDLES(CloseHandle(file));
             SetCursor(oldCur);
-            if (err != NO_ERROR) // display the error
+            if (err != NO_ERROR) // print the error
             {
                 sprintf(buf, LoadStr(IDS_SRVTYPE_READRAWLISTERR), SalamanderGeneral->GetErrorText(err));
                 SalamanderGeneral->SalMessageBox(HWindow, buf, LoadStr(IDS_FTPERRORTITLE),

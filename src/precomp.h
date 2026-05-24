@@ -1,6 +1,6 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -23,6 +23,7 @@
 #include <winioctl.h>
 #include <winnetwk.h>
 #include <ostream>
+#include <string>
 #include <limits.h>
 #include <commctrl.h>
 #include <stdio.h>
@@ -35,6 +36,11 @@
 #include <wfext.h>
 #endif
 #include <math.h>
+#include <string>
+#include <vector>
+
+// Long path support (Phase 1)
+#include "common/widepath.h"
 
 // Workaround for runtime check failure in debug builds: the original macro
 // casts the RGB value to WORD, which triggers a data loss warning (of the RED component)
@@ -77,7 +83,7 @@
 #include "iconlist.h"
 #include "consts.h"
 #include "icncache.h"
-#include "salamand.h"
+#include "sally.h"
 #include "sort.h"
 #include "masks.h"
 #include "str.h"
@@ -89,5 +95,5 @@
 
 #include "texts.rh2"
 #include "lang\lang.rh"
-#include "salamand.rh"
+#include "sally.rh"
 #include "resource.rh2"

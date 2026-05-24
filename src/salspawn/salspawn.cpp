@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include <windows.h>
 
@@ -22,9 +22,9 @@ BOOL CtrlHandler(DWORD fdwCtrlType)
 {
     switch (fdwCtrlType)
     {
-    // Ignore CTRL+C, Ctrl+Break, and other valid termination reasons, because the
-    // launched external archiver must terminate first. Otherwise it keeps running
-    // even after Salamander reports that compression or decompression has finished.
+    // ignore CTRL+C, Ctrl+Break, and other good reasons to terminate... because we must
+    // first terminate the externally started archiver (otherwise it keeps running
+    // even when Salamander says compression/decompression has finished)
     case CTRL_C_EVENT:
     case CTRL_BREAK_EVENT:
     case CTRL_CLOSE_EVENT:
@@ -41,7 +41,7 @@ BOOL CtrlHandler(DWORD fdwCtrlType)
 // EnableExceptionsOn64
 //
 
-// We want to receive SEH exceptions even on x64 Windows 7 SP1 and later.
+// We want to learn about SEH Exceptions even on x64 Windows 7 SP1 and later
 // http://blog.paulbetts.org/index.php/2010/07/20/the-case-of-the-disappearing-onload-exception-user-mode-callback-exceptions-in-x64/
 // http://connect.microsoft.com/VisualStudio/feedback/details/550944/hardware-exceptions-on-x64-machines-are-silently-caught-in-wndproc-messages
 // http://support.microsoft.com/kb/976038
@@ -85,7 +85,7 @@ void mainCRTStartup()
 
     exeName[0] = '\0';
 
-    // Do not show critical errors such as "no disk in drive A:".
+    // we don't want any critical errors like "no disk in drive A:"
     SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS);
 
     cmdline = GetCommandLine();

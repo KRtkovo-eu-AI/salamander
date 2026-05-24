@@ -1,13 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include <windows.h>
 #include <crtdbg.h>
 #include <ostream>
-#include <commctrl.h> // need LPCOLORMAP
+#include <commctrl.h> // I need LPCOLORMAP
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -39,15 +39,15 @@
 // boundaries so we can find the real functions
 // that we need to call for initialization.
 
-#pragma warning(disable : 4075) // define the module initialization order
+#pragma warning(disable : 4075) // we want to define module initialization order
 
 typedef void(__cdecl* _PVFV)(void);
 
 #pragma section(".i_str$a", read)
-__declspec(allocate(".i_str$a")) const _PVFV i_str = (_PVFV)1; // place the i_str variable at the start of the .i_str section
+__declspec(allocate(".i_str$a")) const _PVFV i_str = (_PVFV)1; // at the beginning of .i_str section we put variable i_str
 
 #pragma section(".i_str$z", read)
-__declspec(allocate(".i_str$z")) const _PVFV i_str_end = (_PVFV)1; // and place the i_str_end variable at the end of the .i_str section
+__declspec(allocate(".i_str$z")) const _PVFV i_str_end = (_PVFV)1; // and at the end of .i_str section we put variable i_str_end
 
 void Initialize__Str()
 {
@@ -133,7 +133,7 @@ int StrICpy(char* dest, const char* src)
 //*****************************************************************************
 
 #ifdef _WIN64
-// Even in VC11, MS did not provide x64 ASM versions of the string operations, so for now we stay with C++.
+// Even in VC11 MS did not provide x64 ASM version of string operations, so for now we also stay in C++
 
 // original function
 int StrICmp(const char* s1, const char* s2)
@@ -143,7 +143,7 @@ int StrICmp(const char* s1, const char* s2)
     {
         res = (unsigned)LowerCase[*s1] - (unsigned)LowerCase[*s2++];
         if (res != 0)
-            return (res < 0) ? -1 : 1; // < or >
+            return (res < 0) ? -1 : 1; // < and >
         if (*s1++ == 0)
             return 0; // ==
     }
@@ -160,14 +160,14 @@ int StrICmp(const char* s1, const char* s2)
     mov     edi,[s1] // edi = s1
     mov     edx,table // edx = LowerCase
 
-    mov     eax,255 // enter the loop
+    mov     eax,255 // fall into loop
     xor     ebx,ebx
 
     align   4
 
         // compare
 chk_null:
-    or      al,al // note that if al == 0, then eax == 0
+    or      al,al // not that if al == 0, then eax == 0!
     jz      short done
 
     mov     al,[esi] // al = *s2
@@ -175,7 +175,7 @@ chk_null:
     mov     bl,[edi] // bl = *s1
     inc     edi
 
-    cmp     al,bl // first try case-sensitive comparison
+    cmp     al,bl // first try case-sensitive comparision
     je      short chk_null // match
 
     mov     al,[edx + eax] // convert *s2 char to lower case
@@ -191,8 +191,8 @@ done:
 
     }
 
-    // the return value is in eax to avoid a compiler warning
-    // for functions without a return value, use the following hack
+    // return value is in eax to avoid compiler warning
+    // for functions without return value, we do the following hack
     BOOL retVal;
     __asm {mov retVal, eax}
     return retVal;
@@ -204,14 +204,14 @@ done:
 
 /*
 // original function
-// warning: StrNICmp("a", "aa", 2) incorrectly returns 0
+// warning, there is a bug here: StrNICmp("a", "aa", 2) returns 0
 int StrNICmp(const char *s1, const char *s2, int n)
 {
   int res;
   while (n--)
   {
     res = (unsigned)LowerCase[*s1++] - (unsigned)LowerCase[*s2++];
-    if (res != 0) return (res < 0) ? -1 : 1;               // < a >
+    if (res != 0) return (res < 0) ? -1 : 1;               // < and >
     if (*s1 == 0) return 0;                                // ==
   }
   return 0;
@@ -219,7 +219,7 @@ int StrNICmp(const char *s1, const char *s2, int n)
 */
 
 #ifdef _WIN64
-// Even in VC11, MS did not provide x64 ASM versions of the string operations, so for now we stay with C++.
+// Even in VC11 MS did not provide x64 ASM version of string operations, so for now we also stay in C++
 
 // fixed version
 int StrNICmp(const char* s1, const char* s2, int n)
@@ -229,7 +229,7 @@ int StrNICmp(const char* s1, const char* s2, int n)
     {
         res = (unsigned)LowerCase[*s1] - (unsigned)LowerCase[*s2++];
         if (res != 0)
-            return (res < 0) ? -1 : 1; // < a >
+            return (res < 0) ? -1 : 1; // < and >
         if (*s1++ == 0)
             return 0; // ==
     }
@@ -259,14 +259,14 @@ int StrNICmp(const char* s1, const char* s2, int n)
 lupe:                      
     mov     al,[esi] // al = *s1
                            
-    or      eax,eax // check whether *s1 is null
+    or      eax,eax // see if *s1 is null
                            
     mov     bl,[edi] // bl = *s2
                            
     jz      short eject // jump if *s1 is null
 
     or      ebx,ebx // see if *s2 is null
-    jz      short eject // jump if *s2 is null
+    jz      short eject // jump if so
 
     inc     esi
     inc     edi
@@ -294,8 +294,8 @@ differ:
 toend:
     mov     eax,ecx // move return value to eax
     }
-    // the return value is in eax to avoid a compiler warning
-    // for functions without a return value, use the following hack
+    // return value is in eax to avoid compiler warning
+    // for functions without return value, we do the following hack
     BOOL retVal;
     __asm {mov retVal, eax}
     return retVal;
@@ -307,11 +307,11 @@ toend:
 //*****************************************************************************
 
 #ifdef _WIN64
-// Even in VC11, MS did not provide x64 ASM versions of the string operations, so for now we stay with C++.
+// Even in VC11 MS did not provide x64 ASM version of string operations, so for now we also stay in C++
 int MemICmp(const void* buf1, const void* buf2, int n)
 {
     int ret = _memicmp(buf1, buf2, n);
-    // normalize the return value to match our specification
+    // normalize return value according to our specification
     if (ret == 0)
         return 0;
     return (ret < 0) ? -1 : 1;
@@ -366,8 +366,8 @@ differ:
 toend:
     mov     eax,ecx // move return value to eax
     }
-    // the return value is in eax to avoid a compiler warning
-    // for functions without a return value, use the following hack
+    // return value is in eax to avoid compiler warning
+    // for functions without return value, we do the following hack
     BOOL retVal;
     __asm {mov retVal, eax}
     return retVal;
@@ -378,7 +378,7 @@ toend:
 //*****************************************************************************
 
 #ifdef _WIN64
-// Even in VC11, MS did not provide x64 ASM versions of the string operations, so for now we stay with C++.
+// Even in VC11 MS did not provide x64 ASM version of string operations, so for now we also stay in C++
 
 // original function
 int StrICmpEx(const char* s1, int l1, const char* s2, int l2)
@@ -388,16 +388,16 @@ int StrICmpEx(const char* s1, int l1, const char* s2, int l2)
     {
         res = (unsigned)LowerCase[*s1++] - (unsigned)LowerCase[*s2++];
         if (res != 0)
-            return (res < 0) ? -1 : 1; // < or >
+            return (res < 0) ? -1 : 1; // < and >
     }
     if (l1 != l2)
-        return (l1 < l2) ? -1 : 1; // < or >
+        return (l1 < l2) ? -1 : 1; // < and >
     else
         return 0;
 }
 
 /*
-// logic of the assembly function
+// principle of the asm function
 int StrICmpEx(const char *s1, int l1, const char *s2, int l2)
 {
   int l = (l1 < l2) ? l1 : l2;
@@ -405,7 +405,7 @@ int StrICmpEx(const char *s1, int l1, const char *s2, int l2)
   if (l > 0)
   {
     int res = MemICmp(s1, s2, l);
-    if (res != 0) return (res < 0) ? -1 : 1;    // < a >
+    if (res != 0) return (res < 0) ? -1 : 1;    // < and >
   }
 
   if (l1 != l2) return (l1 < l2) ? -1 : 1;
@@ -426,7 +426,7 @@ int StrICmpEx(const char* s1, int l1, const char* s2, int l2)
             // load up arguments
       mov     ecx,[l] // ecx = byte count
       or      ecx,ecx        
-      jz      toend // if the byte count is 0, we are done
+      jz      toend // if count = 0, we are done
                            
       mov     esi,s1 // esi = buf1
       mov     edi,s2 // edi = buf2
@@ -467,8 +467,8 @@ int StrICmpEx(const char* s1, int l1, const char* s2, int l2)
   toend:
       mov     eax,ecx // move return value to eax
         }
-        // the return value is in eax to avoid a compiler warning
-        // for functions without a return value, use the following hack
+        // return value is in eax to avoid compiler warning
+        // for functions without return value, we do the following hack
         BOOL retVal;
         __asm {mov retVal, eax}
         if (retVal != 0) return retVal;
@@ -492,9 +492,9 @@ int StrCmpEx(const char *s1, int l1, const char *s2, int l2)
   while (l--)
   {
     res = (unsigned)(*s1++) - (unsigned)(*s2++);
-    if (res != 0) return (res < 0) ? -1 : 1;    // < a >
+    if (res != 0) return (res < 0) ? -1 : 1;    // < and >
   }
-  if (l1 != l2) return (l1 < l2) ? -1 : 1;    // < a >
+  if (l1 != l2) return (l1 < l2) ? -1 : 1;    // < and >
   else return 0;
 }
 */
@@ -508,11 +508,11 @@ int StrCmpEx(const char* s1, int l1, const char* s2, int l2)
     {
         int res = memcmp(s1, s2, l);
         if (res != 0)
-            return (res < 0) ? -1 : 1; // < a >
+            return (res < 0) ? -1 : 1; // < and >
     }
 
     if (l1 != l2)
-        return (l1 < l2) ? -1 : 1; // < a >
+        return (l1 < l2) ? -1 : 1; // < and >
     else
         return 0;
 }
@@ -567,7 +567,7 @@ int StrLen(const char *str)
   while (1)
   {
     if ((((*(DWORD *)s) & 0xF0F0F0F0) - 0x10101010) & 0x8F0F0F0F)
-    {                            // contains a character < 16
+    {                            // there is a character < 16
       if (*s != 0) s++;
       else break;
       if (*s != 0) s++;
@@ -586,7 +586,7 @@ int StrLen(const char *str)
 /*
 //*****************************************************************************
 //
-// Tables for converting Kamenicky encoding to MS Windows
+// Tables for converting Kamenický code to MS Windows
 //
 
 BYTE KodKamenickych[CONVERT_TAB_CHARS] =

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -18,9 +18,9 @@
 typedef wchar_t unicode_t;
 
 #define SECTOR_SIZE 0x800
-#define INVALID_SECTOR_NUMBER -11111111 // A suitable negative number; should not be -1 or similar.
+#define INVALID_SECTOR_NUMBER -11111111 // reasonable negative number; Should not be -1 or so!!
 
-// Maximum filename length allowed in UDF.
+// Maximum length of filenames allowed in UDF.
 #define MAX_UDF_FILE_NAME_LEN 2048
 
 // Flags for testing the File Identifier Descriptor
@@ -37,7 +37,7 @@ typedef wchar_t unicode_t;
 //		  | ((Uint32)data[(p) + 2] << 16))
 #define GET_DWORD(data, p) ((Uint32)data[p] | ((Uint32)data[(p) + 1] << 8) | ((Uint32)data[(p) + 2] << 16) | ((Uint32)data[(p) + 3] << 24))
 #define GET_QWORD(data, p) ((Uint64)data[p] | ((Uint64)data[(p) + 1] << 8) | ((Uint64)data[(p) + 2] << 16) | ((Uint64)data[(p) + 3] << 24) | ((Uint64)data[(p) + 4] << 32) | ((Uint64)data[(p) + 5] << 40) | ((Uint64)data[(p) + 6] << 48) | ((Uint64)data[(p) + 7] << 56))
-/* This is wrong with regard to endianness */
+/* This is wrong with regard to endianess */
 #define GETN(data, p, n, target) memcpy(target, &data[p], n)
 
 static void
@@ -66,7 +66,7 @@ UDFTimeStampToFileTime(CUDF::CTimeStamp& stamp, FILETIME* ft)
     { // Valid timezone, offset in minutes
         __int64 newtime = ft->dwLowDateTime + (((__int64)ft->dwHighDateTime) << 32);
 
-        if (offset & 0x800) // negative 12-bit number -> sign-extend to a 32-bit negative number
+        if (offset & 0x800) // negative 12-bit number -> extend to 32-bit negative number
             offset |= 0xFFFFF000;
         newtime -= ((__int64)offset) * 60 * 1000 * 1000 * 10; // from min units to 100ns units
         ft->dwLowDateTime = (DWORD)(newtime & 0x00000000ffffffff);
@@ -91,7 +91,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
     unsigned int compID;
     int returnValue, unicodeIndex, byteIndex;
 
-    // 'compressed' points to the compressed input bytes being read.
+    // Use 'compressed' to store current byte being read.
     compID = compressed[0];
 
     // First check for valid compID.
@@ -105,7 +105,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
         byteIndex = 1;
         if (16 == compID)
         {
-            // Make it an odd number: a length byte plus an even number of text bytes
+            // Make it odd number: length byte plus even number of text bytes
             numberOfBytes = ((numberOfBytes - 1) & 0xFFFE) + 1;
         }
 
@@ -114,7 +114,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
         {
             if (compID == 16)
             {
-                // Move the first byte to the high bits of the Unicode character.
+                // Move the first byte to the high bits of the unicode char.
                 unicode[unicodeIndex] = compressed[byteIndex++] << 8;
             }
             else
@@ -123,7 +123,7 @@ UnicodeUncompress(BYTE* compressed, int numberOfBytes, unicode_t* unicode)
             }
             if (byteIndex < numberOfBytes)
             {
-                // Then put the next byte into the low bits.
+                // Then the next byte to the low bits.
                 unicode[unicodeIndex] |= compressed[byteIndex++];
             }
             unicodeIndex++;
@@ -146,7 +146,7 @@ void DecodeOSTACompressed(BYTE* id, int len, char* result)
         return;
     }
     uncompressed[ucompChars] = 0;
-    int length = MIN(ucompChars, UnicodeLength(uncompressed)) + 1 /*null terminator*/;
+    int length = MIN(ucompChars, UnicodeLength(uncompressed)) + 1 /*terminating zero*/;
 
     char final[1024];
 
@@ -391,10 +391,10 @@ void CUDF::ReadDescriptorTag(BYTE sector[], CDescriptorTag* tag)
 
 //
 // in:
-//    data, partition
+//    data
 //
 // out:
-//    ad
+//    ad, partition
 int CUDF::ShortAD(Uint8* data, CUDF::CAD* ad, WORD partNumber)
 {
     ad->Length = GET_DWORD(data, 0);
@@ -522,11 +522,11 @@ int CUDF::ReadFileEntry(Uint8* data, bool bEFE, Uint16 part, CICBTag* icbTag, CU
             break;
         }
     }
-    cnt -= maxAds; // Number of used AD entries
+    cnt -= maxAds; // # of used ad entries
     if (maxAds > 0)
     {
         // Terminate the sequence
-        // Also initialize ad for an empty file (i.e. there is no AD, L_AD == 0)
+        // And also init ad for an empty file (i.e. there isn't a AD, L_AD == 0 )
         ad->Length = 0;
         ad->Flags = 0;
         ad->Location = 0; // what should we put here?
@@ -679,7 +679,7 @@ BOOL CUDF::Open(BOOL quiet)
 
         if (block > lastBlock)
         {
-            // Just to make sure we do not read too large a file, stop after 128 sectors.
+            // Just to make sure we don't read in a too big file, stop after 128 sectors.
             ret = FALSE;
             break;
         }
@@ -910,7 +910,7 @@ int CUDF::ScanDir(CUDF::CAD dirICB, char* path,
     Uint8 fileChar;
     unsigned int p;
 
-    // Scan the directory for the file ICB
+    // Scan dir for ICB of file
     lbNum = LogSector(dirICB.Location, dirICB.Partition);
     if (!ReadBlockPhys(lbNum, 2, directory))
     {
@@ -952,8 +952,8 @@ int CUDF::ScanDir(CUDF::CAD dirICB, char* path,
 
                 if (fileChar & UDF_DIRECTORY)
                 {
-                    char newPath[2 * MAX_PATH];
-                    ZeroMemory(newPath, 2 * MAX_PATH);
+                    CPathBuffer newPath;
+                    ZeroMemory(newPath.Get(), newPath.Size());
                     strcpy(newPath, path);
                     strcat(newPath, "\\");
                     strcat(newPath, fileName);
@@ -986,10 +986,10 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
 {
     CALL_STACK_MESSAGE7("CUDF::UnpackFile( , %s, %s, %s, %p, %u, %d)", srcPath, path, nameInArc, fileData, silent, toSkip);
 
-    // TODO: extraction for allocation strategy 4096
-    // If the file is a sequence of allocation descriptors, we cannot extract it because we would need to track
-    // where the allocation descriptors point and use the correct blocks (we do not have an image to test this on,
-    // so this is not implemented yet).
+    // TODO: extraction according to allocation strategy 4096
+    // if the file is a sequence of allocation descriptors, we cannot extract it because we would need to track
+    // where the allocation descriptors point and use the correct blocks (we have no image to test on,
+    // so it is not implemented, maybe someday)
 
     if (fileData == NULL)
         return UNPACK_ERROR;
@@ -1033,7 +1033,7 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
 
         CICBTag icbTag;
         CAD icbs[32]; // Each ICB can describe at most 1GB-1B
-        // 9 ICBs should be enough for a DVD9, but be conservative
+        // -> 9 ICB's should be enough for a DVD9, but we are paranoic
 
         int nicbs = ReadFileEntry(fileEntry, UDF_TAGID_EXTFENTRY == tag.ID, fp->Partition, &icbTag, icbs, sizeof(icbs) / sizeof(CAD));
 
@@ -1041,7 +1041,7 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
         delete[] fileEntry;
         fileEntry = NULL;
 
-        // Verify that the ICBs describe as many bytes as the file requires
+        // Verify that the icbs describe as many bytes as needed by the file
         ULONGLONG acc = 0;
         if (-1 == nicbs)
         {
@@ -1076,9 +1076,9 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
             throw UNPACK_CANCEL;
         }
 
-        char name[MAX_PATH];
-        strncpy_s(name, path, _TRUNCATE);
-        if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, MAX_PATH))
+        CPathBuffer name; // Heap-allocated for long path support
+        lstrcpyn(name, path, name.Size());
+        if (!SalamanderGeneral->SalPathAppend(name, fileData->Name, name.Size()))
         {
             Error(IDS_ERR_TOO_LONG_NAME, silent == 1);
             throw UNPACK_ERROR;
@@ -1118,7 +1118,7 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
             BYTE track = Image->GetTrackFromExtent(picb->Location);
             DWORD extentOfs = Image->GetTrack(track)->ExtentOffset;
 
-            // open the track to read from (sets the track parameters)
+            // it is necessary to open the track we will read from (setting the track parameters)
             if (!Image->OpenTrack(track))
             {
                 Error(IDS_CANT_OPEN_TRACK, silent == 1, track);
@@ -1167,21 +1167,21 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
                     break;
                 }
 
-                if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint == TRUE to make this faster
+                if (!salamander->ProgressAddSize(nbytes, TRUE)) // delayedPaint==TRUE, to make things faster
                 {
                     salamander->ProgressDialogAddText(LoadStr(IDS_CANCELING_OPERATION), FALSE);
                     salamander->ProgressEnableCancel(FALSE);
 
                     ret = UNPACK_CANCEL;
                     bFileComplete = FALSE;
-                    break; // operation interrupted
+                    break; // action interrupted
                 }
 
                 ULONG written;
                 // picb->Offset is nonzero only for small (less than a sector) files inlined within File Entry
                 if (!file.Write(sector + picb->Offset, nbytes, &written, name, NULL))
                 {
-                    // The error message was already displayed by SafeWriteFile().
+                    // Error message was already displayed by SafeWriteFile()
                     ret = UNPACK_CANCEL;
                     bFileComplete = FALSE;
                     break;
@@ -1204,12 +1204,12 @@ int CUDF::UnpackFile(CSalamanderForOperationsAbstract* salamander, const char* s
         if (!bFileComplete)
         {
             // because it was created with the read-only attribute, we must clear
-            // the read-only attribute so the file can be deleted
+            // the R attribute so the file can be deleted
             attrs &= ~FILE_ATTRIBUTE_READONLY;
             if (!SetFileAttributes(name, attrs))
                 Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError(), silent == 1);
 
-            // the user canceled the operation
+            // the user cancelled the operation
             // delete the incomplete file afterwards
             if (!DeleteFile(name))
                 Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError(), silent == 1);

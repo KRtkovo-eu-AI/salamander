@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -18,7 +19,7 @@ protected:
     typedef typename std::vector<CChar*> CLineBuffer;
     // CChar * Buffer;
     // CChar const ** Linbuf;
-    CChar* LineBuffer; // buffer for one formatted line
+    CChar* LineBuffer; // bufer for one formated line
     CChar* Text;
     CLineBuffer Lines;
     CIntIndexes LineChanges;

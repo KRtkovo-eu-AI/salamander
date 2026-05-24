@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -17,7 +17,7 @@
 
 #include "library\volenum.h"
 
-#pragma comment(lib, "UxTheme.lib")
+#pragma comment(lib, "uxtheme.lib")
 
 // ****************************************************************************
 //
@@ -221,7 +221,7 @@ INT_PTR CCopyProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // let DefDlgProc set the focus
+        break; // request focus from DefDlgProc
     }
 
     case WM_COMMAND:
@@ -359,11 +359,11 @@ void CConnectDialog::InitDrives()
 
     // get info about current panel and focused item
     int sourcePanelType;
-    char sourcePanelPath[MAX_PATH];
+    CPathBuffer sourcePanelPath; // Heap-allocated for long path support
     char* archiveOrFS = NULL;
-    sourcePanelPath[0] = 0;
+    *sourcePanelPath = 0;
     sourcePanelPath[1] = 0;
-    BOOL ret = SalamanderGeneral->GetPanelPath(Panel, sourcePanelPath, MAX_PATH, &sourcePanelType, &archiveOrFS);
+    BOOL ret = SalamanderGeneral->GetPanelPath(Panel, sourcePanelPath, sourcePanelPath.Size(), &sourcePanelType, &archiveOrFS);
     if (ret)
     {
         switch (sourcePanelType)
@@ -381,7 +381,7 @@ void CConnectDialog::InitDrives()
                 {
                     strcat(sourcePanelPath, "\\");
                     strncat(sourcePanelPath, data->Name, len - 1);
-                    sourcePanelPath[MAX_PATH - 1] = 0;
+                    sourcePanelPath[sourcePanelPath.Size() - 1] = 0;
                     SetDlgItemText(HWindow, IDC_EDIT_IMAGE, sourcePanelPath);
                 }
             }
@@ -390,22 +390,22 @@ void CConnectDialog::InitDrives()
 
         case PATH_TYPE_FS:
         {
-            // Remove the "del:" prefix so the correct path is selected when opening this dialog box from an Undelete path.
+            // remove the "del:" prefix so correct path will be selected when opening this dialog box on Undelete path
             if (archiveOrFS != NULL)
                 memmove(sourcePanelPath, archiveOrFS + 1, strlen(archiveOrFS + 1) + 1);
             break;
         }
 
-        // not much can be done here
+        // can't do much about this
         default:
             break;
         }
     }
 
-    char sourcePanelGUIDPath[MAX_PATH];
-    sourcePanelGUIDPath[0] = 0;
+    CPathBuffer sourcePanelGUIDPath; // Heap-allocated for long path support
+    *sourcePanelGUIDPath = 0;
     if (!SalamanderGeneral->GetResolvedPathMountPointAndGUID(sourcePanelPath, NULL, sourcePanelGUIDPath))
-        sourcePanelGUIDPath[0] = 0;
+        *sourcePanelGUIDPath = 0;
 
     SendMessage(hList, LVM_SETIMAGELIST, LVSIL_SMALL, (LPARAM)hDrivesImg);
 
@@ -430,7 +430,7 @@ void CConnectDialog::InitDrives()
         int serial = 0;
         for (i = 0; i < volumeListing.Count; ++i)
         {
-            // for regular disks, get the icon from the system; for mount points or unmounted disks, use a plain HDD icon
+            // for simple disks get the icon from system, for mount points or unmounted disks get just plain HDD icon
             // (passing MountPoints instead of volumeName is much faster for some disks)
             HICON icn;
             if (volumeListing[i].MountPoint && (3 == strlen(volumeListing[i].MountPoint)))
@@ -488,7 +488,7 @@ BOOL CConnectDialog::OnDialogOK()
     if (BST_CHECKED == SendMessage(GetDlgItem(HWindow, IDC_CHECK_IMAGE), BM_GETCHECK, 0, 0))
     {
         // disk image
-        GetDlgItemText(HWindow, IDC_EDIT_IMAGE, Volume, MAX_PATH);
+        GetDlgItemText(HWindow, IDC_EDIT_IMAGE, Volume, Volume.Size());
 
         // reset the volume if the image file does not exist
         DWORD attr = SalamanderGeneral->SalGetFileAttributes(Volume);
@@ -510,7 +510,7 @@ BOOL CConnectDialog::OnDialogOK()
         item.iSubItem = 0;
         item.mask = LVIF_TEXT;
         item.pszText = Volume;
-        item.cchTextMax = MAX_PATH;
+        item.cchTextMax = Volume.Size();
         SendMessage(hList2, LVM_GETITEM, 0, (LPARAM)&item);
         if (Volume[0] == 0)
         {
@@ -521,14 +521,14 @@ BOOL CConnectDialog::OnDialogOK()
 
         // append current path, if current drive is selected
         int sourcePanelType;
-        char sourcePanelPath[MAX_PATH];
-        BOOL ret = SalamanderGeneral->GetPanelPath(Panel, sourcePanelPath, MAX_PATH, &sourcePanelType, NULL);
+        CPathBuffer sourcePanelPath; // Heap-allocated for long path support
+        BOOL ret = SalamanderGeneral->GetPanelPath(Panel, sourcePanelPath, sourcePanelPath.Size(), &sourcePanelType, NULL);
         if (ret && sourcePanelType == PATH_TYPE_WINDOWS)
         {
             // if mount points are supported, check if we are on the correct volume
-            char vol1[MAX_PATH], vol2[MAX_PATH];
-            if (GetVolumePathName(sourcePanelPath, vol1, MAX_PATH) &&
-                GetVolumePathName(Volume, vol2, MAX_PATH) &&
+            CPathBuffer vol1, vol2; // Heap-allocated for long path support
+            if (GetVolumePathName(sourcePanelPath, vol1, vol1.Size()) &&
+                GetVolumePathName(Volume, vol2, vol2.Size()) &&
                 !strcmp(vol1, vol2))
                 strcpy(Volume, sourcePanelPath);
         }
@@ -538,7 +538,7 @@ BOOL CConnectDialog::OnDialogOK()
 
 void CConnectDialog::OnImageBrowse()
 {
-    GetDlgItemText(HWindow, IDC_EDIT_IMAGE, Volume, MAX_PATH);
+    GetDlgItemText(HWindow, IDC_EDIT_IMAGE, Volume, Volume.Size());
 
     OPENFILENAME openInfo;
     memset(&openInfo, 0, sizeof(OPENFILENAME));
@@ -679,7 +679,7 @@ CConfigDialog::CConfigDialog(HWND parent)
 void CConfigDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CConfigDialog::Transfer()");
-    ti.EditLine(IDC_EDIT_TEMPPATH, ConfigTempPath, MAX_PATH, FALSE);
+    ti.EditLine(IDC_EDIT_TEMPPATH, ConfigTempPath, ConfigTempPath.Size(), FALSE);
     ti.CheckBox(IDC_CHECK_ALWAYSREUSE, ConfigAlwaysReuseScanInfo);
     ti.CheckBox(IDC_CHECK_SAMEPARTITION, ConfigDontShowSamePartitionWarning);
     ti.CheckBox(IDC_CHECK_EFS, ConfigDontShowEncryptedWarning);
@@ -703,8 +703,8 @@ INT_PTR CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case IDC_BUTTON_BROWSE:
         {
-            char path[MAX_PATH];
-            GetDlgItemText(HWindow, IDC_EDIT_TEMPPATH, path, MAX_PATH);
+            CPathBuffer path; // Heap-allocated for long path support
+            GetDlgItemText(HWindow, IDC_EDIT_TEMPPATH, path, path.Size());
             SalamanderGeneral->GetTargetDirectory(HWindow, HWindow, String<char>::LoadStr(IDS_UNDELETE),
                                                   String<char>::LoadStr(IDS_CHOOSETEMPDIR),
                                                   path, FALSE, path);
@@ -731,7 +731,7 @@ CRestoreDialog::CRestoreDialog(HWND parent)
 INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE4("CRestoreDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
-    char path[MAX_PATH + 300];
+    CPathBuffer path; // Heap-allocated for long path support
     switch (uMsg)
     {
     case WM_INITDIALOG:
@@ -739,13 +739,14 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
 
-        SalamanderGeneral->GetPanelPath(PANEL_TARGET, path, MAX_PATH, NULL, NULL);
+        SalamanderGeneral->GetPanelPath(PANEL_TARGET, path, path.Size(), NULL, NULL);
         SetDlgItemText(HWindow, IDC_EDIT_TARGET, path);
 
         int files, dirs;
-        char text1[200], text2[MAX_PATH + 100];
+        char text1[200];
+        CPathBuffer text2; // Heap-allocated for long path support
         SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &files, &dirs);
-        SalamanderGeneral->GetCommonFSOperSourceDescr(text2, MAX_PATH + 100, PANEL_SOURCE, files, dirs, NULL, FALSE, FALSE);
+        SalamanderGeneral->GetCommonFSOperSourceDescr(text2, text2.Size(), PANEL_SOURCE, files, dirs, NULL, FALSE, FALSE);
         GetDlgItemText(HWindow, IDC_LABEL_SOURCE, text1, 200);
         BOOL labelSet = FALSE;
         // if it is "file \"name.txt\"" or "directory \"name\"" we find the name and the remaining text
@@ -756,11 +757,11 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             char* end = strrchr(text2, '"');
             if (beg != NULL && end != NULL && beg < end && end - (beg + 1) < MAX_PATH)
             {
-                char fileName[MAX_PATH];
+                CPathBuffer fileName; // Heap-allocated for long path support
                 lstrcpyn(fileName, beg + 1, (int)(end - (beg + 1) + 1));
                 memmove(beg + 1 + 2, end, strlen(end) + 1);
                 memcpy(beg + 1, "%s", 2);
-                _snprintf_s(path, _TRUNCATE, text1, text2);
+                _snprintf_s((char*)path, path.Size(), _TRUNCATE, text1, text2.Get());
 
                 BOOL isDir = dirs == 1;
                 if (files + dirs == 0)
@@ -772,7 +773,7 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (!labelSet)
         {
-            _snprintf_s(path, _TRUNCATE, text1, text2);
+            _snprintf_s((char*)path, path.Size(), _TRUNCATE, text1, text2.Get());
             SetDlgItemText(HWindow, IDC_LABEL_SOURCE, path);
         }
         break;
@@ -785,7 +786,7 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         case IDC_BUTTON_BROWSE:
         {
             char title[100];
-            GetDlgItemText(HWindow, IDC_EDIT_TARGET, path, MAX_PATH);
+            GetDlgItemText(HWindow, IDC_EDIT_TARGET, path, path.Size());
             GetWindowText(HWindow, title, 100);
             SalamanderGeneral->GetTargetDirectory(HWindow, HWindow, title, String<char>::LoadStr(IDS_CHOOSETARGET),
                                                   path, FALSE, path);
@@ -795,7 +796,7 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case IDOK:
         {
-            GetDlgItemText(HWindow, IDC_EDIT_TARGET, TargetPath, MAX_PATH);
+            GetDlgItemText(HWindow, IDC_EDIT_TARGET, TargetPath, TargetPath.Size());
             break;
         }
         }

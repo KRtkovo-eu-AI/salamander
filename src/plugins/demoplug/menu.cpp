@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -111,7 +112,7 @@ void WINAPI DEMOPLUGOperationFromDisk(const char* sourcePath, SalEnumSelection2 
     while ((name = next(data->Parent, 3, &dosName, &isDir, &size, &attr, &lastWrite,
                         nextParam, &errorOccured)) != NULL)
     {
-        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot occur here
+        if (errorOccured == SALENUM_ERROR) // SALENUM_CANCEL cannot arrive here
             data->Success = FALSE;
         if (!isDir)
             totalSize += size;
@@ -209,33 +210,33 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 
       BOOL b2 = SalamanderGeneral->IsTheSamePath("c:\\path", "c:\\path\\");
 
-      char root[MAX_PATH];
+      CPathBuffer root;
       int len = SalamanderGeneral->GetRootPath(root, "\\\\server\\share\\test\\path");
 
-      char path[MAX_PATH];
+      CPathBuffer path;
       strcpy(path, "\\\\server\\share\\test\\path");
       char *cutDir;
       BOOL b3 = SalamanderGeneral->CutDirectory(path, &cutDir);
       strcpy(path, "\\\\server\\share\\test\\path");
-      SalamanderGeneral->SalPathAppend(path, "new", MAX_PATH);
+      SalamanderGeneral->SalPathAppend(path, "new", path.Size());
       strcpy(path, "\\\\server\\share\\test\\path");
-      SalamanderGeneral->SalPathAddBackslash(path, MAX_PATH);
+      SalamanderGeneral->SalPathAddBackslash(path, path.Size());
       strcpy(path, "\\\\server\\share\\test\\path\\");
       SalamanderGeneral->SalPathRemoveBackslash(path);
       strcpy(path, "\\\\server\\share\\test\\file");
       SalamanderGeneral->SalPathStripPath(path);
       strcpy(path, "\\\\server\\share\\test\\file.ext");
-      SalamanderGeneral->SalPathAddExtension(path, ".txt", MAX_PATH);
+      SalamanderGeneral->SalPathAddExtension(path, ".txt", path.Size());
       SalamanderGeneral->SalPathRemoveExtension(path);
-      SalamanderGeneral->SalPathAddExtension(path, ".txt", MAX_PATH);
+      SalamanderGeneral->SalPathAddExtension(path, ".txt", path.Size());
       strcpy(path, "\\\\server\\share\\test\\file.ext");
-      SalamanderGeneral->SalPathRenameExtension(path, ".txt", MAX_PATH);
+      SalamanderGeneral->SalPathRenameExtension(path, ".txt", path.Size());
       strcpy(path, "\\\\server\\share\\test\\file.ext");
       const char *name = SalamanderGeneral->SalPathFindFileName(path);
 
       strcpy(path, "path\\ignore\\..\\.\\name");
       int errTextID;
-      char nextFocus[MAX_PATH];
+      CPathBuffer nextFocus;
       SalamanderGeneral->SalUpdateDefaultDir(TRUE);
       if (!SalamanderGeneral->SalGetFullName(path, &errTextID, "c:\\junk", nextFocus))
       {
@@ -247,12 +248,12 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       char *res = SalamanderGeneral->NumberToStr(buffer, 1234567);
 */
         // test IsPluginInstalled
-        //      BOOL installed = SalamanderGeneral->IsPluginInstalled("ieviewer\\ieviewer.spl");
+        //      BOOL installed = SalamanderGeneral->IsPluginInstalled("webviewer\\webviewer.dll");
         /*
       // test ViewFileInPluginViewer
 //      CSalamanderPluginViewerData viewerData;
       CSalamanderPluginInternalViewerData viewerData;
-      char fileNameBuf[MAX_PATH];
+      CPathBuffer fileNameBuf;
       viewerData.Size = sizeof(viewerData);
       viewerData.FileName = fileNameBuf;
       DWORD error;
@@ -268,9 +269,9 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           HANDLES(CloseHandle(file));
 
           int err;
-//          BOOL ok = SalamanderGeneral->ViewFileInPluginViewer("ieviewer\\ieviewer.spl",
+//          BOOL ok = SalamanderGeneral->ViewFileInPluginViewer("webviewer\\webviewer.dll",
 //                                                              &viewerData, FALSE, NULL, NULL, err);
-//          BOOL ok = SalamanderGeneral->ViewFileInPluginViewer("ieviewer\\ieviewer.spl",
+//          BOOL ok = SalamanderGeneral->ViewFileInPluginViewer("webviewer\\webviewer.dll",
 //                                                              &viewerData, TRUE, NULL, "test.txt", err);
 //          BOOL ok = SalamanderGeneral->ViewFileInPluginViewer(NULL, &viewerData, FALSE, NULL, NULL, err);
           viewerData.Mode = 1;  // hex mode
@@ -282,7 +283,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       }
 */
         /*
-      char path[MAX_PATH];
+      CPathBuffer path;
       BOOL havePath = SalamanderGeneral->GetTargetDirectory(parent, parent, "Change Directory",
                                                             "Select the directory you want to visit.",
                                                             path, FALSE, "C:\\");
@@ -335,8 +336,8 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       else TRACE_I("Not all files and directories were processed! Processed part of selection has size of " << size.GetDouble() << " bytes.");
 */
         /*
-      char path[MAX_PATH];
-      lstrcpyn(path, "F:\\DRIVE_D", MAX_PATH);
+      CPathBuffer path;
+      lstrcpyn(path, "F:\\DRIVE_D", path.Size());
       CQuadWord total;
       CQuadWord space;
       SalamanderGeneral->GetDiskFreeSpace(&space, path, &total);
@@ -344,7 +345,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       DWORD a, b, donot_use_1, donot_use_2;
       if (SalamanderGeneral->SalGetDiskFreeSpace(path, &a, &b, &donot_use_1, &donot_use_2))
         TRACE_I("Disk parameters: " << a << ", " << b);
-      char rootOrCurReparsePoint[MAX_PATH];
+      CPathBuffer rootOrCurReparsePoint;
       char volumeNameBuffer[200];
       DWORD volumeSerialNumber;
       DWORD maximumComponentLength;
@@ -447,7 +448,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       res = SalamanderGeneral->RegSetStrCmpEx(s1, l1, s2, l2, &numericalyEqual);
 */
         /*
-      char fileComp[MAX_PATH];
+      CPathBuffer fileComp;
       BOOL ok;
       strcpy(fileComp, "prn");
       ok = SalamanderGeneral->SalIsValidFileNameComponent(fileComp);
@@ -464,7 +465,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
       }
 */
         /*
-      char firstCreatedDir[MAX_PATH];
+      CPathBuffer firstCreatedDir;
       BOOL ok = SalamanderGeneral->CheckAndCreateDirectory("C:\\test\\test_dir\\second_dir",
                                                            NULL, FALSE, NULL, 0,
                                                            firstCreatedDir);
@@ -493,7 +494,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           {
             break;
           }
-          else UpdateWindow(waitWndParent);  // redraw the parent window to remove message box remnants
+          else UpdateWindow(waitWndParent);  // avoid staring at leftover message box contents
           SalamanderGeneral->ShowSafeWaitWindow(TRUE);
         }
       }
@@ -501,7 +502,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 */
 
         /*
-      // password manager
+      // password mananger
       CSalamanderPasswordManagerAbstract *passwordManager = NULL;
       passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
       if (passwordManager != NULL)
@@ -530,11 +531,11 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
           if (passwordManager->DecryptPassword(encryptedPassword, encryptedPasswordSize, &decryptedPassword))
           {
             TRACE_I("Decrypted password: " << decryptedPassword);
-            memset(decryptedPassword, 0, lstrlen(decryptedPassword));  // clear the memory containing the plain text password
+            memset(decryptedPassword, 0, lstrlen(decryptedPassword));  // clear memory with plain password
             SalamanderGeneral->Free(decryptedPassword);
           }
 
-          if (!encrypt) memset(encryptedPassword, 0, encryptedPasswordSize);  // clear the memory containing the scrambled password
+          if (!encrypt) memset(encryptedPassword, 0, encryptedPasswordSize);  // clear memory with scrambled password
           SalamanderGeneral->Free(encryptedPassword);
         }
       }
@@ -686,10 +687,9 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
     case MENUCMD_ENTERDISKPATH: // example of validating a path entered by the user
     {
         // proposed initial string - here just the Windows path from the target panel (otherwise empty)
-        char path[MAX_PATH];
-        path[0] = 0;
+        CPathBuffer path;
         int type;
-        if (SalamanderGeneral->GetPanelPath(PANEL_TARGET, path, MAX_PATH, &type, NULL))
+        if (SalamanderGeneral->GetPanelPath(PANEL_TARGET, path, path.Size(), &type, NULL))
         {
             if (type != PATH_TYPE_WINDOWS)
                 path[0] = 0; // accept only disk paths
@@ -697,9 +697,8 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
 
         // we need the current path to convert relative paths to absolute ones
         BOOL curPathIsDisk = FALSE;
-        char curPath[MAX_PATH];
-        curPath[0] = 0;
-        if (SalamanderGeneral->GetPanelPath(PANEL_SOURCE, curPath, MAX_PATH, &type, NULL))
+        CPathBuffer curPath;
+        if (SalamanderGeneral->GetPanelPath(PANEL_SOURCE, curPath, curPath.Size(), &type, NULL))
         {
             if (type != PATH_TYPE_WINDOWS)
                 curPath[0] = 0; // accept only disk paths
@@ -726,7 +725,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
                 char* secondPart;
                 if (SalamanderGeneral->SalParsePath(parent, path, pathType, pathIsDir, secondPart,
                                                     "Path Error", NULL, curPathIsDisk, curPath,
-                                                    NULL, NULL, MAX_PATH))
+                                                    NULL, NULL, path.Size()))
                 {
                     if (pathType == PATH_TYPE_WINDOWS) // Windows path (disk + UNC)
                     {
@@ -759,7 +758,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
                         {
                             if (!filePath)
                             {
-                                // error - expected a directory path, but found a file
+                                // error - expected a file path, not a directory
                                 SalamanderGeneral->SalMessageBox(parent, "Unable to create the path specified, name has already been used for a file.",
                                                                  "Path Error", MB_OK | MB_ICONEXCLAMATION);
                                 continue; // ask again
@@ -773,7 +772,7 @@ CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* sa
                     {
                         if (pathType == PATH_TYPE_ARCHIVE && (backslashAtEnd || mustBePath)) // restore the removed backslash
                         {
-                            SalamanderGeneral->SalPathAddBackslash(path, MAX_PATH);
+                            SalamanderGeneral->SalPathAddBackslash(path, path.Size());
                         }
                         // error - FS/archive paths are not supported; ask again
                         SalamanderGeneral->SalMessageBox(parent, "File-system and archive paths are not supported here.",

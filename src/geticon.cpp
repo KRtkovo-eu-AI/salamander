@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "commoncontrols.h"
@@ -66,13 +66,13 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
 {
     BOOL ret = FALSE;
 
-    IExtractIconA* pxi = NULL; // if 'isIExtractIconW' is TRUE, this pointer is of type IExtractIconW
+    IExtractIconA* pxi = NULL; // if 'isIExtractIconW' is TRUE, this pointer is actually IExtractIconW
     BOOL isIExtractIconW = FALSE;
     HICON hIconSmall = NULL;
     HICON hIconLarge = NULL;
 
-    char iconFile[MAX_PATH];
-    WCHAR iconFileW[MAX_PATH];
+    CPathBuffer iconFile;
+    CWidePathBuffer iconFileW;
     int iconIndex;
     UINT wFlags = 0; // clear because the DWGIcon.dll shell extension just ORs these bits
 
@@ -83,7 +83,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
     HRESULT hres = psf->GetUIObjectOf(NULL, 1, &pidl, IID_IExtractIconA, NULL, (void**)&pxi);
     if (SUCCEEDED(hres))
     {
-        hres = pxi->GetIconLocation(GIL_FORSHELL, iconFile, MAX_PATH, &iconIndex, &wFlags);
+        hres = pxi->GetIconLocation(GIL_FORSHELL, iconFile, iconFile.Size(), &iconIndex, &wFlags);
         //TRACE_I("  SalGetIconFromPIDL() IID_IExtractIconA iconFile="<<iconFile<<" iconIndex="<<iconIndex<<" wFlags="<<wFlags);
     }
     else
@@ -93,12 +93,12 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         if (SUCCEEDED(hres))
         {
             isIExtractIconW = TRUE;
-            hres = ((IExtractIconW*)pxi)->GetIconLocation(GIL_FORSHELL, iconFileW, MAX_PATH, &iconIndex, &wFlags);
+            hres = ((IExtractIconW*)pxi)->GetIconLocation(GIL_FORSHELL, iconFileW, iconFileW.Size(), &iconIndex, &wFlags);
             if (SUCCEEDED(hres))
             {
                 // Convert the UNICODE string to ANSI
-                WideCharToMultiByte(CP_ACP, 0, iconFileW, -1, iconFile, MAX_PATH, NULL, NULL);
-                iconFile[MAX_PATH - 1] = 0;
+                WideCharToMultiByte(CP_ACP, 0, iconFileW, -1, iconFile, iconFile.Size(), NULL, NULL);
+                iconFile[iconFile.Size() - 1] = 0;
                 //TRACE_I("  SalGetIconFromPIDL() IID_IExtractIconW iconFile="<<iconFile<<" iconIndex="<<iconIndex<<" wFlags="<<wFlags);
             }
         }
@@ -227,7 +227,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
             else
                 hres = pxi->Extract(iconFile, iconIndex, &hIconLarge, &hIconSmall, MAKELONG(IconSizes[largeIconSize], IconSizes[ICONSIZE_16]));
             //TRACE_I("  SalGetIconFromPIDL() pxi->Extract() hIconLarge="<<hIconLarge<<" hIconSmall="<<hIconSmall<<" isIExtractIconW="<<isIExtractIconW);
-            // WARNING: for *.ai files, iconFile==0 and iconIndex==0, yet Extract() still returns an icon (apparently due to the Adobe Illustrator shell extension)
+            // WARNING: for *.ai files iconFile==0 and iconIndex==0 yet Extract() still returns an icon (Adobe Illustrator shell extension)
             // WARNING: D:\Store\Salamand\ICO_SONY\SonyF707_Day_Flash.icc returns hIconLarge==hIconSmall, both 32x32
         }
 
@@ -288,7 +288,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         // use hIconSmall for the small icon because IExtractIcon::Extract() ignores the pixel size and always returns 16 and 32
         if (iconSize == ICONSIZE_16)
         {
-            // if the small icon is missing or we were given the large icon handle, create it
+            // if the small icon is missing or we were given the handle of the large one, create it
             if (hIconSmall == NULL || hIconSmall == hIconLarge)
             {
                 hIconSmall = (HICON)CopyImage(hIconLarge, IMAGE_ICON, IconSizes[ICONSIZE_16], IconSizes[ICONSIZE_16], LR_COPYFROMRESOURCE);
@@ -303,7 +303,7 @@ BOOL SalGetIconFromPIDL(IShellFolder* psf, const char* path, LPCITEMIDLIST pidl,
         }
         else // ICONSIZE_32 || ICONSIZE_48
         {
-            // if the large icon is missing or we were given the small icon handle, create it
+            // if the large icon is missing or we were given the handle of the small one, create it
             if (hIconLarge == NULL || hIconSmall == hIconLarge)
             {
                 hIconLarge = (HICON)CopyImage(hIconSmall, IMAGE_ICON, IconSizes[largeIconSize], IconSizes[largeIconSize], LR_COPYFROMRESOURCE);
@@ -328,10 +328,10 @@ LPITEMIDLIST SHILCreateFromPath(LPCSTR pszPath)
     if (SUCCEEDED(SHGetDesktopFolder(&psfDesktop)))
     {
         ULONG cchEaten;
-        WCHAR wszPath[MAX_PATH];
+        CWidePathBuffer wszPath;
 
-        MultiByteToWideChar(CP_ACP, 0, pszPath, -1, wszPath, MAX_PATH);
-        wszPath[MAX_PATH - 1] = 0;
+        MultiByteToWideChar(CP_ACP, 0, pszPath, -1, wszPath, wszPath.Size());
+        wszPath[wszPath.Size() - 1] = 0;
 
         psfDesktop->ParseDisplayName(NULL, NULL, wszPath, &cchEaten, &pidl, NULL);
 

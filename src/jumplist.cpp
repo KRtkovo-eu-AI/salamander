@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <ShObjIdl.h>
@@ -21,8 +21,8 @@ http://msdn.microsoft.com/en-us/library/dd378460%28v=VS.85%29.aspx#custom_jump_l
 DEFINE_PROPERTYKEY(PKEY_Title, 0xF29F85E0, 0x4FF9, 0x1068, 0xAB, 0x91, 0x08, 0x00, 0x2B, 0x27, 0xB3, 0xD9, 2);
 DEFINE_PROPERTYKEY(PKEY_AppUserModel_IsDestListSeparator, 0x9F4C2855, 0x9F79, 0x4B39, 0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3, 6);
 
-// Associate the unique process ID with the configuration
-// (for example, two different versions of Salamander may have different hot paths)
+// We want to link the unique process ID with the configuration
+// (two different versions of Salamander may, for example, have different hot paths)
 //const char *SALAMANDER_APP_ID = "OPENSAL.OpenSalamanderAppID." VERSINFO_xstr(VERSINFO_BUILDNUMBER);
 
 //typedef WINSHELLAPI HRESULT (WINAPI *FT_SetCurrentProcessExplicitAppUserModelID)(PCWSTR appID);
@@ -160,17 +160,17 @@ HRESULT CreateShellLink(const char* path, const char* name, IShellLink** psl)
                                 IID_PPV_ARGS(&ret));
         if (SUCCEEDED(hres))
         {
-            char pathName[MAX_PATH];
-            GetModuleFileName(NULL, pathName, sizeof(pathName) - 1);
+            CPathBuffer pathName; // Heap-allocated for long path support
+            GetModuleFileName(NULL, pathName, pathName.Size() - 1);
 
             // Set path, parameters, icon and description.
             ret->SetPath(pathName);
             ret->SetArguments(params);
-            char desc[MAX_PATH];
+            char desc[MAX_PATH]; // kept as char[] - SetDescription API limits to MAX_PATH+1
             lstrcpyn(desc, path, _countof(desc));
             if (strlen(path) >= _countof(desc))
                 strcpy(desc + _countof(desc) - 4, "..."); // indicates the path has been truncated
-            ret->SetDescription(desc);                    // MAX_PATH+1 is the limit (at least on Windows 7, where this was tested); if it is longer, the jump list will not be shown
+            ret->SetDescription(desc);                    // MAX_PATH+1 is the limit (at least on Windows 7 where I'm testing now); longer = the jump list won't show at all
             ret->SetIconLocation("shell32.dll", -319);    // this icon exists from Windows XP onwards
 
             // To set the link title, we require the property store of the link.
@@ -218,11 +218,11 @@ HRESULT AddTasksToList(ICustomDestinationList* pcdl)
         {
             if (MainWindow->HotPaths.GetVisible(i))
             {
-                char name[MAX_PATH];
+                CPathBuffer name; // Heap-allocated for long path support
                 char path[HOTPATHITEM_MAXPATH];
                 name[0] = 0;
                 path[0] = 0;
-                MainWindow->HotPaths.GetName(i, name, MAX_PATH);
+                MainWindow->HotPaths.GetName(i, name, name.Size());
                 MainWindow->HotPaths.GetPath(i, path, HOTPATHITEM_MAXPATH);
                 if (name[0] != 0 && path[0] != 0)
                 {
@@ -284,7 +284,7 @@ void CreateJumpList()
         IID_PPV_ARGS(&pcdl));
     if (SUCCEEDED(hr))
     {
-        // Important to set up the App ID for the Jump List
+        //important to setup App Id for the Jump List
         //wchar_t appID[500];
         //ConvertA2U(SALAMANDER_APP_ID, -1, appID, _countof(appID));
         //hr = pcdl->SetAppID(appID);

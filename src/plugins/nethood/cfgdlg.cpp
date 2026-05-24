@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -14,7 +15,7 @@
 #include "cache.h"
 #include "nethood.h"
 #include "nethoodfs.h"
-#include "nethoodfs2.h"
+#include "nethood_fs_operations.h"
 #include "globals.h"
 #include "nethood.rh"
 #include "nethood.rh2"

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -47,7 +47,7 @@ BOOL CControlConnectionSocket::SetCurrentTransferMode(HWND parent, BOOL asciiMod
                            &ftpReplyCode, ftpReplyBuf, ftpReplyBufSize, FALSE, FALSE, TRUE,
                            canRetry, retryMsg, retryMsgBufSize, NULL))
         {
-            if (FTP_DIGIT_1(ftpReplyCode) == FTP_D1_SUCCESS) // a success reply was received (it should be 200)
+            if (FTP_DIGIT_1(ftpReplyCode) == FTP_D1_SUCCESS) // success is returned (should be 200)
             {
                 HANDLES(EnterCriticalSection(&SocketCritSect));
                 leaveSect = TRUE;
@@ -60,7 +60,7 @@ BOOL CControlConnectionSocket::SetCurrentTransferMode(HWND parent, BOOL asciiMod
             ret = FALSE; // error -> connection closed
     }
 
-    if (leaveSect) // the requested transfer mode has already been set successfully
+    if (leaveSect) // the requested transfer mode is already set successfully
     {
         if (success != NULL)
             *success = TRUE;
@@ -234,7 +234,7 @@ BOOL CSendCmdUserIfaceForListAndDownload::CanFinishSending(int replyCode, BOOL* 
 
 void CSendCmdUserIfaceForListAndDownload::BeforeWaitingForFinish(int replyCode, BOOL* useTimeout)
 {
-    if (FTP_DIGIT_1(replyCode) != FTP_D1_SUCCESS) // LIST did not return success, so the data connection may not close at all
+    if (FTP_DIGIT_1(replyCode) != FTP_D1_SUCCESS) // LIST does not return success - it may not close
     {                                             // the data connection (e.g., WarFTPD) - wait for the remaining data, but preferably with a timeout
         *useTimeout = TRUE;
         //    DataConnection->CloseSocketEx(NULL);   // to have something to show in the Show Raw Listing panel we must fetch the remaining data
@@ -269,8 +269,8 @@ void CSendCmdUserIfaceForListAndDownload::HandleESCWhenWaitingForFinish(HWND par
     if (esc)
     {
         // WaitWnd.SetText(LoadStr(IDS_LISTWNDABORTINGCOMMAND)); // unnecessary, the window will not be shown again
-        // while the user decides whether to abort, the data connection may finish (hence the
-        // "listing may be incomplete" message); then it makes sense to ignore the abort
+        // while the user decides how to respond to the abort, the data connection may finish (that is why
+        // the dialog says "listing may be incomplete") - then it makes sense to ignore the abort
         if (DataConnection->IsTransfering(NULL) || DataConnection->IsFlushingDataToDisk())
         {
             DataConnection->CancelConnectionAndFlushing(); // close the "data connection"; the system attempts a "graceful" shutdown (we will not learn the result)
@@ -289,7 +289,7 @@ void CSendCmdUserIfaceForListAndDownload::HandleESCWhenWaitingForFinish(HWND par
 BOOL CControlConnectionSocket::IsListCommandLIST_a()
 {
     HANDLES(EnterCriticalSection(&SocketCritSect));
-    BOOL ret = _stricmp(UseLIST_aCommand ? LIST_a_CMD_TEXT : (ListCommand != NULL && *ListCommand != 0 ? ListCommand : LIST_CMD_TEXT),
+    BOOL ret = _stricmp(UseLIST_aCommand ? LIST_a_CMD_TEXT : (!ListCommand.empty() ? ListCommand.c_str() : LIST_CMD_TEXT),
                         LIST_a_CMD_TEXT) == 0;
     HANDLES(LeaveCriticalSection(&SocketCritSect));
     return ret;
@@ -304,9 +304,7 @@ void CControlConnectionSocket::ToggleListCommandLIST_a()
             UseLIST_aCommand = FALSE;
         else
         {
-            if (ListCommand != NULL)
-                free(ListCommand);
-            ListCommand = NULL;
+            ListCommand.clear();
         }
     }
     else
@@ -330,14 +328,14 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
     *pathListingIsBroken = FALSE;
     BOOL ok = TRUE;
     BOOL ret = TRUE;
-    char cmdBuf[50 + FTP_MAX_PATH];
-    char logBuf[50 + FTP_MAX_PATH];
+    CPathBuffer cmdBuf;
+    CPathBuffer logBuf;
     char replyBuf[700];
-    char errBuf[900 + FTP_MAX_PATH];
+    CPathBuffer errBuf;
     char listCmd[FTPCOMMAND_MAX_SIZE + 2];
 
     HANDLES(EnterCriticalSection(&SocketCritSect));
-    lstrcpyn(listCmd, UseLIST_aCommand ? LIST_a_CMD_TEXT : (ListCommand != NULL && *ListCommand != 0 ? ListCommand : LIST_CMD_TEXT),
+    lstrcpyn(listCmd, UseLIST_aCommand ? LIST_a_CMD_TEXT : (!ListCommand.empty() ? ListCommand.c_str() : LIST_CMD_TEXT),
              FTPCOMMAND_MAX_SIZE);
     BOOL usePassiveModeAux = UsePassiveMode;
     int logUID = LogUID; // log UID of this connection
@@ -382,7 +380,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
             ReuseSSLSessionFailed = FALSE;
             if (ok && usePassiveModeAux) // passive mode (PASV)
             {
-                PrepareFTPCommand(cmdBuf, 50 + FTP_MAX_PATH, logBuf, 50 + FTP_MAX_PATH,
+                PrepareFTPCommand(cmdBuf, cmdBuf.Size(), logBuf, logBuf.Size(),
                                   ftpcmdPassive, NULL); // cannot fail
                 int ftpReplyCode;
                 if (SendFTPCommand(parent, cmdBuf, logBuf, NULL, GetWaitTime(WAITWND_COMOPER), NULL,
@@ -392,7 +390,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                     DWORD ip;
                     unsigned short port;
                     if (FTP_DIGIT_1(ftpReplyCode) == FTP_D1_SUCCESS &&      // success (should be 227)
-                        FTPGetIPAndPortFromReply(replyBuf, -1, &ip, &port)) // successfully obtained the IP address and port
+                        FTPGetIPAndPortFromReply(replyBuf, -1, &ip, &port)) // managed to obtain IP and port
                     {
                         dataConnection->SetPassive(ip, port, logUID);
                         dataConnection->PassiveConnect(NULL); // the first attempt; the result does not matter (it is checked later)
@@ -410,7 +408,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                 {
                     ok = FALSE;
                     if (canRetry)
-                        retryMsgAux = retryMsgBuf; // "retry" is allowed; move on to the next reconnect attempt
+                        retryMsgAux = retryMsgBuf; // "retry" is allowed; go to the next reconnect
                     else
                     {
                         *fatalError = TRUE; // fatal error
@@ -427,9 +425,9 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                 dataConnection->SetActive(logUID);
                 if (OpenForListeningAndWaitForRes(parent, dataConnection, &localIP, &localPort, &canRetry,
                                                   retryMsgBuf, 300, GetWaitTime(WAITWND_COMOPER),
-                                                  errBuf, 900 + FTP_MAX_PATH))
+                                                  errBuf, errBuf.Size()))
                 {
-                    PrepareFTPCommand(cmdBuf, 50 + FTP_MAX_PATH, logBuf, 50 + FTP_MAX_PATH,
+                    PrepareFTPCommand(cmdBuf, cmdBuf.Size(), logBuf, logBuf.Size(),
                                       ftpcmdSetPort, NULL, localIP, localPort); // cannot fail
                     int ftpReplyCode;
                     if (!SendFTPCommand(parent, cmdBuf, logBuf, NULL, GetWaitTime(WAITWND_COMOPER), NULL,
@@ -438,7 +436,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                     {                                            // error -> connection closed
                         ok = FALSE;
                         if (canRetry)
-                            retryMsgAux = retryMsgBuf; // "retry" is allowed; proceed to the next reconnect attempt
+                            retryMsgAux = retryMsgBuf; // "retry" is allowed; go to the next reconnect
                         else
                         {
                             *fatalError = TRUE; // fatal error
@@ -446,11 +444,11 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                         }
                     }
                 }
-                else // failed to open the "listen" socket for receiving the data connection from the server, so treat it as a closed connection
+                else // failed to open the "listen" socket for receiving the data connection from the server ->
                 {    // connection closed (so that the standard Retry can be used)
                     ok = FALSE;
                     if (canRetry)
-                        retryMsgAux = retryMsgBuf; // "retry" is allowed; move on to the next reconnect attempt
+                        retryMsgAux = retryMsgBuf; // "retry" is allowed; go to the next reconnect
                     else
                     {
                         *fatalError = TRUE; // fatal error
@@ -459,14 +457,14 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                 }
             }
 
-            if (ok) // if we are still connected, switch the transfer mode to ASCII (ignore the result)
+            if (ok) // if we are still connected, switch the transfer mode to ASCII (ignore success)
             {
                 ok = SetCurrentTransferMode(parent, TRUE, NULL, NULL, 0, forceRefresh, &canRetry,
                                             retryMsgBuf, 300);
                 if (!ok) // error -> connection closed
                 {
                     if (canRetry)
-                        retryMsgAux = retryMsgBuf; // "retry" is allowed; proceed to the next reconnect attempt
+                        retryMsgAux = retryMsgBuf; // "retry" is allowed; go to the next reconnect
                     else
                     {
                         *fatalError = TRUE; // fatal error
@@ -487,7 +485,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                 //        }
                 HANDLES(EnterCriticalSection(&SocketCritSect));
                 lstrcpyn(hostTmp, Host, HOST_MAX_SIZE);
-                CFTPServerPathType pathType = ::GetFTPServerPathType(ServerFirstReply, ServerSystem, path);
+                CFTPServerPathType pathType = ::GetFTPServerPathType(ServerFirstReply.c_str(), ServerSystem.c_str(), path);
                 HANDLES(LeaveCriticalSection(&SocketCritSect));
 
                 userIface.InitWnd(NULL, hostTmp, path, pathType);
@@ -513,8 +511,8 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
 
                             *pathListingIsBroken = TRUE; // to make it clear that the returned listing is not OK (VxWorks: while listing it can report "error reading entry: 16" and return "550 no files found or ...")
                         }
-                        // VMS returns 550 for an empty directory: we cannot leave this path, and the listing can safely
-                        // be treated as OK (it can even be cached - it was not interrupted, and the server
+                        // VMS returns 550 for an empty directory: we cannot leave the path and the listing can easily
+                        // be considered OK (it can even be cached - it was not interrupted and the server
                         // will most likely not return a different listing)
                         // ret = FALSE;   // stop - the path cannot be listed -> a path change is required
 
@@ -553,7 +551,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                                 else
                                 {
                                     // display the "list can be incomplete" message; the user has not been warned yet
-                                    lstrcpyn(errBuf, LoadStr(IDS_UNABLETOREADLIST), 900 + FTP_MAX_PATH);
+                                    lstrcpyn(errBuf, LoadStr(IDS_UNABLETOREADLIST), errBuf.Size());
                                     int len = (int)strlen(errBuf);
                                     BOOL systErr = FALSE;
                                     BOOL trModeHint = FTP_DIGIT_1(ftpReplyCode) == FTP_D1_TRANSIENTERROR &&
@@ -562,7 +560,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                                     if (FTP_DIGIT_1(ftpReplyCode) == FTP_D1_SUCCESS ||
                                         FTP_DIGIT_2(ftpReplyCode) != FTP_D2_CONNECTION ||
                                         noDataTrTimeout || sslErrorOccured != SSLCONERR_NOERROR)
-                                    { // if we do not have a network error description from the server, use the system description
+                                    { // if we do not have a description of the network error from the server, we settle for the system description
                                         systErr = TRUE;
                                         if (!trModeHint)
                                             trModeHint = err == WSAETIMEDOUT || sslErrorOccured != SSLCONERR_NOERROR;
@@ -592,7 +590,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                                             }
                                         }
                                     }
-                                    _snprintf_s(errBuf + len, 900 + FTP_MAX_PATH - len, _TRUNCATE,
+                                    _snprintf_s(errBuf + len, errBuf.Size() - len, _TRUNCATE,
                                                 LoadStr(systErr ? (trModeHint ? IDS_UNABLETOREADLISTSUFFIX3 : IDS_UNABLETOREADLISTSUFFIX) : (trModeHint ? IDS_UNABLETOREADLISTSUFFIX4 : IDS_UNABLETOREADLISTSUFFIX2)),
                                                 replyBuf);
                                     SalamanderGeneral->SalMessageBox(parent, errBuf,
@@ -610,12 +608,10 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                     if (userIface.WasAborted()) // the user aborted the listing, which terminated the connection (for example on sunsolve.sun.com (Sun Unix) or ftp.chg.ru) - finish with an error (an incomplete listing)
                     {
                         ok = FALSE;   // do not display the "list can be incomplete" message; the user was warned during abort
-                        if (canRetry) // take over the message for the message box that reports the connection interruption
+                        if (canRetry) // take over the message for the message box that announces the connection interruption
                         {
                             HANDLES(EnterCriticalSection(&SocketCritSect));
-                            if (ConnectionLostMsg != NULL)
-                                SalamanderGeneral->Free(ConnectionLostMsg);
-                            ConnectionLostMsg = SalamanderGeneral->DupStr(retryMsgBuf);
+                            ConnectionLostMsg = retryMsgBuf;
                             HANDLES(LeaveCriticalSection(&SocketCritSect));
                         }
                         break; // aborted
@@ -651,7 +647,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                         dataConnection->SetCertificate(pCertificate);
 
                     // change the path to 'path' (the path we are listing)
-                    PrepareFTPCommand(cmdBuf, 50 + FTP_MAX_PATH, logBuf, 50 + FTP_MAX_PATH,
+                    PrepareFTPCommand(cmdBuf, cmdBuf.Size(), logBuf, logBuf.Size(),
                                       ftpcmdChangeWorkingPath, NULL, path);
                     int ftpReplyCode;
                     if (SendFTPCommand(parent, cmdBuf, logBuf, NULL, GetWaitTime(WAITWND_COMOPER), NULL,
@@ -661,11 +657,11 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                         BOOL pathError = TRUE;
                         if (FTP_DIGIT_1(ftpReplyCode) == FTP_D1_SUCCESS) // there is hope for success; better verify the path
                         {
-                            if (GetCurrentWorkingPath(parent, cmdBuf, FTP_MAX_PATH, TRUE, &canRetry,
+                            if (GetCurrentWorkingPath(parent, cmdBuf, cmdBuf.Size(), TRUE, &canRetry,
                                                       retryMsgBuf, 300))
                             {
                                 if (strcmp(cmdBuf, path) == 0) // we have the desired working directory on the server
-                                                               // (assumption: the server always returns the same working-directory string)
+                                                               // (assumption: the server returns the same working-path string)
                                 {
                                     pathError = FALSE;
                                     ok = TRUE; // successful reconnect; list again
@@ -709,7 +705,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                         }
                     }
                 }
-                else // reconnect failed; end with an error (incomplete listing)
+                else // reconnect failed - finish with an error (an incomplete listing)
                 {
                     SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_UNABLETOREADLIST),
                                                      LoadStr(IDS_FTPERRORTITLE),
@@ -737,15 +733,15 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
             ok = FALSE;
 
             // display the "list can be incomplete" message; the user has not been warned yet
-            lstrcpyn(errBuf, LoadStr(IDS_UNABLETOREADLIST), 900 + FTP_MAX_PATH);
+            lstrcpyn(errBuf, LoadStr(IDS_UNABLETOREADLIST), errBuf.Size());
             int len = (int)strlen(errBuf);
-            _snprintf_s(errBuf + len, 900 + FTP_MAX_PATH - len, _TRUNCATE, LoadStr(IDS_UNABLETOREADLISTSUFFIX),
+            _snprintf_s(errBuf + len, errBuf.Size() - len, _TRUNCATE, LoadStr(IDS_UNABLETOREADLISTSUFFIX),
                         LoadStr(IDS_ERRDATACONDECOMPRERROR));
             SalamanderGeneral->SalMessageBox(parent, errBuf, LoadStr(IDS_FTPERRORTITLE),
                                              MB_OK | MB_ICONEXCLAMATION);
         }
 
-        *pathListingIsIncomplete = !ok; // TRUE on connection failure, interruption, or error
+        *pathListingIsIncomplete = !ok; // TRUE in case of a failure/interruption/connection error
         *pathListingMayBeOutdated = FALSE;
 
         // store the date when the listing was created
@@ -763,7 +759,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
             lstrcpyn(hostTmp, Host, HOST_MAX_SIZE);
             unsigned short portTmp = Port;
             lstrcpyn(userTmp, User, USER_MAX_SIZE);
-            CFTPServerPathType pathType = ::GetFTPServerPathType(ServerFirstReply, ServerSystem, path);
+            CFTPServerPathType pathType = ::GetFTPServerPathType(ServerFirstReply.c_str(), ServerSystem.c_str(), path);
             HANDLES(LeaveCriticalSection(&SocketCritSect));
 
             ListingCache.RefreshOnPath(hostTmp, portTmp, userTmp, pathType, path);
@@ -777,7 +773,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                 lstrcpyn(hostTmp, Host, HOST_MAX_SIZE);
                 unsigned short portTmp = Port;
                 lstrcpyn(userTmp, User, USER_MAX_SIZE);
-                CFTPServerPathType pathType = ::GetFTPServerPathType(ServerFirstReply, ServerSystem, path);
+                CFTPServerPathType pathType = ::GetFTPServerPathType(ServerFirstReply.c_str(), ServerSystem.c_str(), path);
                 BOOL isFTPS = EncryptControlConnection == 1;
                 HANDLES(LeaveCriticalSection(&SocketCritSect));
 
@@ -787,7 +783,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                                                     *pathListingStartTime);
             }
         }
-        else // on failure, interruption, or a connection error, return at least what we have (the user already knows that "list can be incomplete")
+        else // failure/interruption/connection error = return at least what we have (the user already knows that "list can be incomplete")
         {
             if (*allocatedListing != NULL)
             { // the buffer does not contain a complete listing -> trim it at the last line ending (CRLF or LF) to make it easier to work with
@@ -795,7 +791,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
                 char* s = start + *allocatedListingLen;
                 while (s > start && *(s - 1) != '\n')
                     s--;
-                if (s < start + *allocatedListingLen) // there is room to write the null terminator (just for easier debugging)
+                if (s < start + *allocatedListingLen) // there is a place to write the null terminator (just for easier debugging)
                     *s = 0;                           // either at the start of the buffer or after the last LF
                 *allocatedListingLen = (int)(s - start);
             }
@@ -803,7 +799,7 @@ BOOL CControlConnectionSocket::ListWorkingPath(HWND parent, const char* path, ch
     }
     if (dataConnection != NULL) // release and possibly close the "data connection"
     {
-        if (dataConnection->IsConnected())       // close the "data connection"; the system will attempt a graceful shutdown
+        if (dataConnection->IsConnected())       // close the "data connection"; the system attempts a "graceful"
             dataConnection->CloseSocketEx(NULL); // shutdown (we will not learn the result)
         DeleteSocket(dataConnection);
     }
@@ -1056,8 +1052,8 @@ void CControlConnectionSocket::SetupNextKeepAliveTimer()
 #endif
 
     if (!KeepAliveCmdAllBytesWritten)
-    { // this should never happen because the server's reply arrives only after the complete
-        // command has been written (the command is always written at once; it is only a few bytes)
+    { // this should never happen because the server's reply arrives only after the complete command is written
+        // of the command (the command is always written at once; it is just a few bytes)
         TRACE_E("Unexpected situation in CControlConnectionSocket::SetupNextKeepAliveTimer(): KeepAliveCmdAllBytesWritten==FALSE!");
         KeepAliveCmdAllBytesWritten = TRUE;
     }
@@ -1081,7 +1077,7 @@ void CControlConnectionSocket::SetupNextKeepAliveTimer()
         }
         else
         {
-            KeepAliveMode = kamNone;                                         // do not perform keep-alive anymore (protecting the connection is no longer useful)
+            KeepAliveMode = kamNone;                                         // we should no longer perform keep-alive (there is no point in protecting the connection anymore)
             Logs.LogMessage(LogUID, LoadStr(IDS_LOGMSGKASTOPPED), -1, TRUE); // notify the user that the keep-alive mode has stopped
         }
     }
@@ -1133,7 +1129,7 @@ void CControlConnectionSocket::ReleaseKeepAlive()
     // if the "data connection" is open, close it; it certainly will not be needed now
     if (closeDataCon != NULL)
     {
-        if (closeDataCon->IsConnected())       // close the "data connection"; the system will attempt a graceful shutdown
+        if (closeDataCon->IsConnected())       // close the "data connection"; the system attempts a "graceful"
             closeDataCon->CloseSocketEx(NULL); // shutdown (we will not learn the result)
         DeleteSocket(closeDataCon);            // release the "data connection" through a SocketsThread method call
     }
@@ -1236,7 +1232,7 @@ void CControlConnectionSocket::ReceiveTimer(DWORD id, void* param)
                     BOOL listenError;
                     if (!keepAliveDataConAux->OpenForListeningWithProxy(localIP, localPort, &listenError, &error))
                     { // failed to open the "listen" socket for receiving the data connection from
-                        // the server (a local operation, so this should almost never happen); it can also be
+                        // the server (a local operation, this should almost never happen) and it can also be
                         // an error when connecting to the proxy server
                         Logs.LogMessage(logUID, LoadStr(listenError ? IDS_LOGMSGOPENACTDATACONERROR : IDS_LOGMSGOPENACTDATACONERROR2), -1, TRUE);
                     }
@@ -1347,9 +1343,9 @@ BOOL CControlConnectionSocket::InitOperation(CFTPOperation* oper)
     CALL_STACK_MESSAGE1("CControlConnectionSocket::InitOperation()");
     HANDLES(EnterCriticalSection(&SocketCritSect));
     BOOL ret = oper->SetConnection(ProxyServer, Host, Port, User, Password, Account,
-                                   InitFTPCommands, UsePassiveMode,
-                                   UseLIST_aCommand ? LIST_a_CMD_TEXT : ListCommand,
-                                   ServerIP, ServerSystem, ServerFirstReply,
+                                   InitFTPCommands.c_str(), UsePassiveMode,
+                                   UseLIST_aCommand ? LIST_a_CMD_TEXT : ListCommand.c_str(),
+                                   ServerIP, ServerSystem.c_str(), ServerFirstReply.c_str(),
                                    UseListingsCache, HostIP);
     HANDLES(LeaveCriticalSection(&SocketCritSect));
     return ret;
@@ -1380,7 +1376,7 @@ CListingCacheItem::CListingCacheItem(const char* host, unsigned short port, cons
     if (CachedListing != NULL && cachedListing != NULL)
     {
         memcpy(CachedListing, cachedListing, cachedListingLen);
-        CachedListing[cachedListingLen] = 0; // If it is already allocated, make it null-terminated for debugging purposes
+        CachedListing[cachedListingLen] = 0; // once it is allocated there, make it null-terminated for debugging purposes
     }
     else
         err = TRUE;
@@ -1496,7 +1492,7 @@ BOOL CListingCache::GetPathListing(const char* host, unsigned short port, const 
         if (*cachedListing != NULL)
         {
             memcpy(*cachedListing, item->CachedListing, item->CachedListingLen);
-            (*cachedListing)[item->CachedListingLen] = 0; // since it is already allocated, make it null-terminated for debugging purposes
+            (*cachedListing)[item->CachedListingLen] = 0; // once it is allocated there, make it null-terminated for debugging purposes
             *cachedListingLen = item->CachedListingLen;
         }
         else
@@ -1620,7 +1616,7 @@ void CListingCache::AcceptChangeOnPathNotification(const char* userPart, BOOL in
 
     HANDLES(EnterCriticalSection(&CacheCritSect));
 
-    int delIndex = 0; // variables for block deletion (shifting the array is O(N*N), so we optimize)
+    int delIndex = 0; // variables for deleting in blocks (shifting the array is O(N*N), so we optimize)
     int delCount = 0;
     int i;
     for (i = 0; i < Cache.Count; i++)

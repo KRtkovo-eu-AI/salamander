@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1140,7 +1141,7 @@ void CRenamerDialog::LoadSelection()
     int files = 0, dirs = 0;
     SG->GetPanelSelection(PANEL_SOURCE, &files, &dirs);
 
-    SG->GetPanelPath(PANEL_SOURCE, Root, MAX_PATH, NULL, NULL);
+    SG->GetPanelPath(PANEL_SOURCE, Root, Root.Size(), NULL, NULL);
     RootLen = (int)strlen(Root);
 
     // load the selection from the panel
@@ -1197,8 +1198,8 @@ void CRenamerDialog::ReloadSourceFiles()
     EnableWindow(HWindow, FALSE);
 
     BOOL success = TRUE;
-    char pathBuf[MAX_PATH];
-    strcpy(pathBuf, Root);
+    CPathBuffer pathBuf; // Heap-allocated for long path support
+    lstrcpyn(pathBuf, Root, pathBuf.Size());
     SkipAllLongNames = FALSE;
     SkipAllBadDirs = FALSE;
     TRACE_I("start reading files");
@@ -1215,7 +1216,7 @@ void CRenamerDialog::ReloadSourceFiles()
             ProcessRenamed && i < RenamedFiles.Count ? RenamedFiles[i++] : NotRenamedFiles[j++];
         if (subdirs && item->IsDir)
         {
-            success = LoadSubdir(pathBuf, item->Name);
+            success = LoadSubdir(pathBuf, pathBuf.Size(), item->Name);
             if (!success)
                 break;
         }
@@ -1304,11 +1305,11 @@ void CRenamerDialog::ReloadSourceFiles()
     SetWait(FALSE);
 }
 
-BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
+BOOL CRenamerDialog::LoadSubdir(char* path, int pathSize, const char* subdir)
 {
     CALL_STACK_MESSAGE2("CRenamerDialog::LoadSubdir(, %s)", subdir);
-    BOOL b = SG->SalPathAppend(path, subdir, MAX_PATH);
-    if (!b || !SG->SalPathAppend(path, "*.*", MAX_PATH))
+    BOOL b = SG->SalPathAppend(path, subdir, pathSize);
+    if (!b || !SG->SalPathAppend(path, "*.*", pathSize))
     {
         if (b)
             SG->CutDirectory(path); // trim the subdirectory portion
@@ -1381,7 +1382,7 @@ BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
         {
             if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                if (!LoadSubdir(path, fd.cFileName))
+                if (!LoadSubdir(path, pathSize, fd.cFileName))
                 {
                     ret = FALSE;
                     break;
@@ -1398,7 +1399,7 @@ BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
                 if (SalMaskGroup->AgreeMasks(fd.cFileName, ext))
                 {
                     CSourceFile* item = new CSourceFile(fd, path, pathLen);
-                    if (item->NameLen < MAX_PATH)
+                    if ((int)item->NameLen < pathSize)
                         SourceFiles.Add(item);
                     else
                     {
@@ -1584,19 +1585,19 @@ void CRenamerDialog::Transfer(CTransferInfo& ti)
     if (TransferDontSaveHistory)
     {
         ti.EditLine(IDC_MASK, Mask, MAX_GROUPMASK);
-        ti.EditLine(IDC_NEWNAME, RenamerOptions.NewName, 2 * MAX_PATH);
-        ti.EditLine(IDC_SEARCH, RenamerOptions.SearchFor, 2 * MAX_PATH);
-        ti.EditLine(IDC_REPLACE, RenamerOptions.ReplaceWith, MAX_PATH);
+        ti.EditLine(IDC_NEWNAME, RenamerOptions.NewName.Get(), RenamerOptions.NewName.Size());
+        ti.EditLine(IDC_SEARCH, RenamerOptions.SearchFor.Get(), RenamerOptions.SearchFor.Size());
+        ti.EditLine(IDC_REPLACE, RenamerOptions.ReplaceWith.Get(), RenamerOptions.ReplaceWith.Size());
     }
     else
     {
         HistoryComboBox(ti, IDC_MASK, Mask, MAX_GROUPMASK, MAX_HISTORY_ENTRIES, MaskHistory);
-        HistoryComboBox(ti, IDC_NEWNAME, RenamerOptions.NewName,
-                        2 * MAX_PATH, MAX_HISTORY_ENTRIES, NewNameHistory);
-        HistoryComboBox(ti, IDC_SEARCH, RenamerOptions.SearchFor,
-                        2 * MAX_PATH, MAX_HISTORY_ENTRIES, SearchHistory);
-        HistoryComboBox(ti, IDC_REPLACE, RenamerOptions.ReplaceWith,
-                        MAX_PATH, MAX_HISTORY_ENTRIES, ReplaceHistory);
+        HistoryComboBox(ti, IDC_NEWNAME, RenamerOptions.NewName.Get(),
+                        RenamerOptions.NewName.Size(), MAX_HISTORY_ENTRIES, NewNameHistory);
+        HistoryComboBox(ti, IDC_SEARCH, RenamerOptions.SearchFor.Get(),
+                        RenamerOptions.SearchFor.Size(), MAX_HISTORY_ENTRIES, SearchHistory);
+        HistoryComboBox(ti, IDC_REPLACE, RenamerOptions.ReplaceWith.Get(),
+                        RenamerOptions.ReplaceWith.Size(), MAX_HISTORY_ENTRIES, ReplaceHistory);
     }
     ti.CheckBox(IDC_SUBDIRS, Subdirs);
     ti.CheckBox(IDC_CASESENSITIVE, RenamerOptions.CaseSensitive);

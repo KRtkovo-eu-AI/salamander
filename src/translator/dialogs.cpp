@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -55,7 +56,7 @@ void CenterWindowToWindow(HWND hWnd, HWND hBaseWnd)
 // CCommonDialog
 //
 
-BOOL CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -167,7 +168,7 @@ void CImportMUIDialog::Transfer(CTransferInfo& ti)
     ti.EditLine(IDC_IMPORTMUI_TRANSLATED, Config.LastMUITranslated, MAX_PATH);
 }
 
-BOOL CImportMUIDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CImportMUIDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -240,7 +241,7 @@ CNewDialog::Validate(CTransferInfo &ti)
       {
         DWORD err = GetLastError();
         sprintf_s(errtext, "Error opening Resource Symbols file %s.\n%s", include, GetErrorText(err));
-        MessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         ti.ErrorOn(IDC_NEW_INCLUDE);
       }
     }
@@ -248,7 +249,7 @@ CNewDialog::Validate(CTransferInfo &ti)
     {
       DWORD err = GetLastError();
       sprintf_s(errtext, "Error opening Translated file %s.\n%s", target, GetErrorText(err));
-      MessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+      TranslatorMessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
       ti.ErrorOn(IDC_NEW_DESTINATION);
     }
     CloseHandle(hSource);
@@ -257,7 +258,7 @@ CNewDialog::Validate(CTransferInfo &ti)
   {
     DWORD err = GetLastError();
     sprintf_s(errtext, "Error opening Original file %s.\n%s", source, GetErrorText(err));
-    MessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+    TranslatorMessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
     ti.ErrorOn(IDC_NEW_ORIGINAL);
   }
 }
@@ -271,7 +272,7 @@ CNewDialog::Transfer(CTransferInfo &ti)
   ti.EditLine(IDC_NEW_INCLUDE, IncludeFile, MAX_PATH);
 }
 
-BOOL
+INT_PTR
 CNewDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   switch (uMsg)
@@ -409,14 +410,14 @@ void CPropertiesDialog::Validate(CTransferInfo& ti)
     CTransferInfo_EditLineW(&ti, IDC_PRP_AUTHOR, buff, 500);
     if (lstrlenW(buff) == 0)
     {
-        MessageBox(HWindow, "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(HWindow, "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         ti.ErrorOn(IDC_PRP_AUTHOR);
     }
 
     CTransferInfo_EditLineW(&ti, IDC_PRP_WEB, buff, 500);
     if (lstrlenW(buff) == 0)
     {
-        MessageBox(HWindow, "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(HWindow, "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         ti.ErrorOn(IDC_PRP_WEB);
     }
 
@@ -427,7 +428,7 @@ void CPropertiesDialog::Validate(CTransferInfo& ti)
         CTransferInfo_EditLineW(&ti, IDC_PRP_HELPDIR, buff, 100);
         if (lstrlenW(buff) == 0)
         {
-            MessageBox(HWindow, "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(HWindow, "Empty string is not allowed here.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             ti.ErrorOn(IDC_PRP_HELPDIR);
         }
     }
@@ -460,7 +461,7 @@ void CPropertiesDialog::Transfer(CTransferInfo& ti)
         EnableWindow(GetDlgItem(HWindow, IDC_PRP_SLGINCOMPLETE), FALSE);
 }
 
-BOOL CPropertiesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CPropertiesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);
 }
@@ -545,7 +546,7 @@ void CFindDialog::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDOK), (texts | symbols) && textLen > 0);
 }
 
-BOOL CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -613,7 +614,7 @@ void CImportDialog ::Validate(CTransferInfo& ti)
     {
         DWORD err = GetLastError();
         sprintf_s(errtext, "Error opening project file %s.\n%s", project, GetErrorText(err));
-        MessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         ti.ErrorOn(IDC_NEW_ORIGINAL);
     }
 
@@ -633,7 +634,7 @@ void CImportDialog ::Validate(CTransferInfo& ti)
     {
       DWORD err = GetLastError();
       sprintf_s(errtext, "Error opening translated file %s.\n%s", translated, GetErrorText(err));
-      MessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+      TranslatorMessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
       ti.ErrorOn(IDC_NEW_DESTINATION);
     }
     CloseHandle(hSource);
@@ -642,7 +643,7 @@ void CImportDialog ::Validate(CTransferInfo& ti)
   {
     DWORD err = GetLastError();
     sprintf_s(errtext, "Error opening original file %s.\n%s", original, GetErrorText(err));
-    MessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+    TranslatorMessageBox(HWindow, errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
     ti.ErrorOn(IDC_NEW_ORIGINAL);
   }
   */
@@ -653,7 +654,7 @@ void CImportDialog::Transfer(CTransferInfo& ti)
     ti.EditLine(IDC_IMPORT_PROJECT, Project, MAX_PATH);
 }
 
-BOOL CImportDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CImportDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -725,7 +726,7 @@ void CValidateDialog::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDOK), test);
 }
 
-BOOL CValidateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CValidateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -827,7 +828,7 @@ void CAgreementDialog::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDOK), enable);
 }
 
-BOOL CAgreementDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CAgreementDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -980,7 +981,7 @@ void CAlignToDialog::OnChange()
     LayoutEditor->ApplyAlignTo(Params);
 }
 
-BOOL CAlignToDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CAlignToDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -1039,7 +1040,7 @@ void CSetSizeDialog::Validate(CTransferInfo& ti)
     ti.EditLine(IDC_SETSIZE_WIDTH_EL, wedit);
     if (w && wedit < 1)
     {
-        MessageBox(HWindow, "Enter valid width value.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(HWindow, "Enter valid width value.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         ti.ErrorOn(IDC_SETSIZE_WIDTH_EL);
     }
 
@@ -1051,7 +1052,7 @@ void CSetSizeDialog::Validate(CTransferInfo& ti)
         ti.EditLine(IDC_SETSIZE_HEIGHT_EL, hedit);
         if (h && hedit < 1)
         {
-            MessageBox(HWindow, "Enter valid height value.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(HWindow, "Enter valid height value.", ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             ti.ErrorOn(IDC_SETSIZE_HEIGHT_EL);
         }
     }
@@ -1095,7 +1096,7 @@ void CSetSizeDialog::EnableControls()
     EnableChildWindow(IDC_SETSIZE_HEIGHT_EL, h);
 }
 
-BOOL CSetSizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CSetSizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {

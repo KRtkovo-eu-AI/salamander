@@ -1,4 +1,4 @@
-/*
+﻿/*
  * winstuff.h: Windows-specific inter-module stuff.
  */
 

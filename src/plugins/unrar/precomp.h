@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -6,7 +7,7 @@
 #define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
 
 #include <windows.h>
-#include <CommDlg.h>
+#include <commdlg.h>
 #include <crtdbg.h>
 #include <ostream>
 #include <tchar.h>
@@ -28,6 +29,7 @@
 #include "dbg.h"
 
 #include "array2.h"
+
 
 #include "unrar.h"
 #include "dialogs.h"

@@ -1,7 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "plugindarkmode.h"
 
 #include "dbviewer.rh"
 #include "dbviewer.rh2"
@@ -16,7 +18,7 @@
 
 #define TIMER_SCROLL_ID 1
 
-BOOL IsAlphaNumeric[256]; // TRUE/FALSE array for characters (FALSE = not a letter or digit)
+BOOL IsAlphaNumeric[256]; // TRUE/FALSE table for characters (FALSE = neither a letter nor a digit)
 BOOL IsAlpha[256];
 
 //****************************************************************************
@@ -211,7 +213,7 @@ CRendererWindow::~CRendererWindow()
 
 void CRendererWindow::OnFileOpen()
 {
-    char file[MAX_PATH];
+    CPathBuffer file; // Heap-allocated for long path support
     file[0] = 0;
     OPENFILENAME ofn;
     memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -226,7 +228,7 @@ void CRendererWindow::OnFileOpen()
         s++;
     }
     ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
+    ofn.nMaxFile = file.Size();
     ofn.nFilterIndex = 1;
     ofn.lpstrInitialDir = NULL;
     ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
@@ -242,8 +244,8 @@ void CRendererWindow::OnFileReOpen()
     if (!Database.IsOpened())
         return;
 
-    char path[MAX_PATH];
-    lstrcpy(path, Database.GetFileName());
+    CPathBuffer path; // Heap-allocated for long path support
+    lstrcpyn(path, Database.GetFileName(), path.Size());
     OpenFile(path, FALSE);
 }
 
@@ -268,7 +270,7 @@ void CRendererWindow::OnGoto()
 
 void CRendererWindow::SetViewerTitle()
 {
-    char title[MAX_PATH + 300];
+    CPathBuffer title;
     if (Database.IsOpened())
     {
         sprintf(title, "%s - %s", Database.GetFileName(), LoadStr(IDS_PLUGINNAME));
@@ -514,7 +516,7 @@ void CRendererWindow::Find(BOOL forward, BOOL wholeWords,
             {
                 const CDatabaseColumn* column = Database.GetVisibleColumn(col);
 
-                // columns that are too narrow are not searched in non-regexp mode
+                // too narrow columns are not searched in non-regexp mode
                 // other possible optimizations: do not search DBF_FTYPE_INT_V7,
                 // DBF_FTYPE_TSTAMP, DBF_FTYPE_AUTOINC & DBF_FTYPE_DOUBLE columns if
                 // the search pattern contains non-numeric characters
@@ -541,7 +543,7 @@ void CRendererWindow::Find(BOOL forward, BOOL wholeWords,
                         LPCWSTR textW = Database.GetCellTextW(column, &textLen);
                         textLen = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, textW, (int)textLen, buf, bufSize, NULL, NULL);
                         if (textLen < 0)
-                            textLen = 0; // ignore the error
+                            textLen = 0; // Error - swallow it ;-)
                         text = buf;
                     }
                     do
@@ -580,7 +582,7 @@ void CRendererWindow::Find(BOOL forward, BOOL wholeWords,
                         }
                         return;
                     }
-                } // end of if (!bmSearchData || (column->Length >= patLen))
+                } // of if (!bmSearchData || (column->Length >= patLen))
             }
 
             if (forward)
@@ -654,10 +656,12 @@ void CRendererWindow::CreateGraphics()
     SelectObject(hDC, oldFont);
     ReleaseDC(NULL, hDC);
 
-    HGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
-    HLtGrayPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
-    HSelectionPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_ACTIVECAPTION));
-    HBlackPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNTEXT));
+    PluginDarkModeColors colors;
+    PluginDarkMode_GetColors(&colors);
+    HGrayPen = CreatePen(PS_SOLID, 0, colors.Border);
+    HLtGrayPen = CreatePen(PS_SOLID, 0, colors.DialogBackground);
+    HSelectionPen = CreatePen(PS_SOLID, 0, colors.Highlight);
+    HBlackPen = CreatePen(PS_SOLID, 0, colors.DialogText);
 }
 
 void CRendererWindow::ReleaseGraphics()
@@ -949,7 +953,7 @@ BOOL CRendererWindow::HitTestColumnSplit(int x, int* column, int* offset)
     {
         if (i > 0 && x >= colX - 3 && x <= colX)
         {
-            // if this is not the left edge of the first column and the point is within a divider range, we found it
+            // if this is not the left edge of the first column and the point overlaps a divider, we found it
             if (column != NULL)
                 *column = i - 1;
             if (offset != NULL)
@@ -1257,7 +1261,7 @@ void CRendererWindow::CopySelectionToClipboard()
                                   LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONEXCLAMATION);
         return;
     }
-    // Load data into it.
+    // naladujeme do nej data
     char* iter = buff;
     LPWSTR iterW = (LPWSTR)buff;
     int k;
@@ -1495,7 +1499,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    if (uMsg == WM_MOUSEHWHEEL) // horizontal scroll, supported from Windows Vista
+    if (uMsg == WM_MOUSEHWHEEL) // horizontall scroll, supported from Windows Vista
     {
         short zDelta = (short)HIWORD(wParam);
         if ((zDelta < 0 && MouseHWheelAccumulator > 0) || (zDelta > 0 && MouseHWheelAccumulator < 0))
@@ -1537,12 +1541,12 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DROPFILES:
     {
         UINT drag;
-        char path[MAX_PATH];
+        CPathBuffer path; // Heap-allocated for long path support
 
         drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // how many files were dropped
         if (drag > 0)
         {
-            DragQueryFile((HDROP)wParam, 0, path, MAX_PATH);
+            DragQueryFile((HDROP)wParam, 0, path, path.Size());
             OpenFile(path, TRUE);
         }
         DragFinish((HDROP)wParam);
@@ -1844,7 +1848,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (xPos >= RowHeight && yPos >= RowHeight)
         {
-            // selection across cells
+            // select pres bunky
             int x, y;
             if (HitTest(xPos, yPos, &x, &y, FALSE))
             {
@@ -1869,7 +1873,7 @@ CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (xPos >= RowHeight && yPos >= RowHeight)
         {
-            // selection across cells
+            // select pres bunky
             int x, y;
             if (HitTest(xPos, yPos, &x, &y, FALSE))
             {

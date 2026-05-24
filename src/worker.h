@@ -1,8 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include <vector>
+#include <string>
+
+class IWorkerObserver; // forward declaration for RunWorkerDirect
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
 #define MOVE_DIR_SIZE CQuadWord(5050, 0)
@@ -77,6 +82,8 @@ struct CProgressData
         *Source,
         *Preposition,
         *Target;
+    const wchar_t *SourceW,
+        *TargetW;
 };
 
 //
@@ -108,7 +115,7 @@ protected:
     DWORD MaxPacketSize;                                     // largest packet size we expect
 
 public:
-    BOOL ResetSpeed; // TRUE = the meter should probably be reset before the next speed measurement (call JustConnected); the speed drop was too large, so zero speed was displayed
+    BOOL ResetSpeed; // TRUE = the meter should be reset before the next speed measuring (call JustConnected) - the speed drop was so large we ended up displaying zero speed
 
 public:
     CTransferSpeedMeter();
@@ -125,7 +132,7 @@ public:
     // may be called from any thread
     void JustConnected();
 
-    // call after some of the data are transferred; report a data chunk: 'count' bytes
+    // call after some of the data are transfered; report a data chunk: 'count' bytes
     // transferred in 'time'; 'maxPacketSize' is the largest amount expected
     // before the next BytesReceived() call
     void BytesReceived(DWORD count, DWORD time, DWORD maxPacketSize);
@@ -182,7 +189,7 @@ public:
     // may be called from any thread
     void JustConnected();
 
-    // call after some of the data are transferred; report a data chunk: 'count' bytes
+    // call after some of the data are transfered; report a data chunk: 'count' bytes
     // transferred in 'time'; 'maxPacketSize' is the largest amount expected
     // before the next BytesReceived() call
     void BytesReceived(DWORD count, DWORD time, DWORD maxPacketSize);
@@ -201,7 +208,7 @@ enum COperationCode
     ocCountSize,
     ocConvert,
     ocLabelForSkipOfCreateDir, // label to jump to when the script skips on ocCreateDirXXX; WARNING: SourceName and TargetName store the LO- and HI-DWORD of the total file sizes (including ADS) contained in the skipped directory; WARNING: Attr stores the ocCreateDirXXX index in the COperations array for that directory
-    ocCopyDirTime,             // Move/Copy: when filterCriteria->PreserveDirTime==TRUE, copy the directory timestamps; WARNING: lastWrite is stored in SourceName and Attr (used regardless of type; just two DWORDs)
+    ocCopyDirTime,             // Move/Copy: when filterCriteria->PreserveDirTime==TRUE copy the directory timestamps; WARNING: lastWrite is stored in SourceName and Attr (applies to every type; just two DWORDs)
 };
 
 #define OPFL_OVERWROLDERALRTESTED 0x00000001 // the "overwrite older, skip other existing" test has already been performed
@@ -220,12 +227,184 @@ struct COperation
     CQuadWord FileSize; // file size, valid only for ocCopyFile and ocMoveFile
     char *SourceName,
         *TargetName;
+    std::wstring SourceNameW;  // Unicode source path (for long path and Unicode filename support)
+    std::wstring TargetNameW;  // Unicode target path (for long path and Unicode filename support)
+    bool SourceNameWExplicit = false;  // true when SetSourceNameW supplied a real wide path/name
+    bool TargetNameWExplicit = false;  // true when SetTargetNameW supplied a real wide path/name
     DWORD Attr;
     DWORD OpFlags; // combination of OPFL_xxx, see above
+
+    // Ownership flags: true = this struct owns the pointer and should free it
+    // Set to false for special opcodes that repurpose pointer fields for non-pointer data
+    // (ocCopyDirTime stores timestamp in SourceName, ocLabelForSkipOfCreateDir stores size in both,
+    // ocChangeAttrs stores attributes in TargetName)
+    bool OwnsSourceName = true;
+    bool OwnsTargetName = true;
+
+    // Default constructor - initializes pointers to NULL
+    COperation() : Opcode(ocCopyFile), Size(), FileSize(),
+                   SourceName(NULL), TargetName(NULL),
+                   Attr(0), OpFlags(0),
+                   OwnsSourceName(true), OwnsTargetName(true) {}
+
+    // Destructor - frees owned pointers
+    ~COperation()
+    {
+        if (OwnsSourceName && SourceName != NULL)
+            free(SourceName);
+        if (OwnsTargetName && TargetName != NULL)
+            free(TargetName);
+        // std::wstring members are automatically destructed
+    }
+
+    // No copy — ownership of malloc'd pointers transfers via move only
+    COperation(const COperation&) = delete;
+
+    // Move constructor - transfer ownership
+    COperation(COperation&& other) noexcept
+        : Opcode(other.Opcode), Size(other.Size), FileSize(other.FileSize),
+          SourceName(other.SourceName), TargetName(other.TargetName),
+          SourceNameW(std::move(other.SourceNameW)), TargetNameW(std::move(other.TargetNameW)),
+          SourceNameWExplicit(other.SourceNameWExplicit), TargetNameWExplicit(other.TargetNameWExplicit),
+          Attr(other.Attr), OpFlags(other.OpFlags),
+          OwnsSourceName(other.OwnsSourceName), OwnsTargetName(other.OwnsTargetName)
+    {
+        // Null out source to prevent double-free
+        other.SourceName = NULL;
+        other.TargetName = NULL;
+    }
+
+    // No copy assignment — use move
+    COperation& operator=(const COperation&) = delete;
+
+    // Move assignment - transfer ownership with proper cleanup
+    COperation& operator=(COperation&& other) noexcept
+    {
+        if (this != &other)
+        {
+            // Free existing owned pointers
+            if (OwnsSourceName && SourceName != NULL)
+                free(SourceName);
+            if (OwnsTargetName && TargetName != NULL)
+                free(TargetName);
+
+            // Move all members
+            Opcode = other.Opcode;
+            Size = other.Size;
+            FileSize = other.FileSize;
+            SourceName = other.SourceName;
+            TargetName = other.TargetName;
+            SourceNameW = std::move(other.SourceNameW);
+            TargetNameW = std::move(other.TargetNameW);
+            SourceNameWExplicit = other.SourceNameWExplicit;
+            TargetNameWExplicit = other.TargetNameWExplicit;
+            Attr = other.Attr;
+            OpFlags = other.OpFlags;
+            OwnsSourceName = other.OwnsSourceName;
+            OwnsTargetName = other.OwnsTargetName;
+
+            // Null out source to prevent double-free
+            other.SourceName = NULL;
+            other.TargetName = NULL;
+        }
+        return *this;
+    }
+
+    // Helper methods for Unicode path access
+    bool HasWideSource() const { return !SourceNameW.empty(); }
+    bool HasWideTarget() const { return !TargetNameW.empty(); }
+
+    // Populate wide paths from ANSI paths (for long path support)
+    // Note: This just widens the ANSI string. For proper Unicode filename support,
+    // the wide filename must be provided separately via SetSourceNameW/SetTargetNameW.
+    void PopulateWidePathsFromAnsi();
+
+    // Set wide paths with proper Unicode filename
+    // ansiPath: the directory path (ANSI)
+    // wideFileName: the actual Unicode filename (from CFileData::NameW), or empty to widen ANSI
+    void SetSourceNameW(const char* ansiPath, const std::wstring& wideFileName);
+    void SetTargetNameW(const char* ansiPath, const std::wstring& wideFileName);
+    void SetSourceNameW(const std::wstring& widePath, const std::wstring& wideFileName);
+    void SetTargetNameW(const std::wstring& widePath, const std::wstring& wideFileName);
+
+    // File operation helpers that automatically use wide paths when available
+    HANDLE OpenSourceFile(DWORD flags) const;
+    HANDLE OpenTargetFile(DWORD access, DWORD shareMode, DWORD disposition, DWORD flags) const;
+    HANDLE CreateTargetFileEx(DWORD desiredAccess, DWORD shareMode, DWORD flagsAndAttributes, BOOL* encryptionNotSupported) const;
+    BOOL DeleteTargetFile() const;
+    BOOL DeleteSourceFile() const;
+    BOOL SetTargetAttributes(DWORD attrs) const;
+    BOOL SetSourceAttributes(DWORD attrs) const;
+    DWORD GetTargetAttributes() const;
+    DWORD GetSourceAttributes() const;
+    BOOL ClearTargetReadOnly(DWORD attr = (DWORD)-1) const;
+    BOOL ClearSourceReadOnly(DWORD attr = (DWORD)-1) const;
+    BOOL IsSourceNameInvalid(BOOL ignInvalidName = FALSE) const;
+    BOOL IsTargetNameInvalid(BOOL ignInvalidName = FALSE) const;
+    BOOL HasSameRootPath() const;
+    BOOL AreSourceAndTargetExactlySamePath() const;
+    BOOL AreSourceAndTargetSamePath() const;
+    HANDLE FindFirstTarget(WIN32_FIND_DATAW* findData) const;
+    HANDLE FindFirstSource(WIN32_FIND_DATAW* findData) const;
+
+    // Platform-abstracted helpers for compression and file time preservation.
+    // Static because they operate on arbitrary paths, not on SourceName/TargetName.
+
+    // Wraps CreateFileW + DeviceIoControl(FSCTL_SET_COMPRESSION).
+    // Returns ERROR_SUCCESS on success, or Win32 error code.
+    static DWORD SetCompressionW(const wchar_t* path, USHORT compressionFormat);
+
+    // Saves file times, invokes a caller-supplied operation, then restores times.
+    // 'attrs' is used to determine FILE_FLAG_BACKUP_SEMANTICS for directories.
+    // 'operationFn' receives the path and should return ERROR_SUCCESS or an error code.
+    // Returns ERROR_SUCCESS on success, or the first Win32 error encountered.
+    static DWORD WithPreservedFileTimeW(const wchar_t* path, DWORD attrs,
+                                        DWORD (*operationFn)(const wchar_t* path));
 };
 
-class COperations : public TDirectArray<COperation>
+class COperations
 {
+private:
+    std::vector<COperation> m_ops;  // Operation storage - std::vector handles non-POD types correctly
+
+public:
+    int Count;  // Number of operations (kept in sync with m_ops.size())
+
+    // TDirectArray compatibility methods
+    COperation& At(int index) { return m_ops[index]; }
+    const COperation& At(int index) const { return m_ops[index]; }
+
+    int Add(COperation& op) {
+        m_ops.push_back(std::move(op));
+        // Automatically populate wide paths for long path support
+        m_ops.back().PopulateWidePathsFromAnsi();
+        Count = (int)m_ops.size();
+        return Count - 1;
+    }
+
+    BOOL IsGood() const { return TRUE; }  // std::vector doesn't have error states like TDirectArray
+
+    void ResetState() {}  // No-op: std::vector doesn't have error states
+
+    void Delete(int index) {
+        m_ops.erase(m_ops.begin() + index);
+        Count = (int)m_ops.size();
+    }
+
+    void DestroyMembers() {
+        m_ops.clear();
+        Count = 0;
+    }
+
+    // Re-anchor auto-widened SourceNameW values so paths under `anchorAnsi`
+    // are rebound to `anchorWide`. Script builders increasingly call
+    // SetSourceNameW with the panel PathW and CFileData::NameW; those explicit
+    // values are already richer than SourceName and must not be overwritten.
+    //
+    // Matching is case-insensitive on the prefix bytes; ops whose SourceName
+    // does not start with `anchorAnsi` are left untouched.
+    void ReanchorWideSourcePaths(const char* anchorAnsi, const wchar_t* anchorWide);
+
 public:
     CQuadWord TotalSize;      // WARNING: not the byte size of the files (usable only for progress calculations)
     CQuadWord CompressedSize; // sum of file sizes after compression
@@ -250,7 +429,7 @@ public:
 
     BOOL RemovableTgtDisk;      // is this writing to removable media?
     BOOL RemovableSrcDisk;      // is this reading from removable media?
-    BOOL CanUseRecycleBin;      // can the Recycle Bin be used? (only on local fixed drives)
+    BOOL CanUseRecycleBin;      // can we use the Recycle Bin? (only local fixed drives)
     BOOL SameRootButDiffVolume; // TRUE if this is a Move between paths with the same root but different volumes (at least one path contains a junction point)
     BOOL TargetPathSupADS;      // TRUE if the copy/move target supports ADS (delete the file's ADS (or the whole files) before overwriting)
                                 //    BOOL TargetPathSupEFS;       // TRUE if the copy/move target supports EFS (or less generally: it is NTFS rather than FAT)
@@ -259,9 +438,9 @@ public:
     BOOL IsCopyOrMoveOperation; // TRUE = this is a Copy/Move operation (add it to the queue of disk Copy/Move operations)
     BOOL OverwriteOlder;        // overwrite older items and skip newer ones without prompting
     BOOL CopySecurity;          // preserve NTFS permissions; FALSE = don't care = perform no extra handling and accept any result
-    BOOL CopyAttrs;             // preserve the Archive, Encrypted, and Compressed attributes; FALSE = don't care = perform no extra handling and accept any result
+    BOOL CopyAttrs;             // preserve the Archive, Encrypt, and Compress attributes; FALSE = don't care = perform no extra handling and accept any result
     BOOL PreserveDirTime;       // preserve directory timestamps (during Move we detect unintended changes and fix them manually; works e.g. on Samba)
-    BOOL StartOnIdle;           // should start only when no other operation is running
+    BOOL StartOnIdle;           // should start only when nothing else is running
     BOOL SourcePathIsNetwork;   // TRUE = the source path is a network path (UNC or mapped drive)
 
     // for the status line in the progress dialog (Copy and Move only)
@@ -272,14 +451,16 @@ public:
 
     BOOL SkipAllCountSizeErrors; // should all subsequent count-size errors be skipped?
 
-    char WorkPath1[MAX_PATH];  // when non-empty string first path processed (used for change notifications)
+    CPathBuffer WorkPath1;     // when non-empty string first path processed (used for change notifications)
     BOOL WorkPath1InclSubDirs; // TRUE/FALSE = with/without subdirectories (first path)
-    char WorkPath2[MAX_PATH];  // when non-empty string second path processed (used for change notifications)
+    CPathBuffer WorkPath2;     // when non-empty string second path processed (used for change notifications)
     BOOL WorkPath2InclSubDirs; // TRUE/FALSE = with/without subdirectories (second path)
+    std::wstring WorkPath1W;
+    std::wstring WorkPath2W;
 
-    char* WaitInQueueSubject; // text for the "waiting in queue" state: dialog title
-    char* WaitInQueueFrom;    // text for the "waiting in queue" state: top line (From)
-    char* WaitInQueueTo;      // text for the "waiting in queue" state: bottom line (To)
+    std::string WaitInQueueSubject; // text for the "waiting in queue" state: dialog title
+    std::string WaitInQueueFrom;    // text for the "waiting in queue" state: top line (From)
+    std::string WaitInQueueTo;      // text for the "waiting in queue" state: bottom line (To)
 
 private:
     // for the status line in the progress dialog (Copy and Move only)
@@ -302,21 +483,33 @@ private:
     DWORD ProgressBufferLimit;    // copy buffer size limit to keep progress updates reasonably frequent
     DWORD LastProgBufLimTestTime; // GetTickCount() from the last ProgressBufferLimit size evaluation
     DWORD LastFileBlockCount;     // blocks copied since the last file started (WARNING: overflow-protected; values > 1000000 mean "a lot", the exact amount doesn't matter)
-    DWORD LastFileStartTime;      // GetTickCount() value from when the last file started copying
+    DWORD LastFileStartTime;      // GetTickCount() from when we started copying the last file
 
 public:
-    COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom, char* waitInQueueTo);
+    COperations(int base, int delta, const char* waitInQueueSubject, const char* waitInQueueFrom, const char* waitInQueueTo);
     ~COperations() { HANDLES(DeleteCriticalSection(&StatusCS)); }
 
     void SetWorkPath1(const char* path, BOOL inclSubDirs)
     {
-        lstrcpyn(WorkPath1, path, MAX_PATH);
+        lstrcpyn(WorkPath1.Get(), path, SAL_MAX_LONG_PATH);
         WorkPath1InclSubDirs = inclSubDirs;
     }
 
     void SetWorkPath2(const char* path, BOOL inclSubDirs)
     {
-        lstrcpyn(WorkPath2, path, MAX_PATH);
+        lstrcpyn(WorkPath2.Get(), path, SAL_MAX_LONG_PATH);
+        WorkPath2InclSubDirs = inclSubDirs;
+    }
+
+    void SetWorkPath1W(const wchar_t* path, BOOL inclSubDirs)
+    {
+        WorkPath1W = path != NULL ? path : L"";
+        WorkPath1InclSubDirs = inclSubDirs;
+    }
+
+    void SetWorkPath2W(const wchar_t* path, BOOL inclSubDirs)
+    {
+        WorkPath2W = path != NULL ? path : L"";
         WorkPath2InclSubDirs = inclSubDirs;
     }
 
@@ -354,7 +547,7 @@ protected:
 
     // OperDlgs and OperPaused arrays have the same number of elements and share indices (each operation uses the same index in both arrays)
     TDirectArray<HWND> OperDlgs;    // array of HWND handles: dialogs of operations in the queue
-    TDirectArray<DWORD> OperPaused; // array of int values describing the operation state in the queue: 2/1/0 = "manually-paused"/"auto-paused"/"running"
+    TDirectArray<DWORD> OperPaused; // int array describing queue operation state: 2/1/0 = "manually-paused"/"auto-paused"/"running"
 
 public:
     COperationsQueue() : OperDlgs(5, 10), OperPaused(5, 10)
@@ -370,7 +563,7 @@ public:
 
     // adds an operation to the queue; returns TRUE on success, otherwise the addition failed (not enough memory);
     // 'dlg' is the handle of the operation dialog window; 'startOnIdle' is TRUE if the operation should start
-    // only when no other operation is running; in 'startPaused' (must not be NULL) it returns TRUE when
+    // only when nothing else is running; in 'startPaused' (must not be NULL) it returns TRUE when
     // the added operation should start "paused", otherwise it starts "running"
     BOOL AddOperation(HWND dlg, BOOL startOnIdle, BOOL* startPaused);
 
@@ -398,6 +591,13 @@ extern COperationsQueue OperationsQueue; // queue of disk Copy/Move operations
 HANDLE StartWorker(COperations* script, HWND hDlg, CChangeAttrsData* attrsData,
                    CConvertData* convertData, HANDLE wContinue, HANDLE workerNotSuspended,
                    BOOL* cancelWorker, int* operationProgress, int* summaryProgress);
+
+// Headless worker execution — runs operations synchronously on the calling thread.
+// Uses the provided IWorkerObserver instead of the progress dialog.
+// Returns TRUE if all operations completed without error, FALSE on error/cancel.
+BOOL RunWorkerDirect(COperations* script, IWorkerObserver& observer,
+                     CChangeAttrsData* attrsData = NULL, CConvertData* convertData = NULL,
+                     bool headless = false);
 
 void FreeScript(COperations* script);
 
@@ -505,23 +705,24 @@ typedef struct
 } FILE_STREAM_INFORMATION, *PFILE_STREAM_INFORMATION;
 #pragma pack()
 
-// determines the alternate data streams (ADS) of a file/directory ('isDir' is FALSE/TRUE)
-// for 'fileName'; meaningful only on NTFS volumes; if 'adsSize' is not NULL, it returns the
-// sum of the sizes of all ADS; if 'streamNames' is not NULL, it returns an allocated array
-// of Unicode names of all ADS (except the default ADS) - the elements of the array are allocated,
-// and the caller must deallocate them and the array itself; the array of names is returned only
+// enumerates alternate data streams (ADS) of a file/directory ('isDir' is FALSE/TRUE)
+// 'fileName'; meaningful only on NTFS disks; if 'adsSize' is not NULL it returns the
+// sum of the sizes of all ADS; if 'streamNames' is not NULL it returns an allocated array
+// of Unicode names of all ADS (except the default ADS) - the elements of the array are allocated
+// the caller must dealocate them and the array itself; the array of names is returned only
 // if no error occurred (see 'lowMemory' and 'winError') and ADS were found (the function
-// returns TRUE); if 'streamNamesCount' is not NULL, it returns the number of elements
-// in 'streamNames'; if 'lowMemory' is not NULL, it returns TRUE when an out-of-memory
-// error occurs (possible only when 'streamNames' is not NULL); if 'winError' is not NULL,
-// Returns the Windows error code (NO_ERROR if none occurred - if a Windows error occurs,
+// returns TRUE); if 'streamNamesCount' is not NULL it returns the number of elements
+// in 'streamNames'; if 'lowMemory' is not NULL it returns TRUE when an out-of-memory
+// error occurs (only possible when 'streamNames' is not NULL); if 'winError' is not NULL
+// it returns the Windows error code (NO_ERROR if none occurred - if a Windows error occurs,
 // the function always returns FALSE); the function returns TRUE if the file/directory
-// contains any ADS, otherwise FALSE; 'bytesPerCluster' is the cluster size
-// used to compute the disk space occupied by the ADS (0 = unknown size);
-// in 'adsOccupiedSpace' (if not NULL), it returns the disk space occupied by the ADS;
-// in 'onlyDiscardableStreams' (if not NULL), it returns TRUE if only ADS
+// contains ADS, otherwise FALSE; 'bytesPerCluster' is the cluster size
+// used to compute disk space occupied by the ADS (0 = unknown size);
+// in 'adsOccupiedSpace' (if not NULL) it returns the disk space occupied by the ADS;
+// in 'onlyDiscardableStreams' (if not NULL) it returns TRUE if only ADS
 // that can be discarded without prompting were found (currently only thumbnails from W2K)
 BOOL CheckFileOrDirADS(const char* fileName, BOOL isDir, CQuadWord* adsSize, wchar_t*** streamNames,
                        int* streamNamesCount, BOOL* lowMemory, DWORD* winError,
                        DWORD bytesPerCluster, CQuadWord* adsOccupiedSpace,
-                       BOOL* onlyDiscardableStreams);
+                       BOOL* onlyDiscardableStreams,
+                       const std::wstring& fileNameW = std::wstring());

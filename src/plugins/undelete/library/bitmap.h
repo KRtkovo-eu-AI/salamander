@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -13,7 +13,7 @@
 //   significant bit in BitmapPartsH.
 //
 
-#define BITMAP_PART_SIZE (5 * 1000 * 1024) // keep this constant DWORD-aligned
+#define BITMAP_PART_SIZE (5 * 1000 * 1024) // keep this const DWORD aligned!
 
 class CClusterBitmap
 {

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -15,7 +16,7 @@
 
 void RaiseError(LPCOLESTR pszDescription, REFIID riid, LPCOLESTR pszProgId);
 
-/// \param nIdDescription Identifier of the string in the language
+/// \param nIdDescription Idenfier of the string in the language
 ///        module that describes the error.
 void RaiseError(int nIdDescription, REFIID riid, LPCOLESTR pszProgId);
 

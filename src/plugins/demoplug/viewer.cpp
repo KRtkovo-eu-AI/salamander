@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -72,7 +73,7 @@ MENU_TEMPLATE_ITEM PopupMenuTemplate[] =
 
 struct CButtonData
 {
-    int ImageIndex;                   // zero-based index
+    int ImageIndex;                   // zero base index
     WORD ToolTipResID;                // resource ID containing the tooltip string
     WORD ID;                          // generic command ID
     CViewerWindowEnablerEnum Enabler; // control variable that enables the button
@@ -116,7 +117,7 @@ void ReleaseViewer()
     ViewerAccels = NULL;
 }
 
-/*   // variant of starting the viewer thread without using the CThread object
+/*   // viewer thread start variant without using the CThread object
 struct CTVData
 {
   BOOL AlwaysOnTop;
@@ -136,7 +137,7 @@ unsigned WINAPI ViewerThreadBody(void *param)
   SetThreadNameInVCAndTrace("DOP Viewer");
   TRACE_I("Begin");
 
-  // application crash example
+  // sample application crash
 //  int *p = 0;
 //  *p = 0;       // ACCESS VIOLATION !
 
@@ -156,8 +157,8 @@ unsigned WINAPI ViewerThreadBody(void *param)
       if (CfgSavePosition && CfgWindowPlacement.length != 0)
       {
         WINDOWPLACEMENT place = CfgWindowPlacement;
-        // GetWindowPlacement takes the taskbar into account, so if the taskbar is at the top or left,
-        // the coordinates are offset by its size. Correct them.
+        // GetWindowPlacement respects the taskbar so if it sits at the top or left,
+        // the coordinates are offset by its size; correct them.
         RECT monitorRect;
         RECT workRect;
         SalamanderGeneral->MultiMonGetClipRectByRect(&place.rcNormalPosition, &workRect, &monitorRect);
@@ -171,7 +172,7 @@ unsigned WINAPI ViewerThreadBody(void *param)
         data->ShowCmd = place.showCmd;
       }
 
-      // NOTE: on an existing window/dialog, making it topmost is easy:
+      // NOTE: on an existing window/dialog the top-most state is easy to apply:
       //   SetWindowPos(HWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
       if (window->CreateEx(data->AlwaysOnTop ? WS_EX_TOPMOST : 0,
@@ -201,10 +202,10 @@ unsigned WINAPI ViewerThreadBody(void *param)
   }
 
   CALL_STACK_MESSAGE1("ViewerThreadBody::SetEvent");
-  char name[MAX_PATH];
+  CPathBuffer name;
   strcpy(name, data->Name);
   BOOL openFile = data->Success;
-  SetEvent(data->Continue);    // let the main thread continue; past this point the data are no longer valid (=NULL)
+  SetEvent(data->Continue);    // wake the main thread; the data are no longer valid past this point (=NULL)
   data = NULL;
 
   // if everything went well, open the requested file in the window
@@ -239,8 +240,8 @@ CPluginInterfaceForViewer::ViewFile(const char *name, int left, int top, int wid
                                     BOOL *lockOwner, CSalamanderPluginViewerData *viewerData,
                                     int enumFilesSourceUID, int enumFilesCurrentIndex)
 {
-  // DemoPlug does not use 'viewerData'; otherwise the values would have to be passed
-  // via CTVData to the viewer thread, not by reference...
+  // DemoPlug does not use 'viewerData'; otherwise we would pass the values (not references)
+  // via CTVData to the viewer thread...
 
   CTVData data;
   data.AlwaysOnTop = alwaysOnTop;
@@ -263,7 +264,7 @@ CPluginInterfaceForViewer::ViewFile(const char *name, int left, int top, int wid
 
   if (ThreadQueue.StartThread(ViewerThreadBody, &data))
   {
-    // wait until the thread processes the supplied data and returns the results
+    // wait until the thread processes the supplied data and returns results
     WaitForSingleObject(data.Continue, INFINITE);
   }
   else data.Success = FALSE;
@@ -275,7 +276,7 @@ CPluginInterfaceForViewer::ViewFile(const char *name, int left, int top, int wid
 class CViewerThread : public CThread
 {
 protected:
-    char Name[MAX_PATH];
+    CPathBuffer Name;
     int Left, Top, Width, Height;
     UINT ShowCmd;
     BOOL AlwaysOnTop;
@@ -287,7 +288,7 @@ protected:
     BOOL* Success;
 
     int EnumFilesSourceUID;    // UID of the source used to enumerate files in the viewer
-    int EnumFilesCurrentIndex; // index of the first file in the viewer within the source
+    int EnumFilesCurrentIndex; // index of the first viewer file in the source
 
 public:
     CViewerThread(const char* name, int left, int top, int width, int height,
@@ -296,7 +297,7 @@ public:
                   BOOL* success, int enumFilesSourceUID,
                   int enumFilesCurrentIndex) : CThread("DOP Viewer")
     {
-        lstrcpyn(Name, name, MAX_PATH);
+        lstrcpyn(Name, name, Name.Size());
         Left = left;
         Top = top;
         Width = width;
@@ -607,7 +608,7 @@ BOOL CViewerWindow::InitializeGraphics()
 
     BOOL ok = SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
                                                            hTmpGrayBitmap, hTmpMaskBitmap);
-    if (ok) // put the obtained bitmap handles into HANDLES (manual insertion example)
+    if (ok) // put the obtained bitmap handles into HANDLES (manual insertion example; easier
     {       // in this scenario DeleteObject follows immediately, so use the NOHANDLES macro with DeleteObject)
         HANDLES_ADD(__htBitmap, __hoCreateDIBitmap, hTmpGrayBitmap);
         HANDLES_ADD(__htBitmap, __hoCreateDIBitmap, hTmpMaskBitmap);
@@ -726,7 +727,7 @@ void FillMenuFilter(CGUIMenuPopupAbstract* popup, int cmdFirst, int filterCount)
     mi.Type = MENU_TYPE_STRING;
     mi.State = 0;
 
-    char buff[MAX_PATH + 3];
+    CPathBuffer buff;
     mi.String = buff;
     int index = 0;
     while (index < filterCount)
@@ -746,7 +747,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         InitializeGraphics();
-        DragAcceptFiles(HWindow, TRUE); // enable drag-and-drop file opening
+        DragAcceptFiles(HWindow, TRUE); // drag&drop open file
         MainMenu = SalamanderGUI->CreateMenuPopup();
         if (MainMenu == NULL)
             return -1;
@@ -801,7 +802,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
-        DragAcceptFiles(HWindow, FALSE); // disable drag-and-drop file opening
+        DragAcceptFiles(HWindow, FALSE); // drag&drop open file
         if (CfgSavePosition)
         {
             CfgWindowPlacement.length = sizeof(WINDOWPLACEMENT);
@@ -841,12 +842,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DROPFILES: // drag&drop open file
     {
         UINT drag;
-        char path[MAX_PATH];
+        CPathBuffer path;
 
         drag = DragQueryFile((HDROP)wParam, 0xFFFFFFFF, NULL, 0); // how many files were dropped
         if (drag > 0)
         {
-            DragQueryFile((HDROP)wParam, 0, path, MAX_PATH);
+            DragQueryFile((HDROP)wParam, 0, path, path.Size());
             OpenFile(path);
         }
         DragFinish((HDROP)wParam);
@@ -878,9 +879,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HDWP hdwp = HANDLES(BeginDeferWindowPos(2));
             if (hdwp != NULL)
             {
-                // +4: when increasing the window width, the last four pixels did not repaint
-                // in the rebar; the cause was not found after several hours; it works in Salamander;
-                // keep this workaround for now; maybe the cause will become clear later
+                // +4: when widening the window the last four pixels refused to repaint
+                // in the rebar; even after hours I could not find the cause; Salamander handles it fine;
+                // this workaround suffices for now; maybe I will remember the cause later
                 hdwp = HANDLES(DeferWindowPos(hdwp, HRebar, NULL,
                                               0, 0, r.right + 4, rebarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
@@ -954,7 +955,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 BOOL ok = FALSE;
                 BOOL srcBusy = FALSE;
                 BOOL noMoreFiles = FALSE;
-                char fileName[MAX_PATH];
+                CPathBuffer fileName;
                 fileName[0] = 0;
                 if (shiftPressed) // obsolete hotkey: use Backspace instead (see PictView, File/Other Files for the key bindings)
                 {
@@ -1082,7 +1083,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case CM_VIEWER_OPEN:
         {
-            char file[MAX_PATH];
+            CPathBuffer file;
             file[0] = 0;
             OPENFILENAME ofn;
             memset(&ofn, 0, sizeof(OPENFILENAME));
@@ -1099,12 +1100,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 s++;
             }
             ofn.lpstrFile = file;
-            ofn.nMaxFile = MAX_PATH;
+            ofn.nMaxFile = file.Size();
             ofn.nFilterIndex = 1;
-            char curDir[MAX_PATH];
-            lstrcpyn(curDir, Name, MAX_PATH);
+            CPathBuffer curDir;
+            lstrcpyn(curDir, Name, curDir.Size());
             SalamanderGeneral->CutDirectory(curDir);
-            ofn.lpstrInitialDir = curDir[0] != 0 ? curDir : NULL;
+            ofn.lpstrInitialDir = curDir[0] != 0 ? (const char*)curDir : NULL;
             ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 
             if (SalamanderGeneral->SafeGetOpenFileName(&ofn))

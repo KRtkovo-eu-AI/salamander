@@ -1,4 +1,4 @@
-#ifndef PUTTY_PUTTYEXP_H
+﻿#ifndef PUTTY_PUTTYEXP_H
 #define PUTTY_PUTTYEXP_H
 
 // from ssh.c

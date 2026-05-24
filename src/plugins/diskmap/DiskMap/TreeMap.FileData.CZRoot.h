@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -42,8 +43,8 @@ protected:
     static DWORD_PTR WINAPI PopulateThreadProc(CWorkerThread* mythread, LPVOID lpParam)
     {
         CZRoot* self = (CZRoot*)lpParam;
-        TCHAR path[2 * MAX_PATH + 3]; //fits a MAX_PATH path + MAX_PATH-long file name + some margin
-        self->PopulateDir(mythread, path, 0, ARRAYSIZE(path));
+        CPathBuffer path;
+        self->PopulateDir(mythread, path, 0, path.Size());
         if (mythread->Aborting() && mythread->IsSelfDelete())
         {
             delete self;
@@ -89,7 +90,7 @@ public:
     CZRoot(TCHAR const* name, CLogger* logger, int sortorder = FILESIZE_DISK) : CZDirectory(NULL, name, NULL, NULL)
     {
         this->_clustersize = 0;
-        this->_minimalfilesize = 0; // TODO: use 512 for NTFS
+        this->_minimalfilesize = 0; //TODO: pro NTFS = 512
 
         this->_allfilecount = 0;
         this->_alldircount = 0;
@@ -109,7 +110,7 @@ public:
     }
     int GetSortOrder() { return this->_sortorder; }
 
-    // FIXME: this is a hack.
+//FIXME: this is a hack :(
     void SetClusterSize(int clustersize)
     {
         this->_clustersize = clustersize;
@@ -120,8 +121,8 @@ public:
             return 0;
         if (!this->_clustersize)
         {
-            TCHAR path[MAX_PATH + 1];
-            size_t pos = this->GetFullName(path, MAX_PATH - 2);
+            CPathBuffer path;
+            size_t pos = this->GetFullName(path, path.Size() - 3);
             if (path[pos - 1] != TEXT('\\'))
                 path[pos++] = TEXT('\\');
             path[pos++] = TEXT('\0');
@@ -156,8 +157,8 @@ public:
 
     INT64 SyncPopulate()
     {
-        TCHAR path[2 * MAX_PATH + 3]; //fits a MAX_PATH path + MAX_PATH-long file name + some margin
-        return this->PopulateDir(NULL, path, 0, ARRAYSIZE(path));
+        CPathBuffer path;
+        return this->PopulateDir(NULL, path, 0, path.Size());
     }
 
     CWorkerThread* BeginAsyncPopulate(HWND owner, UINT msg)

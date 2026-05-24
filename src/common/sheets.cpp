@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -22,8 +22,21 @@
 #include "winlib.h"
 #include "multimon.h"
 #include "sheets.h"
+#ifndef __TRACESERVER
+#include "darkmode.h"
+#endif
 
 extern CWinLibHelp* WinLibHelp;
+
+static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HBRUSH hBrush = CreateSolidBrush(color);
+    if (hBrush != NULL)
+    {
+        FillRect(hDC, rect, hBrush);
+        DeleteObject(hBrush);
+    }
+}
 
 //
 // ****************************************************************************
@@ -45,7 +58,7 @@ void CElasticLayout::AddResizeCtrl(int resID)
         RECT r;
         GetWindowRect(hChild, &r);
 
-        // if the control's bottom edge is below SplitY, move the SplitY boundary
+        // if the bottom edge of the control is larger than SplitY, move the SplitY border
         POINT p = {r.right, r.bottom};
         ScreenToClient(HWindow, &p);
         if (p.y > SplitY)
@@ -68,7 +81,7 @@ CElasticLayout::FindMoveControls(HWND hChild, LPARAM lParam)
 {
     CElasticLayout* el = (CElasticLayout*)lParam;
 
-    // if the control is below SplitY, add it to the list of controls to move
+    // if the element is below SplitY, add it to the list of elements to be moved
     RECT r;
     GetWindowRect(hChild, &r);
     POINT p = {r.left, r.top};
@@ -88,7 +101,7 @@ void CElasticLayout::FindMoveCtrls()
 {
     EnumChildWindows(HWindow, FindMoveControls, (LPARAM)this);
 
-    // find the bounding box of all 'move' controls
+    // find the envelope of all 'move' elements
     RECT rEnvelope = {0};
     for (int i = 0; i < MoveCtrls.Count; i++)
     {
@@ -108,11 +121,11 @@ void CElasticLayout::FindMoveCtrls()
     POINT p = {rEnvelope.right, rEnvelope.bottom};
     ScreenToClient(HWindow, &p);
     int envelopeBottom = p.y;
-    // 'MoveCtrlsY' coordinates are relative to the bottom edge of the bounding box
+    // coordinates 'MoveCtrlsY' will be relative to the bottom edge of the envelope
     for (int i = 0; i < MoveCtrls.Count; i++)
         MoveCtrls[i].Pos.y = envelopeBottom - MoveCtrls[i].Pos.y;
 
-    // for ResizeCtrls, store the distance from their bottom edge to the bottom edge of the bounding box
+    // for ResizeCtrls elements store their distance from the bottom edge to the bottom edge of the envelope
     for (int i = 0; i < ResizeCtrls.Count; i++)
     {
         if (ResizeCtrls[i].Pos.y == 0)
@@ -199,11 +212,12 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
     Flags = flags;
     Icon = icon;
 
-    ParentDialog = NULL; // set by CPropertyDialog::Execute()
+    ParentDialog = NULL; // set from CPropertyDialog::Execute()
     ParentPage = NULL;
     HTreeItem = NULL;
     Expanded = NULL;
     ElasticLayout = NULL;
+    DarkModeGroupBoxThemeEnabled = FALSE;
 }
 
 CPropSheetPage::~CPropSheetPage()
@@ -291,7 +305,11 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         TransferData(ttDataToWindow);
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
-        return TRUE; // let DefDlgProc set the focus
+#ifndef __TRACESERVER
+        if (DarkModeGroupBoxThemeEnabled)
+            DarkMode_ApplyGroupBoxThemeRecursive(HWindow);
+#endif
+        return TRUE; // I want focus from DefDlgProc
     }
 
     case WM_SIZE:
@@ -310,7 +328,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                (GetKeyState(VK_SHIFT) & 0x8000) != 0);
             return TRUE;
         }
-        break; // Let F1 propagate to the parent
+        break; // F1 let through to parent
     }
 
     case WM_CONTEXTMENU:
@@ -320,13 +338,40 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return TRUE;
     }
 
+#ifndef __TRACESERVER
+    case WM_ERASEBKGND:
+    {
+        DarkModeColors colors;
+        if (DarkMode_GetColors(&colors))
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            FillRectWithColor((HDC)wParam, &r, colors.DialogBackground);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    {
+        HBRUSH hBrush = DarkMode_GetDialogCtlColorBrush(uMsg, (HDC)wParam, (HWND)lParam);
+        if (hBrush != NULL)
+            return (INT_PTR)hBrush;
+        break;
+    }
+#endif
+
     case WM_NOTIFY:
     {
         if (((NMHDR*)lParam)->code == PSN_KILLACTIVE) // page deactivation
         {
             if (ValidateData())
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
-            else // do not allow the page to be deactivated
+            else // do not allow page deactivation
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
             return TRUE;
         }
@@ -341,7 +386,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         if (((NMHDR*)lParam)->code == PSN_APPLY)
-        { // ApplyNow or OK button pressed
+        { // Apply Now or OK button pressed
             if (TransferData(ttDataFromWindow))
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, PSNRET_NOERROR);
             else
@@ -351,14 +396,14 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (((NMHDR*)lParam)->code == PSN_WIZFINISH)
         { // Finish button pressed
-            // PSN_KILLACTIVE did not arrive, so run validation
+            // PSN_KILLACTIVE did not arrive - perform validation
             if (!ValidateData())
             {
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
                 return TRUE;
             }
 
-            // iterate over all pages for transfer
+            // iterate through all pages for transfer
             for (int i = 0; i < ParentDialog->Count; i++)
             {
                 if (ParentDialog->At(i)->HWindow != NULL)
@@ -375,6 +420,31 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+#ifndef __TRACESERVER
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkMode_OnSettingChange(lParam))
+        {
+            DarkMode_ApplyTitleBar(HWindow);
+            DarkMode_ApplyListTreeThemeRecursive(HWindow);
+            if (DarkModeGroupBoxThemeEnabled)
+                DarkMode_ApplyGroupBoxThemeRecursive(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+        }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkMode_ApplyTitleBar(HWindow);
+        DarkMode_ApplyListTreeThemeRecursive(HWindow);
+        if (DarkModeGroupBoxThemeEnabled)
+            DarkMode_ApplyGroupBoxThemeRecursive(HWindow);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+#endif
     }
     return FALSE;
 }
@@ -386,7 +456,7 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
     CPropSheetPage* dlg;
     switch (uMsg)
     {
-    case WM_INITDIALOG: // first message - attach the object to the dialog
+    case WM_INITDIALOG: // first message - attach object to dialog
     {
         dlg = (CPropSheetPage*)((PROPSHEETPAGE*)lParam)->lParam;
         if (dlg == NULL)
@@ -398,25 +468,25 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
         {
             dlg->HWindow = hwndDlg;
             dlg->Parent = ::GetParent(hwndDlg);
-            //--- add the window identified by hwndDlg to the window list
+            //--- insert window according to hwndDlg into the list of windows
             if (!WindowsManager.AddWindow(hwndDlg, dlg)) // error
             {
                 TRACE_ET(_T("Unable to create dialog."));
                 return TRUE;
             }
-            dlg->NotifDlgJustCreated(); // added as a place to adjust the dialog layout
+            dlg->NotifDlgJustCreated(); // introduced as a place to modify dialog layout
         }
         break;
     }
 
-    case WM_DESTROY: // last message - detach the object from the dialog
+    case WM_DESTROY: // last message - detach object from dialog
     {
         dlg = (CPropSheetPage*)WindowsManager.GetWindowPtr(hwndDlg);
-        INT_PTR ret = FALSE; // in case it does not handle the message
+        INT_PTR ret = FALSE; // in case it is not processed
         if (dlg != NULL && dlg->Is(otDialog))
         {
-            // Petr: moved this below wnd->WindowProc() so messages still arrive during WM_DESTROY
-            //       (Lukas needed this)
+            // Petr: I moved down below wnd->WindowProc() so that during WM_DESTROY
+            //       messages still arrive (Lukas needed it)
             // WindowsManager.DetachWindow(hwndDlg);
 
             ret = dlg->DialogProc(uMsg, wParam, lParam);
@@ -425,7 +495,7 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
             if (dlg->IsAllocated())
                 delete dlg;
             else
-                dlg->HWindow = NULL; // detached state
+                dlg->HWindow = NULL; // information about detachment
         }
         return ret;
     }
@@ -442,11 +512,19 @@ CPropSheetPage::CPropSheetPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 #endif
     }
     }
-    //--- call DialogProc(...) of the corresponding dialog object
+    //--- call DialogProc(...) method of the corresponding dialog object
+    INT_PTR dlgRes;
     if (dlg != NULL)
-        return dlg->DialogProc(uMsg, wParam, lParam);
+        dlgRes = dlg->DialogProc(uMsg, wParam, lParam);
     else
-        return FALSE; // Error, or the message was not received between WM_INITDIALOG and WM_DESTROY
+        dlgRes = FALSE; // error or message did not arrive between WM_INITDIALOG and WM_DESTROY
+
+#ifndef __TRACESERVER
+    if (dlg != NULL && uMsg == WM_INITDIALOG)
+        DarkMode_ApplyListTreeThemeRecursive(hwndDlg);
+#endif
+
+    return dlgRes;
 }
 
 //
@@ -512,14 +590,14 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_IDC_CAPTION 3
 #define _TPD_IDC_RECT 4
 #define _TPD_IDC_OK 5
-// dimensions in dialog units
-#define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
-#define _TPD_TOPMARGIN 4   // TreeView and caption top margin
-#define _TPD_TREE_W 100    // TreeView width
-#define _TPD_CAPTION_H 16  // caption height
-#define _TPD_BUTTON_W 50   // button width
-#define _TPD_BUTTON_H 14   // button height
-#define _TPD_BUTTON_MARG 4 // button spacing
+// dimensions in dlg units
+#define _TPD_LEFTMARGIN 4  // indentation of TreeView and Caption from left edge
+#define _TPD_TOPMARGIN 4   // indentation of TreeView and Caption from top edge
+#define _TPD_TREE_W 100    // width of TreeView
+#define _TPD_CAPTION_H 16  // height of caption
+#define _TPD_BUTTON_W 50   // width of buttons
+#define _TPD_BUTTON_H 14   // height of buttons
+#define _TPD_BUTTON_MARG 4 // spacing between buttons
 
 CTPHCaptionWindow::CTPHCaptionWindow(HWND hDlg, int ctrlID)
     : CWindow(hDlg, ctrlID, ooAllocated)
@@ -569,7 +647,18 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetClientRect(HWindow, &r);
 
         int devCaps = GetDeviceCaps(hdc, NUMCOLORS);
-        if (devCaps == -1) // use the gradient only when more than 256 colors are available
+        COLORREF darkDialogBackground = 0;
+        COLORREF darkDialogText = 0;
+        BOOL useDark = FALSE;
+#ifndef __TRACESERVER
+        DarkModeColors colors;
+        useDark = DarkMode_GetColors(&colors);
+        darkDialogBackground = colors.DialogBackground;
+        darkDialogText = colors.DialogText;
+#endif
+        if (useDark)
+            FillRectWithColor(hdc, &r, darkDialogBackground);
+        else if (devCaps == -1) // use gradient only with more than 256 colors
         {
             HBRUSH hOldBrush = (HBRUSH)GetCurrentObject(hdc, OBJ_BRUSH);
 #define TPH_STEPS 100
@@ -610,12 +699,14 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HFONT hSrcFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
             GetObject(hSrcFont, sizeof(srcLF), &srcLF);
             srcLF.lfHeight = (int)(srcLF.lfHeight * 1.2);
-            // srcLF.lfWeight = FW_BOLD; // bold looks quite ugly and unreadable on Vista
+            // srcLF.lfWeight = FW_BOLD; // on Vista bold looks pretty ugly and unreadable
             hFont = CreateFontIndirect(&srcLF);
             hOldFont = (HFONT)SelectObject(hdc, hFont);
 
             int oldColor;
-            if (devCaps == -1)
+            if (useDark)
+                oldColor = SetTextColor(hdc, darkDialogText);
+            else if (devCaps == -1)
                 oldColor = SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
             else
                 oldColor = SetTextColor(hdc, GetSysColor(COLOR_CAPTIONTEXT));
@@ -642,7 +733,7 @@ CTPHGripWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_SETCURSOR:
     {
-        // we only want the north-south cursor
+        // we want only north-south cursor
         SetCursor(LoadCursor(NULL, IDC_SIZENS));
         return TRUE;
     }
@@ -667,7 +758,7 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight)
 INT_PTR
 CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    // call WM_INITDIALOG only once we know the window size
+    // WM_INITDIALOG will be called only when we know the window dimensions
     if (TPD != NULL && uMsg != WM_INITDIALOG)
         TPD->DialogProc(uMsg, wParam, lParam); // forward messages
     switch (uMsg)
@@ -691,13 +782,16 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         BOOL appIsThemed = IsAppThemed();
         if (appIsThemed)
             SetWindowTheme(HTreeView, L"explorer", NULL);
+#ifndef __TRACESERVER
+        DarkMode_ApplyListTreeThemeRecursive(HWindow);
+#endif
 
         int treeIndent = 0;
         if (appIsThemed)
         {
             RECT rect = {0, 0, 4, 8};
-            MapDialogRect(HWindow, &rect); // get baseUnitX and baseUnitY for converting dialog units to pixels
-            treeIndent = MulDiv(9 /* indent in dialog units */, rect.right /* baseUnitX */, 4);
+            MapDialogRect(HWindow, &rect); // get baseUnitX and baseUnitY to convert dlg-units to pixels
+            treeIndent = MulDiv(9 /* indent in dlg-units */, rect.right /* baseUnitX */, 4);
             TreeView_SetIndent(HTreeView, treeIndent);
         }
 
@@ -723,7 +817,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         GripWindow = new CTPHGripWindow(HWindow, _TPD_IDC_GRIP);
 
-        // the default dimensions are the minimum - save them so we can enforce them later
+        // default dimensions are minimal - save them so we can check them later
         GetWindowRect(HWindow, &r);
         RECT cR;
         GetClientRect(HWindow, &cR);
@@ -735,9 +829,9 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                            MarginSize.cy + 1 + MarginSize.cy +
                            ButtonSize.cy + MarginSize.cy + marginH;
 
-        // apply the user window size and lay out the controls
+        // set user window size and perform element layout
         int height = (int)*WindowHeight;
-        RECT clipR; // do not exceed the screen height
+        RECT clipR; // we do not want to be larger than screen height
         MultiMonGetClipRectByWindow(HWindow, &clipR, NULL);
         if (height > clipR.bottom - clipR.top)
             height = clipR.bottom - clipR.top;
@@ -762,7 +856,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                (GetKeyState(VK_CONTROL) & 0x8000) != 0,
                                (GetKeyState(VK_SHIFT) & 0x8000) != 0);
         }
-        return TRUE; // do not let F1 propagate to the parent even if we do not call WinLibHelp->OnHelp()
+        return TRUE; // F1 do not let through to parent even if we do not call WinLibHelp->OnHelp()
     }
 
     case WM_COMMAND:
@@ -788,11 +882,11 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case _TPD_IDC_OK:
         {
-            // validate the current page
+            // I must perform validation of the current page
             if (!ChildDialog->ValidateData())
                 return TRUE;
 
-            // iterate over all pages for transfer
+            // iterate through all pages for transfer
             for (int i = 0; i < TPD->Count; i++)
                 if (TPD->At(i)->HWindow != NULL)
                     if (!TPD->At(i)->TransferData(ttDataFromWindow))
@@ -806,7 +900,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         }
 
-        // forward the message so Enter is routed to the default buttons
+        // forward message so that Enter works on default button
         if (ChildDialog != NULL && HIWORD(wParam) == BN_CLICKED)
             ::SendMessage(ChildDialog->HWindow, uMsg, wParam, lParam);
 
@@ -874,7 +968,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NCHITTEST:
     {
-        // resize only vertically
+        // Resize only in vertical direction
         LRESULT ht = DefWindowProc(HWindow, uMsg, wParam, lParam);
         switch (ht)
         {
@@ -903,7 +997,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_GETMINMAXINFO:
     {
-        // resize only vertically
+        // Resize only in vertical direction
         LPMINMAXINFO lpmmi = (LPMINMAXINFO)lParam;
         lpmmi->ptMinTrackSize.x = MinWindowSize.cx;
         lpmmi->ptMaxTrackSize.x = MinWindowSize.cx;
@@ -930,7 +1024,9 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        TreeView_SetBkColor(HTreeView, GetSysColor(COLOR_WINDOW));
+#ifndef __TRACESERVER
+        DarkMode_ApplyListTreeThemeRecursive(HWindow);
+#endif
         break;
     }
     }
@@ -1026,9 +1122,9 @@ void CTreePropHolderDlg::LayoutControls()
                                       SWP_NOZORDER));
 
         HANDLES(EndDeferWindowPos(hdwp));
-        // hack: TreeView/common controls apparently have a bug: if a scrollbar appears because of the content,
-        // the selected item is not redrawn, so it gets clipped on the right; this may be related to full-row
-        // selection and the Aero look; in any case, repainting under W7 does not flicker, so we can probably afford it
+        // hack: there seems to be a bug in treeview/common controls: if a scrollbar appears due to content,
+        // the selected item is not redrawn, so it is cropped on the right; it may be related to full row
+        // select and still aero look; anyway redrawing under W7 does not flicker, we can probably afford it
         InvalidateRect(HTreeView, NULL, false);
     }
 }
@@ -1047,19 +1143,19 @@ int CTreePropHolderDlg::BuildAndMeasureTree()
         tvis.item.pszText = TPD->At(i)->Title;
         tvis.item.cchTextMax = (int)_tcslen(TPD->At(i)->Title);
         tvis.item.state = 0;
-        // WARNING: expandable items must be expanded here, otherwise TreeView_GetItemRect() returns FALSE
-        // and RECT r contains random data
+        // WARNING: expandable items here must be expanded, otherwise TreeView_GetItemRect() will return FALSE
+        // and random data in RECT r rectangle
         if (TPD->At(i)->Expanded != NULL)
             tvis.item.state |= TVIS_EXPANDED;
         tvis.item.stateMask = tvis.item.state;
         tvis.item.lParam = (LPARAM)TPD->At(i);
         TPD->At(i)->HTreeItem = TreeView_InsertItem(HTreeView, &tvis);
         RECT r;
-        // take the return value of TreeView_GetItemRect() into account
+        // Rather take the return value of TreeView_GetItemRect() into account
         if (TreeView_GetItemRect(HTreeView, TPD->At(i)->HTreeItem, &r, TRUE) && r.right - r.left > width)
             width = r.right - r.left;
     }
-    // now we can collapse the items that were not expanded
+    // Now we can collapse unexpanded items
     for (int i = 0; i < TPD->Count; i++)
     {
         if (TPD->At(i)->Expanded != NULL && *TPD->At(i)->Expanded == FALSE)
@@ -1225,7 +1321,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         RECT maxPageRect;
         SetRectEmpty(&maxPageRect);
 
-        // determine the maximum dimensions
+        // determine maximum dimensions
         for (int i = 0; i < Count; i++)
         {
             At(i)->ParentDialog = this;
@@ -1253,7 +1349,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
             dlgStyle = *(DWORD*)(pageTemplate + 6); // style
             dlgCX = *(short*)(pageTemplate + 11);   // cx
             dlgCY = *(short*)(pageTemplate + 12);   // cy
-            WORD* t = pageTemplate + 13;            // menu, skip to the dialog class, then to its title
+            WORD* t = pageTemplate + 13;            // menu, skip to dialog class, and then to its title
             if (*t == 0)
                 t++; // no menu
             else
@@ -1303,7 +1399,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
                 maxPageRect.bottom = dlgCY;
         }
 
-        // height from the dialog bottom to the bottom of TreeView and ChildDialog
+        // height from bottom edge of dialog to bottom of TreeView and ChildDialog
         int lowMargin = 2 * _TPD_TOPMARGIN + _TPD_BUTTON_H + _TPD_TOPMARGIN + _TPD_TOPMARGIN / 2;
         SIZE dialogSize;
         dialogSize.cx = _TPD_LEFTMARGIN + _TPD_TREE_W + _TPD_LEFTMARGIN + maxPageRect.right +
@@ -1311,8 +1407,8 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         dialogSize.cy = _TPD_TOPMARGIN + _TPD_CAPTION_H + _TPD_TOPMARGIN + maxPageRect.bottom +
                         lowMargin;
 
-        // build the dialog template as DLG or DLGEX to match the page format;
-        // otherwise controls get clipped and page fonts differ from the rest of the tree property dialog
+        // build dialog template: DLG or DLGEX, according to page format, must be the same,
+        // otherwise controls are cropped and fonts of pages and rest of tree property dialog differ
 
         HGLOBAL hgbl;
 
@@ -1362,7 +1458,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         AddItemEx(lpw, _T("static"), _TPD_IDC_CAPTION,
                   0, 0, 0, 0,
                   WS_CHILD | WS_VISIBLE, 0, NULL);
-        // static control replaced by the child dialog during init
+        // Static, which is replaced by child dialog during init
         AddItemEx(lpw, _T("static"), _TPD_IDC_RECT,
                   0, 0, maxPageRect.right, maxPageRect.bottom,
                   WS_CHILD, 0, NULL);
@@ -1370,7 +1466,7 @@ int CTreePropDialog::Execute(const TCHAR* buttonOK,
         AddItemEx(lpw, _T("static"), _TPD_IDC_SEP,
                   0, 0, 0, 0,
                   WS_GROUP | WS_CHILD | WS_VISIBLE | SS_ETCHEDHORZ, 0, NULL);
-        // bottom row of buttons
+        // Bottom row of buttons
         AddItemEx(lpw, _T("button"), _TPD_IDC_OK,
                   0, 0, 0, 0,
                   WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, 0, buttonOK);

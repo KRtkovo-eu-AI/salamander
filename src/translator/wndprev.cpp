@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -101,7 +102,7 @@ DefButtonSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 */
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 CPreviewWindow::PreviewDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
@@ -591,7 +592,7 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CLOSE:
     {
-        PostMessage(FrameWindow.HWindow, WM_COMMAND, CM_CLOSE, 0); // safely close the window
+        PostMessage(FrameWindow.HWindow, WM_COMMAND, CM_CLOSE, 0); // bezpecny close-window
         return 0;
     }
 

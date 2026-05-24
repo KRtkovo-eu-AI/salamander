@@ -1,12 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
-#include <xmmintrin.h>
-
-// precaution against a runtime check failure in the debug version: the original macro casts RGB to WORD,
-// so it reports data loss (RED component)
+// precaution against runtime check failure in the debug version: the original macro casted RGB to WORD,
+// so it reported data loss (RED component)
 #undef GetGValue
 #define GetGValue(rgb) ((BYTE)(((rgb) >> 8) & 0xFF))
 
@@ -126,7 +125,7 @@ public:
 
     BOOL Load(BYTE* dta, int size)
     {
-        if (size < 10) //10-byte header... 8 header bytes + 2 version bytes
+        if (size < 10) //10-byte header... 8 header + 2 version bytes
         {
             //_tcscpy(errbuff, TEXT("Internal error: Wrong data size"));
             //errlen = _tcslen(errbuff);
@@ -212,7 +211,7 @@ public:
         BYTE* aby = NULL;
         BOOL isAlpha = FALSE;
 
-        while (tbs + 4 <= end) // current position + 4-byte chunk info
+        while (tbs + 4 <= end) // position + 4bytes chunk info
         {
             mxc = *(unsigned short*)tbs;
             tbs += 2; //Chunk ID
@@ -242,7 +241,7 @@ public:
                 break;
             case 0x4645: //EF (end of file)
                 if (mxs != 0)
-                    return FALSE; //EF must always be empty
+                    return FALSE; //EF always empty!
                 EFfound = TRUE;
                 break;
             case 0x4642: //BF (fixed border info)
@@ -257,9 +256,9 @@ public:
                 fil = *(unsigned short*)tbs;
                 tbs += 2;
                 if (fit + fib > h)
-                    return FALSE; //fixed height exceeds image height
+                    return FALSE; //fixed height is bigger then image height
                 if (fir + fil > w)
-                    return FALSE; //fixed width exceeds image width
+                    return FALSE; //fixed width is bigger then image width
                 break;
             case 0x4144: //DA (Alpha channel)
                 tbd = aby;

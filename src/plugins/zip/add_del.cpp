@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -324,22 +325,22 @@ BOOL CZipPack::LoadDefaults()
             DefLanguage = NULL;
         }
         lstrcpy(Options.SfxSettings.SfxFile, Config.DefSfxFile);
-        char file[MAX_PATH];
-        GetModuleFileName(DLLInstance, file, MAX_PATH);
+        CPathBuffer file; // Heap-allocated for long path support
+        GetModuleFileName(DLLInstance, file, file.Size());
         SalamanderGeneral->CutDirectory(file);
-        SalamanderGeneral->SalPathAppend(file, "sfx", MAX_PATH);
-        SalamanderGeneral->SalPathAppend(file, Config.DefSfxFile, MAX_PATH);
+        SalamanderGeneral->SalPathAppend(file, "sfx", file.Size());
+        SalamanderGeneral->SalPathAppend(file, Config.DefSfxFile, file.Size());
         if (!DefLanguage && LoadSfxFileData(file, &DefLanguage))
         {
             char err[512];
-            sprintf(err, LoadStr(IDS_UNABLEREADSFX2), file);
+            sprintf(err, LoadStr(IDS_UNABLEREADSFX2), file.Get());
             SalamanderGeneral->ShowMessageBox(err, LoadStr(IDS_ERROR), MSGBOX_ERROR);
             lstrcpy(Options.SfxSettings.Text, LoadStr(IDS_DEFAULTTEXT));
             lstrcpy(Options.SfxSettings.Title, LoadStr(IDS_DEFSFXTITLE));
             lstrcpy(Options.About, "Version 1.40");
             lstrcpy(Options.SfxSettings.ExtractBtnText, LoadStr(IDS_DEFEXTRBUTTON));
             lstrcpy(Options.SfxSettings.Vendor, "Self-Extractor © 2000-2023 Open Salamander Authors");
-            lstrcpy(Options.SfxSettings.WWW, "https://www.altap.cz");
+            lstrcpy(Options.SfxSettings.WWW, "https://github.com/0xeb/sally");
         }
         else
         {
@@ -421,7 +422,7 @@ int CZipPack::LoadExPackOptions(unsigned flags)
 int CZipPack::CreateSFX()
 {
     CALL_STACK_MESSAGE1("CZipPack::CreateSFX()");
-    char exeName[MAX_PATH];
+    CPathBuffer exeName; // Heap-allocated for long path support
 
     //MenuSfx = true;
     if (!*Config.DefSfxFile)
@@ -433,8 +434,8 @@ int CZipPack::CreateSFX()
     if (!LoadDefaults())
         return ErrorID = IDS_NODISPLAY;
 
-    lstrcpy(exeName, ZipName);
-    SalamanderGeneral->SalPathRenameExtension(exeName, ".exe", MAX_PATH);
+    lstrcpyn(exeName, ZipName, exeName.Size());
+    SalamanderGeneral->SalPathRenameExtension(exeName, ".exe", exeName.Size());
     CCreateSFXDialog dlg(SalamanderGeneral->GetMainWindowHWND(), ZipName, exeName, &Options, this);
     if (dlg.Proceed() != IDOK)
         return ErrorID = IDS_NODISPLAY;

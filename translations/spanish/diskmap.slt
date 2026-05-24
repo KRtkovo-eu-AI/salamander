@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\spanish\diskmap.atp"
+PROJECTNAME,"translator\sally 4.0\projects\spanish\diskmap.atp"
 TEXTVERSION,"1.12 (x86)"
 VERSION,"1,1,2,180"
 
@@ -35,7 +35,7 @@ COMMENT,"Versión en español"
 [STRINGTABLE 0]
 32,1,"Mapa del disco"
 33,1,"Muestra un mapa con los ficheros del disco."
-34,1,"Acerca del plugin Mapa del disco de Salamander"
+34,1,"Acerca del plugin Mapa del disco de Sally"
 35,1,"Mostrar &Mapa del disco"
 40,1,"¿Desea cerrar el Mapa del disco?"
 41,1,"No mostrar este mensaje de nuevo y cerrar Mapa del disco sin preguntar"

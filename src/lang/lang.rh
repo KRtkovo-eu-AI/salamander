@@ -314,6 +314,7 @@
 #define IDC_EDITNEW_SELALL              623
 #define IDC_ASYNCCOPYALG                624
 #define IDC_RELOADENVVARS               625
+#define IDC_THEME_MODE                  626
 #define IDD_CFGPAGE_VIEWER              630
 #define IDC_COPYFINDTEXT                631
 #define IDC_NULLEOL                     632
@@ -497,6 +498,8 @@
 #define IDC_FIND_STOP                   2521
 #define IDC_FIND_INCLUDE_ARCHIVES       2522
 #define IDC_FIND_REGEXP_BROWSE          2523
+#define IDC_FIND_FILETYPE               2524
+#define IDC_FIND_FILETYPE_TEXT          2525
 #define IDD_FINDIGNORE                  2530
 #define IDC_FFI_NAMES                   2531
 #define IDC_FFI_NAMESLABEL              2532

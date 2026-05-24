@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -12,7 +12,7 @@ DWORD SalamanderExceptionTime = 0;
 
 // NOTE: sections are aligned to 4096 bytes, which is the amount by which
 // salamande.exe grows when adding a module containing only a single DWORD variable.
-// See PEViewer on salamand.exe, "Section Table" time.
+// See PEViewer on sally.exe, "Section Table" time.
 
 #pragma warning(disable : 4073)
 #pragma init_seg(lib)

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -11,13 +11,13 @@
 // CIconList
 //
 
-// Specifies the number of items in one row; following the W2K model, we use 4;
-// probably for better performance of the operations performed.
+// Specifies the number of items in one row; following W2K pattern we use 4;
+// Probably for faster performance of operations?
 const int IL_ITEMS_IN_ROW = 4;
 
-#define IL_TYPE_NORMAL 0 // regular icon that can be drawn with BitBlt
-#define IL_TYPE_XOR 1    // icon containing areas that must be XOR-ed
-#define IL_TYPE_ALPHA 2  // icon containing an alpha channel
+#define IL_TYPE_NORMAL 0 // Regular icon that can be drawn via BitBlt
+#define IL_TYPE_XOR 1    // Icon containing areas that need to be XORed
+#define IL_TYPE_ALPHA 2  // Icon containing alpha channel
 
 HDC CIconList::HMemDC = NULL;
 HBITMAP CIconList::HOldBitmap = NULL;
@@ -102,8 +102,8 @@ BOOL CIconList::CreateOrEnlargeTmpImage(int width, int height)
 {
     if (HTmpImage == NULL || TmpImageWidth < width || TmpImageHeight < height)
     {
-        // !!! Warning: when Petr used BITMAPV4HEADER, Salamander crashed in ICM32.DLL;
-        // the older BITMAPINFOHEADER is evidently sufficient
+        // !!! Warning: when using BITMAPV4HEADER with Peter, Salamander crashed in ICM32.DLL,
+        // old BITMAPINFOHEADER apparently is sufficient
         BITMAPINFOHEADER bmhdr;
         memset(&bmhdr, 0, sizeof(bmhdr));
         bmhdr.biSize = sizeof(bmhdr);
@@ -122,7 +122,7 @@ BOOL CIconList::CreateOrEnlargeTmpImage(int width, int height)
         }
 
         if (HTmpImage != NULL)
-            HANDLES(DeleteObject(HTmpImage)); // if an old bitmap exists, delete it
+            HANDLES(DeleteObject(HTmpImage)); // if old bitmap exists, delete it
 
         HTmpImage = hBmp;
         TmpImageRaw = (DWORD*)lpBits;
@@ -154,12 +154,12 @@ BOOL CIconList::Create(int imageWidth, int imageHeight, int imageCount)
         HANDLES(LeaveCriticalSection(&CriticalSection));
         return FALSE;
     }
-    ZeroMemory(ImageFlags, sizeof(BYTE) * imageCount); // no alpha channel
+    ZeroMemory(ImageFlags, sizeof(BYTE) * imageCount); // without alpha channel
 
     int bmpWidth = imageWidth * min(imageCount, IL_ITEMS_IN_ROW);
     int bmpHeight = imageHeight * ((imageCount + IL_ITEMS_IN_ROW - 1) / IL_ITEMS_IN_ROW);
 
-    // helper DC so that we can create a compatible bitmap
+    // Helper DC so we can create a compatible bitmap
     HDC hDC = HANDLES(GetDC(NULL));
     if (hDC == NULL)
     {
@@ -186,7 +186,7 @@ BOOL CIconList::Create(int imageWidth, int imageHeight, int imageCount)
     }
     MemDCLocks++;
 
-    // If the cache/mask bitmap does not exist yet or is too small, create it
+    // If cache/mask bitmap does not exist yet or is small, create it
     if (!CreateOrEnlargeTmpImage(imageWidth, imageHeight))
     {
         HANDLES(ReleaseDC(NULL, hDC));
@@ -195,8 +195,8 @@ BOOL CIconList::Create(int imageWidth, int imageHeight, int imageCount)
         return FALSE;
     }
 
-    // !!! Warning: when Petr used BITMAPV4HEADER, Salamander crashed in ICM32.DLL;
-    // the older BITMAPINFOHEADER is evidently sufficient
+    // !!! Warning: when using BITMAPV4HEADER with Peter, Salamander crashed in ICM32.DLL,
+    // old BITMAPINFOHEADER apparently is sufficient
     BITMAPINFOHEADER bmhdr;
     memset(&bmhdr, 0, sizeof(bmhdr));
     bmhdr.biSize = sizeof(bmhdr);
@@ -240,7 +240,7 @@ BOOL CIconList::CreateFromImageList(HIMAGELIST hIL, int requiredImageSize)
         return FALSE;
     }
 
-    // get the image list geometry
+    // vytahneme geometrii image listu
     int count = ImageList_GetImageCount(hIL);
     if (count == 0)
     {
@@ -266,7 +266,7 @@ BOOL CIconList::CreateFromImageList(HIMAGELIST hIL, int requiredImageSize)
     if (!Create(cx, cy, count))
         return FALSE;
 
-    // j.r. This could be optimized here: instead of passing icons one by one, pass them via ImageList_Draw
+    // j.r. could be optimized here: instead of passing icons one by one, pass via ImageList_Draw
     if (count > 20)
     {
         TRACE_E("CIconList::CreateFromImageList(): Let me know that you need so many icons, it would deserve some optimizations here. Jan.");
@@ -289,20 +289,20 @@ BOOL CIconList::CreateFromImageList(HIMAGELIST hIL, int requiredImageSize)
     return TRUE;
 }
 
-// If the desktop is running at 32 bpp under W2K, XP icons are obtained with the alpha channel intact,
-// including the alpha channel itself. If the desktop is switched to 16 bpp, the alpha channel is clipped (zeroed).
-// If `ApplyMaskToImage` therefore receives an icon including the alpha channel, it returns
-// `IL_TYPE_ALPHA` and Salamander will display these icons correctly even on OS versions older than XP
+// If I have a 32-bit W2K desktop, I get XP icons with unclipped alpha channel,
+// i.e., including the alpha channel. If I switch the desktop to 16-bit, the alpha channel is clipped (zeroed).
+// If ApplyMaskToImage receives an icon including an alpha channel, it returns the type
+// IL_TYPE_ALPHA and Salamander will correctly display these icons even under OS < XP
 
 BYTE CIconList::ApplyMaskToImage(int index, BYTE forceXOR)
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // scan the entire icon and determine which type it is (NORMAL, XOR, ALPHA)
+    // Examine the entire icon and determine what type it is (NORMAL, XOR, ALPHA)
     BYTE type = IL_TYPE_NORMAL;
     if (forceXOR)
         type = IL_TYPE_XOR;
@@ -324,8 +324,8 @@ BYTE CIconList::ApplyMaskToImage(int index, BYTE forceXOR)
                 if ((*maskPtr != 0) && (*ptr != 0))
                 {
                     type = IL_TYPE_XOR;
-                    // The fact that the icon is a candidate for XOR does not yet mean
-                    // that it will not be ALPHA, so we cannot exit early
+                    // That the icon is an XOR candidate does not mean,
+                    // it won't be ALPHA, so we can't exit
                 }
                 ptr++;
                 maskPtr++;
@@ -338,9 +338,9 @@ BYTE CIconList::ApplyMaskToImage(int index, BYTE forceXOR)
 SKIP:
     if (type == IL_TYPE_NORMAL)
     {
-        // prepare the background color in the correct format
+        // Prepare background color in correct format
         DWORD bkClr = GetRValue(BkColor) << 16 | GetGValue(BkColor) << 8 | GetBValue(BkColor);
-        // transfer the transparent mask areas into the alpha channel
+        // Transfer transparent areas of mask to alpha channel
         int row;
         for (row = 0; row < ImageHeight; row++)
         {
@@ -351,13 +351,13 @@ SKIP:
             {
                 if (*maskPtr != 0)
                 {
-                    // fully transparent area
-                    // the alpha channel is in the highest byte; set it to 00, the rest will be the background color
+                    // Completely transparent area
+                    // Alpha channel is in the highest byte, set to 00, the rest will be background color
                     *ptr = bkClr;
                 }
                 else
                 {
-                    *ptr |= 0xFF000000; // mark the area as opaque
+                    *ptr |= 0xFF000000; // Set area as opaque
                 }
                 ptr++;
                 maskPtr++;
@@ -375,7 +375,7 @@ SKIP:
             for (col = 0; col < ImageWidth; col++)
             {
                 if (*maskPtr == 0)
-                    *ptr |= 0xFF000000; // opaque area
+                    *ptr |= 0xFF000000; // Opaque area
 
                 ptr++;
                 maskPtr++;
@@ -393,7 +393,7 @@ CIconList::DumpToTrace(int index, BOOL dumpMask)
 {
   HANDLES(EnterCriticalSection(&CriticalSection));
 
-  // coordinates in points in HImage
+  // Coordinates in points in HImage
   int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
   int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
@@ -459,19 +459,19 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // Parameter validation
+    // Parameter check
     if (index < 0 || index >= ImageCount)
     {
         TRACE_E("CIconList::ReplaceIcon(): Index is out of range! index=" << index);
         goto BAIL;
     }
 
-    // Resize the icon if needed.
-    // Honza: On Windows 10, CopyImage() started crashing for me in the debug x64 build when the LR_COPYFROMRESOURCE flag was enabled.
-    // FIXME: Audit whether this downscale is still needed now that SalLoadIcon() calls LoadIconWithScaleDown().
+    // If necessary, resize the icon
+    // Honza: Under W10, CopyImage started crashing in debug x64 version if LR_COPYFROMRESOURCE flag was enabled
+    // FIXME: Perform audit whether this downscale is still needed when SalLoadIcon() now calls LoadIconWithScaleDown()
     hIcon = (HICON)CopyImage(hIconOrig, IMAGE_ICON, ImageWidth, ImageHeight, /*LR_COPYFROMRESOURCE | */ LR_COPYRETURNORG);
 
-    // Extract the MASK and COLOR bitmaps from the icon handle
+    // Extract MASK and COLOR bitmaps from icon handle
     if (!GetIconInfo(hIcon, &ii))
     {
         TRACE_E("GetIconInfo() failed!");
@@ -486,36 +486,36 @@ BOOL CIconList::ReplaceIcon(int index, HICON hIcon)
         goto BAIL;
     }
 
-    // if this is a b&w icon, it should have an even height
+    // If it is a B&W icon, it should have even height
     if (ii.hbmColor == NULL && (bm.bmHeight & 1) == 1)
     {
         TRACE_E("CIconList::ReplaceIcon() Icon has wrong MASK height");
         goto BAIL;
     }
-    // the icon should have the same dimensions as our item
+    // Icon should have the same size as our item
     if (bm.bmWidth != ImageWidth ||
         (ii.hbmColor == NULL && bm.bmHeight != ImageHeight * 2) ||
         (ii.hbmColor != NULL && bm.bmHeight != ImageHeight))
         TRACE_E("CIconList::ReplaceIcon() Icon has wrong size: bmWidth=" << bm.bmWidth << " bmHeight=" << bm.bmHeight);
 
-    // enough space for the mask
+    // We need enough space for the mask
     if (!CreateOrEnlargeTmpImage(bm.bmWidth, bm.bmHeight))
         goto BAIL;
 
-    hSrcDC = HANDLES(CreateCompatibleDC(NULL)); // helper DC for BitBlt
+    hSrcDC = HANDLES(CreateCompatibleDC(NULL)); // Helper DC for BitBlt
     hOldSrcBmp = (HBITMAP)SelectObject(hSrcDC, ii.hbmMask);
 
     // ii.hbmMask -> HTmpImage
     SelectObject(HMemDC, HTmpImage);
     BitBlt(HMemDC, 0, 0, ImageWidth, ImageHeight, hSrcDC, 0, 0, SRCCOPY);
 
-    // ii.hbmColor -> HImage (if hbmColor == NULL, the XOR part is in the lower half of hbmMask)
+    // ii.hbmColor -> HImage (if hbmColor==NULL, XOR part lies in the lower half of hbmMask
     if (ii.hbmColor != NULL)
         SelectObject(hSrcDC, ii.hbmColor);
     SelectObject(HMemDC, HImage);
     BitBlt(HMemDC, iX, iY, ImageWidth, ImageHeight, hSrcDC, 0, (ii.hbmColor != NULL) ? 0 : ImageHeight, SRCCOPY);
 
-    GdiFlush(); // according to MSDN, this must be called before we start accessing raw data
+    GdiFlush(); // According to MSDN, must call before accessing raw data
 
     //  TRACE_I("counter: "<<counter);
     //  if (++counter == 19)
@@ -535,7 +535,7 @@ BAIL:
     if (ii.hbmColor != NULL)
         DeleteObject(ii.hbmColor);
 
-    // if we changed the size, we must destroy the temporary icon
+    // If we changed the size, we must destroy the temporary icon
     if (hIcon != hIconOrig)
         DestroyIcon(hIcon);
 
@@ -562,14 +562,14 @@ CIconList::GetIcon(int index, BOOL useHandles)
 HICON
 CIconList::GetIcon(int index)
 {
-    // Parameter validation
+    // Parameter check
     if (index < 0 || index >= ImageCount)
     {
         TRACE_E("CIconList::GetIcon: index is out of range!");
         return NULL;
     }
 
-    // create a B&W mask plus a screen-format color bitmap
+    // Create B&W mask + color bitmap according to screen
     HDC hDC = HANDLES(GetDC(NULL));
     HBITMAP hMask = HANDLES(CreateBitmap(ImageWidth, ImageHeight, 1, 1, NULL));
     HBITMAP hColor = HANDLES(CreateCompatibleBitmap(hDC, ImageWidth, ImageHeight));
@@ -582,7 +582,7 @@ CIconList::GetIcon(int index)
 
     BYTE type = ImageFlags[index];
 
-    // prepare the COLOR part of the icon in HTmpImage
+    // Prepare COLOR part of icon in HTmpImage
     int row;
     for (row = 0; row < ImageHeight; row++)
     {
@@ -594,14 +594,14 @@ CIconList::GetIcon(int index)
             DWORD argb = *imagePtr;
             BYTE alpha = (BYTE)((argb & 0xFF000000) >> 24);
 
-            if (type == IL_TYPE_ALPHA) // on Windows XP and later, return icons with alpha
+            if (type == IL_TYPE_ALPHA) // az na XP a novejsich systemech vracime ikony s alphou
             {
                 *tmpPtr = argb;
             }
             else
             {
-                // the transparent area contains the image list background color, but we
-                // must put black there so that the XOR drawing mechanism works
+                // In transparent area is the image list background color, but we
+                // need to provide black color so XOR drawing mechanism works
                 if (alpha != 0)
                     *tmpPtr = argb;
                 else
@@ -613,7 +613,7 @@ CIconList::GetIcon(int index)
         }
     }
 
-    // copy HTmpImage into hColor
+    // Transfer HTmpImage to hColor
     SelectObject(HMemDC, HTmpImage);
     hDC = HANDLES(CreateCompatibleDC(NULL));
     HBITMAP hOldBmp = (HBITMAP)SelectObject(hDC, hColor);
@@ -621,7 +621,7 @@ CIconList::GetIcon(int index)
 
     SelectObject(hDC, hMask);
 
-    // Prepare the icon mask in HTmpImage
+    // Prepare MASK part of icon in HTmpImage
     for (row = 0; row < ImageHeight; row++)
     {
         DWORD* imagePtr = ImageRaw + iX + (iY + row) * BitmapWidth;
@@ -639,7 +639,7 @@ CIconList::GetIcon(int index)
         }
     }
 
-    // Copy HTmpImage to hMask
+    // Transfer HTmpImage to hMask
     BitBlt(hDC, 0, 0, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
     //  if (Dump)
@@ -648,13 +648,13 @@ CIconList::GetIcon(int index)
     //    DumpToTrace(index, TRUE);
     //  }
 
-    // clean up
+    // Clean up
     SelectObject(hDC, hOldBmp);
     HANDLES(DeleteDC(hDC));
 
     HANDLES(LeaveCriticalSection(&CriticalSection));
 
-    // create an icon from hColor + hMask
+    // z hColor + hMask vytvorime ikonku
     ICONINFO ii;
     ii.fIcon = TRUE;
     ii.xHotspot = 0;
@@ -662,7 +662,7 @@ CIconList::GetIcon(int index)
     ii.hbmColor = hColor;
     ii.hbmMask = hMask;
     HICON hIcon;
-    hIcon = CreateIconIndirect(&ii); // must not be in handles; transfers the icon out of Salamander
+    hIcon = CreateIconIndirect(&ii); // Must not be in handles, exports icon outside Salamander
 
     HANDLES(DeleteObject(hColor));
     HANDLES(DeleteObject(hMask));
@@ -672,14 +672,14 @@ CIconList::GetIcon(int index)
 
 BOOL CIconList::Draw(int index, HDC hDC, int x, int y, COLORREF blendClr, DWORD flags)
 {
-    // parameter validation
+    // Parameter check
     if (index < 0 || index >= ImageCount)
     {
         TRACE_E("CIconList::Draw() Index is out of range! index=" << index << " ImageCount=" << ImageCount);
         return FALSE;
     }
 
-    if (flags & IL_DRAW_MASK) // The mask is used during drag and drop, for example for shared folders; see StateImageList_Draw().
+    if (flags & IL_DRAW_MASK) // Mask is used in drag&drop, for example with shared addresses, see StateImageList_Draw()
         return DrawMask(hDC, x, y, index, RGB(0, 0, 0), RGB(255, 255, 255));
     if (flags & IL_DRAW_BLEND)
         return AlphaBlend(hDC, x, y, index, BkColor, blendClr);
@@ -713,21 +713,21 @@ BOOL CIconList::DrawMask(HDC hDC, int x, int y, int index, COLORREF fgColor, COL
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
     //DumpToTrace(index);
 
-    // Copy the screen data into HTmpImage
-    // Our `DrawMask` only sets black pixels at the mask locations so that it can be merged easily with the overlay
-    // when called from `StateImageList_Draw()`; if support for another overlay is ever needed, it will be necessary
-    // to implement the merge in `StateImageList_Draw()` using boolean `BitBlt` operations, and this method could then
-    // also set `fgColor`; the `***` condition below would no longer be needed
+    // Copy data from screen into HTmpImage
+    // Our DrawMask only sets black points at the mask location so we can easily merge with overlay
+    // when called from StateImageList_Draw(); if there's need to display another overlay later, it will need to
+    // do the merge in StateImageList_Draw() based on boolean BitBlt operations and this method could then
+    // also set fgColor; the *** condition below would disappear
     SelectObject(HMemDC, HTmpImage);
     BitBlt(HMemDC, 0, 0, ImageWidth, ImageHeight, hDC, x, y, SRCCOPY);
 
-    // draw into HTmpImage
+    // Will draw into HTmpImage
     int row;
     for (row = 0; row < ImageHeight; row++)
     {
@@ -748,7 +748,7 @@ BOOL CIconList::DrawMask(HDC hDC, int x, int y, int index, COLORREF fgColor, COL
         }
     }
 
-    // draw HTmpImage to the screen
+    // Render HTmpImage to screen
     //  SelectObject(HMemDC, HTmpImage);
     BitBlt(hDC, x, y, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
@@ -760,11 +760,11 @@ BOOL CIconList::DrawXOR(HDC hDC, int x, int y, int index, COLORREF bkColor)
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // draw into HTmpImage
+    // Will draw into HTmpImage
     BYTE bkR = GetRValue(bkColor);
     BYTE bkG = GetGValue(bkColor);
     BYTE bkB = GetBValue(bkColor);
@@ -790,7 +790,7 @@ BOOL CIconList::DrawXOR(HDC hDC, int x, int y, int index, COLORREF bkColor)
         }
     }
 
-    // draw HTmpImage to the screen
+    // Render HTmpImage to screen
     SelectObject(HMemDC, HTmpImage);
     BitBlt(hDC, x, y, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
@@ -802,11 +802,11 @@ BOOL CIconList::DrawALPHA(HDC hDC, int x, int y, int index, COLORREF bkColor)
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // in the first phase, transfer the data into HMask
+    // In first phase transfer data to HMask
     SelectObject(HMemDC, HTmpImage);
 
     BYTE bkR = GetRValue(bkColor);
@@ -845,7 +845,7 @@ BOOL CIconList::DrawALPHA(HDC hDC, int x, int y, int index, COLORREF bkColor)
         }
     }
 
-    // draw HTmpImage to the screen
+    // Render HTmpImage to screen
     BitBlt(hDC, x, y, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
     HANDLES(LeaveCriticalSection(&CriticalSection));
@@ -857,14 +857,14 @@ BOOL CIconList::DrawALPHALeaveBackground(HDC hDC, int x, int y, int index)
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // in the first phase, transfer data from the target DC into HMask
+    // In first phase transfer data from target DC to HMask
     SelectObject(HMemDC, HTmpImage);
     BitBlt(HMemDC, 0, 0, ImageWidth, ImageHeight, hDC, x, y, SRCCOPY);
-    GdiFlush(); // according to MSDN, this must be called before we start accessing raw data
+    GdiFlush(); // According to MSDN, must call before accessing raw data
 
     /*
   BYTE bkR = GetRValue(bkColor);
@@ -906,7 +906,7 @@ BOOL CIconList::DrawALPHALeaveBackground(HDC hDC, int x, int y, int index)
         }
     }
 
-    // draw HTmpImage to the screen
+    // Render HTmpImage to screen
     BitBlt(hDC, x, y, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
     HANDLES(LeaveCriticalSection(&CriticalSection));
@@ -918,14 +918,14 @@ BOOL CIconList::DrawAsAlphaLeaveBackground(HDC hDC, int x, int y, int index, COL
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // in the first phase, transfer data from the target DC into HMask
+    // In first phase transfer data from target DC to HMask
     SelectObject(HMemDC, HTmpImage);
     BitBlt(HMemDC, 0, 0, ImageWidth, ImageHeight, hDC, x, y, SRCCOPY);
-    GdiFlush(); // according to MSDN, this must be called before we start accessing raw data
+    GdiFlush(); // According to MSDN, must call before accessing raw data
 
     BYTE fgR = GetRValue(fgColor);
     BYTE fgG = GetGValue(fgColor);
@@ -940,7 +940,7 @@ BOOL CIconList::DrawAsAlphaLeaveBackground(HDC hDC, int x, int y, int index, COL
         for (col = 0; col < ImageWidth; col++)
         {
             DWORD argb = *imagePtr;
-            BYTE alpha = 255 - (BYTE)(argb & 0x000000FF); // all channels carry the same value, which should be treated as the alpha channel
+            BYTE alpha = 255 - (BYTE)(argb & 0x000000FF); // All channels carry the same value that we consider to be the alpha channel
             if (alpha != 0)
             {
                 BYTE bkR = (BYTE)((*tmpPtr & 0x00FF0000) >> 16);
@@ -957,7 +957,7 @@ BOOL CIconList::DrawAsAlphaLeaveBackground(HDC hDC, int x, int y, int index, COL
         }
     }
 
-    // draw HTmpImage to the screen
+    // Render HTmpImage to screen
     BitBlt(hDC, x, y, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
     HANDLES(LeaveCriticalSection(&CriticalSection));
@@ -969,18 +969,18 @@ BOOL CIconList::AlphaBlend(HDC hDC, int x, int y, int index, COLORREF bkColor, C
 {
     HANDLES(EnterCriticalSection(&CriticalSection));
 
-    // coordinates in pixels in HImage
+    // Coordinates in points in HImage
     int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
     int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
-    // Is this the variant that needs XORing?
+    // Is this a variant where XOR is needed?
     BOOL xorType = ImageFlags[index] == IL_TYPE_XOR;
 
-    // in the first phase, prepare raw data for HTmpImage
+    // First prepare raw data for HTmpImage
     int bitsPerPixel = GetCurrentBPP(hDC);
     if (bitsPerPixel <= 8)
     {
-        // 256 colors or less: overlay a checkerboard instead of blending
+        // 256 colors or less: instead of blending we overlay a checkerboard
         DWORD bkClrOpaque = GetRValue(bkColor) << 16 | GetGValue(bkColor) << 8 | GetBValue(bkColor);
         DWORD bkClr;
         if (fgColor != CLR_NONE)
@@ -1011,7 +1011,7 @@ BOOL CIconList::AlphaBlend(HDC hDC, int x, int y, int index, COLORREF bkColor, C
                 {
                     if (alpha == 0)
                     {
-                        // transparent area
+                        // Transparent area
                         argb = bkClrOpaque;
                     }
                     else
@@ -1033,7 +1033,7 @@ BOOL CIconList::AlphaBlend(HDC hDC, int x, int y, int index, COLORREF bkColor, C
     }
     else
     {
-        // more than 256 colors: fade using the alpha channel
+        // More than 256 colors: blend using alpha channel
         BYTE bkR = GetRValue(bkColor);
         BYTE bkG = GetGValue(bkColor);
         BYTE bkB = GetBValue(bkColor);
@@ -1087,7 +1087,7 @@ BOOL CIconList::AlphaBlend(HDC hDC, int x, int y, int index, COLORREF bkColor, C
         }
     }
 
-    // draw HTmpImage to the screen
+    // Render HTmpImage to screen
     SelectObject(HMemDC, HTmpImage);
     BitBlt(hDC, x, y, ImageWidth, ImageHeight, HMemDC, 0, 0, SRCCOPY);
 
@@ -1113,7 +1113,7 @@ BOOL CIconList::SetBkColor(COLORREF bkColor)
     int index;
     for (index = 0; index < ImageCount; index++)
     {
-        if (ImageFlags[index] != IL_TYPE_NORMAL) // setting the background color only makes sense for normal icons
+        if (ImageFlags[index] != IL_TYPE_NORMAL) // Only for normal icons does it make sense to set background color
             continue;
 
         int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
@@ -1146,7 +1146,7 @@ CIconList::GetBkColor()
 
 BOOL CIconList::Copy(int dstIndex, CIconList* srcIL, int srcIndex)
 {
-    // Check parameters
+    // Parameter check
     if (dstIndex < 0 || dstIndex >= ImageCount)
     {
         TRACE_E("CIconList::Copy: dstIndex is out of range!");
@@ -1168,9 +1168,9 @@ BOOL CIconList::Copy(int dstIndex, CIconList* srcIL, int srcIndex)
         return FALSE;
     }
 
-    // copy variant using direct access to the data; the advantage should be
-    // higher speed and a completely identical copy (the BitBlt function could drop
-    // the alpha channel)
+    // Version of copying using direct data access, the advantage should be
+    // higher speed and absolutely identical copy (BitBlt function could discard
+    // alpha kanal)
     HANDLES(EnterCriticalSection(&CriticalSection));
     int srcX = ImageWidth * (srcIndex % IL_ITEMS_IN_ROW);
     int srcY = ImageHeight * (srcIndex / IL_ITEMS_IN_ROW);
@@ -1193,7 +1193,7 @@ BOOL CIconList::Copy(int dstIndex, CIconList* srcIL, int srcIndex)
     ImageFlags[dstIndex] = srcIL->ImageFlags[srcIndex];
     HANDLES(LeaveCriticalSection(&CriticalSection));
 
-    // BitBlt-based copy variant
+    // version of copying using BitBlt
     //  HDC hSrcMemDC = HANDLES(CreateCompatibleDC(NULL));
     //  if (hSrcMemDC == NULL)
     //  {
@@ -1224,11 +1224,11 @@ BOOL CIconList::CreateFromBitmap(HBITMAP hBitmap, int imageCount, COLORREF trans
     int cx = bmp.bmWidth / imageCount;
     int cy = bmp.bmHeight;
 
-    // allocate the bitmap
+    // naalokujeme bitmapu
     if (!Create(cx, cy, imageCount))
         return FALSE;
 
-    // add strips from the source bitmap row by row
+    // Row by row add strips from source bitmap
     int index = 0;
     while (index < imageCount)
     {
@@ -1304,9 +1304,9 @@ BOOL CIconList::CopyFromBitmapIternal(int dstIndex, HBITMAP hSrcBitmap, int srcI
     BitBlt(HMemDC, dstX, dstY, ImageWidth * imageCount, ImageHeight, hSrcMemDC, srcX, srcY, SRCCOPY);
     ImageFlags[dstIndex] = IL_TYPE_NORMAL;
 
-    GdiFlush(); // according to MSDN, this must be called before we start accessing raw data
+    GdiFlush(); // According to MSDN, must call before accessing raw data
 
-    // set the alpha channel according to the transparent color
+    // Set alpha channel according to transparent color
     int row;
     for (row = dstY; row < dstY + ImageHeight; row++)
     {
@@ -1401,7 +1401,7 @@ BOOL CIconList::ConvertToGrayscale(BOOL forceAlphaForBW)
             BYTE brightness = GetGrayscaleFromRGB(r, g, b);
             if (forceAlphaForBW)
             {
-                // if the output goes to a B&W bitmap, set the threshold between white and black (tuned on Vista icons in the user menu)
+                // If the output is to BW bitmap, set threshold between white and black (tuned on Vista icons in user menu)
                 if (alpha < 200)
                     alpha = 0;
                 if (brightness > 240)
@@ -1431,49 +1431,49 @@ CIconList::GetImageList()
     return hIL;
 
     /*
-      // get the bitmap dimensions
-      HDC hDC = HANDLES(GetDC(NULL));
-      BITMAPINFO bi;
-      memset(&bi, 0, sizeof(bi));
-      bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
-      bi.bmiHeader.biBitCount = 0;   // palette not needed
+  // vytahnu rozmery bitmapy
+  HDC hDC = HANDLES(GetDC(NULL));
+  BITMAPINFO bi;
+  memset(&bi, 0, sizeof(bi));
+  bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+  bi.bmiHeader.biBitCount = 0;   // we don't want palette
   
-      if (!GetDIBits(hDC,
-                    hSrc,
-                    0, 0,
-                    NULL,
-                    &bi,
-                    DIB_RGB_COLORS))
-      {
-        TRACE_E("GetDIBits failed");
-        if (hDC != NULL) HANDLES(ReleaseDC(NULL, hDC));
-        return NULL;
-      }
+  if (!GetDIBits(hDC, 
+                hSrc,
+                0, 0, 
+                NULL,
+                &bi,
+                DIB_RGB_COLORS))
+  {
+    TRACE_E("GetDIBits failed");
+    if (hDC != NULL) HANDLES(ReleaseDC(NULL, hDC));
+    return NULL;
+  }
 
-      if (bi.bmiHeader.biSizeImage == 0)
-      {
-        TRACE_E("bi.bmiHeader.biSizeImage == 0");
-        if (hDC != NULL) HANDLES(ReleaseDC(NULL, hDC));
-        return NULL;
-      }
-      if (hDC != NULL) HANDLES(ReleaseDC(NULL, hDC));
+  if (bi.bmiHeader.biSizeImage == 0)
+  {
+    TRACE_E("bi.bmiHeader.biSizeImage == 0");
+    if (hDC != NULL) HANDLES(ReleaseDC(NULL, hDC));
+    return NULL;
+  }
+  if (hDC != NULL) HANDLES(ReleaseDC(NULL, hDC));
   
-      HIMAGELIST hIL = ImageList_Create(16, 16, GetImageListColorFlags() | ILC_MASK, 0, 1);
-      if (hIL != NULL)
-      {
-        // the ImageList_AddMasked function destroys the transparent color in hSrc, so
-        // add the icons one by one, slowly
-        int count = bi.bmiHeader.biWidth / 16;
-        int i;
-        for (i = 0; i < count; i++)
-        {
-          HICON hIcon = GetIconFromDIB(hSrc, i);
-          ImageList_AddIcon(hIL, hIcon);
-          HANDLES(DestroyIcon(hIcon));
-        }
-      }
-      return hIL;
-    */
+  HIMAGELIST hIL = ImageList_Create(16, 16, GetImageListColorFlags() | ILC_MASK, 0, 1);
+  if (hIL != NULL)
+  {
+    // ImageList_AddMasked function destroys transparent color in hSrc, so
+    // we add icons one by one and slowly
+    int count = bi.bmiHeader.biWidth / 16;
+    int i;
+    for (i = 0; i < count; i++)
+    {
+      HICON hIcon = GetIconFromDIB(hSrc, i);
+      ImageList_AddIcon(hIL, hIcon);
+      HANDLES(DestroyIcon(hIcon));
+    }
+  }
+  return hIL;
+*/
 }
 
 //****************************************************************************
@@ -1751,7 +1751,7 @@ HBITMAP LoadRawPNGBitmap(const void* rawPNG, DWORD rawPNGSize, DWORD flags)
                 if (result >= 0)
                 {
                     HBITMAP hBitmap = LoadPNGBitmapCreateDIB(&png, buff, buffSize, flags);
-                    png_free_data(&png); // release the palette, etc. allocated by png_get_data
+                    png_free_data(&png); // release palette, etc allocated in png_get_data
                     if (buff[buffSize] != 0xfe)
                     {
                         TRACE_E("Memory corrupted!!!");
@@ -1852,7 +1852,7 @@ BOOL CIconList::CreateFromRawPNG(const void* rawPNG, DWORD rawPNGSize, int image
                             int row;
                             for (row = 0; row < ImageHeight; row++)
                             {
-                                // coordinates in pixels in HImage
+                                // Coordinates in points in HImage
                                 int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
                                 int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
@@ -1887,7 +1887,7 @@ BOOL CIconList::CreateFromRawPNG(const void* rawPNG, DWORD rawPNGSize, int image
                             int row;
                             for (row = 0; row < ImageHeight; row++)
                             {
-                                // coordinates in pixels in HImage
+                                // Coordinates in points in HImage
                                 int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
                                 int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
@@ -1923,7 +1923,7 @@ BOOL CIconList::CreateFromRawPNG(const void* rawPNG, DWORD rawPNGSize, int image
                             int row;
                             for (row = 0; row < ImageHeight; row++)
                             {
-                                // coordinates in pixels in HImage
+                                // Coordinates in points in HImage
                                 int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
                                 int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
@@ -1960,7 +1960,7 @@ BOOL CIconList::CreateFromRawPNG(const void* rawPNG, DWORD rawPNGSize, int image
                             int row;
                             for (row = 0; row < ImageHeight; row++)
                             {
-                                // coordinates in pixels in HImage
+                                // Coordinates in points in HImage
                                 int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
                                 int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
@@ -1999,7 +1999,7 @@ BOOL CIconList::CreateFromRawPNG(const void* rawPNG, DWORD rawPNGSize, int image
                             int row;
                             for (row = 0; row < ImageHeight; row++)
                             {
-                                // coordinates in pixels in HImage
+                                // Coordinates in points in HImage
                                 int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
                                 int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
 
@@ -2063,7 +2063,7 @@ struct CPNGBitmapWriteCallbackData
 {
     BYTE* RawPNGIterator;
     DWORD FreeSpace;
-    // return values
+    // Return values
     BOOL NotEnoughSpace;
     DWORD Size;
 };
@@ -2091,7 +2091,7 @@ unsigned PNGBitmapWriteCallback(void* input, size_t size, size_t numel, void* us
 
 BOOL CIconList::SaveToPNG(BYTE** rawPNG, DWORD* rawPNGSize)
 {
-    // prepare the icons in one long row
+    // Prepare icons in one long row
     DWORD* buff = (DWORD*)malloc(ImageWidth * ImageCount * ImageHeight * 4);
     int index;
     for (index = 0; index < ImageCount; index++)
@@ -2099,7 +2099,7 @@ BOOL CIconList::SaveToPNG(BYTE** rawPNG, DWORD* rawPNGSize)
         int row;
         for (row = 0; row < ImageHeight; row++)
         {
-            // coordinates in pixels in the source
+            // Coordinates in points in source
             int iX = ImageWidth * (index % IL_ITEMS_IN_ROW);
             int iY = ImageHeight * (index / IL_ITEMS_IN_ROW);
             BYTE* srcPtr = (BYTE*)ImageRaw + iX * 4 + (iY + row) * BitmapWidth * 4;
@@ -2120,7 +2120,7 @@ BOOL CIconList::SaveToPNG(BYTE** rawPNG, DWORD* rawPNGSize)
     }
 
     CPNGBitmapWriteCallbackData callbackData;
-    callbackData.FreeSpace = ImageWidth * ImageCount * ImageHeight * 4 * 2; // allocate double the memory to be safe; the PNG must fit there
+    callbackData.FreeSpace = ImageWidth * ImageCount * ImageHeight * 4 * 2; // Rather prepare double memory, PNG must fit there
     callbackData.Size = 0;
     BYTE* output = (BYTE*)malloc(callbackData.FreeSpace);
     callbackData.RawPNGIterator = output;

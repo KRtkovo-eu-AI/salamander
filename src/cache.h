@@ -1,15 +1,17 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// initializes the disk cache, returns success
+#include "common/widepath.h"
+
+// disk cache initialization, returns success
 BOOL InitializeDiskCache();
 
-// how long to wait between checks of watched objects
+// how long time to wait between checking the state of watched objects
 #define CACHE_HANDLES_WAIT 500
-// (100 MB) maximum size of the disk cache in bytes; should be moved to configuration
+// (100 MB) max . size of disk-cache in bytes, should be moved to configuration
 #define MAX_CACHE_SIZE CQuadWord(104857600, 0)
 
 // error state codes for method CDiskCache::GetName()
@@ -37,13 +39,13 @@ class CCacheHandles;
 class CCacheData // tmp-name, info about file or directory on disk, internal use
 {
 protected:
-    char* Name;       // the item identification (path to original)
-    char* TmpName;    // the tmp-file name on disk (full path)
+    std::string Name;    // the item identification (path to original)
+    std::string TmpName; // the tmp-file name on disk (full path)
     HANDLE Preparing; // mutex, which "holds" the thread, which prepares the tmp-file
 
     // system objects - array of (HANDLE): state "signaled" -> remove this 'lock'
     TDirectArray<HANDLE> LockObject;
-    // object ownership: array of BOOL values; TRUE -> call CloseHandle('lock')
+    // the object ownership - array of (BOOL): TRUE -> call CloseHandle('lock')
     TDirectArray<BOOL> LockObjOwner;
 
     BOOL Cached;                               // is it a cached tmp-file? (did CrtCache already arrive?)
@@ -52,7 +54,7 @@ protected:
     CQuadWord Size;                            // tmp-file size (in bytes)
     int LastAccess;                            // "time" of last access to the tmp-file (for cache - remove the oldest)
     BOOL Detached;                             // TRUE => the tmp-file should not be deleted
-    BOOL OutOfDate;                            // TRUE => obtain a new copy as soon as possible (as if it were not on disk)
+    BOOL OutOfDate;                            // TRUE => once possible, we acquire a new copy (as if it's not on disk)
     BOOL OwnDelete;                            // FALSE = delete the tmp-file using DeleteFile(), TRUE = delete using DeleteManager (the plugin OwnDeletePlugin deletes)
     CPluginInterfaceAbstract* OwnDeletePlugin; // plugin interface, which should delete the tmp-file (NULL = the plugin is unloaded, the tmp-file should not be deleted)
 
@@ -64,7 +66,7 @@ public:
     // returns the set size of the tmp-file
     CQuadWord GetSize() { return Size; }
 
-    // returns TRUE if this tmp-file should be deleted by plugin 'ownDeletePlugin'
+    // returns TRUE if the tmp-file is deleted by the plugin 'ownDeletePlugin'
     BOOL IsDeletedByPlugin(CPluginInterfaceAbstract* ownDeletePlugin)
     {
         return OwnDelete && OwnDeletePlugin == ownDeletePlugin;
@@ -73,11 +75,11 @@ public:
     // returns "time" of last access to the tmp-file
     int GetLastAccess() { return LastAccess; }
 
-    // removes the temporary file from disk, returns success (Name is no longer on disk)
+    // cancels tmp-file on disk, returns success (Name is not on disk anymore)
     BOOL CleanFromDisk();
 
     // did the object initialization succeeded?
-    BOOL IsGood() { return Name != NULL; }
+    BOOL IsGood() { return !Name.empty(); }
 
     // should the tmp-file be cached?
     BOOL IsCached() { return Cached; }
@@ -85,8 +87,8 @@ public:
     // is the tmp-file without any link? (it still has no link/it has no link anymore?)
     BOOL IsLocked() { return LockObject.Count == 0 && NewCount == 0; }
 
-    BOOL NameEqual(const char* name) { return StrICmp(Name, name) == 0; }
-    BOOL TmpNameEqual(const char* tmpName) { return StrICmp(TmpName, tmpName) == 0; }
+    BOOL NameEqual(const char* name) { return StrICmp(Name.c_str(), name) == 0; }
+    BOOL TmpNameEqual(const char* tmpName) { return StrICmp(TmpName.c_str(), tmpName) == 0; }
 
     // waits until the tmp-file is prepared or until the method ReleaseName() is called
     // then 'exists' is set to return value matching CDiskCache::GetName()
@@ -104,29 +106,29 @@ public:
     // for description see CDiskCache::NamePrepared()
     BOOL NamePrepared(const CQuadWord& size);
 
-    // see CDiskCache::AssignName() for a description
+    // for description see CDiskCache::AssignName()
     //
-    // handles - object for tracking 'lock' handles
+    // handles - object for watching the 'lock' object
     BOOL AssignName(CCacheHandles* handles, HANDLE lock, BOOL lockOwner, CCacheRemoveType remove);
 
-    // see CDiskCache::ReleaseName() for a description
+    // for description see CDiskCache::ReleaseName()
     //
-    // lastLock - pointer to a BOOL that is set to TRUE if there are no more links to the tmp-file
+    // lastLock - pointer to BOOL, which is set to TRUE if there are no links to the tmp-file anymore
     BOOL ReleaseName(BOOL* lastLock, BOOL storeInCache);
 
     // returns the full name of the tmp-file
-    const char* GetTmpName() { return TmpName; }
+    const char* GetTmpName() { return TmpName.c_str(); }
 
-    // detaches the 'lock' object (in the "signaled" state) from the tmp-file (detaches the link)
+    // detaches the object 'lock' (in "signaled" state) from the tmp-file (detaches the link)
     //
     // returns success
     //
-    // lock - object that has entered the "signaled" state
-    // lastLock - pointer to a BOOL that is set to TRUE if there are no more links to the tmp-file
+    // lock - object, which is in "signaled" state
+    // lastLock - pointer to BOOL, which is set to TRUE if there are no links to the tmp-file anymore
     BOOL WaitSatisfied(HANDLE lock, BOOL* lastLock);
 
-    // if we decide not to delete the temporary file on disk (for example, packing failed,
-    // it is safer to leave it in the temp directory)
+    // if we change our mind about deleting the tmp-file on disk (e.g. it was not possible to pack it,
+    // so we leave it in temp, so that the users don't kill us)
     void DetachTmpFile() { Detached = TRUE; }
 
     // changes type of tmp-file to crtDirect (direct deletion after use)
@@ -137,12 +139,12 @@ public:
     }
 
     // returns item identification (path to original)
-    const char* GetName() { return Name; }
+    const char* GetName() { return Name.c_str(); }
 
-    // performs premature deletion of the tmp-file if it is deleted by the plugin
-    // 'ownDeletePlugin'; used when unloading the plugin (the tmp-file is marked as deleted,
-    // so once all references to it are closed, no deletion occurs); if 'onlyDetach' is TRUE,
-    // the tmp-file is not deleted and is only marked as deleted (the plugin is detached from the tmp-file)
+    // performs premature deletion of the tmp-file, which is deleted by the plugin 'ownDeletePlugin';
+    // used when unloading the plugin (the tmp-file is marked as deleted - once all links are closed,
+    // deletion won't occur); if 'onlyDetach' is TRUE, the tmp-file is not deleted, it's only marked
+    // as deleted (the plugin is detached from the tmp-file)
     void PrematureDeleteByPlugin(CPluginInterfaceAbstract* ownDeletePlugin, BOOL onlyDetach);
 };
 
@@ -154,7 +156,7 @@ public:
 class CCacheDirData // tmp-directory, contains unique tmp-names, internal use
 {
 protected:
-    char Path[MAX_PATH];             // tmp-directory representation on disk
+    CPathBuffer Path;                // tmp-directory representation on disk
     int PathLength;                  // length of the string in Path
     TDirectArray<CCacheData*> Names; // the list of records, type of item (CCacheData *)
 
@@ -168,30 +170,30 @@ public:
     // (finishing of TEMP cleaning - see CDiskCache::RemoveEmptyTmpDirsOnlyFromDisk())
     void RemoveEmptyTmpDirsOnlyFromDisk();
 
-    // returns TRUE if the tmp-directory contains 'tmpName' (the name of a file/directory on disk)
+    // returns TRUE if the tmp-directory contains 'tmpName' (name of file/directory on disk)
     // rootTmpPath - path where to place the tmp-directory with the tmp-file (must not be NULL)
-    // rootTmpPathLen - length of the rootTmpPath string
-    // canContainThisName - must not be NULL; set to TRUE if it is possible to place
-    //                      the tmp-file into this tmp-directory (it matches tmp-root and
-    //                      contains no file with a DOS name equal to 'tmpName')
+    // rootTmpPathLen - length of the string in rootTmpPath
+    // canContainThisName - must not be NULL, returns TRUE in it if it's possible to place
+    //                      the tmp-file into this tmp-directory (matches tmp-root + there's
+    //                      no file with DOS-name equal to 'tmpName')
     BOOL ContainTmpName(const char* tmpName, const char* rootTmpPath, int rootTmpPathLen,
                         BOOL* canContainThisName);
 
-    // Searches for 'name' in the tmp directory; if found, returns TRUE and sets 'tmpPath'
-    // and the related state so they match the expected values from CDiskCache::GetName(); if not found,
-    // returns FALSE.
+    // searches for 'name' in the tmp-directory; if it's found, returns TRUE and values 'name' and 'tmpPath',
+    // so that they match expected values from CDiskCache::GetName(); if it's not found,
+    // returns FALSE
     //
-    // name - unique item identifier
-    // exists - pointer to a BOOL set as described above
+    // name - unique item identification
+    // exists - pointer to BOOL, which is set per the description above
     // tmpPath - return value of CDiskCache::GetName() (NULL && 'exists'==TRUE -> fatal error)
     //
-    // If 'onlyAdd' is TRUE, only a new name may be created, or a deleted tmp file may be restored
-    // (the name exists, but the tmp file is not prepared); if the name already exists,
-    // returns TRUE, 'exists' FALSE, and 'tmpPath' NULL ("file already exists");
-    // 'canBlock' is TRUE if the call should wait for the tmp file to become ready when
-    // 'name' is in the cache but is not prepared; if 'canBlock' is FALSE and the tmp file is not
-    // prepared, returns TRUE, 'exists' FALSE, and 'tmpPath' NULL ("not found");
-    // if 'errorCode' is not NULL, it receives the error code that occurred (see DCGNE_XXX)
+    // if 'onlyAdd' is TRUE, it is possible to create only a new name or restore a deleted tmp-file
+    // (the name exists, but the tmp-file is not prepared) - if the name exists, returns TRUE,
+    // 'exists' FALSE and 'tmpPath' NULL ("file already exists");
+    // 'canBlock' is TRUE if waiting for readiness of the tmp-file is expected, in case 'name'
+    // is in cache, but it's not prepared, if 'canBlock' is FALSE and the tmp-file is not prepared,
+    // returns TRUE, 'exists' FALSE and 'tmpPath' NULL ("not found");
+    // if 'errorCode' is not NULL, the error code is returned in it (see DCGNE_XXX)
     BOOL GetName(CDiskCache* monitor, const char* name, BOOL* exists, const char** tmpPath,
                  BOOL canBlock, BOOL onlyAdd, int* errorCode);
 
@@ -199,64 +201,64 @@ public:
     const char* GetName(const char* name, const char* tmpName, BOOL* exists, BOOL ownDelete,
                         CPluginInterfaceAbstract* ownDeletePlugin, int* errorCode);
 
-    // searches for 'name' in the tmp-directory; if found, returns TRUE and 'ret' is set to the return value of
-    // CDiskCache::NamePrepared(name, size); if not found, returns FALSE
-    // see CDiskCache::NamePrepared() for a description
+    // searches for 'name' in the tmp-directory; if it's found, returns TRUE and 'ret' is set to return value
+    // CDiskCache::NamePrepared(name, size); if it's not found, returns FALSE
+    // for description see CDiskCache::NamePrepared()
     BOOL NamePrepared(const char* name, const CQuadWord& size, BOOL* ret);
 
-    // searches for 'name' in the tmp-directory; if found, returns TRUE and 'ret' is set to the return value of
-    // CDiskCache::AssignName(name, lock, lockOwner, remove); if not found, returns FALSE
-    // see CDiskCache::AssignName() for a description
+    // searches for 'name' in the tmp-directory; if it's found, returns TRUE and 'ret' is set to return value
+    // CDiskCache::AssignName(name, lock, lockOwner, remove); if it's not found, returns FALSE
+    // for description see CDiskCache::AssignName()
     //
-    // handles - object for tracking 'lock' objects
+    // handles - object for watching the 'lock' object
     BOOL AssignName(CCacheHandles* handles, const char* name, HANDLE lock, BOOL lockOwner,
                     CCacheRemoveType remove, BOOL* ret);
 
-    // searches for 'name' in the tmp directory; if found, returns TRUE and 'ret' is set to the return value of
-    // CDiskCache::ReleaseName(name); if not found, returns FALSE
-    // for a description, see CDiskCache::ReleaseName()
+    // searches for 'name' in the tmp-directory; if it's found, returns TRUE and 'ret' is set to return value
+    // CDiskCache::ReleaseName(name); if it's not found, returns FALSE
+    // for description see CDiskCache::ReleaseName()
     //
-    // lastCached - pointer to BOOL that is set to TRUE if this is the last link to the cached tmp file,
-    //              i.e. if its further existence must be decided
+    // lastCached - pointer to BOOL, which is set to TRUE if this is the last link to the cached tmp-file,
+    //              or if it's necessary to decide about its further existence
     BOOL ReleaseName(const char* name, BOOL* ret, BOOL* lastCached, BOOL storeInCache);
 
-    // searches for 'data' in the tmp directory; if found, returns TRUE and removes the tmp file 'data';
-    // if not found, returns FALSE
+    // searches for 'data' in the tmp-directory; if it's found, returns TRUE and cancels tmp-file 'data';
+    // if it's not found, returns FALSE
     //
-    // data - tmp file
+    // data - tmp-file
     BOOL Release(CCacheData* data);
 
     // sum of sizes of tmp-files in the tmp-directory
     CQuadWord GetSizeOfFiles();
 
-    // fills the array 'victArr' with cached orphaned tmp files (WARNING: not sorted from oldest to newest)
+    // fills the array 'victArr' with cached tmp-files without any link (WARNING: it doesn't sort from the oldest to the newest)
     void AddVictimsToArray(TDirectArray<CCacheData*>& victArr);
 
     // if we change our mind about deleting the tmp-file on disk (e.g. it was not possible to pack it
     // so we leave it in temp, so that the users don't kill us)
     BOOL DetachTmpFile(const char* tmpName);
 
-    // removes all cached files whose names start with 'name' (e.g. all files from one archive)
-    // open files are marked as out-of-date so they are refreshed on next use
-    // (the current copy remains so viewers do not complain)
+    // removes all cached tmp-files beginning with 'name' (e.g. all files from one archive)
+    // opened files will be marked as out-of-date, so that they will be restored when used again
+    // (the current copy remains, so that the viewers don't yell at us)
     void FlushCache(const char* name);
 
-    // removes cached file 'name'; the open file is marked as out-of-date so it is refreshed on next use
-    // (the current copy remains so viewers are not disrupted); returns TRUE
-    // if the file was found and removed
+    // removes cached file 'name'; the opened file will be marked as out-of-date, so that it will be
+    // restored when used again (the current copy remains, so that the viewers don't yell at us);
+    // returns TRUE if the file was found and removed
     BOOL FlushOneFile(const char* name);
 
-    // searches for the name in the Names array; returns TRUE if 'name' is found (and also returns its position in 'index');
-    // returns FALSE if 'name' is not in Names (and also returns the insertion position in 'index')
+    // search for the name in the array Names; returns TRUE if 'name' was found (returns also where - 'index');
+    // returns FALSE if 'name' is not in Names (returns also where it could be inserted - 'index')
     BOOL GetNameIndex(const char* name, int& index);
 
     // counts how many tmp-files are contained in tmp-directory, which are deleted by the plugin 'ownDeletePlugin'
     int CountNamesDeletedByPlugin(CPluginInterfaceAbstract* ownDeletePlugin);
 
-    // performs premature deletion of all tmp-files deleted by the plugin
-    // 'ownDeletePlugin'; used when unloading the plugin (the tmp-files are marked as deleted,
-    // so once all references to them are closed, no deletion occurs); if 'onlyDetach' is TRUE,
-    // they are not deleted and are only marked as deleted (the plugin is detached from the tmp-files)
+    // performs premature deletion of all tmp-files, which are deleted by the plugin 'ownDeletePlugin';
+    // used when unloading the plugin (the tmp-file is marked as deleted - once all links are closed,
+    // deletion won't occur); if 'onlyDetach' is TRUE, it is not deleted, it's only marked
+    // as deleted (the plugin is detached from the tmp-file)
     void PrematureDeleteByPlugin(CPluginInterfaceAbstract* ownDeletePlugin, BOOL onlyDetach);
 };
 
@@ -333,7 +335,7 @@ protected:
 class CDiskCache // assigns names for tmp-files
 {                // object is synchronized - monitor
 protected:
-    CRITICAL_SECTION Monitor;          // critical section used to synchronize this object (monitor behavior)
+    CRITICAL_SECTION Monitor;          // section used for synchronization of this object (behavior - monitor)
     CRITICAL_SECTION WaitForIdleCS;    // section used for synchronization of calling WaitForIdle()
     TDirectArray<CCacheDirData*> Dirs; // list of tmp-directories, type of item (CCacheDirData *)
     CCacheHandles Handles;             // object, which watches the 'lock' objects
@@ -349,83 +351,81 @@ public:
     // (e.g. Encrypt plugin has its own) after previous call of PrematureDeleteByPlugin())
     void RemoveEmptyTmpDirsOnlyFromDisk();
 
-    // returns whether object initialization succeeded
+    // returns success of object initialization
     BOOL IsGood() { return Handles.IsGood() && Dirs.IsGood(); }
 
-    // tries to find 'name' in the cache; if found, waits until the tmp-file is prepared
+    // tries to find 'name' in cache; if it's found, waits until the tmp-file is prepared
     // (e.g. downloaded from FTP), then returns the tmp-file name and sets 'exists' to TRUE;
-    // if found but the tmp-file was deleted from disk, returns the tmp-file name and sets
-    // 'exists' to FALSE; in that case the tmp-file must be prepared again and then
-    // NamePrepared() must be called; if 'tmpName' is NULL, only look up 'name' in the cache
-    // (do not create a new tmp-file); if 'onlyAdd' is TRUE, only add to the cache (if the
-    // tmp-file already exists, the call fails; if someone deleted the tmp-file directly
-    // from disk, restoring it is treated as adding, so in that case no error is returned);
-    // if not found and 'tmpName' is not NULL, creates a new name for the tmp-file,
-    // returns it immediately and sets 'exists' to FALSE; in that case, when the tmp-file is
-    // prepared (e.g. downloaded from FTP), NamePrepared() must be called so that the file
-    // becomes available to other threads;
-    // WARNING: AssignName() or ReleaseName() must be called
+    // if it's found, but the tmp-file was deleted from disk, returns the tmp-file name and
+    // 'exists' to FALSE, in this case it's necessary to prepare the tmp-file again and then
+    // call NamePrepared(); if 'tmpName' is NULL, only find 'name' in cache (don't create new
+    // tmp-file); if 'onlyAdd' is TRUE, only add to cache (if the tmp-file exists, returns
+    // error; if the tmp-file was deleted from disk, restoring it is considered as adding,
+    // so in this case it doesn't return error); if it's not found and 'tmpName' is not NULL,
+    // creates a new name for the tmp-file, returns it immediately and sets 'exists' to FALSE,
+    // in this case it's necessary to call NamePrepared() when the tmp-file is prepared (e.g.
+    // downloaded from FTP) and then the tmp-file will be available to other threads;
+    // WARNING: it's necessary to call AssignName() or ReleaseName()
     //
-    // return value NULL -> "fatal error" ('exists' is TRUE) or, if 'tmpName' is NULL,
-    //                      "not found" ('exists' is FALSE), and if 'onlyAdd' is TRUE,
-    //                      "file already exists" ('exists' is FALSE)
+    // return value NULL -> "fatal error" ('exists' is TRUE) or in case 'tmpName' is NULL
+    //                     "not found" ('exists' is FALSE), and in case 'onlyAdd' is TRUE
+    //                     "file already exists" ('exists' is FALSE)
     //
-    // name - unique item identifier
-    // tmpName - requested name of the tmp-file or directory; a tmp-directory will be selected
+    // name - unique item identification
+    // tmpName - required name of the tmp-file or directory, a tmp-directory will be selected
     //           for it
-    // exists - pointer to a BOOL set as described above
-    // onlyAdd - if TRUE, only a new name can be created (if the name already exists,
-    //           returns NULL) or a deleted tmp-file can be restored (the name exists, but the
-    //           tmp-file is not prepared)
-    // rootTmpPath - if NULL, the tmp-directory with the tmp-file should be placed in TEMP;
-    //               otherwise this is the path where the tmp-directory with the tmp-file
-    //               should be placed
-    // ownDelete - if FALSE, tmp-files should be deleted using DeleteFile(); otherwise they
-    //             should be deleted by DeleteManager (plugin-based deletion - see
-    //             ownDeletePlugin)
-    // ownDeletePlugin - if ownDelete is TRUE, contains the plugin interface that deletes the
-    //                   tmp-file
-    // errorCode - if not NULL and an error occurs, its code is returned in this variable (for
-    //             codes see DCGNE_XXX)
+    // exists - pointer to BOOL, which is set per the description above
+    // onlyAdd - if it is TRUE, it is possible to create only a new name (if the name exists,
+    //           returns NULL) or restore a deleted tmp-file (the name exists, but the tmp-file
+    //           is not prepared)
+    //
+    // rootTmpPath - if NULL, the tmp-directory with the tmp-file should be placed into TEMP, otherwise
+    //               it's the path where to place the tmp-directory with the tmp-file
+    // ownDelete - if FALSE, tmp-files should be deleted using DeleteFile(), otherwise using
+    //             DeleteManager (deletion using plugin - see ownDeletePlugin)
+    // ownDeletePlugin - if ownDelete is TRUE, contains iface of the plugin, which should delete
+    //                   the tmp-file
+    // errorCode - if not NULL and an error occurs, its code is returned in this variable (for codes
+    //             see DCGNE_XXX)
     const char* GetName(const char* name, const char* tmpName, BOOL* exists, BOOL onlyAdd,
                         const char* rootTmpPath, BOOL ownDelete,
                         CPluginInterfaceAbstract* ownDeletePlugin, int* errorCode);
 
-    // marks the tmp-file corresponding to 'name' as valid and makes it available to other threads;
+    // selects tmp-file related to 'name' for a valid one, provides it to other threads,
     // can be called only after GetName() returns 'exists' == FALSE
     //
     // returns success
     //
-    // name - unique item identifier
+    // name - unique item identification
     // size - number of bytes occupied by the tmp-file on disk
     BOOL NamePrepared(const char* name, const CQuadWord& size);
 
-    // assigns a system object to the acquired tmp-file; 'lock' controls the minimum
-    // lifetime of the tmp-file (depends on 'remove')
-    // can only be called together with GetName()
+    // assigns system object to the acquired tmp-file, using 'lock' the minimal lifetime
+    // of the tmp-file is controlled (depends on 'remove')
+    // can be called only in pair with GetName()
     //
     // returns success
     //
-    // name - unique item identifier (used later for searching)
-    // lock - when this object is "signaled", the tmp-file can be "released"
+    // name - unique item identification (later for searching)
+    // lock - when this object is "signaled", it will be possible to "release" the tmp-file
     //        (depends on 'remove')
-    // lockOwner - should the cache take care of calling CloseHandle(lock)?
+    // lockOwner - should the cache take care of calling CloseHandle(lock) ?
     // remove - when to delete the tmp-file
     BOOL AssignName(const char* name, HANDLE lock, BOOL lockOwner, CCacheRemoveType remove);
 
-    // Called only when NamePrepared() or AssignName() cannot be called after GetName().
-    // Used in case of an error while acquiring the tmp file or the 'lock' object (the
-    // launched application for which the tmp file was being acquired).
-    // If NamePrepared() would otherwise need to be called, it gives other threads a chance
-    // to create the tmp file (those waiting until the tmp file is prepared). If AssignName()
-    // would otherwise need to be called, it cancels the tmp file's waiting state for assignment
-    // of the 'lock' object, and the tmp file may be deleted. If 'storeInCache' is TRUE and the
-    // tmp file is prepared and not locked, it is marked as cached (if the maximum cache capacity
-    // allows it, it will not be deleted).
+    // only called when after calling GetName() it is not possible to call NamePrepared() or AssignName()
+    // it's present for the case of error when acquiring tmp-file or system object 'lock'
+    // (running application for which the tmp-file was acquired)
+    // in case that it was necessary to call NamePrepared(), it gives other threads the possibility
+    // to create tmp-file (which are waiting until the tmp-file is prepared), in case that it was
+    // necessary to call AssignName(), it cancels the tmp-file "waiting" for the system object 'lock',
+    // tmp-file cancellation can occur only if 'storeInCache' is TRUE, tmp-file is prepared and
+    // not locked, the tmp-file is marked as cached (if the maximum capacity of cache allows it,
+    // it won't be deleted)
     //
-    // Returns success.
+    // returns success
     //
-    // name - item identifier (used later for lookup)
+    // name - unique item identification (later for searching)
     BOOL ReleaseName(const char* name, BOOL storeInCache);
 
     // waits for the moment when the cache-handles are "free", it's useful when mass
@@ -451,15 +451,14 @@ public:
     // counts how many tmp-files are contained in disk-cache, which are deleted by the plugin 'ownDeletePlugin'
     int CountNamesDeletedByPlugin(CPluginInterfaceAbstract* ownDeletePlugin);
 
-    // Performs early deletion of all temporary files deleted by the 'ownDeletePlugin'
-    // plugin; used when unloading the plugin (the temporary files are marked as
-    // already deleted, so once all references to them are closed, no further deletion
-    // occurs); if 'onlyDetach' is TRUE, they are not deleted and are only marked as
-    // already deleted (the plugin is detached from the temporary files).
+    // performs premature deletion of all tmp-files, which are deleted by the plugin 'ownDeletePlugin';
+    // used when unloading the plugin (the tmp-file is marked as deleted - once all links are closed,
+    // deletion won't occur); if 'onlyDetach' is TRUE, it is not deleted, it's only marked
+    // as deleted (the plugin is detached from the tmp-file)
     void PrematureDeleteByPlugin(CPluginInterfaceAbstract* ownDeletePlugin, BOOL onlyDetach);
 
     // the TEMP directory clean-up from the rest of previous instances; called only by the first instance
-    // if it finds subdirectories "SAL*.tmp", it asks the user whether they want to delete them and if so,
+    // if it finds subdirectories "SAL*.tmp", it asks the user if he wants to delete them and if so,
     // it deletes them
     void ClearTEMPIfNeeded(HWND parent, HWND hActivePanel);
 
@@ -482,6 +481,54 @@ protected:
 
 //****************************************************************************
 //
+// CDiskCacheNameGuard - RAII wrapper for DiskCache name release
+//
+// Usage:
+//   const char* name = DiskCache.GetName(...);
+//   CDiskCacheNameGuard guard(DiskCache, name); // Will call ReleaseName in destructor
+//   if (error) return; // No goto needed, guard handles cleanup
+//   guard.Release(); // Call before AssignName to prevent double-release
+//   DiskCache.AssignName(name, ...);
+//
+
+class CDiskCacheNameGuard
+{
+public:
+    CDiskCacheNameGuard(CDiskCache& cache, const char* name, BOOL storeInCache = FALSE)
+        : Cache(cache), Name(name), StoreInCache(storeInCache), Released(false) {}
+
+    ~CDiskCacheNameGuard()
+    {
+        if (!Released && Name != nullptr)
+            Cache.ReleaseName(Name, StoreInCache);
+    }
+
+    // Call before AssignName() or NamePrepared() to prevent destructor from calling ReleaseName
+    void Dismiss() { Released = true; }
+
+    // Explicitly release now (e.g., for error paths where you want to release early)
+    void ReleaseNow()
+    {
+        if (!Released && Name != nullptr)
+        {
+            Cache.ReleaseName(Name, StoreInCache);
+            Released = true;
+        }
+    }
+
+    // Non-copyable
+    CDiskCacheNameGuard(const CDiskCacheNameGuard&) = delete;
+    CDiskCacheNameGuard& operator=(const CDiskCacheNameGuard&) = delete;
+
+private:
+    CDiskCache& Cache;
+    const char* Name;
+    BOOL StoreInCache;
+    bool Released;
+};
+
+//****************************************************************************
+//
 // CDeleteManager
 //
 
@@ -489,13 +536,13 @@ struct CPluginData;
 
 struct CDeleteManagerItem
 {
-    char* FileName;                   // the name of file, which should be deleted by the plugin
+    std::string FileName;                 // the name of file, which should be deleted by the plugin
     CPluginInterfaceAbstract* Plugin; // a plugin, which will delete the file via the method
                                       // CPluginInterfaceForArchiverAbstract::DeleteTmpCopy
 
     CDeleteManagerItem(const char* fileName, CPluginInterfaceAbstract* plugin);
     ~CDeleteManagerItem();
-    BOOL IsGood() { return FileName != NULL; }
+    BOOL IsGood() { return !FileName.empty(); }
 };
 
 class CDeleteManager
@@ -506,18 +553,18 @@ protected:
     // data about the files that are to be deleted (in the main thread by calling the method
     // CPluginInterfaceForArchiverAbstract::DeleteTmpCopy of the plugin)
     TIndirectArray<CDeleteManagerItem> Data;
-    BOOL WaitingForProcessing; // TRUE = a message to the main window is pending or data
-                               // processing is already in progress (the added item is processed immediately)
+    BOOL WaitingForProcessing; // TRUE = message to the main window is on the way or the data
+                               // processing is in progress (the added item will be processed immediately)
     BOOL BlockDataProcessing;  // TRUE = do not process data (ProcessData() does nothing)
 
 public:
     CDeleteManager();
     ~CDeleteManager();
 
-    // adds a file for deletion and ensures that the plugin method
-    // CPluginInterfaceForArchiverAbstract::DeleteTmpCopy is called as soon as possible
-    // to delete the file; if an error occurs, the file is not deleted; the plugin should clean up its
-    // directory on unload/load (TEMP will be cleaned by Salamander)
+    // adds file for deletion and ensures the closest call of the method
+    // CPluginInterfaceForArchiverAbstract::DeleteTmpCopy for file deletion;
+    // in case of error, the file won't be deleted - the plugin should delete its
+    // directory when loading/unloading (TEMP will be cleaned by Salamander)
     // can be called from any thread
     void AddFile(const char* fileName, CPluginInterfaceAbstract* plugin);
 
@@ -525,14 +572,14 @@ public:
     // processing of new data - deleting files in plugins
     void ProcessData();
 
-    // plugin 'plugin' may be unloaded: let it delete temporary copies from disk
+    // unloading of the plugin imminent: let the plugin which is being unloaded delete tmp-copies from disk
     // (see CPluginInterfaceForArchiverAbstract::PrematureDeleteTmpCopy)
     void PluginMayBeUnloaded(HWND parent, CPluginData* plugin);
 
-    // plugin 'plugin' has been unloaded: detach it from the delete-manager and disk-cache;
-    // 'unloadedPlugin' is already an invalid plugin interface saved before unload
+    // unload of the plugin finished: detach the plugin from delete-manager and disk-cache;
+    // 'unloadedPlugin' is already invalid plugin interface (backup before unload)
     void PluginWasUnloaded(CPluginData* plugin, CPluginInterfaceAbstract* unloadedPlugin);
 };
 
 extern CDiskCache DiskCache;         // global disk-cache
-extern CDeleteManager DeleteManager; // global disk-cache delete-manager (for deleting tmp-files in archiver plugins)
+extern CDeleteManager DeleteManager; // global disk-cache delete-manager (deleting tmp-files in archivers plugins)

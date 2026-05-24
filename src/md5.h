@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -9,15 +9,15 @@ class MD5
 
 public:
     // methods for controlled operation:
-    MD5(); // default constructor
+    MD5(); // simple initializer
     void update(unsigned char* input, unsigned int input_length);
     void finalize();
 
 public:
     // first, some types:
-    typedef unsigned int uint4;       // assumes integer is 4 bytes long
-    typedef unsigned short int uint2; // assumes short integer is 2 bytes long
-    typedef unsigned char uint1;      // assumes char is 1 byte long
+    typedef unsigned int uint4;       // assumes integer is 4 words long
+    typedef unsigned short int uint2; // assumes short integer is 2 words long
+    typedef unsigned char uint1;      // assumes char is 1 word long
 
     // next, the private data:
     uint4 state[4];

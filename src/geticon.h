@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -30,13 +31,13 @@
 //      cx/cyIcon are the size of the icon to extract, two sizes
 //      can be extracted by putting size 1 in the loword and size 2 in the
 //      hiword, ie MAKELONG(24, 48) would extract 24 and 48 size icons.
-//      yes, this is a hack; it allows IExtractIcon::Extract
-//      to be called by external callers with custom large/small
-//      icon sizes that differ from what the shell uses internally.
+//      yea this is a stupid hack it is done so IExtractIcon::Extract
+//      can be called by outside people with custom large/small icon
+//      sizes that are not what the shell uses internaly.
 //
 UINT WINAPI ExtractIcons(LPCTSTR szFileName, int nIconIndex, int cxIcon, int cyIcon,
                          HICON* phicon, UINT* piconid, UINT nIcons, UINT flags);
 
-// see the comment in spl_gen.h/GetFileIcon
+// see comment spl_gen.h/GetFileIcon
 BOOL GetFileIcon(const char* path, BOOL pathIsPIDL, HICON* hIcon, CIconSizeEnum iconSize,
                  BOOL fallbackToDefIcon, BOOL defIconIsDir);

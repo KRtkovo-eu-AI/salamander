@@ -1,4 +1,4 @@
-/* 7zExtract.h */
+﻿/* 7zExtract.h */
 
 #ifndef __7Z_EXTRACT_H
 #define __7Z_EXTRACT_H

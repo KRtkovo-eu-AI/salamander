@@ -1,0 +1,15 @@
+H:\_projects\salamander\src\plugins\jsonviewer\managed\bin\Release\JsonViewer.Managed.dll
+H:\_projects\salamander\src\plugins\jsonviewer\managed\bin\Release\JsonViewer.Managed.pdb
+H:\_projects\salamander\src\plugins\jsonviewer\managed\bin\Release\Newtonsoft.Json.dll
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.csproj.AssemblyReference.cache
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\EPocalipse.Json.Viewer.GridVisualizer.resources
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\EPocalipse.Json.Viewer.JsonObjectVisualizer.resources
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\EPocalipse.Json.Viewer.JsonViewer.resources
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\EPocalipse.Json.Viewer.Properties.Resources.resources
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.csproj.GenerateResource.cache
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.GeneratedMSBuildEditorConfig.editorconfig
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.csproj.CoreCompileInputs.cache
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.sourcelink.json
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonView.2B7637BF.Up2Date
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.dll
+H:\_projects\salamander\src\plugins\jsonviewer\managed\obj\Release\JsonViewer.Managed.pdb

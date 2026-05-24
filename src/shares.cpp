@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <lm.h>
@@ -16,10 +16,10 @@ CSharesItem::CSharesItem(const char* localPath, const char* remoteName, const ch
 
     if (localPath != NULL && localPath[0] != 0 && localPath[1] == ':')
     {
-        char buff[MAX_PATH];
-        lstrcpyn(buff, localPath, MAX_PATH);
-        SalPathAddBackslash(buff, MAX_PATH); // in case it was only "c:", make sure a root is created
-        if (SalGetFullName(buff))            // root "c:\\", others without a trailing '\\'
+        CPathBuffer buff; // Heap-allocated for long path support
+        lstrcpyn(buff, localPath, buff.Size());
+        SalPathAddBackslash(buff, buff.Size()); // in case it's just "c:", so that root is created
+        if (SalGetFullName(buff, NULL, NULL, NULL, NULL, buff.Size()))            // root "c:\\", others without '\\' at the end
         {
             LocalPath = DupStr(buff);
             RemoteName = DupStr(remoteName);
@@ -27,7 +27,7 @@ CSharesItem::CSharesItem(const char* localPath, const char* remoteName, const ch
             if (LocalPath != NULL && RemoteName != NULL && Comment != NULL)
             {
                 char* s = strrchr(LocalPath, '\\');
-                if (s == NULL || *(s + 1) == 0) // root path; s == NULL is just a safeguard and should never occur
+                if (s == NULL || *(s + 1) == 0) // root path; s==NULL is just for safety, but can never occur
                     LocalName = LocalPath;
                 else
                     LocalName = s + 1;
@@ -62,7 +62,7 @@ void CSharesItem::Cleanup()
 void CSharesItem::Destroy()
 {
     if (LocalPath != NULL)
-        free(LocalPath); // LocalName points into LocalPath, so we do not free it
+        free(LocalPath); // LocalName points into LocalPath, so we don't free it
     if (RemoteName != NULL)
         free(RemoteName);
     if (Comment != NULL)
@@ -94,32 +94,32 @@ void CShares::Refresh()
             p = BufPtr;
             for (i = 1; i <= er; i++)
             {
-                char netname[MAX_PATH];
-                char path[MAX_PATH];
-                char remark[MAX_PATH];
-                // we do not want specials because Explorer does not show them
+                CPathBuffer netname; // Heap-allocated for long path support
+                CPathBuffer path;    // Heap-allocated for long path support
+                CPathBuffer remark;  // Heap-allocated for long path support
+                // we don't want special shares because Explorer doesn't show them
                 BOOL include = p->shi502_type == 0;
-                if (!SubsetOnly && p->shi502_type == 0x80000000) // special share
+                if (!SubsetOnly && p->shi502_type == 0x80000000) // special
                     include = TRUE;
                 if (include &&
-                    WideCharToMultiByte(CP_ACP, 0, p->shi502_netname, -1, netname, MAX_PATH, NULL, NULL) &&
-                    WideCharToMultiByte(CP_ACP, 0, p->shi502_path, -1, path, MAX_PATH, NULL, NULL) &&
-                    WideCharToMultiByte(CP_ACP, 0, p->shi502_remark, -1, remark, MAX_PATH, NULL, NULL))
+                    WideCharToMultiByte(CP_ACP, 0, p->shi502_netname, -1, netname, netname.Size(), NULL, NULL) &&
+                    WideCharToMultiByte(CP_ACP, 0, p->shi502_path, -1, path, path.Size(), NULL, NULL) &&
+                    WideCharToMultiByte(CP_ACP, 0, p->shi502_remark, -1, remark, remark.Size(), NULL, NULL))
                 {
                     //              TRACE_I("Share: " << netname << " = " << path);
-                    // add the shared path to the Data array
+                    // adding the shared path to the Data array
                     CSharesItem* item = new CSharesItem(path, netname, remark);
                     if (item != NULL && item->IsGood())
                     {
                         Data.Add(item);
                         if (Data.IsGood())
-                            item = NULL; // added successfully
+                            item = NULL; // successfully added
                         else
                         {
                             delete item;
                             Data.ResetState();
                             Data.DestroyMembers();
-                            break; // error, no point in continuing the enumeration
+                            break; // error, no point continuing with enum
                         }
                     }
                     if (item != NULL)
@@ -196,11 +196,11 @@ void CShares::PrepareSearch(const char* path)
     // empty the Wanted array
     Wanted.DestroyMembers();
 
-    // put in only the shares that lie on the requested path
-    char buff[MAX_PATH];
-    lstrcpyn(buff, path, MAX_PATH);
-    if (buff[0] != 0)                        // when we search for shares from this_computer, we must not append a backslash
-        SalPathAddBackslash(buff, MAX_PATH); // we want a backslash at the end
+    // add only those shares that lie on the requested path
+    CPathBuffer buff; // Heap-allocated for long path support
+    lstrcpyn(buff, path, buff.Size());
+    if (buff[0] != 0)                         // if searching for shares from this_computer we must not append backslash
+        SalPathAddBackslash(buff, buff.Size()); // we want backslash at the end
     int pathLen = (int)strlen(buff);
 
     int i;
@@ -211,7 +211,7 @@ void CShares::PrepareSearch(const char* path)
         if (pathLen == itemNameLen && StrNICmp(item->LocalPath, buff, itemNameLen) == 0)
         {
             int index;
-            if (!GetWantedIndex(item->LocalName, index)) // add the matching share to Wanted array only if it is not already there
+            if (!GetWantedIndex(item->LocalName, index)) // add matching share to Wanted array only if not already there
             {
                 Wanted.Insert(index, item);
             }
@@ -232,11 +232,11 @@ BOOL CShares::Search(const char* name)
 BOOL CShares::GetUNCPath(const char* path, char* uncPath, int uncPathMax)
 {
     HANDLES(EnterCriticalSection(&CS));
-    char buff[MAX_PATH];
-    lstrcpyn(buff, path, MAX_PATH);
-    SalPathAddBackslash(buff, MAX_PATH); // we want a backslash at the end
+    CPathBuffer buff; // Heap-allocated for long path support
+    lstrcpyn(buff, path, buff.Size());
+    SalPathAddBackslash(buff, buff.Size()); // we want backslash at the end
 
-    int longestIndex = -1; // index into Data array holding the longest matching share
+    int longestIndex = -1; // index into Data array where the longest matching share is located
 
     int i;
     for (i = 0; i < Data.Count; i++)
@@ -254,23 +254,23 @@ BOOL CShares::GetUNCPath(const char* path, char* uncPath, int uncPathMax)
     {
         CSharesItem* item = Data[longestIndex];
         // insert the name of our computer
-        char unc[2 * MAX_PATH];
-        strcpy(unc, "\\\\");
-        DWORD len = MAX_PATH;
+        CPathBuffer unc;
+        lstrcpyn(unc, "\\\\", unc.Size());
+        DWORD len = unc.Size() - 2;
         GetComputerName(unc + 2, &len);
         strcat(unc, "\\");
         // append the share name
         strcat(unc, item->RemoteName);
-        SalPathAddBackslash(unc, 2 * MAX_PATH); // we want a backslash at the end
-        // append the directories from the original path after the share
+        SalPathAddBackslash(unc, unc.Size()); // we want backslash at the end
+        // from the original path, append directories from the share onwards
         if (strlen(item->LocalPath) < strlen(path))
         {
             const char* s = path + strlen(item->LocalPath);
             if (*s == '\\')
-                s++; // skip an optional backslash
+                s++; // skip any backslash
             strcat(unc, s);
         }
-        if (!SalGetFullName(unc)) // root "c:\", others without a trailing '\\'
+        if (!SalGetFullName(unc, NULL, NULL, NULL, NULL, unc.Size())) // root "c:\\", others without '\\' at the end
         {
             TRACE_E("Unexpected path in CSharesItem::GetUNCPath()");
             HANDLES(LeaveCriticalSection(&CS));

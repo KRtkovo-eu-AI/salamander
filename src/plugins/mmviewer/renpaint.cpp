@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -9,6 +10,7 @@
 #include "output.h"
 #include "renderer.h"
 #include "mmviewer.h"
+#include "plugindarkmode.h"
 
 #ifdef RESPECT_WINDOWS_COLORS
 // Background color
@@ -117,7 +119,7 @@ void CRendererWindow::Paint(HDC hDC, BOOL moveEditBoxes, DWORD deferFlg)
     SCROLLINFO si;
     si.cbSize = sizeof(si);
     si.fMask = SIF_POS;
-    if (!GetScrollInfo(HWindow, SB_VERT, &si)) // 0 = no scroll position
+    if (!GetScrollInfo(HWindow, SB_VERT, &si)) //0 = no scrollbar
         si.nPos = 0;
 
     int yPos = si.nPos;
@@ -127,6 +129,13 @@ void CRendererWindow::Paint(HDC hDC, BOOL moveEditBoxes, DWORD deferFlg)
 
     startH -= xPos;
     startV -= yPos;
+
+    PluginDarkModeColors colors;
+    PluginDarkMode_GetColors(&colors);
+    COLORREF valueBk = colors.InactiveSelection;
+    COLORREF headerBk = colors.DialogBackground;
+    COLORREF valueText = colors.InputText;
+    COLORREF headerText = colors.DialogText;
 
     int y = startV;
 
@@ -141,8 +150,8 @@ void CRendererWindow::Paint(HDC hDC, BOOL moveEditBoxes, DWORD deferFlg)
             {
                 RECT rct = {startH, y, ((item->Flags & OIF_HEADER) == 0) ? startH + sLeft.cx : startH + width, y + FontHeight};
 
-                SetTextColor(hDC, ((item->Flags & OIF_HEADER) == 0) ? rgbTC : rgbHeaderTC);
-                SetBkColor(hDC, ((item->Flags & OIF_HEADER) == 0) ? rgbBC : rgbHeaderBC);
+                SetTextColor(hDC, ((item->Flags & OIF_HEADER) == 0) ? valueText : headerText);
+                SetBkColor(hDC, ((item->Flags & OIF_HEADER) == 0) ? valueBk : headerBk);
                 SelectObject(hDC, ((item->Flags & OIF_HEADER) == 0) ? HNormalFont : HBoldFont);
                 ExtTextOut(hDC, startH + 5, y + 1, ETO_CLIPPED | ETO_OPAQUE, &rct, item->Name, lstrlen(item->Name), NULL);
 
@@ -158,7 +167,7 @@ void CRendererWindow::Paint(HDC hDC, BOOL moveEditBoxes, DWORD deferFlg)
                     {
                         LRESULT lines = SendMessage(item->hwnd, (UINT)EM_GETLINECOUNT, 0, 0);
 
-                        if (lines > 1) // add a vertical scrollbar
+                        if (lines > 1) // add a tiny scrollbar ;-)
                         {
                             LONG style = GetWindowLong(item->hwnd, GWL_STYLE);
                             SetWindowLong(item->hwnd, GWL_STYLE, style | WS_VSCROLL);
@@ -178,7 +187,7 @@ void CRendererWindow::Paint(HDC hDC, BOOL moveEditBoxes, DWORD deferFlg)
 
     if (!moveEditBoxes)
     {
-        SetBkColor(hDC, GetSysColor(COLOR_WINDOW));
+        SetBkColor(hDC, colors.InputBackground);
         ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &r, NULL, 0, NULL);
 
         SelectObject(hDC, hOldFont);

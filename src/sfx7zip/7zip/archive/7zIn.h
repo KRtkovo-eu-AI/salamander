@@ -1,4 +1,4 @@
-/* 7zIn.h */
+﻿/* 7zIn.h */
 
 #ifndef __7Z_IN_H
 #define __7Z_IN_H

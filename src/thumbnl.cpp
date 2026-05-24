@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -54,10 +54,10 @@ BOOL CShrinkImage::Alloc(DWORD origWidth, DWORD origHeight,
         TRACE_E("origWidth == 0 || origHeight == 0 || newWidth == 0 || newHeight == 0");
         return FALSE;
     }
-    // allocate and initialize the coefficients
+    // allocate and initialize coefficients
     RowCoeff = CreateCoeff(origWidth, newWidth, NormCoeffX);
     ColCoeff = CreateCoeff(origHeight, newHeight, NormCoeffY);
-    // allocate and clear the buffer
+    // allocate and clear buffer
     Buff = (DWORD*)malloc(3 * newWidth * sizeof(DWORD));
     if (RowCoeff == NULL || ColCoeff == NULL || Buff == NULL)
     {
@@ -73,14 +73,14 @@ BOOL CShrinkImage::Alloc(DWORD origWidth, DWORD origHeight,
     ProcessTopDown = processTopDown;
 
     YCoeff = ColCoeff;
-    // coefficients for the center and right pixel for a possible additional round
+    // coefficients for center and right pixel for possible next round
     NormCoeff = NormCoeffY * NormCoeffX;
-    // Y boundary of this section
+    // y-coordinate boundary of section
     YBndr = *YCoeff++;
-    // skip the coefficient for the first row
+    // skip coefficient for first row
     YCoeff++;
 
-    // if we process from the bottom, we must start from the last row
+    // if going from bottom, we must start with the last row
     if (!ProcessTopDown)
         OutLine = outBuff + newWidth * (newHeight - 1);
     else
@@ -116,23 +116,23 @@ CShrinkImage::CreateCoeff(DWORD origLen, WORD newLen, DWORD& norm)
     for (i = 0; i < newLen; i++)
     {
         sum += origLen;
-        // compute the pixel the new boundary crosses
+        // calculate pixel through which the new boundary passes
         boundary = sum / newLen;
-        // how much of the previous boundary belongs to the left part of this section
+        // how much of the previous boundary will be in the left part of this section
         lCoeff = norm - rCoeff;
-        // Weight of the pixel at the right edge of the section
+        // and finally the weight of the pixel at the right edge of the section
         modulo = sum % newLen;
         if (modulo == 0)
         {
-            // if the boundary falls between pixels, prefer the left one
+            // if the boundary passes between pixels, prefer the left pixel
             boundary--;
             rCoeff = norm;
         }
         else
             rCoeff = (modulo << 12) / origLen;
-        // and store the data in the array: first the boundary coordinate
+        // and save to array - first is the boundary coordinate
         *coeff++ = boundary;
-        // next the weight of the pixel at the left edge
+        // next is the weight of the pixel at the left edge
         *coeff++ = lCoeff;
         // and the weight at the right edge
         *coeff++ = rCoeff;
@@ -149,137 +149,137 @@ void CShrinkImage::ProcessRows(DWORD* inBuff, DWORD rowCount)
     BYTE r, g, b;
     DWORD rgb;
 
-    // iterate over every row
+    // iterate through all rows
     DWORD y;
     for (y = Y; y < Y + rowCount; y++)
     {
-        // initialize the buffer pointers
+        // initialize pointers to buffer
         currPix = Buff;
-        // initialize the pointer into the coefficient array
+        // initialize pointer to coefficient array
         ptrXCoeff = RowCoeff;
-        // maximum X coordinate for the current output pixel
+        // maximum x-coordinate
         xBndr = *ptrXCoeff++;
-        // at the start of the row the left coefficient equals the middle coefficient
+        // left coefficient at the start of the row is the same as center
         ptrXCoeff++;
         // right coefficient
         xCoeff = *ptrXCoeff++;
 
         x2 = 0;
-        // branch depending on whether this row is in the middle of the section or the last one
+        // division based on row position in section (middle or last)
         if (y == YBndr)
         {
-            // take the coefficient for the last row
+            // extract coefficient for last row
             DWORD yLastCoeff = *YCoeff++;
-            // take the coefficient for the first row of the next section (if any)
+            // extract coefficient for first row of next section (if any)
             if (y + 1 < OrigHeight)
             {
-                YBndr = *YCoeff++; // new Y boundary of the segment
+                YBndr = *YCoeff++; // new y-coordinate boundary of section
                 yCoeff = *YCoeff++;
             }
             else
             {
-                YBndr = 0; // new Y boundary of the segment
+                YBndr = 0; // new y-coordinate boundary of section
                 yCoeff = 0;
             }
-            // coefficients for the center and right pixel
+            // coefficients for center and right pixel
             xNewCoeff = yCoeff * xCoeff;
             xCoeff *= yLastCoeff;
-            // coefficients for the next row
+            // coefficients for next row
             DWORD midNewCoeff = yCoeff * NormCoeffX;
             DWORD midCoeff = yLastCoeff * NormCoeffX;
-            // temporary sums for the next row's pixel
+            // helper variables for pixel of next row
             DWORD nextR = 0;
             DWORD nextG = 0;
             DWORD nextB = 0;
-            // and precompute the remaining contributions
+            // and precompute next
             for (x1 = 0; x1 + 1 < NewWidth; x1++)
             {
-                // since this is the last row, store the current pixel into the result
-                // process the middle portion
+                // if we're on the last row, we store current to result
+                // iterate through the middle part
                 for (; x2 < xBndr; x2++)
                 {
-                    // fetch the pixel
+                    // extract pixel
                     rgb = *inBuff++;
                     r = GetRValue(rgb);
                     g = GetGValue(rgb);
                     b = GetBValue(rgb);
-                    // accumulate it into the buffer
+                    // add it to buffer
                     currPix[0] += midCoeff * r;
                     currPix[1] += midCoeff * g;
                     currPix[2] += midCoeff * b;
-                    // and accumulate the contributions for the next row's pixel
+                    // and also prepare pixel from next row
                     nextR += midNewCoeff * r;
                     nextG += midNewCoeff * g;
                     nextB += midNewCoeff * b;
                 }
-                // fetch the rightmost pixel
+                // extract rightmost pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // the computed pixel can now be written to the output
+                // computed pixel can now be sent to output
                 *OutLine++ = RGB((currPix[0] + xCoeff * r) >> 24,
                                  (currPix[1] + xCoeff * g) >> 24,
                                  (currPix[2] + xCoeff * b) >> 24);
-                // prepare the buffer for the next row
+                // prepare pixel for next row
                 currPix[0] = nextR + xNewCoeff * r;
                 currPix[1] = nextG + xNewCoeff * g;
                 currPix[2] = nextB + xNewCoeff * b;
-                // advance the coordinate
+                // increase coordinate
                 x2++;
-                // move to the next output pixel
+                // move in output to next pixel
                 currPix += 3;
-                // fetch the next X boundary
+                // new maximum x-coordinate
                 xBndr = *ptrXCoeff++;
                 // new left coefficient for both rows
                 xNewCoeff = yCoeff * *ptrXCoeff;
                 xCoeff = yLastCoeff * *ptrXCoeff++;
-                // and accumulate it into the buffer for the next pixel
+                // and also add it to buffer for next pixel
                 currPix[0] += xCoeff * r;
                 currPix[1] += xCoeff * g;
                 currPix[2] += xCoeff * b;
-                // and accumulate the next row's pixel contributions
+                // and also prepare pixel from next row
                 nextR = xNewCoeff * r;
                 nextG = xNewCoeff * g;
                 nextB = xNewCoeff * b;
-                // and the new right coefficient
+                // and new right coefficient
                 xNewCoeff = yCoeff * *ptrXCoeff;
                 xCoeff = yLastCoeff * *ptrXCoeff++;
             }
-            // for the last pixel we must skip computing the left part
-            // of the next pixel (there isn't one)
+            // for the last pixel we must skip calculating the left part
+            // of the next pixel (there is none)
             for (; x2 < xBndr; x2++)
             {
-                // fetch the pixel
+                // extract pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // accumulate it into the buffer
+                // add it to buffer
                 currPix[0] += midCoeff * r;
                 currPix[1] += midCoeff * g;
                 currPix[2] += midCoeff * b;
-                // and accumulate the contributions for the next row's pixel
+                // and also prepare pixel from next row
                 nextR += midNewCoeff * r;
                 nextG += midNewCoeff * g;
                 nextB += midNewCoeff * b;
             }
-            // fetch the rightmost pixel
+            // extract rightmost pixel
             rgb = *inBuff++;
             r = GetRValue(rgb);
             g = GetGValue(rgb);
             b = GetBValue(rgb);
-            // the computed pixel can now be written to the output
+            // computed pixel can now be sent to output
             *OutLine++ = RGB((currPix[0] + xCoeff * r) >> 24,
                              (currPix[1] + xCoeff * g) >> 24,
                              (currPix[2] + xCoeff * b) >> 24);
-            // prepare the buffer for the next row
+            // prepare pixel for next row
             currPix[0] = nextR + xNewCoeff * r;
             currPix[1] = nextG + xNewCoeff * g;
             currPix[2] = nextB + xNewCoeff * b;
-            // the entire row is finished
+            // we have finished the entire row
 
-            // if we process from the bottom, move one row up
+            // if going from bottom, continue one row up
             if (!ProcessTopDown)
                 OutLine -= NewWidth * 2;
         }
@@ -287,69 +287,69 @@ void CShrinkImage::ProcessRows(DWORD* inBuff, DWORD rowCount)
         {
             // right coefficient
             xCoeff *= NormCoeffY;
-            // for rows in the middle of a section, compute normally
+            // if we're on center pixels, compute normally
             for (x1 = 0; x1 + 1 < NewWidth; x1++)
             {
-                // process the middle portion
+                // iterate through the middle part
                 for (; x2 < xBndr; x2++)
                 {
-                    // fetch the pixel
+                    // extract pixel
                     rgb = *inBuff++;
                     r = GetRValue(rgb);
                     g = GetGValue(rgb);
                     b = GetBValue(rgb);
-                    // accumulate it into the buffer
+                    // add it to buffer
                     currPix[0] += NormCoeff * r;
                     currPix[1] += NormCoeff * g;
                     currPix[2] += NormCoeff * b;
                 }
-                // fetch the rightmost pixel
+                // extract rightmost pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // also accumulate it into the buffer
+                // and also add it to buffer
                 currPix[0] += xCoeff * r;
                 currPix[1] += xCoeff * g;
                 currPix[2] += xCoeff * b;
-                // advance the coordinate
+                // increase coordinate
                 x2++;
-                // move to the next output pixel
+                // move in output to next pixel
                 currPix += 3;
-                // fetch the next X boundary
+                // new maximum x-coordinate
                 xBndr = *ptrXCoeff++;
                 // new left coefficient
                 xCoeff = NormCoeffY * *ptrXCoeff++;
-                // accumulate it into the buffer for the next pixel
+                // and also add it to buffer for next pixel
                 currPix[0] += xCoeff * r;
                 currPix[1] += xCoeff * g;
                 currPix[2] += xCoeff * b;
-                // and the new right coefficient
+                // and new right coefficient
                 xCoeff = NormCoeffY * *ptrXCoeff++;
             }
-            // for the last pixel we must skip computing the left-side contribution
+            // for the last pixel we must skip calculating the left part
             for (; x2 < xBndr; x2++)
             {
-                // fetch the pixel
+                // extract pixel
                 rgb = *inBuff++;
                 r = GetRValue(rgb);
                 g = GetGValue(rgb);
                 b = GetBValue(rgb);
-                // accumulate it into the buffer
+                // add it to buffer
                 currPix[0] += NormCoeff * r;
                 currPix[1] += NormCoeff * g;
                 currPix[2] += NormCoeff * b;
             }
-            // fetch the rightmost pixel
+            // extract rightmost pixel
             rgb = *inBuff++;
             r = GetRValue(rgb);
             g = GetGValue(rgb);
             b = GetBValue(rgb);
-            // also accumulate it into the buffer
+            // and also add it to buffer
             currPix[0] += xCoeff * r;
             currPix[1] += xCoeff * g;
             currPix[2] += xCoeff * b;
-            // the entire row is finished
+            // we have finished the entire row
         }
     }
     Y += rowCount;
@@ -384,8 +384,8 @@ CSalamanderThumbnailMaker::~CSalamanderThumbnailMaker()
         free(AuxTransformBuffer);
 }
 
-// Object cleanup—called before processing another thumbnail or when
-// this object no longer needs a thumbnail (finished or not)
+// object cleanup - called before processing next thumbnail or when
+// thumbnail is no longer needed (whether ready or not) from this object
 void CSalamanderThumbnailMaker::Clear(int thumbnailMaxSize)
 {
     Error = FALSE;
@@ -403,8 +403,8 @@ void CSalamanderThumbnailMaker::Clear(int thumbnailMaxSize)
     {
         if (thumbnailMaxSize != ThumbnailMaxWidth || thumbnailMaxSize != ThumbnailMaxHeight)
         {
-            // if the user changed the thumbnail size in configuration, we must
-            // allocate ThumbnailBuffer and AuxTransformBuffer again
+            // if user changed thumbnail size (in configuration), we must
+            // reallocate ThumbnailBuffer and AuxTransformBuffer
             if (ThumbnailBuffer != NULL)
             {
                 free(ThumbnailBuffer);
@@ -424,8 +424,8 @@ void CSalamanderThumbnailMaker::Clear(int thumbnailMaxSize)
     Shrinker.Destroy();
 }
 
-// returns TRUE if the entire thumbnail is ready in this object (it was
-// successfully obtained from the plugin)
+// returns TRUE if a complete thumbnail is ready in this object (successfully
+// obtained from plugin)
 BOOL CSalamanderThumbnailMaker::ThumbnailReady()
 {
     return OriginalHeight != 0 && NextLine >= OriginalHeight && !Error;
@@ -433,7 +433,7 @@ BOOL CSalamanderThumbnailMaker::ThumbnailReady()
 
 void CSalamanderThumbnailMaker::TransformThumbnail()
 {
-    // SSTHUMB_MIRROR_VERT is already done; we still need to perform SSTHUMB_MIRROR_HOR and SSTHUMB_ROTATE_90CW
+    // SSTHUMB_MIRROR_VERT is already done, remain to perform SSTHUMB_MIRROR_HOR and SSTHUMB_ROTATE_90CW
     int transformation = (PictureFlags & (SSTHUMB_MIRROR_HOR | SSTHUMB_ROTATE_90CW));
     switch (transformation)
     {
@@ -519,16 +519,16 @@ void CSalamanderThumbnailMaker::TransformThumbnail()
     }
 }
 
-// Convert the held thumbnail to a DDB and store its data in CThumbnailData
+// convert our held thumbnail to DDB and save its data to CThumbnailData
 BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
 {
-    // create a DDB and let it initialize with the thumbnail's RGB data
+    // create DDB and have it initialized with thumbnail RGB data
     HDC hDC = HANDLES(GetDC(NULL));
     BITMAPINFO srcBI;
     memset(&srcBI, 0, sizeof(BITMAPINFO));
     srcBI.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     srcBI.bmiHeader.biWidth = ThumbnailRealWidth;
-    srcBI.bmiHeader.biHeight = -ThumbnailRealHeight; // we have a top-down representation
+    srcBI.bmiHeader.biHeight = -ThumbnailRealHeight; // we have top-down representation
     srcBI.bmiHeader.biPlanes = 1;
     srcBI.bmiHeader.biBitCount = 32;
     srcBI.bmiHeader.biCompression = BI_RGB;
@@ -542,7 +542,7 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // obtain the "geometry" of the newly created bitmap
+    // get "geometry" of just created bitmap
     BITMAP bitmap;
     if (GetObject(hBmp, sizeof(BITMAP), &bitmap) == NULL)
     {
@@ -551,9 +551,9 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // allocate a buffer for the raw bitmap data
-    // destruction happens in CIconCache::Destroy() or a few lines below
-    // in case of a refresh
+    // allocate buffer for raw bitmap data
+    // destruction will occur in CIconCache::Destroy() or a few lines below
+    // in case of refresh
 
     DWORD rawSize = bitmap.bmWidthBytes * bitmap.bmPlanes * bitmap.bmHeight;
 
@@ -565,7 +565,7 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // pull the raw data into the allocated array
+    // extract raw data to allocated array
     if (GetBitmapBits(hBmp, rawSize, bits) == NULL)
     {
         TRACE_E("GetBitmapBits failed!");
@@ -574,14 +574,14 @@ BOOL CSalamanderThumbnailMaker::RenderToThumbnailData(CThumbnailData* data)
         return FALSE;
     }
 
-    // discard the bitmap
+    // discard bitmap
     HANDLES(DeleteObject(hBmp));
 
-    // if we already hold some data, free it before storing the new data
+    // if we already hold some data, we must free it for new data
     if (data->Bits != NULL)
         free(data->Bits);
 
-    // store the result
+    // save result
     data->Width = (WORD)bitmap.bmWidth;
     data->Height = (WORD)bitmap.bmHeight;
     data->Planes = bitmap.bmPlanes;
@@ -616,7 +616,7 @@ void CSalamanderThumbnailMaker::HandleIncompleteImages()
 }
 
 // *********************************************************************************
-// methods of the CSalamanderThumbnailMakerAbstract interface
+// metody rozhrani CSalamanderThumbnailMakerAbstract
 // *********************************************************************************
 
 BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD flags)
@@ -649,14 +649,14 @@ BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD
 
     if (OriginalWidth <= maxWidth && OriginalHeight <= maxHeight)
     {
-        // copy the data
+        // copy data
         ThumbnailRealWidth = OriginalWidth;
         ThumbnailRealHeight = OriginalHeight;
         ShrinkImage = FALSE;
     }
     else
     {
-        // keep the aspect ratio
+        // preserve aspect ratio
         if ((double)maxWidth / (double)maxHeight < (double)OriginalWidth / (double)OriginalHeight)
         {
             ThumbnailRealWidth = maxWidth;
@@ -667,7 +667,7 @@ BOOL CSalamanderThumbnailMaker::SetParameters(int picWidth, int picHeight, DWORD
             ThumbnailRealHeight = maxHeight;
             ThumbnailRealWidth = (int)((double)maxHeight / ((double)OriginalHeight / (double)OriginalWidth));
         }
-        // no dimension entering the algorithm may be zero; better to break proportions
+        // no dimension must enter the algorithm as zero; rather violate proportions
         if (ThumbnailRealWidth < 1)
             ThumbnailRealWidth = 1;
         if (ThumbnailRealHeight < 1)
@@ -722,7 +722,7 @@ BOOL CSalamanderThumbnailMaker::ProcessBuffer(void* buffer, int rowsCount)
     {
         if (!Window->ICStopWork)
             TRACE_E("CSalamanderThumbnailMaker::ProcessBuffer failed. Error=" << Error << " NextLine=" << NextLine << " OriginalHeight=" << OriginalHeight);
-        return FALSE; // we are going to stop (error, overflow, or sleep-icon-cache)
+        return FALSE; // will end (error, overflow or sleep-icon-cache)
     }
     if (NextLine == -1)
     {
@@ -754,12 +754,12 @@ BOOL CSalamanderThumbnailMaker::ProcessBuffer(void* buffer, int rowsCount)
     {
         if (ShrinkImage)
         {
-            // shrink to the thumbnail size
+            // shrink to thumbnail
             Shrinker.ProcessRows((DWORD*)buffer, rowsCount);
         }
         else
         {
-            // copy 1:1
+            // transfer 1:1
             if (ProcessTopDown)
             {
                 memcpy(ThumbnailBuffer + NextLine * ThumbnailRealWidth, buffer, rowsCount * ThumbnailRealWidth * sizeof(DWORD));

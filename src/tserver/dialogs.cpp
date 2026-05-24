@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -49,7 +50,7 @@ void CAboutDialog::Transfer(CTransferInfo& ti)
 // CCenterDialog
 //
 
-BOOL CCenterDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CCenterDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -122,7 +123,7 @@ void CPSPGeneral::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDC_PSP1_MAX_MESSAGES), use);
 }
 
-BOOL CPSPGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CPSPGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -141,7 +142,7 @@ BOOL CPSPGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case PSN_APPLY:
         {
-            int ret = CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+            INT_PTR ret = CPropSheetPage::DialogProc(uMsg, wParam, lParam);
             LONG oldExStyle = GetWindowLong(MainWindow->HWindow, GWL_EXSTYLE);
             if (((oldExStyle & WS_EX_TOOLWINDOW) != 0) != ConfigData.UseToolbarCaption)
             {
@@ -212,7 +213,7 @@ void CPSPView::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_PSP2_MESSAGE, ConfigData.ViewColumnVisible_Message);
 }
 
-BOOL CPSPView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CPSPView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -229,7 +230,7 @@ BOOL CPSPView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case PSN_APPLY:
         {
-            int ret = CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+            INT_PTR ret = CPropSheetPage::DialogProc(uMsg, wParam, lParam);
             PostMessage(MainWindow->TabList->HWindow, WM_USER_HEADER_CHANGE, 0, 0);
             Registry.Save();
             return ret;
@@ -295,7 +296,7 @@ void CDetailsDialog::Transfer(CTransferInfo& ti)
     }
 }
 
-BOOL CDetailsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CDetailsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {

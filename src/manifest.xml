@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
 <assemblyIdentity
-    name="Open.Salamander.OpenSalamander"
+    name="Sally.FileManager"
     processorArchitecture="*"
     type="win32"
-    version="5.0.0.0">
+    version="1.0.0.0">
 </assemblyIdentity>
-<description>Open Salamander File Manager</description>
+<description>Sally File Manager</description>
 <dependency>
     <dependentAssembly>
         <assemblyIdentity
@@ -41,6 +41,9 @@
 <asmv3:application xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
   <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
     <dpiAware>true</dpiAware>
+  </asmv3:windowsSettings>
+  <asmv3:windowsSettings xmlns:ws2016="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
+    <ws2016:longPathAware>true</ws2016:longPathAware>
   </asmv3:windowsSettings>
 </asmv3:application>
 </assembly>

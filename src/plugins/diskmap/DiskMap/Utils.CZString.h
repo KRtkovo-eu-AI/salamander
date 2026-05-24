@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -17,15 +18,15 @@ public:
     explicit CZString(TCHAR const* s)
     {
         this->_l = _tcslen(s);
-        this->_s = (TCHAR*)malloc((this->_l + 1) * sizeof TCHAR);
+        this->_s = (TCHAR*)malloc((this->_l + 1) * sizeof(TCHAR));
         _tcscpy(this->_s, s);
     }
 
     explicit CZString(CZFile* file)
     {
-        TCHAR buff[2 * MAX_PATH + 1];
-        this->_l = file->GetFullName(buff, ARRAYSIZE(buff));
-        this->_s = (TCHAR*)malloc((this->_l + 1) * sizeof TCHAR);
+        CPathBuffer buff;
+        this->_l = file->GetFullName(buff, buff.Size());
+        this->_s = (TCHAR*)malloc((this->_l + 1) * sizeof(TCHAR));
         _tcscpy(this->_s, buff);
     }
 
@@ -52,13 +53,13 @@ public:
     {
         this->_l = _tcslen(s);
         this->_c = this->_l + 1;
-        this->_s = (TCHAR*)malloc(this->_c * sizeof TCHAR);
+        this->_s = (TCHAR*)malloc(this->_c * sizeof(TCHAR));
     }
     explicit CZStringBuffer(size_t size)
     {
         this->_l = 0;
         this->_c = size;
-        this->_s = (TCHAR*)malloc(this->_c * sizeof TCHAR);
+        this->_s = (TCHAR*)malloc(this->_c * sizeof(TCHAR));
         *this->_s = TEXT('\0');
     }
     ~CZStringBuffer()
@@ -122,7 +123,7 @@ public:
 
         //len = this->_c - this->_l - 1;
         _tcscpy(&this->_s[p], s);
-        //memcpy(this->_s[this->_l], s, len * sizeof TCHAR);
+        //memcpy(this->_s[this->_l], s, len * sizeof(TCHAR));
 
         this->_l = len + p;
         this->_s[this->_l] = TEXT('\0');
@@ -172,7 +173,7 @@ public:
             length = this->_l - pos;
 
         //_tcscpy(&this->_s[p], s);
-        memcpy(buff, &this->_s[pos], length * sizeof TCHAR);
+        memcpy(buff, &this->_s[pos], length * sizeof(TCHAR));
         buff[length] = TEXT('\0');
 
         return length;

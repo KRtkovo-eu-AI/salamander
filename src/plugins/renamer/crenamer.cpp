@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -171,9 +172,9 @@ BOOL CRenamerOptions::Load(HKEY regKey, CSalamanderRegistryAbstract* registry)
 {
     CALL_STACK_MESSAGE1("CRenamerOptions::Load(, )");
     Reset(FALSE);
-    registry->GetValue(regKey, CONFIG_NEWNAME, REG_SZ, NewName, 2 * MAX_PATH);
-    registry->GetValue(regKey, CONFIG_SEARCHFOR, REG_SZ, SearchFor, 2 * MAX_PATH);
-    registry->GetValue(regKey, CONFIG_REPLACEWITH, REG_SZ, ReplaceWith, MAX_PATH);
+    registry->GetValue(regKey, CONFIG_NEWNAME, REG_SZ, NewName.Get(), NewName.Size());
+    registry->GetValue(regKey, CONFIG_SEARCHFOR, REG_SZ, SearchFor.Get(), SearchFor.Size());
+    registry->GetValue(regKey, CONFIG_REPLACEWITH, REG_SZ, ReplaceWith.Get(), ReplaceWith.Size());
     registry->GetValue(regKey, CONFIG_CASESENSITIVE, REG_DWORD, &CaseSensitive, sizeof(BOOL));
     registry->GetValue(regKey, CONFIG_WHOLEWORDS, REG_DWORD, &WholeWords, sizeof(BOOL));
     registry->GetValue(regKey, CONFIG_GLOBAL, REG_DWORD, &Global, sizeof(BOOL));
@@ -209,7 +210,7 @@ BOOL CRenamerOptions::Save(HKEY regKey, CSalamanderRegistryAbstract* registry)
 // CRenamer
 //
 
-CRenamer::CRenamer(char (&root)[MAX_PATH], int& rootLen)
+CRenamer::CRenamer(CPathBuffer& root, int& rootLen)
     : Root(root), RootLen(rootLen)
 {
     CALL_STACK_MESSAGE2("CRenamer::CRenamer(, %d)", rootLen);
@@ -331,10 +332,10 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
     int l;
     if (Substitute)
     {
-        char tmp[MAX_PATH];
+        CPathBuffer tmp; // Heap-allocated for long path support
 
         // expand the New Name into a temporary buffer
-        l = NewName.Execute(tmp, MAX_PATH, &param);
+        l = NewName.Execute(tmp, tmp.Size(), &param);
         if (l < 0)
             return -1;
         // l is strlen(tmp)
@@ -353,7 +354,7 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
             // perform the requested substitution in the name
             int substl = UseRegExp ? RESubst(tmp, namel, newName, MAX_PATH - pathLen) : BMSubst(tmp, namel, newName, MAX_PATH - pathLen);
 
-            // Copy the extension.
+            // dokopirujeme extension
             if (substl < 0 || substl + (l - namel) >= MAX_PATH - pathLen)
                 return -1;
             memcpy(newName + substl, tmp + namel, l - namel + 1);
@@ -753,7 +754,7 @@ void ChangeCase(CChangeCase change, char* dst, const char* src,
                         *d++ = *s;
                     s++;
                 }
-                // Convert back to MBCS and check for other composite characters.
+                // Convert back to MBCS, check for orther composite characters
                 WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wstr, (int)(d - wstr), dst, (int)(end - start), NULL, NULL);
                 free(wstr);
             }

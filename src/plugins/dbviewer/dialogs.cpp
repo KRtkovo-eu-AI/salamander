@@ -1,7 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "plugindarkmode.h"
 
 #include "data.h"
 #include "renderer.h"
@@ -780,7 +782,7 @@ CColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_SYSCOLORCHANGE:
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        PluginDarkMode_ApplyListTreeThemeRecursive(HWindow);
         break;
 
     case WM_SIZE:
@@ -815,9 +817,9 @@ void CFindDialog::Transfer(CTransferInfo& ti)
                     FIND_HISTORY_SIZE, FindHistory);
     /*
   if (ti.Type == ttDataToWindow)
-  { // initialize the search text from the selection in the viewer (the parent of this dialog)
+  { // initialize the searched text according to the selection in the viewer (parent of this dialog)
     CWindowsObject *win = WindowsManager.GetWindowPtr(Parent);
-    if (win != NULL && win->Is(otViewerWindow))  // make sure this is a viewer window
+    if (win != NULL && win->Is(otViewerWindow))  // double-check that this is a viewer window
     {
       CViewerWindow *view = (CViewerWindow *)win;
       char buf[FIND_TEXT_LEN];
@@ -853,11 +855,11 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_USER_CLEARHISTORY:
     {
-        char buffer[MAX_PATH];
+        CPathBuffer buffer; // Heap-allocated for long path support
         HWND cb = GetDlgItem(HWindow, IDC_FIND_TEXT);
-        SendMessage(cb, WM_GETTEXT, MAX_PATH, (LPARAM)buffer);
+        SendMessage(cb, WM_GETTEXT, buffer.Size(), (LPARAM)buffer.Get());
         SendMessage(cb, CB_RESETCONTENT, 0, 0);
-        SendMessage(cb, WM_SETTEXT, 0, (LPARAM)buffer);
+        SendMessage(cb, WM_SETTEXT, 0, (LPARAM)buffer.Get());
         break;
     }
     }

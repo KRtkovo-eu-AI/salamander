@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -131,8 +132,8 @@ protected:
 
     void PostMouseMove();
 
-    static BOOL CALLBACK EditDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-    static BOOL CALLBACK TestDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    static INT_PTR CALLBACK EditDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    static INT_PTR CALLBACK TestDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 class CLayoutEditorHolder : public CWindow

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -297,7 +297,7 @@ CServersListbox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         }
-        break; // let the keys pass through; the listbox should not handle them
+        break; // let the keys pass through, the listbox should not handle them, no problem
     }
 
     case WM_LBUTTONDBLCLK:
@@ -495,8 +495,8 @@ void CConnectAdvancedDlg::Transfer(CTransferInfo& ti)
         ti.EditLine(IDE_TARGETPATH, HandleNULLStr(Server->TargetPanelPath), MAX_PATH);
     else
     {
-        char targetPath[MAX_PATH];
-        ti.EditLine(IDE_TARGETPATH, targetPath, MAX_PATH);
+        CPathBuffer targetPath; // Heap-allocated for long path support
+        ti.EditLine(IDE_TARGETPATH, targetPath, targetPath.Size());
         UpdateStr(Server->TargetPanelPath, targetPath);
     }
     HWND combo;
@@ -564,8 +564,8 @@ void CConnectAdvancedDlg::Transfer(CTransferInfo& ti)
             SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)NLST_CMD_TEXT);
             SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)LIST_a_CMD_TEXT);
             SendMessage(combo, CB_LIMITTEXT, FTPCOMMAND_MAX_SIZE, 0);
-            if (Server->ListCommand != NULL)
-                SendMessage(combo, WM_SETTEXT, 0, (LPARAM)Server->ListCommand);
+            if (!Server->ListCommand.empty())
+                SendMessage(combo, WM_SETTEXT, 0, (LPARAM)Server->ListCommand.c_str());
             else
                 SendMessage(combo, CB_SETCURSEL, 0, 0); // select the LIST_CMD_TEXT text
         }
@@ -575,24 +575,22 @@ void CConnectAdvancedDlg::Transfer(CTransferInfo& ti)
             SendMessage(combo, WM_GETTEXT, FTPCOMMAND_MAX_SIZE, (LPARAM)listCmd);
             if (strcmp(listCmd, LIST_CMD_TEXT) != 0)
             {
-                UpdateStr(Server->ListCommand, listCmd);
+                Server->ListCommand = listCmd;
             }
             else
             {
-                if (Server->ListCommand != NULL)
-                    free(Server->ListCommand);
-                Server->ListCommand = NULL;
+                Server->ListCommand.clear();
             }
         }
     }
     ti.EditLine(IDC_CONNECTTOPORT, Server->Port);
     if (ti.Type == ttDataToWindow)
-        ti.EditLine(IDE_INITFTPCOMMANDS, HandleNULLStr(Server->InitFTPCommands), FTP_MAX_PATH);
+        ti.EditLine(IDE_INITFTPCOMMANDS, Server->InitFTPCommands.c_str(), FTP_MAX_PATH);
     else
     {
-        char initFTPCommands[FTP_MAX_PATH];
-        ti.EditLine(IDE_INITFTPCOMMANDS, initFTPCommands, FTP_MAX_PATH);
-        UpdateStr(Server->InitFTPCommands, initFTPCommands);
+        CPathBuffer initFTPCommands;
+        ti.EditLine(IDE_INITFTPCOMMANDS, initFTPCommands, initFTPCommands.Size());
+        Server->InitFTPCommands = initFTPCommands;
     }
 
     ti.CheckBox(IDC_USEKEEPALIVE, Server->KeepConnectionAlive);
@@ -845,10 +843,9 @@ CConnectAdvancedDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (LOWORD(wParam) == IDB_BROWSE)
         {
-            char initDir[MAX_PATH];
-            GetDlgItemText(HWindow, IDE_TARGETPATH, initDir, MAX_PATH);
-            char path[MAX_PATH];
-            GetWindowText(HWindow, path, MAX_PATH); // will have the same caption
+            CPathBuffer initDir, path; // Heap-allocated for long path support
+            GetDlgItemText(HWindow, IDE_TARGETPATH, initDir, initDir.Size());
+            GetWindowText(HWindow, path, path.Size()); // will have the same caption
             if (SalamanderGeneral->GetTargetDirectory(HWindow, HWindow, path,
                                                       LoadStr(IDS_SELECTTARGETDIR), path,
                                                       FALSE, initDir))
@@ -977,7 +974,7 @@ CRenameDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             checkboxName[0] != 0 ? checkboxName : LoadStr(IDS_QUICKCONNECT));
                     SetDlgItemText(HWindow, IDC_COPYFOCUSEDSRV, buf);
                 }
-                else // new server type + empty list = need to hide/disable the "copy from" checkbox
+                else // new server type + empty list = necessary to hide/disable the "copy from" checkbox
                 {
                     ShowWindow(GetDlgItem(HWindow, IDC_COPYFOCUSEDSRV), SW_HIDE);
                 }
@@ -1193,7 +1190,7 @@ void CConfigPageAdvanced::Validate(CTransferInfo& ti)
     int num;
     int arr[] = {IDE_SRVREPLIESTIMEOUT, IDE_DELAYBETWCONRETR, IDE_CONNECTRETRIES,
                  IDE_NODATATRTIMEOUT, IDE_RESUMEMINFILESIZE, IDE_RESUMEOVERLAP, -1};
-    BOOL gzthzero[] = {TRUE, FALSE, FALSE, TRUE, TRUE, FALSE, -1}; // test > 0 (TRUE) or >= 0 (FALSE)
+    BOOL gzthzero[] = {TRUE, FALSE, FALSE, TRUE, TRUE, FALSE, -1}; // testing > 0 (TRUE) or >= 0 (FALSE)
     int i;
     for (i = 0; arr[i] != -1; i++)
     {

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -811,7 +812,7 @@ void TTextFileViewWindow<CChar>::Paint()
 
                 if (Script[ViewMode][line].GetChanges())
                 {
-                    // Transform offsets in the line changes script to account for tabs.
+                    // tranfrom offsets (due tabs) in line changes script
                     int* script = Script[ViewMode][line].GetChanges();
                     count = *script;
                     TransformOffsets(script + 1, *script, Lines[l]);

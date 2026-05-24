@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -39,7 +40,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontally and vertically center the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // let DefDlgProc handle focus
+        break; // ask DefDlgProc to handle focus
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -264,7 +265,7 @@ CPathDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
       CDialog::DialogProc(uMsg, wParam, lParam);
       return FALSE;
 */
-        break; // let DefDlgProc handle focus
+        break; // ask DefDlgProc to handle focus
     }
     }
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);
@@ -382,11 +383,11 @@ BOOL CCtrlExampleDialog::CreateChilds()
 
     CGUIHyperLinkAbstract* hl;
 
-    // A HyperLink can be reached in the dialog via the keyboard if the .RC assigns it the WS_TABSTOP style.
+    // A hyperlink can be reached in the dialog via the keyboard if the .RC assigns it the WS_TABSTOP style.
     hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_CE_HLOPEN, STF_UNDERLINE | STF_HYPERLINK_COLOR);
     if (hl == NULL)
         return FALSE;
-    hl->SetActionOpen("https://www.altap.cz");
+    hl->SetActionOpen("https://github.com/0xeb/sally");
 
     hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_CE_HLCOMMAND, STF_UNDERLINE | STF_HYPERLINK_COLOR);
     if (hl == NULL)

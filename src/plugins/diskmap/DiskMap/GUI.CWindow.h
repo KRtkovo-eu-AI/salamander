@@ -1,7 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+
+#include "plugindarkmode.h"
 
 class CWindow
 {
@@ -48,6 +51,16 @@ protected:
             pWindow = (CWindow*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         }
         LRESULT res = pWindow ? pWindow->MyWndProc(hwnd, uMsg, wParam, lParam) : DefWindowProc(hwnd, uMsg, wParam, lParam);
+
+        if (pWindow != NULL &&
+            (uMsg == WM_CREATE ||
+             (uMsg == WM_SETTINGCHANGE && PluginDarkMode_OnSettingChange(lParam)) ||
+             uMsg == WM_THEMECHANGED))
+        {
+            PluginDarkMode_ApplyTitleBar(hwnd);
+            PluginDarkMode_ApplyListTreeThemeRecursive(hwnd);
+            InvalidateRect(hwnd, NULL, TRUE);
+        }
 
         if (pWindow != NULL && uMsg == WM_NCDESTROY)
         {

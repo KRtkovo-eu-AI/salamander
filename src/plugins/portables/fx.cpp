@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -379,8 +380,8 @@ namespace Fx
     {
         // By default the configuration key is equal to the name of the plugin
         // module (without the extension).
-        TCHAR fileName[MAX_PATH];
-        DWORD cch = GetModuleFileName(FxGetModuleInstance(), fileName, _countof(fileName));
+        CPathBuffer fileName;
+        DWORD cch = GetModuleFileName(FxGetModuleInstance(), fileName, fileName.Size());
         _ASSERTE(cch > 0);
         PTSTR namePart = PathFindFileName(fileName);
         PTSTR ext = PathFindExtension(namePart);
@@ -396,7 +397,7 @@ namespace Fx
 
     void WINAPI CFxPluginInterface::GetPluginHomePageUrl(CFxString& url) const
     {
-        url = TEXT("www.altap.cz");
+        url = TEXT("https://github.com/0xeb/sally");
     }
 
     bool WINAPI CFxPluginInterface::NeedsWinLib() const

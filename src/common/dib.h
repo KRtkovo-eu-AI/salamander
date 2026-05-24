@@ -1,11 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// loads the bitmap resource hRsrc (obtained with FindResource(...)),
-// remaps mapCount colors: mapColor[i] -> toColor[i],
+// loads bitmap hRsrc from resources (obtained from FindResource(...)),
+// remaps mapCount colors: mapColor[i] -> toColor[i]
 // and creates a bitmap compatible with the desktop
 
 HBITMAP LoadBitmapAndMapColors(HINSTANCE hInst, HRSRC hRsrc, int mapCount,

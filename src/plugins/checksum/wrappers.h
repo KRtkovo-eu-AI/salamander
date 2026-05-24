@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -13,7 +14,7 @@ public:
     virtual bool Init() = 0; // Init for a new file. true on success
     virtual bool Update(const char* buf, DWORD size) = 0;
     virtual bool Finalize() = 0;
-    virtual int GetDigest(char* buf, DWORD bufsize) = 0; // Returns the number of copied binary bytes.
+    virtual int GetDigest(char* buf, DWORD bufsize) = 0; // Returns # of copied binary bytes
     virtual bool ParseDigest(char* buf, char* fileName, int fileNameLen, char* digest) = 0;
 };
 

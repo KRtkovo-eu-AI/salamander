@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -275,7 +276,7 @@ BOOL CData::LoadIgnoreLst(const char* fileName)
         char buf[MAX_PATH + 100];
         DWORD err = GetLastError();
         sprintf_s(buf, "Error opening file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
 
@@ -284,7 +285,7 @@ BOOL CData::LoadIgnoreLst(const char* fileName)
     {
         char buf[MAX_PATH + 100];
         sprintf_s(buf, "Error reading file %s.", fileName);
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         HANDLES(CloseHandle(hFile));
         return FALSE;
     }
@@ -303,7 +304,7 @@ BOOL CData::LoadIgnoreLst(const char* fileName)
         char buf[MAX_PATH + 100];
         DWORD err = GetLastError();
         sprintf_s(buf, "Error reading file %s.\n%s", fileName, GetErrorText(err));
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         free(ignoreLstData);
         HANDLES(CloseHandle(hFile));
         return FALSE;
@@ -326,7 +327,7 @@ BOOL CData::LoadIgnoreLst(const char* fileName)
                               "\n"
                               "Syntax error on line %d",
                       fileName, line);
-            MessageBox(GetMsgParent(), errbuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            TranslatorMessageBox(GetMsgParent(), errbuf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             free(ignoreLstData);
             HANDLES(CloseHandle(hFile));
             return FALSE;

@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\peviewer.atp"
+PROJECTNAME,"translator\sally 4.0\projects\hungarian\peviewer.atp"
 TEXTVERSION,"3.0 (x86)"
 VERSION,"3,0,0,180"
 
@@ -34,5 +34,5 @@ COMMENT,"Magyar változat"
 10104,1,"Olyan futtatható fájlok információinak megjelenítése, mint EXE, DLL, stb."
 
 [STRINGTABLE 2]
-10118,1,"Nincs Hordozható végrehajtható fájl szekció kijelölve a plugin beállításokban.\nBeállítások > Plugin beállítás > Hordozható végrehajtható fájl néző\naz Open Salamander főablakának menüjében, a látható szekciók megadásához."
+10118,1,"Nincs Hordozható végrehajtható fájl szekció kijelölve a plugin beállításokban.\nBeállítások > Plugin beállítás > Hordozható végrehajtható fájl néző\naz Sally főablakának menüjében, a látható szekciók megadásához."
 

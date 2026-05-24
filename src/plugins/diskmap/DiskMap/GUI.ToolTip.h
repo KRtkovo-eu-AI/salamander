@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -426,7 +427,7 @@ public:
 
         //Check normal font height
         GetTextExtentPoint32(hdc, TEXT("W"), 1, &sz);
-        this->_headerheight += sz.cy; // reserve the space even when the type string is empty so the tooltip size does not change unexpectedly
+        this->_headerheight += sz.cy; //even when type string is empty add the space so the tooltip doesn't change its size unexpectedly
 
         int dataheight = 0;
         for (int i = 0; i < TT_LINECOUNT; i++)
@@ -475,7 +476,7 @@ public:
         RECT rcWork;
         HMONITOR hmn = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         MONITORINFO mni;
-        mni.cbSize = sizeof mni;
+        mni.cbSize = sizeof(mni);
         if (GetMonitorInfo(hmn, &mni))
         {
             rcWork = mni.rcWork;
@@ -552,8 +553,10 @@ public:
         GetClientRect(this->_hWnd, &oR);
 
         HFONT hfold;
-        SetBkColor(hdc, GetSysColor(COLOR_INFOBK));
-        SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
+        PluginDarkModeColors colors;
+        PluginDarkMode_GetColors(&colors);
+        SetBkColor(hdc, colors.ToolTipBackground);
+        SetTextColor(hdc, colors.ToolTipText);
 
         //File Name
         hfold = SelectFont(hdc, this->_hftitle);
@@ -609,7 +612,12 @@ public:
         //TODO: Detect icon size
         //HACK: Force 32x32 icon - auto size looks awful on high DPI system
         if (this->_hicon)
-            DrawIconEx(hdc, TT_MARGIN_X + 0, TT_MARGIN_Y + iy, this->_hicon, 32, 32, 0, GetSysColorBrush(COLOR_INFOBK), DI_NORMAL);
+        {
+            HBRUSH hIconBrush = CreateSolidBrush(colors.ToolTipBackground);
+            DrawIconEx(hdc, TT_MARGIN_X + 0, TT_MARGIN_Y + iy, this->_hicon, 32, 32, 0, hIconBrush, DI_NORMAL);
+            if (hIconBrush != NULL)
+                DeleteObject(hIconBrush);
+        }
         SelectObject(hdc, hfold);
     }
 
@@ -624,8 +632,8 @@ public:
             delete this->_sFormatter;
 
         NONCLIENTMETRICS ncm;
-        ncm.cbSize = sizeof ncm;
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
+        ncm.cbSize = sizeof(ncm);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
         LOGFONT cpt = ncm.lfStatusFont;
         cpt.lfWeight = FW_BOLD;
         this->_hftitle = CreateFontIndirect(&cpt);

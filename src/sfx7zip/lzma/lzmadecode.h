@@ -1,4 +1,4 @@
-/* 
+﻿/* 
   LzmaDecode.h
   LZMA Decoder interface
 

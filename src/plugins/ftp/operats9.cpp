@@ -1,11 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #ifdef _DEBUG
-int CUploadListingsOnServer::FoundPathIndexesInCache = 0; // how many searched paths were found in the cache
+int CUploadListingsOnServer::FoundPathIndexesInCache = 0; // how many searched paths the cache has caught
 int CUploadListingsOnServer::FoundPathIndexesTotal = 0;   // total number of searched paths
 #endif
 
@@ -403,7 +403,7 @@ BOOL CUploadListingsOnServer::AddOrUpdateListing(const char* path, CFTPServerPat
                         listing->ListingState = ulsInProgressButObsolete;
                 }
             }
-            else // error parsing the new listing, or low memory
+            else // error parsing the new listing or memory is low
             {
                 if (listing->ListingState == ulsReady)
                 {
@@ -415,7 +415,7 @@ BOOL CUploadListingsOnServer::AddOrUpdateListing(const char* path, CFTPServerPat
                 else
                 {
                     listing->ClearListingItems();                          // discard the new listing
-                    if (listing->ListingState == ulsInProgressButObsolete) // it is impossible to determine whether the transition to ulsInProgressButObsolete was preceded by an "unknown listing change", so put the listing into an error state
+                    if (listing->ListingState == ulsInProgressButObsolete) // it is impossible to determine whether the transition to ulsInProgressButObsolete was preceded by an "unknown listing change", so go to the error state of the listing
                         listing->ListingState = ulsInProgressButMayBeOutdated;
                 }
             }
@@ -478,9 +478,9 @@ CUploadListingsOnServer::AddEmptyListing(const char* path, const char* dirName, 
                                          CUploadListingState listingState, BOOL doNotCheckIfPathIsKnown)
 {
     CUploadPathListing* ret = NULL;
-    char dir[FTP_MAX_PATH];
-    lstrcpyn(dir, path, FTP_MAX_PATH);
-    if (dirName == NULL || FTPPathAppend(pathType, dir, FTP_MAX_PATH, dirName, TRUE))
+    CPathBuffer dir;
+    lstrcpyn(dir, path, dir.Size());
+    if (dirName == NULL || FTPPathAppend(pathType, dir, dir.Size(), dirName, TRUE))
     {
         int index;
         if (doNotCheckIfPathIsKnown || !FindPath(dir, pathType, index)) // the path is not in the cache yet
@@ -521,7 +521,7 @@ BOOL CUploadListingsOnServer::FindPath(const char* path, CFTPServerPathType path
 #endif
     index = -1;
     int i;
-    for (i = 0; i < FOUND_PATH_IND_CACHE_SIZE; i++) // first try indexes that were found in the past
+    for (i = 0; i < FOUND_PATH_IND_CACHE_SIZE; i++) // first try indexes that succeeded in the past
     {
         int ind = FoundPathIndexes[i];
         if (ind >= 0 && ind < Listing.Count &&
@@ -557,19 +557,19 @@ BOOL CUploadListingsOnServer::FindPath(const char* path, CFTPServerPathType path
 void CUploadListingsOnServer::ReportCreateDirs(const char* workPath, CFTPServerPathType pathType,
                                                const char* newDirs, BOOL unknownResult)
 {
-    char cutDir[FTP_MAX_PATH];
-    char path[FTP_MAX_PATH];
+    CPathBuffer cutDir;
+    CPathBuffer path;
     if (FTPIsPathRelative(pathType, newDirs))
     { // call ReportCreateDir sequentially for all directories being created
-        char relPath[FTP_MAX_PATH];
-        lstrcpyn(relPath, newDirs, FTP_MAX_PATH);
-        lstrcpyn(path, workPath, FTP_MAX_PATH);
-        while (FTPCutFirstDirFromRelativePath(pathType, relPath, cutDir, FTP_MAX_PATH))
+        CPathBuffer relPath;
+        lstrcpyn(relPath, newDirs, relPath.Size());
+        lstrcpyn(path, workPath, path.Size());
+        while (FTPCutFirstDirFromRelativePath(pathType, relPath, cutDir, cutDir.Size()))
         {
             if (strcmp(cutDir, ".") != 0) // assumption: "." is the current directory or is meaningless
             {
                 if (strcmp(cutDir, "..") == 0)
-                    FTPCutDirectory(pathType, path, FTP_MAX_PATH, NULL, 0, NULL); // assumption: ".." is the parent directory or is meaningless
+                    FTPCutDirectory(pathType, path, path.Size(), NULL, 0, NULL); // assumption: ".." is the parent directory or is meaningless
                 else
                 {
                     int index;
@@ -587,7 +587,7 @@ void CUploadListingsOnServer::ReportCreateDirs(const char* workPath, CFTPServerP
                                 AddEmptyListing(path, cutDir, pathType, ulsReady, FALSE); // add an empty listing to the listing cache for the newly created directory
                         }
                     }
-                    if (!FTPPathAppend(pathType, path, FTP_MAX_PATH, cutDir, TRUE))
+                    if (!FTPPathAppend(pathType, path, path.Size(), cutDir, TRUE))
                         break; // ignore paths that are too long
                 }
             }
@@ -595,10 +595,10 @@ void CUploadListingsOnServer::ReportCreateDirs(const char* workPath, CFTPServerP
     }
     else // newDirs is an absolute path, so trim it up to the root and call ReportCreateDir for all subdirectories (we do not know how many subdirectories were created)
     {
-        lstrcpyn(path, newDirs, FTP_MAX_PATH);
-        FTPCompleteAbsolutePath(pathType, path, FTP_MAX_PATH, workPath); // convert the path to a full absolute path if necessary
+        lstrcpyn(path, newDirs, path.Size());
+        FTPCompleteAbsolutePath(pathType, path, path.Size(), workPath); // convert the path to a full absolute path if necessary
         FTPRemovePointsFromPath(path, pathType);                         // assumption: "." is the current directory or is meaningless, ".." is the parent directory or is meaningless
-        while (FTPCutDirectory(pathType, path, FTP_MAX_PATH, cutDir, FTP_MAX_PATH, NULL))
+        while (FTPCutDirectory(pathType, path, path.Size(), cutDir, cutDir.Size(), NULL))
         {
             int index;
             if (FindPath(path, pathType, index)) // find the path in the cache
@@ -655,11 +655,11 @@ void CUploadListingsOnServer::ReportDelete(const char* workPath, CFTPServerPathT
     {
         // just in case 'name' is a directory or a link to a directory, invalidate
         // the listing of the path to that directory
-        char path[FTP_MAX_PATH];
-        lstrcpyn(path, workPath, FTP_MAX_PATH);
-        if (FTPPathAppend(pathType, path, FTP_MAX_PATH, name, TRUE))
+        CPathBuffer path;
+        lstrcpyn(path, workPath, path.Size());
+        if (FTPPathAppend(pathType, path, path.Size(), name, TRUE))
         {
-            if (FindPath(path, pathType, index)) // find the path in the cache (if this was a file, the path cannot be found)
+            if (FindPath(path, pathType, index)) // find the path in the cache (if it was a file, the path cannot be found)
                 InvalidateListing(index);
         }
     }
@@ -730,7 +730,7 @@ void CUploadListingsOnServer::InvalidateListing(int index)
     {
         if (listing->ListingState != ulsNotAccessible)
         {
-            if (listing->ListingState == ulsInProgressButObsolete) // discard the newer listing; it is no longer useful
+            if (listing->ListingState == ulsInProgressButObsolete) // discard the newer listing; it will no longer be useful
                 listing->ClearListingItems();
             if (listing->ListingState == ulsInProgress) // discard the accumulated changes; they are no longer useful
                 listing->ClearListingChanges();
@@ -751,7 +751,7 @@ BOOL CUploadListingsOnServer::GetListing(const char* path, CFTPServerPathType pa
     if (FindPath(path, pathType, index))
     {
         CUploadPathListing* listing = Listing[index];
-        if (listing->ListingState == ulsNotAccessible) // the listing is not accessible
+        if (listing->ListingState == ulsNotAccessible) // the listing is "unobtainable"
             *notAccessible = TRUE;
         else
         {
@@ -830,7 +830,7 @@ void CUploadListingsOnServer::ListingFailed(const char* path, CFTPServerPathType
             listing->ListingState == ulsInProgressButMayBeOutdated)
         {
             listing->InformWaitingWorkers(uploadFirstWaitingWorker);
-            if (listing->ListingState == ulsInProgressButObsolete) // we already have the listing, so a worker-reported listing error does not matter
+            if (listing->ListingState == ulsInProgressButObsolete) // we already have the listing, so we do not mind that the worker reports a listing error
             {
                 listing->ListingState = ulsReady;
                 if (listingOKErrorIgnored != NULL)
@@ -876,11 +876,11 @@ BOOL CUploadListingsOnServer::ListingFinished(const char* path, CFTPServerPathTy
             listing->ListingState == ulsInProgressButMayBeOutdated)
         {
             listing->InformWaitingWorkers(NULL);
-            if (listing->ListingState == ulsInProgressButObsolete) // we already have a newer listing than this one, so ignore this listing and keep the newer one
+            if (listing->ListingState == ulsInProgressButObsolete) // we already have a newer listing than this one, so ignore this listing (stay with the newer one)
                 listing->ListingState = ulsReady;
             else
             {
-                if (listing->ListingState == ulsInProgressButMayBeOutdated) // we know this listing is probably invalid (and we have no other), so remove the path from the cache; the listing will then be downloaded again
+                if (listing->ListingState == ulsInProgressButMayBeOutdated) // we know this listing is probably invalid (and we have no other), so remove the path from the cache (the listing will be downloaded again)
                 {
                     Listing.Delete(index);
                     if (!Listing.IsGood())
@@ -903,7 +903,7 @@ BOOL CUploadListingsOnServer::ListingFinished(const char* path, CFTPServerPathTy
                             }
                             change = change->NextChange;
                         }
-                        if (change != NULL) // error while applying changes to the new listing; this can only be caused by low memory, so treat it as a temporary error, remove the path from the cache, and download the listing again later
+                        if (change != NULL) // error while applying changes to the new listing - it can only be a lack of memory - temporary error - remove the path from the cache; the listing will be downloaded again later
                         {
                             Listing.Delete(index);
                             if (!Listing.IsGood())
@@ -918,14 +918,14 @@ BOOL CUploadListingsOnServer::ListingFinished(const char* path, CFTPServerPathTy
                     }
                     else
                     {
-                        if (lowMem) // low memory = temporary error; remove the path from the cache, and the listing will be downloaded again later
+                        if (lowMem) // lack of memory = temporary error - remove the path from the cache; the listing will be downloaded again later
                         {
                             Listing.Delete(index);
                             if (!Listing.IsGood())
                                 Listing.ResetState(); // Delete cannot fail; it only reports an error when shrinking the array
                             ret = FALSE;
                         }
-                        else // parsing the new listing failed = permanent error - mark the listing for this path as "unobtainable"
+                        else // parsing error of the new listing = permanent error - mark the listing for this path as "unobtainable"
                         {
                             listing->ListingState = ulsNotAccessible;
                             listing->ClearListingChanges();
@@ -1279,7 +1279,7 @@ BOOL CUploadPathListing::ParseListing(const char* pathListing, int pathListingLe
 
     BOOL err = FALSE;
     CServerType* serverType = NULL;
-    if (listingServerType[0] != 0) // this is not autodetection; find the matching listingServerType
+    if (listingServerType[0] != 0) // this is not autodetection; find listingServerType
     {
         int i;
         for (i = 0; i < serverTypeListCount; i++)
@@ -1296,11 +1296,11 @@ BOOL CUploadPathListing::ParseListing(const char* pathListing, int pathListingLe
                     needSimpleListing = FALSE; // successfully parsed the listing
                 if (err && lowMemory != NULL)
                     *lowMemory = TRUE;
-                break; // found the requested server type, stop here
+                break; // found the requested server type, done
             }
         }
         if (i == serverTypeListCount)
-            listingServerType[0] = 0; // listingServerType is missing -> perform autodetection
+            listingServerType[0] = 0; // listingServerType does not exist -> perform autodetection
     }
 
     // autodetection - select the server type whose autodetection condition is satisfied
@@ -1318,7 +1318,7 @@ BOOL CUploadPathListing::ParseListing(const char* pathListing, int pathListingLe
                 {
                     serverType->CompiledAutodetCond = CompileAutodetectCond(HandleNULLStr(serverType->AutodetectCond),
                                                                             NULL, NULL, NULL, NULL, 0);
-                    if (serverType->CompiledAutodetCond == NULL) // this can only be a low-memory error
+                    if (serverType->CompiledAutodetCond == NULL) // can only be a memory shortage error
                     {
                         err = TRUE;
                         if (lowMemory != NULL)
@@ -1342,7 +1342,7 @@ BOOL CUploadPathListing::ParseListing(const char* pathListing, int pathListingLe
                                 s++;
                             lstrcpyn(listingServerType, s, SERVERTYPE_MAX_SIZE);
                         }
-                        needSimpleListing = err; // either the listing was parsed successfully, or an out-of-memory error occurred; stop here
+                        needSimpleListing = err; // either successfully parsed the listing or ran into a memory shortage error, finish
                         break;
                     }
                 }
@@ -1356,7 +1356,7 @@ BOOL CUploadPathListing::ParseListing(const char* pathListing, int pathListingLe
             for (k = 0; k < serverTypeListCount; k++)
             {
                 serverType = serverTypeList->At(k);
-                if (!serverType->ParserAlreadyTested) // only if we have not tested it yet
+                if (!serverType->ParserAlreadyTested) // only if we have not tried it yet
                 {
                     // serverType has been selected; try its parser on the listing
                     // serverType->ParserAlreadyTested = TRUE;  // unnecessary, not used later
@@ -1371,7 +1371,7 @@ BOOL CUploadPathListing::ParseListing(const char* pathListing, int pathListingLe
                                 s++;
                             lstrcpyn(listingServerType, s, SERVERTYPE_MAX_SIZE);
                         }
-                        needSimpleListing = err; // either successfully parsed the listing or encountered an out-of-memory error; stop here
+                        needSimpleListing = err; // either successfully parsed the listing or ran into a memory shortage error, finish
                         break;
                     }
                 }
@@ -1438,7 +1438,7 @@ BOOL CUploadPathListing::ParseListingToArray(const char* pathListing, int pathLi
                 const char* listingEnd = pathListing + pathListingLen;
                 BOOL isDir = FALSE;
 
-                int rightsCol = dataIface->FindRightsColumn(); // index of the permissions column (used to detect links)
+                int rightsCol = dataIface->FindRightsColumn(); // index of the column with rights (used for link detection)
 
                 parser->BeforeParsing(listing, listingEnd, pathListingDate.Year, pathListingDate.Month,
                                       pathListingDate.Day, FALSE); // initialize the parser
@@ -1507,7 +1507,7 @@ void CUploadPathListing::ReportCreateDir(const char* newDir, BOOL* dirCreated, B
     case ulsReady:
     case ulsInProgressButObsolete:
     {
-        if (!FindItem(newDir, index)) // the name is available; the directory can be created
+        if (!FindItem(newDir, index)) // the name is free; it is possible to create the directory
         {
             if (InsertNewItem(index, ulitDirectory, newDir, UPLOADSIZE_UNKNOWN))
                 *dirCreated = TRUE;
@@ -1596,7 +1596,7 @@ void CUploadPathListing::ReportStoreFile(const char* name, BOOL* lowMem)
     case ulsReady:
     case ulsInProgressButObsolete:
     {
-        if (!FindItem(name, index)) // the name is available; create the file
+        if (!FindItem(name, index)) // the name is free; create the file
         {
             if (!InsertNewItem(index, ulitFile, name, UPLOADSIZE_NEEDUPDATE))
                 *lowMem = TRUE;
@@ -1641,7 +1641,7 @@ void CUploadPathListing::ReportFileUploaded(const char* name, const CQuadWord& f
     case ulsReady:
     case ulsInProgressButObsolete:
     {
-        if (FindItem(name, index)) // if the item exists, update its size if it is a file
+        if (FindItem(name, index)) // if it is a file, set its new size
         {
             CUploadListingItem* item = ListingItem[index];
             if (item->ItemType == ulitFile)
@@ -1694,7 +1694,7 @@ BOOL CUploadPathListing::CommitChange(CUploadListingChange* change)
 
     case ulctCreateDir:
     {
-        if (!FindItem(change->Name, index)) // the name is available; the directory can be created
+        if (!FindItem(change->Name, index)) // the name is free; it is possible to create the directory
             return InsertNewItem(index, ulitDirectory, change->Name, UPLOADSIZE_UNKNOWN);
         return TRUE;
     }
@@ -1716,7 +1716,7 @@ BOOL CUploadPathListing::CommitChange(CUploadListingChange* change)
 
     case ulctFileUploaded:
     {
-        if (FindItem(change->Name, index)) // if found, update its size if it is a file
+        if (FindItem(change->Name, index)) // if it is a file, set its new size
         {
             CUploadListingItem* item = ListingItem[index];
             if (item->ItemType == ulitFile)
@@ -1760,7 +1760,7 @@ BOOL CUploadPathListing::AddWaitingWorker(int workerMsg, int workerUID)
 
 void CUploadPathListing::InformWaitingWorkers(CUploadWaitingWorker** uploadFirstWaitingWorker)
 {
-    if (uploadFirstWaitingWorker != NULL) // add the waiting workers to the list
+    if (uploadFirstWaitingWorker != NULL) // should add the waiting workers to the list
     {
         if (FirstWaitingWorker != NULL)
         {
@@ -1779,7 +1779,7 @@ void CUploadPathListing::InformWaitingWorkers(CUploadWaitingWorker** uploadFirst
         CUploadWaitingWorker* worker = FirstWaitingWorker;
         while (worker != NULL)
         {
-            // because we are already in CSocketsThread::CritSect, this call is safe (no deadlock risk)
+            // because we are already in CSocketsThread::CritSect, this call is possible (no deadlock risk)
             SocketsThread->PostSocketMessage(worker->WorkerMsg, worker->WorkerUID, WORKER_TGTPATHLISTINGFINISHED, NULL);
 
             CUploadWaitingWorker* del = worker;
@@ -1817,7 +1817,7 @@ CUploadListingChange::CUploadListingChange(DWORD changeTime, CUploadListingChang
     }
 }
 
-CUploadListingChange::~CUploadListingChange() // release the data, but WARNING: do not free NextChange
+CUploadListingChange::~CUploadListingChange() // release the data, but WARNING: must not free NextChange
 {
     if (Name != NULL)
         SalamanderGeneral->Free(Name);
@@ -1844,9 +1844,9 @@ void CFTPOpenedFile::Set(int myUID, const char* user, const char* host, unsigned
     lstrcpyn(User, user, USER_MAX_SIZE);
     lstrcpyn(Host, host, HOST_MAX_SIZE);
     Port = port;
-    lstrcpyn(Path, path, FTP_MAX_PATH);
+    lstrcpyn(Path, path, Path.Size());
     PathType = pathType;
-    lstrcpyn(Name, name, MAX_PATH);
+    lstrcpyn(Name, name, Name.Size());
 }
 
 BOOL CFTPOpenedFile::IsSameFile(const char* user, const char* host, unsigned short port,

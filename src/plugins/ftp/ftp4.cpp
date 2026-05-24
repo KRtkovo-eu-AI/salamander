@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -460,7 +460,7 @@ BOOL GetColumnEmptyValue(const char* empty, CSrvTypeColumnTypes type, CQuadWord*
         }
         else
         {
-            if (type == stctGeneralDate) // "" should be displayed for stctGeneralDate
+            if (type == stctGeneralDate) // for stctGeneralDate the value "" should be displayed
             {
                 day = 0;
                 skipDateCheck = TRUE;

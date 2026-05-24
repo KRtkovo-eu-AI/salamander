@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -11,6 +12,7 @@
 */
 
 #include "precomp.h"
+#include "../../registry_names.h"
 #include "icons.h"
 #include "nethood.h"
 #include "nethoodfs.h"
@@ -312,7 +314,7 @@ bool CNethoodIcons::CreateImageLists()
 bool CNethoodIcons::LoadSystemIcons()
 {
     int iIcon;
-    TCHAR szIconLocation[MAX_PATH];
+    CPathBuffer szIconLocation;
     PCTSTR pszFileName;
     HKEY hkeyShellIcons;
     LONG err;
@@ -321,7 +323,7 @@ bool CNethoodIcons::LoadSystemIcons()
 
     err = HANDLES_Q(RegOpenKeyEx(
         HKEY_LOCAL_MACHINE,
-        TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Icons"),
+        SAL_REG_KEY_EXPLORER_SHELL_ICONS_T,
         0,
         KEY_READ,
         &hkeyShellIcons));
@@ -359,13 +361,13 @@ bool CNethoodIcons::LoadSystemIcons()
 #ifdef _UNICODE
                                                 if (SUCCEEDED(StringCchCopy(
 							szIconLocation,
-							COUNTOF(szIconLocation),
+							szIconLocation.Size(),
 							sStockIcon.szPath))
 #else
                         if (WideCharToMultiByte(CP_ACP,
                                                 0, sStockIcon.szPath,
                                                 -1, szIconLocation,
-                                                sizeof(szIconLocation),
+                                                szIconLocation.Size(),
                                                 NULL, NULL) > 0)
 #endif
 						{
@@ -391,10 +393,10 @@ bool CNethoodIcons::LoadSystemIcons()
                     StringCchPrintf(szValueName, COUNTOF(szValueName),
                                     TEXT("%d"), iIcon);
 
-                    memset(szIconLocation, 0, sizeof(szIconLocation));
-                    cbData = sizeof(szIconLocation) - sizeof(TCHAR);
+                    memset(szIconLocation.Get(), 0, szIconLocation.Size());
+                    cbData = szIconLocation.Size() - sizeof(TCHAR);
                     err = SalamanderGeneral->SalRegQueryValueEx(hkeyShellIcons, szValueName,
-                                                                NULL, &dwType, reinterpret_cast<LPBYTE>(szIconLocation),
+                                                                NULL, &dwType, reinterpret_cast<LPBYTE>(szIconLocation.Get()),
                                                                 &cbData);
 
                     if (err == NO_ERROR)

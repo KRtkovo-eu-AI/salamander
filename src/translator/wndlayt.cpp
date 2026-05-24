@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -100,7 +101,7 @@ BOOL CLayoutEditor::Close()
         CDialogData* dataOrg = OriginalDialogData;
         if (data->DoesLayoutChanged(dataOrg))
         {
-            DWORD ret = MessageBox(HWindow, "The dialog box layout has changed.\nDo you want to use new layout?", "Question", MB_YESNOCANCEL | MB_ICONQUESTION);
+            DWORD ret = TranslatorMessageBox(HWindow, "The dialog box layout has changed.\nDo you want to use new layout?", "Question", MB_YESNOCANCEL | MB_ICONQUESTION);
             if (ret == IDCANCEL)
                 return FALSE;
             if (ret == IDYES)
@@ -303,7 +304,7 @@ void CLayoutEditor::LoadTransformStackStream(const BYTE* stream)
         {
             char buff[10000];
             errors.GetStrings(buff, sizeof(buff));
-            MessageBox(HWindow, buff, "Error", MB_OK | MB_ICONASTERISK);
+            TranslatorMessageBox(HWindow, buff, "Error", MB_OK | MB_ICONASTERISK);
         }
 
         TransformStack.Add(dlgData);
@@ -353,7 +354,7 @@ void RemoveDialogAmpersands(HWND hDialog)
     } while (hChild = GetWindow(hChild, GW_HWNDNEXT));
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 CLayoutEditor::EditDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
@@ -503,7 +504,7 @@ void CLayoutEditor::DrawCage(POINT pt)
     bf.BlendOp = AC_SRC_OVER;
     bf.BlendFlags = 0;
     bf.SourceConstantAlpha = 50;
-    bf.AlphaFormat = 0; // AC_SRC_ALPHA does not work
+    bf.AlphaFormat = 0; // AC_SRC_ALPHA nefunguje
 
     BitBlt(TempBitmap->HMemDC, 0, 0, TempBitmap->GetWidth(), TempBitmap->GetHeight(), CacheBitmap->HMemDC, 0, 0, SRCCOPY);
     AlphaBlend(TempBitmap->HMemDC, r.left, r.top, r.right - r.left, r.bottom - r.top, CageBitmap->HMemDC, 0, 0, r.right - r.left, r.bottom - r.top, bf);
@@ -540,7 +541,7 @@ void CLayoutEditor::NormalizeLayout(BOOL wide)
     CDialogData* dialogData = TransformStack[CurrentDialog];
     if (!dialogData->CanNormalizeLayout())
     {
-        MessageBox(HWindow, "Layout normalization is supported only for dialog boxes with outer controls on the right side.", "Error", MB_OK | MB_ICONEXCLAMATION);
+        TranslatorMessageBox(HWindow, "Layout normalization is supported only for dialog boxes with outer controls on the right side.", "Error", MB_OK | MB_ICONEXCLAMATION);
         return;
     }
 
@@ -552,7 +553,7 @@ void CLayoutEditor::NormalizeLayout(BOOL wide)
     {
         char buff[10000];
         errors.GetStrings(buff, sizeof(buff));
-        MessageBox(HWindow, buff, "Error", MB_OK | MB_ICONASTERISK);
+        TranslatorMessageBox(HWindow, buff, "Error", MB_OK | MB_ICONASTERISK);
     }
 }
 
@@ -843,7 +844,7 @@ BOOL CLayoutEditor::HitTest(const POINT* p, CEdgeEnum* edge)
     return FALSE;
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 CLayoutEditor::TestDialogProcW(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)

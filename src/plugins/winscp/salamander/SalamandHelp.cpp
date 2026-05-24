@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //---------------------------------------------------------------------------
@@ -52,7 +53,7 @@ AnsiString __fastcall TSalamandHelpSystem::GetViewerName()
 //---------------------------------------------------------------------------
 int __fastcall TSalamandHelpSystem::UnderstandsKeyword(const AnsiString HelpString)
 {
-    // pretend that we know everything
+    // pretend that we know everyting
     return 1;
 }
 //---------------------------------------------------------------------------

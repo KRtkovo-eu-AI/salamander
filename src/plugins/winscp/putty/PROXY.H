@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Network proxy abstraction in PuTTY
  *
  * A proxy layer, if necessary, wedges itself between the

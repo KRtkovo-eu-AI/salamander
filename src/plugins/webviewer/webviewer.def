@@ -1,0 +1,4 @@
+LIBRARY WEBVIEWER.DLL
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer

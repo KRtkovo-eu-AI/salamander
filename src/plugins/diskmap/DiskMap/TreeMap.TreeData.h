@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -157,7 +158,7 @@ public:
             return dirHorizontal;
             break;
         }
-        return dirNULL; //TODO: bug
+        return dirNULL; //TODO: error!
     }
     //virtual ERenderDecision Decide(CCushionRow *csr, double width, double length, int level, EDirection lastdir, INT64 datasize, INT64 remainingdata, int i, int remainingfiles)
     virtual ERenderDecision Decide(CCushionRow* csr, double width, double length, INT64 datasize, INT64 remainingdata) = 0;

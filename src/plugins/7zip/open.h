@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -37,7 +38,7 @@ private:
     UString& Password;
 
 public:
-    // If entered, the password is returned through the password parameter
+    // If entered, the password gets propagated towards password
     CArchiveOpenCallbackImp(UString& password);
     ~CArchiveOpenCallbackImp();
 };

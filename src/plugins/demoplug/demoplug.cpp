@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -24,7 +25,7 @@ CPluginInterfaceForThumbLoader InterfaceForThumbLoader;
 const char* PluginNameEN = "DemoPlug";    // untranslated plugin name, used before the language module loads and for debugging
 const char* PluginNameShort = "DEMOPLUG"; // plugin name (short form, without spaces)
 
-char Str[MAX_PATH] = "default";
+CPathBuffer Str("default");
 int Number = 0;
 int Selection = 1; // "second" in configuration dialog
 BOOL CheckBox = FALSE;
@@ -153,7 +154,7 @@ void InitIconOverlays()
     // in reality large icons have been supported for a long time and can be enabled via
     // Desktop/Properties/???/Large Icons; note that there will be no system image list
     // for 32x32 icons in that case, and we should fetch the actual icon sizes from the system
-    // for now we ignore this and enable 48x48 only from XP, where they are normally available
+    // for now we ignore it and enable 48x48 only from XP where they are normally available
     int iconSizes[3] = {16, 32, 48};
     if (!SalIsWindowsVersionOrGreater(5, 1, 0)) // not WindowsXPAndLater: not XP or later
         iconSizes[2] = 32;
@@ -223,7 +224,7 @@ void WINAPI TestLoadOrSaveConfiguration(BOOL load, HKEY regKey,
                                         CSalamanderRegistryAbstract *registry, void *param)
 {
   CALL_STACK_MESSAGE2("TestLoadOrSaveConfiguration(%d, ,)", load);
-  char buf[MAX_PATH];
+  CPathBuffer buf;
   if (load)  // load
   {
     // load default configuration
@@ -234,7 +235,7 @@ void WINAPI TestLoadOrSaveConfiguration(BOOL load, HKEY regKey,
       HKEY actKey;
       if (registry->OpenKey(regKey, "test-key", actKey))
       {
-        if (!registry->GetValue(actKey, "test-value", REG_SZ, buf, MAX_PATH)) buf[0] = 0;
+        if (!registry->GetValue(actKey, "test-value", REG_SZ, buf, buf.Size())) buf[0] = 0;
         registry->CloseKey(actKey);
       }
     }
@@ -458,13 +459,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     AssignedFSNameLen = (int)strlen(AssignedFSName);
 
     // test adding multiple filesystem names
-    char demoFSAssignedFSName[MAX_PATH]; // should live in a global variable (so it can be used throughout the plugin)
-    demoFSAssignedFSName[0] = 0;
+    CPathBuffer demoFSAssignedFSName; // should live in a global variable (so it can be used throughout the plugin)
     int demoFSFSNameIndex; // should live in a global variable (so it can be used throughout the plugin)
     if (salamander->AddFSName("demofs", &demoFSFSNameIndex))
         SalamanderGeneral->GetPluginFSName(demoFSAssignedFSName, demoFSFSNameIndex);
-    char demoAssignedFSName[MAX_PATH]; // should live in a global variable (so it can be used throughout the plugin)
-    demoAssignedFSName[0] = 0;
+    CPathBuffer demoAssignedFSName; // should live in a global variable (so it can be used throughout the plugin)
     int demoFSNameIndex; // should live in a global variable (so it can be used throughout the plugin)
     if (salamander->AddFSName("demo", &demoFSNameIndex))
         SalamanderGeneral->GetPluginFSName(demoAssignedFSName, demoFSNameIndex);
@@ -472,8 +471,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // test module enumeration
     /*
   int index = 0;
-  char module[MAX_PATH];
-  char version[MAX_PATH];
+  CPathBuffer module;
+  CPathBuffer version;
   while (SalamanderGeneral->EnumInstalledModules(&index, module, version))
   {
     TRACE_I("Module " << module << ", version " << version);
@@ -483,11 +482,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     //  SalamanderGeneral->CallLoadOrSaveConfiguration(TRUE, TestLoadOrSaveConfiguration, (void *)0x1234);
 
     // test CopyTextToClipboard
-    //  BOOL success = SalamanderGeneral->CopyTextToClipboard("testíček", -1,
+    //  BOOL success = SalamanderGeneral->CopyTextToClipboard("test", -1,
     //                                                        TRUE, salamander->GetParentWindow());
 
     // test CopyTextToClipboardW
-    //  BOOL success = SalamanderGeneral->CopyTextToClipboardW(L"testíček", -1,
+    //  BOOL success = SalamanderGeneral->CopyTextToClipboardW(L"test", -1,
     //                                                         TRUE, salamander->GetParentWindow());
 
     // test SetPluginBugReportInfo
@@ -566,7 +565,7 @@ CPluginInterface::Release(HWND parent, BOOL force)
             ReleaseFS();
 
             // remove all filesystem file copies from the disk cache (theoretically redundant, each FS should clean its copies)
-            char uniqueFileName[MAX_PATH];
+            CPathBuffer uniqueFileName;
             strcpy(uniqueFileName, AssignedFSName);
             strcat(uniqueFileName, ":");
             // disk names are case-insensitive while the disk cache is case-sensitive, converting

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -8,7 +8,7 @@
 //
 // CComboboxEdit
 //
-// The combo box loses focus and control is buggy so we can't determine the selection
+// The combobox loses focus and control is buggy so we can't determine the selection
 // the usual way. This helper control works around that problem.
 //
 
@@ -20,6 +20,15 @@ protected:
 
 public:
     CComboboxEdit();
+#ifndef _UNICODE
+    // Subclass the combo's edit child as a Unicode window. Required when the
+    // combo lives inside a Unicode dialog and the dialog issues
+    // SetDlgItemTextW into it: the combo control itself is Unicode, but
+    // AttachToWindow's default ANSI subclass would flip the edit child's
+    // WindowProc to ANSI, and WM_SETTEXT W→A would convert through CP_ACP
+    // on its way to the edit. Unicode subclass keeps the W path intact.
+    explicit CComboboxEdit(BOOL unicodeWnd);
+#endif
 
     void GetSel(DWORD* start, DWORD* end);
 
@@ -101,8 +110,8 @@ struct CUserMenuValidationData // additional data used to validate User Menu: ar
     BOOL MustHandleItemsAsGroup;     // TRUE = items must be processed as a group: ListOfSelectedNames, ListOfSelectedFullNames, FileToCompareXXX, DirToCompareXXX
     BOOL MustHandleItemsOneByOne;    // TRUE = items must be processed individually: FullName, Name, NamePart, ExtPart, DOSFullName, DOSName, DOSNamePart, DOSExtPart
     int UsedCompareType;             // 0 = none yet, 1 = file-left-right, 2 = file-active-inactive, 3 = dir-left-right, 4 = dir-active-inactive, 5 = multiple types (invalid), 6 = file-or-dir-left-right, 7 = file-or-dir-active-inactive
-    BOOL UsedCompareLeftOrActive;    // TRUE = at least one compare-left or compare-active variable is used (we test whether both parameters are used; otherwise it makes no sense)
-    BOOL UsedCompareRightOrInactive; // TRUE = at least one compare-right or compare-inactive variable is used (we test whether both parameters are used; otherwise it makes no sense)
+    BOOL UsedCompareLeftOrActive;    // TRUE = at least one variable compare-left or compare-active is used (we're testing if both parameters are used; otherwise it's nonsense)
+    BOOL UsedCompareRightOrInactive; // TRUE = at least one variable compare-right or compare-inactive is used (we're testing if both parameters are used; otherwise it's nonsense)
 };
 
 struct CUserMenuAdvancedData // additional data used only for the User Menu: array Arguments
@@ -112,11 +121,11 @@ struct CUserMenuAdvancedData // additional data used only for the User Menu: arr
     BOOL ListOfSelNamesIsEmpty;                 // TRUE = ListOfSelNames is empty
     char ListOfSelFullNames[USRMNUARGS_MAXLEN]; // empty string = empty or too long list (longer than USRMNUARGS_MAXLEN); see ListOfSelFullNamesIsEmpty
     BOOL ListOfSelFullNamesIsEmpty;             // TRUE = ListOfSelFullNames is empty
-    char FullPathLeft[MAX_PATH];                // empty string = not defined (we are in Find or the panel shows archive/FS)
-    char FullPathRight[MAX_PATH];               // empty string = not defined (we are in Find or the panel shows archive/FS)
+    CPathBuffer FullPathLeft;                   // empty string = not defined (we are in Find or the panel shows archive/FS)
+    CPathBuffer FullPathRight;                  // empty string = not defined (we are in Find or the panel shows archive/FS)
     const char* FullPathInactive;               // points to FullPathLeft or FullPathRight: empty string = not defined (we are in Find or the panel shows archive/FS)
-    char CompareName1[MAX_PATH];                // first full name for compare (file or directory)
-    char CompareName2[MAX_PATH];                // second full name for compare (file or directory)
+    CPathBuffer CompareName1;                   // first full name for compare (file or directory)
+    CPathBuffer CompareName2;                   // second full name for compare (file or directory)
     BOOL CompareNamesAreDirs;                   // TRUE = CompareName1 and CompareName2 are directories (otherwise they're files)
     BOOL CompareNamesReversed;                  // TRUE = names for compare come from different panels + CompareName1 is from the right panel
 };
@@ -127,10 +136,10 @@ struct CUserMenuAdvancedData // additional data used only for the User Menu: arr
 //
 
 // Displays a popup menu with the supplied list and after selecting an item inserts text into the edit line.
-// hParent:          dialog containing the edit line or combo box and the Browse button
+// hParent:          dialog containing the edit line or combobox and the Browse button
 // buttonResID:      ID of the Browse button
-// editlineResID:    ID of the edit line or combo box
-// combo box:         when TRUE, editlineResID identifies an edit line; otherwise it identifies a combo box
+// editlineResID:    ID of the edit line or combobox
+// combobox:         when TRUE, editlineResID identifies an edit line; otherwise it identifies a combobox
 //                   when TRUE, attaches the CComboboxEdit control to the editlineResID
 // executeItems:     array used to fill the menu
 // filterResID:      text for the browse window opened in a special case from the menu
@@ -175,6 +184,10 @@ BOOL ValidateArguments(HWND msgParent, const char* varText, int& errorPos1, int&
 BOOL ExpandArguments(HWND msgParent, const char* name, const char* dosName, const char* varText,
                      char* buffer, int bufferLen, BOOL* fileNameUsed);
 
+// Wide version of ExpandArguments — returns expanded string or empty on failure
+std::wstring ExpandArgumentsW(HWND msgParent, const char* name, const char* dosName, const char* varText,
+                              BOOL* fileNameUsed = NULL);
+
 // validates varText containing variables from the InfoLineContentItems array
 // msgParent - parent of the message box for errors; if NULL, errors are not shown
 BOOL ValidateInfoLineItems(HWND msgParent, const char* varText, int& errorPos1, int& errorPos2);
@@ -189,7 +202,7 @@ BOOL ExpandInfoLineItems(HWND msgParent, const char* varText, CPluginDataInterfa
                          int* varPlacementsCount, DWORD validFileData, BOOL isDisk);
 
 // validates varText containing variables from the MakeFileListItems array
-// msgParent - parent of the message box for errors; if NULL, errors are not shown
+// msgParent - parent of themessage box for errors; if NULL, errors are not shown
 BOOL ValidateMakeFileList(HWND msgParent, const char* varText, int& errorPos1, int& errorPos2);
 
 // expands varText containing variables from MakeFileListItems and stores the result in buffer
@@ -212,12 +225,24 @@ BOOL ValidateInitDir(HWND msgParent, const char* varText, int& errorPos1, int& e
 BOOL ExpandInitDir(HWND msgParent, const char* name, const char* dosName, const char* varText,
                    char* buffer, int bufferLen, BOOL ignoreEnvVarNotFoundOrTooLong);
 
+// Wide version of ExpandInitDir — returns expanded string or empty on failure
+std::wstring ExpandInitDirW(HWND msgParent, const char* name, const char* dosName, const char* varText,
+                            BOOL ignoreEnvVarNotFoundOrTooLong = FALSE);
+
 // Expands varText containing environment variables and stores the result in buffer
 // msgParent - parent of the message box for errors; if NULL, errors are not shown
 BOOL ExpandCommand(HWND msgParent, const char* varText, char* buffer, int bufferLen,
                    BOOL ignoreEnvVarNotFoundOrTooLong);
 
+// Wide version of ExpandCommand — returns expanded string or empty on failure
+std::wstring ExpandCommandW(HWND msgParent, const char* varText,
+                            BOOL ignoreEnvVarNotFoundOrTooLong = FALSE);
+
 // Expands varText containing environment variables and stores the result in buffer
 // msgParent - parent of the message box for errors; if NULL, errors are not shown
 BOOL ExpandHotPath(HWND msgParent, const char* varText, char* buffer, int bufferLen,
                    BOOL ignoreEnvVarNotFoundOrTooLong);
+
+// Wide version of ExpandHotPath — returns expanded string or empty on failure
+std::wstring ExpandHotPathW(HWND msgParent, const char* varText,
+                            BOOL ignoreEnvVarNotFoundOrTooLong = FALSE);

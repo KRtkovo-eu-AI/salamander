@@ -1,10 +1,33 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
-#include <Tlhelp32.h>
+#include <tlhelp32.h>
+#include "common/IEnvironment.h"
+#include "common/IRegistry.h"
+
+// Cross-architecture register access macros for CONTEXT structure
+#ifdef _WIN64
+#ifdef _M_ARM64
+// ARM64 registers
+#define CONTEXT_IP(ctx) ((ctx).Pc)
+#define CONTEXT_SP(ctx) ((ctx).Sp)
+#define CONTEXT_FP(ctx) ((ctx).Fp)
+#define CONTEXT_IP_NAME "PC"
+#define CONTEXT_SP_NAME "SP"
+#define CONTEXT_FP_NAME "FP"
+#else
+// x64 registers
+#define CONTEXT_IP(ctx) ((ctx).Rip)
+#define CONTEXT_SP(ctx) ((ctx).Rsp)
+#define CONTEXT_FP(ctx) ((ctx).Rbp)
+#define CONTEXT_IP_NAME "RIP"
+#define CONTEXT_SP_NAME "RSP"
+#define CONTEXT_FP_NAME "RBP"
+#endif
+#endif
 
 #include "mainwnd.h"
 #include "drivelst.h"
@@ -28,6 +51,11 @@ static struct CBugReportReasonBreak_Init
 TIndirectArray<char> GlobalModulesStore(50, 20);
 TDirectArray<DWORD> GlobalModulesListTimeStore(50, 20); // x64_OK
 
+static IRegistry* GetBugReportRegistry()
+{
+    return gRegistry != nullptr ? gRegistry : GetWin32Registry();
+}
+
 //
 // ****************************************************************************
 // GetProcessorSpeed
@@ -35,6 +63,11 @@ TDirectArray<DWORD> GlobalModulesListTimeStore(50, 20); // x64_OK
 
 BOOL GetProcessorSpeed(DWORD* mhz)
 {
+#ifdef _M_ARM64
+    // ARM64: __rdtsc is not available, processor speed detection not implemented
+    *mhz = 0;
+    return FALSE;
+#else
     __try
     {
         LARGE_INTEGER t1, t2, t3, t4, f;
@@ -43,7 +76,7 @@ BOOL GetProcessorSpeed(DWORD* mhz)
         HANDLE t, p;
 
         if (!QueryPerformanceFrequency(&f))
-            return FALSE; // installed hardware does not support a high-resolution performance counter
+            return FALSE; // installed hardware doesn't supports a high-resolution performance counter
 
         // temporarily raise priority
         t = GetCurrentThread();
@@ -70,7 +103,7 @@ BOOL GetProcessorSpeed(DWORD* mhz)
         c2 = __rdtsc();
         QueryPerformanceCounter(&t2);
 
-        // restore the original priorities
+        // restore original priority
         SetThreadPriority(t, tp);
         SetPriorityClass(p, pp);
 
@@ -83,6 +116,7 @@ BOOL GetProcessorSpeed(DWORD* mhz)
     {
         return FALSE;
     }
+#endif // !_M_ARM64
 }
 
 HANDLE WINAPI GetThreadHandleFromID(DWORD dwThreadID, BOOL bInherit)
@@ -101,6 +135,15 @@ struct VS_VERSIONINFO_HEADER
 // which might be more reliable after a crash
 BOOL GetModuleVersion(HINSTANCE hModule, char* buffer, int bufferLen)
 {
+    // Validate module memory is committed before probing PE headers — modules
+    // may be partially mapped during concurrent load/unload
+    MEMORY_BASIC_INFORMATION mbi;
+    if (VirtualQuery(hModule, &mbi, sizeof(mbi)) == 0 || mbi.State != MEM_COMMIT)
+    {
+        lstrcpyn(buffer, "unknown", bufferLen);
+        return FALSE;
+    }
+
     HRSRC hRes = FindResource(hModule, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
     if (hRes == NULL)
     {
@@ -173,7 +216,7 @@ MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dw
     sprintf(buf, "Monitor %d: (%d,%d)-(%d,%d) %dx%d pixels", data->Index, r.left, r.top, r.right, r.bottom,
             r.right - r.left, r.bottom - r.top);
 
-    // hdcMonitor is NULL, so we must create a DC
+    // hdcMonitor is NULL, we must create a DC
     HDC hdc = NOHANDLES(CreateDC(mi.szDevice, mi.szDevice, NULL, NULL));
     int planes = GetDeviceCaps(hdc, PLANES);
     int bitsPixels = GetDeviceCaps(hdc, BITSPIXEL);
@@ -191,7 +234,7 @@ MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dw
     {
         if (StrICmp((const char*)dd.DeviceName, mi.szDevice) == 0)
         {
-            sprintf(buf, "Monitor %d Device Name: %s", data->Index, dd.DeviceString);
+            sprintf(buf, "Monitor %d Device Name.c_str(): %s", data->Index, dd.DeviceString);
             data->PrintLine(data->Param, buf, TRUE);
             break;
         }
@@ -406,7 +449,7 @@ BOOL PrintSystemVersion(FPrintLine PrintLine, void* param, char* buf, char* avbu
                 return FALSE;
         }
 
-        sprintf(buf, "GetVersionEx Version %u.%u (Build %u)", osvi.dwMajorVersion,
+        sprintf(buf, "GetVersionEx Version.c_str() %u.%u (Build %u)", osvi.dwMajorVersion,
                 osvi.dwMinorVersion, osvi.dwBuildNumber & 0xFFFF);
         if (bOsVersionInfoEx)
         {
@@ -418,7 +461,7 @@ BOOL PrintSystemVersion(FPrintLine PrintLine, void* param, char* buf, char* avbu
 
     ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
     SalGetVersionEx(&osvi, FALSE); // !!! SLOW, original GetVersionEx() is deprecated !!!
-    sprintf(buf, "SalGetVersionEx Version %u.%u (Build %u)", osvi.dwMajorVersion,
+    sprintf(buf, "SalGetVersionEx Version.c_str() %u.%u (Build %u)", osvi.dwMajorVersion,
             osvi.dwMinorVersion, osvi.dwBuildNumber & 0xFFFF);
     sprintf(buf + strlen(buf), " SP %u.%u, SMask %u, PType %u, PlatId %u", osvi.wServicePackMajor,
             osvi.wServicePackMinor, osvi.wSuiteMask, osvi.wProductType, osvi.dwPlatformId);
@@ -439,10 +482,10 @@ BOOL PrintSystemVersion(FPrintLine PrintLine, void* param, char* buf, char* avbu
         PrintLine(param, buf, TRUE);
     }
 
-    GetSystemDirectory(avbuf, MAX_PATH);
+    EnvGetSystemDirectoryA(gEnvironment, avbuf, MAX_PATH);
     sprintf(buf, "System directory: %s", avbuf);
     PrintLine(param, buf, TRUE);
-    GetWindowsDirectory(avbuf, MAX_PATH);
+    EnvGetWindowsDirectoryA(gEnvironment, avbuf, MAX_PATH);
     sprintf(buf, "Windows directory: %s", avbuf);
     PrintLine(param, buf, TRUE);
 
@@ -575,8 +618,8 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
             PrintLine(param, buf, TRUE);
             if (IsDebuggerPresent())
             {
-                // The x64/Debug build on Windows 7 started from the MSVC debugger did not generate a valid minidump
-                // outside MSVC everything worked correctly, so note that we are running under the debugger
+                // the x64/Debug build on W7 started from the MSVC debugger did not generate a valid minidump (function failed, dump incomplete)
+                // outside MSVC everything worked correctly - note that we are running from the debugger
                 sprintf(buf, "Debugger is present!");
                 PrintLine(param, buf, TRUE);
             }
@@ -657,7 +700,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                         {
                             CPluginData* data = Plugins.GetPluginData(dll);
                             if (data != NULL)
-                                sprintf(term, ": in %s", data->Name);
+                                sprintf(term, ": in %s", data->Name.c_str());
                         }
                         __except (EXCEPTION_EXECUTE_HANDLER)
                         {
@@ -739,6 +782,32 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
             PrintLine(param, "Registers:", FALSE);
             PCONTEXT ctxtRec = Exception->ContextRecord;
             DWORD idx = 32 + 64;
+#ifdef _M_ARM64
+            if (ctxtRec->ContextFlags & CONTEXT_INTEGER)
+            {
+                sprintf(buf, "X0  = 0x%p  X1  = 0x%p", (void*)ctxtRec->X0, (void*)ctxtRec->X1);
+                PrintLine(param, buf, TRUE);
+                sprintf(buf, "X2  = 0x%p  X3  = 0x%p", (void*)ctxtRec->X2, (void*)ctxtRec->X3);
+                PrintLine(param, buf, TRUE);
+                pointersForDump[idx++] = ctxtRec->X0;
+                pointersForDump[idx++] = ctxtRec->X1;
+                pointersForDump[idx++] = ctxtRec->X2;
+                pointersForDump[idx++] = ctxtRec->X3;
+                pointersForDump[idx++] = ctxtRec->Fp;
+                pointersForDump[idx++] = ctxtRec->Lr;
+                pointersForDump[idx++] = ctxtRec->Pc;
+            }
+            if (ctxtRec->ContextFlags & CONTEXT_CONTROL)
+            {
+                int jj;
+                for (jj = 8; jj > 0; jj--)
+                    pointersForDump[idx++] = ctxtRec->Sp - jj * 4;
+                sprintf(buf, "PC  = 0x%p  SP  = 0x%p", (void*)ctxtRec->Pc, (void*)ctxtRec->Sp);
+                PrintLine(param, buf, TRUE);
+                sprintf(buf, "FP  = 0x%p  LR  = 0x%p", (void*)ctxtRec->Fp, (void*)ctxtRec->Lr);
+                PrintLine(param, buf, TRUE);
+            }
+#else  // x64
             if (ctxtRec->ContextFlags & CONTEXT_INTEGER)
             {
                 sprintf(buf, "RAX = 0x%p  RBX = 0x%p", (void*)ctxtRec->Rax, (void*)ctxtRec->Rbx);
@@ -766,11 +835,12 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                 sprintf(buf, "RBP = 0x%p  RFL = 0x%X", (void*)ctxtRec->Rbp, ctxtRec->EFlags);
                 PrintLine(param, buf, TRUE);
             }
+#endif // _M_ARM64
             PrintLine(param, "", FALSE);
 #ifndef _DEBUG // to prevent stopping the debugger in debug builds
             if (ctxtRec->ContextFlags & CONTEXT_CONTROL)
             {
-                DWORD64* rsp = (DWORD64*)ctxtRec->Rsp;
+                DWORD64* rsp = (DWORD64*)CONTEXT_SP(*ctxtRec);
                 int i = 0;
                 int validStackCount = 0;
                 while (i < 32 + 64)
@@ -1387,7 +1457,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         sprintf(buf, "AutoSave = %d", Configuration.AutoSave);
         PrintLine(param, buf, TRUE);
-        sprintf(buf, "IfPathIsInaccessibleGoTo (isMyDocs = %d) = %s", Configuration.IfPathIsInaccessibleGoToIsMyDocs, Configuration.IfPathIsInaccessibleGoTo);
+        sprintf(buf, "IfPathIsInaccessibleGoTo (isMyDocs = %d) = %s", Configuration.IfPathIsInaccessibleGoToIsMyDocs, Configuration.IfPathIsInaccessibleGoTo.Get());
         PrintLine(param, buf, TRUE);
         sprintf(buf, "NoDrives = 0x%08X", SystemPolicies.GetNoDrives());
         PrintLine(param, buf, TRUE);
@@ -1467,7 +1537,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                     PrintLine(param, buf, TRUE);
                     sprintf(buf, "SortedWithDetectNum = %d", panel->SortedWithDetectNum);
                     PrintLine(param, buf, TRUE);
-                    sprintf(buf, "NextFocusName = %s", panel->NextFocusName);
+                    sprintf(buf, "NextFocusName = %s", panel->NextFocusName.Get());
                     PrintLine(param, buf, TRUE);
                     sprintf(buf, "FocusFirstNewItem = %d", panel->FocusFirstNewItem);
                     PrintLine(param, buf, TRUE);
@@ -1536,7 +1606,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                         {
                             CPluginData* data = Plugins.GetPluginData(panel->GetPluginFS()->GetPluginInterfaceForFS()->GetInterface());
                             if (data != NULL)
-                                sprintf(buf + lstrlen(buf), "%s v. %s", data->DLLName, data->Version);
+                                sprintf(buf + lstrlen(buf), "%s v. %s", data->DLLName.c_str(), data->Version.c_str());
                             else
                                 lstrcat(buf, "(error)");
                         }
@@ -1680,7 +1750,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         CPluginData* plugin;
         while ((plugin = Plugins.Get(pluginIndex++)) != NULL)
         {
-            sprintf(buf, "%s: %s v. %s", plugin->Name, plugin->DLLName, plugin->Version);
+            sprintf(buf, "%s: %s v. %s", plugin->Name.c_str(), plugin->DLLName.c_str(), plugin->Version.c_str());
             if (plugin->DLL != NULL)
                 sprintf(buf + strlen(buf), ", loaded (0x%p)", plugin->DLL);
             else
@@ -1716,7 +1786,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, FALSE);
         PrintLine(param, "", FALSE);
 
-        lstrcpy(buf, "Module Name: ");
+        lstrcpy(buf, "Module Name.c_str(): ");
         GetModuleFileName(HInstance, buf + strlen(buf), 1000);
         PrintLine(param, buf, FALSE);
 
@@ -1768,10 +1838,10 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
     }
 
     HKEY hKey;
+    IRegistry* registry = GetBugReportRegistry();
     __try
     {
-        if (NOHANDLES(RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Software\\Microsoft\\Internet Explorer", 0,
-                                   KEY_READ, &hKey)) == ERROR_SUCCESS)
+        if (OpenKeyReadA(registry, HKEY_LOCAL_MACHINE, SAL_REG_KEY_MICROSOFT_IE_A, hKey).success)
         {
             static char iver[50];
             static char build[50];
@@ -1779,16 +1849,16 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
             iver[0] = 0;
             build[0] = 0;
             version[0] = 0;
-            GetValueAux(NULL, hKey, "IVer", REG_SZ, iver, 50);
-            GetValueAux(NULL, hKey, "Build", REG_SZ, build, 50);
-            GetValueAux(NULL, hKey, "Version", REG_SZ, version, 50);
+            GetStringA(registry, hKey, SAL_REG_VALUE_IE_IVER_A, iver, _countof(iver));
+            GetStringA(registry, hKey, SAL_REG_VALUE_BUILD_A, build, _countof(build));
+            GetStringA(registry, hKey, SAL_REG_VALUE_VERSION_A, version, _countof(version));
 
             if (iver[0] != 0 || build[0] != 0 || version[0] != 0)
             {
                 lstrcpy(buf, "IE ");
                 if (version[0] != 0)
                 {
-                    lstrcat(buf, "Version: ");
+                    lstrcat(buf, "Version.c_str(): ");
                     lstrcat(buf, version);
                     lstrcat(buf, " ");
                 }
@@ -1806,29 +1876,28 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                 PrintLine(param, buf, TRUE);
             }
 
-            NOHANDLES(RegCloseKey(hKey));
+            registry->CloseKey(hKey);
         }
 
-        sprintf(buf, "COMCTL32.DLL Version: %u.%u", CCVerMajor, CCVerMinor);
+        sprintf(buf, "COMCTL32.DLL Version.c_str(): %u.%u", CCVerMajor, CCVerMinor);
         PrintLine(param, buf, TRUE);
 
-        if (NOHANDLES(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                                   "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0,
-                                   KEY_READ, &hKey)) == ERROR_SUCCESS)
+        if (OpenKeyReadA(registry, HKEY_LOCAL_MACHINE,
+                         SAL_REG_KEY_WINDOWS_NT_CURRENT_VERSION_A, hKey).success)
         {
             char myBuff[100];
 
-            if (GetValueAux(NULL, hKey, "ProductName", REG_SZ, myBuff, 100))
+            if (GetStringA(registry, hKey, SAL_REG_VALUE_WINDOWS_PRODUCT_NAME_A, myBuff, _countof(myBuff)).success)
             {
                 sprintf(buf, "ProductName (from registry): %s", myBuff);
                 PrintLine(param, buf, TRUE);
             }
-            if (GetValueAux(NULL, hKey, "CurrentVersion", REG_SZ, myBuff, 100))
+            if (GetStringA(registry, hKey, SAL_REG_VALUE_WINDOWS_CURRENT_VERSION_A, myBuff, _countof(myBuff)).success)
             {
                 sprintf(buf, "CurrentVersion (from registry): %s", myBuff);
                 PrintLine(param, buf, TRUE);
             }
-            NOHANDLES(RegCloseKey(hKey));
+            registry->CloseKey(hKey);
         }
 
         // try to locate the main LiteStep window
@@ -1910,39 +1979,39 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
         PrintLine(param, buf, TRUE);
         sprintf(buf, "Processor Level: %u", si.wProcessorLevel);
         PrintLine(param, buf, TRUE);
-        if (NOHANDLES(RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Hardware\\Description\\System\\CentralProcessor\\0", 0,
-                                   KEY_READ, &hKey)) == ERROR_SUCCESS)
+        if (OpenKeyReadA(registry, HKEY_LOCAL_MACHINE,
+                         SAL_REG_KEY_HARDWARE_CPU0_A, hKey).success)
         {
             static char processorName[200];
             static char vendorName[200];
             DWORD mhz;
 
-            if (!GetValueAux(NULL, hKey, "ProcessorNameString", REG_SZ, processorName, 200))
-                if (!GetValueAux(NULL, hKey, "Identifier", REG_SZ, processorName, 200)) // probably unnecessary on W2K+
+            if (!GetStringA(registry, hKey, SAL_REG_VALUE_PROCESSOR_NAME_STRING_A, processorName, _countof(processorName)).success)
+                if (!GetStringA(registry, hKey, SAL_REG_VALUE_IDENTIFIER_A, processorName, _countof(processorName)).success) // probably unnecessary on W2K+
                     processorName[0] = 0;
-            if (!GetValueAux(NULL, hKey, "VendorIdentifier", REG_SZ, vendorName, 200))
+            if (!GetStringA(registry, hKey, SAL_REG_VALUE_VENDOR_IDENTIFIER_A, vendorName, _countof(vendorName)).success)
                 vendorName[0] = 0;
-            if (!GetValueAux(NULL, hKey, "~MHz", REG_DWORD, &mhz, sizeof(DWORD)))
+            if (!GetDWordA(registry, hKey, SAL_REG_VALUE_PROCESSOR_SPEED_MHZ_A, mhz).success)
             {
                 if (!GetProcessorSpeed(&mhz))
                     mhz = 0;
             }
             if (vendorName[0] != 0)
-                sprintf(buf, "Processor Vendor Name: %s", vendorName);
+                sprintf(buf, "Processor Vendor Name.c_str(): %s", vendorName);
             PrintLine(param, buf, TRUE);
             if (processorName[0] != 0)
             {
                 char* ss = processorName;
                 while (*ss == ' ')
                     ss++; // Intel adds spaces before the processor name so it looks nicer in the Control Panel System window
-                sprintf(buf, "Processor Name: %s", ss);
+                sprintf(buf, "Processor Name.c_str(): %s", ss);
                 PrintLine(param, buf, TRUE);
             }
             if (mhz != 0)
                 sprintf(buf, "Processor Speed: ~%u MHz", mhz);
             PrintLine(param, buf, TRUE);
 
-            NOHANDLES(RegCloseKey(hKey));
+            registry->CloseKey(hKey);
         }
 
         sprintf(buf, "Page size: %u", si.dwPageSize);
@@ -1974,31 +2043,31 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
             PrintLine(param, buf, TRUE);
         }
 
-        if (NOHANDLES(RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Hardware\\Description\\System", 0,
-                                   KEY_READ, &hKey)) == ERROR_SUCCESS)
+        if (OpenKeyReadA(registry, HKEY_LOCAL_MACHINE,
+                         SAL_REG_KEY_HARDWARE_DESCRIPTION_SYSTEM_A, hKey).success)
         {
             static char bios[200];
 
             DWORD bufferSize = 200;
             bios[0] = 0;
-            SalRegQueryValueEx(hKey, "SystemBiosVersion", NULL, NULL, (BYTE*)bios, &bufferSize);
+            SalRegQueryValueEx(hKey, SAL_REG_VALUE_SYSTEM_BIOS_VERSION_A, NULL, NULL, (BYTE*)bios, &bufferSize);
             bios[_countof(bios) - 1] = 0; // at least terminate the buffer with a zero
             if (bios[0] != 0)
             {
-                sprintf(buf, "BIOS Version: %s", bios);
+                sprintf(buf, "BIOS Version.c_str(): %s", bios);
                 PrintLine(param, buf, TRUE);
             }
 
             bufferSize = 200;
             bios[0] = 0;
-            SalRegQueryValueEx(hKey, "SystemBiosDate", NULL, NULL, (BYTE*)bios, &bufferSize);
+            SalRegQueryValueEx(hKey, SAL_REG_VALUE_SYSTEM_BIOS_DATE_A, NULL, NULL, (BYTE*)bios, &bufferSize);
             bios[_countof(bios) - 1] = 0; // at least terminate the buffer with a zero
             if (bios[0] != 0)
             {
                 sprintf(buf, "BIOS Date: %s", bios);
                 PrintLine(param, buf, TRUE);
             }
-            NOHANDLES(RegCloseKey(hKey));
+            registry->CloseKey(hKey);
         }
 
         MonitorEnumProcData enumData;
@@ -2026,8 +2095,8 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
             int i;
             for (i = 0; i < CCallStack::CallStacks.Count; i++)
             {
-                // !!! access to the CCallStack::CallStacks array should be protected by a critical section
-                // otherwise we risk accessing invalid memory
+                // !!! accesses to CCallStack::CallStacks array should be protected by a critical section
+                // otherwise we risk touching non-existing memory
                 CCallStack* stack;
                 stack = CCallStack::CallStacks[i];
 
@@ -2054,7 +2123,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                     BOOL threadWithException = (Exception != NULL && Exception->ContextRecord != NULL && stack->ThreadID == ThreadID);
                     if (stack->ThreadID != GetCurrentThreadId() || threadWithException)
                     {
-                        // if this is not our thread, suspend it so we can retrieve its context
+                        // if this isn't our thread, suspend it so we can retrieve context
                         if (threadWithException || SuspendThread(hThread) != -1)
                         {
                             if (!firstTime)
@@ -2098,7 +2167,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                             //
                             // this function's ebp
                             // points here ------------\
-                            //     ebp-0x8   ebp-0x4   ebp+0x0   ebp+0x4   ebp+0x8   ebp+0xC
+              //     ebp-0x8   ebp-0x4   ebp+0x0   ebp+0x4   ebp+0x8   ebp+0xC
                             //                         caller's  return
                             //     local1    local0    ebp       addr      param0    param1
                             // ... 00000000  00000000  00000000  00000000  00000000  00000000 ...
@@ -2109,7 +2178,11 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                             if (threadWithException)
                                 memcpy(&ctx, Exception->ContextRecord, sizeof(ctx));
                             else
+#ifdef _M_ARM64
+                                ctx.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
+#else
                                 ctx.ContextFlags = CONTEXT_SEGMENTS | CONTEXT_INTEGER | CONTEXT_CONTROL;
+#endif
                             if (threadWithException || GetThreadContext(hThread, &ctx))
                             {
 #ifdef _WIN64
@@ -2117,7 +2190,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                 // Unwind until IP is 0, sp is at the stack top, and callee IP is in kernel32.
                                 while (TRUE)
                                 {
-                                    DWORD64 controlPc = ctx.Rip;
+                                    DWORD64 controlPc = CONTEXT_IP(ctx);
 
                                     CModuleInfo* modInfo = ModulesInfo.Find((void*)controlPc);
                                     const char* name;
@@ -2132,7 +2205,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
 
                                     if (firstPc)
                                     {
-                                        sprintf(buf, "RIP = 0x%p %s", (void*)controlPc, name);
+                                        sprintf(buf, CONTEXT_IP_NAME " = 0x%p %s", (void*)controlPc, name);
                                         firstPc = FALSE;
                                     }
                                     else
@@ -2159,7 +2232,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                             &EstablisherFrame,
                                             NULL);
 
-                                        DWORD64 mewControlPc = ctx.Rip;
+                                        DWORD64 mewControlPc = CONTEXT_IP(ctx);
                                         if (mewControlPc == 0)
                                             break;
                                     }
@@ -2168,8 +2241,8 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                         // Nested functions that do not use any stack space or nonvolatile
                                         // registers are not required to have unwind info (ex.
                                         // USER32!ZwUserCreateWindowEx).
-                                        ctx.Rip = *(DWORD64*)(ctx.Rsp);
-                                        ctx.Rsp += sizeof(DWORD64);
+                                        CONTEXT_IP(ctx) = *(DWORD64*)(CONTEXT_SP(ctx));
+                                        CONTEXT_SP(ctx) += sizeof(DWORD64);
                                     }
                                 }
 #else
@@ -2189,7 +2262,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                 __try
                                 {
                                     // *(ebp) is the frame pointer of the calling function
-                                    // *(ebp + 4) is the return address (the place in the calling function where
+                                    // *(ebp + 4) is the return adress (the place in the calling function where
                                     //            execution will resume after we return from this function)
                                     DWORD* ebp = (DWORD*)ctx.Ebp;
 
@@ -2262,7 +2335,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                         // Unwind until IP is 0, sp is at the stack top, and callee IP is in kernel32.
                         while (TRUE)
                         {
-                            DWORD64 controlPc = ctx.Rip;
+                            DWORD64 controlPc = CONTEXT_IP(ctx);
 
                             CModuleInfo* modInfo = ModulesInfo.Find((void*)controlPc);
                             const char* name;
@@ -2277,7 +2350,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
 
                             if (firstPc)
                             {
-                                sprintf(buf, "RIP = 0x%p %s", (void*)controlPc, name);
+                                sprintf(buf, CONTEXT_IP_NAME " = 0x%p %s", (void*)controlPc, name);
                                 firstPc = FALSE;
                             }
                             else
@@ -2304,7 +2377,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                     &EstablisherFrame,
                                     NULL);
 
-                                DWORD64 mewControlPc = ctx.Rip;
+                                DWORD64 mewControlPc = CONTEXT_IP(ctx);
                                 if (mewControlPc == 0)
                                     break;
                             }
@@ -2313,8 +2386,8 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                                 // Nested functions that do not use any stack space or nonvolatile
                                 // registers are not required to have unwind info (ex.
                                 // USER32!ZwUserCreateWindowEx).
-                                ctx.Rip = *(DWORD64*)(ctx.Rsp);
-                                ctx.Rsp += sizeof(DWORD64);
+                                CONTEXT_IP(ctx) = *(DWORD64*)(CONTEXT_SP(ctx));
+                                CONTEXT_SP(ctx) += sizeof(DWORD64);
                             }
                         }
 #else
@@ -2334,7 +2407,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                         __try
                         {
                             // *(ebp) is the frame pointer of the calling function
-                            // *(ebp + 4) is the return address (the place in the calling function where
+                            // *(ebp + 4) is the return adress (the place in the calling function where
                             //            execution will resume after we return from this function)
                             DWORD* ebp = (DWORD*)ctx.Ebp;
 
@@ -2372,11 +2445,11 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
             PrintLine(param, "", FALSE);
 
             /*
-  // leaving thread enumeration unfinished for now because Petr suggested displaying
-  // the backtrace for the thread in which the crash occurred (we know its ID)
+  // leaving thread enumeration unfinished for now because Petr suggested showing
+  // the back trace for the thread where the crash occurred (we know its ID)
 
-      // the knownThreads array contains the list of threads already shown;
-      // now we will try to find those not yet shown
+      // the knownThreads array contains a list of displayed threads;
+      // now we attempt to find those not yet shown
       if (knownThreads.IsGood())
       {
         HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -2452,7 +2525,7 @@ void CCallStack::PrintBugReport(EXCEPTION_POINTERS* Exception, DWORD ThreadID, D
                         int drv = drive - 'A' + 1;
                         DWORD medium = GetDriveFormFactor(drv);
                         if (medium == 350 || medium == 525 || medium == 800 || medium == 1)
-                            getMoreInfo = FALSE; // avoid unnecessary floppy disk operations during MyGetVolumeInformation()
+                            getMoreInfo = FALSE; // avoid unnecesary floppy disk operations during MyGetVolumeInformation()
                     }
 
                     if (getMoreInfo)
@@ -2663,8 +2736,8 @@ void AddNewlyLoadedModulesToGlobalModulesStore()
                 {
                     if ((int)module.dwSize >= ((char*)(&(module.szExePath)) - (char*)(&(module.dwSize))))
                     {
-                        char moduleName[MAX_PATH];
-                        char modulePath[MAX_PATH];
+                        char moduleName[MAX_PATH]; // kept as char[] due to SEH __try constraint
+                        char modulePath[MAX_PATH]; // kept as char[] due to SEH __try constraint
                         if (module.dwSize == sizeof(module))
                         {
                             lstrcpy(modulePath, module.szExePath);

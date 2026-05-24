@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -61,6 +62,8 @@ public:
     void GetText(int iItem, int iSubItem, WCHAR* buff, int buffMax, BOOL preferEndOfText = FALSE);
 
     int GetSelectedIndex(); // returns -1 if no item is selected; otherwise the zero-based index of the item
+
+    void CopyLineToClipboard(HWND hOwner);
 
     void SwitchDeltaMode();
     BOOL GetDeltaMode() { return DeltaMode; }

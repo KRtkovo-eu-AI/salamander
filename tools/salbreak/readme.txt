@@ -1,3 +1,3 @@
-Ctrl+Alt+Shift+F12 = break all available Salamander instances
+Ctrl+Alt+Shift+F12 = break vsech dostupnych Salamanderu
 
-Stopping SalBreak: use End Process in Task Manager.
+Ukonceni SalBreak: End Process z Task Manageru.

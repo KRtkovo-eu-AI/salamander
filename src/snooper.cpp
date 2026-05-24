@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -8,43 +8,44 @@
 #include "fileswnd.h"
 #include "mainwnd.h"
 #include "snooper.h"
+#include "common/unicode/helpers.h"
 
 CWindowArray WindowArray(10, 5);
 CObjectArray ObjectArray(10, 5);
 
 HANDLE Thread = NULL;
-HANDLE DataUsageMutex = NULL;       // for arrays with data shared by the thread and the process
-HANDLE RefreshFinishedEvent = NULL; // due to "PostMessage" waits for processing to complete
-HANDLE WantDataEvent = NULL;        // main thread requests access to the shared data
-HANDLE TerminateEvent = NULL;       // main thread requests termination of the snooper thread
-HANDLE ContinueEvent = NULL;        // helper event used for synchronization
-HANDLE BeginSuspendEvent = NULL;    // beginning of suspend mode
-HANDLE EndSuspendEvent = NULL;      // end of the snooper's suspend mode
-HANDLE SharesEvent = NULL;          // signaled when LanMan Shares changes
+HANDLE DataUsageMutex = NULL;       // for arrays with data for thread and process
+HANDLE RefreshFinishedEvent = NULL; // for "PostMessage", waits for processing
+HANDLE WantDataEvent = NULL;        // main thread wants to access shared data
+HANDLE TerminateEvent = NULL;       // main thread wants to terminate the snooper thread
+HANDLE ContinueEvent = NULL;        // helper event for synchronization
+HANDLE BeginSuspendEvent = NULL;    // start of suspend mode
+HANDLE EndSuspendEvent = NULL;      // end of suspend mode for snooper
+HANDLE SharesEvent = NULL;          // will be signaled if LanMan Shares change
 
 int SnooperSuspended = 0;
 
-CRITICAL_SECTION TimeCounterSection; // synchronizes access to MyTimeCounter
+CRITICAL_SECTION TimeCounterSection; // for synchronizing access to MyTimeCounter
 int MyTimeCounter = 0;               // current time
 
-HANDLE SafeFindCloseThread = NULL;              // "safe handle killer" thread
-TDirectArray<HANDLE> SafeFindCloseCNArr(10, 5); // safely (without hanging) closes change-notify handles
+HANDLE SafeFindCloseThread = NULL;              // thread "safe handle killer"
+TDirectArray<HANDLE> SafeFindCloseCNArr(10, 5); // safe (non-blocking) closing of change-notify handles
 CRITICAL_SECTION SafeFindCloseCS;               // critical section for accessing the handle array
-BOOL SafeFindCloseTerminate = FALSE;            // until thread termination is requested
-HANDLE SafeFindCloseStart = NULL;               // thread "starter"—waits while non-signaled
-HANDLE SafeFindCloseFinished = NULL;            // signaled once the thread has closed all handles
+BOOL SafeFindCloseTerminate = FALSE;            // for terminating the thread
+HANDLE SafeFindCloseStart = NULL;               // thread "starter" - waits if non-signaled
+HANDLE SafeFindCloseFinished = NULL;            // signaled -> thread has already closed all handles
 
 DWORD WINAPI ThreadFindCloseChangeNotification(void* param);
 
 void DoWantDataEvent()
 {
-    ReleaseMutex(DataUsageMutex);                  // release the data to the main thread
-    WaitForSingleObject(WantDataEvent, INFINITE);  // wait until it takes ownership
-    WaitForSingleObject(DataUsageMutex, INFINITE); // once it finishes, take ownership again
-    SetEvent(ContinueEvent);                       // we own the data again; allow the main thread to continue
+    ReleaseMutex(DataUsageMutex);                  // release data for main thread
+    WaitForSingleObject(WantDataEvent, INFINITE);  // wait until it takes them
+    WaitForSingleObject(DataUsageMutex, INFINITE); // when it finishes, they are ours again
+    SetEvent(ContinueEvent);                       // they are ours now, let the main thread continue
 }
 
-unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions (not even TRACE) !!!
+unsigned ThreadSnooperBody(void* /*param*/) // do not call main thread functions (not even TRACE) !!!
 {
     CALL_STACK_MESSAGE1("ThreadSnooperBody()");
     SetThreadNameInVCAndTrace("Snooper");
@@ -60,7 +61,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
         sharesKey = NULL;
         TRACE_E("Unable to open key in registry (LanMan Shares). error: " << GetErrorText(res));
     }
-    else // key opened successfully; enable notifications (otherwise RegNotifyChangeKeyValue will not be called again)
+    else // key is o.k., set up notifications (without this RegNotifyChangeKeyValue won't be called again)
     {
         if ((res = RegNotifyChangeKeyValue(sharesKey, TRUE, REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET, SharesEvent,
                                            TRUE)) != ERROR_SUCCESS)
@@ -71,9 +72,9 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
 
     if (WaitForSingleObject(DataUsageMutex, INFINITE) == WAIT_OBJECT_0)
     {
-        SetEvent(ContinueEvent); // the data now belong to the snooper; the main thread can continue
+        SetEvent(ContinueEvent); // now the data belongs to snooper, main thread can continue
 
-        WindowArray.Add(NULL); // base objects; must come first!
+        WindowArray.Add(NULL); // base objects, must be at the beginning!
         WindowArray.Add(NULL);
         WindowArray.Add(NULL);
         WindowArray.Add(NULL);
@@ -82,8 +83,8 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
         ObjectArray.Add(BeginSuspendEvent);
         ObjectArray.Add(SharesEvent);
 
-        BOOL ignoreRefreshes = FALSE;        // TRUE = ignore refreshes (directory changes); otherwise operate normally
-        DWORD ignoreRefreshesAbsTimeout = 0; // when (int)(GetTickCount() - ignoreRefreshesAbsTimeout) >= 0, set ignoreRefreshes to FALSE
+        BOOL ignoreRefreshes = FALSE;        // TRUE = ignore refreshes (directory changes), otherwise we work normally
+        DWORD ignoreRefreshesAbsTimeout = 0; // when (int)(GetTickCount() - ignoreRefreshesAbsTimeout) >= 0, we switch ignoreRefreshes to FALSE
         BOOL notEnd = TRUE;
         while (notEnd)
         {
@@ -111,15 +112,15 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
             {
                 TRACE_I("Start suspend mode");
 
-                SetEvent(ContinueEvent); // we are already in suspend; allow the main thread to continue
+                SetEvent(ContinueEvent); // we are in suspend mode now -> let the main thread continue
 
-                TDirectArray<HWND> refreshPanels(10, 5); // for the case where the monitored directory is deleted
+                TDirectArray<HWND> refreshPanels(10, 5); // for the case of monitored directory deletion
 
-                ObjectArray[2] = EndSuspendEvent; // replace the begin event with the end-of-suspend event
+                ObjectArray[2] = EndSuspendEvent; // instead of begin now end suspend mode
 
-                BOOL setSharesEvent = FALSE; // TRUE => rearm registry monitoring
+                BOOL setSharesEvent = FALSE; // TRUE => restart registry monitoring
                 BOOL suspendNotFinished = TRUE;
-                while (suspendNotFinished) // wait for suspend mode to end
+                while (suspendNotFinished) // wait for end of suspend mode
                 {                          // handle everything except directory changes
                     timeout = ignoreRefreshes ? (int)(ignoreRefreshesAbsTimeout - GetTickCount()) : INFINITE;
                     if (ignoreRefreshes && timeout <= 0)
@@ -146,13 +147,13 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                         break;              // EndSuspendEvent
                     case WAIT_OBJECT_0 + 3: // SharesEvent
                     {
-                        // refresh shares and, if needed, panels (via WM_USER_REFRESH_SHARES)
+                        // refresh shares + possibly refresh panels as well (using WM_USER_REFRESH_SHARES)
                         setSharesEvent = TRUE;
                         break;
                     }
 
                     case WAIT_TIMEOUT:
-                        break; // ignore it; the directory-change ignore mode has ended
+                        break; // ignore (end of ignoring directory changes mode)
 
                     default:
                     {
@@ -160,12 +161,12 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                         if (index < 0 || index >= WindowArray.Count)
                         {
                             TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res);
-                            break; // in case res holds some other value
+                            break; // in case of some other value of res
                         }
 
-                        // calling FindCloseChangeNotification invalidates other handles for the same path
-                        // (happens for UNC paths), so simulate the signaled state manually
-                        HANDLE sameHandle = NULL; // != NULL -> handle for the same path
+                        // calling FindCloseChangeNotification invalidates other handles to the same path
+                        // (happens with UNC paths), so we simulate signaled-state forcibly
+                        HANDLE sameHandle = NULL; // != NULL -> handle to the same path
                         CFilesWindow* actWin = WindowArray[index];
                         int e;
                         for (e = 0; e < WindowArray.Count; e++)
@@ -178,7 +179,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                             }
                         }
 
-                        // a change already occurred; ignore further ones because a refresh will follow after suspend
+                        // change has already occurred, we don't care about further ones, refresh will come after suspend
                         if (MainWindowCS.LockIfNotClosed())
                         {
                             //                  TRACE_I("Change notification in suspend mode: " << (MainWindow->LeftPanel == WindowArray[index] ? "left" : "right"));
@@ -191,11 +192,11 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                             WindowArray[index]->DeviceNotification = NULL;
                         }
                         HANDLES(FindCloseChangeNotification((HANDLE)ObjectArray[index]));
-                        refreshPanels.Add(WindowArray[index]->HWindow); // add to the refresh list
+                        refreshPanels.Add(WindowArray[index]->HWindow); // add to the list to be refreshed
                         ObjectArray.Delete(index);                      // remove it from the list
                         WindowArray.Delete(index);
 
-                        // work around any system bug here
+                        // if we need to work around a system bug, we do it here
                         if (sameHandle != NULL)
                         {
                             for (index = 0; index < ObjectArray.Count; index++)
@@ -209,7 +210,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                                         WindowArray[index]->DeviceNotification = NULL;
                                     }
                                     HANDLES(FindCloseChangeNotification((HANDLE)ObjectArray[index]));
-                                    refreshPanels.Add(WindowArray[index]->HWindow); // add to the refresh list
+                                    refreshPanels.Add(WindowArray[index]->HWindow); // add to the list to be refreshed
                                     ObjectArray.Delete(index);                      // remove it from the list
                                     WindowArray.Delete(index);
                                 }
@@ -219,9 +220,9 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                     }
                     }
                 }
-                SetEvent(ContinueEvent); // no longer suspended; allow the main thread to continue
+                SetEvent(ContinueEvent); // we are no longer in suspend mode -> let the main thread continue
 
-                if (setSharesEvent) // continue monitoring further changes in the registry
+                if (setSharesEvent) // we will monitor further registry changes
                 {
                     if (MainWindowCS.LockIfNotClosed())
                     {
@@ -242,7 +243,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                 CALL_STACK_MESSAGE1("ThreadSnooperBody::post_refresh");
 
                 HANDLES(EnterCriticalSection(&TimeCounterSection));
-                // refresh panels that changed
+                // refresh changed panels
                 int i;
                 for (i = 0; i < refreshPanels.Count; i++)
                 {
@@ -253,7 +254,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                     }
                 }
                 HANDLES(LeaveCriticalSection(&TimeCounterSection));
-                // also notify that suspend mode ended
+                // also send notification about suspend mode ending
                 if (MainWindowCS.LockIfNotClosed())
                 {
                     if (MainWindow != NULL && MainWindow->LeftPanel != NULL && MainWindow->RightPanel != NULL)
@@ -266,7 +267,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
 
                 if (refreshPanels.Count > 0)
                 {
-                    // pause briefly so the system is not overwhelmed
+                    // take a break so the system doesn't get overwhelmed
                     ignoreRefreshes = TRUE;
                     ignoreRefreshesAbsTimeout = GetTickCount() + REFRESH_PAUSE;
                 }
@@ -281,7 +282,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                         PostMessage(MainWindow->HWindow, WM_USER_REFRESH_SHARES, 0, 0);
                     MainWindowCS.Unlock();
                 }
-                // resume monitoring further registry changes
+                // we will monitor further registry changes
                 if ((res = RegNotifyChangeKeyValue(sharesKey, TRUE, REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET, SharesEvent,
                                                    TRUE)) != ERROR_SUCCESS)
                 {
@@ -291,7 +292,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
             }
 
             case WAIT_TIMEOUT:
-                break; // ignore it (end of the mode that ignores directory changes)
+                break; // ignore (end of ignoring directory changes mode)
 
             default:
             {
@@ -301,12 +302,12 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                 {
                     DWORD err = GetLastError();
                     TRACE_E("Unexpected value returned from WaitForMultipleObjects(): " << res);
-                    break; // for any other value of res
+                    break; // in case of some other value of res
                 }
 
-                // calling FindNextChangeNotification invalidates other handles for the same path
-                // (happens for UNC paths), so simulate the signaled state manually
-                HANDLE sameHandle = NULL; // != NULL -> handle for the same path
+                // calling FindNextChangeNotification invalidates other handles to the same path
+                // (happens with UNC paths), so we simulate signaled-state forcibly
+                HANDLE sameHandle = NULL; // != NULL -> handle to the same path
                 CFilesWindow* actWin = WindowArray[index];
                 int e;
                 for (e = 0; e < WindowArray.Count; e++)
@@ -327,18 +328,18 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                 HANDLES(EnterCriticalSection(&TimeCounterSection));
                 PostMessage(WindowArray[index]->HWindow, WM_USER_REFRESH_DIR, TRUE, MyTimeCounter++);
                 HANDLES(LeaveCriticalSection(&TimeCounterSection));
-                FindNextChangeNotification((HANDLE)ObjectArray[index]); // discard this change
-                                                                        // indexes might change...
+                FindNextChangeNotification((HANDLE)ObjectArray[index]); // cancel this change
+                                                                        // indexes may change...
             ERROR_BYPASS:
 
                 HANDLE objects[4];
-                objects[0] = WantDataEvent;        // data may change during the refresh
-                objects[1] = TerminateEvent;       // in case it terminates before the refresh finishes
-                objects[2] = BeginSuspendEvent;    // in case BeginSuspendMode is called during the refresh
-                objects[3] = RefreshFinishedEvent; // message from the main thread about finishing the refresh
+                objects[0] = WantDataEvent;        // data may change during refresh
+                objects[1] = TerminateEvent;       // in case of termination without completing refresh
+                objects[2] = BeginSuspendEvent;    // in case of BeginSuspendMode call during refresh
+                objects[3] = RefreshFinishedEvent; // message from main thread about refresh completion
 
                 BOOL refreshNotFinished = TRUE;
-                while (refreshNotFinished) // wait for processing to finish
+                while (refreshNotFinished) // wait for processing
                 {                          // handle everything except directory changes
                     res = WaitForMultipleObjects(4, objects, FALSE, INFINITE);
 
@@ -360,23 +361,23 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                     }
                 }
 
-                // work around any system bug here
+                // if we need to work around a system bug, we do it here
                 if (sameHandle != NULL)
                 {
                     for (index = 0; index < ObjectArray.Count; index++)
                     {
                         if (sameHandle == (HANDLE)ObjectArray[index])
                         {
-                            int r = WaitForSingleObject(sameHandle, 0); // simulate the wait function in case the error clears
+                            int r = WaitForSingleObject(sameHandle, 0); // simulate wait function in case the bug disappears
                             sameHandle = NULL;
 
                             HANDLES(EnterCriticalSection(&TimeCounterSection));
                             PostMessage(WindowArray[index]->HWindow, WM_USER_REFRESH_DIR, TRUE, MyTimeCounter++);
                             HANDLES(LeaveCriticalSection(&TimeCounterSection));
 
-                            if (r != WAIT_TIMEOUT) // if there is no error, request the next change
+                            if (r != WAIT_TIMEOUT) // if there is no bug, we look for the next change
                             {
-                                FindNextChangeNotification((HANDLE)ObjectArray[index]); // discard this change
+                                FindNextChangeNotification((HANDLE)ObjectArray[index]); // cancel this change
                             }
 
                             goto ERROR_BYPASS;
@@ -384,7 +385,7 @@ unsigned ThreadSnooperBody(void* /*param*/) // do not call main-thread functions
                     }
                 }
 
-                // take a break to avoid overloading the system
+                // take a break so the system doesn't get overwhelmed
                 ignoreRefreshes = TRUE;
                 ignoreRefreshesAbsTimeout = GetTickCount() + REFRESH_PAUSE;
 
@@ -413,7 +414,7 @@ unsigned ThreadSnooperEH(void* param)
     {
         TRACE_I("Thread Snooper: calling ExitProcess(1).");
         //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // more forceful exit (this one still calls something)
+        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls something)
         return 1;
     }
 #endif // CALLSTK_DISABLE
@@ -429,7 +430,7 @@ DWORD WINAPI ThreadSnooper(void* param)
 
 BOOL InitializeThread()
 {
-    //--- create events and the mutex for synchronization
+    //---  create events and mutex for synchronization
     DataUsageMutex = HANDLES(CreateMutex(NULL, FALSE, NULL));
     if (DataUsageMutex == NULL)
     {
@@ -494,7 +495,7 @@ BOOL InitializeThread()
     }
 
     HANDLES(InitializeCriticalSection(&TimeCounterSection));
-    //---  start the snooper thread
+    //---  start snooper thread
     DWORD ThreadID;
     Thread = HANDLES(CreateThread(NULL, 0, ThreadSnooper, NULL, 0, &ThreadID));
     if (Thread == NULL)
@@ -503,18 +504,18 @@ BOOL InitializeThread()
         return FALSE;
     }
     //  SetThreadPriority(Thread, THREAD_PRIORITY_LOWEST);
-    WaitForSingleObject(ContinueEvent, INFINITE); // wait until the snooper acquires the data
+    WaitForSingleObject(ContinueEvent, INFINITE); // wait for snooper to take the data
 
     HANDLES(InitializeCriticalSection(&SafeFindCloseCS));
-    //---  start the "safe handle killer" thread
+    //---  start "safe handle killer" thread
     SafeFindCloseThread = HANDLES(CreateThread(NULL, 0, ThreadFindCloseChangeNotification, NULL, 0, &ThreadID));
     if (SafeFindCloseThread == NULL)
     {
         TRACE_E("Unable to start safe-handle-killer thread.");
         return FALSE;
     }
-    // raise its priority so it runs ahead of the main thread (the main thread
-    // needs the handles closed immediately; on error there is no busy waiting, so this is acceptable)
+    // priority increase needed so it runs before main thread (main thread
+    // needs handles closed immediately, no busy waiting on error, it's fine)
     SetThreadPriority(SafeFindCloseThread, THREAD_PRIORITY_HIGHEST);
 
     return TRUE;
@@ -522,11 +523,11 @@ BOOL InitializeThread()
 
 void TerminateThread()
 {
-    if (Thread != NULL) // terminate the snooper thread
+    if (Thread != NULL) // terminating snooper thread
     {
-        SetEvent(TerminateEvent);              // request the snooper to terminate
-        WaitForSingleObject(Thread, INFINITE); // wait until it terminates
-        HANDLES(CloseHandle(Thread));          // close the thread handle
+        SetEvent(TerminateEvent);              // ask snooper to terminate
+        WaitForSingleObject(Thread, INFINITE); // wait until it dies
+        HANDLES(CloseHandle(Thread));          // close thread handle
     }
     if (DataUsageMutex != NULL)
         HANDLES(CloseHandle(DataUsageMutex));
@@ -548,12 +549,12 @@ void TerminateThread()
 
     if (SafeFindCloseThread != NULL)
     {
-        SafeFindCloseTerminate = TRUE; // request thread termination
+        SafeFindCloseTerminate = TRUE; // kill the thread
         SetEvent(SafeFindCloseStart);
-        if (WaitForSingleObject(SafeFindCloseThread, 1000) == WAIT_TIMEOUT) // wait for it to exit
+        if (WaitForSingleObject(SafeFindCloseThread, 1000) == WAIT_TIMEOUT) // wait for it to terminate
         {
-            TerminateThread(SafeFindCloseThread, 666);          // failed, kill it forcefully
-            WaitForSingleObject(SafeFindCloseThread, INFINITE); // wait until the thread actually ends; this can take quite a while
+            TerminateThread(SafeFindCloseThread, 666);          // failed, kill it forcibly
+            WaitForSingleObject(SafeFindCloseThread, INFINITE); // wait for thread to actually end, sometimes it takes a while
         }
         HANDLES(CloseHandle(SafeFindCloseThread));
     }
@@ -564,18 +565,66 @@ void TerminateThread()
     HANDLES(DeleteCriticalSection(&SafeFindCloseCS));
 }
 
+void AddDirectoryW(CFilesWindow* win, const wchar_t* pathW, BOOL registerDevNotification)
+{
+    std::string tracePath = WideToAnsi(pathW != nullptr ? pathW : L"");
+    CALL_STACK_MESSAGE3("AddDirectoryW(, %s, %d)", tracePath.c_str(), registerDevNotification);
+    SetEvent(WantDataEvent);
+    WaitForSingleObject(DataUsageMutex, INFINITE);
+    SetEvent(WantDataEvent);
+
+    // Mirror the ANSI variant's space/dot guard, but in wide form, so paths
+    // like "C:\\foo \\" survive into FindFirstChangeNotificationW intact.
+    std::wstring pathCopy = MakeCopyWithBackslashIfNeededW(pathW != nullptr ? pathW : L"");
+    HANDLE h = HANDLES_Q(FindFirstChangeNotificationW(pathCopy.c_str(), FALSE,
+                                                      FILE_NOTIFY_CHANGE_FILE_NAME |
+                                                          FILE_NOTIFY_CHANGE_DIR_NAME |
+                                                          FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                                                          FILE_NOTIFY_CHANGE_SIZE |
+                                                          FILE_NOTIFY_CHANGE_LAST_WRITE));
+    if (h != INVALID_HANDLE_VALUE)
+    {
+        win->SetAutomaticRefresh(TRUE);
+        WindowArray.Add(win);
+        ObjectArray.Add(h);
+
+        if (registerDevNotification)
+        {
+            DEV_BROADCAST_HANDLE dbh;
+            memset(&dbh, 0, sizeof(dbh));
+            dbh.dbch_size = sizeof(dbh);
+            dbh.dbch_devicetype = DBT_DEVTYP_HANDLE;
+            dbh.dbch_handle = h;
+            if (win->DeviceNotification != NULL)
+            {
+                TRACE_E("AddDirectoryW(): unexpected situation: win->DeviceNotification != NULL");
+                UnregisterDeviceNotification(win->DeviceNotification);
+            }
+            win->DeviceNotification = RegisterDeviceNotificationW(win->HWindow, &dbh, DEVICE_NOTIFY_WINDOW_HANDLE);
+        }
+    }
+    else
+    {
+        win->SetAutomaticRefresh(FALSE);
+        TRACE_W("Unable to receive change notifications for directory '" << tracePath.c_str() << "' (auto-refresh will not work).");
+    }
+
+    ReleaseMutex(DataUsageMutex);
+    WaitForSingleObject(ContinueEvent, INFINITE);
+}
+
 void AddDirectory(CFilesWindow* win, const char* path, BOOL registerDevNotification)
 {
     CALL_STACK_MESSAGE3("AddDirectory(, %s, %d)", path, registerDevNotification);
-    SetEvent(WantDataEvent);                       // ask the snooper to release the DataUsageMutex
+    SetEvent(WantDataEvent);                       // ask snooper to release DataUsageMutex
     WaitForSingleObject(DataUsageMutex, INFINITE); // wait for it
-    SetEvent(WantDataEvent);                       // the snooper can resume waiting on DataUsageMutex
-                                                   //--- the data now belong to the main thread; the snooper is waiting
-    // if the path ends with a space or dot, we must append '\\'; otherwise FindFirstChangeNotification
-    // trims trailing spaces and dots and thus works with a different path
-    char pathCopy[3 * MAX_PATH];
+    SetEvent(WantDataEvent);                       // snooper can start waiting for DataUsageMutex again
+                                                   //---  now data belongs to main thread, snooper is waiting
+    // if the path ends with space/dot, we must append '\\', otherwise FindFirstChangeNotification
+    // trims spaces/dots and thus works with a different path
+    CPathBuffer pathCopy; // Heap-allocated for long path support
     MakeCopyWithBackslashIfNeeded(path, pathCopy);
-    HANDLE h = HANDLES_Q(FindFirstChangeNotification(path, FALSE,
+    HANDLE h = HANDLES_Q(FindFirstChangeNotification(pathCopy, FALSE,
                                                      FILE_NOTIFY_CHANGE_FILE_NAME |
                                                          FILE_NOTIFY_CHANGE_DIR_NAME |
                                                          FILE_NOTIFY_CHANGE_ATTRIBUTES |
@@ -589,7 +638,7 @@ void AddDirectory(CFilesWindow* win, const char* path, BOOL registerDevNotificat
 
         if (registerDevNotification)
         {
-            // register the panel window to receive notifications about media changes (removal, etc.)
+            // register the panel window to receive media change messages (removal, etc.)
             DEV_BROADCAST_HANDLE dbh;
             memset(&dbh, 0, sizeof(dbh));
             dbh.dbch_size = sizeof(dbh);
@@ -609,11 +658,11 @@ void AddDirectory(CFilesWindow* win, const char* path, BOOL registerDevNotificat
         TRACE_W("Unable to receive change notifications for directory '" << path << "' (auto-refresh will not work).");
     }
     //---
-    ReleaseMutex(DataUsageMutex);                 // release the DataUsageMutex back to the snooper
-    WaitForSingleObject(ContinueEvent, INFINITE); // and wait until it acquires it
+    ReleaseMutex(DataUsageMutex);                 // release DataUsageMutex to the snooper
+    WaitForSingleObject(ContinueEvent, INFINITE); // and wait until it takes it
 }
 
-// thread used to close handles for a "disconnected" network device (long wait)
+// thread where we close handles to "disconnected" network devices (long wait)
 unsigned ThreadFindCloseChangeNotificationBody(void* param)
 {
     CALL_STACK_MESSAGE1("ThreadFindCloseChangeNotificationBody()");
@@ -626,7 +675,7 @@ unsigned ThreadFindCloseChangeNotificationBody(void* param)
 
         while (1)
         {
-            // retrieve a handle
+            // retrieve the handle
             HANDLES(EnterCriticalSection(&SafeFindCloseCS));
             HANDLE h;
             BOOL br = FALSE;
@@ -636,21 +685,21 @@ unsigned ThreadFindCloseChangeNotificationBody(void* param)
                 h = SafeFindCloseCNArr[SafeFindCloseCNArr.Count - 1];
                 SafeFindCloseCNArr.Delete(SafeFindCloseCNArr.Count - 1);
                 if (!SafeFindCloseCNArr.IsGood())
-                    SafeFindCloseCNArr.ResetState(); // cannot fail; it only reports lack of memory when shrinking the array
+                    SafeFindCloseCNArr.ResetState(); // can't fail, only reports insufficient memory for array shrinking
             }
             else
                 br = TRUE;
             HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
 
             if (br)
-                break; // nothing left to close, wait for the next start
+                break; // nothing more to close, wait for next start
 
             // close the handle
             //      TRACE_I("Killing ... " << h);
             HANDLES(FindCloseChangeNotification(h));
         }
 
-        SetEvent(SafeFindCloseFinished); // let the main thread continue ...
+        SetEvent(SafeFindCloseFinished); // let the main thread continue...
     }
     //  TRACE_I("End");
     return 0;
@@ -669,7 +718,7 @@ unsigned ThreadFindCloseChangeNotificationEH(void* param)
     {
         TRACE_I("Safe Handle Killer: calling ExitProcess(1).");
         //    ExitProcess(1);
-        TerminateProcess(GetCurrentProcess(), 1); // more forceful exit (this one still performs some calls)
+        TerminateProcess(GetCurrentProcess(), 1); // harder exit (this one still calls something)
         return 1;
     }
 #endif // CALLSTK_DISABLE
@@ -683,15 +732,104 @@ DWORD WINAPI ThreadFindCloseChangeNotification(void* param)
     return ThreadFindCloseChangeNotificationEH(param);
 }
 
+void ChangeDirectoryW(CFilesWindow* win, const wchar_t* newPathW, BOOL registerDevNotification)
+{
+    std::string tracePath = WideToAnsi(newPathW != nullptr ? newPathW : L"");
+    CALL_STACK_MESSAGE3("ChangeDirectoryW(, %s, %d)", tracePath.c_str(), registerDevNotification);
+    SetEvent(WantDataEvent);
+    WaitForSingleObject(DataUsageMutex, INFINITE);
+    SetEvent(WantDataEvent);
+    BOOL registerDevNot = FALSE;
+    HANDLE registerDevNotHandle = NULL;
+    if (win->DeviceNotification != NULL)
+    {
+        UnregisterDeviceNotification(win->DeviceNotification);
+        win->DeviceNotification = NULL;
+    }
+
+    std::wstring newPathCopy = MakeCopyWithBackslashIfNeededW(newPathW != nullptr ? newPathW : L"");
+
+    int i;
+    for (i = 0; i < WindowArray.Count; i++)
+        if (win == WindowArray[i])
+        {
+            HANDLES(EnterCriticalSection(&SafeFindCloseCS));
+            SafeFindCloseCNArr.Add(ObjectArray[i]);
+            if (!SafeFindCloseCNArr.IsGood())
+                SafeFindCloseCNArr.ResetState();
+            HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
+            ResetEvent(SafeFindCloseFinished);
+            SetEvent(SafeFindCloseStart);
+            WaitForSingleObject(SafeFindCloseFinished, 200);
+
+            ObjectArray[i] = HANDLES_Q(FindFirstChangeNotificationW(newPathCopy.c_str(), FALSE,
+                                                                    FILE_NOTIFY_CHANGE_FILE_NAME |
+                                                                        FILE_NOTIFY_CHANGE_DIR_NAME |
+                                                                        FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                                                                        FILE_NOTIFY_CHANGE_SIZE |
+                                                                        FILE_NOTIFY_CHANGE_LAST_WRITE));
+            if ((HANDLE)ObjectArray[i] == INVALID_HANDLE_VALUE)
+            {
+                win->SetAutomaticRefresh(FALSE);
+                ObjectArray.Delete(i);
+                WindowArray.Delete(i);
+                TRACE_W("Unable to receive change notifications for directory '" << tracePath.c_str() << "' (auto-refresh will not work).");
+            }
+            else if (registerDevNotification)
+            {
+                registerDevNot = TRUE;
+                registerDevNotHandle = (HANDLE)ObjectArray[i];
+            }
+            break;
+        }
+    if (i == WindowArray.Count)
+    {
+        HANDLE h = HANDLES_Q(FindFirstChangeNotificationW(newPathCopy.c_str(), FALSE,
+                                                          FILE_NOTIFY_CHANGE_FILE_NAME |
+                                                              FILE_NOTIFY_CHANGE_DIR_NAME |
+                                                              FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                                                              FILE_NOTIFY_CHANGE_SIZE |
+                                                              FILE_NOTIFY_CHANGE_LAST_WRITE));
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            win->SetAutomaticRefresh(TRUE);
+            WindowArray.Add(win);
+            ObjectArray.Add(h);
+            if (registerDevNotification)
+            {
+                registerDevNot = TRUE;
+                registerDevNotHandle = h;
+            }
+        }
+        else
+        {
+            win->SetAutomaticRefresh(FALSE);
+            TRACE_W("Unable to receive change notifications for directory '" << tracePath.c_str() << "' (auto-refresh will not work).");
+        }
+    }
+    if (registerDevNot)
+    {
+        DEV_BROADCAST_HANDLE dbh;
+        memset(&dbh, 0, sizeof(dbh));
+        dbh.dbch_size = sizeof(dbh);
+        dbh.dbch_devicetype = DBT_DEVTYP_HANDLE;
+        dbh.dbch_handle = registerDevNotHandle;
+        win->DeviceNotification = RegisterDeviceNotificationW(win->HWindow, &dbh, DEVICE_NOTIFY_WINDOW_HANDLE);
+    }
+
+    ReleaseMutex(DataUsageMutex);
+    WaitForSingleObject(ContinueEvent, INFINITE);
+}
+
 void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNotification)
 {
     CALL_STACK_MESSAGE3("ChangeDirectory(, %s, %d)", newPath, registerDevNotification);
-    SetEvent(WantDataEvent);                       // ask the snooper to release the DataUsageMutex
+    SetEvent(WantDataEvent);                       // ask the snooper to release DataUsageMutex
     WaitForSingleObject(DataUsageMutex, INFINITE); // wait for it
-    SetEvent(WantDataEvent);                       // the snooper can resume waiting on DataUsageMutex
+    SetEvent(WantDataEvent);                       // snooper can start waiting for DataUsageMutex again
     BOOL registerDevNot = FALSE;
     HANDLE registerDevNotHandle = NULL;
-    //--- the data now belong to the main thread; the snooper is waiting
+    //---  data are now owned by the main thread, snooper waits
     if (win->DeviceNotification != NULL)
     {
         UnregisterDeviceNotification(win->DeviceNotification);
@@ -702,22 +840,22 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
     for (i = 0; i < WindowArray.Count; i++)
         if (win == WindowArray[i])
         {
-            // if the change notification targets a disconnected network drive
-            // we can't afford to wait... let another thread close it
+            // if the change notification is on a disconnected network drive
+            // we cannot afford to wait ... let another thread close it
             HANDLES(EnterCriticalSection(&SafeFindCloseCS));
             SafeFindCloseCNArr.Add(ObjectArray[i]);
             if (!SafeFindCloseCNArr.IsGood())
                 SafeFindCloseCNArr.ResetState(); // ignore errors
             HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
-            ResetEvent(SafeFindCloseFinished);               // wait for it to be signaled...
-            SetEvent(SafeFindCloseStart);                    // start the cleanup
-            WaitForSingleObject(SafeFindCloseFinished, 200); // 200 ms timeout for closing the handle
+            ResetEvent(SafeFindCloseFinished);               // we will wait for it to signal...
+            SetEvent(SafeFindCloseStart);                    // start cleanup
+            WaitForSingleObject(SafeFindCloseFinished, 200); // 200 ms timeout for handle close
 
-            // if the path ends with a space or dot, we must append '\\'; otherwise FindFirstChangeNotification
-            // trims trailing spaces and dots and thus works with a different path
-            char newPathCopy[3 * MAX_PATH];
+            // if the path ends with a space/dot, we must append '\\', otherwise FindFirstChangeNotification
+            // trims spaces/dots and works with a different path
+            CPathBuffer newPathCopy; // Heap-allocated for long path support
             MakeCopyWithBackslashIfNeeded(newPath, newPathCopy);
-            ObjectArray[i] = HANDLES_Q(FindFirstChangeNotification(newPath, FALSE,
+            ObjectArray[i] = HANDLES_Q(FindFirstChangeNotification(newPathCopy, FALSE,
                                                                    FILE_NOTIFY_CHANGE_FILE_NAME |
                                                                        FILE_NOTIFY_CHANGE_DIR_NAME |
                                                                        FILE_NOTIFY_CHANGE_ATTRIBUTES |
@@ -726,7 +864,7 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
             if ((HANDLE)ObjectArray[i] == INVALID_HANDLE_VALUE)
             {
                 win->SetAutomaticRefresh(FALSE);
-                ObjectArray.Delete(i); // delete it from the list
+                ObjectArray.Delete(i); // remove it from the list
                 WindowArray.Delete(i);
                 TRACE_W("Unable to receive change notifications for directory '" << newPath << "' (auto-refresh will not work).");
             }
@@ -740,14 +878,14 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
             }
             break;
         }
-    //---  not found -> add it
+    //---  not found -> add
     if (i == WindowArray.Count)
     {
-        // if the path ends with a space or dot, we must append '\\'; otherwise FindFirstChangeNotification
-        // trims trailing spaces and dots and thus works with a different path
-        char newPathCopy[3 * MAX_PATH];
+        // if the path ends with a space/dot, we must append '\\', otherwise FindFirstChangeNotification
+        // trims spaces/dots and works with a different path
+        CPathBuffer newPathCopy; // Heap-allocated for long path support
         MakeCopyWithBackslashIfNeeded(newPath, newPathCopy);
-        HANDLE h = HANDLES_Q(FindFirstChangeNotification(newPath, FALSE,
+        HANDLE h = HANDLES_Q(FindFirstChangeNotification(newPathCopy, FALSE,
                                                          FILE_NOTIFY_CHANGE_FILE_NAME |
                                                              FILE_NOTIFY_CHANGE_DIR_NAME |
                                                              FILE_NOTIFY_CHANGE_ATTRIBUTES |
@@ -772,7 +910,7 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
     }
     if (registerDevNot)
     {
-        // register the panel window to receive notifications about media changes (removal, etc.)
+        // register the panel window to receive media change messages (removal, etc.)
         DEV_BROADCAST_HANDLE dbh;
         memset(&dbh, 0, sizeof(dbh));
         dbh.dbch_size = sizeof(dbh);
@@ -781,17 +919,17 @@ void ChangeDirectory(CFilesWindow* win, const char* newPath, BOOL registerDevNot
         win->DeviceNotification = RegisterDeviceNotificationA(win->HWindow, &dbh, DEVICE_NOTIFY_WINDOW_HANDLE);
     }
     //---
-    ReleaseMutex(DataUsageMutex);                 // release the DataUsageMutex back to the snooper
-    WaitForSingleObject(ContinueEvent, INFINITE); // and wait until the snooper grabs it
+    ReleaseMutex(DataUsageMutex);                 // release DataUsageMutex to the snooper
+    WaitForSingleObject(ContinueEvent, INFINITE); // and wait until it takes it
 }
 
 void DetachDirectory(CFilesWindow* win, BOOL waitForHandleClosure, BOOL closeDevNotifification)
 {
     CALL_STACK_MESSAGE3("DetachDirectory(, %d, %d)", waitForHandleClosure, closeDevNotifification);
-    SetEvent(WantDataEvent);                       // ask the snooper to release the DataUsageMutex
+    SetEvent(WantDataEvent);                       // ask the snooper to release DataUsageMutex
     WaitForSingleObject(DataUsageMutex, INFINITE); // wait for it
-    SetEvent(WantDataEvent);                       // the snooper can resume waiting on DataUsageMutex
-                                                   //--- the data now belong to the main thread; the snooper is waiting
+    SetEvent(WantDataEvent);                       // snooper can start waiting for DataUsageMutex again
+                                                   //---  data are now owned by the main thread, snooper waits
     if (closeDevNotifification && win->DeviceNotification != NULL)
     {
         UnregisterDeviceNotification(win->DeviceNotification);
@@ -802,24 +940,24 @@ void DetachDirectory(CFilesWindow* win, BOOL waitForHandleClosure, BOOL closeDev
     for (i = 0; i < WindowArray.Count; i++)
         if (win == WindowArray[i])
         {
-            // if the change notification targets a disconnected network drive
-            // we can't afford to wait... let another thread close it
+            // if the change notification is on a disconnected network drive
+            // we cannot afford to wait ... let another thread close it
             HANDLES(EnterCriticalSection(&SafeFindCloseCS));
             SafeFindCloseCNArr.Add(ObjectArray[i]);
             if (!SafeFindCloseCNArr.IsGood())
                 SafeFindCloseCNArr.ResetState(); // ignore errors
             HANDLES(LeaveCriticalSection(&SafeFindCloseCS));
-            ResetEvent(SafeFindCloseFinished);                                             // wait for it to be signaled...
-            SetEvent(SafeFindCloseStart);                                                  // start the cleanup
-            WaitForSingleObject(SafeFindCloseFinished, waitForHandleClosure ? 5000 : 200); // 200 ms timeout for handle closure
+            ResetEvent(SafeFindCloseFinished);                                             // we will wait for it to signal...
+            SetEvent(SafeFindCloseStart);                                                  // start cleanup
+            WaitForSingleObject(SafeFindCloseFinished, waitForHandleClosure ? 5000 : 200); // 200 ms timeout for handle close
 
-            ObjectArray.Delete(i); // delete it from the list
+            ObjectArray.Delete(i); // remove it from the list
             WindowArray.Delete(i);
             win->SetAutomaticRefresh(FALSE);
         }
     //---
-    ReleaseMutex(DataUsageMutex);                 // release the DataUsageMutex back to the snooper
-    WaitForSingleObject(ContinueEvent, INFINITE); // and wait until the snooper grabs it
+    ReleaseMutex(DataUsageMutex);                 // release DataUsageMutex to the snooper
+    WaitForSingleObject(ContinueEvent, INFINITE); // and wait until it takes it
 }
 
 /*
@@ -828,14 +966,14 @@ void DetachDirectory(CFilesWindow* win, BOOL waitForHandleClosure, BOOL closeDev
 class CSuspModeStack
 {
   protected:
-    DWORD CallerCalledFromArr[SUSPMODESTACKSIZE];  // array of return addresses of functions from which BeginSuspendMode() was called
+    DWORD CallerCalledFromArr[SUSPMODESTACKSIZE];  // array of return addresses of functions that called BeginSuspendMode()
     DWORD CalledFromArr[SUSPMODESTACKSIZE];        // array of addresses from which BeginSuspendMode() was called
-    int Count;                                     // number of elements in the previous two arrays
-    int Ignored;                                   // number of BeginSuspendMode() calls we had to ignore (SUSPMODESTACKSIZE too small -> enlarge if needed)
+    int Count;                                     // count of elements in the previous two arrays
+    int Ignored;                                   // number of BeginSuspendMode() calls ignored (SUSPMODESTACKSIZE too small -> consider increasing)
 
   public:
     CSuspModeStack() {Count = 0; Ignored = 0;}
-    ~CSuspModeStack() {CheckIfEmpty(1);}  // one BeginSuspendMode() is OK: invoked when the main Salamander window is deactivated (before the main window closes)
+    ~CSuspModeStack() {CheckIfEmpty(1);}  // one BeginSuspendMode() is OK: called when deactivating Salamander main window (before closing it)
 
     void Push(DWORD caller_called_from, DWORD called_from);
     void Pop(DWORD caller_called_from, DWORD called_from);
@@ -900,7 +1038,7 @@ CSuspModeStack SuspModeStack;
 void BeginSuspendMode(BOOL debugDoNotTestCaller)
 {
     /*
-#ifdef _DEBUG     // verify whether BeginSuspendMode() and EndSuspendMode() are invoked from the same function (based on the return address of the calling function -> cannot detect a "bug" when called from different functions that are both invoked from the same function)
+#ifdef _DEBUG     // test whether BeginSuspendMode() and EndSuspendMode() are called from the same function (based on caller return address -> it does not detect "error" when called from different functions that are both called from the same function)
   DWORD *register_ebp;
   __asm mov register_ebp, ebp
   DWORD called_from, caller_called_from;
@@ -908,7 +1046,7 @@ void BeginSuspendMode(BOOL debugDoNotTestCaller)
   {
     called_from = *(DWORD*)((char*)register_ebp + 4);
 
-if this code ever needs to be revived, use the fact that it can be replaced (x86 and x64):
+if this code ever needs to be revived, note that it can be replaced (x86 and x64):
     called_from = *(DWORD_PTR *)_AddressOfReturnAddress();
 
     caller_called_from = *(DWORD*)((char*)(*register_ebp) + 4);
@@ -941,7 +1079,7 @@ void EndSuspendMode(BOOL debugDoNotTestCaller)
     if (SnooperSuspended < 1)
     {
         TRACE_E("Incorrect call to EndSuspendMode()");
-        SnooperSuspended = 0; // maybe CM_LEFTREFRESH, CM_RIGHTREFRESH, or CM_ACTIVEREFRESH is being misused again
+        SnooperSuspended = 0; // is someone misusing CM_LEFTREFRESH, CM_RIGHTREFRESH or CM_ACTIVEREFRESH again
     }
     else
     {
@@ -955,7 +1093,7 @@ void EndSuspendMode(BOOL debugDoNotTestCaller)
 }
 
 /*
-#ifdef _DEBUG     // verify whether BeginSuspendMode() and EndSuspendMode() are called from the same function (based on the caller's return address, so it will not detect a "bug" when two different functions are both called from the same function)
+#ifdef _DEBUG     // test whether BeginSuspendMode() and EndSuspendMode() are called from the same function (based on caller return address -> it does not detect "error" when called from different functions that are both called from the same function)
 void EndSuspendMode(BOOL debugDoNotTestCaller)
 {
   DWORD *register_ebp;
@@ -965,7 +1103,7 @@ void EndSuspendMode(BOOL debugDoNotTestCaller)
   {
     called_from = *(DWORD*)((char*)register_ebp + 4);
 
-if this code ever needs to be re-enabled, note that it can be replaced with this (x86 and x64):
+if this code ever needs to be revived, note that it can be replaced (x86 and x64):
     called_from = *(DWORD_PTR *)_AddressOfReturnAddress();
 
     caller_called_from = *(DWORD*)((char*)(*register_ebp) + 4);

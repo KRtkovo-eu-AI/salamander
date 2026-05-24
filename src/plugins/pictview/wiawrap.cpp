@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -1490,7 +1491,7 @@ STDMETHODIMP CDataCallback::BandedDataCallback(
                 FixBitmapHeight(pBuffer + 1, m_nDataSize, TRUE);
 
                 // For WiaImgFmt_MEMORYBMP transfers, the WIA service does not
-                // include a BITMAPFILEHEADER preceding the bitmap data.
+                // include a BITMAPFILEHEADER preceeding the bitmap data.
                 // In this case, fill in the BITMAPFILEHEADER structure.
 
                 if (m_nHeaderSize != 0)

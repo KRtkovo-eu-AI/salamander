@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -62,7 +63,7 @@ private:
     ItemsToExtractMap& ItemsToExtract;
 
     const char* TargetDir;
-    char TargetFileName[MAX_PATH];
+    CPathBuffer TargetFileName;
 
     bool ExtractMode;
     struct CProcessedFileInfo
@@ -99,7 +100,7 @@ private:
         Cancel
     };
     // behavior of the callback when a data error occurs
-    BOOL DataErrorSilent; // whether to prompt for Keep or Delete
+    BOOL DataErrorSilent; // whether to ask about Keep or Delete
     EOperationMode DataErrorMode;
     BOOL DataErrorDeleteSilent; // report an error when deleting
     BOOL SilentDelete;

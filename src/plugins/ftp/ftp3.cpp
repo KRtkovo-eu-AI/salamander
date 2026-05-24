@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -95,7 +95,7 @@ void CServerTypeList::Load(HWND parent, HKEY regKey, CSalamanderRegistryAbstract
                 TRACE_E(LOW_MEMORY);
                 break;
             }
-            if (!item->Load(parent, subKey, registry)) // loading failed, ignore this item
+            if (!item->Load(parent, subKey, registry)) // loading failed, we ignore this item
             {
                 delete item;
             }
@@ -318,14 +318,14 @@ void CFTPServerList::CheckProxyServersUID(CFTPProxyServerList& ftpProxyServerLis
         if (s->ProxyServerUID != -1 && s->ProxyServerUID != -2 &&
             !ftpProxyServerList.IsValidUID(s->ProxyServerUID))
         {
-            s->ProxyServerUID = -2; // make the UID valid by switching to "default"
+            s->ProxyServerUID = -2; // validate the UID by switching to "default"
         }
     }
 }
 
 BOOL CFTPServerList::ContainsUnsecuredPassword()
 {
-    // NOTE: the same method exists for CFTPProxyServerList
+    // NOTE, the same method exists for CFTPProxyServerList
     CSalamanderPasswordManagerAbstract* passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
     int i;
     for (i = 0; i < Count; i++)
@@ -411,7 +411,7 @@ BOOL EncryptPasswordAux(BYTE** encryptedPassword, int* encryptedPasswordSize, BO
 
 BOOL CFTPServerList::EncryptPasswords(HWND hParent, BOOL encrypt)
 {
-    // NOTE: the same method exists for CFTPProxyServerList
+    // NOTE, the same method exists for CFTPProxyServerList
     BOOL ret = TRUE;
     int i;
     for (i = 0; i < Count; i++)
@@ -616,9 +616,9 @@ CConfiguration::~CConfiguration()
 BOOL CConfiguration::InitWithSalamanderGeneral()
 {
     // allocated through SalamanderGeneral, therefore it has to be here
-    FTPServerList.AddServer("ALTAP",
-                            "ftp.altap.cz",
-                            "/pub/altap/salamand");
+    FTPServerList.AddServer("Sally",
+                            "ftp.gnu.org",
+                            "/");
 
     // description of the string in the array: "visible,ID,nameStrID,nameStr,descrStrID,descrStr,colType,emptyValue,leftAlignment,fixedWidth,width"
     const char* unix1Columns[] = {"1,name,0,\\0,0,\\0,1,\\0",    // name

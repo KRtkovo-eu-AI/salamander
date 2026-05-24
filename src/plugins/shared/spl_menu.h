@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 //****************************************************************************
 //
@@ -13,7 +13,7 @@
 #pragma once
 
 #ifdef _MSC_VER
-#pragma pack(push, enter_include_spl_menu) // so the structures are independent of the current alignment setting
+#pragma pack(push, enter_include_spl_menu) // so that structures are independent of alignment settings
 #pragma pack(4)
 #endif // _MSC_VER
 #ifdef __BORLANDC__
@@ -22,35 +22,36 @@
 
 class CSalamanderForOperationsAbstract;
 
+//
 // ****************************************************************************
 // CSalamanderBuildMenuAbstract
 //
-// set of Salamander methods for building a plugin menu
+// set of Salamander methods for building plugin menu
 //
-// this is a subset of the CSalamanderConnectAbstract methods; the methods behave the same,
-// use the same constants; see CSalamanderConnectAbstract for details
+// this is a subset of CSalamanderConnectAbstract methods, methods behave the same way,
+// the same constants are used, see CSalamanderConnectAbstract for description
 
 class CSalamanderBuildMenuAbstract
 {
 public:
-    // icons are provided through CSalamanderBuildMenuAbstract::SetIconListForMenu; for the
-    // rest of the description, see CSalamanderConnectAbstract::AddMenuItem
+    // icons are specified using the CSalamanderBuildMenuAbstract::SetIconListForMenu method, for the rest
+    // of the description see CSalamanderConnectAbstract::AddMenuItem
     virtual void WINAPI AddMenuItem(int iconIndex, const char* name, DWORD hotKey, int id, BOOL callGetState,
                                     DWORD state_or, DWORD state_and, DWORD skillLevel) = 0;
 
-    // icons are provided through CSalamanderBuildMenuAbstract::SetIconListForMenu; for the
-    // rest of the description, see CSalamanderConnectAbstract::AddSubmenuStart
+    // icons are specified using the CSalamanderBuildMenuAbstract::SetIconListForMenu method, for the rest
+    // of the description see CSalamanderConnectAbstract::AddSubmenuStart
     virtual void WINAPI AddSubmenuStart(int iconIndex, const char* name, int id, BOOL callGetState,
                                         DWORD state_or, DWORD state_and, DWORD skillLevel) = 0;
 
-    // see CSalamanderConnectAbstract::AddSubmenuEnd for details
+    // for description see CSalamanderConnectAbstract::AddSubmenuEnd
     virtual void WINAPI AddSubmenuEnd() = 0;
 
-    // sets the plugin icon list for the menu; the icon list must be allocated by calling
-    // CSalamanderGUIAbstract::CreateIconList() and then created and filled using the
-    // CGUIIconListAbstract interface methods; the icon size must be 16x16 pixels;
-    // Salamander takes ownership of the icon list object, so the plugin must not destroy it after calling
-    // this function; Salamander keeps it only in memory and does not store it anywhere
+    // sets the bitmap with plugin icons for the menu; the bitmap must be allocated using
+    // CSalamanderGUIAbstract::CreateIconList() call and then created and filled using
+    // CGUIIconListAbstract interface methods; icon dimensions must be 16x16 pixels;
+    // Salamander takes ownership of the bitmap object, plugin must not destroy it after calling
+    // this function; Salamander keeps it only in memory, it is not saved anywhere
     virtual void WINAPI SetIconListForMenu(CGUIIconListAbstract* iconList) = 0;
 };
 
@@ -60,11 +61,11 @@ public:
 //
 
 // menu item state flags (for menu extension plugins)
-#define MENU_ITEM_STATE_ENABLED 0x01 // enabled; without this flag the item is disabled
-#define MENU_ITEM_STATE_CHECKED 0x02 // a "check" or "radio" mark is shown before the item
+#define MENU_ITEM_STATE_ENABLED 0x01 // enabled, without this flag the item is disabled
+#define MENU_ITEM_STATE_CHECKED 0x02 // there is a "check" or "radio" mark before the item
 #define MENU_ITEM_STATE_RADIO 0x04   // ignored without MENU_ITEM_STATE_CHECKED, \
-                                     // "radio" mark; without this flag a "check" mark
-#define MENU_ITEM_STATE_HIDDEN 0x08  // the item should not appear in the menu at all
+                                     // "radio" mark, without this flag it's a "check" mark
+#define MENU_ITEM_STATE_HIDDEN 0x08  // item should not appear in the menu at all
 
 class CPluginInterfaceForMenuExtAbstract
 {
@@ -75,40 +76,40 @@ private: // protection against incorrect direct method calls (see CPluginInterfa
 public:
 #endif // INSIDE_SALAMANDER
 
-    // returns the state of the menu item with identifier 'id'; the return value is a combination
-    // of flags (see MENU_ITEM_STATE_XXX); for 'eventMask' see CSalamanderConnectAbstract::AddMenuItem
+    // returns state of the menu item with identification number 'id'; return value is a combination of
+    // flags (see MENU_ITEM_STATE_XXX); 'eventMask' see CSalamanderConnectAbstract::AddMenuItem
     virtual DWORD WINAPI GetMenuItemState(int id, DWORD eventMask) = 0;
 
-    // executes the menu command with identifier 'id'; for 'eventMask' see
-    // CSalamanderConnectAbstract::AddMenuItem; 'salamander' is the set of Salamander methods
-    // available for performing operations (WARNING: it may be NULL; see the description of
-    // CSalamanderGeneralAbstract::PostMenuExtCommand); 'parent' is the parent window for message boxes,
-    // returns TRUE if the selection in the panel should be cleared (Cancel was not used; Skip may have
-    // been used); otherwise returns FALSE (the selection is left unchanged);
-    // WARNING: if the command causes changes on some path (disk/FS), it should use
-    //        CSalamanderGeneralAbstract::PostChangeOnPathNotification to notify
-    //        the panel without an automatic refresh and any open FSs (active and disconnected)
+    // executes menu command with identification number 'id', 'eventMask' see
+    // CSalamanderConnectAbstract::AddMenuItem, 'salamander' is a set of usable Salamander
+    // methods for performing operations (WARNING: can be NULL, see description of method
+    // CSalamanderGeneralAbstract::PostMenuExtCommand), 'parent' is the parent of messageboxes,
+    // returns TRUE if selection in the panel should be cleared (Cancel was not used, Skip
+    // could have been used), otherwise returns FALSE (deselection is not performed);
+    // WARNING: If the command causes changes on some path (disk/FS), it should use
+    //          CSalamanderGeneralAbstract::PostChangeOnPathNotification to inform
+    //          panels without automatic refresh and open FS (active and disconnected)
     // NOTE: if the command works with files/directories from the path in the current panel or
-    //           directly with that path itself, it is necessary to call
-    //           CSalamanderGeneralAbstract::SetUserWorkedOnPanelPath for the current panel,
-    //           otherwise the path in this panel will not be added to the list of working
-    //           directories - List of Working Directories (Alt+F12)
+    //       directly with this path, you need to call
+    //       CSalamanderGeneralAbstract::SetUserWorkedOnPanelPath for the current panel,
+    //       otherwise the path in this panel will not be added to the list of working
+    //       directories - List of Working Directories (Alt+F12)
     virtual BOOL WINAPI ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
                                         int id, DWORD eventMask) = 0;
 
-    // displays help for the menu command with identifier 'id' (the user presses Shift+F1,
-    // finds this plugin's menu in the Plugins menu, and selects the command); 'parent' is the parent
-    // of the message box; returns TRUE if any help was displayed, otherwise the "Using Plugins"
-    // chapter from Salamander help is shown
+    // displays help for menu command with identification number 'id' (user presses Shift+F1,
+    // finds this plugin's menu in the Plugins menu and selects a command from it), 'parent' is
+    // the parent of messageboxes, returns TRUE if some help was displayed, otherwise the
+    // "Using Plugins" chapter from Salamander help is displayed
     virtual BOOL WINAPI HelpForMenuItem(HWND parent, int id) = 0;
 
-    // function for "dynamic menu extension"; called only if FUNCTION_DYNAMICMENUEXT is specified in
-    // SetBasicPluginData; builds the plugin menu when the plugin is loaded, and then again just before
-    // it is opened in the Plugins menu or on the Plugin bar (also before the Keyboard
-    // Shortcuts window is opened from Plugins Manager); commands in the new menu should use the same ID
-    // as in the old one so user-assigned hotkeys stay assigned and they can still work as the last
-    // used command (see Plugins / Last Command); 'parent' is the parent of the message box, 'salamander'
-    // is the set of methods for building the menu
+    // function for "dynamic menu extension", called only if you specify FUNCTION_DYNAMICMENUEXT in
+    // SetBasicPluginData; builds the plugin menu on its load, and then again just before
+    // opening it in the Plugins menu or on the Plugin bar (also before opening the Keyboard
+    // Shortcuts window from Plugins Manager); commands in the new menu should have the same IDs as in the old one,
+    // so that user-assigned hotkeys remain and so they can work as the last
+    // used command (see Plugins / Last Command); 'parent' is the parent of messageboxes, 'salamander'
+    // is a set of methods for building the menu
     virtual void WINAPI BuildMenu(HWND parent, CSalamanderBuildMenuAbstract* salamander) = 0;
 };
 

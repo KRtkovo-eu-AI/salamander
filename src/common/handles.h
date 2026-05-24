@@ -1,18 +1,18 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
-// HANDLES_ENABLE macro - enables handle monitoring
-// _DEBUG or __HANDLES_DEBUG macro - outputs debug messages to TRACE
-// MULTITHREADED_HANDLES_ENABLE macro - prepares handles for multithreaded applications
+// macro HANDLES_ENABLE - enables handle monitoring
+// macro _DEBUG or __HANDLES_DEBUG - outputs debug messages to TRACE
+// macro MULTITHREADED_HANDLES_ENABLE - prepares handles for multithreaded applications
 
 #define NOHANDLES(function) function
 
 #ifndef HANDLES_ENABLE
 
-// to avoid problems with semicolons in the macros defined below
+// to avoid problems with semicolons in macros defined below
 inline void __HandlesEmptyFunction() {}
 
 #define HANDLES(function) ::function
@@ -27,7 +27,7 @@ inline void __HandlesEmptyFunction() {}
 
 #ifndef MULTITHREADED_HANDLES_ENABLE
 
-// for checking use of the non-multithreaded module version
+// for checking usage of non-multi-threaded version of module
 extern DWORD __HandlesMainThreadID;
 
 #endif // MULTITHREADED_HANDLES_ENABLE
@@ -192,6 +192,7 @@ enum C__HandlesOrigin
     __hoGlobalReAlloc,
     __hoGlobalLock,
     __hoFindFirstChangeNotification,
+    __hoFindFirstChangeNotificationW,
     __hoGetEnvironmentStrings,
     __hoLocalAlloc,
     __hoLocalReAlloc,
@@ -214,7 +215,7 @@ struct C__HandlesHandle
 {
     C__HandlesType Type;
     C__HandlesOrigin Origin;
-    HANDLE Handle; // generic, for all handle types
+    HANDLE Handle; // universal, for all kinds of handles
 
     C__HandlesHandle() {}
 
@@ -259,10 +260,10 @@ class C__Handles
 {
 protected:
     C_HandlesDataArray Handles;      // all monitored handles
-    C__HandlesData TemporaryHandle;  // set from SetInfo() during insertion
-    C__HandlesOutputType OutputType; // message output type
+    C__HandlesData TemporaryHandle;  // set from SetInfo() when inserting
+    C__HandlesOutputType OutputType; // type of message output
 #ifdef MULTITHREADED_HANDLES_ENABLE
-    CRITICAL_SECTION CriticalSection; // for multithreaded synchronization
+    CRITICAL_SECTION CriticalSection; // for multi-thread synchronization
 #endif // MULTITHREADED_HANDLES_ENABLE
 
 public:
@@ -589,6 +590,10 @@ public:
 
     HINSTANCE LoadLibrary(LPCTSTR lpLibFileName);
 
+#ifndef UNICODE
+    HINSTANCE LoadLibraryW(LPCWSTR lpLibFileName);
+#endif // UNICODE
+
     HINSTANCE LoadLibraryEx(LPCTSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
 
     BOOL FreeLibrary(HMODULE hLibModule);
@@ -605,8 +610,13 @@ public:
 
     BOOL GlobalUnlock(HGLOBAL hMem);
 
-    HANDLE FindFirstChangeNotification(LPCTSTR lpPathName, BOOL bWatchSubtree,
-                                       DWORD dwNotifyFilter);
+    HANDLE FindFirstChangeNotificationA(LPCSTR lpPathName, BOOL bWatchSubtree,
+                                        DWORD dwNotifyFilter);
+
+    // Wide variant — needed by the Snooper's wide path support so the
+    // change-notification handle is opened against the real Unicode path.
+    HANDLE FindFirstChangeNotificationW(LPCWSTR lpPathName, BOOL bWatchSubtree,
+                                        DWORD dwNotifyFilter);
 
     BOOL FindCloseChangeNotification(HANDLE hChangeHandle);
 
@@ -658,7 +668,7 @@ public:
 protected:
     void AddHandle(C__HandlesHandle handle); // adds TemporaryHandle
 
-    // removes the handle; returns TRUE on success
+    // removes handle, returns TRUE on success
     BOOL DeleteHandle(C__HandlesType& type, HANDLE handle,
                       C__HandlesOrigin* origin,
                       C__HandlesType expType);

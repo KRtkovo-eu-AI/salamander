@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -6,8 +7,9 @@
 #include "wndframe.h"
 #include "config.h"
 #include "translator.h"
+#include "../registry_names.h"
 
-const char* DB_ROOT_KEY = "Software\\Open Salamander\\Translator";
+const char* DB_ROOT_KEY = SAL_REG_KEY_TRANSLATOR_A;
 const char* WINDOW_LEFT_REG = "Left";
 const char* WINDOW_RIGHT_REG = "Right";
 const char* WINDOW_TOP_REG = "Top";
@@ -88,7 +90,7 @@ BOOL CreateKey(HKEY hKey, const char* name, HKEY& createdKey)
         return TRUE;
     else
     {
-        MessageBox(FrameWindow.HWindow, GetErrorText(res),
+        TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                    "Chyba pri ukladani klice", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -106,7 +108,7 @@ BOOL SetValue(HKEY hKey, const char* name, DWORD type,
         return TRUE;
     else
     {
-        MessageBox(FrameWindow.HWindow, GetErrorText(res),
+        TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                    "Chyba pri ukladani klice", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -126,7 +128,7 @@ BOOL SetValueW(HKEY hKey, const char* name, DWORD type,
         return TRUE;
     else
     {
-        MessageBox(FrameWindow.HWindow, GetErrorText(res),
+        TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                    "Chyba pri ukladani klice", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -142,7 +144,7 @@ BOOL OpenKey(HKEY hKey, const char* name, HKEY& openedKey)
     else
     {
         if (res != ERROR_FILE_NOT_FOUND)
-            MessageBox(FrameWindow.HWindow, GetErrorText(res),
+            TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -159,14 +161,14 @@ BOOL GetValue(HKEY hKey, const char* name, DWORD type, void* buffer, DWORD buffe
             return TRUE;
         else
         {
-            MessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
+            TranslatorMessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
     else
     {
         if (res != ERROR_FILE_NOT_FOUND)
-            MessageBox(FrameWindow.HWindow, GetErrorText(res),
+            TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -185,14 +187,14 @@ BOOL GetValueW(HKEY hKey, const char* name, DWORD type, void* buffer, DWORD buff
             return TRUE;
         else
         {
-            MessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
+            TranslatorMessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
     else
     {
         if (res != ERROR_FILE_NOT_FOUND)
-            MessageBox(FrameWindow.HWindow, GetErrorText(res),
+            TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -209,14 +211,14 @@ BOOL GetSize(HKEY hKey, const char* name, DWORD type, DWORD& bufferSize)
             return TRUE;
         else
         {
-            MessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
+            TranslatorMessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
     else
     {
         if (res != ERROR_FILE_NOT_FOUND)
-            MessageBox(FrameWindow.HWindow, GetErrorText(res),
+            TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
@@ -235,14 +237,14 @@ BOOL GetSizeW(HKEY hKey, const char* name, DWORD type, DWORD& bufferSize)
             return TRUE;
         else
         {
-            MessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
+            TranslatorMessageBox(FrameWindow.HWindow, "Neocekavany typ hodnoty",
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
             return FALSE;
         }
     else
     {
         if (res != ERROR_FILE_NOT_FOUND)
-            MessageBox(FrameWindow.HWindow, GetErrorText(res),
+            TranslatorMessageBox(FrameWindow.HWindow, GetErrorText(res),
                        "Chyba pri nacitani konfigurace", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }

@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -80,12 +81,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "PAK" /* do not translate! */, MB_OK | MB_ICONERROR);
+                   "PAK" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // let the language module (.slg) load
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "PAK" /* do not translate! */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "PAK" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -145,7 +146,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    NULL, "pak");
 
     // set the plugin home page URL
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -423,7 +424,10 @@ BOOL CPluginInterfaceForArchiver::UnpackFiles(TIndirectArray2<CFileInfo>& files,
                 lstrcpy(message, LoadStr(IDS_EXTRACTING));
                 lstrcat(message, file);
                 Salamander->ProgressDialogAddText(message, TRUE);
-                if (lstrlen(targetDir) + lstrlen(file) - rootLen >= MAX_PATH)
+                // Declare path buffers before goto block to avoid skipping initialization
+                CPathBuffer targetName; // Heap-allocated for long path support
+                CPathBuffer arcName; // Heap-allocated for long path support
+                if (lstrlen(targetDir) + lstrlen(file) - rootLen >= SAL_MAX_LONG_PATH)
                 {
                     if (Silent & SF_LONGNAMES)
                         goto l_next;
@@ -438,13 +442,11 @@ BOOL CPluginInterfaceForArchiver::UnpackFiles(TIndirectArray2<CFileInfo>& files,
                         return FALSE;
                     }
                 }
-                char targetName[MAX_PATH];
-                lstrcpy(targetName, targetDir);
-                SalamanderGeneral->SalPathAppend(targetName, file + rootLen, MAX_PATH);
+                lstrcpyn(targetName, targetDir, targetName.Size());
+                SalamanderGeneral->SalPathAppend(targetName, file + rootLen, targetName.Size());
                 IOFileName = targetName;
-                char arcName[MAX_PATH + PAK_MAXPATH];
                 lstrcpy(arcName, arcFile);
-                SalamanderGeneral->SalPathAppend(arcName, file, MAX_PATH + PAK_MAXPATH);
+                SalamanderGeneral->SalPathAppend(arcName, file, arcName.Size());
                 FILETIME ft;
                 PakIFace->GetPakTime(&ft);
                 char buf[100];
@@ -586,20 +588,20 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
         DWORD size;
         if (PakIFace->FindFile(nameInArchive, &size) && size != -1)
         {
-            char targetName[MAX_PATH];
+            CPathBuffer targetName; // Heap-allocated for long path support
             const char* name = strrchr(nameInArchive, '\\');
             if (name)
                 name++;
             else
                 name = nameInArchive;
-            if (lstrlen(targetDir) + lstrlen(name) + 1 >= MAX_PATH)
+            if (lstrlen(targetDir) + lstrlen(name) + 1 >= SAL_MAX_LONG_PATH)
             {
                 SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
             }
             else
             {
-                lstrcpy(targetName, targetDir);
-                SalamanderGeneral->SalPathAppend(targetName, name, MAX_PATH);
+                lstrcpyn(targetName, targetDir, targetName.Size());
+                SalamanderGeneral->SalPathAppend(targetName, name, targetName.Size());
                 IOFileName = targetName;
                 IOFile = CreateFile(targetName, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS,
                                     FILE_ATTRIBUTE_NORMAL, NULL);
@@ -640,12 +642,12 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray2<char>& mask
     char* dest;
     char* newMask;
     int newMaskLen;
-    char buffer[MAX_PATH];
+    CPathBuffer buffer; // Heap-allocated for long path support
 
     sour = masks;
     while (*sour)
     {
-        dest = buffer;
+        dest = buffer.Get();
         while (*sour)
         {
             if (*sour == ';')
@@ -655,17 +657,17 @@ BOOL CPluginInterfaceForArchiver::ConstructMaskArray(TIndirectArray2<char>& mask
                 else
                     break;
             }
-            if (dest == buffer + MAX_PATH - 1)
+            if (dest == buffer.Get() + buffer.Size() - 1)
             {
                 SalamanderGeneral->ShowMessageBox(LoadStr(IDS_TOOLONGMASK), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
                 return FALSE;
             }
             *dest++ = *sour++;
         }
-        while (--dest >= buffer && *dest <= ' ')
+        while (--dest >= buffer.Get() && *dest <= ' ')
             ;
         *(dest + 1) = 0;
-        dest = buffer;
+        dest = buffer.Get();
         while (*dest != 0 && *dest <= ' ')
             dest++;
         newMaskLen = (int)strlen(dest);

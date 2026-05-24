@@ -1,0 +1,10 @@
+H:\_projects\salamander\src\plugins\hypervm\managed\bin\Release\HyperVM.Managed.dll
+H:\_projects\salamander\src\plugins\hypervm\managed\bin\Release\HyperVM.Managed.pdb
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.csproj.AssemblyReference.cache
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.GeneratedMSBuildEditorConfig.editorconfig
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.AssemblyInfoInputs.cache
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.AssemblyInfo.cs
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.csproj.CoreCompileInputs.cache
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.sourcelink.json
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.dll
+H:\_projects\salamander\src\plugins\hypervm\managed\obj\Release\HyperVM.Managed.pdb

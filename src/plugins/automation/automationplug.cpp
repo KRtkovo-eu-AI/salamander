@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -23,7 +24,7 @@
 #include "persistence.h"
 #include "abortmodal.h"
 
-#pragma comment(lib, "UxTheme.lib")
+#pragma comment(lib, "uxtheme.lib")
 
 CAutomationMenuExtInterface g_oMenuExtInterface;
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
@@ -63,12 +64,12 @@ BOOL WINAPI CAutomationMenuExtInterface::ExecuteMenuItem(
 
     if (id == CmdRunFocusedScript)
     {
-        TCHAR szFullName[MAX_PATH];
+        CPathBuffer szFullName;
         const CFileData* pFocusedFile;
 
-        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, szFullName, _countof(szFullName), NULL, NULL);
+        SalamanderGeneral->GetPanelPath(PANEL_SOURCE, szFullName, szFullName.Size(), NULL, NULL);
         pFocusedFile = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-        SalamanderGeneral->SalPathAppend(szFullName, pFocusedFile->Name, _countof(szFullName));
+        SalamanderGeneral->SalPathAppend(szFullName, pFocusedFile->Name, szFullName.Size());
 
         CScriptInfo scriptInfo(szFullName, NULL);
         bExecuted = scriptInfo.Execute(info);
@@ -281,8 +282,8 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
         0,
         CAutomationMenuExtInterface::CmdRunFocusedScript,
         TRUE, // callGetState
-        0,    // or-mask (ignored if callGetState == TRUE)
-        0,    // and-mask (ignored if callGetState == TRUE)
+        0,    // or-mask (ignored id callGetState == TRUE)
+        0,    // and-mask (ignored id callGetState == TRUE)
         MENU_SKILLLEVEL_ALL);
 
     // open script menu
@@ -296,10 +297,10 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
         0,
         MENU_SKILLLEVEL_ALL);
 
-    // for our menu items we set callGetState to TRUE, so
-    // GetMenuItemState is always called for those items,
-    // which forces our plugin to load before the first menu popup
-    // and refreshes the items
+    // for our menu items we set callGetState to TRUE, so the
+    // GetMenuItemState will be always called for the items which
+    // forces our plugin to be loaded before first menu popup
+    // and the items get refreshed
 
     if (g_oScriptLookup.GetCount() > 0)
     {
@@ -319,8 +320,8 @@ MENU_TEMPLATE_ITEM PluginMenu[] =
         AddScriptContainerToMenu(pRootContainer, salamander, 0);
     }
 
-    // Salamander manages the icon list itself, so we must always
-    // create a copy of the list that we pass to the menu builder.
+    // Salamander manages the icon list itself, so we must everytime
+    // create a copy of that list that we pass to menu builder.
     CGUIIconListAbstract* pListCopy = SalamanderGUI->CreateIconList();
     if (pListCopy)
     {
@@ -430,7 +431,7 @@ CAutomationPluginInterface::CAutomationPluginInterface() : m_aDirectories(4, 1)
     m_himlCold = NULL;
     m_bEnableDebugger = false;
 
-    GetModuleFileName(NULL, m_szSalDir, _countof(m_szSalDir));
+    GetModuleFileName(NULL, m_szSalDir, m_szSalDir.Size());
     PTSTR pszNamePart = PathFindFileName(m_szSalDir);
     if (pszNamePart)
     {
@@ -585,10 +586,10 @@ void WINAPI CAutomationPluginInterface::LoadConfiguration(
 
     if (bLoadDefaultDirs)
     {
-        dir.Set(_T("$[AppData]\\Open Salamander\\Automation\\scripts"));
+        dir.Set(_T("$[AppData]\\Sally\\Automation\\scripts"));
         m_aDirectories.Add(dir);
 
-        dir.Set(_T("$[AllUsersProfile]\\Open Salamander\\Automation\\scripts"));
+        dir.Set(_T("$[AllUsersProfile]\\Sally\\Automation\\scripts"));
         m_aDirectories.Add(dir);
 
         dir.Set(_T("$(SalDir)\\plugins\\automation\\scripts"));

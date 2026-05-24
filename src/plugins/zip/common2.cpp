@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -54,8 +55,7 @@ int RenumberName(int number, const char* oldName, char* newName,
         }
     }
 
-    char buf[MAX_PATH + 12];
-
+    CPathBuffer buf;
     if (numberEnd && !winzip)
     {
         if (lastFile && ext && ext < numberStart) // in Windows ".cvspass" is treated as an extension
@@ -149,13 +149,13 @@ int CZipCommon::ChangeDisk()
     // small test to detect WinZip names
     if (CHDiskFlags & (CHD_FIRST | CHD_SEQNAMES))
     {
-        char buf[MAX_PATH];
+        CPathBuffer buf; // Heap-allocated for long path support
         RenumberName(DiskNum + 1, ZipName, buf,
                      DiskNum == EOCentrDir.DiskNum, CHDiskFlags & CHD_WINZIP);
         if (SalamanderGeneral->SalGetFileAttributes(buf) == 0xFFFFFFFF)
         {
             // the file with the next number is not on the disk; try whether it might appear there
-            // With the inverted WinZip flag.
+            // s invertovanym winzip flagem
             RenumberName(DiskNum + 1, ZipName, buf,
                          DiskNum == EOCentrDir.DiskNum, !(CHDiskFlags & CHD_WINZIP));
             if (SalamanderGeneral->SalGetFileAttributes(buf) != 0xFFFFFFFF && lstrcmpi(ZipName, buf))
@@ -215,16 +215,16 @@ int CZipCommon::ChangeDisk()
 void CZipCommon::FindLastFile(char* lastFile)
 {
     CALL_STACK_MESSAGE1("CZipCommon::FindLastFile()");
-    char path[MAX_PATH];
-    char name[MAX_PATH];
-    char ext[MAX_PATH];
+    CPathBuffer path; // Heap-allocated for long path support
+    CPathBuffer name; // Heap-allocated for long path support
+    CPathBuffer ext; // Heap-allocated for long path support
     char* sour;
     int i, j;
-    char mask[MAX_PATH];
+    CPathBuffer mask; // Heap-allocated for long path support
     WIN32_FIND_DATA data;
     HANDLE search;
     int biggest = 0;
-    char buf[MAX_PATH];
+    CPathBuffer buf; // Heap-allocated for long path support
     int pathLen;
 
     *lastFile = NULL;
@@ -236,17 +236,17 @@ void CZipCommon::FindLastFile(char* lastFile)
     *ext = 0;
   }*/
     i = lstrlen(name) - 1;
-    sour = name + i;
-    while (sour >= name)
+    sour = name.Get() + i;
+    while (sour >= name.Get())
     {
         if (!isdigit(*sour))
             break;
         sour--;
     }
-    if (sour < name || sour == name + i)
+    if (sour < name.Get() || sour == name.Get() + i)
         return;
     *(++sour) = 0;
-    sprintf(mask, "%s%s*%s", path, name, ext);
+    sprintf(mask.Get(), "%s%s*%s", path.Get(), name.Get(), ext.Get());
     search = FindFirstFile(mask, &data);
     if (search == INVALID_HANDLE_VALUE)
         return;
@@ -261,20 +261,20 @@ void CZipCommon::FindLastFile(char* lastFile)
       *ext = 0;
     }*/
         i = lstrlen(name) - 1;
-        sour = name + i;
-        while (sour >= name)
+        sour = name.Get() + i;
+        while (sour >= name.Get())
         {
             if (!isdigit(*sour))
                 break;
             sour--;
         }
-        if (sour >= name && sour != name + i)
+        if (sour >= name.Get() && sour != name.Get() + i)
         {
             j = atoi(++sour);
             if (j > biggest && !(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
             {
                 biggest = j;
-                lstrcpy(buf + pathLen, data.cFileName);
+                lstrcpy(buf.Get() + pathLen, data.cFileName);
             }
         }
     } while (FindNextFile(search, &data));

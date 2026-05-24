@@ -1,18 +1,63 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
+#include "ui/IPrompter.h"
 #include "plugins.h"
 #include "fileswnd.h"
 #include "editwnd.h"
 #include "stswnd.h"
+#include "darkmode.h"
 #include <uxtheme.h>
 
-#include <Shlwapi.h>
+#include <shlwapi.h>
+
+namespace
+{
+const COLORREF EDITWND_DARK_BG = RGB(45, 45, 48);
+const COLORREF EDITWND_DARK_INPUT_BG = RGB(30, 30, 30);
+const COLORREF EDITWND_DARK_TEXT = RGB(232, 232, 232);
+const COLORREF EDITWND_DARK_DISABLED_TEXT = RGB(140, 140, 140);
+const COLORREF EDITWND_DARK_BORDER_OUTER = RGB(45, 45, 48);
+const COLORREF EDITWND_DARK_BORDER_INNER = RGB(62, 62, 66);
+const COLORREF EDITWND_DARK_BUTTON_BG = RGB(52, 52, 56);
+
+static void FillRectSolid(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
+static void DrawDarkComboFrame(HWND hwnd, HDC hDC)
+{
+    RECT r;
+    GetWindowRect(hwnd, &r);
+    OffsetRect(&r, -r.left, -r.top);
+
+    HGDIOBJ oldPen = SelectObject(hDC, GetStockObject(DC_PEN));
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
+
+    SetDCPenColor(hDC, EDITWND_DARK_BORDER_OUTER);
+    Rectangle(hDC, r.left, r.top, r.right, r.bottom);
+
+    if (r.right - r.left > 3 && r.bottom - r.top > 3)
+    {
+        SetDCPenColor(hDC, EDITWND_DARK_BORDER_INNER);
+        Rectangle(hDC, r.left + 1, r.top + 1, r.right - 1, r.bottom - 1);
+    }
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+}
+
+} // namespace
 
 //*****************************************************************************
 //
@@ -193,7 +238,7 @@ BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_KEYDOWN:
     {
-        // handles Ctrl+Backspace to delete a word
+        // handles Ctrl+Backspace for deleting a word
         if (wParam == VK_BACK)
         {
             BOOL controlPressed = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -204,13 +249,13 @@ BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 int iStart, iEnd;
                 SendMessage(hwnd, EM_GETSEL, (WPARAM)&iStart, (LPARAM)&iEnd);
 
-                // if a selection exists, clear it and move the cursor to the end
+                // if a selection exists, cancel it and move the cursor to the end
                 if (iStart != iEnd)
                 {
                     SendMessage(hwnd, EM_SETSEL, iEnd, iEnd);
                     iStart = iEnd;
                 }
-                //          if (iStart == iEnd) // nothing must be selected
+                //          if (iStart == iEnd) // nothing can't be selected
                 //          {
                 char buff[10000];
                 int len = GetWindowTextLength(hwnd);
@@ -242,8 +287,8 @@ BSHandlerSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     return CallWindowProc(OldWndProc, hwnd, message, wParam, lParam);
 }
 
-// We do not use WinLib subclassing so that we do not interfere with it
-// (some windows we need to attach to are already or will be managed by WinLib)
+// we don't use WinLib's subclass so we don't step on its toes
+// (some windows we need to attach may already be or will be under WinLib)
 BOOL AttachBackspaceHandler(HWND hwndEdit)
 {
     WNDPROC oldWndProc = (WNDPROC)GetWindowLongPtr(hwndEdit, GWLP_WNDPROC);
@@ -269,7 +314,7 @@ BOOL InstallWordBreakProc(HWND hWindow)
     className[0] = 0;
     if (GetClassName(hWindow, className, 30) == 0 || StrICmp(className, "edit") != 0)
     {
-        // might be a combo box, so try grabbing its internal edit control
+        // might be a combobox, so try grabbing its internal edit control
         hWindow = GetWindow(hWindow, GW_CHILD);
         if (hWindow == NULL || GetClassName(hWindow, className, 30) == 0 || StrICmp(className, "edit") != 0)
         {
@@ -301,11 +346,11 @@ BOOL IsChangeDirAttempt(const char* text)
 int GetCmdLineLimit()
 {
     /*
-      Measured limits when launching via COMSPEC:
-        (4094 + length of the exe string)  W2K (does not depend on COMSPEC length)
-        (8190 + length of the exe string)  XP (does not depend on COMSPEC length)
-        8156                             Vista + Win7 with COMSPEC=C:\Windows\system32\cmd.exe (depends on COMSPEC length: longer COMSPEC = smaller limit)
-    */
+  Measured limits when launching via COMSPEC:
+    (4094 + length of the exe string)  W2K (not dependent on COMSPEC length)
+    (8190 + length of the exe string)  XP (not dependent on COMSPEC length)
+    8156                             Vista + Win7 with COMSPEC=C:\Windows\system32\cmd.exe (depends on COMSPEC lenght: longer COMSPEC = smaller limit)
+*/
 
 #if SALCMDLINE_MAXLEN != 8192 // maximum value that GetCmdLineLimit() can return
 #pragma message(__FILE__ " ERROR: SALCMDLINE_MAXLEN != 8192. SALCMDLINE_MAXLEN and GetCmdLineLimit() must contain the same maximal value!")
@@ -313,10 +358,10 @@ int GetCmdLineLimit()
 
     if (WindowsXP64AndLater) // XP64 + Vista + Win7 + ...
     {
-        char cmd[MAX_PATH];
-        if (!GetEnvironmentVariable("COMSPEC", cmd, MAX_PATH))
+        CPathBuffer cmd;
+        if (!GetEnvironmentVariable("COMSPEC", cmd, cmd.Size()))
             cmd[0] = 0;
-        AddDoubleQuotesIfNeeded(cmd, MAX_PATH); // CreateProcess expects names with spaces quoted (otherwise it tries various variants; see help)
+        AddDoubleQuotesIfNeeded(cmd, cmd.Size()); // CreateProcess expects names with spaces quoted (otherwise it tries various variants; see help)
         return 8191 - lstrlen(cmd) - 6;         // 6 = strlen(" /K ") + 2 (two quotation marks around the command itself)
     }
     else
@@ -383,7 +428,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 BOOL executed = FALSE;
                 CFilesWindow* panel = MainWindow->GetActivePanel();
-                if (panel->Is(ptDisk)) // running commands on disk -> run in the DOS Prompt
+                if (panel->Is(ptDisk)) // running commands on disk -> executed in DOS Prompt
                 {
                     // users coming from TC and other file managers tend to change the panel path via the command line
                     // we'll try to break this habit
@@ -391,39 +436,23 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         if (Configuration.CnfrmChangeDirTC)
                         {
-                            BOOL dontShow = !Configuration.CnfrmChangeDirTC;
-
-                            MSGBOXEX_PARAMS params;
-                            memset(&params, 0, sizeof(params));
-                            params.HParent = HWindow;
-                            params.Flags = MB_OK | MB_ICONINFORMATION;
-                            params.Caption = LoadStr(IDS_INFOTITLE);
-                            params.Text = LoadStr(IDS_CHANGEDIR_TC_HINT);
-                            params.CheckBoxText = LoadStr(IDS_DONTSHOWAGAIN2);
-                            params.CheckBoxValue = &dontShow;
-                            SalMessageBoxEx(&params);
+                            bool dontShow = !Configuration.CnfrmChangeDirTC;
+                            gPrompter->ShowInfoWithCheckbox(LoadStrW(IDS_INFOTITLE), LoadStrW(IDS_CHANGEDIR_TC_HINT),
+                                                            LoadStrW(IDS_DONTSHOWAGAIN2), &dontShow);
                             Configuration.CnfrmChangeDirTC = !dontShow;
                         }
                         // let the command fall through to the shell so the message box text stays simple
                     }
 
-                    char cmd[SALCMDLINE_MAXLEN + MAX_PATH]; // COMSPEC is likely only a few characters long; MAX_PATH is plenty (no extra needed for parameters /K, etc.)
-                    if (!GetEnvironmentVariable("COMSPEC", cmd, SALCMDLINE_MAXLEN + MAX_PATH))
+                    CPathBuffer cmd;
+                    if (!GetEnvironmentVariable("COMSPEC", cmd, cmd.Size()))
                         cmd[0] = 0;
-                    AddDoubleQuotesIfNeeded(cmd, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+                    AddDoubleQuotesIfNeeded(cmd, cmd.Size()); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
 
                     if (SystemPolicies.GetMyRunRestricted() &&
                         (!SystemPolicies.GetMyCanRun(cmd) || !SystemPolicies.GetMyCanRun(cmdLine)))
                     {
-                        MSGBOXEX_PARAMS params;
-                        memset(&params, 0, sizeof(params));
-                        params.HParent = HWindow;
-                        params.Flags = MSGBOXEX_OK | MSGBOXEX_HELP | MSGBOXEX_ICONEXCLAMATION;
-                        params.Caption = LoadStr(IDS_POLICIESRESTRICTION_TITLE);
-                        params.Text = LoadStr(IDS_POLICIESRESTRICTION);
-                        params.ContextHelpId = IDH_GROUPPOLICY;
-                        params.HelpCallback = MessageBoxHelpCallback;
-                        SalMessageBoxEx(&params);
+                        gPrompter->ShowErrorWithHelp(LoadStrW(IDS_POLICIESRESTRICTION_TITLE), LoadStrW(IDS_POLICIESRESTRICTION), IDH_GROUPPOLICY);
                         return 0;
                     }
 
@@ -447,7 +476,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (strlen(cmd) + strlen(cmdLine) + 2 < SALCMDLINE_MAXLEN + MAX_PATH)
                     {
                         strcat(cmd, "\"");
-                        strcat(cmd, cmdLine); // the user's command line must be enclosed in quotes, otherwise commands containing quotes do not work (e.g. >>"C:\APPS\WinRAR\UnRAR.exe" e "test.rar"<< prints >>'C:\APPS\WinRAR\UnRAR.exe" e "test.rar' is not recognized<<)
+                        strcat(cmd, cmdLine); // the user's command line must be quoted, otherwise commands containing quotes fail (e.g. >>"C:\APPS\WinRAR\UnRAR.exe" e "test.rar"<< prints >>'C:\APPS\WinRAR\UnRAR.exe" e "test.rar' is not recognized<<)
                         strcat(cmd, "\"");
                     }
                     else
@@ -461,8 +490,8 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     POINT p;
                     if (MultiMonGetDefaultWindowPos(MainWindow->HWindow, &p))
                     {
-                        // if the main window is on another monitor, the new window should open there as well,
-                        // ideally at the default position (the same as on the primary monitor)
+                        // if the main window is on another monitor, we should open
+                        // the created window there as well, ideally at the default position (same as on the primary)
                         si.dwFlags |= STARTF_USEPOSITION;
                         si.dwX = p.x;
                         si.dwY = p.y;
@@ -485,8 +514,8 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     if (cmdTooLong || !proc_ret)
                     {
-                        SalMessageBox(HWindow, cmdTooLong ? LoadStr(IDS_TOOLONGPATH) : GetErrorText(err),
-                                      LoadStr(IDS_ERROREXECCMDLINE), MB_OK | MB_ICONEXCLAMATION);
+                        gPrompter->ShowError(LoadStrW(IDS_ERROREXECCMDLINE),
+                                             cmdTooLong ? LoadStrW(IDS_TOOLONGPATH) : GetErrorTextW(err));
                     }
                     else
                     {
@@ -536,14 +565,13 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 }
                         if (from > 0)
                         {
-                            char* text = (char*)malloc(strlen(cmdLine) + 1);
+                            char* text = _strdup(cmdLine);
                             if (text != NULL)
                             {
                                 free(history[from]);
                                 for (i = from - 1; i >= 0; i--)
                                     history[i + 1] = history[i];
                                 history[0] = text;
-                                strcpy(history[0], cmdLine);
                             }
                         }
                     }
@@ -791,7 +819,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // panel". I am not interested in this special Alt-Ctrl-functionality in
             // Salamander, I am definitely more interested in being able to type the
             // mentioned characters on the command line.
-            if ((controlPressed && !shiftPressed && !altPressed) /* || // Shift+number does not work in the edit line (you need to type '*' and other characters)
+            if ((controlPressed && !shiftPressed && !altPressed) /* || // Shift+number from the edit line won't work (you need to type '*' and others)
             (Configuration.ShiftForHotPaths && !controlPressed && shiftPressed) */
             )
             {
@@ -857,10 +885,10 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
         case VK_RETURN:
         {
-            if (controlPressed && !altPressed) // Insert the selected file name into the command line
+            if (controlPressed && !altPressed) // filename of the selected file to the command line
             {
                 SkipCharacter = TRUE;
-                char path[MAX_PATH + 1];
+                CPathBuffer path;
                 const char* s;
                 int l;
                 CFilesWindow* p = MainWindow->GetActivePanel();
@@ -960,7 +988,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (controlPressed && !altPressed)
             {
                 SkipCharacter = TRUE;
-                char path[MAX_PATH];
+                CPathBuffer path; // Heap-allocated for long path support
                 const char* s;
                 switch (wParam)
                 {
@@ -978,7 +1006,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     if (shiftPressed) // DOS path
                     {
-                        if (!GetShortPathName(s, path, MAX_PATH))
+                        if (!GetShortPathName(s, path.Get(), path.Size()))
                         {
                             strcpy(path, s);
                         }
@@ -987,7 +1015,7 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         strcpy(path, s);
                     }
-                    SalPathAddBackslash(path, MAX_PATH);
+                    SalPathAddBackslash(path, path.Size());
                     InsertText(path);
                 }
                 return 0;
@@ -1024,12 +1052,12 @@ class CEditDropTarget : public IDropTarget
 private:
     long RefCount;                    // object lifetime
     IDataObject* DataObject;          // IDataObject that entered the drag
-    IDataObject* ForbiddenDataObject; // IDataObject to ignore (its source is this object)
+    IDataObject* ForbiddenDataObject; // IDataObject we ignore (we are its source)
     BOOL UseUnicode;                  // is Unicode text in DataObject? (otherwise we try ANSI text)
     CEditLine* EditLine;              // edit line we operate on
     int EditWidth;
     int EditHeight;
-    char* TextBuff;
+    std::string TextBuff;
     int TextLen;
     int OldIsertMarkX;
 
@@ -1041,17 +1069,15 @@ public:
         ForbiddenDataObject = NULL;
         EditLine = editLine;
         OldIsertMarkX = -1;
-        TextBuff = NULL;
         UseUnicode = TRUE;
     }
 
     virtual ~CEditDropTarget()
     {
-        if (TextBuff != NULL)
+        if (!TextBuff.empty())
         {
             TRACE_E("~CEditDropTarget(): unexpected situation: TextBuff != NULL");
-            free(TextBuff);
-            TextBuff = NULL;
+            TextBuff.clear();
         }
         if (RefCount != 0)
             TRACE_E("Preliminary destruction of object!");
@@ -1093,7 +1119,7 @@ public:
         p.x = pt.x;
         p.y = pt.y;
         ScreenToClient(EditLine->HWindow, &p);
-        if (TextBuff != NULL && p.x >= 0 && p.x <= EditWidth && p.y >= 0 && p.y <= EditHeight)
+        if (!TextBuff.empty() && p.x >= 0 && p.x <= EditWidth && p.y >= 0 && p.y <= EditHeight)
         {
             // the EM_POSFROMCHAR message is unreliable - work around it
             LRESULT pos = SendMessage(EditLine->HWindow, EM_CHARFROMPOS, 0, MAKELPARAM(p.x, p.y));
@@ -1116,7 +1142,7 @@ public:
                 HDC hDC = HANDLES(GetDC(EditLine->HWindow));
                 HFONT hOldFont = (HFONT)SelectObject(hDC, hFont);
                 SIZE sz;
-                GetTextExtentPoint32(hDC, TextBuff + TextLen - 1, 1, &sz);
+                GetTextExtentPoint32(hDC, TextBuff.c_str() + TextLen - 1, 1, &sz);
                 SelectObject(hDC, hOldFont);
                 HANDLES(ReleaseDC(EditLine->HWindow, hDC));
                 x += (short)sz.cx;
@@ -1139,7 +1165,7 @@ public:
             char* start = buff;
             if ((GetKeyState(VK_MENU) & 0x8000) != 0)
             {
-                // we do not want the full path - trim it
+                // we do not want the whole path - trim it
                 int len = lstrlen(buff);
                 if (len > 2)
                 {
@@ -1173,7 +1199,7 @@ public:
     }
 
     // returns a directory or a file (there must be exactly one)
-    BOOL GetNameFromDataObject(IDataObject* pDataObject, char* path)
+    BOOL GetNameFromDataObject(IDataObject* pDataObject, char* path, int pathSize)
     {
         FORMATETC formatEtc;
         formatEtc.cfFormat = RegisterClipboardFormat(SALCF_FAKE_REALPATH);
@@ -1199,7 +1225,7 @@ public:
                 {
                     havePath = data[0] != 0 && data[1] != 0;
                     if (data[0] != 0 && path != NULL)
-                        lstrcpyn(path, data + 1, MAX_PATH);
+                        lstrcpyn(path, data + 1, pathSize);
                     HANDLES(GlobalUnlock(stgMedium.hGlobal));
                 }
             }
@@ -1229,12 +1255,12 @@ public:
                     {
                         const wchar_t* fileW = (wchar_t*)(((char*)data) + data->pFiles);
                         int l = lstrlenW(fileW);
-                        if (l < MAX_PATH && *(fileW + l + 1) == 0)
+                        if (l < pathSize && *(fileW + l + 1) == 0)
                         {
                             if (path != NULL)
                             {
-                                WideCharToMultiByte(CP_ACP, 0, fileW, l + 1, path, MAX_PATH, NULL, NULL);
-                                path[MAX_PATH - 1] = 0;
+                                WideCharToMultiByte(CP_ACP, 0, fileW, l + 1, path, pathSize, NULL, NULL);
+                                path[pathSize - 1] = 0;
                             }
                             ret = TRUE;
                         }
@@ -1243,10 +1269,10 @@ public:
                     {
                         const char* fileA = ((char*)data) + data->pFiles;
                         int l = (int)strlen(fileA);
-                        if (l < MAX_PATH && *(fileA + l + 1) == 0)
+                        if (l < pathSize && *(fileA + l + 1) == 0)
                         {
                             if (path != NULL)
-                                lstrcpyn(path, fileA, MAX_PATH);
+                                lstrcpyn(path, fileA, pathSize);
                             ret = TRUE;
                         }
                     }
@@ -1256,7 +1282,7 @@ public:
             }
             ReleaseStgMedium(&stgMedium);
         }
-        /* removed an unnecessarily strict check; pagefile.sys could not be dropped
+        /* removed overly strict check - dropping pagefile.sys failed
       if (ret && path != NULL)
       {
         DWORD attrs = SalGetFileAttributes(path);
@@ -1268,7 +1294,7 @@ public:
     }
 
     STDMETHOD(QueryInterface)
-    (REFIID refiid, void FAR* FAR* ppv)
+    (REFIID refiid, void FAR * FAR * ppv)
     {
         if (refiid == IID_IUnknown || refiid == IID_IDropTarget)
         {
@@ -1291,7 +1317,7 @@ public:
         if (--RefCount == 0)
         {
             delete this;
-            return 0; // must not access the object; it no longer exists
+            return 0; // must not touch the object, it no longer exists
         }
         return RefCount;
     }
@@ -1321,17 +1347,15 @@ public:
         EditWidth = r.right;
         EditHeight = r.bottom;
 
-        if (TextBuff != NULL)
+        if (!TextBuff.empty())
         {
             TRACE_E("CEditDropTarget::DragEnter: Unexpected situation: TextBuff != NULL");
-            free(TextBuff);
+            TextBuff.clear();
         }
         TextLen = GetWindowTextLength(EditLine->HWindow);
-        TextBuff = (char*)malloc(TextLen + 1);
-        if (TextBuff != NULL)
-            TextLen = GetWindowText(EditLine->HWindow, TextBuff, TextLen + 1);
-        else
-            TextLen = 0;
+        TextBuff.resize(TextLen + 1);
+        TextLen = GetWindowText(EditLine->HWindow, TextBuff.data(), TextLen + 1);
+        TextBuff.resize(TextLen);
 
         // check whether there is text on the clipboard
         FORMATETC formatEtc;
@@ -1348,7 +1372,7 @@ public:
             UseUnicode = FALSE;
             textRes = pDataObject->QueryGetData(&formatEtc);
         }
-        if (textRes == S_OK || GetNameFromDataObject(DataObject, NULL))
+        if (textRes == S_OK || GetNameFromDataObject(DataObject, NULL, 0))
         {
             *pdwEffect = DROPEFFECT_COPY;
             return S_OK;
@@ -1377,7 +1401,7 @@ public:
             formatEtc.dwAspect = DVASPECT_CONTENT;
             formatEtc.lindex = -1;
             formatEtc.tymed = TYMED_HGLOBAL;
-            if (DataObject->QueryGetData(&formatEtc) == S_OK || GetNameFromDataObject(DataObject, NULL))
+            if (DataObject->QueryGetData(&formatEtc) == S_OK || GetNameFromDataObject(DataObject, NULL, 0))
             {
                 int xPosDummy;
                 if (HitTest(pt, TRUE, &xPosDummy))
@@ -1402,11 +1426,7 @@ public:
             DataObject = NULL;
         }
         SetInsertMark(-1);
-        if (TextBuff != NULL)
-        {
-            free(TextBuff);
-            TextBuff = NULL;
-        }
+        TextBuff.clear();
         return S_OK;
     }
 
@@ -1435,7 +1455,7 @@ public:
             char* path = (char*)HANDLES(GlobalLock(stgMedium.hGlobal));
             if (path != NULL)
             {
-                // adjust the path
+                // change the path
                 if (UseUnicode)
                     path = ConvertAllocU2A((const WCHAR*)path, -1);
                 if (path != NULL)
@@ -1449,10 +1469,10 @@ public:
         }
         else
         {
-            char path[2 * MAX_PATH];
-            if (GetNameFromDataObject(pDataObject, path)) // at most MAX_PATH characters are written to 'path'
+            CPathBuffer path;
+            if (GetNameFromDataObject(pDataObject, path, path.Size())) // path buffer supports long paths
             {
-                // Adjust the path
+                // change the path
                 if (!IsPluginFSPath(path))
                 {
                     int l = (int)strlen(path);
@@ -1477,11 +1497,7 @@ public:
             DataObject = NULL;
         }
         *pdwEffect = DROPEFFECT_NONE;
-        if (TextBuff != NULL)
-        {
-            free(TextBuff);
-            TextBuff = NULL;
-        }
+        TextBuff.clear();
         return S_OK;
     }
 };
@@ -1515,8 +1531,6 @@ void CEditLine::RevokeDragDrop()
 CInnerText::CInnerText(CEditWindow* editWindow)
     : CWindow(ooStatic)
 {
-    Allocated = 0;
-    Message = NULL;
     Width = 0;
     Height = 0;
     EditWindow = editWindow;
@@ -1524,8 +1538,6 @@ CInnerText::CInnerText(CEditWindow* editWindow)
 
 CInnerText::~CInnerText()
 {
-    if (Message != NULL)
-        free(Message);
 }
 
 LRESULT
@@ -1548,22 +1560,25 @@ CInnerText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HANDLES(BeginPaint(HWindow, &ps));
 
         HDC dc = ItemBitmap.HMemDC;
+        BOOL useDark = DarkMode_ShouldUseDark();
+        COLORREF bkColor = useDark ? EDITWND_DARK_INPUT_BG
+                                   : GetSysColor(EditWindow->Enabled ? COLOR_WINDOW : COLOR_BTNFACE);
+        COLORREF txColor = useDark ? (EditWindow->Enabled ? EDITWND_DARK_TEXT : EDITWND_DARK_DISABLED_TEXT)
+                                   : GetSysColor(EditWindow->Enabled ? COLOR_WINDOWTEXT : COLOR_BTNSHADOW);
+        RECT r;
+        GetClientRect(HWindow, &r);
+        FillRectSolid(dc, &r, bkColor);
 
-        if (Message != NULL)
+        if (!Message.empty())
         {
-            COLORREF sysBkColor = EditWindow->Enabled ? COLOR_WINDOW : COLOR_BTNFACE;
-            COLORREF sysTxColor = EditWindow->Enabled ? COLOR_WINDOWTEXT : COLOR_BTNSHADOW;
-            int oldColor = SetTextColor(dc, GetSysColor(sysTxColor));
+            int oldColor = SetTextColor(dc, txColor);
             HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
-            RECT r;
-            GetClientRect(HWindow, &r);
-            FillRect(dc, &r, (HBRUSH)(UINT_PTR)(sysBkColor + 1));
             int oldBkMode = SetBkMode(dc, TRANSPARENT);
             r.right -= TXEL_SPACE - 1; // bold fonts make the text overflow - hence this correction
 
             // PathCompactPath() works better than combining DT_PATH_ELLIPSIS with DT_END_ELLIPSIS (because the last character misbehaves)
-            char buff[2 * MAX_PATH];
-            strncpy_s(buff, _countof(buff), Message, _TRUNCATE);
+            CPathBuffer buff;
+            strncpy_s(buff, buff.Size(), Message.c_str(), _TRUNCATE);
             PathCompactPath(dc, buff, r.right - r.left);
 
             DrawText(dc, buff, -1, &r,
@@ -1571,8 +1586,9 @@ CInnerText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetBkMode(dc, oldBkMode);
             SetTextColor(dc, oldColor);
             SelectObject(dc, oldFont);
-            BitBlt(ps.hdc, 0, 0, Width, Height, dc, 0, 0, SRCCOPY);
         }
+
+        BitBlt(ps.hdc, 0, 0, Width, Height, dc, 0, 0, SRCCOPY);
 
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
@@ -1593,31 +1609,17 @@ BOOL CInnerText::SetText(const char* txt)
     if (txt == NULL)
         txt = ">";
     int l = (int)strlen(txt);
-    int lm = (Message == NULL) ? 0 : ((int)strlen(Message) - 1);
-    if (Allocated < l + 2)
-    {
-        if (Message != NULL)
-            free(Message);
-        Message = (char*)malloc(l + 2);
-        if (Message == NULL)
-        {
-            TRACE_E(LOW_MEMORY);
-            Allocated = 0;
-            return FALSE;
-        }
-        Allocated = l + 2;
-    }
-    if (lm == l && strncmp(Message, txt, l) == 0)
+    int lm = Message.empty() ? 0 : ((int)Message.size() - 1);
+    if (lm == l && Message.compare(0, l, txt) == 0)
         return FALSE;
-    memmove(Message, txt, l);
-    Message[l] = '>';
-    Message[l + 1] = 0;
+    Message = txt;
+    Message += '>';
     return TRUE;
 }
 
 int CInnerText::GetNeededWidth()
 {
-    if (Message == NULL)
+    if (Message.empty())
         return 0;
 
     HDC dc = HANDLES(GetDC(NULL));
@@ -1625,7 +1627,7 @@ int CInnerText::GetNeededWidth()
     {
         HFONT old = (HFONT)SelectObject(dc, EnvFont);
         SIZE s;
-        GetTextExtentPoint32(dc, Message, (int)strlen(Message), &s);
+        GetTextExtentPoint32(dc, Message.c_str(), (int)Message.size(), &s);
         SelectObject(dc, old);
         HANDLES(ReleaseDC(NULL, dc));
         return s.cx + TXEL_SPACE;
@@ -1643,7 +1645,6 @@ CEditWindow::CEditWindow()
 {
     EditLine = new CEditLine();
     Text = new CInnerText(this);
-    LastText = NULL;
     Enabled = TRUE;
     Tracking = FALSE;
 }
@@ -1782,11 +1783,37 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CEditWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        HBRUSH hBrush = DarkMode_GetDialogCtlColorBrush(uMsg, (HDC)wParam, (HWND)lParam);
+        if (hBrush != NULL)
+            return (LRESULT)hBrush;
+        break;
+    }
+
     case WM_SIZE:
     {
         LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
         ResizeChilds(LOWORD(lParam), HIWORD(lParam), TRUE);
         return result;
+    }
+
+    case WM_NCPAINT:
+    {
+        if (DarkMode_ShouldUseDark())
+        {
+            HDC hDC = HANDLES(GetWindowDC(HWindow));
+            if (hDC != NULL)
+            {
+                DrawDarkComboFrame(HWindow, hDC);
+                HANDLES(ReleaseDC(HWindow, hDC));
+            }
+            return 0;
+        }
+        break;
     }
 
     case WM_DESTROY:
@@ -1828,6 +1855,106 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         RECT cr;
         GetClientRect(HWindow, &cr);
+        BOOL useDark = DarkMode_ShouldUseDark();
+
+        if (useDark)
+        {
+            HDC hDC = HANDLES(GetDC(HWindow));
+            if (hDC != NULL)
+            {
+                FillRectSolid(hDC, &cr, EDITWND_DARK_BG);
+
+                int sbWidth = GetSystemMetrics(SM_CXVSCROLL);
+                RECT editArea = cr;
+                editArea.left = EL_XBORDER - 1;
+                editArea.top = 3;
+                editArea.right = cr.right - sbWidth - 1;
+                editArea.bottom = cr.bottom - 3;
+                FillRectSolid(hDC, &editArea, EDITWND_DARK_INPUT_BG);
+
+                RECT btnArea;
+                btnArea.left = cr.right - 2 - sbWidth + 1;
+                btnArea.top = 3;
+                btnArea.right = cr.right - 3;
+                btnArea.bottom = cr.bottom - 3;
+                if (btnArea.right > btnArea.left && btnArea.bottom > btnArea.top)
+                {
+                    FillRectSolid(hDC, &btnArea, EDITWND_DARK_BUTTON_BG);
+
+                    // The default combo WM_PAINT no longer runs in this branch,
+                    // so the dropdown arrow glyph must be drawn here.
+                    int centerX = (btnArea.left + btnArea.right) / 2;
+                    int centerY = (btnArea.top + btnArea.bottom) / 2;
+                    POINT arrow[3] = {
+                        {centerX - 3, centerY - 1},
+                        {centerX + 4, centerY - 1},
+                        {centerX, centerY + 3},
+                    };
+                    HPEN hArrowPen = HANDLES(CreatePen(PS_SOLID, 1, EDITWND_DARK_TEXT));
+                    HBRUSH hArrowBrush = HANDLES(CreateSolidBrush(EDITWND_DARK_TEXT));
+                    HGDIOBJ oldArrowPen = SelectObject(hDC, hArrowPen);
+                    HGDIOBJ oldArrowBrush = SelectObject(hDC, hArrowBrush);
+                    Polygon(hDC, arrow, 3);
+                    SelectObject(hDC, oldArrowBrush);
+                    SelectObject(hDC, oldArrowPen);
+                    HANDLES(DeleteObject(hArrowBrush));
+                    HANDLES(DeleteObject(hArrowPen));
+                }
+
+                HGDIOBJ oldPen = SelectObject(hDC, GetStockObject(DC_PEN));
+                HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
+                COLORREF oldPenColor = SetDCPenColor(hDC, EDITWND_DARK_BORDER_OUTER);
+                Rectangle(hDC, cr.left, cr.top, cr.right, cr.bottom);
+
+                SetDCPenColor(hDC, EDITWND_DARK_BORDER_INNER);
+                Rectangle(hDC, editArea.left, editArea.top, editArea.right, editArea.bottom);
+
+                SetDCPenColor(hDC, EDITWND_DARK_BORDER_OUTER);
+                MoveToEx(hDC, cr.right - 2 - sbWidth, cr.top + 2, NULL);
+                LineTo(hDC, cr.right - 2 - sbWidth, cr.bottom - 2);
+
+                SetDCPenColor(hDC, oldPenColor);
+                SelectObject(hDC, oldBrush);
+                SelectObject(hDC, oldPen);
+                HANDLES(ReleaseDC(HWindow, hDC));
+            }
+
+            // Keep default combo painting from clearing the custom dark frame.
+            RECT r;
+            r.left = 0;
+            r.top = 0;
+            r.right = cr.right;
+            r.bottom = 2;
+            ValidateRect(HWindow, &r);
+            r.left = 0;
+            r.top = cr.bottom - 2;
+            r.right = cr.right;
+            r.bottom = cr.bottom;
+            ValidateRect(HWindow, &r);
+            r.left = 0;
+            r.top = 2;
+            r.right = 2;
+            r.bottom = cr.bottom - 2;
+            ValidateRect(HWindow, &r);
+            r.left = cr.right - 2;
+            r.top = 2;
+            r.right = cr.right;
+            r.bottom = cr.bottom - 2;
+            ValidateRect(HWindow, &r);
+
+            int sbWidth = GetSystemMetrics(SM_CXVSCROLL);
+            int dividerX = cr.right - 2 - sbWidth;
+            r.left = dividerX - 1;
+            r.top = cr.top + 2;
+            r.right = dividerX + 1;
+            r.bottom = cr.bottom - 2;
+            if (r.right > r.left && r.bottom > r.top)
+                ValidateRect(HWindow, &r);
+
+            ValidateRect(HWindow, NULL);
+            return 0;
+        }
+
         // ensure the 2-pixel frame around the combo is not cleared during painting
         RECT r;
         r.left = 0;
@@ -1867,15 +1994,15 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (WindowsVistaAndLater)
         {
-            // Vista finally fixed combo box flicker during resizing,
-            // so we must manually erase the area between the child windows and the
-            // combo box border; otherwise garbage remains there
+            // Vista finally fixed the combobox flickering during resize
+            // so we must manually clear the area between child windows and the
+            // combobox edge, otherwise garbage remains there
             (HPEN) SelectObject(hDC, WndPen);
             Rectangle(hDC, cr.left + EL_XBORDER - 1, cr.top + 4 - 1,
                       cr.right - GetSystemMetrics(SM_CXVSCROLL) - 1, cr.bottom - 4 + 1);
         }
 
-        // if a visual style is active, do not draw the button ourselves
+        // if a visual style is active, we won't decorate the button
         if (IsAppThemed())
         {
             SelectObject(hDC, hOldPen);
@@ -1980,30 +2107,24 @@ void CEditWindow::StoreContent()
     int textLen = GetWindowTextLength(EditLine->HWindow);
     if (textLen > 0)
     {
-        LastText = (char*)malloc(textLen + 1);
-        if (LastText != NULL)
-        {
-            GetWindowText(EditLine->HWindow, LastText, textLen + 1);
-            SendMessage(EditLine->HWindow, EM_GETSEL, (WPARAM)&LastSelStart, (LPARAM)&LastSelEnd);
-        }
+        LastText.resize(textLen + 1);
+        GetWindowText(EditLine->HWindow, LastText.data(), textLen + 1);
+        LastText.resize(textLen);
+        SendMessage(EditLine->HWindow, EM_GETSEL, (WPARAM)&LastSelStart, (LPARAM)&LastSelEnd);
     }
 }
 
 void CEditWindow::RestoreContent()
 {
-    if (Enabled && LastText != NULL)
+    if (Enabled && !LastText.empty())
     {
         // if the old window state (contents and selection) was saved, we restore it
-        SetWindowText(HWindow, LastText);
+        SetWindowText(HWindow, LastText.c_str());
         SendMessage(EditLine->HWindow, EM_SETSEL, (WPARAM)LastSelStart, (LPARAM)LastSelEnd);
     }
 }
 
 void CEditWindow::ResetStoredContent()
 {
-    if (LastText != NULL)
-    {
-        free(LastText);
-        LastText = NULL;
-    }
+    LastText.clear();
 }

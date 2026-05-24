@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -55,7 +55,7 @@ int ConfigVersion = 0;
 // 2: ?
 // 3: Igor changed the default values for LZMA compression (dictionary size, etc.). There are more changes,
 //    so Honza Patera and I agreed that when importing old configurations we will
-//    ignore the compression settings and use these new defaults.
+//    ignore compression settings and use the new defaults instead.
 #define CURRENT_CONFIG_VERSION 3
 const char* CONFIG_VERSION = "Version";
 
@@ -140,12 +140,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     { // reject older versions
         MessageBox(salamander->GetParentWindow(),
                    REQUIRE_LAST_VERSION_OF_SALAMANDER,
-                   "7-Zip" /* do not translate */, MB_OK | MB_ICONERROR);
+                   "7-Zip" /* neprekladat! */, MB_OK | MB_ICONERROR);
         return NULL;
     }
 
     // load the language module (.slg)
-    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "7-Zip" /* do not translate */);
+    HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "7-Zip" /* neprekladat! */);
     if (HLanguage == NULL)
         return NULL;
 
@@ -177,7 +177,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT, LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "7zip", "7z");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("https://github.com/0xeb/sally");
 
     return &PluginInterface;
 }
@@ -329,7 +329,8 @@ BOOL SafeDeleteFile(const char* fileName, BOOL& silent)
     do
     {
         mbRet = DIALOG_OK;
-        if (!::DeleteFile(fileName) && !silent)
+        CWidePath wFileName(fileName);
+        if (!DeleteFileW(wFileName) && !silent)
         {
             DWORD err = ::GetLastError();
             mbRet = SalamanderGeneral->DialogError(SalamanderGeneral->GetMsgBoxParent(), BUTTONS_RETRYSKIPCANCEL,
@@ -365,7 +366,8 @@ BOOL SafeRemoveDirectory(const char* fileName, BOOL& silent)
     do
     {
         mbRet = DIALOG_OK;
-        if (!::RemoveDirectory(fileName) && !silent)
+        CWidePath wFileName2(fileName);
+        if (!RemoveDirectoryW(wFileName2) && !silent)
         {
             DWORD err = ::GetLastError();
             mbRet = SalamanderGeneral->DialogError(SalamanderGeneral->GetMsgBoxParent(), BUTTONS_RETRYSKIPCANCEL,
@@ -445,7 +447,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
 {
     CALL_STACK_MESSAGE1("CPluginInterface::LoadConfiguration(, ,)");
 
-    if (regKey != NULL) // load from the registry
+    if (regKey != NULL) // load from registry
     {
         if (!registry->GetValue(regKey, CONFIG_VERSION, REG_DWORD, &ConfigVersion, sizeof(DWORD)))
             ConfigVersion = 0; // default configuration
@@ -458,7 +460,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     // set config defaults
     SetDefaultConfiguration();
 
-    if (regKey != NULL) // load from the registry
+    if (regKey != NULL) // load from registry
     {
         registry->GetValue(regKey, CONFIG_SHOW_EXTENDED_OPTIONS, REG_DWORD, &Config.ShowExtendedOptions, sizeof(DWORD));
         registry->GetValue(regKey, CONFIG_EXTENDED_LIST_INFO, REG_DWORD, &Config.ExtendedListInfo, sizeof(DWORD));
@@ -472,7 +474,7 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
 
         if (ConfigVersion >= 1)
         {
-            // compression params
+            // compress params
             registry->GetValue(regKey, CONFIG_SOLID_ARCHIVE, REG_DWORD, &Config.CompressParams.SolidArchive, sizeof(DWORD));
             if (registry->GetValue(regKey, CONFIG_COMPRESS_METHOD, REG_DWORD, &Config.CompressParams.Method, sizeof(DWORD)) &&
                 (Config.CompressParams.Method != CCompressParams::LZMA || ConfigVersion >= 3)) // for configuration version 3 we reset the defaults for LZMA because they differ
@@ -503,7 +505,7 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     registry->SetValue(regKey, CONFIG_COL_METHOD_WIDTH, REG_DWORD, &Config.ColumnMethodWidth, sizeof(DWORD));
 
     // config version == 2
-    // compression params
+    // compress params
     registry->SetValue(regKey, CONFIG_COMPRESS_LEVEL, REG_DWORD, &Config.CompressParams.CompressLevel, sizeof(DWORD));
     registry->SetValue(regKey, CONFIG_COMPRESS_METHOD, REG_DWORD, &Config.CompressParams.Method, sizeof(DWORD));
     registry->SetValue(regKey, CONFIG_DICT_SIZE, REG_DWORD, &Config.CompressParams.DictSize, sizeof(DWORD));
@@ -533,8 +535,8 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // when adding more extensions we must raise CURRENT_CONFIG_VERSION
 
     // BASIC SECTION
-    // AddViewer and AddPanelArchiver are handled by the UPGRADE SECTION
-    //  salamander->AddViewer("*.7z", FALSE); // default (plugin installation), otherwise Salamander ignores it
+    // AddViewer and AddPanelArchiver will fall under the UPGRADE SECTION
+    //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
     salamander->AddPanelArchiver("7z", TRUE, FALSE);
 
@@ -912,7 +914,7 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                     char modmask[256];
                     SalamanderGeneral->PrepareMask(modmask, mask);
 
-                    char archivePath[MAX_PATH_LEN];
+                    CPathBuffer archivePath;
                     archivePath[0] = '\0';
 
                     TIndirectArray<CArchiveItemInfo> archiveItems(itemCount, 10, dtDelete);
@@ -970,22 +972,23 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
     CALL_STACK_MESSAGE5("CPluginInterfaceForArchiver::PackToArchive(, %s, %s, %d, %s, ,)", fileName,
                         archiveRoot, move, sourcePath);
 
-    // test whether the archive exists (we need to distinguish between updating and creating a new archive)
+    // test whether the archive exists (we need to distinguish between update and create new archive)
     BOOL isNewArchive = FALSE;
-    HANDLE hArchive = ::CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    CWidePath wFileName(fileName);
+    HANDLE hArchive = ::CreateFileW(wFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hArchive == INVALID_HANDLE_VALUE)
     {
         isNewArchive = TRUE; // the file does not exist; this is a new archive
 
         // check whether the target path is writable
         hArchive = INVALID_HANDLE_VALUE;
-        hArchive = ::CreateFile(fileName, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+        hArchive = ::CreateFileW(wFileName, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
         if (hArchive == INVALID_HANDLE_VALUE)
             return SysError(IDS_CANT_CREATE_ARCHIVE, ::GetLastError());
         else
         {
             ::CloseHandle(hArchive);
-            ::DeleteFile(fileName);
+            DeleteFileW(wFileName);
         }
     }
     else
@@ -1003,7 +1006,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
 
         // check whether the file is writable
         hArchive = INVALID_HANDLE_VALUE;
-        hArchive = ::CreateFile(fileName, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        hArchive = ::CreateFileW(wFileName, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         if (hArchive == INVALID_HANDLE_VALUE)
             return SysError(IDS_CANT_UPDATE_ARCHIVE, ::GetLastError(), FALSE, fileName);
         else
@@ -1060,7 +1063,7 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
 
     // count how many items we will compress
     // (we could use a growing array right away, but with a large number it would fragment memory, and iterating the list twice
-    // is acceptable)
+    // will not kill us)
     int itemCount = 0;
     while ((name = next(SalamanderGeneral->GetMsgBoxParent(), 3, &dosName, &isDir, &size,
                         &attr, &lastWrite, nextParam, &errorOccured)) != NULL)
@@ -1107,14 +1110,14 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
     BOOL ret = client.Update(salamander, fileName, sourcePath, isNewArchive, &fileList, &compressParams, passwordDefined,
                              GetUnicodeString(password)) == OPER_OK;
 
-    // delete files afterwards if moving them into the archive
+    // delete files afterwards if we are moving them into the archive
     if (move && ret)
     { // first lock the archive file so we cannot delete it ourselves (bug: https://forum.altap.cz/viewtopic.php?f=3&t=3859)
         while (1)
         {
-            hArchive = ::CreateFile(fileName, GENERIC_READ /* Using 0 was tested, but then the system allowed the file to be deleted */,
-                                    FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            hArchive = ::CreateFileW(wFileName, GENERIC_READ /* I tried 0, but the system then allowed deleting the file */,
+                                       FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
             if (hArchive != INVALID_HANDLE_VALUE)
                 break;
@@ -1171,17 +1174,16 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
             if (ret)
             {
                 // prepare the buffer for names
-                char sourceName[MAX_PATH + 1]; // buffer for the full name on disk
-                strcpy(sourceName, sourcePath);
-                char* endSource = sourceName + strlen(sourceName); // space for the names from the 'next' enumeration
-                if (endSource > sourceName && *(endSource - 1) != '\\')
+                CPathBuffer sourceName(sourcePath); // heap-allocated for long path support
+                char* endSource = sourceName.Get() + strlen(sourceName.Get()); // space for the names from the 'next' enumeration
+                if (endSource > sourceName.Get() && *(endSource - 1) != '\\')
                 {
                     *endSource++ = '\\';
                     *endSource = 0;
                 }
-                int endSourceSize = MAX_PATH - (int)(endSource - sourceName); // maximum number of characters for a name from the 'next' enumeration
+                int endSourceSize = sourceName.Size() - (int)(endSource - sourceName.Get()); // maximum number of characters for a name from the 'next' enumeration
 
-                // delete directories; if something remains inside, they will not be removed, which is correct
+                // delete directories; if something remains inside they will not be removed and that's fine :)
                 // because we iterate from leaves to the root, we can delete them this way
                 next(NULL, -1, NULL, NULL, NULL, NULL, NULL, nextParam, NULL);
                 while ((name = next(NULL /* we do not log errors the second time */, 3, &dosName, &isDir, &size,
@@ -1194,7 +1196,8 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
                             strcpy_s(endSource, endSourceSize, name);
                             // drop the read-only attribute if needed
                             SalamanderGeneral->ClearReadOnlyAttr(sourceName, attr);
-                            ::RemoveDirectory(sourceName);
+                            CWidePath wSourceName(sourceName);
+                            RemoveDirectoryW(wSourceName);
                         }
                         else
                             TRACE_E("Unable to delete directory, its full name is too long: " << sourcePath << " : " << name);
@@ -1288,7 +1291,7 @@ CPluginInterfaceForViewer::ViewFile(const char *name, int left, int top, int wid
                       "0x%X, %d, %d, , , , %d, %d)", name, left, top, width, height,
                       showCmd, alwaysOnTop, returnLock, enumFilesSourceUID, enumFilesCurrentIndex);
 
-  // we do not set 'lock' or 'lockOwner'; we only need the file 'name' to remain valid
+  // we do not set 'lock' or 'lockOwner'; we only need the lifetime of the file 'name'
   // within this method
 
   HCURSOR hOldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
@@ -1307,14 +1310,14 @@ CPluginInterfaceForViewer::ViewFile(const char *name, int left, int top, int wid
     return FALSE;
   }
 
-  char tempFileName[MAX_PATH];
+  CPathBuffer tempFileName; // Heap-allocated for long path support
   if (SalamanderGeneral->SalGetTempFileName(NULL, "ISO", tempFileName, TRUE, NULL))
   {
     char caption[2000];
     int err;
     CSalamanderPluginInternalViewerData viewerData;
 
-    // create a temporary file and write the module dump to it
+    // create a temporary file and pour the module dump into it
     FILE *outStream = fopen(tempFileName, "w");
     if (!image->DumpInfo(outStream))
     {
@@ -1323,7 +1326,7 @@ CPluginInterfaceForViewer::ViewFile(const char *name, int left, int top, int wid
     fclose(outStream);
     delete image;
 
-    // hand the file over to Salamander - it moves it to the cache and deletes it when it no longer uses it
+    // hand the file over to Salamander - it moves it to cache and deletes it when it is done
     viewerData.Size = sizeof(viewerData);
     viewerData.FileName = tempFileName;
     viewerData.Mode = 0;  // text mode
@@ -1379,7 +1382,7 @@ static BOOL TestArchive(CSalamanderForOperationsAbstract* salamander, HWND hPare
     const CFileData* cfd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
     if (cfd == NULL)
         return FALSE;
-    char fileName[2 * MAX_PATH];
+    CPathBuffer fileName;
 
     C7zClient client;
 
@@ -1387,8 +1390,8 @@ static BOOL TestArchive(CSalamanderForOperationsAbstract* salamander, HWND hPare
     sprintf(fileName, LoadStr(IDS_TESTING_ARCHIVE_NAME), cfd->Name);
     salamander->ProgressDialogAddText(fileName, FALSE);
 
-    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, fileName, 2 * MAX_PATH, NULL, NULL);
-    SalamanderGeneral->SalPathAppend(fileName, cfd->Name, 2 * MAX_PATH);
+    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, fileName, fileName.Size(), NULL, NULL);
+    SalamanderGeneral->SalPathAppend(fileName, cfd->Name, fileName.Size());
     int ret = client.TestArchive(salamander, fileName);
     salamander->CloseProgressDialog();
 
@@ -1396,7 +1399,7 @@ static BOOL TestArchive(CSalamanderForOperationsAbstract* salamander, HWND hPare
     {
         char text[1024];
         text[0] = '\0';
-        sprintf(text, LoadStr(IDS_TESTARCHIVEOK), fileName);
+        sprintf(text, LoadStr(IDS_TESTARCHIVEOK), (const char*)fileName);
         SalamanderGeneral->SalMessageBox(hParent, text, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
         ret = TRUE;
     }
@@ -1404,7 +1407,7 @@ static BOOL TestArchive(CSalamanderForOperationsAbstract* salamander, HWND hPare
     {
         char text[1024];
         text[0] = '\0';
-        sprintf(text, LoadStr(IDS_TESTARCHIVECORRUPTED), fileName);
+        sprintf(text, LoadStr(IDS_TESTARCHIVECORRUPTED), (const char*)fileName);
         SalamanderGeneral->SalMessageBox(hParent, text, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
         ret = FALSE;
     }

@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
@@ -37,7 +37,7 @@ protected:
     // method; the same code has to be called to pump the message queue
     DWORD LastTickCount; // detects when it is time to repaint changed data
 
-    char TextCache[MAX_PATH];
+    char TextCache[32768];
     BOOL TextCacheIsDirty;
     DWORD ProgressCache;
     BOOL ProgressCacheIsDirty;
@@ -52,7 +52,7 @@ public:
     void Set(const char* fileName, DWORD progressTotal, BOOL dalayedPaint);
     void SetProgress(DWORD progressTotal, DWORD progress, BOOL dalayedPaint);
 
-    // processes the message queue (call often enough) and allows repainting, pressing Cancel, ...
+    // empties the message queue (call often enough) and allows repainting, pressing Cancel...
     // returns TRUE if the user wants to interrupt the operation
     BOOL GetWantCancel();
 
@@ -69,7 +69,7 @@ class CProgress2Dlg : public CProgressDlg
 protected:
     CGUIProgressBarAbstract* ProgressBar2;
 
-    char TextCache2[MAX_PATH];
+    char TextCache2[32768];
     BOOL TextCache2IsDirty;
 
     char Operation2[100];

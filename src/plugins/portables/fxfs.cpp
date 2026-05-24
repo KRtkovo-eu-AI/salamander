@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -179,7 +180,7 @@ namespace Fx
 
     BOOL WINAPI CFxPluginFSInterface::IsCurrentPath(int currentFSNameIndex, int fsNameIndex, const char* userPart)
     {
-        TCHAR currentPath[MAX_PATH];
+        CPathBuffer currentPath;
         BOOL ok = GetCurrentPath(currentPath);
         _ASSERTE(ok);
         return (currentFSNameIndex == fsNameIndex) &&
@@ -403,7 +404,7 @@ namespace Fx
                 {
                     if (assignItemForDirs)
                     {
-                        // Transfer ownership of the FSItem to the PluginData.
+                        // Tranfer ownership of the FSItem to the PluginData.
                         fileData.PluginData = reinterpret_cast<DWORD_PTR>(item);
                         item->AddRef();
                     }
@@ -419,7 +420,7 @@ namespace Fx
                 {
                     if (assignItemForFiles)
                     {
-                        // Transfer ownership of the FSItem to the PluginData.
+                        // Tranfer ownership of the FSItem to the PluginData.
                         fileData.PluginData = reinterpret_cast<DWORD_PTR>(item);
                         item->AddRef();
                     }
@@ -857,7 +858,7 @@ namespace Fx
             {
                 if (childEnumerator == nullptr && exitLoop)
                 {
-                    // We are exiting, return the last enumerator we have.
+                    // We are exitting, return the last enumerator we have.
                     childEnumerator = parentEnumerator;
                 }
                 else
@@ -945,7 +946,7 @@ namespace Fx
     {
         // We only want up dirs for non-root paths.
         bool isRoot = false;
-        TCHAR rootPath[MAX_PATH];
+        CPathBuffer rootPath;
         if (GetRootPath(rootPath) && m_currentPath != nullptr)
         {
             isRoot = m_currentPath->Equals(rootPath);
@@ -971,8 +972,8 @@ namespace Fx
     {
         _ASSERTE(m_currentPath != nullptr);
         CFxPath* newPath = CreatePath(m_currentPath->GetString());
-        TCHAR cutComponent[MAX_PATH];
-        newPath->CutLastComponent(cutComponent, _countof(cutComponent));
+        CPathBuffer cutComponent;
+        newPath->CutLastComponent(cutComponent, cutComponent.Size());
         ChangeDirectory(newPath->GetString(), cutComponent);
         delete newPath;
     }
@@ -1005,7 +1006,7 @@ namespace Fx
         bool gotFSOk = !!SalamanderGeneral->GetPanelWithPluginFS(this, panel);
         _ASSERTE(gotFSOk);
 
-        TCHAR fsName[MAX_PATH];
+        CPathBuffer fsName;
         SalamanderGeneral->GetPluginFSName(fsName, 0);
 
         SalamanderGeneral->ChangePanelPathToPluginFS(

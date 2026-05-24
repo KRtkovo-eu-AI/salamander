@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -34,7 +35,7 @@ BOOL CPluginInterfaceForArchiver::MakeFileList3(TIndirectArray2<CFileInfo>& file
     const char* nextName;
     char pakName[PAK_MAXPATH];
     DWORD pakSize;
-    char sourName[MAX_PATH];
+    CPathBuffer sourName; // Heap-allocated for long path support
     BOOL skip;
     int errorOccured;
 
@@ -47,8 +48,8 @@ BOOL CPluginInterfaceForArchiver::MakeFileList3(TIndirectArray2<CFileInfo>& file
         skip = FALSE;
         if (isDir)
             continue;
-        lstrcpy(sourName, sourcePath);
-        SalamanderGeneral->SalPathAppend(sourName, nextName, MAX_PATH);
+        lstrcpyn(sourName, sourcePath, sourName.Size());
+        SalamanderGeneral->SalPathAppend(sourName, nextName, sourName.Size());
         if (lstrlen(archiveRoot) + lstrlen(nextName) + 2 >= PAK_MAXPATH)
         {
             if (Silent & SF_LONGNAMES)
@@ -74,13 +75,13 @@ BOOL CPluginInterfaceForArchiver::MakeFileList3(TIndirectArray2<CFileInfo>& file
         {
             if (!(Silent & SF_OVEWRITEALL))
             {
-                char name1[MAX_PATH + PAK_MAXPATH + 1];
+                CPathBuffer name1; // Heap-allocated for long path support
                 char data1[100];
                 char data2[100];
                 FILETIME ft;
 
                 lstrcpy(name1, PakFileName);
-                SalamanderGeneral->SalPathAppend(name1, pakName, MAX_PATH + PAK_MAXPATH + 1);
+                SalamanderGeneral->SalPathAppend(name1, pakName, name1.Size());
                 PakIFace->GetPakTime(&ft);
                 GetInfo(data1, &ft, pakSize);
                 HANDLE file;
@@ -203,7 +204,7 @@ BOOL CPluginInterfaceForArchiver::AddFiles(TIndirectArray2<CFileInfo>& files, un
                         sourPath, archiveRoot);
     Abort = TRUE;
     CFileInfo* f;
-    char message[MAX_PATH + 32];
+    CPathBuffer message; // Heap-allocated for long path support
     BOOL skip;
     CQuadWord currentProgress = CQuadWord(deleted, 0);
     int i;
@@ -289,7 +290,7 @@ void SortByDirDepth(int left, int right, TIndirectArray2<CFileInfo>& files)
             i++;
             j--;
         }
-    } while (i <= j); // continue until the indices cross
+    } while (i <= j); //do they have to match?
     if (left < j)
         SortByDirDepth(left, j, files);
     if (i < right)
@@ -302,7 +303,7 @@ void CPluginInterfaceForArchiver::DeleteSourceFiles(TIndirectArray2<CFileInfo>& 
     if (files.Count == 0)
         return;
     CFileInfo* f;
-    char path[MAX_PATH];
+    CPathBuffer path; // Heap-allocated for long path support
     SortByDirDepth(0, files.Count - 1, files);
     DWORD sourceDepth = ComputeDirDepth(sourcePath);
 
@@ -314,7 +315,7 @@ void CPluginInterfaceForArchiver::DeleteSourceFiles(TIndirectArray2<CFileInfo>& 
         {
             SalamanderGeneral->ClearReadOnlyAttr(f->Name);
             DeleteFile(f->Name);
-            lstrcpy(path, f->Name);
+            lstrcpyn(path, f->Name, path.Size());
             while (ComputeDirDepth(path) > sourceDepth + 1)
             {
                 SalamanderGeneral->CutDirectory(path);
@@ -587,20 +588,20 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
 
     SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE); // we treat this command as working with the path (it appears in Alt+F12)
 
-    char pakFile[MAX_PATH];
+    CPathBuffer pakFile; // Heap-allocated for long path support
     char* fileName;
     char* arch;
     BOOL selFiles = FALSE;
     int index = 0;
 
     InterfaceForArchiver.Salamander = salamander;
-    if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, pakFile, MAX_PATH, NULL, &arch))
+    if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, pakFile, pakFile.Size(), NULL, &arch))
         return FALSE;
 
     if (!arch)
     {
-        SalamanderGeneral->SalPathAddBackslash(pakFile, MAX_PATH);
-        fileName = pakFile + lstrlen(pakFile);
+        SalamanderGeneral->SalPathAddBackslash(pakFile, pakFile.Size());
+        fileName = pakFile.Get() + lstrlen(pakFile);
         selFiles = eventMask & MENU_EVENT_FILES_SELECTED;
     }
 
@@ -661,8 +662,8 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
                     changesReported = TRUE;
                     // announce the change on the path where the modified PAK files reside (the notification happens after leaving
                     // the plugin code - after returning from this method)
-                    char pakFileDir[MAX_PATH];
-                    strcpy(pakFileDir, pakFile);
+                    CPathBuffer pakFileDir; // Heap-allocated for long path support
+                    lstrcpyn(pakFileDir, pakFile, pakFileDir.Size());
                     SalamanderGeneral->CutDirectory(pakFileDir); // must work, because it is an existing file
                     SalamanderGeneral->PostChangeOnPathNotification(pakFileDir, FALSE);
                 }

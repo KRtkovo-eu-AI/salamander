@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -128,13 +129,13 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
     GetFileTime(file.HFile, NULL, NULL, &ft);
 
     // obtain the base name of the files
-    char name[MAX_PATH];
-    strcpy(name, SalamanderGeneral->SalPathFindFileName(fileName));
+    CPathBuffer name; // Heap-allocated for long path support
+    lstrcpyn(name, SalamanderGeneral->SalPathFindFileName(fileName), name.Size());
     if (!configIncludeFileExt)
         StripExtension(name);
 
     // determine the type of the target media
-    char text[MAX_PATH + 50]; // must be longer than MAX_PATH because of "too long name" (see below)
+    CPathBuffer text; // Heap-allocated for long path support
     SalamanderGeneral->GetRootPath(text, targetDir);
     UINT driveType = GetDriveType(text);
 
@@ -201,7 +202,7 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
 
     BOOL ret = TRUE;
     int partNum = 1;
-    char name2[MAX_PATH];
+    CPathBuffer name2; // Heap-allocated for long path support
     char buf[50];
     CQuadWord thisPartSize;
     CQuadWord freeSpace;
@@ -215,14 +216,14 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
         }
 
         // create the name of the target file
-        sprintf(name2, "%s.%#03ld", name, partNum++);
-        strncpy_s(text, MAX_PATH, targetDir, _TRUNCATE);
-        if (!SalamanderGeneral->SalPathAppend(text, name2, MAX_PATH))
+        sprintf(name2.Get(), "%s.%#03ld", name.Get(), partNum++);
+        strncpy_s(text.Get(), text.Size(), targetDir, _TRUNCATE);
+        if (!SalamanderGeneral->SalPathAppend(text, name2, text.Size()))
         { // too long name - reported in SalamanderSafeFile->SafeFileCreate
             char* end = text + strlen(text);
             if (end > text && *(end - 1) != '\\')
                 *end++ = '\\';
-            strncpy_s(end, _countof(text) - (end - text), name2, _TRUNCATE);
+            strncpy_s(end, text.Size() - (end - text), name2, _TRUNCATE);
         }
 
         // create the file
@@ -242,8 +243,8 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
         fileProgress = CQuadWord(0, 0);
         if (!bSkip)
         {
-            char text2[MAX_PATH + 50];
-            sprintf(text2, "%s %s...", LoadStr(IDS_WRITING), name2);
+            CPathBuffer text2; // Heap-allocated for long path support
+            sprintf(text2, "%s %s...", LoadStr(IDS_WRITING), name2.Get());
             salamander->ProgressDialogAddText(text2, delayed);
 
             CQuadWord numBytes = thisPartSize;
@@ -305,7 +306,7 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
     if (ret != FALSE && configCreateBatchFile)
     {
         char* batfile = new char[MAX_BAT];
-        char* line = new char[4 * MAX_PATH];
+        char* line = new char[4 * SAL_MAX_LONG_PATH];
         int nparts = partNum - 1;
         int linenum = 1, partnum = 1;
         const char* origName = SalamanderGeneral->SalPathFindFileName(fileName);
@@ -316,7 +317,7 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
         sprintf(line, LoadStr(IDS_BATFILE_DESCR), batfile);
         sprintf(batfile,
                 "@echo off\r\n"
-                "rem %s, https://www.altap.cz\r\n"
+                "rem %s, https://github.com/0xeb/sally\r\n"
                 "rem name=%s\r\n"
                 "rem crc32=%X\r\n"
                 "rem time=%d-%d-%d %d:%02d:%02d\r\n"
@@ -404,13 +405,13 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
                 {
                     strcpy(name2, name);
                     strcat(name2, ".bat");
-                    strncpy_s(text, MAX_PATH, targetDir, _TRUNCATE);
-                    if (!SalamanderGeneral->SalPathAppend(text, name2, MAX_PATH))
+                    strncpy_s(text.Get(), text.Size(), targetDir, _TRUNCATE);
+                    if (!SalamanderGeneral->SalPathAppend(text, name2, text.Size()))
                     { // too long name - reported in SalamanderSafeFile->SafeFileCreate
                         char* end = text + strlen(text);
                         if (end > text && *(end - 1) != '\\')
                             *end++ = '\\';
-                        strncpy_s(end, _countof(text) - (end - text), name2, _TRUNCATE);
+                        strncpy_s(end, text.Size() - (end - text), name2, _TRUNCATE);
                     }
 
                     GetInfo(buf, batSize);
@@ -419,7 +420,7 @@ static BOOL SplitFile(LPTSTR fileName, LPTSTR targetDir, CQuadWord& qwPartSize,
                                                            FALSE, parent, name2, buf, &silent, TRUE, &bSkip, NULL, 0, NULL, &bf) != INVALID_HANDLE_VALUE &&
                         !bSkip)
                     {
-                        sprintf(text, "%s %s", LoadStr(IDS_WRITING), name2);
+                        sprintf(text, "%s %s", LoadStr(IDS_WRITING), name2.Get());
                         salamander->ProgressDialogAddText(text, TRUE);
                         DWORD numw;
                         SalamanderSafeFile->SafeFileWrite(&bf, batfile, batSize.LoDWord, &numw, parent, BUTTONS_RETRYCANCEL, NULL, NULL);
@@ -446,19 +447,19 @@ BOOL SplitCommand(HWND parent, CSalamanderForOperationsAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("SplitCommand( , )");
     // obtain information about the file
-    char targetdir[MAX_PATH];
+    CPathBuffer targetdir; // Heap-allocated for long path support
     const CFileData* pfd;
     BOOL isDir;
     pfd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isDir);
     GetTargetDir(targetdir, pfd->Name, TRUE);
 
     // determine the file size
-    char path[MAX_PATH];
+    CPathBuffer path; // Heap-allocated for long path support
     WIN32_FIND_DATA wfd;
     HANDLE hFind;
     CQuadWord qwFileSize;
-    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, path, MAX_PATH, NULL, NULL);
-    BOOL tooLong = !SalamanderGeneral->SalPathAppend(path, pfd->Name, MAX_PATH);
+    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, path, path.Size(), NULL, NULL);
+    BOOL tooLong = !SalamanderGeneral->SalPathAppend(path, pfd->Name, path.Size());
     if (!tooLong && (hFind = FindFirstFile(path, &wfd)) != INVALID_HANDLE_VALUE)
     {
         FindClose(hFind);
@@ -490,7 +491,7 @@ BOOL SplitCommand(HWND parent, CSalamanderForOperationsAbstract* salamander)
         return FALSE;
 
     // validation
-    char panelpath[MAX_PATH];
+    CPathBuffer panelpath; // Heap-allocated for long path support
     GetTargetDir(panelpath, NULL, TRUE);
     if (!MakePathAbsolute(targetdir, TRUE, panelpath, !configSplitToOther, IDS_SPLIT))
         return FALSE;

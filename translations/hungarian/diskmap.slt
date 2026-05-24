@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\diskmap.atp"
+PROJECTNAME,"translator\sally 4.0\projects\hungarian\diskmap.atp"
 TEXTVERSION,"1.12 (x86)"
 VERSION,"1,1,2,180"
 
@@ -35,7 +35,7 @@ COMMENT,"Magyar változat"
 [STRINGTABLE 0]
 32,1,"DiskMap"
 33,1,"A lemez fájljainak faszerkezetét jeleníti meg."
-34,1,"Salamander DiskMap Plugin névjegy"
+34,1,"Sally DiskMap Plugin névjegy"
 35,1,"&DiskMap megjelenítése"
 40,1,"Be akarja zárni a DiskMap-ot?"
 41,1,"Ne mutassa ezt az üzenetet és kérdés nélkül zárja be a DiskMap-ot"

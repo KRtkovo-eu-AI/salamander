@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -278,7 +279,7 @@ protected:
                     int rp = p;
                     int miswidth = pathwidth - width + this->_dotsWidth + dx[p - 1];
 
-                    dx[strlen] = miswidth; //sentinel
+                    dx[strlen] = miswidth; //stopper
                     while (miswidth > dx[rp])
                         rp++;
 
@@ -348,7 +349,16 @@ protected:
 
     void CalcColors(BOOL isActive)
     {
-        if (this->_isActive)
+        PluginDarkModeColors colors;
+        BOOL useDark = PluginDarkMode_GetColors(&colors);
+        if (useDark)
+        {
+            this->_backColor = this->_isActive ? colors.CaptionBackground : colors.InactiveCaptionBackground;
+            this->_textColor = this->_isActive ? colors.CaptionText : colors.InactiveCaptionText;
+            this->_rootColorHot = colors.Highlight;
+            this->_textColorHot = colors.HighlightText;
+        }
+        else if (this->_isActive)
         {
             this->_backColor = GetSysColor(COLOR_ACTIVECAPTION);
             //this->_rootColor = RGB(0,0,128);
@@ -365,7 +375,7 @@ protected:
             this->_textColorHot = RGB(128, 128, 128);
         }
 
-        COLORREF ch = GetSysColor(COLOR_HIGHLIGHT);
+        COLORREF ch = colors.Highlight;
         this->_rootColor = CZColors::Grey(CZColors::Mix34(this->_textColor, this->_backColor));
 
         this->_textColorHot = CZColors::Mix(this->_textColor, ch);
@@ -392,7 +402,9 @@ protected:
 
         //background painting
         RECT trct;
-        SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
+        PluginDarkModeColors colors;
+        PluginDarkMode_GetColors(&colors);
+        SetBkColor(hdc, colors.DialogBackground);
 
         //top part
         trct.top = rct.top + 1;
@@ -420,7 +432,12 @@ protected:
         ExtTextOut(hdc, 0, 0, ETO_OPAQUE, &trct, NULL, 0, NULL);
 
         if (this->_hicon)
-            DrawIconEx(hdc, rct.left + 1 + 3, rct.top + 1 + 3 + this->_iconTop, this->_hicon, 0, 0, 0, GetSysColorBrush(COLOR_BTNFACE), DI_NORMAL);
+        {
+            HBRUSH hIconBrush = CreateSolidBrush(colors.DialogBackground);
+            DrawIconEx(hdc, rct.left + 1 + 3, rct.top + 1 + 3 + this->_iconTop, this->_hicon, 0, 0, 0, hIconBrush, DI_NORMAL);
+            if (hIconBrush != NULL)
+                DeleteObject(hIconBrush);
+        }
 
         /*RECT xrc;
 		xrc.left = rct.left;
@@ -538,9 +555,9 @@ protected:
     {
         if (this->_mouseNode >= NODEID_ROOT && this->_mouseNode <= NODEID_MAXP)
         {
-            TCHAR buff[MAX_PATH];
+            CPathBuffer buff;
             size_t plen = this->_nodes[this->_mouseNode].strpos;
-            size_t l = this->_path->GetSubString(0, plen, buff, ARRAYSIZE(buff));
+            size_t l = this->_path->GetSubString(0, plen, buff, buff.Size());
             if (l > 0)
             {
                 int icmd = 0;
@@ -737,7 +754,7 @@ public:
         this->CalcColors(this->_isActive);
 
         LOGFONT lf;
-        SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof lf, &lf, 0);
+        SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(lf), &lf, 0);
         lf.lfItalic = FALSE; //HACK: force italics off so characters do not overflow the width (Overhang/Underhang: GetCharABCWidths() and GetCharABCWidthsFloat())
         this->_hfont = CreateFontIndirect(&lf);
 
@@ -773,7 +790,7 @@ public:
                 if (!this->_trackingMouse && ni != NODEID_NONE)
                 {
                     TRACKMOUSEEVENT trme;
-                    trme.cbSize = sizeof trme;
+                    trme.cbSize = sizeof(trme);
                     trme.dwFlags = TME_LEAVE;
                     trme.hwndTrack = this->_hWnd;
                     this->_trackingMouse = TrackMouseEvent(&trme);
@@ -824,7 +841,7 @@ public:
             if (!this->_trackingMouse)
             {
                 TRACKMOUSEEVENT trme;
-                trme.cbSize = sizeof trme;
+                trme.cbSize = sizeof(trme);
                 trme.dwFlags = TME_LEAVE;
                 trme.hwndTrack = this->_hWnd;
                 this->_trackingMouse = TrackMouseEvent(&trme);

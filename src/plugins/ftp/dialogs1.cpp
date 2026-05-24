@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -27,7 +27,7 @@ CCenteredDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontal and vertical centering of the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
-        break; // Let DefDlgProc set the focus
+        break; // I want the focus from DefDlgProc
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -538,7 +538,7 @@ CConfigPageDefaults::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         HWND combo = GetDlgItem(HWindow, IDC_PROXYSERVER);
                         int sel = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
                         int count = (int)SendMessage(combo, CB_GETCOUNT, 0, 0);
-                        int fixedItems = 1; // this will be 2 for "not used" and "default"
+                        int fixedItems = 1; // this will be 2 for "not used" + "default"
                         EnableMenuItem(subMenu, CM_EDITPROXYSRV, MF_BYCOMMAND | ((sel != CB_ERR && count != CB_ERR ? sel >= fixedItems : FALSE) ? MF_ENABLED : MF_DISABLED | MF_GRAYED));
                         EnableMenuItem(subMenu, CM_DELETEPROXYSRV, MF_BYCOMMAND | ((sel != CB_ERR && count != CB_ERR ? sel >= fixedItems : FALSE) ? MF_ENABLED : MF_DISABLED | MF_GRAYED));
                         EnableMenuItem(subMenu, CM_MOVEUPPROXYSRV, MF_BYCOMMAND | ((sel != CB_ERR && count != CB_ERR ? sel > fixedItems : FALSE) ? MF_ENABLED : MF_DISABLED | MF_GRAYED));
@@ -647,7 +647,7 @@ protected:
         case WM_APP + 1000: // we should detach from the dialog (already centered)
         {
             DetachWindow();
-            delete this; // a bit of a hack, but 'this' will no longer be accessed afterward
+            delete this; // a bit hacky, but nothing touches 'this' anymore, so it's fine
             return 0;
         }
         }
@@ -821,7 +821,7 @@ CBookmarksListbox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         }
-        break; // pass the keys on; the listbox should not process them
+        break; // let the keys propagate, the listbox should not handle them, no problem
     }
 
     case WM_LBUTTONDBLCLK:
@@ -925,13 +925,13 @@ void CConnectDlg::Transfer(CTransferInfo& ti)
     // restore the non-expanded variant of the Address string (history stores what the user typed, not the split result)
     if (ti.IsGood() && ti.Type == ttDataFromWindow && Config.LastBookmark == 0)
         SetWindowText(GetDlgItem(HWindow, IDE_HOSTADDRESS), LastRawHostAddress);
-    char buf[HOST_MAX_SIZE < FTP_MAX_PATH ? FTP_MAX_PATH : HOST_MAX_SIZE];
+    CPathBuffer buf;
     buf[0] = 0;
     HistoryComboBox(HWindow, ti, IDE_HOSTADDRESS, buf, HOST_MAX_SIZE,
                     HOSTADDRESS_HISTORY_SIZE, Config.HostAddressHistory,
                     Config.LastBookmark != 0 /* store in history only during Quick Connect*/);
     buf[0] = 0;
-    HistoryComboBox(HWindow, ti, IDE_INITIALPATH, buf, FTP_MAX_PATH,
+    HistoryComboBox(HWindow, ti, IDE_INITIALPATH, buf, buf.Size(),
                     INITIALPATH_HISTORY_SIZE, Config.InitPathHistory,
                     Config.LastBookmark != 0 /* store in history only during Quick Connect*/);
 }
@@ -1094,18 +1094,18 @@ void CConnectDlg::SelChanged()
         AddToAdvancedStr(buf, 300, LoadStr(s->CompressData == 0 ? IDS_ADVSTRNOMODEZ : IDS_ADVSTRMODEZ));
     }
 
-    if (s->ListCommand != NULL)
+    if (!s->ListCommand.empty())
     {
         num[36] = 0;
-        _snprintf_s(num, 38, _TRUNCATE, LoadStr(IDS_ADVSTRLISTCOMMAND), s->ListCommand);
+        _snprintf_s(num, 38, _TRUNCATE, LoadStr(IDS_ADVSTRLISTCOMMAND), s->ListCommand.c_str());
         if (num[36] != 0)
             strcpy(num + 36, "...");
         AddToAdvancedStr(buf, 300, num);
     }
-    if (s->InitFTPCommands != NULL && *s->InitFTPCommands != 0)
+    if (!s->InitFTPCommands.empty())
     {
         num[36] = 0;
-        _snprintf_s(num, 38, _TRUNCATE, LoadStr(IDS_ADVSTRINITFTPCMDS), s->InitFTPCommands);
+        _snprintf_s(num, 38, _TRUNCATE, LoadStr(IDS_ADVSTRINITFTPCMDS), s->InitFTPCommands.c_str());
         if (num[36] != 0)
             strcpy(num + 36, "...");
         AddToAdvancedStr(buf, 300, num);
@@ -1210,7 +1210,7 @@ void CConnectDlg::RefreshList(BOOL focusLast)
 
 void CConnectDlg::MoveItem(HWND list, int fromIndex, int toIndex, int topIndex)
 {
-    if (fromIndex > 0 && toIndex > 0 && fromIndex != toIndex &&                   // the quick-connect entry must not be moved
+    if (fromIndex > 0 && toIndex > 0 && fromIndex != toIndex &&                   // nobody is allowed to move the quick-connect entry
         fromIndex <= TmpFTPServerList.Count && toIndex <= TmpFTPServerList.Count) // movement stays within the array
     {
         fromIndex--;
@@ -1411,7 +1411,7 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SendMessage(HWindow, WM_NEXTDLGCTL, (WPARAM)button, TRUE);
                 PostMessage(HWindow, uMsg, wParam, lParam); // postpone this command
                 CanChangeFocus = FALSE;                     // prevents an infinite loop
-                return TRUE;                                // do nothing; wait for the edit boxes to lose focus
+                return TRUE;                                // do nothing; wait for the kill focus in the edit boxes
             }
             CanChangeFocus = TRUE;
 
@@ -1442,7 +1442,7 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HWND wnd = GetFocus();
                     while (wnd != NULL && wnd != ctrl)
                         wnd = GetParent(wnd);
-                    if (wnd == NULL) // set focus only if the control is not an ancestor of the window returned by GetFocus
+                    if (wnd == NULL) // set focus only if the control is not an ancestor of GetFocus
                     {                // for example, the edit line in the combo box
                         SendMessage(HWindow, WM_NEXTDLGCTL, (WPARAM)ctrl, TRUE);
                     }
@@ -1466,7 +1466,7 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // if the connection needs passwords, we must be able to decrypt them
                 // test the bookmark
                 if (!s->EnsurePasswordCanBeDecrypted(HWindow))
-                    return TRUE; // the master password was not entered, or the password probably could not be decrypted with it
+                    return TRUE; // failed to enter the master password or it probably failed to decrypt the password
 
                 // WARNING: s->EnsurePasswordCanBeDecrypted() might have cleared the password in 's' and its stored copy, which means
                 //        returning to the dialog (return TRUE) requires performing a "refresh"
@@ -1481,7 +1481,7 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SelChanged();
                     EnableControls();
 
-                    return TRUE; // master password entry failed or the password could not be decrypted
+                    return TRUE; // failed to enter the master password or they could not decrypt the password
                 }
             }
             break;
@@ -1641,8 +1641,8 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                        s->UseServerSpeedLimit,
                                                        s->ServerSpeedLimit,
                                                        s->UseListingsCache,
-                                                       s->InitFTPCommands,
-                                                       s->ListCommand,
+                                                       s->InitFTPCommands.c_str(),
+                                                       s->ListCommand.c_str(),
                                                        s->KeepAliveSendEvery,
                                                        s->KeepAliveStopAfter,
                                                        s->KeepAliveCommand,
@@ -1780,18 +1780,18 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     if (path != NULL) // we have a remote path, use it
                     {
-                        char pathBuf[FTP_MAX_PATH];
+                        CPathBuffer pathBuf;
                         CFTPServerPathType type;
                         type = GetFTPServerPathType(NULL, NULL, path);
                         if (type == ftpsptOpenVMS || type == ftpsptMVS || type == ftpsptIBMz_VM ||
                             type == ftpsptOS2) // VMS + MVS + IBM_z/VM + OS/2 (poorly recognizes the Unix path "/C:/path", but it probably will not bother anyone; it is a very unlikely Unix path)
                         {                      // they do not have '/' or '\\' at the start of the path
-                            lstrcpyn(pathBuf, path, FTP_MAX_PATH);
+                            lstrcpyn(pathBuf, path, pathBuf.Size());
                         }
                         else
                         {
                             pathBuf[0] = firstCharOfPath;
-                            lstrcpyn(pathBuf + 1, path, FTP_MAX_PATH - 1);
+                            lstrcpyn(pathBuf + 1, path, pathBuf.Size() - 1);
                         }
                         UpdateStr(s->InitialPath, pathBuf);
                     }
@@ -1807,8 +1807,8 @@ CConnectDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (HIWORD(wParam) == CBN_KILLFOCUS)
                 {
-                    char buf[FTP_MAX_PATH];
-                    ti.EditLine(IDE_INITIALPATH, buf, FTP_MAX_PATH);
+                    CPathBuffer buf;
+                    ti.EditLine(IDE_INITIALPATH, buf, buf.Size());
                     unsigned len = (unsigned)strlen(buf);
                     UpdateStr(s->InitialPath, buf);
                     if (len != strlen(buf))

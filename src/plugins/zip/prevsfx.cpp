@@ -1,6 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -41,7 +41,7 @@ LRESULT CALLBACK LinkControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         RECT r;
         PAINTSTRUCT ps;
-        char txt[MAX_PATH];
+        CPathBuffer txt; // Heap-allocated for long path support
         DWORD c;
         UINT format = DT_SINGLELINE | DT_BOTTOM | DT_NOPREFIX;
 
@@ -64,7 +64,7 @@ LRESULT CALLBACK LinkControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         HFONT hOldFont = (HFONT)SelectObject(ps.hdc, hFont);
         SetTextColor(ps.hdc, c);
         int prevBkMode = SetBkMode(ps.hdc, TRANSPARENT);
-        int len = GetWindowText(hWnd, txt, MAX_PATH);
+        int len = GetWindowText(hWnd, txt, txt.Size());
         DrawText(ps.hdc, txt, len, &r, format);
         SetBkMode(ps.hdc, prevBkMode);
         SelectObject(ps.hdc, hOldFont);
@@ -79,8 +79,8 @@ LRESULT CALLBACK LinkControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
     case WM_LBUTTONDOWN:
     {
-        char link[MAX_PATH];
-        GetWindowText(hWnd, link, MAX_PATH);
+        CPathBuffer link; // Heap-allocated for long path support
+        GetWindowText(hWnd, link, link.Size());
         ShellExecute(hWnd, "open", link, NULL, NULL, SW_SHOWNORMAL);
         break;
     }
@@ -119,8 +119,8 @@ INT_PTR WINAPI SfxPreviewDlgProc(HWND dlg, UINT uMsg, WPARAM wParam, LPARAM lPar
         if (data->LargeIcon)
             SendMessage(GetDlgItem(dlg, IDC_ANIMATION), STM_SETICON, (WPARAM)data->LargeIcon, 0);
         SetWindowText(dlg, data->Settings->Title);
-        char path[MAX_PATH];
-        GetCurrentDirectory(MAX_PATH, path);
+        CPathBuffer path; // Heap-allocated for long path support
+        GetCurrentDirectory(path.Size(), path);
         SetDlgItemText(dlg, IDC_PATH, path);
         SetDlgItemText(dlg, IDOK, data->Settings->ExtractBtnText);
         SetDlgItemText(dlg, IDC_ABOUT, data->AboutButton1);
@@ -146,12 +146,12 @@ INT_PTR WINAPI SfxPreviewDlgProc(HWND dlg, UINT uMsg, WPARAM wParam, LPARAM lPar
         dlgWinAboutHeigth = r.bottom - r.top;
         RECT r2;
         GetWindowRect(GetDlgItem(dlg, IDC_SEPARATOR), &r2);
-        // an application built with a newer Platform Toolset handles window sizes differently; see
+        // an application built with a newer platform toolset handles dialog sizes differently; see
         // https://social.msdn.microsoft.com/Forums/vstudio/en-US/7ca548b5-8931-41dc-ac1d-ed9aed223d7a/different-dialog-box-position-and-size-with-visual-c-2012
         // https://connect.microsoft.com/VisualStudio/feedback/details/768135/different-dialog-box-size-and-position-when-compiled-in-visual-c-2012-vs-2010-2008
-        // therefore the original solution does not work (in VC2012+ the window is shorter than in VC2010-): dlgWinHeigth = r2.top - r.top + 1;
-        // solution: dlgWinHeigth = full window height minus the difference between the dialog client area height and the separator position
-        //           within the dialog client area
+        // therefore the original logic no longer works (in VC2012+ the window is shorter than in VC2010-): dlgWinHeigth = r2.top - r.top + 1;
+        // fix: dlgWinHeigth = full window height minus the difference between the client area height and the separator position
+        //         within the dialog's client area
         POINT p;
         p.x = r2.left;
         p.y = r2.top;

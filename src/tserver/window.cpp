@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -235,6 +236,23 @@ void AddChars(WCHAR* buffer, int count, WCHAR chr = L' ')
     *p = 0;
 }
 
+void AddChars(WCHAR* buffer, size_t count, WCHAR chr = L' ')
+{
+    WCHAR* p;
+    p = buffer + wcslen(buffer);
+    for (size_t i = 0; i < count; i++)
+    {
+        *p = chr;
+        p++;
+    }
+    *p = 0;
+}
+
+DWORD StringByteCount(const WCHAR* text)
+{
+    return (DWORD)(sizeof(WCHAR) * wcslen(text));
+}
+
 void CMainWindow::ExportAllMessages()
 {
     WCHAR fileName[MAX_PATH];
@@ -285,18 +303,18 @@ void CMainWindow::ExportAllMessages()
             const WCHAR* strLine = L"Line";
             const WCHAR* strMessage = L"Message";
 
-            DWORD maxPID = wcslen(strPID);
-            DWORD maxUPID = wcslen(strUPID);
-            DWORD maxPName = wcslen(strPName);
-            DWORD maxTID = wcslen(strTID);
-            DWORD maxUTID = wcslen(strUTID);
-            DWORD maxTName = wcslen(strTName);
-            DWORD maxDate = wcslen(strDate);
-            DWORD maxTime = wcslen(strTime);
-            DWORD maxCounter = wcslen(strCounter);
-            DWORD maxModule = wcslen(strModule);
-            DWORD maxLine = wcslen(strLine);
-            DWORD maxMessage = wcslen(strMessage);
+            size_t maxPID = wcslen(strPID);
+            size_t maxUPID = wcslen(strUPID);
+            size_t maxPName = wcslen(strPName);
+            size_t maxTID = wcslen(strTID);
+            size_t maxUTID = wcslen(strUTID);
+            size_t maxTName = wcslen(strTName);
+            size_t maxDate = wcslen(strDate);
+            size_t maxTime = wcslen(strTime);
+            size_t maxCounter = wcslen(strCounter);
+            size_t maxModule = wcslen(strModule);
+            size_t maxLine = wcslen(strLine);
+            size_t maxMessage = wcslen(strMessage);
 
             for (int i = 0; i < Data.Messages.Count; i++)
             {
@@ -372,7 +390,7 @@ void CMainWindow::ExportAllMessages()
 
             // print the header
             swprintf_s(line, L"\xFEFF" /* BOM */ L"Trace Server Log File\r\n\r\n");
-            WriteFile(file, line, sizeof(WCHAR) * wcslen(line), &written, NULL);
+            WriteFile(file, line, StringByteCount(line), &written, NULL);
 
             // separator
 
@@ -427,7 +445,7 @@ void CMainWindow::ExportAllMessages()
 
             wcscat_s(separator, L"\r\n");
 
-            WriteFile(file, separator, sizeof(WCHAR) * wcslen(separator), &written, NULL);
+            WriteFile(file, separator, StringByteCount(separator), &written, NULL);
 
             wcscpy_s(line, L" |");
 
@@ -484,9 +502,9 @@ void CMainWindow::ExportAllMessages()
 
             SWPrintFToEnd_s(line, L"\r\n");
 
-            WriteFile(file, line, sizeof(WCHAR) * wcslen(line), &written, NULL);
+            WriteFile(file, line, StringByteCount(line), &written, NULL);
 
-            WriteFile(file, separator, sizeof(WCHAR) * wcslen(separator), &written, NULL);
+            WriteFile(file, separator, StringByteCount(separator), &written, NULL);
 
             // dump the rows into the file
             for (int i = 0; i < Data.Messages.Count; i++)
@@ -566,9 +584,9 @@ void CMainWindow::ExportAllMessages()
                 SWPrintFToEnd_s(line, L"%s", buff);
 
                 SWPrintFToEnd_s(line, L"\r\n");
-                WriteFile(file, line, sizeof(WCHAR) * wcslen(line), &written, NULL);
+                WriteFile(file, line, StringByteCount(line), &written, NULL);
             }
-            WriteFile(file, separator, sizeof(WCHAR) * wcslen(separator), &written, NULL);
+            WriteFile(file, separator, StringByteCount(separator), &written, NULL);
             HANDLES(CloseHandle(file));
         }
     }
@@ -615,6 +633,12 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             CAboutDialog dialog(HInstance, IDD_ABOUT, HWindow);
             dialog.Execute();
+            return 0;
+        }
+
+        case CM_COPY:
+        {
+            TabList->CopyLineToClipboard(HWindow);
             return 0;
         }
 
@@ -960,14 +984,14 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_INCORRECT_VERSION:
     {
-        MESSAGE_EW(NULL, L"Incorrect version of client, connection refused." << L"\nClient PID: " << lParam << L"\nClient version: " << wParam << L"\nServer version: " << TRACE_SERVER_VERSION, MB_OK);
+        MESSAGE_EW(NULL, L"Incorrect version of client, connection refused." << L"\nClient PID: " << lParam << L"\nClient version: " << wParam << L"\nServer version: " << (DWORD)TRACE_SERVER_VERSION, MB_OK);
         return 0;
     }
 
     case WM_USER_SHOWSYSTEMERROR:
     {
         MESSAGE_EW(NULL, L"Error during reading client->server pipe:\n"
-                             << errW(wParam),
+                             << errW((DWORD)wParam),
                    MB_OK);
         return 0;
     }

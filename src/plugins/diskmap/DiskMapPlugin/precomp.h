@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // stdafx.h : include file for standard system include files,
@@ -24,10 +25,10 @@
 #define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
 // Windows Header Files:
 #include <windows.h>
-#include <CommDlg.h>
-#include <ShellAPI.h>
+#include <commdlg.h>
+#include <shellapi.h>
 #include <shlobj.h>
-#include <Windowsx.h> // helper macros
+#include <windowsx.h> // helper macros
 
 // C RunTime Header Files
 #include <malloc.h>

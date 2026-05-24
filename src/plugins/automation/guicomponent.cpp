@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Sally Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -315,7 +316,7 @@ LRESULT STDMETHODCALLTYPE CSalamanderGuiComponentBase::OnMessage(
             reinterpret_cast<LONG_PTR>(m_pfnPrevWndProc)));
 
         // If this assertion fails, it means that the component
-        // was subclassed more than once and that the subclass
+        // was sublassed more than once and that the subclass
         // chain was corrupted.
         _ASSERTE(pfnWndProc == SubclassWndProc);
 
@@ -350,7 +351,7 @@ void STDMETHODCALLTYPE CSalamanderGuiComponentBase::RecalcBounds(
     HWND hWnd,
     HDC hDC)
 {
-    // Should be overridden in inherited class.
+    // Should be overriden in inherited class.
     _ASSERTE(0);
 }
 
