@@ -81,6 +81,20 @@ void ApplyTreeViewColors(HWND treeView)
 
     RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 }
+
+BOOL CALLBACK RedrawWindowTreeProc(HWND hwnd, LPARAM)
+{
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    return TRUE;
+}
+
+void RedrawWindowTree(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    EnumChildWindows(hwnd, RedrawWindowTreeProc, 0);
+}
 } // namespace
 
 //
@@ -870,13 +884,23 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_SHOWWINDOW:
+    {
+        if (wParam)
+            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+        break;
+    }
+
     case _TPD_WM_POST_INIT_REDRAW:
     {
         ApplyTreeViewColors(HTreeView);
         LayoutControls();
         if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
-            RedrawWindow(ChildDialog->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        {
+            ShowWindow(ChildDialog->HWindow, SW_SHOW);
+            RedrawWindowTree(ChildDialog->HWindow);
+        }
+        RedrawWindowTree(HWindow);
         return TRUE;
     }
 
@@ -1167,8 +1191,8 @@ void CTreePropHolderDlg::LayoutControls()
         // hack: TreeView/common controls apparently have a bug: if a scrollbar appears because of the content,
         // the selected item is not redrawn, so it gets clipped on the right; this may be related to full-row
         // selection and the Aero look; in any case, repainting under W7 does not flicker, so we can probably afford it
-        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        RedrawWindowTree(HTreeView);
+        RedrawWindowTree(HWindow);
     }
 }
 
@@ -1249,8 +1273,8 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
                      ChildDialogRect.right - ChildDialogRect.left,
                      ChildDialogRect.bottom - ChildDialogRect.top,
                      SWP_SHOWWINDOW);
-        RedrawWindow(ChildDialog->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        RedrawWindowTree(ChildDialog->HWindow);
+        RedrawWindowTree(HWindow);
         CurrentPageIndex = pageIndex;
         EnableButtons();
     }
