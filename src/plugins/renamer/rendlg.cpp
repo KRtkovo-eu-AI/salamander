@@ -1636,7 +1636,49 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DialogStackPush(HWindow);
         if (!Init())
             PostMessage(HWindow, WM_CLOSE, 0, 0);
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
+        InvalidateRect(HWindow, NULL, TRUE);
         return TRUE;
+    }
+
+    case WM_ERASEBKGND:
+    {
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(NULL, WM_CTLCOLORDLG);
+            if (brush != NULL)
+                FillRect((HDC)wParam, &r, brush);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
+        {
+            if (MenuBar != NULL)
+                InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
     }
 
     case WM_SIZE:
