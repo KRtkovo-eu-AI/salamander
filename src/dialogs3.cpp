@@ -2035,6 +2035,25 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:
     {
+        if (DarkModeShouldUseDarkColors() && uMsg == WM_CTLCOLORSTATIC)
+        {
+            HWND ctrl = reinterpret_cast<HWND>(lParam);
+            const int ctrlID = ctrl != NULL ? GetDlgCtrlID(ctrl) : 0;
+            if (ctrlID == IDS_SUBJECT || ctrlID == IDC_STATIC_1)
+            {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                const DarkModeColors& colors = DarkModeGetColors();
+                if (dc != NULL)
+                {
+                    SetTextColor(dc, colors.readableText);
+                    SetBkColor(dc, colors.background);
+                    SetBkMode(dc, TRANSPARENT);
+                }
+                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                return reinterpret_cast<INT_PTR>(dialogBrush);
+            }
+        }
+
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;

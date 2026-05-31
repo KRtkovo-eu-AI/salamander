@@ -437,6 +437,26 @@ CZIPUnpackProgress::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            const DarkModeColors& colors = DarkModeGetColors();
+            const bool progressLabel = uMsg == WM_CTLCOLORSTATIC && lParam != 0 &&
+                                       (GetDlgCtrlID((HWND)lParam) == IDT_PROGTITLE ||
+                                        GetDlgCtrlID((HWND)lParam) == IDC_STATIC_1 ||
+                                        GetDlgCtrlID((HWND)lParam) == IDC_STATIC_2);
+            if (progressLabel)
+            {
+                if (hdc != NULL)
+                {
+                    SetTextColor(hdc, colors.readableText);
+                    SetBkColor(hdc, colors.background);
+                    SetBkMode(hdc, TRANSPARENT);
+                }
+                return (INT_PTR)GetZipProgressDarkBrush(colors.background);
+            }
+        }
+
         LRESULT brush = 0;
         if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
             return brush;
