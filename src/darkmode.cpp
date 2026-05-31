@@ -610,9 +610,14 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 EnsureClassicButtonTheme(hwnd, wantDark);
                 InvalidateRect(hwnd, NULL, TRUE);
             }
+            else if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+            {
+                EnsureClassicButtonTheme(hwnd, wantDark);
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
             else if (gSetWindowTheme != nullptr &&
                      (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
-                      type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON))
+                      type == BS_3STATE))
             {
                 gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
                 InvalidateRect(hwnd, NULL, TRUE);
@@ -990,13 +995,28 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     }
 
     HBRUSH brush = gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_BTNFACE);
-#if USE_DARKMODELIB
-    if (DarkModeBackendDarkModelib::HandleCtlColor(message, wParam, lParam, result, DarkModeGetColors(), brush))
-        return true;
-#endif
     HDC hdc = reinterpret_cast<HDC>(wParam);
     if (hdc == NULL)
         return false;
+
+#if USE_DARKMODELIB
+    if ((message == WM_CTLCOLORBTN || message == WM_CTLCOLORSTATIC) && lParam != 0)
+    {
+        HWND ctrl = reinterpret_cast<HWND>(lParam);
+        if (IsRadioButtonControl(ctrl))
+        {
+            EnsureClassicButtonTheme(ctrl, usingNativeDark || hasCustomPalette);
+            SetTextColor(hdc, DarkModeGetColors().readableText);
+            SetBkColor(hdc, background);
+            SetBkMode(hdc, TRANSPARENT);
+            result = reinterpret_cast<LRESULT>(brush);
+            return true;
+        }
+    }
+
+    if (DarkModeBackendDarkModelib::HandleCtlColor(message, wParam, lParam, result, DarkModeGetColors(), brush))
+        return true;
+#endif
 
     auto setCommonColors = [&](bool transparent) {
         SetTextColor(hdc, textColor);
@@ -1069,7 +1089,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (IsRadioButtonControl(ctrl))
-            EnsureClassicButtonTheme(ctrl, false);
+            EnsureClassicButtonTheme(ctrl, usingNativeDark || hasCustomPalette);
         else if (IsButtonTypeNeedingClassicFallback(ctrl))
             EnsureClassicButtonTheme(ctrl, forceClassicButtons);
         else

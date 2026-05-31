@@ -29,7 +29,7 @@ static COLORREF GetMenuBarBkColor(BOOL hot)
 {
     if (!DarkMode_ShouldUseDark())
         return GetSysColor(hot ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
-    return hot ? RGB(62, 62, 64) : RGB(45, 45, 48);
+    return hot ? RGB(62, 62, 64) : RGB(32, 32, 32);
 }
 
 static COLORREF GetMenuBarTextColor(BOOL hot)
