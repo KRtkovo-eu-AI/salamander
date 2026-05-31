@@ -1150,7 +1150,8 @@ void CTreePropHolderDlg::LayoutControls()
         // hack: TreeView/common controls apparently have a bug: if a scrollbar appears because of the content,
         // the selected item is not redrawn, so it gets clipped on the right; this may be related to full-row
         // selection and the Aero look; in any case, repainting under W7 does not flicker, so we can probably afford it
-        InvalidateRect(HTreeView, NULL, false);
+        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
     }
 }
 
@@ -1231,6 +1232,8 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
                      ChildDialogRect.right - ChildDialogRect.left,
                      ChildDialogRect.bottom - ChildDialogRect.top,
                      SWP_SHOWWINDOW);
+        RedrawWindow(ChildDialog->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
         CurrentPageIndex = pageIndex;
         EnableButtons();
     }
