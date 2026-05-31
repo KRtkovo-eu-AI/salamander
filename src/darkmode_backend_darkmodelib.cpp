@@ -107,7 +107,7 @@ void ApplyTree(HWND hwnd)
             dmlibInitialized = true;
         }
         const bool dark = DarkMode_ShouldUseDark() != FALSE;
-        dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::light));
+        dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
         dmlib::setDefaultColors(true);
         if (dark)
         {
@@ -116,8 +116,10 @@ void ApplyTree(HWND hwnd)
         }
         else
         {
+            // Light Salamander schemes must be real native light UI.  Do not ask
+            // darkmodelib to apply even its light-mode themes/subclasses here; just
+            // tear down any hooks left from a previous Windows Dark Mode session.
             RemoveWindowAndChildSubclasses(hwnd);
-            dmlib::setChildCtrlsTheme(hwnd);
         }
         dmlib::setDarkTitleBar(hwnd, dark);
     }
