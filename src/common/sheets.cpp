@@ -598,6 +598,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_IDC_CAPTION 3
 #define _TPD_IDC_RECT 4
 #define _TPD_IDC_OK 5
+#define _TPD_WM_POST_INIT_REDRAW (WM_APP + 0x3A7)
 // dimensions in dialog units
 #define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
 #define _TPD_TOPMARGIN 4   // TreeView and caption top margin
@@ -860,7 +861,23 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         TPD->DialogProc(uMsg, wParam, lParam); // forward messages
 
+        // The first selected page can finish creating before the holder has its
+        // final position/size. Queue one repaint after WM_INITDIALOG returns so
+        // light-scheme controls are painted immediately instead of appearing only
+        // after the window is moved.
+        PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+
         break;
+    }
+
+    case _TPD_WM_POST_INIT_REDRAW:
+    {
+        ApplyTreeViewColors(HTreeView);
+        LayoutControls();
+        if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
+            RedrawWindow(ChildDialog->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        return TRUE;
     }
 
     case WM_HELP:
