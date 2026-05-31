@@ -42,6 +42,24 @@ CSalamanderDirectory GlobalEmptySalDir(FALSE); // returned as an empty sal-dir (
 
 HWND ProgressDialogActivateDrop = NULL;
 
+namespace
+{
+HBRUSH GetZipProgressDarkBrush(COLORREF background)
+{
+    static HBRUSH brush = NULL;
+    static COLORREF brushColor = CLR_INVALID;
+
+    if (brush == NULL || brushColor != background)
+    {
+        if (brush != NULL)
+            HANDLES(DeleteObject(brush));
+        brush = HANDLES(CreateSolidBrush(background));
+        brushColor = background;
+    }
+    return brush;
+}
+}
+
 //
 // ****************************************************************************
 // CZIPUnpackProgress
@@ -411,6 +429,29 @@ CZIPUnpackProgress::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (TaskBarList3 != NULL)
             TaskBarList3->SetProgressState(TBPF_NOPROGRESS);
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            const DarkModeColors& colors = DarkModeGetColors();
+            if (hdc != NULL)
+            {
+                SetTextColor(hdc, colors.readableText);
+                SetBkColor(hdc, colors.background);
+                SetBkMode(hdc, TRANSPARENT);
+            }
+            return (INT_PTR)GetZipProgressDarkBrush(colors.background);
+        }
         break;
     }
 

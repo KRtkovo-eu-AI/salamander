@@ -1129,6 +1129,15 @@ CStaticText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HWND hParent = GetParent(HWindow);
             if (hParent != NULL)
                 SendMessage(hParent, WM_CTLCOLORSTATIC, (WPARAM)hDC, (LPARAM)HWindow);
+            // Some modeless progress dialogs repaint these owner-drawn cached statics
+            // before their parent CTLCOLOR path has supplied a readable foreground.
+            // Enforce the shared dark text color here as a final safeguard; light
+            // schemes still keep the parent/default DC colors.
+            if (DarkModeShouldUseDarkColors() && (Flags & STF_HYPERLINK_COLOR) == 0)
+            {
+                SetTextColor(hDC, DarkModeGetColors().readableText);
+                SetBkColor(hDC, DarkModeGetColors().background);
+            }
             if (Flags & STF_HYPERLINK_COLOR)
             {
                 if (DarkModeShouldUseDarkColors())
