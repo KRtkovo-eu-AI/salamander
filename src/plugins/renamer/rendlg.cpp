@@ -31,6 +31,42 @@ char* CommandHistory[MAX_HISTORY_ENTRIES];
 // CRenamerDialog
 //
 
+namespace
+{
+int RenamerColorLuminance(COLORREF color)
+{
+    return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
+}
+
+void ConfigureRenamerDarkModeFromHost()
+{
+    BOOL useWindowsDarkMode = FALSE;
+    BOOL hasHostPolicy = SG != NULL && SG->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                                              &useWindowsDarkMode,
+                                                              sizeof(useWindowsDarkMode),
+                                                              NULL);
+    PluginDarkMode_SetHostPolicyAvailable(hasHostPolicy, useWindowsDarkMode);
+
+    if (hasHostPolicy && useWindowsDarkMode && SG != NULL)
+    {
+        COLORREF text = SG->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        COLORREF background = SG->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+        COLORREF readable = text;
+        const int bgLum = RenamerColorLuminance(background);
+        const int fgLum = RenamerColorLuminance(text);
+        if (bgLum < 128 && fgLum < bgLum + 40)
+            readable = RGB(0xF0, 0xF0, 0xF0);
+        else if (bgLum >= 128 && fgLum > bgLum - 40)
+            readable = RGB(0x20, 0x20, 0x20);
+        PluginDarkMode_SetHostResolvedColors(text, background, readable);
+    }
+    else
+    {
+        PluginDarkMode_SetHostResolvedColors(GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT));
+    }
+}
+}
+
 MENU_TEMPLATE_ITEM MenuTemplate[] =
     {
         {MNTT_PB, -1, MNTS_ALL, 0, -1, 0, NULL},
@@ -1631,13 +1667,14 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        ConfigureRenamerDarkModeFromHost();
         if (AlwaysOnTop)
             SetWindowPos(HWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         DialogStackPush(HWindow);
         if (!Init())
             PostMessage(HWindow, WM_CLOSE, 0, 0);
         PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
-        InvalidateRect(HWindow, NULL, TRUE);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         return TRUE;
     }
 
@@ -1671,11 +1708,12 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     case WM_SETTINGCHANGE:
     {
+        ConfigureRenamerDarkModeFromHost();
         if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
         {
             if (MenuBar != NULL)
                 InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
-            InvalidateRect(HWindow, NULL, TRUE);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
             return TRUE;
         }
         break;

@@ -28,6 +28,146 @@ fnSetWindowTheme gSetWindowTheme = NULL;
 fnDwmSetWindowAttribute gDwmSetWindowAttribute = NULL;
 thread_local int gThemeBatchDepth = 0;
 
+void ResetPluginBrushes()
+{
+    if (gDialogBrush != NULL)
+    {
+        DeleteObject(gDialogBrush);
+        gDialogBrush = NULL;
+    }
+    if (gInputBrush != NULL)
+    {
+        DeleteObject(gInputBrush);
+        gInputBrush = NULL;
+    }
+}
+
+const UINT_PTR PLUGIN_DARKMODE_HEADER_SUBCLASS_ID = 0x50444844; // "PDHD"
+
+void FillPluginColorRect(HDC hdc, const RECT* rect, COLORREF color)
+{
+    if (hdc == NULL || rect == NULL)
+        return;
+    COLORREF oldColor = SetDCBrushColor(hdc, color);
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(DC_BRUSH));
+    PatBlt(hdc, rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top, PATCOPY);
+    SelectObject(hdc, oldBrush);
+    SetDCBrushColor(hdc, oldColor);
+}
+
+void PaintPluginDarkHeader(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL)
+        return;
+
+    PluginDarkModeColors colors = PluginDarkMode_GetColors();
+    RECT client;
+    GetClientRect(hwnd, &client);
+    FillPluginColorRect(hdc, &client, colors.background);
+
+    const int count = Header_GetItemCount(hwnd);
+    HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+    HFONT oldFont = font != NULL ? (HFONT)SelectObject(hdc, font) : NULL;
+    COLORREF oldText = SetTextColor(hdc, colors.readableText);
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+    HPEN pen = CreatePen(PS_SOLID, 1, RGB(0x55, 0x55, 0x55));
+    HPEN oldPen = pen != NULL ? (HPEN)SelectObject(hdc, pen) : NULL;
+
+    for (int i = 0; i < count; ++i)
+    {
+        RECT item;
+        if (!Header_GetItemRect(hwnd, i, &item))
+            continue;
+        FillPluginColorRect(hdc, &item, colors.background);
+        TCHAR text[256] = {0};
+        HDITEM hdi = {0};
+        hdi.mask = HDI_TEXT | HDI_FORMAT;
+        hdi.pszText = text;
+        hdi.cchTextMax = _countof(text);
+        SendMessage(hwnd, HDM_GETITEM, i, reinterpret_cast<LPARAM>(&hdi));
+
+        RECT textRect = item;
+        textRect.left += 6;
+        textRect.right -= 6;
+        UINT format = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS;
+        if ((hdi.fmt & HDF_CENTER) != 0)
+            format |= DT_CENTER;
+        else if ((hdi.fmt & HDF_RIGHT) != 0)
+            format |= DT_RIGHT;
+        else
+            format |= DT_LEFT;
+        DrawText(hdc, text, -1, &textRect, format);
+
+        if (pen != NULL)
+        {
+            MoveToEx(hdc, item.right - 1, item.top, NULL);
+            LineTo(hdc, item.right - 1, item.bottom);
+            MoveToEx(hdc, item.left, item.bottom - 1, NULL);
+            LineTo(hdc, item.right, item.bottom - 1);
+        }
+    }
+
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    if (pen != NULL)
+        DeleteObject(pen);
+    SetBkMode(hdc, oldBkMode);
+    SetTextColor(hdc, oldText);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+LRESULT CALLBACK PluginDarkHeaderSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                          UINT_PTR subclassId, DWORD_PTR)
+{
+    if (subclassId != PLUGIN_DARKMODE_HEADER_SUBCLASS_ID)
+        return DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, PluginDarkHeaderSubclass, PLUGIN_DARKMODE_HEADER_SUBCLASS_ID);
+        break;
+
+    case WM_ERASEBKGND:
+        if (PluginDarkMode_ShouldUseDark())
+            return TRUE;
+        break;
+
+    case WM_PAINT:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            PaintPluginDarkHeader(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PaintPluginDarkHeader(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsurePluginDarkHeaderSubclass(HWND hwnd, BOOL dark)
+{
+    if (hwnd == NULL)
+        return;
+    if (dark)
+        SetWindowSubclass(hwnd, PluginDarkHeaderSubclass, PLUGIN_DARKMODE_HEADER_SUBCLASS_ID, 0);
+    else
+        RemoveWindowSubclass(hwnd, PluginDarkHeaderSubclass, PLUGIN_DARKMODE_HEADER_SUBCLASS_ID);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
 COLORREF EnsureReadable(COLORREF fg, COLORREF bg)
 {
     const int bl = (GetRValue(bg) * 30 + GetGValue(bg) * 59 + GetBValue(bg) * 11) / 100;
@@ -67,6 +207,15 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
         ListView_SetTextColor(hwnd, c.readableText);
         ListView_SetTextBkColor(hwnd, c.background);
         ListView_SetBkColor(hwnd, c.background);
+        HWND header = ListView_GetHeader(hwnd);
+        if (header != NULL)
+        {
+            if (gSetWindowTheme != NULL)
+                gSetWindowTheme(header, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(dark ? c.readableText : CLR_DEFAULT));
+            SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(dark ? c.background : CLR_DEFAULT));
+            EnsurePluginDarkHeaderSubclass(header, dark);
+        }
         InvalidateRect(hwnd, NULL, TRUE);
     }
     else if (wcscmp(cls, L"SysTreeView32") == 0)
@@ -85,6 +234,7 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
         PluginDarkModeColors c = PluginDarkMode_GetColors();
         SendMessage(hwnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(dark ? c.readableText : CLR_DEFAULT));
         SendMessage(hwnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(dark ? c.background : CLR_DEFAULT));
+        EnsurePluginDarkHeaderSubclass(hwnd, dark);
         InvalidateRect(hwnd, NULL, TRUE);
         HWND parent = GetParent(hwnd);
         while (parent != NULL)
@@ -92,6 +242,13 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
             InvalidateRect(parent, NULL, TRUE);
             parent = GetParent(parent);
         }
+    }
+    else if (wcscmp(cls, L"Edit") == 0 || wcscmp(cls, L"ComboBox") == 0 || wcscmp(cls, L"ComboBoxEx32") == 0 ||
+             wcscmp(cls, L"ListBox") == 0)
+    {
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"CFD" : nullptr, nullptr);
+        InvalidateRect(hwnd, NULL, TRUE);
     }
     else if (wcscmp(cls, L"tooltips_class32") == 0 || wcscmp(cls, L"ScrollBar") == 0 ||
              wcscmp(cls, L"ReBarWindow32") == 0 || wcscmp(cls, L"ToolbarWindow32") == 0)
@@ -162,7 +319,9 @@ void InvalidateKnownDarkArtifacts(HWND hwnd)
     if (GetClassNameW(hwnd, cls, _countof(cls)) == 0)
         return;
     if (wcscmp(cls, L"SysHeader32") == 0 || wcscmp(cls, L"ReBarWindow32") == 0 ||
-        wcscmp(cls, L"ToolbarWindow32") == 0 || wcscmp(cls, L"Static") == 0)
+        wcscmp(cls, L"ToolbarWindow32") == 0 || wcscmp(cls, L"Static") == 0 ||
+        wcscmp(cls, L"Edit") == 0 || wcscmp(cls, L"ComboBox") == 0 ||
+        wcscmp(cls, L"ComboBoxEx32") == 0 || wcscmp(cls, L"ListBox") == 0)
         InvalidateRect(hwnd, NULL, TRUE);
     for (HWND child = GetWindow(hwnd, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
         InvalidateKnownDarkArtifacts(child);
@@ -193,6 +352,7 @@ void PluginDarkMode_SetHostPolicyAvailable(BOOL available, BOOL useWindowsDarkSc
 
 void PluginDarkMode_SetHostColors(COLORREF text, COLORREF background)
 {
+    ResetPluginBrushes();
     gHostColors.text = text;
     gHostColors.background = background;
     gHostColors.readableText = EnsureReadable(text, background);
@@ -200,6 +360,7 @@ void PluginDarkMode_SetHostColors(COLORREF text, COLORREF background)
 
 void PluginDarkMode_SetHostResolvedColors(COLORREF text, COLORREF background, COLORREF readableText)
 {
+    ResetPluginBrushes();
     gHostColors.text = text;
     gHostColors.background = background;
     gHostColors.readableText = readableText;
@@ -228,7 +389,10 @@ PluginDarkModeColors PluginDarkMode_GetColors()
         out.text = gHostColors.text;
     if (gHostColors.background != CLR_INVALID)
         out.background = gHostColors.background;
-    out.readableText = EnsureReadable(out.text, out.background);
+    if (gHostColors.readableText != CLR_INVALID)
+        out.readableText = gHostColors.readableText;
+    else
+        out.readableText = EnsureReadable(out.text, out.background);
     return out;
 }
 

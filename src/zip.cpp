@@ -2953,6 +2953,9 @@ BOOL CSalamanderGeneral::GetConfigParameter(int paramID, void* buffer, int buffe
     case SALCFG_SELECTWHOLENAME:
         *((DWORD*)auxBuf) = (DWORD)Configuration.QuickRenameSelectAll;
         break;
+    case SALCFG_USEWINDOWSDARKMODE:
+        *((DWORD*)auxBuf) = (DWORD)Configuration.UseWindowsDarkMode;
+        break;
 
     case SALCFG_FILENAMEFORMAT:
     {
