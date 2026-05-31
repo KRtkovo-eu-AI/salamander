@@ -383,11 +383,15 @@ void PaintDarkRadioButton(HWND hwnd, HDC hdc)
     RECT textRect = rc;
     textRect.left = glyph.right + 4;
     COLORREF textColor = enabled ? colors.readableText : RGB(0xA0, 0xA0, 0xA0);
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
     COLORREF oldText = SetTextColor(hdc, textColor);
     int oldBkMode = SetBkMode(hdc, TRANSPARENT);
     DrawTextW(hdc, text, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     SetBkMode(hdc, oldBkMode);
     SetTextColor(hdc, oldText);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
 }
 
 LRESULT CALLBACK DarkRadioButtonSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
