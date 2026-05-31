@@ -95,6 +95,37 @@ void RedrawWindowTree(HWND hwnd)
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
     EnumChildWindows(hwnd, RedrawWindowTreeProc, 0);
 }
+
+
+bool IsChoiceButton(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+
+    const LONG_PTR type = GetWindowLongPtr(hwnd, GWL_STYLE) & BS_TYPEMASK;
+    return type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+           type == BS_AUTO3STATE || type == BS_3STATE ||
+           type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
+}
+
+void RedrawChoiceButtonAfterClick(HWND ctrl)
+{
+    if (!IsChoiceButton(ctrl))
+        return;
+
+    // Some themed/light Configuration pages can defer repainting checkbox/radio
+    // glyph changes until the page is otherwise invalidated (for example by a
+    // resize).  Force the clicked control through erase+paint immediately, while
+    // leaving normal command processing untouched.
+    RedrawWindow(ctrl, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+    HWND parent = GetParent(ctrl);
+    if (parent != NULL)
+        InvalidateRect(parent, NULL, FALSE);
+}
 } // namespace
 
 //
@@ -371,6 +402,13 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
+        break;
+    }
+
+    case WM_COMMAND:
+    {
+        if (HIWORD(wParam) == BN_CLICKED)
+            RedrawChoiceButtonAfterClick(reinterpret_cast<HWND>(lParam));
         break;
     }
 
