@@ -900,10 +900,14 @@ bool DarkModeShouldUseDarkColors()
     if (ShouldUseDarkColorsInternal())
         return true;
 
-    // Fall back to the configured dialog palette when native dark mode isn't
-    // available (for example on older Windows builds).  Many callers rely on
-    // this helper to decide whether to draw using dark-friendly colors even if
-    // the system APIs cannot provide immersive resources.
+    if (!IsWindowsDarkSchemeSelected())
+        return false;
+
+    // Fall back to the configured dialog palette only for the explicit Windows
+    // Dark Mode scheme when native dark mode isn't available (for example on
+    // older Windows builds).  Light/custom schemes must stay native light UI and
+    // must not re-enter dark CTLCOLOR/subclass paths just because their panel
+    // palette happens to be dark.
     return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
@@ -1129,7 +1133,8 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     const COLORREF sysTextColor = GetSysColor(COLOR_BTNTEXT);
     const COLORREF sysBackground = GetSysColor(COLOR_BTNFACE);
     const bool usingNativeDark = gSupported && ShouldUseDarkColorsInternal();
-    const bool hasCustomPalette = textColor != sysTextColor || background != sysBackground;
+    const bool hasCustomPalette = IsWindowsDarkSchemeSelected() &&
+                                  (textColor != sysTextColor || background != sysBackground);
 #if USE_DARKMODELIB
     const bool forceClassicButtons = false;
 #else
