@@ -79,7 +79,7 @@ void ApplyTreeViewColors(HWND treeView)
             SetWindowTheme(treeView, L"explorer", NULL);
     }
 
-    InvalidateRect(treeView, NULL, TRUE);
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 }
 } // namespace
 

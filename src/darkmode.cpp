@@ -722,8 +722,11 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
         if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysTreeView32") == 0)
         {
             gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
-            const COLORREF bg = wantDark ? DarkModeGetColors().background : CLR_DEFAULT;
-            const COLORREF fg = wantDark ? DarkModeGetColors().readableText : CLR_DEFAULT;
+            // Common controls do not consistently treat CLR_DEFAULT as a
+            // reset value here (TreeView can interpret it as black), so restore
+            // explicit system colors for all non-dark Salamander schemes.
+            const COLORREF bg = wantDark ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
+            const COLORREF fg = wantDark ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
             if (wcscmp(className, L"SysListView32") == 0)
             {
                 ListView_SetTextColor(hwnd, fg);
@@ -735,7 +738,7 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 TreeView_SetTextColor(hwnd, fg);
                 TreeView_SetBkColor(hwnd, bg);
             }
-            InvalidateRect(hwnd, NULL, TRUE);
+            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
         }
         else if (wcscmp(className, L"SysHeader32") == 0)
         {
