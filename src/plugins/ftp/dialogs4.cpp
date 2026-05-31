@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "..\\shared\\plugindarkmode.h"
 
 //
 // ****************************************************************************
@@ -1337,11 +1338,25 @@ CConfirmDeleteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CConfirmDeleteDlg::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         SetDlgItemText(HWindow, IDT_DELSUBJECT, Subject);
         SendDlgItemMessage(HWindow, IDC_DELICON, STM_SETICON,
                            (WPARAM)(Icon == NULL ? HANDLES(LoadIcon(NULL, IDI_QUESTION)) : Icon), 0);
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
         break;
     }
     }

@@ -42,6 +42,24 @@ CSalamanderDirectory GlobalEmptySalDir(FALSE); // returned as an empty sal-dir (
 
 HWND ProgressDialogActivateDrop = NULL;
 
+namespace
+{
+HBRUSH GetZipProgressDarkBrush(COLORREF background)
+{
+    static HBRUSH brush = NULL;
+    static COLORREF brushColor = CLR_INVALID;
+
+    if (brush == NULL || brushColor != background)
+    {
+        if (brush != NULL)
+            HANDLES(DeleteObject(brush));
+        brush = HANDLES(CreateSolidBrush(background));
+        brushColor = background;
+    }
+    return brush;
+}
+}
+
 //
 // ****************************************************************************
 // CZIPUnpackProgress
@@ -411,6 +429,49 @@ CZIPUnpackProgress::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (TaskBarList3 != NULL)
             TaskBarList3->SetProgressState(TBPF_NOPROGRESS);
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            const DarkModeColors& colors = DarkModeGetColors();
+            const bool progressLabel = uMsg == WM_CTLCOLORSTATIC && lParam != 0 &&
+                                       (GetDlgCtrlID((HWND)lParam) == IDT_PROGTITLE ||
+                                        GetDlgCtrlID((HWND)lParam) == IDC_STATIC_1 ||
+                                        GetDlgCtrlID((HWND)lParam) == IDC_STATIC_2);
+            if (progressLabel)
+            {
+                if (hdc != NULL)
+                {
+                    SetTextColor(hdc, colors.readableText);
+                    SetBkColor(hdc, colors.background);
+                    SetBkMode(hdc, TRANSPARENT);
+                }
+                return (INT_PTR)GetZipProgressDarkBrush(colors.background);
+            }
+        }
+
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            const DarkModeColors& colors = DarkModeGetColors();
+            if (hdc != NULL)
+            {
+                SetTextColor(hdc, colors.readableText);
+                SetBkColor(hdc, colors.background);
+                SetBkMode(hdc, TRANSPARENT);
+            }
+            return (INT_PTR)GetZipProgressDarkBrush(colors.background);
+        }
         break;
     }
 
@@ -2891,6 +2952,9 @@ BOOL CSalamanderGeneral::GetConfigParameter(int paramID, void* buffer, int buffe
         break;
     case SALCFG_SELECTWHOLENAME:
         *((DWORD*)auxBuf) = (DWORD)Configuration.QuickRenameSelectAll;
+        break;
+    case SALCFG_USEWINDOWSDARKMODE:
+        *((DWORD*)auxBuf) = (DWORD)Configuration.UseWindowsDarkMode;
         break;
 
     case SALCFG_FILENAMEFORMAT:

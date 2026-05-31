@@ -14,6 +14,65 @@
 
 namespace
 {
+
+#ifndef WM_UAHDRAWMENU
+#define WM_UAHDRAWMENU 0x0091
+#endif
+#ifndef WM_UAHDRAWMENUITEM
+#define WM_UAHDRAWMENUITEM 0x0092
+#endif
+
+typedef struct tagViewerUAHMENU
+{
+    HMENU hmenu;
+    HDC hdc;
+    DWORD dwFlags;
+} ViewerUAHMENU;
+
+typedef union tagViewerUAHMENUITEMMETRICS
+{
+    struct
+    {
+        DWORD cx;
+        DWORD cy;
+    } rgsizeBar[2];
+    struct
+    {
+        DWORD cx;
+        DWORD cy;
+    } rgsizePopup[4];
+} ViewerUAHMENUITEMMETRICS;
+
+typedef struct tagViewerUAHMENUPOPUPMETRICS
+{
+    DWORD rgcx[4];
+    DWORD fUpdateMaxWidths : 2;
+} ViewerUAHMENUPOPUPMETRICS;
+
+typedef struct tagViewerUAHMENUITEM
+{
+    int iPosition;
+    ViewerUAHMENUITEMMETRICS umim;
+    ViewerUAHMENUPOPUPMETRICS umpm;
+} ViewerUAHMENUITEM;
+
+typedef struct tagViewerUAHDRAWMENUITEM
+{
+    DRAWITEMSTRUCT dis;
+    ViewerUAHMENU um;
+    ViewerUAHMENUITEM umi;
+} ViewerUAHDRAWMENUITEM;
+
+void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color)
+{
+    HBRUSH brush = HANDLES(CreateSolidBrush(color));
+    if (brush != NULL)
+    {
+        FillRect(hdc, rect, brush);
+        HANDLES(DeleteObject(brush));
+    }
+}
+
 HBRUSH EnsureViewerMenuBrush(COLORREF color, bool enable)
 {
     static COLORREF cachedColor = CLR_INVALID;
@@ -46,6 +105,64 @@ HBRUSH EnsureViewerMenuBrush(COLORREF color, bool enable)
     return cachedBrush;
 }
 
+
+void PaintViewerMenuBar(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    MENUBARINFO mbi;
+    memset(&mbi, 0, sizeof(mbi));
+    mbi.cbSize = sizeof(mbi);
+    if (!GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi))
+        return;
+
+    RECT wndRect;
+    GetWindowRect(hwnd, &wndRect);
+    RECT barRect = mbi.rcBar;
+    OffsetRect(&barRect, -wndRect.left, -wndRect.top);
+    barRect.top -= 1;
+
+    FillViewerRectWithColor(hdc, &barRect, DarkModeGetColors().background);
+}
+
+void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
+{
+    if (item == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    const DarkModeColors& colors = DarkModeGetColors();
+    COLORREF background = colors.background;
+    COLORREF text = colors.readableText;
+    if ((item->dis.itemState & ODS_SELECTED) != 0)
+        background = RGB(0x3A, 0x3A, 0x3A);
+    else if ((item->dis.itemState & ODS_HOTLIGHT) != 0)
+        background = RGB(0x45, 0x45, 0x45);
+    if ((item->dis.itemState & (ODS_GRAYED | ODS_DISABLED | ODS_INACTIVE)) != 0)
+        text = RGB(0x80, 0x80, 0x80);
+
+    FillViewerRectWithColor(item->um.hdc, &item->dis.rcItem, background);
+
+    wchar_t textBuf[MAX_PATH];
+    textBuf[0] = 0;
+    MENUITEMINFOW mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.cbSize = sizeof(mii);
+    mii.fMask = MIIM_STRING;
+    mii.dwTypeData = textBuf;
+    mii.cch = _countof(textBuf) - 1;
+    GetMenuItemInfoW(item->um.hmenu, (UINT)item->umi.iPosition, TRUE, &mii);
+
+    int oldBkMode = SetBkMode(item->um.hdc, TRANSPARENT);
+    COLORREF oldText = SetTextColor(item->um.hdc, text);
+    UINT flags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+    if ((item->dis.itemState & ODS_NOACCEL) != 0)
+        flags |= DT_HIDEPREFIX;
+    DrawTextW(item->um.hdc, textBuf, -1, &item->dis.rcItem, flags);
+    SetTextColor(item->um.hdc, oldText);
+    SetBkMode(item->um.hdc, oldBkMode);
+}
+
 void ApplyViewerMenuTheme(HWND hwnd)
 {
     HMENU menu = GetMenu(hwnd);
@@ -57,15 +174,15 @@ void ApplyViewerMenuTheme(HWND hwnd)
     info.cbSize = sizeof(info);
     info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
 
-    const COLORREF background = DarkModeGetDialogBackgroundColor();
-    const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
-    const bool useDarkColors = DarkModeShouldUseDarkColors() || luminance < 128;
+    const DarkModeColors& dmColors = DarkModeGetColors();
+    const COLORREF background = dmColors.background;
+    const bool useDarkColors = DarkModeShouldUseDarkColors();
 
     HBRUSH menuBrush = GetSysColorBrush(COLOR_MENU);
     if (useDarkColors)
     {
         HBRUSH brush = HDialogBrush;
-        if (brush == NULL || (!DarkModeShouldUseDarkColors() && luminance < 128))
+        if (brush == NULL)
         {
             brush = EnsureViewerMenuBrush(background, true);
         }
@@ -80,6 +197,7 @@ void ApplyViewerMenuTheme(HWND hwnd)
 
     SetMenuInfo(menu, &info);
     DrawMenuBar(hwnd);
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW);
 }
 } // namespace
 
@@ -629,6 +747,27 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg)
     {
+    case WM_UAHDRAWMENU:
+    {
+        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            ViewerUAHMENU* menu = reinterpret_cast<ViewerUAHMENU*>(lParam);
+            PaintViewerMenuBar(HWindow, menu->hdc);
+            return 0;
+        }
+        break;
+    }
+
+    case WM_UAHDRAWMENUITEM:
+    {
+        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
+            return 0;
+        }
+        break;
+    }
+
     case WM_CREATE:
     {
         ViewerWindowQueue.Add(new CWindowQueueItem(HWindow));

@@ -19,6 +19,46 @@
 #include "find.h"
 #include "gui.h"
 #include "darkmode.h"
+#include <uxtheme.h>
+
+#ifndef DARKMODE_TRACE_CTLFLOW
+#define DARKMODE_TRACE_CTLFLOW 0
+#endif
+
+#if DARKMODE_TRACE_CTLFLOW
+static void DarkModeTracePageThemeEvent(const char* pageName, UINT uMsg)
+{
+    const char* msg = uMsg == WM_THEMECHANGED ? "WM_THEMECHANGED" : "WM_SETTINGCHANGE";
+    TRACE_I("[DARKMODE_TRACE] page=%s event=%s", pageName, msg);
+}
+#endif
+
+static bool DarkModeTryHandleCtlColorForDialogPage(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& outResult)
+{
+    if (uMsg != WM_CTLCOLORSTATIC && uMsg != WM_CTLCOLORBTN)
+        return false;
+
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        outResult = static_cast<INT_PTR>(brush);
+        return true;
+    }
+
+    if (!DarkModeShouldUseDarkColors())
+        return false;
+
+    HDC dc = reinterpret_cast<HDC>(wParam);
+    if (dc != NULL)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        SetTextColor(dc, colors.readableText);
+        SetBkColor(dc, colors.background);
+        SetBkMode(dc, TRANSPARENT);
+    }
+    outResult = reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+    return true;
+}
 
 //****************************************************************************
 //
@@ -844,6 +884,14 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_INITDIALOG:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == BN_CLICKED)
@@ -911,6 +959,15 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         if (IsSLGIncomplete[0] != 0)
@@ -922,6 +979,9 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CHyperLink* hl = new CHyperLink(HWindow, IDC_CFGREG_INCOMPLETE_URL);
             hl->SetActionOpen(IsSLGIncomplete);
         }
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
@@ -1298,6 +1358,15 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageView::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         CMyListView* listView = new CMyListView(HWindow, IDC_VIEW_LIST);
@@ -1359,6 +1428,9 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -1784,6 +1856,28 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageViewer::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         new CButton(HWindow, IDB_VIEWERFONT, BTF_RIGHTARROW);
@@ -1794,6 +1888,9 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -2241,6 +2338,28 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageUserMenu::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         RefreshGroupIconInUMItems();                                                          // if colors changed before first visiting the User Menu page and we did not receive WM_SYSCOLORCHANGE, handle it here
@@ -2256,6 +2375,9 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(1, IDL_MENUITEMS);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -2921,6 +3043,28 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CCfgPageHotPath::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, TRANSPARENT);
+            }
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_PAINT:
     {
         // Horrible mess - I need a message that arrives
@@ -2977,6 +3121,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
 
         DarkModeUpdateListViewColors(HListView);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
 
         break;
     }
@@ -3121,12 +3268,19 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_THEMECHANGED:
     {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageViewer", uMsg);
+#endif
         DarkModeUpdateListViewColors(HListView);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
         break;
     }
 
     case WM_SETTINGCHANGE:
     {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageViewer", uMsg);
+#endif
         if (DarkModeHandleSettingChange(uMsg, lParam))
             DarkModeUpdateListViewColors(HListView);
         break;
@@ -3190,13 +3344,66 @@ void CCfgPageSystem::EnableControls()
 INT_PTR
 CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    static const int kRecycleBinLabelIds[] = {
+        IDC_STATIC_1,
+        IDC_STATIC_2,
+        IDC_STATIC_3,
+        IDC_STATIC_4,
+        IDC_STATIC_5,
+        IDC_FILEMASK_HINT,
+        0};
+
+    auto applyRecycleBinLabelColors = [this]() {
+        for (int i = 0; kRecycleBinLabelIds[i] != 0; ++i)
+        {
+            HWND hCtrl = GetDlgItem(HWindow, kRecycleBinLabelIds[i]);
+            if (hCtrl != NULL)
+                DarkModeApplyStaticTextColors(HWindow, hCtrl);
+        }
+    };
+
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
+        DarkModeApplyTree(HWindow);
+        applyRecycleBinLabelColors();
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageSystem", uMsg);
+#endif
+        applyRecycleBinLabelColors();
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+#if DARKMODE_TRACE_CTLFLOW
+        DarkModeTracePageThemeEvent("CCfgPageSystem", uMsg);
+#endif
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            applyRecycleBinLabelColors();
+            InvalidateRect(HWindow, NULL, TRUE);
+        }
         break;
     }
 
@@ -3319,7 +3526,6 @@ CCfgPageColors::CCfgPageColors()
     HighlightMasks.Load(*SourceHighlightMasks);
 
     Dirty = FALSE;
-    SelectedSchemeId = -1;
 }
 
 void CCfgPageColors::Transfer(CTransferInfo& ti)
@@ -3333,8 +3539,8 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
 
         struct SchemeEntry
         {
-            int Id;
-            int TextResId;
+            int id;
+            int labelResId;
         };
         static const SchemeEntry schemes[] = {
             {0, IDS_COLORSCHEME_SALAMANDER},
@@ -3344,11 +3550,11 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             {5, IDS_COLORSCHEME_CUSTOM},
             {4, IDS_COLORSCHEME_WINDARK},
         };
-        for (size_t schemeIndex = 0; schemeIndex < _countof(schemes); schemeIndex++)
+        for (i = 0; i < (int)_countof(schemes); i++)
         {
-            int item = (int)SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[schemeIndex].TextResId));
-            if (item != CB_ERR)
-                SendMessage(HScheme, CB_SETITEMDATA, item, schemes[schemeIndex].Id);
+            int idx = (int)SendMessage(HScheme, CB_ADDSTRING, 0, (LPARAM)LoadStr(schemes[i].labelResId));
+            if (idx != CB_ERR)
+                SendMessage(HScheme, CB_SETITEMDATA, idx, schemes[i].id);
         }
 
         for (i = 0; i < PAGE7DATA_COUNT; i++)
@@ -3369,23 +3575,17 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
             schemeId = 2;
         else if (CurrentColors == NavigatorColors)
             schemeId = 3;
-
-        int selIndex = -1;
-        int itemCount = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
-        for (int item = 0; item < itemCount; item++)
+        int sel = 0;
+        int count = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
+        for (int j = 0; j < count; j++)
         {
-            int itemSchemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, item, 0);
-            if (itemSchemeId == schemeId)
+            if ((int)SendMessage(HScheme, CB_GETITEMDATA, j, 0) == schemeId)
             {
-                selIndex = item;
+                sel = j;
                 break;
             }
         }
-        if (selIndex == -1)
-            selIndex = 0;
-        SendMessage(HScheme, CB_SETCURSEL, selIndex, 0);
-        int selectedSchemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, selIndex, 0);
-        SelectedSchemeId = (selectedSchemeId == CB_ERR) ? schemeId : selectedSchemeId;
+        SendMessage(HScheme, CB_SETCURSEL, sel, 0);
         SendMessage(HItem, CB_SETCURSEL, 0, 0);
 
         // populate the highlight items list
@@ -3404,7 +3604,7 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
         int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
         if (schemeId == CB_ERR)
-            schemeId = SelectedSchemeId;
+            schemeId = 5;
         if (schemeId == 0)
             CurrentColors = SalamanderColors;
         else if (schemeId == 1)
@@ -3422,7 +3622,6 @@ void CCfgPageColors::Transfer(CTransferInfo& ti)
         }
 
         Configuration.UseWindowsDarkMode = (schemeId == 4);
-
         ColorsChanged(TRUE, TRUE, FALSE); // save time, change only color-dependent items, do not reload icons
 
         SourceHighlightMasks->Load(HighlightMasks);
@@ -3441,7 +3640,7 @@ void CCfgPageColors::LoadColors()
     int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
     int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
     if (schemeId == CB_ERR)
-        schemeId = SelectedSchemeId;
+        schemeId = 5;
     if (schemeId == 0)
         tmpColors = SalamanderColors;
     else if (schemeId == 1)
@@ -3579,22 +3778,6 @@ void CCfgPageColors::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDC_C_MASK5_C), validItem);
 }
 
-void CCfgPageColors::OnSchemeChanged()
-{
-    int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
-    if (index == CB_ERR)
-        return;
-
-    int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
-    if (schemeId == CB_ERR)
-        schemeId = SelectedSchemeId;
-
-    if (schemeId == 4 && SelectedSchemeId != 4)
-        WindowsDarkModeBuildPalette(reinterpret_cast<SALCOLOR*>(TmpColors), NULL);
-
-    SelectedSchemeId = schemeId;
-}
-
 void CCfgPageColors::Validate(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCfgPageColors::Validate()");
@@ -3626,11 +3809,36 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
     case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HWND ctrl = (HWND)lParam;
+            int ctrlID = ctrl != NULL ? GetDlgCtrlID(ctrl) : 0;
+            bool isTargetLabel = false;
+            for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
+            {
+                if (ctrlID == CConfigurationPage7Items[i] || ctrlID == CConfigurationPage7Masks[i])
+                {
+                    isTargetLabel = true;
+                    break;
+                }
+            }
+            if (isTargetLabel)
+            {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                if (dc != NULL)
+                {
+                    const DarkModeColors& colors = DarkModeGetColors();
+                    SetTextColor(dc, colors.readableText);
+                    SetBkColor(dc, colors.background);
+                    SetBkMode(dc, TRANSPARENT);
+                }
+                return reinterpret_cast<INT_PTR>(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE));
+            }
+        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -3672,19 +3880,25 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             StoreMasks();
         }
 
-        if (HIWORD(wParam) == CBN_SELCHANGE)
+        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME || LOWORD(wParam) == IDC_C_ITEM)
         {
-            if (LOWORD(wParam) == IDC_C_SCHEME)
+            if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME)
             {
-                OnSchemeChanged();
-                LoadColors();
-                break;
+                int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
+                int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+                if (schemeId == 4)
+                {
+                    EditLB->DeleteAllItems();
+                    WindowsDarkModeBuildPalette(TmpColors, NULL);
+                    WindowsDarkModeBuildHighlightMasks(&HighlightMasks);
+                    for (int i = 0; i < HighlightMasks.Count; i++)
+                        EditLB->AddItem((INT_PTR)HighlightMasks[i]);
+                    EditLB->SetCurSel(0);
+                    LoadMasks();
+                }
             }
-            if (LOWORD(wParam) == IDC_C_ITEM)
-            {
-                LoadColors();
-                break;
-            }
+            LoadColors();
+            break;
         }
         if (HIWORD(wParam) == LBN_SELCHANGE && LOWORD(wParam) == IDC_C_LIST)
         {
@@ -3734,7 +3948,7 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
                 int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
                 if (schemeId == CB_ERR)
-                    schemeId = SelectedSchemeId;
+                    schemeId = 5;
                 if (schemeId == 0)
                     tmpColors = SalamanderColors;
                 else if (schemeId == 1)
@@ -3903,13 +4117,12 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
                     int i;
                     for (i = 0; i < NUMBER_OF_COLORS; i++)
                         TmpColors[i] = colors[i];
-                    int itemCount = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
-                    for (int item = 0; item < itemCount; item++)
+                    int count = (int)SendMessage(HScheme, CB_GETCOUNT, 0, 0);
+                    for (int j = 0; j < count; j++)
                     {
-                        if ((int)SendMessage(HScheme, CB_GETITEMDATA, item, 0) == 5)
+                        if ((int)SendMessage(HScheme, CB_GETITEMDATA, j, 0) == 5)
                         {
-                            SendMessage(HScheme, CB_SETCURSEL, item, 0);
-                            SelectedSchemeId = 5;
+                            SendMessage(HScheme, CB_SETCURSEL, j, 0);
                             break;
                         }
                     }

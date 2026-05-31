@@ -1082,8 +1082,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             return -1;
         }
 
-        // we do not want visual styles for the rebar in light mode
-        if (!DarkModeShouldUseDarkColors())
+        // explicit rebar theme selection for both modes
+        if (DarkModeShouldUseDarkColors())
+            SetWindowTheme(HTopRebar, L"DarkMode_Explorer", nullptr);
+        else
             SetWindowTheme(HTopRebar, (L" "), (L" "));
 
         DarkModeApplyWindow(HTopRebar);

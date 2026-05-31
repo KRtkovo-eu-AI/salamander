@@ -79,7 +79,52 @@ void ApplyTreeViewColors(HWND treeView)
             SetWindowTheme(treeView, L"explorer", NULL);
     }
 
-    InvalidateRect(treeView, NULL, TRUE);
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+}
+
+BOOL CALLBACK RedrawWindowTreeProc(HWND hwnd, LPARAM)
+{
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    return TRUE;
+}
+
+void RedrawWindowTree(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    EnumChildWindows(hwnd, RedrawWindowTreeProc, 0);
+}
+
+
+bool IsChoiceButton(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+
+    const LONG_PTR type = GetWindowLongPtr(hwnd, GWL_STYLE) & BS_TYPEMASK;
+    return type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+           type == BS_AUTO3STATE || type == BS_3STATE ||
+           type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
+}
+
+void RedrawChoiceButtonAfterClick(HWND ctrl)
+{
+    if (!IsChoiceButton(ctrl))
+        return;
+
+    // Some themed/light Configuration pages can defer repainting checkbox/radio
+    // glyph changes until the page is otherwise invalidated (for example by a
+    // resize).  Force the clicked control through erase+paint immediately, while
+    // leaving normal command processing untouched.
+    RedrawWindow(ctrl, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+    HWND parent = GetParent(ctrl);
+    if (parent != NULL)
+        InvalidateRect(parent, NULL, FALSE);
 }
 } // namespace
 
@@ -360,6 +405,13 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_COMMAND:
+    {
+        if (HIWORD(wParam) == BN_CLICKED)
+            RedrawChoiceButtonAfterClick(reinterpret_cast<HWND>(lParam));
+        break;
+    }
+
     case WM_HELP:
     {
         if (WinLibHelp != NULL && HelpID != -1)
@@ -598,6 +650,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_IDC_CAPTION 3
 #define _TPD_IDC_RECT 4
 #define _TPD_IDC_OK 5
+#define _TPD_WM_POST_INIT_REDRAW (WM_APP + 0x3A7)
 // dimensions in dialog units
 #define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
 #define _TPD_TOPMARGIN 4   // TreeView and caption top margin
@@ -860,7 +913,33 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         TPD->DialogProc(uMsg, wParam, lParam); // forward messages
 
+        // The first selected page can finish creating before the holder has its
+        // final position/size. Queue one repaint after WM_INITDIALOG returns so
+        // light-scheme controls are painted immediately instead of appearing only
+        // after the window is moved.
+        PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+
         break;
+    }
+
+    case WM_SHOWWINDOW:
+    {
+        if (wParam)
+            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+        break;
+    }
+
+    case _TPD_WM_POST_INIT_REDRAW:
+    {
+        ApplyTreeViewColors(HTreeView);
+        LayoutControls();
+        if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
+        {
+            ShowWindow(ChildDialog->HWindow, SW_SHOW);
+            RedrawWindowTree(ChildDialog->HWindow);
+        }
+        RedrawWindowTree(HWindow);
+        return TRUE;
     }
 
     case WM_HELP:
@@ -1150,7 +1229,8 @@ void CTreePropHolderDlg::LayoutControls()
         // hack: TreeView/common controls apparently have a bug: if a scrollbar appears because of the content,
         // the selected item is not redrawn, so it gets clipped on the right; this may be related to full-row
         // selection and the Aero look; in any case, repainting under W7 does not flicker, so we can probably afford it
-        InvalidateRect(HTreeView, NULL, false);
+        RedrawWindowTree(HTreeView);
+        RedrawWindowTree(HWindow);
     }
 }
 
@@ -1231,6 +1311,8 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
                      ChildDialogRect.right - ChildDialogRect.left,
                      ChildDialogRect.bottom - ChildDialogRect.top,
                      SWP_SHOWWINDOW);
+        RedrawWindowTree(ChildDialog->HWindow);
+        RedrawWindowTree(HWindow);
         CurrentPageIndex = pageIndex;
         EnableButtons();
     }
