@@ -125,6 +125,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\shared\lukas\messages.cpp">
     </ClCompile>
     <ClCompile Include="..\..\shared\lukas\str.cpp">
@@ -194,6 +196,8 @@
     <ClInclude Include="..\..\shared\auxtools.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\dbg.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\plugindarkmode.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\lukas\diff.h">
     </ClInclude>

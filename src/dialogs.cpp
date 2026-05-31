@@ -1486,6 +1486,34 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         break;
     }
 
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            if (dc != NULL)
+            {
+                const COLORREF background = DarkModeGetDialogBackgroundColor();
+                const COLORREF text = DarkModeGetColors().readableText;
+                SetTextColor(dc, text);
+                SetBkColor(dc, background);
+                SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
+            }
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+
+        if (handled)
+            return brush;
+        break;
+    }
+
     case WM_DESTROY:
     {
         if (TimerIsRunning)
@@ -1552,6 +1580,29 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CFileErrorDlg::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
+            }
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+        break;
+    }
+
     case WM_INITDIALOG:
     {
         SetWindowText(HWindow, Caption);
@@ -1566,6 +1617,9 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             new CButton(HWindow, IDB_IGNORE, BTF_DROPDOWN);
 
         SetWindowText(GetDlgItem(HWindow, IDS_ERROR), Error);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
@@ -1681,6 +1735,9 @@ COverwriteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SetWindowText(GetDlgItem(HWindow, IDS_SOURCEATTR), SourceAttr);
         SetWindowText(GetDlgItem(HWindow, IDS_TARGETATTR), TargetAttr);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
@@ -1696,6 +1753,34 @@ COverwriteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DestroyWindow(HWindow);
             return TRUE;
         }
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            if (dc != NULL)
+            {
+                const COLORREF background = DarkModeGetColors().background;
+                const COLORREF text = DarkModeGetColors().readableText;
+                SetTextColor(dc, text);
+                SetBkColor(dc, background);
+                SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
+            }
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+
+        if (handled)
+            return brush;
         break;
     }
     }
@@ -1733,6 +1818,9 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E(LOW_MEMORY);
 
         SetWindowText(GetDlgItem(HWindow, IDS_ERROR), Error);
+        DarkModeApplyTree(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
         break;
     }
 
@@ -1747,6 +1835,34 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DestroyWindow(HWindow);
             return TRUE;
         }
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+            if (dc != NULL)
+            {
+                const COLORREF background = DarkModeGetColors().background;
+                const COLORREF text = DarkModeGetColors().readableText;
+                SetTextColor(dc, text);
+                SetBkColor(dc, background);
+                SetBkMode(dc, uMsg == WM_CTLCOLOREDIT ? OPAQUE : TRANSPARENT);
+            }
+            return reinterpret_cast<INT_PTR>(dialogBrush);
+        }
+
+        if (handled)
+            return brush;
         break;
     }
     }

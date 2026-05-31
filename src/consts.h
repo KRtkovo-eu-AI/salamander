@@ -1311,7 +1311,9 @@ extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standard colors
 
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // viewer colors
 
+class CHighlightMasks;
 void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
+void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks);
 
 extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // for the standard color dialog
 
@@ -1840,7 +1842,6 @@ BOOL ExportConfiguration(HWND hParent, const char* fileName, BOOL clearKeyBefore
 BOOL ImportConfiguration(HWND hParent, const char* fileName, BOOL ignoreIfNotExists,
                          BOOL autoImportConfig, BOOL* importCfgFromFileWasSkipped);
 
-class CHighlightMasks;
 void UpdateDefaultColors(SALCOLOR* colors, CHighlightMasks* highlightMasks, BOOL processColors, BOOL processMasks);
 
 extern BOOL ImageDragging;                                                // an image is being dragged

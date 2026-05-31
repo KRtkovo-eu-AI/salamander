@@ -33,6 +33,7 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
+#include "plugindarkmode.h"
 
 #include "renamer.rh"
 #include "renamer.rh2"

@@ -73,6 +73,9 @@
     <ClCompile Include="..\..\shared\dbg.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
       <Filter>common</Filter>
     </ClCompile>
@@ -121,6 +124,9 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\dbg.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\shared\plugindarkmode.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_base.h">

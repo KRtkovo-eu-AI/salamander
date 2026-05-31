@@ -62,11 +62,8 @@ void CPluginsDlg::ApplyTheme()
     DarkModeRefreshTitleBar(HWindow);
 
     const bool useDark = ShouldUsePluginsDarkPalette();
-    const COLORREF paletteText = DarkModeGetDialogTextColor();
-    const COLORREF paletteBackground = DarkModeGetDialogBackgroundColor();
-    const COLORREF text = useDark ? DarkModeEnsureReadableForeground(paletteText, paletteBackground)
-                                  : GetSysColor(COLOR_WINDOWTEXT);
-    const COLORREF background = useDark ? paletteBackground : GetSysColor(COLOR_WINDOW);
+    const COLORREF text = useDark ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF background = useDark ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
 
     DarkModeUpdateListViewColors(HListView, text, background, useDark);
 
@@ -962,6 +959,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+        DARKMODE_RETURN_IF_HANDLED(handled, brush);
 
         if (ShouldUsePluginsDarkPalette())
         {
@@ -974,9 +972,8 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
                     if (dc == NULL)
                         return reinterpret_cast<LRESULT>(dialogBrush);
-                    const COLORREF paletteText = DarkModeGetDialogTextColor();
-                    const COLORREF background = DarkModeGetDialogBackgroundColor();
-                    const COLORREF text = DarkModeEnsureReadableForeground(paletteText, background);
+                    const COLORREF background = DarkModeGetColors().background;
+                    const COLORREF text = DarkModeGetColors().readableText;
                     SetTextColor(dc, text);
                     SetBkColor(dc, background);
                     SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);
@@ -1011,6 +1008,7 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyTheme();
+        DarkModeApplyStaticTextColors(HWindow, NULL);
         break;
     }
 
