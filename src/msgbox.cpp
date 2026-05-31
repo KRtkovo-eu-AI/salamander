@@ -1052,13 +1052,20 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int resID = GetWindowLong(hwndStatic, GWL_ID);
             if (resID == IDI_MSGBOX_ICON || resID == IDS_MSGBOX_TEXT || resID == IDS_MSGBOX_URL)
             {
-                const DarkModeColors& dmColors = DarkModeGetColors();
-                COLORREF textClr = dmColors.readableText;
-                COLORREF bgClr = dmColors.background;
-                SetTextColor(hdcStatic, textClr);
-                SetBkColor(hdcStatic, bgClr);
-                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-                return (INT_PTR)dialogBrush;
+                if (DarkModeShouldUseDarkColors())
+                {
+                    const DarkModeColors& dmColors = DarkModeGetColors();
+                    COLORREF textClr = dmColors.readableText;
+                    COLORREF bgClr = dmColors.background;
+                    SetTextColor(hdcStatic, textClr);
+                    SetBkColor(hdcStatic, bgClr);
+                    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                    return (INT_PTR)dialogBrush;
+                }
+
+                SetTextColor(hdcStatic, GetSysColor(COLOR_WINDOWTEXT));
+                SetBkColor(hdcStatic, GetSysColor(COLOR_WINDOW));
+                return (INT_PTR)GetSysColorBrush(COLOR_WINDOW);
             }
             if (handled)
                 return brush;
