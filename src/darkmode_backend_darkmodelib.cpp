@@ -12,6 +12,69 @@
 
 namespace DarkModeBackendDarkModelib
 {
+
+#if USE_DARKMODELIB
+static void RemoveControlSubclass(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    wchar_t className[64] = {0};
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return;
+
+    if (lstrcmpiW(className, L"Button") == 0)
+    {
+        dmlib::removeCheckboxOrRadioBtnCtrlSubclass(hwnd);
+        dmlib::removeGroupboxCtrlSubclass(hwnd);
+    }
+    else if (lstrcmpiW(className, L"Static") == 0)
+        dmlib::removeStaticTextCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"ComboBox") == 0)
+        dmlib::removeComboBoxCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"ComboBoxEx32") == 0)
+        dmlib::removeComboBoxExCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"Edit") == 0 || lstrcmpiW(className, L"ListBox") == 0)
+        dmlib::removeCustomBorderForListBoxOrEditCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysListView32") == 0)
+        dmlib::removeListViewCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysHeader32") == 0)
+        dmlib::removeHeaderCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_updown32") == 0)
+        dmlib::removeUpDownCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysTabControl32") == 0)
+        dmlib::removeTabCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_statusbar32") == 0)
+        dmlib::removeStatusBarCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_progress32") == 0)
+        dmlib::removeProgressBarCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysIPAddress32") == 0)
+        dmlib::removeIPAddressCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_hotkey32") == 0)
+        dmlib::removeHotKeyCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysDateTimePick32") == 0)
+        dmlib::removeDTPCtrlSubclass(hwnd);
+
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
+static BOOL CALLBACK RemoveControlSubclassProc(HWND hwnd, LPARAM)
+{
+    RemoveControlSubclass(hwnd);
+    return TRUE;
+}
+
+static void RemoveWindowAndChildSubclasses(HWND hwnd)
+{
+    dmlib::removeWindowCtlColorSubclass(hwnd);
+    dmlib::removeWindowNotifyCustomDrawSubclass(hwnd);
+    dmlib::removeWindowSettingChangeSubclass(hwnd);
+    dmlib::removeWindowEraseBgSubclass(hwnd);
+    dmlib::removeWindowMenuBarSubclass(hwnd);
+    EnumChildWindows(hwnd, RemoveControlSubclassProc, 0);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+#endif
 static COLORREF EnsureReadableForBackground(COLORREF text, COLORREF background)
 {
     const int bgLum = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
@@ -46,8 +109,16 @@ void ApplyTree(HWND hwnd)
         const bool dark = DarkMode_ShouldUseDark() != FALSE;
         dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::light));
         dmlib::setDefaultColors(true);
-        dmlib::setDarkWndNotifySafe(hwnd);
-        dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+        if (dark)
+        {
+            dmlib::setDarkWndNotifySafe(hwnd);
+            dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+        }
+        else
+        {
+            RemoveWindowAndChildSubclasses(hwnd);
+            dmlib::setChildCtrlsTheme(hwnd);
+        }
         dmlib::setDarkTitleBar(hwnd, dark);
     }
 #else

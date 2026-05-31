@@ -722,8 +722,8 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
         if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysTreeView32") == 0)
         {
             gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
-            const COLORREF bg = DarkModeGetColors().background;
-            const COLORREF fg = DarkModeGetColors().readableText;
+            const COLORREF bg = wantDark ? DarkModeGetColors().background : CLR_DEFAULT;
+            const COLORREF fg = wantDark ? DarkModeGetColors().readableText : CLR_DEFAULT;
             if (wcscmp(className, L"SysListView32") == 0)
             {
                 ListView_SetTextColor(hwnd, fg);
