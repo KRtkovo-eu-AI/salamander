@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "..\\shared\\plugindarkmode.h"
 
 #include "data.h"
 #include "renderer.h"
@@ -782,6 +783,19 @@ CColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SYSCOLORCHANGE:
         ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
         break;
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
+        break;
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
 
     case WM_SIZE:
         RecalcLayout(LOWORD(lParam), HIWORD(lParam));

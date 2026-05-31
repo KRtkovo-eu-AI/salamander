@@ -3,6 +3,7 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "..\\shared\\plugindarkmode.h"
 
 //
 // ****************************************************************************
@@ -37,6 +38,7 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
         BOOL preventSystemFromSettingFocus = FALSE;
         GetDlgItemText(HWindow, IDB_PAUSERESUME, PauseButtonPauseText, 50);
         GetDlgItemText(HWindow, IDB_OPCONSPAUSERESUME, ConPauseButtonPauseText, 50);
@@ -1048,6 +1050,13 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
+        break;
+    }
+
     case WM_QUERYDRAGICON:
         return (BOOL)(INT_PTR)FTPOperIconBig; // probably unnecessary
 
@@ -1066,7 +1075,19 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_CTLCOLORBTN:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
     {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+
+        if (uMsg != WM_CTLCOLORBTN)
+            break;
+
         if (GetForegroundWindow() == HWindow)
         {
             HWND lastFocus = GetFocus();

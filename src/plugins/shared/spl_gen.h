@@ -442,6 +442,7 @@ struct CSalamanderPluginInternalViewerData : public CSalamanderPluginViewerData
 #define SALCFG_SORTBYEXTDIRSASFILES 19   // BOOL, should it treat dirs as files when sorting by extension? BTW, if TRUE, directories extensions are also displayed in separated Ext column. (directories have no extensions, only files have extensions, but many people have requested sort by extension and displaying extension in separated Ext column even for directories)
 #define SALCFG_SIZEFORMAT 20             // INT, units for custom size columns, 0 - Bytes, 1 - KB, 2 - short (mixed B, KB, MB, GB, ...)
 #define SALCFG_SELECTWHOLENAME 21        // BOOL, should be whole name selected (including extension) when entering new filename? (for dialog boxes F2:QuickRename, Alt+F5:Pack, etc)
+#define SALCFG_USEWINDOWSDARKMODE 22      // BOOL, is the Windows Dark Mode color scheme selected?
 // recycle bin parameters
 #define SALCFG_USERECYCLEBIN 50   // INT, 0 - do not use, 1 - use for all, 2 - use for files matching at \
                                   //      least one of masks (see SALCFG_RECYCLEBINMASKS)

@@ -16,6 +16,29 @@
 #define MENUBAR_LR_MARGIN 8 // number of points before and after the text, including the vertical line
 #define MENUBAR_TB_MARGIN 4 // number of points above and below the text, including the horizontal line
 
+static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
+
+static COLORREF GetMenuBarBkColor(BOOL hot)
+{
+    if (!DarkMode_ShouldUseDark())
+        return GetSysColor(hot ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
+    return hot ? RGB(62, 62, 64) : RGB(32, 32, 32);
+}
+
+static COLORREF GetMenuBarTextColor(BOOL hot)
+{
+    if (!DarkMode_ShouldUseDark())
+        return GetSysColor(hot ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT);
+    return hot ? RGB(245, 245, 245) : RGB(232, 232, 232);
+}
+
 CMenuBar::CMenuBar(CMenuPopup* menu, HWND hNotifyWindow, CObjectOrigin origin)
     : CWindow(origin)
 {
@@ -87,6 +110,8 @@ BOOL CMenuBar::CreateWnd(HWND hParent)
         return FALSE;
     }
     RefreshMinWidths();
+    InvalidateRect(HWindow, NULL, TRUE);
+    UpdateWindow(HWindow);
     return TRUE;
 }
 
@@ -110,6 +135,11 @@ void CMenuBar::SetFont()
     SelectObject(hDC, hOldFont);
     HANDLES(ReleaseDC(NULL, hDC));
     RefreshMinWidths();
+    if (HWindow != NULL)
+    {
+        InvalidateRect(HWindow, NULL, TRUE);
+        UpdateWindow(HWindow);
+    }
 }
 
 int CMenuBar::GetNeededWidth()
@@ -245,7 +275,7 @@ void CMenuBar::DrawAllItems(HDC hDC)
     RECT r;
     GetClientRect(HWindow, &r);
     r.left = x;
-    FillRect((HDC)hDC, &r, HDialogBrush);
+    FillRectWithColor(hDC, &r, GetMenuBarBkColor(FALSE));
 }
 
 void CMenuBar::RefreshMinWidths()
@@ -837,7 +867,7 @@ CMenuBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect((HDC)wParam, &r, HDialogBrush);
+        FillRectWithColor((HDC)wParam, &r, GetMenuBarBkColor(FALSE));
         return TRUE;
     }
 

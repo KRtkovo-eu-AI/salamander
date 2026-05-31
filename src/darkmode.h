@@ -5,6 +5,14 @@
 
 #include <windows.h>
 
+struct DarkModeColors
+{
+    COLORREF text;
+    COLORREF background;
+    COLORREF readableText;
+    bool usingSchemeColors;
+};
+
 // Initializes the dark mode helpers. Safe to call multiple times.
 bool DarkModeInitialize();
 
@@ -16,6 +24,8 @@ void DarkModeSetEnabled(bool enabled);
 
 // Returns true if dark colors should currently be used.
 bool DarkModeShouldUseDarkColors();
+// Compatibility helper used by legacy call sites.
+BOOL DarkMode_ShouldUseDark();
 
 // Applies dark mode opt-in for the specified window (and keeps the opt-in
 // flag in sync when toggling the configuration).
@@ -37,10 +47,27 @@ void DarkModeFixScrollbars();
 
 // Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
 void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
+void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
+                                 COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor);
+const DarkModeColors& DarkModeGetColors();
 
 // Handles WM_CTLCOLOR* messages for dark mode aware parents. Returns true when
 // a dark brush was supplied and the caller should stop default processing.
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
+
+#if USE_DARKMODELIB
+#define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
+    do                                                    \
+    {                                                     \
+        if (handled)                                      \
+            return (brushResult);                         \
+    } while (0)
+#else
+#define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
+    do                                                    \
+    {                                                     \
+    } while (0)
+#endif
 
 // Returns a shared brush used for drawing dark-mode panel frames and borders.
 HBRUSH DarkModeGetPanelFrameBrush();
@@ -49,4 +76,4 @@ COLORREF DarkModeGetDialogBackgroundColor();
 COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
-
+void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);

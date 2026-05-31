@@ -583,21 +583,30 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
         else
         {
             COLORREF bkColor;
+            const bool useDark = DarkModeShouldUseDarkColors();
+            const DarkModeColors& darkColors = DarkModeGetColors();
             if (lpdis->itemState & ODS_SELECTED)
             {
                 if (lpdis->itemState & ODS_FOCUS)
-                    bkColor = COLOR_HIGHLIGHT;
+                    bkColor = useDark ? darkColors.background : COLOR_HIGHLIGHT;
                 else
-                    bkColor = COLOR_3DFACE;
+                    bkColor = useDark ? darkColors.background : COLOR_3DFACE;
             }
             else
-                bkColor = COLOR_WINDOW;
+                bkColor = useDark ? darkColors.background : COLOR_WINDOW;
 
             RECT itemRect = lpdis->rcItem;
             if (Flags & ELB_SHOWICON)
                 itemRect.left += IconSizes[ICONSIZE_16];
 
-            FillRect(lpdis->hDC, &itemRect, (HBRUSH)(UINT_PTR)(bkColor + 1));
+            if (useDark)
+            {
+                HBRUSH hBrush = HANDLES(CreateSolidBrush(bkColor));
+                FillRect(lpdis->hDC, &itemRect, hBrush);
+                HANDLES(DeleteObject(hBrush));
+            }
+            else
+                FillRect(lpdis->hDC, &itemRect, (HBRUSH)(UINT_PTR)(bkColor + 1));
             INT_PTR itemID = (INT_PTR)SendMessage(HWindow, LB_GETITEMDATA, lpdis->itemID, 0);
             if (itemID == -1)
             {
@@ -614,12 +623,12 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                 dtp.cbSize = sizeof(dtp);
                 dtp.iLeftMargin = dtp.iRightMargin = 4;
                 int oldBkMode = SetBkMode(lpdis->hDC, TRANSPARENT);
-                int color;
+                COLORREF textColor;
                 if (lpdis->itemState & ODS_SELECTED && lpdis->itemState & ODS_FOCUS)
-                    color = COLOR_HIGHLIGHTTEXT;
+                    textColor = useDark ? darkColors.readableText : GetSysColor(COLOR_HIGHLIGHTTEXT);
                 else
-                    color = COLOR_WINDOWTEXT;
-                int oldColor = SetTextColor(lpdis->hDC, GetSysColor(color));
+                    textColor = useDark ? darkColors.readableText : GetSysColor(COLOR_WINDOWTEXT);
+                int oldColor = SetTextColor(lpdis->hDC, textColor);
                 DispInfo.ToDo = edtlbGetData;
                 DispInfo.ItemID = itemID;
                 DispInfo.Index = lpdis->itemID;
@@ -637,7 +646,7 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                         // If a brush is passed to DrawIconEx as (HBRUSH)(COLOR_WINDOW + 1),
                         // under NT 4.0 US with 256 colors a black spot appears in the background;
                         // this patch fixes the problem.
-                        HBRUSH hBrush = HANDLES(CreateSolidBrush(GetSysColor(COLOR_WINDOW)));
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(useDark ? darkColors.background : GetSysColor(COLOR_WINDOW)));
                         int iconSize = IconSizes[ICONSIZE_16];
                         DrawIconEx(lpdis->hDC, lpdis->rcItem.left + 1, lpdis->rcItem.top + 1,
                                    DispInfo.HIcon, iconSize, iconSize, 0, hBrush /*(HBRUSH)(COLOR_WINDOW + 1)*/, DI_NORMAL);
@@ -648,7 +657,14 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                         // must clear the background
                         RECT r = lpdis->rcItem;
                         r.right = IconSizes[ICONSIZE_16] + 2;
-                        FillRect(lpdis->hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
+                        if (useDark)
+                        {
+                            HBRUSH hBrush = HANDLES(CreateSolidBrush(darkColors.background));
+                            FillRect(lpdis->hDC, &r, hBrush);
+                            HANDLES(DeleteObject(hBrush));
+                        }
+                        else
+                            FillRect(lpdis->hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
                     }
                 }
 

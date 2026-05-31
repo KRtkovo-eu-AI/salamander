@@ -487,6 +487,7 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
     }
     return FALSE;
 }

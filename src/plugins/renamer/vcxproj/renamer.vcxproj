@@ -127,6 +127,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\lukas\str.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
     </ClCompile>
     <ClCompile Include="..\crename2.cpp">
@@ -172,6 +174,8 @@
     <ClInclude Include="..\..\shared\dbg.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\lukas\str.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\plugindarkmode.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_base.h">
     </ClInclude>

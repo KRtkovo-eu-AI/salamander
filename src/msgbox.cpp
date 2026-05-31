@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1014,7 +1014,6 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int ySeparator = BackgroundSeparator;
             const bool useDark = DarkModeShouldUseDarkColors();
             r.bottom = ySeparator;
-            FillRect(hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
             if (useDark)
             {
                 HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
@@ -1028,7 +1027,6 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             FillRect(hDC, &r, useDark ? (HBRUSH)(COLOR_BTNSHADOW + 1) : (HBRUSH)(COLOR_3DLIGHT + 1));
             r = rOrig;
             r.top = ySeparator + 1;
-            FillRect(hDC, &r, (HBRUSH)(COLOR_BTNFACE + 1));
             if (useDark)
             {
                 HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
@@ -1047,19 +1045,30 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WindowsVistaAndLater)
         {
             LRESULT brush = 0;
-            DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+            const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+            DARKMODE_RETURN_IF_HANDLED(handled, brush);
             HDC hdcStatic = (HDC)wParam;
             HWND hwndStatic = (HWND)lParam;
             int resID = GetWindowLong(hwndStatic, GWL_ID);
             if (resID == IDI_MSGBOX_ICON || resID == IDS_MSGBOX_TEXT || resID == IDS_MSGBOX_URL)
             {
-                COLORREF textClr = DarkModeGetDialogTextColor();
-                COLORREF bgClr = DarkModeGetDialogBackgroundColor();
-                SetTextColor(hdcStatic, textClr);
-                SetBkColor(hdcStatic, bgClr);
-                HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-                return (INT_PTR)dialogBrush;
+                if (DarkModeShouldUseDarkColors())
+                {
+                    const DarkModeColors& dmColors = DarkModeGetColors();
+                    COLORREF textClr = dmColors.readableText;
+                    COLORREF bgClr = dmColors.background;
+                    SetTextColor(hdcStatic, textClr);
+                    SetBkColor(hdcStatic, bgClr);
+                    HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
+                    return (INT_PTR)dialogBrush;
+                }
+
+                SetTextColor(hdcStatic, GetSysColor(COLOR_WINDOWTEXT));
+                SetBkColor(hdcStatic, GetSysColor(COLOR_WINDOW));
+                return (INT_PTR)GetSysColorBrush(COLOR_WINDOW);
             }
+            if (handled)
+                return brush;
             break;
         }
         else
