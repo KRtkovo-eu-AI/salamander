@@ -211,12 +211,45 @@ void ApplyStaticTextColors(HWND hwndParent, HWND specificCtrl, const DarkModeCol
 void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)
 {
 #if USE_DARKMODELIB
-    (void)applyHeaderColors;
     if (listView != NULL)
     {
         ListView_SetTextColor(listView, textColor);
         ListView_SetTextBkColor(listView, backgroundColor);
         ListView_SetBkColor(listView, backgroundColor);
+
+        if (applyHeaderColors && DarkMode_ShouldUseDark())
+        {
+            const COLORREF headerBackground = RGB(0x20, 0x20, 0x20);
+            const COLORREF headerEdge = RGB(0x4A, 0x4A, 0x4A);
+            dmlib::setViewBackgroundColor(backgroundColor);
+            dmlib::setViewTextColor(textColor);
+            dmlib::setHeaderBackgroundColor(headerBackground);
+            dmlib::setHeaderHotBackgroundColor(RGB(0x2A, 0x2A, 0x2A));
+            dmlib::setHeaderTextColor(textColor);
+            dmlib::setHeaderEdgeColor(headerEdge);
+            dmlib::updateViewBrushesAndPens();
+            dmlib::setDarkListView(listView);
+            dmlib::setDarkListViewCheckboxes(listView);
+            dmlib::setListViewCtrlSubclass(listView);
+
+            HWND header = ListView_GetHeader(listView);
+            if (header != NULL)
+            {
+                dmlib::setHeaderCtrlSubclass(header);
+                InvalidateRect(header, NULL, TRUE);
+            }
+        }
+        else
+        {
+            dmlib::removeListViewCtrlSubclass(listView);
+            HWND header = ListView_GetHeader(listView);
+            if (header != NULL)
+            {
+                dmlib::removeHeaderCtrlSubclass(header);
+                InvalidateRect(header, NULL, TRUE);
+            }
+        }
+
         InvalidateRect(listView, NULL, TRUE);
     }
 #else

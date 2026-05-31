@@ -260,6 +260,8 @@ static bool gPropagatingThemeChange = false;
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
 const wchar_t* kDarkModeClassicButtonProp = L"Salamander.DarkMode.ClassicButton";
 
+bool ShouldUseDarkColorsForSurfaces();
+
 bool ControlHasCaptionButton(HWND hwnd)
 {
     if (hwnd == NULL)
@@ -490,6 +492,247 @@ void EnsureDarkChoiceButtonSubclass(HWND hwnd, bool enableDark)
     }
 }
 
+#if !USE_DARKMODELIB
+constexpr UINT_PTR kDarkModeHeaderSubclassId = 0x44524844;    // "DRHD"
+constexpr UINT_PTR kDarkModeStatusBarSubclassId = 0x44525342; // "DRSB"
+
+void PaintDarkHeaderControl(HWND hwnd, HDC hdc)
+{
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const DarkModeColors& colors = DarkModeGetColors();
+    FillRectWithColor(hdc, client, RGB(0x20, 0x20, 0x20));
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    COLORREF oldText = SetTextColor(hdc, colors.readableText);
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    const int count = Header_GetItemCount(hwnd);
+    for (int i = 0; i < count; ++i)
+    {
+        RECT itemRect;
+        if (!Header_GetItemRect(hwnd, i, &itemRect))
+            continue;
+
+        char text[256];
+        text[0] = 0;
+        HDITEM item;
+        memset(&item, 0, sizeof(item));
+        item.mask = HDI_TEXT | HDI_FORMAT;
+        item.pszText = text;
+        item.cchTextMax = _countof(text);
+        Header_GetItem(hwnd, i, &item);
+
+        RECT textRect = itemRect;
+        textRect.left += 5;
+        textRect.right -= 5;
+        UINT format = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS;
+        if ((item.fmt & HDF_RIGHT) != 0)
+            format |= DT_RIGHT;
+        else if ((item.fmt & HDF_CENTER) != 0)
+            format |= DT_CENTER;
+        else
+            format |= DT_LEFT;
+        DrawText(hdc, text, -1, &textRect, format);
+
+        RECT line = itemRect;
+        line.left = line.right - 1;
+        FillRectWithColor(hdc, line, RGB(0x4A, 0x4A, 0x4A));
+    }
+
+    RECT bottom = client;
+    bottom.top = bottom.bottom - 1;
+    FillRectWithColor(hdc, bottom, RGB(0x4A, 0x4A, 0x4A));
+
+    SetBkMode(hdc, oldBkMode);
+    SetTextColor(hdc, oldText);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+LRESULT CALLBACK DarkHeaderSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                    UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkHeaderSubclass, kDarkModeHeaderSubclassId);
+        break;
+
+    case WM_ERASEBKGND:
+        return ShouldUseDarkColorsForSurfaces() ? TRUE : DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    case WM_PAINT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            if (hdc != NULL)
+                PaintDarkHeaderControl(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PaintDarkHeaderControl(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case WM_THEMECHANGED:
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsureDarkHeaderSubclass(HWND hwnd, bool enableDark)
+{
+    if (hwnd == NULL)
+        return;
+
+    if (enableDark)
+        SetWindowSubclass(hwnd, DarkHeaderSubclass, kDarkModeHeaderSubclassId, 0);
+    else
+        RemoveWindowSubclass(hwnd, DarkHeaderSubclass, kDarkModeHeaderSubclassId);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
+void PaintDarkStatusBar(HWND hwnd, HDC hdc)
+{
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const DarkModeColors& colors = DarkModeGetColors();
+    FillRectWithColor(hdc, client, colors.background);
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    COLORREF oldText = SetTextColor(hdc, colors.readableText);
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    int borders[3] = {0, 0, 0};
+    SendMessage(hwnd, SB_GETBORDERS, 0, reinterpret_cast<LPARAM>(borders));
+    const int partCount = static_cast<int>(SendMessage(hwnd, SB_GETPARTS, 0, 0));
+    const int count = partCount > 0 ? partCount : 1;
+
+    for (int i = 0; i < count; ++i)
+    {
+        RECT part = client;
+        if (partCount > 0)
+            SendMessage(hwnd, SB_GETRECT, i, reinterpret_cast<LPARAM>(&part));
+
+        if (i + 1 < count)
+        {
+            RECT edge = part;
+            edge.left = edge.right - max(1, borders[2]);
+            FillRectWithColor(hdc, edge, RGB(0x4A, 0x4A, 0x4A));
+        }
+
+        part.left += borders[2] + 2;
+        part.right -= borders[0] + 2;
+
+        const LRESULT textLen = SendMessage(hwnd, SB_GETTEXTLENGTH, i, 0);
+        const DWORD flags = HIWORD(textLen);
+        const int len = min(static_cast<int>(LOWORD(textLen)), 1023);
+        TCHAR text[1024];
+        text[0] = 0;
+        const LRESULT itemData = SendMessage(hwnd, SB_GETTEXT, i, reinterpret_cast<LPARAM>(text));
+
+        if ((flags & SBT_OWNERDRAW) != 0 && len == 0)
+        {
+            const UINT id = static_cast<UINT>(GetDlgCtrlID(hwnd));
+            DRAWITEMSTRUCT dis = {0};
+            dis.CtlType = ODT_STATIC;
+            dis.CtlID = id;
+            dis.itemID = static_cast<UINT>(i);
+            dis.itemAction = ODA_DRAWENTIRE;
+            dis.hwndItem = hwnd;
+            dis.hDC = hdc;
+            dis.rcItem = part;
+            dis.itemData = static_cast<ULONG_PTR>(itemData);
+            SendMessage(GetParent(hwnd), WM_DRAWITEM, id, reinterpret_cast<LPARAM>(&dis));
+        }
+        else
+        {
+            text[len] = 0;
+            DrawText(hdc, text, -1, &part, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_PATH_ELLIPSIS);
+        }
+    }
+
+    SetBkMode(hdc, oldBkMode);
+    SetTextColor(hdc, oldText);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+LRESULT CALLBACK DarkStatusBarSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                       UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkStatusBarSubclass, kDarkModeStatusBarSubclassId);
+        break;
+
+    case WM_ERASEBKGND:
+        return ShouldUseDarkColorsForSurfaces() ? TRUE : DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    case WM_PAINT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            if (hdc != NULL)
+                PaintDarkStatusBar(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PaintDarkStatusBar(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case SB_SETTEXT:
+    case SB_SETPARTS:
+    case WM_SETTEXT:
+    case WM_SIZE:
+    case WM_THEMECHANGED:
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsureDarkStatusBarSubclass(HWND hwnd, bool enableDark)
+{
+    if (hwnd == NULL)
+        return;
+
+    if (enableDark)
+        SetWindowSubclass(hwnd, DarkStatusBarSubclass, kDarkModeStatusBarSubclassId, 0);
+    else
+        RemoveWindowSubclass(hwnd, DarkStatusBarSubclass, kDarkModeStatusBarSubclassId);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+#endif
+
 int ComputeLuminance(COLORREF color)
 {
     return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
@@ -542,6 +785,15 @@ bool ShouldUseDarkColorsInternal()
 bool IsWindowsDarkSchemeSelected()
 {
     return gWindowsDarkSchemeSelected;
+}
+
+bool ShouldUseDarkColorsForSurfaces()
+{
+    if (ShouldUseDarkColorsInternal())
+        return true;
+    if (!IsWindowsDarkSchemeSelected())
+        return false;
+    return ComputeLuminance(gDialogBackgroundColor) < 128;
 }
 
 bool ShouldApplyNativeDarkEnhancements()
@@ -732,6 +984,13 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 ListView_SetTextColor(hwnd, fg);
                 ListView_SetTextBkColor(hwnd, bg);
                 ListView_SetBkColor(hwnd, bg);
+#if USE_DARKMODELIB
+                DarkModeBackendDarkModelib::UpdateListViewColors(hwnd, fg, bg, wantDark && ShouldUseDarkColorsForSurfaces());
+#else
+                HWND header = ListView_GetHeader(hwnd);
+                if (header != NULL)
+                    EnsureDarkHeaderSubclass(header, wantDark && ShouldUseDarkColorsForSurfaces());
+#endif
             }
             else
             {
@@ -747,6 +1006,9 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
             const COLORREF fg = DarkModeGetColors().readableText;
             SendMessage(hwnd, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(wantDark ? fg : CLR_DEFAULT));
             SendMessage(hwnd, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(wantDark ? bg : CLR_DEFAULT));
+#if !USE_DARKMODELIB
+            EnsureDarkHeaderSubclass(hwnd, wantDark && ShouldUseDarkColorsForSurfaces());
+#endif
             InvalidateRect(hwnd, NULL, TRUE);
             invalidateParentChain(hwnd);
             SendMessage(hwnd, WM_THEMECHANGED, 0, 0);
@@ -779,6 +1041,16 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
+#if !USE_DARKMODELIB
+        else if (wcscmp(className, L"SysHeader32") == 0)
+        {
+            EnsureDarkHeaderSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
+        }
+        else if (wcscmp(className, L"msctls_statusbar32") == 0)
+        {
+            EnsureDarkStatusBarSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
+        }
+#endif
         else if (wcscmp(className, L"Static") == 0)
         {
             const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
@@ -1099,11 +1371,17 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
         {
             SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(resolvedText));
             SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(resolvedBackground));
+#if !USE_DARKMODELIB
+            EnsureDarkHeaderSubclass(header, ShouldUseDarkColorsForSurfaces());
+#endif
         }
         else
         {
             SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
             SendMessage(header, HDM_SETBKCOLOR, 0, static_cast<LPARAM>(CLR_DEFAULT));
+#if !USE_DARKMODELIB
+            EnsureDarkHeaderSubclass(header, false);
+#endif
         }
         InvalidateRect(header, NULL, TRUE);
     }
