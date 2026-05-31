@@ -43,11 +43,31 @@ void ApplyTree(HWND hwnd)
             dmlib::initDarkMode();
             dmlibInitialized = true;
         }
+        const bool dark = DarkMode_ShouldUseDark() != FALSE;
+        dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::light));
+        dmlib::setDefaultColors(true);
         dmlib::setDarkWndNotifySafe(hwnd);
-        dmlib::setDarkTitleBar(hwnd, true);
+        dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+        dmlib::setDarkTitleBar(hwnd, dark);
     }
 #else
     (void)hwnd;
+#endif
+}
+
+void ApplyRadioButton(HWND hwnd, bool enableDark)
+{
+#if USE_DARKMODELIB
+    if (hwnd != NULL)
+    {
+        if (enableDark)
+            dmlib::setCheckboxOrRadioBtnCtrlSubclass(hwnd);
+        else
+            dmlib::removeCheckboxOrRadioBtnCtrlSubclass(hwnd);
+    }
+#else
+    (void)hwnd;
+    (void)enableDark;
 #endif
 }
 

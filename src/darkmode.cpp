@@ -612,7 +612,11 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
             }
             else if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
             {
+#if USE_DARKMODELIB
+                DarkModeBackendDarkModelib::ApplyRadioButton(hwnd, wantDark);
+#else
                 EnsureClassicButtonTheme(hwnd, wantDark);
+#endif
                 InvalidateRect(hwnd, NULL, TRUE);
             }
             else if (gSetWindowTheme != nullptr &&
@@ -1005,7 +1009,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         HWND ctrl = reinterpret_cast<HWND>(lParam);
         if (IsRadioButtonControl(ctrl))
         {
-            EnsureClassicButtonTheme(ctrl, usingNativeDark || hasCustomPalette);
+            DarkModeBackendDarkModelib::ApplyRadioButton(ctrl, usingNativeDark || hasCustomPalette);
             SetTextColor(hdc, DarkModeGetColors().readableText);
             SetBkColor(hdc, background);
             SetBkMode(hdc, TRANSPARENT);
