@@ -277,6 +277,12 @@ void CFindDialog::OnColorsChange()
         ListView_SetImageList(FoundFilesListView->HWindow, HFindSymbolsImageList, LVSIL_SMALL);
         DarkModeUpdateListViewColors(FoundFilesListView->HWindow);
     }
+    if (HStatusBar != NULL)
+    {
+        SendMessage(HStatusBar, SB_SETBKCOLOR, 0,
+                    DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : CLR_DEFAULT);
+        InvalidateRect(HStatusBar, NULL, TRUE);
+    }
     if (MenuBar != NULL)
     {
         MenuBar->SetFont();
@@ -409,6 +415,9 @@ void CFindTBHeader::OnColorsChange()
         ToolBar->SetHotImageList(HHotToolBarImageList);
         ToolBar->OnColorsChanged();
     }
+    if (LogToolBar != NULL)
+        LogToolBar->OnColorsChanged();
+    InvalidateRect(HWindow, NULL, TRUE);
 }
 
 int CFindTBHeader::GetNeededHeight()
@@ -532,8 +541,22 @@ CFindTBHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         HFONT hOldFont = (HFONT)SelectObject(hdc, (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0));
         int oldBkMode = SetBkMode(hdc, TRANSPARENT);
-        FillRect(hdc, &r, (HBRUSH)(COLOR_3DFACE + 1));
+        COLORREF oldTextColor = CLR_INVALID;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HBRUSH brush = HANDLES(CreateSolidBrush(DarkModeGetColors().background));
+            if (brush != NULL)
+            {
+                FillRect(hdc, &r, brush);
+                HANDLES(DeleteObject(brush));
+            }
+            oldTextColor = SetTextColor(hdc, DarkModeGetColors().readableText);
+        }
+        else
+            FillRect(hdc, &r, (HBRUSH)(COLOR_3DFACE + 1));
         DrawText(hdc, Text, -1, &tr, DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+        if (oldTextColor != CLR_INVALID)
+            SetTextColor(hdc, oldTextColor);
         SetBkMode(hdc, oldBkMode);
         SelectObject(hdc, hOldFont);
 
