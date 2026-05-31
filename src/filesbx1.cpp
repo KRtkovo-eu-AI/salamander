@@ -414,12 +414,14 @@ void CFilesBox::PaintAllItems(HRGN hUpdateRgn, DWORD drawFlags)
         if (focused)
         {
             FillRect(HPrivateDC, &textR, HFocusedBkBrush);
-            newColor = GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
+            newColor = DarkModeEnsureReadableForeground(GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]),
+                                                        GetCOLORREF(CurrentColors[ITEM_BK_FOCUSED]));
         }
         else
         {
             FillRect(HPrivateDC, &textR, HNormalBkBrush);
-            newColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+            newColor = DarkModeEnsureReadableForeground(GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]),
+                                                        GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
         }
         int oldBkMode = SetBkMode(HPrivateDC, TRANSPARENT);
         int oldTextColor = SetTextColor(HPrivateDC, newColor);

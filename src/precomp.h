@@ -4,6 +4,10 @@
 
 #pragma once
 
+#ifndef USE_DARKMODELIB
+#define USE_DARKMODELIB 0
+#endif
+
 //#define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
 
 // The SDK suppresses some warnings such as C4244, so we wrap it with PUSH/POP

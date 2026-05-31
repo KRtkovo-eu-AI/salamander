@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include "..\\shared\\plugindarkmode.h"
 
 using namespace std;
 
@@ -1740,7 +1741,9 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_SETTINGCHANGE:
+    case WM_THEMECHANGED:
     {
+        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
         // the scrollbar size may have changed; ensure the combo box recalculates the button size
         RECT r;
         GetWindowRect(ComboBox->HWindow, &r);
