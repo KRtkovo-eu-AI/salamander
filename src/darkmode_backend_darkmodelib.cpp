@@ -55,7 +55,7 @@ void ApplyTree(HWND hwnd)
 #endif
 }
 
-void ApplyRadioButton(HWND hwnd, bool enableDark)
+void ApplyCheckboxOrRadioButton(HWND hwnd, bool enableDark)
 {
 #if USE_DARKMODELIB
     if (hwnd != NULL)

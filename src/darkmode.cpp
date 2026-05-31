@@ -314,6 +314,33 @@ bool IsRadioButtonControl(HWND hwnd)
     return type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
 }
 
+bool IsCheckboxControl(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    return type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+           type == BS_AUTO3STATE || type == BS_3STATE;
+}
+
+bool IsCheckboxOrRadioButtonControl(HWND hwnd)
+{
+    return IsRadioButtonControl(hwnd) || IsCheckboxControl(hwnd);
+}
+
+bool ShouldOwnerDrawChoiceButton(HWND hwnd)
+{
+    // Radio captions need the fallback on all supported builds.  Checkbox text is
+    // already painted correctly by the themed control on Windows 11, but Windows
+    // 10 keeps drawing it with the light-theme text color in dark dialogs, so use
+    // the same owner-draw fallback there only.
+    return IsRadioButtonControl(hwnd) || (IsCheckboxControl(hwnd) && gBuildNumber < 22000);
+}
+
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 {
     if (hwnd == NULL || gSetWindowTheme == nullptr)
@@ -339,7 +366,7 @@ void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 }
 
 
-constexpr UINT_PTR kDarkModeRadioSubclassId = 0x44524B52; // "DRKR"
+constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
 {
@@ -350,7 +377,7 @@ void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
     SelectObject(hdc, oldBrush);
 }
 
-void PaintDarkRadioButton(HWND hwnd, HDC hdc)
+void PaintDarkChoiceButton(HWND hwnd, HDC hdc)
 {
     RECT rc;
     GetClientRect(hwnd, &rc);
@@ -368,8 +395,12 @@ void PaintDarkRadioButton(HWND hwnd, HDC hdc)
     glyph.top = rc.top + max(0, (rc.bottom - rc.top - glyphSize) / 2);
     glyph.bottom = glyph.top + glyphSize;
 
-    UINT state = DFCS_BUTTONRADIO;
-    if (checkState == BST_CHECKED)
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    const bool isRadio = type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
+    UINT state = isRadio ? DFCS_BUTTONRADIO
+                         : ((type == BS_AUTO3STATE || type == BS_3STATE) ? DFCS_BUTTON3STATE : DFCS_BUTTONCHECK);
+    if (checkState == BST_CHECKED || checkState == BST_INDETERMINATE)
         state |= DFCS_CHECKED;
     if (!enabled)
         state |= DFCS_INACTIVE;
@@ -394,7 +425,7 @@ void PaintDarkRadioButton(HWND hwnd, HDC hdc)
         SelectObject(hdc, oldFont);
 }
 
-LRESULT CALLBACK DarkRadioButtonSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+LRESULT CALLBACK DarkChoiceButtonSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                          UINT_PTR subclassId, DWORD_PTR refData)
 {
     (void)subclassId;
@@ -403,7 +434,7 @@ LRESULT CALLBACK DarkRadioButtonSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     switch (msg)
     {
     case WM_NCDESTROY:
-        RemoveWindowSubclass(hwnd, DarkRadioButtonSubclass, kDarkModeRadioSubclassId);
+        RemoveWindowSubclass(hwnd, DarkChoiceButtonSubclass, kDarkModeChoiceButtonSubclassId);
         break;
 
     case WM_ERASEBKGND:
@@ -414,13 +445,13 @@ LRESULT CALLBACK DarkRadioButtonSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         if (hdc != NULL)
-            PaintDarkRadioButton(hwnd, hdc);
+            PaintDarkChoiceButton(hwnd, hdc);
         EndPaint(hwnd, &ps);
         return 0;
     }
 
     case WM_PRINTCLIENT:
-        PaintDarkRadioButton(hwnd, reinterpret_cast<HDC>(wParam));
+        PaintDarkChoiceButton(hwnd, reinterpret_cast<HDC>(wParam));
         return 0;
 
     case WM_ENABLE:
@@ -440,7 +471,7 @@ LRESULT CALLBACK DarkRadioButtonSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     return DefSubclassProc(hwnd, msg, wParam, lParam);
 }
 
-void EnsureDarkRadioButtonSubclass(HWND hwnd, bool enableDark)
+void EnsureDarkChoiceButtonSubclass(HWND hwnd, bool enableDark)
 {
     if (hwnd == NULL)
         return;
@@ -448,12 +479,12 @@ void EnsureDarkRadioButtonSubclass(HWND hwnd, bool enableDark)
     if (enableDark)
     {
         EnsureClassicButtonTheme(hwnd, true);
-        SetWindowSubclass(hwnd, DarkRadioButtonSubclass, kDarkModeRadioSubclassId, 0);
+        SetWindowSubclass(hwnd, DarkChoiceButtonSubclass, kDarkModeChoiceButtonSubclassId, 0);
         InvalidateRect(hwnd, NULL, TRUE);
     }
     else
     {
-        RemoveWindowSubclass(hwnd, DarkRadioButtonSubclass, kDarkModeRadioSubclassId);
+        RemoveWindowSubclass(hwnd, DarkChoiceButtonSubclass, kDarkModeChoiceButtonSubclassId);
         EnsureClassicButtonTheme(hwnd, false);
         InvalidateRect(hwnd, NULL, TRUE);
     }
@@ -731,19 +762,17 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 EnsureClassicButtonTheme(hwnd, wantDark);
                 InvalidateRect(hwnd, NULL, TRUE);
             }
-            else if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+            else if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON ||
+                     type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
+                     type == BS_3STATE)
             {
 #if USE_DARKMODELIB
-                DarkModeBackendDarkModelib::ApplyRadioButton(hwnd, wantDark);
+                DarkModeBackendDarkModelib::ApplyCheckboxOrRadioButton(hwnd, wantDark);
 #endif
-                EnsureDarkRadioButtonSubclass(hwnd, wantDark);
-                InvalidateRect(hwnd, NULL, TRUE);
-            }
-            else if (gSetWindowTheme != nullptr &&
-                     (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
-                      type == BS_3STATE))
-            {
-                gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+                if (ShouldOwnerDrawChoiceButton(hwnd))
+                    EnsureDarkChoiceButtonSubclass(hwnd, wantDark);
+                else if (gSetWindowTheme != nullptr)
+                    gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
@@ -1112,7 +1141,9 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
         if ((message == WM_CTLCOLORSTATIC || message == WM_CTLCOLORBTN) && lParam != 0)
         {
             HWND ctrl = reinterpret_cast<HWND>(lParam);
-            if (IsButtonTypeNeedingClassicFallback(ctrl))
+            if (IsCheckboxOrRadioButtonControl(ctrl))
+                EnsureDarkChoiceButtonSubclass(ctrl, false);
+            else if (IsButtonTypeNeedingClassicFallback(ctrl))
                 EnsureClassicButtonTheme(ctrl, false);
         }
         return false;
@@ -1127,15 +1158,18 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     if ((message == WM_CTLCOLORBTN || message == WM_CTLCOLORSTATIC) && lParam != 0)
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
-        if (IsRadioButtonControl(ctrl))
+        if (IsCheckboxOrRadioButtonControl(ctrl))
         {
-            DarkModeBackendDarkModelib::ApplyRadioButton(ctrl, usingNativeDark || hasCustomPalette);
-            EnsureDarkRadioButtonSubclass(ctrl, usingNativeDark || hasCustomPalette);
-            SetTextColor(hdc, DarkModeGetColors().readableText);
-            SetBkColor(hdc, background);
-            SetBkMode(hdc, TRANSPARENT);
-            result = reinterpret_cast<LRESULT>(brush);
-            return true;
+            DarkModeBackendDarkModelib::ApplyCheckboxOrRadioButton(ctrl, usingNativeDark || hasCustomPalette);
+            if (ShouldOwnerDrawChoiceButton(ctrl))
+            {
+                EnsureDarkChoiceButtonSubclass(ctrl, usingNativeDark || hasCustomPalette);
+                SetTextColor(hdc, DarkModeGetColors().readableText);
+                SetBkColor(hdc, background);
+                SetBkMode(hdc, TRANSPARENT);
+                result = reinterpret_cast<LRESULT>(brush);
+                return true;
+            }
         }
     }
 
@@ -1213,8 +1247,13 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
     case WM_CTLCOLORBTN:
     {
         HWND ctrl = reinterpret_cast<HWND>(lParam);
-        if (IsRadioButtonControl(ctrl))
-            EnsureDarkRadioButtonSubclass(ctrl, usingNativeDark || hasCustomPalette);
+        if (IsCheckboxOrRadioButtonControl(ctrl))
+        {
+            if (ShouldOwnerDrawChoiceButton(ctrl))
+                EnsureDarkChoiceButtonSubclass(ctrl, usingNativeDark || hasCustomPalette);
+            else
+                EnsureDarkChoiceButtonSubclass(ctrl, false);
+        }
         else if (IsButtonTypeNeedingClassicFallback(ctrl))
             EnsureClassicButtonTheme(ctrl, forceClassicButtons);
         else
