@@ -272,10 +272,7 @@ static SALCOLOR* gWindowsDarkPaletteTarget = NULL;
 static SALCOLOR gWindowsDarkPaletteBackup[NUMBER_OF_COLORS];
 static SALCOLOR gWindowsDarkViewerBackup[NUMBER_OF_VIEWERCOLORS];
 static bool gWindowsDarkViewerSaved = false;
-static SALCOLOR gWindowsDarkPaletteApplied[NUMBER_OF_COLORS];
-static SALCOLOR gWindowsDarkViewerApplied[NUMBER_OF_VIEWERCOLORS];
-static bool gWindowsDarkPaletteCustomized = false;
-static bool gWindowsDarkPaletteAppliedInitialized = false;
+static CHighlightMasks* gWindowsDarkHighlightBackup = NULL;
 
 static COLORREF LightenColor(COLORREF color, int amount)
 {
@@ -382,73 +379,103 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
 
 static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
 {
-    const COLORREF accent = GetSysColor(COLOR_HIGHLIGHT);
-    const COLORREF accentText = GetSysColor(COLOR_HIGHLIGHTTEXT);
-    const COLORREF panelBg = RGB(32, 32, 32);
-    const COLORREF panelAlt = RGB(48, 48, 48);
-    const COLORREF panelHot = RGB(56, 56, 56);
-    const COLORREF text = RGB(220, 220, 220);
-    const COLORREF dimText = RGB(160, 160, 160);
-    const COLORREF overlay = RGB(192, 192, 192);
-    const COLORREF progressBg = RGB(64, 64, 64);
-    const COLORREF inactiveCaptionBg = RGB(45, 45, 48);
-    const COLORREF inactiveCaptionFg = RGB(190, 190, 190);
-    const COLORREF hotActive = RGB(0, 0, 0);
-    const COLORREF thumbnailFrame = RGB(94, 94, 94);
-
-    auto setColor = [](SALCOLOR& entry, COLORREF color) {
-        entry = RGBF(GetRValue(color), GetGValue(color), GetBValue(color), 0);
+    auto setColor = [](SALCOLOR& entry, DWORD colorAndFlags) {
+        entry = static_cast<SALCOLOR>(colorAndFlags);
     };
 
-    setColor(target[FOCUS_ACTIVE_NORMAL], accent);
-    setColor(target[FOCUS_ACTIVE_SELECTED], accent);
-    setColor(target[FOCUS_FG_INACTIVE_NORMAL], dimText);
-    setColor(target[FOCUS_FG_INACTIVE_SELECTED], dimText);
-    setColor(target[FOCUS_BK_INACTIVE_NORMAL], panelBg);
-    setColor(target[FOCUS_BK_INACTIVE_SELECTED], panelBg);
+    setColor(target[FOCUS_ACTIVE_NORMAL], 0x00d77800);
+    setColor(target[FOCUS_ACTIVE_SELECTED], 0x00d77800);
+    setColor(target[FOCUS_FG_INACTIVE_NORMAL], 0x00a0a0a0);
+    setColor(target[FOCUS_FG_INACTIVE_SELECTED], 0x00a0a0a0);
+    setColor(target[FOCUS_BK_INACTIVE_NORMAL], 0x00202020);
+    setColor(target[FOCUS_BK_INACTIVE_SELECTED], 0x00202020);
 
-    setColor(target[ITEM_FG_NORMAL], text);
-    setColor(target[ITEM_FG_SELECTED], accentText);
-    setColor(target[ITEM_FG_FOCUSED], text);
-    setColor(target[ITEM_FG_FOCSEL], accentText);
-    setColor(target[ITEM_FG_HIGHLIGHT], accentText);
+    setColor(target[ITEM_FG_NORMAL], 0x00dcdcdc);
+    setColor(target[ITEM_FG_SELECTED], 0x0003e9fc);
+    setColor(target[ITEM_FG_FOCUSED], 0x00ffffff);
+    setColor(target[ITEM_FG_FOCSEL], 0x0003e9fc);
+    setColor(target[ITEM_FG_HIGHLIGHT], 0x00ffffff);
 
-    setColor(target[ITEM_BK_NORMAL], panelBg);
-    setColor(target[ITEM_BK_SELECTED], accent);
-    setColor(target[ITEM_BK_FOCUSED], panelAlt);
-    setColor(target[ITEM_BK_FOCSEL], accent);
-    setColor(target[ITEM_BK_HIGHLIGHT], panelHot);
+    setColor(target[ITEM_BK_NORMAL], 0x00202020);
+    setColor(target[ITEM_BK_SELECTED], 0x00202020);
+    setColor(target[ITEM_BK_FOCUSED], 0x003a3a3a);
+    setColor(target[ITEM_BK_FOCSEL], 0x003a3a3a);
+    setColor(target[ITEM_BK_HIGHLIGHT], 0x00383838);
 
-    setColor(target[ICON_BLEND_SELECTED], accent);
-    setColor(target[ICON_BLEND_FOCUSED], overlay);
-    setColor(target[ICON_BLEND_FOCSEL], accent);
+    setColor(target[ICON_BLEND_SELECTED], 0x0003e9fc);
+    setColor(target[ICON_BLEND_FOCUSED], 0x00c0c0c0);
+    setColor(target[ICON_BLEND_FOCSEL], 0x0003e9fc);
 
-    setColor(target[PROGRESS_FG_NORMAL], accent);
-    setColor(target[PROGRESS_FG_SELECTED], accentText);
-    setColor(target[PROGRESS_BK_NORMAL], progressBg);
-    setColor(target[PROGRESS_BK_SELECTED], accent);
+    setColor(target[PROGRESS_FG_NORMAL], 0x00ffffff);
+    setColor(target[PROGRESS_FG_SELECTED], 0x00ffffff);
+    setColor(target[PROGRESS_BK_NORMAL], 0x002c2c2c);
+    setColor(target[PROGRESS_BK_SELECTED], 0x00d77800);
 
-    setColor(target[HOT_PANEL], accent);
-    setColor(target[HOT_ACTIVE], hotActive);
-    setColor(target[HOT_INACTIVE], accent);
+    setColor(target[HOT_PANEL], 0x000080ff);
+    setColor(target[HOT_ACTIVE], 0x00000000);
+    setColor(target[HOT_INACTIVE], 0x00d77800);
 
-    setColor(target[ACTIVE_CAPTION_FG], accentText);
-    setColor(target[ACTIVE_CAPTION_BK], accent);
-    setColor(target[INACTIVE_CAPTION_FG], inactiveCaptionFg);
-    setColor(target[INACTIVE_CAPTION_BK], inactiveCaptionBg);
+    setColor(target[ACTIVE_CAPTION_FG], 0x00ffffff);
+    setColor(target[ACTIVE_CAPTION_BK], 0x00d77800);
+    setColor(target[INACTIVE_CAPTION_FG], 0x00bebebe);
+    setColor(target[INACTIVE_CAPTION_BK], 0x00383838);
 
-    setColor(target[THUMBNAIL_FRAME_NORMAL], thumbnailFrame);
-    setColor(target[THUMBNAIL_FRAME_FOCUSED], accent);
-    setColor(target[THUMBNAIL_FRAME_SELECTED], accent);
-    setColor(target[THUMBNAIL_FRAME_FOCSEL], accent);
+    setColor(target[THUMBNAIL_FRAME_NORMAL], 0x005e5e5e);
+    setColor(target[THUMBNAIL_FRAME_SELECTED], 0x0003e9fc);
+    setColor(target[THUMBNAIL_FRAME_FOCUSED], 0x00d77800);
+    setColor(target[THUMBNAIL_FRAME_FOCSEL], 0x0003e9fc);
 
     if (viewerTarget == NULL)
         viewerTarget = ViewerColors;
 
-    setColor(viewerTarget[VIEWER_FG_NORMAL], text);
-    setColor(viewerTarget[VIEWER_BK_NORMAL], panelBg);
-    setColor(viewerTarget[VIEWER_FG_SELECTED], accentText);
-    setColor(viewerTarget[VIEWER_BK_SELECTED], accent);
+    setColor(viewerTarget[VIEWER_FG_NORMAL], 0x00dcdcdc);
+    setColor(viewerTarget[VIEWER_BK_NORMAL], 0x00202020);
+    setColor(viewerTarget[VIEWER_FG_SELECTED], 0x00ffffff);
+    setColor(viewerTarget[VIEWER_BK_SELECTED], 0x00d77800);
+}
+
+void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks)
+{
+    if (highlightMasks == NULL)
+        return;
+
+    highlightMasks->DestroyMembers();
+
+    auto addItem = [highlightMasks](DWORD attr, DWORD normalFg, DWORD selectedFg, DWORD focusedFg,
+                                    DWORD focSelFg, DWORD highlightFg, DWORD normalBk, DWORD selectedBk,
+                                    DWORD focusedBk, DWORD focSelBk, DWORD highlightBk) {
+        CHighlightMasksItem* item = new CHighlightMasksItem();
+        if (item == NULL)
+            return;
+        item->Set("*.*");
+        int errPos;
+        item->Masks->PrepareMasks(errPos);
+        item->Attr = attr;
+        item->ValidAttr = attr;
+        item->NormalFg = normalFg;
+        item->SelectedFg = selectedFg;
+        item->FocusedFg = focusedFg;
+        item->FocSelFg = focSelFg;
+        item->HighlightFg = highlightFg;
+        item->NormalBk = normalBk;
+        item->SelectedBk = selectedBk;
+        item->FocusedBk = focusedBk;
+        item->FocSelBk = focSelBk;
+        item->HighlightBk = highlightBk;
+        highlightMasks->Add(item);
+        if (!highlightMasks->IsGood())
+        {
+            highlightMasks->ResetState();
+            delete item;
+        }
+    };
+
+    addItem(FILE_ATTRIBUTE_COMPRESSED,
+            0x00ffff00, 0x0103e9fc, 0x00ffff00, 0x0103e9fc, 0x01ffff00,
+            0x01202020, 0x01202020, 0x013a3a3a, 0x013a3a3a, 0x01454545);
+    addItem(FILE_ATTRIBUTE_ENCRYPTED,
+            0x000d8f13, 0x0103e9fc, 0x000d8f13, 0x0103e9fc, 0x010d8f13,
+            0x01202020, 0x01202020, 0x013a3a3a, 0x013a3a3a, 0x01454545);
 }
 
 void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors)
@@ -468,12 +495,17 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
             memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
             if (gWindowsDarkViewerSaved)
                 memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+            if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+                MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
+        }
+        if (gWindowsDarkHighlightBackup != NULL)
+        {
+            delete gWindowsDarkHighlightBackup;
+            gWindowsDarkHighlightBackup = NULL;
         }
         gWindowsDarkPaletteActive = false;
         gWindowsDarkPaletteTarget = NULL;
         gWindowsDarkViewerSaved = false;
-        gWindowsDarkPaletteCustomized = false;
-        gWindowsDarkPaletteAppliedInitialized = false;
         return;
     }
 
@@ -481,11 +513,18 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
     {
         if (gWindowsDarkPaletteTarget != NULL)
             memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
+        if (gWindowsDarkViewerSaved)
+            memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+        if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+            MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
+        if (gWindowsDarkHighlightBackup != NULL)
+        {
+            delete gWindowsDarkHighlightBackup;
+            gWindowsDarkHighlightBackup = NULL;
+        }
         gWindowsDarkPaletteActive = false;
         gWindowsDarkPaletteTarget = NULL;
         gWindowsDarkViewerSaved = false;
-        gWindowsDarkPaletteCustomized = false;
-        gWindowsDarkPaletteAppliedInitialized = false;
     }
 
     if (!gWindowsDarkPaletteActive)
@@ -494,51 +533,20 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         memcpy(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup));
         memcpy(gWindowsDarkViewerBackup, ViewerColors, sizeof(gWindowsDarkViewerBackup));
         gWindowsDarkViewerSaved = true;
+        if (MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+        {
+            gWindowsDarkHighlightBackup = new CHighlightMasks(10, 5);
+            if (gWindowsDarkHighlightBackup != NULL)
+                gWindowsDarkHighlightBackup->Load(*MainWindow->HighlightMasks);
+        }
         gWindowsDarkPaletteActive = true;
-        gWindowsDarkPaletteCustomized = false;
-        gWindowsDarkPaletteAppliedInitialized = false;
-    }
-
-    SALCOLOR defaultColors[NUMBER_OF_COLORS];
-    SALCOLOR defaultViewer[NUMBER_OF_VIEWERCOLORS];
-    WindowsDarkModeBuildPalette(defaultColors, defaultViewer);
-
-    bool matchesDefault = memcmp(target, defaultColors, sizeof(defaultColors)) == 0 &&
-                          memcmp(ViewerColors, defaultViewer, sizeof(defaultViewer)) == 0;
-
-    if (matchesDefault)
-    {
-        gWindowsDarkPaletteCustomized = false;
-    }
-    else
-    {
-        if (!gWindowsDarkPaletteAppliedInitialized ||
-            memcmp(target, gWindowsDarkPaletteApplied, sizeof(gWindowsDarkPaletteApplied)) != 0 ||
-            memcmp(ViewerColors, gWindowsDarkViewerApplied, sizeof(gWindowsDarkViewerApplied)) != 0)
-        {
-            gWindowsDarkPaletteCustomized = true;
-            memcpy(gWindowsDarkPaletteApplied, target, sizeof(gWindowsDarkPaletteApplied));
-            memcpy(gWindowsDarkViewerApplied, ViewerColors, sizeof(gWindowsDarkViewerApplied));
-            gWindowsDarkPaletteAppliedInitialized = true;
-        }
-    }
-
-    if (gWindowsDarkPaletteCustomized)
-    {
-        if (!gWindowsDarkPaletteAppliedInitialized)
-        {
-            memcpy(gWindowsDarkPaletteApplied, target, sizeof(gWindowsDarkPaletteApplied));
-            memcpy(gWindowsDarkViewerApplied, ViewerColors, sizeof(gWindowsDarkViewerApplied));
-            gWindowsDarkPaletteAppliedInitialized = true;
-        }
-        return;
     }
 
     WindowsDarkModeBuildPalette(target, ViewerColors);
-    memcpy(gWindowsDarkPaletteApplied, target, sizeof(gWindowsDarkPaletteApplied));
-    memcpy(gWindowsDarkViewerApplied, ViewerColors, sizeof(gWindowsDarkViewerApplied));
-    gWindowsDarkPaletteAppliedInitialized = true;
+    if (MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+        WindowsDarkModeBuildHighlightMasks(MainWindow->HighlightMasks);
 }
+
 
 
 HPEN HActiveNormalPen = NULL; // pens for the rectangle around an item

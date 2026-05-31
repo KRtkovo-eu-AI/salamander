@@ -3882,6 +3882,21 @@ CCfgPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME || LOWORD(wParam) == IDC_C_ITEM)
         {
+            if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_C_SCHEME)
+            {
+                int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
+                int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+                if (schemeId == 4)
+                {
+                    EditLB->DeleteAllItems();
+                    WindowsDarkModeBuildPalette(TmpColors, NULL);
+                    WindowsDarkModeBuildHighlightMasks(&HighlightMasks);
+                    for (int i = 0; i < HighlightMasks.Count; i++)
+                        EditLB->AddItem((INT_PTR)HighlightMasks[i]);
+                    EditLB->SetCurSel(0);
+                    LoadMasks();
+                }
+            }
             LoadColors();
             break;
         }
