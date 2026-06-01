@@ -82,18 +82,25 @@ void ApplyTreeViewColors(HWND treeView)
     RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 }
 
-BOOL CALLBACK RedrawWindowTreeProc(HWND hwnd, LPARAM)
+BOOL CALLBACK InvalidateWindowTreeProc(HWND hwnd, LPARAM)
 {
-    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
 }
 
-void RedrawWindowTree(HWND hwnd)
+void InvalidateWindowTree(HWND hwnd)
 {
     if (hwnd == NULL)
         return;
-    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-    EnumChildWindows(hwnd, RedrawWindowTreeProc, 0);
+
+    // Queue paints for the whole subtree, but do not erase or synchronously
+    // repaint every child.  The Configuration dialog contains many controls;
+    // forcing RDW_ERASE | RDW_UPDATENOW on each one made the entire dialog flash
+    // on open, page switches, and checkbox clicks.  A normal invalidation is
+    // enough to make controls that missed their initial paint appear without the
+    // user having to resize or move the dialog.
+    InvalidateRect(hwnd, NULL, FALSE);
+    EnumChildWindows(hwnd, InvalidateWindowTreeProc, 0);
 }
 
 
@@ -119,12 +126,9 @@ void RedrawChoiceButtonAfterClick(HWND ctrl)
 
     // Some themed/light Configuration pages can defer repainting checkbox/radio
     // glyph changes until the page is otherwise invalidated (for example by a
-    // resize).  Force the clicked control through erase+paint immediately, while
-    // leaving normal command processing untouched.
-    RedrawWindow(ctrl, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
-    HWND parent = GetParent(ctrl);
-    if (parent != NULL)
-        InvalidateRect(parent, NULL, FALSE);
+    // resize).  Repaint the clicked control immediately without erasing or
+    // invalidating the whole parent page.
+    RedrawWindow(ctrl, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
 }
 } // namespace
 
@@ -922,12 +926,6 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_SHOWWINDOW:
-    {
-        if (wParam)
-            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
-        break;
-    }
 
     case _TPD_WM_POST_INIT_REDRAW:
     {
@@ -936,9 +934,9 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
         {
             ShowWindow(ChildDialog->HWindow, SW_SHOW);
-            RedrawWindowTree(ChildDialog->HWindow);
+            InvalidateWindowTree(ChildDialog->HWindow);
         }
-        RedrawWindowTree(HWindow);
+        InvalidateWindowTree(HWindow);
         return TRUE;
     }
 
@@ -1229,8 +1227,8 @@ void CTreePropHolderDlg::LayoutControls()
         // hack: TreeView/common controls apparently have a bug: if a scrollbar appears because of the content,
         // the selected item is not redrawn, so it gets clipped on the right; this may be related to full-row
         // selection and the Aero look; in any case, repainting under W7 does not flicker, so we can probably afford it
-        RedrawWindowTree(HTreeView);
-        RedrawWindowTree(HWindow);
+        InvalidateWindowTree(HTreeView);
+        InvalidateWindowTree(HWindow);
     }
 }
 
@@ -1311,8 +1309,8 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
                      ChildDialogRect.right - ChildDialogRect.left,
                      ChildDialogRect.bottom - ChildDialogRect.top,
                      SWP_SHOWWINDOW);
-        RedrawWindowTree(ChildDialog->HWindow);
-        RedrawWindowTree(HWindow);
+        InvalidateWindowTree(ChildDialog->HWindow);
+        InvalidateWindowTree(HWindow);
         CurrentPageIndex = pageIndex;
         EnableButtons();
     }
