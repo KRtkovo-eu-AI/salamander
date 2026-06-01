@@ -48,6 +48,7 @@ typedef struct tagTCINSERTMARK
 namespace
 {
     constexpr LPARAM kNewTabButtonParam = static_cast<LPARAM>(-1);
+    constexpr wchar_t kTabWidthPaddingChar = L'\x2007';
     const wchar_t kNewTabButtonText[] = L"+";
     const wchar_t kEllipsisText[] = L"...";
 
@@ -125,6 +126,12 @@ namespace
             padding = 4;
 
         return minWidth + padding;
+    }
+
+    void TrimTabWidthPadding(std::wstring& text)
+    {
+        while (!text.empty() && text[text.length() - 1] == kTabWidthPaddingChar)
+            text.erase(text.length() - 1);
     }
 
     std::wstring EllipsizeTextToWidth(const std::wstring& text, HDC hdc, int maxWidth)
@@ -208,8 +215,6 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     LastClickedIndex = -1;
     LastClickWasSelected = false;
     MouseWheelAccumulator = 0;
-    SetRectEmpty(&NewTabButtonRect);
-    NewTabButtonVisible = false;
 }
 
 CTabWindow::~CTabWindow()
@@ -335,93 +340,87 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
     };
 
-    setItemText(desired);
+    std::wstring finalText = desired;
+    setItemText(finalText);
 
-    if (desired.empty())
-    {
-        UpdateNewTabButtonRect();
-        return;
-    }
-
+    int minWidthPx = DipToPixels(Configuration.TabButtonMinWidth);
     int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
-    if (maxWidthPx <= 0)
-    {
-        UpdateNewTabButtonRect();
+    if (minWidthPx <= 0 && maxWidthPx <= 0)
         return;
-    }
 
     RECT rect;
     if (!TabCtrl_GetItemRect(HWindow, index, &rect))
         return;
     int currentWidth = rect.right - rect.left;
-    if (currentWidth <= maxWidthPx)
-    {
-        UpdateNewTabButtonRect();
-        return;
-    }
 
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
-    {
-        UpdateNewTabButtonRect();
         return;
-    }
     HFONT oldFont = NULL;
     bool selected = (index == TabCtrl_GetCurSel(HWindow));
     HFONT fontToUse = (selected && EnvFontBold != NULL) ? EnvFontBold : EnvFont;
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
-    SIZE desiredSize = {0, 0};
-    if (!GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
+    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
     {
-        if (oldFont != NULL)
-            SelectObject(hdc, oldFont);
-        ReleaseDC(HWindow, hdc);
-        UpdateNewTabButtonRect();
-        return;
-    }
-
-    int extraWidth = currentWidth - desiredSize.cx;
-    int allowedTextWidth = maxWidthPx - extraWidth;
-    if (allowedTextWidth <= 0)
-    {
-        setItemText(std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1));
-        if (oldFont != NULL)
-            SelectObject(hdc, oldFont);
-        ReleaseDC(HWindow, hdc);
-        UpdateNewTabButtonRect();
-        return;
-    }
-
-    std::wstring finalText = desired;
-    if (desiredSize.cx > allowedTextWidth)
-        finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-
-    for (int attempt = 0; attempt < 3; ++attempt)
-    {
-        setItemText(finalText);
-        if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-            break;
-        currentWidth = rect.right - rect.left;
-        if (currentWidth <= maxWidthPx)
-            break;
-
-        allowedTextWidth -= (currentWidth - maxWidthPx);
-        if (allowedTextWidth <= 0)
+        SIZE desiredSize = {0, 0};
+        if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
         {
-            finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+            int extraWidth = currentWidth - desiredSize.cx;
+            int allowedTextWidth = maxWidthPx - extraWidth;
+            if (allowedTextWidth <= 0)
+                finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+            else if (desiredSize.cx > allowedTextWidth)
+                finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+
+            for (int attempt = 0; attempt < 3; ++attempt)
+            {
+                setItemText(finalText);
+                if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+                    break;
+                currentWidth = rect.right - rect.left;
+                if (currentWidth <= maxWidthPx)
+                    break;
+
+                allowedTextWidth -= (currentWidth - maxWidthPx);
+                if (allowedTextWidth <= 0)
+                    finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+                else
+                    finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+            }
         }
-        else
+    }
+
+    if (minWidthPx > 0)
+    {
+        int targetWidth = minWidthPx;
+        if (maxWidthPx > 0 && targetWidth > maxWidthPx)
+            targetWidth = maxWidthPx;
+
+        for (int attempt = 0; attempt < 4; ++attempt)
         {
-            finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+            if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+                break;
+            currentWidth = rect.right - rect.left;
+            if (currentWidth >= targetWidth)
+                break;
+
+            SIZE paddingSize = {0, 0};
+            if (!GetTextExtentPoint32W(hdc, &kTabWidthPaddingChar, 1, &paddingSize) || paddingSize.cx <= 0)
+                break;
+
+            int addCount = (targetWidth - currentWidth + paddingSize.cx - 1) / paddingSize.cx;
+            if (addCount <= 0)
+                addCount = 1;
+            finalText.append(addCount, kTabWidthPaddingChar);
+            setItemText(finalText);
         }
     }
 
     if (oldFont != NULL)
         SelectObject(hdc, oldFont);
     ReleaseDC(HWindow, hdc);
-    UpdateNewTabButtonRect();
 }
 
 void CTabWindow::SetCurSel(int index)
@@ -454,7 +453,10 @@ int CTabWindow::GetTabCount() const
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return 0;
-    return GetDisplayedTabCount();
+    int count = GetDisplayedTabCount();
+    if (GetNewTabButtonIndex() >= 0)
+        count--;
+    return count;
 }
 
 LPARAM CTabWindow::GetItemData(int index) const
@@ -475,9 +477,6 @@ int CTabWindow::HitTest(POINT pt) const
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return -1;
-    if (HitTestNewTabButton(pt))
-        return GetNewTabButtonIndex();
-
     TCHITTESTINFO info;
     ZeroMemory(&info, sizeof(info));
     info.pt = pt;
@@ -576,23 +575,26 @@ void CTabWindow::EnsureNewTabButton()
     if (HWindow == NULL)
         return;
 
-    // The "new tab" affordance is painted and hit-tested by CTabWindow instead of
-    // being an item in the common tab control.  TCM_SETMINTABWIDTH applies to every
-    // tab-control item, so keeping the plus button outside the control's item list
-    // lets the configured tab min/max widths affect only real panel tabs.
     int total = GetDisplayedTabCount();
+    int newTabIndex = GetNewTabButtonIndex();
     {
         CSelChangeGuard guard(SuppressSelectionNotifications);
-        for (int index = total - 1; index >= 0; --index)
+        if (newTabIndex >= 0)
         {
             TCITEMW item;
             ZeroMemory(&item, sizeof(item));
-            item.mask = TCIF_PARAM;
-            if (SendMessageW(HWindow, TCM_GETITEMW, index, (LPARAM)&item) &&
-                item.lParam == kNewTabButtonParam)
-            {
-                SendMessage(HWindow, TCM_DELETEITEM, index, 0);
-            }
+            item.mask = TCIF_TEXT;
+            item.pszText = const_cast<LPWSTR>(kNewTabButtonText);
+            SendMessageW(HWindow, TCM_SETITEMW, newTabIndex, (LPARAM)&item);
+        }
+        else
+        {
+            TCITEMW item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = TCIF_TEXT | TCIF_PARAM;
+            item.pszText = const_cast<LPWSTR>(kNewTabButtonText);
+            item.lParam = kNewTabButtonParam;
+            SendMessageW(HWindow, TCM_INSERTITEMW, total, (LPARAM)&item);
         }
     }
 
@@ -638,55 +640,9 @@ void CTabWindow::UpdateNewTabButtonWidth()
     if (HWindow == NULL)
         return;
 
-    int configuredMinWidth = DipToPixels(Configuration.TabButtonMinWidth);
-    TabCtrl_SetMinTabWidth(HWindow, configuredMinWidth > 0 ? configuredMinWidth : -1);
-    UpdateNewTabButtonRect();
-}
-
-void CTabWindow::UpdateNewTabButtonRect()
-{
-    CALL_STACK_MESSAGE_NONE
-    if (HWindow == NULL)
-        return;
-
-    RECT oldRect = NewTabButtonRect;
-    bool oldVisible = NewTabButtonVisible;
-
-    SetRectEmpty(&NewTabButtonRect);
-    NewTabButtonVisible = false;
-
-    int count = GetDisplayedTabCount();
-    RECT itemRect;
-    RECT clientRect;
-    if (count > 0 && TabCtrl_GetItemRect(HWindow, count - 1, &itemRect) &&
-        GetClientRect(HWindow, &clientRect))
-    {
-        int width = ComputeNewTabMinWidth(HWindow);
-        NewTabButtonRect = itemRect;
-        NewTabButtonRect.left = itemRect.right;
-        NewTabButtonRect.right = NewTabButtonRect.left + width;
-
-        if (NewTabButtonRect.left < clientRect.right && NewTabButtonRect.right > clientRect.left)
-            NewTabButtonVisible = true;
-    }
-
-    if (oldVisible)
-        InvalidateRect(HWindow, &oldRect, FALSE);
-    if (NewTabButtonVisible)
-        InvalidateRect(HWindow, &NewTabButtonRect, FALSE);
-}
-
-void CTabWindow::InvalidateNewTabButton() const
-{
-    CALL_STACK_MESSAGE_NONE
-    if (HWindow != NULL && NewTabButtonVisible)
-        InvalidateRect(HWindow, &NewTabButtonRect, FALSE);
-}
-
-bool CTabWindow::HitTestNewTabButton(POINT pt) const
-{
-    CALL_STACK_MESSAGE_NONE
-    return NewTabButtonVisible && PtInRect(&NewTabButtonRect, pt) != 0;
+    int minWidth = ComputeNewTabMinWidth(HWindow);
+    if (minWidth > 0)
+        TabCtrl_SetMinTabWidth(HWindow, minWidth);
 }
 
 int CTabWindow::GetDisplayedTabCount() const
@@ -702,7 +658,17 @@ int CTabWindow::GetNewTabButtonIndex() const
     CALL_STACK_MESSAGE_NONE
     if (HWindow == NULL)
         return -1;
-    return TabCtrl_GetItemCount(HWindow);
+    int total = TabCtrl_GetItemCount(HWindow);
+    if (total <= 0)
+        return -1;
+    TCITEMW item;
+    ZeroMemory(&item, sizeof(item));
+    item.mask = TCIF_PARAM;
+    if (!SendMessageW(HWindow, TCM_GETITEMW, total - 1, (LPARAM)&item))
+        return -1;
+    if (item.lParam != kNewTabButtonParam)
+        return -1;
+    return total - 1;
 }
 
 BOOL CTabWindow::IsNewTabButtonIndex(int index) const
@@ -1386,7 +1352,6 @@ void CTabWindow::MoveTabInternal(int from, int to)
     }
 
     MoveTabColor(from, insertIndex);
-    UpdateNewTabButtonRect();
 
     if (MainWindow != NULL)
         MainWindow->OnPanelTabReordered(Side, from, insertIndex);
@@ -1633,10 +1598,7 @@ void CTabWindow::PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bo
         DefWindowProc(HWindow, WM_PRINTCLIENT, (WPARAM)hdc, printFlags);
 
     if (paintTabs)
-    {
         PaintCustomTabs(hdc, clipRect);
-        PaintNewTabButton(hdc, clipRect);
-    }
     if (paintIndicator)
         PaintDragIndicator(hdc);
 }
@@ -1732,32 +1694,16 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
         bool hasFocus = (focus == i) && (focusWnd == HWindow);
 
-        const wchar_t* drawText = isNewTab ? kNewTabButtonText : textBuffer;
+        std::wstring drawTextBuffer;
+        const wchar_t* drawText = kNewTabButtonText;
+        if (!isNewTab)
+        {
+            drawTextBuffer = textBuffer;
+            TrimTabWidthPadding(drawTextBuffer);
+            drawText = drawTextBuffer.c_str();
+        }
         DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus);
     }
-}
-
-void CTabWindow::PaintNewTabButton(HDC hdc, const RECT* clipRect) const
-{
-    if (hdc == NULL || !NewTabButtonVisible)
-        return;
-
-    if (clipRect != NULL)
-    {
-        RECT intersection;
-        if (!IntersectRect(&intersection, &NewTabButtonRect, clipRect))
-            return;
-    }
-
-    POINT cursor;
-    bool hot = false;
-    if (GetCursorPos(&cursor))
-    {
-        ScreenToClient(HWindow, &cursor);
-        hot = HitTestNewTabButton(cursor);
-    }
-
-    DrawColoredTab(hdc, NewTabButtonRect, kNewTabButtonText, GetSysColor(COLOR_BTNFACE), false, hot, false);
 }
 
 void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
@@ -1914,10 +1860,6 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_SIZE:
-        UpdateNewTabButtonRect();
-        break;
-
     case WM_MOUSEWHEEL:
         if (MouseWheelMSGThroughHook && MouseWheelMSGTime != 0 && (GetTickCount() - MouseWheelMSGTime < MOUSEWHEELMSG_VALID))
             return 0;
@@ -1962,7 +1904,6 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_MOUSEMOVE:
-        InvalidateNewTabButton();
         if (DragTracking)
         {
             POINTS pts = MAKEPOINTS(lParam);
@@ -1985,12 +1926,6 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         FinishDragTracking(pt, false);
         LastClickedIndex = -1;
         LastClickWasSelected = false;
-        if (!wasDragging && IsNewTabButtonIndex(clickedIndex) && HitTestNewTabButton(pt))
-        {
-            if (MainWindow != NULL)
-                MainWindow->CommandNewTab(Side, TRUE);
-            return 0;
-        }
         if (!wasDragging && clickedIndex >= 0 && clickedSelected && MainWindow != NULL &&
             !IsNewTabButtonIndex(clickedIndex))
         {
@@ -2002,10 +1937,6 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CAPTURECHANGED:
         if ((HWND)lParam != HWindow)
             CancelDragTracking();
-        break;
-
-    case WM_MOUSELEAVE:
-        InvalidateNewTabButton();
         break;
 
     case WM_CANCELMODE:

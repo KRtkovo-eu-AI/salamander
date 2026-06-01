@@ -54,9 +54,6 @@ private:
     int GetNewTabButtonIndex() const;
     BOOL IsNewTabButtonIndex(int index) const;
     void UpdateNewTabButtonWidth();
-    void UpdateNewTabButtonRect();
-    void InvalidateNewTabButton() const;
-    bool HitTestNewTabButton(POINT pt) const;
     bool IsReorderableIndex(int index) const;
     void StartDragTracking(int index, const POINT& pt);
     void UpdateDragTracking(const POINT& pt);
@@ -91,7 +88,6 @@ private:
     void PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bool paintIndicator);
     bool PaintBuffered(HDC targetDC, const RECT& updateRect, bool paintTabs, bool paintIndicator);
     void PaintCustomTabs(HDC hdc, const RECT* clipRect) const;
-    void PaintNewTabButton(HDC hdc, const RECT* clipRect) const;
     void DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
                         bool selected, bool hot, bool hasFocus) const;
 
@@ -113,8 +109,6 @@ private:
     int LastClickedIndex;
     bool LastClickWasSelected;
     int MouseWheelAccumulator;
-    RECT NewTabButtonRect;
-    bool NewTabButtonVisible;
 
     std::vector<STabColor> TabColors;
 
