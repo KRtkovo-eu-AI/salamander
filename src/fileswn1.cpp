@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -224,7 +224,10 @@ void CFilesWindowAncestor::SetPath(const char* path)
     DetachDirectory((CFilesWindow*)this);
     strcpy(Path, path);
 
-    //--- detection of file-based compression/encryption and FAT32
+    if (MainWindow != NULL)
+        MainWindow->UpdatePanelTabTitle((CFilesWindow*)this);
+
+    //--- zjisteni file-based komprese/sifrovani a FAT32
     DWORD dummy1, flags;
     if ((Is(ptDisk) || Is(ptZIPArchive)) &&
         MyGetVolumeInformation(path, NULL, NULL, NULL, NULL, 0, NULL, &dummy1, &flags, NULL, 0))
@@ -1306,7 +1309,7 @@ DWORD WINAPI IconThreadThreadF(void* param)
     return IconThreadThreadFEH(param);
 }
 
-CFilesWindow::CFilesWindow(CMainWindow* parent)
+CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     : Columns(20, 10), ColumnsTemplate(20, 10), VisibleItemsArray(FALSE), VisibleItemsArraySurround(TRUE)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CFilesWindow()");
@@ -1357,6 +1360,12 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     OpenedDrivesList = NULL;
 
     Parent = parent;
+    PanelSide = side;
+    CustomTabColorValid = false;
+    CustomTabColor = RGB(0, 0, 0);
+    CustomTabPrefixValid = false;
+    CustomTabPrefix.clear();
+    TabLocked = false;
     ViewTemplate = &parent->ViewTemplates.Items[2]; // detailed view
     BuildColumnsTemplate();
     CopyColumnsTemplateToColumns();
@@ -1374,6 +1383,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     LastFocus = INT_MAX;
     SetValidFileData(VALID_DATA_ALL);
     AutomaticRefresh = TRUE;
+    NeedsRefreshOnActivation = FALSE;
     NextFocusName[0] = 0;
     DontClearNextFocusName = FALSE;
     LastRefreshTime = 0;
@@ -1400,6 +1410,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent)
     NeedRefreshAfterIconsReading = FALSE;
     RefreshAfterIconsReadingTime = 0;
 
+    WorkDirHistory = NULL;
     PathHistory = new CPathHistory();
 
     DontDrawIndex = -1;
@@ -1470,6 +1481,8 @@ CFilesWindow::~CFilesWindow()
 
     ClearHistory();
 
+    if (WorkDirHistory != NULL)
+        delete WorkDirHistory;
     if (PathHistory != NULL)
         delete PathHistory;
 
@@ -1501,10 +1514,32 @@ CFilesWindow::~CFilesWindow()
         HANDLES(CloseHandle(ExecuteAssocEvent));
 }
 
+CPathHistory* CFilesWindow::EnsureWorkDirHistory()
+{
+    if (WorkDirHistory == NULL)
+    {
+        WorkDirHistory = new CPathHistory(TRUE);
+        if (WorkDirHistory == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            return NULL;
+        }
+    }
+    return WorkDirHistory;
+}
+
+void CFilesWindow::ClearWorkDirHistory()
+{
+    if (WorkDirHistory != NULL)
+        WorkDirHistory->ClearHistory();
+}
+
 void CFilesWindow::ClearHistory()
 {
     if (PathHistory != NULL)
         PathHistory->ClearHistory();
+
+    ClearWorkDirHistory();
 
     OldSelection.Clear();
 }
@@ -1728,6 +1763,9 @@ void CFilesWindow::DirectoryLineSetText()
     {
         DirectoryLine->SetText(path);
     }
+
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
 }
 
 void CFilesWindow::SelectUnselect(BOOL forceIncludeDirs, BOOL select, BOOL showMaskDlg)
@@ -2392,6 +2430,9 @@ BOOL CFilesWindow::CommonRefresh(HWND parent, int suggestedTopIndex, const char*
         RefreshListBox(0, suggestedTopIndex, suggestedFocusIndex, TRUE, !isRefresh);
         //TRACE_I("refresh listbox: end");
     }
+
+    if (Parent != NULL)
+        Parent->UpdatePanelTabTitle(this);
 
     DirectoryLine->InvalidateIfNeeded();
     //TRACE_I("common refresh: end");

@@ -12,6 +12,54 @@
 #include "fileswnd.h"
 #include "shellib.h"
 #include "svg.h"
+#include "darkmode.h"
+
+static COLORREF GetPanelDefaultTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                                         : GetSysColor(COLOR_BTNTEXT);
+}
+
+static COLORREF GetPanelHighlightTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_SELECTED])
+                                         : GetSysColor(COLOR_HIGHLIGHTTEXT);
+}
+
+static COLORREF GetPanelBackgroundColor()
+{
+    return DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL])
+                                         : GetSysColor(COLOR_BTNFACE);
+}
+
+static COLORREF GetStatusBkColor(BOOL activeCaption, BOOL showPanelCaption)
+{
+    if (showPanelCaption)
+        return GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
+    return GetPanelBackgroundColor();
+}
+
+static COLORREF GetStatusTextColor(BOOL activeCaption, BOOL showPanelCaption, BOOL hot)
+{
+    if (hot)
+    {
+        if (showPanelCaption)
+            return GetCOLORREF(CurrentColors[activeCaption ? HOT_ACTIVE : HOT_INACTIVE]);
+        return GetCOLORREF(CurrentColors[HOT_PANEL]);
+    }
+    if (showPanelCaption)
+        return GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
+    return GetPanelDefaultTextColor();
+}
+
+static void FillRectSolid(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    COLORREF oldColor = SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, oldColor);
+    SelectObject(hDC, oldBrush);
+}
 
 //
 // ****************************************************************************
@@ -62,11 +110,23 @@ CStatusWindow::CStatusWindow(CFilesWindow* filesWindow, int border, CObjectOrigi
     SubTexts = NULL;
     SubTextsCount = 0;
     IDropTargetPtr = NULL;
+
+    if (FilesWindow != NULL && FilesWindow->Parent != NULL && (Border & blTop) != 0)
+        FilesWindow->Parent->RegisterStatusWindow(this);
 }
 
 CStatusWindow::~CStatusWindow()
 {
     CALL_STACK_MESSAGE1("CStatusWindow::~CStatusWindow()");
+    if (FilesWindow != NULL && FilesWindow->Parent != NULL && (Border & blTop) != 0)
+    {
+        BOOL locked = MainWindowCS.LockIfNotClosed();
+        if (locked)
+        {
+            FilesWindow->Parent->UnregisterStatusWindow(this);
+            MainWindowCS.Unlock();
+        }
+    }
     if (SubTexts != NULL)
         free(SubTexts);
     if (Text != NULL)
@@ -661,13 +721,13 @@ void PaintSymbol(HDC hDC, HDC hMemDC, HBITMAP hBitmap, int xOffset, int width, i
         if (Configuration.ShowPanelCaption)
             textColor = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
         else
-            textColor = GetSysColor(COLOR_BTNTEXT);
+            textColor = GetPanelDefaultTextColor();
     }
     COLORREF bkColor;
     if (Configuration.ShowPanelCaption)
         bkColor = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_BK : INACTIVE_CAPTION_BK]);
     else
-        bkColor = GetSysColor(COLOR_BTNFACE);
+        bkColor = GetPanelBackgroundColor();
     int oldTextColor = SetTextColor(hDC, textColor);
     int oldBkColor = SetBkColor(hDC, bkColor);
     int x = (rect->left + rect->right) / 2 - width / 2;
@@ -694,7 +754,7 @@ void CStatusWindow::PaintThrobber(HDC hDC)
     if (Configuration.ShowPanelCaption)
         fgClr = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
     else
-        fgClr = GetSysColor(COLOR_BTNTEXT);
+        fgClr = GetPanelDefaultTextColor();
 
     ThrobberFrames->Draw(ThrobberFrame, hDC, x, y, fgClr, IL_DRAW_ASALPHA);
 }
@@ -724,7 +784,7 @@ void CStatusWindow::PaintSecurity(HDC hDC)
         if (Configuration.ShowPanelCaption)
             fgClr = GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]);
         else
-            fgClr = GetSysColor(COLOR_BTNTEXT);
+            fgClr = GetPanelDefaultTextColor();
     }
 
     LockFrames->Draw(DWORD(Security - 1), hDC, x, y, fgClr, IL_DRAW_ASALPHA /*IL_DRAW_TRANSPARENT*/);
@@ -742,6 +802,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
     HDC dc = ItemBitmap.HMemDC;
 
     BOOL isDirectoryLine = (Border & blTop) != 0;
+    const bool useDark = DarkModeShouldUseDarkColors();
 
     RECT r;
     r.left = 0;
@@ -750,7 +811,22 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
     r.bottom = Height;
     FillRect(dc, &r, HDialogBrush);
 
-    GetClientRect(HWindow, &r);
+    RECT clientRect;
+    GetClientRect(HWindow, &clientRect);
+
+    if (DarkModeShouldUseDarkColors() && (Border & blBottom))
+    {
+        HBRUSH borderBrush = DarkModeGetPanelFrameBrush();
+        if (borderBrush != NULL)
+        {
+            RECT frameRect = clientRect;
+            if (frameRect.bottom > frameRect.top)
+                frameRect.top = frameRect.bottom - 1;
+            FillRect(dc, &frameRect, borderBrush);
+        }
+    }
+
+    r = clientRect;
     if (Border & blBottom)
         r.bottom--;
 
@@ -765,14 +841,27 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         RECT textR = r;
         textR.top += 2;
         textR.bottom -= 2;
-        DrawEdge(dc, &textR, BDR_SUNKENOUTER, BF_RECT);
+        if (DarkModeShouldUseDarkColors())
+        {
+            HBRUSH borderBrush = DarkModeGetPanelFrameBrush();
+            if (borderBrush != NULL)
+            {
+                RECT frameRect = textR;
+                FrameRect(dc, &frameRect, borderBrush);
+            }
+        }
+        else
+            DrawEdge(dc, &textR, BDR_SUNKENOUTER, BF_RECT);
 
         // Fill the area under the text (active/inactive)
         textR.left++;
         textR.top++;
         textR.right--;
         textR.bottom--;
-        FillRect(dc, &textR, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
+        if (useDark)
+            FillRectSolid(dc, &textR, GetStatusBkColor(activeCaption, TRUE));
+        else
+            FillRect(dc, &textR, activeCaption ? HActiveCaptionBrush : HInactiveCaptionBrush);
     }
 
     // text
@@ -983,9 +1072,9 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             }
             else
             {
-                SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+                SetTextColor(dc, GetPanelDefaultTextColor());
                 if (highlightText && !highlightHotTrackOnly)
-                    SetTextColor(dc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+                    SetTextColor(dc, GetPanelHighlightTextColor());
             }
 
             int firstClipChar = 2 * TextLen;
@@ -1060,13 +1149,14 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 COLORREF oldColor;
                 if (isDirectoryLine && Configuration.ShowPanelCaption)
                 {
-                    oldColor = SetTextColor(dc, GetCOLORREF(CurrentColors[activeCaption ? HOT_ACTIVE : HOT_INACTIVE]));
+                    oldColor = SetTextColor(dc, GetStatusTextColor(activeCaption, TRUE, TRUE));
                 }
                 else
                 {
-                    oldColor = SetTextColor(dc, GetCOLORREF(CurrentColors[HOT_PANEL]));
+                    oldColor = SetTextColor(dc, GetStatusTextColor(activeCaption, FALSE, TRUE));
                     if (showFlashText)
-                        SetTextColor(dc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+                        SetTextColor(dc, useDark ? GetStatusTextColor(activeCaption, FALSE, TRUE)
+                                                 : GetSysColor(COLOR_HIGHLIGHTTEXT));
                 }
                 HFONT hOldFont = NULL;
                 if (Configuration.SingleClick && HotItem != NULL)
@@ -1140,7 +1230,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 if (isDirectoryLine && Configuration.ShowPanelCaption)
                     SetTextColor(dc, GetCOLORREF(CurrentColors[activeCaption ? ACTIVE_CAPTION_FG : INACTIVE_CAPTION_FG]));
                 else
-                    SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+                    SetTextColor(dc, GetPanelDefaultTextColor());
             }
 
             HFONT hOldFont = NULL;
@@ -2267,8 +2357,23 @@ BOOL CStatusWindow::GetFilterFrameRect(RECT* r)
 
 void CStatusWindow::OnColorsChanged()
 {
+    ItemBitmap.ReCreateForScreenDC();
+
     if (ToolBar != NULL)
+    {
         ToolBar->OnColorsChanged();
+        if (ToolBar->HWindow != NULL)
+        {
+            InvalidateRect(ToolBar->HWindow, NULL, TRUE);
+            UpdateWindow(ToolBar->HWindow);
+        }
+    }
+
+    if (HWindow != NULL)
+    {
+        InvalidateRect(HWindow, NULL, TRUE);
+        UpdateWindow(HWindow);
+    }
 }
 
 void CStatusWindow::SetFont()

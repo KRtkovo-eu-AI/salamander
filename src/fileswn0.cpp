@@ -1665,7 +1665,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
             if (controlPressed && shiftPressed && !altPressed)
             {
                 // focusing the focused directory/file in the second panel
-                BOOL leftPanel = this == MainWindow->LeftPanel;
+                BOOL leftPanel = IsLeftPanel();
                 if (wParam == VK_LEFT)
                 {
                     SendMessage(MainWindow->HWindow, WM_COMMAND, leftPanel ? CM_OPEN_IN_OTHER_PANEL : CM_OPEN_IN_OTHER_PANEL_ACT, 0);
@@ -2257,7 +2257,7 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
 #ifdef _DEBUG
     char t_path[2 * MAX_PATH];
     GetGeneralPath(t_path, 2 * MAX_PATH);
-    TRACE_I("RefreshDirectory: " << (MainWindow->LeftPanel == this ? "left" : "right") << ": " << t_path);
+    TRACE_I("RefreshDirectory: " << (IsLeftPanel() ? "left" : "right") << ": " << t_path);
 #endif // _DEBUG
 
     // show wait cursor
@@ -3327,6 +3327,21 @@ void CFilesWindow::OnColorsChanged()
         IconCache->ColorsChanged();
         if (UseSystemIcons || UseThumbnails)
             WakeupIconCacheThread();
+    }
+
+    if (ListBox != NULL && ListBox->HWindow != NULL)
+    {
+        // A color/theme switch can happen after the panel was already painted.
+        // Force a full panel repaint so stale light pixels are not left behind
+        // until the user moves selection or scrolls.
+        InvalidateRect(ListBox->HWindow, &ListBox->FilesRect, FALSE);
+        if (ListBox->HeaderLine.HWindow != NULL)
+            InvalidateRect(ListBox->HeaderLine.HWindow, NULL, TRUE);
+        if (ListBox->HVScrollBar != NULL)
+            InvalidateRect(ListBox->HVScrollBar, NULL, TRUE);
+        if (ListBox->HHScrollBar != NULL && ListBox->BottomBar.HWindow != NULL)
+            InvalidateRect(ListBox->BottomBar.HWindow, NULL, TRUE);
+        UpdateWindow(ListBox->HWindow);
     }
 }
 

@@ -6,6 +6,7 @@
 
 #include "bitmap.h"
 #include "toolbar.h"
+#include "darkmode.h"
 
 //*****************************************************************************
 //
@@ -111,6 +112,7 @@ CToolBar::CToolBar(HWND hNotifyWindow, CObjectOrigin origin)
     MouseIsTracked = FALSE;
     DropDownUpTime = GetTickCount();
     HelpMode = FALSE;
+    DarkCheckedUseAccent = TRUE;
 }
 
 CToolBar::~CToolBar()
@@ -783,6 +785,12 @@ void CToolBar::SetPadding(const TOOLBAR_PADDING* padding)
         InvalidateRect(HWindow, NULL, FALSE);
 }
 
+void CToolBar::SetDarkCheckedUseAccent(BOOL useAccent)
+{
+    CALL_STACK_MESSAGE2("CToolBar::SetDarkCheckedUseAccent(%d)", useAccent);
+    DarkCheckedUseAccent = useAccent;
+}
+
 /*
 int
 CToolBar::SetHotItem(int index)
@@ -875,7 +883,15 @@ CToolBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return TRUE;
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect((HDC)wParam, &r, HDialogBrush);
+        if (DarkMode_ShouldUseDark())
+        {
+            HGDIOBJ oldBrush = SelectObject((HDC)wParam, GetStockObject(DC_BRUSH));
+            SetDCBrushColor((HDC)wParam, RGB(45, 45, 48));
+            FillRect((HDC)wParam, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+            SelectObject((HDC)wParam, oldBrush);
+        }
+        else
+            FillRect((HDC)wParam, &r, HDialogBrush);
         return TRUE;
     }
 

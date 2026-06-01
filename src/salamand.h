@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -200,6 +200,12 @@ public:
                           const char* archivePathOrFSUserPart,
                           CPluginFSInterfaceAbstract* pluginFS,
                           CPluginFSInterfaceEncapsulation* curPluginFS);
+
+    // zkopiruje vsechny cesty z jine historie (prida je na konec, pripadne odstrani duplicity)
+    void AppendFrom(const CPathHistory& source);
+
+    // nahradi historii kopii z jine historie
+    void CopyFrom(const CPathHistory& source);
 
     // populates the menu with items
     // IDs will start from one and correspond to the index parameter when calling the Execute() method

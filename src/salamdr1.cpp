@@ -1,9 +1,10 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <time.h>
+#include <stdlib.h>
 //#ifdef MSVC_RUNTIME_CHECKS
 #include <rtcapi.h>
 //#endif // MSVC_RUNTIME_CHECKS
@@ -32,6 +33,7 @@
 #include "logo.h"
 #include "color.h"
 #include "toolbar.h"
+#include "darkmode.h"
 
 #include "svg.h"
 
@@ -214,7 +216,7 @@ const char* SALCF_FAKE_REALPATH = "SalFakeRealPath";
 const char* SALCF_FAKE_SRCTYPE = "SalFakeSrcType";
 const char* SALCF_FAKE_SRCFSPATH = "SalFakeSrcFSPath";
 
-const char* MAINWINDOW_NAME = "Open Salamander";
+const char* MAINWINDOW_NAME = "Open Salamander: Samandarin";
 const char* CMAINWINDOW_CLASSNAME = "SalamanderMainWindowVer25";
 const char* SAVEBITS_CLASSNAME = "SalamanderSaveBits";
 const char* SHELLEXECUTE_CLASSNAME = "SalamanderShellExecute";
@@ -244,6 +246,7 @@ LOGFONT LogFont;
 int FontCharHeight = 0;
 
 HFONT EnvFont = NULL;
+HFONT EnvFontBold = NULL;
 HFONT EnvFontUL = NULL;
 //LOGFONT EnvLogFont;
 int EnvFontCharHeight = 0;
@@ -263,6 +266,290 @@ HBRUSH HMenuSelectedBkBrush = NULL;
 HBRUSH HMenuSelectedTextBrush = NULL;
 HBRUSH HMenuHilightBrush = NULL;
 HBRUSH HMenuGrayTextBrush = NULL;
+
+static bool gDarkModeBrushesOwned = false;
+
+static bool gWindowsDarkPaletteActive = false;
+static SALCOLOR* gWindowsDarkPaletteTarget = NULL;
+static SALCOLOR gWindowsDarkPaletteBackup[NUMBER_OF_COLORS];
+static SALCOLOR gWindowsDarkViewerBackup[NUMBER_OF_VIEWERCOLORS];
+static bool gWindowsDarkViewerSaved = false;
+static CHighlightMasks* gWindowsDarkHighlightBackup = NULL;
+
+static COLORREF LightenColor(COLORREF color, int amount)
+{
+    return RGB(min(255, GetRValue(color) + amount),
+               min(255, GetGValue(color) + amount),
+               min(255, GetBValue(color) + amount));
+}
+
+static COLORREF DarkenColor(COLORREF color, int amount)
+{
+    return RGB(max(0, GetRValue(color) - amount),
+               max(0, GetGValue(color) - amount),
+               max(0, GetBValue(color) - amount));
+}
+
+static void DestroyDarkModeBrushes()
+{
+    if (!gDarkModeBrushesOwned)
+        return;
+
+    if (HDialogBrush != NULL)
+    {
+        HANDLES(DeleteObject(HDialogBrush));
+        HDialogBrush = NULL;
+    }
+    if (HButtonTextBrush != NULL)
+    {
+        HANDLES(DeleteObject(HButtonTextBrush));
+        HButtonTextBrush = NULL;
+    }
+    if (HMenuSelectedBkBrush != NULL)
+    {
+        HANDLES(DeleteObject(HMenuSelectedBkBrush));
+        HMenuSelectedBkBrush = NULL;
+    }
+    if (HMenuSelectedTextBrush != NULL)
+    {
+        HANDLES(DeleteObject(HMenuSelectedTextBrush));
+        HMenuSelectedTextBrush = NULL;
+    }
+    if (HMenuHilightBrush != NULL)
+    {
+        HANDLES(DeleteObject(HMenuHilightBrush));
+        HMenuHilightBrush = NULL;
+    }
+    if (HMenuGrayTextBrush != NULL)
+    {
+        HANDLES(DeleteObject(HMenuGrayTextBrush));
+        HMenuGrayTextBrush = NULL;
+    }
+
+    gDarkModeBrushesOwned = false;
+}
+
+static COLORREF GetPaletteDialogTextColor()
+{
+    const DarkModeColors& colors = DarkModeGetColors();
+    return colors.readableText;
+}
+
+static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
+{
+    const bool useDarkColors = preferDarkMode;
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF schemeBackground = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : CLR_INVALID;
+    const COLORREF schemeText = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : CLR_INVALID;
+    DarkModeSetConfiguredColors(schemeText, schemeBackground, fallbackText, fallbackBackground);
+    const DarkModeColors& palette = DarkModeGetColors();
+    const COLORREF paletteBackground = palette.background;
+    const COLORREF paletteText = palette.readableText;
+
+    if (useDarkColors)
+    {
+        DestroyDarkModeBrushes();
+        COLORREF panelBg = paletteBackground;
+        COLORREF textColor = paletteText;
+        COLORREF highlight = LightenColor(panelBg, 24);
+        COLORREF gray = DarkenColor(panelBg, 40);
+
+        HDialogBrush = HANDLES(CreateSolidBrush(panelBg));
+        HButtonTextBrush = HANDLES(CreateSolidBrush(textColor));
+        HMenuSelectedBkBrush = HANDLES(CreateSolidBrush(GetSysColor(COLOR_HIGHLIGHT)));
+        HMenuSelectedTextBrush = HANDLES(CreateSolidBrush(GetSysColor(COLOR_HIGHLIGHTTEXT)));
+        HMenuHilightBrush = HANDLES(CreateSolidBrush(highlight));
+        HMenuGrayTextBrush = HANDLES(CreateSolidBrush(gray));
+        gDarkModeBrushesOwned = true;
+    }
+    else
+    {
+        DestroyDarkModeBrushes();
+        HDialogBrush = GetSysColorBrush(COLOR_BTNFACE);
+        HButtonTextBrush = GetSysColorBrush(COLOR_BTNTEXT);
+        HMenuSelectedBkBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
+        HMenuSelectedTextBrush = GetSysColorBrush(COLOR_HIGHLIGHTTEXT);
+        HMenuHilightBrush = GetSysColorBrush(COLOR_3DHILIGHT);
+        HMenuGrayTextBrush = GetSysColorBrush(COLOR_3DSHADOW);
+    }
+
+    COLORREF dialogText = palette.readableText;
+    COLORREF dialogBackground = palette.background;
+    DarkModeConfigureDialogColors(dialogText, dialogBackground, HDialogBrush);
+}
+
+static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
+{
+    auto setColor = [](SALCOLOR& entry, DWORD colorAndFlags) {
+        entry = static_cast<SALCOLOR>(colorAndFlags);
+    };
+
+    setColor(target[FOCUS_ACTIVE_NORMAL], 0x00d77800);
+    setColor(target[FOCUS_ACTIVE_SELECTED], 0x00d77800);
+    setColor(target[FOCUS_FG_INACTIVE_NORMAL], 0x00a0a0a0);
+    setColor(target[FOCUS_FG_INACTIVE_SELECTED], 0x00a0a0a0);
+    setColor(target[FOCUS_BK_INACTIVE_NORMAL], 0x00202020);
+    setColor(target[FOCUS_BK_INACTIVE_SELECTED], 0x00202020);
+
+    setColor(target[ITEM_FG_NORMAL], 0x00dcdcdc);
+    setColor(target[ITEM_FG_SELECTED], 0x0003e9fc);
+    setColor(target[ITEM_FG_FOCUSED], 0x00ffffff);
+    setColor(target[ITEM_FG_FOCSEL], 0x0003e9fc);
+    setColor(target[ITEM_FG_HIGHLIGHT], 0x00ffffff);
+
+    setColor(target[ITEM_BK_NORMAL], 0x00202020);
+    setColor(target[ITEM_BK_SELECTED], 0x00202020);
+    setColor(target[ITEM_BK_FOCUSED], 0x003a3a3a);
+    setColor(target[ITEM_BK_FOCSEL], 0x003a3a3a);
+    setColor(target[ITEM_BK_HIGHLIGHT], 0x00383838);
+
+    setColor(target[ICON_BLEND_SELECTED], 0x0003e9fc);
+    setColor(target[ICON_BLEND_FOCUSED], 0x00c0c0c0);
+    setColor(target[ICON_BLEND_FOCSEL], 0x0003e9fc);
+
+    setColor(target[PROGRESS_FG_NORMAL], 0x00ffffff);
+    setColor(target[PROGRESS_FG_SELECTED], 0x00ffffff);
+    setColor(target[PROGRESS_BK_NORMAL], 0x002c2c2c);
+    setColor(target[PROGRESS_BK_SELECTED], 0x00d77800);
+
+    setColor(target[HOT_PANEL], 0x000080ff);
+    setColor(target[HOT_ACTIVE], 0x00000000);
+    setColor(target[HOT_INACTIVE], 0x00d77800);
+
+    setColor(target[ACTIVE_CAPTION_FG], 0x00ffffff);
+    setColor(target[ACTIVE_CAPTION_BK], 0x00d77800);
+    setColor(target[INACTIVE_CAPTION_FG], 0x00bebebe);
+    setColor(target[INACTIVE_CAPTION_BK], 0x00383838);
+
+    setColor(target[THUMBNAIL_FRAME_NORMAL], 0x005e5e5e);
+    setColor(target[THUMBNAIL_FRAME_SELECTED], 0x0003e9fc);
+    setColor(target[THUMBNAIL_FRAME_FOCUSED], 0x00d77800);
+    setColor(target[THUMBNAIL_FRAME_FOCSEL], 0x0003e9fc);
+
+    if (viewerTarget == NULL)
+        viewerTarget = ViewerColors;
+
+    setColor(viewerTarget[VIEWER_FG_NORMAL], 0x00dcdcdc);
+    setColor(viewerTarget[VIEWER_BK_NORMAL], 0x00202020);
+    setColor(viewerTarget[VIEWER_FG_SELECTED], 0x00ffffff);
+    setColor(viewerTarget[VIEWER_BK_SELECTED], 0x00d77800);
+}
+
+void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks)
+{
+    if (highlightMasks == NULL)
+        return;
+
+    highlightMasks->DestroyMembers();
+
+    auto addItem = [highlightMasks](DWORD attr, DWORD normalFg, DWORD selectedFg, DWORD focusedFg,
+                                    DWORD focSelFg, DWORD highlightFg, DWORD normalBk, DWORD selectedBk,
+                                    DWORD focusedBk, DWORD focSelBk, DWORD highlightBk) {
+        CHighlightMasksItem* item = new CHighlightMasksItem();
+        if (item == NULL)
+            return;
+        item->Set("*.*");
+        int errPos;
+        item->Masks->PrepareMasks(errPos);
+        item->Attr = attr;
+        item->ValidAttr = attr;
+        item->NormalFg = normalFg;
+        item->SelectedFg = selectedFg;
+        item->FocusedFg = focusedFg;
+        item->FocSelFg = focSelFg;
+        item->HighlightFg = highlightFg;
+        item->NormalBk = normalBk;
+        item->SelectedBk = selectedBk;
+        item->FocusedBk = focusedBk;
+        item->FocSelBk = focSelBk;
+        item->HighlightBk = highlightBk;
+        highlightMasks->Add(item);
+        if (!highlightMasks->IsGood())
+        {
+            highlightMasks->ResetState();
+            delete item;
+        }
+    };
+
+    addItem(FILE_ATTRIBUTE_COMPRESSED,
+            0x00ffff00, 0x0103e9fc, 0x00ffff00, 0x0103e9fc, 0x01ffff00,
+            0x01202020, 0x01202020, 0x013a3a3a, 0x013a3a3a, 0x01454545);
+    addItem(FILE_ATTRIBUTE_ENCRYPTED,
+            0x000d8f13, 0x0103e9fc, 0x000d8f13, 0x0103e9fc, 0x010d8f13,
+            0x01202020, 0x01202020, 0x013a3a3a, 0x013a3a3a, 0x01454545);
+}
+
+void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors)
+{
+    if (colors == NULL)
+        return;
+    BuildWindowsDarkPalette(colors, viewerColors);
+}
+
+static void WindowsDarkModeUpdatePalette(bool useDarkColors)
+{
+    SALCOLOR* target = CurrentColors;
+    if (!useDarkColors)
+    {
+        if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != NULL)
+        {
+            memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
+            if (gWindowsDarkViewerSaved)
+                memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+            if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+                MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
+        }
+        if (gWindowsDarkHighlightBackup != NULL)
+        {
+            delete gWindowsDarkHighlightBackup;
+            gWindowsDarkHighlightBackup = NULL;
+        }
+        gWindowsDarkPaletteActive = false;
+        gWindowsDarkPaletteTarget = NULL;
+        gWindowsDarkViewerSaved = false;
+        return;
+    }
+
+    if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != target)
+    {
+        if (gWindowsDarkPaletteTarget != NULL)
+            memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
+        if (gWindowsDarkViewerSaved)
+            memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+        if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+            MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
+        if (gWindowsDarkHighlightBackup != NULL)
+        {
+            delete gWindowsDarkHighlightBackup;
+            gWindowsDarkHighlightBackup = NULL;
+        }
+        gWindowsDarkPaletteActive = false;
+        gWindowsDarkPaletteTarget = NULL;
+        gWindowsDarkViewerSaved = false;
+    }
+
+    if (!gWindowsDarkPaletteActive)
+    {
+        gWindowsDarkPaletteTarget = target;
+        memcpy(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup));
+        memcpy(gWindowsDarkViewerBackup, ViewerColors, sizeof(gWindowsDarkViewerBackup));
+        gWindowsDarkViewerSaved = true;
+        if (MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+        {
+            gWindowsDarkHighlightBackup = new CHighlightMasks(10, 5);
+            if (gWindowsDarkHighlightBackup != NULL)
+                gWindowsDarkHighlightBackup->Load(*MainWindow->HighlightMasks);
+        }
+        gWindowsDarkPaletteActive = true;
+    }
+
+    WindowsDarkModeBuildPalette(target, ViewerColors);
+    if (MainWindow != NULL && MainWindow->HighlightMasks != NULL)
+        WindowsDarkModeBuildHighlightMasks(MainWindow->HighlightMasks);
+}
+
+
 
 HPEN HActiveNormalPen = NULL; // pens for the rectangle around an item
 HPEN HActiveSelectedPen = NULL;
@@ -289,6 +576,7 @@ HIMAGELIST HGrayToolBarImageList = NULL;
 HIMAGELIST HHotToolBarImageList = NULL;
 HIMAGELIST HBottomTBImageList = NULL;
 HIMAGELIST HHotBottomTBImageList = NULL;
+int ToolBarLockImageIndex = -1;
 
 CBitmap ItemBitmap;
 
@@ -435,6 +723,38 @@ DWORD EnablerShowProperties = FALSE;
 DWORD EnablerItemsContextMenu = FALSE;
 DWORD EnablerOpenActiveFolder = FALSE;
 DWORD EnablerPermissions = FALSE;
+DWORD EnablerNewTab = FALSE;
+DWORD EnablerCloseTab = FALSE;
+DWORD EnablerNextTab = FALSE;
+DWORD EnablerPrevTab = FALSE;
+DWORD EnablerDuplicateTab = FALSE;
+DWORD EnablerReopenTab = FALSE;
+DWORD EnablerLockTab = FALSE;
+DWORD EnablerUnlockTab = FALSE;
+DWORD EnablerLeftNewTab = FALSE;
+DWORD EnablerLeftCloseTab = FALSE;
+DWORD EnablerLeftNextTab = FALSE;
+DWORD EnablerLeftPrevTab = FALSE;
+DWORD EnablerLeftCloseAllButDefault = FALSE;
+DWORD EnablerLeftCloseAllExceptThisAndDefault = FALSE;
+DWORD EnablerLeftDuplicateTab = FALSE;
+DWORD EnablerLeftDuplicateTabToRight = FALSE;
+DWORD EnablerLeftMoveTabToRight = FALSE;
+DWORD EnablerLeftReopenTab = FALSE;
+DWORD EnablerLeftLockTab = FALSE;
+DWORD EnablerLeftUnlockTab = FALSE;
+DWORD EnablerRightNewTab = FALSE;
+DWORD EnablerRightCloseTab = FALSE;
+DWORD EnablerRightNextTab = FALSE;
+DWORD EnablerRightPrevTab = FALSE;
+DWORD EnablerRightCloseAllButDefault = FALSE;
+DWORD EnablerRightCloseAllExceptThisAndDefault = FALSE;
+DWORD EnablerRightDuplicateTab = FALSE;
+DWORD EnablerRightDuplicateTabToLeft = FALSE;
+DWORD EnablerRightMoveTabToLeft = FALSE;
+DWORD EnablerRightReopenTab = FALSE;
+DWORD EnablerRightLockTab = FALSE;
+DWORD EnablerRightUnlockTab = FALSE;
 
 COLORREF* CurrentColors = SalamanderColors;
 
@@ -1801,7 +2121,8 @@ BOOL InitializeConstGraphics()
   strcpy(LogFont.lfFaceName, "MS Shell Dlg 2");
   */
 
-    // These brushes are allocated by the system and update automatically when the colors change.
+    UpdateMenuAndDialogBrushes(DarkModeShouldUseDarkColors());
+
     HDialogBrush = GetSysColorBrush(COLOR_BTNFACE);
     HButtonTextBrush = GetSysColorBrush(COLOR_BTNTEXT);
     HMenuSelectedBkBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
@@ -1841,6 +2162,8 @@ BOOL InitializeConstGraphics()
 
 void ReleaseConstGraphics()
 {
+    DestroyDarkModeBrushes();
+
     ItemBitmap.Destroy();
     //if (HWorkerBitmap != NULL)
     //{
@@ -1872,11 +2195,33 @@ void ReleaseConstGraphics()
         EnvFont = NULL;
     }
 
+    if (EnvFontBold != NULL)
+    {
+        HANDLES(DeleteObject(EnvFontBold));
+        EnvFontBold = NULL;
+    }
+
     if (EnvFontUL != NULL)
     {
         HANDLES(DeleteObject(EnvFontUL));
         EnvFontUL = NULL;
     }
+}
+
+static HICON SafeLoadDirectoryIcon(const char* systemDir, CIconSizeEnum sizeIndex)
+{
+    HICON hIcon = NULL;
+    __try
+    {
+        if (!GetFileIcon(systemDir, FALSE, &hIcon, sizeIndex, FALSE, FALSE))
+            hIcon = NULL;
+    }
+    __except (CCallStack::HandleException(GetExceptionInformation(), 15))
+    {
+        FGIExceptionHasOccured++;
+        hIcon = NULL;
+    }
+    return hIcon;
 }
 
 BOOL AuxAllocateImageLists()
@@ -2081,6 +2426,14 @@ int GetScaleForSystemDPI()
     return scale;
 }
 
+int DipToPixels(int dips)
+{
+    if (dips <= 0)
+        return dips;
+
+    return MulDiv(dips, GetSystemDPI(), 96);
+}
+
 int GetIconSizeForSystemDPI(CIconSizeEnum iconSize)
 {
     if (SystemDPI == 0)
@@ -2131,6 +2484,8 @@ void GetSystemDPI(HDC hDC)
 
 BOOL InitializeGraphics(BOOL colorsOnly)
 {
+    bool useDark = DarkModeShouldUseDarkColors();
+    COLORREF toolbarFace = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
     // 48x48 only on XP and later
     // Large icons have actually been supported for a long time; they can be enabled via
     // Desktop/Properties/???/Large Icons. Note that there will then be no system image list
@@ -2280,7 +2635,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         HBITMAP hTmpColorBitmap;
         if (!CreateToolbarBitmaps(HInstance,
                                   IDB_MENU,
-                                  RGB(255, 0, 255), GetSysColor(COLOR_BTNFACE),
+                                  RGB(255, 0, 255), toolbarFace,
                                   hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
                                   FALSE, NULL, 0))
             return FALSE;
@@ -2295,7 +2650,7 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         GetSVGIconsMainToolbar(&svgIcons, &svgIconsCount);
         if (!CreateToolbarBitmaps(HInstance,
                                   Use256ColorsBitmap() ? IDB_TOOLBAR_256 : IDB_TOOLBAR_16,
-                                  RGB(255, 0, 255), GetSysColor(COLOR_BTNFACE),
+                                  RGB(255, 0, 255), toolbarFace,
                                   hTmpMaskBitmap, hTmpGrayBitmap, hTmpColorBitmap,
                                   TRUE, svgIcons, svgIconsCount))
             return FALSE;
@@ -2311,6 +2666,44 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         {
             TRACE_E("Unable to create image list.");
             return FALSE;
+        }
+
+        ToolBarLockImageIndex = -1;
+        if (LockFrames != NULL)
+        {
+            HICON colorLock = LockFrames->GetIcon(0);
+            CIconList grayLockCopy;
+            HICON grayLock = NULL;
+            if (grayLockCopy.CreateAsCopy(LockFrames, TRUE))
+                grayLock = grayLockCopy.GetIcon(0);
+
+            if (colorLock != NULL)
+            {
+                ToolBarLockImageIndex = ImageList_AddIcon(HHotToolBarImageList, colorLock);
+                DestroyIcon(colorLock);
+            }
+
+            if (grayLock != NULL)
+            {
+                int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, grayLock);
+                if (ToolBarLockImageIndex >= 0 && grayIndex != ToolBarLockImageIndex)
+                {
+                    ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, grayLock);
+                    ImageList_Remove(HGrayToolBarImageList, grayIndex);
+                }
+                DestroyIcon(grayLock);
+            }
+            else if (ToolBarLockImageIndex >= 0)
+            {
+                HICON fallback = LockFrames->GetIcon(0);
+                if (fallback != NULL)
+                {
+                    int grayIndex = ImageList_AddIcon(HGrayToolBarImageList, fallback);
+                    if (grayIndex != ToolBarLockImageIndex)
+                        ImageList_ReplaceIcon(HGrayToolBarImageList, ToolBarLockImageIndex, fallback);
+                    DestroyIcon(fallback);
+                }
+            }
         }
 
         HBottomTBImageList = ImageList_Create(BOTTOMBAR_CX, BOTTOMBAR_CY, ILC_MASK | ILC_COLORDDB, 12, 0);
@@ -2354,18 +2747,8 @@ BOOL InitializeGraphics(BOOL colorsOnly)
         int sizeIndex;
         for (sizeIndex = ICONSIZE_16; sizeIndex < ICONSIZE_COUNT; sizeIndex++)
         {
-            // folder icon
-            hIcon = NULL;
-            __try
-            {
-                if (!GetFileIcon(systemDir, FALSE, &hIcon, (CIconSizeEnum)sizeIndex, FALSE, FALSE))
-                    hIcon = NULL;
-            }
-            __except (CCallStack::HandleException(GetExceptionInformation(), 15))
-            {
-                FGIExceptionHasOccured++;
-                hIcon = NULL;
-            }
+            // ikonka adresare
+            hIcon = SafeLoadDirectoryIcon(systemDir, (CIconSizeEnum)sizeIndex);
             if (hIcon != NULL) // if we do not obtain the icon, the #4 one from shell32.dll remains
             {
                 SimpleIconLists[sizeIndex]->ReplaceIcon(symbolsDirectory, hIcon);
@@ -2404,15 +2787,17 @@ BOOL InitializeGraphics(BOOL colorsOnly)
             return FALSE;
         }
 
-        SVGArrowRight.Load(IDV_ARROW_RIGHT, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
-        SVGArrowRightSmall.Load(IDV_ARROW_RIGHT, -1, (int)((double)iconSize / 2.5), SVGSTATE_ENABLED | SVGSTATE_DISABLED);
-        SVGArrowMore.Load(IDV_ARROW_MORE, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
-        SVGArrowLess.Load(IDV_ARROW_LESS, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
-        SVGArrowDropDown.Load(IDV_ARROW_DOWN, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
     }
 
-    ImageList_SetBkColor(HHotToolBarImageList, GetSysColor(COLOR_BTNFACE));
-    ImageList_SetBkColor(HGrayToolBarImageList, GetSysColor(COLOR_BTNFACE));
+    ImageList_SetBkColor(HHotToolBarImageList, toolbarFace);
+    ImageList_SetBkColor(HGrayToolBarImageList, toolbarFace);
+
+    int arrowIconSize = IconSizes[ICONSIZE_16];
+    SVGArrowRight.Load(IDV_ARROW_RIGHT, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
+    SVGArrowRightSmall.Load(IDV_ARROW_RIGHT, -1, (int)((double)arrowIconSize / 2.5), SVGSTATE_ENABLED | SVGSTATE_DISABLED);
+    SVGArrowMore.Load(IDV_ARROW_MORE, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
+    SVGArrowLess.Load(IDV_ARROW_LESS, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
+    SVGArrowDropDown.Load(IDV_ARROW_DOWN, -1, -1, SVGSTATE_ENABLED | SVGSTATE_DISABLED);
 
     if (SystemParametersInfo(SPI_GETMOUSEHOVERTIME, 0, &MouseHoverTime, FALSE) == 0)
     {
@@ -2455,12 +2840,18 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     HThumbnailSelectedPen = HANDLES(CreatePen(PS_SOLID, 0, GetCOLORREF(CurrentColors[THUMBNAIL_FRAME_SELECTED])));
     HThumbnailFocSelPen = HANDLES(CreatePen(PS_SOLID, 0, GetCOLORREF(CurrentColors[THUMBNAIL_FRAME_FOCSEL])));
 
-    BtnShadowPen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW)));
-    BtnHilightPen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNHILIGHT)));
-    Btn3DLightPen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_3DLIGHT)));
-    BtnFacePen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE)));
-    WndFramePen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_WINDOWFRAME)));
-    WndPen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_WINDOW)));
+    COLORREF toolbarHighlight = useDark ? LightenColor(toolbarFace, 30) : GetSysColor(COLOR_BTNHILIGHT);
+    COLORREF toolbarShadow = useDark ? DarkenColor(toolbarFace, 40) : GetSysColor(COLOR_BTNSHADOW);
+    COLORREF toolbarLight = useDark ? LightenColor(toolbarFace, 18) : GetSysColor(COLOR_3DLIGHT);
+    COLORREF toolbarFrame = useDark ? DarkenColor(toolbarFace, 60) : GetSysColor(COLOR_WINDOWFRAME);
+    COLORREF toolbarWindow = useDark ? toolbarFace : GetSysColor(COLOR_WINDOW);
+
+    BtnShadowPen = HANDLES(CreatePen(PS_SOLID, 0, toolbarShadow));
+    BtnHilightPen = HANDLES(CreatePen(PS_SOLID, 0, toolbarHighlight));
+    Btn3DLightPen = HANDLES(CreatePen(PS_SOLID, 0, toolbarLight));
+    BtnFacePen = HANDLES(CreatePen(PS_SOLID, 0, toolbarFace));
+    WndFramePen = HANDLES(CreatePen(PS_SOLID, 0, toolbarFrame));
+    WndPen = HANDLES(CreatePen(PS_SOLID, 0, toolbarWindow));
     if (HActiveNormalPen == NULL || HActiveSelectedPen == NULL ||
         HInactiveNormalPen == NULL || HInactiveSelectedPen == NULL ||
         HThumbnailNormalPen == NULL || HThumbnailFucsedPen == NULL ||
@@ -2474,11 +2865,11 @@ BOOL InitializeGraphics(BOOL colorsOnly)
 
     COLORMAP clrMap[3];
     clrMap[0].from = RGB(255, 0, 255);
-    clrMap[0].to = GetSysColor(COLOR_BTNFACE);
+    clrMap[0].to = toolbarFace;
     clrMap[1].from = RGB(255, 255, 255);
-    clrMap[1].to = GetSysColor(COLOR_BTNHILIGHT);
+    clrMap[1].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : toolbarHighlight;
     clrMap[2].from = RGB(128, 128, 128);
-    clrMap[2].to = GetSysColor(COLOR_BTNSHADOW);
+    clrMap[2].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : toolbarShadow;
     HHeaderSort = HANDLES(CreateMappedBitmap(HInstance, IDB_HEADER, 0, clrMap, 3));
     if (HHeaderSort == NULL)
     {
@@ -2487,16 +2878,22 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     }
 
     clrMap[0].from = RGB(128, 128, 128); // gray -> COLOR_BTNSHADOW
-    clrMap[0].to = GetSysColor(COLOR_BTNSHADOW);
+    clrMap[0].to = toolbarShadow;
     clrMap[1].from = RGB(0, 0, 0); // black -> COLOR_BTNTEXT
-    clrMap[1].to = GetSysColor(COLOR_BTNTEXT);
+    clrMap[1].to = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_BTNTEXT);
     clrMap[2].from = RGB(255, 255, 255); // white -> transparent
     clrMap[2].to = RGB(255, 0, 255);
     HBITMAP hBottomTB = HANDLES(CreateMappedBitmap(HInstance, IDB_BOTTOMTOOLBAR, 0, clrMap, 3));
     BOOL remapWhite = FALSE;
-    if (GetCurrentBPP() > 8)
+    if (useDark)
     {
-        clrMap[2].from = RGB(255, 255, 255); // white -> light gray (so it's not so harsh)
+        clrMap[2].from = RGB(255, 255, 255);
+        clrMap[2].to = LightenColor(toolbarFace, 24);
+        remapWhite = TRUE;
+    }
+    else if (GetCurrentBPP() > 8)
+    {
+        clrMap[2].from = RGB(255, 255, 255); // bila -> svetle sedivou (at to tak nerve)
         clrMap[2].to = RGB(235, 235, 235);
         remapWhite = TRUE;
     }
@@ -2507,8 +2904,9 @@ BOOL InitializeGraphics(BOOL colorsOnly)
     ImageList_AddMasked(HHotBottomTBImageList, hHotBottomTB, RGB(255, 0, 255));
     HANDLES(DeleteObject(hBottomTB));
     HANDLES(DeleteObject(hHotBottomTB));
-    ImageList_SetBkColor(HBottomTBImageList, GetSysColor(COLOR_BTNFACE));
-    ImageList_SetBkColor(HHotBottomTBImageList, GetSysColor(COLOR_BTNFACE));
+    COLORREF bottomToolbarFace = toolbarFace;
+    ImageList_SetBkColor(HBottomTBImageList, bottomToolbarFace);
+    ImageList_SetBkColor(HHotBottomTBImageList, bottomToolbarFace);
     return TRUE;
 }
 
@@ -2958,6 +3356,17 @@ BOOL PackErrorHandler(HWND parent, const WORD err, ...)
     return ret;
 }
 
+namespace
+{
+BOOL CALLBACK SendThemeChangedToThreadWindows(HWND hwnd, LPARAM lParam)
+{
+    HWND mainWindow = reinterpret_cast<HWND>(lParam);
+    if (hwnd != mainWindow && IsWindow(hwnd))
+        SendMessage(hwnd, WM_THEMECHANGED, 0, 0);
+    return TRUE;
+}
+} // namespace
+
 //
 // ****************************************************************************
 // ColorsChanged
@@ -2966,6 +3375,22 @@ BOOL PackErrorHandler(HWND parent, const WORD err, ...)
 void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
 {
     CALL_STACK_MESSAGE2("ColorsChanged(%d)", refresh);
+
+    const bool windowsDarkEnabled = Configuration.UseWindowsDarkMode != FALSE;
+    DarkModeSetEnabled(windowsDarkEnabled);
+
+    const bool useDarkColors = windowsDarkEnabled;
+
+    WindowsDarkModeUpdatePalette(windowsDarkEnabled);
+    UpdateMenuAndDialogBrushes(useDarkColors);
+    if (MainWindow != NULL && MainWindow->HWindow != NULL)
+    {
+        DarkModeApplyTree(MainWindow->HWindow);
+        DarkModeRefreshTitleBar(MainWindow->HWindow);
+        SendMessage(MainWindow->HWindow, WM_THEMECHANGED, 0, 0);
+        EnumThreadWindows(GetCurrentThreadId(), SendThemeChangedToThreadWindows,
+                          reinterpret_cast<LPARAM>(MainWindow->HWindow));
+    }
     // WARNING! fonts must be FALSE to avoid changing the font handle,
     // and the toolbars that use it would have to be notified of that change
     ReleaseGraphics(colorsOnly);
@@ -2992,7 +3417,16 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
     Plugins.Event(PLUGINEVENT_COLORSCHANGED, 0);
 
     if (MainWindow != NULL && MainWindow->HTopRebar != NULL)
-        SendMessage(MainWindow->HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)GetSysColor(COLOR_BTNFACE));
+    {
+        COLORREF rebarColor = useDarkColors ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
+        SendMessage(MainWindow->HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)rebarColor);
+        COLORSCHEME cs;
+        cs.dwSize = sizeof(cs);
+        cs.clrBtnHighlight = useDarkColors ? DarkenColor(rebarColor, 18) : GetSysColor(COLOR_3DHILIGHT);
+        cs.clrBtnShadow = useDarkColors ? DarkenColor(rebarColor, 38) : GetSysColor(COLOR_3DSHADOW);
+        SendMessage(MainWindow->HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&cs);
+        MainWindow->UpdateRebarVisuals();
+    }
 
     if (refresh && MainWindow != NULL)
     {
@@ -3450,12 +3884,17 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                 if (i + 1 < p)
                 {
                     char* s = argv[i + 1];
-                    if ((*s == '0' || *s == '1' || *s == '2' || *s == '3') && *(s + 1) == 0) // 0, 1, 2, 3
+                    if (*s != 0)
                     {
-                        Configuration.MainWindowIconIndexForced = (*s - '0');
+                        char* endPtr = NULL;
+                        long parsedIndex = strtol(s, &endPtr, 10);
+                        if (*endPtr == 0 && parsedIndex >= 0 && parsedIndex < MAINWINDOWICONS_COUNT)
+                        {
+                            Configuration.MainWindowIconIndexForced = (int)parsedIndex;
 
-                        cmdLineParams->SetMainWindowIconIndex = TRUE;
-                        cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                            cmdLineParams->SetMainWindowIconIndex = TRUE;
+                            cmdLineParams->MainWindowIconIndex = Configuration.MainWindowIconIndexForced;
+                        }
                     }
                     i++;
                     continue;
@@ -4048,6 +4487,7 @@ FIND_NEW_SLG_FILE:
         SplashScreenCloseIfExist();
         goto EXIT_8;
     }
+    UpdateTabbedPanelMenuItems(Configuration.UsePanelTabs != 0);
     if (!InitializeThread())
     {
         SplashScreenCloseIfExist();

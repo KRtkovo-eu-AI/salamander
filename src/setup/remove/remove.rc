@@ -72,14 +72,14 @@ LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
 #ifndef INSIDE_SETUP
 IDD_CONFIRMATION DIALOGEX 85, 45, 336, 102
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
-CAPTION "Altap Uninstall"
+CAPTION "Open Salamander: Samandarin Uninstall"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     ICON            3100,IDC_MYICON,10,11,20,20
     DEFPUSHBUTTON   "&Ano",IDYES,115,81,50,14,WS_GROUP
     PUSHBUTTON      "&Ne",IDNO,169,81,50,14
     LTEXT           "Opravdu si přejete odstranit %s?",IDC_QUESTION,39,10,290,18
-    LTEXT           "Obě x64 a x86 verze Open Salamandera sdílí jednu konfiguraci v Registru.",IDC_STATIC,39,36,290,8
+    LTEXT           "Obě x64 a x86 verze Open Salamander: Samandarin sdílí jednu konfiguraci v Registru.",IDC_STATIC,39,36,290,8
     CONTROL         "Zároveň odstranit &konfiguraci z Registru",IDC_REMOVECONFIGURATION,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,39,47,164,12
 END
@@ -119,14 +119,14 @@ LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
 #ifndef INSIDE_SETUP
 IDD_CONFIRMATION DIALOGEX 85, 45, 362, 103
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
-CAPTION "Altap-Deinstallation"
+CAPTION "Open Salamander: Samandarin-Deinstallation"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     ICON            3100,IDC_MYICON,10,11,20,20
     DEFPUSHBUTTON   "&Ja",IDYES,125,80,50,14,WS_GROUP
     PUSHBUTTON      "&Nein",IDNO,179,80,50,14
     LTEXT           "Möchten Sie %s wirklich entfernen?",IDC_QUESTION,39,10,305,18
-    LTEXT           "Beide Versionen von Open Salamander, die x64 und die x86, benutzen dieselbe Konfiguration.",IDC_STATIC,39,36,318,8
+    LTEXT           "Beide Versionen von Open Salamander: Samandarin, die x64 und die x86, benutzen dieselbe Konfiguration.",IDC_STATIC,39,36,318,8
     CONTROL         "Ebenfalls die &Konfiguration aus der Registry entfernen",IDC_REMOVECONFIGURATION,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,39,47,214,12
 END
@@ -166,14 +166,14 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #ifndef INSIDE_SETUP
 IDD_CONFIRMATION DIALOGEX 85, 45, 337, 100
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
-CAPTION "Altap Uninstall"
+CAPTION "Open Salamander: Samandarin Uninstall"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     ICON            3100,IDC_MYICON,10,11,20,20
     DEFPUSHBUTTON   "&Yes",IDYES,116,78,50,14,WS_GROUP
     PUSHBUTTON      "&No",IDNO,170,78,50,14
     LTEXT           "Are you sure that you want to remove the %s?",IDC_QUESTION,39,10,293,17
-    LTEXT           "Both x64 and x86 versions of Open Salamander are sharing the same configuration.",IDC_STATIC,39,35,293,8
+    LTEXT           "Both x64 and x86 versions of Open Salamander: Samandarin are sharing the same configuration.",IDC_STATIC,39,35,293,8
     CONTROL         "Remove also &configuration from Registry",IDC_REMOVECONFIGURATION,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,39,46,167,12
 END

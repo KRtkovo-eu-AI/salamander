@@ -344,8 +344,18 @@ BOOL CPreviewWindow::CustomDraw(LPNMLVCUSTOMDRAW cd, LRESULT& result)
             break;
         }
 
-        if (subItem == CI_NEWNAME &&
-            strcmp(GetItemText(item, CI_OLDNAME), GetItemText(item, CI_NEWNAME)) == 0)
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PluginDarkModeColors colors = PluginDarkMode_GetColors();
+            cd->clrTextBk = colors.background;
+            if (subItem == CI_NEWNAME &&
+                strcmp(GetItemText(item, CI_OLDNAME), GetItemText(item, CI_NEWNAME)) == 0)
+                cd->clrText = RGB(0x90, 0x90, 0x90);
+            else
+                cd->clrText = colors.readableText;
+        }
+        else if (subItem == CI_NEWNAME &&
+                 strcmp(GetItemText(item, CI_OLDNAME), GetItemText(item, CI_NEWNAME)) == 0)
             cd->clrText = GetSysColor(COLOR_GRAYTEXT);
         else
             cd->clrText = GetSysColor(COLOR_WINDOWTEXT);
@@ -682,6 +692,9 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
         if (HWND(lParam) == Static)
         {
+            LRESULT brush = 0;
+            if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+                return brush;
             SetTextColor((HDC)wParam, GetSysColor(COLOR_WINDOWTEXT));
             return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
         }

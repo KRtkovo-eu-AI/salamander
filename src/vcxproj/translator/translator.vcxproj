@@ -142,6 +142,7 @@
     <ClCompile Include="..\..\common\str.cpp" />
     <ClCompile Include="..\..\common\trace.cpp" />
     <ClCompile Include="..\..\common\winlib.cpp" />
+    <ClCompile Include="..\..\darkmode.cpp" />
     <ClCompile Include="..\..\translator\config.cpp" />
     <ClCompile Include="..\..\translator\databook.cpp" />
     <ClCompile Include="..\..\translator\datacnfl.cpp" />

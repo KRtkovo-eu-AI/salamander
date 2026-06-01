@@ -1,0 +1,19 @@
+// Copyright © 2009 by Christoph Richner. All rights are reserved.
+// 
+// If you like this code then feel free to go ahead and use it.
+// The only thing I ask is that you don't remove or alter my copyright notice.
+//
+// Your use of this software is entirely at your own risk. I make no claims or
+// warrantees about the reliability or fitness of this code for any particular purpose.
+// If you make changes or additions to this code please mark your code as being yours.
+// 
+// website http://raccoom.sytes.net, email microweb@bluewin.ch, msn chrisdarebell@msn.com
+2.3 - 2.4
+- New abstract base classes encapsulate more logic, means less code on the data provider side, DO MORE WITH LESS ;)
+- HideFileExtension property on the file system based data providers to hide file extension (idea by Evaldas Jocys)
+- Shell32 Provider ShowFiles Bug fixed
+2.2 - 2.3
+- TreeViewFolderBrowserDataProvider now support files. You can configure this new feature with the ShowFiles property. 
+2.1 - 2.2
+- TreeViewFolderBrowserDataProviderShell32 now support files. You can configure this new feature with the ShowFiles property. 
+- Bugfix Shell32 DataProvider: Recursive mode didn't show child items checked after refreshing.

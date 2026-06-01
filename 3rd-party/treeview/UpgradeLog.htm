@@ -1,0 +1,362 @@
+﻿<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+ <html xmlns:msxsl="urn:schemas-microsoft-com:xslt"><head><meta content="en-us" http-equiv="Content-Language" /><meta content="text/html; charset=utf-16" http-equiv="Content-Type" /><title _locID="ConversionReport0">
+          Migration Report
+        </title><style> 
+                    /* Body style, for the entire document */
+                    body
+                    {
+                        background: #F3F3F4;
+                        color: #1E1E1F;
+                        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                        padding: 0;
+                        margin: 0;
+                    }
+
+                    /* Header1 style, used for the main title */
+                    h1
+                    {
+                        padding: 10px 0px 10px 10px;
+                        font-size: 21pt;
+                        background-color: #E2E2E2;
+                        border-bottom: 1px #C1C1C2 solid; 
+                        color: #201F20;
+                        margin: 0;
+                        font-weight: normal;
+                    }
+
+                    /* Header2 style, used for "Overview" and other sections */
+                    h2
+                    {
+                        font-size: 18pt;
+                        font-weight: normal;
+                        padding: 15px 0 5px 0;
+                        margin: 0;
+                    }
+
+                    /* Header3 style, used for sub-sections, such as project name */
+                    h3
+                    {
+                        font-weight: normal;
+                        font-size: 15pt;
+                        margin: 0;
+                        padding: 15px 0 5px 0;
+                        background-color: transparent;
+                    }
+
+                    /* Color all hyperlinks one color */
+                    a
+                    {
+                        color: #1382CE;
+                    }
+
+                    /* Table styles */ 
+                    table
+                    {
+                        border-spacing: 0 0;
+                        border-collapse: collapse;
+                        font-size: 10pt;
+                    }
+
+                    table th
+                    {
+                        background: #E7E7E8;
+                        text-align: left;
+                        text-decoration: none;
+                        font-weight: normal;
+                        padding: 3px 6px 3px 6px;
+                    }
+
+                    table td
+                    {
+                        vertical-align: top;
+                        padding: 3px 6px 5px 5px;
+                        margin: 0px;
+                        border: 1px solid #E7E7E8;
+                        background: #F7F7F8;
+                    }
+
+                    /* Local link is a style for hyperlinks that link to file:/// content, there are lots so color them as 'normal' text until the user mouse overs */
+                    .localLink
+                    {
+                        color: #1E1E1F;
+                        background: #EEEEED;
+                        text-decoration: none;
+                    }
+
+                    .localLink:hover
+                    {
+                        color: #1382CE;
+                        background: #FFFF99;
+                        text-decoration: none;
+                    }
+
+                    /* Center text, used in the over views cells that contain message level counts */ 
+                    .textCentered
+                    {
+                        text-align: center;
+                    }
+
+                    /* The message cells in message tables should take up all avaliable space */
+                    .messageCell
+                    {
+                        width: 100%;
+                    }
+
+                    /* Padding around the content after the h1 */ 
+                    #content 
+                    {
+	                    padding: 0px 12px 12px 12px; 
+                    }
+
+                    /* The overview table expands to width, with a max width of 97% */ 
+                    #overview table
+                    {
+                        width: auto;
+                        max-width: 75%; 
+                    }
+
+                    /* The messages tables are always 97% width */
+                    #messages table
+                    {
+                        width: 97%;
+                    }
+
+                    /* All Icons */
+                    .IconSuccessEncoded, .IconInfoEncoded, .IconWarningEncoded, .IconErrorEncoded
+                    {
+                        min-width:18px;
+                        min-height:18px; 
+                        background-repeat:no-repeat;
+                        background-position:center;
+                    }
+
+                    /* Success icon encoded */
+                    .IconSuccessEncoded
+                    {
+                        /* Note: Do not delete the comment below. It is used to verify the correctness of the encoded image resource below before the product is released */
+                        /* [---XsltValidateInternal-Base64EncodedImage:IconSuccess#Begin#background-image: url(data:image/png;base64,#Separator#);#End#] */
+                        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABcElEQVR4Xq2TsUsCURzHv15g8ZJcBWlyiYYgCIWcb9DFRRwMW5TA2c0/QEFwFkxxUQdxVlBwCYWOi6IhWgQhBLHJUCkhLr/BW8S7gvrAg+N+v8/v+x68Z8MGy+XSCyABQAXgBgHGALoASkIIDWSLeLBetdHryMjd5IxQPWT4rn1c/P7+xxp72Cs9m5SZ0Bq2vPnbPFafK2zDvmNHypdC0BPkLlQhxJsCAhQoZwdZU5mwxh720qGo8MzTxTTKZDPCx2HoVzp6lz0Q9tKhyx0kGs8Ny+TkWRKk8lCROwEduhyg9l/6lunOPSfmH3NUH6uQ0KHLAe7JYvJjevm+DAMGJHToKtigE+vwvIidxLamb8IBY9e+C5LiXREkfho3TSd06HJA13/oh6T51MTsfQbHrsMynQ5dDihFjiK8JJAU9AKIWTp76dCVN7HWHrajmUEGvyF9nkbAE6gLIS7kTUyuf2gscLoJrElZo/Mvj+nPz/kLTmfnEwP3tB0AAAAASUVORK5CYII=);
+                    }
+
+                    /* Information icon encoded */
+                    .IconInfoEncoded
+                    {
+                        /* Note: Do not delete the comment below. It is used to verify the correctness of the encoded image resource below before the product is released */
+                        /* [---XsltValidateInternal-Base64EncodedImage:IconInformation#Begin#background-image: url(data:image/png;base64,#Separator#);#End#] */
+                        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABHElEQVR4Xs2TsUoDQRRF7wwoziokjZUKadInhdhukR9YP8DMX1hYW+QvdsXa/QHBbcXC7W0CamWTQnclFutceIQJwwaWNLlwm5k5d94M76mmaeCrrmsLYOocY12FcxZFUeozCqKqqgYA8uevv1H6VuPxcwlfk5N92KHBxfFeCSAxxswlYAW/Xr989x/mv9gkhtyMDhcAxgzRsp7flj8B/HF1RsMXq+NZMkopaHe7lbKxQUEIGbKsYNoGn969060hZBkQex/W8oRQwsQaW2o3Ago2SVcJUzAgY3N0lTCZZm+zPS8HB51gMmS1DEYyOz9acKO1D8JWTlafKIMxdhvlfdyT94Vv5h7P8Ky7nQzACmhvKq3zk3PjW9asz9D/1oigecsioooAAAAASUVORK5CYII=);
+                    }
+
+                    /* Warning icon encoded */
+                    .IconWarningEncoded
+                    {
+                        /* Note: Do not delete the comment below. It is used to verify the correctness of the encoded image resource below before the product is released */
+                        /* [---XsltValidateInternal-Base64EncodedImage:IconWarning#Begin#background-image: url(data:image/png;base64,#Separator#);#End#] */
+                        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAx0lEQVR4XpWSMQ7CMAxFf4xAyBMLCxMrO8dhaBcuwdCJS3RJBw7SA/QGTCxdWJgiQYWKXJWKIXHIlyw5lqr34tQgEOdcBsCOx5yZK3hCCKdYXneQkh4pEfqzLfu+wVDSyyzFoJjfz9NB+pAF+eizx2Vruts0k15mPgvS6GYvpVtQhB61IB/dk6AF6fS4Ben0uIX5odtFe8Q/eW1KvFeH4e8khT6+gm5B+t3juyDt7n0jpe+CANTd+oTUjN/U3yVaABnSUjFz/gFq44JaVSCXeQAAAABJRU5ErkJggg==);
+                    }
+
+                    /* Error icon encoded */
+                    .IconErrorEncoded
+                    {
+                        /* Note: Do not delete the comment below. It is used to verify the correctness of the encoded image resource below before the product is released */
+                        /* [---XsltValidateInternal-Base64EncodedImage:IconError#Begin#background-image: url(data:image/png;base64,#Separator#);#End#] */
+                        background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABQElEQVR4XqWTvUoEQRCE6wYPZUA80AfwAQz23uCMjA7MDRQEIzPBVEyNTQUFIw00vcQTTMzuAh/AxEQQT8HF/3G/oGGnEUGuoNnd6qoZuqltyKEsyzVJq5I6rnUp6SjGeGhESikzzlc1eL7opfuVbrqbU1Zw9NCgtQMaZpY0eNnaaL2fHusvTK5vKu7sjSS1Y4y3QUA6K3e3Mau5UFDyMP7tYF9o8cAHZv68vipoIJg971PZIZ5HiwdvYGGvFVFHmGmZ2MxwmQYPXubPl9Up0tfoMQGetXd6mRbvhBw+boZ6WF7Mbv1+GsHRk0fQmPAH1GfmZirbCfDJ61tw3Px8/8pZsPAG4jlVhcPgZ7adwNWBB68lkRQWFiTgFlbnLY3DGGM7izIJIyT/jjIvEJw6fdJTc6krDzh6aMwMP9bvDH4ADSsa9uSWVJkAAAAASUVORK5CYII=);
+                    }
+                 </style><script type="text/javascript" language="javascript"> 
+          
+            // Startup 
+            // Hook up the the loaded event for the document/window, to linkify the document content
+            var startupFunction = function() { linkifyElement("messages"); };
+            
+            if(window.attachEvent)
+            {
+              window.attachEvent('onload', startupFunction);
+            }
+            else if (window.addEventListener) 
+            {
+              window.addEventListener('load', startupFunction, false);
+            }
+            else 
+            {
+              document.addEventListener('load', startupFunction, false);
+            } 
+            
+            // Toggles the visibility of table rows with the specified name 
+            function toggleTableRowsByName(name)
+            {
+               var allRows = document.getElementsByTagName('tr');
+               for (i=0; i < allRows.length; i++)
+               {
+                  var currentName = allRows[i].getAttribute('name');
+                  if(!!currentName && currentName.indexOf(name) == 0)
+                  {
+                      var isVisible = allRows[i].style.display == ''; 
+                      isVisible ? allRows[i].style.display = 'none' : allRows[i].style.display = '';
+                  }
+               }
+            }
+            
+            function scrollToFirstVisibleRow(name) 
+            {
+               var allRows = document.getElementsByTagName('tr');
+               for (i=0; i < allRows.length; i++)
+               {
+                  var currentName = allRows[i].getAttribute('name');
+                  var isVisible = allRows[i].style.display == ''; 
+                  if(!!currentName && currentName.indexOf(name) == 0 && isVisible)
+                  {
+                     allRows[i].scrollIntoView(true); 
+                     return true; 
+                  }
+               }
+               
+               return false;
+            }
+            
+            // Linkifies the specified text content, replaces candidate links with html links 
+            function linkify(text)
+            {
+                 if(!text || 0 === text.length)
+                 {
+                     return text; 
+                 }
+
+                 // Find http, https and ftp links and replace them with hyper links 
+                 var urlLink = /(http|https|ftp)\:\/\/[a-zA-Z0-9\-\.]+(:[a-zA-Z0-9]*)?\/?([a-zA-Z0-9\-\._\?\,\/\\\+&%\$#\=~;\{\}])*/gi;
+                 
+                 return text.replace(urlLink, '<a href="$&">$&</a>') ;
+            }
+            
+            // Linkifies the specified element by ID
+            function linkifyElement(id)
+            {
+                var element = document.getElementById(id);
+                if(!!element)
+                {
+                  element.innerHTML = linkify(element.innerHTML); 
+                }
+            }
+            
+            function ToggleMessageVisibility(projectName)
+            {
+              if(!projectName || 0 === projectName.length)
+              {
+                return; 
+              }
+              
+              toggleTableRowsByName("MessageRowClass" + projectName);
+              toggleTableRowsByName('MessageRowHeaderShow' + projectName);
+              toggleTableRowsByName('MessageRowHeaderHide' + projectName); 
+            }
+            
+            function ScrollToFirstVisibleMessage(projectName)
+            {
+              if(!projectName || 0 === projectName.length)
+              {
+                return; 
+              }
+              
+              // First try the 'Show messages' row
+              if(!scrollToFirstVisibleRow('MessageRowHeaderShow' + projectName))
+              {
+                // Failed to find a visible row for 'Show messages', try an actual message row 
+                scrollToFirstVisibleRow('MessageRowClass' + projectName); 
+              }
+            }
+           </script></head><body><h1 _locID="ConversionReport">
+          Migration Report - Raccoom.TreeViewFolderBrowser</h1><div id="content"><h2 _locID="OverviewTitle">Overview</h2><div id="overview"><table><tr><th></th><th _locID="ProjectTableHeader">Project</th><th _locID="PathTableHeader">Path</th><th _locID="ErrorsTableHeader">Errors</th><th _locID="WarningsTableHeader">Warnings</th><th _locID="MessagesTableHeader">Messages</th></tr><tr><td class="IconWarningEncoded" /><td><strong><a href="#Raccoom.TreeViewFolderBrowser">Raccoom.TreeViewFolderBrowser</a></strong></td><td>Raccoom.TreeViewFolderBrowser\Raccoom.TreeViewFolderBrowser.csproj</td><td class="textCentered"><a>0</a></td><td class="textCentered"><a href="#Raccoom.TreeViewFolderBrowserWarning">2</a></td><td class="textCentered"><a href="#" onclick="ScrollToFirstVisibleMessage('Raccoom.TreeViewFolderBrowser'); return false;">12</a></td></tr><tr><td class="IconWarningEncoded" /><td><strong><a href="#Raccoom.TreeViewFolderBrowser.DataProviders">Raccoom.TreeViewFolderBrowser.DataProviders</a></strong></td><td>Raccoom.TreeViewFolderBrowser.DataProviders\Raccoom.TreeViewFolderBrowser.DataProviders.csproj</td><td class="textCentered"><a>0</a></td><td class="textCentered"><a href="#Raccoom.TreeViewFolderBrowser.DataProvidersWarning">2</a></td><td class="textCentered"><a href="#" onclick="ScrollToFirstVisibleMessage('Raccoom.TreeViewFolderBrowser.DataProviders'); return false;">41</a></td></tr><tr><td class="IconWarningEncoded" /><td><strong><a href="#Raccoom.TreeViewFolderBrowser.Demo">Raccoom.TreeViewFolderBrowser.Demo</a></strong></td><td>Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo.csproj</td><td class="textCentered"><a>0</a></td><td class="textCentered"><a href="#Raccoom.TreeViewFolderBrowser.DemoWarning">2</a></td><td class="textCentered"><a href="#" onclick="ScrollToFirstVisibleMessage('Raccoom.TreeViewFolderBrowser.Demo'); return false;">15</a></td></tr><tr><td class="IconWarningEncoded" /><td><strong><a href="#Solution"><span _locID="OverviewSolutionSpan">Solution</span></a></strong></td><td>Raccoom.TreeViewFolderBrowser.sln</td><td class="textCentered"><a>0</a></td><td class="textCentered"><a href="#SolutionWarning">1</a></td><td class="textCentered"><a href="#" onclick="ScrollToFirstVisibleMessage('Solution'); return false;">2</a></td></tr><tr><td class="IconSuccessEncoded" /><td><strong><a href="#NewFolder1">NewFolder1</a></strong></td><td>NewFolder1</td><td class="textCentered"><a>0</a></td><td class="textCentered"><a>0</a></td><td class="textCentered"><a href="#">0</a></td></tr><tr><td class="IconSuccessEncoded" /><td><strong><a href="#Solution Items">Solution Items</a></strong></td><td>Solution Items</td><td class="textCentered"><a>0</a></td><td class="textCentered"><a>0</a></td><td class="textCentered"><a href="#">0</a></td></tr></table></div><h2 _locID="SolutionAndProjectsTitle">Solution and projects</h2><div id="messages"><a name="Raccoom.TreeViewFolderBrowser" /><h3>Raccoom.TreeViewFolderBrowser</h3><table><tr id="Raccoom.TreeViewFolderBrowserHeaderRow"><th></th><th class="messageCell" _locID="MessageTableHeader">Message</th></tr><tr name="WarningRowClassRaccoom.TreeViewFolderBrowser"><td class="IconWarningEncoded"><a name="Raccoom.TreeViewFolderBrowserWarning" /></td><td class="messageCell"><strong>BaseAssemblyInfo.cs:
+        </strong><span>Backed up project may not build.  Project contains linked file: H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\BaseAssemblyInfo.cs</span></td></tr><tr name="WarningRowClassRaccoom.TreeViewFolderBrowser"><td class="IconWarningEncoded"><a name="Raccoom.TreeViewFolderBrowserWarning" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\Raccoom.TreeViewFolderBrowser.csproj:
+        </strong><span>Your project is targeting .NET Framework 2.0 or 3.0. If your project uses assemblies requiring a newer .NET Framework, your project will fail to build. You can change the .NET Framework version by clicking Properties on the project menu and then selecting a new version in the '.NET Framework' dropdown box. (In Visual Basic, this is located on the Compile tab by clicking the 'Advanced Compiler Options...' button.)</span></td></tr><tr name="MessageRowHeaderShowRaccoom.TreeViewFolderBrowser"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="ShowAdditionalMessages" href="#" name="Raccoom.TreeViewFolderBrowserMessage" onclick="ToggleMessageVisibility('Raccoom.TreeViewFolderBrowser'); return false;">
+          Show 12 additional messages
+        </a></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\Raccoom.TreeViewFolderBrowser.csproj:
+        </strong><span>Project file successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\Raccoom.TreeViewFolderBrowser.csproj</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>BaseAssemblyInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\BaseAssemblyInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\GlobalSuppressions.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\GlobalSuppressions.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\Properties\AssemblyInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\Properties\AssemblyInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\FlagsEditor.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\FlagsEditor.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\TreeNodeBase.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\TreeNodeBase.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\TreeStrategyDataProvider.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\TreeStrategyDataProvider.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\TreeViewFolderBrowser.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\TreeViewFolderBrowser.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\TreeViewFolderBrowserNodeFactory.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\TreeViewFolderBrowserNodeFactory.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\TreeViewFolderBrowser.cd:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser\TreeViewFolderBrowser.cd</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\Raccoom.TreeViewFolderBrowser.csproj:
+        </strong><span>Project migrated successfully</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowserMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser\Raccoom.TreeViewFolderBrowser.csproj:
+        </strong><span>Scan complete: Migration not required for project files.</span></td></tr><tr style="display: none" name="MessageRowHeaderHideRaccoom.TreeViewFolderBrowser"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="HideAdditionalMessages" href="#" name="Raccoom.TreeViewFolderBrowserMessage" onclick="ToggleMessageVisibility('Raccoom.TreeViewFolderBrowser'); return false;">
+          Hide 12 additional messages
+        </a></td></tr></table><a name="Raccoom.TreeViewFolderBrowser.DataProviders" /><h3>Raccoom.TreeViewFolderBrowser.DataProviders</h3><table><tr id="Raccoom.TreeViewFolderBrowser.DataProvidersHeaderRow"><th></th><th class="messageCell" _locID="MessageTableHeader">Message</th></tr><tr name="WarningRowClassRaccoom.TreeViewFolderBrowser.DataProviders"><td class="IconWarningEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersWarning" /></td><td class="messageCell"><strong>BaseAssemblyInfo.cs:
+        </strong><span>Backed up project may not build.  Project contains linked file: H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\BaseAssemblyInfo.cs</span></td></tr><tr name="WarningRowClassRaccoom.TreeViewFolderBrowser.DataProviders"><td class="IconWarningEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersWarning" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Raccoom.TreeViewFolderBrowser.DataProviders.csproj:
+        </strong><span>Your project is targeting .NET Framework 2.0 or 3.0. If your project uses assemblies requiring a newer .NET Framework, your project will fail to build. You can change the .NET Framework version by clicking Properties on the project menu and then selecting a new version in the '.NET Framework' dropdown box. (In Visual Basic, this is located on the Compile tab by clicking the 'Advanced Compiler Options...' button.)</span></td></tr><tr name="MessageRowHeaderShowRaccoom.TreeViewFolderBrowser.DataProviders"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="ShowAdditionalMessages" href="#" name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" onclick="ToggleMessageVisibility('Raccoom.TreeViewFolderBrowser.DataProviders'); return false;">
+          Show 41 additional messages
+        </a></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Raccoom.TreeViewFolderBrowser.DataProviders.csproj:
+        </strong><span>Project file successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Raccoom.TreeViewFolderBrowser.DataProviders.csproj</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>BaseAssemblyInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\BaseAssemblyInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\GlobalSuppressions.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\GlobalSuppressions.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Properties\AssemblyInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Properties\AssemblyInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\DriveTypes.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\DriveTypes.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\FolderBrowserBaseDataProvider.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\FolderBrowserBaseDataProvider.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Ftp\ftplib.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Ftp\ftplib.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IAdviseSink.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IAdviseSink.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IContextMenu.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IContextMenu.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDataObject.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDataObject.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDragSourceHelper.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDragSourceHelper.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDropSource.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDropSource.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDropTarget.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDropTarget.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDropTargetHelper.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IDropTargetHelper.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IEnumFORMATETC.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IEnumFORMATETC.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IEnumIDList.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IEnumIDList.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IEnumSTATSTG.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IEnumSTATSTG.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IQueryInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IQueryInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IShellExtInit.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IShellExtInit.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IShellFolder.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IShellFolder.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IStorage.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IStorage.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IStream.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\Interfaces\IStream.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\PIDL.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\PIDL.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellAPI.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellAPI.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellBrowser.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellBrowser.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellBrowserUpdater.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellBrowserUpdater.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellHelper.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellHelper.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellImageList.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellImageList.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellItem.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Shell\ShellItem.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProvider.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProvider.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProviderADS.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProviderADS.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProviderFtp.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProviderFtp.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProviderShell32.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProviderShell32.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewStrategyCultureInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewStrategyCultureInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Logicaldisk.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\Logicaldisk.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Win32\SystemImageList.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\Win32\SystemImageList.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\FileSystemProvider.cd:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\FileSystemProvider.cd</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProvider.resx:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewFolderBrowserDataProvider.resx</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewStrategyCultureInfo.resx:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.DataProviders\TreeViewStrategyCultureInfo.resx</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Raccoom.TreeViewFolderBrowser.DataProviders.csproj:
+        </strong><span>Project migrated successfully</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.DataProviders" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.DataProviders\Raccoom.TreeViewFolderBrowser.DataProviders.csproj:
+        </strong><span>Scan complete: Migration not required for project files.</span></td></tr><tr style="display: none" name="MessageRowHeaderHideRaccoom.TreeViewFolderBrowser.DataProviders"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="HideAdditionalMessages" href="#" name="Raccoom.TreeViewFolderBrowser.DataProvidersMessage" onclick="ToggleMessageVisibility('Raccoom.TreeViewFolderBrowser.DataProviders'); return false;">
+          Hide 41 additional messages
+        </a></td></tr></table><a name="Raccoom.TreeViewFolderBrowser.Demo" /><h3>Raccoom.TreeViewFolderBrowser.Demo</h3><table><tr id="Raccoom.TreeViewFolderBrowser.DemoHeaderRow"><th></th><th class="messageCell" _locID="MessageTableHeader">Message</th></tr><tr name="WarningRowClassRaccoom.TreeViewFolderBrowser.Demo"><td class="IconWarningEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoWarning" /></td><td class="messageCell"><strong>BaseAssemblyInfo.cs:
+        </strong><span>Backed up project may not build.  Project contains linked file: H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\BaseAssemblyInfo.cs</span></td></tr><tr name="WarningRowClassRaccoom.TreeViewFolderBrowser.Demo"><td class="IconWarningEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoWarning" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo.csproj:
+        </strong><span>Your project is targeting .NET Framework 2.0 or 3.0. If your project uses assemblies requiring a newer .NET Framework, your project will fail to build. You can change the .NET Framework version by clicking Properties on the project menu and then selecting a new version in the '.NET Framework' dropdown box. (In Visual Basic, this is located on the Compile tab by clicking the 'Advanced Compiler Options...' button.)</span></td></tr><tr name="MessageRowHeaderShowRaccoom.TreeViewFolderBrowser.Demo"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="ShowAdditionalMessages" href="#" name="Raccoom.TreeViewFolderBrowser.DemoMessage" onclick="ToggleMessageVisibility('Raccoom.TreeViewFolderBrowser.Demo'); return false;">
+          Show 15 additional messages
+        </a></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo.csproj:
+        </strong><span>Project file successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo.csproj</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>BaseAssemblyInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\BaseAssemblyInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\TreeViewFolderBrowserDemoForm.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\TreeViewFolderBrowserDemoForm.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\TreeViewFolderBrowserDemoForm.Designer.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\TreeViewFolderBrowserDemoForm.Designer.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\AboutBox.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\AboutBox.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Program.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\Program.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Properties\AssemblyInfo.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\Properties\AssemblyInfo.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\CollapsibleSplitter.cs:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\CollapsibleSplitter.cs</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo_TemporaryKey.pfx:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo_TemporaryKey.pfx</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\App.ico:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\App.ico</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\CollapsibleSplitter.resx:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\CollapsibleSplitter.resx</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\TreeViewFolderBrowserDemoForm.resx:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\TreeViewFolderBrowserDemoForm.resx</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\AboutBox.resx:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.Demo\AboutBox.resx</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo.csproj:
+        </strong><span>Project migrated successfully</span></td></tr><tr name="MessageRowClassRaccoom.TreeViewFolderBrowser.Demo" style="display: none"><td class="IconInfoEncoded"><a name="Raccoom.TreeViewFolderBrowser.DemoMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.Demo\Raccoom.TreeViewFolderBrowser.Demo.csproj:
+        </strong><span>Scan complete: Migration not required for project files.</span></td></tr><tr style="display: none" name="MessageRowHeaderHideRaccoom.TreeViewFolderBrowser.Demo"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="HideAdditionalMessages" href="#" name="Raccoom.TreeViewFolderBrowser.DemoMessage" onclick="ToggleMessageVisibility('Raccoom.TreeViewFolderBrowser.Demo'); return false;">
+          Hide 15 additional messages
+        </a></td></tr></table><a name="Solution" /><h3 _locID="ProjectDisplayNameHeader">Solution</h3><table><tr id="SolutionHeaderRow"><th></th><th class="messageCell" _locID="MessageTableHeader">Message</th></tr><tr name="WarningRowClassSolution"><td class="IconWarningEncoded"><a name="SolutionWarning" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.sln:
+        </strong><span>Visual Studio needs to make non-functional changes to this project in order to enable the project to open in released versions of Visual Studio newer than Visual Studio 2010 SP1 without impacting project behavior.</span></td></tr><tr name="MessageRowHeaderShowSolution"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="ShowAdditionalMessages" href="#" name="SolutionMessage" onclick="ToggleMessageVisibility('Solution'); return false;">
+          Show 2 additional messages
+        </a></td></tr><tr name="MessageRowClassSolution" style="display: none"><td class="IconInfoEncoded"><a name="SolutionMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.sln:
+        </strong><span>File successfully backed up as H:\temp\treeview\Backup\Raccoom.TreeViewFolderBrowser.sln</span></td></tr><tr name="MessageRowClassSolution" style="display: none"><td class="IconInfoEncoded"><a name="SolutionMessage" /></td><td class="messageCell"><strong>Raccoom.TreeViewFolderBrowser.sln:
+        </strong><span>Solution migrated successfully</span></td></tr><tr style="display: none" name="MessageRowHeaderHideSolution"><td class="IconInfoEncoded" /><td class="messageCell"><a _locID="HideAdditionalMessages" href="#" name="SolutionMessage" onclick="ToggleMessageVisibility('Solution'); return false;">
+          Hide 2 additional messages
+        </a></td></tr></table><a name="NewFolder1" /><h3>NewFolder1</h3><table><tr id="NewFolder1HeaderRow"><th></th><th class="messageCell" _locID="MessageTableHeader">Message</th></tr><tr><td class="IconInfoEncoded" /><td class="messageCell" _locID="NoMessagesRow">NewFolder1 logged no messages.
+                  </td></tr></table><a name="Solution Items" /><h3>Solution Items</h3><table><tr id="Solution ItemsHeaderRow"><th></th><th class="messageCell" _locID="MessageTableHeader">Message</th></tr><tr><td class="IconInfoEncoded" /><td class="messageCell" _locID="NoMessagesRow">Solution Items logged no messages.
+                  </td></tr></table></div></div></body></html>

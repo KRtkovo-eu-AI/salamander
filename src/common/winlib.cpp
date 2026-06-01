@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -21,6 +21,65 @@
 #include "trace.h"
 #include "messages.h"
 #include "handles.h"
+
+#ifdef INSIDE_SALAMANDER
+#include "../darkmode.h"
+#endif
+
+#ifdef INSIDE_SALAMANDER
+#define WinLib_DarkMode_ApplyTitleBar DarkModeRefreshTitleBar
+#define WinLib_DarkMode_ApplyListTreeThemeRecursive DarkModeApplyTree
+#define WinLib_DarkMode_ApplyWindow DarkModeApplyWindow
+#define WinLib_DarkMode_ApplyStaticTextColors DarkModeApplyStaticTextColors
+
+static HBRUSH WinLib_DarkMode_GetDialogCtlColorBrush(UINT msg, HDC hdc, HWND hCtrl)
+{
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(msg, (WPARAM)hdc, (LPARAM)hCtrl, brush))
+        return (HBRUSH)brush;
+    return NULL;
+}
+
+static BOOL WinLib_DarkMode_OnSettingChange(LPARAM lParam)
+{
+    return DarkModeHandleSettingChange(WM_SETTINGCHANGE, lParam) ? TRUE : FALSE;
+}
+#else
+static HBRUSH WinLib_DarkMode_GetDialogCtlColorBrush(UINT msg, HDC hdc, HWND hCtrl)
+{
+    UNREFERENCED_PARAMETER(msg);
+    UNREFERENCED_PARAMETER(hdc);
+    UNREFERENCED_PARAMETER(hCtrl);
+    return NULL;
+}
+
+static BOOL WinLib_DarkMode_OnSettingChange(LPARAM lParam)
+{
+    UNREFERENCED_PARAMETER(lParam);
+    return FALSE;
+}
+
+static void WinLib_DarkMode_ApplyTitleBar(HWND hwnd)
+{
+    UNREFERENCED_PARAMETER(hwnd);
+}
+
+static void WinLib_DarkMode_ApplyListTreeThemeRecursive(HWND root)
+{
+    UNREFERENCED_PARAMETER(root);
+}
+
+static void WinLib_DarkMode_ApplyWindow(HWND hwnd)
+{
+    UNREFERENCED_PARAMETER(hwnd);
+}
+
+static void WinLib_DarkMode_ApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
+{
+    UNREFERENCED_PARAMETER(hwndParent);
+    UNREFERENCED_PARAMETER(specificCtrl);
+}
+#endif
 
 #include "array.h"
 
@@ -270,6 +329,8 @@ void CWindow::AttachToWindow(HWND hWnd)
     else
         SetWindowLongPtr(HWindow, GWLP_WNDPROC, (LONG_PTR)CWindowProc);
 #endif // _UNICODE
+
+    WinLib_DarkMode_ApplyWindow(HWindow);
 
     if (DefWndProc == CWindow::CWindowProc
 #ifndef _UNICODE
@@ -639,6 +700,11 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         TransferData(ttDataToWindow);
+        WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
+        WinLib_DarkMode_ApplyTitleBar(HWindow);
+        WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
+        PostMessage(HWindow, WM_THEMECHANGED, 0, 0);
         return TRUE; // let DefDlgProc set the focus
     }
 
@@ -696,6 +762,41 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    case WM_CTLCOLORMSGBOX:
+    {
+        HBRUSH hBrush = WinLib_DarkMode_GetDialogCtlColorBrush(uMsg, (HDC)wParam, (HWND)lParam);
+        if (hBrush != NULL)
+            return (INT_PTR)hBrush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
+        WinLib_DarkMode_ApplyTitleBar(HWindow);
+        WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
+        InvalidateRect(HWindow, NULL, TRUE);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (WinLib_DarkMode_OnSettingChange(lParam))
+        {
+            WinLib_DarkMode_ApplyListTreeThemeRecursive(HWindow);
+            WinLib_DarkMode_ApplyTitleBar(HWindow);
+            WinLib_DarkMode_ApplyStaticTextColors(HWindow, NULL);
+            InvalidateRect(HWindow, NULL, TRUE);
+        }
+        break;
+    }
     }
     return FALSE;
 }
@@ -723,6 +824,8 @@ CDialog::CDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 TRACE_ET(_T("Unable to create dialog."));
                 return TRUE;
             }
+            WinLib_DarkMode_ApplyListTreeThemeRecursive(hwndDlg);
+            WinLib_DarkMode_ApplyTitleBar(hwndDlg);
             dlg->NotifDlgJustCreated(); // introduced as a place to adjust the dialog layout
         }
         break;

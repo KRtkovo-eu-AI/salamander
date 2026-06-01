@@ -995,6 +995,7 @@ protected:
     void OnMove(BOOL up);
     void OnSort();
     void EnableHeader();
+    void ApplyTheme();
 };
 
 //

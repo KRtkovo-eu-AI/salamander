@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1311,6 +1311,10 @@ extern SALCOLOR NavigatorColors[NUMBER_OF_COLORS];  // standard colors
 
 extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // viewer colors
 
+class CHighlightMasks;
+void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
+void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks);
+
 extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // for the standard color dialog
 
 #define CARET_WIDTH 2
@@ -1415,6 +1419,7 @@ extern LOGFONT LogFont;         // structure describing the panel font
 BOOL CreatePanelFont(); // fills Font, FontUL and FontCharHeight based on LogFont
 
 extern HFONT EnvFont;         // environment font (edit, toolbar, header, status)
+extern HFONT EnvFontBold;     // tucny font prostredi (pro vybrane prvky)
 extern HFONT EnvFontUL;       // underlined list box font
 extern int EnvFontCharHeight; // font height
 extern HFONT TooltipFont;     // font for tooltips (and status bars, although we don't use it there)
@@ -1491,10 +1496,11 @@ enum CSymbolsImageListIndexes
     symbolsCount          // TERMINATOR
 };
 
-extern HIMAGELIST HFindSymbolsImageList; // symbols for Find
-extern HIMAGELIST HMenuMarkImageList;    // check marks for menus
-extern HIMAGELIST HGrayToolBarImageList; // toolbar and menu in a gray variant (generated from the colored one)
-extern HIMAGELIST HHotToolBarImageList;  // toolbar and menu in color
+extern HIMAGELIST HFindSymbolsImageList; // symboly pro find
+extern HIMAGELIST HMenuMarkImageList;    // check marky pro menu
+extern HIMAGELIST HGrayToolBarImageList; // toolbar a menu v sedivem provedeni (pocitano z barevneho)
+extern HIMAGELIST HHotToolBarImageList;  // toolbar a menu v barevnem provedeni
+extern int ToolBarLockImageIndex;        // index ikony zamku v toolbarovych imagelistech
 extern HIMAGELIST HBottomTBImageList;    // bottom toolbar (F1 - F12)
 extern HIMAGELIST HHotBottomTBImageList; // bottom toolbar (F1 - F12)
 
@@ -1836,7 +1842,6 @@ BOOL ExportConfiguration(HWND hParent, const char* fileName, BOOL clearKeyBefore
 BOOL ImportConfiguration(HWND hParent, const char* fileName, BOOL ignoreIfNotExists,
                          BOOL autoImportConfig, BOOL* importCfgFromFileWasSkipped);
 
-class CHighlightMasks;
 void UpdateDefaultColors(SALCOLOR* colors, CHighlightMasks* highlightMasks, BOOL processColors, BOOL processMasks);
 
 extern BOOL ImageDragging;                                                // an image is being dragged
@@ -1975,6 +1980,38 @@ extern DWORD EnablerShowProperties;       // focus/selection is on files/directo
 extern DWORD EnablerItemsContextMenu;     // focus/selection is on files/directories and the panel is disk or FS (supports context menu)
 extern DWORD EnablerOpenActiveFolder;     // panel is a disk or an FS (with open-active-folder support)
 extern DWORD EnablerPermissions;          // focus/selection is on files/directories and the panel is a disk; running at least on W2K with NTFS supporting ACLs
+extern DWORD EnablerNewTab;               // can a new tab be created in the active panel?
+extern DWORD EnablerCloseTab;             // can the active tab be closed?
+extern DWORD EnablerNextTab;              // is there a next tab in the active panel?
+extern DWORD EnablerPrevTab;              // is there a previous tab in the active panel?
+extern DWORD EnablerDuplicateTab;         // can the active tab be duplicated on the same side?
+extern DWORD EnablerReopenTab;            // can a closed tab be reopened in the active panel?
+extern DWORD EnablerLockTab;              // can the active tab be locked?
+extern DWORD EnablerUnlockTab;            // can the active tab be unlocked?
+extern DWORD EnablerLeftNewTab;           // can a new tab be created in the left panel?
+extern DWORD EnablerLeftCloseTab;         // can a tab in the left panel be closed?
+extern DWORD EnablerLeftNextTab;          // is there a next tab in the left panel?
+extern DWORD EnablerLeftPrevTab;          // is there a previous tab in the left panel?
+extern DWORD EnablerLeftCloseAllButDefault; // can all tabs except the default one be closed in the left panel?
+extern DWORD EnablerLeftCloseAllExceptThisAndDefault; // can all tabs except the default and current ones be closed in the left panel?
+extern DWORD EnablerLeftDuplicateTab;     // can a tab in the left panel be duplicated on the same side?
+extern DWORD EnablerLeftDuplicateTabToRight; // can a tab be duplicated to the right side?
+extern DWORD EnablerLeftMoveTabToRight;      // can a tab be moved to the right side?
+extern DWORD EnablerLeftReopenTab;        // can a closed tab be reopened in the left panel?
+extern DWORD EnablerLeftLockTab;          // can a tab in the left panel be locked?
+extern DWORD EnablerLeftUnlockTab;        // can a tab in the left panel be unlocked?
+extern DWORD EnablerRightNewTab;          // can a new tab be created in the right panel?
+extern DWORD EnablerRightCloseTab;        // can a tab in the right panel be closed?
+extern DWORD EnablerRightNextTab;         // is there a next tab in the right panel?
+extern DWORD EnablerRightPrevTab;         // is there a previous tab in the right panel?
+extern DWORD EnablerRightCloseAllButDefault; // can all tabs except the default one be closed in the right panel?
+extern DWORD EnablerRightCloseAllExceptThisAndDefault; // can all tabs except the default and current ones be closed in the right panel?
+extern DWORD EnablerRightDuplicateTab;    // can a tab in the right panel be duplicated on the same side?
+extern DWORD EnablerRightDuplicateTabToLeft; // can a tab be duplicated to the left side?
+extern DWORD EnablerRightMoveTabToLeft;      // can a tab be moved to the left side?
+extern DWORD EnablerRightReopenTab;       // can a closed tab be reopened in the right panel?
+extern DWORD EnablerRightLockTab;         // can a tab in the right panel be locked?
+extern DWORD EnablerRightUnlockTab;       // can a tab in the right panel be unlocked?
 
 //******************************************************************************
 //
@@ -2065,10 +2102,15 @@ extern DWORD EnablerPermissions;          // focus/selection is on files/directo
 #define IDX_TB_HIDE_SELECTED 75     // Hide Selected Names
 #define IDX_TB_SHOW_ALL 76          // Show All Names
 #define IDX_TB_SMART_COLUMN_MODE 77 // Smart Column Mode
+#define IDX_TB_TABSNEW 78           // New Tab
+#define IDX_TB_TABSCLOSE 79         // Close Tab
+#define IDX_TB_TABSNEXT 80          // Next Tab
+#define IDX_TB_TABSPREV 81          // Previous Tab
+#define IDX_TB_TABSDUPLICATE 82     // Duplicate Tab
 
-#define IDX_TB_FD 78 // first "dynamically added" index
-// the following icons will be added to the bitmap dynamically
-// and some will be loaded from shell32.dll
+#define IDX_TB_FD 83 // first "dynamic added" index
+// nasledujici ikony budou pridany k bitmape dynamicky
+// a nektere budou nacteny z shell32.dll
 
 #define IDX_TB_CHANGEDRIVEL IDX_TB_FD + 0 // Change Drive Left
 #define IDX_TB_CHANGEDRIVER IDX_TB_FD + 1 // Change Drive Right
@@ -2485,3 +2527,6 @@ int GetSystemDPI();
 // returns the scale corresponding to the current DPI; instead of 1.0 returns
 // 100, for 1.25 returns 125, etc.
 int GetScaleForSystemDPI();
+
+// prevod mezi device-independent pixels (DIP) a fyzickymi pixely
+int DipToPixels(int dips);

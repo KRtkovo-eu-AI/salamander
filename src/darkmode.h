@@ -1,0 +1,79 @@
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include <windows.h>
+
+struct DarkModeColors
+{
+    COLORREF text;
+    COLORREF background;
+    COLORREF readableText;
+    bool usingSchemeColors;
+};
+
+// Initializes the dark mode helpers. Safe to call multiple times.
+bool DarkModeInitialize();
+
+// Returns true if native dark mode APIs are available on this system.
+bool DarkModeIsSupported();
+
+// Enables or disables native dark mode integration for the process.
+void DarkModeSetEnabled(bool enabled);
+
+// Returns true if dark colors should currently be used.
+bool DarkModeShouldUseDarkColors();
+// Compatibility helper used by legacy call sites.
+BOOL DarkMode_ShouldUseDark();
+
+// Applies dark mode opt-in for the specified window (and keeps the opt-in
+// flag in sync when toggling the configuration).
+void DarkModeApplyWindow(HWND hwnd);
+
+// Applies dark mode opt-in to the specified window and all of its descendants.
+void DarkModeApplyTree(HWND hwnd);
+
+// Refreshes the non-client area/title bar to match the current dark mode
+// preference and system state.
+void DarkModeRefreshTitleBar(HWND hwnd);
+
+// Handles WM_SETTINGCHANGE/WM_THEMECHANGED broadcasts. Returns true if the
+// message represents a color scheme change (ImmersiveColorSet).
+bool DarkModeHandleSettingChange(UINT message, LPARAM lParam);
+
+// Installs the dark scrollbar hook (no-op on unsupported systems).
+void DarkModeFixScrollbars();
+
+// Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.
+void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor, HBRUSH dialogBrush);
+void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
+                                 COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor);
+const DarkModeColors& DarkModeGetColors();
+
+// Handles WM_CTLCOLOR* messages for dark mode aware parents. Returns true when
+// a dark brush was supplied and the caller should stop default processing.
+bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
+
+#if USE_DARKMODELIB
+#define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
+    do                                                    \
+    {                                                     \
+        if (handled)                                      \
+            return (brushResult);                         \
+    } while (0)
+#else
+#define DARKMODE_RETURN_IF_HANDLED(handled, brushResult) \
+    do                                                    \
+    {                                                     \
+    } while (0)
+#endif
+
+// Returns a shared brush used for drawing dark-mode panel frames and borders.
+HBRUSH DarkModeGetPanelFrameBrush();
+COLORREF DarkModeGetDialogTextColor();
+COLORREF DarkModeGetDialogBackgroundColor();
+COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF background);
+void DarkModeUpdateListViewColors(HWND listView);
+void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
+void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);

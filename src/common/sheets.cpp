@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -9,6 +9,9 @@
 #include <tchar.h>
 #include <ostream>
 #include <uxtheme.h>
+
+#include "../consts.h"
+#include "../darkmode.h"
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -24,6 +27,106 @@
 #include "sheets.h"
 
 extern CWinLibHelp* WinLibHelp;
+
+namespace
+{
+COLORREF LightenColorSimple(COLORREF color, int amount)
+{
+    int r = GetRValue(color) + amount;
+    int g = GetGValue(color) + amount;
+    int b = GetBValue(color) + amount;
+    if (r > 255)
+        r = 255;
+    if (g > 255)
+        g = 255;
+    if (b > 255)
+        b = 255;
+    return RGB(r, g, b);
+}
+
+COLORREF DarkenColorSimple(COLORREF color, int amount)
+{
+    int r = GetRValue(color) - amount;
+    int g = GetGValue(color) - amount;
+    int b = GetBValue(color) - amount;
+    if (r < 0)
+        r = 0;
+    if (g < 0)
+        g = 0;
+    if (b < 0)
+        b = 0;
+    return RGB(r, g, b);
+}
+
+void ApplyTreeViewColors(HWND treeView)
+{
+    if (treeView == NULL)
+        return;
+
+    const bool useDark = DarkModeShouldUseDarkColors();
+    const COLORREF text = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF background = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_WINDOW);
+
+    TreeView_SetTextColor(treeView, text);
+    TreeView_SetBkColor(treeView, background);
+    TreeView_SetLineColor(treeView, useDark ? DarkenColorSimple(background, 40) : GetSysColor(COLOR_WINDOWTEXT));
+
+    if (IsAppThemed())
+    {
+        if (useDark)
+            SetWindowTheme(treeView, L"DarkMode_Explorer", NULL);
+        else
+            SetWindowTheme(treeView, L"explorer", NULL);
+    }
+
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+}
+
+BOOL CALLBACK RedrawWindowTreeProc(HWND hwnd, LPARAM)
+{
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    return TRUE;
+}
+
+void RedrawWindowTree(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    EnumChildWindows(hwnd, RedrawWindowTreeProc, 0);
+}
+
+
+bool IsChoiceButton(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[16];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || lstrcmpiW(className, L"Button") != 0)
+        return false;
+
+    const LONG_PTR type = GetWindowLongPtr(hwnd, GWL_STYLE) & BS_TYPEMASK;
+    return type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+           type == BS_AUTO3STATE || type == BS_3STATE ||
+           type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON;
+}
+
+void RedrawChoiceButtonAfterClick(HWND ctrl)
+{
+    if (!IsChoiceButton(ctrl))
+        return;
+
+    // Some themed/light Configuration pages can defer repainting checkbox/radio
+    // glyph changes until the page is otherwise invalidated (for example by a
+    // resize).  Force the clicked control through erase+paint immediately, while
+    // leaving normal command processing untouched.
+    RedrawWindow(ctrl, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+    HWND parent = GetParent(ctrl);
+    if (parent != NULL)
+        InvalidateRect(parent, NULL, FALSE);
+}
+} // namespace
 
 //
 // ****************************************************************************
@@ -287,6 +390,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        DarkModeApplyTree(HWindow);
         ParentDialog->HWindow = Parent;
         TransferData(ttDataToWindow);
         if (ElasticLayout != NULL)
@@ -298,6 +402,13 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
+        break;
+    }
+
+    case WM_COMMAND:
+    {
+        if (HIWORD(wParam) == BN_CLICKED)
+            RedrawChoiceButtonAfterClick(reinterpret_cast<HWND>(lParam));
         break;
     }
 
@@ -373,6 +484,33 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowLongPtr(HWindow, DWLP_MSGRESULT, FALSE);
             return TRUE;
         }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyTree(HWindow);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            DarkModeApplyTree(HWindow);
         break;
     }
     }
@@ -512,6 +650,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_IDC_CAPTION 3
 #define _TPD_IDC_RECT 4
 #define _TPD_IDC_OK 5
+#define _TPD_WM_POST_INIT_REDRAW (WM_APP + 0x3A7)
 // dimensions in dialog units
 #define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
 #define _TPD_TOPMARGIN 4   // TreeView and caption top margin
@@ -568,8 +707,32 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RECT r;
         GetClientRect(HWindow, &r);
 
-        int devCaps = GetDeviceCaps(hdc, NUMCOLORS);
-        if (devCaps == -1) // use the gradient only when more than 256 colors are available
+        const bool useDark = DarkModeShouldUseDarkColors();
+        const COLORREF background = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
+        const int devCaps = GetDeviceCaps(hdc, NUMCOLORS);
+
+        if (useDark)
+        {
+            HBRUSH hBrush = CreateSolidBrush(background);
+            FillRect(hdc, &r, hBrush);
+            DeleteObject(hBrush);
+
+            COLORREF light = LightenColorSimple(background, 32);
+            COLORREF shadow = DarkenColorSimple(background, 48);
+            HPEN lightPen = CreatePen(PS_SOLID, 1, light);
+            HPEN shadowPen = CreatePen(PS_SOLID, 1, shadow);
+            HPEN oldPen = (HPEN)SelectObject(hdc, lightPen);
+            MoveToEx(hdc, r.left, r.bottom - 1, NULL);
+            LineTo(hdc, r.left, r.top);
+            LineTo(hdc, r.right - 1, r.top);
+            SelectObject(hdc, shadowPen);
+            LineTo(hdc, r.right - 1, r.bottom - 1);
+            LineTo(hdc, r.left, r.bottom - 1);
+            SelectObject(hdc, oldPen);
+            DeleteObject(lightPen);
+            DeleteObject(shadowPen);
+        }
+        else if (devCaps == -1) // gradient pouzijeme pouze pri vice nez 256 barvach
         {
             HBRUSH hOldBrush = (HBRUSH)GetCurrentObject(hdc, OBJ_BRUSH);
 #define TPH_STEPS 100
@@ -579,18 +742,12 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             COLORREF base = GetSysColor(COLOR_BTNFACE);
             for (int i = 0; i <= TPH_STEPS; i++)
             {
-
                 LOGBRUSH lb;
                 lb.lbStyle = BS_SOLID;
                 lb.lbColor = RGB(max(GetRValue(base) - TPH_STEPS / 2 + i / 2 + 1, 0),
                                  max(GetGValue(base) - TPH_STEPS / 2 + i / 2 + 1, 0),
                                  max(GetBValue(base) - TPH_STEPS / 2 + i / 2 + 1, 0));
                 HBRUSH hColorBrush = CreateBrushIndirect(&lb);
-                /*
-        HBRUSH hColorBrush = CreateSolidBrush(RGB(max(GetRValue(base) - TPH_STEPS / 2 + i / 2 + 1, 0),
-        max(GetGValue(base) - TPH_STEPS / 2 + i / 2 + 1, 0),
-        max(GetBValue(base) - TPH_STEPS / 2 + i / 2 + 1, 0)));
-        */
                 FillRect(hdc, &r2, hColorBrush);
                 DeleteObject(hColorBrush);
                 r2.left = (long)(i * stepW);
@@ -602,6 +759,9 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (Text != NULL)
         {
+            RECT textRect = r;
+            textRect.left += 8;
+
             int oldBkMode = SetBkMode(hdc, TRANSPARENT);
 
             HFONT hFont = NULL;
@@ -610,17 +770,19 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HFONT hSrcFont = (HFONT)HANDLES(GetStockObject(DEFAULT_GUI_FONT));
             GetObject(hSrcFont, sizeof(srcLF), &srcLF);
             srcLF.lfHeight = (int)(srcLF.lfHeight * 1.2);
-            // srcLF.lfWeight = FW_BOLD; // bold looks quite ugly and unreadable on Vista
             hFont = CreateFontIndirect(&srcLF);
             hOldFont = (HFONT)SelectObject(hdc, hFont);
 
-            int oldColor;
-            if (devCaps == -1)
-                oldColor = SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+            COLORREF textColor;
+            if (useDark)
+                textColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+            else if (devCaps == -1)
+                textColor = GetSysColor(COLOR_BTNTEXT);
             else
-                oldColor = SetTextColor(hdc, GetSysColor(COLOR_CAPTIONTEXT));
-            r.left += 8;
-            DrawText(hdc, Text, (int)_tcslen(Text), &r, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
+                textColor = GetSysColor(COLOR_CAPTIONTEXT);
+            int oldColor = SetTextColor(hdc, textColor);
+
+            DrawText(hdc, Text, (int)_tcslen(Text), &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
             SetTextColor(hdc, oldColor);
             SelectObject(hdc, hOldFont);
             SetBkMode(hdc, oldBkMode);
@@ -689,8 +851,8 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DestroyWindow(hwnd);
         HTreeView = GetDlgItem(HWindow, _TPD_IDC_TREE);
         BOOL appIsThemed = IsAppThemed();
-        if (appIsThemed)
-            SetWindowTheme(HTreeView, L"explorer", NULL);
+        ApplyTreeViewColors(HTreeView);
+        DarkModeApplyTree(HWindow);
 
         int treeIndent = 0;
         if (appIsThemed)
@@ -751,7 +913,33 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         TPD->DialogProc(uMsg, wParam, lParam); // forward messages
 
+        // The first selected page can finish creating before the holder has its
+        // final position/size. Queue one repaint after WM_INITDIALOG returns so
+        // light-scheme controls are painted immediately instead of appearing only
+        // after the window is moved.
+        PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+
         break;
+    }
+
+    case WM_SHOWWINDOW:
+    {
+        if (wParam)
+            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+        break;
+    }
+
+    case _TPD_WM_POST_INIT_REDRAW:
+    {
+        ApplyTreeViewColors(HTreeView);
+        LayoutControls();
+        if (ChildDialog != NULL && ChildDialog->HWindow != NULL)
+        {
+            ShowWindow(ChildDialog->HWindow, SW_SHOW);
+            RedrawWindowTree(ChildDialog->HWindow);
+        }
+        RedrawWindowTree(HWindow);
+        return TRUE;
     }
 
     case WM_HELP:
@@ -930,7 +1118,19 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        TreeView_SetBkColor(HTreeView, GetSysColor(COLOR_WINDOW));
+        ApplyTreeViewColors(HTreeView);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyTreeViewColors(HTreeView);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ApplyTreeViewColors(HTreeView);
         break;
     }
     }
@@ -1029,7 +1229,8 @@ void CTreePropHolderDlg::LayoutControls()
         // hack: TreeView/common controls apparently have a bug: if a scrollbar appears because of the content,
         // the selected item is not redrawn, so it gets clipped on the right; this may be related to full-row
         // selection and the Aero look; in any case, repainting under W7 does not flicker, so we can probably afford it
-        InvalidateRect(HTreeView, NULL, false);
+        RedrawWindowTree(HTreeView);
+        RedrawWindowTree(HWindow);
     }
 }
 
@@ -1090,6 +1291,8 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
         {
             ChildDialog->SetParent(HWindow);
             ChildDialog->Create();
+            DarkModeApplyTree(ChildDialog->HWindow);
+            SendMessage(ChildDialog->HWindow, WM_THEMECHANGED, 0, 0);
         }
 
         NMHDR nmhdr;
@@ -1108,6 +1311,8 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
                      ChildDialogRect.right - ChildDialogRect.left,
                      ChildDialogRect.bottom - ChildDialogRect.top,
                      SWP_SHOWWINDOW);
+        RedrawWindowTree(ChildDialog->HWindow);
+        RedrawWindowTree(HWindow);
         CurrentPageIndex = pageIndex;
         EnableButtons();
     }
@@ -1407,6 +1612,27 @@ int CTreePropDialog::GetCurSel()
         if (At(i) == page)
             return i;
     return -1;
+}
+
+HWND CTreePropDialog::GetTreeViewHandle() const
+{
+    return Dialog.HTreeView;
+}
+
+HTREEITEM CTreePropDialog::GetPageTreeItem(const CPropSheetPage* page) const
+{
+    return (page != NULL) ? page->HTreeItem : NULL;
+}
+
+void CTreePropDialog::SetPageTreeItem(CPropSheetPage* page, HTREEITEM item)
+{
+    if (page != NULL)
+        page->HTreeItem = item;
+}
+
+const TCHAR* CTreePropDialog::GetPageTitle(const CPropSheetPage* page) const
+{
+    return (page != NULL) ? page->Title : NULL;
 }
 
 int CTreePropDialog::Add(CPropSheetPage* page, CPropSheetPage* parent, BOOL* expanded)

@@ -75,6 +75,9 @@
     <ClCompile Include="..\..\shared\winliblt.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\mp3\id3tagv1.cpp">
       <Filter>mp3</Filter>
     </ClCompile>

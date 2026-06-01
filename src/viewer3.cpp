@@ -10,6 +10,196 @@
 #include "shellib.h"
 #include "mainwnd.h"
 #include "codetbl.h"
+#include "consts.h"
+
+namespace
+{
+
+#ifndef WM_UAHDRAWMENU
+#define WM_UAHDRAWMENU 0x0091
+#endif
+#ifndef WM_UAHDRAWMENUITEM
+#define WM_UAHDRAWMENUITEM 0x0092
+#endif
+
+typedef struct tagViewerUAHMENU
+{
+    HMENU hmenu;
+    HDC hdc;
+    DWORD dwFlags;
+} ViewerUAHMENU;
+
+typedef union tagViewerUAHMENUITEMMETRICS
+{
+    struct
+    {
+        DWORD cx;
+        DWORD cy;
+    } rgsizeBar[2];
+    struct
+    {
+        DWORD cx;
+        DWORD cy;
+    } rgsizePopup[4];
+} ViewerUAHMENUITEMMETRICS;
+
+typedef struct tagViewerUAHMENUPOPUPMETRICS
+{
+    DWORD rgcx[4];
+    DWORD fUpdateMaxWidths : 2;
+} ViewerUAHMENUPOPUPMETRICS;
+
+typedef struct tagViewerUAHMENUITEM
+{
+    int iPosition;
+    ViewerUAHMENUITEMMETRICS umim;
+    ViewerUAHMENUPOPUPMETRICS umpm;
+} ViewerUAHMENUITEM;
+
+typedef struct tagViewerUAHDRAWMENUITEM
+{
+    DRAWITEMSTRUCT dis;
+    ViewerUAHMENU um;
+    ViewerUAHMENUITEM umi;
+} ViewerUAHDRAWMENUITEM;
+
+void FillViewerRectWithColor(HDC hdc, const RECT* rect, COLORREF color)
+{
+    HBRUSH brush = HANDLES(CreateSolidBrush(color));
+    if (brush != NULL)
+    {
+        FillRect(hdc, rect, brush);
+        HANDLES(DeleteObject(brush));
+    }
+}
+
+HBRUSH EnsureViewerMenuBrush(COLORREF color, bool enable)
+{
+    static COLORREF cachedColor = CLR_INVALID;
+    static HBRUSH cachedBrush = NULL;
+
+    if (!enable)
+    {
+        if (cachedBrush != NULL)
+        {
+            HANDLES(DeleteObject(cachedBrush));
+            cachedBrush = NULL;
+            cachedColor = CLR_INVALID;
+        }
+        return NULL;
+    }
+
+    if (cachedBrush != NULL && cachedColor != color)
+    {
+        HANDLES(DeleteObject(cachedBrush));
+        cachedBrush = NULL;
+        cachedColor = CLR_INVALID;
+    }
+
+    if (cachedBrush == NULL)
+    {
+        cachedBrush = HANDLES(CreateSolidBrush(color));
+        cachedColor = color;
+    }
+
+    return cachedBrush;
+}
+
+
+void PaintViewerMenuBar(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    MENUBARINFO mbi;
+    memset(&mbi, 0, sizeof(mbi));
+    mbi.cbSize = sizeof(mbi);
+    if (!GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi))
+        return;
+
+    RECT wndRect;
+    GetWindowRect(hwnd, &wndRect);
+    RECT barRect = mbi.rcBar;
+    OffsetRect(&barRect, -wndRect.left, -wndRect.top);
+    barRect.top -= 1;
+
+    FillViewerRectWithColor(hdc, &barRect, DarkModeGetColors().background);
+}
+
+void PaintViewerMenuBarItem(ViewerUAHDRAWMENUITEM* item)
+{
+    if (item == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    const DarkModeColors& colors = DarkModeGetColors();
+    COLORREF background = colors.background;
+    COLORREF text = colors.readableText;
+    if ((item->dis.itemState & ODS_SELECTED) != 0)
+        background = RGB(0x3A, 0x3A, 0x3A);
+    else if ((item->dis.itemState & ODS_HOTLIGHT) != 0)
+        background = RGB(0x45, 0x45, 0x45);
+    if ((item->dis.itemState & (ODS_GRAYED | ODS_DISABLED | ODS_INACTIVE)) != 0)
+        text = RGB(0x80, 0x80, 0x80);
+
+    FillViewerRectWithColor(item->um.hdc, &item->dis.rcItem, background);
+
+    wchar_t textBuf[MAX_PATH];
+    textBuf[0] = 0;
+    MENUITEMINFOW mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.cbSize = sizeof(mii);
+    mii.fMask = MIIM_STRING;
+    mii.dwTypeData = textBuf;
+    mii.cch = _countof(textBuf) - 1;
+    GetMenuItemInfoW(item->um.hmenu, (UINT)item->umi.iPosition, TRUE, &mii);
+
+    int oldBkMode = SetBkMode(item->um.hdc, TRANSPARENT);
+    COLORREF oldText = SetTextColor(item->um.hdc, text);
+    UINT flags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+    if ((item->dis.itemState & ODS_NOACCEL) != 0)
+        flags |= DT_HIDEPREFIX;
+    DrawTextW(item->um.hdc, textBuf, -1, &item->dis.rcItem, flags);
+    SetTextColor(item->um.hdc, oldText);
+    SetBkMode(item->um.hdc, oldBkMode);
+}
+
+void ApplyViewerMenuTheme(HWND hwnd)
+{
+    HMENU menu = GetMenu(hwnd);
+    if (menu == NULL)
+        return;
+
+    MENUINFO info;
+    memset(&info, 0, sizeof(info));
+    info.cbSize = sizeof(info);
+    info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
+
+    const DarkModeColors& dmColors = DarkModeGetColors();
+    const COLORREF background = dmColors.background;
+    const bool useDarkColors = DarkModeShouldUseDarkColors();
+
+    HBRUSH menuBrush = GetSysColorBrush(COLOR_MENU);
+    if (useDarkColors)
+    {
+        HBRUSH brush = HDialogBrush;
+        if (brush == NULL)
+        {
+            brush = EnsureViewerMenuBrush(background, true);
+        }
+        menuBrush = (brush != NULL) ? brush : menuBrush;
+    }
+    else
+    {
+        EnsureViewerMenuBrush(background, false);
+    }
+
+    info.hbrBack = menuBrush;
+
+    SetMenuInfo(menu, &info);
+    DrawMenuBar(hwnd);
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW);
+}
+} // namespace
 
 BOOL ViewerActive(HWND hwnd)
 {
@@ -455,6 +645,34 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             break;
         }
+
+        case WM_THEMECHANGED:
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            if (HToolTip != NULL)
+                DarkModeApplyWindow(HToolTip);
+            ReleaseViewerBrushs();
+            CreateViewerBrushs();
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
+
+        case WM_SETTINGCHANGE:
+        {
+            if (DarkModeHandleSettingChange(uMsg, lParam))
+            {
+                DarkModeApplyTree(HWindow);
+                DarkModeRefreshTitleBar(HWindow);
+                if (HToolTip != NULL)
+                    DarkModeApplyWindow(HToolTip);
+                ReleaseViewerBrushs();
+                CreateViewerBrushs();
+                InvalidateRect(HWindow, NULL, TRUE);
+                return 0;
+            }
+            break;
+        }
         }
         return CWindow::WindowProc(uMsg, wParam, lParam);
     }
@@ -529,6 +747,27 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg)
     {
+    case WM_UAHDRAWMENU:
+    {
+        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            ViewerUAHMENU* menu = reinterpret_cast<ViewerUAHMENU*>(lParam);
+            PaintViewerMenuBar(HWindow, menu->hdc);
+            return 0;
+        }
+        break;
+    }
+
+    case WM_UAHDRAWMENUITEM:
+    {
+        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            PaintViewerMenuBarItem(reinterpret_cast<ViewerUAHDRAWMENUITEM*>(lParam));
+            return 0;
+        }
+        break;
+    }
+
     case WM_CREATE:
     {
         ViewerWindowQueue.Add(new CWindowQueueItem(HWindow));
@@ -541,6 +780,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HToolTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL, TTS_NOPREFIX,
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   NULL, NULL, HInstance, NULL);
+
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        ApplyViewerMenuTheme(HWindow);
 
         if (HToolTip != NULL)
         {
@@ -556,6 +800,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(HToolTip, TTM_SETDELAYTIME, TTDT_INITIAL, 500);
             SendMessage(HToolTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 10000);
             SetWindowPos(HToolTip, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            DarkModeApplyWindow(HToolTip);
         }
 
         DragAcceptFiles(HWindow, TRUE);
@@ -686,8 +931,42 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CreateViewerBrushs();
         SetViewerFont();
         InvalidateRect(HWindow, NULL, TRUE);
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        if (HToolTip != NULL)
+            DarkModeApplyWindow(HToolTip);
         ConfigHasChanged();
         return 0;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        ApplyViewerMenuTheme(HWindow);
+        if (HToolTip != NULL)
+            DarkModeApplyWindow(HToolTip);
+        ReleaseViewerBrushs();
+        CreateViewerBrushs();
+        InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            ApplyViewerMenuTheme(HWindow);
+            if (HToolTip != NULL)
+                DarkModeApplyWindow(HToolTip);
+            ReleaseViewerBrushs();
+            CreateViewerBrushs();
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
+        break;
     }
 
     case WM_USER_CLEARHISTORY:
@@ -3050,6 +3329,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E("Main window of viewer has no menu?");
         else
         {
+            ApplyViewerMenuTheme(HWindow);
             HMENU subMenu = GetSubMenu(main, VIEWER_FILE_MENU_INDEX);
             if (subMenu != NULL)
             {

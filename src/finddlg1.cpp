@@ -16,6 +16,7 @@
 #include "usermenu.h"
 #include "execute.h"
 #include "tasklist.h"
+#include "darkmode.h"
 
 #include <Shlwapi.h>
 
@@ -24,6 +25,107 @@ const char* NORMAL_FINDING_CAPTION = "%s [%s %s]";
 
 BOOL FindManageInUse = FALSE;
 BOOL FindIgnoreInUse = FALSE;
+
+namespace
+{
+HBRUSH GetFindDarkBrush(COLORREF color)
+{
+    static HBRUSH brush = NULL;
+    static COLORREF brushColor = CLR_INVALID;
+
+    if (brush == NULL || brushColor != color)
+    {
+        if (brush != NULL)
+            HANDLES(DeleteObject(brush));
+        brush = HANDLES(CreateSolidBrush(color));
+        brushColor = color;
+    }
+    return brush;
+}
+
+void FillFindRect(HDC hdc, const RECT* rect, COLORREF color)
+{
+    HBRUSH brush = GetFindDarkBrush(color);
+    if (brush != NULL)
+        FillRect(hdc, rect, brush);
+}
+
+void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHeader* tbHeader)
+{
+    DarkModeApplyTree(dialog);
+    DarkModeRefreshTitleBar(dialog);
+    DarkModeApplyStaticTextColors(dialog, NULL);
+
+    if (listView != NULL)
+        DarkModeUpdateListViewColors(listView);
+
+    if (statusBar != NULL)
+    {
+        SendMessage(statusBar, SB_SETBKCOLOR, 0,
+                    DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : CLR_DEFAULT);
+        InvalidateRect(statusBar, NULL, TRUE);
+    }
+
+    if (tbHeader != NULL && tbHeader->HWindow != NULL)
+        InvalidateRect(tbHeader->HWindow, NULL, TRUE);
+}
+
+bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
+{
+    if (cd == NULL || !DarkModeShouldUseDarkColors())
+        return false;
+
+    switch (cd->dwDrawStage)
+    {
+    case CDDS_PREPAINT:
+        result = CDRF_NOTIFYITEMDRAW;
+        return true;
+
+    case CDDS_ITEMPREPAINT:
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        RECT rc = cd->rc;
+        FillFindRect(cd->hdc, &rc, RGB(0x20, 0x20, 0x20));
+
+        char text[256];
+        text[0] = 0;
+        HDITEM item;
+        memset(&item, 0, sizeof(item));
+        item.mask = HDI_TEXT | HDI_FORMAT;
+        item.pszText = text;
+        item.cchTextMax = _countof(text);
+        Header_GetItem(cd->hdr.hwndFrom, (int)cd->dwItemSpec, &item);
+
+        rc.left += 5;
+        rc.right -= 5;
+        UINT format = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS;
+        if ((item.fmt & HDF_RIGHT) != 0)
+            format |= DT_RIGHT;
+        else if ((item.fmt & HDF_CENTER) != 0)
+            format |= DT_CENTER;
+        else
+            format |= DT_LEFT;
+
+        int oldBkMode = SetBkMode(cd->hdc, TRANSPARENT);
+        COLORREF oldText = SetTextColor(cd->hdc, colors.readableText);
+        DrawText(cd->hdc, text, -1, &rc, format);
+        SetTextColor(cd->hdc, oldText);
+        SetBkMode(cd->hdc, oldBkMode);
+
+        RECT line = cd->rc;
+        line.left = line.right - 1;
+        FillFindRect(cd->hdc, &line, RGB(0x4A, 0x4A, 0x4A));
+        line = cd->rc;
+        line.top = line.bottom - 1;
+        FillFindRect(cd->hdc, &line, RGB(0x4A, 0x4A, 0x4A));
+
+        result = CDRF_SKIPDEFAULT;
+        return true;
+    }
+    }
+    return false;
+}
+}
 
 //****************************************************************************
 //
@@ -165,6 +267,8 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
 
     // add this panel to the array of sources for enumerating files in viewers
     EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
+
+    DarkModeUpdateListViewColors(HWindow);
 }
 
 CFoundFilesListView::~CFoundFilesListView()
@@ -880,6 +984,19 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return DLGC_WANTCHARS | DLGC_WANTARROWS;
     }
 
+    case WM_THEMECHANGED:
+    {
+        DarkModeUpdateListViewColors(HWindow);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            DarkModeUpdateListViewColors(HWindow);
+        break;
+    }
+
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
@@ -1289,6 +1406,8 @@ BOOL CFoundFilesListView::InitColumns()
           ListView_GetColumnWidth(HWindow, 5) + GetSystemMetrics(SM_CXHSCROLL) - 1;
     ListView_SetColumnWidth(HWindow, 1, cx);
     ListView_SetImageList(HWindow, HFindSymbolsImageList, LVSIL_SMALL);
+
+    DarkModeUpdateListViewColors(HWindow);
 
     return TRUE;
 }
@@ -3005,6 +3124,8 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // not supported yet, hide the option
         ShowWindow(GetDlgItem(HWindow, IDC_FIND_INCLUDE_ARCHIVES), FALSE);
 
+        UpdateFindDarkChrome(HWindow, HStatusBar, FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL, TBHeader);
+
         EnableControls();
         break;
     }
@@ -3047,6 +3168,19 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         OnColorsChange();
         return TRUE;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        UpdateFindDarkChrome(HWindow, HStatusBar, FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL, TBHeader);
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+            UpdateFindDarkChrome(HWindow, HStatusBar, FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL, TBHeader);
+        break;
     }
 
     case WM_USER_FINDFULLROWSEL:
@@ -3822,6 +3956,11 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
         if (wParam == IDC_FIND_STATUS)
         {
             DRAWITEMSTRUCT* di = (DRAWITEMSTRUCT*)lParam;
+            if (DarkModeShouldUseDarkColors())
+            {
+                FillFindRect(di->hDC, &di->rcItem, DarkModeGetColors().background);
+                SetTextColor(di->hDC, DarkModeGetColors().readableText);
+            }
             int prevBkMode = SetBkMode(di->hDC, TRANSPARENT);
             char buff[MAX_PATH + 50];
             SearchingText.Get(buff, MAX_PATH + 50);
@@ -3866,6 +4005,19 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_NOTIFY:
     {
+        LPNMHDR notifyHeader = (LPNMHDR)lParam;
+        if (FoundFilesListView != NULL && FoundFilesListView->HWindow != NULL && notifyHeader != NULL &&
+            notifyHeader->hwndFrom == ListView_GetHeader(FoundFilesListView->HWindow) &&
+            notifyHeader->code == NM_CUSTOMDRAW)
+        {
+            LRESULT customDrawResult = 0;
+            if (PaintFindListHeader((LPNMCUSTOMDRAW)lParam, customDrawResult))
+            {
+                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
+                return TRUE;
+            }
+        }
+
         if (wParam == IDC_FIND_RESULTS)
         {
             switch (((LPNMHDR)lParam)->code)
@@ -3953,6 +4105,14 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
                         // fill the background with the default color
                         int bkColor = (GrepData.FindDuplicates && item->Different == 1) ? COLOR_3DFACE : COLOR_WINDOW;
                         int textColor = COLOR_WINDOWTEXT;
+                        COLORREF customBkColor = CLR_INVALID;
+                        COLORREF customTextColor = CLR_INVALID;
+
+                        if (DarkModeShouldUseDarkColors())
+                        {
+                            customBkColor = (GrepData.FindDuplicates && item->Different == 1) ? RGB(0x30, 0x30, 0x30) : DarkModeGetColors().background;
+                            customTextColor = DarkModeGetColors().readableText;
+                        }
 
                         if (Configuration.FindFullRowSelect)
                         {
@@ -3977,7 +4137,7 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
                             }
                         }
 
-                        SetBkColor(CacheBitmap->HMemDC, GetSysColor(bkColor));
+                        SetBkColor(CacheBitmap->HMemDC, customBkColor != CLR_INVALID ? customBkColor : GetSysColor(bkColor));
                         ExtTextOut(CacheBitmap->HMemDC, 0, 0, ETO_OPAQUE, &r2, "", 0, NULL);
                         SetBkMode(CacheBitmap->HMemDC, TRANSPARENT);
 
@@ -3986,7 +4146,7 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
                         r2.right -= 5;
                         CFoundFilesData* item2 = FoundFilesListView->At((int)cd->nmcd.dwItemSpec);
                         SelectObject(CacheBitmap->HMemDC, (HFONT)SendMessage(FoundFilesListView->HWindow, WM_GETFONT, 0, 0));
-                        int oldTextColor = SetTextColor(CacheBitmap->HMemDC, GetSysColor(textColor));
+                        int oldTextColor = SetTextColor(CacheBitmap->HMemDC, customTextColor != CLR_INVALID ? customTextColor : GetSysColor(textColor));
 
                         // DT_PATH_ELLIPSIS does not work for some strings and can cause clipped text to be drawn
                         // PathCompactPath() requires a copy in a local buffer, but it does not clip the text
@@ -4005,6 +4165,14 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
                         // disable default drawing
                         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_SKIPDEFAULT);
+                        return TRUE;
+                    }
+
+                    if (DarkModeShouldUseDarkColors())
+                    {
+                        cd->clrText = DarkModeGetColors().readableText;
+                        cd->clrTextBk = (GrepData.FindDuplicates && item->Different == 1) ? RGB(0x30, 0x30, 0x30) : DarkModeGetColors().background;
+                        SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_NEWFONT);
                         return TRUE;
                     }
 
@@ -4391,7 +4559,8 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(GetDlgItem(HWindow, IDC_FIND_RESULTS), GetSysColor(COLOR_WINDOW));
+        HWND listView = GetDlgItem(HWindow, IDC_FIND_RESULTS);
+        DarkModeUpdateListViewColors(listView);
         break;
     }
     }

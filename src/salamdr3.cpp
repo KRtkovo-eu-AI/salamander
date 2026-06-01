@@ -1945,6 +1945,41 @@ void CPathHistory::RemoveActualPath(int type, const char* pathOrArchiveOrFSName,
     }
 }
 
+void CPathHistory::AppendFrom(const CPathHistory& source)
+{
+    if (&source == this)
+        return;
+
+    TIndirectArray<CPathHistoryItem>& sourcePaths =
+        const_cast<TIndirectArray<CPathHistoryItem>&>(source.Paths);
+    for (int i = 0; i < sourcePaths.Count; i++)
+    {
+        CPathHistoryItem* item = sourcePaths[i];
+        if (item == NULL)
+            continue;
+
+        HICON hIcon = NULL;
+        if (item->HIcon != NULL)
+        {
+            hIcon = CopyIcon(item->HIcon);
+            if (hIcon == NULL)
+                TRACE_E(LOW_MEMORY);
+        }
+
+        AddPathUnique(item->Type, item->PathOrArchiveOrFSName, item->ArchivePathOrFSUserPart, hIcon,
+                      item->PluginFS, NULL);
+    }
+}
+
+void CPathHistory::CopyFrom(const CPathHistory& source)
+{
+    if (&source == this)
+        return;
+
+    ClearHistory();
+    AppendFrom(source);
+}
+
 void CPathHistory::AddPath(int type, const char* pathOrArchiveOrFSName, const char* archivePathOrFSUserPart,
                            CPluginFSInterfaceAbstract* pluginFS, CPluginFSInterfaceEncapsulation* curPluginFS)
 {
@@ -2887,11 +2922,15 @@ BOOL PostMouseWheelMessage(MSG* pMSG)
             TRACE_E("GetClassName() failed!");
             hWindow = pMSG->hwnd;
         }
-        // if this is a scrollbar with a parent window, post the message to the parent.
+        // If this is a scrollbar or an up-down helper with a parent window, post the message to the parent.
         // Scrollbars in the panels are not subclassed, so this is currently the only way
         // for the panel to receive wheel messages when the cursor is over the scrollbar.
+        // Overflowed tab controls use an up-down child for the scroll arrows; route wheel messages
+        // over those arrows to the tab control so its subclass can scroll the tab strip.
         className[0] = 0;
-        if (GetClassName(hWindow, className, 100) == 0 || StrICmp(className, "scrollbar") == 0)
+        if (GetClassName(hWindow, className, 100) == 0 ||
+            StrICmp(className, "scrollbar") == 0 ||
+            StrICmp(className, UPDOWN_CLASS) == 0)
         {
             HWND hParent = GetParent(hWindow);
             if (hParent != NULL)

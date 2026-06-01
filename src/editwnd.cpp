@@ -1551,13 +1551,22 @@ CInnerText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (Message != NULL)
         {
-            COLORREF sysBkColor = EditWindow->Enabled ? COLOR_WINDOW : COLOR_BTNFACE;
-            COLORREF sysTxColor = EditWindow->Enabled ? COLOR_WINDOWTEXT : COLOR_BTNSHADOW;
-            int oldColor = SetTextColor(dc, GetSysColor(sysTxColor));
+            bool useDark = DarkModeShouldUseDarkColors();
+            COLORREF textColor;
+            if (EditWindow->Enabled)
+                textColor = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_WINDOWTEXT);
+            else
+                textColor = useDark ? RGB(160, 160, 160) : GetSysColor(COLOR_BTNSHADOW);
+            HBRUSH backgroundBrush;
+            if (useDark)
+                backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW);
+            else
+                backgroundBrush = (HBRUSH)(UINT_PTR)(EditWindow->Enabled ? COLOR_WINDOW + 1 : COLOR_BTNFACE + 1);
+            int oldColor = SetTextColor(dc, textColor);
             HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
             RECT r;
             GetClientRect(HWindow, &r);
-            FillRect(dc, &r, (HBRUSH)(UINT_PTR)(sysBkColor + 1));
+            FillRect(dc, &r, backgroundBrush);
             int oldBkMode = SetBkMode(dc, TRANSPARENT);
             r.right -= TXEL_SPACE - 1; // bold fonts make the text overflow - hence this correction
 
@@ -1821,6 +1830,19 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONUP:
     {
         Tracking = FALSE;
+        break;
+    }
+
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            SetTextColor(hdc, GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]));
+            SetBkColor(hdc, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+            return (LRESULT)HDialogBrush;
+        }
         break;
     }
 

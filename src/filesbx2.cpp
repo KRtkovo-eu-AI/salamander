@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -13,6 +13,15 @@
 #include "stswnd.h"
 #include "shellib.h"
 #include "snooper.h"
+#include "darkmode.h"
+
+static void FillRectWithColor(HDC hDC, const RECT* rect, COLORREF color)
+{
+    HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hDC, color);
+    FillRect(hDC, rect, (HBRUSH)GetStockObject(DC_BRUSH));
+    SelectObject(hDC, oldBrush);
+}
 
 //****************************************************************************
 //
@@ -76,7 +85,10 @@ CBottomBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RECT r;
         GetClientRect(HWindow, &r);
         r.left = r.right - GetSystemMetrics(SM_CXVSCROLL);
-        FillRect((HDC)hDC, &r, HDialogBrush);
+        if (DarkModeShouldUseDarkColors())
+            FillRectWithColor(hDC, &r, DarkModeGetDialogBackgroundColor());
+        else
+            FillRect(hDC, &r, HDialogBrush);
         HANDLES(EndPaint(HWindow, &ps));
         return 0;
     }
@@ -209,12 +221,18 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
     else
         r.right = Width;
 
+    BOOL useDarkChrome = DarkModeShouldUseDarkColors();
+    COLORREF headerTextColor = useDarkChrome ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+
     // clear the background
     RECT r2;
     r2 = r;
     r2.top++;
     r2.bottom--;
-    FillRect(ItemBitmap.HMemDC, &r2, HDialogBrush);
+    if (useDarkChrome)
+        FillRectWithColor(ItemBitmap.HMemDC, &r2, DarkModeGetDialogBackgroundColor());
+    else
+        FillRect(ItemBitmap.HMemDC, &r2, HDialogBrush);
 
     if (!last)
     {
@@ -225,7 +243,10 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
         // column name
         HFONT hOldFont = (HFONT)SelectObject(ItemBitmap.HMemDC, hot1 && Configuration.SingleClick ? FontUL : Font);
         int oldMode = SetBkMode(ItemBitmap.HMemDC, TRANSPARENT);
-        COLORREF oldColor = SetTextColor(ItemBitmap.HMemDC, hot1 ? GetCOLORREF(CurrentColors[HOT_PANEL]) : GetSysColor(COLOR_BTNTEXT));
+        COLORREF defaultText = DarkModeShouldUseDarkColors() ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                                                             : GetSysColor(COLOR_BTNTEXT);
+        COLORREF hotText = GetCOLORREF(CurrentColors[HOT_PANEL]);
+        COLORREF oldColor = SetTextColor(ItemBitmap.HMemDC, hot1 ? hotText : defaultText);
         int nameLen = lstrlen(column->Name);
         TextOut(ItemBitmap.HMemDC, r.left + 3, (r.bottom - FontCharHeight) / 2, column->Name, nameLen);
 
@@ -264,7 +285,7 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
             if (sz.cx == 0) // measure now if we have no size yet
                 GetTextExtentPoint32(ItemBitmap.HMemDC, column->Name, nameLen, &sz);
             SelectObject(ItemBitmap.HMemDC, hot2 && Configuration.SingleClick ? FontUL : Font);
-            SetTextColor(ItemBitmap.HMemDC, hot2 ? GetCOLORREF(CurrentColors[HOT_PANEL]) : GetSysColor(COLOR_BTNTEXT));
+            SetTextColor(ItemBitmap.HMemDC, hot2 ? hotText : defaultText);
             char* colExtStr = column->Name + nameLen + 1; // the text "Ext" is stored after the name (in the same buffer)
             int colExtStrLen = (int)strlen(colExtStr);
             TextOut(ItemBitmap.HMemDC, textLeft, (r.bottom - FontCharHeight) / 2,
@@ -290,29 +311,59 @@ void CHeaderLine::PaintItem(HDC hDC, int index, int x)
     }
 
     // draw the border lines
-    HPEN hOldPen = (HPEN)SelectObject(ItemBitmap.HMemDC, BtnHilightPen);
-    MoveToEx(ItemBitmap.HMemDC, r.left, r.top, NULL);
-    LineTo(ItemBitmap.HMemDC, r.right, r.top);
-    if (first)
+    if (useDarkChrome)
     {
+        HGDIOBJ oldPen = SelectObject(ItemBitmap.HMemDC, GetStockObject(DC_PEN));
+        SetDCPenColor(ItemBitmap.HMemDC, RGB(95, 95, 95));
         MoveToEx(ItemBitmap.HMemDC, r.left, r.top, NULL);
-        LineTo(ItemBitmap.HMemDC, r.left, r.bottom);
+        LineTo(ItemBitmap.HMemDC, r.right, r.top);
+        if (first)
+        {
+            MoveToEx(ItemBitmap.HMemDC, r.left, r.top, NULL);
+            LineTo(ItemBitmap.HMemDC, r.left, r.bottom);
+        }
+        else
+        {
+            MoveToEx(ItemBitmap.HMemDC, r.left, r.top + 2, NULL);
+            LineTo(ItemBitmap.HMemDC, r.left, r.bottom - 2);
+        }
+
+        SetDCPenColor(ItemBitmap.HMemDC, RGB(70, 70, 70));
+        MoveToEx(ItemBitmap.HMemDC, r.left, r.bottom - 1, NULL);
+        LineTo(ItemBitmap.HMemDC, r.right, r.bottom - 1);
+        if (!last)
+        {
+            MoveToEx(ItemBitmap.HMemDC, r.right - 1, r.top + 2, NULL);
+            LineTo(ItemBitmap.HMemDC, r.right - 1, r.bottom - 2);
+        }
+        SelectObject(ItemBitmap.HMemDC, oldPen);
     }
     else
     {
-        MoveToEx(ItemBitmap.HMemDC, r.left, r.top + 2, NULL);
-        LineTo(ItemBitmap.HMemDC, r.left, r.bottom - 2);
-    }
+        HPEN hOldPen = (HPEN)SelectObject(ItemBitmap.HMemDC, BtnHilightPen);
+        MoveToEx(ItemBitmap.HMemDC, r.left, r.top, NULL);
+        LineTo(ItemBitmap.HMemDC, r.right, r.top);
+        if (first)
+        {
+            MoveToEx(ItemBitmap.HMemDC, r.left, r.top, NULL);
+            LineTo(ItemBitmap.HMemDC, r.left, r.bottom);
+        }
+        else
+        {
+            MoveToEx(ItemBitmap.HMemDC, r.left, r.top + 2, NULL);
+            LineTo(ItemBitmap.HMemDC, r.left, r.bottom - 2);
+        }
 
-    SelectObject(ItemBitmap.HMemDC, BtnShadowPen);
-    MoveToEx(ItemBitmap.HMemDC, r.left, r.bottom - 1, NULL);
-    LineTo(ItemBitmap.HMemDC, r.right, r.bottom - 1);
-    if (!last)
-    {
-        MoveToEx(ItemBitmap.HMemDC, r.right - 1, r.top + 2, NULL);
-        LineTo(ItemBitmap.HMemDC, r.right - 1, r.bottom - 2);
+        SelectObject(ItemBitmap.HMemDC, BtnShadowPen);
+        MoveToEx(ItemBitmap.HMemDC, r.left, r.bottom - 1, NULL);
+        LineTo(ItemBitmap.HMemDC, r.right, r.bottom - 1);
+        if (!last)
+        {
+            MoveToEx(ItemBitmap.HMemDC, r.right - 1, r.top + 2, NULL);
+            LineTo(ItemBitmap.HMemDC, r.right - 1, r.bottom - 2);
+        }
+        SelectObject(ItemBitmap.HMemDC, hOldPen);
     }
-    SelectObject(ItemBitmap.HMemDC, hOldPen);
 
     if (DownVisible && DownIndex == index)
         InvertRect(ItemBitmap.HMemDC, &r);

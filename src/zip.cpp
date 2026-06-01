@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -41,6 +41,24 @@ const char* STR_NONE = "(none)";
 CSalamanderDirectory GlobalEmptySalDir(FALSE); // returned as an empty sal-dir (instead of NULL) - only for archives
 
 HWND ProgressDialogActivateDrop = NULL;
+
+namespace
+{
+HBRUSH GetZipProgressDarkBrush(COLORREF background)
+{
+    static HBRUSH brush = NULL;
+    static COLORREF brushColor = CLR_INVALID;
+
+    if (brush == NULL || brushColor != background)
+    {
+        if (brush != NULL)
+            HANDLES(DeleteObject(brush));
+        brush = HANDLES(CreateSolidBrush(background));
+        brushColor = background;
+    }
+    return brush;
+}
+}
 
 //
 // ****************************************************************************
@@ -411,6 +429,49 @@ CZIPUnpackProgress::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (TaskBarList3 != NULL)
             TaskBarList3->SetProgressState(TBPF_NOPROGRESS);
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            const DarkModeColors& colors = DarkModeGetColors();
+            const bool progressLabel = uMsg == WM_CTLCOLORSTATIC && lParam != 0 &&
+                                       (GetDlgCtrlID((HWND)lParam) == IDT_PROGTITLE ||
+                                        GetDlgCtrlID((HWND)lParam) == IDC_STATIC_1 ||
+                                        GetDlgCtrlID((HWND)lParam) == IDC_STATIC_2);
+            if (progressLabel)
+            {
+                if (hdc != NULL)
+                {
+                    SetTextColor(hdc, colors.readableText);
+                    SetBkColor(hdc, colors.background);
+                    SetBkMode(hdc, TRANSPARENT);
+                }
+                return (INT_PTR)GetZipProgressDarkBrush(colors.background);
+            }
+        }
+
+        LRESULT brush = 0;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = (HDC)wParam;
+            const DarkModeColors& colors = DarkModeGetColors();
+            if (hdc != NULL)
+            {
+                SetTextColor(hdc, colors.readableText);
+                SetBkColor(hdc, colors.background);
+                SetBkMode(hdc, TRANSPARENT);
+            }
+            return (INT_PTR)GetZipProgressDarkBrush(colors.background);
+        }
         break;
     }
 
@@ -2256,31 +2317,34 @@ void CSalamanderGeneral::PostRefreshPanelFS(CPluginFSInterfaceAbstract* modified
 BOOL CSalamanderGeneral::PostRefreshPanelFS2(CPluginFSInterfaceAbstract* modifiedFS, BOOL focusFirstNewItem)
 {
     CALL_STACK_MESSAGE2("CSalamanderGeneral::PostRefreshPanelFS2(, %d)", focusFirstNewItem);
-    CFilesWindow* p = NULL;
+    BOOL notified = FALSE;
     if (MainWindow != NULL)
     {
         // no synchronization issue, because PluginFS is cleared only after CloseFS, which
         // should terminate the thread monitoring FS changes (after CloseFS there should be no call to
         // PostRefreshPanelFS2)
-        if (MainWindow->LeftPanel != NULL && MainWindow->LeftPanel->Is(ptPluginFS) &&
-            MainWindow->LeftPanel->GetPluginFS()->Contains(modifiedFS))
+        CPanelSide sides[2] = {cpsLeft, cpsRight};
+        for (int sideIndex = 0; sideIndex < 2; sideIndex++)
         {
-            p = MainWindow->LeftPanel;
-        }
-        if (MainWindow->RightPanel != NULL && MainWindow->RightPanel->Is(ptPluginFS) &&
-            MainWindow->RightPanel->GetPluginFS()->Contains(modifiedFS))
-        {
-            p = MainWindow->RightPanel;
+            CPanelSide side = sides[sideIndex];
+            int tabCount = MainWindow->GetPanelTabCount(side);
+            for (int i = 0; i < tabCount; i++)
+            {
+                CFilesWindow* panel = MainWindow->GetPanelTabAt(side, i);
+                if (panel != NULL && panel->Is(ptPluginFS) && panel->GetPluginFS()->Contains(modifiedFS))
+                {
+                    panel->FocusFirstNewItem = focusFirstNewItem; // neni synchronizovane (muze se volat nejen v hl. threadu), ale nemelo by vadit
+                    HANDLES(EnterCriticalSection(&TimeCounterSection));
+                    int t1 = MyTimeCounter++;
+                    HANDLES(LeaveCriticalSection(&TimeCounterSection));
+                    PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, t1);
+                    notified = TRUE;
+                }
+            }
         }
     }
-    if (p != NULL)
+    if (notified)
     {
-        // post a hard refresh
-        HANDLES(EnterCriticalSection(&TimeCounterSection));
-        int t1 = MyTimeCounter++;
-        HANDLES(LeaveCriticalSection(&TimeCounterSection));
-        p->FocusFirstNewItem = focusFirstNewItem; // not synchronized (may be called outside the main thread) but should not matter
-        PostMessage(p->HWindow, WM_USER_REFRESH_DIR, 0, t1);
         return TRUE;
     }
     else
@@ -2891,6 +2955,9 @@ BOOL CSalamanderGeneral::GetConfigParameter(int paramID, void* buffer, int buffe
         break;
     case SALCFG_SELECTWHOLENAME:
         *((DWORD*)auxBuf) = (DWORD)Configuration.QuickRenameSelectAll;
+        break;
+    case SALCFG_USEWINDOWSDARKMODE:
+        *((DWORD*)auxBuf) = (DWORD)Configuration.UseWindowsDarkMode;
         break;
 
     case SALCFG_FILENAMEFORMAT:
