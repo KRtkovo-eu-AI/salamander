@@ -50,6 +50,7 @@ typedef struct tagTCINSERTMARK
 namespace
 {
     constexpr LPARAM kNewTabButtonParam = static_cast<LPARAM>(-1);
+    constexpr wchar_t kTabWidthPaddingChar = L'\x2007';
     const wchar_t kNewTabButtonText[] = L"+";
     const wchar_t kEllipsisText[] = L"...";
 
@@ -127,6 +128,12 @@ namespace
             padding = 4;
 
         return minWidth + padding;
+    }
+
+    void TrimTabWidthPadding(std::wstring& text)
+    {
+        while (!text.empty() && text[text.length() - 1] == kTabWidthPaddingChar)
+            text.erase(text.length() - 1);
     }
 
     std::wstring EllipsizeTextToWidth(const std::wstring& text, HDC hdc, int maxWidth)
@@ -335,21 +342,18 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
     };
 
-    setItemText(desired);
+    std::wstring finalText = desired;
+    setItemText(finalText);
 
-    if (desired.empty())
-        return;
-
+    int minWidthPx = DipToPixels(Configuration.TabButtonMinWidth);
     int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
-    if (maxWidthPx <= 0)
+    if (minWidthPx <= 0 && maxWidthPx <= 0)
         return;
 
     RECT rect;
     if (!TabCtrl_GetItemRect(HWindow, index, &rect))
         return;
     int currentWidth = rect.right - rect.left;
-    if (currentWidth <= maxWidthPx)
-        return;
 
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
@@ -360,47 +364,59 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
-    SIZE desiredSize = {0, 0};
-    if (!GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
+    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
     {
-        if (oldFont != NULL)
-            SelectObject(hdc, oldFont);
-        ReleaseDC(HWindow, hdc);
-        return;
-    }
-
-    int extraWidth = currentWidth - desiredSize.cx;
-    int allowedTextWidth = maxWidthPx - extraWidth;
-    if (allowedTextWidth <= 0)
-    {
-        setItemText(std::wstring(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1));
-        if (oldFont != NULL)
-            SelectObject(hdc, oldFont);
-        ReleaseDC(HWindow, hdc);
-        return;
-    }
-
-    std::wstring finalText = desired;
-    if (desiredSize.cx > allowedTextWidth)
-        finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-
-    for (int attempt = 0; attempt < 3; ++attempt)
-    {
-        setItemText(finalText);
-        if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-            break;
-        currentWidth = rect.right - rect.left;
-        if (currentWidth <= maxWidthPx)
-            break;
-
-        allowedTextWidth -= (currentWidth - maxWidthPx);
-        if (allowedTextWidth <= 0)
+        SIZE desiredSize = {0, 0};
+        if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
         {
-            finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+            int extraWidth = currentWidth - desiredSize.cx;
+            int allowedTextWidth = maxWidthPx - extraWidth;
+            if (allowedTextWidth <= 0)
+                finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+            else if (desiredSize.cx > allowedTextWidth)
+                finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+
+            for (int attempt = 0; attempt < 3; ++attempt)
+            {
+                setItemText(finalText);
+                if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+                    break;
+                currentWidth = rect.right - rect.left;
+                if (currentWidth <= maxWidthPx)
+                    break;
+
+                allowedTextWidth -= (currentWidth - maxWidthPx);
+                if (allowedTextWidth <= 0)
+                    finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+                else
+                    finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+            }
         }
-        else
+    }
+
+    if (minWidthPx > 0)
+    {
+        int targetWidth = minWidthPx;
+        if (maxWidthPx > 0 && targetWidth > maxWidthPx)
+            targetWidth = maxWidthPx;
+
+        for (int attempt = 0; attempt < 4; ++attempt)
         {
-            finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+            if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+                break;
+            currentWidth = rect.right - rect.left;
+            if (currentWidth >= targetWidth)
+                break;
+
+            SIZE paddingSize = {0, 0};
+            if (!GetTextExtentPoint32W(hdc, &kTabWidthPaddingChar, 1, &paddingSize) || paddingSize.cx <= 0)
+                break;
+
+            int addCount = (targetWidth - currentWidth + paddingSize.cx - 1) / paddingSize.cx;
+            if (addCount <= 0)
+                addCount = 1;
+            finalText.append(addCount, kTabWidthPaddingChar);
+            setItemText(finalText);
         }
     }
 
@@ -636,9 +652,6 @@ void CTabWindow::UpdateNewTabButtonWidth()
         return;
 
     int minWidth = ComputeNewTabMinWidth(HWindow);
-    int configuredMinWidth = DipToPixels(Configuration.TabButtonMinWidth);
-    if (configuredMinWidth > 0 && configuredMinWidth > minWidth)
-        minWidth = configuredMinWidth;
     if (minWidth > 0)
         TabCtrl_SetMinTabWidth(HWindow, minWidth);
 }
@@ -1736,7 +1749,14 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
         bool isHot = (item.dwState & TCIS_HIGHLIGHTED) != 0;
         bool hasFocus = (focus == i) && (focusWnd == HWindow);
 
-        const wchar_t* drawText = isNewTab ? kNewTabButtonText : textBuffer;
+        std::wstring drawTextBuffer;
+        const wchar_t* drawText = kNewTabButtonText;
+        if (!isNewTab)
+        {
+            drawTextBuffer = textBuffer;
+            TrimTabWidthPadding(drawTextBuffer);
+            drawText = drawTextBuffer.c_str();
+        }
         DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus, hasCustomColor);
     }
 }
