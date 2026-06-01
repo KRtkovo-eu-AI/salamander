@@ -246,31 +246,6 @@ void DoGetFSToFSDropEffect(const char* srcFSPath, const char* tgtFSPath,
     }
 }
 
-
-static BOOL IsUpDirItem(CFilesWindow* panel, int index)
-{
-    return index == 0 && panel->Dirs->Count > 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0;
-}
-
-static BOOL GetZIPArchiveParentDropPath(CFilesWindow* panel)
-{
-    int l = (int)strlen(panel->GetZIPArchive());
-    if (l <= 0 || l >= MAX_PATH)
-        return FALSE;
-
-    memcpy(panel->DropPath, panel->GetZIPArchive(), l);
-    panel->DropPath[l] = 0;
-    return CutDirectory(panel->DropPath);
-}
-
-static BOOL GetPluginFSUpDirDropPath(CFilesWindow* panel, char* buf, int bufSize)
-{
-    if (buf == NULL || bufSize <= 0 || !panel->GetPluginFS()->GetCurrentPath(buf))
-        return FALSE;
-    buf[bufSize - 1] = 0;
-    return CutDirectory(buf);
-}
-
 //
 // ****************************************************************************
 // GetCurrentDir
@@ -289,35 +264,20 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
     {
         if (panel->Is(ptZIPArchive))
         {
-            BOOL dropOnUpDir = IsUpDirItem(panel, index);
-            BOOL upDirLeavesArchive = dropOnUpDir &&
-                                      (panel->GetZIPPath()[0] == 0 ||
-                                       panel->GetZIPPath()[0] == '\\' && panel->GetZIPPath()[1] == 0);
-
-            // The ".." item at the archive root targets the real Windows directory
-            // containing the archive, not the archive itself.  Handle this before
-            // checking whether the current packer can edit the archive; otherwise
-            // a panel-archiver tab whose format is not recognized for editing here
-            // refuses the drop even though the target is a normal disk folder.
-            if (upDirLeavesArchive)
-            {
-                if (GetZIPArchiveParentDropPath(panel))
-                {
-                    panel->SetDropTarget(index);
-                    return panel->DropPath;
-                }
-                panel->SetDropTarget(-1);
-                return NULL;
-            }
-
             int format = PackerFormatConfig.PackIsArchive(panel->GetZIPArchive());
+            BOOL dropOnArchiveRootUpDir = index == 0 && panel->Dirs->Count > 0 &&
+                                          strcmp(panel->Dirs->At(0).Name, "..") == 0 &&
+                                          (panel->GetZIPPath()[0] == 0 ||
+                                           panel->GetZIPPath()[0] == '\\' && panel->GetZIPPath()[1] == 0);
             if (format != 0) // we have found a supported archive
             {
                 format--;
                 if (PackerFormatConfig.GetUsePacker(format) &&
-                    (*effect & (DROPEFFECT_MOVE | DROPEFFECT_COPY)) != 0) // archive editing is available, and the drop effect includes copy or move
+                        (*effect & (DROPEFFECT_MOVE | DROPEFFECT_COPY)) != 0 || // archive editing is available, and the drop effect includes copy or move
+                    dropOnArchiveRootUpDir) // drop onto a disk path
                 {
                     tgtType = idtttArchive;
+                    DWORD origEffect = *effect;
                     *effect &= (DROPEFFECT_MOVE | DROPEFFECT_COPY); // trim the effect to copy+move
 
                     if (index >= 0 && index < panel->Dirs->Count) // drop on a directory
@@ -330,10 +290,13 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                             if (l > 0 && panel->DropPath[l - 1] == '\\')
                                 panel->DropPath[--l] = 0;
                             int backSlash = 0;
-                            if (l == 0) // should be handled above as a Windows-directory drop
+                            if (l == 0) // drop-path will be a drive (".." leads out of the archive)
                             {
-                                panel->SetDropTarget(-1);
-                                return NULL;
+                                tgtType = idtttWindows;
+                                *effect = origEffect;
+                                l = (int)strlen(panel->GetZIPArchive());
+                                memcpy(panel->DropPath, panel->GetZIPArchive(), l);
+                                backSlash = 1;
                             }
                             char* s = panel->DropPath + l;
                             while (--s >= panel->DropPath && *s != '\\')
@@ -362,6 +325,34 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                     {
                         panel->SetDropTarget(-1); // hide the marker
                         return panel->GetZIPPath();
+                    }
+                }
+            }
+            else
+            {
+                // Some panel archiver plugins are not present in PackerFormatConfig
+                // for non-default tabs while their root ".." item is still a
+                // plain Windows-directory target (the archive's containing
+                // folder).  Keep the original recognized-archive path above
+                // untouched, and only add this fallback for unrecognized archive
+                // formats so regular plugin drag&drop behavior is not changed.
+                if (dropOnArchiveRootUpDir)
+                {
+                    int l = (int)strlen(panel->GetZIPArchive());
+                    if (l > 0 && l < MAX_PATH)
+                    {
+                        panel->SetDropTarget(index);
+                        memcpy(panel->DropPath, panel->GetZIPArchive(), l);
+                        panel->DropPath[l] = 0;
+                        char* s = panel->DropPath + l;
+                        while (--s >= panel->DropPath && *s != '\\')
+                            ;
+                        if (s > panel->DropPath)
+                            *(s + 1) = 0;
+                        else
+                            panel->DropPath[0] = 0;
+                        if (panel->DropPath[0] != 0)
+                            return panel->DropPath;
                     }
                 }
             }
@@ -402,11 +393,9 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
                             }
                         }
 
-                        BOOL dropOnUpDir = IsUpDirItem(panel, index);
                         if (panel->GetPluginFS()->GetFullName(panel->Dirs->At(index),
-                                                              dropOnUpDir ? 2 : 1,
-                                                              panel->DropPath + l, 2 * MAX_PATH - l) ||
-                            dropOnUpDir && GetPluginFSUpDirDropPath(panel, panel->DropPath + l, 2 * MAX_PATH - l))
+                                                              (index == 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0) ? 2 : 1,
+                                                              panel->DropPath + l, MAX_PATH))
                         {
                             if (DropSourcePanel != NULL && DropSourcePanel->Is(ptPluginFS) &&
                                 DropSourcePanel->GetPluginFS()->NotEmpty() && effect != NULL)
@@ -459,11 +448,9 @@ const char* GetCurrentDir(POINTL& pt, void* param, DWORD* effect, BOOL rButton, 
 
                     if (index >= 0 && index < panel->Dirs->Count) // drop on a directory
                     {
-                        BOOL dropOnUpDir = IsUpDirItem(panel, index);
                         if (panel->GetPluginFS()->GetFullName(panel->Dirs->At(index),
-                                                              dropOnUpDir ? 2 : 1,
-                                                              panel->DropPath, 2 * MAX_PATH) ||
-                            dropOnUpDir && GetPluginFSUpDirDropPath(panel, panel->DropPath, 2 * MAX_PATH))
+                                                              (index == 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0) ? 2 : 1,
+                                                              panel->DropPath, MAX_PATH))
                         {
                             panel->SetDropTarget(index);
                             return panel->DropPath;
