@@ -1314,6 +1314,8 @@ extern SALCOLOR ViewerColors[NUMBER_OF_VIEWERCOLORS]; // viewer colors
 class CHighlightMasks;
 void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors);
 void WindowsDarkModeBuildHighlightMasks(CHighlightMasks* highlightMasks);
+void WindowsLightModeBuildViewerPalette(SALCOLOR* viewerColors);
+bool WindowsDarkModeIsViewerPalette(SALCOLOR* viewerColors);
 
 extern COLORREF CustomColors[NUMBER_OF_CUSTOMCOLORS]; // for the standard color dialog
 

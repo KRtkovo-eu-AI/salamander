@@ -1802,6 +1802,15 @@ void CCfgPageViewer::Transfer(CTransferInfo& ti)
             ViewerFontMeasured = FALSE;
             HANDLES(LeaveCriticalSection(&ViewerFontMeasureCS));
         }
+        if (!Configuration.UseWindowsDarkMode && WindowsDarkModeIsViewerPalette(TmpColors))
+        {
+            WindowsLightModeBuildViewerPalette(TmpColors);
+            NormalText->SetColor(GetCOLORREF(TmpColors[VIEWER_FG_NORMAL]),
+                                 GetCOLORREF(TmpColors[VIEWER_BK_NORMAL]));
+            SelectedText->SetColor(GetCOLORREF(TmpColors[VIEWER_FG_SELECTED]),
+                                   GetCOLORREF(TmpColors[VIEWER_BK_SELECTED]));
+        }
+
         BOOL colorChanged = FALSE;
         int i;
         for (i = 0; i < NUMBER_OF_VIEWERCOLORS; i++)
