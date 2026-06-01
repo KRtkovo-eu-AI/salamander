@@ -129,11 +129,11 @@ CAboutDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_EMAIL, STF_UNDERLINE | STF_HYPERLINK_COLOR);
         if (hl != NULL)
-            hl->SetActionOpen("mailto:support@pictview.com");
+            hl->SetActionOpen("https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose");
 
         hl = SalamanderGUI->AttachHyperLink(HWindow, IDC_ABOUT_WWW, STF_UNDERLINE | STF_HYPERLINK_COLOR);
         if (hl != NULL)
-            hl->SetActionOpen("http://www.pictview.com/salamander");
+            hl->SetActionOpen("https://github.com/KRtkovo-eu-AI/salamander");
 
         break;
     }

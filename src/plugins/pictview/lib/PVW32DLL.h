@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*****************************************************************************
@@ -6,7 +6,8 @@
  * 
  * Version 1.56
  *
- * Copyright (c) 1999-2008, Jan Patera
+ * Copyright (c) 1999-2023, Jan Patera
+ * Copyright (c) 2026, Open Salamander Authors, Ondrej Kotas (KRtekTM)
  *****************************************************************************/
 
 #pragma once
