@@ -1835,11 +1835,13 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSTATIC:
     {
         if (DarkModeShouldUseDarkColors())
         {
             HDC hdc = (HDC)wParam;
-            SetTextColor(hdc, GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]));
+            SetTextColor(hdc, Enabled ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
+                                      : RGB(160, 160, 160));
             SetBkColor(hdc, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
             return (LRESULT)HDialogBrush;
         }
@@ -1991,6 +1993,12 @@ void CEditWindow::Enable(BOOL enable)
     {
         Enabled = enable;
         EnableWindow(HWindow, Enabled);
+        if (EditLine != NULL && EditLine->HWindow != NULL)
+            InvalidateRect(EditLine->HWindow, NULL, TRUE);
+        if (Text != NULL)
+            Text->UpdateControl();
+        if (HWindow != NULL)
+            InvalidateRect(HWindow, NULL, TRUE);
     }
 }
 

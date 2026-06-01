@@ -379,6 +379,33 @@ static void UpdateMenuAndDialogBrushes(bool preferDarkMode)
     DarkModeConfigureDialogColors(dialogText, dialogBackground, HDialogBrush);
 }
 
+static void BuildLightViewerPalette(SALCOLOR* viewerTarget)
+{
+    if (viewerTarget == NULL)
+        viewerTarget = ViewerColors;
+
+    viewerTarget[VIEWER_FG_NORMAL] = RGBF(0, 0, 0, SCF_DEFAULT);
+    viewerTarget[VIEWER_BK_NORMAL] = RGBF(255, 255, 255, SCF_DEFAULT);
+    viewerTarget[VIEWER_FG_SELECTED] = RGBF(255, 255, 255, SCF_DEFAULT);
+    viewerTarget[VIEWER_BK_SELECTED] = RGBF(0, 0, 0, SCF_DEFAULT);
+}
+
+bool WindowsDarkModeIsViewerPalette(SALCOLOR* viewerColors)
+{
+    if (viewerColors == NULL)
+        return false;
+
+    return GetCOLORREF(viewerColors[VIEWER_FG_NORMAL]) == RGB(220, 220, 220) &&
+           GetCOLORREF(viewerColors[VIEWER_BK_NORMAL]) == RGB(32, 32, 32) &&
+           GetCOLORREF(viewerColors[VIEWER_FG_SELECTED]) == RGB(255, 255, 255) &&
+           GetCOLORREF(viewerColors[VIEWER_BK_SELECTED]) == RGB(0, 120, 215);
+}
+
+void WindowsLightModeBuildViewerPalette(SALCOLOR* viewerColors)
+{
+    BuildLightViewerPalette(viewerColors);
+}
+
 static void BuildWindowsDarkPalette(SALCOLOR* target, SALCOLOR* viewerTarget)
 {
     auto setColor = [](SALCOLOR& entry, DWORD colorAndFlags) {
@@ -496,7 +523,7 @@ static void WindowsDarkModeUpdatePalette(bool useDarkColors)
         {
             memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
             if (gWindowsDarkViewerSaved)
-                memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
+                WindowsLightModeBuildViewerPalette(ViewerColors);
             if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
                 MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
         }
