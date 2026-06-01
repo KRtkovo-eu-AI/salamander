@@ -1389,6 +1389,28 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
     InvalidateRect(listView, NULL, TRUE);
 }
 
+void DarkModeUpdateTabControlOverflowButtons(HWND tabControl)
+{
+    EnsureInitialized();
+    if (tabControl == NULL)
+        return;
+
+    const bool enableDark = DarkModeShouldUseDarkColors();
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::UpdateTabControlOverflowButtons(tabControl, enableDark);
+#endif
+
+    HWND upDown = NULL;
+    while ((upDown = FindWindowEx(tabControl, upDown, UPDOWN_CLASS, NULL)) != NULL)
+    {
+        if (gSupported)
+            DarkModeApplyWindow(upDown);
+        if (gSetWindowTheme != nullptr)
+            gSetWindowTheme(upDown, enableDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        InvalidateRect(upDown, NULL, TRUE);
+    }
+}
+
 void DarkModeUpdateListViewColors(HWND listView)
 {
     EnsureInitialized();

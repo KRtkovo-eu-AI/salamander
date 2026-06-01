@@ -19,4 +19,5 @@ bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
                     const DarkModeColors& colors, HBRUSH dialogBrush);
 void ApplyStaticTextColors(HWND hwndParent, HWND specificCtrl, const DarkModeColors& colors);
 void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
+void UpdateTabControlOverflowButtons(HWND tabControl, bool enableDark);
 } // namespace DarkModeBackendDarkModelib
