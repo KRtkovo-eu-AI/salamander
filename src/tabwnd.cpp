@@ -601,12 +601,21 @@ void CTabWindow::EnsureNewTabButton()
     }
 
     UpdateNewTabButtonWidth();
+    UpdateOverflowButtonColors();
 }
 
 void CTabWindow::RefreshLayout()
 {
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
+    UpdateOverflowButtonColors();
+}
+
+void CTabWindow::UpdateOverflowButtonColors()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow != NULL)
+        DarkModeUpdateTabControlOverflowButtons(HWindow);
 }
 
 bool CTabWindow::HandleMouseWheel(WPARAM wParam)
@@ -1462,6 +1471,7 @@ void CTabWindow::ScrollTabsByWheelSteps(int steps)
         TabCtrl_SetCurSel(HWindow, oldSel);
     }
 
+    UpdateOverflowButtonColors();
     InvalidateRect(HWindow, NULL, FALSE);
 }
 
@@ -1888,6 +1898,16 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE4("CTabWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_SIZE:
+    case WM_THEMECHANGED:
+        UpdateOverflowButtonColors();
+        break;
+
+    case WM_PARENTNOTIFY:
+        if (LOWORD(wParam) == WM_CREATE)
+            UpdateOverflowButtonColors();
+        break;
+
     case WM_PAINT:
     {
         if (HWindow == NULL)
