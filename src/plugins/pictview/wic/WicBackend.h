@@ -1,0 +1,175 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include <objbase.h>
+#include <wincodec.h>
+#include <wrl/client.h>
+#include <windows.h>
+
+#include "../lib/PVW32DLL.h"
+#include "../pictview.h"
+
+namespace PictView::Wic
+{
+class Backend;
+
+struct ImageHandle;
+
+using Microsoft::WRL::ComPtr;
+
+struct FrameData
+{
+    ComPtr<IWICBitmapFrameDecode> frame;
+    ComPtr<IWICFormatConverter> converter;
+    ComPtr<IWICBitmapSource> colorConvertedSource;
+    UINT width = 0;
+    UINT height = 0;
+    UINT stride = 0;
+    UINT rawWidth = 0;
+    UINT rawHeight = 0;
+    UINT rawStride = 0;
+    std::vector<BYTE> pixels;
+    std::vector<BYTE> compositedPixels;
+    std::vector<BYTE> indexedPixels;
+    std::vector<BYTE*> linePointers;
+    std::vector<RGBQUAD> palette;
+    std::vector<BYTE> disposalBuffer;
+    std::vector<BYTE> scaledPixels;
+    BITMAPINFOHEADER bmi{};
+    BITMAPINFOHEADER indexedBmi{};
+    BITMAPINFOHEADER displayBmi{};
+    HBITMAP hbitmap = nullptr;
+    HBITMAP transparencyMask = nullptr;
+    HBITMAP scaledBitmap = nullptr;
+    HPALETTE paletteHandle = nullptr;
+    DWORD delayMs = 0;
+    RECT rect{};
+    RECT gifFrameRect{};
+    DWORD disposal = PVDM_UNDEFINED;
+    GUID sourcePixelFormat{};
+    DWORD reportedColors = PV_COLOR_TC32;
+    DWORD reportedBitDepth = 32;
+    DWORD colorModel = PVCM_RGB;
+    UINT paletteColorCount = 0;
+    UINT bitsPerPixel = 0;
+    UINT indexedStride = 0;
+    UINT displayStride = 0;
+    UINT scaledStride = 0;
+    UINT scaledWidth = 0;
+    UINT scaledHeight = 0;
+    bool hasGifFrameRect = false;
+    bool decoded = false;
+    bool hasTransparency = false;
+    bool useIndexedPixels = false;
+    bool allowIndexedDisplay = true;
+    bool realizePalette = false;
+    bool gifHasTransparentColor = false;
+    BYTE gifTransparentIndex = 0;
+    bool pixelsArePremultiplied = true;
+};
+
+struct ImageHandle
+{
+    Backend* backend = nullptr;
+    std::wstring fileName;
+    DWORD openFlags = 0;
+    std::vector<FrameData> frames;
+    LONG stretchWidth = 0;
+    LONG stretchHeight = 0;
+    DWORD stretchMode = PV_STRETCH_NO;
+    COLORREF background = RGB(0, 0, 0);
+    PVImageInfo baseInfo{};
+    PVImageHandles handles{};
+    PVFormatSpecificInfo formatInfo{};
+    bool hasFormatSpecificInfo = false;
+    LONG canvasWidth = 0;
+    LONG canvasHeight = 0;
+    bool gifHasBackgroundColor = false;
+    BYTE gifBackgroundAlpha = 0;
+    bool gifHasBackgroundIndex = false;
+    BYTE gifBackgroundIndex = 0;
+    std::vector<BYTE> gifComposeCanvas;
+    std::vector<BYTE> gifSavedCanvas;
+    bool gifCanvasInitialized = false;
+};
+
+/**
+ * Lightweight RAII helper around CoInitialize/CoUninitialize.  The viewer
+ * already initialises COM on most threads, but the WIC backend may also be
+ * invoked from helper worker threads that do not call into COM yet.  We keep
+ * this helper header-only to avoid the dependency on ATL.
+ */
+class ScopedCoInit
+{
+public:
+    ScopedCoInit();
+    ScopedCoInit(const ScopedCoInit&) = delete;
+    ScopedCoInit& operator=(const ScopedCoInit&) = delete;
+    ~ScopedCoInit();
+
+    bool Succeeded() const
+    {
+        return m_hr == S_OK || m_hr == S_FALSE;
+    }
+
+private:
+    HRESULT m_hr;
+    bool m_needUninit;
+};
+
+class Backend
+{
+public:
+    Backend();
+    Backend(const Backend&) = delete;
+    Backend& operator=(const Backend&) = delete;
+
+    static Backend& Instance();
+
+    bool Populate(CPVW32DLL& table);
+
+    IWICImagingFactory* Factory() const { return m_factory.Get(); }
+
+private:
+    static PVCODE WINAPI sPVOpenImageEx(LPPVHandle* Img, LPPVOpenImageExInfo pOpenExInfo, LPPVImageInfo pImgInfo, int size);
+    static PVCODE WINAPI sPVCloseImage(LPPVHandle Img);
+    static PVCODE WINAPI sPVReadImage2(LPPVHandle Img, HDC paintDC, RECT* dRect, TProgressProc progress, void* appSpecific,
+                                       int imageIndex);
+    static PVCODE WINAPI sPVDrawImage(LPPVHandle Img, HDC paintDC, int x, int y, LPRECT rect);
+    static const char* WINAPI sPVGetErrorText(DWORD errorCode);
+    static PVCODE WINAPI sPVSetBkHandle(LPPVHandle Img, COLORREF bkColor);
+    static DWORD WINAPI sPVGetDLLVersion();
+    static PVCODE WINAPI sPVSetStretchParameters(LPPVHandle Img, DWORD width, DWORD height, DWORD mode);
+    static PVCODE WINAPI sPVLoadFromClipboard(LPPVHandle* Img, LPPVImageInfo pImgInfo, int size);
+    static PVCODE WINAPI sPVGetImageInfo(LPPVHandle Img, LPPVImageInfo pImgInfo, int size, int imageIndex);
+    static PVCODE WINAPI sPVSetParam(LPPVHandle Img);
+    static PVCODE WINAPI sPVGetHandles2(LPPVHandle Img, LPPVImageHandles* pHandles);
+    static PVCODE WINAPI sPVSaveImage(LPPVHandle Img, const char* outFileName, LPPVSaveImageInfo pSii, TProgressProc progress,
+                                      void* appSpecific, int imageIndex);
+    static PVCODE WINAPI sPVChangeImage(LPPVHandle Img, DWORD flags);
+    static DWORD WINAPI sPVIsOutCombSupported(int format, int compression, int colors, int colorModel);
+    static PVCODE WINAPI sPVReadImageSequence(LPPVHandle Img, LPPVImageSequence* seq);
+    static PVCODE WINAPI sPVCropImage(LPPVHandle Img, int left, int top, int width, int height);
+    static bool sGetRGBAtCursor(LPPVHandle Img, DWORD colors, int x, int y, RGBQUAD* rgb, int* index);
+    static PVCODE sCalculateHistogram(LPPVHandle Img, const LPPVImageInfo info, LPDWORD luminosity, LPDWORD red, LPDWORD green,
+                                      LPDWORD blue, LPDWORD rgb);
+    static PVCODE sCreateThumbnail(LPPVHandle Img, LPPVSaveImageInfo sii, int imageIndex, DWORD imgWidth, DWORD imgHeight,
+                                   int thumbWidth, int thumbHeight, CSalamanderThumbnailMakerAbstract* thumbMaker,
+                                   DWORD thumbFlags, TProgressProc progressProc, void* progressProcArg);
+    static PVCODE sSimplifyImageSequence(LPPVHandle Img, HDC dc, int screenWidth, int screenHeight, LPPVImageSequence& seq,
+                                         const COLORREF& bgColor);
+
+    static ImageHandle* FromHandle(LPPVHandle handle);
+
+    ScopedCoInit m_comScope;
+    ComPtr<IWICImagingFactory> m_factory;
+};
+
+} // namespace PictView::Wic

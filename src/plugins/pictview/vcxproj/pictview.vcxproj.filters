@@ -33,13 +33,7 @@
     <ClCompile Include="..\print.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
-    <ClCompile Include="..\PVEXEWrapper.cpp">
-      <Filter>cpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\PVMessage.cpp">
-      <Filter>cpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\PVMessageWrapper.cpp">
+    <ClCompile Include="..\wic\WicBackend.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
@@ -98,10 +92,7 @@
     <ClInclude Include="..\precomp.h">
       <Filter>h</Filter>
     </ClInclude>
-    <ClInclude Include="..\PVEXEWrapper.h">
-      <Filter>h</Filter>
-    </ClInclude>
-    <ClInclude Include="..\PVMessage.h">
+    <ClInclude Include="..\wic\WicBackend.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\pvtwain.h">

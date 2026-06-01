@@ -1,7 +1,7 @@
-﻿// CommentsTranslationProject: TRANSLATED
+// CommentsTranslationProject: TRANSLATED
 // Petr: this file exists only to generate symbols\plugins\pictview\symbols.inc using tools\export_translator\export_inc.py
 
-// Petr: I added IDS_PVW32Cnv_XXXX so the quiet validation in Translator wouldn't complain.
+// Legacy PVW32Cnv identifiers kept for translator validation compatibility
 #define IDS_PVW32Cnv_4003          4003
 #define IDS_PVW32Cnv_4004          4004
 #define IDS_PVW32Cnv_4006          4006

@@ -1,6 +1,5 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
@@ -19,7 +18,7 @@ public:
 
     LPPVHandle PVHandle;
     LPPVImageSequence PVImageSequence;
-    // The following 4 items are used when transferring file via shared memory
+    // The following 4 items are used when transfering file via shared memory
     HANDLE hFileMap;
     LPBYTE pBuffer; // Buffer with file content
     LPBYTE pCur;    // Current position inside pBuffer
@@ -209,7 +208,7 @@ bool PVMessage_InitTexts::HandleRequest()
     {
         return false;
     }
-    // Duplicate the entire buffer
+    // Duplioate the entire buffer
     int size = pHdr->cbSize - sizeof(PVMessage) - sizeof(pHdr->TextsCount);
     StringsBuf = (char*)malloc(size);
     if (!StringsBuf)
@@ -792,7 +791,7 @@ bool PVMessage_SimplifyImageSequence::HandleRequest()
     int nFrameSize = ((pHdr->ScreenWidth * 3 + 3) & ~3) * pHdr->ScreenHeight;
     DWORD hFMap;
 
-    // Get the number of frames and create shared memory object accommodating all pixels of all frames
+    // Get the number of frames and create shared memory object accomodating all pixels of all frames
     nFrames = 0;
     while (pSeq)
     {

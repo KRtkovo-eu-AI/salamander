@@ -71,7 +71,6 @@ lang_mmviewer   0x33800000
 salrtl9         0x23900000
 salrtlp9        0x23b00000
 ero_dlls        0x24000000      0x04000000
-pvw32cnv        0x28100000
 undelete        0x28200000
 lang_undelete   0x38200000
 7zip            0x28300000
@@ -91,7 +90,6 @@ lang_nethood    0x38e00000
 salmon          0x29000000
 fcremote        0x29200000
 sqlite          0x29300000
-salpvenv        0x29400000      ; dummy - x86 version doesn't exist
 zip2sfx         0x29500000
 salopen         0x29600000
 salspawn        0x29700000
