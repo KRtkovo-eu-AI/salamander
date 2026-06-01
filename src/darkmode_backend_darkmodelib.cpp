@@ -208,6 +208,33 @@ void ApplyStaticTextColors(HWND hwndParent, HWND specificCtrl, const DarkModeCol
 #endif
 }
 
+void UpdateTabControlOverflowButtons(HWND tabControl, bool enableDark)
+{
+#if USE_DARKMODELIB
+    if (tabControl != NULL)
+    {
+        if (enableDark)
+            dmlib::setTabCtrlUpDownSubclass(tabControl);
+        else
+            dmlib::removeTabCtrlUpDownSubclass(tabControl);
+
+        HWND upDown = NULL;
+        while ((upDown = FindWindowEx(tabControl, upDown, UPDOWN_CLASS, NULL)) != NULL)
+        {
+            if (enableDark)
+                dmlib::setUpDownCtrlSubclass(upDown);
+            else
+                dmlib::removeUpDownCtrlSubclass(upDown);
+
+            InvalidateRect(upDown, NULL, TRUE);
+        }
+    }
+#else
+    (void)tabControl;
+    (void)enableDark;
+#endif
+}
+
 void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)
 {
 #if USE_DARKMODELIB

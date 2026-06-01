@@ -77,3 +77,4 @@ COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF backgrou
 void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
+void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);

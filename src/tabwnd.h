@@ -54,6 +54,7 @@ private:
     int GetNewTabButtonIndex() const;
     BOOL IsNewTabButtonIndex(int index) const;
     void UpdateNewTabButtonWidth();
+    void UpdateOverflowButtonColors();
     bool IsReorderableIndex(int index) const;
     void StartDragTracking(int index, const POINT& pt);
     void UpdateDragTracking(const POINT& pt);
