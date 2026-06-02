@@ -8,6 +8,7 @@
 #include "checksum.h"
 #include "misc.h"
 #include "dialogs.h"
+#include "../../darkmode.h"
 
 // ****************************************************************************
 
@@ -50,6 +51,109 @@ static const char* CONFIG_VERSION = "Version";
 static const char* CONFIG_HASHTYPE = "Hash Type";
 static const char* CONFIG_CALCDLGWIDTHS = "Dialog Size 1";
 static const char* CONFIG_VERDLGWIDTHS = "Dialog Size 2";
+
+// ****************************************************************************
+
+namespace
+{
+HBRUSH ChecksumDarkModeDialogBrush = NULL;
+COLORREF ChecksumDarkModeDialogBrushColor = CLR_INVALID;
+BOOL ChecksumHostPolicyKnown = FALSE;
+BOOL ChecksumHostUseWindowsDarkMode = FALSE;
+
+HBRUSH ChecksumGetDarkModeDialogBrush(COLORREF background)
+{
+    if (ChecksumDarkModeDialogBrush == NULL || ChecksumDarkModeDialogBrushColor != background)
+    {
+        if (ChecksumDarkModeDialogBrush != NULL)
+            DeleteObject(ChecksumDarkModeDialogBrush);
+        ChecksumDarkModeDialogBrush = CreateSolidBrush(background);
+        ChecksumDarkModeDialogBrushColor = background;
+    }
+    return ChecksumDarkModeDialogBrush;
+}
+
+void ReleaseChecksumDarkModeResources()
+{
+    if (ChecksumDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(ChecksumDarkModeDialogBrush);
+        ChecksumDarkModeDialogBrush = NULL;
+        ChecksumDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL ChecksumShouldUseWindowsDarkMode()
+{
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral != NULL &&
+        SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                             &useWindowsDarkMode,
+                                             sizeof(useWindowsDarkMode),
+                                             NULL))
+    {
+        ChecksumHostPolicyKnown = TRUE;
+        ChecksumHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+    return ChecksumHostPolicyKnown && ChecksumHostUseWindowsDarkMode;
+}
+
+void ConfigureChecksumDarkModeFromHost()
+{
+    const BOOL useWindowsDarkMode = ChecksumShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && SalamanderGeneral != NULL)
+    {
+        text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = ChecksumGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyChecksumDarkMode(HWND hwnd)
+{
+    ConfigureChecksumDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyChecksumDarkModeIfSelected(HWND hwnd)
+{
+    if (!ChecksumShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyChecksumDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleChecksumDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!ChecksumShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureChecksumDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
 
 // ****************************************************************************
 
@@ -162,7 +266,10 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
         if (!ThreadQueue.KillAll(force) && !force)
             ret = FALSE;
         else
+        {
+            ReleaseChecksumDarkModeResources();
             ReleaseWinLib(DLLInstance);
+        }
     }
     return ret;
 }
