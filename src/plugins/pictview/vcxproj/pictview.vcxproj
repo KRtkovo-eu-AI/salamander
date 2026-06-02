@@ -125,6 +125,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\shared\lukas\gdi.cpp">
     </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
