@@ -664,7 +664,12 @@ void CPreviewWindow::SetItemCount(int count, DWORD flags, int state)
 
             HFONT font = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
             SendMessage(Static, WM_SETFONT, WPARAM(font), 0);
-            ApplyRenamerDarkModeIfSelected(HWindow);
+            if (DarkModeShouldUseDarkColors())
+            {
+                DarkModeApplyWindow(Static);
+                DarkModeApplyStaticTextColors(HWindow, Static);
+                RedrawWindow(Static, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+            }
         }
         else
         {
@@ -690,25 +695,6 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         wParam, lParam);
     switch (uMsg)
     {
-    case WM_THEMECHANGED:
-    {
-        ApplyRenamerDarkMode(HWindow);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
-        return TRUE;
-    }
-
-    case WM_SETTINGCHANGE:
-    {
-        ConfigureRenamerDarkModeFromHost();
-        if (DarkModeHandleSettingChange(uMsg, lParam))
-        {
-            ApplyRenamerDarkMode(HWindow);
-            InvalidateRect(HWindow, NULL, TRUE);
-            return TRUE;
-        }
-        break;
-    }
-
     case WM_CTLCOLORSTATIC:
         if (HWND(lParam) == Static)
         {
