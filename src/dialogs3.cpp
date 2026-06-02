@@ -2082,9 +2082,12 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowText(hSubject, Subject->Get());
 
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         // we can select only the name without the dot and extension
         PostMessage(GetDlgItem(HWindow, IDE_PATH), CB_SETEDITSEL, 0, MAKELPARAM(0, SelectionEnd));
         return FALSE;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -886,9 +886,12 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -979,9 +982,12 @@ CCfgPageRegional::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CHyperLink* hl = new CHyperLink(HWindow, IDC_CFGREG_INCOMPLETE_URL);
             hl->SetActionOpen(IsSLGIncomplete);
         }
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -1428,9 +1434,12 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
 
         break;
     }
@@ -1897,9 +1906,12 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
 
         break;
     }
@@ -2384,9 +2396,12 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(1, IDL_MENUITEMS);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
 
         break;
     }
@@ -3130,9 +3145,12 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
 
         DarkModeUpdateListViewColors(HListView);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
 
         break;
     }
@@ -3281,7 +3299,11 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeTracePageThemeEvent("CCfgPageViewer", uMsg);
 #endif
         DarkModeUpdateListViewColors(HListView);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -3387,9 +3409,12 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)
             hl->SetActionShowHint(LoadStr(IDS_MASKS_HINT));
-        DarkModeApplyTree(HWindow);
-        applyRecycleBinLabelColors();
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            applyRecycleBinLabelColors();
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -3398,8 +3423,11 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 #if DARKMODE_TRACE_CTLFLOW
         DarkModeTracePageThemeEvent("CCfgPageSystem", uMsg);
 #endif
-        applyRecycleBinLabelColors();
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            applyRecycleBinLabelColors();
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -3410,8 +3438,11 @@ CCfgPageSystem::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 #endif
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
-            applyRecycleBinLabelColors();
-            InvalidateRect(HWindow, NULL, TRUE);
+            if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            {
+                applyRecycleBinLabelColors();
+                WinLib_DarkMode_PostDeferredRedraw(HWindow);
+            }
         }
         break;
     }
