@@ -314,6 +314,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // set SalamanderVersion for "spl_com.h"
     SalamanderVersion = salamander->GetVersion();
 
+    HANDLES_CAN_USE_TRACE();
+
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
 #ifdef DUMP_MEM

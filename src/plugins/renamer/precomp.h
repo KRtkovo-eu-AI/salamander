@@ -33,6 +33,7 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
+#include "mhandles.h"
 #include "../../darkmode.h"
 
 #include "renamer.rh"

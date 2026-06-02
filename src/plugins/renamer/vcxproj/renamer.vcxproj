@@ -127,6 +127,8 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\lukas\str.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\..\darkmode.cpp" />
     <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp" />
     <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
@@ -210,6 +212,8 @@
     <ClInclude Include="..\..\shared\dbg.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\lukas\str.h">
+    </ClInclude>
+    <ClInclude Include="..\..\shared\mhandles.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_base.h">
     </ClInclude>

@@ -73,6 +73,9 @@
     <ClCompile Include="..\..\shared\dbg.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\darkmode.cpp">
       <Filter>common</Filter>
     </ClCompile>
@@ -154,6 +157,9 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\dbg.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\shared\mhandles.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_base.h">
