@@ -1,13 +1,18 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 //#define WIN32_LEAN_AND_MEAN // exclude rarely-used stuff from Windows headers
 
 #include <tchar.h>
 #include <windows.h>
 #include <windowsx.h>
+#include <algorithm>
+#include <type_traits>
 #include <crtdbg.h>
 #include <ostream>
 #include <commctrl.h>
@@ -20,7 +25,7 @@
 #endif
 
 #ifdef _WIN64
-#define ENABLE_WIA // the open-source x64 build uses WIA 1.0 for scanning
+#define ENABLE_WIA                       // the x64 version of PictView uses WIA 1.0 for scanning
 #else                                    // _WIN64
 #define ENABLE_TWAIN32                   // the x86 version of PictView uses TWAIN 1.x for scanning (which internally also supports WIA)
 #endif                                   // _WIN64
@@ -47,6 +52,7 @@
 #include "dbg.h"
 #include "arraylt.h"
 #include "winliblt.h"
+#include "mhandles.h"
 #include "auxtools.h"
 #include "lukas\gdi.h"
 
@@ -56,10 +62,31 @@
 #define GET_X_LPARAM(x) LOWORD(x)
 #endif
 
-#ifndef INT32
-#define INT32 int
-#define UINT32 unsigned int
+#ifdef min
+#undef min
 #endif
+
+#ifdef max
+#undef max
+#endif
+
+template <typename T, typename U>
+inline constexpr auto min(T a, U b) -> typename std::common_type<T, U>::type
+{
+    using R = typename std::common_type<T, U>::type;
+    const R ra = static_cast<R>(a);
+    const R rb = static_cast<R>(b);
+    return (rb < ra) ? rb : ra;
+}
+
+template <typename T, typename U>
+inline constexpr auto max(T a, U b) -> typename std::common_type<T, U>::type
+{
+    using R = typename std::common_type<T, U>::type;
+    const R ra = static_cast<R>(a);
+    const R rb = static_cast<R>(b);
+    return (ra < rb) ? rb : ra;
+}
 
 #ifndef SetWindowLongPtr
 // compiling on VC6 w/o reasonably new SDK

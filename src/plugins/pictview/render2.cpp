@@ -193,7 +193,7 @@ void CRendererWindow::ScreenCapture()
     if (wndRgnType == COMPLEXREGION) // clip only non-rectangular windows
     {
         // fill "transparent" background
-        HBRUSH hBrush = CreateSolidBrush(GetCOLORREF(G.Colors[vceTransparent]));
+        HBRUSH hBrush = CreateSolidBrush(PictViewGetRendererTransparentColor(FALSE));
         RECT fillR = {0, 0, width, height};
         FillRect(hMemDC, &fillR, hBrush);
         DeleteObject(hBrush);

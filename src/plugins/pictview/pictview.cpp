@@ -1,7 +1,15 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+
+#include "../../darkmode.h"
+
+#include <share.h>
+#include <string>
+#include <limits>
+#include <cstddef>
+#include <cwchar>
 
 #include "lib/pvw32dll.h"
 #include "pictview.h"
@@ -18,8 +26,7 @@
 #include "pictview.rh2"
 #include "lang/lang.rh"
 #include "histwnd.h"
-#include "openimagebackend.h"
-#include "PVEXEWrapper.h"
+#include "wic/WicBackend.h"
 #include "PixelAccess.h"
 
 // plugin interface object; its methods are called from Salamander
@@ -378,21 +385,135 @@ CButtonData ToolBarButtons[] =
         {IDX_TB_FULLSCREEN, IDS_TT_FULL_SCREEN, CMD_FULLSCREEN, vweFileOpened /*vweNotLoading*/},
         {IDX_TB_TERMINATOR}};
 
+namespace
+{
+HBRUSH PictViewDarkModeDialogBrush = NULL;
+COLORREF PictViewDarkModeDialogBrushColor = CLR_INVALID;
+BOOL PictViewHostPolicyKnown = FALSE;
+BOOL PictViewHostUseWindowsDarkMode = FALSE;
+
+int PictViewColorLuminance(COLORREF color)
+{
+    return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
+}
+
+COLORREF PictViewEnsureReadableForeground(COLORREF foreground, COLORREF background)
+{
+    const int bgLum = PictViewColorLuminance(background);
+    const int fgLum = PictViewColorLuminance(foreground);
+    if (bgLum < 128 && fgLum < bgLum + 40)
+        return RGB(0xF0, 0xF0, 0xF0);
+    if (bgLum >= 128 && fgLum > bgLum - 40)
+        return RGB(0x20, 0x20, 0x20);
+    return foreground;
+}
+
+HBRUSH PictViewGetDarkModeDialogBrush(COLORREF background)
+{
+    if (PictViewDarkModeDialogBrush == NULL || PictViewDarkModeDialogBrushColor != background)
+    {
+        if (PictViewDarkModeDialogBrush != NULL)
+            DeleteObject(PictViewDarkModeDialogBrush);
+        PictViewDarkModeDialogBrush = CreateSolidBrush(background);
+        PictViewDarkModeDialogBrushColor = background;
+    }
+    return PictViewDarkModeDialogBrush;
+}
+
+void ReleasePictViewDarkModeResources()
+{
+    if (PictViewDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(PictViewDarkModeDialogBrush);
+        PictViewDarkModeDialogBrush = NULL;
+        PictViewDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL PictViewShouldUseWindowsDarkMode()
+{
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral != NULL &&
+        SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                             &useWindowsDarkMode,
+                                             sizeof(useWindowsDarkMode),
+                                             NULL))
+    {
+        PictViewHostPolicyKnown = TRUE;
+        PictViewHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+    return PictViewHostPolicyKnown && PictViewHostUseWindowsDarkMode;
+}
+
+void ConfigurePictViewDarkModeFromHost()
+{
+    const BOOL useWindowsDarkMode = PictViewShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && SalamanderGeneral != NULL)
+    {
+        text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+
+    const COLORREF readableText = PictViewEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = PictViewGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
 // sets colors for the entries defined by vceCount
+namespace
+{
+COLORREF PictViewGetEffectiveRendererColor(SALCOLOR color, COLORREF lightDefault, COLORREF darkDefault)
+{
+    if (PictViewShouldUseWindowsDarkMode())
+    {
+        const COLORREF rgb = GetCOLORREF(color);
+        if ((GetFValue(color) & SCF_DEFAULT) || rgb == lightDefault || rgb == RGB(0xFF, 0xFF, 0xFF))
+            return darkDefault;
+    }
+
+    return GetCOLORREF(color);
+}
+}
+
+COLORREF PictViewGetRendererBackgroundColor(BOOL fullScreen)
+{
+    return PictViewGetEffectiveRendererColor(G.Colors[fullScreen ? vceFSBackground : vceBackground],
+                                             fullScreen ? RGB(0, 0, 0) : GetSysColor(COLOR_APPWORKSPACE),
+                                             fullScreen ? RGB(0, 0, 0) : DarkModeGetDialogBackgroundColor());
+}
+
+COLORREF PictViewGetRendererTransparentColor(BOOL fullScreen)
+{
+    return PictViewGetEffectiveRendererColor(G.Colors[fullScreen ? vceFSTransparent : vceTransparent],
+                                             GetSysColor(COLOR_WINDOW),
+                                             fullScreen ? RGB(0, 0, 0) : DarkModeGetDialogBackgroundColor());
+}
+
 void RebuildColors(SALCOLOR* colors)
 {
+    const BOOL useWindowsDarkMode = PictViewShouldUseWindowsDarkMode();
+    const COLORREF darkBackground = useWindowsDarkMode ? DarkModeGetDialogBackgroundColor() : CLR_INVALID;
     if (GetFValue(colors[vceBackground]) & SCF_DEFAULT)
-        SetRGBPart(&colors[vceBackground], GetSysColor(COLOR_APPWORKSPACE));
+        SetRGBPart(&colors[vceBackground], useWindowsDarkMode ? darkBackground : GetSysColor(COLOR_APPWORKSPACE));
     if (GetFValue(colors[vceTransparent]) & SCF_DEFAULT)
-        SetRGBPart(&colors[vceTransparent], GetSysColor(COLOR_WINDOW));
+        SetRGBPart(&colors[vceTransparent], useWindowsDarkMode ? darkBackground : GetSysColor(COLOR_WINDOW));
     if (GetFValue(colors[vceFSBackground]) & SCF_DEFAULT)
         SetRGBPart(&colors[vceFSBackground], RGB(0, 0, 0));
     if (GetFValue(colors[vceFSTransparent]) & SCF_DEFAULT)
-        SetRGBPart(&colors[vceFSTransparent], GetSysColor(COLOR_WINDOW));
+        SetRGBPart(&colors[vceFSTransparent], useWindowsDarkMode ? RGB(0, 0, 0) : GetSysColor(COLOR_WINDOW));
 }
 
 void InitGlobalGUIParameters(void)
 {
+    ConfigurePictViewDarkModeFromHost();
     G.rgbPanelBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
 
     RebuildColors(G.Colors);
@@ -450,7 +571,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         DLLInstance = hinstDLL;
     }
 
-    if (fdwReason == DLL_PROCESS_DETACH) // shutdown (unload) PVW32.SPL
+    if (fdwReason == DLL_PROCESS_DETACH) // shutdown (unload) PictView.spl
     {
         if (EXIFLibrary != NULL)
         {
@@ -458,11 +579,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             EXIFLibrary = NULL;
         }
         if (PVW32DLL.Handle != NULL)
-            FreeLibrary(PVW32DLL.Handle); // release PVW32.DLL as well
+            FreeLibrary(PVW32DLL.Handle); // release the imaging backend module as well
         if (G.HAccel != NULL)
             DestroyAcceleratorTable(G.HAccel);
         if (G.CaptureAtomID != 0)
             GlobalDeleteAtom(G.CaptureAtomID);
+        ReleasePictViewDarkModeResources();
     }
 
     return TRUE; // DLL can be loaded
@@ -528,7 +650,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    _T("PictView") /* do not translate! */);
 
     // set the plugin home page URL
-    salamander->SetPluginHomePageURL("www.pictview.com/salamander");
+    salamander->SetPluginHomePageURL("https://github.com/KRtkovo-eu-AI/salamander");
 
     // If we crash inside pictview.spl, this message box will be displayed
     // and the happy recipient of the images will be Honza Patera.
@@ -536,7 +658,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     TCHAR exceptInfo[512];
     lstrcpyn(exceptInfo, LoadStr(IDS_EXCEPT_INFO1), SizeOf(exceptInfo));
     _tcsncat(exceptInfo, LoadStr(IDS_EXCEPT_INFO2), SizeOf(exceptInfo) - _tcslen(exceptInfo));
-    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "support@pictview.com");
+    SalamanderGeneral->SetPluginBugReportInfo(exceptInfo, "https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose");
     return &PluginInterface;
 }
 
@@ -1359,9 +1481,10 @@ void WINAPI HTMLHelpCallback(HWND hWindow, UINT helpID)
 
 BOOL LoadPictViewDll(HWND hParentWnd)
 {
-    if (!InitOpenImageBackend())
+    if (!PictView::Wic::Backend::Instance().Populate(PVW32DLL))
     {
-        TRACE_E("InitOpenImageBackend failed");
+        SalamanderGeneral->SalMessageBox(hParentWnd, LoadStr(IDS_DLL_NOTFOUND), LoadStr(IDS_ERRORTITLE),
+                                         MB_ICONSTOP | MB_OK);
         return FALSE;
     }
     return TRUE;
@@ -1415,6 +1538,9 @@ BOOL InitViewer(HWND hParentWnd)
         i = PVW32DLL.PVGetDLLVersion();
         sprintf(PVW32DLL.Version, "PVW32Cnv.dll %d.%#02d.%d", i >> 16, i & 255, (i >> 8) & 255);
     }
+
+    _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "WIC backend %u.%02u",
+                static_cast<unsigned>(PV_VERSION_MAJOR(i)), static_cast<unsigned>(PV_VERSION_MINOR(i)));
 
     PVW32DLL.PVSetParam(GetExtText);
 
@@ -1496,11 +1622,571 @@ BOOL InitEXIF(HWND hParent, BOOL bSilent)
     return TRUE;
 }
 
+bool ConvertPathToExifEncoding(LPCTSTR path, char* buffer, int bufferSize)
+{
+#ifdef _UNICODE
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+
+    buffer[0] = '\0';
+
+    if (path == NULL)
+        return false;
+
+    BOOL usedDefaultChar = FALSE;
+    int result = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path, -1, buffer, bufferSize, NULL, &usedDefaultChar);
+    if (result > 0 && !usedDefaultChar)
+        return true;
+
+    TCHAR shortPath[MAX_PATH];
+    DWORD shortLen = GetShortPathName(path, shortPath, SizeOf(shortPath));
+    if (shortLen > 0 && shortLen < SizeOf(shortPath))
+    {
+        usedDefaultChar = FALSE;
+        result = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, shortPath, -1, buffer, bufferSize, NULL, &usedDefaultChar);
+        if (result > 0 && !usedDefaultChar)
+            return true;
+    }
+
+    WideCharToMultiByte(CP_ACP, 0, path, -1, buffer, bufferSize, NULL, NULL);
+    return false;
+#else
+    if (buffer == NULL || bufferSize <= 0)
+        return false;
+
+    if (path == NULL)
+    {
+        buffer[0] = '\0';
+        return false;
+    }
+
+    lstrcpyn(buffer, path, bufferSize);
+    return true;
+#endif
+}
+
+#ifdef _UNICODE
+static std::wstring BuildExtendedLengthPath(LPCTSTR path)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+
+    if (_tcsncmp(path, _T("\\\\?\\"), 4) == 0)
+        return std::wstring(path);
+
+    size_t length = _tcslen(path);
+    if (length < MAX_PATH)
+        return std::wstring();
+
+    if (_tcsncmp(path, _T("\\\\"), 2) == 0)
+        return std::wstring(_T("\\\\?\\UNC\\")) + (path + 2);
+
+    return std::wstring(_T("\\\\?\\")) + path;
+}
+#else
+static std::wstring BuildExtendedLengthPathWide(const wchar_t* path)
+{
+    if (path == NULL || *path == L'\0')
+        return std::wstring();
+
+    if (wcsncmp(path, L"\\\\?\\", 4) == 0)
+        return std::wstring(path);
+
+    size_t length = wcslen(path);
+    if (length < MAX_PATH)
+        return std::wstring();
+
+    if (wcsncmp(path, L"\\\\", 2) == 0)
+        return std::wstring(L"\\\\?\\UNC\\") + (path + 2);
+
+    return std::wstring(L"\\\\?\\") + path;
+}
+#endif
+
+namespace
+{
+    bool ReadExact(HANDLE file, void* buffer, DWORD bytes)
+    {
+        if (bytes == 0)
+            return true;
+
+        BYTE* out = static_cast<BYTE*>(buffer);
+        DWORD remaining = bytes;
+        while (remaining > 0)
+        {
+            DWORD chunk = 0;
+            if (!ReadFile(file, out, remaining, &chunk, NULL) || chunk == 0)
+                return false;
+
+            out += chunk;
+            remaining -= chunk;
+        }
+
+        return true;
+    }
+
+    bool SkipBytes(HANDLE file, size_t bytes)
+    {
+        LARGE_INTEGER distance;
+        distance.QuadPart = static_cast<LONGLONG>(bytes);
+        return SetFilePointerEx(file, distance, NULL, FILE_CURRENT) != 0;
+    }
+
+    bool LoadExifFromJpegStream(HANDLE file,
+                                size_t maxBytes,
+                                std::vector<unsigned char>& buffer,
+                                const unsigned char*& exifData,
+                                unsigned int& exifSize)
+    {
+        LARGE_INTEGER zero = {};
+        if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN))
+            return false;
+
+        BYTE header[2];
+        DWORD read = 0;
+        if (!ReadFile(file, header, 2, &read, NULL) || read != 2)
+            return false;
+
+        if (header[0] != 0xFF || header[1] != 0xD8)
+            return false;
+
+        buffer.clear();
+
+        for (;;)
+        {
+            BYTE prefix = 0;
+            do
+            {
+                if (!ReadFile(file, &prefix, 1, &read, NULL) || read != 1)
+                    return false;
+            } while (prefix != 0xFF);
+
+            BYTE marker = 0;
+            do
+            {
+                if (!ReadFile(file, &marker, 1, &read, NULL) || read != 1)
+                    return false;
+            } while (marker == 0xFF);
+
+            if (marker == 0x00)
+                continue;
+            if (marker == 0xD8)
+                continue;
+            if (marker == 0xD9 || marker == 0xDA)
+                break;
+            if (marker == 0x01)
+                continue;
+            if (marker >= 0xD0 && marker <= 0xD7)
+                continue;
+
+            BYTE lengthBytes[2];
+            if (!ReadFile(file, lengthBytes, 2, &read, NULL) || read != 2)
+                return false;
+
+            unsigned int segmentLength = (lengthBytes[0] << 8) | lengthBytes[1];
+            if (segmentLength < 2)
+                return false;
+
+            unsigned int payloadLength = segmentLength - 2;
+
+            if (marker == 0xE1)
+            {
+                if (payloadLength < 6)
+                {
+                    if (!SkipBytes(file, payloadLength))
+                        return false;
+                    continue;
+                }
+
+                if (payloadLength > maxBytes)
+                {
+                    if (!SkipBytes(file, payloadLength))
+                        return false;
+                    continue;
+                }
+
+                buffer.resize(payloadLength);
+                if (!ReadExact(file, buffer.data(), payloadLength))
+                {
+                    buffer.clear();
+                    return false;
+                }
+
+                if (memcmp(buffer.data(), "Exif\0\0", 6) == 0)
+                {
+                    exifData = buffer.data();
+                    exifSize = payloadLength;
+                    return true;
+                }
+
+                buffer.clear();
+                continue;
+            }
+
+            if (!SkipBytes(file, payloadLength))
+                return false;
+        }
+
+        buffer.clear();
+        return false;
+    }
+
+    bool LoadExifByScanning(HANDLE file,
+                            size_t maxBytes,
+                            std::vector<unsigned char>& buffer,
+                            const unsigned char*& exifData,
+                            unsigned int& exifSize)
+    {
+        LARGE_INTEGER zero = {};
+        if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN))
+            return false;
+
+        buffer.clear();
+
+        const size_t chunkSize = 64 * 1024;
+        size_t totalRead = 0;
+        size_t searchStart = 0;
+        const unsigned char signature[] = {'E', 'x', 'i', 'f', 0, 0};
+        size_t foundOffset = SIZE_MAX;
+        size_t declaredLength = 0;
+        bool haveDeclaredLength = false;
+
+        while (totalRead < maxBytes)
+        {
+            size_t toRead = chunkSize;
+            if (toRead > maxBytes - totalRead)
+                toRead = maxBytes - totalRead;
+            if (toRead == 0)
+                break;
+
+            size_t start = buffer.size();
+            buffer.resize(start + toRead);
+
+            DWORD bytesRead = 0;
+            if (!ReadFile(file, &buffer[start], static_cast<DWORD>(toRead), &bytesRead, NULL))
+            {
+                buffer.resize(start);
+                return false;
+            }
+
+            if (bytesRead == 0)
+            {
+                buffer.resize(start);
+                break;
+            }
+
+            buffer.resize(start + bytesRead);
+            totalRead += bytesRead;
+
+            size_t searchLimit = 0;
+            if (buffer.size() >= sizeof(signature))
+                searchLimit = buffer.size() - sizeof(signature) + 1;
+
+            for (size_t i = searchStart; i < searchLimit; i++)
+            {
+                if (memcmp(&buffer[i], signature, sizeof(signature)) == 0)
+                {
+                    foundOffset = i;
+                    if (i >= 4 && buffer[i - 4] == 0xFF && buffer[i - 3] == 0xE1)
+                    {
+                        size_t declared = (static_cast<size_t>(buffer[i - 2]) << 8) | buffer[i - 1];
+                        if (declared >= 2)
+                        {
+                            declaredLength = declared - 2; // payload length excludes the length bytes themselves
+                            haveDeclaredLength = true;
+                        }
+                        else
+                        {
+                            declaredLength = 0;
+                            haveDeclaredLength = false;
+                        }
+                    }
+                    else
+                    {
+                        declaredLength = 0;
+                        haveDeclaredLength = false;
+                    }
+                    break;
+                }
+            }
+
+            if (foundOffset != SIZE_MAX)
+                break;
+
+            searchStart = (buffer.size() > 5) ? buffer.size() - 5 : 0;
+
+            if (bytesRead < toRead)
+                break;
+        }
+
+        if (foundOffset == SIZE_MAX)
+        {
+            buffer.clear();
+            return false;
+        }
+
+        if (haveDeclaredLength && declaredLength > 0)
+        {
+            size_t required = foundOffset + declaredLength;
+            while (buffer.size() < required && totalRead < maxBytes)
+            {
+                size_t toRead = chunkSize;
+                if (toRead > maxBytes - totalRead)
+                    toRead = maxBytes - totalRead;
+                if (toRead == 0)
+                    break;
+
+                size_t start = buffer.size();
+                buffer.resize(start + toRead);
+
+                DWORD bytesRead = 0;
+                if (!ReadFile(file, &buffer[start], static_cast<DWORD>(toRead), &bytesRead, NULL))
+                {
+                    buffer.resize(start);
+                    break;
+                }
+
+                if (bytesRead == 0)
+                {
+                    buffer.resize(start);
+                    break;
+                }
+
+                buffer.resize(start + bytesRead);
+                totalRead += bytesRead;
+
+                if (bytesRead < toRead)
+                    break;
+            }
+        }
+
+        size_t available = buffer.size() - foundOffset;
+        size_t finalLength = available;
+        if (haveDeclaredLength)
+        {
+            if (declaredLength > available)
+            {
+                buffer.clear();
+                return false;
+            }
+            finalLength = declaredLength;
+        }
+
+        if (finalLength == 0)
+        {
+            buffer.clear();
+            return false;
+        }
+
+        if (finalLength > static_cast<size_t>(std::numeric_limits<unsigned int>::max()))
+            finalLength = std::numeric_limits<unsigned int>::max();
+
+        exifData = &buffer[foundOffset];
+        exifSize = static_cast<unsigned int>(finalLength);
+        return exifSize != 0;
+    }
+}
+
+CExifAnsiPath::CExifAnsiPath()
+{
+    Path[0] = '\0';
+#ifdef _UNICODE
+    TempFile[0] = '\0';
+    UsingTempCopy = false;
+#endif
+}
+
+CExifAnsiPath::~CExifAnsiPath()
+{
+#ifdef _UNICODE
+    if (UsingTempCopy && TempFile[0])
+    {
+        std::wstring extendedTemp = BuildExtendedLengthPath(TempFile);
+        LPCTSTR deletePath = extendedTemp.empty() ? TempFile : extendedTemp.c_str();
+        DeleteFile(deletePath);
+        TempFile[0] = '\0';
+        UsingTempCopy = false;
+    }
+#endif
+}
+
+bool CExifAnsiPath::PrepareFromFile(LPCTSTR sourcePath)
+{
+    Path[0] = '\0';
+#ifdef _UNICODE
+    if (UsingTempCopy && TempFile[0])
+    {
+        std::wstring extendedTemp = BuildExtendedLengthPath(TempFile);
+        LPCTSTR deletePath = extendedTemp.empty() ? TempFile : extendedTemp.c_str();
+        DeleteFile(deletePath);
+    }
+    UsingTempCopy = false;
+    TempFile[0] = '\0';
+#endif
+
+    if (sourcePath == NULL)
+        return false;
+
+    if (ConvertPathToExifEncoding(sourcePath, Path, sizeof(Path)))
+        return true;
+
+#ifdef _UNICODE
+    TCHAR tempDir[MAX_PATH];
+    if (!GetTempPath(SizeOf(tempDir), tempDir))
+        return false;
+
+    TCHAR tempFile[MAX_PATH];
+    if (!GetTempFileName(tempDir, _T("pvx"), 0, tempFile))
+        return false;
+
+    std::wstring sourceExtended = BuildExtendedLengthPath(sourcePath);
+    LPCTSTR copySource = sourceExtended.empty() ? sourcePath : sourceExtended.c_str();
+    std::wstring tempExtended = BuildExtendedLengthPath(tempFile);
+    LPCTSTR copyDest = tempExtended.empty() ? tempFile : tempExtended.c_str();
+
+    if (!CopyFile(copySource, copyDest, FALSE))
+    {
+        DeleteFile(copyDest);
+        return false;
+    }
+
+    if (!ConvertPathToExifEncoding(tempFile, Path, sizeof(Path)))
+    {
+        DeleteFile(copyDest);
+        return false;
+    }
+
+    lstrcpyn(TempFile, tempFile, SizeOf(TempFile));
+    UsingTempCopy = true;
+    return true;
+#else
+    return false;
+#endif
+}
+
+CExifFileBuffer::CExifFileBuffer()
+{
+    ExifData = NULL;
+    ExifSize = 0;
+}
+
+bool CExifFileBuffer::LoadFromFile(LPCTSTR sourcePath, size_t maxBytes)
+{
+    ExifData = NULL;
+    ExifSize = 0;
+    Buffer.clear();
+
+    if (!sourcePath || maxBytes == 0)
+        return false;
+
+    HANDLE file;
+#ifdef _UNICODE
+    std::wstring extendedPath = BuildExtendedLengthPath(sourcePath);
+    LPCTSTR openPath = extendedPath.empty() ? sourcePath : extendedPath.c_str();
+    file = CreateFileW(openPath,
+                       GENERIC_READ,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NULL,
+                       OPEN_EXISTING,
+                       FILE_FLAG_SEQUENTIAL_SCAN,
+                       NULL);
+#else
+    file = CreateFileA(sourcePath,
+                       GENERIC_READ,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NULL,
+                       OPEN_EXISTING,
+                       FILE_FLAG_SEQUENTIAL_SCAN,
+                       NULL);
+#endif
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+
+    const unsigned char* data = NULL;
+    unsigned int size = 0;
+
+    bool success = LoadExifFromJpegStream(file, maxBytes, Buffer, data, size);
+    if (!success)
+    {
+        success = LoadExifByScanning(file, maxBytes, Buffer, data, size);
+    }
+
+    CloseHandle(file);
+
+    if (!success)
+    {
+        Buffer.clear();
+        return false;
+    }
+
+    ExifData = data;
+    ExifSize = size;
+    return true;
+}
+
+#ifndef _UNICODE
+bool CExifFileBuffer::LoadFromWideFile(const wchar_t* sourcePath, size_t maxBytes)
+{
+    ExifData = NULL;
+    ExifSize = 0;
+    Buffer.clear();
+
+    if (!sourcePath || maxBytes == 0)
+        return false;
+
+    std::wstring extendedPath = BuildExtendedLengthPathWide(sourcePath);
+    LPCWSTR openPath = extendedPath.empty() ? sourcePath : extendedPath.c_str();
+
+    HANDLE file = CreateFileW(openPath,
+                               GENERIC_READ,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               NULL,
+                               OPEN_EXISTING,
+                               FILE_FLAG_SEQUENTIAL_SCAN,
+                               NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+
+    const unsigned char* data = NULL;
+    unsigned int size = 0;
+
+    bool success = LoadExifFromJpegStream(file, maxBytes, Buffer, data, size);
+    if (!success)
+    {
+        success = LoadExifByScanning(file, maxBytes, Buffer, data, size);
+    }
+
+    CloseHandle(file);
+
+    if (!success)
+    {
+        Buffer.clear();
+        return false;
+    }
+
+    ExifData = data;
+    ExifSize = size;
+    return true;
+}
+#endif
+
+bool CExifFileBuffer::HasExifData() const
+{
+    return ExifData != NULL && ExifSize != 0;
+}
+
+const unsigned char* CExifFileBuffer::GetExifData() const
+{
+    return ExifData;
+}
+
+unsigned int CExifFileBuffer::GetExifSize() const
+{
+    return ExifSize;
+}
+
 void ReleaseViewer()
 {
-#ifdef PICTVIEW_DLL_IN_SEPARATE_PROCESS
-    ReleasePVEXEWrapper();
-#endif
     if (!UnregisterClass(TIP_WINDOW_CLASSNAME, DLLInstance))
         TRACE_E("UnregisterClass(TIP_WINDOW_CLASSNAME) has failed");
     ReleaseWinLib(DLLInstance);
@@ -1594,7 +2280,7 @@ public:
 /*
 unsigned WINAPI ViewerThreadBody(void *param)
 {
-  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+  CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s backend %hs"), VERSINFO_VERSION, PVW32DLL.Version);
   SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
   TRACE_I("Begin");
   RECT    r;
@@ -1713,7 +2399,7 @@ unsigned __stdcall ViewerThread(void *param)
 unsigned
 CViewerThread::Body()
 {
-    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s %hs"), VERSINFO_VERSION, PVW32DLL.Version);
+    CALL_STACK_MESSAGE3(_T("ViewerThreadBody() PictView.spl %s backend %hs"), VERSINFO_VERSION, PVW32DLL.Version);
     SetThreadNameInVCAndTrace(PLUGIN_NAME_EN);
     TRACE_I("Begin");
 
@@ -2584,6 +3270,8 @@ void CViewerWindow::ToggleStatusBar()
             StatusBar = NULL;
             return;
         }
+        ConfigurePictViewDarkModeFromHost();
+        DarkModeApplyTree(StatusBar->HWindow);
         G.StatusbarVisible = TRUE;
     }
     else
@@ -2597,6 +3285,23 @@ void CViewerWindow::ToggleStatusBar()
 BOOL CViewerWindow::IsFullScreen()
 {
     return FullScreen;
+}
+
+void CViewerWindow::UpdateRendererFrameForTheme()
+{
+    if (Renderer.HWindow == NULL)
+        return;
+
+    const BOOL wantClientEdge = !FullScreen && !DarkModeShouldUseDarkColors();
+    LONG_PTR exStyle = GetWindowLongPtr(Renderer.HWindow, GWL_EXSTYLE);
+    LONG_PTR newExStyle = wantClientEdge ? (exStyle | WS_EX_CLIENTEDGE) : (exStyle & ~WS_EX_CLIENTEDGE);
+    if (newExStyle != exStyle)
+    {
+        SetWindowLongPtr(Renderer.HWindow, GWL_EXSTYLE, newExStyle);
+        SetWindowPos(Renderer.HWindow, NULL, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        InvalidateRect(Renderer.HWindow, NULL, TRUE);
+    }
 }
 
 void CViewerWindow::ToggleFullScreen()
@@ -2627,9 +3332,7 @@ void CViewerWindow::ToggleFullScreen()
 
         SetWindowLong(HWindow, GWL_STYLE, style);
 
-        style = GetWindowLong(Renderer.HWindow, GWL_EXSTYLE);
-        style |= WS_EX_CLIENTEDGE;
-        SetWindowLong(Renderer.HWindow, GWL_EXSTYLE, style);
+        UpdateRendererFrameForTheme();
         ShowWindow(HRebar, SW_SHOW);
         if (StatusBar != NULL)
             ShowWindow(StatusBar->HWindow, SW_SHOW);
@@ -2647,7 +3350,7 @@ void CViewerWindow::ToggleFullScreen()
         }
 
         if (Renderer.PVHandle)
-            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, GetCOLORREF(G.Colors[vceTransparent]));
+            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, PictViewGetRendererTransparentColor(FALSE));
     }
     else
     {
@@ -2669,9 +3372,7 @@ void CViewerWindow::ToggleFullScreen()
         style = WS_POPUP | WS_VISIBLE | WS_OVERLAPPED | WS_CLIPSIBLINGS | WS_SYSMENU;
         SetWindowLong(HWindow, GWL_STYLE, style);
 
-        style = GetWindowLong(Renderer.HWindow, GWL_EXSTYLE);
-        style &= ~WS_EX_CLIENTEDGE;
-        SetWindowLong(Renderer.HWindow, GWL_EXSTYLE, style);
+        UpdateRendererFrameForTheme();
 
         ShowWindow(HRebar, SW_HIDE);
         if (StatusBar != NULL)
@@ -2698,7 +3399,7 @@ void CViewerWindow::ToggleFullScreen()
                      0);
 
         if (Renderer.PVHandle)
-            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, GetCOLORREF(G.Colors[vceFSTransparent]));
+            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, PictViewGetRendererTransparentColor(TRUE));
     }
     LockWindowUpdate(NULL);
 }
@@ -2806,19 +3507,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         RECT r;
         GetClientRect(HWindow, &r);
+        ConfigurePictViewDarkModeFromHost();
+
+        DWORD rebarStyle = WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
+                            WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
+                            RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN |
+                            RBS_AUTOSIZE;
+        if (!DarkModeShouldUseDarkColors())
+            rebarStyle |= RBS_BANDBORDERS;
+
         HRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, _T(""),
-                                WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
-                                    WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                                    RBS_VARHEIGHT | CCS_NODIVIDER |
-                                    RBS_BANDBORDERS | CCS_NOPARENTALIGN |
-                                    RBS_AUTOSIZE,
+                                rebarStyle,
                                 0, 0, r.right, r.bottom, // dummy
                                 HWindow, (HMENU)0, DLLInstance, NULL);
 
-        // we do not want visual styles for the rebar
-        SalamanderGUI->DisableWindowVisualStyles(HRebar);
+        // we do not want visual styles for the rebar in light mode; dark mode
+        // needs native themed drawing to avoid light rebar bands.
+        if (!DarkModeShouldUseDarkColors())
+            SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
-        Renderer.CreateEx(/*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
+        Renderer.CreateEx(DarkModeShouldUseDarkColors() ? 0 : /*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
                           _T(""),
                           WS_VISIBLE | WS_CHILD | /*WS_VSCROLL | WS_HSCROLL | */ WS_CLIPSIBLINGS,
@@ -2838,6 +3546,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ToggleToolBar();
         if (G.StatusbarVisible)
             ToggleStatusBar();
+
+        ConfigurePictViewDarkModeFromHost();
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        UpdateRendererFrameForTheme();
 
         SetFocus(Renderer.HWindow);
 
@@ -2992,6 +3706,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_VIEWERCFGCHNG:
     {
+        ConfigurePictViewDarkModeFromHost();
+        RebuildColors(G.Colors);
+        UpdateRendererFrameForTheme();
         if (Renderer.HWindow != NULL)
             SendMessage(Renderer.HWindow, uMsg, wParam, lParam);
         return 0;
@@ -3032,6 +3749,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
+        ConfigurePictViewDarkModeFromHost();
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HBRUSH brush = CreateSolidBrush(DarkModeGetDialogBackgroundColor());
+            FillRect((HDC)wParam, &r, brush);
+            DeleteObject(brush);
+        }
         return 1;
     }
 
@@ -3056,6 +3782,38 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
     {
         OnSize();
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        RebuildColors(G.Colors);
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        UpdateRendererFrameForTheme();
+        if (Renderer.HWindow != NULL)
+            SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
+        InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            RebuildColors(G.Colors);
+            DarkModeApplyWindow(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyTree(HWindow);
+            UpdateRendererFrameForTheme();
+            if (Renderer.HWindow != NULL)
+                SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
         break;
     }
 

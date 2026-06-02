@@ -459,7 +459,7 @@ STRINGTABLE
   IDS_NCOLORS_CMYK, "CMYK"
   IDS_NCOLORS_LAB, "LAB"
 
-  IDS_ERROR_CALLING_PVW32_DLL, "Error calling PVW32Cnv.DLL"
+  IDS_ERROR_CALLING_PVW32_DLL, "Error calling Windows Imaging Component (WIC)."
   IDS_CLIPBOARD_TITLE, "<Clipboard>"
   IDS_CAPTURE_TITLE, "<Screen Capture>"
   IDS_SCAN_TITLE, "<Scan>"
@@ -701,8 +701,8 @@ STRINGTABLE
   IDS_HIST_TIP_BLUE, "Blue (B)"
   IDS_HIST_TIP_RGBSUM, "RGB (A)"
   IDS_HIST_TIP_OTHERCHANELS, "Show Other Channels (O)"
-  IDS_DLL_NOTFOUND, "Unable to load image processing library PVW32Cnv.dll."
-  IDS_DLL_WRONG_VERSION, "The wrong version of PVW32Cnv.dll was found."
+  IDS_DLL_NOTFOUND, "Unable to initialize the Windows Imaging Component (WIC) imaging engine."
+  IDS_DLL_WRONG_VERSION, "An incompatible Windows Imaging Component (WIC) version was found."
   IDS_SELECT_REGION, "Please select a region first."
   IDS_SAVE_ERR_EXISTS_OVERWRITE, "File ""%s"" already exists.\nDo you want to replace it?"
 

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
@@ -425,7 +425,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
     if (PVHandle)
     {
         CALL_STACK_MESSAGE1("PVW32DLL.PVSetBkHandle");
-        PVW32DLL.PVSetBkHandle(PVHandle, GetCOLORREF(G.Colors[Viewer->IsFullScreen() ? vceFSTransparent : vceTransparent]));
+        PVW32DLL.PVSetBkHandle(PVHandle, PictViewGetRendererTransparentColor(Viewer->IsFullScreen()));
     }
     WMSize();
     UpdateInfos();
@@ -1224,7 +1224,7 @@ PVCODE SimplifyImageSequence(LPPVHandle hPVImage, HDC dc, int ScreenWidth, int S
 void CRendererWindow::SimplifyImageSequence(HDC dc)
 {
     int ScreenWidth, ScreenHeight;
-    COLORREF bgColor(GetCOLORREF(G.Colors[Viewer->IsFullScreen() ? vceFSBackground : vceBackground]));
+    COLORREF bgColor(PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
 
     if (pvii.Format == PVF_GIF)
     {
@@ -1492,7 +1492,7 @@ LRESULT CRendererWindow::OnPaint()
 
     if (HAreaBrush == NULL)
     {
-        HAreaBrush = CreateSolidBrush(GetCOLORREF(G.Colors[Viewer->IsFullScreen() ? vceFSBackground : vceBackground]));
+        HAreaBrush = CreateSolidBrush(PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
     }
 
     if (ImageLoaded || Loading)
@@ -1583,7 +1583,7 @@ LRESULT CRendererWindow::OnPaint()
             LoadingDC = dc;
             XStartLoading = XStart;
             YStartLoading = YStart;
-            if (pvii.Flags & PVFF_IMAGESEQUENCE)
+            if ((pvii.Flags & PVFF_IMAGESEQUENCE) && pvii.Format == PVF_GIF)
             {
                 code = PVW32DLL.PVReadImageSequence(PVHandle, &PVSequence);
                 if (code == PVC_OK)
@@ -1608,20 +1608,81 @@ LRESULT CRendererWindow::OnPaint()
                 if (FileName != NULL && ((pvii.Format == PVF_JPG) || (pvii.Format == PVF_TIFF)) &&
                     (pvii.Flags & PVFF_EXIF) && G.AutoRotate)
                 {
-                    EXIFGETORIENTATIONINFO getInfo = NULL;
-                    BOOL haveOrientation = FALSE;
-                    BOOL canUseExifDll = InitEXIF(NULL, TRUE);
+                    EXIFGETORIENTATIONINFO getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfo");
+#ifdef _UNICODE
+                    EXIFGETORIENTATIONINFOW getInfoW = (EXIFGETORIENTATIONINFOW)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoW");
+#endif
+                    EXIFGETORIENTATIONINFOFROMDATA getInfoFromData =
+                        (EXIFGETORIENTATIONINFOFROMDATA)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfoFromData");
 
-                    if (canUseExifDll)
-                        getInfo = (EXIFGETORIENTATIONINFO)GetProcAddress(EXIFLibrary, "EXIFGetOrientationInfo");
+                    CExifFileBuffer exifBuffer;
+                    bool bufferLoaded = false;
 
-                    if (getInfo)
+                    SThumbExifInfo info;
+                    ZeroMemory(&info, sizeof(info));
+                    BOOL gotInfo = FALSE;
+
+                    if (getInfoFromData)
                     {
-                        SThumbExifInfo info;
+                        bufferLoaded = exifBuffer.LoadFromFile(FileName);
+                        if (bufferLoaded)
+                        {
+                            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                            if (!gotInfo || !(info.flags & TEI_ORIENT))
+                            {
+                                gotInfo = FALSE;
+                                ZeroMemory(&info, sizeof(info));
+                            }
+                        }
+                    }
+
+#ifdef _UNICODE
+                    if (!gotInfo && getInfoW)
+                    {
+                        gotInfo = getInfoW(FileName, &info);
+                        if (gotInfo && !(info.flags & TEI_ORIENT))
+                        {
+                            gotInfo = FALSE;
+                            ZeroMemory(&info, sizeof(info));
+                        }
+                    }
+#endif
+                    if (!gotInfo && getInfo)
+                    {
+#ifdef _UNICODE
+                        CExifAnsiPath ansiPath;
+                        if (ansiPath.PrepareFromFile(FileName))
+                        {
+                            gotInfo = getInfo(ansiPath.GetPath(), &info);
+                        }
+#else
+                        gotInfo = getInfo(FileName, &info);
+#endif
+                        if (gotInfo && !(info.flags & TEI_ORIENT))
+                        {
+                            gotInfo = FALSE;
+                            ZeroMemory(&info, sizeof(info));
+                        }
+                    }
+
+                    if (!gotInfo && getInfoFromData && !bufferLoaded)
+                    {
+                        bufferLoaded = exifBuffer.LoadFromFile(FileName);
+                        if (bufferLoaded)
+                        {
+                            gotInfo = getInfoFromData(exifBuffer.GetExifData(), exifBuffer.GetExifSize(), &info);
+                            if (!gotInfo || !(info.flags & TEI_ORIENT))
+                            {
+                                gotInfo = FALSE;
+                                ZeroMemory(&info, sizeof(info));
+                            }
+                        }
+                    }
+
+                    if (gotInfo)
+                    {
                         int cmd;
 
-                        memset(&info, 0, sizeof(info));
-                        getInfo(FileName, &info);
                         if ((info.flags & (TEI_WIDTH | TEI_HEIGHT)) == (TEI_WIDTH | TEI_HEIGHT))
                         {
                             if (((DWORD)info.Width != pvii.Width) || ((DWORD)info.Height != pvii.Height) || (info.Width < info.Height))
@@ -1688,52 +1749,7 @@ LRESULT CRendererWindow::OnPaint()
                         cmd = 0;
                         if (haveOrientation)
                         {
-                            switch (info.Orient)
-                            {
-                                //                  case 1/*normal case*/"
-                            case 2:
-                                cmd = CMD_MIRROR_HOR;
-                                break;
-                            case 3:
-                                cmd = CMD_ROTATE180;
-                                break;
-                            case 4:
-                                cmd = CMD_MIRROR_HOR;
-                                break;
-                            case 5:
-                                cmd = CMD_ROTATE_LEFT;
-                                break; // and mirror ?
-                            case 6:
-                                cmd = CMD_ROTATE_RIGHT;
-                                break; // tested
-                            case 7:
-                                cmd = CMD_ROTATE_RIGHT;
-                                break; // and mirror ?
-                            case 8:
-                                cmd = CMD_ROTATE_LEFT;
-                                break; // tested
-                            }
-                            if (cmd)
-                            {
-                                Viewer->InitProgressBar();
-                                code = PVW32DLL.PVReadImage2(PVHandle, NULL, NULL, ProgressProcedure2 /*NULL*/, this, pvii.CurrentImage);
-                                Viewer->KillProgressBar();
-                                Viewer->SetStatusBarTexts(IDS_SB_AUTOROTATING);
-                                bAlreadyLoaded = TRUE;
-                                if (PVC_OK == code)
-                                {
-                                    PostMessage(HWindow, WM_COMMAND, cmd, 0);
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        int cmd = 0;
-
-                        switch (pvii.Flags & (PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90))
-                        {
-                        case PVFF_FLIP_HOR:
+                        case 2:
                             cmd = CMD_MIRROR_HOR;
                             break;
                         case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR:
@@ -1993,7 +2009,7 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (PVHandle)
         {
-            PVW32DLL.PVSetBkHandle(PVHandle, GetCOLORREF(G.Colors[Viewer->FullScreen ? vceFSTransparent : vceTransparent]));
+            PVW32DLL.PVSetBkHandle(PVHandle, PictViewGetRendererTransparentColor(Viewer->FullScreen));
             SetTitle(); // add/remove full path from title
         }
         InvalidateRect(HWindow, NULL, TRUE);
@@ -2287,14 +2303,6 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_RBUTTONDOWN:
-    {
-        POINT p;
-        GetCursorPos(&p);
-        OnContextMenu(&p);
-        break;
-    }
-
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
     {
@@ -2356,6 +2364,28 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ScreenToClient(HWindow, &p);
         if (PtInRect(&ClientRect, p))
             OnSetCursor(HTCLIENT);
+        break;
+    }
+
+    case WM_CONTEXTMENU:
+    {
+        if ((HWND)wParam == HWindow)
+        {
+            POINT p;
+            if ((int)lParam == -1)
+            {
+                DWORD pos = GetMessagePos();
+                p.x = GET_X_LPARAM(pos);
+                p.y = GET_Y_LPARAM(pos);
+            }
+            else
+            {
+                p.x = GET_X_LPARAM(lParam);
+                p.y = GET_Y_LPARAM(lParam);
+            }
+            OnContextMenu(&p);
+            return 0;
+        }
         break;
     }
 
@@ -2545,7 +2575,7 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HScroll(SB_THUMBPOSITION, GetScrollPos(HWindow, SB_HORZ) + pt.x - r.right / 2);
                     VScroll(SB_THUMBPOSITION, GetScrollPos(HWindow, SB_VERT) + pt.y - r.bottom / 2);
                     // NT4: Desktop icons may get repainted as a response to this
-                    // LockWindowUpdate(NULL) if a zoomed image is cached by PVW32Cnv.dll
+                    // LockWindowUpdate(NULL) if a zoomed image is cached by the backend
                     LockWindowUpdate(NULL);
                 }
             }

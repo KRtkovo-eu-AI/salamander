@@ -8,6 +8,7 @@
 #include "lang\lang.rh"
 #include "dialogs.h"
 #include "misc.h"
+#include "../../darkmode.h"
 
 CWindowQueue ModelessQueue("CheckSum Modeless Windows");  // list of all modeless windows
 CThreadQueue ThreadQueue("CheckSum Dialogs and Workers"); // list of all dialog and worker threads
@@ -282,7 +283,7 @@ INT_PTR CSFVMD5Dialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE_NONE // frequently called function
         //CALL_STACK_MESSAGE4("CSFVMD5Dialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
 
-        switch (uMsg)
+    switch (uMsg)
     {
     case WM_INITDIALOG:
     {
@@ -300,9 +301,44 @@ INT_PTR CSFVMD5Dialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 delete lv; // not attached = automatic deallocation will not happen
         }
 
+        ApplyChecksumDarkMode(HWindow);
+
         SetForegroundWindow(HWindow);
 
         SetTimer(HWindow, IDT_UPDATEUI, IDT_UPDATESUI_PERIOD, NULL);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyChecksumDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureChecksumDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyChecksumDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleChecksumDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
         break;
     }
 
@@ -1200,6 +1236,8 @@ INT_PTR CCalculateDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowLongPtr(hProgress, GWL_STYLE, style & ~PBS_MARQUEE);
         }
         SendMessage(hProgress, PBM_SETRANGE, 0, MAKELPARAM(0, 1024));
+        if (ApplyChecksumDarkModeIfSelected(HWindow))
+            RedrawWindow(hProgress, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
 
         BOOL startThread = FALSE;
         for (int i = 0; i < HT_COUNT; i++)
@@ -2115,6 +2153,8 @@ BOOL OpenCalculateDialog(HWND parent)
     BOOL bAlwaysOnTop = FALSE;
     // NOTE: GetConfigParameter can only be called from the main thread
     SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &bAlwaysOnTop, sizeof(bAlwaysOnTop), NULL);
+    RefreshChecksumDarkModeFromHost();
+    ConfigureChecksumDarkModeFromHost(); // prime darkmodelib on the main thread before the dialog worker starts
 
     CCalculateDialogThread* t = new CCalculateDialogThread(parent, bAlwaysOnTop, pFileList, _strdup(sourcePath));
     if (t != NULL)
@@ -2189,6 +2229,8 @@ BOOL OpenVerifyDialog(HWND parent)
     BOOL bAlwaysOnTop = FALSE;
     // NOTE: GetConfigParameter can only be called from the main thread
     SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &bAlwaysOnTop, sizeof(bAlwaysOnTop), NULL);
+    RefreshChecksumDarkModeFromHost();
+    ConfigureChecksumDarkModeFromHost(); // prime darkmodelib on the main thread before the dialog worker starts
 
     CVerifyDialogThread* t = new CVerifyDialogThread(parent, bAlwaysOnTop);
     if (t != NULL)
@@ -2235,10 +2277,44 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        ApplyChecksumDarkMode(HWindow);
         // Center horizontally & vertically to parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         break; // Need focus from DefDlgProc
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyChecksumDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureChecksumDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyChecksumDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleChecksumDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
     }
     } // switch
     return CDialog::DialogProc(uMsg, wParam, lParam);

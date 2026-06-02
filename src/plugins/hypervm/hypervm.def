@@ -1,0 +1,5 @@
+LIBRARY hypervm.spl
+
+EXPORTS SalamanderPluginEntry
+EXPORTS SalamanderPluginGetReqVer
+EXPORTS HyperVM_GetCurrentColor

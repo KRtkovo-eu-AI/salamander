@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "../../darkmode.h"
+
 #include "lib\\pvw32dll.h"
 #include "renderer.h"
 #include "pictview.h"
@@ -210,6 +212,8 @@ void CViewerWindow::InitProgressBar()
                                          PBS_SMOOTH | WS_CHILD | WS_VISIBLE, r.left, r.top,
                                          r.right - r.left, r.bottom - r.top,
                                          StatusBar->HWindow, NULL, DLLInstance, NULL);
+    ConfigurePictViewDarkModeFromHost();
+    DarkModeApplyTree(StatusBar->HWindow);
 
     SendMessage(StatusBar->hProgBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
     SendMessage(StatusBar->hProgBar, PBM_SETPOS, 0, 0);

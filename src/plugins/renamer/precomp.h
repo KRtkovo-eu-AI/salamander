@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <CommDlg.h>
 #include <ShellAPI.h>
+#include <shlobj.h>
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
@@ -33,7 +34,8 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
-#include "plugindarkmode.h"
+#include "mhandles.h"
+#include "../../darkmode.h"
 
 #include "renamer.rh"
 #include "renamer.rh2"

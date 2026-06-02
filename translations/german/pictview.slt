@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"translator\salamand 4.0\projects\german\pictview.atp"
 TEXTVERSION,"2.13 (x86)"
 VERSION,"2,1,3,180"
@@ -17,11 +17,11 @@ COMMENT,"Deutsche Version"
 2011,46,19,334,8,1,""
 3001,46,40,150,8,1,"PictView basiert auf der Programmbibliothek"
 2008,46,51,323,8,1,"%hs - Bildverarbeitungseinheit"
-3002,46,62,198,8,1,"Copyright © 1994-2023  Jan Patera"
-3005,46,81,26,8,1,"E-Mail:"
-2009,84,81,85,8,1,"support@pictview.com"
+3002,46,62,198,8,1,"Copyright © 1997-2026 Open Salamander Authors"
+3005,46,81,26,8,1,"Bug report:"
+2009,84,81,85,8,1,"https://github.com/KRtkovo-eu-AI/salamander/issues/new/choose"
 3006,46,92,36,8,1,"Webseite:"
-2010,84,92,122,8,1,"www.pictview.com/salamander"
+2010,84,92,122,8,1,"https://github.com/KRtkovo-eu-AI/salamander"
 3004,2,108,385,1,1,""
 
 [DIALOG 2020]

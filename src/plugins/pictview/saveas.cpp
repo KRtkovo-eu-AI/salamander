@@ -985,7 +985,7 @@ int CRendererWindow::SaveImage(LPCTSTR fileName, DWORD format, SAVEAS_INFO_PTR p
 #endif
     if (fMirrorHor)
     {
-        // Patch: PVW32Cnv.dll will mirror the image in memory
+        // Legacy patch: the original backend mirrored the image in memory
         sii.Flags ^= PVSF_FLIP_HOR;
         fMirrorHor = FALSE;
         PVW32DLL.PVSetStretchParameters(PVHandle, XStretchedRange,

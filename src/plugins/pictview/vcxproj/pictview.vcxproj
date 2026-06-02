@@ -125,9 +125,49 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\shared\lukas\gdi.cpp">
     </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp" />
+    <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp" />
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibColor.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibDpi.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibHook.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibPaintHelper.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclass.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassControl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassWindow.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibWinApi.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\dialogs.cpp">
     </ClCompile>
@@ -147,11 +187,7 @@
     </ClCompile>
     <ClCompile Include="..\print.cpp">
     </ClCompile>
-    <ClCompile Include="..\PVEXEWrapper.cpp">
-    </ClCompile>
-    <ClCompile Include="..\PVMessage.cpp">
-    </ClCompile>
-    <ClCompile Include="..\PVMessageWrapper.cpp">
+    <ClCompile Include="..\wic\WicBackend.cpp">
     </ClCompile>
     <ClCompile Include="..\pvtwain.cpp">
     </ClCompile>
@@ -215,9 +251,7 @@
     </ClInclude>
     <ClInclude Include="..\precomp.h">
     </ClInclude>
-    <ClInclude Include="..\PVEXEWrapper.h">
-    </ClInclude>
-    <ClInclude Include="..\PVMessage.h">
+    <ClInclude Include="..\wic\WicBackend.h">
     </ClInclude>
     <ClInclude Include="..\pvtwain.h">
     </ClInclude>
