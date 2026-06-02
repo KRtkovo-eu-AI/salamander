@@ -995,50 +995,8 @@ BOOL ValidateArchiveOrFSDragSource(CFilesWindow* panel, BOOL archiveSource, int 
     return TRUE;
 }
 
-BOOL ProbeDataObjectFormat(IDataObject* dataObject, CLIPFORMAT cfFormat, TYMED tymed)
-{
-    FORMATETC formatEtc;
-    memset(&formatEtc, 0, sizeof(formatEtc));
-    formatEtc.cfFormat = cfFormat;
-    formatEtc.dwAspect = DVASPECT_CONTENT;
-    formatEtc.lindex = -1;
-    formatEtc.tymed = tymed;
-
-    STGMEDIUM medium;
-    memset(&medium, 0, sizeof(medium));
-    HRESULT hr = dataObject->GetData(&formatEtc, &medium);
-    if (SUCCEEDED(hr))
-        ReleaseStgMedium(&medium);
-    return SUCCEEDED(hr);
-}
-
-int CountDataObjectFormats(IDataObject* dataObject)
-{
-    if (dataObject == NULL)
-        return 0;
-
-    int count = 0;
-    IEnumFORMATETC* enumFormatEtc = NULL;
-    if (SUCCEEDED(dataObject->EnumFormatEtc(DATADIR_GET, &enumFormatEtc)) && enumFormatEtc != NULL)
-    {
-        FORMATETC formatEtc;
-        ULONG fetched = 0;
-        while (enumFormatEtc->Next(1, &formatEtc, &fetched) == S_OK && fetched == 1)
-        {
-            TRACE_I("ShellAction::archive/FS::drag_files: exposed clipboard format[" << count << "]=" <<
-                    formatEtc.cfFormat << ", tymed=0x" << std::hex << formatEtc.tymed <<
-                    ", aspect=0x" << formatEtc.dwAspect << std::dec << ", lindex=" << formatEtc.lindex);
-            if (formatEtc.ptd != NULL)
-                CoTaskMemFree(formatEtc.ptd);
-            count++;
-        }
-        enumFormatEtc->Release();
-    }
-    return count;
-}
-
 BOOL ValidateArchiveOrFSDragObjects(IDataObject* dataObject, CImpIDropSource* dropSource,
-                                    CFakeDragDropDataObject* fakeDataObject, int srcType)
+                                    CFakeDragDropDataObject* fakeDataObject)
 {
     if (dataObject == NULL)
     {
@@ -1075,15 +1033,6 @@ BOOL ValidateArchiveOrFSDragObjects(IDataObject* dataObject, CImpIDropSource* dr
         return FALSE;
     }
     checkedDropSource->Release();
-
-    if (!ProbeDataObjectFormat(fakeDataObject, (CLIPFORMAT)RegisterClipboardFormat(SALCF_FAKE_REALPATH), TYMED_HGLOBAL) ||
-        !ProbeDataObjectFormat(fakeDataObject, (CLIPFORMAT)RegisterClipboardFormat(SALCF_FAKE_SRCTYPE), TYMED_HGLOBAL) ||
-        srcType == 2 && !ProbeDataObjectFormat(fakeDataObject, (CLIPFORMAT)RegisterClipboardFormat(SALCF_FAKE_SRCFSPATH), TYMED_HGLOBAL))
-    {
-        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, fake IDataObject custom formats are not readable.");
-        return FALSE;
-    }
-
     return TRUE;
 }
 
@@ -1105,7 +1054,7 @@ void LogArchiveOrFSDragStart(CFilesWindow* panel, BOOL archiveSource, int select
             ", IDropSource=" << (dropSource != NULL) <<
             ", fakeIDataObject=" << (fakeDataObject != NULL) <<
             ", allowedEffects=0x" << std::hex << allowedEffects << std::dec <<
-            ", exposedFormatCount=" << CountDataObjectFormats(fakeDataObject != NULL ? (IDataObject*)fakeDataObject : dataObject));
+            ", exposedFormats=not-enumerated-before-DoDragDrop");
 }
 
 void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath, int& operation,
@@ -1166,7 +1115,7 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                         LogArchiveOrFSDragStart(panel, srcType == 1, selectedCount, focusedIndex, dragItemCount,
                                                 mouseItemIndex, dataObject, dropSource, fakeDataObject,
                                                 allowedEffects, srcFSPath);
-                        if (ValidateArchiveOrFSDragObjects(dataObject, dropSource, fakeDataObject, srcType))
+                        if (ValidateArchiveOrFSDragObjects(dataObject, dropSource, fakeDataObject))
                         {
                             // initialize shared memory
                             WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
@@ -1847,15 +1796,9 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     strcpy(srcFSPath, panel->GetPluginFS()->GetPluginFSName());
                     strcat(srcFSPath, ":");
                     if (!panel->GetPluginFS()->GetCurrentPath(srcFSPath + strlen(srcFSPath)))
-                        srcFSPath[0] = 0;
-                    if (srcFSPath[0] == 0)
                     {
-                        TRACE_E("ShellAction::archive/FS::drag_files: aborting plugin FS drag, current FS path is invalid.");
-                        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-                        if (indexes != NULL)
-                            delete[] (indexes);
-                        EndStopRefresh();
-                        return;
+                        TRACE_E("ShellAction::archive/FS::drag_files: plugin FS current path is unavailable; continuing with an empty source FS path.");
+                        srcFSPath[0] = 0;
                     }
                     panel->GetPluginFS()->GetAllowedDropEffects(0 /* start */, NULL, &allowedEffects);
                     DoDragFromArchiveOrFS(panel, dropDone, targetPath, operation, realDraggedPath,
