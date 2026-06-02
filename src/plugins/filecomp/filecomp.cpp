@@ -51,6 +51,134 @@ const char* CONFIG_INPUTENCTABLE1 = "InputEnc Table 1";
 
 BOOL LoadOnStart;
 
+namespace
+{
+HBRUSH FileCompDarkModeDialogBrush = NULL;
+COLORREF FileCompDarkModeDialogBrushColor = CLR_INVALID;
+BOOL FileCompHostPolicyKnown = FALSE;
+BOOL FileCompHostUseWindowsDarkMode = FALSE;
+COLORREF FileCompHostSchemeText = CLR_INVALID;
+COLORREF FileCompHostSchemeBackground = CLR_INVALID;
+DWORD FileCompMainThreadId = 0;
+
+HBRUSH FileCompGetDarkModeDialogBrush(COLORREF background)
+{
+    if (FileCompDarkModeDialogBrush == NULL || FileCompDarkModeDialogBrushColor != background)
+    {
+        if (FileCompDarkModeDialogBrush != NULL)
+            DeleteObject(FileCompDarkModeDialogBrush);
+        FileCompDarkModeDialogBrush = CreateSolidBrush(background);
+        FileCompDarkModeDialogBrushColor = background;
+    }
+    return FileCompDarkModeDialogBrush;
+}
+}
+
+BOOL FileCompCanQueryHostDarkMode()
+{
+    return SG != NULL &&
+           FileCompMainThreadId != 0 &&
+           GetCurrentThreadId() == FileCompMainThreadId;
+}
+
+void RefreshFileCompDarkModeFromHost()
+{
+    // File Comparator windows/dialogs can run outside Salamander's main UI thread.
+    // Host configuration/color APIs are main-thread-only, so non-main UI consumes
+    // this cached snapshot.
+    if (!FileCompCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SG->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                               &useWindowsDarkMode,
+                               sizeof(useWindowsDarkMode),
+                               NULL))
+    {
+        FileCompHostPolicyKnown = TRUE;
+        FileCompHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (FileCompHostPolicyKnown && FileCompHostUseWindowsDarkMode)
+    {
+        FileCompHostSchemeText = SG->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        FileCompHostSchemeBackground = SG->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL FileCompShouldUseWindowsDarkMode()
+{
+    return FileCompHostPolicyKnown && FileCompHostUseWindowsDarkMode;
+}
+
+void ConfigureFileCompDarkModeFromHost()
+{
+    RefreshFileCompDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = FileCompShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && FileCompHostSchemeText != CLR_INVALID && FileCompHostSchemeBackground != CLR_INVALID)
+    {
+        text = FileCompHostSchemeText;
+        background = FileCompHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = FileCompGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyFileCompDarkMode(HWND hwnd)
+{
+    ConfigureFileCompDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyFileCompDarkModeIfSelected(HWND hwnd)
+{
+    if (!FileCompShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyFileCompDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleFileCompDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!FileCompShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureFileCompDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void ReleaseFileCompDarkModeResources()
+{
+    if (FileCompDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(FileCompDarkModeDialogBrush);
+        FileCompDarkModeDialogBrush = NULL;
+        FileCompDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+
 #ifdef DUMP_MEM
 _CrtMemState ___CrtMemState;
 #endif //DUMP_MEM
@@ -73,6 +201,10 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
+
+    FileCompMainThreadId = GetCurrentThreadId();
+    RefreshFileCompDarkModeFromHost();
+    ConfigureFileCompDarkModeFromHost();
 
     SG->SetHelpFileName("filecomp.chm");
 
@@ -155,6 +287,7 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
                 //SG->CallLoadOrSaveConfiguration(FALSE, LoadOrSaveConfiguration, parent);
 
                 ReleaseDialogs();
+                ReleaseFileCompDarkModeResources();
                 ReleaseLCUtils();
                 MappedFontFactory.Free();
                 if (hNormalizDll)

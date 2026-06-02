@@ -13,6 +13,31 @@ HFONT EnvFont;     // environment font (edit, toolbar, header, status)
 int EnvFontHeight; // font height
 HBRUSH HDitheredBrush = NULL;
 
+namespace
+{
+COLORREF FileCompGetFaceColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+}
+
+COLORREF FileCompGetTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT);
+}
+
+void FillFileCompFaceRect(HDC dc, const RECT* rect)
+{
+    if (DarkModeShouldUseDarkColors())
+    {
+        HBRUSH brush = CreateSolidBrush(DarkModeGetDialogBackgroundColor());
+        FillRect(dc, rect, brush);
+        DeleteObject(brush);
+    }
+    else
+        FillRect(dc, rect, (HBRUSH)(COLOR_BTNFACE + 1));
+}
+}
+
 // ****************************************************************************
 //
 // CFileHeaderWindow
@@ -329,14 +354,14 @@ CSplitBarWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetClientRect(HWindow, &r);
         if (Tracking && HDitheredBrush)
         {
-            COLORREF oldBk = SetBkColor(dc, GetSysColor(COLOR_BTNFACE));
-            COLORREF oldText = SetTextColor(dc, GetSysColor(COLOR_3DDKSHADOW));
+            COLORREF oldBk = SetBkColor(dc, FileCompGetFaceColor());
+            COLORREF oldText = SetTextColor(dc, DarkModeShouldUseDarkColors() ? DarkModeGetColors().readableText : GetSysColor(COLOR_3DDKSHADOW));
             FillRect(dc, &r, HDitheredBrush);
             SetBkColor(dc, oldBk);
             SetTextColor(dc, oldText);
         }
         else
-            FillRect(dc, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+            FillFileCompFaceRect(dc, &r);
         EndPaint(HWindow, &ps);
         return 0;
     }
@@ -391,10 +416,14 @@ CToolTipWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hDC = (HDC)wParam;
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect(hDC, &r, (HBRUSH)(COLOR_INFOBK + 1));
+        COLORREF tipBkColor = DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_INFOBK);
+        COLORREF tipTextColor = DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_INFOTEXT);
+        HBRUSH tipBrush = CreateSolidBrush(tipBkColor);
+        FillRect(hDC, &r, tipBrush);
+        DeleteObject(tipBrush);
         HFONT hOldFont = (HFONT)SelectObject(hDC, EnvFont);
-        COLORREF oldTextColor = SetTextColor(hDC, GetSysColor(COLOR_INFOTEXT));
-        COLORREF oldBkColor = SetBkColor(hDC, GetSysColor(COLOR_INFOBK));
+        COLORREF oldTextColor = SetTextColor(hDC, tipTextColor);
+        COLORREF oldBkColor = SetBkColor(hDC, tipBkColor);
         ExtTextOut(hDC, 2, 1, ETO_OPAQUE, &r, Text, TextLen, NULL);
         SetBkColor(hDC, oldBkColor);
         SetTextColor(hDC, oldTextColor);
@@ -508,7 +537,7 @@ CComboBoxEdit::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CComboBox::CComboBox()
 {
     CALL_STACK_MESSAGE1("CComboBox::CComboBox()");
-    BtnFacePen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
+    BtnFacePen = CreatePen(PS_SOLID, 0, FileCompGetFaceColor());
     BtnShadowPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
     BtnHilightPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNHIGHLIGHT));
     Tracking = FALSE;
@@ -534,7 +563,7 @@ void CComboBox::ChangeColors()
         DeleteObject(BtnShadowPen);
     if (BtnHilightPen)
         DeleteObject(BtnHilightPen);
-    BtnFacePen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
+    BtnFacePen = CreatePen(PS_SOLID, 0, FileCompGetFaceColor());
     BtnShadowPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNSHADOW));
     BtnHilightPen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNHIGHLIGHT));
 }
@@ -572,6 +601,9 @@ CComboBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CTLCOLORSTATIC:
     {
+        INT_PTR result = 0;
+        if (HandleFileCompDarkCtlColor(WM_CTLCOLORSTATIC, wParam, lParam, &result))
+            return result;
         SetBkColor((HDC)wParam, GetSysColor(COLOR_WINDOW));
         SetTextColor((HDC)wParam, GetSysColor(COLOR_WINDOWTEXT));
         return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
@@ -825,19 +857,22 @@ CRebar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // draw our own text
                 HDC hdc = GetDC(HWindow);
                 HFONT oldFont = (HFONT)SelectObject(hdc, (HFONT)EnvFont);
-                SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
+                COLORREF oldBkColor = SetBkColor(hdc, FileCompGetFaceColor());
+                COLORREF oldTextColor = SetTextColor(hdc, FileCompGetTextColor());
                 DrawText(hdc, text, -1, &r, DT_SINGLELINE | DT_TOP);
 
                 // line under the text
                 r.top += EnvFontHeight;
-                FillRect(hdc, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+                FillFileCompFaceRect(hdc, &r);
                 r.top -= EnvFontHeight;
 
                 // area behind the text
                 r.left = r.right;
                 r.right += 13;
-                FillRect(hdc, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+                FillFileCompFaceRect(hdc, &r);
 
+                SetTextColor(hdc, oldTextColor);
+                SetBkColor(hdc, oldBkColor);
                 SelectObject(hdc, oldFont);
                 ReleaseDC(HWindow, hdc);
             }
@@ -848,6 +883,9 @@ CRebar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CTLCOLORSTATIC:
     {
+        INT_PTR result = 0;
+        if (HandleFileCompDarkCtlColor(WM_CTLCOLORSTATIC, wParam, lParam, &result))
+            return result;
         //SetBkColor((HDC)wParam, GetSysColor(COLOR_WINDOW));
         SetTextColor((HDC)wParam, GetSysColor(COLOR_WINDOWTEXT));
         //return 0;

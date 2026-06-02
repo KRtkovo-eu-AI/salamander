@@ -86,9 +86,43 @@ CCommonDialog::CCommonDialog(int resID, HWND hParent, CObjectOrigin origin)
     {
     case WM_INITDIALOG:
     {
+        ApplyFileCompDarkMode(HWindow);
         // horizontal and vertical centering of the dialog over the parent
         CenterWindow(HWindow);
         break; // let DefDlgProc set the focus
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyFileCompDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureFileCompDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyFileCompDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleFileCompDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -97,6 +131,7 @@ CCommonDialog::CCommonDialog(int resID, HWND hParent, CObjectOrigin origin)
 void CCommonDialog::NotifDlgJustCreated()
 {
     SalGUI->ArrangeHorizontalLines(HWindow);
+    ApplyFileCompDarkMode(HWindow);
 }
 
 // ****************************************************************************
@@ -160,6 +195,9 @@ COLORREF
 GetScrollbarColor()
 {
     CALL_STACK_MESSAGE_NONE
+    if (DarkModeShouldUseDarkColors())
+        return DarkModeGetDialogBackgroundColor();
+
     if (GetSysColor(COLOR_BTNFACE) != GetSysColor(COLOR_3DHILIGHT))
     {
         return GetAverageColor(GetSysColor(COLOR_SCROLLBAR), 1,
@@ -201,7 +239,7 @@ void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette)
     CALL_STACK_MESSAGE1("UpdateDefaultColors(, )");
     // text colors in the column with line numbers
     if (GetFValue(colors[LINENUM_FG_NORMAL]) & SCF_DEFAULT)
-        SetRGBPart(&colors[LINENUM_FG_NORMAL], GetSysColor(COLOR_WINDOWTEXT));
+        SetRGBPart(&colors[LINENUM_FG_NORMAL], DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT));
     //if (GetFValue(colors[LINENUM_FG_FOCUSED]) & SCF_DEFAULT)
     //  SetRGBPart(&colors[LINENUM_FG_FOCUSED], GetCOLORREF(colors[LINENUM_FG_NORMAL]));
 
@@ -224,11 +262,11 @@ void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette)
     if (GetFValue(colors[LINENUM_BK_RIGHT_CHANGE]) & SCF_DEFAULT)
         SetRGBPart(&colors[LINENUM_BK_RIGHT_CHANGE], GetCOLORREF(colors[LINENUM_BK_NORMAL]));
     if (GetFValue(colors[LINENUM_BK_LEFT_CHANGE_FOCUSED]) & SCF_DEFAULT)
-        SetRGBPart(&colors[LINENUM_BK_LEFT_CHANGE_FOCUSED], GetSysColor(COLOR_BTNFACE));
+        SetRGBPart(&colors[LINENUM_BK_LEFT_CHANGE_FOCUSED], DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE));
     //GetAverageColor(GetCOLORREF(colors[LINENUM_BK_LEFT_CHANGE]), 9,
     //                GetCOLORREF(colors[LINENUM_FG_LEFT_CHANGE]), 1));
     if (GetFValue(colors[LINENUM_BK_RIGHT_CHANGE_FOCUSED]) & SCF_DEFAULT)
-        SetRGBPart(&colors[LINENUM_BK_RIGHT_CHANGE_FOCUSED], GetSysColor(COLOR_BTNFACE));
+        SetRGBPart(&colors[LINENUM_BK_RIGHT_CHANGE_FOCUSED], DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE));
     //GetAverageColor(GetCOLORREF(colors[LINENUM_BK_RIGHT_CHANGE]), 9,
     //                GetCOLORREF(colors[LINENUM_FG_RIGHT_CHANGE]), 1));
 
@@ -442,7 +480,7 @@ BOOL InitDialogs()
             CS_DBLCLKS, 0, 0, DLLInstance,
             NULL,
             LoadCursor(DLLInstance, MAKEINTRESOURCE(IDC_SPLIT_VERT)),
-            (HBRUSH)(COLOR_WINDOW + 1),
+            NULL,
             NULL, SPLITBARWINDOW_CLASSNAME, NULL))
     {
         TRACE_E("RegisterUniversalClass has failed, last error:" << GetLastError());
@@ -459,7 +497,7 @@ BOOL InitDialogs()
     windowClass.hInstance = DLLInstance;
     windowClass.hIcon = NULL;
     windowClass.hCursor = HArrowCursor;
-    windowClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    windowClass.hbrBackground = NULL;
     windowClass.lpszMenuName = NULL;
     windowClass.lpszClassName = FILEVIEWWINDOW_CLASSNAME;
     windowClass.hIconSm = NULL;

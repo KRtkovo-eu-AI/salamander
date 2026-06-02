@@ -42,6 +42,8 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
+#include "mhandles.h"
+#include "../../darkmode.h"
 
 // get rid of some annoying warnings
 #pragma warning(disable : 4661)
