@@ -1191,10 +1191,12 @@ void CPluginInterface::Event(int event, DWORD param)
     {
     case PLUGINEVENT_COLORSCHANGED:
         InitGlobalGUIParameters();
+        ConfigurePictViewDarkModeFromHost();
         ViewerWindowQueue.BroadcastMessage(WM_USER_VIEWERCFGCHNG, 0, 0);
         break;
 
     case PLUGINEVENT_SETTINGCHANGE:
+        ConfigurePictViewDarkModeFromHost();
         ViewerWindowQueue.BroadcastMessage(WM_USER_SETTINGCHANGE, 0, 0);
         break;
 
@@ -3632,6 +3634,14 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_VIEWERCFGCHNG:
     {
+        ConfigurePictViewDarkModeFromHost();
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
+        if (MenuBar != NULL)
+            InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
+        if (HRebar != NULL)
+            InvalidateRect(HRebar, NULL, TRUE);
+        if (StatusBar != NULL && StatusBar->HWindow != NULL)
+            InvalidateRect(StatusBar->HWindow, NULL, TRUE);
         if (Renderer.HWindow != NULL)
             SendMessage(Renderer.HWindow, uMsg, wParam, lParam);
         return 0;
@@ -3639,10 +3649,19 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_SETTINGCHANGE:
     {
+        ConfigurePictViewDarkModeFromHost();
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
         if (MenuBar != NULL)
+        {
             MenuBar->SetFont();
+            InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
+        }
         if (ToolBar != NULL)
             ToolBar->SetFont();
+        if (HRebar != NULL)
+            InvalidateRect(HRebar, NULL, TRUE);
+        if (StatusBar != NULL && StatusBar->HWindow != NULL)
+            InvalidateRect(StatusBar->HWindow, NULL, TRUE);
         if (HHistogramWindow != NULL)
             SendMessage(HHistogramWindow, WM_USER_SETTINGCHANGE, wParam, lParam);
         return 0;

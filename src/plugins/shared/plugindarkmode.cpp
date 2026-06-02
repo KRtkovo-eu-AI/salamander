@@ -44,6 +44,7 @@ void ResetPluginBrushes()
 
 const UINT_PTR PLUGIN_DARKMODE_HEADER_SUBCLASS_ID = 0x50444844; // "PDHD"
 const UINT_PTR PLUGIN_DARKMODE_STATUS_SUBCLASS_ID = 0x50445342; // "PDSB"
+const UINT_PTR PLUGIN_DARKMODE_TAB_SUBCLASS_ID = 0x50445442;    // "PDTB"
 
 void FillPluginColorRect(HDC hdc, const RECT* rect, COLORREF color)
 {
@@ -308,6 +309,127 @@ void EnsurePluginDarkStatusBarSubclass(HWND hwnd, BOOL dark)
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
+void PaintPluginDarkTabControl(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL)
+        return;
+
+    PluginDarkModeColors colors = PluginDarkMode_GetColors();
+    RECT client;
+    GetClientRect(hwnd, &client);
+    FillPluginColorRect(hdc, &client, colors.background);
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    COLORREF oldText = SetTextColor(hdc, colors.readableText);
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(0x55, 0x55, 0x55));
+    HPEN oldPen = borderPen != NULL ? reinterpret_cast<HPEN>(SelectObject(hdc, borderPen)) : NULL;
+
+    const int count = TabCtrl_GetItemCount(hwnd);
+    const int selected = TabCtrl_GetCurSel(hwnd);
+    for (int i = 0; i < count; ++i)
+    {
+        RECT item;
+        if (!TabCtrl_GetItemRect(hwnd, i, &item))
+            continue;
+
+        const BOOL isSelected = i == selected;
+        FillPluginColorRect(hdc, &item, isSelected ? RGB(0x3A, 0x3A, 0x3A) : colors.background);
+        if (borderPen != NULL)
+        {
+            MoveToEx(hdc, item.left, item.bottom - 1, NULL);
+            LineTo(hdc, item.left, item.top);
+            LineTo(hdc, item.right - 1, item.top);
+            LineTo(hdc, item.right - 1, item.bottom);
+        }
+
+        TCHAR text[256] = {0};
+        TCITEM tci = {0};
+        tci.mask = TCIF_TEXT;
+        tci.pszText = text;
+        tci.cchTextMax = _countof(text);
+        SendMessage(hwnd, TCM_GETITEM, i, reinterpret_cast<LPARAM>(&tci));
+
+        RECT textRect = item;
+        textRect.left += 8;
+        textRect.right -= 8;
+        DrawText(hdc, text, -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS);
+    }
+
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    if (borderPen != NULL)
+        DeleteObject(borderPen);
+    SetBkMode(hdc, oldBkMode);
+    SetTextColor(hdc, oldText);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+LRESULT CALLBACK PluginDarkTabSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                       UINT_PTR subclassId, DWORD_PTR)
+{
+    if (subclassId != PLUGIN_DARKMODE_TAB_SUBCLASS_ID)
+        return DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, PluginDarkTabSubclass, PLUGIN_DARKMODE_TAB_SUBCLASS_ID);
+        break;
+
+    case WM_ERASEBKGND:
+        if (PluginDarkMode_ShouldUseDark())
+            return TRUE;
+        break;
+
+    case WM_PAINT:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            PaintPluginDarkTabControl(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PaintPluginDarkTabControl(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case TCM_INSERTITEM:
+    case TCM_DELETEITEM:
+    case TCM_DELETEALLITEMS:
+    case TCM_SETCURSEL:
+    case TCM_SETITEM:
+    case WM_SETTEXT:
+    case WM_SIZE:
+    case WM_THEMECHANGED:
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsurePluginDarkTabSubclass(HWND hwnd, BOOL dark)
+{
+    if (hwnd == NULL)
+        return;
+    if (dark)
+        SetWindowSubclass(hwnd, PluginDarkTabSubclass, PLUGIN_DARKMODE_TAB_SUBCLASS_ID, 0);
+    else
+        RemoveWindowSubclass(hwnd, PluginDarkTabSubclass, PLUGIN_DARKMODE_TAB_SUBCLASS_ID);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
 COLORREF EnsureReadable(COLORREF fg, COLORREF bg)
 {
     const int bl = (GetRValue(bg) * 30 + GetGValue(bg) * 59 + GetBValue(bg) * 11) / 100;
@@ -392,8 +514,14 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
         EnsurePluginDarkStatusBarSubclass(hwnd, dark);
         InvalidateRect(hwnd, NULL, TRUE);
     }
-    else if (wcscmp(cls, L"SysTabControl32") == 0 || wcscmp(cls, L"msctls_progress32") == 0 ||
-             wcscmp(cls, L"msctls_updown32") == 0)
+    else if (wcscmp(cls, L"SysTabControl32") == 0)
+    {
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        EnsurePluginDarkTabSubclass(hwnd, dark);
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+    else if (wcscmp(cls, L"msctls_progress32") == 0 || wcscmp(cls, L"msctls_updown32") == 0)
     {
         if (gSetWindowTheme != NULL)
             gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
@@ -423,6 +551,8 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
                 gSetWindowTheme(hwnd, dark ? L"" : nullptr, nullptr);
             else if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX || type == BS_AUTO3STATE ||
                      type == BS_3STATE || type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON)
+                gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+            else
                 gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
             InvalidateRect(hwnd, NULL, TRUE);
         }
