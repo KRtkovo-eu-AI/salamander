@@ -202,9 +202,19 @@ CPropPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CConfigurationDialog
 //
 
-// helper object for centering the configuration dialog over its parent
+// helper object for centering and darkening the configuration property sheet
 class CCenteredPropertyWindow : public CWindow
 {
+public:
+    void ApplyDarkMode()
+    {
+        ApplyFileCompDarkMode(HWindow);
+
+        HWND tab = PropSheet_GetTabControl(HWindow);
+        if (tab != NULL)
+            DarkModeApplyWindow(tab);
+    }
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
@@ -218,11 +228,58 @@ protected:
             break;
         }
 
-        case WM_APP + 1000: // detach from the dialog after centering
+        case WM_APP + 1000: // deferred dark-mode apply/redraw after the property sheet creates its children
         {
-            DetachWindow();
-            delete this; // a bit of a hack, but nothing will touch 'this' anymore so it's fine
+            ApplyDarkMode();
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
             return 0;
+        }
+
+        case WM_THEMECHANGED:
+        {
+            ApplyDarkMode();
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return 0;
+        }
+
+        case WM_SETTINGCHANGE:
+        {
+            ConfigureFileCompDarkModeFromHost();
+            if (DarkModeHandleSettingChange(uMsg, lParam))
+            {
+                ApplyDarkMode();
+                RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+                return 0;
+            }
+            break;
+        }
+
+        case WM_ERASEBKGND:
+        {
+            if (DarkModeShouldUseDarkColors())
+            {
+                RECT r;
+                GetClientRect(HWindow, &r);
+                HBRUSH brush = CreateSolidBrush(DarkModeGetDialogBackgroundColor());
+                FillRect((HDC)wParam, &r, brush);
+                DeleteObject(brush);
+                return TRUE;
+            }
+            break;
+        }
+
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORMSGBOX:
+        case WM_CTLCOLORSCROLLBAR:
+        {
+            INT_PTR result = 0;
+            if (HandleFileCompDarkCtlColor(uMsg, wParam, lParam, &result))
+                return result;
+            break;
         }
         }
         return CWindow::WindowProc(uMsg, wParam, lParam);
@@ -261,7 +318,8 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
                 delete wnd; // the window is not attached, delete it right here
             else
             {
-                PostMessage(wnd->HWindow, WM_APP + 1000, 0, 0); // detach CCenteredPropertyWindow from the dialog
+                wnd->ApplyDarkMode();
+                PostMessage(wnd->HWindow, WM_APP + 1000, 0, 0); // deferred redraw after the property sheet creates its children
             }
         }
     }
