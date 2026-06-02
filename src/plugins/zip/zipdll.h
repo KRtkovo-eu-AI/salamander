@@ -101,7 +101,7 @@ public:
     virtual CPluginInterfaceForFSAbstract* WINAPI GetInterfaceForFS() { return NULL; }
     virtual CPluginInterfaceForThumbLoaderAbstract* WINAPI GetInterfaceForThumbLoader() { return NULL; }
 
-    virtual void WINAPI Event(int event, DWORD param) {}
+    virtual void WINAPI Event(int event, DWORD param);
     virtual void WINAPI ClearHistory(HWND parent) {}
     virtual void WINAPI AcceptChangeOnPathNotification(const char* path, BOOL includingSubdirs) {}
 

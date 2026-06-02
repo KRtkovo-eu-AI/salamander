@@ -23,7 +23,10 @@
 #include "spl_gui.h"
 #include "spl_menu.h"
 #include "dbg.h"
+#include "mhandles.h"
 
 #include "array2.h"
 
 #include "config.h"
+
+#include "../../darkmode.h"

@@ -59,6 +59,131 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 // interface providing customized Windows controls used in Salamander
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
+namespace
+{
+HBRUSH ZIPDarkModeDialogBrush = NULL;
+COLORREF ZIPDarkModeDialogBrushColor = CLR_INVALID;
+BOOL ZIPHostPolicyKnown = FALSE;
+BOOL ZIPHostUseWindowsDarkMode = FALSE;
+COLORREF ZIPHostSchemeText = CLR_INVALID;
+COLORREF ZIPHostSchemeBackground = CLR_INVALID;
+DWORD ZIPMainThreadId = 0;
+
+HBRUSH ZIPGetDarkModeDialogBrush(COLORREF background)
+{
+    if (ZIPDarkModeDialogBrush == NULL || ZIPDarkModeDialogBrushColor != background)
+    {
+        if (ZIPDarkModeDialogBrush != NULL)
+            DeleteObject(ZIPDarkModeDialogBrush);
+        ZIPDarkModeDialogBrush = CreateSolidBrush(background);
+        ZIPDarkModeDialogBrushColor = background;
+    }
+    return ZIPDarkModeDialogBrush;
+}
+
+void ReleaseZIPDarkModeResources()
+{
+    if (ZIPDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(ZIPDarkModeDialogBrush);
+        ZIPDarkModeDialogBrush = NULL;
+        ZIPDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL ZIPCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL &&
+           ZIPMainThreadId != 0 &&
+           GetCurrentThreadId() == ZIPMainThreadId;
+}
+
+void RefreshZIPDarkModeFromHost()
+{
+    if (!ZIPCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
+    {
+        ZIPHostPolicyKnown = TRUE;
+        ZIPHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (ZIPHostPolicyKnown && ZIPHostUseWindowsDarkMode)
+    {
+        ZIPHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        ZIPHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL ZIPShouldUseWindowsDarkMode()
+{
+    return ZIPHostPolicyKnown && ZIPHostUseWindowsDarkMode;
+}
+
+void ConfigureZIPDarkModeFromHost()
+{
+    RefreshZIPDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = ZIPShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && ZIPHostSchemeText != CLR_INVALID && ZIPHostSchemeBackground != CLR_INVALID)
+    {
+        text = ZIPHostSchemeText;
+        background = ZIPHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = ZIPGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyZIPDarkMode(HWND hwnd)
+{
+    ConfigureZIPDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyZIPDarkModeIfSelected(HWND hwnd)
+{
+    if (!ZIPShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyZIPDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleZIPDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!ZIPShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureZIPDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 // configuration key definitions
 const char* CONFIG_LEVEL = "Level";
 const char* CONFIG_ENCRYPTMETHOD = "Encryption Method";
@@ -151,6 +276,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // obtain the interface providing customized Windows controls used in Salamander
     SalamanderGUI = salamander->GetSalamanderGUI();
 
+    ZIPMainThreadId = GetCurrentThreadId();
+    RefreshZIPDarkModeFromHost();
+
     SalamanderGeneral->SetHelpFileName("zip.chm");
 
     /*
@@ -199,11 +327,21 @@ void CPluginInterface::About(HWND parent)
 BOOL CPluginInterface::Release(HWND parent, BOOL force)
 {
     CALL_STACK_MESSAGE2("CPluginInterface::Release(, %d)", force);
+    ReleaseZIPDarkModeResources();
     if (SfxLanguages)
         delete SfxLanguages;
     if (DefLanguage)
         delete DefLanguage;
     return TRUE;
+}
+
+void WINAPI CPluginInterface::Event(int event, DWORD param)
+{
+    if (event == PLUGINEVENT_COLORSCHANGED || event == PLUGINEVENT_CONFIGURATIONCHANGED || event == PLUGINEVENT_SETTINGCHANGE)
+    {
+        RefreshZIPDarkModeFromHost();
+        ConfigureZIPDarkModeFromHost();
+    }
 }
 
 void ValidateDefSfxFile()

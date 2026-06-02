@@ -113,6 +113,12 @@ protected:
     INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
+void RefreshSevenZipDarkModeFromHost();
+void ConfigureSevenZipDarkModeFromHost();
+void ApplySevenZipDarkMode(HWND hwnd);
+BOOL ApplySevenZipDarkModeIfSelected(HWND hwnd);
+BOOL HandleSevenZipDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+
 //****************************************************************************
 //
 // CEnterPasswordDialog

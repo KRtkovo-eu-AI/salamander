@@ -136,6 +136,31 @@ CCommentDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         return TRUE;
 
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -216,6 +241,7 @@ BOOL CCommentDialog::OnInit(WPARAM wParam, LPARAM lParam)
     }
 
     //CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -304,6 +330,31 @@ CWaitForDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
 
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -334,6 +385,7 @@ BOOL CWaitForDialog::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_FILENAME, EM_SETLIMITTEXT, MAX_PATH - 1, 0);
 
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -398,7 +450,33 @@ CChangeTextsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         SendDlgItemMessage(Dlg, IDC_ASK, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
         CenterDlgToParent();
+        ApplyZIPDarkMode(Dlg);
         return TRUE;
+    }
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
     }
     case WM_COMMAND:
         switch (LOWORD(wParam))
