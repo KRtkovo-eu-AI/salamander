@@ -34,7 +34,6 @@ void ApplyPictViewDarkMode(HWND hwnd)
 
 bool ApplyPictViewDarkModeIfSelected(HWND hwnd)
 {
-    ConfigurePictViewDarkModeFromHost();
     if (!PictViewShouldUseWindowsDarkMode())
         return false;
 
@@ -61,6 +60,9 @@ void QueuePictViewConfigPageRedraw(HWND hwnd)
 
 bool HandlePictViewDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& result)
 {
+    if (!PictViewShouldUseWindowsDarkMode())
+        return false;
+
     ConfigurePictViewDarkModeFromHost();
     LRESULT brush = 0;
     if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
@@ -803,35 +805,44 @@ void CConfigPageAdvanced::Transfer(CTransferInfo& ti)
 class CCenteredPropertyWindow : public CWindow
 {
 public:
-    CCenteredPropertyWindow() : Centered(FALSE) {}
+    CCenteredPropertyWindow(BOOL darkModeAttached) : Centered(FALSE), DarkModeAttached(darkModeAttached) {}
 
 protected:
     BOOL Centered;
+    BOOL DarkModeAttached;
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         switch (uMsg)
         {
         case WM_CREATE:
         {
-            ApplyPictViewDarkModeIfSelected(HWindow);
+            if (DarkModeAttached)
+                ApplyPictViewDarkMode(HWindow);
             break;
         }
 
         case WM_THEMECHANGED:
         {
-            ApplyPictViewDarkMode(HWindow);
-            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
-            return 0;
-        }
-
-        case WM_SETTINGCHANGE:
-        {
-            ConfigurePictViewDarkModeFromHost();
-            if (DarkModeHandleSettingChange(uMsg, lParam))
+            if (DarkModeAttached)
             {
                 ApplyPictViewDarkMode(HWindow);
                 RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
                 return 0;
+            }
+            break;
+        }
+
+        case WM_SETTINGCHANGE:
+        {
+            if (DarkModeAttached)
+            {
+                ConfigurePictViewDarkModeFromHost();
+                if (DarkModeHandleSettingChange(uMsg, lParam))
+                {
+                    ApplyPictViewDarkMode(HWindow);
+                    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+                    return 0;
+                }
             }
             break;
         }
@@ -844,24 +855,34 @@ protected:
         case WM_CTLCOLORMSGBOX:
         case WM_CTLCOLORSCROLLBAR:
         {
-            INT_PTR result = 0;
-            if (HandlePictViewDarkCtlColor(uMsg, wParam, lParam, result))
-                return result;
+            if (DarkModeAttached)
+            {
+                INT_PTR result = 0;
+                if (HandlePictViewDarkCtlColor(uMsg, wParam, lParam, result))
+                    return result;
+            }
             break;
         }
 
         case WM_NOTIFY:
         {
-            LPNMHDR hdr = (LPNMHDR)lParam;
-            if (hdr != NULL && hdr->code == TCN_SELCHANGE)
-                QueuePictViewConfigPageRedraw((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
+            if (DarkModeAttached)
+            {
+                LPNMHDR hdr = (LPNMHDR)lParam;
+                if (hdr != NULL && hdr->code == TCN_SELCHANGE)
+                    QueuePictViewConfigPageRedraw((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
+            }
             break;
         }
 
         case WM_USER_CFGPAGE_REDRAW:
         {
-            RedrawPictViewConfigPage((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
-            return 0;
+            if (DarkModeAttached)
+            {
+                RedrawPictViewConfigPage((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
+                return 0;
+            }
+            break;
         }
 
         case WM_WINDOWPOSCHANGING:
@@ -912,7 +933,7 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
     if (uMsg == PSCB_INITIALIZED) // attach to the dialog
     {
         BOOL keepAttached = ApplyPictViewDarkModeIfSelected(HWindow) ? TRUE : FALSE;
-        CCenteredPropertyWindow* wnd = new CCenteredPropertyWindow;
+        CCenteredPropertyWindow* wnd = new CCenteredPropertyWindow(keepAttached);
         if (wnd != NULL)
         {
             wnd->AttachToWindow(HWindow);
