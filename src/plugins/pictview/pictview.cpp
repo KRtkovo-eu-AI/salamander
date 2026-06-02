@@ -389,6 +389,8 @@ namespace
 {
 HBRUSH PictViewDarkModeDialogBrush = NULL;
 COLORREF PictViewDarkModeDialogBrushColor = CLR_INVALID;
+BOOL PictViewHostPolicyKnown = FALSE;
+BOOL PictViewHostUseWindowsDarkMode = FALSE;
 
 int PictViewColorLuminance(COLORREF color)
 {
@@ -432,13 +434,16 @@ void ReleasePictViewDarkModeResources()
 BOOL PictViewShouldUseWindowsDarkMode()
 {
     BOOL useWindowsDarkMode = FALSE;
-    if (SalamanderGeneral == NULL)
-        return FALSE;
-    return SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
-                                                &useWindowsDarkMode,
-                                                sizeof(useWindowsDarkMode),
-                                                NULL) &&
-           useWindowsDarkMode;
+    if (SalamanderGeneral != NULL &&
+        SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                             &useWindowsDarkMode,
+                                             sizeof(useWindowsDarkMode),
+                                             NULL))
+    {
+        PictViewHostPolicyKnown = TRUE;
+        PictViewHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+    return PictViewHostPolicyKnown && PictViewHostUseWindowsDarkMode;
 }
 
 void ConfigurePictViewDarkModeFromHost()
