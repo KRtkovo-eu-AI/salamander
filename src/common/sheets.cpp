@@ -920,6 +920,12 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // after the window is moved.
         PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
 
+        // The first selected page can finish creating before the holder has its
+        // final position/size. Queue one repaint after WM_INITDIALOG returns so
+        // light-scheme controls are painted immediately instead of appearing only
+        // after the window is moved.
+        PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
+
         break;
     }
 
