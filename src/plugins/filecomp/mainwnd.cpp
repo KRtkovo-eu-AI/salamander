@@ -29,8 +29,14 @@ void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
 
     if (toolbar != NULL)
     {
-        SendMessage(toolbar, TB_SETBKCOLOR, 0, background);
-        SendMessage(toolbar, TB_SETTEXTCOLOR, 0, text);
+#ifdef TB_SETCOLORSCHEME
+        COLORSCHEME scheme;
+        memset(&scheme, 0, sizeof(scheme));
+        scheme.dwSize = sizeof(scheme);
+        scheme.clrBtnHighlight = background;
+        scheme.clrBtnShadow = background;
+        SendMessage(toolbar, TB_SETCOLORSCHEME, 0, (LPARAM)&scheme);
+#endif
         InvalidateRect(toolbar, NULL, TRUE);
     }
 
