@@ -17,6 +17,16 @@ extern BOOL AlwaysOnTop;
 
 extern BOOL LoadOnStart;
 
+BOOL FileCompCanQueryHostDarkMode();
+void RefreshFileCompDarkModeFromHost();
+BOOL FileCompShouldUseWindowsDarkMode();
+COLORREF FileCompGetHostColor(int salamanderColor, COLORREF fallback);
+void ConfigureFileCompDarkModeFromHost();
+void ApplyFileCompDarkMode(HWND hwnd);
+BOOL ApplyFileCompDarkModeIfSelected(HWND hwnd);
+BOOL HandleFileCompDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+void ReleaseFileCompDarkModeResources();
+
 // ****************************************************************************
 //
 // Plugin interface

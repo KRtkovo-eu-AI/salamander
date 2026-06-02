@@ -52,9 +52,13 @@ void FillFindRect(HDC hdc, const RECT* rect, COLORREF color)
 
 void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHeader* tbHeader)
 {
-    DarkModeApplyTree(dialog);
-    DarkModeRefreshTitleBar(dialog);
-    DarkModeApplyStaticTextColors(dialog, NULL);
+    if (WinLib_DarkMode_ShouldApplyDialogTree(dialog))
+    {
+        DarkModeApplyTree(dialog);
+        DarkModeRefreshTitleBar(dialog);
+        DarkModeApplyStaticTextColors(dialog, NULL);
+        WinLib_DarkMode_PostDeferredRedraw(dialog);
+    }
 
     if (listView != NULL)
         DarkModeUpdateListViewColors(listView);

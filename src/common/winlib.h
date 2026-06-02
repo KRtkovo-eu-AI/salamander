@@ -36,6 +36,15 @@ void ReleaseWinLib();
 // je treba zavolat pred pouzivanim helpu
 BOOL SetupWinLibHelp(CWinLibHelp* winLibHelp);
 
+// Deferred repaint after dark-mode theme application/removal in common dialogs.
+#define WM_USER_COMMONDLG_DARKMODE_REDRAW (WM_APP + 416)
+
+// Returns TRUE only when dialog-tree dark-mode theming must run now: while
+// Windows dark colors are active, or once for a window that was previously
+// dark-themed and now needs cleanup after switching back to light mode.
+BOOL WinLib_DarkMode_ShouldApplyDialogTree(HWND hwnd);
+void WinLib_DarkMode_PostDeferredRedraw(HWND hwnd);
+
 class CWinLibHelp
 {
 public:

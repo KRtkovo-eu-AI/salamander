@@ -366,6 +366,25 @@ CPropPageColors::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             Preview2->SetFont(PageGeneral->GetCurrentFont());
             break;
         }
+        break;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureFileCompDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyFileCompDarkMode(HWindow);
+            LRESULT i = SendMessage(GetDlgItem(HWindow, IDC_ITEMS), CB_GETCURSEL, 0, 0);
+            UpdateColors(int(i));
+            if (Preview1 != NULL)
+                Preview1->RePaint();
+            if (Preview2 != NULL)
+                Preview2->RePaint();
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
     }
 
     case WM_SYSCOLORCHANGE:

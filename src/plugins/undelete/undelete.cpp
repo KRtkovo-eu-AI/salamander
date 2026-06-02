@@ -67,6 +67,134 @@ int SalamanderVersion = 0;
 
 CLUSTER_MAP_I cluster_map;
 
+namespace
+{
+HBRUSH UndeleteDarkModeDialogBrush = NULL;
+COLORREF UndeleteDarkModeDialogBrushColor = CLR_INVALID;
+BOOL UndeleteHostPolicyKnown = FALSE;
+BOOL UndeleteHostUseWindowsDarkMode = FALSE;
+COLORREF UndeleteHostSchemeText = CLR_INVALID;
+COLORREF UndeleteHostSchemeBackground = CLR_INVALID;
+DWORD UndeleteMainThreadId = 0;
+
+HBRUSH UndeleteGetDarkModeDialogBrush(COLORREF background)
+{
+    if (UndeleteDarkModeDialogBrush == NULL || UndeleteDarkModeDialogBrushColor != background)
+    {
+        if (UndeleteDarkModeDialogBrush != NULL)
+            DeleteObject(UndeleteDarkModeDialogBrush);
+        UndeleteDarkModeDialogBrush = CreateSolidBrush(background);
+        UndeleteDarkModeDialogBrushColor = background;
+    }
+    return UndeleteDarkModeDialogBrush;
+}
+
+BOOL UndeleteCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL &&
+           UndeleteMainThreadId != 0 &&
+           GetCurrentThreadId() == UndeleteMainThreadId;
+}
+
+BOOL UndeleteShouldUseWindowsDarkMode()
+{
+    return UndeleteHostPolicyKnown && UndeleteHostUseWindowsDarkMode;
+}
+}
+
+void ReleaseUndeleteDarkModeResources()
+{
+    if (UndeleteDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(UndeleteDarkModeDialogBrush);
+        UndeleteDarkModeDialogBrush = NULL;
+        UndeleteDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+
+void RefreshUndeleteDarkModeFromHost()
+{
+    // Some Undelete dialogs can be driven by worker UI loops. Salamander host
+    // configuration APIs are main-thread-only, so those dialogs reuse this
+    // cached snapshot instead of querying the host directly.
+    if (!UndeleteCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
+    {
+        UndeleteHostPolicyKnown = TRUE;
+        UndeleteHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (UndeleteHostPolicyKnown && UndeleteHostUseWindowsDarkMode)
+    {
+        UndeleteHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        UndeleteHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+void ConfigureUndeleteDarkModeFromHost()
+{
+    RefreshUndeleteDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = UndeleteShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && UndeleteHostSchemeText != CLR_INVALID && UndeleteHostSchemeBackground != CLR_INVALID)
+    {
+        text = UndeleteHostSchemeText;
+        background = UndeleteHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = UndeleteGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyUndeleteDarkMode(HWND hwnd)
+{
+    ConfigureUndeleteDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyUndeleteDarkModeIfSelected(HWND hwnd)
+{
+    if (!UndeleteShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyUndeleteDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleUndeleteDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!UndeleteShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureUndeleteDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 // ****************************************************************************
 //
 //  CTopIndexMem
@@ -235,8 +363,10 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // get Salamander interfaces
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    UndeleteMainThreadId = GetCurrentThreadId();
     SalamanderSafeFile = salamander->GetSalamanderSafeFile();
     SalamanderGUI = salamander->GetSalamanderGUI();
+    RefreshUndeleteDarkModeFromHost();
 
     // set help file name
     SalamanderGeneral->SetHelpFileName("undelete.chm");
@@ -297,6 +427,7 @@ BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
     CALL_STACK_MESSAGE2("CPluginInterface::Release(, %d)", force);
     ReleaseFS();
     OS<char>::OS_ReleaseLibraryData();
+    ReleaseUndeleteDarkModeResources();
     ReleaseWinLib(DLLInstance);
     /*if (ret && InterfaceForFS.GetActiveFSCount() != 0)
   {

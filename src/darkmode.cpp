@@ -5,6 +5,7 @@
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 
+#include <algorithm>
 #include <delayimp.h>
 #include <uxtheme.h>
 #include <commctrl.h>
@@ -391,11 +392,13 @@ void PaintDarkChoiceButton(HWND hwnd, HDC hdc)
     const BOOL enabled = IsWindowEnabled(hwnd);
     const LRESULT checkState = SendMessage(hwnd, BM_GETCHECK, 0, 0);
     const LRESULT buttonState = SendMessage(hwnd, BM_GETSTATE, 0, 0);
-    const int glyphSize = max(13, GetSystemMetrics(SM_CXMENUCHECK));
+    const int menuCheckWidth = GetSystemMetrics(SM_CXMENUCHECK);
+    const int glyphSize = menuCheckWidth > 13 ? menuCheckWidth : 13;
+    const int glyphTopOffset = static_cast<int>((rc.bottom - rc.top - glyphSize) / 2);
     RECT glyph = rc;
     glyph.left += 1;
     glyph.right = glyph.left + glyphSize;
-    glyph.top = rc.top + max(0, (rc.bottom - rc.top - glyphSize) / 2);
+    glyph.top = rc.top + (glyphTopOffset > 0 ? glyphTopOffset : 0);
     glyph.bottom = glyph.top + glyphSize;
 
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -500,12 +503,12 @@ void PaintDarkTabOverflowButton(HWND hwnd, HDC hdc)
 
     const DarkModeColors& colors = DarkModeGetColors();
     const COLORREF face = colors.usingSchemeColors ? colors.background : RGB(0x20, 0x20, 0x20);
-    const COLORREF hotFace = RGB(min(255, GetRValue(face) + 0x12),
-                                 min(255, GetGValue(face) + 0x12),
-                                 min(255, GetBValue(face) + 0x12));
-    const COLORREF pressedFace = RGB(max(0, GetRValue(face) - 0x10),
-                                     max(0, GetGValue(face) - 0x10),
-                                     max(0, GetBValue(face) - 0x10));
+    const COLORREF hotFace = RGB((std::min)(255, GetRValue(face) + 0x12),
+                                 (std::min)(255, GetGValue(face) + 0x12),
+                                 (std::min)(255, GetBValue(face) + 0x12));
+    const COLORREF pressedFace = RGB((std::max)(0, GetRValue(face) - 0x10),
+                                     (std::max)(0, GetGValue(face) - 0x10),
+                                     (std::max)(0, GetBValue(face) - 0x10));
     const COLORREF border = RGB(0x4A, 0x4A, 0x4A);
     const COLORREF arrow = IsWindowEnabled(hwnd) ? colors.readableText : RGB(0x88, 0x88, 0x88);
 
@@ -553,7 +556,7 @@ void PaintDarkTabOverflowButton(HWND hwnd, HDC hdc)
 
         const int width = button.right - button.left;
         const int height = button.bottom - button.top;
-        int arrowSize = min(width, height) / 3;
+        int arrowSize = (std::min)(width, height) / 3;
         if (arrowSize < 3)
             arrowSize = 3;
         if (arrowSize > 6)
@@ -824,7 +827,7 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
         if (i + 1 < count)
         {
             RECT edge = part;
-            edge.left = edge.right - max(1, borders[2]);
+            edge.left = edge.right - (borders[2] > 1 ? borders[2] : 1);
             FillRectWithColor(hdc, edge, RGB(0x4A, 0x4A, 0x4A));
         }
 
@@ -833,7 +836,8 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
 
         const LRESULT textLen = SendMessage(hwnd, SB_GETTEXTLENGTH, i, 0);
         const DWORD flags = HIWORD(textLen);
-        const int len = min(static_cast<int>(LOWORD(textLen)), 1023);
+        const int rawTextLen = static_cast<int>(LOWORD(textLen));
+        const int len = rawTextLen < 1023 ? rawTextLen : 1023;
         TCHAR text[1024];
         text[0] = 0;
         const LRESULT itemData = SendMessage(hwnd, SB_GETTEXT, i, reinterpret_cast<LPARAM>(text));
@@ -1407,6 +1411,15 @@ void DarkModeApplyTree(HWND hwnd)
     DarkModeApplyWindow(hwnd);
     ApplyListTreeThemeRecursive(hwnd, IsWindowsDarkSchemeSelected());
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
+}
+
+void DarkModeApplyMenuBar(HWND hwnd)
+{
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::ApplyMenuBar(hwnd, DarkModeShouldUseDarkColors());
+#else
+    (void)hwnd;
+#endif
 }
 
 void DarkModeRefreshTitleBar(HWND hwnd)

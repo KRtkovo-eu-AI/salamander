@@ -3,6 +3,28 @@
 
 #include "precomp.h"
 
+namespace
+{
+const UINT WM_USER_FILECOMP_CFGPAGE_REDRAW = WM_APP + 3252;
+
+void RedrawFileCompConfigPage(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    HWND parent = GetParent(hwnd);
+    if (parent != NULL)
+        RedrawWindow(parent, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
+
+void QueueFileCompConfigPageRedraw(HWND hwnd)
+{
+    if (hwnd != NULL)
+        PostMessage(hwnd, WM_USER_FILECOMP_CFGPAGE_REDRAW, 0, 0);
+}
+}
+
 UINT_PTR CALLBACK
 ComDlgHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -10,6 +32,7 @@ ComDlgHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
                         lParam);
     if (uiMsg == WM_INITDIALOG)
     {
+        ApplyFileCompDarkModeIfSelected(hdlg);
         // SalamanderGUI->ArrangeHorizontalLines(hdlg);  // we do not do this for Windows common dialogs
         CenterWindow(hdlg);
         return 1;
@@ -294,7 +317,80 @@ CCompareFilesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCommonPropSheetPage
 //
 
+INT_PTR
+CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+    {
+        if (ApplyFileCompDarkModeIfSelected(HWindow))
+            QueueFileCompConfigPageRedraw(HWindow);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyFileCompDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SHOWWINDOW:
+    {
+        if (wParam != FALSE)
+        {
+            if (ApplyFileCompDarkModeIfSelected(HWindow))
+                QueueFileCompConfigPageRedraw(HWindow);
+        }
+        break;
+    }
+
+    case WM_USER_FILECOMP_CFGPAGE_REDRAW:
+    {
+        RedrawFileCompConfigPage(HWindow);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureFileCompDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyFileCompDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_NOTIFY:
+    {
+        LPNMHDR hdr = (LPNMHDR)lParam;
+        if (hdr != NULL && hdr->code == PSN_SETACTIVE && FileCompShouldUseWindowsDarkMode())
+            QueueFileCompConfigPageRedraw(HWindow);
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleFileCompDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
+    }
+    return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
+
 void CCommonPropSheetPage::NotifDlgJustCreated()
 {
     SalGUI->ArrangeHorizontalLines(HWindow);
+    ApplyFileCompDarkMode(HWindow);
 }

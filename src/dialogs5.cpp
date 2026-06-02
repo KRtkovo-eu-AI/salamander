@@ -25,12 +25,7 @@ namespace
 {
 bool ShouldUsePluginsDarkPalette()
 {
-    if (DarkModeShouldUseDarkColors())
-        return true;
-
-    COLORREF background = DarkModeGetDialogBackgroundColor();
-    int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
-    return luminance < 128;
+    return DarkModeShouldUseDarkColors();
 }
 }
 
@@ -58,8 +53,13 @@ void CPluginsDlg::ApplyTheme()
     if (HListView == NULL)
         return;
 
-    DarkModeApplyTree(HWindow);
-    DarkModeRefreshTitleBar(HWindow);
+    if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+    {
+        DarkModeApplyTree(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyStaticTextColors(HWindow, NULL);
+        WinLib_DarkMode_PostDeferredRedraw(HWindow);
+    }
 
     const bool useDark = ShouldUsePluginsDarkPalette();
     const COLORREF text = useDark ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
@@ -1008,21 +1008,20 @@ CPluginsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyTheme();
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        break;
+        return TRUE;
     }
 
     case WM_SETTINGCHANGE:
     {
         if (DarkModeHandleSettingChange(uMsg, lParam))
             ApplyTheme();
-        break;
+        return TRUE;
     }
 
     case WM_SYSCOLORCHANGE:
     {
         ApplyTheme();
-        break;
+        return TRUE;
     }
     }
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);

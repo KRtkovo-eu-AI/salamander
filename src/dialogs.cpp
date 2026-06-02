@@ -1617,9 +1617,12 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             new CButton(HWindow, IDB_IGNORE, BTF_DROPDOWN);
 
         SetWindowText(GetDlgItem(HWindow, IDS_ERROR), Error);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -1735,9 +1738,12 @@ COverwriteDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         SetWindowText(GetDlgItem(HWindow, IDS_SOURCEATTR), SourceAttr);
         SetWindowText(GetDlgItem(HWindow, IDS_TARGETATTR), TargetAttr);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -1818,9 +1824,12 @@ CHiddenOrSystemDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             TRACE_E(LOW_MEMORY);
 
         SetWindowText(GetDlgItem(HWindow, IDS_ERROR), Error);
-        DarkModeApplyTree(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
