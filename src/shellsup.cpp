@@ -900,68 +900,6 @@ void ShellActionAux7(IDataObject* dataObject, CImpIDropSource* dropSource)
     }
 }
 
-BOOL IsArchiveOrFSDragItemValid(CFilesWindow* panel, int index)
-{
-    if (panel == NULL || panel->Dirs == NULL || panel->Files == NULL)
-        return FALSE;
-
-    int totalCount = panel->Dirs->Count + panel->Files->Count;
-    if (index < 0 || index >= totalCount)
-        return FALSE;
-
-    return !(index == 0 && panel->Dirs->Count > 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0);
-}
-
-BOOL ValidateArchiveDragSource(CFilesWindow* panel, int selectedCount, const int* indexes,
-                               int focusedIndex, int* dragItemCount)
-{
-    if (dragItemCount != NULL)
-        *dragItemCount = 0;
-
-    if (panel == NULL || panel->Dirs == NULL || panel->Files == NULL ||
-        !panel->Is(ptZIPArchive) || panel->GetZIPArchive() == NULL)
-    {
-        TRACE_E("ShellAction::archive::drag_files: aborting drag, archive source panel is invalid.");
-        return FALSE;
-    }
-
-    if (selectedCount < 0 || selectedCount > panel->Dirs->Count + panel->Files->Count)
-    {
-        TRACE_E("ShellAction::archive::drag_files: aborting drag, invalid selected count: " << selectedCount);
-        return FALSE;
-    }
-
-    if (selectedCount > 0)
-    {
-        if (indexes == NULL)
-        {
-            TRACE_E("ShellAction::archive::drag_files: aborting drag, selected item list is missing.");
-            return FALSE;
-        }
-        for (int i = 0; i < selectedCount; i++)
-        {
-            if (!IsArchiveOrFSDragItemValid(panel, indexes[i]))
-            {
-                TRACE_E("ShellAction::archive::drag_files: aborting drag, invalid selected item index: " << indexes[i]);
-                return FALSE;
-            }
-        }
-        if (dragItemCount != NULL)
-            *dragItemCount = selectedCount;
-        return TRUE;
-    }
-
-    if (!IsArchiveOrFSDragItemValid(panel, focusedIndex))
-    {
-        TRACE_E("ShellAction::archive::drag_files: aborting drag, selected count is zero and focused index is invalid: " << focusedIndex);
-        return FALSE;
-    }
-
-    if (dragItemCount != NULL)
-        *dragItemCount = 1;
-    return TRUE;
-}
-
 void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath, int& operation,
                            char* realDraggedPath, DWORD allowedEffects,
                            int srcType, const char* srcFSPath, BOOL leftMouseButton)
@@ -1333,15 +1271,6 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     {
         if (dragFiles)
         {
-            int dragItemCount = 0;
-            if (!ValidateArchiveDragSource(panel, count, indexes, index, &dragItemCount))
-            {
-                if (indexes != NULL)
-                    delete[] (indexes);
-                EndStopRefresh();
-                return;
-            }
-
             // if a single archive subdirectory is dragged, determine which one it is (to change the path
             // in the directory line and insert it into the command line)
             int i = -1;
