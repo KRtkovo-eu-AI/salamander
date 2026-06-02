@@ -1250,25 +1250,10 @@ BOOL CFilesWindow::OnMouseMove(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 
                         // if certain items are selected and we start dragging an unselected one,
                         // clear the selection
-                        int selectedCount = GetSelCount();
-                        int caretIndex = GetCaretIndex();
-                        int totalCount = Dirs->Count + Files->Count;
-                        if (selectedCount > 0 && caretIndex >= 0 && caretIndex < totalCount && !GetSel(caretIndex))
+                        if (!GetSel(GetCaretIndex()) && GetSelCount() > 0)
                         {
                             SetSel(FALSE, -1, TRUE);
                             PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0);
-                            selectedCount = 0;
-                        }
-
-                        if (Is(ptZIPArchive) && selectedCount == 0)
-                        {
-                            if (caretIndex < 0 || caretIndex >= totalCount ||
-                                caretIndex == 0 && Dirs->Count > 0 && strcmp(Dirs->At(0).Name, "..") == 0)
-                            {
-                                TRACE_E("CFilesWindow::OnMouseMove(): aborting archive drag, no valid selected or focused item.");
-                                IdleRefreshStates = TRUE;
-                                return TRUE;
-                            }
                         }
 
                         PerformingDragDrop = TRUE;
