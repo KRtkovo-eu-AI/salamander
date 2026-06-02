@@ -21,6 +21,7 @@ namespace
 {
 void ApplyPictViewDarkMode(HWND hwnd)
 {
+    ConfigurePictViewDarkModeFromHost();
     if (hwnd != NULL)
     {
         DarkModeApplyWindow(hwnd);
@@ -31,6 +32,7 @@ void ApplyPictViewDarkMode(HWND hwnd)
 
 bool HandlePictViewDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& result)
 {
+    ConfigurePictViewDarkModeFromHost();
     LRESULT brush = 0;
     if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
     {
@@ -90,12 +92,13 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyPictViewDarkMode(HWindow);
-        InvalidateRect(HWindow, NULL, TRUE);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         return TRUE;
     }
 
     case WM_SETTINGCHANGE:
     {
+        ConfigurePictViewDarkModeFromHost();
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
             ApplyPictViewDarkMode(HWindow);
@@ -147,12 +150,23 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyPictViewDarkMode(HWindow);
-        InvalidateRect(HWindow, NULL, TRUE);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         return TRUE;
+    }
+
+    case WM_SHOWWINDOW:
+    {
+        if (wParam != FALSE)
+        {
+            ApplyPictViewDarkMode(HWindow);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        }
+        break;
     }
 
     case WM_SETTINGCHANGE:
     {
+        ConfigurePictViewDarkModeFromHost();
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
             ApplyPictViewDarkMode(HWindow);
@@ -743,7 +757,11 @@ void CConfigPageAdvanced::Transfer(CTransferInfo& ti)
 // helper object for centering the configuration dialog to the parent
 class CCenteredPropertyWindow : public CWindow
 {
+public:
+    CCenteredPropertyWindow() : Centered(FALSE) {}
+
 protected:
+    BOOL Centered;
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         switch (uMsg)
@@ -754,14 +772,56 @@ protected:
             break;
         }
 
+        case WM_THEMECHANGED:
+        {
+            ApplyPictViewDarkMode(HWindow);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return 0;
+        }
+
+        case WM_SETTINGCHANGE:
+        {
+            ConfigurePictViewDarkModeFromHost();
+            if (DarkModeHandleSettingChange(uMsg, lParam))
+            {
+                ApplyPictViewDarkMode(HWindow);
+                RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+                return 0;
+            }
+            break;
+        }
+
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORMSGBOX:
+        case WM_CTLCOLORSCROLLBAR:
+        {
+            INT_PTR result = 0;
+            if (HandlePictViewDarkCtlColor(uMsg, wParam, lParam, result))
+                return result;
+            break;
+        }
+
+        case WM_NOTIFY:
+        {
+            LPNMHDR hdr = (LPNMHDR)lParam;
+            if (hdr != NULL && hdr->code == TCN_SELCHANGE)
+                RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+            break;
+        }
+
         case WM_WINDOWPOSCHANGING:
         {
             WINDOWPOS* pos = (WINDOWPOS*)lParam;
-            if (pos->flags & SWP_SHOWWINDOW)
+            if (!Centered && (pos->flags & SWP_SHOWWINDOW))
             {
                 HWND hParent = GetParent(HWindow);
                 if (hParent != NULL)
                     SalamanderGeneral->MultiMonCenterWindow(HWindow, hParent, TRUE);
+                Centered = TRUE;
             }
             break;
         }
@@ -809,7 +869,9 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
                 delete wnd; // the window is not attached, destroy it right here
             else
             {
-                PostMessage(wnd->HWindow, WM_USER_CFGDLGDETACH, 0, 0); // to detach CCenteredPropertyWindow from the dialog
+                // Keep the subclass attached for the lifetime of the property sheet.
+                // It handles dark CTLCOLOR/theme messages for the tab and button area
+                // outside individual property pages and redraws pages when switching tabs.
             }
         }
     }
@@ -1691,6 +1753,7 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             Highlights.ResetState();
 
         HListView = GetDlgItem(HWindow, IDC_IMGEXIF_LIST);
+        ApplyPictViewDarkMode(HWindow);
         DWORD exFlags = LVS_EX_FULLROWSELECT;
         DWORD origFlags = ListView_GetExtendedListViewStyle(HListView);
         ListView_SetExtendedListViewStyle(HListView, origFlags | exFlags); // 4.71

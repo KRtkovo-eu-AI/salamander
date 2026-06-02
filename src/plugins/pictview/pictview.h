@@ -505,6 +505,8 @@ void FillMenuHistory(CGUIMenuPopupAbstract* popup, int cmdFirst, BOOL filesHisto
 
 // refreshes G.rgbXXX items
 void InitGlobalGUIParameters(void);
+void ConfigurePictViewDarkModeFromHost();
+BOOL PictViewShouldUseWindowsDarkMode();
 void RebuildColors(SALCOLOR* colors);
 
 int ShowOneTimeMessage(HWND HParent, int msg, BOOL* pChecked, int flags = MSGBOXEX_YESNO | MSGBOXEX_SILENT,
