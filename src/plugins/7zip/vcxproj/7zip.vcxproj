@@ -131,6 +131,7 @@
     <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp">
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>DARKMODE_BACKEND_NO_PRECOMP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
       <LanguageStandard>stdcpplatest</LanguageStandard>
