@@ -34,6 +34,9 @@ void DarkModeApplyWindow(HWND hwnd);
 // Applies dark mode opt-in to the specified window and all of its descendants.
 void DarkModeApplyTree(HWND hwnd);
 
+// Applies or removes dark custom drawing for a native window menu bar.
+void DarkModeApplyMenuBar(HWND hwnd);
+
 // Refreshes the non-client area/title bar to match the current dark mode
 // preference and system state.
 void DarkModeRefreshTitleBar(HWND hwnd);

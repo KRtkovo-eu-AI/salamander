@@ -823,62 +823,80 @@ CRebar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         lParam);
     switch (uMsg)
     {
+    case WM_ERASEBKGND:
+    {
+        RECT r;
+        GetClientRect(HWindow, &r);
+        FillFileCompFaceRect((HDC)wParam, &r);
+        return TRUE;
+    }
+
     case WM_PAINT:
     {
-        int bandCount = int(SendMessage(HWindow, RB_GETBANDCOUNT, 0, 0));
-        // make sure the underline is drawn for text with a prefix (e.g. &Differences)
-        int i;
-        for (i = 0; i < bandCount; i++)
+        LRESULT ret = CWindow::WindowProc(uMsg, wParam, lParam);
+
+        HDC hdc = GetDC(HWindow);
+        if (hdc != NULL)
         {
-            char text[512];
-            *text = 0;
-            REBARBANDINFO rbbi;
-            rbbi.cbSize = sizeof(REBARBANDINFO);
-            rbbi.fMask = RBBIM_TEXT | RBBIM_HEADERSIZE;
-            rbbi.lpText = text;
-            rbbi.cch = 512;
-            SendMessage(HWindow, RB_GETBANDINFO, i, (LPARAM)&rbbi);
+            RECT client;
+            GetClientRect(HWindow, &client);
+            RECT gap = client;
+            gap.top = LONG(SendMessage(HWindow, RB_GETBARHEIGHT, 0, 0));
+            if (gap.top < gap.bottom)
+                FillFileCompFaceRect(hdc, &gap);
 
-            if (*text)
+            int bandCount = int(SendMessage(HWindow, RB_GETBANDCOUNT, 0, 0));
+            // make sure the underline is drawn for text with a prefix (e.g. &Differences)
+            int i;
+            for (i = 0; i < bandCount; i++)
             {
-                RECT r;
-                SendMessage(HWindow, RB_GETRECT, i, (LPARAM)&r);
-                //SendMessage(HWindow, RB_GETBANDBORDERS, i, (LPARAM)&borders);
+                char text[512];
+                *text = 0;
+                REBARBANDINFO rbbi;
+                rbbi.cbSize = sizeof(REBARBANDINFO);
+                rbbi.fMask = RBBIM_TEXT | RBBIM_HEADERSIZE;
+                rbbi.lpText = text;
+                rbbi.cch = 512;
+                SendMessage(HWindow, RB_GETBANDINFO, i, (LPARAM)&rbbi);
 
-                r.left += 9;
-                r.right = r.left + rbbi.cxHeader;
-                r.top = r.top + (r.bottom - r.top - EnvFontHeight) / 2 - 1;
-                r.bottom = r.top + EnvFontHeight + 1;
+                if (*text)
+                {
+                    RECT r;
+                    SendMessage(HWindow, RB_GETRECT, i, (LPARAM)&r);
+                    //SendMessage(HWindow, RB_GETBANDBORDERS, i, (LPARAM)&borders);
 
-                // make sure our text is not wiped during painting
-                ValidateRect(HWindow, &r);
-                r.right -= 13;
+                    r.left += 9;
+                    r.right = r.left + rbbi.cxHeader;
+                    r.top = r.top + (r.bottom - r.top - EnvFontHeight) / 2 - 1;
+                    r.bottom = r.top + EnvFontHeight + 1;
 
-                // draw our own text
-                HDC hdc = GetDC(HWindow);
-                HFONT oldFont = (HFONT)SelectObject(hdc, (HFONT)EnvFont);
-                COLORREF oldBkColor = SetBkColor(hdc, FileCompGetFaceColor());
-                COLORREF oldTextColor = SetTextColor(hdc, FileCompGetTextColor());
-                DrawText(hdc, text, -1, &r, DT_SINGLELINE | DT_TOP);
+                    r.right -= 13;
 
-                // line under the text
-                r.top += EnvFontHeight;
-                FillFileCompFaceRect(hdc, &r);
-                r.top -= EnvFontHeight;
+                    // draw our own text
+                    HFONT oldFont = (HFONT)SelectObject(hdc, (HFONT)EnvFont);
+                    COLORREF oldBkColor = SetBkColor(hdc, FileCompGetFaceColor());
+                    COLORREF oldTextColor = SetTextColor(hdc, FileCompGetTextColor());
+                    DrawText(hdc, text, -1, &r, DT_SINGLELINE | DT_TOP);
 
-                // area behind the text
-                r.left = r.right;
-                r.right += 13;
-                FillFileCompFaceRect(hdc, &r);
+                    // line under the text
+                    r.top += EnvFontHeight;
+                    FillFileCompFaceRect(hdc, &r);
+                    r.top -= EnvFontHeight;
 
-                SetTextColor(hdc, oldTextColor);
-                SetBkColor(hdc, oldBkColor);
-                SelectObject(hdc, oldFont);
-                ReleaseDC(HWindow, hdc);
+                    // area behind the text
+                    r.left = r.right;
+                    r.right += 13;
+                    FillFileCompFaceRect(hdc, &r);
+
+                    SetTextColor(hdc, oldTextColor);
+                    SetBkColor(hdc, oldBkColor);
+                    SelectObject(hdc, oldFont);
+                }
             }
+            ReleaseDC(HWindow, hdc);
         }
 
-        break;
+        return ret;
     }
 
     case WM_CTLCOLORSTATIC:

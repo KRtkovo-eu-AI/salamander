@@ -19,6 +19,33 @@ CBandParams BandsParams[2];
 
 const char* MAINWINDOW_CLASSNAME = "SFC Window Class";
 
+namespace
+{
+void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
+{
+    const bool dark = DarkModeShouldUseDarkColors();
+    const COLORREF background = dark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+    const COLORREF text = dark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+
+    if (toolbar != NULL)
+    {
+        SendMessage(toolbar, TB_SETBKCOLOR, 0, background);
+        SendMessage(toolbar, TB_SETTEXTCOLOR, 0, text);
+        InvalidateRect(toolbar, NULL, TRUE);
+    }
+
+    if (rebar != NULL)
+    {
+        SendMessage(rebar, RB_SETBKCOLOR, 0, background);
+        SendMessage(rebar, RB_SETTEXTCOLOR, 0, text);
+        InvalidateRect(rebar, NULL, TRUE);
+    }
+
+    DarkModeApplyMenuBar(hwnd);
+    DrawMenuBar(hwnd);
+}
+}
+
 CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UINT showCmd)
 {
     CALL_STACK_MESSAGE1("CMainWindow::CMainWindow(, , )");
@@ -218,6 +245,7 @@ BOOL CMainWindow::Init()
     RestoreRebarLayout();
 
     RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+    ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
 
     // create the window caption
     LeftHeader = new CFileHeaderWindow("");
@@ -314,6 +342,7 @@ BOOL CMainWindow::Init()
     Initialized = TRUE;
 
     ApplyFileCompDarkMode(HWindow);
+    ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar != NULL ? Rebar->HWindow : NULL);
 
     // ensure the worker thread gets started
     PostMessage(HWindow, WM_COMMAND, CM_RECOMPARE, 0);
@@ -1661,6 +1690,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case RBN_HEIGHTCHANGE:
             {
                 RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+                ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
                 if (Initialized)
                     LayoutChilds();
                 return 0;
@@ -1754,6 +1784,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyFileCompDarkMode(HWindow);
+        ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar != NULL ? Rebar->HWindow : NULL);
         UpdateDefaultColors(Colors, Palette);
         ComboBox->ChangeColors();
         if (DataValid)
@@ -2178,6 +2209,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (wParam & CC_COLORS)
         {
             ApplyFileCompDarkMode(HWindow);
+            ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar != NULL ? Rebar->HWindow : NULL);
             UpdateDefaultColors(Colors, Palette);
             ComboBox->ChangeColors();
             if (UsePalette)

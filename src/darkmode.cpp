@@ -1220,6 +1220,15 @@ void DarkModeApplyTree(HWND hwnd)
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
+void DarkModeApplyMenuBar(HWND hwnd)
+{
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::ApplyMenuBar(hwnd, DarkModeShouldUseDarkColors());
+#else
+    (void)hwnd;
+#endif
+}
+
 void DarkModeRefreshTitleBar(HWND hwnd)
 {
     EnsureInitialized();

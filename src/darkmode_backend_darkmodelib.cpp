@@ -113,6 +113,7 @@ void ApplyTree(HWND hwnd)
         {
             dmlib::setDarkWndNotifySafe(hwnd);
             dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+            ApplyMenuBar(hwnd, true);
         }
         else
         {
@@ -120,11 +121,30 @@ void ApplyTree(HWND hwnd)
             // darkmodelib to apply even its light-mode themes/subclasses here; just
             // tear down any hooks left from a previous Windows Dark Mode session.
             RemoveWindowAndChildSubclasses(hwnd);
+            ApplyMenuBar(hwnd, false);
         }
         dmlib::setDarkTitleBar(hwnd);
     }
 #else
     (void)hwnd;
+#endif
+}
+
+
+void ApplyMenuBar(HWND hwnd, bool enableDark)
+{
+#if USE_DARKMODELIB
+    if (hwnd != NULL)
+    {
+        if (enableDark)
+            dmlib::setWindowMenuBarSubclass(hwnd);
+        else
+            dmlib::removeWindowMenuBarSubclass(hwnd);
+        DrawMenuBar(hwnd);
+    }
+#else
+    (void)hwnd;
+    (void)enableDark;
 #endif
 }
 
