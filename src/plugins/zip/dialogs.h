@@ -487,6 +487,12 @@ extern CSfxLang* DefLanguage;
 extern TIndirectArray2<CFavoriteSfx> Favorities;
 extern CFavoriteSfx LastUsedSfxSet;
 
+void RefreshZIPDarkModeFromHost();
+void ConfigureZIPDarkModeFromHost();
+void ApplyZIPDarkMode(HWND hwnd);
+BOOL ApplyZIPDarkModeIfSelected(HWND hwnd);
+BOOL HandleZIPDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+
 int CompareMenuItems(char* name1, char* name2);
 
 BOOL LoadSfxLangs(HWND dlg, char* selectedSfxFile, bool isConfig);

@@ -223,6 +223,31 @@ INT_PTR CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -333,6 +358,7 @@ BOOL CPackDialog::OnInit(WPARAM wParam, LPARAM lParam)
     ResetControls();
 
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -783,6 +809,31 @@ INT_PTR CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -858,6 +909,7 @@ BOOL CConfigDialog::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_CFG_LISTINFOPACKEDSIZE, BM_SETCHECK, Config->ListInfoPackedSize ? BST_CHECKED : BST_UNCHECKED, 0);
 
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1041,6 +1093,31 @@ INT_PTR CPasswordDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1076,6 +1153,7 @@ BOOL CPasswordDialog::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_FILE, WM_SETTEXT, 0, (LPARAM)File);
     SendDlgItemMessage(Dlg, IDC_PASSWORD, EM_SETLIMITTEXT, MAX_PASSWORD - 1, 0);
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1137,6 +1215,31 @@ INT_PTR CLowDiskSpaceDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1190,6 +1293,7 @@ BOOL CLowDiskSpaceDialog::OnInit(WPARAM wParam, LPARAM lParam)
     }
     SendDlgItemMessage(Dlg, IDC_VOLUMESIZE, WM_SETTEXT, 0, (LPARAM)buf);
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1238,12 +1342,37 @@ INT_PTR CChangeDiskDialog::Proceed()
 
 INT_PTR CChangeDiskDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    CALL_STACK_MESSAGE4("CChangeDiskDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg,
-                        wParam, lParam);
+    CALL_STACK_MESSAGE4("CChangeDiskDialog::DialogProc(0x%X, 0x%IX, 0x%IX)",
+                        uMsg, wParam, lParam);
     switch (uMsg)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1265,6 +1394,7 @@ BOOL CChangeDiskDialog::OnInit(WPARAM wParam, LPARAM lParam)
     CALL_STACK_MESSAGE3("CChangeDiskDialog::OnInit(0x%IX, 0x%IX)", wParam, lParam);
     SendDlgItemMessage(Dlg, IDC_CHDISKTEXT, WM_SETTEXT, 0, (LPARAM)Text);
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1311,12 +1441,37 @@ INT_PTR CChangeDiskDialog2::Proceed()
 
 INT_PTR CChangeDiskDialog2::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    CALL_STACK_MESSAGE4("CChangeDiskDialog2::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg,
-                        wParam, lParam);
+    CALL_STACK_MESSAGE4("CChangeDiskDialog2::DialogProc(0x%X, 0x%IX, 0x%IX)",
+                        uMsg, wParam, lParam);
     switch (uMsg)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1346,6 +1501,7 @@ BOOL CChangeDiskDialog2::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_FILENAME, WM_SETTEXT, 0, (LPARAM)FileName);
 
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1467,12 +1623,37 @@ INT_PTR CChangeDiskDialog3::Proceed()
 
 INT_PTR CChangeDiskDialog3::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    CALL_STACK_MESSAGE4("CChangeDiskDialog3::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg,
-                        wParam, lParam);
+    CALL_STACK_MESSAGE4("CChangeDiskDialog3::DialogProc(0x%X, 0x%IX, 0x%IX)",
+                        uMsg, wParam, lParam);
     switch (uMsg)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1524,6 +1705,7 @@ BOOL CChangeDiskDialog3::OnInit(WPARAM wParam, LPARAM lParam)
         EnableWindow(GetDlgItem(Dlg, IDC_SEQNAME), FALSE);
     }
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1703,6 +1885,31 @@ INT_PTR COverwriteDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1738,6 +1945,7 @@ BOOL COverwriteDialog::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_FILE, WM_SETTEXT, 0, (LPARAM)File);
     SendDlgItemMessage(Dlg, IDC_FILEATTR, WM_SETTEXT, 0, (LPARAM)Attr);
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1790,6 +1998,31 @@ INT_PTR COverwriteDialog2::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1820,6 +2053,7 @@ BOOL COverwriteDialog2::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_FILE, WM_SETTEXT, 0, (LPARAM)File);
     SendDlgItemMessage(Dlg, IDC_FILEATTR, WM_SETTEXT, 0, (LPARAM)Attr);
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1875,6 +2109,31 @@ CRenFavDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -1898,6 +2157,7 @@ BOOL CRenFavDialog::OnInit(WPARAM wParam, LPARAM lParam)
     if (Rename)
         SetWindowText(Dlg, LoadStr(IDS_RENAMEFAVSET));
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
@@ -1967,6 +2227,31 @@ CCreateSFXDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureZIPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZIPDarkMode(Dlg);
+            RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZIPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -2009,6 +2294,7 @@ BOOL CCreateSFXDialog::OnInit(WPARAM wParam, LPARAM lParam)
     }
 
     CenterDlgToParent();
+    ApplyZIPDarkMode(Dlg);
     return TRUE;
 }
 
