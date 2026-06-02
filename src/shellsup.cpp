@@ -1204,12 +1204,15 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     }
 
     BOOL dragFiles = action == saLeftDragFiles || action == saRightDragFiles;
+    BOOL canCreateFakeDragData = SalShExtSharedMemView != NULL;
     if (panel->Is(ptZIPArchive) && action != saContextMenu &&
-        (!dragFiles && action != saCopyToClipboard || !SalShExtRegistered))
+        ((!dragFiles && action != saCopyToClipboard) ||
+         (dragFiles && !canCreateFakeDragData) ||
+         (action == saCopyToClipboard && !SalShExtRegistered)))
     {
-        if (dragFiles && !SalShExtRegistered)
+        if (dragFiles && !canCreateFakeDragData)
         {
-            TRACE_E("Drag&drop from archives is not possible, shell extension utils\\salextx86.dll or utils\\salextx64.dll is missing!");
+            TRACE_E("Drag&drop from archives is not possible, shell extension shared memory is not available!");
         }
         if (action == saCopyToClipboard && !SalShExtRegistered)
             TRACE_E("Copy&paste from archives is not possible, shell extension utils\\salextx86.dll or utils\\salextx64.dll is missing!");
@@ -1217,13 +1220,13 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         return;
     }
     if (panel->Is(ptPluginFS) && dragFiles &&
-        (!SalShExtRegistered ||
+        (!canCreateFakeDragData ||
          !panel->GetPluginFS()->NotEmpty() ||
          !panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) &&    // FS umi "move from FS"
              !panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS))) // FS umi "copy from FS"
     {
-        if (!SalShExtRegistered)
-            TRACE_E("Drag&drop from file-systems is not possible, shell extension utils\\salextx86.dll or utils\\salextx64.dll is missing!");
+        if (!canCreateFakeDragData)
+            TRACE_E("Drag&drop from file-systems is not possible, shell extension shared memory is not available!");
         if (!panel->GetPluginFS()->NotEmpty())
             TRACE_E("Unexpected situation in ShellAction(): panel->GetPluginFS() is empty!");
         return;
@@ -1267,7 +1270,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     targetPath[0] = 0;
     char realDraggedPath[2 * MAX_PATH];
     realDraggedPath[0] = 0;
-    if (panel->Is(ptZIPArchive) && SalShExtRegistered)
+    if (panel->Is(ptZIPArchive) && (dragFiles ? canCreateFakeDragData : SalShExtRegistered))
     {
         if (dragFiles)
         {
@@ -1538,7 +1541,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
             }
             else
             {
-                if (dragFiles && SalShExtRegistered &&
+                if (dragFiles && canCreateFakeDragData &&
                     panel->GetPluginFS()->NotEmpty() &&
                     (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) || // FS umi "move from FS"
                      panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)))  // FS umi "copy from FS"
