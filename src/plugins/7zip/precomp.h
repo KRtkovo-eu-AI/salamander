@@ -52,3 +52,4 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
+#include "../../darkmode.h"

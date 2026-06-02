@@ -434,7 +434,37 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // horizontally and vertically center the dialog relative to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
+        Apply7ZipDarkMode(HWindow);
         break; // request focus from DefDlgProc
+
+    case WM_THEMECHANGED:
+        Apply7ZipDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+
+    case WM_SETTINGCHANGE:
+        Configure7ZipDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            Apply7ZipDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (Handle7ZipDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
 
     case WM_COMMAND:
         break;
@@ -446,6 +476,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 void CCommonDialog::NotifDlgJustCreated()
 {
     SalamanderGUI->ArrangeHorizontalLines(HWindow);
+    Apply7ZipDarkMode(HWindow);
 }
 
 //****************************************************************************

@@ -59,6 +59,135 @@ CSalamanderDebugAbstract* SalamanderDebug = NULL;
 // interface providing customized Windows controls used in Salamander
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
+
+namespace
+{
+BOOL ZipHostPolicyKnown = FALSE;
+BOOL ZipHostUseWindowsDarkMode = FALSE;
+COLORREF ZipHostSchemeText = CLR_INVALID;
+COLORREF ZipHostSchemeBackground = CLR_INVALID;
+DWORD ZipMainThreadId = 0;
+HBRUSH ZipDarkModeDialogBrush = NULL;
+COLORREF ZipDarkModeDialogBrushColor = CLR_INVALID;
+
+HBRUSH ZipGetDarkModeDialogBrush(COLORREF background)
+{
+    if (ZipDarkModeDialogBrush == NULL || ZipDarkModeDialogBrushColor != background)
+    {
+        if (ZipDarkModeDialogBrush != NULL)
+            DeleteObject(ZipDarkModeDialogBrush);
+        ZipDarkModeDialogBrush = CreateSolidBrush(background);
+        ZipDarkModeDialogBrushColor = background;
+    }
+    return ZipDarkModeDialogBrush;
+}
+}
+
+void ReleaseZipDarkModeResources()
+{
+    if (ZipDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(ZipDarkModeDialogBrush);
+        ZipDarkModeDialogBrush = NULL;
+        ZipDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+
+BOOL ZipCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL &&
+           ZipMainThreadId != 0 &&
+           GetCurrentThreadId() == ZipMainThreadId;
+}
+
+void RefreshZipDarkModeFromHost()
+{
+    // Archiver dialogs can be shown from operation UI loops. Salamander host
+    // configuration/color APIs are main-thread-only, so non-main UI consumes
+    // this cached snapshot.
+    if (!ZipCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
+    {
+        ZipHostPolicyKnown = TRUE;
+        ZipHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (ZipHostPolicyKnown && ZipHostUseWindowsDarkMode)
+    {
+        ZipHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        ZipHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL ZipShouldUseWindowsDarkMode()
+{
+    return ZipHostPolicyKnown && ZipHostUseWindowsDarkMode;
+}
+
+void ConfigureZipDarkModeFromHost()
+{
+    RefreshZipDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = ZipShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && ZipHostSchemeText != CLR_INVALID && ZipHostSchemeBackground != CLR_INVALID)
+    {
+        text = ZipHostSchemeText;
+        background = ZipHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = ZipGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyZipDarkMode(HWND hwnd)
+{
+    ConfigureZipDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyZipDarkModeIfSelected(HWND hwnd)
+{
+    if (!ZipShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyZipDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleZipDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!ZipShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureZipDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 // configuration key definitions
 const char* CONFIG_LEVEL = "Level";
 const char* CONFIG_ENCRYPTMETHOD = "Encryption Method";
@@ -137,6 +266,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
+    ZipMainThreadId = GetCurrentThreadId();
+
     // load the language module (.slg)
     HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "ZIP" /* neprekladat! */);
     if (HLanguage == NULL)
@@ -147,6 +278,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderSafeFile = salamander->GetSalamanderSafeFile();
     SalamanderCrypt = SalamanderGeneral->GetSalamanderCrypt();
     SalamanderBZIP2 = SalamanderGeneral->GetSalamanderBZIP2();
+    RefreshZipDarkModeFromHost();
 
     // obtain the interface providing customized Windows controls used in Salamander
     SalamanderGUI = salamander->GetSalamanderGUI();

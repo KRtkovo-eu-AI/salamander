@@ -236,3 +236,10 @@ extern CPluginInterface PluginInterface;
 #define CRT_MEM_DUMP_ALL_OBJECTS_SINCE ;
 
 #endif //DUMP_MEM_OBJECTS
+
+void Release7ZipDarkModeResources();
+BOOL SevenZipShouldUseWindowsDarkMode();
+void Configure7ZipDarkModeFromHost();
+void Apply7ZipDarkMode(HWND hwnd);
+BOOL Apply7ZipDarkModeIfSelected(HWND hwnd);
+BOOL Handle7ZipDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);

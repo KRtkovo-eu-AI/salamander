@@ -27,6 +27,7 @@
 #include "common.h"
 #include "add_del.h"
 #include "dialogs.h"
+#include "main.h"
 
 WNDPROC OrigTextControlProc;
 WNDPROC OrigCBEditCtrlProc;
@@ -49,14 +50,16 @@ LRESULT CALLBACK TextControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
         GetClientRect(hWnd, &r);
         BeginPaint(hWnd, &ps);
-        HBRUSH DialogBrush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+        HBRUSH DialogBrush = CreateSolidBrush(DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() :
+                                                                   GetSysColor(COLOR_BTNFACE));
         if (DialogBrush)
         {
             FillRect(ps.hdc, &r, DialogBrush);
             DeleteObject(DialogBrush);
         }
         UINT format = DT_SINGLELINE | DT_BOTTOM | DT_NOPREFIX;
-        DWORD color = GetSysColor(COLOR_BTNTEXT);
+        DWORD color = DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() :
+                                                        GetSysColor(COLOR_BTNTEXT);
         HFONT hCurrentFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
         int ID = GetDlgCtrlID(hWnd);
         format |= DT_PATH_ELLIPSIS;
@@ -92,7 +95,8 @@ LRESULT CALLBACK SmallIconProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
         RECT r;
         GetClientRect(hWnd, &r);
 
-        HBRUSH DialogBrush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+        HBRUSH DialogBrush = CreateSolidBrush(DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() :
+                                                                   GetSysColor(COLOR_BTNFACE));
         if (DialogBrush)
         {
             FillRect(ps.hdc, &r, DialogBrush);
@@ -223,6 +227,36 @@ INT_PTR CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+
+    case WM_THEMECHANGED:
+        ApplyZipDarkMode(Dlg);
+        RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+
+    case WM_SETTINGCHANGE:
+        ConfigureZipDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZipDarkMode(Dlg);
+            InvalidateRect(Dlg, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZipDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
+
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -333,6 +367,7 @@ BOOL CPackDialog::OnInit(WPARAM wParam, LPARAM lParam)
     ResetControls();
 
     CenterDlgToParent();
+    ApplyZipDarkMode(Dlg);
     return TRUE;
 }
 
@@ -783,6 +818,36 @@ INT_PTR CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
         return OnInit(wParam, lParam);
+
+    case WM_THEMECHANGED:
+        ApplyZipDarkMode(Dlg);
+        RedrawWindow(Dlg, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+
+    case WM_SETTINGCHANGE:
+        ConfigureZipDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyZipDarkMode(Dlg);
+            InvalidateRect(Dlg, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleZipDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
+
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -858,6 +923,7 @@ BOOL CConfigDialog::OnInit(WPARAM wParam, LPARAM lParam)
     SendDlgItemMessage(Dlg, IDC_CFG_LISTINFOPACKEDSIZE, BM_SETCHECK, Config->ListInfoPackedSize ? BST_CHECKED : BST_UNCHECKED, 0);
 
     CenterDlgToParent();
+    ApplyZipDarkMode(Dlg);
     return TRUE;
 }
 

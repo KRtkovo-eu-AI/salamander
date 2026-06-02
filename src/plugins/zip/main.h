@@ -16,3 +16,10 @@
 #define CRT_MEM_DUMP_ALL_OBJECTS_SINCE ;
 
 #endif //DUMP_MEM_OBJECTS
+
+void ReleaseZipDarkModeResources();
+BOOL ZipShouldUseWindowsDarkMode();
+void ConfigureZipDarkModeFromHost();
+void ApplyZipDarkMode(HWND hwnd);
+BOOL ApplyZipDarkModeIfSelected(HWND hwnd);
+BOOL HandleZipDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);

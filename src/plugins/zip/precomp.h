@@ -25,5 +25,6 @@
 #include "dbg.h"
 
 #include "array2.h"
+#include "../../darkmode.h"
 
 #include "config.h"

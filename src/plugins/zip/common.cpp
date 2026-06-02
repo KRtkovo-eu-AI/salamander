@@ -25,6 +25,7 @@
 #include "add_del.h"
 #include "sfxmake/sfxmake.h"
 #include "inflate.h"
+#include "main.h"
 
 #ifndef SSZIP
 #include "zip.rh"
@@ -75,6 +76,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     if (fdwReason == DLL_PROCESS_ATTACH)
     {
         DLLInstance = hinstDLL;
+    }
+    else if (fdwReason == DLL_PROCESS_DETACH)
+    {
+        ReleaseZipDarkModeResources();
     }
     return TRUE; // DLL can be loaded
 }

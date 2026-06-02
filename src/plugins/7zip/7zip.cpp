@@ -72,6 +72,135 @@ DWORD* TransferRowData = NULL;
 CPluginDataInterfaceAbstract** TransferPluginDataIface = NULL;
 DWORD* TransferActCustomData = NULL;
 
+
+namespace
+{
+BOOL SevenZipHostPolicyKnown = FALSE;
+BOOL SevenZipHostUseWindowsDarkMode = FALSE;
+COLORREF SevenZipHostSchemeText = CLR_INVALID;
+COLORREF SevenZipHostSchemeBackground = CLR_INVALID;
+DWORD SevenZipMainThreadId = 0;
+HBRUSH SevenZipDarkModeDialogBrush = NULL;
+COLORREF SevenZipDarkModeDialogBrushColor = CLR_INVALID;
+
+HBRUSH SevenZipGetDarkModeDialogBrush(COLORREF background)
+{
+    if (SevenZipDarkModeDialogBrush == NULL || SevenZipDarkModeDialogBrushColor != background)
+    {
+        if (SevenZipDarkModeDialogBrush != NULL)
+            DeleteObject(SevenZipDarkModeDialogBrush);
+        SevenZipDarkModeDialogBrush = CreateSolidBrush(background);
+        SevenZipDarkModeDialogBrushColor = background;
+    }
+    return SevenZipDarkModeDialogBrush;
+}
+}
+
+void Release7ZipDarkModeResources()
+{
+    if (SevenZipDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(SevenZipDarkModeDialogBrush);
+        SevenZipDarkModeDialogBrush = NULL;
+        SevenZipDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+
+BOOL SevenZipCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL &&
+           SevenZipMainThreadId != 0 &&
+           GetCurrentThreadId() == SevenZipMainThreadId;
+}
+
+void Refresh7ZipDarkModeFromHost()
+{
+    // Archiver dialogs can be shown from operation UI loops. Salamander host
+    // configuration/color APIs are main-thread-only, so non-main UI consumes
+    // this cached snapshot.
+    if (!SevenZipCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
+    {
+        SevenZipHostPolicyKnown = TRUE;
+        SevenZipHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (SevenZipHostPolicyKnown && SevenZipHostUseWindowsDarkMode)
+    {
+        SevenZipHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        SevenZipHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL SevenZipShouldUseWindowsDarkMode()
+{
+    return SevenZipHostPolicyKnown && SevenZipHostUseWindowsDarkMode;
+}
+
+void Configure7ZipDarkModeFromHost()
+{
+    Refresh7ZipDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = SevenZipShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && SevenZipHostSchemeText != CLR_INVALID && SevenZipHostSchemeBackground != CLR_INVALID)
+    {
+        text = SevenZipHostSchemeText;
+        background = SevenZipHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = SevenZipGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void Apply7ZipDarkMode(HWND hwnd)
+{
+    Configure7ZipDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL Apply7ZipDarkModeIfSelected(HWND hwnd)
+{
+    if (!SevenZipShouldUseWindowsDarkMode())
+        return FALSE;
+
+    Apply7ZipDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL Handle7ZipDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!SevenZipShouldUseWindowsDarkMode())
+        return FALSE;
+
+    Configure7ZipDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 // names of the entries in the registry
 const char* CONFIG_SHOW_EXTENDED_OPTIONS = "Show Extended Options";
 const char* CONFIG_EXTENDED_LIST_INFO = "Extended List Info";
@@ -104,6 +233,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
     case DLL_PROCESS_DETACH:
     {
+        Release7ZipDarkModeResources();
         break;
     }
     }
@@ -143,6 +273,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
+    SevenZipMainThreadId = GetCurrentThreadId();
+
     // load the language module (.slg)
     HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "7-Zip" /* neprekladat! */);
     if (HLanguage == NULL)
@@ -153,6 +285,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderSafeFile = salamander->GetSalamanderSafeFile();
     // obtain the interface that provides customized Windows controls used in Salamander
     SalamanderGUI = salamander->GetSalamanderGUI();
+    Refresh7ZipDarkModeFromHost();
 
     // set the help file name
     SalamanderGeneral->SetHelpFileName("7zip.chm");
