@@ -4,6 +4,177 @@
 
 #include "precomp.h"
 
+
+namespace
+{
+#ifndef WM_UAHDRAWMENU
+#define WM_UAHDRAWMENU 0x0091
+#endif
+#ifndef WM_UAHDRAWMENUITEM
+#define WM_UAHDRAWMENUITEM 0x0092
+#endif
+
+typedef struct tagFTPUAHMENU
+{
+    HMENU hmenu;
+    HDC hdc;
+    DWORD dwFlags;
+} FTPUAHMENU;
+
+typedef struct tagFTPUAHMENUITEMMETRICS
+{
+    DWORD rgsizeBar[2];
+    DWORD rgsizePopup[4];
+} FTPUAHMENUITEMMETRICS;
+
+typedef struct tagFTPUAHMENUPOPUPMETRICS
+{
+    DWORD rgcx[4];
+    DWORD fUpdateMaxWidths : 2;
+} FTPUAHMENUPOPUPMETRICS;
+
+typedef struct tagFTPUAHMENUITEM
+{
+    int iPosition;
+    FTPUAHMENUITEMMETRICS umim;
+    FTPUAHMENUPOPUPMETRICS umpm;
+} FTPUAHMENUITEM;
+
+typedef struct tagFTPUAHDRAWMENUITEM
+{
+    DRAWITEMSTRUCT dis;
+    FTPUAHMENU um;
+    FTPUAHMENUITEM umi;
+} FTPUAHDRAWMENUITEM;
+
+HBRUSH EnsureFTPLogsMenuBrush(COLORREF color, BOOL enable)
+{
+    static COLORREF cachedColor = CLR_INVALID;
+    static HBRUSH cachedBrush = NULL;
+
+    if (!enable)
+    {
+        if (cachedBrush != NULL)
+        {
+            HANDLES(DeleteObject(cachedBrush));
+            cachedBrush = NULL;
+            cachedColor = CLR_INVALID;
+        }
+        return NULL;
+    }
+
+    if (cachedBrush != NULL && cachedColor != color)
+    {
+        HANDLES(DeleteObject(cachedBrush));
+        cachedBrush = NULL;
+        cachedColor = CLR_INVALID;
+    }
+
+    if (cachedBrush == NULL)
+    {
+        cachedBrush = HANDLES(CreateSolidBrush(color));
+        cachedColor = color;
+    }
+
+    return cachedBrush;
+}
+
+void FillFTPLogsMenuRect(HDC hdc, const RECT* rect, COLORREF color)
+{
+    HBRUSH brush = HANDLES(CreateSolidBrush(color));
+    if (brush != NULL)
+    {
+        FillRect(hdc, rect, brush);
+        HANDLES(DeleteObject(brush));
+    }
+}
+
+void ApplyFTPLogsMenuTheme(HWND hwnd)
+{
+    HMENU menu = GetMenu(hwnd);
+    if (menu == NULL)
+        return;
+
+    MENUINFO info;
+    memset(&info, 0, sizeof(info));
+    info.cbSize = sizeof(info);
+    info.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
+
+    HBRUSH menuBrush = GetSysColorBrush(COLOR_MENU);
+    if (DarkModeShouldUseDarkColors())
+    {
+        HBRUSH brush = EnsureFTPLogsMenuBrush(DarkModeGetColors().background, TRUE);
+        if (brush != NULL)
+            menuBrush = brush;
+    }
+    else
+    {
+        EnsureFTPLogsMenuBrush(CLR_INVALID, FALSE);
+    }
+
+    info.hbrBack = menuBrush;
+    SetMenuInfo(menu, &info);
+    DrawMenuBar(hwnd);
+}
+
+void PaintFTPLogsMenuBar(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    MENUBARINFO mbi;
+    memset(&mbi, 0, sizeof(mbi));
+    mbi.cbSize = sizeof(mbi);
+    if (!GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi))
+        return;
+
+    RECT wndRect;
+    GetWindowRect(hwnd, &wndRect);
+    RECT barRect = mbi.rcBar;
+    OffsetRect(&barRect, -wndRect.left, -wndRect.top);
+    barRect.top -= 1;
+
+    FillFTPLogsMenuRect(hdc, &barRect, DarkModeGetColors().background);
+}
+
+void PaintFTPLogsMenuBarItem(FTPUAHDRAWMENUITEM* item)
+{
+    if (item == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    const DarkModeColors& colors = DarkModeGetColors();
+    COLORREF background = colors.background;
+    COLORREF text = colors.readableText;
+    if ((item->dis.itemState & ODS_SELECTED) != 0)
+        background = RGB(0x3A, 0x3A, 0x3A);
+    else if ((item->dis.itemState & ODS_HOTLIGHT) != 0)
+        background = RGB(0x45, 0x45, 0x45);
+    if ((item->dis.itemState & (ODS_GRAYED | ODS_DISABLED | ODS_INACTIVE)) != 0)
+        text = RGB(0x80, 0x80, 0x80);
+
+    FillFTPLogsMenuRect(item->um.hdc, &item->dis.rcItem, background);
+
+    char textBuf[MAX_PATH];
+    textBuf[0] = 0;
+    MENUITEMINFO mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.cbSize = sizeof(mii);
+    mii.fMask = MIIM_STRING;
+    mii.dwTypeData = textBuf;
+    mii.cch = _countof(textBuf) - 1;
+    GetMenuItemInfo(item->um.hmenu, (UINT)item->umi.iPosition, TRUE, &mii);
+
+    int oldBkMode = SetBkMode(item->um.hdc, TRANSPARENT);
+    COLORREF oldText = SetTextColor(item->um.hdc, text);
+    UINT flags = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+    if ((item->dis.itemState & ODS_NOACCEL) != 0)
+        flags |= DT_HIDEPREFIX;
+    DrawText(item->um.hdc, textBuf, -1, &item->dis.rcItem, flags);
+    SetTextColor(item->um.hdc, oldText);
+    SetBkMode(item->um.hdc, oldBkMode);
+}
+} // namespace
+
 //
 // ****************************************************************************
 // CSimpleDlgControlWindow
@@ -485,6 +656,7 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         LoadListOfLogs(FALSE);
 
         ApplyFTPDarkMode(HWindow);
+        ApplyFTPLogsMenuTheme(HWindow);
 
         if (ShowLogUID != -1)
             SendMessage(HWindow, WM_APP_ACTIVATELOG, ShowLogUID, 0);
@@ -518,9 +690,31 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_UAHDRAWMENU:
+    {
+        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            FTPUAHMENU* menu = reinterpret_cast<FTPUAHMENU*>(lParam);
+            PaintFTPLogsMenuBar(HWindow, menu->hdc);
+            return 0;
+        }
+        break;
+    }
+
+    case WM_UAHDRAWMENUITEM:
+    {
+        if (DarkModeShouldUseDarkColors() && lParam != 0)
+        {
+            PaintFTPLogsMenuBarItem(reinterpret_cast<FTPUAHDRAWMENUITEM*>(lParam));
+            return 0;
+        }
+        break;
+    }
+
     case WM_THEMECHANGED:
     {
         ApplyFTPDarkMode(HWindow);
+        ApplyFTPLogsMenuTheme(HWindow);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         return TRUE;
     }
@@ -531,6 +725,7 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
             ApplyFTPDarkMode(HWindow);
+            ApplyFTPLogsMenuTheme(HWindow);
             InvalidateRect(HWindow, NULL, TRUE);
             return TRUE;
         }
