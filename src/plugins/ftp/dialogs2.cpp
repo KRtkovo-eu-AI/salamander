@@ -89,6 +89,149 @@ void FillFTPLogsMenuRect(HDC hdc, const RECT* rect, COLORREF color)
     }
 }
 
+
+struct CFTPLogsTopMenuItem
+{
+    DWORD Magic;
+    char Text[64];
+};
+
+const DWORD FTP_LOGS_TOP_MENU_MAGIC = 0x4C54464D; // "MFTL"
+CFTPLogsTopMenuItem FTPLogsTopMenuItems[3];
+
+void SelectFTPLogsMenuFont(HDC hdc, HFONT& oldFont, HFONT& menuFont)
+{
+    NONCLIENTMETRICS ncm;
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
+        menuFont = HANDLES(CreateFontIndirect(&ncm.lfMenuFont));
+    if (menuFont == NULL)
+        menuFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    oldFont = (HFONT)SelectObject(hdc, menuFont);
+}
+
+void RestoreFTPLogsMenuFont(HDC hdc, HFONT oldFont, HFONT menuFont)
+{
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+    if (menuFont != NULL && menuFont != (HFONT)GetStockObject(DEFAULT_GUI_FONT))
+        HANDLES(DeleteObject(menuFont));
+}
+
+void SetFTPLogsTopMenuOwnerDraw(HWND hwnd, BOOL enable)
+{
+    HMENU menu = GetMenu(hwnd);
+    if (menu == NULL)
+        return;
+
+    int count = GetMenuItemCount(menu);
+    if (count > (int)_countof(FTPLogsTopMenuItems))
+        count = (int)_countof(FTPLogsTopMenuItems);
+
+    for (int i = 0; i < count; i++)
+    {
+        CFTPLogsTopMenuItem& item = FTPLogsTopMenuItems[i];
+        if (item.Text[0] == 0)
+            GetMenuString(menu, i, item.Text, (int)_countof(item.Text), MF_BYPOSITION);
+
+        MENUITEMINFO mii;
+        memset(&mii, 0, sizeof(mii));
+        mii.cbSize = sizeof(mii);
+        if (enable)
+        {
+            item.Magic = FTP_LOGS_TOP_MENU_MAGIC;
+            mii.fMask = MIIM_FTYPE | MIIM_DATA;
+            mii.fType = MFT_OWNERDRAW;
+            mii.dwItemData = (ULONG_PTR)&item;
+        }
+        else
+        {
+            item.Magic = 0;
+            mii.fMask = MIIM_FTYPE | MIIM_STRING | MIIM_DATA;
+            mii.fType = MFT_STRING;
+            mii.dwTypeData = item.Text;
+            mii.cch = (UINT)strlen(item.Text);
+            mii.dwItemData = 0;
+        }
+        SetMenuItemInfo(menu, i, TRUE, &mii);
+    }
+}
+
+CFTPLogsTopMenuItem* GetFTPLogsTopMenuItem(ULONG_PTR itemData)
+{
+    CFTPLogsTopMenuItem* item = (CFTPLogsTopMenuItem*)itemData;
+    if (item == NULL || item->Magic != FTP_LOGS_TOP_MENU_MAGIC)
+        return NULL;
+    return item;
+}
+
+BOOL MeasureFTPLogsTopMenuItem(MEASUREITEMSTRUCT* measure)
+{
+    CFTPLogsTopMenuItem* item = GetFTPLogsTopMenuItem(measure->itemData);
+    if (item == NULL)
+        return FALSE;
+
+    HDC hdc = GetDC(NULL);
+    if (hdc != NULL)
+    {
+        HFONT oldFont = NULL;
+        HFONT menuFont = NULL;
+        SelectFTPLogsMenuFont(hdc, oldFont, menuFont);
+        SIZE size;
+        if (GetTextExtentPoint32(hdc, item->Text, (int)strlen(item->Text), &size))
+            measure->itemWidth = size.cx + 16;
+        RestoreFTPLogsMenuFont(hdc, oldFont, menuFont);
+        ReleaseDC(NULL, hdc);
+    }
+    if (measure->itemWidth == 0)
+        measure->itemWidth = 64;
+    measure->itemHeight = GetSystemMetrics(SM_CYMENU);
+    return TRUE;
+}
+
+BOOL DrawFTPLogsTopMenuItem(DRAWITEMSTRUCT* draw)
+{
+    CFTPLogsTopMenuItem* item = GetFTPLogsTopMenuItem(draw->itemData);
+    if (item == NULL)
+        return FALSE;
+
+    const BOOL dark = DarkModeShouldUseDarkColors();
+    const DarkModeColors& colors = DarkModeGetColors();
+    COLORREF background = dark ? colors.background : GetSysColor(COLOR_MENU);
+    COLORREF text = dark ? colors.readableText : GetSysColor(COLOR_MENUTEXT);
+    if ((draw->itemState & ODS_SELECTED) != 0)
+        background = dark ? RGB(0x3A, 0x3A, 0x3A) : GetSysColor(COLOR_HIGHLIGHT);
+    else if ((draw->itemState & ODS_HOTLIGHT) != 0)
+        background = dark ? RGB(0x45, 0x45, 0x45) : GetSysColor(COLOR_HIGHLIGHT);
+    if ((draw->itemState & (ODS_GRAYED | ODS_DISABLED | ODS_INACTIVE)) != 0)
+        text = dark ? RGB(0x80, 0x80, 0x80) : GetSysColor(COLOR_GRAYTEXT);
+
+    FillFTPLogsMenuRect(draw->hDC, &draw->rcItem, background);
+
+    HFONT oldFont = NULL;
+    HFONT menuFont = NULL;
+    SelectFTPLogsMenuFont(draw->hDC, oldFont, menuFont);
+    int oldBkMode = SetBkMode(draw->hDC, TRANSPARENT);
+    COLORREF oldText = SetTextColor(draw->hDC, text);
+    RECT textRect = draw->rcItem;
+    InflateRect(&textRect, -8, 0);
+    UINT flags = DT_SINGLELINE | DT_VCENTER;
+    if ((draw->itemState & ODS_NOACCEL) != 0)
+        flags |= DT_HIDEPREFIX;
+    DrawText(draw->hDC, item->Text, -1, &textRect, flags);
+    SetTextColor(draw->hDC, oldText);
+    SetBkMode(draw->hDC, oldBkMode);
+    RestoreFTPLogsMenuFont(draw->hDC, oldFont, menuFont);
+    return TRUE;
+}
+
+void ReleaseFTPLogsMenuTheme(HWND hwnd)
+{
+    SetFTPLogsTopMenuOwnerDraw(hwnd, FALSE);
+    EnsureFTPLogsMenuBrush(CLR_INVALID, FALSE);
+}
+
 void ApplyFTPLogsMenuTheme(HWND hwnd)
 {
     HMENU menu = GetMenu(hwnd);
@@ -106,9 +249,11 @@ void ApplyFTPLogsMenuTheme(HWND hwnd)
         HBRUSH brush = EnsureFTPLogsMenuBrush(DarkModeGetColors().background, TRUE);
         if (brush != NULL)
             menuBrush = brush;
+        SetFTPLogsTopMenuOwnerDraw(hwnd, TRUE);
     }
     else
     {
+        SetFTPLogsTopMenuOwnerDraw(hwnd, FALSE);
         EnsureFTPLogsMenuBrush(CLR_INVALID, FALSE);
     }
 
@@ -690,6 +835,22 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_MEASUREITEM:
+    {
+        MEASUREITEMSTRUCT* measure = (MEASUREITEMSTRUCT*)lParam;
+        if (measure != NULL && measure->CtlType == ODT_MENU && MeasureFTPLogsTopMenuItem(measure))
+            return TRUE;
+        break;
+    }
+
+    case WM_DRAWITEM:
+    {
+        DRAWITEMSTRUCT* draw = (DRAWITEMSTRUCT*)lParam;
+        if (draw != NULL && draw->CtlType == ODT_MENU && DrawFTPLogsTopMenuItem(draw))
+            return TRUE;
+        break;
+    }
+
     case WM_UAHDRAWMENU:
     {
         if (DarkModeShouldUseDarkColors() && lParam != 0)
@@ -729,6 +890,12 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             InvalidateRect(HWindow, NULL, TRUE);
             return TRUE;
         }
+        break;
+    }
+
+    case WM_DESTROY:
+    {
+        ReleaseFTPLogsMenuTheme(HWindow);
         break;
     }
 
