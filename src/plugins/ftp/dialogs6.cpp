@@ -3,7 +3,6 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
-#include "..\\shared\\plugindarkmode.h"
 
 //
 // ****************************************************************************
@@ -38,7 +37,7 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
+        ApplyFTPDarkMode(HWindow);
         BOOL preventSystemFromSettingFocus = FALSE;
         GetDlgItemText(HWindow, IDB_PAUSERESUME, PauseButtonPauseText, 50);
         GetDlgItemText(HWindow, IDB_OPCONSPAUSERESUME, ConPauseButtonPauseText, 50);
@@ -349,6 +348,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // FIXME: once we have the operations queue window we can make Hide visible again (and remove "disabled" from the resources)
         // also restore the text in the resources:  IDS_OPERDLGCONFIRMCANCEL, "Do you really want to cancel operation?\n\nNote: use Hide button to close window without cancelling operation."
         ShowWindow(GetDlgItem(HWindow, IDB_HIDE), SW_HIDE);
+
+        ApplyFTPDarkModeIfSelected(HWindow);
 
         if (preventSystemFromSettingFocus)
         {
@@ -1044,16 +1045,27 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        DWORD color = GetSysColor(COLOR_WINDOW);
+        const COLORREF color = DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
+        const COLORREF text = DarkModeShouldUseDarkColors() ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
         ListView_SetBkColor(ConsListView, color);
+        ListView_SetTextBkColor(ConsListView, color);
+        ListView_SetTextColor(ConsListView, text);
         ListView_SetBkColor(ItemsListView, color);
+        ListView_SetTextBkColor(ItemsListView, color);
+        ListView_SetTextColor(ItemsListView, text);
         break;
     }
 
     case WM_THEMECHANGED:
     case WM_SETTINGCHANGE:
     {
-        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
+        ConfigureFTPDarkModeFromHost();
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyFTPDarkMode(HWindow);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
         break;
     }
 
@@ -1081,9 +1093,9 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORDLG:
     case WM_CTLCOLORMSGBOX:
     {
-        LRESULT brush = 0;
-        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
-            return brush;
+        INT_PTR result = 0;
+        if (HandleFTPDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
 
         if (uMsg != WM_CTLCOLORBTN)
             break;

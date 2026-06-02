@@ -232,6 +232,134 @@ char TargetPanelPath[MAX_PATH] = "";
 
 char UserDefinedSuffix[100] = ""; // preloaded string for marking user-defined "server type"
 
+
+namespace
+{
+HBRUSH FTPDarkModeDialogBrush = NULL;
+COLORREF FTPDarkModeDialogBrushColor = CLR_INVALID;
+BOOL FTPHostPolicyKnown = FALSE;
+BOOL FTPHostUseWindowsDarkMode = FALSE;
+COLORREF FTPHostSchemeText = CLR_INVALID;
+COLORREF FTPHostSchemeBackground = CLR_INVALID;
+DWORD FTPMainThreadId = 0;
+
+HBRUSH FTPGetDarkModeDialogBrush(COLORREF background)
+{
+    if (FTPDarkModeDialogBrush == NULL || FTPDarkModeDialogBrushColor != background)
+    {
+        if (FTPDarkModeDialogBrush != NULL)
+            DeleteObject(FTPDarkModeDialogBrush);
+        FTPDarkModeDialogBrush = CreateSolidBrush(background);
+        FTPDarkModeDialogBrushColor = background;
+    }
+    return FTPDarkModeDialogBrush;
+}
+
+void ReleaseFTPDarkModeResources()
+{
+    if (FTPDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(FTPDarkModeDialogBrush);
+        FTPDarkModeDialogBrush = NULL;
+        FTPDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL FTPCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL &&
+           FTPMainThreadId != 0 &&
+           GetCurrentThreadId() == FTPMainThreadId;
+}
+
+void RefreshFTPDarkModeFromHost()
+{
+    // FTP owns several modeless UI threads. Salamander host configuration APIs
+    // are main-thread-only, so worker dialogs use this cached snapshot.
+    if (!FTPCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
+    {
+        FTPHostPolicyKnown = TRUE;
+        FTPHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (FTPHostPolicyKnown && FTPHostUseWindowsDarkMode)
+    {
+        FTPHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        FTPHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL FTPShouldUseWindowsDarkMode()
+{
+    return FTPHostPolicyKnown && FTPHostUseWindowsDarkMode;
+}
+
+void ConfigureFTPDarkModeFromHost()
+{
+    RefreshFTPDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = FTPShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && FTPHostSchemeText != CLR_INVALID && FTPHostSchemeBackground != CLR_INVALID)
+    {
+        text = FTPHostSchemeText;
+        background = FTPHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = FTPGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyFTPDarkMode(HWND hwnd)
+{
+    ConfigureFTPDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyFTPDarkModeIfSelected(HWND hwnd)
+{
+    if (!FTPShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyFTPDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleFTPDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!FTPShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureFTPDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
@@ -302,7 +430,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // get the general interface of Salamander
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    FTPMainThreadId = GetCurrentThreadId();
     SalZLIB = SalamanderGeneral->GetSalamanderZLIB();
+    RefreshFTPDarkModeFromHost();
 
     // set the help file name
     SalamanderGeneral->SetHelpFileName("ftp.chm");
@@ -410,6 +540,7 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
 
         ReleaseSockets();
         FreeSSL();
+        ReleaseFTPDarkModeResources();
         Config.ReleaseDataFromSalamanderGeneral();
     }
     return ret;
@@ -890,6 +1021,8 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
 void CPluginInterface::Configuration(HWND parent)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Configuration()");
+    RefreshFTPDarkModeFromHost();
+    ConfigureFTPDarkModeFromHost();
     CConfigDlg(parent).Execute();
 }
 
@@ -991,6 +1124,12 @@ void RefreshValuesOfPanelCtrlCon()
 
 void CPluginInterface::Event(int event, DWORD param)
 {
+    if (event == PLUGINEVENT_COLORSCHANGED || event == PLUGINEVENT_CONFIGURATIONCHANGED || event == PLUGINEVENT_SETTINGCHANGE)
+    {
+        RefreshFTPDarkModeFromHost();
+        ConfigureFTPDarkModeFromHost();
+    }
+
     if (event == PLUGINEVENT_CONFIGURATIONCHANGED)
     {
         SalamanderGeneral->GetConfigParameter(SALCFG_SORTBYEXTDIRSASFILES, &SortByExtDirsAsFiles,

@@ -38,6 +38,7 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
+#include "../../darkmode.h"
 #include "ftp.rh"
 #include "ftp.rh2"
 #include "lang\lang.rh"

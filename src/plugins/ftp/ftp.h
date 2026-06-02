@@ -128,6 +128,12 @@ extern int GlobalDisconnectPanel; // panel for which disconnect is called (-1 ==
 
 extern CThreadQueue AuxThreadQueue; // queue of all auxiliary threads
 
+void RefreshFTPDarkModeFromHost();
+void ConfigureFTPDarkModeFromHost();
+void ApplyFTPDarkMode(HWND hwnd);
+BOOL ApplyFTPDarkModeIfSelected(HWND hwnd);
+BOOL HandleFTPDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+
 extern BOOL WindowsVistaAndLater; // Windows Vista or later from the NT line
 
 // global variables for the FTPCMD_CHANGETGTPANELPATH command
