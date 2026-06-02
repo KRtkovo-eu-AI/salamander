@@ -468,6 +468,35 @@ void ConfigurePictViewDarkModeFromHost()
 }
 
 // sets colors for the entries defined by vceCount
+namespace
+{
+COLORREF PictViewGetEffectiveRendererColor(SALCOLOR color, COLORREF lightDefault, COLORREF darkDefault)
+{
+    if (PictViewShouldUseWindowsDarkMode())
+    {
+        const COLORREF rgb = GetCOLORREF(color);
+        if ((GetFValue(color) & SCF_DEFAULT) || rgb == lightDefault || rgb == RGB(0xFF, 0xFF, 0xFF))
+            return darkDefault;
+    }
+
+    return GetCOLORREF(color);
+}
+}
+
+COLORREF PictViewGetRendererBackgroundColor(BOOL fullScreen)
+{
+    return PictViewGetEffectiveRendererColor(G.Colors[fullScreen ? vceFSBackground : vceBackground],
+                                             fullScreen ? RGB(0, 0, 0) : GetSysColor(COLOR_APPWORKSPACE),
+                                             fullScreen ? RGB(0, 0, 0) : DarkModeGetDialogBackgroundColor());
+}
+
+COLORREF PictViewGetRendererTransparentColor(BOOL fullScreen)
+{
+    return PictViewGetEffectiveRendererColor(G.Colors[fullScreen ? vceFSTransparent : vceTransparent],
+                                             GetSysColor(COLOR_WINDOW),
+                                             fullScreen ? RGB(0, 0, 0) : DarkModeGetDialogBackgroundColor());
+}
+
 void RebuildColors(SALCOLOR* colors)
 {
     const BOOL useWindowsDarkMode = PictViewShouldUseWindowsDarkMode();
@@ -3254,6 +3283,23 @@ BOOL CViewerWindow::IsFullScreen()
     return FullScreen;
 }
 
+void CViewerWindow::UpdateRendererFrameForTheme()
+{
+    if (Renderer.HWindow == NULL)
+        return;
+
+    const BOOL wantClientEdge = !FullScreen && !DarkModeShouldUseDarkColors();
+    LONG_PTR exStyle = GetWindowLongPtr(Renderer.HWindow, GWL_EXSTYLE);
+    LONG_PTR newExStyle = wantClientEdge ? (exStyle | WS_EX_CLIENTEDGE) : (exStyle & ~WS_EX_CLIENTEDGE);
+    if (newExStyle != exStyle)
+    {
+        SetWindowLongPtr(Renderer.HWindow, GWL_EXSTYLE, newExStyle);
+        SetWindowPos(Renderer.HWindow, NULL, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        InvalidateRect(Renderer.HWindow, NULL, TRUE);
+    }
+}
+
 void CViewerWindow::ToggleFullScreen()
 {
     if (Renderer.Loading)
@@ -3282,9 +3328,7 @@ void CViewerWindow::ToggleFullScreen()
 
         SetWindowLong(HWindow, GWL_STYLE, style);
 
-        style = GetWindowLong(Renderer.HWindow, GWL_EXSTYLE);
-        style |= WS_EX_CLIENTEDGE;
-        SetWindowLong(Renderer.HWindow, GWL_EXSTYLE, style);
+        UpdateRendererFrameForTheme();
         ShowWindow(HRebar, SW_SHOW);
         if (StatusBar != NULL)
             ShowWindow(StatusBar->HWindow, SW_SHOW);
@@ -3302,7 +3346,7 @@ void CViewerWindow::ToggleFullScreen()
         }
 
         if (Renderer.PVHandle)
-            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, GetCOLORREF(G.Colors[vceTransparent]));
+            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, PictViewGetRendererTransparentColor(FALSE));
     }
     else
     {
@@ -3324,9 +3368,7 @@ void CViewerWindow::ToggleFullScreen()
         style = WS_POPUP | WS_VISIBLE | WS_OVERLAPPED | WS_CLIPSIBLINGS | WS_SYSMENU;
         SetWindowLong(HWindow, GWL_STYLE, style);
 
-        style = GetWindowLong(Renderer.HWindow, GWL_EXSTYLE);
-        style &= ~WS_EX_CLIENTEDGE;
-        SetWindowLong(Renderer.HWindow, GWL_EXSTYLE, style);
+        UpdateRendererFrameForTheme();
 
         ShowWindow(HRebar, SW_HIDE);
         if (StatusBar != NULL)
@@ -3353,7 +3395,7 @@ void CViewerWindow::ToggleFullScreen()
                      0);
 
         if (Renderer.PVHandle)
-            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, GetCOLORREF(G.Colors[vceFSTransparent]));
+            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, PictViewGetRendererTransparentColor(TRUE));
     }
     LockWindowUpdate(NULL);
 }
@@ -3480,7 +3522,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (!DarkModeShouldUseDarkColors())
             SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
-        Renderer.CreateEx(/*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
+        Renderer.CreateEx(DarkModeShouldUseDarkColors() ? 0 : /*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
                           _T(""),
                           WS_VISIBLE | WS_CHILD | /*WS_VSCROLL | WS_HSCROLL | */ WS_CLIPSIBLINGS,
@@ -3505,6 +3547,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyTree(HWindow);
+        UpdateRendererFrameForTheme();
 
         SetFocus(Renderer.HWindow);
 
@@ -3659,6 +3702,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_VIEWERCFGCHNG:
     {
+        ConfigurePictViewDarkModeFromHost();
+        RebuildColors(G.Colors);
+        UpdateRendererFrameForTheme();
         if (Renderer.HWindow != NULL)
             SendMessage(Renderer.HWindow, uMsg, wParam, lParam);
         return 0;
@@ -3738,9 +3784,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ConfigurePictViewDarkModeFromHost();
+        RebuildColors(G.Colors);
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyTree(HWindow);
+        UpdateRendererFrameForTheme();
+        if (Renderer.HWindow != NULL)
+            SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
         InvalidateRect(HWindow, NULL, TRUE);
         return 0;
     }
@@ -3750,9 +3800,13 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ConfigurePictViewDarkModeFromHost();
         if (DarkModeHandleSettingChange(uMsg, lParam))
         {
+            RebuildColors(G.Colors);
             DarkModeApplyWindow(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyTree(HWindow);
+            UpdateRendererFrameForTheme();
+            if (Renderer.HWindow != NULL)
+                SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
             InvalidateRect(HWindow, NULL, TRUE);
             return 0;
         }

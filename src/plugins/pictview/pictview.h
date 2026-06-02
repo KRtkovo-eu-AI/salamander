@@ -399,6 +399,7 @@ protected:
     BOOL InsertMenuBand();
     BOOL InsertToolBarBand();
     void LayoutWindows();
+    void UpdateRendererFrameForTheme();
     void EnsureNoTopmost();
 };
 
@@ -507,6 +508,8 @@ void FillMenuHistory(CGUIMenuPopupAbstract* popup, int cmdFirst, BOOL filesHisto
 void InitGlobalGUIParameters(void);
 void ConfigurePictViewDarkModeFromHost();
 BOOL PictViewShouldUseWindowsDarkMode();
+COLORREF PictViewGetRendererBackgroundColor(BOOL fullScreen);
+COLORREF PictViewGetRendererTransparentColor(BOOL fullScreen);
 void RebuildColors(SALCOLOR* colors);
 
 int ShowOneTimeMessage(HWND HParent, int msg, BOOL* pChecked, int flags = MSGBOXEX_YESNO | MSGBOXEX_SILENT,

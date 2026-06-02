@@ -425,7 +425,7 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
     if (PVHandle)
     {
         CALL_STACK_MESSAGE1("PVW32DLL.PVSetBkHandle");
-        PVW32DLL.PVSetBkHandle(PVHandle, GetCOLORREF(G.Colors[Viewer->IsFullScreen() ? vceFSTransparent : vceTransparent]));
+        PVW32DLL.PVSetBkHandle(PVHandle, PictViewGetRendererTransparentColor(Viewer->IsFullScreen()));
     }
     WMSize();
     UpdateInfos();
@@ -1224,7 +1224,7 @@ PVCODE SimplifyImageSequence(LPPVHandle hPVImage, HDC dc, int ScreenWidth, int S
 void CRendererWindow::SimplifyImageSequence(HDC dc)
 {
     int ScreenWidth, ScreenHeight;
-    COLORREF bgColor(GetCOLORREF(G.Colors[Viewer->IsFullScreen() ? vceFSBackground : vceBackground]));
+    COLORREF bgColor(PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
 
     if (pvii.Format == PVF_GIF)
     {
@@ -1492,7 +1492,7 @@ LRESULT CRendererWindow::OnPaint()
 
     if (HAreaBrush == NULL)
     {
-        HAreaBrush = CreateSolidBrush(GetCOLORREF(G.Colors[Viewer->IsFullScreen() ? vceFSBackground : vceBackground]));
+        HAreaBrush = CreateSolidBrush(PictViewGetRendererBackgroundColor(Viewer->IsFullScreen()));
     }
 
     if (ImageLoaded || Loading)
@@ -1972,7 +1972,7 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (PVHandle)
         {
-            PVW32DLL.PVSetBkHandle(PVHandle, GetCOLORREF(G.Colors[Viewer->FullScreen ? vceFSTransparent : vceTransparent]));
+            PVW32DLL.PVSetBkHandle(PVHandle, PictViewGetRendererTransparentColor(Viewer->FullScreen));
             SetTitle(); // add/remove full path from title
         }
         InvalidateRect(HWindow, NULL, TRUE);
