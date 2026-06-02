@@ -123,6 +123,8 @@
   <ItemGroup>
     <ClCompile Include="..\..\shared\dbg.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\shared\mhandles.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\shared\lukas\resedit.cpp">
     </ClCompile>
     <ClCompile Include="..\add.cpp">
