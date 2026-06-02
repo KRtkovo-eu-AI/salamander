@@ -172,8 +172,8 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        ApplyPictViewDarkModeIfSelected(HWindow);
-        QueuePictViewConfigPageRedraw(HWindow);
+        if (ApplyPictViewDarkModeIfSelected(HWindow))
+            QueuePictViewConfigPageRedraw(HWindow);
         break;
     }
 
@@ -188,8 +188,8 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam != FALSE)
         {
-            ApplyPictViewDarkModeIfSelected(HWindow);
-            QueuePictViewConfigPageRedraw(HWindow);
+            if (ApplyPictViewDarkModeIfSelected(HWindow))
+                QueuePictViewConfigPageRedraw(HWindow);
         }
         break;
     }
@@ -215,7 +215,7 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_NOTIFY:
     {
         LPNMHDR hdr = (LPNMHDR)lParam;
-        if (hdr != NULL && hdr->code == PSN_SETACTIVE)
+        if (hdr != NULL && hdr->code == PSN_SETACTIVE && PictViewShouldUseWindowsDarkMode())
             QueuePictViewConfigPageRedraw(HWindow);
         break;
     }
@@ -240,8 +240,8 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 void CCommonPropSheetPage::NotifDlgJustCreated()
 {
     SalamanderGUI->ArrangeHorizontalLines(HWindow);
-    ApplyPictViewDarkModeIfSelected(HWindow);
-    QueuePictViewConfigPageRedraw(HWindow);
+    if (ApplyPictViewDarkModeIfSelected(HWindow))
+        QueuePictViewConfigPageRedraw(HWindow);
 }
 
 //****************************************************************************
