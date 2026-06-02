@@ -522,6 +522,8 @@ extern HINSTANCE HLanguage;   // handle to the SLG - language-dependent resource
 
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderGUIAbstract* SalamanderGUI;
+
+void ConfigurePictViewDarkModeFromHost();
 extern CPVW32DLL PVW32DLL;
 
 extern HINSTANCE EXIFLibrary;

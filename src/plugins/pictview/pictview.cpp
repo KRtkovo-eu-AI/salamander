@@ -142,6 +142,45 @@ int SalamanderVersion = 0;
 // interface providing customized Windows controls used in Salamander
 CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
+namespace
+{
+int PictViewColorLuminance(COLORREF color)
+{
+    return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
+}
+}
+
+void ConfigurePictViewDarkModeFromHost()
+{
+    BOOL useWindowsDarkMode = FALSE;
+    BOOL hasHostPolicy = SalamanderGeneral != NULL &&
+                         SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                                                &useWindowsDarkMode,
+                                                                sizeof(useWindowsDarkMode),
+                                                                NULL);
+    PluginDarkMode_SetHostPolicyAvailable(hasHostPolicy, useWindowsDarkMode);
+
+    if (hasHostPolicy && useWindowsDarkMode && SalamanderGeneral != NULL)
+    {
+        COLORREF text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        COLORREF background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+        COLORREF readable = text;
+        const int bgLum = PictViewColorLuminance(background);
+        const int fgLum = PictViewColorLuminance(text);
+        if (bgLum < 128 && fgLum < bgLum + 40)
+            readable = RGB(0xF0, 0xF0, 0xF0);
+        else if (bgLum >= 128 && fgLum > bgLum - 40)
+            readable = RGB(0x20, 0x20, 0x20);
+        PluginDarkMode_SetHostResolvedColors(text, background, readable);
+    }
+    else
+    {
+        PluginDarkMode_SetHostResolvedColors(GetSysColor(COLOR_BTNTEXT),
+                                             GetSysColor(COLOR_BTNFACE),
+                                             GetSysColor(COLOR_BTNTEXT));
+    }
+}
+
 CWindowQueue ViewerWindowQueue("PictView Viewers"); // list of all viewer windows
 CThreadQueue ThreadQueue("PictView Viewers");       // list of all window threads
 
@@ -515,6 +554,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the general Salamander interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    ConfigurePictViewDarkModeFromHost();
 
     // set the help file name
     SalamanderGeneral->SetHelpFileName("pictview.chm");
@@ -3149,6 +3189,7 @@ void CViewerWindow::ToggleStatusBar()
             StatusBar = NULL;
             return;
         }
+        PluginDarkMode_ApplyListTreeThemeRecursive(StatusBar->HWindow);
         G.StatusbarVisible = TRUE;
     }
     else
@@ -3360,6 +3401,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
+        ConfigurePictViewDarkModeFromHost();
+        PluginDarkMode_ApplyTitleBar(HWindow);
         InitializeGraphics();
         MainMenu = SalamanderGUI->CreateMenuPopup();
         if (MainMenu == NULL)
@@ -3403,6 +3446,8 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ToggleToolBar();
         if (G.StatusbarVisible)
             ToggleStatusBar();
+
+        PluginDarkMode_ApplyListTreeThemeRecursive(HWindow);
 
         SetFocus(Renderer.HWindow);
 
@@ -3552,6 +3597,36 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DestroyIcon(hIcon);
 
         PostQuitMessage(0);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
+        {
+            if (MenuBar != NULL)
+                InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
+            if (HRebar != NULL)
+                InvalidateRect(HRebar, NULL, TRUE);
+            if (StatusBar != NULL && StatusBar->HWindow != NULL)
+                InvalidateRect(StatusBar->HWindow, NULL, TRUE);
+            return 0;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
         break;
     }
 

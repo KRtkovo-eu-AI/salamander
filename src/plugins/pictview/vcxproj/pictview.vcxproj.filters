@@ -66,6 +66,9 @@
     <ClCompile Include="..\..\shared\dbg.cpp">
       <Filter>Shared</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+      <Filter>Shared</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\shared\lukas\gdi.cpp">
       <Filter>Shared</Filter>
     </ClCompile>
@@ -117,6 +120,9 @@
       <Filter>Shared</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\dbg.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\shared\plugindarkmode.h">
       <Filter>Shared</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\lukas\gdi.h">

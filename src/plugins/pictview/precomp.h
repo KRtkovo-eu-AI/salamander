@@ -54,6 +54,7 @@
 #include "winliblt.h"
 #include "auxtools.h"
 #include "lukas\gdi.h"
+#include "..\shared\plugindarkmode.h"
 
 // When we have an old version of windowsx.h
 #ifndef GET_Y_LPARAM

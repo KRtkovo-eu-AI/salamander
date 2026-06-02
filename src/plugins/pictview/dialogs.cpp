@@ -53,10 +53,48 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        ConfigurePictViewDarkModeFromHost();
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
         // horizontal and vertical centering of the dialog to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         break; // want the focus from DefDlgProc
+    }
+
+    case WM_ERASEBKGND:
+    {
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(NULL, WM_CTLCOLORDLG);
+            if (brush != NULL)
+                FillRect((HDC)wParam, &r, brush);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
+            return TRUE;
+        break;
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -71,6 +109,53 @@ void CCommonDialog::NotifDlgJustCreated()
 //
 // CCommonPropSheetPage
 //
+
+INT_PTR
+CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+        ConfigurePictViewDarkModeFromHost();
+        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
+        break;
+
+    case WM_ERASEBKGND:
+    {
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(NULL, WM_CTLCOLORDLG);
+            if (brush != NULL)
+                FillRect((HDC)wParam, &r, brush);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+        ConfigurePictViewDarkModeFromHost();
+        if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
+            return TRUE;
+        break;
+    }
+    return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
 
 void CCommonPropSheetPage::NotifDlgJustCreated()
 {
@@ -645,6 +730,8 @@ protected:
             WINDOWPOS* pos = (WINDOWPOS*)lParam;
             if (pos->flags & SWP_SHOWWINDOW)
             {
+                ConfigurePictViewDarkModeFromHost();
+                PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
                 HWND hParent = GetParent(HWindow);
                 if (hParent != NULL)
                     SalamanderGeneral->MultiMonCenterWindow(HWindow, hParent, TRUE);
@@ -652,11 +739,48 @@ protected:
             break;
         }
 
-        case WM_USER_CFGDLGDETACH: // we should detach from the dialog (already centered)
+        case WM_ERASEBKGND:
         {
+            if (PluginDarkMode_ShouldUseDark())
+            {
+                RECT r;
+                GetClientRect(HWindow, &r);
+                HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(NULL, WM_CTLCOLORDLG);
+                if (brush != NULL)
+                    FillRect((HDC)wParam, &r, brush);
+                return TRUE;
+            }
+            break;
+        }
+
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORMSGBOX:
+        {
+            LRESULT brush = 0;
+            if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+                return brush;
+            break;
+        }
+
+        case WM_THEMECHANGED:
+        case WM_SETTINGCHANGE:
+            ConfigurePictViewDarkModeFromHost();
+            if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
+                return TRUE;
+            break;
+
+        case WM_NCDESTROY:
+        {
+            HWND hwnd = HWindow;
+            WNDPROC defWndProc = (WNDPROC)DefWndProc;
             DetachWindow();
-            delete this; // a bit hacky, but nobody touches 'this' anymore so it's fine
-            return 0;
+            LRESULT ret = CallWindowProc(defWndProc, hwnd, uMsg, wParam, lParam);
+            delete this;
+            return ret;
         }
         }
         return CWindow::WindowProc(uMsg, wParam, lParam);
@@ -694,7 +818,8 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
                 delete wnd; // the window is not attached, destroy it right here
             else
             {
-                PostMessage(wnd->HWindow, WM_USER_CFGDLGDETACH, 0, 0); // to detach CCenteredPropertyWindow from the dialog
+                ConfigurePictViewDarkModeFromHost();
+                PluginDarkMode_HandleThemeMessage(wnd->HWindow, WM_THEMECHANGED, 0);
             }
         }
     }
@@ -1801,7 +1926,16 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // cd->iSubItem == 1 &&
                     if (GetHighlightIndex(Items[(int)cd->nmcd.lItemlParam].Tag) != -1)
                     {
+                        cd->clrText = RGB(0, 0, 0);
                         cd->clrTextBk = RGB(255, 255, 0);
+                        SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_NEWFONT);
+                        return TRUE;
+                    }
+                    if (PluginDarkMode_ShouldUseDark())
+                    {
+                        PluginDarkModeColors colors = PluginDarkMode_GetColors();
+                        cd->clrText = colors.readableText;
+                        cd->clrTextBk = colors.background;
                         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_NEWFONT);
                         return TRUE;
                     }

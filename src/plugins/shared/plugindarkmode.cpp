@@ -43,6 +43,7 @@ void ResetPluginBrushes()
 }
 
 const UINT_PTR PLUGIN_DARKMODE_HEADER_SUBCLASS_ID = 0x50444844; // "PDHD"
+const UINT_PTR PLUGIN_DARKMODE_STATUS_SUBCLASS_ID = 0x50445342; // "PDSB"
 
 void FillPluginColorRect(HDC hdc, const RECT* rect, COLORREF color)
 {
@@ -168,6 +169,145 @@ void EnsurePluginDarkHeaderSubclass(HWND hwnd, BOOL dark)
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
+
+void PaintPluginDarkStatusBar(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL)
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    PluginDarkModeColors colors = PluginDarkMode_GetColors();
+    FillPluginColorRect(hdc, &client, colors.background);
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    COLORREF oldText = SetTextColor(hdc, colors.readableText);
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    int borders[3] = {0, 0, 0};
+    SendMessage(hwnd, SB_GETBORDERS, 0, reinterpret_cast<LPARAM>(borders));
+    const int partCount = static_cast<int>(SendMessage(hwnd, SB_GETPARTS, 0, 0));
+    const int count = partCount > 0 ? partCount : 1;
+
+    for (int i = 0; i < count; ++i)
+    {
+        RECT part = client;
+        if (partCount > 0)
+            SendMessage(hwnd, SB_GETRECT, i, reinterpret_cast<LPARAM>(&part));
+
+        if (i + 1 < count)
+        {
+            RECT edge = part;
+            edge.left = edge.right - (borders[2] > 0 ? borders[2] : 1);
+            FillPluginColorRect(hdc, &edge, RGB(0x4A, 0x4A, 0x4A));
+        }
+
+        part.left += borders[2] + 2;
+        part.right -= borders[0] + 2;
+
+        HICON icon = reinterpret_cast<HICON>(SendMessage(hwnd, SB_GETICON, i, 0));
+        if (icon != NULL)
+        {
+            const int iconSize = GetSystemMetrics(SM_CXSMICON);
+            const int y = part.top + ((part.bottom - part.top) - iconSize) / 2;
+            DrawIconEx(hdc, part.left, y, icon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+            part.left += iconSize + 4;
+        }
+
+        const LRESULT textLen = SendMessage(hwnd, SB_GETTEXTLENGTH, i, 0);
+        const DWORD flags = HIWORD(textLen);
+        const int len = LOWORD(textLen) < 1023 ? LOWORD(textLen) : 1023;
+        TCHAR text[1024];
+        text[0] = 0;
+        const LRESULT itemData = SendMessage(hwnd, SB_GETTEXT, i, reinterpret_cast<LPARAM>(text));
+
+        if ((flags & SBT_OWNERDRAW) != 0 && len == 0)
+        {
+            const UINT id = static_cast<UINT>(GetDlgCtrlID(hwnd));
+            DRAWITEMSTRUCT dis = {0};
+            dis.CtlType = ODT_STATIC;
+            dis.CtlID = id;
+            dis.itemID = static_cast<UINT>(i);
+            dis.itemAction = ODA_DRAWENTIRE;
+            dis.hwndItem = hwnd;
+            dis.hDC = hdc;
+            dis.rcItem = part;
+            dis.itemData = static_cast<ULONG_PTR>(itemData);
+            SendMessage(GetParent(hwnd), WM_DRAWITEM, id, reinterpret_cast<LPARAM>(&dis));
+        }
+        else
+        {
+            text[len] = 0;
+            DrawText(hdc, text, -1, &part, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_PATH_ELLIPSIS);
+        }
+    }
+
+    SetBkMode(hdc, oldBkMode);
+    SetTextColor(hdc, oldText);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+LRESULT CALLBACK PluginDarkStatusBarSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                             UINT_PTR subclassId, DWORD_PTR)
+{
+    if (subclassId != PLUGIN_DARKMODE_STATUS_SUBCLASS_ID)
+        return DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, PluginDarkStatusBarSubclass, PLUGIN_DARKMODE_STATUS_SUBCLASS_ID);
+        break;
+
+    case WM_ERASEBKGND:
+        if (PluginDarkMode_ShouldUseDark())
+            return TRUE;
+        break;
+
+    case WM_PAINT:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            PaintPluginDarkStatusBar(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PaintPluginDarkStatusBar(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case SB_SETTEXT:
+    case SB_SETPARTS:
+    case WM_SETTEXT:
+    case WM_SIZE:
+    case WM_THEMECHANGED:
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsurePluginDarkStatusBarSubclass(HWND hwnd, BOOL dark)
+{
+    if (hwnd == NULL)
+        return;
+    if (dark)
+        SetWindowSubclass(hwnd, PluginDarkStatusBarSubclass, PLUGIN_DARKMODE_STATUS_SUBCLASS_ID, 0);
+    else
+        RemoveWindowSubclass(hwnd, PluginDarkStatusBarSubclass, PLUGIN_DARKMODE_STATUS_SUBCLASS_ID);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
 COLORREF EnsureReadable(COLORREF fg, COLORREF bg)
 {
     const int bl = (GetRValue(bg) * 30 + GetGValue(bg) * 59 + GetBValue(bg) * 11) / 100;
@@ -242,6 +382,22 @@ void ApplyRecursive(HWND hwnd, BOOL dark)
             InvalidateRect(parent, NULL, TRUE);
             parent = GetParent(parent);
         }
+    }
+    else if (wcscmp(cls, L"msctls_statusbar32") == 0)
+    {
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        PluginDarkModeColors c = PluginDarkMode_GetColors();
+        SendMessage(hwnd, SB_SETBKCOLOR, 0, static_cast<LPARAM>(dark ? c.background : CLR_DEFAULT));
+        EnsurePluginDarkStatusBarSubclass(hwnd, dark);
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+    else if (wcscmp(cls, L"SysTabControl32") == 0 || wcscmp(cls, L"msctls_progress32") == 0 ||
+             wcscmp(cls, L"msctls_updown32") == 0)
+    {
+        if (gSetWindowTheme != NULL)
+            gSetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        InvalidateRect(hwnd, NULL, TRUE);
     }
     else if (wcscmp(cls, L"Edit") == 0 || wcscmp(cls, L"ComboBox") == 0 || wcscmp(cls, L"ComboBoxEx32") == 0 ||
              wcscmp(cls, L"ListBox") == 0)
@@ -320,8 +476,10 @@ void InvalidateKnownDarkArtifacts(HWND hwnd)
         return;
     if (wcscmp(cls, L"SysHeader32") == 0 || wcscmp(cls, L"ReBarWindow32") == 0 ||
         wcscmp(cls, L"ToolbarWindow32") == 0 || wcscmp(cls, L"Static") == 0 ||
-        wcscmp(cls, L"Edit") == 0 || wcscmp(cls, L"ComboBox") == 0 ||
-        wcscmp(cls, L"ComboBoxEx32") == 0 || wcscmp(cls, L"ListBox") == 0)
+        wcscmp(cls, L"msctls_statusbar32") == 0 || wcscmp(cls, L"SysTabControl32") == 0 ||
+        wcscmp(cls, L"msctls_progress32") == 0 || wcscmp(cls, L"Edit") == 0 ||
+        wcscmp(cls, L"ComboBox") == 0 || wcscmp(cls, L"ComboBoxEx32") == 0 ||
+        wcscmp(cls, L"ListBox") == 0)
         InvalidateRect(hwnd, NULL, TRUE);
     for (HWND child = GetWindow(hwnd, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
         InvalidateKnownDarkArtifacts(child);

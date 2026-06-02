@@ -463,6 +463,8 @@ UINT_PTR CALLBACK SaveAsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPar
     switch (uMsg)
     {
     case WM_INITDIALOG:
+        ConfigurePictViewDarkModeFromHost();
+        PluginDarkMode_HandleThemeMessage(hDlg, WM_THEMECHANGED, 0);
         // SalamanderGUI->ArrangeHorizontalLines(hDlg);  // not used for Windows common dialogs
         PositionControls(hDlg);
 
@@ -503,6 +505,35 @@ UINT_PTR CALLBACK SaveAsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPar
         break;
     case WM_COMMAND:
         OnSaveAsCommand(hDlg, wParam, lParam);
+        break;
+    case WM_ERASEBKGND:
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            RECT r;
+            GetClientRect(hDlg, &r);
+            HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(NULL, WM_CTLCOLORDLG);
+            if (brush != NULL)
+                FillRect((HDC)wParam, &r, brush);
+            return TRUE;
+        }
+        break;
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    {
+        LRESULT brush = 0;
+        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
+            return brush;
+        break;
+    }
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+        ConfigurePictViewDarkModeFromHost();
+        if (PluginDarkMode_HandleThemeMessage(hDlg, uMsg, lParam))
+            return TRUE;
         break;
     case WM_DESTROY:
         psai = (SAVEAS_INFO_PTR)((OPENFILENAME*)GetWindowLongPtr(hDlg, GWLP_USERDATA))->lCustData;
