@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "../../darkmode.h"
+
 #include <share.h>
 #include <string>
 #include <limits>
@@ -3149,6 +3151,7 @@ void CViewerWindow::ToggleStatusBar()
             StatusBar = NULL;
             return;
         }
+        DarkModeApplyTree(StatusBar->HWindow);
         G.StatusbarVisible = TRUE;
     }
     else
@@ -3371,17 +3374,22 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         RECT r;
         GetClientRect(HWindow, &r);
+        DWORD rebarStyle = WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
+                            WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
+                            RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN |
+                            RBS_AUTOSIZE;
+        if (!DarkModeShouldUseDarkColors())
+            rebarStyle |= RBS_BANDBORDERS;
+
         HRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, _T(""),
-                                WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
-                                    WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                                    RBS_VARHEIGHT | CCS_NODIVIDER |
-                                    RBS_BANDBORDERS | CCS_NOPARENTALIGN |
-                                    RBS_AUTOSIZE,
+                                rebarStyle,
                                 0, 0, r.right, r.bottom, // dummy
                                 HWindow, (HMENU)0, DLLInstance, NULL);
 
-        // we do not want visual styles for the rebar
-        SalamanderGUI->DisableWindowVisualStyles(HRebar);
+        // we do not want visual styles for the rebar in light mode; dark mode
+        // needs native themed drawing to avoid light rebar bands.
+        if (!DarkModeShouldUseDarkColors())
+            SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
         Renderer.CreateEx(/*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
@@ -3403,6 +3411,10 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ToggleToolBar();
         if (G.StatusbarVisible)
             ToggleStatusBar();
+
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
 
         SetFocus(Renderer.HWindow);
 
@@ -3597,6 +3609,14 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HBRUSH brush = CreateSolidBrush(DarkModeGetDialogBackgroundColor());
+            FillRect((HDC)wParam, &r, brush);
+            DeleteObject(brush);
+        }
         return 1;
     }
 
@@ -3621,6 +3641,28 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
     {
         OnSize();
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            DarkModeApplyWindow(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyTree(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
         break;
     }
 
