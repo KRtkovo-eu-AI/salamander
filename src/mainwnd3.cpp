@@ -225,10 +225,18 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     if (GetPanelTabIndex(side, panel) < 0)
         return;
 
+    CFilesWindow* previousPanel = (side == cpsLeft) ? LeftPanel : RightPanel;
+
     if (side == cpsLeft)
         LeftPanel = panel;
     else
         RightPanel = panel;
+
+    if (side == cpsLeft && previousPanel != NULL && previousPanel != panel)
+    {
+        previousPanel->TreeViewActive = FALSE;
+        previousPanel->DestroyTreeView();
+    }
 
     panel->SetPanelSide(side);
 
@@ -614,6 +622,11 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
             continue;
         BOOL show = (panel == active);
         ShowWindow(panel->HWindow, show ? SW_SHOW : SW_HIDE);
+        if (side == cpsLeft && !show)
+        {
+            panel->TreeViewActive = FALSE;
+            panel->DestroyTreeView();
+        }
         if (show)
             panel->NeedsRefreshOnActivation = FALSE;
         else if (panel->Is(ptDisk) || panel->Is(ptZIPArchive))
@@ -7576,8 +7589,26 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return notifyResult;
         }
 
-        // Handle treeview notifications (treeview is now a child of the main window)
+        // Handle treeview notifications (treeview is now a child of the main window).
+        // The visible tree belongs to the currently selected left tab, but hidden
+        // tabs can still send cleanup notifications while their stale tree window
+        // is being destroyed.  Resolve the owner by HWND so those notifications
+        // are not ignored.
+        CFilesWindow* treePanel = NULL;
         if (LeftPanel != NULL && lphdr != NULL && lphdr->hwndFrom == LeftPanel->HTreeView)
+            treePanel = LeftPanel;
+        else if (lphdr != NULL)
+        {
+            for (int i = 0; i < LeftPanelTabs.Count; i++)
+            {
+                if (LeftPanelTabs[i] != NULL && lphdr->hwndFrom == LeftPanelTabs[i]->HTreeView)
+                {
+                    treePanel = LeftPanelTabs[i];
+                    break;
+                }
+            }
+        }
+        if (treePanel != NULL)
         {
             if (lphdr->code == TVN_DELETEITEM)
             {
@@ -7593,7 +7624,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return 0;
             }
 
-            if (LeftPanel->TreeViewDisableNotify)
+            if (treePanel->TreeViewDisableNotify)
                 return 0;
 
             switch (lphdr->code)
@@ -7606,18 +7637,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
                 if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
-                    pnmcd->clrText = LeftPanel->GetTreeViewTextColor();
-                    pnmcd->clrTextBk = LeftPanel->GetTreeViewBkColor();
+                    pnmcd->clrText = treePanel->GetTreeViewTextColor();
+                    pnmcd->clrTextBk = treePanel->GetTreeViewBkColor();
                     if ((pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0)
                     {
-                        HBRUSH hBrush = HANDLES(CreateSolidBrush(LeftPanel->GetTreeViewSelectionBkColor()));
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(treePanel->GetTreeViewSelectionBkColor()));
                         if (hBrush != NULL)
                         {
                             FillRect(pnmcd->nmcd.hdc, &pnmcd->nmcd.rc, hBrush);
                             HANDLES(DeleteObject(hBrush));
                         }
-                        pnmcd->clrText = LeftPanel->GetTreeViewSelectionTextColor();
-                        pnmcd->clrTextBk = LeftPanel->GetTreeViewSelectionBkColor();
+                        pnmcd->clrText = treePanel->GetTreeViewSelectionTextColor();
+                        pnmcd->clrTextBk = treePanel->GetTreeViewSelectionBkColor();
                         pnmcd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
                     }
                     return CDRF_NEWFONT;
@@ -7629,7 +7660,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
                 if (pnmtv->action == TVE_EXPAND)
-                    LeftPanel->PopulateTreeViewItem(pnmtv->itemNew.hItem);
+                    treePanel->PopulateTreeViewItem(pnmtv->itemNew.hItem);
                 return 0;
             }
 
@@ -7637,15 +7668,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
                 CTreeViewNodeData itemData;
-                CFilesWindow* sourcePanel = LeftPanel->GetTreeViewSourcePanel();
-                if (!LeftPanel->TreeViewActive || sourcePanel == NULL || !sourcePanel->Is(ptDisk))
+                CFilesWindow* sourcePanel = treePanel->GetTreeViewSourcePanel();
+                if (!treePanel->TreeViewActive || sourcePanel == NULL || !sourcePanel->Is(ptDisk))
                     return 0;
 
                 TVITEM item;
                 memset(&item, 0, sizeof(item));
                 item.mask = TVIF_PARAM;
                 item.hItem = pnmtv->itemNew.hItem;
-                if (!TreeView_GetItem(LeftPanel->HTreeView, &item) || item.lParam == 0)
+                if (!TreeView_GetItem(treePanel->HTreeView, &item) || item.lParam == 0)
                     return 0;
                 itemData = *(CTreeViewNodeData*)item.lParam;
 

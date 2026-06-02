@@ -74,6 +74,22 @@ static LRESULT CALLBACK TreeViewSplitSubclassProc(HWND hwnd, UINT message, WPARA
 
     switch (message)
     {
+    case WM_ERASEBKGND:
+        return TRUE;
+
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        RECT r;
+        GetClientRect(hwnd, &r);
+
+        HBRUSH hBrush = DarkModeShouldUseDarkColors() ? DarkModeGetPanelFrameBrush() : GetSysColorBrush(COLOR_BTNFACE);
+        FillRect(hdc, &r, hBrush);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
     case WM_SETCURSOR:
         SetCursor(LoadCursor(NULL, IDC_SIZEWE));
         return TRUE;
@@ -148,6 +164,9 @@ BOOL CFilesWindow::IsTreeViewHost()
 
 CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
 {
+    // The tree view window is hosted on the left side, but its content must
+    // follow the currently active panel/tab, regardless of whether it is on the
+    // left or right side.
     if (MainWindow != NULL)
     {
         CFilesWindow* activePanel = MainWindow->GetActivePanel();
@@ -203,6 +222,8 @@ void CFilesWindow::UpdateTreeViewColors()
     TreeView_SetBkColor(HTreeView, GetTreeViewBkColor());
     TreeView_SetLineColor(HTreeView, GetTreeViewTextColor());
     InvalidateRect(HTreeView, NULL, FALSE);
+    if (HTreeSplit != NULL)
+        InvalidateRect(HTreeSplit, NULL, TRUE);
 }
 
 void CFilesWindow::SetTreeViewWidth(int width)

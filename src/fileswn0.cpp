@@ -3322,6 +3322,8 @@ void CFilesWindow::OnColorsChanged()
         StatusLine->OnColorsChanged();
     }
 
+    UpdateTreeViewColors();
+
     if (IconCache != NULL)
     {
         SleepIconCacheThread();
