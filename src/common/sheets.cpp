@@ -392,7 +392,11 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        DarkModeApplyTree(HWindow);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         ParentDialog->HWindow = Parent;
         TransferData(ttDataToWindow);
         if (ElasticLayout != NULL)
@@ -505,15 +509,29 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_THEMECHANGED:
     {
-        DarkModeApplyTree(HWindow);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
     case WM_SETTINGCHANGE:
     {
-        if (DarkModeHandleSettingChange(uMsg, lParam))
+        if (DarkModeHandleSettingChange(uMsg, lParam) &&
+            WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
             DarkModeApplyTree(HWindow);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
+    }
+
+    case WM_USER_COMMONDLG_DARKMODE_REDRAW:
+    {
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
     }
     }
     return FALSE;
@@ -854,7 +872,11 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HTreeView = GetDlgItem(HWindow, _TPD_IDC_TREE);
         BOOL appIsThemed = IsAppThemed();
         ApplyTreeViewColors(HTreeView);
-        DarkModeApplyTree(HWindow);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
 
         int treeIndent = 0;
         if (appIsThemed)
@@ -1294,8 +1316,11 @@ BOOL CTreePropHolderDlg::SelectPage(int pageIndex)
         {
             ChildDialog->SetParent(HWindow);
             ChildDialog->Create();
-            DarkModeApplyTree(ChildDialog->HWindow);
-            SendMessage(ChildDialog->HWindow, WM_THEMECHANGED, 0, 0);
+            if (WinLib_DarkMode_ShouldApplyDialogTree(ChildDialog->HWindow))
+            {
+                DarkModeApplyTree(ChildDialog->HWindow);
+                WinLib_DarkMode_PostDeferredRedraw(ChildDialog->HWindow);
+            }
         }
 
         NMHDR nmhdr;

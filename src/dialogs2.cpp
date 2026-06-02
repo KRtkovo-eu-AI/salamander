@@ -287,10 +287,13 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
             MultiMonCenterWindow(HWindow, NULL, FALSE);
 
-        DarkModeApplyTree(HWindow);
-        DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
 
         break;
     }
@@ -328,23 +331,33 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_THEMECHANGED:
     {
-        DarkModeApplyTree(HWindow);
-        DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyStaticTextColors(HWindow, NULL);
-        InvalidateRect(HWindow, NULL, TRUE);
-        break;
-    }
-
-    case WM_SETTINGCHANGE:
-    {
-        if (DarkModeHandleSettingChange(uMsg, lParam))
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyStaticTextColors(HWindow, NULL);
-            InvalidateRect(HWindow, NULL, TRUE);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
-        break;
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeHandleSettingChange(uMsg, lParam) &&
+            WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
+        return TRUE;
+    }
+
+    case WM_USER_COMMONDLG_DARKMODE_REDRAW:
+    {
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
     }
 
     case WM_CTLCOLORDLG:
