@@ -520,6 +520,15 @@ protected:
 
     CTabWindow* LeftTabWindow;
     CTabWindow* RightTabWindow;
+
+    HWND HTreeView;
+    HWND HTreeSplit;
+    BOOL TreeViewActive;
+    BOOL TreeViewDisableNotify;
+    BOOL TreeViewSplitDragging;
+    int TreeViewSplitOffset;
+    int TreeViewWidth;
+
     bool PanelTabCrossDragActive;
     CPanelSide PanelTabCrossDragSourceSide;
     int PanelTabCrossDragSourceIndex;
@@ -687,6 +696,20 @@ public:
     BOOL ToggleMiddleToolBar();
     BOOL ToggleBottomToolBar();
     BOOL ToggleTreeView();
+    void CreateTreeView();
+    void DestroyTreeView();
+    void UpdateTreeView(BOOL active);
+    void RefreshTreeView();
+    BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE);
+    void UpdateTreeViewColors();
+    int GetTreeViewWidth(int clientWidth);
+    int GetTreeViewReservedWidth(int clientWidth);
+    void SetTreeViewWidth(int width);
+    CFilesWindow* GetTreeViewSourcePanel();
+    COLORREF GetTreeViewTextColor();
+    COLORREF GetTreeViewBkColor();
+    COLORREF GetTreeViewSelectionTextColor();
+    COLORREF GetTreeViewSelectionBkColor();
     BOOL ToggleUserMenuToolBar(BOOL storePos = TRUE);
     BOOL ToggleHotPathsBar(BOOL storePos = TRUE);
     // If 'twoDriveBars' is TRUE, the user wants two drive lists; otherwise only one

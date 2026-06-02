@@ -7575,6 +7575,108 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (RightTabWindow->HandleNotify(lphdr, notifyResult))
                 return notifyResult;
         }
+
+        // Handle treeview notifications (treeview is now a child of the main window)
+        if (LeftPanel != NULL && lphdr != NULL && lphdr->hwndFrom == LeftPanel->HTreeView)
+        {
+            if (lphdr->code == TVN_DELETEITEM)
+            {
+                LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
+                if (pnmtv->itemOld.lParam != 0)
+                {
+                    CTreeViewNodeData* itemData = (CTreeViewNodeData*)pnmtv->itemOld.lParam;
+                    free(itemData->FullPath);
+                    free(itemData->FocusPath);
+                    free(itemData->FocusName);
+                    free(itemData);
+                }
+                return 0;
+            }
+
+            if (LeftPanel->TreeViewDisableNotify)
+                return 0;
+
+            switch (lphdr->code)
+            {
+            case NM_CUSTOMDRAW:
+            {
+                LPNMTVCUSTOMDRAW pnmcd = (LPNMTVCUSTOMDRAW)lParam;
+                if (pnmcd->nmcd.dwDrawStage == CDDS_PREPAINT)
+                    return CDRF_NOTIFYITEMDRAW;
+
+                if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                {
+                    pnmcd->clrText = LeftPanel->GetTreeViewTextColor();
+                    pnmcd->clrTextBk = LeftPanel->GetTreeViewBkColor();
+                    if ((pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0)
+                    {
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(LeftPanel->GetTreeViewSelectionBkColor()));
+                        if (hBrush != NULL)
+                        {
+                            FillRect(pnmcd->nmcd.hdc, &pnmcd->nmcd.rc, hBrush);
+                            HANDLES(DeleteObject(hBrush));
+                        }
+                        pnmcd->clrText = LeftPanel->GetTreeViewSelectionTextColor();
+                        pnmcd->clrTextBk = LeftPanel->GetTreeViewSelectionBkColor();
+                        pnmcd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
+                    }
+                    return CDRF_NEWFONT;
+                }
+                return CDRF_DODEFAULT;
+            }
+
+            case TVN_ITEMEXPANDING:
+            {
+                LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
+                if (pnmtv->action == TVE_EXPAND)
+                    LeftPanel->PopulateTreeViewItem(pnmtv->itemNew.hItem);
+                return 0;
+            }
+
+            case TVN_SELCHANGED:
+            {
+                LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
+                CTreeViewNodeData itemData;
+                CFilesWindow* sourcePanel = LeftPanel->GetTreeViewSourcePanel();
+                if (!LeftPanel->TreeViewActive || sourcePanel == NULL || !sourcePanel->Is(ptDisk))
+                    return 0;
+
+                TVITEM item;
+                memset(&item, 0, sizeof(item));
+                item.mask = TVIF_PARAM;
+                item.hItem = pnmtv->itemNew.hItem;
+                if (!TreeView_GetItem(LeftPanel->HTreeView, &item) || item.lParam == 0)
+                    return 0;
+                itemData = *(CTreeViewNodeData*)item.lParam;
+
+                if (itemData.Type == tvntDirectory)
+                {
+                    if (itemData.FullPath != NULL && itemData.FullPath[0] != 0 &&
+                        !IsTheSamePath(itemData.FullPath, sourcePanel->GetPath()))
+                    {
+                        char treePath[MAX_PATH];
+                        lstrcpyn(treePath, itemData.FullPath, MAX_PATH);
+                        sourcePanel->ChangePathToDisk(sourcePanel->HWindow, treePath);
+                    }
+                }
+                else
+                {
+                    if (itemData.FocusPath != NULL && itemData.FocusPath[0] != 0 &&
+                        itemData.FocusName != NULL && itemData.FocusName[0] != 0)
+                    {
+                        char focusPath[MAX_PATH + 200];
+                        char focusName[MAX_PATH + 200];
+                        lstrcpyn(focusPath, itemData.FocusPath, MAX_PATH + 200);
+                        lstrcpyn(focusName, itemData.FocusName, MAX_PATH + 200);
+                        PostFocusNameInPanel(sourcePanel == LeftPanel ? PANEL_LEFT : PANEL_RIGHT,
+                                             focusPath, focusName);
+                    }
+                }
+                return 0;
+            }
+            }
+        }
+
         if (lphdr->code == TTN_NEEDTEXT && lphdr->hwndFrom == ToolTipWindow.HWindow)
         {
             char* text = ((LPTOOLTIPTEXT)lParam)->szText;
@@ -7729,16 +7831,45 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (MiddleToolBar->HWindow != NULL)
             middleToolbarWidth = MiddleToolBar->GetNeededWidth();
 
-        int leftWidth = (int)((WindowWidth - splitWidth) * SplitPosition) - 1;
-        if (leftWidth < MIN_WIN_WIDTH)
-            leftWidth = MIN_WIN_WIDTH;
-        int rightWidth = WindowWidth - 2 - leftWidth - splitWidth;
+        // Calculate treeview width for the left side first, so we can account for it in the split
+        int treeWidth = 0;
+        int treeSplitWidth = 0;
+        if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+        {
+            // Use a temporary leftWidth to calculate treeview width
+            int tempLeftWidth = (int)((WindowWidth - splitWidth) * SplitPosition) - 1;
+            if (tempLeftWidth < MIN_WIN_WIDTH)
+                tempLeftWidth = MIN_WIN_WIDTH;
+            int tempRightWidth = WindowWidth - 2 - tempLeftWidth - splitWidth;
+            if (tempRightWidth < MIN_WIN_WIDTH)
+            {
+                tempRightWidth = MIN_WIN_WIDTH;
+                tempLeftWidth = WindowWidth - 2 - tempRightWidth - splitWidth;
+            }
+            treeWidth = LeftPanel->GetTreeViewWidth(tempLeftWidth);
+            treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
+        }
+
+        // Calculate split widths accounting for treeview:
+        // The treeview is part of the left side, so the split ratio applies to
+        // (leftPanelContent + treeview + splitter) vs (rightPanel)
+        int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+        if (totalPanelsWidth < 0)
+            totalPanelsWidth = 0;
+        int leftTotalWidth = (int)((totalPanelsWidth + 1) * SplitPosition) - 1;
+        if (leftTotalWidth < MIN_WIN_WIDTH)
+            leftTotalWidth = MIN_WIN_WIDTH;
+        int rightWidth = totalPanelsWidth - leftTotalWidth;
         if (rightWidth < MIN_WIN_WIDTH)
         {
             rightWidth = MIN_WIN_WIDTH;
-            leftWidth = WindowWidth - 2 - rightWidth - splitWidth;
+            leftTotalWidth = totalPanelsWidth - rightWidth;
         }
-        SplitPositionPix = 1 + leftWidth;
+        int panelLeftWidth = leftTotalWidth - treeWidth - treeSplitWidth;
+        if (panelLeftWidth < 0)
+            panelLeftWidth = 0;
+
+        SplitPositionPix = 1 + leftTotalWidth;
 
         TopRebarHeight = 0;
         BottomToolBarHeight = 0;
@@ -7777,6 +7908,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             windowsCount++;
         if (RightPanel != NULL && RightPanel->HWindow != NULL)
             windowsCount++;
+        if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+            windowsCount += 2; // treeview + splitter
         if (MiddleToolBar->HWindow != NULL)
         {
             windowsCount++;
@@ -7804,12 +7937,26 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                               0, 0, WindowWidth, TopRebarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
 
+            // Position treeview to the left of the left panel area
+            if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+            {
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView, NULL,
+                                              1, TopRebarHeight, treeWidth, PanelsHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
+            }
+            if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)
+            {
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit, NULL,
+                                              1 + treeWidth, TopRebarHeight, treeSplitWidth, PanelsHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
+            }
+
             if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)
             {
                 UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
                 flags |= leftTabsVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftTabWindow->HWindow, NULL,
-                                              1, TopRebarHeight, leftWidth, leftTabHeight,
+                                              1 + treeWidth + treeSplitWidth, TopRebarHeight, panelLeftWidth, leftTabHeight,
                                               flags));
             }
 
@@ -7829,7 +7976,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (leftPanelHeight < 0)
                     leftPanelHeight = 0;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HWindow, NULL,
-                                              1, TopRebarHeight + leftTabHeight, leftWidth, leftPanelHeight,
+                                              1 + treeWidth + treeSplitWidth, TopRebarHeight + leftTabHeight, panelLeftWidth, leftPanelHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
             }
             if (RightPanel != NULL && RightPanel->HWindow != NULL)

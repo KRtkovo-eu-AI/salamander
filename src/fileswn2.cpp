@@ -101,7 +101,7 @@ static LRESULT CALLBACK TreeViewSplitSubclassProc(HWND hwnd, UINT message, WPARA
         {
             POINT pt;
             GetCursorPos(&pt);
-            ScreenToClient(panel->HWindow, &pt);
+            ScreenToClient(MainWindow->HWindow, &pt);
             panel->SetTreeViewWidth(pt.x - panel->TreeViewSplitOffset);
             return 0;
         }
@@ -207,23 +207,16 @@ void CFilesWindow::UpdateTreeViewColors()
 
 void CFilesWindow::SetTreeViewWidth(int width)
 {
-    if (HWindow != NULL)
+    if (MainWindow != NULL && MainWindow->HWindow != NULL)
     {
         RECT r;
-        GetClientRect(HWindow, &r);
+        GetClientRect(MainWindow->HWindow, &r);
         width = ClampTreeViewWidth(r.right - r.left, width);
     }
     Configuration.TreeViewWidth = width;
 
-    if (HWindow != NULL)
-    {
-        RECT r;
-        GetClientRect(HWindow, &r);
-        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
-                    MAKELONG(r.right - r.left, r.bottom - r.top));
-        RedrawWindow(HWindow, NULL, NULL,
-                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-    }
+    if (MainWindow != NULL)
+        MainWindow->LayoutWindows();
 }
 
 void CFilesWindow::HandsOff(BOOL off)
@@ -1585,12 +1578,13 @@ void CFilesWindow::CreateTreeView()
     if (HTreeView == NULL)
     {
         BOOL appIsThemed = IsAppThemed();
-        HTreeView = CreateWindowEx(WS_EX_STATICEDGE, WC_TREEVIEW, "",
+        DWORD exStyle = DarkModeShouldUseDarkColors() ? 0 : WS_EX_STATICEDGE;
+        HTreeView = CreateWindowEx(exStyle, WC_TREEVIEW, "",
                                    WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP | WS_VSCROLL |
                                        TVS_DISABLEDRAGDROP | TVS_HASBUTTONS | TVS_LINESATROOT |
                                        TVS_SHOWSELALWAYS | (appIsThemed ? TVS_FULLROWSELECT : TVS_HASLINES),
                                    0, 0, 0, 0,
-                                   HWindow, (HMENU)IDC_TREEVIEW, HInstance, NULL);
+                                   MainWindow->HWindow, (HMENU)IDC_TREEVIEW, HInstance, NULL);
         if (HTreeView == NULL)
         {
             TRACE_E("Unable to create tree-view.");
@@ -1603,7 +1597,7 @@ void CFilesWindow::CreateTreeView()
         SHFILEINFO sfi;
         memset(&sfi, 0, sizeof(sfi));
         HIMAGELIST hImageList = (HIMAGELIST)SHGetFileInfo("C:\\", FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi),
-                                                          SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
+                                                           SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
         if (hImageList != NULL)
             TreeView_SetImageList(HTreeView, hImageList, TVSIL_NORMAL);
         UpdateTreeViewColors();
@@ -1614,7 +1608,7 @@ void CFilesWindow::CreateTreeView()
         HTreeSplit = CreateWindowEx(0, "STATIC", "",
                                     WS_CHILD | WS_CLIPSIBLINGS | SS_NOTIFY,
                                     0, 0, 0, 0,
-                                    HWindow, (HMENU)IDC_TREESPLIT, HInstance, NULL);
+                                    MainWindow->HWindow, (HMENU)IDC_TREESPLIT, HInstance, NULL);
         if (HTreeSplit == NULL)
         {
             TRACE_E("Unable to create tree-view splitter.");
@@ -1674,15 +1668,8 @@ void CFilesWindow::UpdateTreeView(BOOL active)
     if (HTreeSplit != NULL)
         ShowWindow(HTreeSplit, TreeViewActive ? SW_SHOW : SW_HIDE);
 
-    if (HWindow != NULL)
-    {
-        RECT r;
-        GetClientRect(HWindow, &r);
-        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
-                    MAKELONG(r.right - r.left, r.bottom - r.top));
-        RedrawWindow(HWindow, NULL, NULL,
-                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-    }
+    if (MainWindow != NULL)
+        MainWindow->LayoutWindows();
 }
 
 void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOOL newPathIsTheSame,
