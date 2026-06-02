@@ -5,6 +5,7 @@
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 
+#include <algorithm>
 #include <delayimp.h>
 #include <uxtheme.h>
 #include <commctrl.h>
@@ -492,6 +493,197 @@ void EnsureDarkChoiceButtonSubclass(HWND hwnd, bool enableDark)
         EnsureClassicButtonTheme(hwnd, false);
         InvalidateRect(hwnd, NULL, TRUE);
     }
+}
+
+void PaintDarkTabOverflowButton(HWND hwnd, HDC hdc)
+{
+    RECT client;
+    GetClientRect(hwnd, &client);
+
+    const DarkModeColors& colors = DarkModeGetColors();
+    const COLORREF face = colors.usingSchemeColors ? colors.background : RGB(0x20, 0x20, 0x20);
+    const COLORREF hotFace = RGB((std::min)(255, GetRValue(face) + 0x12),
+                                 (std::min)(255, GetGValue(face) + 0x12),
+                                 (std::min)(255, GetBValue(face) + 0x12));
+    const COLORREF pressedFace = RGB((std::max)(0, GetRValue(face) - 0x10),
+                                     (std::max)(0, GetGValue(face) - 0x10),
+                                     (std::max)(0, GetBValue(face) - 0x10));
+    const COLORREF border = RGB(0x4A, 0x4A, 0x4A);
+    const COLORREF arrow = IsWindowEnabled(hwnd) ? colors.readableText : RGB(0x88, 0x88, 0x88);
+
+    POINT cursor;
+    GetCursorPos(&cursor);
+    ScreenToClient(hwnd, &cursor);
+    const bool trackingMouse = PtInRect(&client, cursor) != FALSE;
+    const bool mouseDown = (GetKeyState(VK_LBUTTON) & 0x8000) != 0;
+
+    const bool horizontal = (GetWindowLongPtr(hwnd, GWL_STYLE) & UDS_HORZ) != 0;
+    RECT buttons[2] = {client, client};
+    if (horizontal)
+    {
+        buttons[0].right = client.left + (client.right - client.left) / 2;
+        buttons[1].left = buttons[0].right;
+    }
+    else
+    {
+        buttons[0].bottom = client.top + (client.bottom - client.top) / 2;
+        buttons[1].top = buttons[0].bottom;
+    }
+
+    FillRectWithColor(hdc, client, face);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        RECT button = buttons[i];
+        COLORREF buttonFace = face;
+        if (trackingMouse && PtInRect(&button, cursor))
+            buttonFace = mouseDown ? pressedFace : hotFace;
+        FillRectWithColor(hdc, button, buttonFace);
+
+        RECT edge = button;
+        if (horizontal)
+        {
+            edge.left = (i == 0) ? button.right - 1 : button.left;
+            edge.right = edge.left + 1;
+        }
+        else
+        {
+            edge.top = (i == 0) ? button.bottom - 1 : button.top;
+            edge.bottom = edge.top + 1;
+        }
+        FillRectWithColor(hdc, edge, border);
+
+        const int width = button.right - button.left;
+        const int height = button.bottom - button.top;
+        int arrowSize = (std::min)(width, height) / 3;
+        if (arrowSize < 3)
+            arrowSize = 3;
+        if (arrowSize > 6)
+            arrowSize = 6;
+
+        POINT center = {button.left + width / 2, button.top + height / 2};
+        POINT pts[3];
+        if (horizontal)
+        {
+            if (i == 0)
+            {
+                pts[0].x = center.x - arrowSize / 2;
+                pts[0].y = center.y;
+                pts[1].x = center.x + arrowSize / 2;
+                pts[1].y = center.y - arrowSize;
+                pts[2].x = center.x + arrowSize / 2;
+                pts[2].y = center.y + arrowSize;
+            }
+            else
+            {
+                pts[0].x = center.x + arrowSize / 2;
+                pts[0].y = center.y;
+                pts[1].x = center.x - arrowSize / 2;
+                pts[1].y = center.y - arrowSize;
+                pts[2].x = center.x - arrowSize / 2;
+                pts[2].y = center.y + arrowSize;
+            }
+        }
+        else
+        {
+            if (i == 0)
+            {
+                pts[0].x = center.x;
+                pts[0].y = center.y - arrowSize / 2;
+                pts[1].x = center.x - arrowSize;
+                pts[1].y = center.y + arrowSize / 2;
+                pts[2].x = center.x + arrowSize;
+                pts[2].y = center.y + arrowSize / 2;
+            }
+            else
+            {
+                pts[0].x = center.x;
+                pts[0].y = center.y + arrowSize / 2;
+                pts[1].x = center.x - arrowSize;
+                pts[1].y = center.y - arrowSize / 2;
+                pts[2].x = center.x + arrowSize;
+                pts[2].y = center.y - arrowSize / 2;
+            }
+        }
+
+        HGDIOBJ oldBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+        HGDIOBJ oldPen = SelectObject(hdc, GetStockObject(DC_PEN));
+        COLORREF oldBrushColor = SetDCBrushColor(hdc, arrow);
+        COLORREF oldPenColor = SetDCPenColor(hdc, arrow);
+        Polygon(hdc, pts, _countof(pts));
+        SetDCPenColor(hdc, oldPenColor);
+        SetDCBrushColor(hdc, oldBrushColor);
+        SelectObject(hdc, oldPen);
+        SelectObject(hdc, oldBrush);
+    }
+}
+
+LRESULT CALLBACK DarkTabOverflowSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkTabOverflowSubclass, kDarkModeTabOverflowSubclassId);
+        break;
+
+    case WM_ERASEBKGND:
+        return ShouldUseDarkColorsForSurfaces() ? TRUE : DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    case WM_PAINT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            if (hdc != NULL)
+                PaintDarkTabOverflowButton(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PaintDarkTabOverflowButton(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case WM_MOUSEMOVE:
+    {
+        TRACKMOUSEEVENT track = {sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0};
+        TrackMouseEvent(&track);
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    case WM_MOUSELEAVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_ENABLE:
+    case WM_SIZE:
+    case WM_THEMECHANGED:
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsureDarkTabOverflowSubclass(HWND hwnd, bool enableDark)
+{
+    if (hwnd == NULL)
+        return;
+
+    if (enableDark)
+        SetWindowSubclass(hwnd, DarkTabOverflowSubclass, kDarkModeTabOverflowSubclassId, 0);
+    else
+        RemoveWindowSubclass(hwnd, DarkTabOverflowSubclass, kDarkModeTabOverflowSubclassId);
+    InvalidateRect(hwnd, NULL, TRUE);
 }
 
 #if !USE_DARKMODELIB
