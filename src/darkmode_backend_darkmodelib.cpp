@@ -121,7 +121,7 @@ void ApplyTree(HWND hwnd)
             // tear down any hooks left from a previous Windows Dark Mode session.
             RemoveWindowAndChildSubclasses(hwnd);
         }
-        dmlib::setDarkTitleBar(hwnd, dark);
+        dmlib::setDarkTitleBar(hwnd);
     }
 #else
     (void)hwnd;
@@ -170,8 +170,8 @@ bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
                     {
                         // Follow darkmodelib demo behavior expectation: button labels in dark mode
                         // must stay high-contrast (light) regardless of host palette drift.
-                        textColor = dmlib::isDarkTheme() ? RGB(0xF0, 0xF0, 0xF0)
-                                                         : EnsureReadableForBackground(colors.readableText, colors.background);
+                        textColor = DarkMode_ShouldUseDark() ? RGB(0xF0, 0xF0, 0xF0)
+                                                              : EnsureReadableForBackground(colors.readableText, colors.background);
                     }
                 }
             }

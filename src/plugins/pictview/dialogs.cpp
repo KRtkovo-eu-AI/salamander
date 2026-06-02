@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "../../darkmode.h"
+
 #include "lib/pvw32dll.h"
 #include "renderer.h"
 #include "pictview.h"
@@ -13,6 +15,64 @@
 #include "exif/exif.h"
 #include "exif/libexif/exif-tag.h"
 #include "utils.h"
+
+
+namespace
+{
+const UINT WM_USER_CFGPAGE_REDRAW = WM_APP + 3252;
+
+void ApplyPictViewDarkMode(HWND hwnd)
+{
+    ConfigurePictViewDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+bool ApplyPictViewDarkModeIfSelected(HWND hwnd)
+{
+    if (!PictViewShouldUseWindowsDarkMode())
+        return false;
+
+    ApplyPictViewDarkMode(hwnd);
+    return true;
+}
+
+void RedrawPictViewConfigPage(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    HWND parent = GetParent(hwnd);
+    if (parent != NULL)
+        RedrawWindow(parent, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
+
+void QueuePictViewConfigPageRedraw(HWND hwnd)
+{
+    if (hwnd != NULL)
+        PostMessage(hwnd, WM_USER_CFGPAGE_REDRAW, 0, 0);
+}
+
+bool HandlePictViewDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& result)
+{
+    if (!PictViewShouldUseWindowsDarkMode())
+        return false;
+
+    ConfigurePictViewDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        result = (INT_PTR)brush;
+        return true;
+    }
+    return false;
+}
+}
 
 // Enforces ANSI variant
 #define ListView_SetItemTextA(hwndLV, i, iSubItem_, pszText_) \
@@ -53,10 +113,44 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        ApplyPictViewDarkMode(HWindow);
         // horizontal and vertical centering of the dialog to the parent
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         break; // want the focus from DefDlgProc
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyPictViewDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyPictViewDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandlePictViewDarkCtlColor(uMsg, wParam, lParam, result))
+            return result;
+        break;
     }
     }
     return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -65,6 +159,7 @@ CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 void CCommonDialog::NotifDlgJustCreated()
 {
     SalamanderGUI->ArrangeHorizontalLines(HWindow);
+    ApplyPictViewDarkMode(HWindow);
 }
 
 // ****************************************************************************
@@ -72,9 +167,83 @@ void CCommonDialog::NotifDlgJustCreated()
 // CCommonPropSheetPage
 //
 
+INT_PTR
+CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+    {
+        if (ApplyPictViewDarkModeIfSelected(HWindow))
+            QueuePictViewConfigPageRedraw(HWindow);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyPictViewDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SHOWWINDOW:
+    {
+        if (wParam != FALSE)
+        {
+            if (ApplyPictViewDarkModeIfSelected(HWindow))
+                QueuePictViewConfigPageRedraw(HWindow);
+        }
+        break;
+    }
+
+    case WM_USER_CFGPAGE_REDRAW:
+    {
+        RedrawPictViewConfigPage(HWindow);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyPictViewDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_NOTIFY:
+    {
+        LPNMHDR hdr = (LPNMHDR)lParam;
+        if (hdr != NULL && hdr->code == PSN_SETACTIVE && PictViewShouldUseWindowsDarkMode())
+            QueuePictViewConfigPageRedraw(HWindow);
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandlePictViewDarkCtlColor(uMsg, wParam, lParam, result))
+            return result;
+        break;
+    }
+    }
+    return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
+
 void CCommonPropSheetPage::NotifDlgJustCreated()
 {
     SalamanderGUI->ArrangeHorizontalLines(HWindow);
+    if (ApplyPictViewDarkModeIfSelected(HWindow))
+        QueuePictViewConfigPageRedraw(HWindow);
 }
 
 //****************************************************************************
@@ -635,19 +804,96 @@ void CConfigPageAdvanced::Transfer(CTransferInfo& ti)
 // helper object for centering the configuration dialog to the parent
 class CCenteredPropertyWindow : public CWindow
 {
+public:
+    CCenteredPropertyWindow(BOOL darkModeAttached) : Centered(FALSE), DarkModeAttached(darkModeAttached) {}
+
 protected:
+    BOOL Centered;
+    BOOL DarkModeAttached;
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         switch (uMsg)
         {
+        case WM_CREATE:
+        {
+            if (DarkModeAttached)
+                ApplyPictViewDarkMode(HWindow);
+            break;
+        }
+
+        case WM_THEMECHANGED:
+        {
+            if (DarkModeAttached)
+            {
+                ApplyPictViewDarkMode(HWindow);
+                RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+                return 0;
+            }
+            break;
+        }
+
+        case WM_SETTINGCHANGE:
+        {
+            if (DarkModeAttached)
+            {
+                ConfigurePictViewDarkModeFromHost();
+                if (DarkModeHandleSettingChange(uMsg, lParam))
+                {
+                    ApplyPictViewDarkMode(HWindow);
+                    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+                    return 0;
+                }
+            }
+            break;
+        }
+
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORMSGBOX:
+        case WM_CTLCOLORSCROLLBAR:
+        {
+            if (DarkModeAttached)
+            {
+                INT_PTR result = 0;
+                if (HandlePictViewDarkCtlColor(uMsg, wParam, lParam, result))
+                    return result;
+            }
+            break;
+        }
+
+        case WM_NOTIFY:
+        {
+            if (DarkModeAttached)
+            {
+                LPNMHDR hdr = (LPNMHDR)lParam;
+                if (hdr != NULL && hdr->code == TCN_SELCHANGE)
+                    QueuePictViewConfigPageRedraw((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
+            }
+            break;
+        }
+
+        case WM_USER_CFGPAGE_REDRAW:
+        {
+            if (DarkModeAttached)
+            {
+                RedrawPictViewConfigPage((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
+                return 0;
+            }
+            break;
+        }
+
         case WM_WINDOWPOSCHANGING:
         {
             WINDOWPOS* pos = (WINDOWPOS*)lParam;
-            if (pos->flags & SWP_SHOWWINDOW)
+            if (!Centered && (pos->flags & SWP_SHOWWINDOW))
             {
                 HWND hParent = GetParent(HWindow);
                 if (hParent != NULL)
                     SalamanderGeneral->MultiMonCenterWindow(HWindow, hParent, TRUE);
+                Centered = TRUE;
             }
             break;
         }
@@ -686,7 +932,8 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
 {
     if (uMsg == PSCB_INITIALIZED) // attach to the dialog
     {
-        CCenteredPropertyWindow* wnd = new CCenteredPropertyWindow;
+        BOOL keepAttached = ApplyPictViewDarkModeIfSelected(HWindow) ? TRUE : FALSE;
+        CCenteredPropertyWindow* wnd = new CCenteredPropertyWindow(keepAttached);
         if (wnd != NULL)
         {
             wnd->AttachToWindow(HWindow);
@@ -694,7 +941,14 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
                 delete wnd; // the window is not attached, destroy it right here
             else
             {
-                PostMessage(wnd->HWindow, WM_USER_CFGDLGDETACH, 0, 0); // to detach CCenteredPropertyWindow from the dialog
+                if (!keepAttached)
+                    PostMessage(wnd->HWindow, WM_USER_CFGDLGDETACH, 0, 0); // light mode: detach after centering like the original dialog
+                else
+                {
+                    // Keep the subclass attached for the lifetime of the property sheet.
+                    // It handles dark CTLCOLOR/theme messages for the tab and button area
+                    // outside individual property pages and redraws pages when switching tabs.
+                }
             }
         }
     }
@@ -1576,9 +1830,11 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             Highlights.ResetState();
 
         HListView = GetDlgItem(HWindow, IDC_IMGEXIF_LIST);
+        ApplyPictViewDarkMode(HWindow);
         DWORD exFlags = LVS_EX_FULLROWSELECT;
         DWORD origFlags = ListView_GetExtendedListViewStyle(HListView);
         ListView_SetExtendedListViewStyle(HListView, origFlags | exFlags); // 4.71
+        DarkModeUpdateListViewColors(HListView);
 
         InitListView();
 
@@ -1801,7 +2057,15 @@ CExifDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // cd->iSubItem == 1 &&
                     if (GetHighlightIndex(Items[(int)cd->nmcd.lItemlParam].Tag) != -1)
                     {
-                        cd->clrTextBk = RGB(255, 255, 0);
+                        if (DarkModeShouldUseDarkColors())
+                        {
+                            cd->clrText = DarkModeGetDialogTextColor();
+                            cd->clrTextBk = RGB(0x5A, 0x50, 0x00);
+                        }
+                        else
+                        {
+                            cd->clrTextBk = RGB(255, 255, 0);
+                        }
                         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_NEWFONT);
                         return TRUE;
                     }

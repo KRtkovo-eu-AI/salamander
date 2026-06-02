@@ -3,6 +3,8 @@
 
 #include "precomp.h"
 
+#include "../../darkmode.h"
+
 #include <share.h>
 #include <string>
 #include <limits>
@@ -383,21 +385,135 @@ CButtonData ToolBarButtons[] =
         {IDX_TB_FULLSCREEN, IDS_TT_FULL_SCREEN, CMD_FULLSCREEN, vweFileOpened /*vweNotLoading*/},
         {IDX_TB_TERMINATOR}};
 
+namespace
+{
+HBRUSH PictViewDarkModeDialogBrush = NULL;
+COLORREF PictViewDarkModeDialogBrushColor = CLR_INVALID;
+BOOL PictViewHostPolicyKnown = FALSE;
+BOOL PictViewHostUseWindowsDarkMode = FALSE;
+
+int PictViewColorLuminance(COLORREF color)
+{
+    return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
+}
+
+COLORREF PictViewEnsureReadableForeground(COLORREF foreground, COLORREF background)
+{
+    const int bgLum = PictViewColorLuminance(background);
+    const int fgLum = PictViewColorLuminance(foreground);
+    if (bgLum < 128 && fgLum < bgLum + 40)
+        return RGB(0xF0, 0xF0, 0xF0);
+    if (bgLum >= 128 && fgLum > bgLum - 40)
+        return RGB(0x20, 0x20, 0x20);
+    return foreground;
+}
+
+HBRUSH PictViewGetDarkModeDialogBrush(COLORREF background)
+{
+    if (PictViewDarkModeDialogBrush == NULL || PictViewDarkModeDialogBrushColor != background)
+    {
+        if (PictViewDarkModeDialogBrush != NULL)
+            DeleteObject(PictViewDarkModeDialogBrush);
+        PictViewDarkModeDialogBrush = CreateSolidBrush(background);
+        PictViewDarkModeDialogBrushColor = background;
+    }
+    return PictViewDarkModeDialogBrush;
+}
+
+void ReleasePictViewDarkModeResources()
+{
+    if (PictViewDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(PictViewDarkModeDialogBrush);
+        PictViewDarkModeDialogBrush = NULL;
+        PictViewDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL PictViewShouldUseWindowsDarkMode()
+{
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral != NULL &&
+        SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                             &useWindowsDarkMode,
+                                             sizeof(useWindowsDarkMode),
+                                             NULL))
+    {
+        PictViewHostPolicyKnown = TRUE;
+        PictViewHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+    return PictViewHostPolicyKnown && PictViewHostUseWindowsDarkMode;
+}
+
+void ConfigurePictViewDarkModeFromHost()
+{
+    const BOOL useWindowsDarkMode = PictViewShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && SalamanderGeneral != NULL)
+    {
+        text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+
+    const COLORREF readableText = PictViewEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = PictViewGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
 // sets colors for the entries defined by vceCount
+namespace
+{
+COLORREF PictViewGetEffectiveRendererColor(SALCOLOR color, COLORREF lightDefault, COLORREF darkDefault)
+{
+    if (PictViewShouldUseWindowsDarkMode())
+    {
+        const COLORREF rgb = GetCOLORREF(color);
+        if ((GetFValue(color) & SCF_DEFAULT) || rgb == lightDefault || rgb == RGB(0xFF, 0xFF, 0xFF))
+            return darkDefault;
+    }
+
+    return GetCOLORREF(color);
+}
+}
+
+COLORREF PictViewGetRendererBackgroundColor(BOOL fullScreen)
+{
+    return PictViewGetEffectiveRendererColor(G.Colors[fullScreen ? vceFSBackground : vceBackground],
+                                             fullScreen ? RGB(0, 0, 0) : GetSysColor(COLOR_APPWORKSPACE),
+                                             fullScreen ? RGB(0, 0, 0) : DarkModeGetDialogBackgroundColor());
+}
+
+COLORREF PictViewGetRendererTransparentColor(BOOL fullScreen)
+{
+    return PictViewGetEffectiveRendererColor(G.Colors[fullScreen ? vceFSTransparent : vceTransparent],
+                                             GetSysColor(COLOR_WINDOW),
+                                             fullScreen ? RGB(0, 0, 0) : DarkModeGetDialogBackgroundColor());
+}
+
 void RebuildColors(SALCOLOR* colors)
 {
+    const BOOL useWindowsDarkMode = PictViewShouldUseWindowsDarkMode();
+    const COLORREF darkBackground = useWindowsDarkMode ? DarkModeGetDialogBackgroundColor() : CLR_INVALID;
     if (GetFValue(colors[vceBackground]) & SCF_DEFAULT)
-        SetRGBPart(&colors[vceBackground], GetSysColor(COLOR_APPWORKSPACE));
+        SetRGBPart(&colors[vceBackground], useWindowsDarkMode ? darkBackground : GetSysColor(COLOR_APPWORKSPACE));
     if (GetFValue(colors[vceTransparent]) & SCF_DEFAULT)
-        SetRGBPart(&colors[vceTransparent], GetSysColor(COLOR_WINDOW));
+        SetRGBPart(&colors[vceTransparent], useWindowsDarkMode ? darkBackground : GetSysColor(COLOR_WINDOW));
     if (GetFValue(colors[vceFSBackground]) & SCF_DEFAULT)
         SetRGBPart(&colors[vceFSBackground], RGB(0, 0, 0));
     if (GetFValue(colors[vceFSTransparent]) & SCF_DEFAULT)
-        SetRGBPart(&colors[vceFSTransparent], GetSysColor(COLOR_WINDOW));
+        SetRGBPart(&colors[vceFSTransparent], useWindowsDarkMode ? RGB(0, 0, 0) : GetSysColor(COLOR_WINDOW));
 }
 
 void InitGlobalGUIParameters(void)
 {
+    ConfigurePictViewDarkModeFromHost();
     G.rgbPanelBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
 
     RebuildColors(G.Colors);
@@ -468,6 +584,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             DestroyAcceleratorTable(G.HAccel);
         if (G.CaptureAtomID != 0)
             GlobalDeleteAtom(G.CaptureAtomID);
+        ReleasePictViewDarkModeResources();
     }
 
     return TRUE; // DLL can be loaded
@@ -3149,6 +3266,8 @@ void CViewerWindow::ToggleStatusBar()
             StatusBar = NULL;
             return;
         }
+        ConfigurePictViewDarkModeFromHost();
+        DarkModeApplyTree(StatusBar->HWindow);
         G.StatusbarVisible = TRUE;
     }
     else
@@ -3162,6 +3281,23 @@ void CViewerWindow::ToggleStatusBar()
 BOOL CViewerWindow::IsFullScreen()
 {
     return FullScreen;
+}
+
+void CViewerWindow::UpdateRendererFrameForTheme()
+{
+    if (Renderer.HWindow == NULL)
+        return;
+
+    const BOOL wantClientEdge = !FullScreen && !DarkModeShouldUseDarkColors();
+    LONG_PTR exStyle = GetWindowLongPtr(Renderer.HWindow, GWL_EXSTYLE);
+    LONG_PTR newExStyle = wantClientEdge ? (exStyle | WS_EX_CLIENTEDGE) : (exStyle & ~WS_EX_CLIENTEDGE);
+    if (newExStyle != exStyle)
+    {
+        SetWindowLongPtr(Renderer.HWindow, GWL_EXSTYLE, newExStyle);
+        SetWindowPos(Renderer.HWindow, NULL, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        InvalidateRect(Renderer.HWindow, NULL, TRUE);
+    }
 }
 
 void CViewerWindow::ToggleFullScreen()
@@ -3192,9 +3328,7 @@ void CViewerWindow::ToggleFullScreen()
 
         SetWindowLong(HWindow, GWL_STYLE, style);
 
-        style = GetWindowLong(Renderer.HWindow, GWL_EXSTYLE);
-        style |= WS_EX_CLIENTEDGE;
-        SetWindowLong(Renderer.HWindow, GWL_EXSTYLE, style);
+        UpdateRendererFrameForTheme();
         ShowWindow(HRebar, SW_SHOW);
         if (StatusBar != NULL)
             ShowWindow(StatusBar->HWindow, SW_SHOW);
@@ -3212,7 +3346,7 @@ void CViewerWindow::ToggleFullScreen()
         }
 
         if (Renderer.PVHandle)
-            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, GetCOLORREF(G.Colors[vceTransparent]));
+            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, PictViewGetRendererTransparentColor(FALSE));
     }
     else
     {
@@ -3234,9 +3368,7 @@ void CViewerWindow::ToggleFullScreen()
         style = WS_POPUP | WS_VISIBLE | WS_OVERLAPPED | WS_CLIPSIBLINGS | WS_SYSMENU;
         SetWindowLong(HWindow, GWL_STYLE, style);
 
-        style = GetWindowLong(Renderer.HWindow, GWL_EXSTYLE);
-        style &= ~WS_EX_CLIENTEDGE;
-        SetWindowLong(Renderer.HWindow, GWL_EXSTYLE, style);
+        UpdateRendererFrameForTheme();
 
         ShowWindow(HRebar, SW_HIDE);
         if (StatusBar != NULL)
@@ -3263,7 +3395,7 @@ void CViewerWindow::ToggleFullScreen()
                      0);
 
         if (Renderer.PVHandle)
-            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, GetCOLORREF(G.Colors[vceFSTransparent]));
+            PVW32DLL.PVSetBkHandle(Renderer.PVHandle, PictViewGetRendererTransparentColor(TRUE));
     }
     LockWindowUpdate(NULL);
 }
@@ -3371,19 +3503,26 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         RECT r;
         GetClientRect(HWindow, &r);
+        ConfigurePictViewDarkModeFromHost();
+
+        DWORD rebarStyle = WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
+                            WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
+                            RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN |
+                            RBS_AUTOSIZE;
+        if (!DarkModeShouldUseDarkColors())
+            rebarStyle |= RBS_BANDBORDERS;
+
         HRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, _T(""),
-                                WS_VISIBLE | /*WS_BORDER |  */ WS_CHILD |
-                                    WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                                    RBS_VARHEIGHT | CCS_NODIVIDER |
-                                    RBS_BANDBORDERS | CCS_NOPARENTALIGN |
-                                    RBS_AUTOSIZE,
+                                rebarStyle,
                                 0, 0, r.right, r.bottom, // dummy
                                 HWindow, (HMENU)0, DLLInstance, NULL);
 
-        // we do not want visual styles for the rebar
-        SalamanderGUI->DisableWindowVisualStyles(HRebar);
+        // we do not want visual styles for the rebar in light mode; dark mode
+        // needs native themed drawing to avoid light rebar bands.
+        if (!DarkModeShouldUseDarkColors())
+            SalamanderGUI->DisableWindowVisualStyles(HRebar);
 
-        Renderer.CreateEx(/*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
+        Renderer.CreateEx(DarkModeShouldUseDarkColors() ? 0 : /*WS_EX_STATICEDGE*/ WS_EX_CLIENTEDGE,
                           CWINDOW_CLASSNAME2,
                           _T(""),
                           WS_VISIBLE | WS_CHILD | /*WS_VSCROLL | WS_HSCROLL | */ WS_CLIPSIBLINGS,
@@ -3403,6 +3542,12 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ToggleToolBar();
         if (G.StatusbarVisible)
             ToggleStatusBar();
+
+        ConfigurePictViewDarkModeFromHost();
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        UpdateRendererFrameForTheme();
 
         SetFocus(Renderer.HWindow);
 
@@ -3557,6 +3702,9 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_VIEWERCFGCHNG:
     {
+        ConfigurePictViewDarkModeFromHost();
+        RebuildColors(G.Colors);
+        UpdateRendererFrameForTheme();
         if (Renderer.HWindow != NULL)
             SendMessage(Renderer.HWindow, uMsg, wParam, lParam);
         return 0;
@@ -3597,6 +3745,15 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_ERASEBKGND:
     {
+        ConfigurePictViewDarkModeFromHost();
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT r;
+            GetClientRect(HWindow, &r);
+            HBRUSH brush = CreateSolidBrush(DarkModeGetDialogBackgroundColor());
+            FillRect((HDC)wParam, &r, brush);
+            DeleteObject(brush);
+        }
         return 1;
     }
 
@@ -3621,6 +3778,38 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
     {
         OnSize();
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        RebuildColors(G.Colors);
+        DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+        DarkModeApplyTree(HWindow);
+        UpdateRendererFrameForTheme();
+        if (Renderer.HWindow != NULL)
+            SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
+        InvalidateRect(HWindow, NULL, TRUE);
+        return 0;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigurePictViewDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            RebuildColors(G.Colors);
+            DarkModeApplyWindow(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyTree(HWindow);
+            UpdateRendererFrameForTheme();
+            if (Renderer.HWindow != NULL)
+                SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return 0;
+        }
         break;
     }
 
