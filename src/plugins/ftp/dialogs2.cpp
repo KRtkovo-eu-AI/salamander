@@ -893,12 +893,6 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_DESTROY:
-    {
-        ReleaseFTPLogsMenuTheme(HWindow);
-        break;
-    }
-
     case WM_CTLCOLORDLG:
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
@@ -1151,6 +1145,8 @@ CLogsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
     {
+        ReleaseFTPLogsMenuTheme(HWindow);
+
         if (HasDelayedUpdateTimer)
             KillTimer(HWindow, LOGSDLG_DELAYEDUPDATETIMER);
         HasDelayedUpdateTimer = FALSE;
