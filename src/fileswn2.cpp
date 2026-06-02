@@ -164,14 +164,12 @@ BOOL CFilesWindow::IsTreeViewHost()
 
 CFilesWindow* CFilesWindow::GetTreeViewSourcePanel()
 {
-    if (MainWindow != NULL)
-    {
-        CFilesWindow* activePanel = MainWindow->GetActivePanel();
-        if (activePanel != NULL)
-            return activePanel;
-        if (MainWindow->LeftPanel != NULL)
-            return MainWindow->LeftPanel;
-    }
+    // The tree view is anchored to the left side of the main window, so it must
+    // always mirror the currently selected left tab.  Do not use the globally
+    // active panel here; focus can be on the right panel while the user switches
+    // or refreshes left-side tabs.
+    if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
+        return MainWindow->LeftPanel;
     return this;
 }
 
