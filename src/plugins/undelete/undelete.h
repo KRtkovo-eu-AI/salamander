@@ -15,6 +15,13 @@ extern CSalamanderGUIAbstract* SalamanderGUI;
 BOOL InitFS();
 void ReleaseFS();
 
+void RefreshUndeleteDarkModeFromHost();
+void ConfigureUndeleteDarkModeFromHost();
+void ApplyUndeleteDarkMode(HWND hwnd);
+BOOL ApplyUndeleteDarkModeIfSelected(HWND hwnd);
+BOOL HandleUndeleteDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+void ReleaseUndeleteDarkModeResources();
+
 // FS-name assigned by Salamander after plugin is loaded
 extern char AssignedFSName[MAX_PATH];
 

@@ -19,6 +19,50 @@
 
 #pragma comment(lib, "UxTheme.lib")
 
+
+namespace
+{
+BOOL HandleUndeleteDarkDialogMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    switch (uMsg)
+    {
+    case WM_THEMECHANGED:
+        ApplyUndeleteDarkMode(hwnd);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        *result = TRUE;
+        return TRUE;
+
+    case WM_SETTINGCHANGE:
+        ConfigureUndeleteDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyUndeleteDarkMode(hwnd);
+            InvalidateRect(hwnd, NULL, TRUE);
+            *result = TRUE;
+            return TRUE;
+        }
+        break;
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+        return HandleUndeleteDarkCtlColor(uMsg, wParam, lParam, result);
+    }
+    return FALSE;
+}
+
+void ApplyUndeleteDarkModeToDialogChild(HWND hwnd, int controlID)
+{
+    HWND child = GetDlgItem(hwnd, controlID);
+    if (child != NULL)
+        DarkModeApplyWindow(child);
+}
+}
+
 // ****************************************************************************
 //
 //  CSnapshotProgressDlg
@@ -73,6 +117,10 @@ BOOL CSnapshotProgressDlg::GetWantCancel()
 
 INT_PTR CSnapshotProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CSnapshotProgressDlg::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -84,6 +132,8 @@ INT_PTR CSnapshotProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam
             DestroyWindow(HWindow);
             return FALSE;
         }
+        ApplyUndeleteDarkMode(HWindow);
+        ApplyUndeleteDarkModeToDialogChild(HWindow, IDC_PROGRESSBAR);
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         break; // we want focus from DefDlgProc
@@ -205,6 +255,10 @@ BOOL CCopyProgressDlg::GetWantCancel()
 
 INT_PTR CCopyProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CCopyProgressDlg::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -219,6 +273,11 @@ INT_PTR CCopyProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DestroyWindow(HWindow);
             return FALSE;
         }
+        ApplyUndeleteDarkMode(HWindow);
+        ApplyUndeleteDarkModeToDialogChild(HWindow, IDC_PROGRESS_FILE);
+        ApplyUndeleteDarkModeToDialogChild(HWindow, IDC_PROGRESS_TOTAL);
+        ApplyUndeleteDarkModeToDialogChild(HWindow, IDC_LABEL_SOURCE);
+        ApplyUndeleteDarkModeToDialogChild(HWindow, IDC_LABEL_DEST);
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         break; // let DefDlgProc set the focus
@@ -478,6 +537,9 @@ void CConnectDialog::InitDrives()
         selectIndex = 0;
     ListView_SetItemState(hList, selectIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
     ListView_EnsureVisible(hList, selectIndex, FALSE);
+
+    if (ApplyUndeleteDarkModeIfSelected(hList))
+        DarkModeUpdateListViewColors(hList);
 }
 
 BOOL CConnectDialog::OnDialogOK()
@@ -558,11 +620,18 @@ void CConnectDialog::OnImageBrowse()
         ret = GetOpenFileName(&openInfo);
     }
     if (ret)
+    {
         SetDlgItemText(HWindow, IDC_EDIT_IMAGE, Volume);
+        ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_EDIT_IMAGE));
+    }
 }
 
 INT_PTR CConnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CConnectDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -573,6 +642,9 @@ INT_PTR CConnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (IsAppThemed())
             SetWindowTheme(GetDlgItem(HWindow, IDC_LIST_VOLUMES), L"explorer", NULL);
         InitDrives();
+        ApplyUndeleteDarkMode(HWindow);
+        if (ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_LIST_VOLUMES)))
+            DarkModeUpdateListViewColors(GetDlgItem(HWindow, IDC_LIST_VOLUMES));
         break;
     }
 
@@ -601,6 +673,9 @@ INT_PTR CConnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableWindow(GetDlgItem(HWindow, IDC_LIST_VOLUMES), !checked);
             EnableWindow(GetDlgItem(HWindow, IDC_EDIT_IMAGE), checked);
             EnableWindow(GetDlgItem(HWindow, IDC_BUTTON_BROWSE), checked);
+            ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_LIST_VOLUMES));
+            ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_EDIT_IMAGE));
+            ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_BUTTON_BROWSE));
             return TRUE;
         }
 
@@ -634,14 +709,20 @@ void CFileNameDialog::Transfer(CTransferInfo& ti)
 
 INT_PTR CFileNameDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CFileNameDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
     case WM_INITDIALOG:
     {
+        ApplyUndeleteDarkMode(HWindow);
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         TransferData(ttDataToWindow);
+        ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_EDIT_FILENAME));
         SetFocus(GetDlgItem(HWindow, IDC_EDIT_FILENAME));
         SendDlgItemMessage(HWindow, IDC_EDIT_FILENAME, EM_SETSEL, 0, 1);
         AllPressed = FALSE;
@@ -687,11 +768,16 @@ void CConfigDialog::Transfer(CTransferInfo& ti)
 
 INT_PTR CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CConfigDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
     case WM_INITDIALOG:
     {
+        ApplyUndeleteDarkMode(HWindow);
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
         break;
@@ -709,6 +795,7 @@ INT_PTR CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                                                   String<char>::LoadStr(IDS_CHOOSETEMPDIR),
                                                   path, FALSE, path);
             SetDlgItemText(HWindow, IDC_EDIT_TEMPPATH, path);
+            ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_EDIT_TEMPPATH));
             return TRUE;
         }
         }
@@ -730,17 +817,23 @@ CRestoreDialog::CRestoreDialog(HWND parent)
 
 INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CRestoreDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     char path[MAX_PATH + 300];
     switch (uMsg)
     {
     case WM_INITDIALOG:
     {
+        ApplyUndeleteDarkMode(HWindow);
         if (Parent != NULL)
             SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
 
         SalamanderGeneral->GetPanelPath(PANEL_TARGET, path, MAX_PATH, NULL, NULL);
         SetDlgItemText(HWindow, IDC_EDIT_TARGET, path);
+        ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_EDIT_TARGET));
 
         int files, dirs;
         char text1[200], text2[MAX_PATH + 100];
@@ -775,6 +868,7 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             _snprintf_s(path, _TRUNCATE, text1, text2);
             SetDlgItemText(HWindow, IDC_LABEL_SOURCE, path);
         }
+        ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_LABEL_SOURCE));
         break;
     }
 
@@ -790,6 +884,7 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SalamanderGeneral->GetTargetDirectory(HWindow, HWindow, title, String<char>::LoadStr(IDS_CHOOSETARGET),
                                                   path, FALSE, path);
             SetDlgItemText(HWindow, IDC_EDIT_TARGET, path);
+            ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_EDIT_TARGET));
             return TRUE;
         }
 
@@ -812,11 +907,16 @@ INT_PTR CRestoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 INT_PTR CRestoreProgressDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR darkResult = 0;
+    if (HandleUndeleteDarkDialogMessage(HWindow, uMsg, wParam, lParam, &darkResult))
+        return darkResult;
+
     CALL_STACK_MESSAGE4("CRestoreProgressDlg::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     if (uMsg == WM_INITDIALOG)
     {
         SetDlgItemText(HWindow, IDC_LABEL_UNDELETING, String<char>::LoadStr(IDS_RESTORING));
         SetWindowText(HWindow, String<char>::LoadStr(IDS_RESTORE));
+        ApplyUndeleteDarkModeIfSelected(GetDlgItem(HWindow, IDC_LABEL_UNDELETING));
         /*HWND hLabel = GetDlgItem(HWindow, IDC_LABEL_UNDELETING);
     SetWindowLong(hLabel, GWL_STYLE, GetWindowLong(hLabel, GWL_STYLE) | SS_RIGHT);*/
     }
