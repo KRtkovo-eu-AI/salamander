@@ -86,6 +86,7 @@ extern HINSTANCE HLanguage;   // handle to the SLG - language-dependent resource
 
 char* LoadStr(int resID);
 INT_PTR OnConfiguration(HWND hParent);
+void RefreshChecksumDarkModeFromHost();
 void ConfigureChecksumDarkModeFromHost();
 void ApplyChecksumDarkMode(HWND hwnd);
 BOOL ApplyChecksumDarkModeIfSelected(HWND hwnd);

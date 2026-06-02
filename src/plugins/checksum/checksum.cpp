@@ -60,6 +60,9 @@ HBRUSH ChecksumDarkModeDialogBrush = NULL;
 COLORREF ChecksumDarkModeDialogBrushColor = CLR_INVALID;
 BOOL ChecksumHostPolicyKnown = FALSE;
 BOOL ChecksumHostUseWindowsDarkMode = FALSE;
+COLORREF ChecksumHostSchemeText = CLR_INVALID;
+COLORREF ChecksumHostSchemeBackground = CLR_INVALID;
+DWORD ChecksumMainThreadId = 0;
 
 HBRUSH ChecksumGetDarkModeDialogBrush(COLORREF background)
 {
@@ -84,33 +87,57 @@ void ReleaseChecksumDarkModeResources()
 }
 }
 
-BOOL ChecksumShouldUseWindowsDarkMode()
+BOOL ChecksumCanQueryHostDarkMode()
 {
+    return SalamanderGeneral != NULL &&
+           ChecksumMainThreadId != 0 &&
+           GetCurrentThreadId() == ChecksumMainThreadId;
+}
+
+void RefreshChecksumDarkModeFromHost()
+{
+    // Checksum calculate/verify dialogs run on worker UI threads. Salamander host
+    // configuration APIs are main-thread-only, so worker dialogs must use this
+    // cached snapshot instead of querying the host directly.
+    if (!ChecksumCanQueryHostDarkMode())
+        return;
+
     BOOL useWindowsDarkMode = FALSE;
-    if (SalamanderGeneral != NULL &&
-        SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
-                                             &useWindowsDarkMode,
-                                             sizeof(useWindowsDarkMode),
-                                             NULL))
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
     {
         ChecksumHostPolicyKnown = TRUE;
         ChecksumHostUseWindowsDarkMode = useWindowsDarkMode;
     }
+
+    if (ChecksumHostPolicyKnown && ChecksumHostUseWindowsDarkMode)
+    {
+        ChecksumHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        ChecksumHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL ChecksumShouldUseWindowsDarkMode()
+{
     return ChecksumHostPolicyKnown && ChecksumHostUseWindowsDarkMode;
 }
 
 void ConfigureChecksumDarkModeFromHost()
 {
+    RefreshChecksumDarkModeFromHost();
+
     const BOOL useWindowsDarkMode = ChecksumShouldUseWindowsDarkMode();
     const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
     const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
     COLORREF text = fallbackText;
     COLORREF background = fallbackBackground;
 
-    if (useWindowsDarkMode && SalamanderGeneral != NULL)
+    if (useWindowsDarkMode && ChecksumHostSchemeText != CLR_INVALID && ChecksumHostSchemeBackground != CLR_INVALID)
     {
-        text = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
-        background = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+        text = ChecksumHostSchemeText;
+        background = ChecksumHostSchemeBackground;
     }
 
     const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
@@ -213,9 +240,11 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the general Salamander interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    ChecksumMainThreadId = GetCurrentThreadId();
     SalamanderSafeFile = salamander->GetSalamanderSafeFile();
     SalamanderGUI = salamander->GetSalamanderGUI();
     SalamanderCrypt = SalamanderGeneral->GetSalamanderCrypt();
+    RefreshChecksumDarkModeFromHost();
 
     // set the help file name
     SalamanderGeneral->SetHelpFileName("checksum.chm");
@@ -329,6 +358,9 @@ OnConfiguration(HWND hParent)
                                          LoadStr(IDS_PLUGINNAME), MB_ICONINFORMATION | MB_OK);
         return IDCANCEL;
     }
+
+    RefreshChecksumDarkModeFromHost();
+    ConfigureChecksumDarkModeFromHost();
 
     bInConfiguration = true;
     CConfigurationDialog dlg(hParent);

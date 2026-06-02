@@ -2154,6 +2154,8 @@ BOOL OpenCalculateDialog(HWND parent)
     BOOL bAlwaysOnTop = FALSE;
     // NOTE: GetConfigParameter can only be called from the main thread
     SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &bAlwaysOnTop, sizeof(bAlwaysOnTop), NULL);
+    RefreshChecksumDarkModeFromHost();
+    ConfigureChecksumDarkModeFromHost(); // prime darkmodelib on the main thread before the dialog worker starts
 
     CCalculateDialogThread* t = new CCalculateDialogThread(parent, bAlwaysOnTop, pFileList, _strdup(sourcePath));
     if (t != NULL)
@@ -2228,6 +2230,8 @@ BOOL OpenVerifyDialog(HWND parent)
     BOOL bAlwaysOnTop = FALSE;
     // NOTE: GetConfigParameter can only be called from the main thread
     SalamanderGeneral->GetConfigParameter(SALCFG_ALWAYSONTOP, &bAlwaysOnTop, sizeof(bAlwaysOnTop), NULL);
+    RefreshChecksumDarkModeFromHost();
+    ConfigureChecksumDarkModeFromHost(); // prime darkmodelib on the main thread before the dialog worker starts
 
     CVerifyDialogThread* t = new CVerifyDialogThread(parent, bAlwaysOnTop);
     if (t != NULL)
