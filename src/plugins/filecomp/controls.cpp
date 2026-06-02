@@ -76,7 +76,7 @@ CFileHeaderWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
-        BkColor = SG->GetCurrentColor(SALCOL_INACTIVE_CAPTION_BK);
+        BkColor = FileCompGetHostColor(SALCOL_INACTIVE_CAPTION_BK, GetSysColor(COLOR_INACTIVECAPTION));
         BkgndBrush = CreateSolidBrush(BkColor);
 
         return 0;
@@ -90,7 +90,7 @@ CFileHeaderWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         // make sure we always have the current brush color
         COLORREF oldBk = BkColor;
-        BkColor = SG->GetCurrentColor(SALCOL_INACTIVE_CAPTION_BK);
+        BkColor = FileCompGetHostColor(SALCOL_INACTIVE_CAPTION_BK, GetSysColor(COLOR_INACTIVECAPTION));
         if (BkColor != oldBk)
         {
             if (BkgndBrush)
@@ -98,8 +98,8 @@ CFileHeaderWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             BkgndBrush = CreateSolidBrush(BkColor);
         }
 
-        COLORREF oldBkColor = SetBkColor(dc, SG->GetCurrentColor(SALCOL_INACTIVE_CAPTION_BK));
-        COLORREF oldTexColor = SetTextColor(dc, SG->GetCurrentColor(SALCOL_INACTIVE_CAPTION_FG));
+        COLORREF oldBkColor = SetBkColor(dc, BkColor);
+        COLORREF oldTexColor = SetTextColor(dc, FileCompGetHostColor(SALCOL_INACTIVE_CAPTION_FG, GetSysColor(COLOR_INACTIVECAPTIONTEXT)));
         RECT r;
         GetClientRect(HWindow, &r);
         FillRect(dc, &r, BkgndBrush);
@@ -604,8 +604,8 @@ CComboBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         INT_PTR result = 0;
         if (HandleFileCompDarkCtlColor(WM_CTLCOLORSTATIC, wParam, lParam, &result))
             return result;
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_WINDOW));
-        SetTextColor((HDC)wParam, GetSysColor(COLOR_WINDOWTEXT));
+        SetBkColor((HDC)wParam, DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_WINDOW));
+        SetTextColor((HDC)wParam, DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT));
         return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
     }
 
@@ -887,7 +887,7 @@ CRebar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (HandleFileCompDarkCtlColor(WM_CTLCOLORSTATIC, wParam, lParam, &result))
             return result;
         //SetBkColor((HDC)wParam, GetSysColor(COLOR_WINDOW));
-        SetTextColor((HDC)wParam, GetSysColor(COLOR_WINDOWTEXT));
+        SetTextColor((HDC)wParam, DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT));
         //return 0;
         return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
     }

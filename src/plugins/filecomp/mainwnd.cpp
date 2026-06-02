@@ -2177,7 +2177,9 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam & CC_COLORS)
         {
+            ApplyFileCompDarkMode(HWindow);
             UpdateDefaultColors(Colors, Palette);
+            ComboBox->ChangeColors();
             if (UsePalette)
             {
                 HDC dc = GetDC(HWindow);
@@ -2186,6 +2188,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SelectPalette(dc, oldPalette, FALSE);
                 ReleaseDC(HWindow, dc);
             }
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         }
 
         if (DataValid)

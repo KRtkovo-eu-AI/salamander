@@ -278,7 +278,7 @@ void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette)
 
     // text colors of the displayed file contents
     if (GetFValue(colors[TEXT_FG_NORMAL]) & SCF_DEFAULT)
-        SetRGBPart(&colors[TEXT_FG_NORMAL], SG->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL));
+        SetRGBPart(&colors[TEXT_FG_NORMAL], FileCompGetHostColor(SALCOL_VIEWER_FG_NORMAL, GetSysColor(COLOR_WINDOWTEXT)));
     if (GetFValue(colors[TEXT_FG_LEFT_FOCUSED]) & SCF_DEFAULT)
         SetRGBPart(&colors[TEXT_FG_LEFT_FOCUSED], GetCOLORREF(colors[TEXT_FG_NORMAL]));
     if (GetFValue(colors[TEXT_FG_RIGHT_FOCUSED]) & SCF_DEFAULT)
@@ -294,7 +294,7 @@ void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette)
 
     // background colors of the displayed file contents
     if (GetFValue(colors[TEXT_BK_NORMAL]) & SCF_DEFAULT)
-        SetRGBPart(&colors[TEXT_BK_NORMAL], SG->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL));
+        SetRGBPart(&colors[TEXT_BK_NORMAL], FileCompGetHostColor(SALCOL_VIEWER_BK_NORMAL, GetSysColor(COLOR_WINDOW)));
     if (GetFValue(colors[TEXT_BK_LEFT_FOCUSED]) & SCF_DEFAULT)
     {
         SetRGBPart(&colors[TEXT_BK_LEFT_FOCUSED],
@@ -386,14 +386,14 @@ void UpdateDefaultColors(SALCOLOR* colors, HPALETTE& palette)
     if (GetFValue(colors[TEXT_FG_SELECTION]) & SCF_DEFAULT)
     {
         if (GetFValue(colors[TEXT_FG_NORMAL]) & SCF_DEFAULT)
-            SetRGBPart(&colors[TEXT_FG_SELECTION], SG->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED));
+            SetRGBPart(&colors[TEXT_FG_SELECTION], FileCompGetHostColor(SALCOL_VIEWER_FG_SELECTED, GetSysColor(COLOR_HIGHLIGHTTEXT)));
         else
             SetRGBPart(&colors[TEXT_FG_SELECTION], GetCOLORREF(colors[TEXT_BK_NORMAL]));
     }
     if (GetFValue(colors[TEXT_BK_SELECTION]) & SCF_DEFAULT)
     {
         if (GetFValue(colors[TEXT_BK_NORMAL]) & SCF_DEFAULT)
-            SetRGBPart(&colors[TEXT_BK_SELECTION], SG->GetCurrentColor(SALCOL_VIEWER_BK_SELECTED));
+            SetRGBPart(&colors[TEXT_BK_SELECTION], FileCompGetHostColor(SALCOL_VIEWER_BK_SELECTED, GetSysColor(COLOR_HIGHLIGHT)));
         else
             SetRGBPart(&colors[TEXT_BK_SELECTION], GetCOLORREF(colors[TEXT_FG_NORMAL]));
     }

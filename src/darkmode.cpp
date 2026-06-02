@@ -8,6 +8,7 @@
 #include <delayimp.h>
 #include <uxtheme.h>
 #include <commctrl.h>
+#include <algorithm>
 
 #ifndef HDM_SETBKCOLOR
 #define HDM_SETBKCOLOR (HDM_FIRST + 29)
@@ -390,11 +391,11 @@ void PaintDarkChoiceButton(HWND hwnd, HDC hdc)
     const BOOL enabled = IsWindowEnabled(hwnd);
     const LRESULT checkState = SendMessage(hwnd, BM_GETCHECK, 0, 0);
     const LRESULT buttonState = SendMessage(hwnd, BM_GETSTATE, 0, 0);
-    const int glyphSize = max(13, GetSystemMetrics(SM_CXMENUCHECK));
+    const int glyphSize = (std::max)(13, GetSystemMetrics(SM_CXMENUCHECK));
     RECT glyph = rc;
     glyph.left += 1;
     glyph.right = glyph.left + glyphSize;
-    glyph.top = rc.top + max(0, (rc.bottom - rc.top - glyphSize) / 2);
+    glyph.top = rc.top + (std::max)(0, (rc.bottom - rc.top - glyphSize) / 2);
     glyph.bottom = glyph.top + glyphSize;
 
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -632,7 +633,7 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
         if (i + 1 < count)
         {
             RECT edge = part;
-            edge.left = edge.right - max(1, borders[2]);
+            edge.left = edge.right - (std::max)(1, borders[2]);
             FillRectWithColor(hdc, edge, RGB(0x4A, 0x4A, 0x4A));
         }
 
@@ -641,7 +642,7 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
 
         const LRESULT textLen = SendMessage(hwnd, SB_GETTEXTLENGTH, i, 0);
         const DWORD flags = HIWORD(textLen);
-        const int len = min(static_cast<int>(LOWORD(textLen)), 1023);
+        const int len = (std::min)(static_cast<int>(LOWORD(textLen)), 1023);
         TCHAR text[1024];
         text[0] = 0;
         const LRESULT itemData = SendMessage(hwnd, SB_GETTEXT, i, reinterpret_cast<LPARAM>(text));
