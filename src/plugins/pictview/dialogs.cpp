@@ -19,6 +19,8 @@
 
 namespace
 {
+const UINT WM_USER_CFGPAGE_REDRAW = WM_APP + 3252;
+
 void ApplyPictViewDarkMode(HWND hwnd)
 {
     ConfigurePictViewDarkModeFromHost();
@@ -28,6 +30,23 @@ void ApplyPictViewDarkMode(HWND hwnd)
         DarkModeRefreshTitleBar(hwnd);
         DarkModeApplyTree(hwnd);
     }
+}
+
+void RedrawPictViewConfigPage(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    HWND parent = GetParent(hwnd);
+    if (parent != NULL)
+        RedrawWindow(parent, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
+
+void QueuePictViewConfigPageRedraw(HWND hwnd)
+{
+    if (hwnd != NULL)
+        PostMessage(hwnd, WM_USER_CFGPAGE_REDRAW, 0, 0);
 }
 
 bool HandlePictViewDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR& result)
@@ -158,10 +177,18 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam != FALSE)
         {
-            ApplyPictViewDarkMode(HWindow);
-            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+            ConfigurePictViewDarkModeFromHost();
+            if (PictViewShouldUseWindowsDarkMode())
+                ApplyPictViewDarkMode(HWindow);
+            QueuePictViewConfigPageRedraw(HWindow);
         }
         break;
+    }
+
+    case WM_USER_CFGPAGE_REDRAW:
+    {
+        RedrawPictViewConfigPage(HWindow);
+        return TRUE;
     }
 
     case WM_SETTINGCHANGE:
@@ -173,6 +200,14 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             InvalidateRect(HWindow, NULL, TRUE);
             return TRUE;
         }
+        break;
+    }
+
+    case WM_NOTIFY:
+    {
+        LPNMHDR hdr = (LPNMHDR)lParam;
+        if (hdr != NULL && hdr->code == PSN_SETACTIVE)
+            QueuePictViewConfigPageRedraw(HWindow);
         break;
     }
 
@@ -809,8 +844,14 @@ protected:
         {
             LPNMHDR hdr = (LPNMHDR)lParam;
             if (hdr != NULL && hdr->code == TCN_SELCHANGE)
-                RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+                QueuePictViewConfigPageRedraw((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
             break;
+        }
+
+        case WM_USER_CFGPAGE_REDRAW:
+        {
+            RedrawPictViewConfigPage((HWND)SendMessage(HWindow, PSM_GETCURRENTPAGEHWND, 0, 0));
+            return 0;
         }
 
         case WM_WINDOWPOSCHANGING:
