@@ -14,6 +14,7 @@ bool IsAvailable();
 
 // Backend mirrors of selected darkmode APIs used by the host implementation.
 void ApplyTree(HWND hwnd);
+void ApplyMenuBar(HWND hwnd, bool enableDark);
 void ApplyCheckboxOrRadioButton(HWND hwnd, bool enableDark);
 bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
                     const DarkModeColors& colors, HBRUSH dialogBrush);

@@ -51,6 +51,171 @@ const char* CONFIG_INPUTENCTABLE1 = "InputEnc Table 1";
 
 BOOL LoadOnStart;
 
+namespace
+{
+HBRUSH FileCompDarkModeDialogBrush = NULL;
+COLORREF FileCompDarkModeDialogBrushColor = CLR_INVALID;
+BOOL FileCompHostPolicyKnown = FALSE;
+BOOL FileCompHostUseWindowsDarkMode = FALSE;
+COLORREF FileCompHostSchemeText = CLR_INVALID;
+COLORREF FileCompHostSchemeBackground = CLR_INVALID;
+COLORREF FileCompHostInactiveCaptionText = CLR_INVALID;
+COLORREF FileCompHostInactiveCaptionBackground = CLR_INVALID;
+COLORREF FileCompHostViewerText = CLR_INVALID;
+COLORREF FileCompHostViewerBackground = CLR_INVALID;
+COLORREF FileCompHostViewerSelectionText = CLR_INVALID;
+COLORREF FileCompHostViewerSelectionBackground = CLR_INVALID;
+DWORD FileCompMainThreadId = 0;
+
+HBRUSH FileCompGetDarkModeDialogBrush(COLORREF background)
+{
+    if (FileCompDarkModeDialogBrush == NULL || FileCompDarkModeDialogBrushColor != background)
+    {
+        if (FileCompDarkModeDialogBrush != NULL)
+            DeleteObject(FileCompDarkModeDialogBrush);
+        FileCompDarkModeDialogBrush = CreateSolidBrush(background);
+        FileCompDarkModeDialogBrushColor = background;
+    }
+    return FileCompDarkModeDialogBrush;
+}
+}
+
+BOOL FileCompCanQueryHostDarkMode()
+{
+    return SG != NULL &&
+           FileCompMainThreadId != 0 &&
+           GetCurrentThreadId() == FileCompMainThreadId;
+}
+
+void RefreshFileCompDarkModeFromHost()
+{
+    // File Comparator windows/dialogs can run outside Salamander's main UI thread.
+    // Host configuration/color APIs are main-thread-only, so non-main UI consumes
+    // this cached snapshot.
+    if (!FileCompCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SG->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                               &useWindowsDarkMode,
+                               sizeof(useWindowsDarkMode),
+                               NULL))
+    {
+        FileCompHostPolicyKnown = TRUE;
+        FileCompHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    FileCompHostSchemeText = SG->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+    FileCompHostSchemeBackground = SG->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    FileCompHostInactiveCaptionText = SG->GetCurrentColor(SALCOL_INACTIVE_CAPTION_FG);
+    FileCompHostInactiveCaptionBackground = SG->GetCurrentColor(SALCOL_INACTIVE_CAPTION_BK);
+    FileCompHostViewerText = SG->GetCurrentColor(SALCOL_VIEWER_FG_NORMAL);
+    FileCompHostViewerBackground = SG->GetCurrentColor(SALCOL_VIEWER_BK_NORMAL);
+    FileCompHostViewerSelectionText = SG->GetCurrentColor(SALCOL_VIEWER_FG_SELECTED);
+    FileCompHostViewerSelectionBackground = SG->GetCurrentColor(SALCOL_VIEWER_BK_SELECTED);
+}
+
+BOOL FileCompShouldUseWindowsDarkMode()
+{
+    return FileCompHostPolicyKnown && FileCompHostUseWindowsDarkMode;
+}
+
+COLORREF FileCompGetHostColor(int salamanderColor, COLORREF fallback)
+{
+    // Salamander color APIs are safe only on the host main thread. FileComp owns
+    // worker UI threads for the compare dialog/window, so those windows consume
+    // the cached main-thread snapshot refreshed from plugin events.
+    switch (salamanderColor)
+    {
+    case SALCOL_ITEM_FG_NORMAL:
+        return FileCompHostSchemeText != CLR_INVALID ? FileCompHostSchemeText : fallback;
+    case SALCOL_ITEM_BK_NORMAL:
+        return FileCompHostSchemeBackground != CLR_INVALID ? FileCompHostSchemeBackground : fallback;
+    case SALCOL_INACTIVE_CAPTION_FG:
+        return FileCompHostInactiveCaptionText != CLR_INVALID ? FileCompHostInactiveCaptionText : fallback;
+    case SALCOL_INACTIVE_CAPTION_BK:
+        return FileCompHostInactiveCaptionBackground != CLR_INVALID ? FileCompHostInactiveCaptionBackground : fallback;
+    case SALCOL_VIEWER_FG_NORMAL:
+        return FileCompHostViewerText != CLR_INVALID ? FileCompHostViewerText : fallback;
+    case SALCOL_VIEWER_BK_NORMAL:
+        return FileCompHostViewerBackground != CLR_INVALID ? FileCompHostViewerBackground : fallback;
+    case SALCOL_VIEWER_FG_SELECTED:
+        return FileCompHostViewerSelectionText != CLR_INVALID ? FileCompHostViewerSelectionText : fallback;
+    case SALCOL_VIEWER_BK_SELECTED:
+        return FileCompHostViewerSelectionBackground != CLR_INVALID ? FileCompHostViewerSelectionBackground : fallback;
+    default:
+        return fallback;
+    }
+}
+
+void ConfigureFileCompDarkModeFromHost()
+{
+    RefreshFileCompDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = FileCompShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && FileCompHostSchemeText != CLR_INVALID && FileCompHostSchemeBackground != CLR_INVALID)
+    {
+        text = FileCompHostSchemeText;
+        background = FileCompHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = FileCompGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyFileCompDarkMode(HWND hwnd)
+{
+    ConfigureFileCompDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyFileCompDarkModeIfSelected(HWND hwnd)
+{
+    if (!FileCompShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyFileCompDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleFileCompDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!FileCompShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureFileCompDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void ReleaseFileCompDarkModeResources()
+{
+    if (FileCompDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(FileCompDarkModeDialogBrush);
+        FileCompDarkModeDialogBrush = NULL;
+        FileCompDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+
 #ifdef DUMP_MEM
 _CrtMemState ___CrtMemState;
 #endif //DUMP_MEM
@@ -73,6 +238,10 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
 
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
+
+    FileCompMainThreadId = GetCurrentThreadId();
+    RefreshFileCompDarkModeFromHost();
+    ConfigureFileCompDarkModeFromHost();
 
     SG->SetHelpFileName("filecomp.chm");
 
@@ -155,6 +324,7 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
                 //SG->CallLoadOrSaveConfiguration(FALSE, LoadOrSaveConfiguration, parent);
 
                 ReleaseDialogs();
+                ReleaseFileCompDarkModeResources();
                 ReleaseLCUtils();
                 MappedFontFactory.Free();
                 if (hNormalizDll)
@@ -451,13 +621,18 @@ void CPluginInterface::Event(int event, DWORD param) // FIXME_X64 - is a 32-bit 
     {
     case PLUGINEVENT_COLORSCHANGED:
     {
+        RefreshFileCompDarkModeFromHost();
+        ConfigureFileCompDarkModeFromHost();
         // the text color may have changed
         MainWindowQueue.BroadcastMessage(WM_USER_CFGCHNG, CC_COLORS, 0);
+        MainWindowQueue.BroadcastMessage(WM_THEMECHANGED, 0, 0);
         break;
     }
 
     case PLUGINEVENT_CONFIGURATIONCHANGED:
     {
+        RefreshFileCompDarkModeFromHost();
+        ConfigureFileCompDarkModeFromHost();
         // Cache the value for use in Config dialog
         SG->GetConfigParameter(SALCFG_VIEWERFONT, &::Configuration.InternalViewerFont, sizeof(LOGFONT), NULL);
         // the viewer font may have changed
@@ -466,6 +641,15 @@ void CPluginInterface::Event(int event, DWORD param) // FIXME_X64 - is a 32-bit 
             ::Configuration.FileViewLogFont = ::Configuration.InternalViewerFont;
             MainWindowQueue.BroadcastMessage(WM_USER_CFGCHNG, CC_FONT, 0);
         }
+        break;
+    }
+
+    case PLUGINEVENT_SETTINGCHANGE:
+    {
+        RefreshFileCompDarkModeFromHost();
+        ConfigureFileCompDarkModeFromHost();
+        MainWindowQueue.BroadcastMessage(WM_USER_CFGCHNG, CC_COLORS, 0);
+        MainWindowQueue.BroadcastMessage(WM_THEMECHANGED, 0, 0);
         break;
     }
     }
@@ -601,6 +785,8 @@ BOOL CPluginInterfaceForMenu::ExecuteMenuItem(CSalamanderForOperationsAbstract* 
 
         BOOL doNotSwapNames = secondFromSource || SG->GetSourcePanel() == PANEL_LEFT;
         SG->GetConfigParameter(SALCFG_ALWAYSONTOP, &AlwaysOnTop, sizeof(AlwaysOnTop), NULL);
+        RefreshFileCompDarkModeFromHost();
+        ConfigureFileCompDarkModeFromHost();
         CFilecompThread* d = new CFilecompThread(doNotSwapNames ? file1 : file2, doNotSwapNames ? file2 : file1, FALSE, "");
         if (!d)
             return Error((HWND)-1, IDS_LOWMEM);

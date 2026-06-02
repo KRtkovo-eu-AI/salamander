@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
-#include "..\\shared\\plugindarkmode.h"
 
 using namespace std;
 
@@ -19,6 +18,39 @@ BOOL UsePalette = FALSE; // TRUE when we only have 256 colors available
 CBandParams BandsParams[2];
 
 const char* MAINWINDOW_CLASSNAME = "SFC Window Class";
+
+namespace
+{
+void ApplyFileCompMainWindowChrome(HWND hwnd, HWND toolbar, HWND rebar)
+{
+    const bool dark = DarkModeShouldUseDarkColors();
+    const COLORREF background = dark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+    const COLORREF text = dark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+
+    if (toolbar != NULL)
+    {
+#ifdef TB_SETCOLORSCHEME
+        COLORSCHEME scheme;
+        memset(&scheme, 0, sizeof(scheme));
+        scheme.dwSize = sizeof(scheme);
+        scheme.clrBtnHighlight = background;
+        scheme.clrBtnShadow = background;
+        SendMessage(toolbar, TB_SETCOLORSCHEME, 0, (LPARAM)&scheme);
+#endif
+        InvalidateRect(toolbar, NULL, TRUE);
+    }
+
+    if (rebar != NULL)
+    {
+        SendMessage(rebar, RB_SETBKCOLOR, 0, background);
+        SendMessage(rebar, RB_SETTEXTCOLOR, 0, text);
+        InvalidateRect(rebar, NULL, TRUE);
+    }
+
+    DarkModeApplyMenuBar(hwnd);
+    DrawMenuBar(hwnd);
+}
+}
 
 CMainWindow::CMainWindow(char* path1, char* path2, CCompareOptions* options, UINT showCmd)
 {
@@ -98,7 +130,7 @@ BOOL CMainWindow::Init()
     }
     COLORMAP cm;
     cm.from = 0x00FF00FF;
-    cm.to = GetSysColor(COLOR_BTNFACE);
+    cm.to = DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
     HToolbar = CreateToolbarEx(HWindow,
                                WS_VISIBLE | WS_CHILD |
                                    WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
@@ -219,6 +251,7 @@ BOOL CMainWindow::Init()
     RestoreRebarLayout();
 
     RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+    ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
 
     // create the window caption
     LeftHeader = new CFileHeaderWindow("");
@@ -313,6 +346,9 @@ BOOL CMainWindow::Init()
         DragAcceptFiles(HWindow, TRUE);
 
     Initialized = TRUE;
+
+    ApplyFileCompDarkMode(HWindow);
+    ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar != NULL ? Rebar->HWindow : NULL);
 
     // ensure the worker thread gets started
     PostMessage(HWindow, WM_COMMAND, CM_RECOMPARE, 0);
@@ -1047,11 +1083,14 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         r3.bottom = RebarHeight;
         r3.left = 0;
         r3.right = r1.right;
-        FillRect(dc, &r3, (HBRUSH)(COLOR_BTNFACE + 1));
+        HBRUSH faceBrush = DarkModeShouldUseDarkColors() ? CreateSolidBrush(DarkModeGetDialogBackgroundColor()) : NULL;
+        FillRect(dc, &r3, faceBrush != NULL ? faceBrush : (HBRUSH)(COLOR_BTNFACE + 1));
         // draw the gap between the header and the text window
         r3.top = RebarHeight + r2.bottom + 2;
         r3.bottom = r3.top + 2;
-        FillRect(dc, &r3, (HBRUSH)(COLOR_BTNFACE + 1));
+        FillRect(dc, &r3, faceBrush != NULL ? faceBrush : (HBRUSH)(COLOR_BTNFACE + 1));
+        if (faceBrush != NULL)
+            DeleteObject(faceBrush);
 
         EndPaint(HWindow, &ps);
         return 0;
@@ -1657,6 +1696,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             case RBN_HEIGHTCHANGE:
             {
                 RebarHeight = LONG(SendMessage(Rebar->HWindow, RB_GETBARHEIGHT, 0, 0)) + 4 + REBAR_BORDER;
+                ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar->HWindow);
                 if (Initialized)
                     LayoutChilds();
                 return 0;
@@ -1741,9 +1781,23 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_SETTINGCHANGE:
+    {
+        ConfigureFileCompDarkModeFromHost();
+        if (!DarkModeHandleSettingChange(uMsg, lParam))
+            break;
+        // fall through
+    }
     case WM_THEMECHANGED:
     {
-        PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam);
+        ApplyFileCompDarkMode(HWindow);
+        ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar != NULL ? Rebar->HWindow : NULL);
+        UpdateDefaultColors(Colors, Palette);
+        ComboBox->ChangeColors();
+        if (DataValid)
+        {
+            FileView[fviLeft]->ReloadConfiguration(CC_COLORS, TRUE);
+            FileView[fviRight]->ReloadConfiguration(CC_COLORS, TRUE);
+        }
         // the scrollbar size may have changed; ensure the combo box recalculates the button size
         RECT r;
         GetWindowRect(ComboBox->HWindow, &r);
@@ -1754,7 +1808,22 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetWindowPos(ComboBox->HWindow, 0, 0, 0,
                      r.right - r.left, r.bottom - r.top,
                      SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOMOVE);
-        break;
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        if (HToolbar != NULL)
+            RedrawWindow(HToolbar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        if (Rebar != NULL && Rebar->HWindow != NULL)
+            RedrawWindow(Rebar->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        if (LeftHeader != NULL && LeftHeader->HWindow != NULL)
+            RedrawWindow(LeftHeader->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        if (RightHeader != NULL && RightHeader->HWindow != NULL)
+            RedrawWindow(RightHeader->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        if (LeftFileViewHWnd != NULL)
+            RedrawWindow(LeftFileViewHWnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        if (RightFileViewHWnd != NULL)
+            RedrawWindow(RightFileViewHWnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        if (SplitBar != NULL && SplitBar->HWindow != NULL)
+            RedrawWindow(SplitBar->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        return TRUE;
     }
 
     case WM_QUERYNEWPALETTE:
@@ -2145,7 +2214,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam & CC_COLORS)
         {
+            ApplyFileCompDarkMode(HWindow);
+            ApplyFileCompMainWindowChrome(HWindow, HToolbar, Rebar != NULL ? Rebar->HWindow : NULL);
             UpdateDefaultColors(Colors, Palette);
+            ComboBox->ChangeColors();
             if (UsePalette)
             {
                 HDC dc = GetDC(HWindow);
@@ -2154,6 +2226,7 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SelectPalette(dc, oldPalette, FALSE);
                 ReleaseDC(HWindow, dc);
             }
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         }
 
         if (DataValid)

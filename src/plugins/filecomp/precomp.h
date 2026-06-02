@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <CommDlg.h>
 #include <ShellAPI.h>
+#include <oleidl.h> // IDropTarget used by shared mhandles.h
 #include <crtdbg.h>
 #include <tchar.h>
 #include <sys/stat.h>
@@ -42,6 +43,8 @@
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
+#include "mhandles.h"
+#include "../../darkmode.h"
 
 // get rid of some annoying warnings
 #pragma warning(disable : 4661)
