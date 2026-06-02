@@ -52,6 +52,7 @@
 #include "dbg.h"
 #include "arraylt.h"
 #include "winliblt.h"
+#include "mhandles.h"
 #include "auxtools.h"
 #include "lukas\gdi.h"
 
