@@ -115,6 +115,8 @@ public:
     STDMETHOD(QueryGetData)
     (FORMATETC* formatEtc)
     {
+        if (formatEtc == NULL)
+            return E_INVALIDARG;
         if (formatEtc->cfFormat == CF_HDROP)
             return DV_E_FORMATETC; // this ensures a "NO" drop in simpler software (BOSS, WinCmd, SpeedCommander, MSIE, Word, etc.)
         return WinDataObject->QueryGetData(formatEtc);

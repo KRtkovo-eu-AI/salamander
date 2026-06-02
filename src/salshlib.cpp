@@ -215,17 +215,17 @@ BOOL IsFakeDataObject(IDataObject* pDataObject, int* fakeType, char* srcFSPathBu
 
 STDMETHODIMP CFakeDragDropDataObject::QueryInterface(REFIID iid, void** ppv)
 {
+    if (ppv == NULL)
+        return E_POINTER;
+
+    *ppv = NULL;
     if (iid == IID_IUnknown || iid == IID_IDataObject)
     {
-        *ppv = this;
+        *ppv = static_cast<IDataObject*>(this);
         AddRef();
         return NOERROR;
     }
-    else
-    {
-        *ppv = NULL;
-        return E_NOINTERFACE;
-    }
+    return E_NOINTERFACE;
 }
 
 STDMETHODIMP CFakeDragDropDataObject::GetData(FORMATETC* formatEtc, STGMEDIUM* medium)

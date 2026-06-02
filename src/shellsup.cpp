@@ -900,13 +900,241 @@ void ShellActionAux7(IDataObject* dataObject, CImpIDropSource* dropSource)
     }
 }
 
+BOOL IsArchiveOrFSDragItemValid(CFilesWindow* panel, int index)
+{
+    if (panel == NULL || panel->Dirs == NULL || panel->Files == NULL)
+        return FALSE;
+
+    int totalCount = panel->Dirs->Count + panel->Files->Count;
+    if (index < 0 || index >= totalCount)
+        return FALSE;
+
+    return !(index == 0 && panel->Dirs->Count > 0 && strcmp(panel->Dirs->At(0).Name, "..") == 0);
+}
+
+int GetMousePanelItemIndex(CFilesWindow* panel)
+{
+    if (panel == NULL)
+        return -1;
+
+    POINT pt;
+    DWORD pos = GetMessagePos();
+    pt.x = GET_X_LPARAM(pos);
+    pt.y = GET_Y_LPARAM(pos);
+    HWND listBox = panel->GetListBoxHWND();
+    if (listBox == NULL || !ScreenToClient(listBox, &pt))
+        return -1;
+
+    int index = panel->GetIndex(pt.x, pt.y);
+    return IsArchiveOrFSDragItemValid(panel, index) ? index : -1;
+}
+
+BOOL ValidateArchiveOrFSDragSource(CFilesWindow* panel, BOOL archiveSource, int selectedCount,
+                                   const int* indexes, int focusedIndex, int* dragItemCount)
+{
+    if (dragItemCount != NULL)
+        *dragItemCount = 0;
+
+    if (panel == NULL || panel->Dirs == NULL || panel->Files == NULL)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, source panel is invalid.");
+        return FALSE;
+    }
+
+    if (archiveSource)
+    {
+        if (!panel->Is(ptZIPArchive) || panel->GetZIPArchive() == NULL)
+        {
+            TRACE_E("ShellAction::archive/FS::drag_files: aborting archive drag, source panel is no longer an archive.");
+            return FALSE;
+        }
+    }
+    else
+    {
+        if (!panel->Is(ptPluginFS) || panel->GetPluginFS() == NULL || !panel->GetPluginFS()->NotEmpty())
+        {
+            TRACE_E("ShellAction::archive/FS::drag_files: aborting plugin FS drag, source panel or FS object is invalid.");
+            return FALSE;
+        }
+    }
+
+    if (selectedCount < 0 || selectedCount > panel->Dirs->Count + panel->Files->Count)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, invalid selected count: " << selectedCount);
+        return FALSE;
+    }
+
+    if (selectedCount > 0)
+    {
+        if (indexes == NULL)
+        {
+            TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, selected item list is missing.");
+            return FALSE;
+        }
+        for (int i = 0; i < selectedCount; i++)
+        {
+            if (!IsArchiveOrFSDragItemValid(panel, indexes[i]))
+            {
+                TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, invalid selected item index: " << indexes[i]);
+                return FALSE;
+            }
+        }
+        if (dragItemCount != NULL)
+            *dragItemCount = selectedCount;
+        return TRUE;
+    }
+
+    if (!IsArchiveOrFSDragItemValid(panel, focusedIndex))
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, selected count is zero and focused index is invalid: " << focusedIndex);
+        return FALSE;
+    }
+
+    if (dragItemCount != NULL)
+        *dragItemCount = 1;
+    return TRUE;
+}
+
+BOOL ProbeDataObjectFormat(IDataObject* dataObject, CLIPFORMAT cfFormat, TYMED tymed)
+{
+    FORMATETC formatEtc;
+    memset(&formatEtc, 0, sizeof(formatEtc));
+    formatEtc.cfFormat = cfFormat;
+    formatEtc.dwAspect = DVASPECT_CONTENT;
+    formatEtc.lindex = -1;
+    formatEtc.tymed = tymed;
+
+    STGMEDIUM medium;
+    memset(&medium, 0, sizeof(medium));
+    HRESULT hr = dataObject->GetData(&formatEtc, &medium);
+    if (SUCCEEDED(hr))
+        ReleaseStgMedium(&medium);
+    return SUCCEEDED(hr);
+}
+
+int CountDataObjectFormats(IDataObject* dataObject)
+{
+    if (dataObject == NULL)
+        return 0;
+
+    int count = 0;
+    IEnumFORMATETC* enumFormatEtc = NULL;
+    if (SUCCEEDED(dataObject->EnumFormatEtc(DATADIR_GET, &enumFormatEtc)) && enumFormatEtc != NULL)
+    {
+        FORMATETC formatEtc;
+        ULONG fetched = 0;
+        while (enumFormatEtc->Next(1, &formatEtc, &fetched) == S_OK && fetched == 1)
+        {
+            TRACE_I("ShellAction::archive/FS::drag_files: exposed clipboard format[" << count << "]=" <<
+                    formatEtc.cfFormat << ", tymed=0x" << std::hex << formatEtc.tymed <<
+                    ", aspect=0x" << formatEtc.dwAspect << std::dec << ", lindex=" << formatEtc.lindex);
+            if (formatEtc.ptd != NULL)
+                CoTaskMemFree(formatEtc.ptd);
+            count++;
+        }
+        enumFormatEtc->Release();
+    }
+    return count;
+}
+
+BOOL ValidateArchiveOrFSDragObjects(IDataObject* dataObject, CImpIDropSource* dropSource,
+                                    CFakeDragDropDataObject* fakeDataObject, int srcType)
+{
+    if (dataObject == NULL)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, IDataObject creation failed.");
+        return FALSE;
+    }
+
+    if (dropSource == NULL)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, IDropSource creation failed.");
+        return FALSE;
+    }
+
+    if (fakeDataObject == NULL)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, fake IDataObject creation failed.");
+        return FALSE;
+    }
+
+    IDataObject* checkedDataObject = NULL;
+    HRESULT hr = fakeDataObject->QueryInterface(IID_IDataObject, (void**)&checkedDataObject);
+    if (FAILED(hr) || checkedDataObject == NULL)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, fake IDataObject QueryInterface failed: 0x" << std::hex << hr << std::dec);
+        return FALSE;
+    }
+    checkedDataObject->Release();
+
+    IDropSource* checkedDropSource = NULL;
+    hr = dropSource->QueryInterface(IID_IDropSource, (void**)&checkedDropSource);
+    if (FAILED(hr) || checkedDropSource == NULL)
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, IDropSource QueryInterface failed: 0x" << std::hex << hr << std::dec);
+        return FALSE;
+    }
+    checkedDropSource->Release();
+
+    if (!ProbeDataObjectFormat(fakeDataObject, (CLIPFORMAT)RegisterClipboardFormat(SALCF_FAKE_REALPATH), TYMED_HGLOBAL) ||
+        !ProbeDataObjectFormat(fakeDataObject, (CLIPFORMAT)RegisterClipboardFormat(SALCF_FAKE_SRCTYPE), TYMED_HGLOBAL) ||
+        srcType == 2 && !ProbeDataObjectFormat(fakeDataObject, (CLIPFORMAT)RegisterClipboardFormat(SALCF_FAKE_SRCFSPATH), TYMED_HGLOBAL))
+    {
+        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, fake IDataObject custom formats are not readable.");
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+void LogArchiveOrFSDragStart(CFilesWindow* panel, BOOL archiveSource, int selectedCount, int focusedIndex,
+                             int dragItemCount, int mouseItemIndex, IDataObject* dataObject,
+                             CImpIDropSource* dropSource, CFakeDragDropDataObject* fakeDataObject,
+                             DWORD allowedEffects, const char* srcFSPath)
+{
+    TRACE_I("ShellAction::archive/FS::drag_files: source=" << (archiveSource ? "archive" : "plugin FS") <<
+            ", archive=" << (archiveSource && panel != NULL && panel->GetZIPArchive() != NULL ? panel->GetZIPArchive() : "") <<
+            ", ArcPath=" << (archiveSource && panel != NULL && panel->GetZIPPath() != NULL ? panel->GetZIPPath() : "") <<
+            ", srcFSPath=" << (srcFSPath != NULL ? srcFSPath : "") <<
+            ", selectedCount=" << selectedCount <<
+            ", focusedIndex=" << focusedIndex <<
+            ", dragItemCount=" << dragItemCount <<
+            ", mouseOverValidItem=" << (mouseItemIndex >= 0) <<
+            ", mouseItemIndex=" << mouseItemIndex <<
+            ", IDataObject=" << (dataObject != NULL) <<
+            ", IDropSource=" << (dropSource != NULL) <<
+            ", fakeIDataObject=" << (fakeDataObject != NULL) <<
+            ", allowedEffects=0x" << std::hex << allowedEffects << std::dec <<
+            ", exposedFormatCount=" << CountDataObjectFormats(fakeDataObject != NULL ? (IDataObject*)fakeDataObject : dataObject));
+}
+
 void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath, int& operation,
                            char* realDraggedPath, DWORD allowedEffects,
-                           int srcType, const char* srcFSPath, BOOL leftMouseButton)
+                           int srcType, const char* srcFSPath, BOOL leftMouseButton,
+                           int selectedCount, int focusedIndex, int dragItemCount, int mouseItemIndex)
 {
     if (SalShExtSharedMemView != NULL) // shared memory is available (when drag&drop fails we cannot handle it)
     {
         CALL_STACK_MESSAGE1("ShellAction::archive/FS::drag_files");
+
+        if (panel == NULL || srcType == 1 && (!panel->Is(ptZIPArchive) || panel->GetZIPArchive() == NULL) ||
+            srcType == 2 && (!panel->Is(ptPluginFS) || panel->GetPluginFS() == NULL || !panel->GetPluginFS()->NotEmpty()))
+        {
+            TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, source panel type changed before OLE drag start.");
+            return;
+        }
+
+        if (dragItemCount <= 0)
+        {
+            TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, computed item list is empty.");
+            return;
+        }
+
+        if (allowedEffects == DROPEFFECT_NONE)
+        {
+            TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, no OLE drop effects are allowed.");
+            return;
+        }
 
         // create a "fake" directory
         char fakeRootDir[MAX_PATH];
@@ -927,11 +1155,18 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                                                                 1, EnumOneFileName, fakeName + 1);
                     BOOL dragFromPluginFSWithCopyAndMove = allowedEffects == (DROPEFFECT_MOVE | DROPEFFECT_COPY);
                     CImpIDropSource* dropSource = new CImpIDropSource(dragFromPluginFSWithCopyAndMove);
+                    if (dataObject == NULL)
+                        TRACE_E("ShellAction::archive/FS::drag_files: CreateIDataObject returned NULL.");
+                    if (dropSource == NULL)
+                        TRACE_E("ShellAction::archive/FS::drag_files: CImpIDropSource allocation failed.");
                     if (dataObject != NULL && dropSource != NULL)
                     {
                         CFakeDragDropDataObject* fakeDataObject = new CFakeDragDropDataObject(dataObject, realDraggedPath,
                                                                                               srcType, srcFSPath);
-                        if (fakeDataObject != NULL)
+                        LogArchiveOrFSDragStart(panel, srcType == 1, selectedCount, focusedIndex, dragItemCount,
+                                                mouseItemIndex, dataObject, dropSource, fakeDataObject,
+                                                allowedEffects, srcFSPath);
+                        if (ValidateArchiveOrFSDragObjects(dataObject, dropSource, fakeDataObject, srcType))
                         {
                             // initialize shared memory
                             WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
@@ -939,11 +1174,17 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                             if (sharedMemOK)
                             {
                                 if (SalShExtSharedMemView->DoDragDropFromSalamander)
-                                    TRACE_E("Drag&drop from archive/FS: SalShExtSharedMemView->DoDragDropFromSalamander is TRUE, this should never happen here!");
-                                SalShExtSharedMemView->DoDragDropFromSalamander = TRUE;
-                                *fakeName = '\\';
-                                lstrcpyn(SalShExtSharedMemView->DragDropFakeDirName, fakeRootDir, MAX_PATH);
-                                SalShExtSharedMemView->DropDone = FALSE;
+                                {
+                                    TRACE_E("Drag&drop from archive/FS: aborting drag, SalShExtSharedMemView->DoDragDropFromSalamander is already TRUE.");
+                                    sharedMemOK = FALSE;
+                                }
+                                else
+                                {
+                                    SalShExtSharedMemView->DoDragDropFromSalamander = TRUE;
+                                    *fakeName = '\\';
+                                    lstrcpyn(SalShExtSharedMemView->DragDropFakeDirName, fakeRootDir, MAX_PATH);
+                                    SalShExtSharedMemView->DropDone = FALSE;
+                                }
                             }
                             ReleaseMutex(SalShExtSharedMemMutex);
 
@@ -992,11 +1233,12 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                                 }
                             }
                             else
-                                TRACE_E("Shared memory is too small!");
-                            fakeDataObject->Release(); // dataObject is released later in ShellActionAux7
+                                TRACE_E("Shared memory is not ready for drag&drop from archive/FS.");
                         }
                         else
-                            TRACE_E(LOW_MEMORY);
+                            TRACE_E("ShellAction::archive/FS::drag_files: fake IDataObject is invalid; OLE drag was not started.");
+                        if (fakeDataObject != NULL)
+                            fakeDataObject->Release(); // dataObject is released later in ShellActionAux7
                     }
 
                     ShellActionAux7(dataObject, dropSource);
@@ -1271,6 +1513,16 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     {
         if (dragFiles)
         {
+            int dragItemCount = 0;
+            int mouseItemIndex = GetMousePanelItemIndex(panel);
+            if (!ValidateArchiveOrFSDragSource(panel, TRUE, count, indexes, index, &dragItemCount))
+            {
+                if (indexes != NULL)
+                    delete[] (indexes);
+                EndStopRefresh();
+                return;
+            }
+
             // if a single archive subdirectory is dragged, determine which one it is (to change the path
             // in the directory line and insert it into the command line)
             int i = -1;
@@ -1299,7 +1551,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
             BOOL dropDone = FALSE;
             int operation = SALSHEXT_NONE;
             DoDragFromArchiveOrFS(panel, dropDone, targetPath, operation, realDraggedPath,
-                                  DROPEFFECT_COPY, 1 /* archiv */, NULL, action == saLeftDragFiles);
+                                  DROPEFFECT_COPY, 1 /* archiv */, NULL, action == saLeftDragFiles,
+                                  count, index, dragItemCount, mouseItemIndex);
 
             if (indexes != NULL)
                 delete[] (indexes);
@@ -1543,6 +1796,17 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) || // FS umi "move from FS"
                      panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)))  // FS umi "copy from FS"
                 {
+                    int dragItemCount = 0;
+                    int mouseItemIndex = GetMousePanelItemIndex(panel);
+                    if (!ValidateArchiveOrFSDragSource(panel, FALSE, count, indexes, index, &dragItemCount))
+                    {
+                        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+                        if (indexes != NULL)
+                            delete[] (indexes);
+                        EndStopRefresh();
+                        return;
+                    }
+
                     // if it drags a single FS subdirectory, determine which one (to change the path
                     // in the directory line and insert it into the command line)
                     int i = -1;
@@ -1584,9 +1848,19 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     strcat(srcFSPath, ":");
                     if (!panel->GetPluginFS()->GetCurrentPath(srcFSPath + strlen(srcFSPath)))
                         srcFSPath[0] = 0;
+                    if (srcFSPath[0] == 0)
+                    {
+                        TRACE_E("ShellAction::archive/FS::drag_files: aborting plugin FS drag, current FS path is invalid.");
+                        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+                        if (indexes != NULL)
+                            delete[] (indexes);
+                        EndStopRefresh();
+                        return;
+                    }
                     panel->GetPluginFS()->GetAllowedDropEffects(0 /* start */, NULL, &allowedEffects);
                     DoDragFromArchiveOrFS(panel, dropDone, targetPath, operation, realDraggedPath,
-                                          allowedEffects, 2 /* FS */, srcFSPath, action == saLeftDragFiles);
+                                          allowedEffects, 2 /* FS */, srcFSPath, action == saLeftDragFiles,
+                                          count, index, dragItemCount, mouseItemIndex);
                     panel->GetPluginFS()->GetAllowedDropEffects(2 /* end */, NULL, NULL);
 
                     if (dropDone) // let the operation complete

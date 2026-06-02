@@ -1290,17 +1290,17 @@ STDMETHODIMP CImpDropTarget::Drop(IDataObject* pDataObject, DWORD grfKeyState,
 
 STDMETHODIMP CImpIDropSource::QueryInterface(REFIID refiid, void FAR* FAR* ppv)
 {
+    if (ppv == NULL)
+        return E_POINTER;
+
+    *ppv = NULL;
     if (refiid == IID_IUnknown || refiid == IID_IDropSource)
     {
-        *ppv = this;
+        *ppv = static_cast<IDropSource*>(this);
         AddRef();
         return NOERROR;
     }
-    else
-    {
-        *ppv = NULL;
-        return E_NOINTERFACE;
-    }
+    return E_NOINTERFACE;
 }
 
 //*****************************************************************************
