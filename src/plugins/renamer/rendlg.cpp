@@ -31,41 +31,6 @@ char* CommandHistory[MAX_HISTORY_ENTRIES];
 // CRenamerDialog
 //
 
-namespace
-{
-int RenamerColorLuminance(COLORREF color)
-{
-    return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
-}
-
-void ConfigureRenamerDarkModeFromHost()
-{
-    BOOL useWindowsDarkMode = FALSE;
-    BOOL hasHostPolicy = SG != NULL && SG->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
-                                                              &useWindowsDarkMode,
-                                                              sizeof(useWindowsDarkMode),
-                                                              NULL);
-    PluginDarkMode_SetHostPolicyAvailable(hasHostPolicy, useWindowsDarkMode);
-
-    if (hasHostPolicy && useWindowsDarkMode && SG != NULL)
-    {
-        COLORREF text = SG->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
-        COLORREF background = SG->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
-        COLORREF readable = text;
-        const int bgLum = RenamerColorLuminance(background);
-        const int fgLum = RenamerColorLuminance(text);
-        if (bgLum < 128 && fgLum < bgLum + 40)
-            readable = RGB(0xF0, 0xF0, 0xF0);
-        else if (bgLum >= 128 && fgLum > bgLum - 40)
-            readable = RGB(0x20, 0x20, 0x20);
-        PluginDarkMode_SetHostResolvedColors(text, background, readable);
-    }
-    else
-    {
-        PluginDarkMode_SetHostResolvedColors(GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE), GetSysColor(COLOR_BTNTEXT));
-    }
-}
-}
 
 MENU_TEMPLATE_ITEM MenuTemplate[] =
     {
@@ -1673,20 +1638,20 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DialogStackPush(HWindow);
         if (!Init())
             PostMessage(HWindow, WM_CLOSE, 0, 0);
-        PluginDarkMode_HandleThemeMessage(HWindow, WM_THEMECHANGED, 0);
+        ApplyRenamerDarkMode(HWindow);
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         return TRUE;
     }
 
     case WM_ERASEBKGND:
     {
-        if (PluginDarkMode_ShouldUseDark())
+        if (DarkModeShouldUseDarkColors())
         {
             RECT r;
             GetClientRect(HWindow, &r);
-            HBRUSH brush = PluginDarkMode_GetDialogCtlColorBrush(NULL, WM_CTLCOLORDLG);
-            if (brush != NULL)
-                FillRect((HDC)wParam, &r, brush);
+            INT_PTR result = 0;
+            if (HandleRenamerDarkCtlColor(WM_CTLCOLORDLG, wParam, (LPARAM)HWindow, &result))
+                FillRect((HDC)wParam, &r, (HBRUSH)result);
             return TRUE;
         }
         break;
@@ -1698,10 +1663,11 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORDLG:
     case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
     {
-        LRESULT brush = 0;
-        if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
-            return brush;
+        INT_PTR result = 0;
+        if (HandleRenamerDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
         break;
     }
 
@@ -1709,8 +1675,9 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SETTINGCHANGE:
     {
         ConfigureRenamerDarkModeFromHost();
-        if (PluginDarkMode_HandleThemeMessage(HWindow, uMsg, lParam))
+        if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
         {
+            ApplyRenamerDarkMode(HWindow);
             if (MenuBar != NULL)
                 InvalidateRect(MenuBar->GetHWND(), NULL, TRUE);
             RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
@@ -2287,11 +2254,13 @@ CRenamerDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_CFGCHNG:
     {
         UpdateManualModeFont();
+        ApplyRenamerDarkMode(HWindow);
         return 0;
     }
 
     case WM_USER_SETTINGCHANGE:
     {
+        ApplyRenamerDarkMode(HWindow);
         if (MenuBar != NULL)
             MenuBar->SetFont();
         return 0;

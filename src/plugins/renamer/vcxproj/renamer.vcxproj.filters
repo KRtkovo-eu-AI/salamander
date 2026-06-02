@@ -73,7 +73,37 @@
     <ClCompile Include="..\..\shared\dbg.cpp">
       <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+    <ClCompile Include="..\..\..\darkmode.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibColor.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibDpi.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibHook.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibPaintHelper.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclass.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassControl.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassWindow.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibWinApi.cpp">
       <Filter>common</Filter>
     </ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp">
@@ -124,9 +154,6 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\dbg.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\shared\plugindarkmode.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_base.h">

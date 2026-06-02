@@ -64,6 +64,11 @@ BOOL ErrorL(int lastError, int error, ...);
 int SalPrintf(char* buffer, unsigned count, const char* format, ...);
 
 void OnConfiguration(HWND hParent);
+void RefreshRenamerDarkModeFromHost();
+void ConfigureRenamerDarkModeFromHost();
+void ApplyRenamerDarkMode(HWND hwnd);
+BOOL ApplyRenamerDarkModeIfSelected(HWND hwnd);
+BOOL HandleRenamerDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
 
 // ****************************************************************************
 //
