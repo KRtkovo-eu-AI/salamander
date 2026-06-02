@@ -42,6 +42,39 @@
     <ClCompile Include="..\..\shared\winliblt.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\darkmode.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\darkmode_backend_darkmodelib.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\Darkmodelib.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibColor.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibDpi.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibHook.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibPaintHelper.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclass.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassControl.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibSubclassWindow.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\darkmodelib\src\DmlibWinApi.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\wrappers.cpp">
       <Filter>cpp</Filter>
     </ClCompile>

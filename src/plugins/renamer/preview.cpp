@@ -344,9 +344,9 @@ BOOL CPreviewWindow::CustomDraw(LPNMLVCUSTOMDRAW cd, LRESULT& result)
             break;
         }
 
-        if (PluginDarkMode_ShouldUseDark())
+        if (DarkModeShouldUseDarkColors())
         {
-            PluginDarkModeColors colors = PluginDarkMode_GetColors();
+            const DarkModeColors& colors = DarkModeGetColors();
             cd->clrTextBk = colors.background;
             if (subItem == CI_NEWNAME &&
                 strcmp(GetItemText(item, CI_OLDNAME), GetItemText(item, CI_NEWNAME)) == 0)
@@ -664,6 +664,12 @@ void CPreviewWindow::SetItemCount(int count, DWORD flags, int state)
 
             HFONT font = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
             SendMessage(Static, WM_SETFONT, WPARAM(font), 0);
+            if (DarkModeShouldUseDarkColors())
+            {
+                DarkModeApplyWindow(Static);
+                DarkModeApplyStaticTextColors(HWindow, Static);
+                RedrawWindow(Static, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+            }
         }
         else
         {
@@ -692,9 +698,9 @@ CPreviewWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
         if (HWND(lParam) == Static)
         {
-            LRESULT brush = 0;
-            if (PluginDarkMode_HandleCtlColor(uMsg, wParam, lParam, &brush))
-                return brush;
+            INT_PTR result = 0;
+            if (HandleRenamerDarkCtlColor(uMsg, wParam, lParam, &result))
+                return result;
             SetTextColor((HDC)wParam, GetSysColor(COLOR_WINDOWTEXT));
             return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
         }

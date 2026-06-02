@@ -28,6 +28,8 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
     case MID_RENAME:
     {
         SG->GetConfigParameter(SALCFG_ALWAYSONTOP, &AlwaysOnTop, sizeof(AlwaysOnTop), NULL);
+        RefreshRenamerDarkModeFromHost();
+        ConfigureRenamerDarkModeFromHost();
         if (SG->GetPanelSelection(PANEL_SOURCE, NULL, NULL))
         {
             CRenamerDialogThread* t = new CRenamerDialogThread();

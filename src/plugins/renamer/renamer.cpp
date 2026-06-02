@@ -49,6 +49,135 @@ CThreadQueue ThreadQueue("Renamer Dialogs");
 CWindowQueueEx WindowQueue;
 BOOL AlwaysOnTop = FALSE;
 
+
+namespace
+{
+HBRUSH RenamerDarkModeDialogBrush = NULL;
+COLORREF RenamerDarkModeDialogBrushColor = CLR_INVALID;
+BOOL RenamerHostPolicyKnown = FALSE;
+BOOL RenamerHostUseWindowsDarkMode = FALSE;
+COLORREF RenamerHostSchemeText = CLR_INVALID;
+COLORREF RenamerHostSchemeBackground = CLR_INVALID;
+DWORD RenamerMainThreadId = 0;
+
+HBRUSH RenamerGetDarkModeDialogBrush(COLORREF background)
+{
+    if (RenamerDarkModeDialogBrush == NULL || RenamerDarkModeDialogBrushColor != background)
+    {
+        if (RenamerDarkModeDialogBrush != NULL)
+            DeleteObject(RenamerDarkModeDialogBrush);
+        RenamerDarkModeDialogBrush = CreateSolidBrush(background);
+        RenamerDarkModeDialogBrushColor = background;
+    }
+    return RenamerDarkModeDialogBrush;
+}
+
+void ReleaseRenamerDarkModeResources()
+{
+    if (RenamerDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(RenamerDarkModeDialogBrush);
+        RenamerDarkModeDialogBrush = NULL;
+        RenamerDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL RenamerCanQueryHostDarkMode()
+{
+    return SG != NULL &&
+           RenamerMainThreadId != 0 &&
+           GetCurrentThreadId() == RenamerMainThreadId;
+}
+
+void RefreshRenamerDarkModeFromHost()
+{
+    // The Batch Rename UI runs on its own UI thread. Salamander host
+    // configuration/color APIs are main-thread-only, so worker dialogs consume
+    // this main-thread snapshot instead of querying the host directly.
+    if (!RenamerCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SG->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                               &useWindowsDarkMode,
+                               sizeof(useWindowsDarkMode),
+                               NULL))
+    {
+        RenamerHostPolicyKnown = TRUE;
+        RenamerHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (RenamerHostPolicyKnown && RenamerHostUseWindowsDarkMode)
+    {
+        RenamerHostSchemeText = SG->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        RenamerHostSchemeBackground = SG->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL RenamerShouldUseWindowsDarkMode()
+{
+    return RenamerHostPolicyKnown && RenamerHostUseWindowsDarkMode;
+}
+
+void ConfigureRenamerDarkModeFromHost()
+{
+    RefreshRenamerDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = RenamerShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && RenamerHostSchemeText != CLR_INVALID && RenamerHostSchemeBackground != CLR_INVALID)
+    {
+        text = RenamerHostSchemeText;
+        background = RenamerHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = RenamerGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyRenamerDarkMode(HWND hwnd)
+{
+    ConfigureRenamerDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyRenamerDarkModeIfSelected(HWND hwnd)
+{
+    if (!RenamerShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyRenamerDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleRenamerDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!RenamerShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureRenamerDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     CALL_STACK_MESSAGE_NONE
@@ -185,6 +314,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     // set SalamanderVersion for "spl_com.h"
     SalamanderVersion = salamander->GetVersion();
 
+    HANDLES_CAN_USE_TRACE();
+
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
 #ifdef DUMP_MEM
@@ -207,7 +338,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the Salamander general interface
     SG = salamander->GetSalamanderGeneral();
+    RenamerMainThreadId = GetCurrentThreadId();
     SalGUI = salamander->GetSalamanderGUI();
+    RefreshRenamerDarkModeFromHost();
 
     // set the help file name
     SG->SetHelpFileName("renamer.chm");
@@ -265,6 +398,7 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
             ret = FALSE;
         else
         {
+            ReleaseRenamerDarkModeResources();
             ReleaseDialogs();
 
 #ifdef DUMP_MEM
@@ -421,6 +555,9 @@ void OnConfiguration(HWND hParent)
         SG->SalMessageBox(hParent, LoadStr(IDS_CFG_CONFLICT), LoadStr(IDS_PLUGINNAME), MB_ICONINFORMATION | MB_OK);
         return;
     }
+    RefreshRenamerDarkModeFromHost();
+    ConfigureRenamerDarkModeFromHost();
+
     InConfiguration = TRUE;
 
     if (CConfigDialog(hParent).Execute() == IDOK)
@@ -477,8 +614,10 @@ void CPluginInterface::Event(int event, DWORD param)
     {
     case PLUGINEVENT_COLORSCHANGED:
     {
+        RefreshRenamerDarkModeFromHost();
+        ConfigureRenamerDarkModeFromHost();
         // HSymbolsImageList must not be NULL, otherwise the entry point would return an error
-        COLORREF bkColor = GetSysColor(COLOR_WINDOW);
+        COLORREF bkColor = DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
         if (ImageList_GetBkColor(HSymbolsImageList) != bkColor)
             ImageList_SetBkColor(HSymbolsImageList, bkColor);
         break;
@@ -486,6 +625,8 @@ void CPluginInterface::Event(int event, DWORD param)
 
     case PLUGINEVENT_CONFIGURATIONCHANGED:
     {
+        RefreshRenamerDarkModeFromHost();
+        ConfigureRenamerDarkModeFromHost();
         // load confirmations from the configuration
         Silent = 0;
         BOOL b;
@@ -500,6 +641,8 @@ void CPluginInterface::Event(int event, DWORD param)
 
     case PLUGINEVENT_SETTINGCHANGE:
     {
+        RefreshRenamerDarkModeFromHost();
+        ConfigureRenamerDarkModeFromHost();
         WindowQueue.BroadcastMessage(WM_USER_SETTINGCHANGE, 0, 0);
         break;
     }

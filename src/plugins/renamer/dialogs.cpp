@@ -226,6 +226,7 @@ ComDlgHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
     {
         // SalamanderGUI->ArrangeHorizontalLines(hdlg);  // we do not do this for Windows common dialogs
         SG->MultiMonCenterWindow(hdlg, GetParent(hdlg), FALSE);
+        ApplyRenamerDarkModeIfSelected(hdlg);
         return 1;
     }
     return 0;
@@ -887,7 +888,41 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DialogStackPush(HWindow);
         Progress = SalGUI->AttachProgressBar(HWindow, IDS_PROGRESS);
         SG->MultiMonCenterWindow(HWindow, Parent, FALSE);
+        ApplyRenamerDarkMode(HWindow);
         NextUpdate = GetTickCount();
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyRenamerDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureRenamerDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyRenamerDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleRenamerDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
         break;
     }
 
@@ -980,6 +1015,40 @@ CConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SalGUI->ChangeToArrowButton(HWindow, IDB_INITDIRHELP);
         SalGUI->AttachButton(HWindow, IDB_FONT, BTF_RIGHTARROW);
         SG->MultiMonCenterWindow(HWindow, Parent, FALSE);
+        ApplyRenamerDarkMode(HWindow);
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        ApplyRenamerDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureRenamerDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyRenamerDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleRenamerDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
         break;
     }
 

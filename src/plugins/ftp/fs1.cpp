@@ -320,6 +320,8 @@ void CPluginInterfaceForFS::ExecuteChangeDriveMenuItem(int panel)
 
 void ConnectFTPServer(HWND parent, int panel) // called in Alt+F1/F2 and in Drive bars and from the plugin menu
 {
+    RefreshFTPDarkModeFromHost();
+    ConfigureFTPDarkModeFromHost();
     CConnectDlg dlg(parent);
     if (dlg.IsGood())
     {
@@ -369,6 +371,8 @@ void ConnectFTPServer(HWND parent, int panel) // called in Alt+F1/F2 and in Driv
 
 void OrganizeBookmarks(HWND parent) // called in Alt+F1/F2 and in Drive bars and from the plugin menu
 {
+    RefreshFTPDarkModeFromHost();
+    ConfigureFTPDarkModeFromHost();
     CConnectDlg dlg(parent, 1);
     if (dlg.IsGood())
         dlg.Execute();

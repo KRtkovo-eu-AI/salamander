@@ -105,6 +105,7 @@ public:
 
 protected:
     virtual void NotifDlgJustCreated();
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 //
