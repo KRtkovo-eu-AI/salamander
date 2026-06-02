@@ -1016,23 +1016,6 @@ BOOL ValidateArchiveOrFSDragObjects(IDataObject* dataObject, CImpIDropSource* dr
         return FALSE;
     }
 
-    IDataObject* checkedDataObject = NULL;
-    HRESULT hr = fakeDataObject->QueryInterface(IID_IDataObject, (void**)&checkedDataObject);
-    if (FAILED(hr) || checkedDataObject == NULL)
-    {
-        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, fake IDataObject QueryInterface failed: 0x" << std::hex << hr << std::dec);
-        return FALSE;
-    }
-    checkedDataObject->Release();
-
-    IDropSource* checkedDropSource = NULL;
-    hr = dropSource->QueryInterface(IID_IDropSource, (void**)&checkedDropSource);
-    if (FAILED(hr) || checkedDropSource == NULL)
-    {
-        TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, IDropSource QueryInterface failed: 0x" << std::hex << hr << std::dec);
-        return FALSE;
-    }
-    checkedDropSource->Release();
     return TRUE;
 }
 
@@ -1079,12 +1062,6 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
             return;
         }
 
-        if (allowedEffects == DROPEFFECT_NONE)
-        {
-            TRACE_E("ShellAction::archive/FS::drag_files: aborting drag, no OLE drop effects are allowed.");
-            return;
-        }
-
         // create a "fake" directory
         char fakeRootDir[MAX_PATH];
         char* fakeName;
@@ -1123,17 +1100,11 @@ void DoDragFromArchiveOrFS(CFilesWindow* panel, BOOL& dropDone, char* targetPath
                             if (sharedMemOK)
                             {
                                 if (SalShExtSharedMemView->DoDragDropFromSalamander)
-                                {
-                                    TRACE_E("Drag&drop from archive/FS: aborting drag, SalShExtSharedMemView->DoDragDropFromSalamander is already TRUE.");
-                                    sharedMemOK = FALSE;
-                                }
-                                else
-                                {
-                                    SalShExtSharedMemView->DoDragDropFromSalamander = TRUE;
-                                    *fakeName = '\\';
-                                    lstrcpyn(SalShExtSharedMemView->DragDropFakeDirName, fakeRootDir, MAX_PATH);
-                                    SalShExtSharedMemView->DropDone = FALSE;
-                                }
+                                    TRACE_E("Drag&drop from archive/FS: SalShExtSharedMemView->DoDragDropFromSalamander is TRUE, this should never happen here!");
+                                SalShExtSharedMemView->DoDragDropFromSalamander = TRUE;
+                                *fakeName = '\\';
+                                lstrcpyn(SalShExtSharedMemView->DragDropFakeDirName, fakeRootDir, MAX_PATH);
+                                SalShExtSharedMemView->DropDone = FALSE;
                             }
                             ReleaseMutex(SalShExtSharedMemMutex);
 
@@ -1745,16 +1716,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     (panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMFS) || // FS umi "move from FS"
                      panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)))  // FS umi "copy from FS"
                 {
-                    int dragItemCount = 0;
+                    int dragItemCount = (count == 0) ? 1 : count;
                     int mouseItemIndex = GetMousePanelItemIndex(panel);
-                    if (!ValidateArchiveOrFSDragSource(panel, FALSE, count, indexes, index, &dragItemCount))
-                    {
-                        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-                        if (indexes != NULL)
-                            delete[] (indexes);
-                        EndStopRefresh();
-                        return;
-                    }
 
                     // if it drags a single FS subdirectory, determine which one (to change the path
                     // in the directory line and insert it into the command line)
