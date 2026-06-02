@@ -1693,7 +1693,6 @@ LRESULT CRendererWindow::OnPaint()
                                 // seem to store image data with normal orientatation but (Orient != 1) && (info.Width < info.Height)
                                 info.Orient = 1;
                             }
-                            haveOrientation = TRUE;
                         }
                         else if ((pvii.Format == PVF_TIFF) || !strcmp(pvii.Info1, "TIFF"))
                         {
@@ -1709,45 +1708,9 @@ LRESULT CRendererWindow::OnPaint()
                                 info.Orient = 6;
                                 break; // CMD_ROTATE_RIGHT
                             }
-                            haveOrientation = TRUE;
                         }
-                        if (!haveOrientation)
-                        {
-                            switch (pvii.Flags & (PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90))
-                            {
-                            case PVFF_FLIP_HOR:
-                                info.Orient = 2;
-                                haveOrientation = TRUE;
-                                break;
-                            case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR:
-                                info.Orient = 3;
-                                haveOrientation = TRUE;
-                                break;
-                            case PVFF_BOTTOMTOTOP:
-                                info.Orient = 4;
-                                haveOrientation = TRUE;
-                                break;
-                            case PVFF_BOTTOMTOTOP | PVFF_ROTATE90:
-                                info.Orient = 5;
-                                haveOrientation = TRUE;
-                                break;
-                            case PVFF_ROTATE90:
-                                info.Orient = 6;
-                                haveOrientation = TRUE;
-                                break;
-                            case PVFF_FLIP_HOR | PVFF_ROTATE90:
-                                info.Orient = 7;
-                                haveOrientation = TRUE;
-                                break;
-                            case PVFF_BOTTOMTOTOP | PVFF_FLIP_HOR | PVFF_ROTATE90:
-                                info.Orient = 8;
-                                haveOrientation = TRUE;
-                                break;
-                            }
-                        }
-
                         cmd = 0;
-                        if (haveOrientation)
+                        switch (info.Orient)
                         {
                         case 2:
                             cmd = CMD_MIRROR_HOR;
