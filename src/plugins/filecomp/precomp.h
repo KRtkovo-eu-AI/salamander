@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <CommDlg.h>
 #include <ShellAPI.h>
+#include <oleidl.h> // IDropTarget used by shared mhandles.h
 #include <crtdbg.h>
 #include <tchar.h>
 #include <sys/stat.h>
