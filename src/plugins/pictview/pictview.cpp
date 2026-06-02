@@ -1533,11 +1533,7 @@ BOOL InitViewer(HWND hParentWnd)
         DeleteCriticalSection(&G.CS);
         return FALSE;
     }
-    if (PVW32DLL.Version[0] == 0)
-    {
-        i = PVW32DLL.PVGetDLLVersion();
-        sprintf(PVW32DLL.Version, "PVW32Cnv.dll %d.%#02d.%d", i >> 16, i & 255, (i >> 8) & 255);
-    }
+    i = PVW32DLL.PVGetDLLVersion();
 
     _snprintf_s(PVW32DLL.Version, SizeOf(PVW32DLL.Version), _TRUNCATE, "WIC backend %u.%02u",
                 static_cast<unsigned>(PV_VERSION_MAJOR(i)), static_cast<unsigned>(PV_VERSION_MINOR(i)));
