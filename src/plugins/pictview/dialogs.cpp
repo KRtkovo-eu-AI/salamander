@@ -32,6 +32,16 @@ void ApplyPictViewDarkMode(HWND hwnd)
     }
 }
 
+bool ApplyPictViewDarkModeIfSelected(HWND hwnd)
+{
+    ConfigurePictViewDarkModeFromHost();
+    if (!PictViewShouldUseWindowsDarkMode())
+        return false;
+
+    ApplyPictViewDarkMode(hwnd);
+    return true;
+}
+
 void RedrawPictViewConfigPage(HWND hwnd)
 {
     if (hwnd == NULL)
@@ -162,7 +172,8 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        ApplyPictViewDarkMode(HWindow);
+        ApplyPictViewDarkModeIfSelected(HWindow);
+        QueuePictViewConfigPageRedraw(HWindow);
         break;
     }
 
@@ -177,9 +188,7 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam != FALSE)
         {
-            ConfigurePictViewDarkModeFromHost();
-            if (PictViewShouldUseWindowsDarkMode())
-                ApplyPictViewDarkMode(HWindow);
+            ApplyPictViewDarkModeIfSelected(HWindow);
             QueuePictViewConfigPageRedraw(HWindow);
         }
         break;
@@ -231,7 +240,8 @@ CCommonPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 void CCommonPropSheetPage::NotifDlgJustCreated()
 {
     SalamanderGUI->ArrangeHorizontalLines(HWindow);
-    ApplyPictViewDarkMode(HWindow);
+    ApplyPictViewDarkModeIfSelected(HWindow);
+    QueuePictViewConfigPageRedraw(HWindow);
 }
 
 //****************************************************************************
@@ -803,7 +813,7 @@ protected:
         {
         case WM_CREATE:
         {
-            ApplyPictViewDarkMode(HWindow);
+            ApplyPictViewDarkModeIfSelected(HWindow);
             break;
         }
 
@@ -901,7 +911,7 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
 {
     if (uMsg == PSCB_INITIALIZED) // attach to the dialog
     {
-        ApplyPictViewDarkMode(HWindow);
+        BOOL keepAttached = ApplyPictViewDarkModeIfSelected(HWindow) ? TRUE : FALSE;
         CCenteredPropertyWindow* wnd = new CCenteredPropertyWindow;
         if (wnd != NULL)
         {
@@ -910,9 +920,14 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
                 delete wnd; // the window is not attached, destroy it right here
             else
             {
-                // Keep the subclass attached for the lifetime of the property sheet.
-                // It handles dark CTLCOLOR/theme messages for the tab and button area
-                // outside individual property pages and redraws pages when switching tabs.
+                if (!keepAttached)
+                    PostMessage(wnd->HWindow, WM_USER_CFGDLGDETACH, 0, 0); // light mode: detach after centering like the original dialog
+                else
+                {
+                    // Keep the subclass attached for the lifetime of the property sheet.
+                    // It handles dark CTLCOLOR/theme messages for the tab and button area
+                    // outside individual property pages and redraws pages when switching tabs.
+                }
             }
         }
     }
