@@ -2890,6 +2890,27 @@ UINT GetMouseWheelScrollChars()
     return uCachedScrollChars;
 }
 
+HWND GetTabWindowFromPoint(HWND hWindow, POINT screenPt)
+{
+    HWND root = hWindow != NULL ? GetAncestor(hWindow, GA_ROOT) : NULL;
+    if (root == NULL)
+        return NULL;
+
+    const int tabControlIDs[] = {IDC_LEFTTABCTRL, IDC_RIGHTTABCTRL};
+    for (int i = 0; i < (int)_countof(tabControlIDs); ++i)
+    {
+        HWND tabWindow = GetDlgItem(root, tabControlIDs[i]);
+        if (tabWindow == NULL || !IsWindowVisible(tabWindow))
+            continue;
+
+        RECT tabRect;
+        if (GetWindowRect(tabWindow, &tabRect) && PtInRect(&tabRect, screenPt))
+            return tabWindow;
+    }
+
+    return NULL;
+}
+
 BOOL PostMouseWheelMessage(MSG* pMSG)
 {
     // find the window under the mouse cursor
@@ -2922,6 +2943,13 @@ BOOL PostMouseWheelMessage(MSG* pMSG)
             TRACE_E("GetClassName() failed!");
             hWindow = pMSG->hwnd;
         }
+        // Route wheel messages from anywhere in a visible panel tab strip, including the blank
+        // area after the last tab button, to the tab control so its subclass can scroll
+        // overflowed tabs. WindowFromPoint() can otherwise return the main window for that gap.
+        HWND tabWindow = GetTabWindowFromPoint(hWindow, pMSG->pt);
+        if (tabWindow != NULL)
+            hWindow = tabWindow;
+
         // If this is a scrollbar or an up-down helper with a parent window, post the message to the parent.
         // Scrollbars in the panels are not subclassed, so this is currently the only way
         // for the panel to receive wheel messages when the cursor is over the scrollbar.
