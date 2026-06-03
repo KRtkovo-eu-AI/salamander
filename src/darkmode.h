@@ -81,3 +81,9 @@ void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
+
+// Recolors only dark monochrome glyphs in a bitmap/icon strip for dark toolbar/status backgrounds.
+// Colorful icons are detected and left unchanged.
+BOOL DarkModeAdjustDarkMonochromeBitmap(HBITMAP hBitmap, COLORREF transparent, COLORREF ignoredColor,
+                                        int iconWidth, int iconHeight);
+HICON DarkModeCreateLightIconIfDarkMonochrome(HICON hIcon, int width, int height, COLORREF transparent);

@@ -14,6 +14,7 @@
 #include "nanosvg\nanosvg.h"
 #include "nanosvg\nanosvgrast.h"
 #include "svg.h"
+#include "darkmode.h"
 
 struct CButtonData
 {
@@ -936,6 +937,9 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
             }
         }
     }
+
+    if (DarkModeShouldUseDarkColors())
+        DarkModeAdjustDarkMonochromeBitmap(hColorBitmap, transparent, bkColorForAlpha, iconSize, iconSize);
 
     ret = TRUE;
 exitus:

@@ -2785,6 +2785,9 @@ BOOL CViewerWindow::InitializeGraphics()
     HBITMAP hTmpColorBitmap;
 
     hTmpColorBitmap = LoadBitmap(DLLInstance, MAKEINTRESOURCE(SalamanderGeneral->CanUse256ColorsBitmap() ? IDB_TOOLBAR256 : IDB_TOOLBAR16));
+    ConfigurePictViewDarkModeFromHost();
+    if (DarkModeShouldUseDarkColors())
+        DarkModeAdjustDarkMonochromeBitmap(hTmpColorBitmap, RGB(255, 0, 255), CLR_INVALID, 16, 16);
     SalamanderGUI->CreateGrayscaleAndMaskBitmaps(hTmpColorBitmap, RGB(255, 0, 255),
                                                  hTmpGrayBitmap, hTmpMaskBitmap);
     HHotToolBarImageList = ImageList_Create(16, 16, ILC_MASK | ILC_COLORDDB, IDX_TB_COUNT, 1);

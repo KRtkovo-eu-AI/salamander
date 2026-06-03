@@ -1854,3 +1854,235 @@ HBRUSH DarkModeGetPanelFrameBrush()
         brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
     return brush;
 }
+
+static int DarkModeIntMin(int a, int b)
+{
+    return a < b ? a : b;
+}
+
+static int DarkModeIntMax(int a, int b)
+{
+    return a > b ? a : b;
+}
+
+static bool DarkModeIsIgnoredIconPixel(COLORREF color, COLORREF transparent, COLORREF ignoredColor)
+{
+    return color == transparent || (ignoredColor != CLR_INVALID && color == ignoredColor);
+}
+
+static bool DarkModeAnalyzeMonochromePixels(const BYTE* bits, int width, int height, int stride,
+                                            int left, int top, int iconWidth, int iconHeight,
+                                            COLORREF transparent, COLORREF ignoredColor)
+{
+    int visiblePixels = 0;
+    int maxChroma = 0;
+    int brightnessSum = 0;
+    for (int y = 0; y < iconHeight && top + y < height; y++)
+    {
+        const BYTE* row = bits + (top + y) * stride + left * 4;
+        for (int x = 0; x < iconWidth && left + x < width; x++)
+        {
+            BYTE b = row[x * 4 + 0];
+            BYTE g = row[x * 4 + 1];
+            BYTE r = row[x * 4 + 2];
+            COLORREF color = RGB(r, g, b);
+            if (DarkModeIsIgnoredIconPixel(color, transparent, ignoredColor))
+                continue;
+            int hi = DarkModeIntMax((int)r, DarkModeIntMax((int)g, (int)b));
+            int lo = DarkModeIntMin((int)r, DarkModeIntMin((int)g, (int)b));
+            maxChroma = DarkModeIntMax(maxChroma, hi - lo);
+            brightnessSum += (r * 30 + g * 59 + b * 11) / 100;
+            visiblePixels++;
+        }
+    }
+
+    if (visiblePixels == 0)
+        return false;
+
+    int avgBrightness = brightnessSum / visiblePixels;
+    return maxChroma <= 36 && avgBrightness < 170;
+}
+
+static void DarkModeLightenMonochromePixels(BYTE* bits, int width, int height, int stride,
+                                            int left, int top, int iconWidth, int iconHeight,
+                                            COLORREF transparent, COLORREF ignoredColor)
+{
+    for (int y = 0; y < iconHeight && top + y < height; y++)
+    {
+        BYTE* row = bits + (top + y) * stride + left * 4;
+        for (int x = 0; x < iconWidth && left + x < width; x++)
+        {
+            BYTE* pixel = row + x * 4;
+            BYTE b = pixel[0];
+            BYTE g = pixel[1];
+            BYTE r = pixel[2];
+            COLORREF color = RGB(r, g, b);
+            if (DarkModeIsIgnoredIconPixel(color, transparent, ignoredColor))
+                continue;
+
+            int brightness = (r * 30 + g * 59 + b * 11) / 100;
+            int light = DarkModeIntMax(185, DarkModeIntMin(245, 255 - brightness + 25));
+            pixel[0] = pixel[1] = pixel[2] = (BYTE)light;
+        }
+    }
+}
+
+BOOL DarkModeAdjustDarkMonochromeBitmap(HBITMAP hBitmap, COLORREF transparent, COLORREF ignoredColor,
+                                        int iconWidth, int iconHeight)
+{
+    if (hBitmap == NULL || iconWidth <= 0 || iconHeight <= 0)
+        return FALSE;
+
+    HDC hDC = HANDLES(GetDC(NULL));
+    if (hDC == NULL)
+        return FALSE;
+
+    BITMAPINFO bi;
+    memset(&bi, 0, sizeof(bi));
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biBitCount = 0;
+
+    BOOL ret = FALSE;
+    BYTE* bits = NULL;
+    if (!GetDIBits(hDC, hBitmap, 0, 0, NULL, &bi, DIB_RGB_COLORS))
+        goto exitus;
+
+    int width = bi.bmiHeader.biWidth;
+    int height = abs(bi.bmiHeader.biHeight);
+    if (width <= 0 || height <= 0)
+        goto exitus;
+
+    BITMAPINFO dib;
+    memset(&dib, 0, sizeof(dib));
+    dib.bmiHeader.biSize = sizeof(dib.bmiHeader);
+    dib.bmiHeader.biWidth = width;
+    dib.bmiHeader.biHeight = -height; // top-down for simpler icon-cell addressing
+    dib.bmiHeader.biPlanes = 1;
+    dib.bmiHeader.biBitCount = 32;
+    dib.bmiHeader.biCompression = BI_RGB;
+
+    int stride = width * 4;
+    bits = (BYTE*)malloc(stride * height);
+    if (bits == NULL)
+        goto exitus;
+
+    if (!GetDIBits(hDC, hBitmap, 0, height, bits, &dib, DIB_RGB_COLORS))
+        goto exitus;
+
+    for (int top = 0; top + iconHeight <= height; top += iconHeight)
+    {
+        for (int left = 0; left + iconWidth <= width; left += iconWidth)
+        {
+            if (DarkModeAnalyzeMonochromePixels(bits, width, height, stride, left, top, iconWidth, iconHeight,
+                                                transparent, ignoredColor))
+            {
+                DarkModeLightenMonochromePixels(bits, width, height, stride, left, top, iconWidth, iconHeight,
+                                                transparent, ignoredColor);
+            }
+        }
+    }
+
+    if (!SetDIBits(hDC, hBitmap, 0, height, bits, &dib, DIB_RGB_COLORS))
+        goto exitus;
+
+    ret = TRUE;
+
+exitus:
+    if (bits != NULL)
+        free(bits);
+    HANDLES(ReleaseDC(NULL, hDC));
+    return ret;
+}
+
+HICON DarkModeCreateLightIconIfDarkMonochrome(HICON hIcon, int width, int height, COLORREF transparent)
+{
+    if (hIcon == NULL || width <= 0 || height <= 0)
+        return NULL;
+
+    HDC hScreenDC = HANDLES(GetDC(NULL));
+    HDC hColorDC = NULL;
+    HDC hMaskDC = NULL;
+    HBITMAP hColorBitmap = NULL;
+    HBITMAP hMaskBitmap = NULL;
+    HBITMAP hOldColorBitmap = NULL;
+    HBITMAP hOldMaskBitmap = NULL;
+    HICON hLightIcon = NULL;
+    HGDIOBJ oldBrush = NULL;
+    COLORREF oldBrushColor = CLR_INVALID;
+    RECT rc = {0, 0, width, height};
+    ICONINFO ii;
+
+    BITMAPINFO dib;
+    memset(&dib, 0, sizeof(dib));
+    dib.bmiHeader.biSize = sizeof(dib.bmiHeader);
+    dib.bmiHeader.biWidth = width;
+    dib.bmiHeader.biHeight = -height;
+    dib.bmiHeader.biPlanes = 1;
+    dib.bmiHeader.biBitCount = 32;
+    dib.bmiHeader.biCompression = BI_RGB;
+
+    BYTE* bits = NULL;
+    hColorBitmap = HANDLES(CreateDIBSection(hScreenDC, &dib, DIB_RGB_COLORS, (void**)&bits, NULL, 0));
+    if (hColorBitmap == NULL || bits == NULL)
+        goto exitus;
+
+    hColorDC = HANDLES(CreateCompatibleDC(hScreenDC));
+    if (hColorDC == NULL)
+        goto exitus;
+    hOldColorBitmap = (HBITMAP)SelectObject(hColorDC, hColorBitmap);
+    oldBrush = SelectObject(hColorDC, GetStockObject(DC_BRUSH));
+    oldBrushColor = SetDCBrushColor(hColorDC, transparent);
+    FillRect(hColorDC, &rc, (HBRUSH)GetStockObject(DC_BRUSH));
+    SetDCBrushColor(hColorDC, oldBrushColor);
+    SelectObject(hColorDC, oldBrush);
+
+    if (!DrawIconEx(hColorDC, 0, 0, hIcon, width, height, 0, NULL, DI_NORMAL))
+        goto exitus;
+
+    if (!DarkModeAnalyzeMonochromePixels(bits, width, height, width * 4, 0, 0, width, height, transparent, CLR_INVALID))
+        goto exitus;
+    DarkModeLightenMonochromePixels(bits, width, height, width * 4, 0, 0, width, height, transparent, CLR_INVALID);
+
+    hMaskBitmap = HANDLES(CreateBitmap(width, height, 1, 1, NULL));
+    if (hMaskBitmap == NULL)
+        goto exitus;
+    hMaskDC = HANDLES(CreateCompatibleDC(hScreenDC));
+    if (hMaskDC == NULL)
+        goto exitus;
+    hOldMaskBitmap = (HBITMAP)SelectObject(hMaskDC, hMaskBitmap);
+    PatBlt(hMaskDC, 0, 0, width, height, WHITENESS);
+    for (int y = 0; y < height; y++)
+    {
+        BYTE* row = bits + y * width * 4;
+        for (int x = 0; x < width; x++)
+        {
+            BYTE* pixel = row + x * 4;
+            COLORREF color = RGB(pixel[2], pixel[1], pixel[0]);
+            if (color != transparent)
+                SetPixel(hMaskDC, x, y, RGB(0, 0, 0));
+        }
+    }
+
+    memset(&ii, 0, sizeof(ii));
+    ii.fIcon = TRUE;
+    ii.hbmColor = hColorBitmap;
+    ii.hbmMask = hMaskBitmap;
+    hLightIcon = CreateIconIndirect(&ii);
+
+exitus:
+    if (hOldMaskBitmap != NULL)
+        SelectObject(hMaskDC, hOldMaskBitmap);
+    if (hOldColorBitmap != NULL)
+        SelectObject(hColorDC, hOldColorBitmap);
+    if (hMaskDC != NULL)
+        HANDLES(DeleteDC(hMaskDC));
+    if (hColorDC != NULL)
+        HANDLES(DeleteDC(hColorDC));
+    if (hMaskBitmap != NULL)
+        HANDLES(DeleteObject(hMaskBitmap));
+    if (hColorBitmap != NULL)
+        HANDLES(DeleteObject(hColorBitmap));
+    if (hScreenDC != NULL)
+        HANDLES(ReleaseDC(NULL, hScreenDC));
+    return hLightIcon;
+}

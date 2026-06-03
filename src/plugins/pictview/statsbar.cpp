@@ -17,13 +17,32 @@
 // CStatusBar
 //
 
+static HICON LoadPictViewStatusIconForCurrentMode(int resID)
+{
+    HICON hIcon = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(resID), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    if (hIcon == NULL)
+        return NULL;
+
+    ConfigurePictViewDarkModeFromHost();
+    if (DarkModeShouldUseDarkColors())
+    {
+        HICON hLightIcon = DarkModeCreateLightIconIfDarkMonochrome(hIcon, 16, 16, RGB(255, 0, 255));
+        if (hLightIcon != NULL)
+        {
+            DestroyIcon(hIcon);
+            hIcon = hLightIcon;
+        }
+    }
+    return hIcon;
+}
+
 CStatusBar::CStatusBar()
     : CWindow(ooAllocated)
 {
-    HCursor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_CURSOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HAnchor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_ANCHOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HSize = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_SIZE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HPipette = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_PIPETTE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
+    HCursor = LoadPictViewStatusIconForCurrentMode(IDI_SB_CURSOR);
+    HAnchor = LoadPictViewStatusIconForCurrentMode(IDI_SB_ANCHOR);
+    HSize = LoadPictViewStatusIconForCurrentMode(IDI_SB_SIZE);
+    HPipette = LoadPictViewStatusIconForCurrentMode(IDI_SB_PIPETTE);
     hProgBar = NULL;
 }
 
