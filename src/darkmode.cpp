@@ -1938,21 +1938,25 @@ BOOL DarkModeAdjustDarkMonochromeBitmap(HBITMAP hBitmap, COLORREF transparent, C
         return FALSE;
 
     BITMAPINFO bi;
+    BITMAPINFO dib;
+    BOOL ret = FALSE;
+    BYTE* bits = NULL;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+
     memset(&bi, 0, sizeof(bi));
     bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
     bi.bmiHeader.biBitCount = 0;
 
-    BOOL ret = FALSE;
-    BYTE* bits = NULL;
     if (!GetDIBits(hDC, hBitmap, 0, 0, NULL, &bi, DIB_RGB_COLORS))
         goto exitus;
 
-    int width = bi.bmiHeader.biWidth;
-    int height = abs(bi.bmiHeader.biHeight);
+    width = bi.bmiHeader.biWidth;
+    height = abs(bi.bmiHeader.biHeight);
     if (width <= 0 || height <= 0)
         goto exitus;
 
-    BITMAPINFO dib;
     memset(&dib, 0, sizeof(dib));
     dib.bmiHeader.biSize = sizeof(dib.bmiHeader);
     dib.bmiHeader.biWidth = width;
@@ -1961,7 +1965,7 @@ BOOL DarkModeAdjustDarkMonochromeBitmap(HBITMAP hBitmap, COLORREF transparent, C
     dib.bmiHeader.biBitCount = 32;
     dib.bmiHeader.biCompression = BI_RGB;
 
-    int stride = width * 4;
+    stride = width * 4;
     bits = (BYTE*)malloc(stride * height);
     if (bits == NULL)
         goto exitus;
@@ -2011,8 +2015,9 @@ HICON DarkModeCreateLightIconIfDarkMonochrome(HICON hIcon, int width, int height
     COLORREF oldBrushColor = CLR_INVALID;
     RECT rc = {0, 0, width, height};
     ICONINFO ii;
-
     BITMAPINFO dib;
+    BYTE* bits = NULL;
+
     memset(&dib, 0, sizeof(dib));
     dib.bmiHeader.biSize = sizeof(dib.bmiHeader);
     dib.bmiHeader.biWidth = width;
@@ -2021,7 +2026,6 @@ HICON DarkModeCreateLightIconIfDarkMonochrome(HICON hIcon, int width, int height
     dib.bmiHeader.biBitCount = 32;
     dib.bmiHeader.biCompression = BI_RGB;
 
-    BYTE* bits = NULL;
     hColorBitmap = HANDLES(CreateDIBSection(hScreenDC, &dib, DIB_RGB_COLORS, (void**)&bits, NULL, 0));
     if (hColorBitmap == NULL || bits == NULL)
         goto exitus;
