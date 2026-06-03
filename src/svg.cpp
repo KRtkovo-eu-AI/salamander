@@ -116,6 +116,20 @@ static char* DuplicateToolbarSVG(const char* svg)
 static char* LoadToolbarSVG(const char* svgName)
 {
     static const CBuiltinToolbarSVG BuiltinToolbarSVGs[] = {
+        {"OpenRecycleBin",
+         R"SVG(<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="16px" height="16px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+  <g id="Icon_1_">
+    <path fill="#6E7378" d="M5,1h6l1,2h2v1H2V3h2L5,1z"/>
+    <path fill="#DCEAF7" d="M3,5h10l-1,10H4L3,5z"/>
+    <path fill="#7D858D" d="M3,5h10l-1,10H4L3,5z M4.1,6l0.8,8h6.2l0.8-8H4.1z"/>
+    <path fill="#2A7F3E" d="M8,6.2l1.4,1.4L8,9V8.1C6.9,8.1,6.1,8.9,6,10H5C5.1,8.3,6.4,7.1,8,7.1V6.2z"/>
+    <path fill="#2A7F3E" d="M8,13.8l-1.4-1.4L8,11v0.9c1.1,0,1.9-0.8,2-1.9h1c-0.1,1.7-1.4,2.9-3,2.9V13.8z"/>
+  </g>
+</svg>
+)SVG"},
         {"TabsClose",
          R"SVG(<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
