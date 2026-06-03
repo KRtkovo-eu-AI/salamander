@@ -727,7 +727,7 @@ void RenderSVGImages(HDC hDC, int iconSize, COLORREF bkColor, const CSVGIcon* sv
     NSVGrasterizer* rast = nsvgCreateRasterizer();
     // JRYFIXME: docasne cteme ze souboru, prejit na spolecne uloziste s toolbars
     for (int i = 0; i < svgIconsCount; i++)
-        if (svgIcons[i].SVGName != NULL)
+        if (svgIcons[i].SVGName != NULL && svgIcons[i].ImageIndex != 0xFFFF)
             RenderSVGImage(rast, hDC, svgIcons[i].ImageIndex * iconSize, 0, svgIcons[i].SVGName, iconSize, bkColor, TRUE);
 
     nsvgDeleteRasterizer(rast);
@@ -815,14 +815,17 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
     {
         for (int i = 0; i < svgIconsCount; i++)
         {
-            if (svgIcons[i].SVGName != NULL && svgIcons[i].ImageIndex + 1 > iconCountWithoutShell)
+            if (svgIcons[i].SVGName != NULL && svgIcons[i].ImageIndex != 0xFFFF &&
+                svgIcons[i].ImageIndex + 1 > iconCountWithoutShell)
+            {
                 iconCountWithoutShell = svgIcons[i].ImageIndex + 1;
+            }
         }
     }
 
     // prepare a new bitmap that fits hSource and the icons from the DLL
     // extend the width by the icons pulled from the DLL
-    iconCount = bi.bmiHeader.biWidth / 16 + tbbe_BMPCOUNT;
+    iconCount = iconCountWithoutShell + tbbe_BMPCOUNT;
 
     //  hColorBitmap = HANDLES(CreateBitmap(width, height, bh.bV4Planes, bh.bV4BitCount, NULL));
     //protoze je CreateBitmap() vhodne pouze pro vytvareni B&W bitmap (viz MSDN)
