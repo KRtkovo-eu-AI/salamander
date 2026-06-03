@@ -822,7 +822,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
 
     // prepare a new bitmap that fits hSource and the icons from the DLL
     // extend the width by the icons pulled from the DLL
-    iconCount = bi.bmiHeader.biWidth / 16 + tbbe_BMPCOUNT;
+    iconCount = iconCountWithoutShell + tbbe_BMPCOUNT;
 
     //  hColorBitmap = HANDLES(CreateBitmap(width, height, bh.bV4Planes, bh.bV4BitCount, NULL));
     //protoze je CreateBitmap() vhodne pouze pro vytvareni B&W bitmap (viz MSDN)
@@ -878,8 +878,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                  resID2 == 39 && (resID2 = 77) != 0 ||  // Fonts
                  resID2 == 18 && (resID2 = 152) != 0))  // Network
             {
-                hIcon = (HICON)HANDLES(LoadImage(ImageResDLL, MAKEINTRESOURCE(resID2), IMAGE_ICON,
-                                             iconSize, iconSize, IconLRFlags));
+                hIcon = SalLoadIcon(ImageResDLL, resID2, iconSize);
             }
             else
             {
@@ -887,8 +886,7 @@ BOOL CreateToolbarBitmaps(HINSTANCE hInstance, int resID, COLORREF transparent, 
                 if (resID2 == 21)
                     resID2 = 235;
 
-                hIcon = (HICON)HANDLES(LoadImage(Shell32DLL, MAKEINTRESOURCE(resID2), IMAGE_ICON,
-                                             iconSize, iconSize, IconLRFlags));
+                hIcon = SalLoadIcon(Shell32DLL, resID2, iconSize);
             }
             if (hIcon == NULL)
             {
