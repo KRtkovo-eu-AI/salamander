@@ -2238,6 +2238,7 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
   {MNTT_IT, IDS_DRIVEBAR2
   {MNTT_IT, IDS_MIDDLETOOLBAR
   {MNTT_IT, IDS_COMMANDLINE
+  {MNTT_IT, IDS_MENU_OPT_VSB_TREE
   {MNTT_IT, IDS_BOTTOMTOOLBAR
   {MNTT_IT, IDS_GRIPSINTOOLBAR
   {MNTT_IT, IDS_SHOWLABELS
@@ -2284,6 +2285,11 @@ MENU_TEMPLATE_ITEM ToolbarsCtxMenu[] =
         mii.String = LoadStr(IDS_COMMANDLINE);
         mii.ID = 5;
         mii.State = EditPermanentVisible ? MENU_STATE_CHECKED : 0;
+        menu.InsertItem(0xffffffff, TRUE, &mii);
+
+        mii.String = LoadStr(IDS_MENU_OPT_VSB_TREE);
+        mii.ID = 13;
+        mii.State = Configuration.TreeViewVisible ? MENU_STATE_CHECKED : 0;
         menu.InsertItem(0xffffffff, TRUE, &mii);
 
         mii.String = LoadStr(IDS_BOTTOMTOOLBAR);
@@ -2558,6 +2564,9 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
             break;
         case 12:
             cm = CM_TOGGLEPLUGINSBAR;
+            break;
+        case 13:
+            cm = CM_TOGGLETREEVIEW;
             break;
         }
         if (cm != 0)
