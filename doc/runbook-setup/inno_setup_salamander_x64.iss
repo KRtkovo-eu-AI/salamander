@@ -36,7 +36,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\Open Salamander Samandarin
 DefaultGroupName={#MyAppName}
-OutputBaseFilename=OpenSalamanderSamandarin-{#MyAppVersion}-x64-setup
+OutputBaseFilename=setup_{#MyAppVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -835,9 +835,7 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 ; Legacy keys and values mirrored from [AddRegistryKeys] and [AddRegistryValues].
 ; UninstallString intentionally targets Inno Setup's uninstaller instead of the
 ; legacy remove\remove.exe payload so this installer can uninstall its own files.
-Root: HKCU; Subkey: "Software\Open Salamander Samandarin\5.0-samandarin-0.3"; Flags: uninsdeletekeyifempty
 Root: HKCU; Subkey: "Software\Open Salamander Samandarin\Applications\Open Salamander Samandarin (x64)"; ValueType: string; ValueName: "Last Directory"; ValueData: "{app}"; Flags: uninsdeletevalue
-Root: HKCU; Subkey: "Software\Open Salamander Samandarin\5.0-samandarin-0.3"; ValueType: dword; ValueName: "AutoImportConfig"; ValueData: "0"; Flags: uninsdeletevalue
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64)"; ValueType: string; ValueName: "DisplayName"; ValueData: "{#MyAppDisplayName}"; Flags: uninsdeletekey
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64)"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\{#MyAppExeName}"
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64)"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#MyAppVersion}"
@@ -859,6 +857,12 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 function QuickLaunchAvailable: Boolean;
 begin
   Result := DirExists(ExpandConstant('{userappdata}\Microsoft\Internet Explorer\Quick Launch'));
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  { The finished page otherwise shows Inno Setup's default large bitmap on the left. }
+  WizardForm.WizardBitmapImage.Visible := CurPageID <> wpFinished;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
