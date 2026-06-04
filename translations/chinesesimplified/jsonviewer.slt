@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\chinesesimplified\jsonviewer.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,2052
+AUTHOR,"Michael Lu"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=6958"
+COMMENT,"简体中文版"
+
+[STRINGTABLE 0]
+46,0,"JSON Viewer .NET"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Internal viewer that displays JSON documents using a managed WinForms UI."
+49,0,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,0,"Unable to prepare synchronization event required by the viewer."
+51,0,"The selected JSON file is too large to open. Files larger than 8 MB are not supported."
+

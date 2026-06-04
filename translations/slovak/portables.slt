@@ -1,0 +1,19 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\slovak\portables.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,1051
+AUTHOR,"Roman Paholík"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
+COMMENT,"Slovenská verzia"
+
+[STRINGTABLE 0]
+128,0,"{!}%d selected device{2:s|0||1|s}"
+129,0,"No devices"
+
+[STRINGTABLE 1]
+8192,0,"Portable Devices"
+8193,0,"Manage portable devices."
+

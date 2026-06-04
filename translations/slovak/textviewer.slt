@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\slovak\textviewer.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,1051
+AUTHOR,"Roman Paholík"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
+COMMENT,"Slovenská verzia"
+
+[STRINGTABLE 0]
+46,0,"PrismSharp Text Viewer .NET"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Internal viewer that renders text files with managed syntax highlighting."
+49,0,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,0,"Unable to prepare synchronization event required by the viewer."
+51,0,"The selected file is too large to open. Files larger than 16 MB are not supported."
+

@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\french\samandarin.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,1036
+AUTHOR,"Gérard Gréco, Arnaud Dupin de Beyssat, Jérémy Marc, Maxime Abbey"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=6162"
+COMMENT,"Version française"
+
+[STRINGTABLE 0]
+46,0,"Samandarin Update Notifier"
+47,0,"About Samandarin Update Notifier"
+
+[STRINGTABLE 1]
+48,0,"Checks GitHub releases and offers to open the latest Samandarin build."
+49,0,"https://github.com/KRtkovo-eu-AI/salamander/releases"
+50,0,"Check updates now"
+

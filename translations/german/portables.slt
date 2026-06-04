@@ -1,0 +1,19 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\german\portables.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,1031
+AUTHOR,"Dirk Bornhütter, Thomas Kelso, Thomas Pagels, Thomas Wölk, Marko Meister und Mick Weiss"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
+COMMENT,"Deutsche Version"
+
+[STRINGTABLE 0]
+128,0,"{!}%d selected device{2:s|0||1|s}"
+129,0,"No devices"
+
+[STRINGTABLE 1]
+8192,0,"Portable Devices"
+8193,0,"Manage portable devices."
+

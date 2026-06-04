@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\german\hypervm.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,1031
+AUTHOR,"Dirk Bornhütter, Thomas Kelso, Thomas Pagels, Thomas Wölk, Marko Meister und Mick Weiss"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
+COMMENT,"Deutsche Version"
+
+[STRINGTABLE 0]
+46,0,"Hyper-V Machines"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Show local Hyper-V virtual machines in panel."
+49,0,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,0,"Show &Hyper-V Machines Window"
+

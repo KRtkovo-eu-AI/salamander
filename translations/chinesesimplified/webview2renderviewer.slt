@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\chinesesimplified\webview2renderviewer.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,2052
+AUTHOR,"Michael Lu"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=6958"
+COMMENT,"简体中文版"
+
+[STRINGTABLE 0]
+46,0,"WebView2 Render Viewer .NET"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Viewer that displays rendered HTML, Markdown, and web documents using WebView2."
+49,0,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,0,"Unable to prepare synchronization event required by the viewer."
+51,0,"The selected file is too large to open. Files larger than 32 MB are not supported."
+

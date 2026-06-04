@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"translator\salamand 4.0\projects\spanish\hypervm.atp"
+TEXTVERSION,""
+VERSION,""
+
+[TRANSLATION]
+LANGID,3082
+AUTHOR,"Juan Pablo Barrio Lera"
+WEB,"forum.altap.cz/viewtopic.php?f=23&t=6168"
+COMMENT,"Versión en español"
+
+[STRINGTABLE 0]
+46,0,"Hyper-V Machines"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"Show local Hyper-V virtual machines in panel."
+49,0,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,0,"Show &Hyper-V Machines Window"
+
