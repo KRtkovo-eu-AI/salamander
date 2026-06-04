@@ -1970,10 +1970,26 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         MouseWheelMSGThroughHook = FALSE;
         MouseWheelMSGTime = GetTickCount();
+        if (MainWindow != NULL)
+        {
+            POINT screenPt;
+            screenPt.x = GET_X_LPARAM(lParam);
+            screenPt.y = GET_Y_LPARAM(lParam);
+            if (MainWindow->TrySwitchPanelTabByMouseWheel(screenPt, wParam))
+                return 0;
+        }
         HandleMouseWheel(wParam);
         return 0;
 
     case WM_USER_MOUSEWHEEL:
+        if (MainWindow != NULL)
+        {
+            POINT screenPt;
+            screenPt.x = GET_X_LPARAM(lParam);
+            screenPt.y = GET_Y_LPARAM(lParam);
+            if (MainWindow->TrySwitchPanelTabByMouseWheel(screenPt, wParam))
+                return 0;
+        }
         HandleMouseWheel(wParam);
         return 0;
 

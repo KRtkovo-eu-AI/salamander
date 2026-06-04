@@ -598,6 +598,7 @@ public:
     void CommandCloseAllTabsExceptThisAndDefault(CPanelSide side, CFilesWindow* keepPanel = NULL);
     void CommandNextTab(CPanelSide side);
     void CommandPrevTab(CPanelSide side);
+    bool TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam);
     void CommandDuplicateTab(CPanelSide side, int index = -1);
     bool CommandReopenClosedTab(CPanelSide side);
     void CommandSetPanelTabColor(CFilesWindow* panel);
@@ -879,6 +880,8 @@ private:
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
     CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
+
+    int PanelTabMouseWheelAccumulator;
 
     friend void CMainWindow_RefreshCommandStates(CMainWindow* obj);
 

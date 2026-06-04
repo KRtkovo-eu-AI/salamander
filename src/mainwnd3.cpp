@@ -1487,6 +1487,69 @@ void CMainWindow::CommandPrevTab(CPanelSide side)
     SwitchPanelTab(tabs[index]);
 }
 
+bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
+{
+    if (!Configuration.UsePanelTabs || HasLockedUI())
+        return false;
+
+    if ((LOWORD(wParam) & MK_RBUTTON) == 0 && (GetAsyncKeyState(VK_RBUTTON) & 0x8000) == 0)
+    {
+        PanelTabMouseWheelAccumulator = 0;
+        return false;
+    }
+
+    auto pointInWindow = [](HWND hwnd, POINT pt) {
+        if (hwnd == NULL || !IsWindowVisible(hwnd))
+            return false;
+        RECT rect;
+        return GetWindowRect(hwnd, &rect) && PtInRect(&rect, pt) != FALSE;
+    };
+
+    CPanelSide side;
+    if ((LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt)) ||
+        (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)))
+    {
+        side = cpsLeft;
+    }
+    else if ((RightTabWindow != NULL && pointInWindow(RightTabWindow->HWindow, screenPt)) ||
+             (RightPanel != NULL && pointInWindow(RightPanel->HWindow, screenPt)))
+    {
+        side = cpsRight;
+    }
+    else
+    {
+        PanelTabMouseWheelAccumulator = 0;
+        return false;
+    }
+
+    short zDelta = (short)HIWORD(wParam);
+    if (zDelta == 0)
+        return true;
+
+    if ((zDelta < 0 && PanelTabMouseWheelAccumulator > 0) ||
+        (zDelta > 0 && PanelTabMouseWheelAccumulator < 0))
+    {
+        PanelTabMouseWheelAccumulator = 0;
+    }
+
+    PanelTabMouseWheelAccumulator += zDelta;
+    int steps = PanelTabMouseWheelAccumulator / WHEEL_DELTA;
+    if (steps != 0)
+    {
+        PanelTabMouseWheelAccumulator -= steps * WHEEL_DELTA;
+        int count = steps > 0 ? steps : -steps;
+        for (int i = 0; i < count; ++i)
+        {
+            if (steps > 0)
+                CommandPrevTab(side);
+            else
+                CommandNextTab(side);
+        }
+    }
+
+    return true;
+}
+
 void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)
