@@ -855,6 +855,34 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 
 [Code]
 
+
+var
+  DeleteUserConfigurationRegistry: Boolean;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+  DeleteUserConfigurationRegistry := False;
+
+  if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.3') then
+  begin
+    DeleteUserConfigurationRegistry :=
+      MsgBox(
+        'Do you want to remove the Open Salamander Samandarin user configuration from the registry?'#13#10#13#10 +
+        'Registry key:'#13#10 +
+        'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.3'#13#10#13#10 +
+        'Choose Yes to delete the key including all contents, or No to keep your settings.',
+        mbConfirmation,
+        MB_YESNO) = IDYES;
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if (CurUninstallStep = usPostUninstall) and DeleteUserConfigurationRegistry then
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.3');
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 begin
   { The finished page otherwise shows Inno Setup's default large bitmap on the left. }
