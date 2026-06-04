@@ -2943,6 +2943,9 @@ BOOL PostMouseWheelMessage(MSG* pMSG)
             TRACE_E("GetClassName() failed!");
             hWindow = pMSG->hwnd;
         }
+        if (MainWindow != NULL && MainWindow->TrySwitchPanelTabByMouseWheel(pMSG->pt, pMSG->wParam))
+            return TRUE;
+
         // Route wheel messages from anywhere in a visible panel tab strip, including the blank
         // area after the last tab button, to the tab control so its subclass can scroll
         // overflowed tabs. WindowFromPoint() can otherwise return the main window for that gap.

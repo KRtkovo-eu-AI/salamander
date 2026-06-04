@@ -950,6 +950,7 @@ BOOL CFilesWindow::OnLButtonDblclk(WPARAM wParam, LPARAM lParam, LRESULT* lResul
 BOOL CFilesWindow::OnRButtonDown(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
 {
     CALL_STACK_MESSAGE_NONE
+    MainWindow->ResetPanelTabMouseWheelContextMenuSuppression();
     KillQuickRenameTimer(); // prevent possible opening of QuickRenameWindow
     BOOL selecting = ((GetKeyState(VK_CONTROL) & 0x8000) != 0) ^
                      (Configuration.PrimaryContextMenu == FALSE);
@@ -1090,6 +1091,14 @@ BOOL CFilesWindow::OnRButtonUp(WPARAM wParam, LPARAM lParam, LRESULT* lResult)
     BeginBoxSelect = 0;
     if (contextMenu)
     {
+        POINT screenPt = {x, y};
+        ClientToScreen(GetListBoxHWND(), &screenPt);
+        if (MainWindow->ShouldSuppressPanelTabMouseWheelContextMenu(screenPt))
+        {
+            *lResult = 0;
+            return TRUE;
+        }
+
         if (GetFocus() != GetListBoxHWND())
             MainWindow->FocusPanel(this);
         if (index >= 0 && index < Dirs->Count + Files->Count)

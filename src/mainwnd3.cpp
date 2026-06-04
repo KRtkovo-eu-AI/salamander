@@ -1487,6 +1487,126 @@ void CMainWindow::CommandPrevTab(CPanelSide side)
     SwitchPanelTab(tabs[index]);
 }
 
+bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
+{
+    if (!Configuration.UsePanelTabs || HasLockedUI())
+        return false;
+
+    if ((LOWORD(wParam) & MK_RBUTTON) == 0 && (GetAsyncKeyState(VK_RBUTTON) & 0x8000) == 0)
+    {
+        PanelTabMouseWheelAccumulator = 0;
+        return false;
+    }
+
+    auto pointInWindow = [](HWND hwnd, POINT pt) {
+        if (hwnd == NULL || !IsWindowVisible(hwnd))
+            return false;
+        RECT rect;
+        return GetWindowRect(hwnd, &rect) && PtInRect(&rect, pt) != FALSE;
+    };
+
+    CPanelSide side;
+    if ((LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt)) ||
+        (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)))
+    {
+        side = cpsLeft;
+    }
+    else if ((RightTabWindow != NULL && pointInWindow(RightTabWindow->HWindow, screenPt)) ||
+             (RightPanel != NULL && pointInWindow(RightPanel->HWindow, screenPt)))
+    {
+        side = cpsRight;
+    }
+    else
+    {
+        PanelTabMouseWheelAccumulator = 0;
+        return false;
+    }
+
+    short zDelta = (short)HIWORD(wParam);
+    if (zDelta == 0)
+        return true;
+
+    if ((zDelta < 0 && PanelTabMouseWheelAccumulator > 0) ||
+        (zDelta > 0 && PanelTabMouseWheelAccumulator < 0))
+    {
+        PanelTabMouseWheelAccumulator = 0;
+    }
+
+    PanelTabMouseWheelAccumulator += zDelta;
+    int steps = PanelTabMouseWheelAccumulator / WHEEL_DELTA;
+    if (steps != 0)
+    {
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+        int index = GetPanelTabIndex(side, current);
+        if (tabs.Count > 1 && index >= 0)
+        {
+            // Once the RMB+wheel gesture starts, the original right-button owner must not keep
+            // tab-control/list-box mouse tracking while SwitchPanelTab() hides and shows panels.
+            // Canceling capture here prevents stale tab hits or pending context-menu/drag state
+            // from being applied to a panel that is no longer active.
+            HWND capture = GetCapture();
+            if (capture != NULL)
+            {
+                SendMessage(capture, WM_CANCELMODE, 0, 0);
+                if (GetCapture() == capture)
+                    ReleaseCapture();
+            }
+
+            PanelTabMouseWheelSwitchTime = GetTickCount();
+            PanelTabMouseWheelAccumulator -= steps * WHEEL_DELTA;
+
+            int target = (index - steps) % tabs.Count;
+            if (target < 0)
+                target += tabs.Count;
+            CFilesWindow* targetPanel = tabs[target];
+            if (target != index && targetPanel != NULL)
+                SwitchPanelTab(targetPanel);
+        }
+        else
+            PanelTabMouseWheelAccumulator = 0;
+    }
+
+    return true;
+}
+
+BOOL CMainWindow::ShouldSuppressPanelTabMouseWheelContextMenu(POINT screenPt)
+{
+    if (PanelTabMouseWheelSwitchTime == 0)
+        return FALSE;
+
+    DWORD elapsed = GetTickCount() - PanelTabMouseWheelSwitchTime;
+    if (elapsed > 1000)
+    {
+        ResetPanelTabMouseWheelContextMenuSuppression();
+        return FALSE;
+    }
+
+    auto pointInWindow = [](HWND hwnd, POINT pt) {
+        if (hwnd == NULL || !IsWindowVisible(hwnd))
+            return false;
+        RECT rect;
+        return GetWindowRect(hwnd, &rect) && PtInRect(&rect, pt) != FALSE;
+    };
+
+    BOOL suppress =
+        (LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt)) ||
+        (RightTabWindow != NULL && pointInWindow(RightTabWindow->HWindow, screenPt)) ||
+        (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)) ||
+        (RightPanel != NULL && pointInWindow(RightPanel->HWindow, screenPt));
+
+    if (suppress)
+        ResetPanelTabMouseWheelContextMenuSuppression();
+
+    return suppress;
+}
+
+void CMainWindow::ResetPanelTabMouseWheelContextMenuSuppression()
+{
+    PanelTabMouseWheelSwitchTime = 0;
+    PanelTabMouseWheelAccumulator = 0;
+}
+
 void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
 {
     if (panel == NULL)

@@ -522,6 +522,11 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
     {
         POINT screen;
         GetCursorPos(&screen);
+        if (MainWindow != NULL && MainWindow->ShouldSuppressPanelTabMouseWheelContextMenu(screen))
+        {
+            result = 0;
+            return TRUE;
+        }
         POINT client = screen;
         ScreenToClient(HWindow, &client);
         int hit = HitTest(client);
@@ -1948,6 +1953,11 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_RBUTTONDOWN:
+        if (MainWindow != NULL)
+            MainWindow->ResetPanelTabMouseWheelContextMenuSuppression();
+        break;
+
     case WM_LBUTTONDOWN:
     {
         POINTS pts = MAKEPOINTS(lParam);
@@ -1970,10 +1980,26 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         MouseWheelMSGThroughHook = FALSE;
         MouseWheelMSGTime = GetTickCount();
+        if (MainWindow != NULL)
+        {
+            POINT screenPt;
+            screenPt.x = GET_X_LPARAM(lParam);
+            screenPt.y = GET_Y_LPARAM(lParam);
+            if (MainWindow->TrySwitchPanelTabByMouseWheel(screenPt, wParam))
+                return 0;
+        }
         HandleMouseWheel(wParam);
         return 0;
 
     case WM_USER_MOUSEWHEEL:
+        if (MainWindow != NULL)
+        {
+            POINT screenPt;
+            screenPt.x = GET_X_LPARAM(lParam);
+            screenPt.y = GET_Y_LPARAM(lParam);
+            if (MainWindow->TrySwitchPanelTabByMouseWheel(screenPt, wParam))
+                return 0;
+        }
         HandleMouseWheel(wParam);
         return 0;
 
