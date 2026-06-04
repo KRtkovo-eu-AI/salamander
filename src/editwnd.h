@@ -6,6 +6,15 @@
 
 #define TXEL_SPACE 2
 
+struct CCommandLineLaunchInfo
+{
+    char Application[MAX_PATH];
+    char CommandLine[SALCMDLINE_MAXLEN + MAX_PATH];
+    BOOL TooLong;
+};
+
+void BuildCommandShellLine(CCommandLineLaunchInfo* launchInfo);
+
 //
 // ****************************************************************************
 
