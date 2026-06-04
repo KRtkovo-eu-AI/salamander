@@ -2115,7 +2115,7 @@ int GetWMCommandFromSalCmd(int salCmd);
 //******************************************************************************
 
 // pocet polozek v poli SalamanderConfigurationRoots
-#define SALCFG_ROOTS_COUNT 85
+#define SALCFG_ROOTS_COUNT 86
 
 // id hlavniho threadu (platne az po vstupu do WinMain())
 extern DWORD MainThreadID;
