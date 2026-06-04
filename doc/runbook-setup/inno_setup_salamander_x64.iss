@@ -44,10 +44,10 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 UninstallDisplayName={#MyAppDisplayName}
-UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayIcon=..\..\src\res\samandarin.ico
+; Keep this disabled because [Registry] below writes the legacy Add/Remove Programs key pointing to Inno's uninstaller; enabling it would add a duplicate Inno uninstall entry.
 CreateUninstallRegKey=no
-; Use the small setup icon instead of the payload EXE; Inno can fail with "Icon file is too large" when embedding the EXE icon group.
-SetupIconFile=..\..\src\setup\res\setup.ico
+SetupIconFile=..\..\src\res\samandarin.ico
 LicenseFile={#PayloadDir}\doc\license.txt
 InfoAfterFile={#PayloadDir}\doc\readme.txt
 ChangesAssociations=yes
@@ -155,7 +155,7 @@ Name: "{app}\remove"
 Name: "{app}\toolbars"
 
 [Files]
-Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion  ; original INF flag: 20
+Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\api-ms-win-core-console-l1-1-0.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\api-ms-win-core-console-l1-2-0.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\api-ms-win-core-datetime-l1-1-0.dll"; DestDir: "{app}"; Flags: ignoreversion
@@ -316,10 +316,10 @@ Source: "{#PayloadDir}\utils\libeay32.dll"; DestDir: "{app}\utils"; Flags: ignor
 Source: "{#PayloadDir}\utils\muires.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salmon.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salopen.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
-Source: "{#PayloadDir}\utils\salextx64.dll"; DestDir: "{app}\utils"; Flags: ignoreversion  ; original INF flag: 33
-Source: "{#PayloadDir}\utils\salextx86.dll"; DestDir: "{app}\utils"; Flags: ignoreversion  ; original INF flag: 33
+Source: "{#PayloadDir}\utils\salextx64.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
+Source: "{#PayloadDir}\utils\salextx86.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\salspawn.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\plugins.ver"; DestDir: "{app}\plugins"; Flags: ignoreversion  ; original INF flag: 8
+Source: "{#PayloadDir}\plugins\plugins.ver"; DestDir: "{app}\plugins"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\7zip\7za.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\7zip\7zip.spl"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\7zip\7zwrapper.dll"; DestDir: "{app}\plugins\7zip"; Flags: ignoreversion
@@ -822,7 +822,7 @@ Source: "{#PayloadDir}\toolbars\UserMenu.svg"; DestDir: "{app}\toolbars"; Flags:
 Source: "{#PayloadDir}\toolbars\View.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\Views.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
 Source: "{#PayloadDir}\toolbars\WhatIsThis.svg"; DestDir: "{app}\toolbars"; Flags: ignoreversion
-Source: "{#PayloadDir}\remove\remove.exe"; DestDir: "{app}\remove"; Flags: ignoreversion  ; original INF flag: 5
+Source: "{#PayloadDir}\remove\remove.exe"; DestDir: "{app}\remove"; Flags: ignoreversion
 
 [Icons]
 Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
