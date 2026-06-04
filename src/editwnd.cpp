@@ -599,7 +599,9 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
 
                     CCommandLineLaunchInfo launchInfo;
-                    BOOL closeShell = (Configuration.CloseShell != 0) ^ ((GetKeyState(VK_MENU) & 0x8000) != 0);
+                    // Honor Configuration > General > Close shell window after command execution
+                    // directly; do not let keyboard modifiers close the shell when the option is off.
+                    BOOL closeShell = (Configuration.CloseShell != 0);
                     BuildCommandLine(&launchInfo, cmdLine, closeShell);
 
                     if (!launchInfo.TooLong && SystemPolicies.GetMyRunRestricted() &&
