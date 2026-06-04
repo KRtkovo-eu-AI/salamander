@@ -5,10 +5,10 @@
 ; metadata from doc/runbook-setup/setup_x64.inf as closely as Inno Setup allows.
 ;
 ; Build example:
-;   iscc.exe "doc\runbook-setup\salamander_x64.ino" /DPayloadDir="H:\_projects\salamander\output\salamander\Release_x64"
+;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DPayloadDir="H:\_projects\salamander\output\salamander\Release_x64"
 ;
 ; If /DPayloadDir is not supplied, OPENSAL_BUILD_DIR is used when present; otherwise
-; the fallback path below is relative to this .ino file.
+; the fallback path below is relative to this .iss file.
 
 #define MyAppName "Open Salamander Samandarin"
 #define MyAppDisplayName "Open Salamander 5.0-samandarin-0.3 (x64)"
