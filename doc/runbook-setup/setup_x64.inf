@@ -177,8 +177,8 @@
 %0\plugins\automation\scripts\Make List (JScript).js,%1\plugins\automation\scripts\Make List (JScript).js
 %0\plugins\automation\scripts\Make List (VBScript).vbs,%1\plugins\automation\scripts\Make List (VBScript).vbs
 %0\plugins\automation\scripts\Unpack Multiple Archives.js,%1\plugins\automation\scripts\Unpack Multiple Archives.js
-%0\plugins\checksum\checksum.spl,%1\plugins\checksum\checksum.spl
-%0\plugins\checksum\lang\%SLG,%1\plugins\checksum\lang\%SLG
+%0\plugins\certview-x64\certview.spl,%1\plugins\certview-x64\certview.spl
+%0\plugins\certview-x64\lang\%SLG,%1\plugins\certview-x64\lang\%SLG
 %0\plugins\dbviewer\dbviewer.spl,%1\plugins\dbviewer\dbviewer.spl
 %0\plugins\dbviewer\lang\%SLG,%1\plugins\dbviewer\lang\%SLG
 %0\plugins\diskmap\diskmap.spl,%1\plugins\diskmap\diskmap.spl
@@ -186,8 +186,14 @@
 %0\plugins\filecomp\fcremote.exe,%1\plugins\filecomp\fcremote.exe
 %0\plugins\filecomp\filecomp.spl,%1\plugins\filecomp\filecomp.spl
 %0\plugins\filecomp\lang\%SLG,%1\plugins\filecomp\lang\%SLG
+%0\plugins\folders\folders.spl,%1\plugins\folders\folders.spl
+%0\plugins\folders\lang\%SLG,%1\plugins\folders\lang\%SLG
 %0\plugins\ftp\ftp.spl,%1\plugins\ftp\ftp.spl
 %0\plugins\ftp\lang\%SLG,%1\plugins\ftp\lang\%SLG
+%0\plugins\hypervm\hypervm.spl,%1\plugins\hypervm\hypervm.spl
+%0\plugins\hypervm\lang\%SLG,%1\plugins\hypervm\lang\%SLG
+%0\plugins\checksum\checksum.spl,%1\plugins\checksum\checksum.spl
+%0\plugins\checksum\lang\%SLG,%1\plugins\checksum\lang\%SLG
 %0\plugins\ieviewer\ieviewer.spl,%1\plugins\ieviewer\ieviewer.spl
 %0\plugins\ieviewer\css\githubmd.css,%1\plugins\ieviewer\css\githubmd.css
 %0\plugins\ieviewer\lang\%SLG,%1\plugins\ieviewer\lang\%SLG
@@ -205,6 +211,11 @@
 %0\plugins\pak\lang\%SLG,%1\plugins\pak\lang\%SLG
 %0\plugins\peviewer\peviewer.spl,%1\plugins\peviewer\peviewer.spl
 %0\plugins\peviewer\lang\%SLG,%1\plugins\peviewer\lang\%SLG
+%0\plugins\pictview\pictview.spl,%1\plugins\pictview\pictview.spl
+%0\plugins\pictview\exif.dll,%1\plugins\pictview\exif.dll
+%0\plugins\pictview\lang\%SLG,%1\plugins\pictview\lang\%SLG
+%0\plugins\portables\portables.spl,%1\plugins\portables\portables.spl
+%0\plugins\portables\lang\%SLG,%1\plugins\portables\lang\%SLG
 %0\plugins\regedt\regedt.spl,%1\plugins\regedt\regedt.spl
 %0\plugins\regedt\lang\%SLG,%1\plugins\regedt\lang\%SLG
 %0\plugins\renamer\renamer.spl,%1\plugins\renamer\renamer.spl
@@ -212,6 +223,8 @@
 %0\plugins\samandarin\samandarin.spl,%1\plugins\samandarin\samandarin.spl
 %0\plugins\samandarin\Samandarin.Managed.dll,%1\plugins\samandarin\Samandarin.Managed.dll
 %0\plugins\samandarin\lang\%SLG,%1\plugins\samandarin\lang\%SLG
+%0\plugins\serviceexplorer\serviceexplorer.spl,%1\plugins\serviceexplorer\serviceexplorer.spl
+%0\plugins\serviceexplorer\lang\%SLG,%1\plugins\serviceexplorer\lang\%SLG
 %0\plugins\splitcbn\splitcbn.spl,%1\plugins\splitcbn\splitcbn.spl
 %0\plugins\splitcbn\lang\%SLG,%1\plugins\splitcbn\lang\%SLG
 %0\plugins\tar\tar.spl,%1\plugins\tar\tar.spl
@@ -546,19 +559,24 @@
 %0\plugins\unarj\lang\%SLG,%1\plugins\unarj\lang\%SLG
 %0\plugins\uncab\uncab.spl,%1\plugins\uncab\uncab.spl
 %0\plugins\uncab\lang\%SLG,%1\plugins\uncab\lang\%SLG
-%0\plugins\unchm\unchm.spl,%1\plugins\unchm\unchm.spl
-%0\plugins\unchm\chmlib.dll,%1\plugins\unchm\chmlib.dll
-%0\plugins\unchm\lang\%SLG,%1\plugins\unchm\lang\%SLG
 %0\plugins\undelete\undelete.spl,%1\plugins\undelete\undelete.spl
 %0\plugins\undelete\lang\%SLG,%1\plugins\undelete\lang\%SLG
 %0\plugins\unfat\unfat.spl,%1\plugins\unfat\unfat.spl
 %0\plugins\unfat\lang\%SLG,%1\plugins\unfat\lang\%SLG
+%0\plugins\unchm\unchm.spl,%1\plugins\unchm\unchm.spl
+%0\plugins\unchm\chmlib.dll,%1\plugins\unchm\chmlib.dll
+%0\plugins\unchm\lang\%SLG,%1\plugins\unchm\lang\%SLG
 %0\plugins\uniso\uniso.spl,%1\plugins\uniso\uniso.spl
 %0\plugins\uniso\lang\%SLG,%1\plugins\uniso\lang\%SLG
 %0\plugins\unlha\unlha.spl,%1\plugins\unlha\unlha.spl
 %0\plugins\unlha\lang\%SLG,%1\plugins\unlha\lang\%SLG
 %0\plugins\unmime\unmime.spl,%1\plugins\unmime\unmime.spl
 %0\plugins\unmime\lang\%SLG,%1\plugins\unmime\lang\%SLG
+%0\plugins\unole\unole.spl,%1\plugins\unole\unole.spl
+%0\plugins\unole\lang\%SLG,%1\plugins\unole\lang\%SLG
+%0\plugins\unrar\unrar.spl,%1\plugins\unrar\unrar.spl
+%0\plugins\unrar\unrar.dll,%1\plugins\unrar\unrar.dll
+%0\plugins\unrar\lang\%SLG,%1\plugins\unrar\lang\%SLG
 %0\plugins\webview2renderviewer\webview2renderviewer.spl,%1\plugins\webview2renderviewer\webview2renderviewer.spl
 %0\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll,%1\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll
 %0\plugins\webview2renderviewer\Markdig.dll,%1\plugins\webview2renderviewer\Markdig.dll
@@ -667,8 +685,8 @@
 %1\plugins\automation
 %1\plugins\automation\lang
 %1\plugins\automation\scripts
-%1\plugins\checksum
-%1\plugins\checksum\lang
+%1\plugins\certview-x64
+%1\plugins\certview-x64\lang
 %1\plugins\dbviewer
 %1\plugins\dbviewer\lang
 %1\plugins\diskmap
@@ -677,6 +695,10 @@
 %1\plugins\filecomp\lang
 %1\plugins\ftp
 %1\plugins\ftp\lang
+%1\plugins\hypervm
+%1\plugins\hypervm\lang
+%1\plugins\checksum
+%1\plugins\checksum\lang
 %1\plugins\ieviewer
 %1\plugins\ieviewer\css
 %1\plugins\ieviewer\lang
@@ -690,12 +712,18 @@
 %1\plugins\pak\lang
 %1\plugins\peviewer
 %1\plugins\peviewer\lang
+%1\plugins\pictview
+%1\plugins\pictview\lang
+%1\plugins\portables
+%1\plugins\portables\lang
 %1\plugins\regedt
 %1\plugins\regedt\lang
 %1\plugins\renamer
 %1\plugins\renamer\lang
 %1\plugins\samandarin
 %1\plugins\samandarin\lang
+%1\plugins\serviceexplorer
+%1\plugins\serviceexplorer\lang
 %1\plugins\splitcbn
 %1\plugins\splitcbn\lang
 %1\plugins\tar
@@ -709,18 +737,22 @@
 %1\plugins\unarj\lang
 %1\plugins\uncab
 %1\plugins\uncab\lang
-%1\plugins\unchm
-%1\plugins\unchm\lang
 %1\plugins\undelete
 %1\plugins\undelete\lang
 %1\plugins\unfat
 %1\plugins\unfat\lang
+%1\plugins\unchm
+%1\plugins\unchm\lang
 %1\plugins\uniso
 %1\plugins\uniso\lang
 %1\plugins\unlha
 %1\plugins\unlha\lang
 %1\plugins\unmime
 %1\plugins\unmime\lang
+%1\plugins\unole
+%1\plugins\unole\lang
+%1\plugins\unrar
+%1\plugins\unrar\lang
 %1\plugins\webview2renderviewer
 %1\plugins\webview2renderviewer\lang
 %1\plugins\wmobile
@@ -738,21 +770,21 @@
 %1\salamand.exe,%8\Open Salamander Samandarin (x64).lnk,%@%1\utils\muires.dll,-101
 
 [AddRegistryKeys]
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64)
-HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.2
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64)
+HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.3
 
 [AddRegistryValues]
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),DisplayName,1,Open Salamander 5.0-samandarin-0.2 (x64)
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),DisplayIcon,1,%1\salamand.exe
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),DisplayVersion,1,5.0-samandarin-0.2
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),VersionMajor,1,5
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),VersionMinor,1,0
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),InstallLocation,1,%1
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),UninstallString,1,%1\remove\remove.exe
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),QuietUninstallString,1,%1\remove\remove.exe /q
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),Publisher,1,Open Salamander Project
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),HelpLink,1,https://github.com/KRtkovo-eu-AI/salamander
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.2 (x64),UrlInfoAbout,1,https://github.com/KRtkovo-eu-AI/salamander
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),DisplayName,1,Open Salamander 5.0-samandarin-0.3 (x64)
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),DisplayIcon,1,%1\salamand.exe
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),DisplayVersion,1,5.0-samandarin-0.3
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),VersionMajor,1,5
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),VersionMinor,1,0
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),InstallLocation,1,%1
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),UninstallString,1,%1\remove\remove.exe
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),QuietUninstallString,1,%1\remove\remove.exe /q
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),Publisher,1,Open Salamander Project
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),HelpLink,1,https://github.com/KRtkovo-eu-AI/salamander
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),UrlInfoAbout,1,https://github.com/KRtkovo-eu-AI/salamander
 
 [DelShellExts]
 %1\utils\salextx64.dll
@@ -762,17 +794,17 @@ HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-sam
 
 [Private]
 ApplicationName="Open Salamander: Samandarin"
-ApplicationNameVer="Open Salamander 5.0-samandarin-0.2 (x64)"
+ApplicationNameVer="Open Salamander 5.0-samandarin-0.3 (x64)"
 DefaultDirectory=%4\Open Salamander Samandarin
 LastDirectories=HKCU,Software\Open Salamander Samandarin\Applications\Open Salamander Samandarin (x64)
 LicenseFile=%0\doc\license.txt
 LicenseFileCZ=%0\doc\license_cz.txt
 ViewReadme=%1\doc\readme.txt
 RunProgram=%1\salamand.exe
-IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.2\Configuration,Plugins.ver Version (x64)
+IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.3\Configuration,Plugins.ver Version (x64)
 IncrementFileContentDst=%1\plugins\plugins.ver,winscp\winscp.spl,jsonviewer\jsonviewer.spl,textviewer\textviewer.spl,webview2renderviewer\webview2renderviewer.spl,samandarin\samandarin.spl
 SaveRemoveLog=%1\remove\remove.rlg
-AutoImportConfig=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.2,AutoImportConfig
+AutoImportConfig=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.3,AutoImportConfig
 DisplayWelcomeWarning=0
 SLGLanguages=english.slg
 WERLocalDumps=salamand.exe,salmon.exe,salopen.exe,salspawn.exe,fcremote.exe,salpvenv.exe

@@ -177,8 +177,8 @@
 %0\plugins\automation\scripts\Make List (JScript).js,%1\plugins\automation\scripts\Make List (JScript).js
 %0\plugins\automation\scripts\Make List (VBScript).vbs,%1\plugins\automation\scripts\Make List (VBScript).vbs
 %0\plugins\automation\scripts\Unpack Multiple Archives.js,%1\plugins\automation\scripts\Unpack Multiple Archives.js
-%0\plugins\checksum\checksum.spl,%1\plugins\checksum\checksum.spl
-%0\plugins\checksum\lang\%SLG,%1\plugins\checksum\lang\%SLG
+%0\plugins\certview-x64\certview.spl,%1\plugins\certview-x64\certview.spl
+%0\plugins\certview-x64\lang\%SLG,%1\plugins\certview-x64\lang\%SLG
 %0\plugins\dbviewer\dbviewer.spl,%1\plugins\dbviewer\dbviewer.spl
 %0\plugins\dbviewer\lang\%SLG,%1\plugins\dbviewer\lang\%SLG
 %0\plugins\diskmap\diskmap.spl,%1\plugins\diskmap\diskmap.spl
@@ -186,8 +186,14 @@
 %0\plugins\filecomp\fcremote.exe,%1\plugins\filecomp\fcremote.exe
 %0\plugins\filecomp\filecomp.spl,%1\plugins\filecomp\filecomp.spl
 %0\plugins\filecomp\lang\%SLG,%1\plugins\filecomp\lang\%SLG
+%0\plugins\folders\folders.spl,%1\plugins\folders\folders.spl
+%0\plugins\folders\lang\%SLG,%1\plugins\folders\lang\%SLG
 %0\plugins\ftp\ftp.spl,%1\plugins\ftp\ftp.spl
 %0\plugins\ftp\lang\%SLG,%1\plugins\ftp\lang\%SLG
+%0\plugins\hypervm\hypervm.spl,%1\plugins\hypervm\hypervm.spl
+%0\plugins\hypervm\lang\%SLG,%1\plugins\hypervm\lang\%SLG
+%0\plugins\checksum\checksum.spl,%1\plugins\checksum\checksum.spl
+%0\plugins\checksum\lang\%SLG,%1\plugins\checksum\lang\%SLG
 %0\plugins\ieviewer\ieviewer.spl,%1\plugins\ieviewer\ieviewer.spl
 %0\plugins\ieviewer\css\githubmd.css,%1\plugins\ieviewer\css\githubmd.css
 %0\plugins\ieviewer\lang\%SLG,%1\plugins\ieviewer\lang\%SLG
@@ -205,6 +211,11 @@
 %0\plugins\pak\lang\%SLG,%1\plugins\pak\lang\%SLG
 %0\plugins\peviewer\peviewer.spl,%1\plugins\peviewer\peviewer.spl
 %0\plugins\peviewer\lang\%SLG,%1\plugins\peviewer\lang\%SLG
+%0\plugins\pictview\pictview.spl,%1\plugins\pictview\pictview.spl
+%0\plugins\pictview\exif.dll,%1\plugins\pictview\exif.dll
+%0\plugins\pictview\lang\%SLG,%1\plugins\pictview\lang\%SLG
+%0\plugins\portables\portables.spl,%1\plugins\portables\portables.spl
+%0\plugins\portables\lang\%SLG,%1\plugins\portables\lang\%SLG
 %0\plugins\regedt\regedt.spl,%1\plugins\regedt\regedt.spl
 %0\plugins\regedt\lang\%SLG,%1\plugins\regedt\lang\%SLG
 %0\plugins\renamer\renamer.spl,%1\plugins\renamer\renamer.spl
@@ -212,6 +223,8 @@
 %0\plugins\samandarin\samandarin.spl,%1\plugins\samandarin\samandarin.spl
 %0\plugins\samandarin\Samandarin.Managed.dll,%1\plugins\samandarin\Samandarin.Managed.dll
 %0\plugins\samandarin\lang\%SLG,%1\plugins\samandarin\lang\%SLG
+%0\plugins\serviceexplorer\serviceexplorer.spl,%1\plugins\serviceexplorer\serviceexplorer.spl
+%0\plugins\serviceexplorer\lang\%SLG,%1\plugins\serviceexplorer\lang\%SLG
 %0\plugins\splitcbn\splitcbn.spl,%1\plugins\splitcbn\splitcbn.spl
 %0\plugins\splitcbn\lang\%SLG,%1\plugins\splitcbn\lang\%SLG
 %0\plugins\tar\tar.spl,%1\plugins\tar\tar.spl
@@ -225,31 +238,356 @@
 %0\plugins\textviewer\WebView2Loader.dll,%1\plugins\textviewer\WebView2Loader.dll
 %0\plugins\textviewer\DEPENDENCIES.md,%1\plugins\textviewer\DEPENDENCIES.md
 %0\plugins\textviewer\SUPPORTED_FILE_TYPES.md,%1\plugins\textviewer\SUPPORTED_FILE_TYPES.md
-%0\plugins\textviewer\data,%1\plugins\textviewer\data
+%0\plugins\textviewer\data\languages\abap.json,%1\plugins\textviewer\data\languages\abap.json
+%0\plugins\textviewer\data\languages\abnf.json,%1\plugins\textviewer\data\languages\abnf.json
+%0\plugins\textviewer\data\languages\actionscript.json,%1\plugins\textviewer\data\languages\actionscript.json
+%0\plugins\textviewer\data\languages\ada.json,%1\plugins\textviewer\data\languages\ada.json
+%0\plugins\textviewer\data\languages\agda.json,%1\plugins\textviewer\data\languages\agda.json
+%0\plugins\textviewer\data\languages\al.json,%1\plugins\textviewer\data\languages\al.json
+%0\plugins\textviewer\data\languages\antlr4.json,%1\plugins\textviewer\data\languages\antlr4.json
+%0\plugins\textviewer\data\languages\apacheconf.json,%1\plugins\textviewer\data\languages\apacheconf.json
+%0\plugins\textviewer\data\languages\apex.json,%1\plugins\textviewer\data\languages\apex.json
+%0\plugins\textviewer\data\languages\apl.json,%1\plugins\textviewer\data\languages\apl.json
+%0\plugins\textviewer\data\languages\applescript.json,%1\plugins\textviewer\data\languages\applescript.json
+%0\plugins\textviewer\data\languages\aql.json,%1\plugins\textviewer\data\languages\aql.json
+%0\plugins\textviewer\data\languages\arduino.json,%1\plugins\textviewer\data\languages\arduino.json
+%0\plugins\textviewer\data\languages\arff.json,%1\plugins\textviewer\data\languages\arff.json
+%0\plugins\textviewer\data\languages\asciidoc.json,%1\plugins\textviewer\data\languages\asciidoc.json
+%0\plugins\textviewer\data\languages\asm6502.json,%1\plugins\textviewer\data\languages\asm6502.json
+%0\plugins\textviewer\data\languages\asmatmel.json,%1\plugins\textviewer\data\languages\asmatmel.json
+%0\plugins\textviewer\data\languages\aspnet.json,%1\plugins\textviewer\data\languages\aspnet.json
+%0\plugins\textviewer\data\languages\autohotkey.json,%1\plugins\textviewer\data\languages\autohotkey.json
+%0\plugins\textviewer\data\languages\autoit.json,%1\plugins\textviewer\data\languages\autoit.json
+%0\plugins\textviewer\data\languages\avisynth.json,%1\plugins\textviewer\data\languages\avisynth.json
+%0\plugins\textviewer\data\languages\avro-idl.json,%1\plugins\textviewer\data\languages\avro-idl.json
+%0\plugins\textviewer\data\languages\bash.json,%1\plugins\textviewer\data\languages\bash.json
+%0\plugins\textviewer\data\languages\basic.json,%1\plugins\textviewer\data\languages\basic.json
+%0\plugins\textviewer\data\languages\batch.json,%1\plugins\textviewer\data\languages\batch.json
+%0\plugins\textviewer\data\languages\bbcode.json,%1\plugins\textviewer\data\languages\bbcode.json
+%0\plugins\textviewer\data\languages\bicep.json,%1\plugins\textviewer\data\languages\bicep.json
+%0\plugins\textviewer\data\languages\birb.json,%1\plugins\textviewer\data\languages\birb.json
+%0\plugins\textviewer\data\languages\bison.json,%1\plugins\textviewer\data\languages\bison.json
+%0\plugins\textviewer\data\languages\bnf.json,%1\plugins\textviewer\data\languages\bnf.json
+%0\plugins\textviewer\data\languages\brainfuck.json,%1\plugins\textviewer\data\languages\brainfuck.json
+%0\plugins\textviewer\data\languages\brightscript.json,%1\plugins\textviewer\data\languages\brightscript.json
+%0\plugins\textviewer\data\languages\bro.json,%1\plugins\textviewer\data\languages\bro.json
+%0\plugins\textviewer\data\languages\bsl.json,%1\plugins\textviewer\data\languages\bsl.json
+%0\plugins\textviewer\data\languages\c.json,%1\plugins\textviewer\data\languages\c.json
+%0\plugins\textviewer\data\languages\cfscript.json,%1\plugins\textviewer\data\languages\cfscript.json
+%0\plugins\textviewer\data\languages\cil.json,%1\plugins\textviewer\data\languages\cil.json
+%0\plugins\textviewer\data\languages\clike.json,%1\plugins\textviewer\data\languages\clike.json
+%0\plugins\textviewer\data\languages\clojure.json,%1\plugins\textviewer\data\languages\clojure.json
+%0\plugins\textviewer\data\languages\cmake.json,%1\plugins\textviewer\data\languages\cmake.json
+%0\plugins\textviewer\data\languages\cobol.json,%1\plugins\textviewer\data\languages\cobol.json
+%0\plugins\textviewer\data\languages\coffeescript.json,%1\plugins\textviewer\data\languages\coffeescript.json
+%0\plugins\textviewer\data\languages\concurnas.json,%1\plugins\textviewer\data\languages\concurnas.json
+%0\plugins\textviewer\data\languages\coq.json,%1\plugins\textviewer\data\languages\coq.json
+%0\plugins\textviewer\data\languages\cpp.json,%1\plugins\textviewer\data\languages\cpp.json
+%0\plugins\textviewer\data\languages\crystal.json,%1\plugins\textviewer\data\languages\crystal.json
+%0\plugins\textviewer\data\languages\csharp.json,%1\plugins\textviewer\data\languages\csharp.json
+%0\plugins\textviewer\data\languages\cshtml.json,%1\plugins\textviewer\data\languages\cshtml.json
+%0\plugins\textviewer\data\languages\csp.json,%1\plugins\textviewer\data\languages\csp.json
+%0\plugins\textviewer\data\languages\css.json,%1\plugins\textviewer\data\languages\css.json
+%0\plugins\textviewer\data\languages\csv.json,%1\plugins\textviewer\data\languages\csv.json
+%0\plugins\textviewer\data\languages\cypher.json,%1\plugins\textviewer\data\languages\cypher.json
+%0\plugins\textviewer\data\languages\d.json,%1\plugins\textviewer\data\languages\d.json
+%0\plugins\textviewer\data\languages\dart.json,%1\plugins\textviewer\data\languages\dart.json
+%0\plugins\textviewer\data\languages\dataweave.json,%1\plugins\textviewer\data\languages\dataweave.json
+%0\plugins\textviewer\data\languages\dax.json,%1\plugins\textviewer\data\languages\dax.json
+%0\plugins\textviewer\data\languages\dhall.json,%1\plugins\textviewer\data\languages\dhall.json
+%0\plugins\textviewer\data\languages\diff.json,%1\plugins\textviewer\data\languages\diff.json
+%0\plugins\textviewer\data\languages\django.json,%1\plugins\textviewer\data\languages\django.json
+%0\plugins\textviewer\data\languages\dns-zone-file.json,%1\plugins\textviewer\data\languages\dns-zone-file.json
+%0\plugins\textviewer\data\languages\docker.json,%1\plugins\textviewer\data\languages\docker.json
+%0\plugins\textviewer\data\languages\dot.json,%1\plugins\textviewer\data\languages\dot.json
+%0\plugins\textviewer\data\languages\ebnf.json,%1\plugins\textviewer\data\languages\ebnf.json
+%0\plugins\textviewer\data\languages\editorconfig.json,%1\plugins\textviewer\data\languages\editorconfig.json
+%0\plugins\textviewer\data\languages\eiffel.json,%1\plugins\textviewer\data\languages\eiffel.json
+%0\plugins\textviewer\data\languages\ejs.json,%1\plugins\textviewer\data\languages\ejs.json
+%0\plugins\textviewer\data\languages\elixir.json,%1\plugins\textviewer\data\languages\elixir.json
+%0\plugins\textviewer\data\languages\elm.json,%1\plugins\textviewer\data\languages\elm.json
+%0\plugins\textviewer\data\languages\erb.json,%1\plugins\textviewer\data\languages\erb.json
+%0\plugins\textviewer\data\languages\erlang.json,%1\plugins\textviewer\data\languages\erlang.json
+%0\plugins\textviewer\data\languages\etlua.json,%1\plugins\textviewer\data\languages\etlua.json
+%0\plugins\textviewer\data\languages\excel-formula.json,%1\plugins\textviewer\data\languages\excel-formula.json
+%0\plugins\textviewer\data\languages\factor.json,%1\plugins\textviewer\data\languages\factor.json
+%0\plugins\textviewer\data\languages\false.json,%1\plugins\textviewer\data\languages\false.json
+%0\plugins\textviewer\data\languages\firestore-security-rules.json,%1\plugins\textviewer\data\languages\firestore-security-rules.json
+%0\plugins\textviewer\data\languages\flow.json,%1\plugins\textviewer\data\languages\flow.json
+%0\plugins\textviewer\data\languages\fortran.json,%1\plugins\textviewer\data\languages\fortran.json
+%0\plugins\textviewer\data\languages\fsharp.json,%1\plugins\textviewer\data\languages\fsharp.json
+%0\plugins\textviewer\data\languages\ftl.json,%1\plugins\textviewer\data\languages\ftl.json
+%0\plugins\textviewer\data\languages\gap.json,%1\plugins\textviewer\data\languages\gap.json
+%0\plugins\textviewer\data\languages\gcode.json,%1\plugins\textviewer\data\languages\gcode.json
+%0\plugins\textviewer\data\languages\gdscript.json,%1\plugins\textviewer\data\languages\gdscript.json
+%0\plugins\textviewer\data\languages\gedcom.json,%1\plugins\textviewer\data\languages\gedcom.json
+%0\plugins\textviewer\data\languages\gherkin.json,%1\plugins\textviewer\data\languages\gherkin.json
+%0\plugins\textviewer\data\languages\git.json,%1\plugins\textviewer\data\languages\git.json
+%0\plugins\textviewer\data\languages\glsl.json,%1\plugins\textviewer\data\languages\glsl.json
+%0\plugins\textviewer\data\languages\gml.json,%1\plugins\textviewer\data\languages\gml.json
+%0\plugins\textviewer\data\languages\gn.json,%1\plugins\textviewer\data\languages\gn.json
+%0\plugins\textviewer\data\languages\go.json,%1\plugins\textviewer\data\languages\go.json
+%0\plugins\textviewer\data\languages\go-module.json,%1\plugins\textviewer\data\languages\go-module.json
+%0\plugins\textviewer\data\languages\graphql.json,%1\plugins\textviewer\data\languages\graphql.json
+%0\plugins\textviewer\data\languages\groovy.json,%1\plugins\textviewer\data\languages\groovy.json
+%0\plugins\textviewer\data\languages\haml.json,%1\plugins\textviewer\data\languages\haml.json
+%0\plugins\textviewer\data\languages\handlebars.json,%1\plugins\textviewer\data\languages\handlebars.json
+%0\plugins\textviewer\data\languages\haskell.json,%1\plugins\textviewer\data\languages\haskell.json
+%0\plugins\textviewer\data\languages\haxe.json,%1\plugins\textviewer\data\languages\haxe.json
+%0\plugins\textviewer\data\languages\hcl.json,%1\plugins\textviewer\data\languages\hcl.json
+%0\plugins\textviewer\data\languages\hlsl.json,%1\plugins\textviewer\data\languages\hlsl.json
+%0\plugins\textviewer\data\languages\hoon.json,%1\plugins\textviewer\data\languages\hoon.json
+%0\plugins\textviewer\data\languages\hpkp.json,%1\plugins\textviewer\data\languages\hpkp.json
+%0\plugins\textviewer\data\languages\hsts.json,%1\plugins\textviewer\data\languages\hsts.json
+%0\plugins\textviewer\data\languages\http.json,%1\plugins\textviewer\data\languages\http.json
+%0\plugins\textviewer\data\languages\chaiscript.json,%1\plugins\textviewer\data\languages\chaiscript.json
+%0\plugins\textviewer\data\languages\icon.json,%1\plugins\textviewer\data\languages\icon.json
+%0\plugins\textviewer\data\languages\icu-message-format.json,%1\plugins\textviewer\data\languages\icu-message-format.json
+%0\plugins\textviewer\data\languages\idris.json,%1\plugins\textviewer\data\languages\idris.json
+%0\plugins\textviewer\data\languages\iecst.json,%1\plugins\textviewer\data\languages\iecst.json
+%0\plugins\textviewer\data\languages\ignore.json,%1\plugins\textviewer\data\languages\ignore.json
+%0\plugins\textviewer\data\languages\ichigojam.json,%1\plugins\textviewer\data\languages\ichigojam.json
+%0\plugins\textviewer\data\languages\inform7.json,%1\plugins\textviewer\data\languages\inform7.json
+%0\plugins\textviewer\data\languages\ini.json,%1\plugins\textviewer\data\languages\ini.json
+%0\plugins\textviewer\data\languages\io.json,%1\plugins\textviewer\data\languages\io.json
+%0\plugins\textviewer\data\languages\j.json,%1\plugins\textviewer\data\languages\j.json
+%0\plugins\textviewer\data\languages\java.json,%1\plugins\textviewer\data\languages\java.json
+%0\plugins\textviewer\data\languages\javadoc.json,%1\plugins\textviewer\data\languages\javadoc.json
+%0\plugins\textviewer\data\languages\javadoclike.json,%1\plugins\textviewer\data\languages\javadoclike.json
+%0\plugins\textviewer\data\languages\javascript.json,%1\plugins\textviewer\data\languages\javascript.json
+%0\plugins\textviewer\data\languages\javastacktrace.json,%1\plugins\textviewer\data\languages\javastacktrace.json
+%0\plugins\textviewer\data\languages\jexl.json,%1\plugins\textviewer\data\languages\jexl.json
+%0\plugins\textviewer\data\languages\jolie.json,%1\plugins\textviewer\data\languages\jolie.json
+%0\plugins\textviewer\data\languages\jq.json,%1\plugins\textviewer\data\languages\jq.json
+%0\plugins\textviewer\data\languages\jsdoc.json,%1\plugins\textviewer\data\languages\jsdoc.json
+%0\plugins\textviewer\data\languages\json.json,%1\plugins\textviewer\data\languages\json.json
+%0\plugins\textviewer\data\languages\json5.json,%1\plugins\textviewer\data\languages\json5.json
+%0\plugins\textviewer\data\languages\jsonp.json,%1\plugins\textviewer\data\languages\jsonp.json
+%0\plugins\textviewer\data\languages\jsstacktrace.json,%1\plugins\textviewer\data\languages\jsstacktrace.json
+%0\plugins\textviewer\data\languages\jsx.json,%1\plugins\textviewer\data\languages\jsx.json
+%0\plugins\textviewer\data\languages\julia.json,%1\plugins\textviewer\data\languages\julia.json
+%0\plugins\textviewer\data\languages\keepalived.json,%1\plugins\textviewer\data\languages\keepalived.json
+%0\plugins\textviewer\data\languages\keyman.json,%1\plugins\textviewer\data\languages\keyman.json
+%0\plugins\textviewer\data\languages\kotlin.json,%1\plugins\textviewer\data\languages\kotlin.json
+%0\plugins\textviewer\data\languages\kumir.json,%1\plugins\textviewer\data\languages\kumir.json
+%0\plugins\textviewer\data\languages\kusto.json,%1\plugins\textviewer\data\languages\kusto.json
+%0\plugins\textviewer\data\languages\languages.json,%1\plugins\textviewer\data\languages\languages.json
+%0\plugins\textviewer\data\languages\latex.json,%1\plugins\textviewer\data\languages\latex.json
+%0\plugins\textviewer\data\languages\latte.json,%1\plugins\textviewer\data\languages\latte.json
+%0\plugins\textviewer\data\languages\less.json,%1\plugins\textviewer\data\languages\less.json
+%0\plugins\textviewer\data\languages\lilypond.json,%1\plugins\textviewer\data\languages\lilypond.json
+%0\plugins\textviewer\data\languages\liquid.json,%1\plugins\textviewer\data\languages\liquid.json
+%0\plugins\textviewer\data\languages\lisp.json,%1\plugins\textviewer\data\languages\lisp.json
+%0\plugins\textviewer\data\languages\livescript.json,%1\plugins\textviewer\data\languages\livescript.json
+%0\plugins\textviewer\data\languages\llvm.json,%1\plugins\textviewer\data\languages\llvm.json
+%0\plugins\textviewer\data\languages\log.json,%1\plugins\textviewer\data\languages\log.json
+%0\plugins\textviewer\data\languages\lolcode.json,%1\plugins\textviewer\data\languages\lolcode.json
+%0\plugins\textviewer\data\languages\lua.json,%1\plugins\textviewer\data\languages\lua.json
+%0\plugins\textviewer\data\languages\magma.json,%1\plugins\textviewer\data\languages\magma.json
+%0\plugins\textviewer\data\languages\makefile.json,%1\plugins\textviewer\data\languages\makefile.json
+%0\plugins\textviewer\data\languages\markdown.json,%1\plugins\textviewer\data\languages\markdown.json
+%0\plugins\textviewer\data\languages\markup.json,%1\plugins\textviewer\data\languages\markup.json
+%0\plugins\textviewer\data\languages\markup-templating.json,%1\plugins\textviewer\data\languages\markup-templating.json
+%0\plugins\textviewer\data\languages\matlab.json,%1\plugins\textviewer\data\languages\matlab.json
+%0\plugins\textviewer\data\languages\maxscript.json,%1\plugins\textviewer\data\languages\maxscript.json
+%0\plugins\textviewer\data\languages\mel.json,%1\plugins\textviewer\data\languages\mel.json
+%0\plugins\textviewer\data\languages\mermaid.json,%1\plugins\textviewer\data\languages\mermaid.json
+%0\plugins\textviewer\data\languages\mizar.json,%1\plugins\textviewer\data\languages\mizar.json
+%0\plugins\textviewer\data\languages\mongodb.json,%1\plugins\textviewer\data\languages\mongodb.json
+%0\plugins\textviewer\data\languages\monkey.json,%1\plugins\textviewer\data\languages\monkey.json
+%0\plugins\textviewer\data\languages\moonscript.json,%1\plugins\textviewer\data\languages\moonscript.json
+%0\plugins\textviewer\data\languages\n1ql.json,%1\plugins\textviewer\data\languages\n1ql.json
+%0\plugins\textviewer\data\languages\n4js.json,%1\plugins\textviewer\data\languages\n4js.json
+%0\plugins\textviewer\data\languages\nand2tetris-hdl.json,%1\plugins\textviewer\data\languages\nand2tetris-hdl.json
+%0\plugins\textviewer\data\languages\naniscript.json,%1\plugins\textviewer\data\languages\naniscript.json
+%0\plugins\textviewer\data\languages\nasm.json,%1\plugins\textviewer\data\languages\nasm.json
+%0\plugins\textviewer\data\languages\neon.json,%1\plugins\textviewer\data\languages\neon.json
+%0\plugins\textviewer\data\languages\nevod.json,%1\plugins\textviewer\data\languages\nevod.json
+%0\plugins\textviewer\data\languages\nginx.json,%1\plugins\textviewer\data\languages\nginx.json
+%0\plugins\textviewer\data\languages\nim.json,%1\plugins\textviewer\data\languages\nim.json
+%0\plugins\textviewer\data\languages\nix.json,%1\plugins\textviewer\data\languages\nix.json
+%0\plugins\textviewer\data\languages\nsis.json,%1\plugins\textviewer\data\languages\nsis.json
+%0\plugins\textviewer\data\languages\objectivec.json,%1\plugins\textviewer\data\languages\objectivec.json
+%0\plugins\textviewer\data\languages\ocaml.json,%1\plugins\textviewer\data\languages\ocaml.json
+%0\plugins\textviewer\data\languages\opencl.json,%1\plugins\textviewer\data\languages\opencl.json
+%0\plugins\textviewer\data\languages\openqasm.json,%1\plugins\textviewer\data\languages\openqasm.json
+%0\plugins\textviewer\data\languages\oz.json,%1\plugins\textviewer\data\languages\oz.json
+%0\plugins\textviewer\data\languages\parigp.json,%1\plugins\textviewer\data\languages\parigp.json
+%0\plugins\textviewer\data\languages\parser.json,%1\plugins\textviewer\data\languages\parser.json
+%0\plugins\textviewer\data\languages\pascal.json,%1\plugins\textviewer\data\languages\pascal.json
+%0\plugins\textviewer\data\languages\pascaligo.json,%1\plugins\textviewer\data\languages\pascaligo.json
+%0\plugins\textviewer\data\languages\pcaxis.json,%1\plugins\textviewer\data\languages\pcaxis.json
+%0\plugins\textviewer\data\languages\peoplecode.json,%1\plugins\textviewer\data\languages\peoplecode.json
+%0\plugins\textviewer\data\languages\perl.json,%1\plugins\textviewer\data\languages\perl.json
+%0\plugins\textviewer\data\languages\php.json,%1\plugins\textviewer\data\languages\php.json
+%0\plugins\textviewer\data\languages\phpdoc.json,%1\plugins\textviewer\data\languages\phpdoc.json
+%0\plugins\textviewer\data\languages\plsql.json,%1\plugins\textviewer\data\languages\plsql.json
+%0\plugins\textviewer\data\languages\powerquery.json,%1\plugins\textviewer\data\languages\powerquery.json
+%0\plugins\textviewer\data\languages\powershell.json,%1\plugins\textviewer\data\languages\powershell.json
+%0\plugins\textviewer\data\languages\processing.json,%1\plugins\textviewer\data\languages\processing.json
+%0\plugins\textviewer\data\languages\prolog.json,%1\plugins\textviewer\data\languages\prolog.json
+%0\plugins\textviewer\data\languages\promql.json,%1\plugins\textviewer\data\languages\promql.json
+%0\plugins\textviewer\data\languages\properties.json,%1\plugins\textviewer\data\languages\properties.json
+%0\plugins\textviewer\data\languages\protobuf.json,%1\plugins\textviewer\data\languages\protobuf.json
+%0\plugins\textviewer\data\languages\psl.json,%1\plugins\textviewer\data\languages\psl.json
+%0\plugins\textviewer\data\languages\pug.json,%1\plugins\textviewer\data\languages\pug.json
+%0\plugins\textviewer\data\languages\puppet.json,%1\plugins\textviewer\data\languages\puppet.json
+%0\plugins\textviewer\data\languages\pure.json,%1\plugins\textviewer\data\languages\pure.json
+%0\plugins\textviewer\data\languages\purebasic.json,%1\plugins\textviewer\data\languages\purebasic.json
+%0\plugins\textviewer\data\languages\purescript.json,%1\plugins\textviewer\data\languages\purescript.json
+%0\plugins\textviewer\data\languages\python.json,%1\plugins\textviewer\data\languages\python.json
+%0\plugins\textviewer\data\languages\q.json,%1\plugins\textviewer\data\languages\q.json
+%0\plugins\textviewer\data\languages\qml.json,%1\plugins\textviewer\data\languages\qml.json
+%0\plugins\textviewer\data\languages\qore.json,%1\plugins\textviewer\data\languages\qore.json
+%0\plugins\textviewer\data\languages\qsharp.json,%1\plugins\textviewer\data\languages\qsharp.json
+%0\plugins\textviewer\data\languages\r.json,%1\plugins\textviewer\data\languages\r.json
+%0\plugins\textviewer\data\languages\racket.json,%1\plugins\textviewer\data\languages\racket.json
+%0\plugins\textviewer\data\languages\reason.json,%1\plugins\textviewer\data\languages\reason.json
+%0\plugins\textviewer\data\languages\regex.json,%1\plugins\textviewer\data\languages\regex.json
+%0\plugins\textviewer\data\languages\rego.json,%1\plugins\textviewer\data\languages\rego.json
+%0\plugins\textviewer\data\languages\renpy.json,%1\plugins\textviewer\data\languages\renpy.json
+%0\plugins\textviewer\data\languages\rest.json,%1\plugins\textviewer\data\languages\rest.json
+%0\plugins\textviewer\data\languages\rip.json,%1\plugins\textviewer\data\languages\rip.json
+%0\plugins\textviewer\data\languages\roboconf.json,%1\plugins\textviewer\data\languages\roboconf.json
+%0\plugins\textviewer\data\languages\robotframework.json,%1\plugins\textviewer\data\languages\robotframework.json
+%0\plugins\textviewer\data\languages\ruby.json,%1\plugins\textviewer\data\languages\ruby.json
+%0\plugins\textviewer\data\languages\rust.json,%1\plugins\textviewer\data\languages\rust.json
+%0\plugins\textviewer\data\languages\sas.json,%1\plugins\textviewer\data\languages\sas.json
+%0\plugins\textviewer\data\languages\sass.json,%1\plugins\textviewer\data\languages\sass.json
+%0\plugins\textviewer\data\languages\scala.json,%1\plugins\textviewer\data\languages\scala.json
+%0\plugins\textviewer\data\languages\scss.json,%1\plugins\textviewer\data\languages\scss.json
+%0\plugins\textviewer\data\languages\shell-session.json,%1\plugins\textviewer\data\languages\shell-session.json
+%0\plugins\textviewer\data\languages\scheme.json,%1\plugins\textviewer\data\languages\scheme.json
+%0\plugins\textviewer\data\languages\smali.json,%1\plugins\textviewer\data\languages\smali.json
+%0\plugins\textviewer\data\languages\smalltalk.json,%1\plugins\textviewer\data\languages\smalltalk.json
+%0\plugins\textviewer\data\languages\smarty.json,%1\plugins\textviewer\data\languages\smarty.json
+%0\plugins\textviewer\data\languages\sml.json,%1\plugins\textviewer\data\languages\sml.json
+%0\plugins\textviewer\data\languages\solidity.json,%1\plugins\textviewer\data\languages\solidity.json
+%0\plugins\textviewer\data\languages\solution-file.json,%1\plugins\textviewer\data\languages\solution-file.json
+%0\plugins\textviewer\data\languages\soy.json,%1\plugins\textviewer\data\languages\soy.json
+%0\plugins\textviewer\data\languages\sparql.json,%1\plugins\textviewer\data\languages\sparql.json
+%0\plugins\textviewer\data\languages\splunk-spl.json,%1\plugins\textviewer\data\languages\splunk-spl.json
+%0\plugins\textviewer\data\languages\sqf.json,%1\plugins\textviewer\data\languages\sqf.json
+%0\plugins\textviewer\data\languages\sql.json,%1\plugins\textviewer\data\languages\sql.json
+%0\plugins\textviewer\data\languages\squirrel.json,%1\plugins\textviewer\data\languages\squirrel.json
+%0\plugins\textviewer\data\languages\stan.json,%1\plugins\textviewer\data\languages\stan.json
+%0\plugins\textviewer\data\languages\stylus.json,%1\plugins\textviewer\data\languages\stylus.json
+%0\plugins\textviewer\data\languages\swift.json,%1\plugins\textviewer\data\languages\swift.json
+%0\plugins\textviewer\data\languages\systemd.json,%1\plugins\textviewer\data\languages\systemd.json
+%0\plugins\textviewer\data\languages\t4-cs.json,%1\plugins\textviewer\data\languages\t4-cs.json
+%0\plugins\textviewer\data\languages\t4-templating.json,%1\plugins\textviewer\data\languages\t4-templating.json
+%0\plugins\textviewer\data\languages\t4-vb.json,%1\plugins\textviewer\data\languages\t4-vb.json
+%0\plugins\textviewer\data\languages\tap.json,%1\plugins\textviewer\data\languages\tap.json
+%0\plugins\textviewer\data\languages\tcl.json,%1\plugins\textviewer\data\languages\tcl.json
+%0\plugins\textviewer\data\languages\textile.json,%1\plugins\textviewer\data\languages\textile.json
+%0\plugins\textviewer\data\languages\toml.json,%1\plugins\textviewer\data\languages\toml.json
+%0\plugins\textviewer\data\languages\tremor.json,%1\plugins\textviewer\data\languages\tremor.json
+%0\plugins\textviewer\data\languages\tsx.json,%1\plugins\textviewer\data\languages\tsx.json
+%0\plugins\textviewer\data\languages\tt2.json,%1\plugins\textviewer\data\languages\tt2.json
+%0\plugins\textviewer\data\languages\turtle.json,%1\plugins\textviewer\data\languages\turtle.json
+%0\plugins\textviewer\data\languages\twig.json,%1\plugins\textviewer\data\languages\twig.json
+%0\plugins\textviewer\data\languages\typescript.json,%1\plugins\textviewer\data\languages\typescript.json
+%0\plugins\textviewer\data\languages\typoscript.json,%1\plugins\textviewer\data\languages\typoscript.json
+%0\plugins\textviewer\data\languages\unrealscript.json,%1\plugins\textviewer\data\languages\unrealscript.json
+%0\plugins\textviewer\data\languages\uri.json,%1\plugins\textviewer\data\languages\uri.json
+%0\plugins\textviewer\data\languages\v.json,%1\plugins\textviewer\data\languages\v.json
+%0\plugins\textviewer\data\languages\vala.json,%1\plugins\textviewer\data\languages\vala.json
+%0\plugins\textviewer\data\languages\vbnet.json,%1\plugins\textviewer\data\languages\vbnet.json
+%0\plugins\textviewer\data\languages\velocity.json,%1\plugins\textviewer\data\languages\velocity.json
+%0\plugins\textviewer\data\languages\verilog.json,%1\plugins\textviewer\data\languages\verilog.json
+%0\plugins\textviewer\data\languages\vhdl.json,%1\plugins\textviewer\data\languages\vhdl.json
+%0\plugins\textviewer\data\languages\vim.json,%1\plugins\textviewer\data\languages\vim.json
+%0\plugins\textviewer\data\languages\visual-basic.json,%1\plugins\textviewer\data\languages\visual-basic.json
+%0\plugins\textviewer\data\languages\warpscript.json,%1\plugins\textviewer\data\languages\warpscript.json
+%0\plugins\textviewer\data\languages\wasm.json,%1\plugins\textviewer\data\languages\wasm.json
+%0\plugins\textviewer\data\languages\web-idl.json,%1\plugins\textviewer\data\languages\web-idl.json
+%0\plugins\textviewer\data\languages\wiki.json,%1\plugins\textviewer\data\languages\wiki.json
+%0\plugins\textviewer\data\languages\wolfram.json,%1\plugins\textviewer\data\languages\wolfram.json
+%0\plugins\textviewer\data\languages\wren.json,%1\plugins\textviewer\data\languages\wren.json
+%0\plugins\textviewer\data\languages\xeora.json,%1\plugins\textviewer\data\languages\xeora.json
+%0\plugins\textviewer\data\languages\xojo.json,%1\plugins\textviewer\data\languages\xojo.json
+%0\plugins\textviewer\data\languages\xquery.json,%1\plugins\textviewer\data\languages\xquery.json
+%0\plugins\textviewer\data\languages\yaml.json,%1\plugins\textviewer\data\languages\yaml.json
+%0\plugins\textviewer\data\languages\yang.json,%1\plugins\textviewer\data\languages\yang.json
+%0\plugins\textviewer\data\languages\zig.json,%1\plugins\textviewer\data\languages\zig.json
+%0\plugins\textviewer\data\themes\a11y-dark.json,%1\plugins\textviewer\data\themes\a11y-dark.json
+%0\plugins\textviewer\data\themes\atom-dark.json,%1\plugins\textviewer\data\themes\atom-dark.json
+%0\plugins\textviewer\data\themes\base16-ateliersulphurpool.light.json,%1\plugins\textviewer\data\themes\base16-ateliersulphurpool.light.json
+%0\plugins\textviewer\data\themes\cb.json,%1\plugins\textviewer\data\themes\cb.json
+%0\plugins\textviewer\data\themes\coldark-cold.json,%1\plugins\textviewer\data\themes\coldark-cold.json
+%0\plugins\textviewer\data\themes\coldark-dark.json,%1\plugins\textviewer\data\themes\coldark-dark.json
+%0\plugins\textviewer\data\themes\coy.json,%1\plugins\textviewer\data\themes\coy.json
+%0\plugins\textviewer\data\themes\darcula.json,%1\plugins\textviewer\data\themes\darcula.json
+%0\plugins\textviewer\data\themes\dark.json,%1\plugins\textviewer\data\themes\dark.json
+%0\plugins\textviewer\data\themes\dracula.json,%1\plugins\textviewer\data\themes\dracula.json
+%0\plugins\textviewer\data\themes\duotone-dark.json,%1\plugins\textviewer\data\themes\duotone-dark.json
+%0\plugins\textviewer\data\themes\duotone-earth.json,%1\plugins\textviewer\data\themes\duotone-earth.json
+%0\plugins\textviewer\data\themes\duotone-forest.json,%1\plugins\textviewer\data\themes\duotone-forest.json
+%0\plugins\textviewer\data\themes\duotone-light.json,%1\plugins\textviewer\data\themes\duotone-light.json
+%0\plugins\textviewer\data\themes\duotone-sea.json,%1\plugins\textviewer\data\themes\duotone-sea.json
+%0\plugins\textviewer\data\themes\duotone-space.json,%1\plugins\textviewer\data\themes\duotone-space.json
+%0\plugins\textviewer\data\themes\funky.json,%1\plugins\textviewer\data\themes\funky.json
+%0\plugins\textviewer\data\themes\ghcolors.json,%1\plugins\textviewer\data\themes\ghcolors.json
+%0\plugins\textviewer\data\themes\gruvbox-dark.json,%1\plugins\textviewer\data\themes\gruvbox-dark.json
+%0\plugins\textviewer\data\themes\gruvbox-light.json,%1\plugins\textviewer\data\themes\gruvbox-light.json
+%0\plugins\textviewer\data\themes\holi-theme.json,%1\plugins\textviewer\data\themes\holi-theme.json
+%0\plugins\textviewer\data\themes\hopscotch.json,%1\plugins\textviewer\data\themes\hopscotch.json
+%0\plugins\textviewer\data\themes\l.txt,%1\plugins\textviewer\data\themes\l.txt
+%0\plugins\textviewer\data\themes\lucario.json,%1\plugins\textviewer\data\themes\lucario.json
+%0\plugins\textviewer\data\themes\material-dark.json,%1\plugins\textviewer\data\themes\material-dark.json
+%0\plugins\textviewer\data\themes\material-light.json,%1\plugins\textviewer\data\themes\material-light.json
+%0\plugins\textviewer\data\themes\material-oceanic.json,%1\plugins\textviewer\data\themes\material-oceanic.json
+%0\plugins\textviewer\data\themes\night-owl.json,%1\plugins\textviewer\data\themes\night-owl.json
+%0\plugins\textviewer\data\themes\nord.json,%1\plugins\textviewer\data\themes\nord.json
+%0\plugins\textviewer\data\themes\okaidia.json,%1\plugins\textviewer\data\themes\okaidia.json
+%0\plugins\textviewer\data\themes\one-dark.json,%1\plugins\textviewer\data\themes\one-dark.json
+%0\plugins\textviewer\data\themes\one-light.json,%1\plugins\textviewer\data\themes\one-light.json
+%0\plugins\textviewer\data\themes\pojoaque.json,%1\plugins\textviewer\data\themes\pojoaque.json
+%0\plugins\textviewer\data\themes\prism.json,%1\plugins\textviewer\data\themes\prism.json
+%0\plugins\textviewer\data\themes\shades-of-purple.json,%1\plugins\textviewer\data\themes\shades-of-purple.json
+%0\plugins\textviewer\data\themes\solarized-dark-atom.json,%1\plugins\textviewer\data\themes\solarized-dark-atom.json
+%0\plugins\textviewer\data\themes\solarizedlight.json,%1\plugins\textviewer\data\themes\solarizedlight.json
+%0\plugins\textviewer\data\themes\synthwave84.json,%1\plugins\textviewer\data\themes\synthwave84.json
+%0\plugins\textviewer\data\themes\tomorrow.json,%1\plugins\textviewer\data\themes\tomorrow.json
+%0\plugins\textviewer\data\themes\twilight.json,%1\plugins\textviewer\data\themes\twilight.json
+%0\plugins\textviewer\data\themes\vs.json,%1\plugins\textviewer\data\themes\vs.json
+%0\plugins\textviewer\data\themes\vsc-dark-plus.json,%1\plugins\textviewer\data\themes\vsc-dark-plus.json
+%0\plugins\textviewer\data\themes\xonokai.json,%1\plugins\textviewer\data\themes\xonokai.json
+%0\plugins\textviewer\data\themes\z-touch.json,%1\plugins\textviewer\data\themes\z-touch.json
 %0\plugins\textviewer\lang\%SLG,%1\plugins\textviewer\lang\%SLG
 %0\plugins\unarj\unarj.spl,%1\plugins\unarj\unarj.spl
 %0\plugins\unarj\lang\%SLG,%1\plugins\unarj\lang\%SLG
 %0\plugins\uncab\uncab.spl,%1\plugins\uncab\uncab.spl
 %0\plugins\uncab\lang\%SLG,%1\plugins\uncab\lang\%SLG
-%0\plugins\unchm\unchm.spl,%1\plugins\unchm\unchm.spl
-%0\plugins\unchm\chmlib.dll,%1\plugins\unchm\chmlib.dll
-%0\plugins\unchm\lang\%SLG,%1\plugins\unchm\lang\%SLG
 %0\plugins\undelete\undelete.spl,%1\plugins\undelete\undelete.spl
 %0\plugins\undelete\lang\%SLG,%1\plugins\undelete\lang\%SLG
 %0\plugins\unfat\unfat.spl,%1\plugins\unfat\unfat.spl
 %0\plugins\unfat\lang\%SLG,%1\plugins\unfat\lang\%SLG
+%0\plugins\unchm\unchm.spl,%1\plugins\unchm\unchm.spl
+%0\plugins\unchm\chmlib.dll,%1\plugins\unchm\chmlib.dll
+%0\plugins\unchm\lang\%SLG,%1\plugins\unchm\lang\%SLG
 %0\plugins\uniso\uniso.spl,%1\plugins\uniso\uniso.spl
 %0\plugins\uniso\lang\%SLG,%1\plugins\uniso\lang\%SLG
 %0\plugins\unlha\unlha.spl,%1\plugins\unlha\unlha.spl
 %0\plugins\unlha\lang\%SLG,%1\plugins\unlha\lang\%SLG
 %0\plugins\unmime\unmime.spl,%1\plugins\unmime\unmime.spl
 %0\plugins\unmime\lang\%SLG,%1\plugins\unmime\lang\%SLG
+%0\plugins\unole\unole.spl,%1\plugins\unole\unole.spl
+%0\plugins\unole\lang\%SLG,%1\plugins\unole\lang\%SLG
+%0\plugins\unrar\unrar.spl,%1\plugins\unrar\unrar.spl
+%0\plugins\unrar\unrar.dll,%1\plugins\unrar\unrar.dll
+%0\plugins\unrar\lang\%SLG,%1\plugins\unrar\lang\%SLG
 %0\plugins\webview2renderviewer\webview2renderviewer.spl,%1\plugins\webview2renderviewer\webview2renderviewer.spl
 %0\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll,%1\plugins\webview2renderviewer\WebView2RenderViewer.Managed.dll
 %0\plugins\webview2renderviewer\Markdig.dll,%1\plugins\webview2renderviewer\Markdig.dll
 %0\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.WinForms.dll
+%0\plugins\webview2renderviewer\Microsoft.Web.WebView2.Wpf.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.Wpf.dll
 %0\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll,%1\plugins\webview2renderviewer\Microsoft.Web.WebView2.Core.dll
 %0\plugins\webview2renderviewer\WebView2Loader.dll,%1\plugins\webview2renderviewer\WebView2Loader.dll
+%0\plugins\webview2renderviewer\System.Buffers.dll,%1\plugins\webview2renderviewer\System.Buffers.dll
+%0\plugins\webview2renderviewer\System.Memory.dll,%1\plugins\webview2renderviewer\System.Memory.dll
+%0\plugins\webview2renderviewer\System.Numerics.Vectors.dll,%1\plugins\webview2renderviewer\System.Numerics.Vectors.dll
+%0\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll,%1\plugins\webview2renderviewer\System.Runtime.CompilerServices.Unsafe.dll
 %0\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll,%1\plugins\webview2renderviewer\System.Text.Encoding.CodePages.dll
 %0\plugins\webview2renderviewer\DEPENDENCIES.md,%1\plugins\webview2renderviewer\DEPENDENCIES.md
 %0\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md,%1\plugins\webview2renderviewer\SUPPORTED_FILE_TYPES.md
@@ -258,26 +596,9 @@
 %0\plugins\wmobile\lang\%SLG,%1\plugins\wmobile\lang\%SLG
 %0\plugins\zip\zip.spl,%1\plugins\zip\zip.spl
 %0\plugins\zip\lang\%SLG,%1\plugins\zip\lang\%SLG
-%0\plugins\zip\sfx\czech.sfx,%1\plugins\zip\sfx\czech.sfx
-%0\plugins\zip\sfx\english.sfx,%1\plugins\zip\sfx\english.sfx
-%0\plugins\zip\sfx\german.sfx,%1\plugins\zip\sfx\german.sfx
-%0\plugins\zip\sfx\slovak.sfx,%1\plugins\zip\sfx\slovak.sfx
-%0\plugins\zip\sfx\hungarian.sfx,%1\plugins\zip\sfx\hungarian.sfx
-%0\plugins\zip\sfx\romanian.sfx,%1\plugins\zip\sfx\romanian.sfx
-%0\plugins\zip\sfx\spanish.sfx,%1\plugins\zip\sfx\spanish.sfx
-%0\plugins\zip\sfx\russian.sfx,%1\plugins\zip\sfx\russian.sfx
-%0\plugins\zip\sfx\dutch.sfx,%1\plugins\zip\sfx\dutch.sfx
-%0\plugins\zip\sfx\french.sfx,%1\plugins\zip\sfx\french.sfx
-%0\plugins\zip\sfx\chinesesimplified.sfx,%1\plugins\zip\sfx\chinesesimplified.sfx
-%0\plugins\zip\zip2sfx\license.txt,%1\plugins\zip\zip2sfx\license.txt
-%0\plugins\zip\zip2sfx\license_cz.txt,%1\plugins\zip\zip2sfx\license_cz.txt
-%0\plugins\zip\zip2sfx\readme.cz,%1\plugins\zip\zip2sfx\readme.cz
 %0\plugins\zip\zip2sfx\readme.txt,%1\plugins\zip\zip2sfx\readme.txt
-%0\plugins\zip\zip2sfx\sam_cz.set,%1\plugins\zip\zip2sfx\sam_cz.set
 %0\plugins\zip\zip2sfx\sample.set,%1\plugins\zip\zip2sfx\sample.set
 %0\plugins\zip\zip2sfx\zip2sfx.exe,%1\plugins\zip\zip2sfx\zip2sfx.exe
-%0\remove\remove.exe,%1\remove\remove.exe,5
-%0\toolbars\Back.svg,%1\toolbars\Back.svg
 %0\toolbars\CalculateDirectorySizes.svg,%1\toolbars\CalculateDirectorySizes.svg
 %0\toolbars\CalculateOccupiedSpace.svg,%1\toolbars\CalculateOccupiedSpace.svg
 %0\toolbars\CilpboardCut.svg,%1\toolbars\CilpboardCut.svg
@@ -335,11 +656,17 @@
 %0\toolbars\SortByName.svg,%1\toolbars\SortByName.svg
 %0\toolbars\SortBySize.svg,%1\toolbars\SortBySize.svg
 %0\toolbars\SwapPanels.svg,%1\toolbars\SwapPanels.svg
+%0\toolbars\TabsClose.svg,%1\toolbars\TabsClose.svg
+%0\toolbars\TabsDuplicate.svg,%1\toolbars\TabsDuplicate.svg
+%0\toolbars\TabsNew.svg,%1\toolbars\TabsNew.svg
+%0\toolbars\TabsNext.svg,%1\toolbars\TabsNext.svg
+%0\toolbars\TabsPrevious.svg,%1\toolbars\TabsPrevious.svg
 %0\toolbars\Unpack.svg,%1\toolbars\Unpack.svg
 %0\toolbars\UserMenu.svg,%1\toolbars\UserMenu.svg
 %0\toolbars\View.svg,%1\toolbars\View.svg
 %0\toolbars\Views.svg,%1\toolbars\Views.svg
 %0\toolbars\WhatIsThis.svg,%1\toolbars\WhatIsThis.svg
+%0\remove\remove.exe,%1\remove\remove.exe,5
 
 [CreateDirs]
 %1
@@ -358,8 +685,8 @@
 %1\plugins\automation
 %1\plugins\automation\lang
 %1\plugins\automation\scripts
-%1\plugins\checksum
-%1\plugins\checksum\lang
+%1\plugins\certview-x64
+%1\plugins\certview-x64\lang
 %1\plugins\dbviewer
 %1\plugins\dbviewer\lang
 %1\plugins\diskmap
@@ -368,6 +695,10 @@
 %1\plugins\filecomp\lang
 %1\plugins\ftp
 %1\plugins\ftp\lang
+%1\plugins\hypervm
+%1\plugins\hypervm\lang
+%1\plugins\checksum
+%1\plugins\checksum\lang
 %1\plugins\ieviewer
 %1\plugins\ieviewer\css
 %1\plugins\ieviewer\lang
@@ -381,12 +712,18 @@
 %1\plugins\pak\lang
 %1\plugins\peviewer
 %1\plugins\peviewer\lang
+%1\plugins\pictview
+%1\plugins\pictview\lang
+%1\plugins\portables
+%1\plugins\portables\lang
 %1\plugins\regedt
 %1\plugins\regedt\lang
 %1\plugins\renamer
 %1\plugins\renamer\lang
 %1\plugins\samandarin
 %1\plugins\samandarin\lang
+%1\plugins\serviceexplorer
+%1\plugins\serviceexplorer\lang
 %1\plugins\splitcbn
 %1\plugins\splitcbn\lang
 %1\plugins\tar
@@ -394,22 +731,28 @@
 %1\plugins\textviewer
 %1\plugins\textviewer\lang
 %1\plugins\textviewer\data
+%1\plugins\textviewer\data\languages
+%1\plugins\textviewer\data\themes
 %1\plugins\unarj
 %1\plugins\unarj\lang
 %1\plugins\uncab
 %1\plugins\uncab\lang
-%1\plugins\unchm
-%1\plugins\unchm\lang
 %1\plugins\undelete
 %1\plugins\undelete\lang
 %1\plugins\unfat
 %1\plugins\unfat\lang
+%1\plugins\unchm
+%1\plugins\unchm\lang
 %1\plugins\uniso
 %1\plugins\uniso\lang
 %1\plugins\unlha
 %1\plugins\unlha\lang
 %1\plugins\unmime
 %1\plugins\unmime\lang
+%1\plugins\unole
+%1\plugins\unole\lang
+%1\plugins\unrar
+%1\plugins\unrar\lang
 %1\plugins\webview2renderviewer
 %1\plugins\webview2renderviewer\lang
 %1\plugins\wmobile
@@ -423,25 +766,25 @@
 
 [CreateShortcuts]
 %1\salamand.exe,%5\Open Salamander Samandarin (x64).lnk,%@%1\utils\muires.dll,-101
-%1\salamand.exe,%7\Open Salamander: Samandarin (x64).lnk,%@%1\utils\muires.dll,-101
-%1\salamand.exe,%8\Open Salamander: Samandarin (x64).lnk,%@%1\utils\muires.dll,-101
+%1\salamand.exe,%7\Open Salamander Samandarin (x64).lnk,%@%1\utils\muires.dll,-101
+%1\salamand.exe,%8\Open Salamander Samandarin (x64).lnk,%@%1\utils\muires.dll,-101
 
 [AddRegistryKeys]
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64)
-HKCU,Software\Open Salamander Samandarin\Open Salamander 5.0-samandarin-0.1
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64)
+HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.3
 
 [AddRegistryValues]
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),DisplayName,1,Open Salamander 5.0-samandarin-0.1 (x64)
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),DisplayIcon,1,%1\salamand.exe
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),DisplayVersion,1,5.0-samandarin-0.1
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),VersionMajor,1,5
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),VersionMinor,1,0
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),InstallLocation,1,%1
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),UninstallString,1,%1\remove\remove.exe
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),QuietUninstallString,1,%1\remove\remove.exe /q
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),Publisher,1,Open Salamander Project
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),HelpLink,1,https://github.com/open-salamander/salamander
-HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.1 (x64),UrlInfoAbout,1,https://github.com/open-salamander/salamander
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),DisplayName,1,Open Salamander 5.0-samandarin-0.3 (x64)
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),DisplayIcon,1,%1\salamand.exe
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),DisplayVersion,1,5.0-samandarin-0.3
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),VersionMajor,1,5
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),VersionMinor,1,0
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),InstallLocation,1,%1
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),UninstallString,1,%1\remove\remove.exe
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),QuietUninstallString,1,%1\remove\remove.exe /q
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),Publisher,1,Open Salamander Project
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),HelpLink,1,https://github.com/KRtkovo-eu-AI/salamander
+HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.3 (x64),UrlInfoAbout,1,https://github.com/KRtkovo-eu-AI/salamander
 
 [DelShellExts]
 %1\utils\salextx64.dll
@@ -451,17 +794,17 @@ HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-sam
 
 [Private]
 ApplicationName="Open Salamander: Samandarin"
-ApplicationNameVer="Open Salamander 5.0-samandarin-0.1 (x64)"
+ApplicationNameVer="Open Salamander 5.0-samandarin-0.3 (x64)"
 DefaultDirectory=%4\Open Salamander Samandarin
 LastDirectories=HKCU,Software\Open Salamander Samandarin\Applications\Open Salamander Samandarin (x64)
 LicenseFile=%0\doc\license.txt
 LicenseFileCZ=%0\doc\license_cz.txt
 ViewReadme=%1\doc\readme.txt
 RunProgram=%1\salamand.exe
-IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\Open Salamander 5.0-samandarin-0.1\Configuration,Plugins.ver Version (x64)
+IncrementFileContentSrc=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.3\Configuration,Plugins.ver Version (x64)
 IncrementFileContentDst=%1\plugins\plugins.ver,winscp\winscp.spl,jsonviewer\jsonviewer.spl,textviewer\textviewer.spl,webview2renderviewer\webview2renderviewer.spl,samandarin\samandarin.spl
 SaveRemoveLog=%1\remove\remove.rlg
-AutoImportConfig=HKCU,Software\Open Salamander Samandarin\Open Salamander 5.0-samandarin-0.1,AutoImportConfig
+AutoImportConfig=HKCU,Software\Open Salamander Samandarin\5.0-samandarin-0.3,AutoImportConfig
 DisplayWelcomeWarning=0
-SLGLanguages=czech.slg,english.slg,german.slg,hungarian.slg,romanian.slg,slovak.slg,spanish.slg,french.slg,russian.slg,dutch.slg,chinesesimplified.slg
+SLGLanguages=english.slg
 WERLocalDumps=salamand.exe,salmon.exe,salopen.exe,salspawn.exe,fcremote.exe,salpvenv.exe
