@@ -992,6 +992,7 @@ SLGINCOMPLETE,""
 
 [DIALOG 1105]
 384,231,1,"Panouri"
+599,1,3,118,12,0,"&Use tabbed panels"
 596,1,3,249,12,1,"&Ascunde fisierele si directoarele cu atribute sistem sau ascuns (Ctrl+H)"
 302,1,15,207,12,1,"I&nclude directoarele in operatiuni de selectare/deselectare"
 1150,1,33,50,8,1,"A&rata numele:"
@@ -1002,6 +1003,7 @@ SLGINCOMPLETE,""
 1156,37,71,345,1,1,""
 305,10,78,336,12,1,"Redrectioneaza ta&starea din panou la linia de Comanda (tine apasat ALT pentru Cautare Rapida)"
 615,10,90,370,12,1,"&Foloseste Shift+numar pentru a merge la Cale Rapida (da conflict cu tip tastatura regionala - romania, uk)"
+617,10,102,156,12,0,"Show active panel &Tree View"
 1152,1,105,24,8,1,"Mouse"
 1157,27,109,355,1,1,""
 315,10,116,362,12,1,"&Click dreapta pentru a deschide meniul de scurtaturi (tine tasta CTRL apasat pentru a selecta/deselecta)"
@@ -1016,6 +1018,19 @@ SLGINCOMPLETE,""
 391,10,190,171,12,1,"Ordonate dupa Tim&p: obiectele mai noi primele"
 395,10,202,191,12,1,"Sortate dupa T&imp: sorteaza directoarele dupa nume"
 392,10,214,326,12,1,"Tratea&za directoarele ca si cum ar avea extensii (de asemenea arata extensiile in coloana Ext)"
+
+[DIALOG 1106]
+299,68,0,"Tabs"
+2690,1,3,162,8,0,"&Display current path in tab caption as:"
+2689,164,3,130,55,1,""
+2691,1,20,150,8,0,"&Minimal tab button width:"
+2692,164,18,40,12,1,""
+2695,208,20,30,8,0,"dp"
+2693,1,36,150,8,0,"Ma&ximal tab button width:"
+2694,164,34,40,12,1,""
+2696,208,36,30,8,0,"dp"
+2697,1,52,150,8,0,"Tab button caption align&ment:"
+2698,164,50,130,55,1,""
 
 [DIALOG 1110]
 384,231,1,"Tastatura"
@@ -1325,14 +1340,17 @@ SLGINCOMPLETE,""
 
 [DIALOG 2645]
 384,231,1,"Istorie"
-1151,1,4,283,16,1,"Puteti alege valorile recent folosite (istorie) vor fi stocate in registry(registru) ca o parte a Open Salamander si plugin-s."
-2646,1,24,65,12,1,"&Salveaza istoria"
-2650,11,37,135,12,1,"Lista Salvata a Directoarelor in &Lucru"
-1152,1,60,228,16,1,"Pentru istoria Comenzii de linie (poate contine parole) puteti alege optiuni speciale."
-2647,1,80,247,12,1,"&Activeaza istoria Comenzii de linie"
-2648,1,93,247,12,1,"Salvea&za istoria Comenzii de linie"
-1153,1,116,177,8,1,"Puteti sterge acum toate datele referitoare la istorie."
-2649,1,126,67,14,1,"S&terge Istoria..."
+1151,1,4,254,16,0,"You can choose whether recently used values (history) will be shared between panels/tabs or separate for each panel/tab."
+2651,1,22,180,10,0,"&Share history between panels/tabs"
+2652,1,34,140,10,0,"Keep history per &panel/tab"
+1152,1,64,254,16,1,"Puteti alege valorile recent folosite (istorie) vor fi stocate in registry(registru) ca o parte a Open Salamander si plugin-s."
+2646,1,84,54,12,1,"&Salveaza istoria"
+2650,11,97,118,12,1,"Lista Salvata a Directoarelor in &Lucru"
+1153,1,128,228,16,1,"Pentru istoria Comenzii de linie (poate contine parole) puteti alege optiuni speciale."
+2647,1,148,247,12,1,"&Activeaza istoria Comenzii de linie"
+2648,1,161,247,12,1,"Salvea&za istoria Comenzii de linie"
+1154,1,184,144,8,1,"Puteti sterge acum toate datele referitoare la istorie."
+2649,1,194,60,14,1,"S&terge Istoria..."
 
 [DIALOG 2660]
 193,159,1,"Incarca selectia"
@@ -2118,6 +2136,11 @@ SLGINCOMPLETE,""
 10518,1,"Arata Numele Ascunse"
 10519,1,"Deschide Documentele"
 10520,1,"Mod Coloana Smart\tCtrl+N"
+10521,0,"New Tab"
+10522,0,"Close Tab"
+10523,0,"Next Tab"
+10524,0,"Previous Tab"
+10525,0,"Duplicate Tab"
 
 [STRINGTABLE 35]
 10530,1,"Numele variabilei trebuie sa fie terminat prin ')'."
@@ -2177,6 +2200,7 @@ SLGINCOMPLETE,""
 10602,1,"Windows Explorer"
 10603,1,"Norton Commander"
 10604,1,"DOS Navigator"
+10605,0,"Windows Dark Mode (experimental)"
 
 [STRINGTABLE 40]
 10665,1,"Nume"
@@ -2332,6 +2356,8 @@ SLGINCOMPLETE,""
 [STRINGTABLE 52]
 10848,1,"&Da"
 10849,1,"&Nu"
+10850,0,"Left"
+10851,0,"Center"
 10860,1,"ESC"
 10861,1,"F11"
 10862,1,"Toolbar &Mijloc"
@@ -3046,6 +3072,7 @@ SLGINCOMPLETE,""
 13167,1,"&Importa Configuratia..."
 
 [STRINGTABLE 116]
+13168,0,"&Tree View"
 13170,1,"&Dreapta"
 13171,1,"Schim&ba Drive\tAlt+F2"
 
@@ -3062,8 +3089,55 @@ SLGINCOMPLETE,""
 [STRINGTABLE 118]
 13200,1,"&Despre Open Salamander"
 13202,1,"&Forum Oficial de Suport"
+13210,0,"&New Tab"
+13211,0,"&Close Tab"
+13212,0,"&Next Tab"
+13213,0,"Pre&vious Tab"
+13214,0,"D&uplicate Tab"
 
 [STRINGTABLE 119]
+13220,0,"New &Tab\tCtrl+Shift+T"
+13221,0,"&Close Tab\tCtrl+Shift+W"
+13222,0,"&Next Tab\tCtrl+Shift+Page Down"
+13223,0,"&Previous Tab\tCtrl+Shift+Page Up"
+13224,0,"New &Tab\tAlt+Shift+T"
+13225,0,"&Close Tab\tAlt+Shift+W"
+13226,0,"&Next Tab\tAlt+Shift+Page Down"
+13227,0,"&Previous Tab\tAlt+Shift+Page Up"
+13228,0,"Close all &Left Side tabs except default"
+13229,0,"Close all &Right Side tabs except default"
+13230,0,"Set Tab &Color..."
+13231,0,"C&lear Tab Color"
+
+[STRINGTABLE 120]
+13232,0,"Set Tab &Color..."
+13233,0,"C&lear Tab Color"
+13234,0,"Set Tab &Prefix..."
+13235,0,"C&lear Tab Prefix"
+13236,0,"Set Tab &Prefix..."
+13237,0,"C&lear Tab Prefix"
+13238,0,"Set Tab Prefix"
+13239,0,"Enter a custom tab prefix for '%s' (leave empty to clear):"
+13240,0,"Duplicate Tab to &Right Side"
+13241,0,"Move Tab to &Right Side"
+13242,0,"Duplicate Tab to &Left Side"
+13243,0,"Move Tab to &Left Side"
+13244,0,"Close all &Left Side tabs except this and default"
+13245,0,"Close all &Right Side tabs except this and default"
+13246,0,"D&uplicate Tab"
+13247,0,"D&uplicate Tab"
+
+[STRINGTABLE 121]
+13248,0,"Reopen Closed &Tab"
+13249,0,"&Lock Tab"
+13250,0,"Un&lock Tab"
+13251,0,"Reopen Closed &Tab"
+13252,0,"&Lock Tab"
+13253,0,"Un&lock Tab"
+13260,0,"&Tabs"
+13261,0,"&Tabs"
+
+[STRINGTABLE 122]
 13300,1,"&Fisiere"
 13301,1,"&Deschide\tEnter"
 13302,1,"&Focus\tSpace"
@@ -3077,7 +3151,7 @@ SLGINCOMPLETE,""
 13310,1,"&Meniu Utilizator\tF9"
 13311,1,"&Inchide\tAlt+F4"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13312,1,"Ascunde Numele Du&plicat\tCtrl+Shift+H"
 13313,1,"Co&menzi"
 13314,1,"P&roprietati\tAlt+Enter"
@@ -3091,7 +3165,7 @@ SLGINCOMPLETE,""
 13326,1,"Copie Nume ca Te&xt\tAlt+Shift+Insert"
 13327,1,"Copie Cal&e ca Text\tCtrl+Alt+Insert"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13328,1,"Copie U&NC Cale + Nume ca Text\tCtrl+Shift+Insert"
 13330,1,"Vi&zualizeaza"
 13331,1,"Sorteaza dupa &Nume\tCtrl+F3"
@@ -3103,7 +3177,7 @@ SLGINCOMPLETE,""
 13342,1,"A&dauga Curent\tCtrl+N"
 13343,1,"&Manage...\tCtrl+M"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13344,1,"Permite Doar &O Sinngura Fereastra de Cautare"
 13345,1,"Arata Gaseste &Log...\tCtrl+L"
 13346,1,"Ig&nora Lista Director...\tCtrl+G"
@@ -3115,7 +3189,7 @@ SLGINCOMPLETE,""
 13358,1,"&Adauga la Obiecte Gasite\tCtrl+W"
 13359,1,"Gaseste Fisierele &Duplicat...\tCtrl+D"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13360,1,"&Deschide\tEnter"
 13361,1,"&Vizualizeaza\tF3"
 13362,1,"Vizuali&zeaza Cu\tCtrl+Shift+F3"
@@ -3127,7 +3201,7 @@ SLGINCOMPLETE,""
 13368,1,"Cop&ie in Clipboard\tCtrl+C"
 13369,1,"&Paste\tCtrl+V"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13380,1,"Nume"
 13381,1,"Extensie Separata"
 13382,1,"Nume DOS (8.3)"
@@ -3138,14 +3212,14 @@ SLGINCOMPLETE,""
 13387,1,"Atribute"
 13388,1,"Descriere"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13400,1,"&Nume\tCtrl+F3"
 13401,1,"&Extensie\tCtrl+F4"
 13402,1,"&Marime\tCtrl+F6"
 13403,1,"&Timp\tCtrl+F5"
 13404,1,"&Atribute"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13445,1,"Confirma pe"
 13446,1,"Arata mesaj"
 13450,1,"Fisier sau director sters (vezi nota 1 de mai jos)"
@@ -3155,7 +3229,7 @@ SLGINCOMPLETE,""
 13454,1,"Director ascuns sau sistem sters (vezi nota 2 de mai jos)"
 13455,1,"Suprascriere fisier sistem sau ascuns (e ignorat in arhive)"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13456,1,"comprimare sau decomprimare NTFS (e ignorata in arhive)"
 13457,1,"criptare sau decriptare NTFS (e ignorata in arhive)"
 13458,1,"operatiuni Drag and Drop"
@@ -3167,7 +3241,7 @@ SLGINCOMPLETE,""
 13470,1,"Doriti sa inchideti Gaseste?"
 13471,1,"Doriti sa creati calea tinta? (in operatiunile Copie/Muta)"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13472,1,"Doriti sa activati Intotdeauna Deasupra?"
 13473,1,"Doriti sa inchideti Open Salamander?"
 13474,1,"Doriti sa trimiteti pe Email fisierele selectate?"
@@ -3176,10 +3250,10 @@ SLGINCOMPLETE,""
 13477,1,"Arhiva e pe cale sa se inchida... (doar daca editati fisiere din arhiva)"
 13478,1,"Directorul nu exista. Doriti sa-l creati?"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13551,1,"Doriti sa inchideti Open Salamander?"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13553,1,"(nimic)"
 13554,1,"Retea"
 13555,1,"Plugins"
@@ -3193,7 +3267,7 @@ SLGINCOMPLETE,""
 13563,1,"&Inchide Open Salamander fara sa mai intrebi data viitoare\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu din pagina Confirmari in Configurare."
 13564,1,"&Creaza director fara sa mai intrebi data viitoare\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu din pagina Confirmari in Configurare."
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13670,1,"Mod"
 13671,1,"Thumbnails"
 13672,1,"Scurt"
@@ -3202,7 +3276,7 @@ SLGINCOMPLETE,""
 13675,1,"Rezervat"
 13676,1,"Tiles"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13680,1,"T&humbnails"
 13681,1,"Sc&urt"
 13682,1,"&Detaliat"
@@ -3212,19 +3286,19 @@ SLGINCOMPLETE,""
 13686,1,"Rezervat"
 13687,1,"Ti&les"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13700,1,"Acum asignat lui: %s"
 13701,1,"Aceast scurtatura apartine Open Salamander. Va rugam, alegeti alta."
 13710,1,"Copie %s"
 13711,1,"Muta %s"
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13712,1,"De la:"
 13713,1,"La:"
 13720,1,"Creaza Output cu Lista Fisier"
 13725,1,"Permisii si autorii nu pot fi pastrati. Ei nu sunt suportati\nu e cale tinta (nu e volum NTFS).\n\nDoriti sa continuati?"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13730,1,"Raporteaza Bug"
 13731,1,"Pentru raporturi bug sau cereri de caracteristici va rugam folositi meniul Help > Forum Oficiall Suport.\n\nFolositi acest raport de bug doar pentru a ne trimite date sensibile sau cand va cerem noi."
 13735,1,"&Sari Peste"
@@ -3235,7 +3309,7 @@ SLGINCOMPLETE,""
 13742,1,"Se pare ca nu ai nici un modul de limba selectate (.SLG) pentru acest plugin (vezi subdirectorul LANG din plugin)."
 13743,1,"&Nu arata acest mesaj pentru alte plugins"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13750,1,"Configuratia stocata in registri e corupta, deci nu poate fi incarcata. Open Salamander a fost probabil oprit brusc in timpul salvarii configurarii. Acest lucru se intampla de obicei cand Open Salamander inca ruleaza cand dai shutdown system (sau log off). Pentru a preveni aceasta problema, inchide Open Salamander inainte de shutdown (sau log off).\n\nPoti face backup configuratiei corupte acum (ruleaza RegEdit.exe, redenumeste key HKEY_CURRENT_USER\\%s). Mai tarziu poti incerca sa obtii ceva setari din acest backup (Meniu Utilizator, Cai Rapide, Boomarks FTP, etc.), viziteaza forum.altap.cz pentru detalii.\n\nConfiguratia corupta trebuie sa fie scoasa din registri inainte de a porni Open Salamander."
 13751,1,"Dvs. utilizati valori nonstandard ai urmatorilor parametri folositi in timpul Log off si Shutdown. Acest lucru probabil cauzeaza coruperea configurarii Open Salamander (e oprita brusc in timpul salvarii configurarii).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout ar trebui sa fie 20000.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks ar trebui sa fie 0."
 13752,1,"Eli&minati Configurarea"
@@ -3243,20 +3317,21 @@ SLGINCOMPLETE,""
 13756,1,"&Fisiere"
 13757,1,"&Directoare"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13760,1,"Acest fisier nu poate fi copiat la calea tinta specificata pentru ca e prea mare pentru fisier sistem FAT32.\n\nFisier: %s"
 13765,1,"Calea unde sa mergi daca calea in panou e inaccesibila, e invalida, va rog corectati aceasta cale in configurare in pagina Drives."
 13770,1,"Nu pot pune fisierul in directorul temporar."
 13771,1,"Nume de fisier rezultat e prea lung."
 13775,1,"Operatiunea  drag&drop din arhiva sau fisier sistem plugin a esuat. Va rugam scoateti directorul DROPFAKE (daca e vreunul) din tinta director.\n\nAceasta ar trebui sa se intample doar dupa instalare sau daca tinta drop nu e Windows Explorer nici Open Salamander. Daca tinta drop este Windows Explorer, va rugam dati restart Windows pentru a corecta aceasta problema (utilizatorii avansati pot termina procesul explorer.exe si sa-l porneasca din nou)."
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13776,1,"Default"
 13777,1,"Rosu"
 13778,1,"Verde"
 13779,1,"Albastru"
+13780,0,"Samandarin"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13800,1,"%d hr"
 13801,1,"%d min"
 13802,1,"%d sec"
@@ -3264,21 +3339,21 @@ SLGINCOMPLETE,""
 13806,1,"%s din %s mutat"
 13807,1,"viteza: %s/s"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13808,1,"viteza: %s/s (limita: %s/s)"
 13809,1,"timp ramas: %s"
 13815,1,"Limita de viteza trebuie sa fie un numar intre 1 B/s pana in 4 GB/s."
 13820,1,"&Seteaza Limita de Viteza..."
 13821,1,"&Asteapta Pana Celelalte Operatiuni Copie/Muta sunt Terminate"
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13825,1,"&Exit"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13850,1,"Nu pot salva configurarea %s plugin (eroare in deschiderea cheii de configurarea a Open Salamander).\n\nDoriti inca sa-l opriti?"
 13855,1,"Nume"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13856,1,"Descriere"
 13857,1,"Schimbarea Overlays de Icoane nu are efect pana ce Open Salamander nu e restartata."
 13865,1,"Open Salamander a devenit instabila. O eroare a avut loc in %s icoana overlay. Puteti preveni asemenea probleme daca Open Salamander nu va folosi acest handler (dati click pe butonul Acesta) sau va opri aratarea icoanelor custom orverlays de tot (dati click pe butonul Tot). De asemenea puteti incerca sa actualizati soft-ul care foloseste acest handler (cautati in forum.altap.cz pentru detalii).\n\nCe handler pentru icoana overlay doriti sa dezactivati?\n\nNota: puteti seta icoane overlays in dialogul de configurare (vezi pagina Icoane Overlays)."
@@ -3287,7 +3362,7 @@ SLGINCOMPLETE,""
 13870,1,"Fisierul onfig.reg (sau alt fisier specificat cu parametrul -c) nu a fost importat in registri din cauza importului configuratiei din versiunea veche de Open Salamander. Va rugam inchideti acum Open Salamander si porniti-o din nou pentru a rezolva aceasta problema."
 13871,1,"Ati actualizat la noua versiune de Open Salamander. Isi importa configurarea vechii versiuni acum. Versiunea veche contine cateva pugins (listate mai jos) care lipsesc (sau care nu functioneaza) in noua versiune, deci configuratia lor nu poate fi importata acum. Puteti porni acum Open Salamander fara aceste plugins (configurarea vechii versiuni ramane in registri, deci puteti s-o importati mai tarziu). sau iesiti acum din Open Salamander, instalati plugins lipsa, si porniti din nou Open Salamander.\n\nPlugins care lipsesc (sau care nu functioneaza): %s%s."
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13872,1,", %d mai multe plugins care au fost sarite peste"
 13873,1,"&Porneste Fara Plugins Lipsa"
 13880,1,"Memorie Insuficienta de alocat %Iu bytes. Incercati sa eliberati ceva memorie (ex. inchideti cateva aplicatii care ruleaza) si dati click pe Mai Incearca. Daca nu ajuta, puteti da click pe Ignora pentru a trece eroarea de alocare de memorie acestei aplicatii sau dati click pe Opreste pentru a inchide aceasta aplicatie."
@@ -3296,7 +3371,7 @@ SLGINCOMPLETE,""
 13885,1,"Conectare la %s"
 13886,1,"Parola incorecta sau nume utilizator necunoscu pentru: %s"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13890,1,"Fisier"
 13891,1,"%s Fisier"
 13900,1,"Parola dvs  e prea simpla si poate nu asigura suficienta securitate contra hacker-ilor.\nSunteti sigur-a ca doriti s-o folositi?\n\nNota: parolele bune au cel putin sase caractere si contin atat litere mici cat si majuscule, numere si caractere speciale, cum ar fi: :,  -, # simboluri, litere cu accent, etc."
@@ -3304,7 +3379,7 @@ SLGINCOMPLETE,""
 13902,1,"Parola Schimbata cu Succes"
 13903,1,"Ati sters Parola Master. Parolele dvs stocate nu vor mai fi protejate (de ex FTP si WINSCP)."
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13904,1,"Parola Master a fost schimbata cu succes. Parolele dvs stocate sunt securizate acum de cifrarea AES (de exemplu FTP si WinSCP)."
 13905,1,"Nu ati introdus corect Parola Master curenta. Va rugam incercati din nou."
 13906,1,"Rasfoieste Directorul"
@@ -3314,7 +3389,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, pornit la %s, %s%s"
 13916,1,", proces curent"
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13920,1,"Salveaza nume fisier curent ca default"
 13921,1,"Revino la numele fisier default ca %s"
 13925,1,"{!}Directoarele comparate contin cel putin %d pereche{|1|s} de fisiere cu diferenta de timp de exact o ora sau doua ore. {Aceasta diferenta a fost|1|Aceste diferente au fost} ignorate ca avand legatura cu DST (Daylight Saving Time). Puteti sa le suprimati in Configurare/Generala."
@@ -3326,14 +3401,14 @@ SLGINCOMPLETE,""
 13933,1,"Salveaza optiunile ca defaults"
 13934,1,"Reseteaza optiunile si defaults"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13945,1,"Daca doriti sa importati configuratia la fiecare pornire a Open Salamander, exportati-o in directorul de instalare in numele config.reg. Pentru a importa alt fisier de configurare folositi parametrul -C in linia de comanda (ex. "salamand.exe -C myconfig.reg").\n\nVa recomandam sa adaugati curatarea cheii din registri cu configurarea exportata direct in fisier. Altfel, configurarea importata va fi adaugata in cea curenta si poate rezulta intr-o configurare inconsistenta."
 13946,1,"Daca doriti sa importati configuratia la fiecare pornire a Open Salamander, exportati-o in directorul aplicatiei in numele config.reg. Pentru a importa alt fisier de configurare folositi parametrul -C in linia de comanda (ex. "salamand.exe -C myconfig.reg").\n\nVa recomandam sa adaugati curatarea cheii din registri cu configurarea exportata direct in fisier. Altfel, configurarea importata va fi adaugata in cea curenta si poate rezulta intr-o configurare inconsistenta."
 13947,1,"&Adauga curatarea cheii din registri cu configurarea exportata direct in fisier"
 13950,1,"Nu pot deschide sau citi fisierul de configurare.\n\nFisier: %s\nEroare: %s"
 13951,1,"Fiserul de configurare e prea mare.\n\nFisier: %s"
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13952,1,"Nu pot importa fisierul specificat. Nu este un fisier de configurare.\n\nFisier: %s"
 13953,1,"Nu pot importa fisierul de configurare. Are format invalid.\n\nFisier: %s"
 13954,1,"Nu pot importa configurarea fisierului in registri. Eroare la scrierea in registri.\n\nFisier: %s"
@@ -3341,7 +3416,7 @@ SLGINCOMPLETE,""
 13965,1,"Nu pot exporta configurarea in fisier. Eroare la citirea configurarii din registri."
 13966,1,"Nu pot exporta configurarea in fisier. Eroare la scrierea configurarii in fisier.\n\nFisier: %s"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13970,1,"Nu pot deschide meniul context pentru panou pentru ca calea din panou este doar pseudo-director pentru redirector WOW64."
 13971,1,"Nu pot deschide meniul context pentru ca selectia curenta contine "%s" care este doar psudo-director pentru redirector WOW64."
 13972,1,"Nu pot deschide Proprietati pentru ca selectia curenta contine "%s" care este doar psudo-director pentru redirector WOW64."
@@ -3354,7 +3429,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3363,14 +3438,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 14000,1,"[invalid]"
 14005,1,"Administrator"
 14010,1,"Va rugam introduceti o adresa de email valabila ca sa va putem ajuta cu problema raportata."
 14011,1,"Va rugam asteptati pana ce compresia si transmiterea de date este terminata."
 14012,1,"Sunteti sigur ca nu doriti sa ne raportati aceasta problema? Fara raportul dumneavoastra nu vom reusi sa rezolvam problema.\n\nDati click pe OK pentru a sterge raportul fara a ne comunica."
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 14020,1,"Fisierul transmis depaseste marimea alocata. Cod: %d."
 14021,1,"Fisierul transmis a fost doar partial transmis. Cod: %d."
 14022,1,"Nici un fisier nu a fost transmis. Cod: %d."
@@ -3381,7 +3456,7 @@ SLGINCOMPLETE,""
 14030,1,"Eroare de sintaxa in raspunsul serverului. Nu s-a gasit open tag."
 14031,1,"Eroare de sintaxa in raspunsul serverului. Nu s-a gasit close tag."
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 14032,1,"Eroare de sintaxa in raspunsul serverului. Nu s-a gasit value."
 14040,1,"Nu primesc date. Cod: %d."
 14041,1,"Nu pot inchide conexiunea. Cod: %d."
@@ -3391,7 +3466,7 @@ SLGINCOMPLETE,""
 14045,1,"Nu gasesc host name. Cod: %d."
 14046,1,"Nu pot initializa conexiunea. Cod: %d."
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14050,1,"Eroare la citirea fisierului %s"
 14051,1,"Memorie insuficienta"
 14052,1,"Obtinerea marimii fisierului care a esuat pentru %s"
@@ -3400,7 +3475,7 @@ SLGINCOMPLETE,""
 14062,1,"Raport Bug Open Salamander"
 14063,1,"Comprim, va rugam asteptati..."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14064,1,"Trasmit date, va rugam asteptati..."
 14065,1,"Raportul a fost transmis cu succes.\n\nVa multumim ca ne ajutati sa imbunatatim Open Salamander!"
 14066,1,"Transmiterea raportului a esuat, motiv: %s\n\nVa rugam sa ne trimiteti raportul la adresa de email support@altap.cz si sa il stergeti de pe disk-ul dumneavoastra. Dati OK pentru a vedea raportul."
@@ -3413,15 +3488,15 @@ SLGINCOMPLETE,""
 14074,1,"Nu pot crea fisierul minidump %s. Cod: %d."
 14075,1,"Eroare in timpul crearii minidump. Cod: %d."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14100,1,"Raportorul Bug Open Salamander (salmon.exe) nu ruleaza. Open Salamander nu va fi capabila sa rezolve posibile erori. Va rugam restartati Open Salamander."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14150,1,"Traducere Neterminata a Open Salamander"
 14151,1,"Traducerea Open Salamander in limba dumneavoastra nu este finalizata. Va rugam sa luati in considerare vizitarea forumului nostru de discutii si sa va alaturati echipei de traducere:"
 14155,1,"Nu pot trimite fisier sau director la Recycle Bin pentru ca are nume invalid.\n\nNume partial invalid:"%s"\n\nSfat: Incearca sa-l redenumesti inainte de a=l trimite la Recycle bin sau sa-l stergi de tot (incearca combinatia Shift+Delete)."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14160,1,"Nu pot incarca %s plugin. Acest plugin este disponibil doar in versiunea de x86 (32-bit) a Open Salamander. Va rog lansati versiunea x86 a Open Salamander pentru a folosi acest plugin. Ne pare rau pentru neplacerea creata."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3430,7 +3505,7 @@ SLGINCOMPLETE,""
 14170,1,"nu pot rezolva link"
 14171,1,"punctul de montare volum"
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14180,1,"Eroare In Obtinerea Link Marimii Fisierului Cautat"
 14181,1,"Incerci sa muti fisierele si directoarele selectate in arhiva. Acest lucru nu e posibil pentru ca selectia contine link catre director (punct de jonctiune, punct de montare volum,sau link symbolic). Te rog sa continui fara stergerea fisierelor de pe disk dupa pregatirea lor pentr arhivare.\n\nLink: %s"
 14185,1,"Operatiunea disk-ului este in progress."
@@ -3439,6 +3514,6 @@ SLGINCOMPLETE,""
 14188,1,"Windows-ul refuza anularea shutdown. Acest mesaj il va bloca temporar. Te rog asteapta sa anulezi manual shutdown inainte de a inchide acest mesaj, altfel Open Salamander va fi inchis brusc fara salvarea configuratiei."
 14189,1,"Windows-ul refuza anularea shutdown. Acest mesaj il va bloca temporar.\n\nAi niste operatii pe disk in progres. Vrei sa le anulezi acum? Click pe Nu ai anulat manual shutdown, altfel risti sa ai fisiere neterminate pe disk.\n\nTe rog asteapta sa anulezi manual shutdown inainte de a raspunde la aceasta intrebare, altfel Open Salamander va fi inchis brusc fara salvarea configuratiei."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14195,1,"Inchid ferestrele Find windows, te rog asteapta..."
 

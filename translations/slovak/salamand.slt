@@ -992,6 +992,7 @@ SLGINCOMPLETE,""
 
 [DIALOG 1105]
 330,231,1,"Panely"
+599,1,3,118,12,0,"&Use tabbed panels"
 596,1,3,228,12,1,"&Skryť súbory a adresáre s atribútmi Skrytý a Systémový (Ctrl+H)"
 302,1,15,178,12,1,"Za&hrnúť adresáre do operácií vybrať/zrušiť výber"
 1150,1,33,64,8,1,"&Zobrazovať názvy:"
@@ -1002,6 +1003,7 @@ SLGINCOMPLETE,""
 1156,40,71,288,1,1,""
 305,10,78,316,12,1,"Presmerovať pís&anie z panelu do príkazového riadku (držať klávesu Alt na rýchle hľadanie)"
 615,10,90,314,12,1,"Po&užívať Shift+číslica na prechod na adresárové skratky (koliduje s národnou klávesnicou)"
+617,10,102,156,12,0,"Show active panel &Tree View"
 1152,1,105,16,8,1,"Myš"
 1157,19,109,309,1,1,""
 315,10,116,279,12,1,"Klik&nutím pravým tlačidlom zobraziť miestnu ponuku (s Ctrl vybrať/zrušiť výber)"
@@ -1016,6 +1018,19 @@ SLGINCOMPLETE,""
 391,10,190,145,12,1,"Triediť pod&ľa času: novšie položky hore"
 395,10,202,176,12,1,"Tri&ediť podľa času: triediť adresáre podľa názvu"
 392,10,214,312,12,1,"Zaobchádzať s adresármi, ako by mali príp&ony (súčasne zobraziť prípony v stĺpci Prípona)"
+
+[DIALOG 1106]
+299,68,0,"Tabs"
+2690,1,3,162,8,0,"&Display current path in tab caption as:"
+2689,164,3,130,55,1,""
+2691,1,20,150,8,0,"&Minimal tab button width:"
+2692,164,18,40,12,1,""
+2695,208,20,30,8,0,"dp"
+2693,1,36,150,8,0,"Ma&ximal tab button width:"
+2694,164,34,40,12,1,""
+2696,208,36,30,8,0,"dp"
+2697,1,52,150,8,0,"Tab button caption align&ment:"
+2698,164,50,130,55,1,""
 
 [DIALOG 1110]
 330,231,1,"Klávesnica"
@@ -1325,14 +1340,17 @@ SLGINCOMPLETE,""
 
 [DIALOG 2645]
 330,231,1,"História"
-1151,1,4,262,16,1,"Môžete zvoliť, či nedávno používané hodnoty (história) budú uložené v registri ako časť konfigurácie Open Salamandera a pluginov."
-2646,1,24,66,12,1,"&Ukladať históriu"
-2650,11,37,142,12,1,"Ukladať zoznam pracovných &adresárov"
-1152,1,60,228,16,1,"Pre históriu príkazového riadku (môže obsahovať heslá) sú k dispozícii zvláštne voľby."
-2647,1,80,127,12,1,"&Povoliť históriu príkazového riadku"
-2648,1,93,123,12,1,"U&ložiť históriu príkazového riadku"
-1153,1,116,188,8,1,"Všetky dáta súvisiace s históriou môžete vymazať teraz."
-2649,1,126,75,14,1,"&Vymazať históriu..."
+1151,1,4,254,16,0,"You can choose whether recently used values (history) will be shared between panels/tabs or separate for each panel/tab."
+2651,1,22,180,10,0,"&Share history between panels/tabs"
+2652,1,34,140,10,0,"Keep history per &panel/tab"
+1152,1,64,254,16,1,"Môžete zvoliť, či nedávno používané hodnoty (história) budú uložené v registri ako časť konfigurácie Open Salamandera a pluginov."
+2646,1,84,54,12,1,"&Ukladať históriu"
+2650,11,97,118,12,1,"Ukladať zoznam pracovných &adresárov"
+1153,1,128,228,16,1,"Pre históriu príkazového riadku (môže obsahovať heslá) sú k dispozícii zvláštne voľby."
+2647,1,148,247,12,1,"&Povoliť históriu príkazového riadku"
+2648,1,161,247,12,1,"U&ložiť históriu príkazového riadku"
+1154,1,184,144,8,1,"Všetky dáta súvisiace s históriou môžete vymazať teraz."
+2649,1,194,60,14,1,"&Vymazať históriu..."
 
 [DIALOG 2660]
 193,159,1,"Načítať výber"
@@ -2118,6 +2136,11 @@ SLGINCOMPLETE,""
 10518,1,"Zobraziť skryté názvy"
 10519,1,"Otvoriť dokumenty"
 10520,1,"Inteligentný režim stĺpcov\tCtrl+N"
+10521,0,"New Tab"
+10522,0,"Close Tab"
+10523,0,"Next Tab"
+10524,0,"Previous Tab"
+10525,0,"Duplicate Tab"
 
 [STRINGTABLE 35]
 10530,1,"Názov premennej musí byť ukončený znakom ')'."
@@ -2177,6 +2200,7 @@ SLGINCOMPLETE,""
 10602,1,"Windows Explorer"
 10603,1,"Norton Commander"
 10604,1,"DOS Navigator"
+10605,0,"Windows Dark Mode (experimental)"
 
 [STRINGTABLE 40]
 10665,1,"Názov"
@@ -2332,6 +2356,8 @@ SLGINCOMPLETE,""
 [STRINGTABLE 52]
 10848,1,"&Áno"
 10849,1,"&Nie"
+10850,0,"Left"
+10851,0,"Center"
 10860,1,"Esc"
 10861,1,"F11"
 10862,1,"&Stredný panel nástrojov"
@@ -3046,6 +3072,7 @@ SLGINCOMPLETE,""
 13167,1,"&Importovať konfiguráciu..."
 
 [STRINGTABLE 116]
+13168,0,"&Tree View"
 13170,1,"P&ravý"
 13171,1,"Zmeniť &jednotku\tAlt+F2"
 
@@ -3062,8 +3089,55 @@ SLGINCOMPLETE,""
 [STRINGTABLE 118]
 13200,1,"O &programe Open Salamander"
 13202,1,"Oficiálne &fórum podpory"
+13210,0,"&New Tab"
+13211,0,"&Close Tab"
+13212,0,"&Next Tab"
+13213,0,"Pre&vious Tab"
+13214,0,"D&uplicate Tab"
 
 [STRINGTABLE 119]
+13220,0,"New &Tab\tCtrl+Shift+T"
+13221,0,"&Close Tab\tCtrl+Shift+W"
+13222,0,"&Next Tab\tCtrl+Shift+Page Down"
+13223,0,"&Previous Tab\tCtrl+Shift+Page Up"
+13224,0,"New &Tab\tAlt+Shift+T"
+13225,0,"&Close Tab\tAlt+Shift+W"
+13226,0,"&Next Tab\tAlt+Shift+Page Down"
+13227,0,"&Previous Tab\tAlt+Shift+Page Up"
+13228,0,"Close all &Left Side tabs except default"
+13229,0,"Close all &Right Side tabs except default"
+13230,0,"Set Tab &Color..."
+13231,0,"C&lear Tab Color"
+
+[STRINGTABLE 120]
+13232,0,"Set Tab &Color..."
+13233,0,"C&lear Tab Color"
+13234,0,"Set Tab &Prefix..."
+13235,0,"C&lear Tab Prefix"
+13236,0,"Set Tab &Prefix..."
+13237,0,"C&lear Tab Prefix"
+13238,0,"Set Tab Prefix"
+13239,0,"Enter a custom tab prefix for '%s' (leave empty to clear):"
+13240,0,"Duplicate Tab to &Right Side"
+13241,0,"Move Tab to &Right Side"
+13242,0,"Duplicate Tab to &Left Side"
+13243,0,"Move Tab to &Left Side"
+13244,0,"Close all &Left Side tabs except this and default"
+13245,0,"Close all &Right Side tabs except this and default"
+13246,0,"D&uplicate Tab"
+13247,0,"D&uplicate Tab"
+
+[STRINGTABLE 121]
+13248,0,"Reopen Closed &Tab"
+13249,0,"&Lock Tab"
+13250,0,"Un&lock Tab"
+13251,0,"Reopen Closed &Tab"
+13252,0,"&Lock Tab"
+13253,0,"Un&lock Tab"
+13260,0,"&Tabs"
+13261,0,"&Tabs"
+
+[STRINGTABLE 122]
 13300,1,"&Súbory"
 13301,1,"&Otvoriť\tEnter"
 13302,1,"Ukáz&ať\tMedzerník"
@@ -3077,7 +3151,7 @@ SLGINCOMPLETE,""
 13310,1,"&Užívateľská ponuka\tF9"
 13311,1,"Za&tvoriť\tAlt+F4"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13312,1,"&Skryť duplicitné názvy\tCtrl+Shift+H"
 13313,1,"Prí&kazy"
 13314,1,"V&lastnosti\tAlt+Enter"
@@ -3091,7 +3165,7 @@ SLGINCOMPLETE,""
 13326,1,"Kopírovať názov ako te&xt\tAlt+Shift+Insert"
 13327,1,"Kopírovať ces&tu ako text\tCtrl+Alt+Insert"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13328,1,"Kopírovať U&NC cestu + názov ako text\tCtrl+Shift+Insert"
 13330,1,"&Zobraziť"
 13331,1,"Zoradiť podľa &názvu\tCtrl+F3"
@@ -3103,7 +3177,7 @@ SLGINCOMPLETE,""
 13342,1,"Pri&dať aktuálny\tCtrl+N"
 13343,1,"&Spravovať...\tCtrl+M"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13344,1,"Povoliť len jedno &okno hľadania"
 13345,1,"Zobraziť &protokol hľadania...\tCtrl+L"
 13346,1,"Zoznam &ignorovaných adresárov...\tCtrl+G"
@@ -3115,7 +3189,7 @@ SLGINCOMPLETE,""
 13358,1,"Prip&ojiť k nájdeným položkám\tCtrl+W"
 13359,1,"Hľadať &duplicitné súbory...\tCtrl+D"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13360,1,"&Otvoriť\tEnter"
 13361,1,"Zo&braziť\tF3"
 13362,1,"Zob&raziť pomocou\tCtrl+Shift+F3"
@@ -3127,7 +3201,7 @@ SLGINCOMPLETE,""
 13368,1,"Kopírovať do schránk&y\tCtrl+C"
 13369,1,"V&ložiť\tCtrl+V"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13380,1,"Názov"
 13381,1,"Oddelená prípona"
 13382,1,"DOS názov (8.3)"
@@ -3138,14 +3212,14 @@ SLGINCOMPLETE,""
 13387,1,"Atribúty"
 13388,1,"Vlastnosti"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13400,1,"&Názov\tCtrl+F3"
 13401,1,"&Prípona\tCtrl+F4"
 13402,1,"&Veľkosť\tCtrl+F6"
 13403,1,"&Dátum\tCtrl+F5"
 13404,1,"&Atribúty"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13445,1,"Potvrdiť"
 13446,1,"Zobraziť správu"
 13450,1,"Zmazanie súboru alebo adresára (viď pozn. 1 nižšie)"
@@ -3155,7 +3229,7 @@ SLGINCOMPLETE,""
 13454,1,"Zmazanie adresára s atribútmi Skrytý alebo Systémový (viď pozn. 2 nižšie)"
 13455,1,"Prepísanie súboru s atribútmi Skrytý alebo Systémový (ignorované v archívoch)"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13456,1,"NTFS komprimácia alebo dekomprimácia (ignorované v archívoch)"
 13457,1,"NTFS šifrovanie alebo dešifrovanie (ignorované v archívoch)"
 13458,1,"Operácie pretiahnutia pomocou myši"
@@ -3167,7 +3241,7 @@ SLGINCOMPLETE,""
 13470,1,"Chcete zatvoriť okno Vyhľadať súbory a adresáre?"
 13471,1,"Chcete vytvoriť cieľovú cestu? (v operáciách Kopírovať/Presunúť)"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13472,1,"Chcete zapnúť voľbu Vždy navrchu?"
 13473,1,"Chcete zatvoriť Open Salamander?"
 13474,1,"Chcete poslať e-mail s vybranými súbormi?"
@@ -3176,10 +3250,10 @@ SLGINCOMPLETE,""
 13477,1,"Chystáte sa zatvoriť archív... (len pri úprave súborov z archívu)"
 13478,1,"Adresár neexistuje. Chcete ho vytvoriť?"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13551,1,"Chcete zatvoriť Open Salamander?"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13553,1,"(nie je)"
 13554,1,"Sieť"
 13555,1,"Pluginy"
@@ -3193,7 +3267,7 @@ SLGINCOMPLETE,""
 13563,1,"&Nabudúce zatvoriť Open Salamander bez opýtania\tako vrátiť naspäť\tTúto voľbu môžete neskôr zmeniť v Konfigurácii na stránke Potvrdenia."
 13564,1,"&Nabudúce vytvoriť adresár bez opýtania\tako vrátiť naspäť\tTúto voľbu môžete neskôr zmeniť v Konfigurácii na stránke Potvrdenia."
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13670,1,"Režim"
 13671,1,"Miniatúry"
 13672,1,"Stručný"
@@ -3202,7 +3276,7 @@ SLGINCOMPLETE,""
 13675,1,"Vyhradený"
 13676,1,"Dlaždice"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13680,1,"&Miniatúry"
 13681,1,"&Stručný"
 13682,1,"&Podrobný"
@@ -3212,19 +3286,19 @@ SLGINCOMPLETE,""
 13686,1,"Vyhradený"
 13687,1,"&Dlaždice"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13700,1,"Aktuálne priradené: %s"
 13701,1,"Táto klávesová skratka patrí Open Salamanderu. Zvoľte prosím inú."
 13710,1,"Kopírovať %s"
 13711,1,"Presunúť %s"
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13712,1,"Z:"
 13713,1,"Do:"
 13720,1,"Výstup príkazu Vytvoriť zoznam súborov"
 13725,1,"Vlastníci a oprávnenia nie je možné zachovať. Nie sú podporované\nna cieľovej ceste (ktorá nie je NTFS zväzok).\n\nChcete pokračovať?"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13730,1,"Poslať správu o chybe"
 13731,1,"Na  oznámenie chýb alebo žiadostí o novú vlastnosť programu prosím použite ponuku Nápoveda > Oficiálne fórum podpory.\n\nToto hlásenie chyby použite iba na odoslanie citlivých dát alebo pokiaľ Vás o to požiadame."
 13735,1,"&Preskočiť"
@@ -3235,7 +3309,7 @@ SLGINCOMPLETE,""
 13742,1,"Zdá sa, že nemáte žiadny jazykový modul (.SLG) pre tento plugin (pozrite sa do podadresáre pluginu LANG)."
 13743,1,"&Nabudúce nezobrazovať túto správu pre ostatné pluginy"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13750,1,"Konfigurácia uložená v registri je poškodená a nemôže byť načítaná. Open Salamander bol pravdepodobne ukončený počas ukladania konfigurácie. K tomu dochádza hlavne keď sa Open Salamander spúšťa počas vypínania operačného systému (alebo odhlasovania užívateľa). Ak tomu chcete zabrániť, ukončite Open Salamander pred vypnutím operačného systému Windows (alebo odhlásením).\n\nTeraz môžete zálohovať poškodenú konfiguráciu (spustite RegEdit.exe, premenujte kľúč HKEY_CURRENT_USER\\%s). Neskôr z tejto zálohy môžete získať niektoré nastavenia (Užívateľskú ponuku, Adresárové skratky, FTP záložky, atď.), navštívte forum.altap.cz pre podrobnosti.\n\nPoškodená konfigurácia musí byť pred spustením Open Salamandera odstránená z registra."
 13751,1,"Používate neštandardné hodnoty nasledujúcich parametrov používaných počas odhlásenia užívateľa a vypnutia operačného systému. Je to pravdepodobne príčina poškodenia konfigurácie Open Salamandera (je ukončený počas ukladania konfigurácie do registra).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout by mel byť 20000.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks by mal byť 0."
 13752,1,"&Odstrániť konfiguráciu"
@@ -3243,20 +3317,21 @@ SLGINCOMPLETE,""
 13756,1,"&Súbory"
 13757,1,"&Adresáre"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13760,1,"Súbor sa nedá skopírovať do zadanej cieľovej cesty, pretože je príliš veľký pre systém súborov FAT32.\n\nSúbor: %s"
 13765,1,"Cesta, na ktorú by mal Open Salamander prejsť v prípade, že je cesta v paneli nedostupná, je neplatná. Opravte prosím túto cestu v Konfigurácii na stránke Jednotky."
 13770,1,"Nie je možné umiestniť súbor do dočasného adresára."
 13771,1,"Výsledný názov súboru je príliš dlhý."
 13775,1,"Zlyhala operácia ťahania myšou z archívu alebo pluginového súborového systému. Prosím odstráňte nechcene vytvorený adresár DROPFAKE (ak existuje) z cieľového adresára.\n\nTáto situácia môže nastať jedine bezprostredne po inštalácii alebo ak cieľ ťahania myšou nie je Prieskumník ani Open Salamander. Ak je cieľ ťahania Prieskumník Windows, malo by problém vyriešiť reštartovanie Windows (pokročilí užívatelia môžu len ukončiť a znovu spustiť proces explorer.exe)."
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13776,1,"Predvolená"
 13777,1,"Červená"
 13778,1,"Zelená"
 13779,1,"Modrá"
+13780,0,"Samandarin"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13800,1,"%d hod"
 13801,1,"%d min"
 13802,1,"%d sek"
@@ -3264,21 +3339,21 @@ SLGINCOMPLETE,""
 13806,1,"Presunuté: %s z %s"
 13807,1,"rýchlosť: %s/s"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13808,1,"rýchlosť: %s/s (obmedzenie: %s/s)"
 13809,1,"zostávajúci čas: %s"
 13815,1,"Obmedzenie rýchlosti musí byť číslo v rozsahu 1 B/s až 4 GB/s."
 13820,1,"&Nastaviť obmedzenie rýchlosti..."
 13821,1,"&Čakať na dokončenie všetkých predchádzajúcich operácií Kopírovať/Presunúť"
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13825,1,"&Koniec"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13850,1,"Nie je možné uložiť konfiguráciu pluginu %s (chyba otvárania konfiguračného kľúče Open Salamandera).\n\nNaozaj chcete plugin uvoľniť z pamäti?"
 13855,1,"Názov"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13856,1,"Popis"
 13857,1,"Zmena prekryvov ikon sa prejaví až po reštartovaní Open Salamandera."
 13865,1,"Open Salamander sa stal nestabilný. Vyskytla sa výnimka v %s obslužnej rutine prekryvu ikon. Podobným haváriám Open Salamandera môžete predísť, ak nebudete používať túto rutinu (kliknite na tlačidlo Tento) alebo úplne zastavíte zobrazovanie prekryvov ikon (kliknite na tlačidlo Všetko). Môžete skúsiť aj aktualizovať softvér poskytujúci prekryvy ikon (prehľadajte forum.altap.cz pre podrobnosti).\n\nKtorú obslužnú rutinu prekryvov ikon chcete vypnúť?\n\nPoznámka: zobrazenie prekryvov ikon môžete nastaviť v konfiguračnom dialógu (viď stránka Prekryvy ikon)."
@@ -3287,7 +3362,7 @@ SLGINCOMPLETE,""
 13870,1,"Súbor config.reg (alebo iný zadaný s argumentom -c) nebol importovaný do registra kvôli importu konfigurácie zo staršej verzie Open Salamandera. Na vyriešenie tohto problému teraz ukončite Open Salamander a spustite ho znova."
 13871,1,"Aktualizovali ste Open Salamander na novú verziu. Počas aktualizácie sa importuje stará verzia konfigurácie. Stará verzia obsahovala pluginy (uvedené nižšie), ktoré chýbajú (alebo ktoré nefungujú) v novej verzii, preto ich konfigurácia nemôže byť teraz importovaná. Teraz môžete spustiť Open Salamander bez týchto pluginov (konfigurácia starej verzie zostáva v registri a tak ju môžete importovať neskôr). Alebo teraz ukončite Open Salamander, nainštalujte chýbajúce pluginy a znovu spustite Open Salamander.\n\nChýbajúce (alebo nefunkčné) pluginy: %s%s."
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13872,1,", %d ďalších pluginov preskočených"
 13873,1,"&Spustiť bez chýbajúcich pluginov"
 13880,1,"Nedostatok pamäti na pridelenie %Iu bajtov. Skúste uvoľniť pamäť (napríklad zavrite niektoré spustené aplikácie) a kliknite na tlačidlo Opakovať. Ak to nepomôže, kliknite na tlačidlo Ignorovať na predanie chyby aplikácii alebo kliknite na tlačidlo Prerušiť na ukončenie tejto aplikácie."
@@ -3296,7 +3371,7 @@ SLGINCOMPLETE,""
 13885,1,"Pripojené k %s"
 13886,1,"Neplatné heslo alebo neznáme meno užívateľa pre: %s"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13890,1,"Súbor"
 13891,1,"%s Súbor"
 13900,1,"Vaše heslo je príliš jednoduché a nemusí poskytovať dostatočné zabezpečenie proti slovníkovému útoku alebo útoku hrubou silou.\nNaozaj chcete heslo použiť?\n\nPoznámka: dobré heslá majú najmenej šesť znakov a obsahujú malé a veľké písmená, číslice a zvláštne znaky, ako oddeľovače, symboly, písmená s akcentom, atď."
@@ -3304,7 +3379,7 @@ SLGINCOMPLETE,""
 13902,1,"Heslo bolo úspešne zmenené"
 13903,1,"Hlavné heslo bolo odobrané. Vaše uložené heslá (napríklad FTP a WinSCP) nebudú zabezpečené."
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13904,1,"Hlavné heslo bolo úspešne zmenené. Vaše uložené heslá (napríklad FTP a WinSCP) sú teraz zabezpečené AES šifrou."
 13905,1,"Zadané hlavné heslo nie je správne. Opakujte akciu."
 13906,1,"Prechádzať adresár"
@@ -3314,7 +3389,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, spustené v %s, %s%s"
 13916,1,", aktuálny proces"
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13920,1,"Uložiť aktuálny názov súboru ako predvolený"
 13921,1,"Vrátiť predvolený názov súboru na %s"
 13925,1,"{!}Porovnávané adresáre obsahujú najmenej %d pár{|1|y|4|ov} súborov s časovým rozdielom presne jednej alebo dvoch hodín. {Tento rozdiel bol ignorovaný|1|Tieto rozdiely boli ignorované} ako súvisiace s letným časom. Je možné potlačiť v Konfigurácii na stránke Všeobecné."
@@ -3326,14 +3401,14 @@ SLGINCOMPLETE,""
 13933,1,"Uložiť možnosti ako predvolené"
 13934,1,"Obnoviť predvolené možnosti"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13945,1,"Ak chcete importovať konfiguráciu pri každom spustení programu Open Salamander, exportujte do inštalačného adresára súbor s názvom config.reg. Na importovanie iného súboru s konfiguráciou použite v príkazovom riadku parameter -C (napr. "salamand.exe -C myconfig.reg").\n\nOdporúčame pridať vyčistenie kľúča registra s konfiguráciou priamo do exportovaného súboru. Inak bude importovaná konfigurácia zlúčená s aktuálnou v registri, čo môže mať za následok nekonzistentnú konfiguráciu."
 13946,1,"Ak chcete importovať konfiguráciu pri každom spustení Open Salamandera, exportujte do dátového adresára aplikácie (alebo inštalačného adresára) súbor s názvom config.reg. Na importovanie iného súboru s konfiguráciou použite v príkazovom riadku parameter -C (napr. "salamand.exe -C myconfig.reg").\n\nOdporúčame pridať vyčistenie kľúča registra s konfiguráciou priamo do exportovaného súboru. Inak bude importovaná konfigurácia zlúčená s aktuálnou v registri, čo môže mať za následok nekonzistentnú konfiguráciu."
 13947,1,"&Pridať vyčistenie kľúča registra s konfiguráciou priamo do exportovaného súboru"
 13950,1,"Nie je možné otvoriť alebo čítať súbor s konfiguráciou.\n\nSúbor: %s\nChyba: %s"
 13951,1,"Súbor s konfiguráciou je príliš veľký.\n\nSúbor: %s"
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13952,1,"Nie je možné importovať zadaný súbor. Nie je to súbor s konfiguráciou.\n\nSúbor: %s"
 13953,1,"Nie je možné importovať súbor s konfiguráciou. Súbor má neplatný formát.\n\nSúbor: %s"
 13954,1,"Nie je možné importovať súbor s konfiguráciou do registra. Chyba zápisu do registra.\n\nSúbor: %s"
@@ -3341,7 +3416,7 @@ SLGINCOMPLETE,""
 13965,1,"Nie je možné exportovať konfiguráciu do súboru. Chyba pri čítaní konfigurácie z registra."
 13966,1,"Nie je možné exportovať konfiguráciu do súboru. Chyba zápisu konfigurácie do súboru.\n\nSúbor: %s"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13970,1,"Nie je možné otvoriť miestnu ponuku panelu, pretože cesta v paneli je pseudo-adresár pre presmerovač WOW64."
 13971,1,"Nie je možné otvoriť miestnu ponuku, pretože aktuálny výber obsahuje "%s", ktorý je pseudo-adresár pre presmerovač WOW64."
 13972,1,"Nie je možné otvoriť Vlastnosti, pretože aktuálny výber obsahuje "%s", ktorý je pseudo-adresár pre presmerovač WOW64."
@@ -3354,7 +3429,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3363,14 +3438,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 14000,1,"[neplatný]"
 14005,1,"Administrátor"
 14010,1,"Prosím zadajte platnú e-mailovú adresu, aby sme vám mohli pomôcť so zadaným problémom."
 14011,1,"Prosím počkajte, kým sa ukončí kompresia a nahrávanie."
 14012,1,"Určite nám nechcete dať vedieť o tomto probléme? Bez vášho oznámenia nebudeme schopní ho opraviť. \n\nKliknite na OK na vymazanie správy bez jej odoslania."
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 14020,1,"Nahraný súbor presahuje povolenú veľkosť. Kód: %d."
 14021,1,"Nahrávaný súbor bol nahraný iba čiastočne. Kód: %d."
 14022,1,"Žiadny súbor nebol nahraný. Kód: %d."
@@ -3381,7 +3456,7 @@ SLGINCOMPLETE,""
 14030,1,"Syntaktická chyba v odpovedi servera. Značka otvorenia nenájdená."
 14031,1,"Syntaktická chyba v odpovedi servera. Značka zatvorenia nenájdená."
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 14032,1,"Syntaktická chyba v odpovedi servera. Hodnota nenájdená."
 14040,1,"Nemôžem prijímať dáta. Kód: %d."
 14041,1,"Nemôžem zatvoriť pripojenie. Kód: %d."
@@ -3391,7 +3466,7 @@ SLGINCOMPLETE,""
 14045,1,"Nemôžem zistiť názov hostiteľa. Kód: %d."
 14046,1,"Nemôžem inicializovať pripojenie. Kód: %d."
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14050,1,"Chyba čítania súboru %s"
 14051,1,"Nedostatok pamäti"
 14052,1,"Získanie veľkosti súboru zlyhalo pre %s"
@@ -3400,7 +3475,7 @@ SLGINCOMPLETE,""
 14062,1,"Oznamovač chýb Open Salamander"
 14063,1,"Komprimovanie, prosím čakajte..."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14064,1,"Nahrávanie, prosím čakajte..."
 14065,1,"Správa bola úspešne nahraná.\n\nĎakujeme, že nám pomáhate zlepšovať Open Salamander!"
 14066,1,"Nahranie správy zlyhalo, dôvod: %s\n\nProsím pošlite nám správu pomocou e-mailu na support@altap.cz a vymažte ich z disku. Kliknite na OK na zobrazanie správy."
@@ -3413,15 +3488,15 @@ SLGINCOMPLETE,""
 14074,1,"Nemôžem vytvoriť súbor minidumpu %s. Kód: %d."
 14075,1,"Chyba počas vytvárania minidumpu. Kód: %d."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14100,1,"Oznamovač chýb Open Salamander (salmon.exe) nebeží. Open Salamander nebude schopný spracovať prípadné pády. Prosím reštartujte Open Salamander."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14150,1,"Nedokončený preklad Open Salamandera"
 14151,1,"Preklad Open Salamandera do vášho jazyka nie je dokončený. Prosím zvážte navštívenie nášho diskusného fóra a pridanie sa k prekladateľom:"
 14155,1,"Nie je možné odoslať súbor alebo adresár do Koša kvôli nesprávnemu názvu.\n\nNesprávna časť názvu: "%s"\n\nNápoveda: Skúste ho premenovať pred jeho odoslaním do Koša alebo ho úplne odstrániť (pomocou Shift+Delete)."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14160,1,"Nemôžem načítať plugin %s. Tento plugin je k dispozícii iba v x86 (32bitovej) verzii Open Salamandera. Ak tento plugin potrebujete, spustite si prosím x86 verziu Open Salamandera. Ospravedlňujeme sa za túto nepríjemnosť."
 14165,1,"Disk Google"
 14166,1,"Dropbox"
@@ -3430,7 +3505,7 @@ SLGINCOMPLETE,""
 14170,1,"nemôžem zistiť cieľ odkazu"
 14171,1,"pripájací bod zväzku"
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14180,1,"Chyba pri získaní veľkosti cieľového súboru odkazu"
 14181,1,"Snažíte sa presunúť vybrané súbory a adresáre do archívu. Toto nie je možné, pretože výber obsahuje odkaz na adresár (bod uzla, prípojný bod zväzku alebo symbolický odkaz). Prosím, pokračujte bez odstránenie súborov z disku po pridaní do archívu.\n\nOdkaz: %s"
 14185,1,"Prebieha disková operácia."
@@ -3439,6 +3514,6 @@ SLGINCOMPLETE,""
 14188,1,"Windows odmieta zrušiť vypnutie. Táto správa ho dočasne zablokuje. Prosím, počkajte na zrušenie vypnutia ručne pred zatvorením tejto správy, inak sa Open Salamander ukončí bez uloženia nastavenia."
 14189,1,"Windows odmieta zrušiť vypnutie. Táto správa ho dočasne zablokuje.\n\nMáte nejaké prebiehajúce diskové operácie. Chcete ich teraz prerušiť? Kliknite na Nie, iba ak ste ručne zrušili vypnutie, inak riskujete prítomnosť nedokončených súborov na vašom disku.\n\nProsím, počkajte na zrušenie vypnutia ručne pred odpoveďou na túto otázku, inak sa Open Salamander ukončí bez uloženia nastavenia."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14195,1,"Zatváram okná vyhľadávania, prosím čakajte..."
 

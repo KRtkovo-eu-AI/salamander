@@ -992,6 +992,7 @@ SLGINCOMPLETE,""
 
 [DIALOG 1105]
 324,231,1,"Panelek"
+599,1,3,118,12,0,"&Use tabbed panels"
 596,1,3,239,12,1,"Re&jtett vagy rendszer attribútumú fájlok és mappák rejtése (Ctrl+H)"
 302,1,15,182,12,1,"Almappákat is kijelölés/kijelölés törlése művelet&nél"
 1150,1,33,51,8,1,"Név mutatá&sa:"
@@ -1002,6 +1003,7 @@ SLGINCOMPLETE,""
 1156,44,71,278,1,1,""
 305,10,78,261,12,1,"Gépelés átirán&yítása panelről Parancssorra (ALT-ot nyomva Gyors keresés)"
 615,10,90,279,12,1,"Shift+szám a Gyors elérési útra &ugráshoz (gond lehet a nemzetközi bill.kiosztás)"
+617,10,102,156,12,0,"Show active panel &Tree View"
 1152,1,105,18,8,1,"Egér"
 1157,21,109,301,1,1,""
 315,10,116,258,12,1,"Jobb gombbal menü megnyitása (CTRL-ot nyomva kijelöl/kijelölés tö&rlése)"
@@ -1016,6 +1018,19 @@ SLGINCOMPLETE,""
 391,10,190,163,12,1,"Rendezés időrend szerin&t: újabb elemek felül"
 395,10,202,188,12,1,"Rendezés &idő szerint: mappák rendezése név szerint"
 392,10,214,268,12,1,"Mint&ha a mappáknak kiterjesztése lenne (kiterjesztés látszik a Kit oszlopban)"
+
+[DIALOG 1106]
+299,68,0,"Tabs"
+2690,1,3,162,8,0,"&Display current path in tab caption as:"
+2689,164,3,130,55,1,""
+2691,1,20,150,8,0,"&Minimal tab button width:"
+2692,164,18,40,12,1,""
+2695,208,20,30,8,0,"dp"
+2693,1,36,150,8,0,"Ma&ximal tab button width:"
+2694,164,34,40,12,1,""
+2696,208,36,30,8,0,"dp"
+2697,1,52,150,8,0,"Tab button caption align&ment:"
+2698,164,50,130,55,1,""
 
 [DIALOG 1110]
 324,231,1,"Billentyűzet"
@@ -1325,14 +1340,17 @@ SLGINCOMPLETE,""
 
 [DIALOG 2645]
 324,231,1,"Előzmény"
-1151,1,4,290,16,1,"Választhatja, hogy elmenti az utoljára használt értékeket (előzmény) a regisztrációs adatbázisba, ahogy az Open Salamander és plugin-ok beállításai is vannak."
-2646,1,24,76,12,1,"Előzmény menté&se"
-2650,11,37,126,12,1,"&Munkamappák listájának mentése"
-1152,1,60,228,16,1,"A parancssori előzményhez (ha jelszót tartalmazhat) választhat haladó beállítást."
-2647,1,80,247,12,1,"Parancssori előzmény &engedélyezése"
-2648,1,93,247,12,1,"P&arancssori előzmény mentése"
-1153,1,116,156,8,1,"Most törölhet minden eddigi előzmény adatot."
-2649,1,126,80,14,1,"E&lőzmény törlése..."
+1151,1,4,254,16,0,"You can choose whether recently used values (history) will be shared between panels/tabs or separate for each panel/tab."
+2651,1,22,180,10,0,"&Share history between panels/tabs"
+2652,1,34,140,10,0,"Keep history per &panel/tab"
+1152,1,64,254,16,1,"Választhatja, hogy elmenti az utoljára használt értékeket (előzmény) a regisztrációs adatbázisba, ahogy az Open Salamander és plugin-ok beállításai is vannak."
+2646,1,84,54,12,1,"Előzmény menté&se"
+2650,11,97,118,12,1,"&Munkamappák listájának mentése"
+1153,1,128,228,16,1,"A parancssori előzményhez (ha jelszót tartalmazhat) választhat haladó beállítást."
+2647,1,148,247,12,1,"Parancssori előzmény &engedélyezése"
+2648,1,161,247,12,1,"P&arancssori előzmény mentése"
+1154,1,184,144,8,1,"Most törölhet minden eddigi előzmény adatot."
+2649,1,194,60,14,1,"E&lőzmény törlése..."
 
 [DIALOG 2660]
 193,159,1,"Kijelölés betöltése"
@@ -2118,6 +2136,11 @@ SLGINCOMPLETE,""
 10518,1,"Rejtett nevek mutatása"
 10519,1,"Dokumentumok megnyitása"
 10520,1,"Okos oszlop mód\tCtrl+N"
+10521,0,"New Tab"
+10522,0,"Close Tab"
+10523,0,"Next Tab"
+10524,0,"Previous Tab"
+10525,0,"Duplicate Tab"
 
 [STRINGTABLE 35]
 10530,1,"A változó nevet ')'-el kell lezárni."
@@ -2177,6 +2200,7 @@ SLGINCOMPLETE,""
 10602,1,"Windows Explorer"
 10603,1,"Norton Commander"
 10604,1,"DOS Navigator"
+10605,0,"Windows Dark Mode (experimental)"
 
 [STRINGTABLE 40]
 10665,1,"Név"
@@ -2332,6 +2356,8 @@ SLGINCOMPLETE,""
 [STRINGTABLE 52]
 10848,1,"&Igen"
 10849,1,"&Nem"
+10850,0,"Left"
+10851,0,"Center"
 10860,1,"ESC"
 10861,1,"F11"
 10862,1,"Kö&zépső eszköztár"
@@ -3046,6 +3072,7 @@ SLGINCOMPLETE,""
 13167,1,"Beállítások &importálása..."
 
 [STRINGTABLE 116]
+13168,0,"&Tree View"
 13170,1,"&Jobb"
 13171,1,"Meghajtó &váltása\tAlt+F2"
 
@@ -3062,8 +3089,55 @@ SLGINCOMPLETE,""
 [STRINGTABLE 118]
 13200,1,"&Open Salamander névjegy"
 13202,1,"Hivatalos támogatási &fórum"
+13210,0,"&New Tab"
+13211,0,"&Close Tab"
+13212,0,"&Next Tab"
+13213,0,"Pre&vious Tab"
+13214,0,"D&uplicate Tab"
 
 [STRINGTABLE 119]
+13220,0,"New &Tab\tCtrl+Shift+T"
+13221,0,"&Close Tab\tCtrl+Shift+W"
+13222,0,"&Next Tab\tCtrl+Shift+Page Down"
+13223,0,"&Previous Tab\tCtrl+Shift+Page Up"
+13224,0,"New &Tab\tAlt+Shift+T"
+13225,0,"&Close Tab\tAlt+Shift+W"
+13226,0,"&Next Tab\tAlt+Shift+Page Down"
+13227,0,"&Previous Tab\tAlt+Shift+Page Up"
+13228,0,"Close all &Left Side tabs except default"
+13229,0,"Close all &Right Side tabs except default"
+13230,0,"Set Tab &Color..."
+13231,0,"C&lear Tab Color"
+
+[STRINGTABLE 120]
+13232,0,"Set Tab &Color..."
+13233,0,"C&lear Tab Color"
+13234,0,"Set Tab &Prefix..."
+13235,0,"C&lear Tab Prefix"
+13236,0,"Set Tab &Prefix..."
+13237,0,"C&lear Tab Prefix"
+13238,0,"Set Tab Prefix"
+13239,0,"Enter a custom tab prefix for '%s' (leave empty to clear):"
+13240,0,"Duplicate Tab to &Right Side"
+13241,0,"Move Tab to &Right Side"
+13242,0,"Duplicate Tab to &Left Side"
+13243,0,"Move Tab to &Left Side"
+13244,0,"Close all &Left Side tabs except this and default"
+13245,0,"Close all &Right Side tabs except this and default"
+13246,0,"D&uplicate Tab"
+13247,0,"D&uplicate Tab"
+
+[STRINGTABLE 121]
+13248,0,"Reopen Closed &Tab"
+13249,0,"&Lock Tab"
+13250,0,"Un&lock Tab"
+13251,0,"Reopen Closed &Tab"
+13252,0,"&Lock Tab"
+13253,0,"Un&lock Tab"
+13260,0,"&Tabs"
+13261,0,"&Tabs"
+
+[STRINGTABLE 122]
 13300,1,"&Fájlok"
 13301,1,"&Megnyitás\tEnter"
 13302,1,"&Fókusz\tSpace"
@@ -3077,7 +3151,7 @@ SLGINCOMPLETE,""
 13310,1,"E&gyéni menü\tF9"
 13311,1,"&Bezárás\tAlt+F4"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13312,1,"Du&pla nevek rejtése\tCtrl+Shift+H"
 13313,1,"&Parancsok"
 13314,1,"T&ulajdonságok\tAlt+Enter"
@@ -3091,7 +3165,7 @@ SLGINCOMPLETE,""
 13326,1,"Né&v másolása szövegként\tAlt+Shift+Insert"
 13327,1,"&Elérési út másolás szövegként\tCtrl+Alt+Insert"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13328,1,"U&NC elérés + Név másolása szövegként\tCtrl+Shift+Insert"
 13330,1,"&Nézet"
 13331,1,"Rendezés &név szerint\tCtrl+F3"
@@ -3103,7 +3177,7 @@ SLGINCOMPLETE,""
 13342,1,"&Aktuális hozzáadása\tCtrl+N"
 13343,1,"&Kezelés...\tCtrl+M"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13344,1,"&Egy keresés ablak engedélyezése"
 13345,1,"Keresési nap&ló...\tCtrl+L"
 13346,1,"Átugrandó mappák l&istája...\tCtrl+G"
@@ -3115,7 +3189,7 @@ SLGINCOMPLETE,""
 13358,1,"T&alált elemekhez fűzés\tCtrl+W"
 13359,1,"&Dupla fájlok keresése...\tCtrl+D"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13360,1,"&Megnyitás\tEnter"
 13361,1,"&Nézet\tF3"
 13362,1,"Me&gnézés ezzel\tCtrl+Shift+F3"
@@ -3127,7 +3201,7 @@ SLGINCOMPLETE,""
 13368,1,"Másolás &vágólapra\tCtrl+C"
 13369,1,"&Beillesztés\tCtrl+V"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13380,1,"Név"
 13381,1,"Elválasztott kiterjesztés"
 13382,1,"DOS név (8.3)"
@@ -3138,14 +3212,14 @@ SLGINCOMPLETE,""
 13387,1,"Attribútum"
 13388,1,"Leírás"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13400,1,"&Név\tCtrl+F3"
 13401,1,"Kit&erjesztés\tCtrl+F4"
 13402,1,"&Méret\tCtrl+F6"
 13403,1,"&Idő\tCtrl+F5"
 13404,1,"&Attribútum"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13445,1,"Megerősítés kérés"
 13446,1,"Üzenet kiírás"
 13450,1,"Fájl vagy mappa törlése (megjegyzés 1 szerint)"
@@ -3155,7 +3229,7 @@ SLGINCOMPLETE,""
 13454,1,"Rendszer és rejtett mappa törlése (megjegyzés 2 szerint)"
 13455,1,"Rendszer és rejtett fájl felülírása (archívumban nem)"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13456,1,"NTFS tömörítés vagy kitömörítés (archívumban nem)"
 13457,1,"NTFS titkosítás vagy dekódolás (archívumban nem)"
 13458,1,"Fogd és vidd műveletek"
@@ -3167,7 +3241,7 @@ SLGINCOMPLETE,""
 13470,1,"Be akarja zárni a keresést?"
 13471,1,"Létre akarja hozni a célt? (Másolás/áthelyezés műveletkor)"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13472,1,"Be akarja kapcsolni a Mindig felül parancsot?"
 13473,1,"Be akarja zárni az Open Salamander-t?"
 13474,1,"Elküldi Email-ben a kijelölt fájlt?"
@@ -3176,10 +3250,10 @@ SLGINCOMPLETE,""
 13477,1,"Az archívum bezáródik... (csak ha az archívum fájljai szerkesztve)"
 13478,1,"A mappa nem létezik. Létre akarja hozni?"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13551,1,"Be akarja zárni az Open Salamander-t?"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13553,1,"(nincs)"
 13554,1,"Hálózat"
 13555,1,"Pluginok"
@@ -3193,7 +3267,7 @@ SLGINCOMPLETE,""
 13563,1,"&Open Salamander bezárása kérdés nélkül\tvisszaállítás\tKésőbb módosíthatja a Beállítások, Megerősítések oldalán."
 13564,1,"&Mappa létrehozása kérdés nélkül\tvisszaállítás\tKésőbb módosíthatja a Beállítások, Megerősítések oldalán."
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13670,1,"Mód"
 13671,1,"Bélyegkép"
 13672,1,"Levél"
@@ -3202,7 +3276,7 @@ SLGINCOMPLETE,""
 13675,1,"Foglalt"
 13676,1,"Mozaik"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13680,1,"&Bélyegkép"
 13681,1,"&Levél"
 13682,1,"Részl&etes"
@@ -3212,19 +3286,19 @@ SLGINCOMPLETE,""
 13686,1,"Foglalt"
 13687,1,"Mozai&k"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13700,1,"Jelenleg hozzárendelve: %s"
 13701,1,"A parancsikon az Open Salamander-hez tartozik. Válasszon egy másikat."
 13710,1,"%s másolása"
 13711,1,"%s áthelyezése"
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13712,1,"Innen:"
 13713,1,"Ide:"
 13720,1,"Fájllista készítése"
 13725,1,"A tulajdonosok és a jogosultságok nem maradnak meg. Nem támogatottak\na cél elérési úton (nem NTFS kötet).\n\nAkarja folytatni?"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13730,1,"Hiba jelentése"
 13731,1,"Hiba jelentéséhez vagy szolgáltatás kéréséhez, használja a Súgó > Hivatalos támogatási fórum menüpontot.\n\nA hibajelentést csak kényes adatok küldésére használja vagy mikor mi kérjük rá."
 13735,1,"&Kihagy"
@@ -3235,7 +3309,7 @@ SLGINCOMPLETE,""
 13742,1,"Úgy látszik nincs nyelvi modul (.SLG) ehhez a plugin-hoz (a plugin LANG almappájában)."
 13743,1,"&Ne mutassa az üzenetet a többi plugin-nál"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13750,1,"A beállítást tároló regisztrációs bejegyzés sérült és nem tölthető be. Az Open Salamander valószínűleg leállt a beállítások mentése közben. Ez történik, ha az Open Salamander még fut, mikor leállítja a rendszert (vagy kijelentkezik). Hogy megelőzze a problémát, zárja be az Open Salamander-t a leállítás előtt (vagy kijelentkezésnél).\n\nMost készíthet biztonsági mentést a beállításokról (RegEdit.exe futtatása, kulcs átnevezése: HKEY_CURRENT_USER\\%s). Később kinyerhet a mentésből néhány beállítást (Egyéni menü, Gyors elérések, FTP könyvjelzők, stb.), részletek a forum.altap.cz oldalon.\n\nA sérült beállítások törlődnek a regisztrációs adatbázisból."
 13751,1,"Nem elfogadott paraméterértékeket használ a Kijelentkezés és Lekapcsolás során. Valószínűleg megsérült az Open Salamander beállítása (megszakadt a beállítások mentése közben).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout értékének 20000-nek kellene lennie.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks értékének 0-nak kellene lennie."
 13752,1,"Beállítás tö&rlése"
@@ -3243,20 +3317,21 @@ SLGINCOMPLETE,""
 13756,1,"&Fájlok"
 13757,1,"&Mappák"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13760,1,"A fájl nem másolható a megadott helyre, mert túl nagy a FAT32 fájlrendszerhez.\n\nFájl: %s"
 13765,1,"Az elérési út, ahova a panelnek elérhetetlen elérési út esetén kell ugrania, érvénytelen, javítsa ki az elérési utat a Beállítások, Meghajtók oldalán."
 13770,1,"A fájl nem rakható az ideiglenes mappába."
 13771,1,"Az eredményezett fájlnév túl hosszú."
 13775,1,"Archívumból vagy fájlrendszer pluginból indított Fogd-és-vidd művelet sikertelen. Távolítsa el a nemkívánatosan létrejött mappát (ha van) a célmappából.\n\nEz csak közvetlen a telepítés után történhet vagy ha az áthúzási cél nem Windows Explorer vagy nem Open Salamander. Ha az áthúzási cél Windows Explorer, indítsa újra a Windows-t a probléma megoldásához (profi felhasználók csak lőjék ki az explorer.exe folyamatot és indítsák újra)."
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13776,1,"Alapértelmezett"
 13777,1,"Vörös"
 13778,1,"Zöld"
 13779,1,"Kék"
+13780,0,"Samandarin"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13800,1,"%d óra"
 13801,1,"%d perc"
 13802,1,"%d mp"
@@ -3264,21 +3339,21 @@ SLGINCOMPLETE,""
 13806,1,"%s / %s áthelyezve"
 13807,1,"sebesség: %s/s"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13808,1,"sebesség: %s/s (határ: %s/s)"
 13809,1,"hátralevő idő: %s"
 13815,1,"A sebességhatárnak 1 B/s és 4 GB/s érték között kell lennie."
 13820,1,"S&ebességhatár..."
 13821,1,"&Várjon, míg minden másolás/áthelyezés befejeződik"
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13825,1,"&Kilépés"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13850,1,"A(z) %s plugin beállításai nem menthetők (hiba az Open Salamander beállítási kulcsának betöltésekor).\n\nÍgy is le akarja állítani?"
 13855,1,"Név"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13856,1,"Leírás"
 13857,1,"Ikon felülírások nem jelennek meg az Open Salamander újraindításáig."
 13865,1,"Az Open Salamander instabillá vált. Egy kezelhetetlen kivétel lépett fel a(z) %s ikon felülírás kezelőben. Megakadályozhatja a hasonló összeomlásokat, ha az Open Salamander nem használja többet ezt a kezelőt (Ezt gomb) vagy leállítva az összes egyéni ikon megjelenítőt (Mind gomb). Megpróbálhatja a szoftvert frissíteni, a kezelőtől függően (részleteket a forum.altap.cz oldalon keressen).\n\nMelyik ikon felülírási kezelőt akarja kikapcsolni?\n\nMegj.: a beállítások ablakban módosíthatja az ikon felülírásokat (Ikon felülírások oldal)."
@@ -3287,7 +3362,7 @@ SLGINCOMPLETE,""
 13870,1,"A config.reg fájl (vagy egyéb -c paraméterrel megadott fájl) nem importálható a regisztrációs bejegyzésekbe, mert egy régebbi Open Salamander verzió beállításait tartalmazza. Most lépjen ki az Open Salamander-ből és indítsa újra a probléma megoldásához."
 13871,1,"Az Open Salamander-t új verzióra frissítette. Most beimportálhatja a régi verzió beállításait. A régi verzió tartalmaz néhány olyan plugin-t (lenti lista) melyek hiányoznak (vagy melyek nem működnek) az új verzióban, így ezek a beállítások most nem importálhatók be. Elindíthatja az Open Salamander-t ezen plugin-ok nélkül (a régi verzió beállításai megmaradnak a regisztrációs adatbázisban, így később is beimportálhatja őket). Vagy lépjen ki az Open Salamander-ből, telepítse a hiányzó plugin-okat, és indítsa el újra az Open Salamander-t.\n\nHiányzó (vagy nem működő) plugin-ek: %s%s."
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13872,1,", %d további plugin kihagyva"
 13873,1,"Indítá&s a hiányzó Plugin-ek nélkül"
 13880,1,"Kevés a memória a(z) %Iu bájt lefoglalásához. Próbáljon felszabadítani némi memóriát (pl. zárjon be néhány futó programot) és kattintson az Újra gombra. Ha ez sem segít, válassza a Kihagy gombot a memóriafoglalási hiba átlépéséhez vagy a Megszakítás gombbal állítsa le az alkalmazást."
@@ -3296,7 +3371,7 @@ SLGINCOMPLETE,""
 13885,1,"Csatlakozás: %s"
 13886,1,"Érvénytelen jelszó vagy ismeretlen felhasználónév: %s"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13890,1,"Fájl"
 13891,1,"%s fájl"
 13900,1,"A jelszava túl egyszerű és talán nem nyújt elég nagy biztonságot a szótáras vagy brute force támadások ellen.\nBiztos ezt akarja használni?\n\nmegjegyzés: a jó jelszó legalább hat karakteres, kis- és nagybetűt, számot és speciális karaktert is tartalmaz, mint a kötőjel, szimbólum, ékezetes betűk stb."
@@ -3304,7 +3379,7 @@ SLGINCOMPLETE,""
 13902,1,"Jelszó sikeresen módosítva"
 13903,1,"Törölte a mester jelszót. A tárolt jelszavai (pl. FTP és WinSCP) védtelenek lesznek."
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13904,1,"A mester jelszó sikeresen módosítva. A tárolt jelszavai (pl. FTP és WinSCP) már AES titkosítással vannak védve."
 13905,1,"Helytelenül adta meg a mester jelszót. Próbálja újra."
 13906,1,"Mappa böngészése"
@@ -3314,7 +3389,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, kezdés: %s, %s%s"
 13916,1,", aktuális folyamat"
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13920,1,"Aktuális fájlnév mentése alapértelmezettként"
 13921,1,"Alapértelmezett fájlnév visszaállítása erre: %s"
 13925,1,"{!}Az összehasonlított mappák legalább %d pár{|1|} fájlt tartalmaznak pontosan 1 vagy 2 órás eltéréssel. Ez a különbség {|1|} a DST (nyári időszámítás miatt figyelmen kívül lett hagyva. A Beállítások Általános részében kikapcsolhatja."
@@ -3326,14 +3401,14 @@ SLGINCOMPLETE,""
 13933,1,"Beállítások mentése alapértelmezettként"
 13934,1,"Beállítások visszaállítása és alapértelmezése"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13945,1,"Ha az Open Salamander minden indulásakor beállításokat akar importálni, exportálja ki a telepítési mappába config.reg néven.  A  -C parancssori paraméterrel (pl. "salamand.exe -C myconfig.reg") beimportálhat egyéb konfigurációs fájlt.\n\nJavasoljuk, hogy adjon hozzá regisztrációs kulcstörlést a kiexportált fájlhoz. Egyéb esetben az importált beállítás egyesül az aktuális regisztrációs adatokkal és összeférhetetlenséget okozhat."
 13946,1,"Ha az Open Salamander minden indulásakor beállításokat akar importálni, exportálja ki a program adatmappájába (vagy telepítési mappájába) config.reg névvel. A  -C parancssori paraméterrel (pl. "salamand.exe -C myconfig.reg") beimportálhat egyéb konfigurációs fájlt.\n\nJavasoljuk, hogy adjon hozzá regisztrációs kulcstörlést a kiexportált fájlhoz. Egyéb esetben az importált beállítás egyesül az aktuális regisztrációs adatokkal és összeférhetetlenséget okozhat."
 13947,1,"Regisztrációs kulcstörlés hozzá&adása az exportált fájlhoz"
 13950,1,"A konfigurációs fájl nem olvasható vagy nyitható meg.\n\nFájl: %s\nHiba: %s"
 13951,1,"A konfigurációs fájl túl nagy.\n\nFájl: %s"
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13952,1,"A megadott fájl nem importálható. Nem konfigurációs fájl.\n\nFájl: %s"
 13953,1,"A konfigurációs fájl nem importálható. Érvénytelen formátumú.\n\nFájl: %s"
 13954,1,"A konfigurációs fájl nem importálható a regisztrációs adatbázisba. Regisztrációs adatbázis írási hiba.\n\nFájl: %s"
@@ -3341,7 +3416,7 @@ SLGINCOMPLETE,""
 13965,1,"A beállítások nem exportálhatók fájlba. Regisztrációs adatbázis olvasási hiba."
 13966,1,"A beállítások nem exportálhatók fájlba. Fájlba írási hiba.\n\nFájl: %s"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13970,1,"Nem nyitható meg a panel környezeti menüje, mert a panel elérési útja a WOW64 átirányító álmappája."
 13971,1,"A környezeti menü, mert az aktuális kijelölés ezt tartalmazza: "%s", mely a WOW64 átirányító álmappája."
 13972,1,"A Tulajdonság ablak nem nyitható meg, mert az aktuális kijelölés ezt tartalmazza: "%s", mely a WOW64 átirányító álmappája."
@@ -3354,7 +3429,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3363,14 +3438,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 14000,1,"[érvénytelen]"
 14005,1,"Rendszergazda"
 14010,1,"Érvényes e-mail címet adjon meg, hogy segíthessen a jelentett problémában."
 14011,1,"Kérem várjon a tömörítés és a feltöltés befejezésére."
 14012,1,"Biztos nem akar minket tájékoztatni a problémáról? A jelentése nélkül, nem leszünk képesek javítani azt.\n\nA jelentés törléséhez OK gomb."
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 14020,1,"A feltöltött fájl meghaladja az engedélyezett méretet. Kód: %d."
 14021,1,"A feltöltött fájl csak részben lett feltöltve. Kód: %d."
 14022,1,"nem lett fájl feltöltve. Kód: %d."
@@ -3381,7 +3456,7 @@ SLGINCOMPLETE,""
 14030,1,"Szintaktikai hiba a szerver válaszában. Nincs nyitó címke."
 14031,1,"Szintaktikai hiba a szerver válaszában. Nincs záró címke."
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 14032,1,"Szintaktikai hiba a szerver válaszában. Nincs érték."
 14040,1,"Nem fogadható adat. Kód: %d."
 14041,1,"Nem zárható le a kapcsolat. Kód: %d."
@@ -3391,7 +3466,7 @@ SLGINCOMPLETE,""
 14045,1,"Nem oldható fel a gazda neve. Kód: %d."
 14046,1,"A kapcsolat nem inicializálható. Kód: %d."
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14050,1,"Sikertelen olvasás: %s"
 14051,1,"Kevés a memória"
 14052,1,"A fájl méretének lekérése sikertelen: %s"
@@ -3400,7 +3475,7 @@ SLGINCOMPLETE,""
 14062,1,"Open Salamander Hibajelentő"
 14063,1,"Tömörítés, kérem várjon..."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14064,1,"Feltöltés, kérem várjon..."
 14065,1,"Jelentés sikeresen feltöltve.\n\nKöszönjük, hogy segít nekünk az Open Salamander tökéletesítésében!"
 14066,1,"Jelentés feltöltése sikertelen, oka: %s\n\nKérem küldje el a jelentést a support@altap.cz e-mail címre és törölje azt a gépről. Jelentés megjelenítéséhez OK gomb."
@@ -3413,15 +3488,15 @@ SLGINCOMPLETE,""
 14074,1,"Minidump fájl létrehozása sikertelen: %s. Kód: %d."
 14075,1,"Hiba a minidump létrehozása közben. Kód: %d."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14100,1,"Az Open Salamander Bug Reporter (salmon.exe) nem fut. Az Open Salamander nem lesz képes kezelni a potenciális összeomlásokat. Kérem indítsa újra az Open Salamander-t."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14150,1,"Befejezetlen Open Salamander fordítás"
 14151,1,"Az Open Salamander fordítása az Ön nyelvére, még nem fejeződött be. Kérem látogassa meg fórumunkat és csatlakozzon a fordítási törekvésünkhöz:"
 14155,1,"A fájl vagy mappa lomtárba küldése sikertelen, mert érvénytelen névvel rendelkezik.\n\nA név érvénytelen része: "%s"\n\nTipp: Próbálja átnevezni, mielőtt a lomtárba küldi vagy véglegesen törli (Shift+Delete kombináció)."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14160,1,"A plugin nem tölthető be: %s. Ez a plugin csak az Open Salamander x86-os (32-bit) verziójában érhető el. Az Open Salamander x86-os verzióját indítsa el, a plugin használatához. Sajnáljuk a kellemetlenséget."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3430,7 +3505,7 @@ SLGINCOMPLETE,""
 14170,1,"a link nem oldható fel"
 14171,1,"kötet csatlakozási pont"
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14180,1,"Fájlméreti beolvasási hiba a link célján"
 14181,1,"A kijelölt fájlokat és mappákat archívumba próbálta mozgatni. Ez nem lehetséges, mivel a kijelölés mappára mutató linket is tartalmaz (csatlakozási pont, kötetcsatlakozási pont vagy szimbolikus hivatkozás). Kérem, úgy folytassa, hogy az archívumba csomagolás után nem törli a fájlokat.\n\nLink: %s"
 14185,1,"Lemezművelet folyamatban."
@@ -3439,6 +3514,6 @@ SLGINCOMPLETE,""
 14188,1,"A Windows elutasítja a leállítás megszakítását. Ez az üzenet ideiglenesen blokkolja. Kérem, manuálisan szakítsa meg a leállítást, mielőtt bezárja ezt az üzenetet, különben az Open Salamander a beállítások mentése nélkül áll le."
 14189,1,"A Windows elutasítja a leállítás megszakítását. Ez az üzenet ideiglenesen blokkolja.\n\nNéhány lemezművelet még folyamtban van. Meg akarja őket szakítani? Csak akkor válassza, hogy Nem, ha manuálísan megszakította a leállítást, különben kockáztatja, hogy befejezetlen fájlok maradhatnak a lemezen.\n\nKérem, manuálisan szakítsa meg a leállítást, mielőtt bezárja ezt az üzenetet, különben az Open Salamander a beállítások mentése nélkül áll le."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14195,1,"Keres ablak bezárása, kérem várjon..."
 

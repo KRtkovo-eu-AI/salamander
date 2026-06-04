@@ -992,6 +992,7 @@ SLGINCOMPLETE,""
 
 [DIALOG 1105]
 337,231,1,"Dateifenster"
+599,1,3,118,12,0,"&Use tabbed panels"
 596,1,3,279,12,1,"Dateien/Verzeichnisse mit &Versteckt- oder System-Attribut ausblenden (Strg+H)"
 302,1,15,198,12,1,"Verzeich&nisse bei Auswahl-Operationen mit einbeziehen"
 1150,1,33,50,8,1,"&Zeige Namen:"
@@ -1002,6 +1003,7 @@ SLGINCOMPLETE,""
 1156,33,71,302,1,1,""
 305,10,78,282,12,1,"&Eingaben im Fenster in die Befehlszeile umleiten (ALT drücken für Schnellsuche)"
 615,10,90,293,12,1,"Mit Umschalt+Ziffer F&avoriten wählen (bei Konflikten mit nationalem Tastaturlayout)"
+617,10,102,156,12,0,"Show active panel &Tree View"
 1152,1,105,20,8,1,"Maus"
 1157,23,109,312,1,1,""
 315,10,116,224,12,1,"&Rechtsklick öffnet Kontextmenü (STRG drücken für Auswählen)"
@@ -1016,6 +1018,19 @@ SLGINCOMPLETE,""
 391,10,190,191,12,1,"Bei Sor&tierung nach Zeit: neuere Einträge nach oben"
 395,10,202,220,12,1,"Bei Sortierung nach Ze&it: Verzeichnisse nach Namen sortieren"
 392,10,214,296,12,1,"Verzeichnisse wie Er&weiterungen behandeln (Erweiterungen in Erw-Spalte anzeigen)"
+
+[DIALOG 1106]
+299,68,0,"Tabs"
+2690,1,3,162,8,0,"&Display current path in tab caption as:"
+2689,164,3,130,55,1,""
+2691,1,20,150,8,0,"&Minimal tab button width:"
+2692,164,18,40,12,1,""
+2695,208,20,30,8,0,"dp"
+2693,1,36,150,8,0,"Ma&ximal tab button width:"
+2694,164,34,40,12,1,""
+2696,208,36,30,8,0,"dp"
+2697,1,52,150,8,0,"Tab button caption align&ment:"
+2698,164,50,130,55,1,""
 
 [DIALOG 1110]
 337,231,1,"Tastatur"
@@ -1325,14 +1340,17 @@ SLGINCOMPLETE,""
 
 [DIALOG 2645]
 337,231,1,"Verlauf"
-1151,1,4,289,16,1,"Sie können einstellen ob vor kurzem verwendete Werte (Verlauf) in der Registry als Teil der Konfiguration des Open Salamanders gespeichert werden sollen."
-2646,1,24,71,12,1,"Verlauf &speichern"
-2650,11,37,168,12,1,"Liste der ver&wendeten Verzeichnisse speichern"
-1152,1,60,264,16,1,"Für den Befehlszeilenverlauf (kann Passwörter enthalten!) können Sie spezifische Optionen wählen."
-2647,1,80,247,12,1,"Verlauf der B&efehlszeile aktivieren"
-2648,1,93,247,12,1,"Verlauf der Befehlszeile s&peichern"
-1153,1,116,209,8,1,"Sie können auch alle relevanten Daten des Verlaufes löschen."
-2649,1,126,74,14,1,"Verlauf &löschen..."
+1151,1,4,254,16,0,"You can choose whether recently used values (history) will be shared between panels/tabs or separate for each panel/tab."
+2651,1,22,180,10,0,"&Share history between panels/tabs"
+2652,1,34,140,10,0,"Keep history per &panel/tab"
+1152,1,64,254,16,1,"Sie können einstellen ob vor kurzem verwendete Werte (Verlauf) in der Registry als Teil der Konfiguration des Open Salamanders gespeichert werden sollen."
+2646,1,84,54,12,1,"Verlauf &speichern"
+2650,11,97,118,12,1,"Liste der ver&wendeten Verzeichnisse speichern"
+1153,1,128,228,16,1,"Für den Befehlszeilenverlauf (kann Passwörter enthalten!) können Sie spezifische Optionen wählen."
+2647,1,148,247,12,1,"Verlauf der B&efehlszeile aktivieren"
+2648,1,161,247,12,1,"Verlauf der Befehlszeile s&peichern"
+1154,1,184,144,8,1,"Sie können auch alle relevanten Daten des Verlaufes löschen."
+2649,1,194,60,14,1,"Verlauf &löschen..."
 
 [DIALOG 2660]
 193,159,1,"Auswahl laden"
@@ -2118,6 +2136,11 @@ SLGINCOMPLETE,""
 10518,1,"Ausgeblendete Namen anzeigen"
 10519,1,"'Eigene Dateien' öffnen"
 10520,1,"Intelligenter Spaltenmodus\tStrg+N"
+10521,0,"New Tab"
+10522,0,"Close Tab"
+10523,0,"Next Tab"
+10524,0,"Previous Tab"
+10525,0,"Duplicate Tab"
 
 [STRINGTABLE 35]
 10530,1,"Der Variablenname muss mit ')' abgeschlossen werden."
@@ -2177,6 +2200,7 @@ SLGINCOMPLETE,""
 10602,1,"Windows Explorer"
 10603,1,"Norton Commander"
 10604,1,"DOS Navigator"
+10605,0,"Windows Dark Mode (experimental)"
 
 [STRINGTABLE 40]
 10665,1,"Name"
@@ -2332,6 +2356,8 @@ SLGINCOMPLETE,""
 [STRINGTABLE 52]
 10848,1,"&Ja"
 10849,1,"&Nein"
+10850,0,"Left"
+10851,0,"Center"
 10860,1,"ESC"
 10861,1,"F11"
 10862,1,"&Mittlere Symbolleiste"
@@ -3046,6 +3072,7 @@ SLGINCOMPLETE,""
 13167,1,"Konfiguration &importieren..."
 
 [STRINGTABLE 116]
+13168,0,"&Tree View"
 13170,1,"&Rechts"
 13171,1,"Laufwerk &wechseln\tAlt+F2"
 
@@ -3062,8 +3089,55 @@ SLGINCOMPLETE,""
 [STRINGTABLE 118]
 13200,1,"Über &Open Salamander"
 13202,1,"&Offizielles Supportforum"
+13210,0,"&New Tab"
+13211,0,"&Close Tab"
+13212,0,"&Next Tab"
+13213,0,"Pre&vious Tab"
+13214,0,"D&uplicate Tab"
 
 [STRINGTABLE 119]
+13220,0,"New &Tab\tCtrl+Shift+T"
+13221,0,"&Close Tab\tCtrl+Shift+W"
+13222,0,"&Next Tab\tCtrl+Shift+Page Down"
+13223,0,"&Previous Tab\tCtrl+Shift+Page Up"
+13224,0,"New &Tab\tAlt+Shift+T"
+13225,0,"&Close Tab\tAlt+Shift+W"
+13226,0,"&Next Tab\tAlt+Shift+Page Down"
+13227,0,"&Previous Tab\tAlt+Shift+Page Up"
+13228,0,"Close all &Left Side tabs except default"
+13229,0,"Close all &Right Side tabs except default"
+13230,0,"Set Tab &Color..."
+13231,0,"C&lear Tab Color"
+
+[STRINGTABLE 120]
+13232,0,"Set Tab &Color..."
+13233,0,"C&lear Tab Color"
+13234,0,"Set Tab &Prefix..."
+13235,0,"C&lear Tab Prefix"
+13236,0,"Set Tab &Prefix..."
+13237,0,"C&lear Tab Prefix"
+13238,0,"Set Tab Prefix"
+13239,0,"Enter a custom tab prefix for '%s' (leave empty to clear):"
+13240,0,"Duplicate Tab to &Right Side"
+13241,0,"Move Tab to &Right Side"
+13242,0,"Duplicate Tab to &Left Side"
+13243,0,"Move Tab to &Left Side"
+13244,0,"Close all &Left Side tabs except this and default"
+13245,0,"Close all &Right Side tabs except this and default"
+13246,0,"D&uplicate Tab"
+13247,0,"D&uplicate Tab"
+
+[STRINGTABLE 121]
+13248,0,"Reopen Closed &Tab"
+13249,0,"&Lock Tab"
+13250,0,"Un&lock Tab"
+13251,0,"Reopen Closed &Tab"
+13252,0,"&Lock Tab"
+13253,0,"Un&lock Tab"
+13260,0,"&Tabs"
+13261,0,"&Tabs"
+
+[STRINGTABLE 122]
 13300,1,"&Dateien"
 13301,1,"&Öffnen\tEnter"
 13302,1,"&Fokus\tLeertaste"
@@ -3077,7 +3151,7 @@ SLGINCOMPLETE,""
 13310,1,"Ben&utzermenü\tF9"
 13311,1,"&Beenden\tAlt+F4"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13312,1,"Gleic&he Namen ausblenden\tStrg+Umschalt+H"
 13313,1,"Befeh&le"
 13314,1,"E&igenschaften\tAlt+Enter"
@@ -3091,7 +3165,7 @@ SLGINCOMPLETE,""
 13326,1,"Name als Te&xt kopieren\tAlt+Umschalt+Einfg"
 13327,1,"P&fad als Text kopieren\tStrg+Alt+Einfg"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13328,1,"U&NC Pfad + Name als Text kopieren\tStrg+Umschalt+Einfg"
 13330,1,"&Ansicht"
 13331,1,"Nach &Name sortieren\tStrg+F3"
@@ -3103,7 +3177,7 @@ SLGINCOMPLETE,""
 13342,1,"Aktuelle Suche hi&nzufügen\tStrg+N"
 13343,1,"&Verwalten...\tStrg+M"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13344,1,"Nur ein S&uchfenster erlauben"
 13345,1,"Such&protokoll anzeigen...\tStrg+L"
 13346,1,"Verzeichnisliste i&gnorieren...\tStrg+G"
@@ -3115,7 +3189,7 @@ SLGINCOMPLETE,""
 13358,1,"In Suchergebnisliste &einfügen\tStrg+W"
 13359,1,"Doppelte &Dateien finden...\tStrg+D"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13360,1,"Ö&ffnen\tEnter"
 13361,1,"&Anzeigen\tF3"
 13362,1,"Anzeigen &mit\tStrg+Umschalt+F3"
@@ -3127,7 +3201,7 @@ SLGINCOMPLETE,""
 13368,1,"Kop&ieren\tStrg+C"
 13369,1,"Ein&fügen\tStrg+V"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13380,1,"Name"
 13381,1,"Erweiterung separat"
 13382,1,"DOS Name (8.3)"
@@ -3138,14 +3212,14 @@ SLGINCOMPLETE,""
 13387,1,"Attribute"
 13388,1,"Bezeichnung"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13400,1,"&Name\tStrg+F3"
 13401,1,"&Erweiterung\tStrg+F4"
 13402,1,"&Größe\tStrg+F6"
 13403,1,"&Zeit\tStrg+F5"
 13404,1,"&Attribute"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13445,1,"Bestätigung bei"
 13446,1,"Meldung anzeigen"
 13450,1,"Datei oder Verzeichnis löschen (beachte Tip1)"
@@ -3155,7 +3229,7 @@ SLGINCOMPLETE,""
 13454,1,"System oder Verstecktes Verzeichnis löschen (beachte Tip2)"
 13455,1,"System oder Versteckte Datei überschreiben (wird im Archiv ignoriert)"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13456,1,"NTFS komprimieren oder dekomprimieren (wird im Archiv ignoriert)"
 13457,1,"NTFS verschlüsseln oder entschlüsseln (wird im Archiv ignoriert)"
 13458,1,"Drag-and-Drop Vorgang"
@@ -3167,7 +3241,7 @@ SLGINCOMPLETE,""
 13470,1,"Möchten Sie die Suche schließen?"
 13471,1,"Möchten Sie den Zielpfad erstellen? (Kopieren/Verschieben)"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13472,1,"Möchten Sie 'Immer im Vordergrund' aktivieren?"
 13473,1,"Möchten Sie den Open Salamander beenden?"
 13474,1,"Möchten Sie die ausgewählten Dateien per E-Mail versenden?"
@@ -3176,10 +3250,10 @@ SLGINCOMPLETE,""
 13477,1,"Das Archiv wird geschlossen... (nur wenn Dateien bearbeitet werden)"
 13478,1,"Das Verzeichnis existiert nicht. Möchten Sie es erstellen?"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13551,1,"Möchten Sie den Open Salamander beenden?"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13553,1,"(keine)"
 13554,1,"Netzwerk"
 13555,1,"Plugins"
@@ -3193,7 +3267,7 @@ SLGINCOMPLETE,""
 13563,1,"&Open Salamander beenden, ohne erneut zu fragen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
 13564,1,"&Verzeichnis erstellen, ohne erneut zu fragen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13670,1,"Modus"
 13671,1,"Miniaturansicht"
 13672,1,"Kurz"
@@ -3202,7 +3276,7 @@ SLGINCOMPLETE,""
 13675,1,"Reserviert"
 13676,1,"Kacheln"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13680,1,"&Miniaturansicht"
 13681,1,"K&urz"
 13682,1,"&Detailliert"
@@ -3212,19 +3286,19 @@ SLGINCOMPLETE,""
 13686,1,"Reserviert"
 13687,1,"&Kacheln"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13700,1,"Aktuell zugewiesen zu: %s"
 13701,1,"Diese Tastenkombination ist von Open Salamander belegt. Bitte wählen Sie eine andere."
 13710,1,"Kopiere %s"
 13711,1,"Verschiebe %s"
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13712,1,"Von:"
 13713,1,"Nach:"
 13720,1,"Erstelle auszugebende Dateiliste"
 13725,1,"Besitzer und Rechte können nicht übernommen werden. Es wird auf dem Zielpfad\nnicht unterstützt (das ist kein NTFS Laufwerk).\n\nWollen Sie fortfahren?"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13730,1,"Fehlerbericht"
 13731,1,"Für einen Fehlerbericht oder eine Anfrage wählen Sie im Hilfemenü > Offizielles Supportforum.\n\nBenutzen Sie diesen Fehlerbericht nur um uns sensible Daten zu senden oder wenn wir Sie danach fragen."
 13735,1,"Über&springen"
@@ -3235,7 +3309,7 @@ SLGINCOMPLETE,""
 13742,1,"Es scheint dass Sie für dieses Plugin keine Sprachdatei (.SLG) haben. (siehe Unterverzeichnis LANG im Verzeichnis des Plugin's)."
 13743,1,"&Diesen Hinweis nicht für andere Plugins anzeigen"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13750,1,"Die in der Registrierung gespeicherte Konfiguration ist defekt und kann deshalb nicht geladen werden. Der Open Salamander wurde wahrscheinlich während dem Speichern der Konfiguration beendet. Dies geschieht überwiegend wenn der Open Salamander beim Herunterfahren (oder Abmelden) noch läuft. Um dieses Problem zu verhindern, beenden Sie bitte den Open Salamander vor dem Herunterfahren (oder Abmelden).\n\nSie können jetzt von den defekten Daten ein Backup anlegen (Rufen Sie RegEdit.exe auf und benennen Sie den Schlüssel HKEY_CURRENT_USER\\%s um). Später können Sie von diesem Backup die Einstellungen wieder einspielen (Benutzermenü, Favoriten, FTP Adressen, etc.), Besuchen Sie bitte forum.altap.cz für weitere Details.\n\nDie defekte Konfiguration muss aus der Registrierung entfernt werden bevor Sie den Open Salamander starten."
 13751,1,"Sie benutzen vom Standard abweichende Werte für die nachfolgenden Parameter die während des Abmeldens oder Herunterfahrens benötigt werden. Das aknn zu einer defekten Konfiguration des Open Salamander führen (er bricht während des Speicherns der Konfiguration ab).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout sollte auf 20000 stehen.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks sollte auf 0 stehen."
 13752,1,"&Entferne Konfiguration"
@@ -3243,20 +3317,21 @@ SLGINCOMPLETE,""
 13756,1,"&Dateien"
 13757,1,"&Verzeichnisse"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13760,1,"Diese Datei kann nicht in den angegebenen Zielpfad kopiert werden da sie für das FAT32 Dateisystem zu groß ist.\n\nDatei: %s"
 13765,1,"Der Pfad, zu dem gewechselt werden soll wenn kein Zugriff auf den aktuellen Pfad des Dateifensters besteht, ist ungültig. Bitte korrigieren Sie diesen Pfad unter 'Konfiguration/Laufwerke')."
 13770,1,"Datei kann nicht im temporären Verzeichnis abgestellt werden."
 13771,1,"Der resultierende Dateiname ist zu lang."
 13775,1,"Drag&Drop Operation aus Archiv oder Dateisystem-Plugin ist fehlgeschlagen. Bitte entfernen Sie das unnötig angelegte Verzeichnis DROPFAKE im Zielverzeichnis (falls vorhanden).\n\nDas sollte nur unmittelbar nach der Installation passieren oder wenn weder der Windows Explorer noch der Open Salamander das Drop-Ziel sind. Falls der Windows Explorer das Drop-Ziel war starten Sie Windows bitte neu (Erfahrende Benutzer können auch den Prozess 'explorer.exe' beenden und neu starten)."
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13776,1,"Standard"
 13777,1,"Rot"
 13778,1,"Grün"
 13779,1,"Blau"
+13780,0,"Samandarin"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13800,1,"%d Std"
 13801,1,"%d Min"
 13802,1,"%d Sek"
@@ -3264,21 +3339,21 @@ SLGINCOMPLETE,""
 13806,1,"%s von %s verschoben"
 13807,1,"Geschwindigkeit: %s/s"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13808,1,"Übertragungsrate: %s/s (Begrenzung: %s/s)"
 13809,1,"Restzeit: %s"
 13815,1,"Die Begrenzung der Übertragungsrate muss eine Zahl zwischen 1 B/s und 4 GB/s sein."
 13820,1,"&Übertragungsrate festlegen..."
 13821,1,"W&arten bis alle anderen Kopier-/Verschieben-Vorgänge abgeschlossen sind"
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13825,1,"&Beenden"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13850,1,"Die Konfiguration des Plugins %s kann nicht gespeichert werden (Beim öffnen des Konfigurationsschlüssels von Open Salamander ist ein Fehler aufgetreten).\n\nWollen Sie es trotzdem entladen?"
 13855,1,"Name"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13856,1,"Beschreibung"
 13857,1,"Die Änderung der überlagerten Symbole wirkt sich erst nach einem Neustart des Open Salamander aus."
 13865,1,"Open Salamander wurde instabil. Eine unerwartete Ausnahmebedingung trat im %s-Handler für überlagerte Symbole auf. Sie können ähnlichen Abstürzen vorbeugen indem der Open Salamander diesen Handler nicht mehr benutzt (drücken Sie die Schaltfläche 'Diesen') oder indem die Anzeige aller benutzerdefinierten überlagerten Symbole verhindert wird (drücken Sie die Schaltfläche 'Alle'). Sie können auch prüfen ob für diesen Handler eine Aktualisierung bereitgestellt wurde (Durchsuchen Sie forum.altap.cz für weitere Informationen).\n\nWelchen Handler für überlagerte Symbole wollen Sie abschalten?\n\nHinweis: Sie können überlagerte Symbole in der Konfiguration bearbeiten (siehe Seite 'Überlagerte Symbole')."
@@ -3287,7 +3362,7 @@ SLGINCOMPLETE,""
 13870,1,"Die config.reg Datei (oder die mit dem -c Parameter angegebene Datei) wurde wegen des Imports einer Konfiguration einer älteren Open Salamander Version nicht in die Registrierung importiert. Bitte beenden Sie jetzt Open Salamander und starten ihn neu um das Problem zu lösen."
 13871,1,"Sie haben Open Salamander auf eine neue Version aktualisiert. Es wird jetzt die Konfiguration der alten Version geladen. Die alte Version enthält einige Plugins (unten aufgelistet) die in der neuen Version fehlen (oder die nicht funktionieren), darum kann deren Konfiguration jetzt nicht importiert werden. Sie können jetzt Open Salamander ohne diese Plugins starten (die Konfiguration der älteren Version bleibt in der Registrierung erhalten, darum können Sie sie später importieren). Oder Sie beenden jetzt Open Salamander, installieren die fehlenden Plugins, und starten Open Salamander erneut.\n\nFehlende (oder nicht funktionierende) Plugins: %s%s."
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13872,1,", %d weitere Plugins übersprungen"
 13873,1,"&Starte ohne fehlende Plugins"
 13880,1,"Nicht genügend Speicher um %Iu Bytes zu reservieren. Versuchen Sie Speicher freizugeben (schließen Sie z.B. einige laufende Programme) und drücken Sie 'Wiederholen'. Wenn das nicht hilft können Sie 'Ignorieren' wählen um den Speicherfehler dieser Anwendung zu übergehen oder drücken Sie 'Abbrechen' um die Anwendung zu beenden."
@@ -3296,7 +3371,7 @@ SLGINCOMPLETE,""
 13885,1,"Verbinde zu %s"
 13886,1,"Falsches Passwort oder unbekannter Benutzername für: %s"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13890,1,"Datei"
 13891,1,"%s Datei"
 13900,1,"Ihr Passwort ist zu einfach und bietet nicht genügend Sicherheit gegen Wörterbuch oder Brute-Force-Angriffe.\nSind Sie sicher, dass Sie es verwenden möchten?\n\nHinweis: gute Passwörter bestehen aus mindestens sechs Zeichen und enthalten sowohl Groß- und Klein- buchstaben, Zahlen und Sonderzeichen, wie z. B. Trennzeichen, Symbole, Buchstaben mit Akzent, usw."
@@ -3304,7 +3379,7 @@ SLGINCOMPLETE,""
 13902,1,"Passwort erfolgreich geändert"
 13903,1,"Sie haben Ihr Master-Passwort gelöscht. Ihre gepeicherten Passwörter (z.B. FTP und WinSCP) sind nicht mehr geschützt."
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13904,1,"Das Master-Passwort wurde erfolgreich geändert. Ihre gespeicherten Passwörter (z.B. FTP und WinSCP) sind jetzt von AES Cipher gesichert."
 13905,1,"Sie haben nicht das richtige aktuelle Master-Passwort eingegeben. Bitte versuchen Sie es erneut."
 13906,1,"Verzeichnis durchsuchen"
@@ -3314,7 +3389,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, gestartet am %s, %s%s"
 13916,1,", laufender Prozess"
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13920,1,"Aktuellen Dateinamen als Standard speichern"
 13921,1,"Standarddateiname wiederherstellen nach %s"
 13925,1,"{!}Die verglichenen Verzeichnisse enthalten mindestens %d Datei{enpaar|1|paare} mit dem Zeitunterschied von genau ein oder zwei Stunden. Da {dieser Unterschied|1|diese Unterschiede} mit der MESZ (Sommerzeit) zusammenhäng{1:t|1|en}, {1:wurde er|1|wurden sie} ignoriert. Sie können das unter 'Konfiguration/Allgemein' abstellen."
@@ -3326,14 +3401,14 @@ SLGINCOMPLETE,""
 13933,1,"Optionen als Standard speichern"
 13934,1,"Optionen und Standard wiederherstellen"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13945,1,"Wenn Sie die Konfiguration bei jedem Start von Open Salamander importieren wollen, exportieren Sie diese in eine Datei mit dem Namen config.reg im Installationsverzeichnis. Um eine andere Konfigurationsdatei zu importieren, benutzen Sie den Befehlszeilenparameter -C (z.B. "salamand.exe -C myconfig.reg").\n\nWir empfehlen, den Befehl zum Löschen des Registrierungsschlüssels der bisherigen Konfiguration in die exportierte Datei einzufügen. Andernfalls wird die importierte Konfiguration mit der bisherigen in der Registrierung gemischt, das könnte zu Problemen mit der Konfiguration führen."
 13946,1,"Wenn Sie die Konfiguration bei jedem Start von Open Salamander importieren wollen, exportieren Sie diese in eine Datei mit dem Namen config.reg im Anwendungsdatenverzeichnis (oder im Installationsverzeichnis). Um eine andere Konfigurationsdatei zu importieren, benutzen Sie den Befehlszeilenparameter -C (z.B. "salamand.exe -C myconfig.reg").\n\nWir empfehlen, den Befehl zum Löschen des Registrierungsschlüssels der bisherigen Konfiguration in die exportierte Datei einzufügen. Andernfalls wird die importierte Konfiguration mit der bisherigen in der Registrierung gemischt, das könnte zu Problemen mit der Konfiguration führen."
 13947,1,"&Befehl zum Löschen des Registrierungsschlüssels der bisherigen Konfiguration in die exportierte Datei einfügen"
 13950,1,"Die Konfigurationsdatei kann weder geöffnet noch gelesen werden.\n\nDatei: %s\nFehler: %s"
 13951,1,"Die Konfigurationsdatei ist zu groß.\n\nDatei: %s"
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13952,1,"Die ausgewählte Datei kann nicht importiert werden. Es ist keine Konfigurationsdatei.\n\nDatei: %s"
 13953,1,"Die Konfigurationsdatei kann nicht importiert werden. Die Datei hat ein flasches Format.\n\nDatei: %s"
 13954,1,"Die Konfigurationsdatei kann nicht in die Registrierung importiert werden. Fehler beim Schreiben in die Registrierung.\n\nDatei: %s"
@@ -3341,7 +3416,7 @@ SLGINCOMPLETE,""
 13965,1,"Die Konfigurationsdatei kann nicht zu der Datei exportiert werden. Fehler beim Lesen der Konfiguration aus der Registrierung."
 13966,1,"Die Konfigurationsdatei kann nicht zu der Datei exportiert werden. Fehler beim Schreiben der Konfiguration zu der Datei.\n\nDatei: %s"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13970,1,"Das Kontextmenü des Dateifensters kann nicht geöffnet werden, da der Pfad im Dateifenster nur ein Schein-Verzeichnis für die WOW64 Weiterleitung ist."
 13971,1,"Das Kontextmenü kann nicht geöffnet werden, da "%s" nur ein Schein-Verzeichnis für die WOW64 Weiterleitung ist."
 13972,1,"Das Eigenschaftsfenster kann nicht geöffnet werden, da "%s" nur ein Schein-Verzeichnis für die WOW64 Weiterleitung ist."
@@ -3354,7 +3429,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3363,14 +3438,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 14000,1,"[falsch]"
 14005,1,"Administrator"
 14010,1,"Geben Sie bitte eine gültige E-Mail-Adresse an, damit wir Ihnen bei dem gemeldeten Problem helfen können."
 14011,1,"Warten Sie bitte bis die Komprimierung und der Upload beendet wurde."
 14012,1,"Sind Sie sicher, dass Sie uns nicht über dieses Problem informieren wollen? Ohne Ihren Bericht wird es nicht behoben werden.\n\nDrücken Sie 'OK', um den Bericht, ohne uns zu informieren, zu löschen."
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 14020,1,"Die hochgeladene Datei übersteigt die zulässige Größe. Code: %d."
 14021,1,"Die Datei wurde nur unvollständig hochgeladen. Code: %d."
 14022,1,"Datei wurde nicht hochgeladen. Code: %d."
@@ -3381,7 +3456,7 @@ SLGINCOMPLETE,""
 14030,1,"Syntaxfehler in der Serverantwort. Open-Tag nicht gefunden."
 14031,1,"Syntaxfehler in der Serverantwort. Close-Tag nicht gefunden."
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 14032,1,"Syntaxfehler in der Serverantwort. Wert nicht gefunden."
 14040,1,"Daten können nicht empfangen werden. Code: %d."
 14041,1,"Verbindung kann nicht getrennt werden. Code: %d."
@@ -3391,7 +3466,7 @@ SLGINCOMPLETE,""
 14045,1,"Hostname kann nicht aufgelöst werden. Code: %d."
 14046,1,"Verbindung kann nicht initialisiert werden. Code: %d."
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14050,1,"Fehler beim Lesen der Datei %s"
 14051,1,"Nicht genug Speicher"
 14052,1,"Fehler beim Einlesen der Dateigröße bei %s"
@@ -3400,7 +3475,7 @@ SLGINCOMPLETE,""
 14062,1,"Open Salamander Bug-Reporter"
 14063,1,"Komprimiere, bitte warten..."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14064,1,"Upload, bitte warten..."
 14065,1,"Bericht wurde erfolgreich hochgeladen.\n\nDanke für Ihre Hilfe Open Salamander zu verbessern!"
 14066,1,"Aus folgendem Grund ist der Upload fehlgeschlagen: %s\n\nBitte senden Sie uns den Bericht per E-Mail an support@altap.cz und löschen Sie diesen von ihrer Festplatte. Drücken Sie 'OK', um den Bericht anzusehen."
@@ -3413,15 +3488,15 @@ SLGINCOMPLETE,""
 14074,1,"Minidump-Datei %s kann nicht erstellt werden. Code: %d."
 14075,1,"Fehler beim Erstellen der Minidump. Code: %d."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14100,1,"Der Bug-Reporter (salmon.exe) von Open Salamander wird nicht ausgeführt. Open Salamander kann mögliche Abstürze nicht verarbeiten. Starten Sie bitte Open Salamander neu."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14150,1,"Nicht abgeschlossene Übersetzung von Open Salamander"
 14151,1,"Die Übersetzung von Open Salamander, in Ihre Sprache, ist noch nicht beendet. Erwägen Sie bitte einen Besuch unseres Diskussionsforums und schließen Sie sich der Übersetzungsarbeit an:"
 14155,1,"Die Datei oder das Verzeichnis konnte nicht in den Papierkorb verschoben werden, da der Name ungültig ist.\n\nUngültiger Teil des Namens:  "%s"\n\nTip: Versuchen Sie die Datei, bevor Sie diese in den Papierkorb verschieben, umzubenennen, oder löschen Sie diese dauerhaft (Umschalt+Entf Taste benutzen)."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14160,1,"Das %s-Plugin kann nicht geladen werden. Dieses Plugin is nur in der x86-Version (32-Bit) des Open Salamanders verfügbar. Starten Sie die x86-Version des Open Salamanders um dieses Plugin zu benutzen. Bitte entschuldigen Sie die Unannehmlichkeiten."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3430,7 +3505,7 @@ SLGINCOMPLETE,""
 14170,1,"Link kann nicht aufgelöst werden"
 14171,1,"Volume Mount Point"
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14180,1,"Fehler beim Abrufen der Dateigröße des Linkziels"
 14181,1,"Sie versuchen die ausgewählten Dateien und Verzeichnisse ins Archiv zu verschieben. Das ist nicht möglich, da die Auswahl Verknüpfungen zu Verzeichnissen enthält (Verknüpfungspunkt, Volumebereitstellungspunkt oder symbolische Verknüpfung). Fahren Sie fort ohne die Dateien nach dem Archivieren zu löschen.\n\nLink: %s"
 14185,1,"Datenträgervorgang wird ausgeführt."
@@ -3439,6 +3514,6 @@ SLGINCOMPLETE,""
 14188,1,"Windows weigert sich das Herunterfahren vorzeitig abzubrechen. Dieser Hinweis wird Windows kurzzeitig blockieren. Bitte warten Sie mit dem Schließen dieses Hinweises bevor Sie das Herunterfahren manuell abbrechen, andernfalls wird Open Salamander beendet ohne die Konfiguration zu speichern."
 14189,1,"Windows weigert sich das Herunterfahren vorzeitig abzubrechen. Dieser Hinweis wird Windows kurzzeitig blockieren.\n\nEs werden einige Datenträgervorgänge ausgeführt. Möchten Sie diese jetzt abbrechen? Klicken Sie nur dann auf NEIN, wenn Sie das Herunterfahren manuell abgebrochen haben, ansonsten riskieren Sie unvollständige Dateien auf Ihrem Datenträger.\n\nBitte warten Sie mit der Antwort bevor Sie das Herunterfahren manuell abbrechen, andernfalls wird Open Salamander beendet ohne die Konfiguration zu speichern."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14195,1,"Schließe Suchfenster, bitte warten..."
 
