@@ -1526,8 +1526,6 @@ bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
     if (zDelta == 0)
         return true;
 
-    PanelTabMouseWheelSwitchTime = GetTickCount();
-
     if ((zDelta < 0 && PanelTabMouseWheelAccumulator > 0) ||
         (zDelta > 0 && PanelTabMouseWheelAccumulator < 0))
     {
@@ -1538,15 +1536,35 @@ bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
     int steps = PanelTabMouseWheelAccumulator / WHEEL_DELTA;
     if (steps != 0)
     {
-        PanelTabMouseWheelAccumulator -= steps * WHEEL_DELTA;
-        int count = steps > 0 ? steps : -steps;
-        for (int i = 0; i < count; ++i)
+        TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+        CFilesWindow* current = (side == cpsLeft) ? LeftPanel : RightPanel;
+        int index = GetPanelTabIndex(side, current);
+        if (tabs.Count > 1 && index >= 0)
         {
-            if (steps > 0)
-                CommandPrevTab(side);
-            else
-                CommandNextTab(side);
+            // Once the RMB+wheel gesture starts, the original right-button owner must not keep
+            // tab-control/list-box mouse tracking while SwitchPanelTab() hides and shows panels.
+            // Canceling capture here prevents stale tab hits or pending context-menu/drag state
+            // from being applied to a panel that is no longer active.
+            HWND capture = GetCapture();
+            if (capture != NULL)
+            {
+                SendMessage(capture, WM_CANCELMODE, 0, 0);
+                if (GetCapture() == capture)
+                    ReleaseCapture();
+            }
+
+            PanelTabMouseWheelSwitchTime = GetTickCount();
+            PanelTabMouseWheelAccumulator -= steps * WHEEL_DELTA;
+
+            int target = (index - steps) % tabs.Count;
+            if (target < 0)
+                target += tabs.Count;
+            CFilesWindow* targetPanel = tabs[target];
+            if (target != index && targetPanel != NULL)
+                SwitchPanelTab(targetPanel);
         }
+        else
+            PanelTabMouseWheelAccumulator = 0;
     }
 
     return true;
