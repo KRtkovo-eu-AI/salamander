@@ -148,6 +148,94 @@ HICON CStatusBar::GetPipetteIcon() const
     return GetStatusBarIconForCurrentTheme(HPipette, HPipetteDark);
 }
 
+
+LRESULT CStatusBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (DarkModeShouldUseDarkColors())
+    {
+        switch (uMsg)
+        {
+        case WM_ERASEBKGND:
+            return TRUE;
+
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hDC = BeginPaint(HWindow, &ps);
+
+            RECT client;
+            GetClientRect(HWindow, &client);
+            HBRUSH backgroundBrush = CreateSolidBrush(DarkModeGetDialogBackgroundColor());
+            if (backgroundBrush != NULL)
+            {
+                FillRect(hDC, &client, backgroundBrush);
+                DeleteObject(backgroundBrush);
+            }
+
+            int borders[3] = {0, 0, 0};
+            SendMessage(HWindow, SB_GETBORDERS, 0, (LPARAM)borders);
+            int partCount = (int)SendMessage(HWindow, SB_GETPARTS, 0, 0);
+            if (partCount <= 0)
+                partCount = 1;
+
+            HFONT hFont = (HFONT)SendMessage(HWindow, WM_GETFONT, 0, 0);
+            HFONT hOldFont = hFont != NULL ? (HFONT)SelectObject(hDC, hFont) : NULL;
+            COLORREF oldTextColor = SetTextColor(hDC, DarkModeGetDialogTextColor());
+            int oldBkMode = SetBkMode(hDC, TRANSPARENT);
+
+            for (int part = 0; part < partCount; part++)
+            {
+                RECT partRect = client;
+                SendMessage(HWindow, SB_GETRECT, part, (LPARAM)&partRect);
+
+                if (part + 1 < partCount)
+                {
+                    RECT divider = partRect;
+                    divider.left = divider.right - max(1, borders[2]);
+                    HBRUSH dividerBrush = CreateSolidBrush(RGB(0x4A, 0x4A, 0x4A));
+                    if (dividerBrush != NULL)
+                    {
+                        FillRect(hDC, &divider, dividerBrush);
+                        DeleteObject(dividerBrush);
+                    }
+                }
+
+                RECT contentRect = partRect;
+                contentRect.left += borders[2] + 2;
+                contentRect.right -= borders[0] + 2;
+
+                HICON hIcon = (HICON)SendMessage(HWindow, SB_GETICON, part, 0);
+                if (hIcon != NULL)
+                {
+                    const int iconSize = 16;
+                    int y = contentRect.top + (contentRect.bottom - contentRect.top - iconSize) / 2;
+                    DrawIconEx(hDC, contentRect.left, y, hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+                    contentRect.left += iconSize + 4;
+                }
+
+                TCHAR text[512];
+                text[0] = 0;
+                LRESULT textLen = SendMessage(HWindow, SB_GETTEXTLENGTH, part, 0);
+                int len = min((int)LOWORD(textLen), (int)_countof(text) - 1);
+                SendMessage(HWindow, SB_GETTEXT, part, (LPARAM)text);
+                text[len] = 0;
+                DrawText(hDC, text, -1, &contentRect,
+                         DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_PATH_ELLIPSIS);
+            }
+
+            SetBkMode(hDC, oldBkMode);
+            SetTextColor(hDC, oldTextColor);
+            if (hOldFont != NULL)
+                SelectObject(hDC, hOldFont);
+            EndPaint(HWindow, &ps);
+            return 0;
+        }
+        }
+    }
+
+    return CWindow::WindowProc(uMsg, wParam, lParam);
+}
+
 #define ICON_MARGIN 32 // space for the icon and margins
 
 void CViewerWindow::SetupStatusBarItems()
@@ -322,7 +410,6 @@ void CViewerWindow::InitProgressBar()
                                          r.right - r.left, r.bottom - r.top,
                                          StatusBar->HWindow, NULL, DLLInstance, NULL);
     ConfigurePictViewDarkModeFromHost();
-    DarkModeApplyTree(StatusBar->HWindow);
 
     SendMessage(StatusBar->hProgBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
     SendMessage(StatusBar->hProgBar, PBM_SETPOS, 0, 0);

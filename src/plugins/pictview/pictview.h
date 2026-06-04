@@ -271,6 +271,9 @@ public:
     HICON GetAnchorIcon() const;
     HICON GetSizeIcon() const;
     HICON GetPipetteIcon() const;
+
+protected:
+    virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 
 //

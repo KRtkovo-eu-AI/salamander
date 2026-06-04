@@ -3267,7 +3267,6 @@ void CViewerWindow::ToggleStatusBar()
             return;
         }
         ConfigurePictViewDarkModeFromHost();
-        DarkModeApplyTree(StatusBar->HWindow);
         G.StatusbarVisible = TRUE;
     }
     else
@@ -3546,7 +3545,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ConfigurePictViewDarkModeFromHost();
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyTree(HWindow);
         UpdateRendererFrameForTheme();
 
         SetFocus(Renderer.HWindow);
@@ -3787,7 +3785,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         RebuildColors(G.Colors);
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
-        DarkModeApplyTree(HWindow);
         if (StatusBar != NULL)
             SetStatusBarTexts();
         UpdateRendererFrameForTheme();
@@ -3805,7 +3802,6 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             RebuildColors(G.Colors);
             DarkModeApplyWindow(HWindow);
             DarkModeRefreshTitleBar(HWindow);
-            DarkModeApplyTree(HWindow);
             if (StatusBar != NULL)
                 SetStatusBarTexts();
             UpdateRendererFrameForTheme();
