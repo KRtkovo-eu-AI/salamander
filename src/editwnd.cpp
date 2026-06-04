@@ -417,6 +417,13 @@ BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* us
            AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE);
 }
 
+struct CCommandLineLaunchInfo
+{
+    char Application[MAX_PATH];
+    char CommandLine[SALCMDLINE_MAXLEN + MAX_PATH];
+    BOOL TooLong;
+};
+
 int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShell)
 {
     int overhead = lstrlen(quotedApp) + 1; // launcher application and the separating space
@@ -442,26 +449,35 @@ int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShe
     return overhead;
 }
 
-BOOL BuildCommandLine(char* cmd, int cmdSize, const char* userCommand, BOOL closeShell)
+void BuildCommandLine(CCommandLineLaunchInfo* launchInfo, const char* userCommand, BOOL closeShell)
 {
-    char app[MAX_PATH];
-    GetCommandLineApplication(app, MAX_PATH);
-    lstrcpyn(cmd, app, cmdSize);
-    AddDoubleQuotesIfNeeded(cmd, cmdSize); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+    GetCommandLineApplication(launchInfo->Application, MAX_PATH);
+    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + MAX_PATH);
+    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
 
-    if (!AppendToCommandLine(cmd, cmdSize, " "))
-        return FALSE;
-
-    if (Configuration.CommandLineArguments[0] != 0)
-        return AppendConfiguredCommandLineArguments(cmd, cmdSize, userCommand);
-
-    if (IsCmdExeCommandLineApplication(app))
+    launchInfo->TooLong = FALSE;
+    if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, " "))
     {
-        if (!AppendToCommandLine(cmd, cmdSize, closeShell ? "/C " : "/K "))
-            return FALSE;
+        launchInfo->TooLong = TRUE;
+        return;
     }
 
-    return AppendQuotedUserCommand(cmd, cmdSize, userCommand, FALSE);
+    if (Configuration.CommandLineArguments[0] != 0)
+    {
+        launchInfo->TooLong = !AppendConfiguredCommandLineArguments(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, userCommand);
+        return;
+    }
+
+    if (IsCmdExeCommandLineApplication(launchInfo->Application))
+    {
+        if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, closeShell ? "/C " : "/K "))
+        {
+            launchInfo->TooLong = TRUE;
+            return;
+        }
+    }
+
+    launchInfo->TooLong = !AppendQuotedUserCommand(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, userCommand, FALSE);
 }
 
 int GetCmdLineLimit()
@@ -581,12 +597,13 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // let the command fall through to the shell so the message box text stays simple
                     }
 
-                    char cmd[SALCMDLINE_MAXLEN + MAX_PATH]; // command line application plus arguments and the command typed by the user
+                    CCommandLineLaunchInfo launchInfo;
                     BOOL closeShell = (Configuration.CloseShell != 0) ^ ((GetKeyState(VK_MENU) & 0x8000) != 0);
-                    BOOL cmdTooLong = !BuildCommandLine(cmd, SALCMDLINE_MAXLEN + MAX_PATH, cmdLine, closeShell);
+                    BuildCommandLine(&launchInfo, cmdLine, closeShell);
 
-                    if (SystemPolicies.GetMyRunRestricted() &&
-                        (!SystemPolicies.GetMyCanRun(cmd) || !SystemPolicies.GetMyCanRun(cmdLine)))
+                    if (!launchInfo.TooLong && SystemPolicies.GetMyRunRestricted() &&
+                        (!SystemPolicies.GetMyCanRun(launchInfo.Application) ||
+                         !SystemPolicies.GetMyCanRun(launchInfo.CommandLine)))
                     {
                         MSGBOXEX_PARAMS params;
                         memset(&params, 0, sizeof(params));
@@ -627,19 +644,19 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                     BOOL proc_ret = FALSE;
                     DWORD err = 0;
-                    if (!cmdTooLong)
+                    if (!launchInfo.TooLong)
                     {
                         CALL_STACK_MESSAGE3("CEditLine::WindowProc::CreateProcess(, %s, , , , , , %s, ,)",
-                                            strlen(cmd) > 300 ? "(very long cmd)" : cmd,
+                                            strlen(launchInfo.CommandLine) > 300 ? "(very long cmd)" : launchInfo.CommandLine,
                                             MainWindow->GetActivePanel()->GetPath());
-                        proc_ret = HANDLES(CreateProcess(NULL, cmd, NULL, NULL, FALSE,
+                        proc_ret = HANDLES(CreateProcess(NULL, launchInfo.CommandLine, NULL, NULL, FALSE,
                                                          CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS,
                                                          NULL, MainWindow->GetActivePanel()->GetPath(), &si, &pi));
                         err = GetLastError();
                     }
-                    if (cmdTooLong || !proc_ret)
+                    if (launchInfo.TooLong || !proc_ret)
                     {
-                        SalMessageBox(HWindow, cmdTooLong ? LoadStr(IDS_TOOLONGPATH) : GetErrorText(err),
+                        SalMessageBox(HWindow, launchInfo.TooLong ? LoadStr(IDS_TOOLONGPATH) : GetErrorText(err),
                                       LoadStr(IDS_ERROREXECCMDLINE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else
