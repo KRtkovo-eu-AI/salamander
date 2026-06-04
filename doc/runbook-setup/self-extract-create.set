@@ -66,7 +66,7 @@ remove_temp=1
 ;In this manner behaves e.g like some versions of Install Shield.
 ;This option is ignored unless 'remove_temp' is set to 1.
 
-wait_for="5.0-samandarin-0.3\setup.exe"
+wait_for="5.0-samandarin-0.4\setup.exe"
 
 ;specify whether to start extraction automatically when a user runs
 ;self-extracting archive
@@ -106,7 +106,7 @@ create_target_dir=1
 ;extraction target directory, if you specify a program you can also
 ;type in its arguments
 
-command="5.0-samandarin-0.3\setup.exe"
+command="5.0-samandarin-0.4\setup.exe"
 
 ;sfx package to be used when creating self-extracting archive
 ;relative path is relative to the directory with zip2sfx.exe
@@ -147,7 +147,7 @@ button_text="&Extract"
 
 ;vendor name in bottom-left corner of main sfx dialog
 
-vendor="© 1997-2026 Open Salamander Authors"
+vendor="Â© 1997-2026 Open Salamander Authors"
 
 ;www link in bottom-right corner of main sfx dialog
 
