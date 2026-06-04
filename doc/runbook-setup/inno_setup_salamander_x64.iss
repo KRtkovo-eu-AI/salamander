@@ -49,7 +49,7 @@ UninstallDisplayIcon=..\..\src\res\samandarin.ico
 ; Keep this disabled because [Registry] below writes the legacy Add/Remove Programs key pointing to Inno's uninstaller; enabling it would add a duplicate Inno uninstall entry.
 CreateUninstallRegKey=no
 SetupIconFile=..\..\src\res\samandarin.ico
-LicenseFile={#PayloadDir}\doc\license.txt
+LicenseFile={#SourcePath}\license.txt
 DisableFinishedPage=yes
 ChangesAssociations=yes
 
