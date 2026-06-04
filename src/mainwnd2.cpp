@@ -395,6 +395,8 @@ const char* CONFIG_EDITOR_REG = "External Editor";
 const char* CONFIG_CMDLINE_REG = "Command Line";
 const char* CONFIG_CMDLFOCUS_REG = "Command Line Focused";
 const char* CONFIG_CLOSESHELL_REG = "Close Shell Window";
+const char* CONFIG_COMMANDLINEAPP_REG = "Command Line Application";
+const char* CONFIG_COMMANDLINEARGS_REG = "Command Line Arguments";
 const char* CONFIG_USECUSTOMPANELFONT_REG = "Use Custom Panel Font";
 const char* CONFIG_PANELFONT_REG = "Panel Font";
 const char* CONFIG_NAMEDHISTORY_REG = "Named History";
@@ -2040,6 +2042,10 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.MinBeepWhenDone, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CLOSESHELL_REG, REG_DWORD,
                          &Configuration.CloseShell, sizeof(DWORD));
+                SetValue(actKey, CONFIG_COMMANDLINEAPP_REG, REG_SZ,
+                         Configuration.CommandLineApplication, -1);
+                SetValue(actKey, CONFIG_COMMANDLINEARGS_REG, REG_SZ,
+                         Configuration.CommandLineArguments, -1);
                 DWORD rightPanelFocused = (GetActivePanel() == RightPanel);
                 SetValue(actKey, CONFIG_RIGHT_FOCUS_REG, REG_DWORD,
                          &rightPanelFocused, sizeof(DWORD));
@@ -3714,6 +3720,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.MinBeepWhenDone, sizeof(DWORD));
             GetValue(actKey, CONFIG_CLOSESHELL_REG, REG_DWORD,
                      &Configuration.CloseShell, sizeof(DWORD));
+            GetValue(actKey, CONFIG_COMMANDLINEAPP_REG, REG_SZ,
+                     Configuration.CommandLineApplication, MAX_PATH);
+            GetValue(actKey, CONFIG_COMMANDLINEARGS_REG, REG_SZ,
+                     Configuration.CommandLineArguments, CONFIG_COMMANDLINEARGS_MAXLEN);
             GetValue(actKey, CONFIG_RIGHT_FOCUS_REG, REG_DWORD,
                      &rightPanelFocused, sizeof(DWORD));
             GetValue(actKey, CONFIG_ALWAYSONTOP_REG, REG_DWORD,

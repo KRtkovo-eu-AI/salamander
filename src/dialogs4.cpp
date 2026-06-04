@@ -313,6 +313,8 @@ CConfiguration::CConfiguration()
     IncludeDirs = FALSE;
     AutoSave = TRUE;
     CloseShell = FALSE;
+    CommandLineApplication[0] = 0; // empty means use COMSPEC
+    CommandLineArguments[0] = 0;   // empty keeps the default cmd.exe /C or /K handling
     ShowGrepErrors = FALSE; // other search tools (FAR/WinCmd/PowerDesk/Windows Find) do not show errors
     FindFullRowSelect = FALSE;
     MinBeepWhenDone = TRUE;

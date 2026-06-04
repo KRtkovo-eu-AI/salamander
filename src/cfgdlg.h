@@ -183,6 +183,7 @@ typedef struct
 } CMainWindowIconItem;
 #define MAINWINDOWICONS_COUNT 5
 #define MAINWINDOWICON_DEFAULT_INDEX 4
+#define CONFIG_COMMANDLINEARGS_MAXLEN 8192
 extern CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT];
 
 struct CConfiguration
@@ -279,6 +280,9 @@ struct CConfiguration
         DrvSpecRemoteDoNotRefreshOnAct, // remote drives/do not refresh on activate of Salamander
         DrvSpecCDROMMon,
         DrvSpecCDROMSimple;
+
+    char CommandLineApplication[MAX_PATH];
+    char CommandLineArguments[CONFIG_COMMANDLINEARGS_MAXLEN];
 
     // options for Compare Directories dialog box / functions
     int CompareByTime;
