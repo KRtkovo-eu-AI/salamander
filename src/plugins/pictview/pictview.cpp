@@ -681,7 +681,7 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
                                                            LoadStr(IDS_PLUGINNAME),
                                                            MB_YESNO | MB_ICONQUESTION) == IDYES))
     {
-        ret = ViewerWindowQueue.CloseAllWindows(force) || force;
+        ret = ViewerWindowQueue.CloseAllWindows(FALSE, force ? 5000 : 1000);
     }
     if (ret)
     {
@@ -3789,10 +3789,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyTree(HWindow);
         if (StatusBar != NULL)
-        {
-            DarkModeApplyTree(StatusBar->HWindow);
             SetStatusBarTexts();
-        }
         UpdateRendererFrameForTheme();
         if (Renderer.HWindow != NULL)
             SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
@@ -3810,10 +3807,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyTree(HWindow);
             if (StatusBar != NULL)
-            {
-                DarkModeApplyTree(StatusBar->HWindow);
                 SetStatusBarTexts();
-            }
             UpdateRendererFrameForTheme();
             if (Renderer.HWindow != NULL)
                 SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);

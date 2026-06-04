@@ -15,53 +15,7 @@
 
 namespace
 {
-HBITMAP CreateStatusBarIconDIB(int width, int height, BYTE** bits)
-{
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(bmi));
-    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-    bmi.bmiHeader.biWidth = width;
-    bmi.bmiHeader.biHeight = -height;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    return CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, (void**)bits, NULL, 0);
-}
-
-bool RenderIconForStatusBar(HICON hIcon, int width, int height, COLORREF background, BYTE** bits, HBITMAP* bitmap)
-{
-    *bits = NULL;
-    *bitmap = CreateStatusBarIconDIB(width, height, bits);
-    if (*bitmap == NULL || *bits == NULL)
-        return false;
-
-    HDC hDC = GetDC(NULL);
-    HDC hMemDC = CreateCompatibleDC(hDC);
-    if (hMemDC == NULL)
-    {
-        ReleaseDC(NULL, hDC);
-        DeleteObject(*bitmap);
-        *bitmap = NULL;
-        *bits = NULL;
-        return false;
-    }
-
-    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, *bitmap);
-    HBRUSH hBrush = CreateSolidBrush(background);
-    RECT r = {0, 0, width, height};
-    if (hBrush != NULL)
-    {
-        FillRect(hMemDC, &r, hBrush);
-        DeleteObject(hBrush);
-    }
-    DrawIconEx(hMemDC, 0, 0, hIcon, width, height, 0, NULL, DI_NORMAL);
-    SelectObject(hMemDC, hOldBitmap);
-    DeleteDC(hMemDC);
-    ReleaseDC(NULL, hDC);
-    return true;
-}
-
-HICON CreateSolidStatusBarIcon(HICON hIcon, COLORREF color)
+HICON CreateInvertedStatusBarIcon(HICON hIcon)
 {
     if (hIcon == NULL)
         return NULL;
@@ -81,75 +35,51 @@ HICON CreateSolidStatusBarIcon(HICON hIcon, COLORREF color)
     if (iconInfo.hbmColor == NULL)
         height /= 2;
 
-    BYTE* blackBits = NULL;
-    BYTE* whiteBits = NULL;
-    BYTE* outputBits = NULL;
-    HBITMAP hBlackBitmap = NULL;
-    HBITMAP hWhiteBitmap = NULL;
-    HBITMAP hOutputBitmap = NULL;
-    HBITMAP hOutputMask = NULL;
-    HICON hSolidIcon = NULL;
-    ICONINFO outputIconInfo;
-    ZeroMemory(&outputIconInfo, sizeof(outputIconInfo));
+    int maskStride = ((width + 15) / 16) * 2;
+    DWORD maskSize = maskStride * height;
+    BYTE* andBits = (BYTE*)malloc(maskSize);
+    BYTE* xorBits = (BYTE*)malloc(maskSize);
+    HICON hInvertedIcon = NULL;
+    HDC hDC = NULL;
+    BITMAPINFO bmi;
+    ZeroMemory(&bmi, sizeof(bmi));
 
-    if (iconInfo.hbmMask != NULL)
-        hOutputMask = (HBITMAP)CopyImage(iconInfo.hbmMask, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
-    if (hOutputMask == NULL)
+    if (andBits == NULL || xorBits == NULL || iconInfo.hbmMask == NULL)
         goto cleanup;
 
-    if (!RenderIconForStatusBar(hIcon, width, height, RGB(0, 0, 0), &blackBits, &hBlackBitmap) ||
-        !RenderIconForStatusBar(hIcon, width, height, RGB(255, 255, 255), &whiteBits, &hWhiteBitmap))
+    ZeroMemory(andBits, maskSize);
+    ZeroMemory(xorBits, maskSize);
+
+    hDC = GetDC(NULL);
+    if (hDC == NULL)
+        goto cleanup;
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = height;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 1;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    if (GetDIBits(hDC, iconInfo.hbmMask, 0, height, andBits, &bmi, DIB_RGB_COLORS) != (int)height)
         goto cleanup;
 
-    hOutputBitmap = CreateStatusBarIconDIB(width, height, &outputBits);
-    if (hOutputBitmap == NULL || outputBits == NULL)
-        goto cleanup;
+    for (DWORD i = 0; i < maskSize; i++)
+        xorBits[i] = ~andBits[i];
 
-    for (int i = 0; i < width * height; i++)
-    {
-        BYTE* black = blackBits + i * 4;
-        BYTE* white = whiteBits + i * 4;
-        BYTE* output = outputBits + i * 4;
-
-        int maxDiff = max(abs((int)white[0] - (int)black[0]),
-                          max(abs((int)white[1] - (int)black[1]),
-                              abs((int)white[2] - (int)black[2])));
-        bool visible = 255 - maxDiff > 8;
-        if (visible)
-        {
-            output[0] = GetBValue(color);
-            output[1] = GetGValue(color);
-            output[2] = GetRValue(color);
-            output[3] = 255;
-        }
-        else
-        {
-            output[0] = 0;
-            output[1] = 0;
-            output[2] = 0;
-            output[3] = 0;
-        }
-    }
-
-    outputIconInfo.fIcon = TRUE;
-    outputIconInfo.hbmColor = hOutputBitmap;
-    outputIconInfo.hbmMask = hOutputMask;
-    hSolidIcon = CreateIconIndirect(&outputIconInfo);
+    hInvertedIcon = CreateIcon(DLLInstance, width, height, 1, 1, andBits, xorBits);
 
 cleanup:
+    if (hDC != NULL)
+        ReleaseDC(NULL, hDC);
     if (iconInfo.hbmColor != NULL)
         DeleteObject(iconInfo.hbmColor);
     if (iconInfo.hbmMask != NULL)
         DeleteObject(iconInfo.hbmMask);
-    if (hBlackBitmap != NULL)
-        DeleteObject(hBlackBitmap);
-    if (hWhiteBitmap != NULL)
-        DeleteObject(hWhiteBitmap);
-    if (hOutputBitmap != NULL)
-        DeleteObject(hOutputBitmap);
-    if (hOutputMask != NULL)
-        DeleteObject(hOutputMask);
-    return hSolidIcon;
+    if (andBits != NULL)
+        free(andBits);
+    if (xorBits != NULL)
+        free(xorBits);
+    return hInvertedIcon;
 }
 
 HICON GetStatusBarIconForCurrentTheme(HICON normalIcon, HICON darkIcon)
@@ -170,10 +100,10 @@ CStatusBar::CStatusBar()
     HAnchor = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_ANCHOR), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
     HSize = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_SIZE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
     HPipette = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_SB_PIPETTE), IMAGE_ICON, 16, 16, SalamanderGeneral->GetIconLRFlags());
-    HCursorDark = CreateSolidStatusBarIcon(HCursor, RGB(255, 255, 255));
-    HAnchorDark = CreateSolidStatusBarIcon(HAnchor, RGB(255, 255, 255));
-    HSizeDark = CreateSolidStatusBarIcon(HSize, RGB(255, 255, 255));
-    HPipetteDark = CreateSolidStatusBarIcon(HPipette, RGB(255, 255, 255));
+    HCursorDark = CreateInvertedStatusBarIcon(HCursor);
+    HAnchorDark = CreateInvertedStatusBarIcon(HAnchor);
+    HSizeDark = CreateInvertedStatusBarIcon(HSize);
+    HPipetteDark = CreateInvertedStatusBarIcon(HPipette);
     hProgBar = NULL;
 }
 
