@@ -298,7 +298,7 @@ BOOL IsChangeDirAttempt(const char* text)
     return StrNICmp(text, "cd ", 3) == 0;
 }
 
-const char* COMMANDLINE_COMMAND_PLACEHOLDER = "%COMMAND%";
+const char* COMMANDLINE_COMMAND_PLACEHOLDER = "{command}";
 
 void GetCommandLineApplication(char* cmd, int cmdSize)
 {
@@ -333,11 +333,73 @@ BOOL AppendToCommandLine(char* cmd, int cmdSize, const char* text, int textLen)
     return TRUE;
 }
 
-BOOL AppendQuotedUserCommand(char* cmd, int cmdSize, const char* userCommand)
+BOOL AppendCharToCommandLine(char* cmd, int cmdSize, char ch)
 {
-    return AppendToCommandLine(cmd, cmdSize, "\"") &&
-           AppendToCommandLine(cmd, cmdSize, userCommand) &&
-           AppendToCommandLine(cmd, cmdSize, "\"");
+    int cmdLen = lstrlen(cmd);
+    if (cmdLen + 1 >= cmdSize)
+        return FALSE;
+    cmd[cmdLen] = ch;
+    cmd[cmdLen + 1] = 0;
+    return TRUE;
+}
+
+BOOL AppendCharsToCommandLine(char* cmd, int cmdSize, char ch, int count)
+{
+    while (count > 0)
+    {
+        if (!AppendCharToCommandLine(cmd, cmdSize, ch))
+            return FALSE;
+        count--;
+    }
+    return TRUE;
+}
+
+BOOL AppendQuotedUserCommand(char* cmd, int cmdSize, const char* userCommand, BOOL escapeQuotes)
+{
+    if (!escapeQuotes)
+    {
+        // Preserve the historical cmd.exe command wrapping exactly: /C "command" or /K "command".
+        return AppendToCommandLine(cmd, cmdSize, "\"") &&
+               AppendToCommandLine(cmd, cmdSize, userCommand) &&
+               AppendToCommandLine(cmd, cmdSize, "\"");
+    }
+
+    if (!AppendCharToCommandLine(cmd, cmdSize, '\"'))
+        return FALSE;
+
+    int backslashes = 0;
+    const char* s = userCommand;
+    while (*s != 0)
+    {
+        if (*s == '\\')
+        {
+            backslashes++;
+        }
+        else
+        {
+            if (*s == '\"')
+            {
+                if (!AppendCharsToCommandLine(cmd, cmdSize, '\\', backslashes * 2 + 1) ||
+                    !AppendCharToCommandLine(cmd, cmdSize, '\"'))
+                {
+                    return FALSE;
+                }
+            }
+            else
+            {
+                if (!AppendCharsToCommandLine(cmd, cmdSize, '\\', backslashes) ||
+                    !AppendCharToCommandLine(cmd, cmdSize, *s))
+                {
+                    return FALSE;
+                }
+            }
+            backslashes = 0;
+        }
+        s++;
+    }
+
+    return AppendCharsToCommandLine(cmd, cmdSize, '\\', backslashes * 2) &&
+           AppendCharToCommandLine(cmd, cmdSize, '\"');
 }
 
 BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* userCommand)
@@ -347,12 +409,12 @@ BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* us
     if (placeholder != NULL)
     {
         return AppendToCommandLine(cmd, cmdSize, args, (int)(placeholder - args)) &&
-               AppendQuotedUserCommand(cmd, cmdSize, userCommand) &&
+               AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE) &&
                AppendToCommandLine(cmd, cmdSize, placeholder + lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER));
     }
     return AppendToCommandLine(cmd, cmdSize, args) &&
            AppendToCommandLine(cmd, cmdSize, " ") &&
-           AppendQuotedUserCommand(cmd, cmdSize, userCommand);
+           AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE);
 }
 
 BOOL BuildCommandLine(char* cmd, int cmdSize, const char* userCommand, BOOL closeShell)
@@ -374,7 +436,7 @@ BOOL BuildCommandLine(char* cmd, int cmdSize, const char* userCommand, BOOL clos
             return FALSE;
     }
 
-    return AppendQuotedUserCommand(cmd, cmdSize, userCommand);
+    return AppendQuotedUserCommand(cmd, cmdSize, userCommand, FALSE);
 }
 
 int GetCmdLineLimit()
