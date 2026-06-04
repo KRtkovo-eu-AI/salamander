@@ -329,6 +329,7 @@ CMainWindow::CMainWindow()
     PanelTabCrossDragStoredMarkItem = -1;
     PanelTabCrossDragStoredMarkFlags = 0;
     PanelTabMouseWheelAccumulator = 0;
+    PanelTabMouseWheelSwitchTime = 0;
     //AnimateBar = NULL;
     //  TipOfTheDayDialog = NULL;
     HTopRebar = NULL;
@@ -2176,6 +2177,13 @@ CMainWindow::HitTest(int xPos, int yPos) // screen coordinates
 void CMainWindow::OnWmContextMenu(HWND hWnd, int xPos, int yPos)
 {
     CALL_STACK_MESSAGE3("CMainWindow::OnWmContextMenu(, %d, %d)", xPos, yPos);
+
+    if (xPos != -1 || yPos != -1)
+    {
+        POINT screenPt = {xPos, yPos};
+        if (ShouldSuppressPanelTabMouseWheelContextMenu(screenPt))
+            return;
+    }
 
     CMainWindowsHitTestEnum hit = HitTest(xPos, yPos);
 

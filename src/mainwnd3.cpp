@@ -1526,6 +1526,8 @@ bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
     if (zDelta == 0)
         return true;
 
+    PanelTabMouseWheelSwitchTime = GetTickCount();
+
     if ((zDelta < 0 && PanelTabMouseWheelAccumulator > 0) ||
         (zDelta > 0 && PanelTabMouseWheelAccumulator < 0))
     {
@@ -1548,6 +1550,43 @@ bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
     }
 
     return true;
+}
+
+BOOL CMainWindow::ShouldSuppressPanelTabMouseWheelContextMenu(POINT screenPt)
+{
+    if (PanelTabMouseWheelSwitchTime == 0)
+        return FALSE;
+
+    DWORD elapsed = GetTickCount() - PanelTabMouseWheelSwitchTime;
+    if (elapsed > 1000)
+    {
+        ResetPanelTabMouseWheelContextMenuSuppression();
+        return FALSE;
+    }
+
+    auto pointInWindow = [](HWND hwnd, POINT pt) {
+        if (hwnd == NULL || !IsWindowVisible(hwnd))
+            return false;
+        RECT rect;
+        return GetWindowRect(hwnd, &rect) && PtInRect(&rect, pt) != FALSE;
+    };
+
+    BOOL suppress =
+        (LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt)) ||
+        (RightTabWindow != NULL && pointInWindow(RightTabWindow->HWindow, screenPt)) ||
+        (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)) ||
+        (RightPanel != NULL && pointInWindow(RightPanel->HWindow, screenPt));
+
+    if (suppress)
+        ResetPanelTabMouseWheelContextMenuSuppression();
+
+    return suppress;
+}
+
+void CMainWindow::ResetPanelTabMouseWheelContextMenuSuppression()
+{
+    PanelTabMouseWheelSwitchTime = 0;
+    PanelTabMouseWheelAccumulator = 0;
 }
 
 void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
