@@ -11,15 +11,15 @@
 ; the fallback path below is relative to this .iss file.
 
 #define MyAppName "Open Salamander Samandarin"
-#define MyAppDisplayName "Open Salamander 5.0-samandarin-0.3 (x64)"
+#define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.3 (x64)"
 #define MyAppVersion "5.0-samandarin-0.3"
-#define MyAppPublisher "Open Salamander Project"
+#define MyAppPublisher "KRtekTM"
 #define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
 #define MyAppExeName "salamand.exe"
 #define SLG "english.slg"
 #ifndef PayloadDir
   #if GetEnv("OPENSAL_BUILD_DIR") != ""
-    #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "salamander\Release_x64"
+    #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "Release_x64"
   #else
     #define PayloadDir "..\..\output\salamander\Release_x64"
   #endif
