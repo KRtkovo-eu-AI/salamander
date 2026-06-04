@@ -46,7 +46,8 @@ PrivilegesRequired=admin
 UninstallDisplayName={#MyAppDisplayName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 CreateUninstallRegKey=no
-SetupIconFile={#PayloadDir}\{#MyAppExeName}
+; Use the small setup icon instead of the payload EXE; Inno can fail with "Icon file is too large" when embedding the EXE icon group.
+SetupIconFile=..\..\src\setup\res\setup.ico
 LicenseFile={#PayloadDir}\doc\license.txt
 InfoAfterFile={#PayloadDir}\doc\readme.txt
 ChangesAssociations=yes
