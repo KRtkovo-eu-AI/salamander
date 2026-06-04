@@ -36,6 +36,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\Open Salamander Samandarin
 DefaultGroupName={#MyAppName}
+DisableProgramGroupPage=yes
 OutputBaseFilename=setup_{#MyAppVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -49,15 +50,15 @@ UninstallDisplayIcon=..\..\src\res\samandarin.ico
 CreateUninstallRegKey=no
 SetupIconFile=..\..\src\res\samandarin.ico
 LicenseFile={#PayloadDir}\doc\license.txt
-InfoAfterFile={#PayloadDir}\doc\readme.txt
+DisableFinishedPage=yes
 ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "Create a &Quick Launch shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked; Check: QuickLaunchAvailable
+Name: "startmenuicon"; Description: "Create a &Start Menu shortcut"; GroupDescription: "Shortcuts:"
+Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 
 [Dirs]
 Name: "{app}\convert"
@@ -825,8 +826,7 @@ Source: "{#PayloadDir}\toolbars\WhatIsThis.svg"; DestDir: "{app}\toolbars"; Flag
 
 [Icons]
 Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: quicklaunchicon; Check: QuickLaunchAvailable
+Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
@@ -854,10 +854,6 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx64.dll""
 Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll"""; Flags: runhidden; RunOnceId: "UnregisterSalExtX86"
 
 [Code]
-function QuickLaunchAvailable: Boolean;
-begin
-  Result := DirExists(ExpandConstant('{userappdata}\Microsoft\Internet Explorer\Quick Launch'));
-end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
