@@ -256,12 +256,21 @@ public:
     HICON HAnchor;
     HICON HSize;
     HICON HPipette;
+    HICON HCursorDark;
+    HICON HAnchorDark;
+    HICON HSizeDark;
+    HICON HPipetteDark;
 
     HWND hProgBar;
 
 public:
     CStatusBar();
     ~CStatusBar();
+
+    HICON GetCursorIcon() const;
+    HICON GetAnchorIcon() const;
+    HICON GetSizeIcon() const;
+    HICON GetPipetteIcon() const;
 };
 
 //

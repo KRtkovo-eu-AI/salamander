@@ -32,6 +32,34 @@ static COLORREF GetToolBarBkColor()
     return DarkMode_ShouldUseDark() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
 }
 
+static COLORREF LightenColor(COLORREF color, int amount)
+{
+    return RGB(min(255, GetRValue(color) + amount),
+               min(255, GetGValue(color) + amount),
+               min(255, GetBValue(color) + amount));
+}
+
+static COLORREF DarkenColor(COLORREF color, int amount)
+{
+    return RGB(max(0, GetRValue(color) - amount),
+               max(0, GetGValue(color) - amount),
+               max(0, GetBValue(color) - amount));
+}
+
+static COLORREF GetDisabledToolBarHighlightColor()
+{
+    if (DarkModeShouldUseDarkColors())
+        return LightenColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), 24);
+    return GetSysColor(COLOR_BTNHILIGHT);
+}
+
+static COLORREF GetDisabledToolBarTextColor()
+{
+    if (DarkModeShouldUseDarkColors())
+        return DarkenColor(GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]), 40);
+    return GetSysColor(COLOR_BTNSHADOW);
+}
+
 void CToolBar::SetFont()
 {
     CALL_STACK_MESSAGE1("CToolBar::SetFont()");
@@ -686,14 +714,10 @@ void CToolBar::DrawItem(HDC hDC, int index)
                 textR2.top++;
                 textR2.right++;
                 textR2.bottom++;
-                COLORREF disabledHighlight =
-                    DarkModeShouldUseDarkColors() ? RGB(200, 200, 200) : GetSysColor(COLOR_BTNHILIGHT);
-                SetTextColor(CacheBitmap->HMemDC, disabledHighlight);
+                SetTextColor(CacheBitmap->HMemDC, GetDisabledToolBarHighlightColor());
                 DrawText(CacheBitmap->HMemDC, item->Text, item->TextLen,
                          &textR2, noPrefix | DT_NOCLIP | DT_LEFT | DT_SINGLELINE | DT_VCENTER);
-                COLORREF disabledText =
-                    DarkModeShouldUseDarkColors() ? RGB(128, 128, 128) : GetSysColor(COLOR_BTNSHADOW);
-                SetTextColor(CacheBitmap->HMemDC, disabledText);
+                SetTextColor(CacheBitmap->HMemDC, GetDisabledToolBarTextColor());
             }
             else
                 SetTextColor(CacheBitmap->HMemDC, defaultText);

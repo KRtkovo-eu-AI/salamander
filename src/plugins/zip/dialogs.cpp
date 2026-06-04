@@ -49,22 +49,29 @@ LRESULT CALLBACK TextControlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
         GetClientRect(hWnd, &r);
         BeginPaint(hWnd, &ps);
-        HBRUSH DialogBrush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+        ConfigureZIPDarkModeFromHost();
+        COLORREF backgroundColor = GetSysColor(COLOR_BTNFACE);
+        COLORREF textColor = GetSysColor(COLOR_BTNTEXT);
+        if (DarkModeShouldUseDarkColors())
+        {
+            backgroundColor = DarkModeGetDialogBackgroundColor();
+            textColor = DarkModeGetDialogTextColor();
+        }
+
+        HBRUSH DialogBrush = CreateSolidBrush(backgroundColor);
         if (DialogBrush)
         {
             FillRect(ps.hdc, &r, DialogBrush);
             DeleteObject(DialogBrush);
         }
         UINT format = DT_SINGLELINE | DT_BOTTOM | DT_NOPREFIX;
-        DWORD color = GetSysColor(COLOR_BTNTEXT);
         HFONT hCurrentFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
-        int ID = GetDlgCtrlID(hWnd);
         format |= DT_PATH_ELLIPSIS;
         HFONT hOldFont = (HFONT)SelectObject(ps.hdc, hCurrentFont);
-        SetTextColor(ps.hdc, color);
+        SetTextColor(ps.hdc, textColor);
         int prevBkMode = SetBkMode(ps.hdc, TRANSPARENT);
         int len = GetWindowText(hWnd, txt, MAX_PATH);
-        DrawText(ps.hdc, txt, lstrlen(txt), &r, format);
+        DrawText(ps.hdc, txt, len, &r, format);
         SetBkMode(ps.hdc, prevBkMode);
         SelectObject(ps.hdc, hOldFont);
         EndPaint(hWnd, &ps);
@@ -162,6 +169,11 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam)
     CALL_STACK_MESSAGE_NONE
     *(HWND*)lParam = hwnd;
     return FALSE;
+}
+
+static void ClearComboBoxEditSelection(HWND hDlg, int ctrlID)
+{
+    SendDlgItemMessage(hDlg, ctrlID, CB_SETEDITSEL, 0, MAKELPARAM(-1, 0));
 }
 
 void CPackDialog::SubClassComboBox(DWORD wID, bool subclass)
@@ -354,6 +366,7 @@ BOOL CPackDialog::OnInit(WPARAM wParam, LPARAM lParam)
         SendDlgItemMessage(Dlg, IDC_VOLSIZE, CB_SETCURSEL, 0, 0);
         SendDlgItemMessage(Dlg, IDC_UNITS, CB_SETCURSEL, Config->VolSizeUnits[0] == 0 ? 0 : 1, 0);
     }
+    ClearComboBoxEditSelection(Dlg, IDC_VOLSIZE);
 
     ResetControls();
 
