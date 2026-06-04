@@ -3788,6 +3788,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DarkModeApplyWindow(HWindow);
         DarkModeRefreshTitleBar(HWindow);
         DarkModeApplyTree(HWindow);
+        if (StatusBar != NULL)
+        {
+            DarkModeApplyTree(StatusBar->HWindow);
+            SetStatusBarTexts();
+        }
         UpdateRendererFrameForTheme();
         if (Renderer.HWindow != NULL)
             SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
@@ -3804,6 +3809,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DarkModeApplyWindow(HWindow);
             DarkModeRefreshTitleBar(HWindow);
             DarkModeApplyTree(HWindow);
+            if (StatusBar != NULL)
+            {
+                DarkModeApplyTree(StatusBar->HWindow);
+                SetStatusBarTexts();
+            }
             UpdateRendererFrameForTheme();
             if (Renderer.HWindow != NULL)
                 SendMessage(Renderer.HWindow, WM_USER_VIEWERCFGCHNG, 0, 0);
