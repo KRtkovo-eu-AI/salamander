@@ -298,6 +298,188 @@ BOOL IsChangeDirAttempt(const char* text)
     return StrNICmp(text, "cd ", 3) == 0;
 }
 
+const char* COMMANDLINE_COMMAND_PLACEHOLDER = "{command}";
+
+void GetCommandLineApplication(char* cmd, int cmdSize)
+{
+    if (Configuration.CommandLineApplication[0] != 0)
+        lstrcpyn(cmd, Configuration.CommandLineApplication, cmdSize);
+    else if (!GetEnvironmentVariable("COMSPEC", cmd, cmdSize))
+        cmd[0] = 0;
+}
+
+BOOL IsCmdExeCommandLineApplication(const char* cmd)
+{
+    return cmd[0] == 0 || StrICmp(PathFindFileName(cmd), "cmd.exe") == 0;
+}
+
+BOOL AppendToCommandLine(char* cmd, int cmdSize, const char* text)
+{
+    int cmdLen = lstrlen(cmd);
+    int textLen = lstrlen(text);
+    if (cmdLen + textLen >= cmdSize)
+        return FALSE;
+    memcpy(cmd + cmdLen, text, textLen + 1);
+    return TRUE;
+}
+
+BOOL AppendToCommandLine(char* cmd, int cmdSize, const char* text, int textLen)
+{
+    int cmdLen = lstrlen(cmd);
+    if (cmdLen + textLen >= cmdSize)
+        return FALSE;
+    memcpy(cmd + cmdLen, text, textLen);
+    cmd[cmdLen + textLen] = 0;
+    return TRUE;
+}
+
+BOOL AppendCharToCommandLine(char* cmd, int cmdSize, char ch)
+{
+    int cmdLen = lstrlen(cmd);
+    if (cmdLen + 1 >= cmdSize)
+        return FALSE;
+    cmd[cmdLen] = ch;
+    cmd[cmdLen + 1] = 0;
+    return TRUE;
+}
+
+BOOL AppendCharsToCommandLine(char* cmd, int cmdSize, char ch, int count)
+{
+    while (count > 0)
+    {
+        if (!AppendCharToCommandLine(cmd, cmdSize, ch))
+            return FALSE;
+        count--;
+    }
+    return TRUE;
+}
+
+BOOL AppendQuotedUserCommand(char* cmd, int cmdSize, const char* userCommand, BOOL escapeQuotes)
+{
+    if (!escapeQuotes)
+    {
+        // Preserve the historical cmd.exe command wrapping exactly: /C "command" or /K "command".
+        return AppendToCommandLine(cmd, cmdSize, "\"") &&
+               AppendToCommandLine(cmd, cmdSize, userCommand) &&
+               AppendToCommandLine(cmd, cmdSize, "\"");
+    }
+
+    if (!AppendCharToCommandLine(cmd, cmdSize, '\"'))
+        return FALSE;
+
+    int backslashes = 0;
+    const char* s = userCommand;
+    while (*s != 0)
+    {
+        if (*s == '\\')
+        {
+            backslashes++;
+        }
+        else
+        {
+            if (*s == '\"')
+            {
+                if (!AppendCharsToCommandLine(cmd, cmdSize, '\\', backslashes * 2 + 1) ||
+                    !AppendCharToCommandLine(cmd, cmdSize, '\"'))
+                {
+                    return FALSE;
+                }
+            }
+            else
+            {
+                if (!AppendCharsToCommandLine(cmd, cmdSize, '\\', backslashes) ||
+                    !AppendCharToCommandLine(cmd, cmdSize, *s))
+                {
+                    return FALSE;
+                }
+            }
+            backslashes = 0;
+        }
+        s++;
+    }
+
+    return AppendCharsToCommandLine(cmd, cmdSize, '\\', backslashes * 2) &&
+           AppendCharToCommandLine(cmd, cmdSize, '\"');
+}
+
+BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* userCommand)
+{
+    const char* args = Configuration.CommandLineArguments;
+    const char* placeholder = strstr(args, COMMANDLINE_COMMAND_PLACEHOLDER);
+    if (placeholder != NULL)
+    {
+        return AppendToCommandLine(cmd, cmdSize, args, (int)(placeholder - args)) &&
+               AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE) &&
+               AppendToCommandLine(cmd, cmdSize, placeholder + lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER));
+    }
+    return AppendToCommandLine(cmd, cmdSize, args) &&
+           AppendToCommandLine(cmd, cmdSize, " ") &&
+           AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE);
+}
+
+struct CCommandLineLaunchInfo
+{
+    char Application[MAX_PATH];
+    char CommandLine[SALCMDLINE_MAXLEN + MAX_PATH];
+    BOOL TooLong;
+};
+
+int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShell)
+{
+    int overhead = lstrlen(quotedApp) + 1; // launcher application and the separating space
+
+    if (Configuration.CommandLineArguments[0] != 0)
+    {
+        const char* args = Configuration.CommandLineArguments;
+        const char* placeholder = strstr(args, COMMANDLINE_COMMAND_PLACEHOLDER);
+        if (placeholder != NULL)
+            overhead += lstrlen(args) - lstrlen(COMMANDLINE_COMMAND_PLACEHOLDER);
+        else
+            overhead += lstrlen(args) + 1; // template plus the separating space before appended command
+
+        overhead += 2; // quotes added around the inserted/appended user command
+    }
+    else
+    {
+        if (IsCmdExeCommandLineApplication(app))
+            overhead += lstrlen(closeShell ? "/C " : "/K ");
+        overhead += 2; // quotes added around the user command
+    }
+
+    return overhead;
+}
+
+void BuildCommandLine(CCommandLineLaunchInfo* launchInfo, const char* userCommand, BOOL closeShell)
+{
+    GetCommandLineApplication(launchInfo->Application, MAX_PATH);
+    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + MAX_PATH);
+    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+
+    launchInfo->TooLong = FALSE;
+    if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, " "))
+    {
+        launchInfo->TooLong = TRUE;
+        return;
+    }
+
+    if (Configuration.CommandLineArguments[0] != 0)
+    {
+        launchInfo->TooLong = !AppendConfiguredCommandLineArguments(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, userCommand);
+        return;
+    }
+
+    if (IsCmdExeCommandLineApplication(launchInfo->Application))
+    {
+        if (!AppendToCommandLine(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, closeShell ? "/C " : "/K "))
+        {
+            launchInfo->TooLong = TRUE;
+            return;
+        }
+    }
+
+    launchInfo->TooLong = !AppendQuotedUserCommand(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH, userCommand, FALSE);
+}
+
 int GetCmdLineLimit()
 {
     /*
@@ -311,16 +493,24 @@ int GetCmdLineLimit()
 #pragma message(__FILE__ " ERROR: SALCMDLINE_MAXLEN != 8192. SALCMDLINE_MAXLEN and GetCmdLineLimit() must contain the same maximal value!")
 #endif
 
+    char app[MAX_PATH];
+    GetCommandLineApplication(app, MAX_PATH);
+
+    char quotedApp[SALCMDLINE_MAXLEN + MAX_PATH];
+    lstrcpyn(quotedApp, app, SALCMDLINE_MAXLEN + MAX_PATH);
+    AddDoubleQuotesIfNeeded(quotedApp, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess expects names with spaces quoted (otherwise it tries various variants; see help)
+
+    // Use the same launcher/argument layout as BuildCommandLine().  FALSE selects /K for
+    // the default cmd.exe case; /C has the same length, so CloseShell does not affect the limit.
+    int overhead = GetCommandLineOverhead(quotedApp, app, FALSE);
+
+    int limit = SALCMDLINE_MAXLEN; // XP: keep the historical maximum unless our own buffer needs a lower limit
     if (WindowsXP64AndLater) // XP64 + Vista + Win7 + ...
-    {
-        char cmd[MAX_PATH];
-        if (!GetEnvironmentVariable("COMSPEC", cmd, MAX_PATH))
-            cmd[0] = 0;
-        AddDoubleQuotesIfNeeded(cmd, MAX_PATH); // CreateProcess expects names with spaces quoted (otherwise it tries various variants; see help)
-        return 8191 - lstrlen(cmd) - 6;         // 6 = strlen(" /K ") + 2 (two quotation marks around the command itself)
-    }
-    else
-        return 8192; // XP
+        limit = min(limit, 8191 - overhead);
+
+    // The CreateProcess command line is assembled into a SALCMDLINE_MAXLEN + MAX_PATH buffer.
+    limit = min(limit, SALCMDLINE_MAXLEN + MAX_PATH - 1 - overhead);
+    return max(0, limit);
 }
 
 //
@@ -407,13 +597,13 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // let the command fall through to the shell so the message box text stays simple
                     }
 
-                    char cmd[SALCMDLINE_MAXLEN + MAX_PATH]; // COMSPEC is likely only a few characters long; MAX_PATH is plenty (no extra needed for parameters /K, etc.)
-                    if (!GetEnvironmentVariable("COMSPEC", cmd, SALCMDLINE_MAXLEN + MAX_PATH))
-                        cmd[0] = 0;
-                    AddDoubleQuotesIfNeeded(cmd, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+                    CCommandLineLaunchInfo launchInfo;
+                    BOOL closeShell = (Configuration.CloseShell != 0) ^ ((GetKeyState(VK_MENU) & 0x8000) != 0);
+                    BuildCommandLine(&launchInfo, cmdLine, closeShell);
 
-                    if (SystemPolicies.GetMyRunRestricted() &&
-                        (!SystemPolicies.GetMyCanRun(cmd) || !SystemPolicies.GetMyCanRun(cmdLine)))
+                    if (!launchInfo.TooLong && SystemPolicies.GetMyRunRestricted() &&
+                        (!SystemPolicies.GetMyCanRun(launchInfo.Application) ||
+                         !SystemPolicies.GetMyCanRun(launchInfo.CommandLine)))
                     {
                         MSGBOXEX_PARAMS params;
                         memset(&params, 0, sizeof(params));
@@ -433,25 +623,6 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     HCURSOR oldCur;
                     if (setWait)
                         oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
-
-                    BOOL cmdTooLong = FALSE;
-                    if (strlen(cmd) + 4 < SALCMDLINE_MAXLEN + MAX_PATH)
-                    {
-                        if ((Configuration.CloseShell != 0) ^ ((GetKeyState(VK_MENU) & 0x8000) != 0))
-                            strcat(cmd, " /C "); // so that the shell closes
-                        else
-                            strcat(cmd, " /K "); // so that the shell stays active
-                    }
-                    else
-                        cmdTooLong = TRUE;
-                    if (strlen(cmd) + strlen(cmdLine) + 2 < SALCMDLINE_MAXLEN + MAX_PATH)
-                    {
-                        strcat(cmd, "\"");
-                        strcat(cmd, cmdLine); // the user's command line must be quoted, otherwise commands containing quotes fail (e.g. >>"C:\APPS\WinRAR\UnRAR.exe" e "test.rar"<< prints >>'C:\APPS\WinRAR\UnRAR.exe" e "test.rar' is not recognized<<)
-                        strcat(cmd, "\"");
-                    }
-                    else
-                        cmdTooLong = TRUE;
 
                     STARTUPINFO si;
                     memset(&si, 0, sizeof(STARTUPINFO));
@@ -473,19 +644,19 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                     BOOL proc_ret = FALSE;
                     DWORD err = 0;
-                    if (!cmdTooLong)
+                    if (!launchInfo.TooLong)
                     {
                         CALL_STACK_MESSAGE3("CEditLine::WindowProc::CreateProcess(, %s, , , , , , %s, ,)",
-                                            strlen(cmd) > 300 ? "(very long cmd)" : cmd,
+                                            strlen(launchInfo.CommandLine) > 300 ? "(very long cmd)" : launchInfo.CommandLine,
                                             MainWindow->GetActivePanel()->GetPath());
-                        proc_ret = HANDLES(CreateProcess(NULL, cmd, NULL, NULL, FALSE,
+                        proc_ret = HANDLES(CreateProcess(NULL, launchInfo.CommandLine, NULL, NULL, FALSE,
                                                          CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS,
                                                          NULL, MainWindow->GetActivePanel()->GetPath(), &si, &pi));
                         err = GetLastError();
                     }
-                    if (cmdTooLong || !proc_ret)
+                    if (launchInfo.TooLong || !proc_ret)
                     {
-                        SalMessageBox(HWindow, cmdTooLong ? LoadStr(IDS_TOOLONGPATH) : GetErrorText(err),
+                        SalMessageBox(HWindow, launchInfo.TooLong ? LoadStr(IDS_TOOLONGPATH) : GetErrorText(err),
                                       LoadStr(IDS_ERROREXECCMDLINE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else

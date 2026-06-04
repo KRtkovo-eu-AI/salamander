@@ -2865,6 +2865,8 @@ void CCfgPageMainWindow::Transfer(CTransferInfo& ti)
 
     ti.CheckBox(IDC_TITLEBAR_PREFIX, Configuration.UseTitleBarPrefix);
     ti.EditLine(IDC_TITLEBAR_PREFIX_TEXT, Configuration.TitleBarPrefix, TITLE_PREFIX_MAX);
+    ti.EditLine(IDC_CMDLINEAPP_PATH, Configuration.CommandLineApplication, MAX_PATH);
+    ti.EditLine(IDC_CMDLINEAPP_ARGS, Configuration.CommandLineArguments, CONFIG_COMMANDLINEARGS_MAXLEN);
 
     if (ti.Type == ttDataFromWindow)
     {
@@ -2959,6 +2961,7 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         // replace the existing combobox for icon color selection with its EX version
         InitIconCombobox();
+        ChangeToArrowButton(HWindow, IDC_CMDLINEAPP_BROWSE);
 
         break;
     }
@@ -2968,6 +2971,16 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (HIWORD(wParam) == BN_CLICKED)
         {
             EnableControls();
+        }
+
+        switch (LOWORD(wParam))
+        {
+        case IDC_CMDLINEAPP_BROWSE:
+        {
+            TrackExecuteMenu(HWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
+                             CommandExecutes, IDS_EXEFILTER);
+            return 0;
+        }
         }
         break;
     }

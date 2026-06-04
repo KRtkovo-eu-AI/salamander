@@ -604,6 +604,9 @@
 #define IDC_TABS_MAXWIDTH_UNITS         2696
 #define IDC_TABS_ALIGN_LABEL            2697
 #define IDC_TABS_ALIGN                  2698
+#define IDC_CMDLINEAPP_PATH             2699
+#define IDC_CMDLINEAPP_BROWSE           2705
+#define IDC_CMDLINEAPP_ARGS             2706
 #define IDD_CFGPAGE_ARCHIVERS           2700
 #define IDC_ARCH_SIMPLEICONS            2701
 #define IDC_ARCH_ANOTHERPANELP          2702
