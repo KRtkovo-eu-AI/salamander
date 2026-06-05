@@ -1408,79 +1408,179 @@ BOOL CViewerWindow::FindPreviousDecodedEOL(HANDLE* hFile, __int64 seek, __int64 
                                            BOOL& fatalErr, int* lines, __int64* firstLineEndOff,
                                            __int64* firstLineCharLen, BOOL addLineIfSeekIsWrap)
 {
+    // Keep decoded backwards navigation close to the legacy byte path: scan backwards from
+    // the current seek instead of replaying the whole file from TextContentOffset.  The
+    // replay implementation was correct but made opening large Unicode files very slow,
+    // because HeightChanged() asks FindSeekBefore(FileSize, visibleLines) during the first
+    // paint and that turned into a full-file decode before any content was drawn.
     UNREFERENCED_PARAMETER(allowWrap);
     UNREFERENCED_PARAMETER(takeLineBegin);
     UNREFERENCED_PARAMETER(lines);
     UNREFERENCED_PARAMETER(addLineIfSeekIsWrap);
 
     fatalErr = FALSE;
-    lineBegin = max(minSeek, TextContentOffset);
-    previousLineEnd = lineBegin;
     if (firstLineEndOff != NULL)
         *firstLineEndOff = -1;
     if (firstLineCharLen != NULL)
         *firstLineCharLen = -1;
 
     minSeek = max(minSeek, TextContentOffset);
-    seek = max(seek, minSeek);
+    seek = max(min(seek, FileSize), minSeek);
+    lineBegin = minSeek;
+    previousLineEnd = minSeek;
     if (seek <= minSeek)
     {
-        previousLineEnd = lineBegin = minSeek;
         if (firstLineCharLen != NULL)
             *firstLineCharLen = 0;
         return TRUE;
     }
 
-    __int64 pos = minSeek;
-    __int64 lastBegin = minSeek;
-    __int64 lastEnd = minSeek;
-    __int64 lastPreviousEnd = minSeek;
-    __int64 lastLen = 0;
-    while (pos < seek && pos < FileSize)
+    auto previousScalarOffset = [&]( __int64 offset) -> __int64
     {
-        Sally::Unicode::DecodedRun visual;
-        __int64 lineEnd = pos;
-        __int64 nextLineBegin = pos;
-        BOOL eol = FALSE;
-        BOOL wrapped = FALSE;
-        int eolBytes = 0;
-        __int64 maxCells = WrapText ? max(1, (Width - BORDER_WIDTH) / CharWidth) : TEXT_MAX_LINE_LEN + 1;
-        if (!ReadDecodedTextLine(hFile, pos, maxCells, visual, lineEnd, nextLineBegin,
-                                 eol, wrapped, eolBytes, fatalErr))
-            return FALSE;
-        if (fatalErr)
-            return FALSE;
-        if (nextLineBegin <= pos)
-            break;
-
-        if (nextLineBegin >= seek)
+        if (offset <= minSeek)
+            return -1;
+        if (TextEncoding == Sally::Unicode::BomEncoding::Utf16Le ||
+            TextEncoding == Sally::Unicode::BomEncoding::Utf16Be)
         {
-            lineBegin = pos;
-            previousLineEnd = lastPreviousEnd;
-            lastEnd = lineEnd;
-            lastLen = (__int64)visual.CellCount();
-            break;
+            __int64 pos = Sally::Unicode::AlignToCodeUnit(TextEncoding, offset - 1, TextContentOffset);
+            if (pos >= offset)
+                pos -= 2;
+            return pos >= minSeek ? pos : -1;
         }
 
-        lastPreviousEnd = lineEnd;
-        lastBegin = pos;
-        lastEnd = lineEnd;
-        lastLen = (__int64)visual.CellCount();
-        pos = nextLineBegin;
-    }
+        __int64 pos = offset - 1;
+        while (pos > minSeek)
+        {
+            __int64 len = Prepare(hFile, pos, 1, fatalErr);
+            if (fatalErr || len != 1)
+                return -1;
+            unsigned char ch = *(Buffer + (pos - Seek));
+            if ((ch & 0xC0) != 0x80)
+                break;
+            pos--;
+        }
+        return pos >= minSeek ? pos : -1;
+    };
 
-    if (pos >= seek)
+    auto readScalar = [&]( __int64 offset, Sally::Unicode::DecodedRun& scalar) -> BOOL
     {
-        lineBegin = lastBegin;
-        previousLineEnd = lastPreviousEnd;
+        scalar.Clear();
+        if (offset < minSeek || offset >= FileSize)
+            return FALSE;
+        return ReadDecodedScalar(hFile, offset, scalar, fatalErr) && !fatalErr && scalar.CellCount() > 0;
+    };
+
+    struct DecodedEol
+    {
+        __int64 LineEnd;
+        __int64 NextLineBegin;
+    };
+
+    auto findPreviousEol = [&]( __int64 limit, DecodedEol& eol) -> BOOL
+    {
+        __int64 pos = previousScalarOffset(limit);
+        while (pos >= minSeek)
+        {
+            Sally::Unicode::DecodedRun scalar;
+            if (!readScalar(pos, scalar))
+                return FALSE;
+            if (scalar.RawStart[0] >= limit)
+            {
+                pos = previousScalarOffset(pos);
+                continue;
+            }
+
+            std::uint32_t ch = scalar.Scalars[0];
+            if (ch == L'\n')
+            {
+                if (Configuration.EOL_CRLF)
+                {
+                    __int64 prevPos = previousScalarOffset(scalar.RawStart[0]);
+                    Sally::Unicode::DecodedRun prevScalar;
+                    if (prevPos >= minSeek && readScalar(prevPos, prevScalar) &&
+                        prevScalar.Scalars[0] == L'\r' && prevScalar.RawEnd[0] == scalar.RawStart[0])
+                    {
+                        eol.LineEnd = prevScalar.RawStart[0];
+                        eol.NextLineBegin = scalar.RawEnd[0];
+                        return TRUE;
+                    }
+                    if (fatalErr)
+                        return FALSE;
+                }
+                if (Configuration.EOL_LF)
+                {
+                    eol.LineEnd = scalar.RawStart[0];
+                    eol.NextLineBegin = scalar.RawEnd[0];
+                    return TRUE;
+                }
+            }
+            else if (ch == L'\r')
+            {
+                if (Configuration.EOL_CRLF)
+                {
+                    Sally::Unicode::DecodedRun nextScalar;
+                    if (scalar.RawEnd[0] < limit && readScalar(scalar.RawEnd[0], nextScalar) &&
+                        nextScalar.Scalars[0] == L'\n' && nextScalar.RawStart[0] == scalar.RawEnd[0] &&
+                        nextScalar.RawEnd[0] <= limit)
+                    {
+                        eol.LineEnd = scalar.RawStart[0];
+                        eol.NextLineBegin = nextScalar.RawEnd[0];
+                        return TRUE;
+                    }
+                    if (fatalErr)
+                        return FALSE;
+                }
+                if (Configuration.EOL_CR)
+                {
+                    eol.LineEnd = scalar.RawStart[0];
+                    eol.NextLineBegin = scalar.RawEnd[0];
+                    return TRUE;
+                }
+            }
+            else if (ch == 0 && Configuration.EOL_NULL)
+            {
+                eol.LineEnd = scalar.RawStart[0];
+                eol.NextLineBegin = scalar.RawEnd[0];
+                return TRUE;
+            }
+
+            pos = previousScalarOffset(pos);
+            if (fatalErr)
+                return FALSE;
+        }
+        return FALSE;
+    };
+
+    DecodedEol currentEol = {minSeek, minSeek};
+    if (findPreviousEol(seek, currentEol))
+    {
+        lineBegin = currentEol.NextLineBegin;
+        previousLineEnd = currentEol.LineEnd;
+    }
+    else if (fatalErr)
+        return FALSE;
+    else
+    {
+        lineBegin = minSeek;
+        previousLineEnd = minSeek;
     }
 
-    if (lineBegin > TextContentOffset && firstLineEndOff != NULL)
-        *firstLineEndOff = previousLineEnd;
+    if (firstLineEndOff != NULL)
+        *firstLineEndOff = lineBegin > minSeek ? previousLineEnd : lineBegin;
+
     if (firstLineCharLen != NULL)
-        *firstLineCharLen = lastLen;
-    if (firstLineEndOff != NULL && *firstLineEndOff == -1)
-        *firstLineEndOff = lastEnd;
+    {
+        __int64 countEnd = max(lineBegin, min(seek, currentEol.LineEnd >= lineBegin ? currentEol.LineEnd : seek));
+        Sally::Unicode::DecodedRun visual;
+        if (countEnd > lineBegin)
+        {
+            if (!DecodeTextRange(hFile, lineBegin, countEnd, visual, fatalErr))
+                return FALSE;
+            if (fatalErr)
+                return FALSE;
+        }
+        *firstLineCharLen = (__int64)visual.CellCount();
+    }
     return TRUE;
 }
 
