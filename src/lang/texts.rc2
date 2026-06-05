@@ -602,7 +602,7 @@ STRINGTABLE
  IDS_MYDOCUMENTS, "Documents"
  IDS_3DOBJECTS, "3D Objects"
  IDS_DESKTOP, "Desktop"
- IDS_DOWNLOADS, "Downloads"
+ IDS_DOWNLOADS, "Download"
  IDS_MUSIC, "Music"
  IDS_PICTURES, "Pictures"
  IDS_VIDEOS, "Videos"
