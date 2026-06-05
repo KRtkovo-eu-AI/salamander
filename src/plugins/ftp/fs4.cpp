@@ -14,6 +14,33 @@
 // (for example with Add to archive) until the temporary download is finished.
 static const char* FTP_TEMP_BRIDGE_WAIT_MARKER = "SAL_WAIT_TEMP_BRIDGE";
 
+static BOOL WaitForAuxThreadExitPumpingMessages(HANDLE thread)
+{
+    while (1)
+    {
+        DWORD waitRes = MsgWaitForMultipleObjects(1, &thread, FALSE, 100, QS_ALLINPUT);
+        if (waitRes == WAIT_OBJECT_0)
+        {
+            CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");
+            return AuxThreadQueue.WaitForExit(thread, 0);
+        }
+        if (waitRes == WAIT_OBJECT_0 + 1)
+        {
+            MSG msg;
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT)
+                {
+                    PostQuitMessage((int)msg.wParam);
+                    return FALSE;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }
+    }
+}
+
 static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* oper)
 {
     while (1)
@@ -25,12 +52,8 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
             {
                 HANDLE dlgThread = NULL;
                 oper->HideAndCloseOperationDlg(&dlgThread);
-                if (dlgThread != NULL)
-                {
-                    CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");
-                    AuxThreadQueue.WaitForExit(dlgThread, INFINITE);
-                }
-                FTPOperationsList.DeleteOperation(operUID, TRUE);
+                if (dlgThread == NULL || WaitForAuxThreadExitPumpingMessages(dlgThread))
+                    FTPOperationsList.DeleteOperation(operUID, TRUE);
             }
             return state;
         }
