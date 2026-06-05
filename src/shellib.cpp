@@ -2647,10 +2647,10 @@ STDMETHODIMP CTextDataObject::GetData(FORMATETC* formatEtc, STGMEDIUM* medium)
     if ((formatEtc->cfFormat == CF_TEXT || formatEtc->cfFormat == CF_UNICODETEXT) && (formatEtc->tymed & TYMED_HGLOBAL))
     {
         HGLOBAL dataDup = NULL; // create a copy of Data
-        if (Data != NULL)
+        BOOL ok = FALSE;
+        if (formatEtc->cfFormat == CF_TEXT)
         {
-            BOOL ok = FALSE;
-            if (formatEtc->cfFormat == CF_TEXT)
+            if (Data != NULL)
             {
                 SIZE_T size = GlobalSize(Data);
                 dataDup = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, size));
@@ -2669,7 +2669,56 @@ STDMETHODIMP CTextDataObject::GetData(FORMATETC* formatEtc, STGMEDIUM* medium)
                         HANDLES(GlobalUnlock(dataDup));
                 }
             }
-            else // formatEtc->cfFormat == CF_UNICODETEXT
+            else if (UnicodeData != NULL)
+            {
+                const WCHAR* ptr2 = (const WCHAR*)HANDLES(GlobalLock(UnicodeData));
+                if (ptr2 != NULL)
+                {
+                    int len = WideCharToMultiByte(CP_ACP, 0, ptr2, -1, NULL, 0, NULL, NULL);
+                    if (len > 0)
+                    {
+                        dataDup = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, len));
+                        if (dataDup != NULL)
+                        {
+                            char* ptr1 = (char*)HANDLES(GlobalLock(dataDup));
+                            if (ptr1 != NULL)
+                            {
+                                if (WideCharToMultiByte(CP_ACP, 0, ptr2, -1, ptr1, len, NULL, NULL) > 0)
+                                    ok = TRUE;
+                                else
+                                    TRACE_E("WideCharToMultiByte() failed to make ANSI translation for our Unicode text.");
+                                HANDLES(GlobalUnlock(dataDup));
+                            }
+                        }
+                    }
+                    else
+                        TRACE_E("WideCharToMultiByte() failed to return size of ANSI translation for our Unicode text.");
+                    HANDLES(GlobalUnlock(UnicodeData));
+                }
+            }
+        }
+        else // formatEtc->cfFormat == CF_UNICODETEXT
+        {
+            if (UnicodeData != NULL)
+            {
+                SIZE_T size = GlobalSize(UnicodeData);
+                dataDup = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, size));
+                if (dataDup != NULL)
+                {
+                    void* ptr1 = HANDLES(GlobalLock(dataDup));
+                    void* ptr2 = HANDLES(GlobalLock(UnicodeData));
+                    if (ptr1 != NULL && ptr2 != NULL)
+                    {
+                        memcpy(ptr1, ptr2, size);
+                        ok = TRUE;
+                    }
+                    if (ptr2 != NULL)
+                        HANDLES(GlobalUnlock(UnicodeData));
+                    if (ptr1 != NULL)
+                        HANDLES(GlobalUnlock(dataDup));
+                }
+            }
+            else if (Data != NULL)
             {
                 const char* ptr2 = (const char*)HANDLES(GlobalLock(Data));
                 if (ptr2 != NULL)
@@ -2696,11 +2745,11 @@ STDMETHODIMP CTextDataObject::GetData(FORMATETC* formatEtc, STGMEDIUM* medium)
                     HANDLES(GlobalUnlock(Data));
                 }
             }
-            if (!ok && dataDup != NULL)
-            {
-                NOHANDLES(GlobalFree(dataDup));
-                dataDup = NULL;
-            }
+        }
+        if (!ok && dataDup != NULL)
+        {
+            NOHANDLES(GlobalFree(dataDup));
+            dataDup = NULL;
         }
         if (dataDup != NULL) // we have the data, store them in the medium and return
         {

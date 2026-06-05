@@ -369,6 +369,9 @@
     <ClCompile Include="..\viewer.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\unicode\ViewerBomText.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
     <ClCompile Include="..\viewer2.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -691,6 +694,9 @@
     </ClInclude>
     <ClInclude Include="..\viewer.h">
       <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\unicode\ViewerBomText.h">
+      <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\worker.h">
       <Filter>h</Filter>
