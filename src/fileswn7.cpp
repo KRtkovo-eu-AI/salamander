@@ -385,6 +385,10 @@ const char* WINAPI PanelSalEnumSelection(HWND parent, int enumFiles, BOOL* isDir
     return _PanelSalEnumSelection(enumFiles, NULL, isDir, size, fileData, param, parent, errorOccured);
 }
 
+static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* target,
+                                           CPanelTmpEnumData* data, int sourceFiles, int sourceDirs,
+                                           char* targetPath, BOOL& invalidPathOrCancel);
+
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::UnpackZIPArchive(, %d, %s)", deleteOp, tgtPath);
@@ -483,6 +487,15 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
 
     if (!deleteOp) // copy
     {
+        int sourceFiles = 0;
+        int i;
+        for (i = 0; i < data.IndexesCount; i++)
+        {
+            if (data.Indexes[i] >= Dirs->Count)
+                sourceFiles++;
+        }
+        int sourceDirs = data.IndexesCount - sourceFiles;
+
         //---  obtain the target directory
         if (target != NULL && target->Is(ptDisk))
         {
@@ -491,7 +504,27 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
         }
         else
+        {
             path[0] = 0;
+            if (target != NULL && target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
+                target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
+            {
+                target->GetGeneralPath(path, MAX_PATH);
+                if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
+                                                                   target->GetPluginFS()->GetPluginFSName(),
+                                                                   HWindow, NULL, NULL, NULL,
+                                                                   sourceFiles, sourceDirs, path, NULL))
+                {
+                    path[0] = 0;
+                }
+                else
+                {
+                    // convert the path to external format (before showing it in the dialog)
+                    PluginFSConvertPathToExternal(path);
+                    target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
+                }
+            }
+        }
 
         CCopyMoveDialog dlg(HWindow, path, MAX_PATH, LoadStr(IDS_UNPACKCOPY), &str, IDD_COPYDIALOG,
                             Configuration.CopyHistory, COPY_HISTORY_SIZE, TRUE);
@@ -686,20 +719,37 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 }
                 else
                 {
-                    SalMessageBox(HWindow, LoadStr(IDS_UNPACK_ONLYDISK), LoadStr(IDS_ERRORCOPY),
-                                  MB_OK | MB_ICONEXCLAMATION);
-                    if (pathType == PATH_TYPE_ARCHIVE && (backslashAtEnd || mustBePath))
+                    BOOL invalidPathOrCancel = FALSE;
+                    if (pathType == PATH_TYPE_FS && target != NULL && target->Is(ptPluginFS) &&
+                        UnpackArchiveToPluginFSViaTemp(this, target, &data, sourceFiles, sourceDirs,
+                                                       path, invalidPathOrCancel))
                     {
-                        SalPathAddBackslash(path, MAX_PATH + 200);
+                        if (tgtPath == NULL) // if it is not drag&drop (selection is not cleared there)
+                        {
+                            SetSel(FALSE, -1, TRUE);                        // explicit redraw
+                            PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // sel-change notify
+                        }
                     }
-                    if (tgtPath != NULL)
+                    else
                     {
-                        UpdateWindow(MainWindow->HWindow);
-                        delete[] (data.Indexes);
-                        EndStopRefresh();
-                        return;
+                        if (!invalidPathOrCancel)
+                        {
+                            SalMessageBox(HWindow, LoadStr(IDS_UNPACK_ONLYDISK), LoadStr(IDS_ERRORCOPY),
+                                          MB_OK | MB_ICONEXCLAMATION);
+                            if (pathType == PATH_TYPE_ARCHIVE && (backslashAtEnd || mustBePath))
+                            {
+                                SalPathAddBackslash(path, MAX_PATH + 200);
+                            }
+                        }
+                        if (tgtPath != NULL)
+                        {
+                            UpdateWindow(MainWindow->HWindow);
+                            delete[] (data.Indexes);
+                            EndStopRefresh();
+                            return;
+                        }
+                        goto _DLG_AGAIN;
                     }
-                    goto _DLG_AGAIN;
                 }
             }
             else
@@ -717,7 +767,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             //---  refresh directories that are not automatically refreshed
             // changes on the target path and its subdirectories (creating new directories and unpacking
             // files/directories)
-            MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
+            if (changesRoot[0] != 0)
+                MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
             // change in the directory containing the archive (should not occur during unpack, but refresh just in case it does)
             MainWindow->PostChangeOnPathNotification(GetPath(), FALSE);
         }
@@ -1277,6 +1328,94 @@ const char* WINAPI PanelEnumDiskSelection(HWND parent, int enumFiles, const char
             *lastWrite = f->LastWrite;
         return f->Name;
     }
+}
+
+
+static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* target,
+                                           CPanelTmpEnumData* data, int sourceFiles, int sourceDirs,
+                                           char* targetPath, BOOL& invalidPathOrCancel)
+{
+    CALL_STACK_MESSAGE2("UnpackArchiveToPluginFSViaTemp(, , , , , %s,)", targetPath);
+
+    invalidPathOrCancel = FALSE;
+
+    if (target == NULL || !target->Is(ptPluginFS) || !target->GetPluginFS()->NotEmpty() ||
+        !target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
+    {
+        return FALSE;
+    }
+
+    int pathType;
+    BOOL pathIsDir;
+    char* secondPart;
+    if (!source->ParsePath(targetPath, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, MAX_PATH) ||
+        pathType != PATH_TYPE_FS)
+    {
+        return FALSE;
+    }
+
+    char fsName[MAX_PATH];
+    int fsNameLen = (int)((secondPart - targetPath) - 1);
+    if (fsNameLen <= 0 || fsNameLen >= MAX_PATH)
+        return FALSE;
+    memcpy(fsName, targetPath, fsNameLen);
+    fsName[fsNameLen] = 0;
+
+    int fsNameIndex;
+    if (!target->GetPluginFS()->IsFSNameFromSamePluginAsThisFS(fsName, fsNameIndex))
+        return FALSE;
+
+    // From this point the path is a valid path for the active target plug-in FS.
+    // Any later failure is reported by extraction/upload code, not by the old "disk only" fallback.
+    invalidPathOrCancel = TRUE;
+
+    char tempRoot[MAX_PATH];
+    if (!SalGetTempFileName(NULL, "ARC", tempRoot, FALSE))
+    {
+        SalMessageBox(source->HWindow, LoadStr(IDS_TMPDIRERROR), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        invalidPathOrCancel = TRUE;
+        return FALSE;
+    }
+
+    BOOL done = FALSE;
+    data->Reset();
+    data->WorkPath[0] = 0;
+
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+    if (PackUncompress(MainWindow->HWindow, source, source->GetZIPArchive(), source->PluginData.GetInterface(),
+                       tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
+    {
+        data->Reset();
+        lstrcpyn(data->WorkPath, tempRoot, MAX_PATH);
+
+        char internalTargetPath[2 * MAX_PATH];
+        lstrcpyn(internalTargetPath, targetPath, 2 * MAX_PATH);
+        target->GetPluginFS()->GetPluginInterfaceForFS()->ConvertPathToInternal(fsName, fsNameIndex,
+                                                                                 internalTargetPath + strlen(fsName) + 1);
+
+        BOOL pluginInvalidPathOrCancel = FALSE;
+        if (target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 3, target->GetPluginFS()->GetPluginFSName(),
+                                                          source->HWindow, tempRoot, PanelEnumDiskSelection, data,
+                                                          sourceFiles, sourceDirs, internalTargetPath,
+                                                          &pluginInvalidPathOrCancel))
+        {
+            done = !pluginInvalidPathOrCancel;
+        }
+        else if (pluginInvalidPathOrCancel)
+        {
+            target->GetPluginFS()->GetPluginInterfaceForFS()->ConvertPathToExternal(fsName, fsNameIndex,
+                                                                                     internalTargetPath + strlen(fsName) + 1);
+            lstrcpyn(targetPath, internalTargetPath, MAX_PATH);
+            invalidPathOrCancel = TRUE;
+        }
+    }
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+
+    RemoveTemporaryDir(tempRoot);
+    data->Reset();
+    data->WorkPath[0] = 0;
+
+    return done;
 }
 
 void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* pluginName, int delFilesAfterPacking)
