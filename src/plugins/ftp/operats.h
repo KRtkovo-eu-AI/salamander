@@ -2805,6 +2805,9 @@ public:
     // returns TRUE if there is no operation in the list
     BOOL IsEmpty();
 
+    // returns TRUE if an operation with this UID still exists in the list
+    BOOL IsOperationValid(int uid);
+
     // adds a new operation to the array (works with FirstFreeIndexInOperations); in 'newuid' (if not NULL)
     // returns the UID of the added operation; returns TRUE on success
     BOOL AddOperation(CFTPOperation* newOper, int* newuid);

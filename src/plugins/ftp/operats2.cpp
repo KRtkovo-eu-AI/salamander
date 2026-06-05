@@ -561,16 +561,11 @@ void CFTPOperation::HideAndCloseOperationDlg(HANDLE* dlgThread)
     HANDLES(EnterCriticalSection(&OperCritSect));
     if (OperationDlg != NULL)
     {
-        OperationDlg->CloseDlg = TRUE; // there is no synchronized access to CloseDlg, hopefully unnecessarily
         if (OperationDlg->HWindow != NULL)
         {
             ShowWindow(OperationDlg->HWindow, SW_HIDE);
-            PostMessage(OperationDlg->HWindow, WM_CLOSE, 0, 0);
+            PostMessage(OperationDlg->HWindow, WM_APP_CLOSEDLG, 0, 0);
         }
-        OperationDlg = NULL;          // the dialog thread takes care of deallocation
-        ReportChangeInWorkerID = -2;  // dialog changed, reset reporting of changes
-        ReportProgressChange = FALSE; // dialog changed, reset reporting of changes
-        ReportChangeInItemUID = -3;   // dialog changed, reset reporting of changes
     }
     if (dlgThread != NULL)
         *dlgThread = OperationDlgThread;
