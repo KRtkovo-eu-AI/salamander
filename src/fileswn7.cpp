@@ -1503,6 +1503,10 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
     }
     *secondPart = 0;
 
+    // From this point the path is a syntactically valid archive target.
+    // Any later failure is reported by the unpack/pack code; do not fall back to the old "disk only" message.
+    invalidPathOrCancel = TRUE;
+
     int format = PackerFormatConfig.PackIsArchive(archivePath);
     if (format == 0 || !PackerFormatConfig.GetUsePacker(format - 1))
         return FALSE;
@@ -1530,6 +1534,9 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
         done = PackCompress(source->HWindow, source, archivePath, archiveRoot,
                             FALSE, tempRoot, PanelEnumDiskSelection, data);
         SetCurrentDirectoryToSystem();
+
+        if (!done)
+            invalidPathOrCancel = TRUE; // PackCompress already reported/cancelled; do not show the old unsupported fallback.
 
         if (done)
         {

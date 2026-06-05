@@ -322,6 +322,9 @@ static BOOL CopyOrMovePluginFSToArchiveViaTemp(CFilesWindow* source, BOOL copy, 
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
         SetCurrentDirectoryToSystem();
 
+        if (!done)
+            cancelOrHandlePath = TRUE; // PackCompress already reported/cancelled; do not show the old unsupported fallback.
+
         if (done)
         {
             char changedPath[MAX_PATH];
