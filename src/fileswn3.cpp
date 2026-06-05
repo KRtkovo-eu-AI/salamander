@@ -2544,7 +2544,9 @@ BOOL CFilesWindow::ChangePathToDrvType(HWND parent, int driveType, const char* d
             return FALSE;
         }
     }
-    if (driveType == drvtMyDocuments && GetMyDocumentsOrDesktopPath(path, MAX_PATH) ||
+    if ((driveType == drvtMyDocuments || driveType == drvt3DObjects || driveType == drvtDesktop ||
+         driveType == drvtDownloads || driveType == drvtMusic || driveType == drvtPictures || driveType == drvtVideos) &&
+            GetChangeDriveUserFolderPath((CDriveTypeEnum)driveType, path, MAX_PATH) ||
         driveType == drvtGoogleDrive && ShellIconOverlays.GetPathForGoogleDrive(path, MAX_PATH) ||
         driveType == drvtDropbox && strcpy_s(path, DropboxPath) == 0 ||
         driveType == drvtOneDrive && strcpy_s(path, OneDrivePath) == 0 ||
@@ -2587,6 +2589,12 @@ void CFilesWindow::ChangeDrive(char drive)
         switch (driveType)
         {
         case drvtMyDocuments:
+        case drvt3DObjects:
+        case drvtDesktop:
+        case drvtDownloads:
+        case drvtMusic:
+        case drvtPictures:
+        case drvtVideos:
         case drvtGoogleDrive:
         case drvtDropbox:
         case drvtOneDrive:

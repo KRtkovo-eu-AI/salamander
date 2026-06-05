@@ -146,6 +146,12 @@ void CDriveBar::Execute(DWORD id)
             switch (DriveType)
             {
             case drvtMyDocuments:
+            case drvt3DObjects:
+            case drvtDesktop:
+            case drvtDownloads:
+            case drvtMusic:
+            case drvtPictures:
+            case drvtVideos:
             case drvtGoogleDrive:
             case drvtDropbox:
             case drvtOneDrive:    // bud primo tlacitko nebo vybrane z drop down menu

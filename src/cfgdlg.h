@@ -408,10 +408,16 @@ struct CConfiguration
     int GripsVisible;
 
     // Change drive
-    int ChangeDriveShowMyDoc;    // display Documents items
-    int ChangeDriveShowAnother;  // display the Another panel path item
-    int ChangeDriveShowNet;      // display the Network item
-    int ChangeDriveCloudStorage; // display items for cloud storage (Google Drive, etc.)
+    int ChangeDriveShowMyDoc;     // display Documents item
+    int ChangeDriveShow3DObjects; // display 3D Objects item
+    int ChangeDriveShowDesktop;   // display Desktop item
+    int ChangeDriveShowDownloads; // display Downloads item
+    int ChangeDriveShowMusic;     // display Music item
+    int ChangeDriveShowPictures;  // display Pictures item
+    int ChangeDriveShowVideos;    // display Videos item
+    int ChangeDriveShowAnother;   // display the Another panel path item
+    int ChangeDriveShowNet;       // display the Network item
+    int ChangeDriveCloudStorage;  // display items for cloud storage (Google Drive, etc.)
 
     // Packers / Unpackers
     int UseAnotherPanelForPack;

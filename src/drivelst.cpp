@@ -1418,6 +1418,21 @@ void InitDropboxPath()
 // {A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}  // OneDriver folder from the system, introduced only since Windows 8.1
 my_DEFINE_KNOWN_FOLDER(my_FOLDERID_SkyDrive, 0xa52bba46, 0xe9e1, 0x435f, 0xb3, 0xd9, 0x28, 0xda, 0xa6, 0x48, 0xc0, 0xf6);
 
+// {FDD39AD0-238F-46AF-ADB4-6C85480369C7}  // Documents
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Documents, 0xfdd39ad0, 0x238f, 0x46af, 0xad, 0xb4, 0x6c, 0x85, 0x48, 0x03, 0x69, 0xc7);
+// {31C0DD25-9439-4F12-BF41-7FF4EDA38722}  // 3D Objects
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Objects3D, 0x31c0dd25, 0x9439, 0x4f12, 0xbf, 0x41, 0x7f, 0xf4, 0xed, 0xa3, 0x87, 0x22);
+// {B4BFCC3A-DB2C-424C-B029-7FE99A87C641}  // Desktop
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Desktop, 0xb4bfcc3a, 0xdb2c, 0x424c, 0xb0, 0x29, 0x7f, 0xe9, 0x9a, 0x87, 0xc6, 0x41);
+// {374DE290-123F-4565-9164-39C4925E467B}  // Downloads
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Downloads, 0x374de290, 0x123f, 0x4565, 0x91, 0x64, 0x39, 0xc4, 0x92, 0x5e, 0x46, 0x7b);
+// {4BD8D571-6D19-48D3-BE97-422220080E43}  // Music
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Music, 0x4bd8d571, 0x6d19, 0x48d3, 0xbe, 0x97, 0x42, 0x22, 0x20, 0x08, 0x0e, 0x43);
+// {33E28130-4E1E-4676-835A-98395C3BC3BB}  // Pictures
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Pictures, 0x33e28130, 0x4e1e, 0x4676, 0x83, 0x5a, 0x98, 0x39, 0x5c, 0x3b, 0xc3, 0xbb);
+// {18989B1D-99B5-455B-841C-AB7C74E4DDFC}  // Videos
+my_DEFINE_KNOWN_FOLDER(my_FOLDERID_Videos, 0x18989b1d, 0x99b5, 0x455b, 0x84, 0x1c, 0xab, 0x7c, 0x74, 0xe4, 0xdd, 0xfc);
+
 // the path to the local OneDrive folder - Personal (only for personal accounts, for business accounts we have OneDriveBusinessStorages)
 char OneDrivePath[MAX_PATH] = "";
 
@@ -1556,6 +1571,147 @@ void InitOneDrivePath()
 int GetOneDriveStorages()
 {
     return (OneDrivePath[0] != 0 ? 1 : 0) + OneDriveBusinessStorages.Count;
+}
+
+static BOOL IsChangeDriveUserFolder(CDriveTypeEnum driveType)
+{
+    return driveType == drvtMyDocuments || driveType == drvt3DObjects || driveType == drvtDesktop ||
+           driveType == drvtDownloads || driveType == drvtMusic || driveType == drvtPictures ||
+           driveType == drvtVideos;
+}
+
+static const GUID* GetChangeDriveUserFolderKnownFolderID(CDriveTypeEnum driveType)
+{
+    switch (driveType)
+    {
+    case drvtMyDocuments:
+        return &my_FOLDERID_Documents;
+    case drvt3DObjects:
+        return &my_FOLDERID_Objects3D;
+    case drvtDesktop:
+        return &my_FOLDERID_Desktop;
+    case drvtDownloads:
+        return &my_FOLDERID_Downloads;
+    case drvtMusic:
+        return &my_FOLDERID_Music;
+    case drvtPictures:
+        return &my_FOLDERID_Pictures;
+    case drvtVideos:
+        return &my_FOLDERID_Videos;
+    default:
+        return NULL;
+    }
+}
+
+static int GetChangeDriveUserFolderCSIDL(CDriveTypeEnum driveType)
+{
+    switch (driveType)
+    {
+    case drvtDesktop:
+        return CSIDL_DESKTOPDIRECTORY;
+    case drvtMusic:
+        return CSIDL_MYMUSIC;
+    case drvtPictures:
+        return CSIDL_MYPICTURES;
+    case drvtVideos:
+        return CSIDL_MYVIDEO;
+    default:
+        return -1;
+    }
+}
+
+static int GetChangeDriveUserFolderTextResId(CDriveTypeEnum driveType)
+{
+    switch (driveType)
+    {
+    case drvtMyDocuments:
+        return IDS_MYDOCUMENTS;
+    case drvt3DObjects:
+        return IDS_3DOBJECTS;
+    case drvtDesktop:
+        return IDS_DESKTOP;
+    case drvtDownloads:
+        return IDS_DOWNLOADS;
+    case drvtMusic:
+        return IDS_MUSIC;
+    case drvtPictures:
+        return IDS_PICTURES;
+    case drvtVideos:
+        return IDS_VIDEOS;
+    default:
+        return 0;
+    }
+}
+
+BOOL GetChangeDriveUserFolderPath(CDriveTypeEnum driveType, char* path, int pathLen)
+{
+    if (path == NULL || pathLen <= 0)
+        return FALSE;
+
+    path[0] = 0;
+    if (driveType == drvtMyDocuments)
+        return GetMyDocumentsOrDesktopPath(path, pathLen);
+
+    BOOL ret = FALSE;
+    const GUID* folderID = GetChangeDriveUserFolderKnownFolderID(driveType);
+    if (folderID != NULL && WindowsVistaAndLater)
+    {
+        typedef HRESULT(WINAPI * FSHGetKnownFolderPath)(REFKNOWNFOLDERID rfid,
+                                                        DWORD /* KNOWN_FOLDER_FLAG */ dwFlags,
+                                                        HANDLE hToken,
+                                                        PWSTR * ppszPath); // free *ppszPath with CoTaskMemFree
+        FSHGetKnownFolderPath DynSHGetKnownFolderPath = (FSHGetKnownFolderPath)GetProcAddress(GetModuleHandle("shell32.dll"),
+                                                                                              "SHGetKnownFolderPath");
+        if (DynSHGetKnownFolderPath != NULL)
+        {
+            PWSTR knownPath = NULL;
+            if (DynSHGetKnownFolderPath(*folderID, 0, NULL, &knownPath) == S_OK && knownPath != NULL)
+            {
+                ret = ConvertU2A(knownPath, -1, path, pathLen) != 0;
+                if (!ret)
+                    path[0] = 0;
+                CoTaskMemFree(knownPath);
+            }
+        }
+    }
+
+    int csidl = GetChangeDriveUserFolderCSIDL(driveType);
+    if (!ret && csidl != -1)
+    {
+        ITEMIDLIST* pidl = NULL;
+        if (SHGetSpecialFolderLocation(NULL, csidl, &pidl) == NOERROR)
+        {
+            char buff[2 * MAX_PATH];
+            if (SHGetPathFromIDList(pidl, buff))
+            {
+                lstrcpyn(path, buff, pathLen);
+                ret = TRUE;
+            }
+            IMalloc* alloc;
+            if (SUCCEEDED(CoGetMalloc(1, &alloc)))
+            {
+                alloc->Free(pidl);
+                alloc->Release();
+            }
+        }
+    }
+
+    return ret && path[0] != 0;
+}
+
+HICON GetChangeDriveUserFolderIcon(CDriveTypeEnum driveType, int iconSize)
+{
+    char path[MAX_PATH];
+    HICON icon = NULL;
+    if (GetChangeDriveUserFolderPath(driveType, path, MAX_PATH))
+    {
+        SHFILEINFO sfi;
+        if (SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
+            icon = sfi.hIcon;
+    }
+    if (icon == NULL)
+        icon = SalLoadIcon(ImageResDLL, 112, iconSize);
+    return icon;
 }
 
 void CDrivesList::AddToDrives(CDriveData& drv, int textResId, char hotkey, CDriveTypeEnum driveType,
@@ -1961,11 +2117,35 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     if (Drives->Count > 0 && !IsLastItemSeparator())
         Drives->Add(drvSeparator);
 
-    // adding Documents
+    // adding user folders
     if (Configuration.ChangeDriveShowMyDoc)
     {
         AddToDrives(drv, IDS_MYDOCUMENTS, ';', drvtMyDocuments, getGrayIcons,
-                    SalLoadIcon(ImageResDLL, 112, iconSize));
+                    GetChangeDriveUserFolderIcon(drvtMyDocuments, iconSize));
+    }
+
+    struct CChangeDriveUserFolderItem
+    {
+        CDriveTypeEnum DriveType;
+        int* Show;
+    };
+    CChangeDriveUserFolderItem userFolders[] = {
+        {drvt3DObjects, &Configuration.ChangeDriveShow3DObjects},
+        {drvtDesktop, &Configuration.ChangeDriveShowDesktop},
+        {drvtDownloads, &Configuration.ChangeDriveShowDownloads},
+        {drvtMusic, &Configuration.ChangeDriveShowMusic},
+        {drvtPictures, &Configuration.ChangeDriveShowPictures},
+        {drvtVideos, &Configuration.ChangeDriveShowVideos},
+    };
+    for (int j = 0; j < _countof(userFolders); j++)
+    {
+        char path[MAX_PATH];
+        if (*userFolders[j].Show && GetChangeDriveUserFolderPath(userFolders[j].DriveType, path, MAX_PATH))
+        {
+            AddToDrives(drv, GetChangeDriveUserFolderTextResId(userFolders[j].DriveType), 0,
+                        userFolders[j].DriveType, getGrayIcons,
+                        GetChangeDriveUserFolderIcon(userFolders[j].DriveType, iconSize));
+        }
     }
 
     // adding Cloud Storages (Google Drive, etc.), if I find any...
@@ -2502,6 +2682,12 @@ BOOL IncludeDriveInDriveBar(CDriveTypeEnum dt)
     case drvtCDROM:
     case drvtRAMDisk:
     case drvtMyDocuments:
+    case drvt3DObjects:
+    case drvtDesktop:
+    case drvtDownloads:
+    case drvtMusic:
+    case drvtPictures:
+    case drvtVideos:
     case drvtGoogleDrive:
     case drvtDropbox:
     case drvtOneDrive:
@@ -2547,8 +2733,9 @@ BOOL CDrivesList::FillDriveBar(CDriveBar* driveBar, BOOL bar2)
         TLBI_ITEM_INFO2 tii;
         tii.Mask = TLBI_MASK_STYLE | TLBI_MASK_IMAGEINDEX | TLBI_MASK_OVERLAY | TLBI_MASK_ID;
         tii.Style = item->DriveType == drvtOneDriveMenu ? TLBI_STYLE_WHOLEDROPDOWN | TLBI_STYLE_DROPDOWN : TLBI_STYLE_NOPREFIX;
-        if (item->DriveType != drvtMyDocuments && item->DriveType != drvtNeighborhood && item->DriveType != drvtPluginCmd &&
-            item->DriveType != drvtGoogleDrive && item->DriveType != drvtDropbox && item->DriveType != drvtOneDrive &&
+        if (!IsChangeDriveUserFolder(item->DriveType) && item->DriveType != drvtNeighborhood &&
+            item->DriveType != drvtPluginCmd && item->DriveType != drvtGoogleDrive &&
+            item->DriveType != drvtDropbox && item->DriveType != drvtOneDrive &&
             item->DriveType != drvtOneDriveBus && item->DriveType != drvtOneDriveMenu)
         {
             tii.Mask |= TLBI_MASK_TEXT;
@@ -2682,7 +2869,13 @@ BOOL CDrivesList::GetDriveBarToolTip(int index, char* text)
     }
 
     case drvtMyDocuments:
-        strcpy(text, LoadStr(IDS_MYDOCUMENTS));
+    case drvt3DObjects:
+    case drvtDesktop:
+    case drvtDownloads:
+    case drvtMusic:
+    case drvtPictures:
+    case drvtVideos:
+        strcpy(text, LoadStr(GetChangeDriveUserFolderTextResId(item->DriveType)));
         break;
     case drvtGoogleDrive:
         strcpy(text, LoadStr(IDS_GOOGLEDRIVE));
@@ -2931,13 +3124,19 @@ BOOL CDrivesList::OnContextMenu(BOOL posByMouse, int itemIndex, int panel, const
     case drvtNeighborhood:
     case drvtOtherPanel:
     case drvtMyDocuments:
+    case drvt3DObjects:
+    case drvtDesktop:
+    case drvtDownloads:
+    case drvtMusic:
+    case drvtPictures:
+    case drvtVideos:
     case drvtGoogleDrive:
     case drvtDropbox:
     case drvtOneDrive:
     case drvtOneDriveBus:
     case drvtOneDriveMenu:
     {
-        // for Documents, Network, As Other Panel a Cloud Storages we can't do context menu)
+        // for user folders, Network, As Other Panel and Cloud Storages we can't do context menu
         return FALSE;
     }
 

@@ -600,6 +600,12 @@ STRINGTABLE
  IDS_EMPTYPLUGINSMENU2, "(There are no configurable plugins)"
 
  IDS_MYDOCUMENTS, "Documents"
+ IDS_3DOBJECTS, "3D Objects"
+ IDS_DESKTOP, "Desktop"
+ IDS_DOWNLOADS, "Download"
+ IDS_MUSIC, "Music"
+ IDS_PICTURES, "Pictures"
+ IDS_VIDEOS, "Videos"
  IDS_GOOGLEDRIVE, "Google Drive"
  IDS_DROPBOX, "Dropbox"
  IDS_ONEDRIVE, "OneDrive"

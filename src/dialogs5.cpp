@@ -3306,6 +3306,12 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
     CALL_STACK_MESSAGE1("CCfgPageChangeDrive::Transfer()");
 
     ti.CheckBox(IDC_CHD_SHOWMYDOC, Configuration.ChangeDriveShowMyDoc);
+    ti.CheckBox(IDC_CHD_SHOW3DOBJECTS, Configuration.ChangeDriveShow3DObjects);
+    ti.CheckBox(IDC_CHD_SHOWDESKTOP, Configuration.ChangeDriveShowDesktop);
+    ti.CheckBox(IDC_CHD_SHOWDOWNLOADS, Configuration.ChangeDriveShowDownloads);
+    ti.CheckBox(IDC_CHD_SHOWMUSIC, Configuration.ChangeDriveShowMusic);
+    ti.CheckBox(IDC_CHD_SHOWPICTURES, Configuration.ChangeDriveShowPictures);
+    ti.CheckBox(IDC_CHD_SHOWVIDEOS, Configuration.ChangeDriveShowVideos);
     ti.CheckBox(IDC_CHD_SHOWANOTHER, Configuration.ChangeDriveShowAnother);
     ti.CheckBox(IDC_CHD_SHOWNET, Configuration.ChangeDriveShowNet);
     ti.CheckBox(IDC_CHD_SHOWCLOUDSTORAGE, Configuration.ChangeDriveCloudStorage);

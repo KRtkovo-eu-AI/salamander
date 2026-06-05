@@ -405,6 +405,12 @@
 #define IDS_CHD_PLUGINS                 1089
 #define IDS_CHDHOTPATHS_HINT            1090
 #define IDS_CHDPLUGINS_HINT             1091
+#define IDC_CHD_SHOW3DOBJECTS           1092
+#define IDC_CHD_SHOWDESKTOP             1093
+#define IDC_CHD_SHOWDOWNLOADS           1094
+#define IDC_CHD_SHOWMUSIC               1095
+#define IDC_CHD_SHOWPICTURES            1096
+#define IDC_CHD_SHOWVIDEOS              1097
 #define IDD_CFGPAGE_PANELS              1105
 #define IDD_CFGPAGE_TABS                1106
 #define IDD_CFGPAGE_KEYBOARD            1110

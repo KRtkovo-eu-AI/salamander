@@ -61,7 +61,13 @@ enum CDriveTypeEnum
     drvtRemote,               // The drive is a remote (network) drive
     drvtCDROM,                // The drive is a CD-ROM drive
     drvtRAMDisk,              // The drive is a RAM disk
-    drvtMyDocuments,          // The drive is a Documents
+    drvtMyDocuments,          // The drive is Documents
+    drvt3DObjects,            // The drive is 3D Objects
+    drvtDesktop,              // The drive is Desktop
+    drvtDownloads,            // The drive is Downloads
+    drvtMusic,                // The drive is Music
+    drvtPictures,             // The drive is Pictures
+    drvtVideos,               // The drive is Videos
     drvtGoogleDrive,          // the item is a Cloud Storage: Google Drive
     drvtDropbox,              // the item is a Cloud Storage: Dropbox
     drvtOneDrive,             // the item is a Cloud Storage: OneDrive - Personal
@@ -74,6 +80,9 @@ enum CDriveTypeEnum
     drvtPluginCmd,            // the plugin item: FS command
     drvtPluginFSInOtherPanel, // the plugin item: FS opened in other panel
 };
+
+BOOL GetChangeDriveUserFolderPath(CDriveTypeEnum driveType, char* path, int pathLen);
+HICON GetChangeDriveUserFolderIcon(CDriveTypeEnum driveType, int iconSize);
 
 struct CDriveData
 {
