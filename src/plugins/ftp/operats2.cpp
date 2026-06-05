@@ -573,6 +573,16 @@ BOOL CFTPOperation::IsTempBridgeWait()
     return ret;
 }
 
+HWND CFTPOperation::GetOperationDlgHWindow()
+{
+    CALL_STACK_MESSAGE1("CFTPOperation::GetOperationDlgHWindow()");
+
+    HANDLES(EnterCriticalSection(&OperCritSect));
+    HWND ret = OperationDlg != NULL ? OperationDlg->HWindow : NULL;
+    HANDLES(LeaveCriticalSection(&OperCritSect));
+    return ret;
+}
+
 BOOL CFTPOperation::AddWorker(CFTPWorker* newWorker)
 {
     CALL_STACK_MESSAGE1("CFTPOperation::AddWorker()");

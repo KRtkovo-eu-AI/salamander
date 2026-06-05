@@ -2353,6 +2353,7 @@ public:
     // the operation dialog must not call StopWorkers() on successful completion
     void SetTempBridgeWait(BOOL tempBridgeWait);
     BOOL IsTempBridgeWait();
+    HWND GetOperationDlgHWindow();
 
     // called by the operation dialog from WM_INITDIALOG; 'dlg' is the dialog (the value in OperationDlg may not
     // be valid if CloseOperationDlg() has already been called); returns success (FALSE =

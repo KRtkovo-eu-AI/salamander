@@ -52,7 +52,10 @@ static COperationState WaitForTempBridgeOperation(HWND parent, int operUID, CFTP
 
     if (finalState == opstSuccessfullyFinished && FTPOperationsList.IsOperationValid(operUID))
     {
-        FTPOperationsList.StopWorkers(parent, operUID, -1);
+        HWND waitParent = oper->GetOperationDlgHWindow();
+        if (waitParent == NULL || !IsWindow(waitParent))
+            waitParent = parent;
+        FTPOperationsList.StopWorkers(waitParent, operUID, -1);
 
         HANDLE dlgThread = NULL;
         if (FTPOperationsList.CloseOperationDlg(operUID, &dlgThread))
