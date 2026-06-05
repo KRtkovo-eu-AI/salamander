@@ -52,6 +52,7 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
             {
                 HANDLE dlgThread = NULL;
                 oper->HideAndCloseOperationDlg(&dlgThread);
+                FTPOperationsList.StopWorkers(SalamanderGeneral->GetMsgBoxParent(), operUID, -1);
                 if (dlgThread == NULL || WaitForAuxThreadExitPumpingMessages(dlgThread))
                     FTPOperationsList.DeleteOperation(operUID, TRUE);
             }
