@@ -417,12 +417,13 @@ BOOL AppendConfiguredCommandLineArguments(char* cmd, int cmdSize, const char* us
            AppendQuotedUserCommand(cmd, cmdSize, userCommand, TRUE);
 }
 
-struct CCommandLineLaunchInfo
+void BuildCommandShellLine(CCommandLineLaunchInfo* launchInfo)
 {
-    char Application[MAX_PATH];
-    char CommandLine[SALCMDLINE_MAXLEN + MAX_PATH];
-    BOOL TooLong;
-};
+    GetCommandLineApplication(launchInfo->Application, MAX_PATH);
+    lstrcpyn(launchInfo->CommandLine, launchInfo->Application, SALCMDLINE_MAXLEN + MAX_PATH);
+    AddDoubleQuotesIfNeeded(launchInfo->CommandLine, SALCMDLINE_MAXLEN + MAX_PATH); // CreateProcess wants names with spaces quoted (or it tries alternatives, see help)
+    launchInfo->TooLong = FALSE;
+}
 
 int GetCommandLineOverhead(const char* quotedApp, const char* app, BOOL closeShell)
 {
@@ -598,7 +599,9 @@ CEditLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
 
                     CCommandLineLaunchInfo launchInfo;
-                    BOOL closeShell = (Configuration.CloseShell != 0) ^ ((GetKeyState(VK_MENU) & 0x8000) != 0);
+                    // Honor Configuration > General > Close shell window after command execution
+                    // directly; do not let keyboard modifiers close the shell when the option is off.
+                    BOOL closeShell = (Configuration.CloseShell != 0);
                     BuildCommandLine(&launchInfo, cmdLine, closeShell);
 
                     if (!launchInfo.TooLong && SystemPolicies.GetMyRunRestricted() &&

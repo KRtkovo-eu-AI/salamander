@@ -6490,12 +6490,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             activePanel->UserWorkedOnThisPath = TRUE;
 
-            char cmd[MAX_PATH];
-            if (!GetEnvironmentVariable("COMSPEC", cmd, MAX_PATH))
-                cmd[0] = 0;
+            CCommandLineLaunchInfo launchInfo;
+            BuildCommandShellLine(&launchInfo);
 
             if (SystemPolicies.GetNoRun() ||
-                (SystemPolicies.GetMyRunRestricted() && !SystemPolicies.GetMyCanRun(cmd)))
+                (!launchInfo.TooLong && SystemPolicies.GetMyRunRestricted() &&
+                 !SystemPolicies.GetMyCanRun(launchInfo.Application)))
             {
                 MSGBOXEX_PARAMS params;
                 memset(&params, 0, sizeof(params));
@@ -6508,8 +6508,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 SalMessageBoxEx(&params);
                 return 0;
             }
-
-            AddDoubleQuotesIfNeeded(cmd, MAX_PATH); // CreateProcess requires the name with spaces in quotes (otherwise it tries various options; see help)
 
             SetDefaultDirectories();
 
@@ -6537,12 +6535,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             PROCESS_INFORMATION pi;
 
-            if (!HANDLES(CreateProcess(NULL, cmd, NULL, NULL, FALSE,
-                                       CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL,
-                                       (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive)) ? activePanel->GetPath() : NULL, &si, &pi)))
+            BOOL proc_ret = FALSE;
+            DWORD err = 0;
+            if (!launchInfo.TooLong)
             {
-                DWORD err = GetLastError();
-                SalMessageBox(HWindow, GetErrorText(err),
+                proc_ret = HANDLES(CreateProcess(NULL, launchInfo.CommandLine, NULL, NULL, FALSE,
+                                                 CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL,
+                                                 (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive)) ? activePanel->GetPath() : NULL, &si, &pi));
+                err = GetLastError();
+            }
+            if (launchInfo.TooLong || !proc_ret)
+            {
+                SalMessageBox(HWindow, launchInfo.TooLong ? LoadStr(IDS_TOOLONGPATH) : GetErrorText(err),
                               LoadStr(IDS_ERROREXECPROMPT), MB_OK | MB_ICONEXCLAMATION);
             }
             else
