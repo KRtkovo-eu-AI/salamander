@@ -15,6 +15,351 @@
 #include "shellib.h"
 #include "pack.h"
 
+
+static BOOL CopyOrMovePluginFSToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* target,
+                                                BOOL copy, int panel, int count,
+                                                int selectedFiles, int selectedDirs,
+                                                const char* externalTargetPath,
+                                                BOOL& cancelOrHandlePath)
+{
+    CALL_STACK_MESSAGE3("CopyOrMovePluginFSToPluginFSViaTemp(, , %d, %s)", copy, externalTargetPath);
+
+    cancelOrHandlePath = FALSE;
+
+    if (target == NULL || !target->Is(ptPluginFS) || !target->GetPluginFS()->NotEmpty() ||
+        !target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS) ||
+        (!copy && !source->GetPluginFS()->IsServiceSupported(FS_SERVICE_DELETE)))
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    int pathType;
+    BOOL pathIsDir;
+    char* secondPart;
+    int error;
+    char targetPath[2 * MAX_PATH];
+    lstrcpyn(targetPath, externalTargetPath, 2 * MAX_PATH);
+    char errTitle[200];
+    lstrcpyn(errTitle, LoadStr(copy ? IDS_ERRORCOPY : IDS_ERRORMOVE), 200);
+    if (!source->ParsePath(targetPath, pathType, pathIsDir, secondPart, errTitle, NULL, &error, MAX_PATH) ||
+        pathType != PATH_TYPE_FS)
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    char fsName[MAX_PATH];
+    int fsNameLen = (int)((secondPart - targetPath) - 1);
+    if (fsNameLen <= 0 || fsNameLen >= MAX_PATH)
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+    memcpy(fsName, targetPath, fsNameLen);
+    fsName[fsNameLen] = 0;
+
+    int fsNameIndex;
+    if (!target->GetPluginFS()->IsFSNameFromSamePluginAsThisFS(fsName, fsNameIndex))
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    char tempRoot[MAX_PATH];
+    if (!SalGetTempFileName(NULL, "FSX", tempRoot, FALSE))
+    {
+        SalMessageBox(source->HWindow, LoadStr(IDS_TMPDIRERROR), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    BOOL done = FALSE;
+    BOOL sourceCopied = FALSE;
+    int diskSelectedFiles = selectedFiles;
+    int diskSelectedDirs = selectedDirs;
+    int* indexes = NULL;
+    int oneIndex = -1;
+
+    if (count > 0)
+    {
+        indexes = new int[count];
+        if (indexes == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            RemoveTemporaryDir(tempRoot);
+            cancelOrHandlePath = TRUE;
+            return FALSE;
+        }
+        source->GetSelItems(count, indexes);
+    }
+    else
+    {
+        oneIndex = source->GetCaretIndex();
+        count = 1;
+        if (oneIndex >= 0 && oneIndex < source->Dirs->Count + source->Files->Count)
+        {
+            if (oneIndex < source->Dirs->Count)
+            {
+                diskSelectedDirs = 1;
+                diskSelectedFiles = 0;
+            }
+            else
+            {
+                diskSelectedFiles = 1;
+                diskSelectedDirs = 0;
+            }
+        }
+    }
+
+    char tempTarget[2 * MAX_PATH];
+    lstrcpyn(tempTarget, tempRoot, 2 * MAX_PATH);
+    SalPathAddBackslash(tempTarget, 2 * MAX_PATH);
+    char* tempTargetMask = tempTarget + strlen(tempTarget) + 1;
+    lstrcpyn(tempTargetMask, "*.*", 2 * MAX_PATH - (int)(tempTargetMask - tempTarget));
+    char* tempTargetWaitMarker = tempTargetMask + strlen(tempTargetMask) + 1;
+    lstrcpyn(tempTargetWaitMarker, "SAL_WAIT_TEMP_BRIDGE", 2 * MAX_PATH - (int)(tempTargetWaitMarker - tempTarget));
+
+    BOOL operationMask = FALSE;
+    BOOL sourceCancelOrHandlePath = FALSE;
+    if (source->GetPluginFS()->CopyOrMoveFromFS(TRUE, 3, source->GetPluginFS()->GetPluginFSName(),
+                                                source->HWindow, panel, selectedFiles, selectedDirs,
+                                                tempTarget, operationMask, sourceCancelOrHandlePath, NULL) &&
+        !sourceCancelOrHandlePath)
+    {
+        sourceCopied = TRUE;
+
+        CPanelTmpEnumData data;
+        data.IndexesCount = count;
+        data.Indexes = indexes != NULL ? indexes : &oneIndex; // not deallocated by CPanelTmpEnumData
+        data.CurrentIndex = 0;
+        data.ZIPPath = NULL;
+        data.Dirs = source->Dirs;
+        data.Files = source->Files;
+        data.ArchiveDir = NULL;
+        lstrcpyn(data.WorkPath, tempRoot, MAX_PATH);
+        data.EnumLastDir = NULL;
+        data.EnumLastIndex = -1;
+
+        char internalTargetPath[2 * MAX_PATH];
+        lstrcpyn(internalTargetPath, externalTargetPath, 2 * MAX_PATH);
+        target->GetPluginFS()->GetPluginInterfaceForFS()->ConvertPathToInternal(fsName, fsNameIndex,
+                                                                                 internalTargetPath + strlen(fsName) + 1);
+
+        BOOL moveTempToTarget = target->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMDISKTOFS);
+        BOOL invalidPathOrCancel = FALSE;
+        if (target->GetPluginFS()->CopyOrMoveFromDiskToFS(!moveTempToTarget, 3, target->GetPluginFS()->GetPluginFSName(),
+                                                          source->HWindow, tempRoot, PanelEnumDiskSelection, &data,
+                                                          diskSelectedFiles, diskSelectedDirs, internalTargetPath,
+                                                          &invalidPathOrCancel))
+        {
+            done = !invalidPathOrCancel;
+        }
+        else if (invalidPathOrCancel)
+        {
+            cancelOrHandlePath = TRUE;
+        }
+    }
+    else
+    {
+        cancelOrHandlePath = sourceCancelOrHandlePath;
+    }
+
+    if (done && !copy)
+    {
+        BOOL cancelOrError = FALSE;
+        done = source->GetPluginFS()->Delete(source->GetPluginFS()->GetPluginFSName(), 2, source->HWindow,
+                                             panel, selectedFiles, selectedDirs, cancelOrError) &&
+               !cancelOrError;
+    }
+
+    if (indexes != NULL)
+        delete[] indexes;
+
+    if (!done)
+        RemoveTemporaryDir(tempRoot);
+
+    if (!sourceCopied)
+        return FALSE;
+    return done;
+}
+
+
+static BOOL CopyOrMovePluginFSToArchiveViaTemp(CFilesWindow* source, BOOL copy, int panel, int count,
+                                               int selectedFiles, int selectedDirs,
+                                               const char* externalTargetPath,
+                                               BOOL& cancelOrHandlePath)
+{
+    CALL_STACK_MESSAGE3("CopyOrMovePluginFSToArchiveViaTemp(, %d, %s,)", copy, externalTargetPath);
+
+    cancelOrHandlePath = FALSE;
+
+    char archivePath[2 * MAX_PATH];
+    lstrcpyn(archivePath, externalTargetPath, 2 * MAX_PATH);
+
+    int pathType;
+    BOOL pathIsDir;
+    char* secondPart;
+    int error;
+    char errTitle[200];
+    lstrcpyn(errTitle, LoadStr(copy ? IDS_ERRORCOPY : IDS_ERRORMOVE), 200);
+    if (!source->ParsePath(archivePath, pathType, pathIsDir, secondPart, errTitle, NULL, &error, MAX_PATH) ||
+        pathType != PATH_TYPE_ARCHIVE)
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    if (strlen(secondPart) >= MAX_PATH)
+    {
+        SalMessageBox(source->HWindow, LoadStr(IDS_TOOLONGPATH), errTitle, MB_OK | MB_ICONEXCLAMATION);
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    char archiveRoot[MAX_PATH];
+    archiveRoot[0] = 0;
+    if (*secondPart != 0)
+    {
+        lstrcpyn(archiveRoot, secondPart + 1, MAX_PATH);
+        char* opMask = strrchr(archiveRoot, '\\');
+        char* opMask2 = strrchr(archiveRoot, '/');
+        if (opMask == NULL || opMask2 > opMask)
+            opMask = opMask2;
+        if (opMask == NULL)
+            opMask = archiveRoot;
+        else
+            opMask++;
+
+        if (strcmp(opMask, "*.*") == 0 || strcmp(opMask, "*") == 0)
+        {
+            if (opMask == archiveRoot)
+                archiveRoot[0] = 0;
+            else
+                *opMask = 0; // keep the archive subdirectory path including the trailing backslash
+        }
+        else
+        {
+            if (strchr(archiveRoot, '*') != NULL || strchr(archiveRoot, '?') != NULL)
+            {
+                SalMessageBox(source->HWindow, LoadStr(IDS_MOVECOPY_OPMASKSNOTSUP),
+                              errTitle, MB_OK | MB_ICONEXCLAMATION);
+                cancelOrHandlePath = TRUE;
+                return FALSE;
+            }
+        }
+    }
+    *secondPart = 0;
+
+    int format = PackerFormatConfig.PackIsArchive(archivePath);
+    if (format == 0 || !PackerFormatConfig.GetUsePacker(format - 1) ||
+        (!copy && !source->GetPluginFS()->IsServiceSupported(FS_SERVICE_DELETE)))
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    char tempRoot[MAX_PATH];
+    if (!SalGetTempFileName(NULL, "FSA", tempRoot, FALSE))
+    {
+        SalMessageBox(source->HWindow, LoadStr(IDS_TMPDIRERROR), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    BOOL done = FALSE;
+    BOOL sourceCopied = FALSE;
+    int* indexes = NULL;
+    int oneIndex = -1;
+
+    if (count > 0)
+    {
+        indexes = new int[count];
+        if (indexes == NULL)
+        {
+            TRACE_E(LOW_MEMORY);
+            RemoveTemporaryDir(tempRoot);
+            cancelOrHandlePath = TRUE;
+            return FALSE;
+        }
+        source->GetSelItems(count, indexes);
+    }
+    else
+    {
+        oneIndex = source->GetCaretIndex();
+        count = 1;
+    }
+
+    char tempTarget[2 * MAX_PATH];
+    lstrcpyn(tempTarget, tempRoot, 2 * MAX_PATH);
+    SalPathAddBackslash(tempTarget, 2 * MAX_PATH);
+    char* tempTargetMask = tempTarget + strlen(tempTarget) + 1;
+    lstrcpyn(tempTargetMask, "*.*", 2 * MAX_PATH - (int)(tempTargetMask - tempTarget));
+    char* tempTargetWaitMarker = tempTargetMask + strlen(tempTargetMask) + 1;
+    lstrcpyn(tempTargetWaitMarker, "SAL_WAIT_TEMP_BRIDGE", 2 * MAX_PATH - (int)(tempTargetWaitMarker - tempTarget));
+
+    BOOL operationMask = FALSE;
+    BOOL sourceCancelOrHandlePath = FALSE;
+    if (source->GetPluginFS()->CopyOrMoveFromFS(TRUE, 3, source->GetPluginFS()->GetPluginFSName(),
+                                                source->HWindow, panel, selectedFiles, selectedDirs,
+                                                tempTarget, operationMask, sourceCancelOrHandlePath, NULL) &&
+        !sourceCancelOrHandlePath)
+    {
+        sourceCopied = TRUE;
+
+        CPanelTmpEnumData data;
+        data.IndexesCount = count;
+        data.Indexes = indexes != NULL ? indexes : &oneIndex; // not deallocated by CPanelTmpEnumData
+        data.CurrentIndex = 0;
+        data.ZIPPath = NULL;
+        data.Dirs = source->Dirs;
+        data.Files = source->Files;
+        data.ArchiveDir = NULL;
+        lstrcpyn(data.WorkPath, tempRoot, MAX_PATH);
+        data.EnumLastDir = NULL;
+        data.EnumLastIndex = -1;
+
+        SetCurrentDirectory(tempRoot);
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+        done = PackCompress(source->HWindow, source, archivePath, archiveRoot,
+                            FALSE, tempRoot, PanelEnumDiskSelection, &data);
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+        SetCurrentDirectoryToSystem();
+
+        if (!done)
+            cancelOrHandlePath = TRUE; // PackCompress already reported/cancelled; do not show the old unsupported fallback.
+
+        if (done)
+        {
+            char changedPath[MAX_PATH];
+            lstrcpyn(changedPath, archivePath, MAX_PATH);
+            CutDirectory(changedPath);
+            MainWindow->PostChangeOnPathNotification(changedPath, FALSE);
+        }
+    }
+    else
+    {
+        cancelOrHandlePath = sourceCancelOrHandlePath;
+    }
+
+    if (done && !copy)
+    {
+        BOOL cancelOrError = FALSE;
+        done = source->GetPluginFS()->Delete(source->GetPluginFS()->GetPluginFSName(), 2, source->HWindow,
+                                             panel, selectedFiles, selectedDirs, cancelOrError) &&
+               !cancelOrError;
+    }
+
+    if (indexes != NULL)
+        delete[] indexes;
+
+    RemoveTemporaryDir(tempRoot);
+
+    if (!sourceCopied)
+        return FALSE;
+    return done;
+}
+
 void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::PluginFSFilesAction(%d)", type);
@@ -110,11 +455,54 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
             BOOL operationMask = FALSE;
             BOOL cancelOrHandlePath = FALSE;
 
+            int targetSelectedFiles = count - selectedDirs;
+            int targetSelectedDirs = selectedDirs;
+            if (count == 0)
+            {
+                int index = GetCaretIndex();
+                if (index >= Dirs->Count)
+                    targetSelectedFiles = 1;
+                else
+                    targetSelectedDirs = 1;
+            }
+
             char targetPath[2 * MAX_PATH];
             if (target->Is(ptDisk))
                 target->GetGeneralPath(targetPath, 2 * MAX_PATH);
             else
+            {
                 targetPath[0] = 0;
+                if (target->Is(ptZIPArchive))
+                {
+                    target->GetGeneralPath(targetPath, 2 * MAX_PATH);
+                    SalPathAddBackslash(targetPath, 2 * MAX_PATH);
+
+                    int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
+                    if (format == 0 || !PackerFormatConfig.GetUsePacker(format - 1))
+                        targetPath[0] = 0;
+                }
+                else
+                {
+                    if (target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
+                        target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
+                    {
+                        target->GetGeneralPath(targetPath, 2 * MAX_PATH);
+                        if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
+                                                                           target->GetPluginFS()->GetPluginFSName(),
+                                                                           HWindow, NULL, NULL, NULL,
+                                                                           targetSelectedFiles, targetSelectedDirs,
+                                                                           targetPath, NULL))
+                        {
+                            targetPath[0] = 0;
+                        }
+                        else
+                        {
+                            // Convert the path to external format before showing it in the dialog.
+                            PluginFSConvertPathToExternal(targetPath);
+                        }
+                    }
+                }
+            }
 
             BOOL ret = GetPluginFS()->CopyOrMoveFromFS(copy, 1, GetPluginFS()->GetPluginFSName(),
                                                        HWindow, panel, count - selectedDirs,
@@ -206,9 +594,43 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                         }
                         else
                         {
-                            SalMessageBox(HWindow,
-                                          LoadStr(pathType == PATH_TYPE_ARCHIVE ? IDS_FSCOPYMOVE_ONLYDISK_A : IDS_FSCOPYMOVE_ONLYDISK_FS),
-                                          errTitle, MB_OK | MB_ICONEXCLAMATION);
+                            BOOL handledByTempBridge = FALSE;
+                            BOOL triedTempBridge = FALSE;
+                            if (pathType == PATH_TYPE_FS && target->Is(ptPluginFS))
+                            {
+                                triedTempBridge = TRUE;
+                                handledByTempBridge = CopyOrMovePluginFSToPluginFSViaTemp(this, target, copy, panel, count,
+                                                                                          count - selectedDirs, selectedDirs,
+                                                                                          targetPath, cancelOrHandlePath);
+                            }
+                            else
+                            {
+                                if (pathType == PATH_TYPE_ARCHIVE && target->Is(ptZIPArchive))
+                                {
+                                    triedTempBridge = TRUE;
+                                    handledByTempBridge = CopyOrMovePluginFSToArchiveViaTemp(this, copy, panel, count,
+                                                                                             count - selectedDirs, selectedDirs,
+                                                                                             targetPath, cancelOrHandlePath);
+                                }
+                            }
+                            if (handledByTempBridge)
+                            {
+                                ret = TRUE;
+                                pathError = FALSE;
+                                continue;
+                            }
+                            if (triedTempBridge && cancelOrHandlePath)
+                            {
+                                ret = TRUE; // the bridge already reported/cancelled the operation; do not reopen Copy/Move.
+                                pathError = FALSE;
+                                continue;
+                            }
+                            else
+                            {
+                                SalMessageBox(HWindow,
+                                              LoadStr(pathType == PATH_TYPE_ARCHIVE ? IDS_FSCOPYMOVE_ONLYDISK_A : IDS_FSCOPYMOVE_ONLYDISK_FS),
+                                              errTitle, MB_OK | MB_ICONEXCLAMATION);
+                            }
                             if (pathType == PATH_TYPE_ARCHIVE && (backslashAtEnd || mustBePath))
                             {
                                 SalPathAddBackslash(targetPath, 2 * MAX_PATH);

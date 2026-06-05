@@ -9,6 +9,69 @@
 // CPluginFSInterface
 //
 
+// Marker appended after the operation mask by Salamander's temporary bridges.
+// FTP operations are normally modeless, but bridge callers must not continue
+// (for example with Add to archive) until the temporary download is finished.
+static const char* FTP_TEMP_BRIDGE_WAIT_MARKER = "SAL_WAIT_TEMP_BRIDGE";
+
+static COperationState WaitForTempBridgeOperation(HWND parent, int operUID, CFTPOperation* oper)
+{
+    // The Salamander wrapper has already avoided holding the plugin lock for
+    // SAL_WAIT_TEMP_BRIDGE calls, so this plugin-side wait must not call
+    // EnterPlugin()/LeavePlugin() directly.  Keep the FTP progress dialog alive
+    // while the transfer finishes and close it through the same operation-list
+    // path that is used when the user closes a completed copy-to-disk operation.
+    COperationState finalState = opstFinishedWithErrors;
+    while (1)
+    {
+        if (!FTPOperationsList.IsOperationValid(operUID))
+            return opstFinishedWithErrors;
+
+        COperationState state = oper->GetOperationState(FALSE);
+        if (state != opstInProgress)
+        {
+            finalState = state;
+            break;
+        }
+
+        if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT) == WAIT_OBJECT_0)
+        {
+            MSG msg;
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT)
+                {
+                    PostQuitMessage((int)msg.wParam);
+                    return opstFinishedWithErrors;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }
+    }
+
+    if (finalState == opstSuccessfullyFinished && FTPOperationsList.IsOperationValid(operUID))
+    {
+        HWND waitParent = oper->GetOperationDlgHWindow();
+        if (waitParent == NULL || !IsWindow(waitParent))
+            waitParent = parent;
+        FTPOperationsList.StopWorkers(waitParent, operUID, -1);
+
+        HANDLE dlgThread = NULL;
+        if (FTPOperationsList.CloseOperationDlg(operUID, &dlgThread))
+        {
+            if (dlgThread != NULL)
+            {
+                CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");
+                AuxThreadQueue.WaitForExit(dlgThread, INFINITE);
+            }
+            FTPOperationsList.DeleteOperation(operUID, TRUE);
+        }
+    }
+
+    return finalState;
+}
+
 void WINAPI GetTextFromGeneralTextColumn()
 {
     char* s = *(char**)(((char*)((*TransferFileData)->PluginData)) + (*TransferActCustomData));
@@ -1022,6 +1085,12 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                 opMask++;
             opMask++;
         }
+        BOOL waitForTempBridge = FALSE;
+        if (mode == 3)
+        {
+            const char* bridgeWaitMarker = opMask + strlen(opMask) + 1;
+            waitForTempBridge = strcmp(bridgeWaitMarker, FTP_TEMP_BRIDGE_WAIT_MARKER) == 0;
+        }
 
         BOOL success = FALSE; // pre-set the cancel/error state of the operation
         // create the operation object
@@ -1159,15 +1228,39 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                         {
                             oper->SetQueue(queue); // assign the queue of its items to the operation
                             queue = NULL;
-                            if (Config.DownloadAddToQueue)
+                            if (Config.DownloadAddToQueue && !waitForTempBridge)
                                 success = TRUE; // run the operation later -> for now the operation succeeds
                             else                // run the operation within the active "control connection"
                             {
                                 // open the operation progress window and start the operation
+                                int closeOperationDlgIfSuccessfullyFinished = Config.CloseOperationDlgIfSuccessfullyFinished;
+                                int closeOperationDlgWhenOperFinishes = Config.CloseOperationDlgWhenOperFinishes;
+                                if (waitForTempBridge)
+                                {
+                                    // Bridge callers must continue only after the FTP progress dialog is really
+                                    // closed.  Disable the dialog's automatic close path temporarily so the
+                                    // operation object cannot be deleted while this method is still waiting for it.
+                                    Config.CloseOperationDlgIfSuccessfullyFinished = FALSE;
+                                    Config.CloseOperationDlgWhenOperFinishes = FALSE;
+                                    oper->SetTempBridgeWait(TRUE);
+                                }
                                 if (RunOperation(SalamanderGeneral->GetMsgBoxParent(), operUID, oper, dropTarget))
-                                    success = TRUE; // operation succeeded
+                                {
+                                    if (waitForTempBridge)
+                                    {
+                                        COperationState state = WaitForTempBridgeOperation(SalamanderGeneral->GetMsgBoxParent(), operUID, oper);
+                                        success = state == opstSuccessfullyFinished;
+                                    }
+                                    else
+                                        success = TRUE; // operation started successfully
+                                }
                                 else
                                     ok = FALSE;
+                                if (waitForTempBridge)
+                                {
+                                    Config.CloseOperationDlgIfSuccessfullyFinished = closeOperationDlgIfSuccessfullyFinished;
+                                    Config.CloseOperationDlgWhenOperFinishes = closeOperationDlgWhenOperFinishes;
+                                }
                             }
                         }
                         if (!ok)

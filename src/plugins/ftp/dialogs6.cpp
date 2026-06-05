@@ -1316,7 +1316,7 @@ void COperationDlg::SetupCloseButton(BOOL flashTitle)
         }
         else // the window stays open
         {
-            if (state == opstSuccessfullyFinished && Queue->AllItemsDone()) // everything is "done" -> stop all operation workers; they will no longer be needed
+            if (state == opstSuccessfullyFinished && Queue->AllItemsDone() && !Oper->IsTempBridgeWait()) // everything is "done" -> stop all operation workers; they will no longer be needed
             {
                 int operUID = Oper->GetUID();
                 FTPOperationsList.StopWorkers(HWindow, operUID, -1 /* all workers */);

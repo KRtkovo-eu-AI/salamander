@@ -2087,6 +2087,7 @@ protected:
 
     COperationDlg* OperationDlg; // operation dialog object (runs in its own thread)
     HANDLE OperationDlgThread;   // handle of the thread in which the last opened operation dialog ran/is running
+    BOOL TempBridgeWait;         // TRUE = caller waits for worker cleanup; operation dialog must not close workers itself
 
     CFTPProxyServer* ProxyServer;          // NULL = "not used (direct connection)"
     const char* ProxyScriptText;           // proxy script text (exists even when the proxy server is not used); WARNING: may point to ProxyServer->ProxyScript (i.e. the text is valid only until ProxyServer is deallocated)
@@ -2347,6 +2348,12 @@ public:
     // closes the operation dialog (if open) and returns the handle of the thread in which the
     // last dialog was open (NULL if the dialog was never open)
     void CloseOperationDlg(HANDLE* dlgThread);
+
+    // marks operation cleanup as owned by a temporary bridge caller; when TRUE,
+    // the operation dialog must not call StopWorkers() on successful completion
+    void SetTempBridgeWait(BOOL tempBridgeWait);
+    BOOL IsTempBridgeWait();
+    HWND GetOperationDlgHWindow();
 
     // called by the operation dialog from WM_INITDIALOG; 'dlg' is the dialog (the value in OperationDlg may not
     // be valid if CloseOperationDlg() has already been called); returns success (FALSE =
@@ -2799,6 +2806,9 @@ public:
 
     // returns TRUE if there is no operation in the list
     BOOL IsEmpty();
+
+    // returns TRUE if an operation with this UID still exists in the list
+    BOOL IsOperationValid(int uid);
 
     // adds a new operation to the array (works with FirstFreeIndexInOperations); in 'newuid' (if not NULL)
     // returns the UID of the added operation; returns TRUE on success

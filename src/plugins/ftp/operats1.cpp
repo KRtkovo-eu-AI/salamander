@@ -53,6 +53,16 @@ BOOL CFTPOperationsList::IsEmpty()
     return ret;
 }
 
+BOOL CFTPOperationsList::IsOperationValid(int uid)
+{
+    CALL_STACK_MESSAGE2("CFTPOperationsList::IsOperationValid(%d)", uid);
+
+    HANDLES(EnterCriticalSection(&OpListCritSect));
+    BOOL ret = uid >= 0 && uid < Operations.Count && Operations[uid] != NULL;
+    HANDLES(LeaveCriticalSection(&OpListCritSect));
+    return ret;
+}
+
 BOOL CFTPOperationsList::AddOperation(CFTPOperation* newOper, int* newuid)
 {
     CALL_STACK_MESSAGE1("CFTPOperationsList::AddOperation(,)");
@@ -3551,6 +3561,7 @@ CFTPOperation::CFTPOperation()
     Queue = NULL;
     OperationDlg = NULL;
     OperationDlgThread = NULL;
+    TempBridgeWait = FALSE;
 
     ProxyServer = NULL;
     ProxyScriptText = NULL;
