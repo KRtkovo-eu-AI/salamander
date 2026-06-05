@@ -3561,6 +3561,7 @@ CFTPOperation::CFTPOperation()
     Queue = NULL;
     OperationDlg = NULL;
     OperationDlgThread = NULL;
+    TempBridgeWait = FALSE;
 
     ProxyServer = NULL;
     ProxyScriptText = NULL;

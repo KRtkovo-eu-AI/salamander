@@ -1239,6 +1239,7 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                                     // operation object cannot be deleted while this method is still waiting for it.
                                     Config.CloseOperationDlgIfSuccessfullyFinished = FALSE;
                                     Config.CloseOperationDlgWhenOperFinishes = FALSE;
+                                    oper->SetTempBridgeWait(TRUE);
                                 }
                                 if (RunOperation(SalamanderGeneral->GetMsgBoxParent(), operUID, oper, dropTarget))
                                 {

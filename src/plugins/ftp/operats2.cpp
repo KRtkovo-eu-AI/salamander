@@ -554,6 +554,25 @@ void CFTPOperation::CloseOperationDlg(HANDLE* dlgThread)
     HANDLES(LeaveCriticalSection(&OperCritSect));
 }
 
+void CFTPOperation::SetTempBridgeWait(BOOL tempBridgeWait)
+{
+    CALL_STACK_MESSAGE2("CFTPOperation::SetTempBridgeWait(%d)", tempBridgeWait);
+
+    HANDLES(EnterCriticalSection(&OperCritSect));
+    TempBridgeWait = tempBridgeWait;
+    HANDLES(LeaveCriticalSection(&OperCritSect));
+}
+
+BOOL CFTPOperation::IsTempBridgeWait()
+{
+    CALL_STACK_MESSAGE1("CFTPOperation::IsTempBridgeWait()");
+
+    HANDLES(EnterCriticalSection(&OperCritSect));
+    BOOL ret = TempBridgeWait;
+    HANDLES(LeaveCriticalSection(&OperCritSect));
+    return ret;
+}
+
 BOOL CFTPOperation::AddWorker(CFTPWorker* newWorker)
 {
     CALL_STACK_MESSAGE1("CFTPOperation::AddWorker()");
