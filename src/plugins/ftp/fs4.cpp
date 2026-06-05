@@ -14,53 +14,22 @@
 // (for example with Add to archive) until the temporary download is finished.
 static const char* FTP_TEMP_BRIDGE_WAIT_MARKER = "SAL_WAIT_TEMP_BRIDGE";
 
-static BOOL PumpMessagesUntilBridgeOperationIsDeleted(int operUID)
-{
-    while (FTPOperationsList.IsOperationValid(operUID))
-    {
-        if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT) == WAIT_OBJECT_0)
-        {
-            MSG msg;
-            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-            {
-                if (msg.message == WM_QUIT)
-                {
-                    PostQuitMessage((int)msg.wParam);
-                    return FALSE;
-                }
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-        }
-    }
-    return TRUE;
-}
-
-static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* oper)
+static COperationState WaitForTempBridgeOperation(HWND parent, int operUID, CFTPOperation* oper)
 {
     // The Salamander wrapper has already avoided holding the plugin lock for
     // SAL_WAIT_TEMP_BRIDGE calls, so this plugin-side wait must not call
-    // EnterPlugin()/LeavePlugin() directly.
+    // EnterPlugin()/LeavePlugin() directly.  Keep the FTP progress dialog alive
+    // while the transfer finishes and close it through the same operation-list
+    // path that is used when the user closes a completed copy-to-disk operation.
     COperationState finalState = opstFinishedWithErrors;
     while (1)
     {
+        if (!FTPOperationsList.IsOperationValid(operUID))
+            return opstFinishedWithErrors;
+
         COperationState state = oper->GetOperationState(FALSE);
         if (state != opstInProgress)
         {
-            if (state == opstSuccessfullyFinished)
-            {
-                HANDLE dlgThread = NULL;
-                oper->HideAndCloseOperationDlg(&dlgThread);
-                if (dlgThread != NULL)
-                {
-                    PumpMessagesUntilBridgeOperationIsDeleted(operUID);
-                }
-                else
-                {
-                    FTPOperationsList.StopWorkers(SalamanderGeneral->GetMsgBoxParent(), operUID, -1);
-                    FTPOperationsList.DeleteOperation(operUID, TRUE);
-                }
-            }
             finalState = state;
             break;
         }
@@ -73,12 +42,27 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
                 if (msg.message == WM_QUIT)
                 {
                     PostQuitMessage((int)msg.wParam);
-                    finalState = opstFinishedWithErrors;
-                    return finalState;
+                    return opstFinishedWithErrors;
                 }
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
+        }
+    }
+
+    if (finalState == opstSuccessfullyFinished && FTPOperationsList.IsOperationValid(operUID))
+    {
+        FTPOperationsList.StopWorkers(parent, operUID, -1);
+
+        HANDLE dlgThread = NULL;
+        if (FTPOperationsList.CloseOperationDlg(operUID, &dlgThread))
+        {
+            if (dlgThread != NULL)
+            {
+                CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");
+                AuxThreadQueue.WaitForExit(dlgThread, INFINITE);
+            }
+            FTPOperationsList.DeleteOperation(operUID, TRUE);
         }
     }
 
@@ -1246,11 +1230,21 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                             else                // run the operation within the active "control connection"
                             {
                                 // open the operation progress window and start the operation
+                                int closeOperationDlgIfSuccessfullyFinished = Config.CloseOperationDlgIfSuccessfullyFinished;
+                                int closeOperationDlgWhenOperFinishes = Config.CloseOperationDlgWhenOperFinishes;
+                                if (waitForTempBridge)
+                                {
+                                    // Bridge callers must continue only after the FTP progress dialog is really
+                                    // closed.  Disable the dialog's automatic close path temporarily so the
+                                    // operation object cannot be deleted while this method is still waiting for it.
+                                    Config.CloseOperationDlgIfSuccessfullyFinished = FALSE;
+                                    Config.CloseOperationDlgWhenOperFinishes = FALSE;
+                                }
                                 if (RunOperation(SalamanderGeneral->GetMsgBoxParent(), operUID, oper, dropTarget))
                                 {
                                     if (waitForTempBridge)
                                     {
-                                        COperationState state = WaitForTempBridgeOperation(operUID, oper);
+                                        COperationState state = WaitForTempBridgeOperation(SalamanderGeneral->GetMsgBoxParent(), operUID, oper);
                                         success = state == opstSuccessfullyFinished;
                                     }
                                     else
@@ -1258,6 +1252,11 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                                 }
                                 else
                                     ok = FALSE;
+                                if (waitForTempBridge)
+                                {
+                                    Config.CloseOperationDlgIfSuccessfullyFinished = closeOperationDlgIfSuccessfullyFinished;
+                                    Config.CloseOperationDlgWhenOperFinishes = closeOperationDlgWhenOperFinishes;
+                                }
                             }
                         }
                         if (!ok)

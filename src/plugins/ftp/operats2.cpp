@@ -554,24 +554,6 @@ void CFTPOperation::CloseOperationDlg(HANDLE* dlgThread)
     HANDLES(LeaveCriticalSection(&OperCritSect));
 }
 
-void CFTPOperation::HideAndCloseOperationDlg(HANDLE* dlgThread)
-{
-    CALL_STACK_MESSAGE1("CFTPOperation::HideAndCloseOperationDlg()");
-
-    HANDLES(EnterCriticalSection(&OperCritSect));
-    if (OperationDlg != NULL)
-    {
-        if (OperationDlg->HWindow != NULL)
-        {
-            ShowWindow(OperationDlg->HWindow, SW_HIDE);
-            PostMessage(OperationDlg->HWindow, WM_APP_CLOSEDLG, 0, 0);
-        }
-    }
-    if (dlgThread != NULL)
-        *dlgThread = OperationDlgThread;
-    HANDLES(LeaveCriticalSection(&OperCritSect));
-}
-
 BOOL CFTPOperation::AddWorker(CFTPWorker* newWorker)
 {
     CALL_STACK_MESSAGE1("CFTPOperation::AddWorker()");
