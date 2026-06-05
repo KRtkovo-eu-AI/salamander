@@ -38,6 +38,13 @@ static BOOL PumpMessagesUntilBridgeOperationIsDeleted(int operUID)
 
 static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* oper)
 {
+    // CPluginFSInterfaceEncapsulation holds the global plugin lock while calling
+    // CopyOrMoveFromFS().  FTP workers and dialogs may need to enter the plugin too,
+    // so release the lock while waiting for the asynchronous bridge operation and
+    // reacquire it before returning to the encapsulation wrapper.
+    LeavePlugin();
+
+    COperationState finalState = opstFinishedWithErrors;
     while (1)
     {
         COperationState state = oper->GetOperationState(FALSE);
@@ -57,7 +64,8 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
                     FTPOperationsList.DeleteOperation(operUID, TRUE);
                 }
             }
-            return state;
+            finalState = state;
+            break;
         }
 
         if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT) == WAIT_OBJECT_0)
@@ -68,13 +76,18 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
                 if (msg.message == WM_QUIT)
                 {
                     PostQuitMessage((int)msg.wParam);
-                    return opstFinishedWithErrors;
+                    finalState = opstFinishedWithErrors;
+                    EnterPlugin();
+                    return finalState;
                 }
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
         }
     }
+
+    EnterPlugin();
+    return finalState;
 }
 
 void WINAPI GetTextFromGeneralTextColumn()
