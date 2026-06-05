@@ -577,6 +577,16 @@
     </ClCompile>
     <ClCompile Include="..\viewer.cpp">
     </ClCompile>
+    <ClCompile Include="..\common\unicode\ViewerBomText.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+      </PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+      </PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\viewer2.cpp">
     </ClCompile>
     <ClCompile Include="..\viewer3.cpp">
@@ -852,6 +862,8 @@
     <ClInclude Include="..\versinfo.h">
     </ClInclude>
     <ClInclude Include="..\viewer.h">
+    </ClInclude>
+    <ClInclude Include="..\common\unicode\ViewerBomText.h">
     </ClInclude>
     <ClInclude Include="..\worker.h">
     </ClInclude>
