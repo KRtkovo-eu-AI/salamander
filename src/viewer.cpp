@@ -1136,7 +1136,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
             __int64 len2 = min((Width - BORDER_WIDTH) / CharWidth + 1, lineLen - OriginX);
             std::size_t left = (std::size_t)OriginX;
             std::size_t right = (std::size_t)(OriginX + len2);
-            std::size_t u1 = len2, u2 = 0, u3 = 0;
+            std::size_t u1 = (std::size_t)len2, u2 = 0, u3 = 0;
             if (selStartCell <= left)
             {
                 if (selEndCell > left)
