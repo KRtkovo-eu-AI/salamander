@@ -713,6 +713,7 @@ DWORD AddUnicodeToClipboard(const char* str, int len);
 BOOL CopyTextToClipboard(const char* text, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL);
 BOOL CopyTextToClipboardW(const wchar_t* text, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL);
 BOOL CopyHTextToClipboard(HGLOBAL hGlobalText, int textLen = -1, BOOL showEcho = FALSE, HWND hEchoParent = NULL);
+BOOL CopyHTextToClipboardW(HGLOBAL hGlobalText, int textLen = -1);
 
 // zjisti z bufferu 'pattern' o delce 'patternLen' jestli jde o text (existuje kodova stranka,
 // ve ktere obsahuje jen povolene znaky - zobrazitelne a ridici) a pokud jde o text, zjisti take
