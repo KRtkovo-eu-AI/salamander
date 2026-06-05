@@ -20,7 +20,19 @@ static COperationState WaitForTempBridgeOperation(CFTPOperation* oper)
     {
         COperationState state = oper->GetOperationState(FALSE);
         if (state != opstInProgress)
+        {
+            if (state == opstSuccessfullyFinished)
+            {
+                HANDLE dlgThread = NULL;
+                oper->CloseOperationDlg(&dlgThread);
+                if (dlgThread != NULL)
+                {
+                    CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");
+                    AuxThreadQueue.WaitForExit(dlgThread, INFINITE);
+                }
+            }
             return state;
+        }
 
         if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT) == WAIT_OBJECT_0)
         {
