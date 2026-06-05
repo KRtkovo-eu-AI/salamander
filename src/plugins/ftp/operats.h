@@ -2348,6 +2348,11 @@ public:
     // last dialog was open (NULL if the dialog was never open)
     void CloseOperationDlg(HANDLE* dlgThread);
 
+    // hides and closes the operation dialog (if open) and returns the handle of the thread in which the
+    // last dialog was open (NULL if the dialog was never open); used when a caller must wait for
+    // operation cleanup but should not keep the completed progress window visible
+    void HideAndCloseOperationDlg(HANDLE* dlgThread);
+
     // called by the operation dialog from WM_INITDIALOG; 'dlg' is the dialog (the value in OperationDlg may not
     // be valid if CloseOperationDlg() has already been called); returns success (FALSE =
     // fatal error -> close the dialog)

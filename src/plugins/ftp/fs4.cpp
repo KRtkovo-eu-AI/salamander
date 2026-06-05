@@ -24,7 +24,7 @@ static COperationState WaitForTempBridgeOperation(CFTPOperation* oper)
             if (state == opstSuccessfullyFinished)
             {
                 HANDLE dlgThread = NULL;
-                oper->CloseOperationDlg(&dlgThread);
+                oper->HideAndCloseOperationDlg(&dlgThread);
                 if (dlgThread != NULL)
                 {
                     CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");

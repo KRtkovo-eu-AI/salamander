@@ -621,7 +621,9 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type)
                             }
                             if (triedTempBridge && cancelOrHandlePath)
                             {
-                                pathError = TRUE; // the bridge already reported/cancelled the operation; just reopen the dialog
+                                ret = TRUE; // the bridge already reported/cancelled the operation; do not reopen Copy/Move.
+                                pathError = FALSE;
+                                continue;
                             }
                             else
                             {
