@@ -117,6 +117,8 @@ static BOOL CopyOrMovePluginFSToPluginFSViaTemp(CFilesWindow* source, CFilesWind
     SalPathAddBackslash(tempTarget, 2 * MAX_PATH);
     char* tempTargetMask = tempTarget + strlen(tempTarget) + 1;
     lstrcpyn(tempTargetMask, "*.*", 2 * MAX_PATH - (int)(tempTargetMask - tempTarget));
+    char* tempTargetWaitMarker = tempTargetMask + strlen(tempTargetMask) + 1;
+    lstrcpyn(tempTargetWaitMarker, "SAL_WAIT_TEMP_BRIDGE", 2 * MAX_PATH - (int)(tempTargetWaitMarker - tempTarget));
 
     BOOL operationMask = FALSE;
     BOOL sourceCancelOrHandlePath = FALSE;
@@ -293,6 +295,8 @@ static BOOL CopyOrMovePluginFSToArchiveViaTemp(CFilesWindow* source, BOOL copy, 
     SalPathAddBackslash(tempTarget, 2 * MAX_PATH);
     char* tempTargetMask = tempTarget + strlen(tempTarget) + 1;
     lstrcpyn(tempTargetMask, "*.*", 2 * MAX_PATH - (int)(tempTargetMask - tempTarget));
+    char* tempTargetWaitMarker = tempTargetMask + strlen(tempTargetMask) + 1;
+    lstrcpyn(tempTargetWaitMarker, "SAL_WAIT_TEMP_BRIDGE", 2 * MAX_PATH - (int)(tempTargetWaitMarker - tempTarget));
 
     BOOL operationMask = FALSE;
     BOOL sourceCancelOrHandlePath = FALSE;

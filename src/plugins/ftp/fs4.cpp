@@ -9,6 +9,36 @@
 // CPluginFSInterface
 //
 
+// Marker appended after the operation mask by Salamander's temporary bridges.
+// FTP operations are normally modeless, but bridge callers must not continue
+// (for example with Add to archive) until the temporary download is finished.
+static const char* FTP_TEMP_BRIDGE_WAIT_MARKER = "SAL_WAIT_TEMP_BRIDGE";
+
+static COperationState WaitForTempBridgeOperation(CFTPOperation* oper)
+{
+    while (1)
+    {
+        COperationState state = oper->GetOperationState(FALSE);
+        if (state != opstInProgress)
+            return state;
+
+        if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT) == WAIT_OBJECT_0)
+        {
+            MSG msg;
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT)
+                {
+                    PostQuitMessage((int)msg.wParam);
+                    return opstFinishedWithErrors;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }
+    }
+}
+
 void WINAPI GetTextFromGeneralTextColumn()
 {
     char* s = *(char**)(((char*)((*TransferFileData)->PluginData)) + (*TransferActCustomData));
@@ -1022,6 +1052,12 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                 opMask++;
             opMask++;
         }
+        BOOL waitForTempBridge = FALSE;
+        if (mode == 3)
+        {
+            const char* bridgeWaitMarker = opMask + strlen(opMask) + 1;
+            waitForTempBridge = strcmp(bridgeWaitMarker, FTP_TEMP_BRIDGE_WAIT_MARKER) == 0;
+        }
 
         BOOL success = FALSE; // pre-set the cancel/error state of the operation
         // create the operation object
@@ -1159,13 +1195,21 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                         {
                             oper->SetQueue(queue); // assign the queue of its items to the operation
                             queue = NULL;
-                            if (Config.DownloadAddToQueue)
+                            if (Config.DownloadAddToQueue && !waitForTempBridge)
                                 success = TRUE; // run the operation later -> for now the operation succeeds
                             else                // run the operation within the active "control connection"
                             {
                                 // open the operation progress window and start the operation
                                 if (RunOperation(SalamanderGeneral->GetMsgBoxParent(), operUID, oper, dropTarget))
-                                    success = TRUE; // operation succeeded
+                                {
+                                    if (waitForTempBridge)
+                                    {
+                                        COperationState state = WaitForTempBridgeOperation(oper);
+                                        success = state == opstSuccessfullyFinished;
+                                    }
+                                    else
+                                        success = TRUE; // operation started successfully
+                                }
                                 else
                                     ok = FALSE;
                             }
