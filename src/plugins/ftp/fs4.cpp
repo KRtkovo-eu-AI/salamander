@@ -14,7 +14,7 @@
 // (for example with Add to archive) until the temporary download is finished.
 static const char* FTP_TEMP_BRIDGE_WAIT_MARKER = "SAL_WAIT_TEMP_BRIDGE";
 
-static COperationState WaitForTempBridgeOperation(CFTPOperation* oper)
+static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* oper)
 {
     while (1)
     {
@@ -30,6 +30,7 @@ static COperationState WaitForTempBridgeOperation(CFTPOperation* oper)
                     CALL_STACK_MESSAGE1("AuxThreadQueue.WaitForExit()");
                     AuxThreadQueue.WaitForExit(dlgThread, INFINITE);
                 }
+                FTPOperationsList.DeleteOperation(operUID, TRUE);
             }
             return state;
         }
@@ -1216,7 +1217,7 @@ BOOL CPluginFSInterface::CopyOrMoveFromFS(BOOL copy, int mode, const char* fsNam
                                 {
                                     if (waitForTempBridge)
                                     {
-                                        COperationState state = WaitForTempBridgeOperation(oper);
+                                        COperationState state = WaitForTempBridgeOperation(operUID, oper);
                                         success = state == opstSuccessfullyFinished;
                                     }
                                     else
