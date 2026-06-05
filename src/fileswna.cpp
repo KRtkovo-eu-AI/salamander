@@ -42,7 +42,7 @@ static BOOL CopyOrMovePluginFSToPluginFSViaTemp(CFilesWindow* source, CFilesWind
     lstrcpyn(targetPath, externalTargetPath, 2 * MAX_PATH);
     char errTitle[200];
     lstrcpyn(errTitle, LoadStr(copy ? IDS_ERRORCOPY : IDS_ERRORMOVE), 200);
-    if (!ParsePath(targetPath, pathType, pathIsDir, secondPart, errTitle, NULL, &error, MAX_PATH) ||
+    if (!source->ParsePath(targetPath, pathType, pathIsDir, secondPart, errTitle, NULL, &error, MAX_PATH) ||
         pathType != PATH_TYPE_FS)
     {
         cancelOrHandlePath = TRUE;
