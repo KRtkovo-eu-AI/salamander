@@ -475,6 +475,12 @@ const char* CONFIG_HOTPATH_AUTOCONFIG = "Auto Configurate Hot Paths";
 const char* CONFIG_LASTUSEDSPEEDLIM_REG = "Speed Limit";
 const char* CONFIG_QUICKSEARCHENTER_REG = "Quick Search Enter Alt";
 const char* CONFIG_CHD_SHOWMYDOC = "Change Drive Show My Documents";
+const char* CONFIG_CHD_SHOW3DOBJECTS = "Change Drive Show 3D Objects";
+const char* CONFIG_CHD_SHOWDESKTOP = "Change Drive Show Desktop";
+const char* CONFIG_CHD_SHOWDOWNLOADS = "Change Drive Show Downloads";
+const char* CONFIG_CHD_SHOWMUSIC = "Change Drive Show Music";
+const char* CONFIG_CHD_SHOWPICTURES = "Change Drive Show Pictures";
+const char* CONFIG_CHD_SHOWVIDEOS = "Change Drive Show Videos";
 const char* CONFIG_CHD_SHOWANOTHER = "Change Drive Show Another";
 const char* CONFIG_CHD_SHOWCLOUDSTOR = "Change Drive Show Cloud Storages";
 const char* CONFIG_CHD_SHOWNET = "Change Drive Network";
@@ -2111,6 +2117,18 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.QuickSearchEnterAlt, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                          &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,
+                         &Configuration.ChangeDriveShow3DObjects, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWDESKTOP, REG_DWORD,
+                         &Configuration.ChangeDriveShowDesktop, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWDOWNLOADS, REG_DWORD,
+                         &Configuration.ChangeDriveShowDownloads, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWMUSIC, REG_DWORD,
+                         &Configuration.ChangeDriveShowMusic, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWPICTURES, REG_DWORD,
+                         &Configuration.ChangeDriveShowPictures, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_SHOWVIDEOS, REG_DWORD,
+                         &Configuration.ChangeDriveShowVideos, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWCLOUDSTOR, REG_DWORD,
                          &Configuration.ChangeDriveCloudStorage, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWANOTHER, REG_DWORD,
@@ -3814,6 +3832,18 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.QuickSearchEnterAlt, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOWMYDOC, REG_DWORD,
                      &Configuration.ChangeDriveShowMyDoc, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOW3DOBJECTS, REG_DWORD,
+                     &Configuration.ChangeDriveShow3DObjects, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWDESKTOP, REG_DWORD,
+                     &Configuration.ChangeDriveShowDesktop, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWDOWNLOADS, REG_DWORD,
+                     &Configuration.ChangeDriveShowDownloads, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWMUSIC, REG_DWORD,
+                     &Configuration.ChangeDriveShowMusic, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWPICTURES, REG_DWORD,
+                     &Configuration.ChangeDriveShowPictures, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_SHOWVIDEOS, REG_DWORD,
+                     &Configuration.ChangeDriveShowVideos, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOWCLOUDSTOR, REG_DWORD,
                      &Configuration.ChangeDriveCloudStorage, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOWANOTHER, REG_DWORD,

@@ -1170,13 +1170,19 @@
 // symbolic link to: %s
 #define IDS_INFODLGTYPE10             10953
 
-// Change Drive window: text of Documents item
+// Change Drive window: text of user folder items
 #define IDS_MYDOCUMENTS               10927
+#define IDS_3DOBJECTS                 10928
+#define IDS_DESKTOP                   10929
 
 // strings for Diconnect Network Drives dialog
 #define IDS_DISCONNECT_NAME           10930
 #define IDS_DISCONNECT_PATH           10931
 #define IDS_DISCONNECT_NODRIVES       10932
+#define IDS_DOWNLOADS                 10933
+#define IDS_MUSIC                     10934
+#define IDS_PICTURES                  10935
+#define IDS_VIDEOS                    10936
 
 // Plugins Manager dialog: plugin's home page (Internet) is empty string: "(none)"
 #define IDS_PLUGINURLNONE             10940

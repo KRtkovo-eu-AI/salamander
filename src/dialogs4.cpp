@@ -510,6 +510,12 @@ CConfiguration::CConfiguration()
 
     // Change drive
     ChangeDriveShowMyDoc = TRUE;
+    ChangeDriveShow3DObjects = FALSE;
+    ChangeDriveShowDesktop = FALSE;
+    ChangeDriveShowDownloads = FALSE;
+    ChangeDriveShowMusic = FALSE;
+    ChangeDriveShowPictures = FALSE;
+    ChangeDriveShowVideos = FALSE;
     ChangeDriveShowAnother = TRUE;
     ChangeDriveShowNet = TRUE;
     ChangeDriveCloudStorage = TRUE;
