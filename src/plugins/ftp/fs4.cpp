@@ -38,12 +38,9 @@ static BOOL PumpMessagesUntilBridgeOperationIsDeleted(int operUID)
 
 static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* oper)
 {
-    // CPluginFSInterfaceEncapsulation holds the global plugin lock while calling
-    // CopyOrMoveFromFS().  FTP workers and dialogs may need to enter the plugin too,
-    // so release the lock while waiting for the asynchronous bridge operation and
-    // reacquire it before returning to the encapsulation wrapper.
-    LeavePlugin();
-
+    // The Salamander wrapper has already avoided holding the plugin lock for
+    // SAL_WAIT_TEMP_BRIDGE calls, so this plugin-side wait must not call
+    // EnterPlugin()/LeavePlugin() directly.
     COperationState finalState = opstFinishedWithErrors;
     while (1)
     {
@@ -77,7 +74,6 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
                 {
                     PostQuitMessage((int)msg.wParam);
                     finalState = opstFinishedWithErrors;
-                    EnterPlugin();
                     return finalState;
                 }
                 TranslateMessage(&msg);
@@ -86,7 +82,6 @@ static COperationState WaitForTempBridgeOperation(int operUID, CFTPOperation* op
         }
     }
 
-    EnterPlugin();
     return finalState;
 }
 

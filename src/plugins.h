@@ -900,6 +900,19 @@ protected:
 
     int ChngDrvDuplicateItemIndex; // index number of the duplicate item in the Change Drive menu (not used if the menu contains no duplicate item for this FS) (0 = uninitialized value)
 
+    static BOOL IsTempBridgeWaitTarget(int mode, const char* targetPath)
+    {
+        if (mode != 3 || targetPath == NULL)
+            return FALSE;
+
+        // Temporary bridge callers append a second string with the operation mask and
+        // then this marker.  The wrapper must not keep Salamander's plugin lock while
+        // such an asynchronous plugin operation waits for its UI/worker cleanup.
+        const char* opMask = targetPath + strlen(targetPath) + 1;
+        const char* bridgeWaitMarker = opMask + strlen(opMask) + 1;
+        return strcmp(bridgeWaitMarker, "SAL_WAIT_TEMP_BRIDGE") == 0;
+    }
+
 public:
     CPluginFSInterfaceEncapsulation() : IfaceForFS(NULL, 0)
     {
@@ -1322,11 +1335,15 @@ public:
         if (copy && IsServiceSupported(FS_SERVICE_COPYFROMFS) ||
             !copy && IsServiceSupported(FS_SERVICE_MOVEFROMFS))
         {
-            EnterPlugin();
+            BOOL waitForTempBridge = IsTempBridgeWaitTarget(mode, targetPath);
+
+            if (!waitForTempBridge)
+                EnterPlugin();
             BOOL r = Interface->CopyOrMoveFromFS(copy, mode, fsName, parent, panel, selectedFiles,
                                                  selectedDirs, targetPath, operationMask,
                                                  cancelOrHandlePath, dropTarget);
-            LeavePlugin();
+            if (!waitForTempBridge)
+                LeavePlugin();
             return r;
         }
         else
