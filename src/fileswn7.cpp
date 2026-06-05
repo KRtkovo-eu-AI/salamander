@@ -388,6 +388,8 @@ const char* WINAPI PanelSalEnumSelection(HWND parent, int enumFiles, BOOL* isDir
 static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* target,
                                            CPanelTmpEnumData* data, int sourceFiles, int sourceDirs,
                                            char* targetPath, BOOL& invalidPathOrCancel);
+static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumData* data,
+                                         char* targetPath, BOOL& invalidPathOrCancel);
 
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath)
 {
@@ -506,22 +508,40 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         else
         {
             path[0] = 0;
-            if (target != NULL && target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
-                target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
+            if (target != NULL && target->Is(ptZIPArchive))
             {
                 target->GetGeneralPath(path, MAX_PATH);
-                if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
-                                                                   target->GetPluginFS()->GetPluginFSName(),
-                                                                   HWindow, NULL, NULL, NULL,
-                                                                   sourceFiles, sourceDirs, path, NULL))
+                SalPathAddBackslash(path, MAX_PATH);
+
+                int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
+                if (format != 0 && PackerFormatConfig.GetUsePacker(format - 1))
                 {
-                    path[0] = 0;
+                    target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
                 }
                 else
                 {
-                    // convert the path to external format (before showing it in the dialog)
-                    PluginFSConvertPathToExternal(path);
-                    target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
+                    path[0] = 0;
+                }
+            }
+            else
+            {
+                if (target != NULL && target->Is(ptPluginFS) && target->GetPluginFS()->NotEmpty() &&
+                    target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
+                {
+                    target->GetGeneralPath(path, MAX_PATH);
+                    if (!target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 1,
+                                                                       target->GetPluginFS()->GetPluginFSName(),
+                                                                       HWindow, NULL, NULL, NULL,
+                                                                       sourceFiles, sourceDirs, path, NULL))
+                    {
+                        path[0] = 0;
+                    }
+                    else
+                    {
+                        // convert the path to external format (before showing it in the dialog)
+                        PluginFSConvertPathToExternal(path);
+                        target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
+                    }
                 }
             }
         }
@@ -720,9 +740,11 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 else
                 {
                     BOOL invalidPathOrCancel = FALSE;
-                    if (pathType == PATH_TYPE_FS && target != NULL && target->Is(ptPluginFS) &&
-                        UnpackArchiveToPluginFSViaTemp(this, target, &data, sourceFiles, sourceDirs,
-                                                       path, invalidPathOrCancel))
+                    if ((pathType == PATH_TYPE_FS && target != NULL && target->Is(ptPluginFS) &&
+                         UnpackArchiveToPluginFSViaTemp(this, target, &data, sourceFiles, sourceDirs,
+                                                        path, invalidPathOrCancel)) ||
+                        (pathType == PATH_TYPE_ARCHIVE &&
+                         UnpackArchiveToArchiveViaTemp(this, &data, path, invalidPathOrCancel)))
                     {
                         if (tgtPath == NULL) // if it is not drag&drop (selection is not cleared there)
                         {
@@ -1393,8 +1415,9 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
         target->GetPluginFS()->GetPluginInterfaceForFS()->ConvertPathToInternal(fsName, fsNameIndex,
                                                                                  internalTargetPath + strlen(fsName) + 1);
 
+        BOOL moveTempToTarget = target->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMDISKTOFS);
         BOOL pluginInvalidPathOrCancel = FALSE;
-        if (target->GetPluginFS()->CopyOrMoveFromDiskToFS(TRUE, 3, target->GetPluginFS()->GetPluginFSName(),
+        if (target->GetPluginFS()->CopyOrMoveFromDiskToFS(!moveTempToTarget, 3, target->GetPluginFS()->GetPluginFSName(),
                                                           source->HWindow, tempRoot, PanelEnumDiskSelection, data,
                                                           sourceFiles, sourceDirs, internalTargetPath,
                                                           &pluginInvalidPathOrCancel))
@@ -1411,10 +1434,103 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
     }
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
+    if (!done)
+        RemoveTemporaryDir(tempRoot);
+    data->Reset();
+    data->WorkPath[0] = 0;
+
+    return done;
+}
+
+
+static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumData* data,
+                                         char* targetPath, BOOL& invalidPathOrCancel)
+{
+    CALL_STACK_MESSAGE2("UnpackArchiveToArchiveViaTemp(, , %s,)", targetPath);
+
+    invalidPathOrCancel = FALSE;
+
+    char archivePath[2 * MAX_PATH];
+    lstrcpyn(archivePath, targetPath, 2 * MAX_PATH);
+
+    int pathType;
+    BOOL pathIsDir;
+    char* secondPart;
+    if (!source->ParsePath(archivePath, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, MAX_PATH) ||
+        pathType != PATH_TYPE_ARCHIVE)
+    {
+        return FALSE;
+    }
+
+    if (strlen(secondPart) >= MAX_PATH)
+    {
+        SalMessageBox(source->HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        invalidPathOrCancel = TRUE;
+        return FALSE;
+    }
+
+    BOOL hasPath = *secondPart != 0;
+    const char* archiveRoot = hasPath ? secondPart + 1 : "";
+    if (hasPath && (strcmp(archiveRoot, "*.*") == 0 || strcmp(archiveRoot, "*") == 0))
+    {
+        hasPath = FALSE;
+        archiveRoot = "";
+    }
+    else
+    {
+        if (strchr(archiveRoot, '*') != NULL || strchr(archiveRoot, '?') != NULL)
+        {
+            SalMessageBox(source->HWindow, LoadStr(IDS_MOVECOPY_OPMASKSNOTSUP),
+                          LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            invalidPathOrCancel = TRUE;
+            return FALSE;
+        }
+    }
+    *secondPart = 0;
+
+    int format = PackerFormatConfig.PackIsArchive(archivePath);
+    if (format == 0 || !PackerFormatConfig.GetUsePacker(format - 1))
+        return FALSE;
+
+    char tempRoot[MAX_PATH];
+    if (!SalGetTempFileName(NULL, "ARC", tempRoot, FALSE))
+    {
+        SalMessageBox(source->HWindow, LoadStr(IDS_TMPDIRERROR), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        invalidPathOrCancel = TRUE;
+        return FALSE;
+    }
+
+    BOOL done = FALSE;
+    data->Reset();
+    data->WorkPath[0] = 0;
+
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+    if (PackUncompress(MainWindow->HWindow, source, source->GetZIPArchive(), source->PluginData.GetInterface(),
+                       tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
+    {
+        data->Reset();
+        lstrcpyn(data->WorkPath, tempRoot, MAX_PATH);
+
+        SetCurrentDirectory(tempRoot);
+        done = PackCompress(source->HWindow, source, archivePath, archiveRoot,
+                            FALSE, tempRoot, PanelEnumDiskSelection, data);
+        SetCurrentDirectoryToSystem();
+
+        if (done)
+        {
+            char changedPath[MAX_PATH];
+            lstrcpyn(changedPath, archivePath, MAX_PATH);
+            CutDirectory(changedPath);
+            MainWindow->PostChangeOnPathNotification(changedPath, FALSE);
+        }
+    }
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+
     RemoveTemporaryDir(tempRoot);
     data->Reset();
     data->WorkPath[0] = 0;
 
+    invalidPathOrCancel = TRUE;
     return done;
 }
 
