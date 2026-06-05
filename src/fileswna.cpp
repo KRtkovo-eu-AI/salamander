@@ -115,6 +115,8 @@ static BOOL CopyOrMovePluginFSToPluginFSViaTemp(CFilesWindow* source, CFilesWind
     char tempTarget[2 * MAX_PATH];
     lstrcpyn(tempTarget, tempRoot, 2 * MAX_PATH);
     SalPathAddBackslash(tempTarget, 2 * MAX_PATH);
+    char* tempTargetMask = tempTarget + strlen(tempTarget) + 1;
+    lstrcpyn(tempTargetMask, "*.*", 2 * MAX_PATH - (int)(tempTargetMask - tempTarget));
 
     BOOL operationMask = FALSE;
     BOOL sourceCancelOrHandlePath = FALSE;
@@ -213,21 +215,36 @@ static BOOL CopyOrMovePluginFSToArchiveViaTemp(CFilesWindow* source, BOOL copy, 
         return FALSE;
     }
 
-    BOOL hasPath = *secondPart != 0;
-    const char* archiveRoot = hasPath ? secondPart + 1 : "";
-    if (hasPath && (strcmp(archiveRoot, "*.*") == 0 || strcmp(archiveRoot, "*") == 0))
+    char archiveRoot[MAX_PATH];
+    archiveRoot[0] = 0;
+    if (*secondPart != 0)
     {
-        hasPath = FALSE;
-        archiveRoot = "";
-    }
-    else
-    {
-        if (strchr(archiveRoot, '*') != NULL || strchr(archiveRoot, '?') != NULL)
+        lstrcpyn(archiveRoot, secondPart + 1, MAX_PATH);
+        char* opMask = strrchr(archiveRoot, '\\');
+        char* opMask2 = strrchr(archiveRoot, '/');
+        if (opMask == NULL || opMask2 > opMask)
+            opMask = opMask2;
+        if (opMask == NULL)
+            opMask = archiveRoot;
+        else
+            opMask++;
+
+        if (strcmp(opMask, "*.*") == 0 || strcmp(opMask, "*") == 0)
         {
-            SalMessageBox(source->HWindow, LoadStr(IDS_MOVECOPY_OPMASKSNOTSUP),
-                          errTitle, MB_OK | MB_ICONEXCLAMATION);
-            cancelOrHandlePath = TRUE;
-            return FALSE;
+            if (opMask == archiveRoot)
+                archiveRoot[0] = 0;
+            else
+                *opMask = 0; // keep the archive subdirectory path including the trailing backslash
+        }
+        else
+        {
+            if (strchr(archiveRoot, '*') != NULL || strchr(archiveRoot, '?') != NULL)
+            {
+                SalMessageBox(source->HWindow, LoadStr(IDS_MOVECOPY_OPMASKSNOTSUP),
+                              errTitle, MB_OK | MB_ICONEXCLAMATION);
+                cancelOrHandlePath = TRUE;
+                return FALSE;
+            }
         }
     }
     *secondPart = 0;
@@ -274,6 +291,8 @@ static BOOL CopyOrMovePluginFSToArchiveViaTemp(CFilesWindow* source, BOOL copy, 
     char tempTarget[2 * MAX_PATH];
     lstrcpyn(tempTarget, tempRoot, 2 * MAX_PATH);
     SalPathAddBackslash(tempTarget, 2 * MAX_PATH);
+    char* tempTargetMask = tempTarget + strlen(tempTarget) + 1;
+    lstrcpyn(tempTargetMask, "*.*", 2 * MAX_PATH - (int)(tempTargetMask - tempTarget));
 
     BOOL operationMask = FALSE;
     BOOL sourceCancelOrHandlePath = FALSE;
