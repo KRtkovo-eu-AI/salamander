@@ -3089,7 +3089,7 @@ void CCfgPageMainWindow::ApplyCommandShellTemplate(int templateNameResID)
     case IDS_EXECUTE_TEMPLATE_POWERSHELL:
     {
         SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "powershell");
-        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-NoExit \"& \\\"{command}\\\"\"");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-NoExit \"& {command}\"");
         break;
     }
     }
