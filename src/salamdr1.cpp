@@ -3402,6 +3402,8 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
 
     const bool windowsDarkEnabled = Configuration.UseWindowsDarkMode != FALSE;
     DarkModeSetEnabled(windowsDarkEnabled);
+    if (windowsDarkEnabled)
+        DarkModeFixScrollbars();
 
     const bool useDarkColors = windowsDarkEnabled;
 

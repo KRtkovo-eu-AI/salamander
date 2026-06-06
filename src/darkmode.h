@@ -45,7 +45,8 @@ void DarkModeRefreshTitleBar(HWND hwnd);
 // message represents a color scheme change (ImmersiveColorSet).
 bool DarkModeHandleSettingChange(UINT message, LPARAM lParam);
 
-// Installs the dark scrollbar hook (no-op on unsupported systems).
+// Installs the process-wide dark scrollbar hook. Only the main executable can
+// install it; calls from unloadable plugins are ignored.
 void DarkModeFixScrollbars();
 
 // Supplies dialog foreground/background colors and brush for WM_CTLCOLOR helpers.

@@ -366,10 +366,6 @@ extern "C" __declspec(dllexport) UINT32 __stdcall RenderViewer_GetCurrentColor(i
 extern "C" __declspec(dllexport) void __stdcall RenderViewer_SetDarkModeState(BOOL enabled)
 {
     DarkModeSetEnabled(enabled != FALSE);
-    if (enabled)
-    {
-        DarkModeFixScrollbars();
-    }
 }
 
 extern "C" __declspec(dllexport) void __stdcall RenderViewer_ApplyDarkModeTree(HWND hwnd)
