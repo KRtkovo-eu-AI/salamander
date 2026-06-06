@@ -2,12 +2,110 @@
 
 Open Salamander: Samandarin is a fast and reliable two-panel file manager for Windows, refreshed in 2025 with features implemented entirely with [OpenAI Codex](https://chatgpt.com/codex).
 
+## Included Features Overview
+### Tabbed Panels
+<img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f" />
+<img width="687" height="200" alt="image" src="https://github.com/user-attachments/assets/0c1b6114-3ab2-411b-a476-3a409cfcb6ff" />
+<img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467" />
+
+### Shared/separate History
+<img width="687" height="154" alt="image" src="https://github.com/user-attachments/assets/a8e16767-4df5-4d11-8767-7701464611a6" />
+
+### Dark Mode
+<img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/2d326f09-305b-43f3-92e7-4ccfaf20e037" />
+
+### Configurable Command Shell Application
+<img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/ac5d1e60-3e8d-45b2-8e21-334880780dc4" />
+
+### Tree View panel
+<img width="690" height="480" alt="image" src="https://github.com/user-attachments/assets/09aaf1a8-378e-4b6b-9668-12be74b900a9" />
+
+### Internal Viewer support for Unicode encoding in text files
+
+### User Folders
+<img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/f2295756-b5e6-44db-ae40-d22075e47d88" />
+
+### Copy/Move between plugin-FS and archives
+<img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b" />
+
+
+## Included Plugins Overview
+### 7-Zip 1.31
+### Automation 1.7
+### Checksum 2.2
+### Database Viewer 1.24
+### DiskMap 1.12
+### FTP Client 1.35
+### File Comparator 1.19
+### Folders 0.1
+### Hyper-V Machines 1.03
+Show local Hyper-V virtual machines. You can Start/Turn Off/Shut Down/Connect/Create New Machine through the plugin.
+
+### JSON Viewer .NET 1.0
+Supported File Types
+| Description | Extensions |
+| --- | --- |
+| JSON data interchange files | `.json`, `.pc`, `.jbeam` |
+
+### Multimedia Viewer 1.16
+### Network 1.08
+### PAK 1.71
+### PictView 2.21
+### Portable Devices 0.1
+### PrismSharp Text Viewer .NET 1.0
+The viewer focuses on human-readable text content and syntax-highlighted source files. Extensions are matched case-insensitively.
+Common text and configuration formats
+| Category | Extensions |
+| --- | --- |
+| Plain text and logs | `.txt`, `.log` |
+| Configuration files | `.ini`, `.cfg`, `.conf`, `.config` |
+| JSON family | `.json`, `.jsonc`, `.json5` |
+| YAML | `.yaml`, `.yml` |
+| XML and markup | `.xml`, `.html`, `.htm`, `.php`, `.axaml`, `.xaml`, `.xlf`, `.nuspec`, `.plist`, `.storyboard` |
+| Markdown | `.md`, `.markdown` |
+| Delimited text | `.csv` |
+| Windows scripting | `.bat`, `.cmd`, `.ps1`, `.psd1`, `.psm1` |
+| C-family source | `.cs`, `.cpp`, `.c`, `.cxx`, `.h`, `.hh`, `.hpp`, `.hxx` |
+| Project and build files | `.csproj`, `.fsproj`, `.vbproj`, `.vcxproj`, `.vcproj`, `.props`, `.targets` |
+
+### Prism syntax highlighting identifiers
+The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salamander/blob/release/5.0-samandarin-0.1/src/plugins/textviewer/SUPPORTED_FILE_TYPES.md) so matching file extensions open in this viewer. 
+
+### Registry Editor 1.14
+### Renamer 1.13
+### Samandarin Update Notifier 0.2
+### Service Explorer 0.012
+### Split & Combine 1.11
+### TAR 3.34
+### UnARJ 1.21
+### UnCAB 1.27
+### UnCHM 1.03
+### UnFAT 1.1
+### UnISO 1.37
+### UnLHA 1.13
+### UnMIME 1.14
+### UnOLE2 1.01
+### UnRAR 3.01
+### UnDelete 1.11
+### WebView2 Render Viewer .NET 1.0
+It acts as a universal document canvas, covering web pages, Markdown (including MDX), SVG, modern image formats like WebP and AVIF, classic raster files, and PDFs up to 32 MB.
+Supported File Types
+| Category | Extensions |
+| --- | --- |
+| HTML and web archives | `.html`, `.htm`, `.xhtml`, `.mhtml`, `.mht` |
+| Markdown (rendered to HTML) | `.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx` |
+| SVG vector graphics | `.svg`, `.svgz` |
+| Modern image formats | `.webp`, `.avif`, `.apng` |
+| Raster image formats | `.png`, `.jpg`, `.jpeg`, `.jfif`, `.gif`, `.bmp`, `.ico`, `.tif`, `.tiff` |
+| Portable Document Format | `.pdf` |
+
+### Windows Mobile 1.08
+### ZIP 1.4
+
+
+
+
 ## Samandarin Fork Overview
-
-### New Features Included
-
-
-
 
 ### Installation Notes
 
