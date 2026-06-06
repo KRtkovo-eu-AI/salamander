@@ -215,6 +215,30 @@ void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuild
         RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
 }
 
+static void SetPanelTabVisible(CFilesWindow* panel, BOOL visible)
+{
+    if (panel == NULL || panel->HWindow == NULL)
+        return;
+
+    CStatusWindow* directoryLine = panel->DirectoryLine;
+    HWND toolBar = directoryLine != NULL && directoryLine->ToolBar != NULL ?
+                       directoryLine->ToolBar->HWindow :
+                       NULL;
+
+    if (visible)
+    {
+        ShowWindow(panel->HWindow, SW_SHOW);
+        if (toolBar != NULL)
+            ShowWindow(toolBar, SW_SHOW);
+    }
+    else
+    {
+        if (toolBar != NULL)
+            ShowWindow(toolBar, SW_HIDE);
+        ShowWindow(panel->HWindow, SW_HIDE);
+    }
+}
+
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
@@ -231,12 +255,6 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
         LeftPanel = panel;
     else
         RightPanel = panel;
-
-    if (side == cpsLeft && previousPanel != NULL && previousPanel != panel)
-    {
-        previousPanel->TreeViewActive = FALSE;
-        previousPanel->DestroyTreeView();
-    }
 
     panel->SetPanelSide(side);
 
@@ -265,12 +283,47 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     UpdatePanelTabTitle(panel);
 
+    HWND previousToolBar = NULL;
+    HWND newToolBar = NULL;
     if (canFocusNow)
     {
+        if (previousPanel != panel)
+        {
+            // Tree-view windows belong to individual left tabs but are children of the main
+            // window. Prepare the incoming tree while it is hidden and keep the outgoing one
+            // alive until the complete new layout is ready; otherwise the main window is
+            // briefly exposed across the reserved tree-view width.
+            if (side == cpsLeft && Configuration.TreeViewVisible)
+            {
+                panel->TreeViewActive = TRUE;
+                panel->CreateTreeView();
+                panel->RefreshTreeView();
+            }
+
+            // Panel toolbars are children of the main window rather than their panels. Keep
+            // their current pixels intact while layout and visibility are switched, then redraw
+            // only the completed incoming toolbar.
+            if (previousPanel->DirectoryLine != NULL && previousPanel->DirectoryLine->ToolBar != NULL)
+                previousToolBar = previousPanel->DirectoryLine->ToolBar->HWindow;
+            if (panel->DirectoryLine != NULL && panel->DirectoryLine->ToolBar != NULL)
+                newToolBar = panel->DirectoryLine->ToolBar->HWindow;
+            if (previousToolBar != NULL)
+                SendMessage(previousToolBar, WM_SETREDRAW, FALSE, 0);
+            if (newToolBar != NULL && newToolBar != previousToolBar)
+                SendMessage(newToolBar, WM_SETREDRAW, FALSE, 0);
+        }
         LayoutWindows();
     }
 
     UpdatePanelTabVisibility(side);
+
+    if (previousToolBar != NULL)
+        SendMessage(previousToolBar, WM_SETREDRAW, TRUE, 0);
+    if (newToolBar != NULL && newToolBar != previousToolBar)
+    {
+        SendMessage(newToolBar, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(newToolBar, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
 
     if (canFocusNow)
     {
@@ -610,6 +663,35 @@ void CMainWindow::UpdatePanelTabColor(CFilesWindow* panel)
         tabWnd->ClearTabColor(index);
 }
 
+void CMainWindow::ReloadPanelToolBars(CPanelSide side, HWND exceptToolBar)
+{
+    // Every tab owns a separate toolbar window, but toolbar configuration is shared per side.
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    CFilesWindow* active = side == cpsLeft ? LeftPanel : RightPanel;
+    const char* configuration = side == cpsLeft ? Configuration.LeftToolBar : Configuration.RightToolBar;
+    for (int i = 0; i < tabs.Count; i++)
+    {
+        CStatusWindow* directoryLine = tabs[i]->DirectoryLine;
+        if (directoryLine == NULL || directoryLine->ToolBar == NULL ||
+            directoryLine->ToolBar->HWindow == exceptToolBar)
+            continue;
+
+        // Loading removes and reinserts buttons one by one. Suppress redraw instead of hiding
+        // the window, because hiding a visible toolbar would expose the directory line beneath it.
+        HWND toolBar = directoryLine->ToolBar->HWindow;
+        if (toolBar != NULL)
+            SendMessage(toolBar, WM_SETREDRAW, FALSE, 0);
+        directoryLine->ToolBar->Load(configuration);
+        directoryLine->LayoutWindow();
+        if (toolBar != NULL)
+        {
+            SendMessage(toolBar, WM_SETREDRAW, TRUE, 0);
+            if (tabs[i] == active)
+                RedrawWindow(toolBar, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+        }
+    }
+}
+
 void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
 {
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
@@ -621,11 +703,19 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
         if (panel->HWindow == NULL)
             continue;
         BOOL show = (panel == active);
-        ShowWindow(panel->HWindow, show ? SW_SHOW : SW_HIDE);
+        SetPanelTabVisible(panel, show);
         if (side == cpsLeft && !show)
         {
+            // Keep per-tab tree-view windows allocated so switching tabs can prepare the next
+            // tree before replacing the currently visible one. Destroying them here exposes a
+            // blank strip (or the full pinned tree width) between layouts.
             panel->TreeViewActive = FALSE;
-            panel->DestroyTreeView();
+            if (panel->HTreeView != NULL)
+                ShowWindow(panel->HTreeView, SW_HIDE);
+            if (panel->HTreeHeader != NULL)
+                ShowWindow(panel->HTreeHeader, SW_HIDE);
+            if (panel->HTreeSplit != NULL)
+                ShowWindow(panel->HTreeSplit, SW_HIDE);
         }
         if (show)
             panel->NeedsRefreshOnActivation = FALSE;
@@ -6626,11 +6716,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             lstrcpy(buff, Configuration.LeftToolBar);
             lstrcpy(Configuration.LeftToolBar, Configuration.RightToolBar);
             lstrcpy(Configuration.RightToolBar, buff);
-            // nastavime panelum promenne a nechame nacist toolbary
-            if (LeftPanel != NULL)
-                LeftPanel->SetPanelSide(cpsLeft);
-            if (RightPanel != NULL)
-                RightPanel->SetPanelSide(cpsRight);
+            // nechame vsechny taby nacist prohozene toolbary
+            ReloadPanelToolBars(cpsLeft);
+            ReloadPanelToolBars(cpsRight);
             // ikonka se musi zmenit v imagelistu
             if (LeftPanel != NULL)
                 LeftPanel->UpdateDriveIcon(FALSE);
@@ -7055,11 +7143,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             LeftPanel->DirectoryLine->LayoutWindow();
             LeftPanel->DirectoryLine->ToolBar->Save(Configuration.LeftToolBar);
+            ReloadPanelToolBars(cpsLeft, hToolBar);
         }
         if (RightPanel->DirectoryLine->ToolBar != NULL && hToolBar == RightPanel->DirectoryLine->ToolBar->HWindow)
         {
             RightPanel->DirectoryLine->LayoutWindow();
             RightPanel->DirectoryLine->ToolBar->Save(Configuration.RightToolBar);
+            ReloadPanelToolBars(cpsRight, hToolBar);
         }
         return FALSE; // we have no buttons
     }
