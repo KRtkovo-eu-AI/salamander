@@ -2842,6 +2842,8 @@ static void PaintCommandShellPlaceholder(HWND hWindow, HFONT hPlaceholderFont)
 {
     if (GetWindowTextLength(hWindow) != 0)
         return;
+    if (GetDlgCtrlID(hWindow) == IDC_CMDLINEAPP_ARGS && IsWindowEnabled(hWindow))
+        return;
 
     HDC hDC = GetDC(hWindow);
     if (hDC == NULL)
@@ -2881,6 +2883,7 @@ CommandShellPlaceholderEditProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM l
     case WM_CHAR:
     case WM_KEYDOWN:
     case WM_SETTEXT:
+    case WM_ENABLE:
     case WM_CUT:
     case WM_PASTE:
     case WM_CLEAR:
