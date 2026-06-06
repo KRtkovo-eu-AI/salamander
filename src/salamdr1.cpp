@@ -4663,11 +4663,14 @@ FIND_NEW_SLG_FILE:
                         SendMessage(MainWindow->HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
                     MainWindow->SetWindowIcon();
                     MainWindow->SetWindowTitle();
-                    SplashScreenCloseIfExist();
-                    ShowWindow(MainWindow->HWindow, cmdShow);
-                    UpdateWindow(MainWindow->HWindow);
+                    // Populate both panels before the first visible paint. Refreshing them after
+                    // ShowWindow exposed an incomplete listing and caused the startup flicker.
                     MainWindow->RefreshDirs();
+                    MainWindow->LayoutWindows();
+                    ShowWindow(MainWindow->HWindow, cmdShow);
                     MainWindow->FocusLeftPanel();
+                    UpdateWindow(MainWindow->HWindow);
+                    SplashScreenCloseIfExist();
                 }
 
                 if (Configuration.ReloadEnvVariables)
