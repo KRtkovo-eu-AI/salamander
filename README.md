@@ -11,6 +11,9 @@ Open Salamander: Samandarin remains an **intentionally experimental fork**—its
 <img width="687" height="200" alt="image" src="https://github.com/user-attachments/assets/0c1b6114-3ab2-411b-a476-3a409cfcb6ff" />
 <img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467" />
 
+- When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
+- You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.
+
 ### Shared/separate History
 <img width="687" height="154" alt="image" src="https://github.com/user-attachments/assets/a8e16767-4df5-4d11-8767-7701464611a6" />
 
@@ -110,10 +113,6 @@ Supported File Types
 
 ## Samandarin Fork Overview
 
-### Installation Notes
-
-Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
-
 ### Fork Name Inspiration
 
 The “Samandarin” name is a three-way pun that pays homage to the Salamander legacy:
@@ -123,6 +122,11 @@ The “Samandarin” name is a three-way pun that pays homage to the Salamander 
 - **Mandarin orange** – the vibrant citrus fruit whose fresh color palette inspired the fork logo.
 
 Together they promise the same Salamander DNA with a spicy hint of danger.
+
+### Installation Notes
+
+Samandarin writes its configuration to a dedicated registry hive named "Open Salamander Samandarin" to avoid interfering with an official installation. If you previously tried the "tabbed panels PoC" pre-release, manually clean the legacy registry keys because that build still stored settings in the original location.
+
 
 ## Origin Overview
 
