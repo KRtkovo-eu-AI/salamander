@@ -674,8 +674,8 @@ void CFilesWindow::RefreshTreeView()
     } while (0);
 
     SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
-    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
     TreeViewDisableNotify = FALSE;
+    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
 }
 
 BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
