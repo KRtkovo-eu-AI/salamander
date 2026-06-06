@@ -26,6 +26,12 @@ struct CTreeViewPopulateEntry
     BOOL IsDirectory;
 };
 
+struct CTreeViewExpandedPaths
+{
+    char** Paths;
+    int Count;
+};
+
 static char* DuplicateTreeViewString(const char* text)
 {
     int len = (int)strlen(text) + 1;
@@ -106,6 +112,22 @@ static HTREEITEM FindTreeViewChildByPath(HWND hTreeView, HTREEITEM hParent, cons
         if (childPath != NULL && IsTheSamePath(childPath, path))
             return hChild;
         hChild = TreeView_GetNextSibling(hTreeView, hChild);
+    }
+    return NULL;
+}
+
+static HTREEITEM FindTreeViewItemByPath(HWND hTreeView, HTREEITEM hItem, const char* path)
+{
+    while (hItem != NULL)
+    {
+        const char* itemPath = GetTreeViewItemPath(hTreeView, hItem);
+        if (itemPath != NULL && IsTheSamePath(itemPath, path))
+            return hItem;
+
+        HTREEITEM hFound = FindTreeViewItemByPath(hTreeView, TreeView_GetChild(hTreeView, hItem), path);
+        if (hFound != NULL)
+            return hFound;
+        hItem = TreeView_GetNextSibling(hTreeView, hItem);
     }
     return NULL;
 }
@@ -235,6 +257,81 @@ static BOOL AddTreeViewPopulateEntry(CTreeViewPopulateEntry** entries, int* coun
     newEntries[*count].IsDirectory = isDirectory;
     (*count)++;
     return TRUE;
+}
+
+static BOOL IsTreeViewItemExpanded(HWND hTreeView, HTREEITEM hItem)
+{
+    TVITEM item;
+    memset(&item, 0, sizeof(item));
+    item.mask = TVIF_STATE;
+    item.stateMask = TVIS_EXPANDED;
+    item.hItem = hItem;
+    return TreeView_GetItem(hTreeView, &item) && (item.state & TVIS_EXPANDED) != 0;
+}
+
+static BOOL AddTreeViewExpandedPath(CTreeViewExpandedPaths* expanded, const char* path)
+{
+    char** paths = (char**)realloc(expanded->Paths, (expanded->Count + 1) * sizeof(char*));
+    if (paths == NULL)
+        return FALSE;
+    expanded->Paths = paths;
+    paths[expanded->Count] = DuplicateTreeViewString(path);
+    if (paths[expanded->Count] == NULL)
+        return FALSE;
+    expanded->Count++;
+    return TRUE;
+}
+
+static void CollectExpandedTreeViewPaths(HWND hTreeView, HTREEITEM hParent, CTreeViewExpandedPaths* expanded)
+{
+    HTREEITEM hChild = TreeView_GetChild(hTreeView, hParent);
+    while (hChild != NULL)
+    {
+        if (IsTreeViewDirectoryItem(hTreeView, hChild) && IsTreeViewItemExpanded(hTreeView, hChild))
+        {
+            const char* path = GetTreeViewItemPath(hTreeView, hChild);
+            if (path != NULL && AddTreeViewExpandedPath(expanded, path))
+                CollectExpandedTreeViewPaths(hTreeView, hChild, expanded);
+        }
+        hChild = TreeView_GetNextSibling(hTreeView, hChild);
+    }
+}
+
+static BOOL ContainsExpandedTreeViewPath(const CTreeViewExpandedPaths* expanded, const char* path)
+{
+    for (int i = 0; i < expanded->Count; i++)
+    {
+        if (IsTheSamePath(expanded->Paths[i], path))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void FreeExpandedTreeViewPaths(CTreeViewExpandedPaths* expanded)
+{
+    for (int i = 0; i < expanded->Count; i++)
+        free(expanded->Paths[i]);
+    free(expanded->Paths);
+    expanded->Paths = NULL;
+    expanded->Count = 0;
+}
+
+static void RestoreExpandedTreeViewPaths(CFilesWindow* panel, HTREEITEM hParent,
+                                         const CTreeViewExpandedPaths* expanded)
+{
+    HTREEITEM hChild = TreeView_GetChild(panel->HTreeView, hParent);
+    while (hChild != NULL)
+    {
+        const char* path = GetTreeViewItemPath(panel->HTreeView, hChild);
+        if (path != NULL && IsTreeViewDirectoryItem(panel->HTreeView, hChild) &&
+            ContainsExpandedTreeViewPath(expanded, path))
+        {
+            panel->PopulateTreeViewItem(hChild);
+            TreeView_Expand(panel->HTreeView, hChild, TVE_EXPAND);
+            RestoreExpandedTreeViewPaths(panel, hChild, expanded);
+        }
+        hChild = TreeView_GetNextSibling(panel->HTreeView, hChild);
+    }
 }
 
 static BOOL ShouldSkipTreeViewEntry(const WIN32_FIND_DATA* findData)
@@ -552,6 +649,20 @@ void CFilesWindow::RefreshTreeView()
         return;
     }
 
+    BOOL hadFirstVisibleItem = FALSE;
+    char firstVisibleItemPath[MAX_PATH];
+    firstVisibleItemPath[0] = 0;
+    HTREEITEM hFirstVisible = TreeView_GetFirstVisible(HTreeView);
+    const char* firstVisiblePath = GetTreeViewItemPath(HTreeView, hFirstVisible);
+    if (firstVisiblePath != NULL)
+    {
+        hadFirstVisibleItem = TRUE;
+        lstrcpyn(firstVisibleItemPath, firstVisiblePath, MAX_PATH);
+    }
+
+    HTREEITEM hRestoreSelected = NULL;
+    HTREEITEM hRestoreFirstVisible = NULL;
+
     BOOL hadSelectedFile = FALSE;
     char selectedFileFullPath[MAX_PATH];
     char selectedFileFocusPath[MAX_PATH];
@@ -670,10 +781,18 @@ void CFilesWindow::RefreshTreeView()
         }
 
         TreeView_SelectItem(HTreeView, hSelect);
-        TreeView_EnsureVisible(HTreeView, hSelect);
+        hRestoreSelected = hSelect;
+        hRestoreFirstVisible = hadFirstVisibleItem ? FindTreeViewItemByPath(HTreeView, TreeView_GetRoot(HTreeView), firstVisibleItemPath) : NULL;
     } while (0);
 
     SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
+
+    // Selecting a recreated item can scroll it to the bottom when redraw is enabled.
+    // Restore the original first visible item afterward so the selected row keeps its position.
+    if (hRestoreFirstVisible != NULL)
+        SendMessage(HTreeView, TVM_SELECTITEM, TVGN_FIRSTVISIBLE, (LPARAM)hRestoreFirstVisible);
+    else if (hRestoreSelected != NULL)
+        TreeView_EnsureVisible(HTreeView, hRestoreSelected);
     TreeViewDisableNotify = FALSE;
     RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
 }
@@ -702,29 +821,15 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
     if (!forceRefresh && itemData->Populated)
         return TreeView_GetChild(HTreeView, hItem) != NULL;
 
-    HTREEITEM hChild = TreeView_GetChild(HTreeView, hItem);
-    while (hChild != NULL)
-    {
-        HTREEITEM hNext = TreeView_GetNextSibling(HTreeView, hChild);
-        TreeView_DeleteItem(HTreeView, hChild);
-        hChild = hNext;
-    }
-
     char searchPath[MAX_PATH];
     lstrcpyn(searchPath, itemPath, MAX_PATH);
     if (!SalPathAppend(searchPath, "*", MAX_PATH))
-    {
-        SetTreeViewItemChildren(HTreeView, hItem, 0);
-        return FALSE;
-    }
+        return TreeView_GetChild(HTreeView, hItem) != NULL;
 
     WIN32_FIND_DATA data;
     HANDLE find = FindFirstFile(searchPath, &data);
     if (find == INVALID_HANDLE_VALUE)
-    {
-        SetTreeViewItemChildren(HTreeView, hItem, 0);
-        return FALSE;
-    }
+        return TreeView_GetChild(HTreeView, hItem) != NULL;
 
     CTreeViewPopulateEntry* dirEntries = NULL;
     CTreeViewPopulateEntry* fileEntries = NULL;
@@ -749,8 +854,7 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
             FindClose(find);
             free(dirEntries);
             free(fileEntries);
-            SetTreeViewItemChildren(HTreeView, hItem, 0);
-            return FALSE;
+            return TreeView_GetChild(HTreeView, hItem) != NULL;
         }
     } while (FindNextFile(find, &data));
 
@@ -760,6 +864,18 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
         qsort(dirEntries, dirCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
     if (fileCount > 1)
         qsort(fileEntries, fileCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
+
+    CTreeViewExpandedPaths expanded = {NULL, 0};
+    if (forceRefresh)
+        CollectExpandedTreeViewPaths(HTreeView, hItem, &expanded);
+
+    HTREEITEM hChild = TreeView_GetChild(HTreeView, hItem);
+    while (hChild != NULL)
+    {
+        HTREEITEM hNext = TreeView_GetNextSibling(HTreeView, hChild);
+        TreeView_DeleteItem(HTreeView, hChild);
+        hChild = hNext;
+    }
 
     int i;
     for (i = 0; i < dirCount; i++)
@@ -774,6 +890,10 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
                                fileEntries[i].FullPath, itemPath, fileEntries[i].Name, FALSE) != NULL)
             hasChildren = TRUE;
     }
+
+    if (expanded.Count > 0)
+        RestoreExpandedTreeViewPaths(this, hItem, &expanded);
+    FreeExpandedTreeViewPaths(&expanded);
 
     free(dirEntries);
     free(fileEntries);
