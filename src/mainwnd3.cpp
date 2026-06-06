@@ -4002,6 +4002,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         BOOL oldStatusArea = Configuration.StatusArea;
         BOOL oldPanelCaption = Configuration.ShowPanelCaption;
         BOOL oldPanelZoom = Configuration.ShowPanelZoom;
+        BOOL oldTreeViewVisible = Configuration.TreeViewVisible;
+        double visibleLeftRatio = GetVisibleLeftPanelRatio();
 
         UserMenuIconBkgndReader.ResetSysColorsChanged(); // now, we start watching system color changes (icon reload required)
         BOOL readingUMIcons = UserMenuIconBkgndReader.IsReadingIcons();
@@ -4087,6 +4089,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // tell both panels they need to refresh
             LeftPanel->RefreshForConfig();
             RightPanel->RefreshForConfig();
+
+            if (oldTreeViewVisible != Configuration.TreeViewVisible)
+            {
+                if (KeepSplitPositionCenteredOnVisiblePanes)
+                    UpdateCenteredSplitPosition();
+                else
+                    SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
+                LayoutWindows();
+            }
 
             // clear stored data in SalShExtPastedData (the archiver may have changed)
             SalShExtPastedData.ReleaseStoredArchiveData();
