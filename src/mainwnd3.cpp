@@ -4002,6 +4002,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         BOOL oldStatusArea = Configuration.StatusArea;
         BOOL oldPanelCaption = Configuration.ShowPanelCaption;
         BOOL oldPanelZoom = Configuration.ShowPanelZoom;
+        BOOL oldTreeViewVisible = Configuration.TreeViewVisible;
+        double visibleLeftRatio = GetVisibleLeftPanelRatio();
 
         UserMenuIconBkgndReader.ResetSysColorsChanged(); // now, we start watching system color changes (icon reload required)
         BOOL readingUMIcons = UserMenuIconBkgndReader.IsReadingIcons();
@@ -4087,6 +4089,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // tell both panels they need to refresh
             LeftPanel->RefreshForConfig();
             RightPanel->RefreshForConfig();
+
+            if (oldTreeViewVisible != Configuration.TreeViewVisible)
+            {
+                if (KeepSplitPositionCenteredOnVisiblePanes)
+                    UpdateCenteredSplitPosition();
+                else
+                    SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
+                LayoutWindows();
+            }
 
             // clear stored data in SalShExtPastedData (the archiver may have changed)
             SalShExtPastedData.ReleaseStoredArchiveData();
@@ -7761,9 +7772,11 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
                 if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
+                    BOOL focused = (pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0 ||
+                                   (HTREEITEM)pnmcd->nmcd.dwItemSpec == TreeView_GetSelection(treePanel->HTreeView);
                     pnmcd->clrText = treePanel->GetTreeViewTextColor();
                     pnmcd->clrTextBk = treePanel->GetTreeViewBkColor();
-                    if ((pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0)
+                    if (focused)
                     {
                         HBRUSH hBrush = HANDLES(CreateSolidBrush(treePanel->GetTreeViewSelectionBkColor()));
                         if (hBrush != NULL)
@@ -7773,9 +7786,23 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         }
                         pnmcd->clrText = treePanel->GetTreeViewSelectionTextColor();
                         pnmcd->clrTextBk = treePanel->GetTreeViewSelectionBkColor();
+                        SetTextColor(pnmcd->nmcd.hdc, pnmcd->clrText);
+                        SetBkColor(pnmcd->nmcd.hdc, pnmcd->clrTextBk);
                         pnmcd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
                     }
-                    return CDRF_NEWFONT;
+                    return CDRF_NEWFONT | CDRF_NOTIFYPOSTPAINT;
+                }
+                if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                {
+                    BOOL focused = (pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0 ||
+                                   (HTREEITEM)pnmcd->nmcd.dwItemSpec == TreeView_GetSelection(treePanel->HTreeView);
+                    if (focused)
+                    {
+                        treePanel->DrawTreeViewFocusedItem(pnmcd->nmcd.hdc,
+                                                           (HTREEITEM)pnmcd->nmcd.dwItemSpec,
+                                                           &pnmcd->nmcd.rc);
+                    }
+                    return CDRF_DODEFAULT;
                 }
                 return CDRF_DODEFAULT;
             }
@@ -7827,6 +7854,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                              focusPath, focusName);
                     }
                 }
+                InvalidateRect(treePanel->HTreeView, NULL, FALSE); // repaint after the selection state has settled
                 return 0;
             }
             }
@@ -7986,12 +8014,19 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (MiddleToolBar->HWindow != NULL)
             middleToolbarWidth = MiddleToolBar->GetNeededWidth();
 
-        // Calculate treeview width for the left side first, so we can account for it in the split
+        // Calculate Tree View dimensions first. An auto-hidden Tree View reserves only
+        // its vertical header strip; while expanded, its full width floats over the panels.
         int treeWidth = 0;
+        int treeDisplayWidth = 0;
         int treeSplitWidth = 0;
+        int treeHeaderHeight = 0;
+        BOOL treeAutoHideExpanded = FALSE;
         if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
         {
-            // Use a temporary leftWidth to calculate treeview width
+            treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
+            if (LeftTabWindow != NULL)
+                treeHeaderHeight = LeftTabWindow->GetNeededHeight();
+
             int tempLeftWidth = (int)((WindowWidth - splitWidth) * SplitPosition) - 1;
             if (tempLeftWidth < MIN_WIN_WIDTH)
                 tempLeftWidth = MIN_WIN_WIDTH;
@@ -8001,8 +8036,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 tempRightWidth = MIN_WIN_WIDTH;
                 tempLeftWidth = WindowWidth - 2 - tempRightWidth - splitWidth;
             }
-            treeWidth = LeftPanel->GetTreeViewWidth(tempLeftWidth);
-            treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
+            treeDisplayWidth = LeftPanel->GetTreeViewWidth(Configuration.TreeViewAutoHide ? WindowWidth : tempLeftWidth);
+            treeAutoHideExpanded = Configuration.TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
+            if (Configuration.TreeViewAutoHide)
+                treeWidth = treeHeaderHeight;
+            else
+            {
+                treeWidth = treeDisplayWidth;
+                treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
+            }
         }
 
         // Calculate split widths accounting for treeview:
@@ -8064,7 +8106,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (RightPanel != NULL && RightPanel->HWindow != NULL)
             windowsCount++;
         if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
-            windowsCount += 2; // treeview + splitter
+            windowsCount += 3; // treeview + header + splitter
         if (MiddleToolBar->HWindow != NULL)
         {
             windowsCount++;
@@ -8092,18 +8134,39 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                               0, 0, WindowWidth, TopRebarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
 
-            // Position treeview to the left of the left panel area
+            // Position the Tree View on the left. The expanded auto-hide panel is
+            // deliberately placed above the work panels without changing their layout.
+            if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
+            {
+                BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
+                int headerWidth = collapsed ? treeWidth : treeDisplayWidth;
+                int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader,
+                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              1, TopRebarHeight, headerWidth, headerHeight,
+                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) | SWP_SHOWWINDOW));
+            }
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
             {
-                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView, NULL,
-                                              1, TopRebarHeight, treeWidth, PanelsHeight,
-                                              SWP_NOACTIVATE | SWP_NOZORDER));
+                int treeViewHeight = PanelsHeight - treeHeaderHeight;
+                if (treeViewHeight < 0)
+                    treeViewHeight = 0;
+                BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView,
+                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              1, TopRebarHeight + treeHeaderHeight, treeDisplayWidth, treeViewHeight,
+                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) |
+                                                  (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)
             {
-                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit, NULL,
-                                              1 + treeWidth, TopRebarHeight, treeSplitWidth, PanelsHeight,
-                                              SWP_NOACTIVATE | SWP_NOZORDER));
+                BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+                int displaySplitWidth = show ? 4 : 0;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit,
+                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              1 + treeDisplayWidth, TopRebarHeight, displaySplitWidth, PanelsHeight,
+                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) |
+                                                  (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
 
             if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)

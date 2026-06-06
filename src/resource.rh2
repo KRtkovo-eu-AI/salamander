@@ -369,6 +369,7 @@
 #define IDC_RIGHTTABCTRL    959
 #define IDC_TREEVIEW        966
 #define IDC_TREESPLIT       970
+#define IDC_TREEHEADER      971
 
 // icons
 #define IDI_SALAMANDER       960

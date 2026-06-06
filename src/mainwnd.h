@@ -556,6 +556,7 @@ public:
     double GetSplitPositionForVisibleLeftPanelRatio(double leftVisibleRatio);
     double GetVisiblePanesCenteredSplitPosition();
     void UpdateCenteredSplitPosition();
+    void RestoreVisiblePanelRatio(double visibleLeftRatio);
 
     BOOL IsGood();
 

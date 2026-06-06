@@ -570,6 +570,7 @@ const char* CONFIG_DRIVEBARINDEX_REG = "Drive Bar Index";
 const char* CONFIG_DRIVEBARBREAK_REG = "Drive Bar Break";
 const char* CONFIG_DRIVEBARWIDTH_REG = "Drive Bar Width";
 const char* CONFIG_TREEVIEWWIDTH_REG = "Tree View Width";
+const char* CONFIG_TREEVIEWAUTOHIDE_REG = "Tree View Auto Hide";
 const char* CONFIG_GRIPSVISIBLE_REG = "Grips Visible";
 
 const char* SALAMANDER_CONFIRMATION_REG = "Confirmation";
@@ -2016,6 +2017,8 @@ void CMainWindow::SaveConfig(HWND parent)
                          &Configuration.DriveBarWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TREEVIEWWIDTH_REG, REG_DWORD,
                          &Configuration.TreeViewWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TREEVIEWAUTOHIDE_REG, REG_DWORD,
+                         &Configuration.TreeViewAutoHide, sizeof(DWORD));
                 SetValue(actKey, CONFIG_GRIPSVISIBLE_REG, REG_DWORD,
                          &Configuration.GripsVisible, sizeof(DWORD));
 
@@ -3700,6 +3703,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.DriveBarWidth, sizeof(DWORD));
             GetValue(actKey, CONFIG_TREEVIEWWIDTH_REG, REG_DWORD,
                      &Configuration.TreeViewWidth, sizeof(DWORD));
+            GetValue(actKey, CONFIG_TREEVIEWAUTOHIDE_REG, REG_DWORD,
+                     &Configuration.TreeViewAutoHide, sizeof(DWORD));
             GetValue(actKey, CONFIG_GRIPSVISIBLE_REG, REG_DWORD,
                      &Configuration.GripsVisible, sizeof(DWORD));
             //---  top rebar end

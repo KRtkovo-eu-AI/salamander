@@ -674,8 +674,8 @@ void CFilesWindow::RefreshTreeView()
     } while (0);
 
     SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
-    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
     TreeViewDisableNotify = FALSE;
+    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
 }
 
 BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
@@ -779,7 +779,8 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
     free(fileEntries);
 
     itemData->Populated = TRUE;
-    SetTreeViewItemChildren(HTreeView, hItem, dirCount > 0 ? 1 : 0);
+    // File items are children too; keep folders that contain only files expandable.
+    SetTreeViewItemChildren(HTreeView, hItem, hasChildren ? 1 : 0);
     return hasChildren;
 }
 
@@ -1856,7 +1857,10 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     StatusLine = NULL;
     DirectoryLine = NULL;
     HTreeView = NULL;
+    HTreeHeader = NULL;
+    HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
+    TreeViewAutoHideExpanded = FALSE;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;

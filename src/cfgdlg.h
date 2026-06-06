@@ -405,6 +405,7 @@ struct CConfiguration
     int DriveBarBreak;
     int DriveBarWidth;
     int TreeViewWidth;
+    BOOL TreeViewAutoHide;
     int GripsVisible;
 
     // Change drive
