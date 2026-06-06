@@ -4389,8 +4389,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         strcpy(rightPanelPath, leftPanelPath);
         char sysDefDir[MAX_PATH];
         lstrcpyn(sysDefDir, DefaultDir[LowerCase[leftPanelPath[0]] - 'a'], MAX_PATH);
+        // Restoring each saved panel/tab path updates its monitoring state. Defer Tree View rebuilding
+        // until the final active panel is focused below; rebuilding it for every restored path makes
+        // startup perform the same synchronous directory enumeration many times.
+        RestoringPanelPaths = TRUE;
         LoadPanelConfig(leftPanelPath, cpsLeft, salamander, SALAMANDER_LEFTP_REG);
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
+        RestoringPanelPaths = FALSE;
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             RebuildSharedDirHistoryFromPanels();
 

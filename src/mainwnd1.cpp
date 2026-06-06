@@ -349,6 +349,7 @@ CMainWindow::CMainWindow()
     DisableIdleProcessing = FALSE;
     strcpy(SelectionMask, "*.*");
     Created = FALSE;
+    RestoringPanelPaths = FALSE;
     //  DrivesControlHWnd = NULL;
     HDisabledKeyboard = NULL;
     CmdShow = SW_SHOWNORMAL;

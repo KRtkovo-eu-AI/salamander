@@ -630,10 +630,13 @@ void CFilesWindowAncestor::SetPath(const char* path)
         ((CFilesWindow*)this)->SetAutomaticRefresh(TRUE, TRUE);
     }
 
-    if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
-        MainWindow->LeftPanel->RefreshTreeView();
-    else
-        ((CFilesWindow*)this)->RefreshTreeView();
+    if (MainWindow == NULL || !MainWindow->RestoringPanelPaths)
+    {
+        if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
+            MainWindow->LeftPanel->RefreshTreeView();
+        else
+            ((CFilesWindow*)this)->RefreshTreeView();
+    }
 }
 
 void CFilesWindow::RefreshTreeView()
