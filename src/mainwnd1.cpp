@@ -2530,8 +2530,9 @@ MENU_TEMPLATE_ITEM InfoLineMenu[] =
     // evaluate the result
     if (hit == mwhteSplitLine)
     {
-        KeepSplitPositionCenteredOnVisiblePanes = FALSE;
-        SplitPosition = (double)cmd / 10;
+        double visibleLeftRatio = (double)cmd / 10;
+        KeepSplitPositionCenteredOnVisiblePanes = cmd == 5;
+        SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
         LayoutWindows();
         return;
     }

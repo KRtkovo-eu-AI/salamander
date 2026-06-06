@@ -782,7 +782,10 @@ public:
     CStatusWindow *StatusLine,
         *DirectoryLine;
     HWND HTreeView;
+    HWND HTreeHeader;
+    HWND HTreeHeaderToolTip;
     HWND HTreeSplit;
+    BOOL TreeViewAutoHideExpanded;
 
     CPanelSide PanelSide;
     bool CustomTabColorValid;
@@ -1305,11 +1308,16 @@ public:
     CFilesWindow* GetTreeViewSourcePanel();
     int GetTreeViewWidth(int clientWidth);
     int GetTreeViewReservedWidth(int clientWidth);
+    int GetTreeViewHeaderHeight();
     void SetTreeViewWidth(int width);
+    void ToggleTreeViewAutoHide();
+    void ExpandTreeViewAutoHide();
+    void CollapseTreeViewAutoHideIfNeeded();
     COLORREF GetTreeViewTextColor();
     COLORREF GetTreeViewBkColor();
     COLORREF GetTreeViewSelectionTextColor();
     COLORREF GetTreeViewSelectionBkColor();
+    void DrawTreeViewFocusedItem(HDC hdc, HTREEITEM item, const RECT* rect);
     void UpdateTreeViewColors();
     void CreateTreeView();
     void DestroyTreeView();
