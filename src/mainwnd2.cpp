@@ -2899,7 +2899,20 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
+        BOOL restored;
+        if (i != activeIndex && IsDiskOrUNCPath(path))
+        {
+            // Hidden tabs do not need a directory listing during startup. Remember their disk path
+            // cheaply and let SwitchPanelTab load the listing when the user first activates them.
+            panel->SetPanelType(ptDisk);
+            panel->SetPath(path);
+            panel->NeedsRefreshOnActivation = TRUE;
+            UpdatePanelTabTitle(panel);
+            restored = TRUE;
+        }
+        else
+            restored = RestorePanelPathFromConfig(this, panel, path);
+
         if (i == activeIndex)
         {
             activeRestored = restored;
