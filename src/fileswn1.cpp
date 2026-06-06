@@ -779,7 +779,8 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
     free(fileEntries);
 
     itemData->Populated = TRUE;
-    SetTreeViewItemChildren(HTreeView, hItem, dirCount > 0 ? 1 : 0);
+    // File items are children too; keep folders that contain only files expandable.
+    SetTreeViewItemChildren(HTreeView, hItem, hasChildren ? 1 : 0);
     return hasChildren;
 }
 

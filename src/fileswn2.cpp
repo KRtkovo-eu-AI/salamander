@@ -146,25 +146,25 @@ static void DrawTreeViewHeaderPin(HDC hdc, const RECT* rect, BOOL autoHide, COLO
     HPEN oldPen = (HPEN)SelectObject(hdc, pen);
     if (autoHide)
     {
-        MoveToEx(hdc, cx - arm, cy, NULL);
-        LineTo(hdc, cx + arm + 2, cy);
-        MoveToEx(hdc, cx - arm, cy, NULL);
+        MoveToEx(hdc, cx + arm, cy, NULL);
+        LineTo(hdc, cx - arm - 2, cy);
+        MoveToEx(hdc, cx + arm, cy, NULL);
         LineTo(hdc, cx, cy - arm);
-        MoveToEx(hdc, cx - arm, cy, NULL);
+        MoveToEx(hdc, cx + arm, cy, NULL);
         LineTo(hdc, cx, cy + arm);
-        MoveToEx(hdc, cx + 1, cy - arm, NULL);
-        LineTo(hdc, cx + 1, cy + arm + 1);
+        MoveToEx(hdc, cx - 1, cy - arm, NULL);
+        LineTo(hdc, cx - 1, cy + arm + 1);
     }
     else
     {
-        MoveToEx(hdc, cx, cy - arm, NULL);
-        LineTo(hdc, cx, cy + arm + 2);
-        MoveToEx(hdc, cx, cy + arm + 2, NULL);
+        MoveToEx(hdc, cx, cy + arm, NULL);
+        LineTo(hdc, cx, cy - arm - 2);
+        MoveToEx(hdc, cx, cy - arm - 2, NULL);
         LineTo(hdc, cx - arm, cy);
-        MoveToEx(hdc, cx, cy + arm + 2, NULL);
+        MoveToEx(hdc, cx, cy - arm - 2, NULL);
         LineTo(hdc, cx + arm, cy);
-        MoveToEx(hdc, cx - arm, cy - 1, NULL);
-        LineTo(hdc, cx + arm + 1, cy - 1);
+        MoveToEx(hdc, cx - arm, cy + 1, NULL);
+        LineTo(hdc, cx + arm + 1, cy + 1);
     }
     SelectObject(hdc, oldPen);
     DeleteObject(pen);
