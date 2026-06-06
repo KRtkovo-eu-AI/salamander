@@ -539,6 +539,7 @@ protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     void EnableControls();
+    BOOL IsDefaultCommandShellApplication();
 };
 
 //

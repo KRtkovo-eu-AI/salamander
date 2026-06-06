@@ -949,11 +949,42 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
         EnableControls();
 }
 
+BOOL CCfgPageGeneral::IsDefaultCommandShellApplication()
+{
+    char commandLineApplication[MAX_PATH];
+    lstrcpyn(commandLineApplication, Configuration.CommandLineApplication, MAX_PATH);
+
+    if (ParentDialog != NULL)
+    {
+        int i;
+        for (i = 0; i < ParentDialog->Count; i++)
+        {
+            HWND hPage = ParentDialog->At(i)->HWindow;
+            if (hPage != NULL)
+            {
+                HWND hCommandLineApplication = GetDlgItem(hPage, IDC_CMDLINEAPP_PATH);
+                if (hCommandLineApplication != NULL)
+                {
+                    GetWindowText(hCommandLineApplication, commandLineApplication, MAX_PATH);
+                    break;
+                }
+            }
+        }
+    }
+
+    return commandLineApplication[0] == 0;
+}
+
 void CCfgPageGeneral::EnableControls()
 {
     BOOL useTimeRes = IsDlgButtonChecked(HWindow, IDC_TIMERESOLUTION);
     EnableWindow(GetDlgItem(HWindow, IDE_TIMERESOLUTION), useTimeRes);
     EnableWindow(GetDlgItem(HWindow, IDC_ASYNCCOPYALG), Windows7AndLater);
+
+    BOOL defaultCommandShell = IsDefaultCommandShellApplication();
+    HWND hCloseShell = GetDlgItem(HWindow, IDC_CLOSESHELL);
+    SetWindowText(hCloseShell, LoadStr(defaultCommandShell ? IDS_CLOSESHELL_COMMANDLINE : IDS_CLOSESHELL_DEFAULTCMDONLY));
+    EnableWindow(hCloseShell, defaultCommandShell);
 }
 
 INT_PTR
@@ -975,6 +1006,13 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
     {
         if (HIWORD(wParam) == BN_CLICKED)
+            EnableControls();
+        break;
+    }
+
+    case WM_NOTIFY:
+    {
+        if (((NMHDR*)lParam)->code == PSN_SETACTIVE)
             EnableControls();
         break;
     }
