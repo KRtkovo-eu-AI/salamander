@@ -395,15 +395,12 @@ COLORREF CFilesWindow::GetTreeViewBkColor()
 
 COLORREF CFilesWindow::GetTreeViewSelectionTextColor()
 {
-    BOOL useFocusedSelection = MainWindow != NULL && MainWindow->CaptionIsActive;
-    return GetCOLORREF(CurrentColors[useFocusedSelection ? ITEM_FG_FOCSEL : ITEM_FG_SELECTED]);
+    return GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
 }
 
 COLORREF CFilesWindow::GetTreeViewSelectionBkColor()
 {
-    BOOL useFocusedSelection = MainWindow != NULL && MainWindow->CaptionIsActive;
-    return GetPanelBrushColor(useFocusedSelection ? HFocSelBkBrush : HSelectedBkBrush,
-                              GetCOLORREF(CurrentColors[useFocusedSelection ? ITEM_BK_FOCSEL : ITEM_BK_SELECTED]));
+    return GetPanelBrushColor(HFocusedBkBrush, GetCOLORREF(CurrentColors[ITEM_BK_FOCUSED]));
 }
 
 void CFilesWindow::UpdateTreeViewColors()
