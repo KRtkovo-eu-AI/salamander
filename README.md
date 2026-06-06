@@ -1,6 +1,9 @@
 # Open Salamander: Samandarin
-
 Open Salamander: Samandarin is a fast and reliable two-panel file manager for Windows, refreshed in 2025 with features implemented entirely with [OpenAI Codex](https://chatgpt.com/codex).
+
+It evolves the [original project](https://github.com/OpenSalamander/salamander) with **experimental AI-crafted enhancements** while staying compatible with the upstream code and plugin ecosystem.
+
+Open Salamander: Samandarin remains an **intentionally experimental fork**—its **AI-implemented features** are actively evolving, **may surface unexpected issues**, and are best explored by **advanced, adventurous users** who can tolerate work-in-progress behavior.  
 
 ## Included Features Overview
 ### Tabbed Panels
