@@ -30,7 +30,8 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Configurable Command Shell Application
 <img width="687" height="510" alt="image" src="https://github.com/user-attachments/assets/ac5d1e60-3e8d-45b2-8e21-334880780dc4" />
 
-### Tree View panel
+### Tree View panel 
+- based on [fgodoy](https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy) changes
 <img width="690" height="480" alt="image" src="https://github.com/user-attachments/assets/09aaf1a8-378e-4b6b-9668-12be74b900a9" />
 
 ### Internal Viewer support for Unicode encoding in text files
