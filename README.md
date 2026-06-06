@@ -55,6 +55,7 @@ Supported File Types
 ### PAK 1.71
 ### PictView 2.21
 ### Portable Devices 0.1
+### Portable Executable Viewer 3.0
 ### PrismSharp Text Viewer .NET 1.0
 The viewer focuses on human-readable text content and syntax-highlighted source files. Extensions are matched case-insensitively.
 Common text and configuration formats
