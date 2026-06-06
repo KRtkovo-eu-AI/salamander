@@ -403,6 +403,18 @@ COLORREF CFilesWindow::GetTreeViewSelectionBkColor()
     return GetPanelBrushColor(HFocusedBkBrush, GetCOLORREF(CurrentColors[ITEM_BK_FOCUSED]));
 }
 
+void CFilesWindow::DrawTreeViewFocusFrame(HDC hdc, const RECT* rect)
+{
+    if (hdc == NULL || rect == NULL)
+        return;
+
+    HPEN oldPen = (HPEN)SelectObject(hdc, HActiveNormalPen);
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, HANDLES(GetStockObject(NULL_BRUSH)));
+    Rectangle(hdc, rect->left, rect->top, rect->right, rect->bottom);
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+}
+
 void CFilesWindow::UpdateTreeViewColors()
 {
     if (HTreeView == NULL)

@@ -1313,6 +1313,7 @@ public:
     COLORREF GetTreeViewBkColor();
     COLORREF GetTreeViewSelectionTextColor();
     COLORREF GetTreeViewSelectionBkColor();
+    void DrawTreeViewFocusFrame(HDC hdc, const RECT* rect);
     void UpdateTreeViewColors();
     void CreateTreeView();
     void DestroyTreeView();

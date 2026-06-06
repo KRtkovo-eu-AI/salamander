@@ -7772,9 +7772,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
                 if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
+                    BOOL focused = (pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0;
                     pnmcd->clrText = treePanel->GetTreeViewTextColor();
                     pnmcd->clrTextBk = treePanel->GetTreeViewBkColor();
-                    if ((pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0)
+                    if (focused)
                     {
                         HBRUSH hBrush = HANDLES(CreateSolidBrush(treePanel->GetTreeViewSelectionBkColor()));
                         if (hBrush != NULL)
@@ -7786,7 +7787,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         pnmcd->clrTextBk = treePanel->GetTreeViewSelectionBkColor();
                         pnmcd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
                     }
-                    return CDRF_NEWFONT;
+                    return CDRF_NEWFONT | (focused ? CDRF_NOTIFYPOSTPAINT : 0);
+                }
+                if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT &&
+                    (HTREEITEM)pnmcd->nmcd.dwItemSpec == TreeView_GetSelection(treePanel->HTreeView))
+                {
+                    treePanel->DrawTreeViewFocusFrame(pnmcd->nmcd.hdc, &pnmcd->nmcd.rc);
+                    return CDRF_DODEFAULT;
                 }
                 return CDRF_DODEFAULT;
             }
