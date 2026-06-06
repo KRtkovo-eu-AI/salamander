@@ -4404,11 +4404,18 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         if (cmdLine && !SystemPolicies.GetNoRun())
             PostMessage(HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
 
-        MSG msg; // process all pending messages
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        // Process messages that accumulated while reading the registry, but do not wait for the
+        // queue to become empty. Timers and background workers can keep posting messages, which
+        // could starve the rest of startup here indefinitely.
+        MSG msg;
+        DWORD processMessagesStart = GetTickCount();
+        int processedMessages = 0;
+        while (processedMessages < 100 && GetTickCount() - processMessagesStart < 100 &&
+               PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+            processedMessages++;
         }
 
         // set the active panel according to command line parameters
