@@ -1115,6 +1115,7 @@ class CCfgPageMainWindow : public CCommonPropSheetPage
 {
 protected:
     HIMAGELIST HIconsList;
+    HFONT HCommandShellPlaceholderFont;
 
 public:
     CCfgPageMainWindow();
@@ -1130,6 +1131,8 @@ protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     BOOL InitIconCombobox();
+    void InitCommandShellPlaceholders();
+    void ApplyCommandShellTemplate(int templateNameResID);
 };
 
 //

@@ -2008,4 +2008,8 @@ STRINGTABLE
 
  IDS_CLOSESHELL_COMMANDLINE, "C&lose shell window after command execution (in Command line)"
  IDS_CLOSESHELL_DEFAULTCMDONLY, "C&lose shell window after command execution (only with default Command Shell)"
+ IDS_EXECUTE_TEMPLATES, "Templates"
+ IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC, "default (COMSPEC)"
+ IDS_EXECUTE_TEMPLATE_POWERSHELL, "PowerShell"
+ IDS_CMDLINEAPP_PLACEHOLDER, "leave empty for default command shell set in COMSPEC system env."
 }

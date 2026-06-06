@@ -2052,7 +2052,7 @@ TrackExecuteMenu(HWND hParent, int buttonResID, int editlineResID,
             BrowseDirCommand(hParent, editlineResID, filterResID); // JRFIXME
             return item;
         }
-        if (item->Keyword == EXECUTE_HELP)
+        if (item->Keyword == EXECUTE_HELP || (item->Flags & EIF_NO_INSERT))
             return item;
 
         if (item->Flags & EIF_VARIABLE)

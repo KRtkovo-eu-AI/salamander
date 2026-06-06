@@ -63,6 +63,7 @@ extern const char* EXECUTE_SUBMENUEND;   // end of a submenu (only one level sup
 #define EIF_CURSOR_2 0x04    // place the cursor two characters before the end of the inserted text
 #define EIF_VARIABLE 0x08    // wrap the inserted text in $(text)
 #define EIF_DONT_FOCUS 0x10  // do not move focus back to the edit line after the action
+#define EIF_NO_INSERT 0x20   // return the selected item without changing the edit line
 
 struct CExecuteItem
 {

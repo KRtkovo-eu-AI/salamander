@@ -2772,6 +2772,15 @@
 // Configuration > General: Close shell option text when a custom Command Shell application is configured
 #define IDS_CLOSESHELL_DEFAULTCMDONLY   14201
 
+// Configuration > Main Window > Command Shell: templates submenu in Shell Application browse menu
+#define IDS_EXECUTE_TEMPLATES           14202
+// Configuration > Main Window > Command Shell: template resetting Shell Application and Arguments to default COMSPEC
+#define IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC 14203
+// Configuration > Main Window > Command Shell: template setting Shell Application and Arguments for PowerShell
+#define IDS_EXECUTE_TEMPLATE_POWERSHELL 14204
+// Configuration > Main Window > Command Shell: non-persistent placeholder shown in empty Shell Application and Arguments fields
+#define IDS_CMDLINEAPP_PLACEHOLDER      14205
+
 //#define CM_TEXTS_MAX                  18000    // maximal texts id
 
 #endif // __TEXTS_RH2
