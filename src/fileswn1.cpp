@@ -116,6 +116,22 @@ static HTREEITEM FindTreeViewChildByPath(HWND hTreeView, HTREEITEM hParent, cons
     return NULL;
 }
 
+static HTREEITEM FindTreeViewItemByPath(HWND hTreeView, HTREEITEM hItem, const char* path)
+{
+    while (hItem != NULL)
+    {
+        const char* itemPath = GetTreeViewItemPath(hTreeView, hItem);
+        if (itemPath != NULL && IsTheSamePath(itemPath, path))
+            return hItem;
+
+        HTREEITEM hFound = FindTreeViewItemByPath(hTreeView, TreeView_GetChild(hTreeView, hItem), path);
+        if (hFound != NULL)
+            return hFound;
+        hItem = TreeView_GetNextSibling(hTreeView, hItem);
+    }
+    return NULL;
+}
+
 static void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children)
 {
     TVITEM item;
@@ -633,6 +649,17 @@ void CFilesWindow::RefreshTreeView()
         return;
     }
 
+    BOOL hadFirstVisibleItem = FALSE;
+    char firstVisibleItemPath[MAX_PATH];
+    firstVisibleItemPath[0] = 0;
+    HTREEITEM hFirstVisible = TreeView_GetFirstVisible(HTreeView);
+    const char* firstVisiblePath = GetTreeViewItemPath(HTreeView, hFirstVisible);
+    if (firstVisiblePath != NULL)
+    {
+        hadFirstVisibleItem = TRUE;
+        lstrcpyn(firstVisibleItemPath, firstVisiblePath, MAX_PATH);
+    }
+
     BOOL hadSelectedFile = FALSE;
     char selectedFileFullPath[MAX_PATH];
     char selectedFileFocusPath[MAX_PATH];
@@ -751,7 +778,13 @@ void CFilesWindow::RefreshTreeView()
         }
 
         TreeView_SelectItem(HTreeView, hSelect);
-        TreeView_EnsureVisible(HTreeView, hSelect);
+
+        // Selecting a recreated item scrolls it into view; restore the user's viewport afterward.
+        HTREEITEM hRestoreFirstVisible = hadFirstVisibleItem ? FindTreeViewItemByPath(HTreeView, TreeView_GetRoot(HTreeView), firstVisibleItemPath) : NULL;
+        if (hRestoreFirstVisible != NULL)
+            SendMessage(HTreeView, TVM_SELECTITEM, TVGN_FIRSTVISIBLE, (LPARAM)hRestoreFirstVisible);
+        else
+            TreeView_EnsureVisible(HTreeView, hSelect);
     } while (0);
 
     SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
