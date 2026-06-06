@@ -109,7 +109,7 @@ BEGIN
     CONTROL         "&Use speaker beep to announce finishing of work in inactive window",IDC_MINBEEPWHENDONE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,42,238,12
     CONTROL         "C&lose shell window after command execution (in Command line)",IDC_CLOSESHELL,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,55,227,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,55,294,12
     CONTROL         "Co&mpare Directories: ignore time differences up to",IDC_TIMERESOLUTION,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,68,182,12
     EDITTEXT        IDE_TIMERESOLUTION,184,68,28,12,ES_AUTOHSCROLL

@@ -2816,16 +2816,109 @@ CMainWindowIconItem MainWindowIcons[MAINWINDOWICONS_COUNT] =
         {IDI_SALAMANDER_SAMANDARIN, IDS_SALAMANDERICON_SAMANDARIN},
 };
 
+static const char* EXECUTE_TEMPLATE_DEFAULTCOMSPEC = "TemplateDefaultCOMSPEC";
+static const char* EXECUTE_TEMPLATE_POWERSHELL = "TemplatePowerShell";
+
+static CExecuteItem CommandShellApplicationExecutes[] =
+    {
+        {EXECUTE_BROWSE, IDS_EXECUTE_BROWSE, EIF_REPLACE_ALL},
+        {EXECUTE_SEPARATOR, 0, 0},
+        {EXECUTE_WINDIR, IDS_EXECUTE_WINDIR, EIF_VARIABLE},
+        {EXECUTE_SYSDIR, IDS_EXECUTE_SYSDIR, EIF_VARIABLE},
+        {EXECUTE_SALDIR, IDS_EXECUTE_SALDIR, EIF_VARIABLE},
+        {EXECUTE_SEPARATOR, 0, 0},
+        {EXECUTE_ENV, IDS_EXECUTE_ENV, EIF_CURSOR_1},
+        {EXECUTE_SEPARATOR, 0, 0},
+        {EXECUTE_SUBMENUSTART, IDS_EXECUTE_TEMPLATES, 0},
+        {EXECUTE_TEMPLATE_DEFAULTCOMSPEC, IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC, EIF_NO_INSERT},
+        {EXECUTE_TEMPLATE_POWERSHELL, IDS_EXECUTE_TEMPLATE_POWERSHELL, EIF_NO_INSERT},
+        {EXECUTE_SUBMENUEND, 0, 0},
+        {EXECUTE_TERMINATOR, 0, 0},
+};
+
+#define COMMAND_SHELL_PLACEHOLDER_SUBCLASS_ID 1
+
+static void PaintCommandShellPlaceholder(HWND hWindow, HFONT hPlaceholderFont)
+{
+    if (GetWindowTextLength(hWindow) != 0)
+        return;
+    if (GetDlgCtrlID(hWindow) == IDC_CMDLINEAPP_ARGS && IsWindowEnabled(hWindow))
+        return;
+
+    HDC hDC = GetDC(hWindow);
+    if (hDC == NULL)
+        return;
+
+    RECT r;
+    SendMessage(hWindow, EM_GETRECT, 0, (LPARAM)&r);
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, DarkModeShouldUseDarkColors() ? RGB(0xA0, 0xA0, 0xA0)
+                                                     : GetSysColor(COLOR_GRAYTEXT));
+
+    HFONT hOldFont = NULL;
+    if (hPlaceholderFont != NULL)
+        hOldFont = (HFONT)SelectObject(hDC, hPlaceholderFont);
+
+    DrawText(hDC, LoadStr(IDS_CMDLINEAPP_PLACEHOLDER), -1, &r,
+             DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+    if (hOldFont != NULL)
+        SelectObject(hDC, hOldFont);
+    ReleaseDC(hWindow, hDC);
+}
+
+static LRESULT CALLBACK
+CommandShellPlaceholderEditProc(HWND hWindow, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+    switch (uMsg)
+    {
+    case WM_PAINT:
+    {
+        LRESULT res = DefSubclassProc(hWindow, uMsg, wParam, lParam);
+        PaintCommandShellPlaceholder(hWindow, (HFONT)dwRefData);
+        return res;
+    }
+
+    case WM_CHAR:
+    case WM_KEYDOWN:
+    case WM_SETTEXT:
+    case WM_ENABLE:
+    case WM_CUT:
+    case WM_PASTE:
+    case WM_CLEAR:
+    case WM_UNDO:
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+    {
+        LRESULT res = DefSubclassProc(hWindow, uMsg, wParam, lParam);
+        InvalidateRect(hWindow, NULL, TRUE);
+        return res;
+    }
+
+    case WM_NCDESTROY:
+    {
+        RemoveWindowSubclass(hWindow, CommandShellPlaceholderEditProc, uIdSubclass);
+        break;
+    }
+    }
+
+    return DefSubclassProc(hWindow, uMsg, wParam, lParam);
+}
+
 CCfgPageMainWindow::CCfgPageMainWindow()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_MAINWINDOW, IDD_CFGPAGE_MAINWINDOW, PSP_USETITLE, NULL)
 {
     HIconsList = NULL;
+    HCommandShellPlaceholderFont = NULL;
 }
 
 CCfgPageMainWindow::~CCfgPageMainWindow()
 {
     if (HIconsList != NULL)
         ImageList_Destroy(HIconsList);
+    if (HCommandShellPlaceholderFont != NULL)
+        HANDLES(DeleteObject(HCommandShellPlaceholderFont));
 }
 
 void CCfgPageMainWindow::LoadControls()
@@ -2836,6 +2929,12 @@ void CCfgPageMainWindow::EnableControls()
 {
     BOOL usePrefix = IsDlgButtonChecked(HWindow, IDC_TITLEBAR_PREFIX);
     EnableWindow(GetDlgItem(HWindow, IDC_TITLEBAR_PREFIX_TEXT), usePrefix);
+
+    BOOL hasShellApplication = GetWindowTextLength(GetDlgItem(HWindow, IDC_CMDLINEAPP_PATH)) > 0;
+    HWND hArguments = GetDlgItem(HWindow, IDC_CMDLINEAPP_ARGS);
+    EnableWindow(hArguments, hasShellApplication);
+    if (!hasShellApplication)
+        SetWindowText(hArguments, "");
 }
 
 void CCfgPageMainWindow::Transfer(CTransferInfo& ti)
@@ -2952,6 +3051,58 @@ BOOL CCfgPageMainWindow::InitIconCombobox()
     return TRUE;
 }
 
+void CCfgPageMainWindow::InitCommandShellPlaceholders()
+{
+    HFONT hFont = (HFONT)SendDlgItemMessage(HWindow, IDC_CMDLINEAPP_PATH, WM_GETFONT, 0, 0);
+    if (hFont != NULL)
+    {
+        LOGFONT logFont;
+        if (GetObject(hFont, sizeof(LOGFONT), &logFont) == sizeof(LOGFONT))
+        {
+            logFont.lfItalic = TRUE;
+            HCommandShellPlaceholderFont = HANDLES(CreateFontIndirect(&logFont));
+        }
+    }
+
+    HWND hShellApplication = GetDlgItem(HWindow, IDC_CMDLINEAPP_PATH);
+    if (hShellApplication != NULL)
+        SetWindowSubclass(hShellApplication, CommandShellPlaceholderEditProc,
+                          COMMAND_SHELL_PLACEHOLDER_SUBCLASS_ID, (DWORD_PTR)HCommandShellPlaceholderFont);
+
+    HWND hArguments = GetDlgItem(HWindow, IDC_CMDLINEAPP_ARGS);
+    if (hArguments != NULL)
+        SetWindowSubclass(hArguments, CommandShellPlaceholderEditProc,
+                          COMMAND_SHELL_PLACEHOLDER_SUBCLASS_ID, (DWORD_PTR)HCommandShellPlaceholderFont);
+}
+
+void CCfgPageMainWindow::ApplyCommandShellTemplate(int templateNameResID)
+{
+    switch (templateNameResID)
+    {
+    case IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC:
+    {
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "");
+        break;
+    }
+
+    case IDS_EXECUTE_TEMPLATE_POWERSHELL:
+    {
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_PATH, "powershell");
+        SetDlgItemText(HWindow, IDC_CMDLINEAPP_ARGS, "-NoExit \"& \\\"{command}\\\"\"");
+        break;
+    }
+    }
+
+    HWND hShellApplication = GetDlgItem(HWindow, IDC_CMDLINEAPP_PATH);
+    if (hShellApplication != NULL)
+        InvalidateRect(hShellApplication, NULL, TRUE);
+
+    HWND hArguments = GetDlgItem(HWindow, IDC_CMDLINEAPP_ARGS);
+    if (hArguments != NULL)
+        InvalidateRect(hArguments, NULL, TRUE);
+}
+
 INT_PTR
 CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -2962,6 +3113,7 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // replace the existing combobox for icon color selection with its EX version
         InitIconCombobox();
         ChangeToArrowButton(HWindow, IDC_CMDLINEAPP_BROWSE);
+        InitCommandShellPlaceholders();
 
         break;
     }
@@ -2975,10 +3127,18 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         switch (LOWORD(wParam))
         {
+        case IDC_CMDLINEAPP_PATH:
+            if (HIWORD(wParam) == EN_CHANGE)
+                EnableControls();
+            break;
+
         case IDC_CMDLINEAPP_BROWSE:
         {
-            TrackExecuteMenu(HWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
-                             CommandExecutes, IDS_EXEFILTER);
+            const CExecuteItem* item = TrackExecuteMenu(HWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
+                                                        CommandShellApplicationExecutes, IDS_EXEFILTER);
+            if (item != NULL && (item->Flags & EIF_NO_INSERT))
+                ApplyCommandShellTemplate(item->NameResID);
+            EnableControls();
             return 0;
         }
         }
