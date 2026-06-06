@@ -4404,19 +4404,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         if (cmdLine && !SystemPolicies.GetNoRun())
             PostMessage(HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
 
-        // Process messages that accumulated while reading the registry, but do not wait for the
-        // queue to become empty. Timers and background workers can keep posting messages, which
-        // could starve the rest of startup here indefinitely.
-        MSG msg;
-        DWORD processMessagesStart = GetTickCount();
-        int processedMessages = 0;
-        while (processedMessages < 100 && GetTickCount() - processMessagesStart < 100 &&
-               PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-            processedMessages++;
-        }
+        // Leave queued messages for the main message loop. Dispatching them while the window is
+        // still being initialized can synchronously run expensive refresh handlers and delay startup.
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)
