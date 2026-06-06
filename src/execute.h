@@ -41,6 +41,9 @@ extern const char* EXECUTE_NAME;
 extern const char* EXECUTE_DOSNAME;
 
 extern const char* EXECUTE_ENV; // Environment Variable
+extern const char* EXECUTE_WINDIR;
+extern const char* EXECUTE_SYSDIR;
+extern const char* EXECUTE_SALDIR;
 
 extern const char* EXECUTE_SEPARATOR;    // to insert a separator into the menu
 extern const char* EXECUTE_BROWSE;       // to insert a Browse command into the menu
