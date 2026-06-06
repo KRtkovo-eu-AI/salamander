@@ -3213,6 +3213,7 @@ void CCfgPageAppearance::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_ICONTINCTURE, Configuration.UseIconTincture);
     ti.CheckBox(IDC_PANELCAPTION, Configuration.ShowPanelCaption);
     ti.CheckBox(IDC_PANELZOOM, Configuration.ShowPanelZoom);
+    ti.CheckBox(IDC_PANELTREEVIEW, Configuration.TreeViewVisible);
     ti.CheckBox(IDC_SINGLECLICK, Configuration.SingleClick);
 
     ti.EditLine(IDC_INFOLINECONTENT, Configuration.InfoLineContent, 200);
@@ -3692,7 +3693,6 @@ void CCfgPagePanels::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_QUICKSEARCH_ALT, Configuration.QuickSearchEnterAlt);
     ti.CheckBox(IDE_PRIMARYCTXMENU, Configuration.PrimaryContextMenu);
     ti.CheckBox(IDC_SHIFTFORHOTPATHS, Configuration.ShiftForHotPaths);
-    ti.CheckBox(IDC_PANELTREEVIEW, Configuration.TreeViewVisible);
     ti.CheckBox(IDC_CLICKTORENAME, Configuration.ClickQuickRename);
     ti.CheckBox(IDC_SORTUSESLOCALE, Configuration.SortUsesLocale);
     ti.CheckBox(IDC_SORTDETECTNUMBERS, Configuration.SortDetectNumbers);
