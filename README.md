@@ -67,7 +67,6 @@ Common text and configuration formats
 | YAML | `.yaml`, `.yml` |
 | XML and markup | `.xml`, `.html`, `.htm`, `.php`, `.axaml`, `.xaml`, `.xlf`, `.nuspec`, `.plist`, `.storyboard` |
 | Markdown | `.md`, `.markdown` |
-| Delimited text | `.csv` |
 | Windows scripting | `.bat`, `.cmd`, `.ps1`, `.psd1`, `.psm1` |
 | C-family source | `.cs`, `.cpp`, `.c`, `.cxx`, `.h`, `.hh`, `.hpp`, `.hxx` |
 | Project and build files | `.csproj`, `.fsproj`, `.vbproj`, `.vcxproj`, `.vcproj`, `.props`, `.targets` |
