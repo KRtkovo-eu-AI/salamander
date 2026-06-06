@@ -1594,9 +1594,9 @@ void CMainWindow::FocusPanel(CFilesWindow* focus, BOOL testIfMainWndActive)
     MainWindow->UpdateDefaultDir(TRUE);
 }
 
-void CMainWindow::ShowCommandLine()
+void CMainWindow::ShowCommandLine(BOOL focus)
 {
-    CALL_STACK_MESSAGE1("CMainWindow::ShowCommandLine()");
+    CALL_STACK_MESSAGE2("CMainWindow::ShowCommandLine(%d)", focus);
     if (EditWindow == NULL || EditWindow->HWindow != NULL)
         return;
 
@@ -1607,7 +1607,7 @@ void CMainWindow::ShowCommandLine()
         LayoutWindows();
         EditWindow->RestoreContent();
         ShowWindow(EditWindow->HWindow, SW_SHOW);
-        if (EditWindow->IsEnabled())
+        if (focus && EditWindow->IsEnabled())
             SetFocus(EditWindow->HWindow);
         IdleRefreshStates = TRUE; // on the next Idle, force checking of state variables
     }

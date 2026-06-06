@@ -6330,9 +6330,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 if (EditPermanentVisible)
                 {
-                    ShowCommandLine();
-                    if (lParam == 0)
-                        SetFocus(EditWindow->HWindow);
+                    ShowCommandLine(lParam == 0);
                 }
             }
             return 0;

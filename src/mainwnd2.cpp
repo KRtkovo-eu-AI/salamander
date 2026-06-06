@@ -4422,8 +4422,16 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         if (cmdLine && !SystemPolicies.GetNoRun())
             PostMessage(HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
 
-        // Leave queued messages for the main message loop. Dispatching them while the window is
-        // still being initialized can synchronously run expensive refresh handlers and delay startup.
+        // Finish messages queued while the hidden main window and its controls were being
+        // initialized. In particular, toolbar/rebar layout and panel paints must settle before
+        // SetWindowPlacement reveals the window below; otherwise their intermediate state flashes
+        // on screen and panel contents can visibly change immediately after startup.
+        MSG msg;
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)
