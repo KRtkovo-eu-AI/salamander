@@ -1699,21 +1699,6 @@ BOOL GetChangeDriveUserFolderPath(CDriveTypeEnum driveType, char* path, int path
     return ret && path[0] != 0;
 }
 
-HICON GetChangeDriveUserFolderIcon(CDriveTypeEnum driveType, int iconSize)
-{
-    char path[MAX_PATH];
-    HICON icon = NULL;
-    if (GetChangeDriveUserFolderPath(driveType, path, MAX_PATH))
-    {
-        SHFILEINFO sfi;
-        if (SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON) != 0)
-            icon = sfi.hIcon;
-    }
-    if (icon == NULL)
-        icon = SalLoadIcon(ImageResDLL, 112, iconSize);
-    return icon;
-}
-
 void CDrivesList::AddToDrives(CDriveData& drv, int textResId, char hotkey, CDriveTypeEnum driveType,
                               BOOL getGrayIcons, HICON icon, BOOL destroyIcon, const char* itemText)
 {
@@ -2117,11 +2102,13 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     if (Drives->Count > 0 && !IsLastItemSeparator())
         Drives->Add(drvSeparator);
 
+    // User folders can be redirected to unavailable network locations. Do not ask the shell
+    // for their icons by path here because SHGetFileInfo would then block application startup.
     // adding user folders
     if (Configuration.ChangeDriveShowMyDoc)
     {
         AddToDrives(drv, IDS_MYDOCUMENTS, ';', drvtMyDocuments, getGrayIcons,
-                    GetChangeDriveUserFolderIcon(drvtMyDocuments, iconSize));
+                    SalLoadIcon(ImageResDLL, 112, iconSize));
     }
 
     struct CChangeDriveUserFolderItem
@@ -2144,7 +2131,7 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         {
             AddToDrives(drv, GetChangeDriveUserFolderTextResId(userFolders[j].DriveType), 0,
                         userFolders[j].DriveType, getGrayIcons,
-                        GetChangeDriveUserFolderIcon(userFolders[j].DriveType, iconSize));
+                        SalLoadIcon(ImageResDLL, 112, iconSize));
         }
     }
 
