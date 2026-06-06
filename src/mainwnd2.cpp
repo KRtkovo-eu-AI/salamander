@@ -4422,8 +4422,16 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         if (cmdLine && !SystemPolicies.GetNoRun())
             PostMessage(HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
 
-        // Leave queued messages for the main message loop. Dispatching them while the window is
-        // still being initialized can synchronously run expensive refresh handlers and delay startup.
+        // Finish messages queued while the hidden main window and its controls were being
+        // initialized. In particular, toolbar/rebar layout and panel paints must settle before
+        // SetWindowPlacement reveals the window below; otherwise their intermediate state flashes
+        // on screen and panel contents can visibly change immediately after startup.
+        MSG msg;
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)
@@ -4469,88 +4477,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             SetMenuItemInfo(h, SC_MAXIMIZE, FALSE, &mii);
         }
 
-        // set panel paths according to command line parameters (all path types, including archives and FS)
-        BOOL leftPanelPathSet = FALSE;
-        BOOL rightPanelPathSet = FALSE;
-        if (ret && cmdLineParams != NULL)
-        {
-            if (cmdLineParams->LeftPath[0] == 0 && cmdLineParams->RightPath[0] == 0 && cmdLineParams->ActivePath[0] != 0)
-            {
-                if (GetActivePanel()->ChangeDirLite(cmdLineParams->ActivePath)) // no point in combining this with left/right panel settings
-                {
-                    if (rightPanelFocused)
-                        rightPanelPathSet = TRUE;
-                    else
-                    {
-                        leftPanelPathSet = TRUE;
-                        LeftPanel->RefreshVisibleItemsArray(); // see "RefreshVisibleItemsArray" comment below
-                    }
-                }
-            }
-            else
-            {
-                if (cmdLineParams->LeftPath[0] != 0)
-                {
-                    if (LeftPanel->ChangeDirLite(cmdLineParams->LeftPath))
-                    {
-                        leftPanelPathSet = TRUE;
-                        LeftPanel->RefreshVisibleItemsArray(); // see "RefreshVisibleItemsArray" comment below
-                    }
-                }
-                if (cmdLineParams->RightPath[0] != 0)
-                {
-                    if (RightPanel->ChangeDirLite(cmdLineParams->RightPath))
-                        rightPanelPathSet = TRUE;
-                }
-            }
-        }
-
-        // save the array of visible items; normally this is done in idle time, but if it
-        // should be ready so that icon reading for user menu entries has priority over icons
-        // outside the visible part of the panel, we must handle it manually (icon loading
-        // is already running, but sooner is better than later, this minimal delay should not hurt)
-        if (rightPanelPathSet)
-            RightPanel->RefreshVisibleItemsArray();
-
-        // leftPanelPath and rightPanelPath are only disk paths; we don't store archives or FS paths
-        DWORD err, lastErr;
-        BOOL pathInvalid, cut;
-        BOOL tryNet = TRUE;
-        if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
-        {
-            if (SalCheckAndRestorePathWithCut(LeftPanel->HWindow, leftPanelPath, tryNet,
-                                              err, lastErr, pathInvalid, cut, TRUE))
-            {
-                LeftPanel->ChangePathToDisk(LeftPanel->HWindow, leftPanelPath);
-            }
-            else
-                LeftPanel->ChangeToRescuePathOrFixedDrive(LeftPanel->HWindow);
-            LeftPanel->RefreshVisibleItemsArray(); // see comment "RefreshVisibleItemsArray" above
-        }
-        UpdateWindow(LeftPanel->HWindow); // ensures dir/info line is drawn immediately after the panel content
-
-        tryNet = TRUE;
-        if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
-        {
-            if (SalCheckAndRestorePathWithCut(RightPanel->HWindow, rightPanelPath, tryNet,
-                                              err, lastErr, pathInvalid, cut, TRUE))
-            {
-                RightPanel->ChangePathToDisk(RightPanel->HWindow, rightPanelPath);
-            }
-            else
-                RightPanel->ChangeToRescuePathOrFixedDrive(RightPanel->HWindow);
-            RightPanel->RefreshVisibleItemsArray(); // see comment "RefreshVisibleItemsArray" above
-        }
-        UpdateWindow(RightPanel->HWindow); // ensures dir/info line is drawn immediately after the panel content
-
-        // restore default-dir on the system drive (damaged - system root was in both panels)
-        lstrcpyn(DefaultDir[LowerCase[sysDefDir[0]] - 'a'], sysDefDir, MAX_PATH);
-        // restore DefaultDir
-        MainWindow->UpdateDefaultDir(TRUE);
-
-        // Do not reveal the main window until its panels contain their final startup data.
-        // SetWindowPlacement can show the window, so doing it before the path restoration above
-        // exposed intermediate layouts and incomplete directory listings after the splash closed.
+        SplashScreenCloseIfExist();
         if (Configuration.StatusArea)
             AddTrayIcon();
 
@@ -4631,7 +4558,85 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         RightPanel->SetupListBoxScrollBars();
 
         UpdateWindow(HWindow);
-        SplashScreenCloseIfExist();
+
+        // set panel paths according to command line parameters (all path types, including archives and FS)
+        BOOL leftPanelPathSet = FALSE;
+        BOOL rightPanelPathSet = FALSE;
+        if (ret && cmdLineParams != NULL)
+        {
+            if (cmdLineParams->LeftPath[0] == 0 && cmdLineParams->RightPath[0] == 0 && cmdLineParams->ActivePath[0] != 0)
+            {
+                if (GetActivePanel()->ChangeDirLite(cmdLineParams->ActivePath)) // no point in combining this with left/right panel settings
+                {
+                    if (rightPanelFocused)
+                        rightPanelPathSet = TRUE;
+                    else
+                    {
+                        leftPanelPathSet = TRUE;
+                        LeftPanel->RefreshVisibleItemsArray(); // see "RefreshVisibleItemsArray" comment below
+                    }
+                }
+            }
+            else
+            {
+                if (cmdLineParams->LeftPath[0] != 0)
+                {
+                    if (LeftPanel->ChangeDirLite(cmdLineParams->LeftPath))
+                    {
+                        leftPanelPathSet = TRUE;
+                        LeftPanel->RefreshVisibleItemsArray(); // see "RefreshVisibleItemsArray" comment below
+                    }
+                }
+                if (cmdLineParams->RightPath[0] != 0)
+                {
+                    if (RightPanel->ChangeDirLite(cmdLineParams->RightPath))
+                        rightPanelPathSet = TRUE;
+                }
+            }
+        }
+
+        // save the array of visible items; normally this is done in idle time, but if it
+        // should be ready so that icon reading for user menu entries has priority over icons
+        // outside the visible part of the panel, we must handle it manually (icon loading
+        // is already running, but sooner is better than later, this minimal delay should not hurt)
+        if (rightPanelPathSet)
+            RightPanel->RefreshVisibleItemsArray();
+
+        // leftPanelPath and rightPanelPath are only disk paths; we don't store archives or FS paths
+        DWORD err, lastErr;
+        BOOL pathInvalid, cut;
+        BOOL tryNet = TRUE;
+        if (!leftPanelPathSet && !PanelConfigPathsRestoredLeft)
+        {
+            if (SalCheckAndRestorePathWithCut(LeftPanel->HWindow, leftPanelPath, tryNet,
+                                              err, lastErr, pathInvalid, cut, TRUE))
+            {
+                LeftPanel->ChangePathToDisk(LeftPanel->HWindow, leftPanelPath);
+            }
+            else
+                LeftPanel->ChangeToRescuePathOrFixedDrive(LeftPanel->HWindow);
+            LeftPanel->RefreshVisibleItemsArray(); // see comment "RefreshVisibleItemsArray" above
+        }
+        UpdateWindow(LeftPanel->HWindow); // ensures dir/info line is drawn immediately after the panel content
+
+        tryNet = TRUE;
+        if (!rightPanelPathSet && !PanelConfigPathsRestoredRight)
+        {
+            if (SalCheckAndRestorePathWithCut(RightPanel->HWindow, rightPanelPath, tryNet,
+                                              err, lastErr, pathInvalid, cut, TRUE))
+            {
+                RightPanel->ChangePathToDisk(RightPanel->HWindow, rightPanelPath);
+            }
+            else
+                RightPanel->ChangeToRescuePathOrFixedDrive(RightPanel->HWindow);
+            RightPanel->RefreshVisibleItemsArray(); // see comment "RefreshVisibleItemsArray" above
+        }
+        UpdateWindow(RightPanel->HWindow); // ensures dir/info line is drawn immediately after the panel content
+
+        // restore default-dir on the system drive (damaged - system root was in both panels)
+        lstrcpyn(DefaultDir[LowerCase[sysDefDir[0]] - 'a'], sysDefDir, MAX_PATH);
+        // restore DefaultDir
+        MainWindow->UpdateDefaultDir(TRUE);
 
         return ret;
     }
