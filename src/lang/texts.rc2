@@ -2011,5 +2011,5 @@ STRINGTABLE
  IDS_EXECUTE_TEMPLATES, "Templates"
  IDS_EXECUTE_TEMPLATE_DEFAULTCOMSPEC, "default (COMSPEC)"
  IDS_EXECUTE_TEMPLATE_POWERSHELL, "PowerShell"
- IDS_CMDLINEAPP_PLACEHOLDER, "leave empty for default command shell set in COMSPEC system env."
+ IDS_CMDLINEAPP_PLACEHOLDER, "leave empty for default set in COMSPEC env. var."
 }

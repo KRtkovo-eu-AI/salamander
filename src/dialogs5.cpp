@@ -2926,6 +2926,12 @@ void CCfgPageMainWindow::EnableControls()
 {
     BOOL usePrefix = IsDlgButtonChecked(HWindow, IDC_TITLEBAR_PREFIX);
     EnableWindow(GetDlgItem(HWindow, IDC_TITLEBAR_PREFIX_TEXT), usePrefix);
+
+    BOOL hasShellApplication = GetWindowTextLength(GetDlgItem(HWindow, IDC_CMDLINEAPP_PATH)) > 0;
+    HWND hArguments = GetDlgItem(HWindow, IDC_CMDLINEAPP_ARGS);
+    EnableWindow(hArguments, hasShellApplication);
+    if (!hasShellApplication)
+        SetWindowText(hArguments, "");
 }
 
 void CCfgPageMainWindow::Transfer(CTransferInfo& ti)
@@ -3118,12 +3124,18 @@ CCfgPageMainWindow::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         switch (LOWORD(wParam))
         {
+        case IDC_CMDLINEAPP_PATH:
+            if (HIWORD(wParam) == EN_CHANGE)
+                EnableControls();
+            break;
+
         case IDC_CMDLINEAPP_BROWSE:
         {
             const CExecuteItem* item = TrackExecuteMenu(HWindow, IDC_CMDLINEAPP_BROWSE, IDC_CMDLINEAPP_PATH, FALSE,
                                                         CommandShellApplicationExecutes, IDS_EXEFILTER);
             if (item != NULL && (item->Flags & EIF_NO_INSERT))
                 ApplyCommandShellTemplate(item->NameResID);
+            EnableControls();
             return 0;
         }
         }
