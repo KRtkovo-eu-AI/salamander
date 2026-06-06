@@ -185,6 +185,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     {
     case WM_SIZE:
         UpdateTreeViewHeaderToolTip(panel);
+        InvalidateRect(hwnd, NULL, TRUE);
         break;
 
     case WM_ERASEBKGND:
@@ -607,6 +608,8 @@ void CFilesWindow::SetTreeViewWidth(int width)
 
 void CFilesWindow::ToggleTreeViewAutoHide()
 {
+    double visibleLeftRatio = MainWindow != NULL ? MainWindow->GetVisibleLeftPanelRatio() : 0.5;
+
     Configuration.TreeViewAutoHide = !Configuration.TreeViewAutoHide;
     TreeViewAutoHideExpanded = FALSE;
     if (HTreeHeader != NULL)
@@ -620,7 +623,7 @@ void CFilesWindow::ToggleTreeViewAutoHide()
         InvalidateRect(HTreeHeader, NULL, TRUE);
     }
     if (MainWindow != NULL)
-        MainWindow->LayoutWindows();
+        MainWindow->RestoreVisiblePanelRatio(visibleLeftRatio);
 }
 
 void CFilesWindow::ExpandTreeViewAutoHide()

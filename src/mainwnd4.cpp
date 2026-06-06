@@ -401,6 +401,15 @@ void CMainWindow::UpdateCenteredSplitPosition()
     SplitPosition = GetVisiblePanesCenteredSplitPosition();
 }
 
+void CMainWindow::RestoreVisiblePanelRatio(double visibleLeftRatio)
+{
+    if (KeepSplitPositionCenteredOnVisiblePanes)
+        UpdateCenteredSplitPosition();
+    else
+        SplitPosition = GetSplitPositionForVisibleLeftPanelRatio(visibleLeftRatio);
+    LayoutWindows();
+}
+
 BOOL CMainWindow::PtInChild(HWND hChild, POINT p)
 {
     if (hChild == NULL)
