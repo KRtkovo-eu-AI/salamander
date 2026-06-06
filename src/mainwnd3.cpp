@@ -610,6 +610,23 @@ void CMainWindow::UpdatePanelTabColor(CFilesWindow* panel)
         tabWnd->ClearTabColor(index);
 }
 
+void CMainWindow::ReloadPanelToolBars(CPanelSide side, HWND exceptToolBar)
+{
+    // Every tab owns a separate toolbar window, but toolbar configuration is shared per side.
+    TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    const char* configuration = side == cpsLeft ? Configuration.LeftToolBar : Configuration.RightToolBar;
+    for (int i = 0; i < tabs.Count; i++)
+    {
+        CStatusWindow* directoryLine = tabs[i]->DirectoryLine;
+        if (directoryLine == NULL || directoryLine->ToolBar == NULL ||
+            directoryLine->ToolBar->HWindow == exceptToolBar)
+            continue;
+
+        directoryLine->ToolBar->Load(configuration);
+        directoryLine->LayoutWindow();
+    }
+}
+
 void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
 {
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
@@ -6626,11 +6643,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             lstrcpy(buff, Configuration.LeftToolBar);
             lstrcpy(Configuration.LeftToolBar, Configuration.RightToolBar);
             lstrcpy(Configuration.RightToolBar, buff);
-            // nastavime panelum promenne a nechame nacist toolbary
-            if (LeftPanel != NULL)
-                LeftPanel->SetPanelSide(cpsLeft);
-            if (RightPanel != NULL)
-                RightPanel->SetPanelSide(cpsRight);
+            // nechame vsechny taby nacist prohozene toolbary
+            ReloadPanelToolBars(cpsLeft);
+            ReloadPanelToolBars(cpsRight);
             // ikonka se musi zmenit v imagelistu
             if (LeftPanel != NULL)
                 LeftPanel->UpdateDriveIcon(FALSE);
@@ -7055,11 +7070,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         {
             LeftPanel->DirectoryLine->LayoutWindow();
             LeftPanel->DirectoryLine->ToolBar->Save(Configuration.LeftToolBar);
+            ReloadPanelToolBars(cpsLeft, hToolBar);
         }
         if (RightPanel->DirectoryLine->ToolBar != NULL && hToolBar == RightPanel->DirectoryLine->ToolBar->HWindow)
         {
             RightPanel->DirectoryLine->LayoutWindow();
             RightPanel->DirectoryLine->ToolBar->Save(Configuration.RightToolBar);
+            ReloadPanelToolBars(cpsRight, hToolBar);
         }
         return FALSE; // we have no buttons
     }

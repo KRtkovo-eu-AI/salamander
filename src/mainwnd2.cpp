@@ -4161,10 +4161,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 TopToolBar->Load(Configuration.TopToolBar);
             if (MiddleToolBar != NULL)
                 MiddleToolBar->Load(Configuration.MiddleToolBar);
-            if (LeftPanel->DirectoryLine->ToolBar != NULL)
-                LeftPanel->DirectoryLine->ToolBar->Load(Configuration.LeftToolBar);
-            if (RightPanel->DirectoryLine->ToolBar != NULL)
-                RightPanel->DirectoryLine->ToolBar->Load(Configuration.RightToolBar);
+            ReloadPanelToolBars(cpsLeft);
+            ReloadPanelToolBars(cpsRight);
 
             GetValue(actKey, CONFIG_TOPTOOLBARVISIBLE_REG, REG_DWORD,
                      &Configuration.TopToolBarVisible, sizeof(DWORD));

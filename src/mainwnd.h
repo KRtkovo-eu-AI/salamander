@@ -881,6 +881,7 @@ private:
     TIndirectArray<CFilesWindow>& GetPanelTabs(CPanelSide side);
     CTabWindow* GetPanelTabWindow(CPanelSide side) const;
     void UpdatePanelTabVisibility(CPanelSide side);
+    void ReloadPanelToolBars(CPanelSide side, HWND exceptToolBar = NULL);
     void RebuildPanelTabs(CPanelSide side);
     void ClearPanelTabDragTargetIndicator();
     CFilesWindow* CreateDuplicatePanelTab(CPanelSide targetSide, CFilesWindow* sourcePanel, int insertIndex);
