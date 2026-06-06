@@ -1856,6 +1856,8 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     StatusLine = NULL;
     DirectoryLine = NULL;
     HTreeView = NULL;
+    HTreeHeader = NULL;
+    HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;

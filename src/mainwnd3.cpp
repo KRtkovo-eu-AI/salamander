@@ -8048,6 +8048,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             rightTabHeight = RightTabWindow->GetNeededHeight();
         }
         int maxTabHeight = max(leftTabHeight, rightTabHeight);
+        int treeHeaderHeight = 0;
+        if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
+        {
+            treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
+            if (LeftTabWindow != NULL)
+                treeHeaderHeight = LeftTabWindow->GetNeededHeight();
+        }
 
         int windowsCount = 1; // top rebar
 
@@ -8064,7 +8071,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (RightPanel != NULL && RightPanel->HWindow != NULL)
             windowsCount++;
         if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
-            windowsCount += 2; // treeview + splitter
+            windowsCount += 3; // treeview + header + splitter
         if (MiddleToolBar->HWindow != NULL)
         {
             windowsCount++;
@@ -8093,10 +8100,19 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                               SWP_NOACTIVATE | SWP_NOZORDER));
 
             // Position treeview to the left of the left panel area
+            if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
+            {
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader, NULL,
+                                              1, TopRebarHeight, treeWidth, treeHeaderHeight,
+                                              SWP_NOACTIVATE | SWP_NOZORDER));
+            }
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
             {
+                int treeViewHeight = PanelsHeight - treeHeaderHeight;
+                if (treeViewHeight < 0)
+                    treeViewHeight = 0;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView, NULL,
-                                              1, TopRebarHeight, treeWidth, PanelsHeight,
+                                              1, TopRebarHeight + treeHeaderHeight, treeWidth, treeViewHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)

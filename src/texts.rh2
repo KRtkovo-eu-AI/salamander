@@ -2781,6 +2781,10 @@
 // Configuration > Main Window > Command Shell: non-persistent placeholder shown in empty Shell Application and Arguments fields
 #define IDS_CMDLINEAPP_PLACEHOLDER      14205
 
+// Tree View panel header
+#define IDS_TREEVIEW_PANEL_TITLE        14206
+#define IDS_TREEVIEW_PANEL_CLOSE        14207
+
 //#define CM_TEXTS_MAX                  18000    // maximal texts id
 
 #endif // __TEXTS_RH2

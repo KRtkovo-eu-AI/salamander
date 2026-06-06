@@ -782,6 +782,8 @@ public:
     CStatusWindow *StatusLine,
         *DirectoryLine;
     HWND HTreeView;
+    HWND HTreeHeader;
+    HWND HTreeHeaderToolTip;
     HWND HTreeSplit;
 
     CPanelSide PanelSide;
@@ -1305,6 +1307,7 @@ public:
     CFilesWindow* GetTreeViewSourcePanel();
     int GetTreeViewWidth(int clientWidth);
     int GetTreeViewReservedWidth(int clientWidth);
+    int GetTreeViewHeaderHeight();
     void SetTreeViewWidth(int width);
     COLORREF GetTreeViewTextColor();
     COLORREF GetTreeViewBkColor();
