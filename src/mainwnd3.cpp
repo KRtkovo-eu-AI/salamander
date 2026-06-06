@@ -7772,7 +7772,8 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
                 if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
-                    BOOL focused = (pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0;
+                    BOOL focused = (pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0 ||
+                                   (HTREEITEM)pnmcd->nmcd.dwItemSpec == TreeView_GetSelection(treePanel->HTreeView);
                     pnmcd->clrText = treePanel->GetTreeViewTextColor();
                     pnmcd->clrTextBk = treePanel->GetTreeViewBkColor();
                     if (focused)
@@ -7785,12 +7786,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         }
                         pnmcd->clrText = treePanel->GetTreeViewSelectionTextColor();
                         pnmcd->clrTextBk = treePanel->GetTreeViewSelectionBkColor();
+                        SetTextColor(pnmcd->nmcd.hdc, pnmcd->clrText);
+                        SetBkColor(pnmcd->nmcd.hdc, pnmcd->clrTextBk);
                         pnmcd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
                     }
                     return CDRF_NEWFONT | (focused ? CDRF_NOTIFYPOSTPAINT : 0);
                 }
-                if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT &&
-                    (HTREEITEM)pnmcd->nmcd.dwItemSpec == TreeView_GetSelection(treePanel->HTreeView))
+                if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                 {
                     treePanel->DrawTreeViewFocusFrame(pnmcd->nmcd.hdc, &pnmcd->nmcd.rc);
                     return CDRF_DODEFAULT;
@@ -7845,6 +7847,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                              focusPath, focusName);
                     }
                 }
+                InvalidateRect(treePanel->HTreeView, NULL, FALSE); // repaint after the selection state has settled
                 return 0;
             }
             }
