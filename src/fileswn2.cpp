@@ -77,6 +77,13 @@ static void DrawTreeViewHeaderIcon(HDC hdc, int left, int top, int size, COLORRE
         DeleteObject(pen);
 }
 
+enum
+{
+    TREEVIEW_HEADER_HOT_CLOSE = 0x01,
+    TREEVIEW_HEADER_HOT_PIN = 0x02,
+    TREEVIEW_AUTOHIDE_TIMER = 1
+};
+
 static RECT GetTreeViewHeaderCloseRect(HWND hwnd)
 {
     RECT r;
@@ -92,6 +99,15 @@ static RECT GetTreeViewHeaderCloseRect(HWND hwnd)
     return r;
 }
 
+static RECT GetTreeViewHeaderPinRect(HWND hwnd)
+{
+    RECT r = GetTreeViewHeaderCloseRect(hwnd);
+    int size = r.right - r.left;
+    r.right = r.left - 1;
+    r.left = r.right - size;
+    return r;
+}
+
 static void UpdateTreeViewHeaderToolTip(CFilesWindow* panel)
 {
     if (panel == NULL || panel->HTreeHeader == NULL || panel->HTreeHeaderToolTip == NULL)
@@ -101,9 +117,63 @@ static void UpdateTreeViewHeaderToolTip(CFilesWindow* panel)
     ZeroMemory(&ti, sizeof(ti));
     ti.cbSize = sizeof(ti);
     ti.hwnd = panel->HTreeHeader;
-    ti.uId = IDC_TREEHEADER;
-    ti.rect = GetTreeViewHeaderCloseRect(panel->HTreeHeader);
+    ti.uId = 1;
+    if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
+        SetRectEmpty(&ti.rect);
+    else
+        ti.rect = GetTreeViewHeaderCloseRect(panel->HTreeHeader);
     SendMessage(panel->HTreeHeaderToolTip, TTM_NEWTOOLRECT, 0, (LPARAM)&ti);
+    ti.uId = 2;
+    if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
+        SetRectEmpty(&ti.rect);
+    else
+        ti.rect = GetTreeViewHeaderPinRect(panel->HTreeHeader);
+    ti.lpszText = LoadStr(Configuration.TreeViewAutoHide ? IDS_TREEVIEW_PANEL_PIN : IDS_TREEVIEW_PANEL_AUTO_HIDE);
+    SendMessage(panel->HTreeHeaderToolTip, TTM_UPDATETIPTEXT, 0, (LPARAM)&ti);
+    SendMessage(panel->HTreeHeaderToolTip, TTM_NEWTOOLRECT, 0, (LPARAM)&ti);
+}
+
+static void DrawTreeViewHeaderPin(HDC hdc, const RECT* rect, BOOL autoHide, COLORREF color)
+{
+    int width = rect->right - rect->left;
+    int height = rect->bottom - rect->top;
+    int cx = (rect->left + rect->right) / 2;
+    int cy = (rect->top + rect->bottom) / 2;
+    int arm = max(3, min(width, height) / 4);
+    HPEN pen = CreatePen(PS_SOLID, 1, color);
+    if (pen == NULL)
+        return;
+    HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+    if (autoHide)
+    {
+        MoveToEx(hdc, cx - arm, cy, NULL);
+        LineTo(hdc, cx + arm + 2, cy);
+        MoveToEx(hdc, cx - arm, cy, NULL);
+        LineTo(hdc, cx, cy - arm);
+        MoveToEx(hdc, cx - arm, cy, NULL);
+        LineTo(hdc, cx, cy + arm);
+        MoveToEx(hdc, cx + 1, cy - arm, NULL);
+        LineTo(hdc, cx + 1, cy + arm + 1);
+    }
+    else
+    {
+        MoveToEx(hdc, cx, cy - arm, NULL);
+        LineTo(hdc, cx, cy + arm + 2);
+        MoveToEx(hdc, cx, cy + arm + 2, NULL);
+        LineTo(hdc, cx - arm, cy);
+        MoveToEx(hdc, cx, cy + arm + 2, NULL);
+        LineTo(hdc, cx + arm, cy);
+        MoveToEx(hdc, cx - arm, cy - 1, NULL);
+        LineTo(hdc, cx + arm + 1, cy - 1);
+    }
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
+static BOOL IsPointInWindow(HWND hwnd, POINT pt)
+{
+    RECT r;
+    return hwnd != NULL && IsWindowVisible(hwnd) && GetWindowRect(hwnd, &r) && PtInRect(&r, pt);
 }
 
 static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
@@ -120,16 +190,31 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     case WM_ERASEBKGND:
         return TRUE;
 
+    case WM_TIMER:
+        if (wParam == TREEVIEW_AUTOHIDE_TIMER)
+            panel->CollapseTreeViewAutoHideIfNeeded();
+        return 0;
+
     case WM_MOUSEMOVE:
     {
+        if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
+        {
+            panel->ExpandTreeViewAutoHide();
+            return 0;
+        }
         POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         RECT closeRect = GetTreeViewHeaderCloseRect(hwnd);
-        BOOL hot = PtInRect(&closeRect, pt);
-        BOOL oldHot = (BOOL)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        RECT pinRect = GetTreeViewHeaderPinRect(hwnd);
+        LONG_PTR hot = 0;
+        if (PtInRect(&closeRect, pt))
+            hot |= TREEVIEW_HEADER_HOT_CLOSE;
+        if (PtInRect(&pinRect, pt))
+            hot |= TREEVIEW_HEADER_HOT_PIN;
+        LONG_PTR oldHot = GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (hot != oldHot)
         {
             SetWindowLongPtr(hwnd, GWLP_USERDATA, hot);
-            InvalidateRect(hwnd, &closeRect, FALSE);
+            InvalidateRect(hwnd, NULL, FALSE);
         }
         TRACKMOUSEEVENT track = {sizeof(track), TME_LEAVE, hwnd, 0};
         TrackMouseEvent(&track);
@@ -139,19 +224,29 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     case WM_MOUSELEAVE:
         if (GetWindowLongPtr(hwnd, GWLP_USERDATA) != 0)
         {
-            SetWindowLongPtr(hwnd, GWLP_USERDATA, FALSE);
-            RECT closeRect = GetTreeViewHeaderCloseRect(hwnd);
-            InvalidateRect(hwnd, &closeRect, FALSE);
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+            InvalidateRect(hwnd, NULL, FALSE);
         }
         break;
 
     case WM_LBUTTONUP:
     {
+        if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
+        {
+            panel->ExpandTreeViewAutoHide();
+            return 0;
+        }
         POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         RECT closeRect = GetTreeViewHeaderCloseRect(hwnd);
         if (PtInRect(&closeRect, pt) && MainWindow != NULL)
         {
             PostMessage(MainWindow->HWindow, WM_COMMAND, CM_TOGGLETREEVIEW, 0);
+            return 0;
+        }
+        RECT pinRect = GetTreeViewHeaderPinRect(hwnd);
+        if (PtInRect(&pinRect, pt))
+        {
+            panel->ToggleTreeViewAutoHide();
             return 0;
         }
         break;
@@ -167,16 +262,46 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
         BOOL dark = DarkModeShouldUseDarkColors();
         HBRUSH background = dark ? DarkModeGetPanelFrameBrush() : GetSysColorBrush(COLOR_BTNFACE);
         FillRect(hdc, &r, background);
+        COLORREF textColor = dark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
 
-        RECT closeRect = GetTreeViewHeaderCloseRect(hwnd);
-        if (GetWindowLongPtr(hwnd, GWLP_USERDATA) != 0)
+        if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
         {
-            HBRUSH hotBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
-            FillRect(hdc, &closeRect, hotBrush);
+            int oldGraphicsMode = SetGraphicsMode(hdc, GM_ADVANCED);
+            XFORM transform = {0, 1, -1, 0, (FLOAT)r.right, 0};
+            SetWorldTransform(hdc, &transform);
+            RECT logical = {0, 0, r.bottom, r.right};
+            int iconSize = min(16, max(0, logical.bottom - 4));
+            int contentLeft = 4;
+            if (iconSize > 0)
+            {
+                DrawTreeViewHeaderIcon(hdc, contentLeft, (logical.bottom - iconSize) / 2, iconSize, textColor);
+                contentLeft += iconSize + 4;
+            }
+            logical.left = contentLeft;
+            HFONT oldFont = (HFONT)SelectObject(hdc, EnvFont);
+            int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+            COLORREF oldTextColor = SetTextColor(hdc, textColor);
+            DrawText(hdc, LoadStr(IDS_TREEVIEW_PANEL_TITLE), -1, &logical,
+                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+            SetTextColor(hdc, oldTextColor);
+            SetBkMode(hdc, oldBkMode);
+            SelectObject(hdc, oldFont);
+            ModifyWorldTransform(hdc, NULL, MWT_IDENTITY);
+            SetGraphicsMode(hdc, oldGraphicsMode);
+            EndPaint(hwnd, &ps);
+            return 0;
         }
 
-        COLORREF textColor = dark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
-        COLORREF closeColor = GetWindowLongPtr(hwnd, GWLP_USERDATA) != 0 ? GetSysColor(COLOR_HIGHLIGHTTEXT) : textColor;
+        RECT closeRect = GetTreeViewHeaderCloseRect(hwnd);
+        RECT pinRect = GetTreeViewHeaderPinRect(hwnd);
+        LONG_PTR hot = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        HBRUSH hotBrush = GetSysColorBrush(COLOR_HIGHLIGHT);
+        if ((hot & TREEVIEW_HEADER_HOT_CLOSE) != 0)
+            FillRect(hdc, &closeRect, hotBrush);
+        if ((hot & TREEVIEW_HEADER_HOT_PIN) != 0)
+            FillRect(hdc, &pinRect, hotBrush);
+
+        COLORREF closeColor = (hot & TREEVIEW_HEADER_HOT_CLOSE) != 0 ? GetSysColor(COLOR_HIGHLIGHTTEXT) : textColor;
         HPEN closePen = CreatePen(PS_SOLID, 1, closeColor);
         if (closePen != NULL)
         {
@@ -189,6 +314,8 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
             SelectObject(hdc, oldPen);
             DeleteObject(closePen);
         }
+        DrawTreeViewHeaderPin(hdc, &pinRect, Configuration.TreeViewAutoHide,
+                              (hot & TREEVIEW_HEADER_HOT_PIN) != 0 ? GetSysColor(COLOR_HIGHLIGHTTEXT) : textColor);
 
         int iconSize = min(16, max(0, r.bottom - r.top - 4));
         int contentLeft = 4;
@@ -200,7 +327,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
 
         RECT textRect = r;
         textRect.left = contentLeft;
-        textRect.right = closeRect.left - 3;
+        textRect.right = pinRect.left - 3;
         HFONT oldFont = (HFONT)SelectObject(hdc, EnvFont);
         int oldBkMode = SetBkMode(hdc, TRANSPARENT);
         COLORREF oldTextColor = SetTextColor(hdc, textColor);
@@ -215,6 +342,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     }
 
     case WM_NCDESTROY:
+        KillTimer(hwnd, TREEVIEW_AUTOHIDE_TIMER);
         RemoveWindowSubclass(hwnd, TreeViewHeaderSubclassProc, subclassId);
         break;
     }
@@ -372,6 +500,8 @@ int CFilesWindow::GetTreeViewReservedWidth(int clientWidth)
 {
     if (!IsTreeViewHost() || !TreeViewActive)
         return 0;
+    if (Configuration.TreeViewAutoHide)
+        return GetTreeViewHeaderHeight();
     return GetTreeViewWidth(clientWidth) + TREEVIEW_SPLITTER_WIDTH;
 }
 
@@ -471,6 +601,55 @@ void CFilesWindow::SetTreeViewWidth(int width)
     }
     Configuration.TreeViewWidth = width;
 
+    if (MainWindow != NULL)
+        MainWindow->LayoutWindows();
+}
+
+void CFilesWindow::ToggleTreeViewAutoHide()
+{
+    Configuration.TreeViewAutoHide = !Configuration.TreeViewAutoHide;
+    TreeViewAutoHideExpanded = FALSE;
+    if (HTreeHeader != NULL)
+    {
+        SetWindowLongPtr(HTreeHeader, GWLP_USERDATA, 0);
+        if (Configuration.TreeViewAutoHide)
+            SetTimer(HTreeHeader, TREEVIEW_AUTOHIDE_TIMER, 50, NULL);
+        else
+            KillTimer(HTreeHeader, TREEVIEW_AUTOHIDE_TIMER);
+        UpdateTreeViewHeaderToolTip(this);
+        InvalidateRect(HTreeHeader, NULL, TRUE);
+    }
+    if (MainWindow != NULL)
+        MainWindow->LayoutWindows();
+}
+
+void CFilesWindow::ExpandTreeViewAutoHide()
+{
+    if (!Configuration.TreeViewAutoHide || TreeViewAutoHideExpanded)
+        return;
+    TreeViewAutoHideExpanded = TRUE;
+    if (HTreeHeader != NULL)
+        InvalidateRect(HTreeHeader, NULL, TRUE);
+    if (MainWindow != NULL)
+        MainWindow->LayoutWindows();
+}
+
+void CFilesWindow::CollapseTreeViewAutoHideIfNeeded()
+{
+    if (!Configuration.TreeViewAutoHide || !TreeViewAutoHideExpanded)
+        return;
+
+    if (GetCapture() == HTreeSplit)
+        return;
+
+    POINT pt;
+    GetCursorPos(&pt);
+    if (IsPointInWindow(HTreeHeader, pt) || IsPointInWindow(HTreeView, pt) || IsPointInWindow(HTreeSplit, pt))
+        return;
+
+    TreeViewAutoHideExpanded = FALSE;
+    SetWindowLongPtr(HTreeHeader, GWLP_USERDATA, 0);
+    InvalidateRect(HTreeHeader, NULL, TRUE);
     if (MainWindow != NULL)
         MainWindow->LayoutWindows();
 }
@@ -1890,13 +2069,20 @@ void CFilesWindow::CreateTreeView()
             ti.cbSize = sizeof(ti);
             ti.uFlags = TTF_SUBCLASS;
             ti.hwnd = HTreeHeader;
-            ti.uId = IDC_TREEHEADER;
+            ti.uId = 1;
             ti.rect = GetTreeViewHeaderCloseRect(HTreeHeader);
             ti.hinst = HLanguage;
             ti.lpszText = LoadStr(IDS_TREEVIEW_PANEL_CLOSE);
             SendMessage(HTreeHeaderToolTip, TTM_ADDTOOL, 0, (LPARAM)&ti);
+            ti.uId = 2;
+            ti.rect = GetTreeViewHeaderPinRect(HTreeHeader);
+            ti.lpszText = LoadStr(Configuration.TreeViewAutoHide ? IDS_TREEVIEW_PANEL_PIN : IDS_TREEVIEW_PANEL_AUTO_HIDE);
+            SendMessage(HTreeHeaderToolTip, TTM_ADDTOOL, 0, (LPARAM)&ti);
         }
     }
+
+    if (Configuration.TreeViewAutoHide && HTreeHeader != NULL)
+        SetTimer(HTreeHeader, TREEVIEW_AUTOHIDE_TIMER, 50, NULL);
 
     if (HTreeSplit == NULL)
     {
@@ -1939,6 +2125,9 @@ void CFilesWindow::DestroyTreeView()
         DestroyWindow(HTreeSplit);
         HTreeSplit = NULL;
     }
+    if (!TreeViewActive)
+        TreeViewAutoHideExpanded = FALSE;
+
     if (HTreeView != NULL)
     {
         TreeView_SetImageList(HTreeView, NULL, TVSIL_NORMAL);
@@ -1966,14 +2155,14 @@ void CFilesWindow::UpdateTreeView(BOOL active)
 
     if (HTreeView != NULL)
     {
-        ShowWindow(HTreeView, TreeViewActive ? SW_SHOW : SW_HIDE);
+        ShowWindow(HTreeView, TreeViewActive && (!Configuration.TreeViewAutoHide || TreeViewAutoHideExpanded) ? SW_SHOW : SW_HIDE);
         if (TreeViewActive)
             RefreshTreeView();
     }
     if (HTreeHeader != NULL)
         ShowWindow(HTreeHeader, TreeViewActive ? SW_SHOW : SW_HIDE);
     if (HTreeSplit != NULL)
-        ShowWindow(HTreeSplit, TreeViewActive ? SW_SHOW : SW_HIDE);
+        ShowWindow(HTreeSplit, TreeViewActive && (!Configuration.TreeViewAutoHide || TreeViewAutoHideExpanded) ? SW_SHOW : SW_HIDE);
 
     if (MainWindow != NULL)
         MainWindow->LayoutWindows();

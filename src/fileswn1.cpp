@@ -1859,6 +1859,7 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     HTreeHeader = NULL;
     HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
+    TreeViewAutoHideExpanded = FALSE;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;

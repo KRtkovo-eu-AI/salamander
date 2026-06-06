@@ -8014,12 +8014,19 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (MiddleToolBar->HWindow != NULL)
             middleToolbarWidth = MiddleToolBar->GetNeededWidth();
 
-        // Calculate treeview width for the left side first, so we can account for it in the split
+        // Calculate Tree View dimensions first. An auto-hidden Tree View reserves only
+        // its vertical header strip; while expanded, its full width floats over the panels.
         int treeWidth = 0;
+        int treeDisplayWidth = 0;
         int treeSplitWidth = 0;
+        int treeHeaderHeight = 0;
+        BOOL treeAutoHideExpanded = FALSE;
         if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
         {
-            // Use a temporary leftWidth to calculate treeview width
+            treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
+            if (LeftTabWindow != NULL)
+                treeHeaderHeight = LeftTabWindow->GetNeededHeight();
+
             int tempLeftWidth = (int)((WindowWidth - splitWidth) * SplitPosition) - 1;
             if (tempLeftWidth < MIN_WIN_WIDTH)
                 tempLeftWidth = MIN_WIN_WIDTH;
@@ -8029,8 +8036,15 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 tempRightWidth = MIN_WIN_WIDTH;
                 tempLeftWidth = WindowWidth - 2 - tempRightWidth - splitWidth;
             }
-            treeWidth = LeftPanel->GetTreeViewWidth(tempLeftWidth);
-            treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
+            treeDisplayWidth = LeftPanel->GetTreeViewWidth(Configuration.TreeViewAutoHide ? WindowWidth : tempLeftWidth);
+            treeAutoHideExpanded = Configuration.TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
+            if (Configuration.TreeViewAutoHide)
+                treeWidth = treeHeaderHeight;
+            else
+            {
+                treeWidth = treeDisplayWidth;
+                treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
+            }
         }
 
         // Calculate split widths accounting for treeview:
@@ -8076,13 +8090,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             rightTabHeight = RightTabWindow->GetNeededHeight();
         }
         int maxTabHeight = max(leftTabHeight, rightTabHeight);
-        int treeHeaderHeight = 0;
-        if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
-        {
-            treeHeaderHeight = LeftPanel->GetTreeViewHeaderHeight();
-            if (LeftTabWindow != NULL)
-                treeHeaderHeight = LeftTabWindow->GetNeededHeight();
-        }
 
         int windowsCount = 1; // top rebar
 
@@ -8127,27 +8134,39 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                                               0, 0, WindowWidth, TopRebarHeight,
                                               SWP_NOACTIVATE | SWP_NOZORDER));
 
-            // Position treeview to the left of the left panel area
+            // Position the Tree View on the left. The expanded auto-hide panel is
+            // deliberately placed above the work panels without changing their layout.
             if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
             {
-                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader, NULL,
-                                              1, TopRebarHeight, treeWidth, treeHeaderHeight,
-                                              SWP_NOACTIVATE | SWP_NOZORDER));
+                BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
+                int headerWidth = collapsed ? treeWidth : treeDisplayWidth;
+                int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader,
+                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              1, TopRebarHeight, headerWidth, headerHeight,
+                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) | SWP_SHOWWINDOW));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
             {
                 int treeViewHeight = PanelsHeight - treeHeaderHeight;
                 if (treeViewHeight < 0)
                     treeViewHeight = 0;
-                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView, NULL,
-                                              1, TopRebarHeight + treeHeaderHeight, treeWidth, treeViewHeight,
-                                              SWP_NOACTIVATE | SWP_NOZORDER));
+                BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView,
+                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              1, TopRebarHeight + treeHeaderHeight, treeDisplayWidth, treeViewHeight,
+                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) |
+                                                  (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)
             {
-                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit, NULL,
-                                              1 + treeWidth, TopRebarHeight, treeSplitWidth, PanelsHeight,
-                                              SWP_NOACTIVATE | SWP_NOZORDER));
+                BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
+                int displaySplitWidth = show ? 4 : 0;
+                hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit,
+                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              1 + treeDisplayWidth, TopRebarHeight, displaySplitWidth, PanelsHeight,
+                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) |
+                                                  (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
 
             if (LeftTabWindow != NULL && LeftTabWindow->HWindow != NULL)

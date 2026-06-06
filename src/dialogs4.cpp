@@ -545,6 +545,7 @@ CConfiguration::CConfiguration()
     DriveBarBreak = TRUE;
     DriveBarWidth = 1; // dummy
     TreeViewWidth = 200;
+    TreeViewAutoHide = FALSE;
 
     GripsVisible = TRUE;
 

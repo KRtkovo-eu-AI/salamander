@@ -2784,6 +2784,8 @@
 // Tree View panel header
 #define IDS_TREEVIEW_PANEL_TITLE        14206
 #define IDS_TREEVIEW_PANEL_CLOSE        14207
+#define IDS_TREEVIEW_PANEL_AUTO_HIDE    14208
+#define IDS_TREEVIEW_PANEL_PIN          14209
 
 //#define CM_TEXTS_MAX                  18000    // maximal texts id
 

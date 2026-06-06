@@ -785,6 +785,7 @@ public:
     HWND HTreeHeader;
     HWND HTreeHeaderToolTip;
     HWND HTreeSplit;
+    BOOL TreeViewAutoHideExpanded;
 
     CPanelSide PanelSide;
     bool CustomTabColorValid;
@@ -1309,6 +1310,9 @@ public:
     int GetTreeViewReservedWidth(int clientWidth);
     int GetTreeViewHeaderHeight();
     void SetTreeViewWidth(int width);
+    void ToggleTreeViewAutoHide();
+    void ExpandTreeViewAutoHide();
+    void CollapseTreeViewAutoHideIfNeeded();
     COLORREF GetTreeViewTextColor();
     COLORREF GetTreeViewBkColor();
     COLORREF GetTreeViewSelectionTextColor();

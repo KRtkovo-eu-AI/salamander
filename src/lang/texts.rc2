@@ -2015,4 +2015,6 @@ STRINGTABLE
 
  IDS_TREEVIEW_PANEL_TITLE, "Tree View panel"
  IDS_TREEVIEW_PANEL_CLOSE, "Close Tree View panel"
+ IDS_TREEVIEW_PANEL_AUTO_HIDE, "Auto hide Tree View panel"
+ IDS_TREEVIEW_PANEL_PIN, "Pin Tree View panel"
 }
