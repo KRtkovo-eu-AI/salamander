@@ -1643,6 +1643,10 @@ static int GetChangeDriveUserFolderTextResId(CDriveTypeEnum driveType)
     }
 }
 
+// Keep known-folder lookups from checking redirected paths. Without this flag, the shell may
+// synchronously wait for an unavailable network location.
+static const DWORD CHANGE_DRIVE_KF_FLAG_DONT_VERIFY = 0x00004000;
+
 BOOL GetChangeDriveUserFolderPath(CDriveTypeEnum driveType, char* path, int pathLen)
 {
     if (path == NULL || pathLen <= 0)
@@ -1665,7 +1669,8 @@ BOOL GetChangeDriveUserFolderPath(CDriveTypeEnum driveType, char* path, int path
         if (DynSHGetKnownFolderPath != NULL)
         {
             PWSTR knownPath = NULL;
-            if (DynSHGetKnownFolderPath(*folderID, 0, NULL, &knownPath) == S_OK && knownPath != NULL)
+            if (DynSHGetKnownFolderPath(*folderID, CHANGE_DRIVE_KF_FLAG_DONT_VERIFY, NULL, &knownPath) == S_OK &&
+                knownPath != NULL)
             {
                 ret = ConvertU2A(knownPath, -1, path, pathLen) != 0;
                 if (!ret)
@@ -1697,6 +1702,36 @@ BOOL GetChangeDriveUserFolderPath(CDriveTypeEnum driveType, char* path, int path
     }
 
     return ret && path[0] != 0;
+}
+
+HICON GetChangeDriveUserFolderIcon(CDriveTypeEnum driveType, int iconSize)
+{
+    HICON icon = NULL;
+    const GUID* folderID = GetChangeDriveUserFolderKnownFolderID(driveType);
+    if (folderID != NULL && WindowsVistaAndLater)
+    {
+        typedef HRESULT(WINAPI * FSHGetKnownFolderIDList)(REFKNOWNFOLDERID rfid,
+                                                          DWORD /* KNOWN_FOLDER_FLAG */ dwFlags,
+                                                          HANDLE hToken,
+                                                          ITEMIDLIST * *ppidl); // free *ppidl with CoTaskMemFree
+        FSHGetKnownFolderIDList DynSHGetKnownFolderIDList = (FSHGetKnownFolderIDList)GetProcAddress(GetModuleHandle("shell32.dll"),
+                                                                                                    "SHGetKnownFolderIDList");
+        if (DynSHGetKnownFolderIDList != NULL)
+        {
+            ITEMIDLIST* pidl = NULL;
+            if (DynSHGetKnownFolderIDList(*folderID, CHANGE_DRIVE_KF_FLAG_DONT_VERIFY, NULL, &pidl) == S_OK &&
+                pidl != NULL)
+            {
+                SHFILEINFO sfi;
+                if (SHGetFileInfo((const char*)pidl, 0, &sfi, sizeof(sfi), SHGFI_PIDL | SHGFI_ICON | SHGFI_SMALLICON) != 0)
+                    icon = sfi.hIcon;
+                CoTaskMemFree(pidl);
+            }
+        }
+    }
+    if (icon == NULL)
+        icon = SalLoadIcon(ImageResDLL, 112, iconSize);
+    return icon;
 }
 
 void CDrivesList::AddToDrives(CDriveData& drv, int textResId, char hotkey, CDriveTypeEnum driveType,
@@ -2102,13 +2137,13 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     if (Drives->Count > 0 && !IsLastItemSeparator())
         Drives->Add(drvSeparator);
 
-    // User folders can be redirected to unavailable network locations. Do not ask the shell
-    // for their icons by path here because SHGetFileInfo would then block application startup.
+    // User folders can be redirected to unavailable network locations. Add configured folders
+    // without resolving their paths and get their icons from non-verifying known-folder PIDLs.
     // adding user folders
     if (Configuration.ChangeDriveShowMyDoc)
     {
         AddToDrives(drv, IDS_MYDOCUMENTS, ';', drvtMyDocuments, getGrayIcons,
-                    SalLoadIcon(ImageResDLL, 112, iconSize));
+                    GetChangeDriveUserFolderIcon(drvtMyDocuments, iconSize));
     }
 
     struct CChangeDriveUserFolderItem
@@ -2126,12 +2161,11 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     };
     for (int j = 0; j < _countof(userFolders); j++)
     {
-        char path[MAX_PATH];
-        if (*userFolders[j].Show && GetChangeDriveUserFolderPath(userFolders[j].DriveType, path, MAX_PATH))
+        if (*userFolders[j].Show)
         {
             AddToDrives(drv, GetChangeDriveUserFolderTextResId(userFolders[j].DriveType), 0,
                         userFolders[j].DriveType, getGrayIcons,
-                        SalLoadIcon(ImageResDLL, 112, iconSize));
+                        GetChangeDriveUserFolderIcon(userFolders[j].DriveType, iconSize));
         }
     }
 
