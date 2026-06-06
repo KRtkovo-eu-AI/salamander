@@ -260,6 +260,7 @@ static bool gPropagatingThemeChange = false;
 
 const wchar_t* kDarkModeThemeProp = L"Salamander.DarkMode.Theme";
 const wchar_t* kDarkModeClassicButtonProp = L"Salamander.DarkMode.ClassicButton";
+const wchar_t* kDarkModeChoiceButtonProp = L"Salamander.DarkMode.ChoiceButton";
 
 bool ShouldUseDarkColorsForSurfaces();
 
@@ -482,18 +483,23 @@ void EnsureDarkChoiceButtonSubclass(HWND hwnd, bool enableDark)
     if (hwnd == NULL)
         return;
 
+    const bool isDark = GetPropW(hwnd, kDarkModeChoiceButtonProp) != NULL;
+    if (isDark == enableDark)
+        return;
+
     if (enableDark)
     {
         EnsureClassicButtonTheme(hwnd, true);
         SetWindowSubclass(hwnd, DarkChoiceButtonSubclass, kDarkModeChoiceButtonSubclassId, 0);
-        InvalidateRect(hwnd, NULL, TRUE);
+        SetPropW(hwnd, kDarkModeChoiceButtonProp, reinterpret_cast<HANDLE>(1));
     }
     else
     {
         RemoveWindowSubclass(hwnd, DarkChoiceButtonSubclass, kDarkModeChoiceButtonSubclassId);
+        RemovePropW(hwnd, kDarkModeChoiceButtonProp);
         EnsureClassicButtonTheme(hwnd, false);
-        InvalidateRect(hwnd, NULL, TRUE);
     }
+    InvalidateRect(hwnd, NULL, TRUE);
 }
 
 void PaintDarkTabOverflowButton(HWND hwnd, HDC hdc)

@@ -78,28 +78,14 @@ void ApplyTreeViewColors(HWND treeView)
             SetWindowTheme(treeView, L"explorer", NULL);
     }
 
-    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-}
-
-BOOL CALLBACK RepaintWindowTreeProc(HWND hwnd, LPARAM)
-{
-    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
-    return TRUE;
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 }
 
 void RepaintWindowTree(HWND hwnd)
 {
-    if (hwnd == NULL)
-        return;
-
-    // Some themed/light Configuration pages do not paint all child controls
-    // until they receive an immediate paint pass (for example after resize).
-    // Keep that immediate repaint, but skip background erasing; the previous
-    // RDW_ERASE-based subtree redraw made the whole dialog flash.
-    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-    EnumChildWindows(hwnd, RepaintWindowTreeProc, 0);
+    if (hwnd != NULL)
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_ALLCHILDREN);
 }
-
 
 bool IsChoiceButton(HWND hwnd)
 {
@@ -529,7 +515,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_COMMONDLG_DARKMODE_REDRAW:
     {
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_ALLCHILDREN);
         return TRUE;
     }
     }
@@ -709,8 +695,7 @@ void CTPHCaptionWindow::SetText(const TCHAR* text)
         Allocated = l + 2;
     }
     _tcscpy_s(Text, Allocated, text);
-    InvalidateRect(HWindow, NULL, TRUE);
-    UpdateWindow(HWindow);
+    InvalidateRect(HWindow, NULL, FALSE);
 }
 
 LRESULT
@@ -942,20 +927,6 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // after the window is moved.
         PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
 
-        // The first selected page can finish creating before the holder has its
-        // final position/size. Queue one repaint after WM_INITDIALOG returns so
-        // light-scheme controls are painted immediately instead of appearing only
-        // after the window is moved.
-        PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
-
-        break;
-    }
-
-
-    case WM_SHOWWINDOW:
-    {
-        if (wParam)
-            PostMessage(HWindow, _TPD_WM_POST_INIT_REDRAW, 0, 0);
         break;
     }
 

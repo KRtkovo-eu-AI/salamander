@@ -430,6 +430,7 @@ public:
     CToolTip* ToolTip; // always exists and is created-all controls use this single tooltip
 
     BOOL Created;
+    BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
 
     CHotPathItems HotPaths;
     CViewTemplates ViewTemplates;

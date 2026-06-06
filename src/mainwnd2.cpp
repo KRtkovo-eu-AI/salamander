@@ -2899,7 +2899,20 @@ void CMainWindow::LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalama
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             UpdateDirectoryLineHistoryState(panel);
 
-        BOOL restored = RestorePanelPathFromConfig(this, panel, path);
+        BOOL restored;
+        if (i != activeIndex && IsDiskOrUNCPath(path))
+        {
+            // Hidden tabs do not need a directory listing during startup. Remember their disk path
+            // cheaply and let SwitchPanelTab load the listing when the user first activates them.
+            panel->SetPanelType(ptDisk);
+            panel->SetPath(path);
+            panel->NeedsRefreshOnActivation = TRUE;
+            UpdatePanelTabTitle(panel);
+            restored = TRUE;
+        }
+        else
+            restored = RestorePanelPathFromConfig(this, panel, path);
+
         if (i == activeIndex)
         {
             activeRestored = restored;
@@ -4389,8 +4402,13 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         strcpy(rightPanelPath, leftPanelPath);
         char sysDefDir[MAX_PATH];
         lstrcpyn(sysDefDir, DefaultDir[LowerCase[leftPanelPath[0]] - 'a'], MAX_PATH);
+        // Restoring each saved panel/tab path updates its monitoring state. Defer Tree View rebuilding
+        // until the final active panel is focused below; rebuilding it for every restored path makes
+        // startup perform the same synchronous directory enumeration many times.
+        RestoringPanelPaths = TRUE;
         LoadPanelConfig(leftPanelPath, cpsLeft, salamander, SALAMANDER_LEFTP_REG);
         LoadPanelConfig(rightPanelPath, cpsRight, salamander, SALAMANDER_RIGHTP_REG);
+        RestoringPanelPaths = FALSE;
         if (Configuration.WorkDirsHistoryScope == wdhsPerTab)
             RebuildSharedDirHistoryFromPanels();
 
@@ -4404,12 +4422,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         if (cmdLine && !SystemPolicies.GetNoRun())
             PostMessage(HWindow, WM_COMMAND, CM_TOGGLEEDITLINE, TRUE);
 
-        MSG msg; // process all pending messages
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+        // Leave queued messages for the main message loop. Dispatching them while the window is
+        // still being initialized can synchronously run expensive refresh handlers and delay startup.
 
         // set the active panel according to command line parameters
         if (ret && cmdLineParams != NULL)

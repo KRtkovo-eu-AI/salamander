@@ -14,6 +14,9 @@ namespace DarkModeBackendDarkModelib
 {
 
 #if USE_DARKMODELIB
+static const wchar_t* DARKMODELIB_TREE_STATE_PROP = L"Salamander.DarkModeLib.TreeState";
+static const wchar_t* DARKMODELIB_MENU_DARK_PROP = L"Salamander.DarkModeLib.MenuDark";
+
 static void RemoveControlSubclass(HWND hwnd)
 {
     if (hwnd == NULL)
@@ -54,8 +57,6 @@ static void RemoveControlSubclass(HWND hwnd)
         dmlib::removeHotKeyCtrlSubclass(hwnd);
     else if (lstrcmpiW(className, L"SysDateTimePick32") == 0)
         dmlib::removeDTPCtrlSubclass(hwnd);
-
-    InvalidateRect(hwnd, NULL, TRUE);
 }
 
 static BOOL CALLBACK RemoveControlSubclassProc(HWND hwnd, LPARAM)
@@ -72,7 +73,6 @@ static void RemoveWindowAndChildSubclasses(HWND hwnd)
     dmlib::removeWindowEraseBgSubclass(hwnd);
     dmlib::removeWindowMenuBarSubclass(hwnd);
     EnumChildWindows(hwnd, RemoveControlSubclassProc, 0);
-    InvalidateRect(hwnd, NULL, TRUE);
 }
 #endif
 static COLORREF EnsureReadableForBackground(COLORREF text, COLORREF background)
@@ -107,23 +107,38 @@ void ApplyTree(HWND hwnd)
             dmlibInitialized = true;
         }
         const bool dark = DarkMode_ShouldUseDark() != FALSE;
+        HANDLE appliedState = GetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP);
+        const bool wasApplied = appliedState != NULL;
+        const bool wasDark = appliedState == reinterpret_cast<HANDLE>(2);
+        if (wasApplied && wasDark == dark)
+            return;
+
         dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
         dmlib::setDefaultColors(true);
         if (dark)
         {
-            dmlib::setDarkWndNotifySafe(hwnd);
-            dmlib::setChildCtrlsSubclassAndTheme(hwnd);
-            ApplyMenuBar(hwnd, true);
+            if (!wasDark)
+            {
+                dmlib::setDarkWndNotifySafe(hwnd);
+                dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+                SetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP, reinterpret_cast<HANDLE>(2));
+            }
         }
         else
         {
-            // Light Salamander schemes must be real native light UI.  Do not ask
-            // darkmodelib to apply even its light-mode themes/subclasses here; just
-            // tear down any hooks left from a previous Windows Dark Mode session.
-            RemoveWindowAndChildSubclasses(hwnd);
-            ApplyMenuBar(hwnd, false);
+            // Remove dark subclasses only on the dark-to-light transition. Repeatedly removing
+            // subclasses while controls are painting loses checkbox/radio invalidations and flickers.
+            if (wasDark)
+            {
+                RemoveWindowAndChildSubclasses(hwnd);
+                dmlib::setChildCtrlsTheme(hwnd);
+            }
+            SetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP, reinterpret_cast<HANDLE>(1));
         }
+        ApplyMenuBar(hwnd, dark);
         dmlib::setDarkTitleBar(hwnd);
+        if (wasApplied && wasDark != dark)
+            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
     }
 #else
     (void)hwnd;
@@ -136,10 +151,19 @@ void ApplyMenuBar(HWND hwnd, bool enableDark)
 #if USE_DARKMODELIB
     if (hwnd != NULL)
     {
+        const bool wasDark = GetPropW(hwnd, DARKMODELIB_MENU_DARK_PROP) != NULL;
+        if (wasDark == enableDark)
+            return;
         if (enableDark)
+        {
             dmlib::setWindowMenuBarSubclass(hwnd);
+            SetPropW(hwnd, DARKMODELIB_MENU_DARK_PROP, reinterpret_cast<HANDLE>(1));
+        }
         else
+        {
             dmlib::removeWindowMenuBarSubclass(hwnd);
+            RemovePropW(hwnd, DARKMODELIB_MENU_DARK_PROP);
+        }
         DrawMenuBar(hwnd);
     }
 #else
