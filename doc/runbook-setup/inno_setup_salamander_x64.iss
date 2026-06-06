@@ -19,7 +19,7 @@
 #define SLG "english.slg"
 #ifndef PayloadDir
   #if GetEnv("OPENSAL_BUILD_DIR") != ""
-    #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "Release_x64"
+    #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "salamander\Release_x64"
   #else
     #define PayloadDir "..\..\output\salamander\Release_x64"
   #endif
@@ -76,8 +76,6 @@ Name: "{app}\plugins\7zip\lang"
 Name: "{app}\plugins\automation"
 Name: "{app}\plugins\automation\lang"
 Name: "{app}\plugins\automation\scripts"
-Name: "{app}\plugins\certview-x64"
-Name: "{app}\plugins\certview-x64\lang"
 Name: "{app}\plugins\dbviewer"
 Name: "{app}\plugins\dbviewer\lang"
 Name: "{app}\plugins\diskmap"
@@ -334,8 +332,6 @@ Source: "{#PayloadDir}\plugins\automation\scripts\Make Link.js"; DestDir: "{app}
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (JScript).js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\automation\scripts\Make List (VBScript).vbs"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\automation\scripts\Unpack Multiple Archives.js"; DestDir: "{app}\plugins\automation\scripts"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\certview-x64\certview.spl"; DestDir: "{app}\plugins\certview-x64"; Flags: ignoreversion
-Source: "{#PayloadDir}\plugins\certview-x64\lang\{#SLG}"; DestDir: "{app}\plugins\certview-x64\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\dbviewer\dbviewer.spl"; DestDir: "{app}\plugins\dbviewer"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\dbviewer\lang\{#SLG}"; DestDir: "{app}\plugins\dbviewer\lang"; Flags: ignoreversion
 Source: "{#PayloadDir}\plugins\diskmap\diskmap.spl"; DestDir: "{app}\plugins\diskmap"; Flags: ignoreversion
