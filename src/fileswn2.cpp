@@ -403,10 +403,41 @@ COLORREF CFilesWindow::GetTreeViewSelectionBkColor()
     return GetPanelBrushColor(HFocusedBkBrush, GetCOLORREF(CurrentColors[ITEM_BK_FOCUSED]));
 }
 
-void CFilesWindow::DrawTreeViewFocusFrame(HDC hdc, const RECT* rect)
+void CFilesWindow::DrawTreeViewFocusedItem(HDC hdc, HTREEITEM item, const RECT* rect)
 {
-    if (hdc == NULL || rect == NULL)
+    if (hdc == NULL || item == NULL || rect == NULL || HTreeView == NULL)
         return;
+
+    RECT textRect;
+    if (TreeView_GetItemRect(HTreeView, item, &textRect, TRUE))
+    {
+        char text[MAX_PATH];
+        TVITEM treeItem;
+        ZeroMemory(&treeItem, sizeof(treeItem));
+        treeItem.mask = TVIF_TEXT;
+        treeItem.hItem = item;
+        treeItem.pszText = text;
+        treeItem.cchTextMax = MAX_PATH;
+        if (TreeView_GetItem(HTreeView, &treeItem))
+        {
+            HBRUSH background = HANDLES(CreateSolidBrush(GetTreeViewSelectionBkColor()));
+            if (background != NULL)
+            {
+                FillRect(hdc, &textRect, background);
+                HANDLES(DeleteObject(background));
+            }
+
+            HFONT font = (HFONT)SendMessage(HTreeView, WM_GETFONT, 0, 0);
+            HFONT oldFont = font != NULL ? (HFONT)SelectObject(hdc, font) : NULL;
+            COLORREF oldTextColor = SetTextColor(hdc, GetTreeViewSelectionTextColor());
+            int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+            DrawText(hdc, text, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            SetBkMode(hdc, oldBkMode);
+            SetTextColor(hdc, oldTextColor);
+            if (oldFont != NULL)
+                SelectObject(hdc, oldFont);
+        }
+    }
 
     HPEN oldPen = (HPEN)SelectObject(hdc, HActiveNormalPen);
     HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, HANDLES(GetStockObject(NULL_BRUSH)));

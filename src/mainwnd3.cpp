@@ -7790,11 +7790,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         SetBkColor(pnmcd->nmcd.hdc, pnmcd->clrTextBk);
                         pnmcd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
                     }
-                    return CDRF_NEWFONT | (focused ? CDRF_NOTIFYPOSTPAINT : 0);
+                    return CDRF_NEWFONT | CDRF_NOTIFYPOSTPAINT;
                 }
                 if (pnmcd->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                 {
-                    treePanel->DrawTreeViewFocusFrame(pnmcd->nmcd.hdc, &pnmcd->nmcd.rc);
+                    BOOL focused = (pnmcd->nmcd.uItemState & CDIS_SELECTED) != 0 ||
+                                   (HTREEITEM)pnmcd->nmcd.dwItemSpec == TreeView_GetSelection(treePanel->HTreeView);
+                    if (focused)
+                    {
+                        treePanel->DrawTreeViewFocusedItem(pnmcd->nmcd.hdc,
+                                                           (HTREEITEM)pnmcd->nmcd.dwItemSpec,
+                                                           &pnmcd->nmcd.rc);
+                    }
                     return CDRF_DODEFAULT;
                 }
                 return CDRF_DODEFAULT;
