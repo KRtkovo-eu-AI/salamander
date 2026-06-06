@@ -215,6 +215,32 @@ void CMainWindow::EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuild
         RequestPanelRefresh(panel, rebuildDriveBars, postRefreshMessage);
 }
 
+static void SetPanelTabVisible(CFilesWindow* panel, BOOL visible)
+{
+    if (panel == NULL || panel->HWindow == NULL)
+        return;
+
+    CStatusWindow* directoryLine = panel->DirectoryLine;
+    HWND toolBar = directoryLine != NULL && directoryLine->ToolBar != NULL ?
+                       directoryLine->ToolBar->HWindow :
+                       NULL;
+
+    if (visible)
+    {
+        // Prepare the toolbar while its parent panel is still hidden, then reveal the complete panel.
+        if (toolBar != NULL)
+            ShowWindow(toolBar, SW_SHOW);
+        ShowWindow(panel->HWindow, SW_SHOW);
+    }
+    else
+    {
+        // Hide the toolbar explicitly first so it can never paint stale/intermediate contents.
+        if (toolBar != NULL)
+            ShowWindow(toolBar, SW_HIDE);
+        ShowWindow(panel->HWindow, SW_HIDE);
+    }
+}
+
 void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SwitchPanelTab()");
@@ -267,6 +293,14 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
 
     if (canFocusNow)
     {
+        // LayoutWindows() resizes the newly selected panel and its toolbar. Keep both the old
+        // and new panel hidden until that layout is complete, otherwise intermediate toolbar
+        // widths and button arrangements can become visible for a frame.
+        if (previousPanel != panel)
+        {
+            SetPanelTabVisible(previousPanel, FALSE);
+            SetPanelTabVisible(panel, FALSE);
+        }
         LayoutWindows();
     }
 
@@ -614,6 +648,7 @@ void CMainWindow::ReloadPanelToolBars(CPanelSide side, HWND exceptToolBar)
 {
     // Every tab owns a separate toolbar window, but toolbar configuration is shared per side.
     TIndirectArray<CFilesWindow>& tabs = GetPanelTabs(side);
+    CFilesWindow* active = side == cpsLeft ? LeftPanel : RightPanel;
     const char* configuration = side == cpsLeft ? Configuration.LeftToolBar : Configuration.RightToolBar;
     for (int i = 0; i < tabs.Count; i++)
     {
@@ -622,8 +657,14 @@ void CMainWindow::ReloadPanelToolBars(CPanelSide side, HWND exceptToolBar)
             directoryLine->ToolBar->HWindow == exceptToolBar)
             continue;
 
+        // Loading removes and reinserts buttons one by one. Never let those intermediate states paint.
+        HWND toolBar = directoryLine->ToolBar->HWindow;
+        if (toolBar != NULL)
+            ShowWindow(toolBar, SW_HIDE);
         directoryLine->ToolBar->Load(configuration);
         directoryLine->LayoutWindow();
+        if (toolBar != NULL && tabs[i] == active)
+            ShowWindow(toolBar, SW_SHOW);
     }
 }
 
@@ -638,7 +679,7 @@ void CMainWindow::UpdatePanelTabVisibility(CPanelSide side)
         if (panel->HWindow == NULL)
             continue;
         BOOL show = (panel == active);
-        ShowWindow(panel->HWindow, show ? SW_SHOW : SW_HIDE);
+        SetPanelTabVisible(panel, show);
         if (side == cpsLeft && !show)
         {
             panel->TreeViewActive = FALSE;
