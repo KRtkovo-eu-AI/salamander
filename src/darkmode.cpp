@@ -1361,9 +1361,11 @@ void DarkModeSetEnabled(bool enabled)
     else if (gSetPreferredAppMode)
         gSetPreferredAppMode(gEnabled ? AllowDark : Default);
 
-    if (gEnabled)
-        HookDarkScrollbars();
-
+    // The scrollbar fix patches a process-wide comctl32 import with a callback
+    // located in the calling module. Do not install it implicitly here because
+    // plugins also compile this helper and can be unloaded while comctl32 is
+    // still using their callback. The non-unloadable host installs the hook
+    // explicitly through DarkModeFixScrollbars().
     RefreshColorPolicy();
 
     if (gFlushMenuThemes)
@@ -1500,6 +1502,17 @@ bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)
 
 void DarkModeFixScrollbars()
 {
+    // HookDarkScrollbars installs a callback into comctl32. A callback owned by
+    // an unloadable plugin would become a dangling function pointer when that
+    // plugin is released, so only allow the process executable to install it.
+    HMODULE callerModule = NULL;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&DarkModeFixScrollbars), &callerModule) ||
+        callerModule != GetModuleHandleW(NULL))
+    {
+        return;
+    }
+
     EnsureInitialized();
     if (!gSupported)
         return;
