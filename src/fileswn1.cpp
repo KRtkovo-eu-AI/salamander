@@ -660,6 +660,9 @@ void CFilesWindow::RefreshTreeView()
         lstrcpyn(firstVisibleItemPath, firstVisiblePath, MAX_PATH);
     }
 
+    HTREEITEM hRestoreSelected = NULL;
+    HTREEITEM hRestoreFirstVisible = NULL;
+
     BOOL hadSelectedFile = FALSE;
     char selectedFileFullPath[MAX_PATH];
     char selectedFileFocusPath[MAX_PATH];
@@ -778,16 +781,18 @@ void CFilesWindow::RefreshTreeView()
         }
 
         TreeView_SelectItem(HTreeView, hSelect);
-
-        // Selecting a recreated item scrolls it into view; restore the user's viewport afterward.
-        HTREEITEM hRestoreFirstVisible = hadFirstVisibleItem ? FindTreeViewItemByPath(HTreeView, TreeView_GetRoot(HTreeView), firstVisibleItemPath) : NULL;
-        if (hRestoreFirstVisible != NULL)
-            SendMessage(HTreeView, TVM_SELECTITEM, TVGN_FIRSTVISIBLE, (LPARAM)hRestoreFirstVisible);
-        else
-            TreeView_EnsureVisible(HTreeView, hSelect);
+        hRestoreSelected = hSelect;
+        hRestoreFirstVisible = hadFirstVisibleItem ? FindTreeViewItemByPath(HTreeView, TreeView_GetRoot(HTreeView), firstVisibleItemPath) : NULL;
     } while (0);
 
     SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
+
+    // Selecting a recreated item can scroll it to the bottom when redraw is enabled.
+    // Restore the original first visible item afterward so the selected row keeps its position.
+    if (hRestoreFirstVisible != NULL)
+        SendMessage(HTreeView, TVM_SELECTITEM, TVGN_FIRSTVISIBLE, (LPARAM)hRestoreFirstVisible);
+    else if (hRestoreSelected != NULL)
+        TreeView_EnsureVisible(HTreeView, hRestoreSelected);
     TreeViewDisableNotify = FALSE;
     RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
 }
