@@ -1597,7 +1597,11 @@ bool CMainWindow::TrySwitchPanelTabByMouseWheel(POINT screenPt, WPARAM wParam)
 
     CPanelSide side;
     if ((LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt)) ||
-        (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)))
+        (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)) ||
+        (LeftPanel != NULL &&
+         (pointInWindow(LeftPanel->HTreeView, screenPt) ||
+          pointInWindow(LeftPanel->HTreeHeader, screenPt) ||
+          pointInWindow(LeftPanel->HTreeSplit, screenPt))))
     {
         side = cpsLeft;
     }
@@ -1683,6 +1687,10 @@ BOOL CMainWindow::ShouldSuppressPanelTabMouseWheelContextMenu(POINT screenPt)
         (LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt)) ||
         (RightTabWindow != NULL && pointInWindow(RightTabWindow->HWindow, screenPt)) ||
         (LeftPanel != NULL && pointInWindow(LeftPanel->HWindow, screenPt)) ||
+        (LeftPanel != NULL &&
+         (pointInWindow(LeftPanel->HTreeView, screenPt) ||
+          pointInWindow(LeftPanel->HTreeHeader, screenPt) ||
+          pointInWindow(LeftPanel->HTreeSplit, screenPt))) ||
         (RightPanel != NULL && pointInWindow(RightPanel->HWindow, screenPt));
 
     if (suppress)

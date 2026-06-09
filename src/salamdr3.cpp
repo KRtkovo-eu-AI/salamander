@@ -3015,6 +3015,14 @@ LRESULT CALLBACK MenuWheelHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     PostMouseWheelMessage(pMSG);
 
+    // Reset the dedup timer after processing completes.  SwitchPanelTab (called from
+    // TrySwitchPanelTabByMouseWheel) can be slow when the tree-view panel is visible
+    // (RefreshTreeView + double LayoutWindows).  If processing takes longer than
+    // MOUSEWHEELMSG_VALID the original WM_MOUSEWHEEL that is still in the queue would
+    // expire the dedup window in the focused window, causing the message to be processed
+    // a second time and the tab to switch again (skipping tabs).
+    MouseWheelMSGTime = GetTickCount();
+
     return retValue;
 }
 
