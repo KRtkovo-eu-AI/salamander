@@ -191,6 +191,36 @@ namespace
 
 }
 
+static char g_TabTipText[MAX_PATH] = "";
+static bool g_TabTipClassRegistered = false;
+static const UINT_PTR kTabTipTimerId = 1001;
+static const int kTabTipDelayMs = 500;
+
+static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+        RECT rc;
+        GetClientRect(hWnd, &rc);
+        FillRect(hdc, &rc, (HBRUSH)(COLOR_INFOBK + 1));
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
+        HFONT hOldFont = (HFONT)SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
+        DrawText(hdc, g_TabTipText, -1, &rc, DT_CENTER | DT_VCENTER | DT_NOPREFIX | DT_SINGLELINE);
+        SelectObject(hdc, hOldFont);
+        EndPaint(hWnd, &ps);
+        return 0;
+    }
+    case WM_ERASEBKGND:
+        return 1;
+    }
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
 CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
 #ifndef _UNICODE
     : CWindow(ooStatic, TRUE)
@@ -217,6 +247,10 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     LastClickedIndex = -1;
     LastClickWasSelected = false;
     MouseWheelAccumulator = 0;
+    HTabTipWnd = NULL;
+    TabTipTabIndex = -1;
+    TabTipHoverIndex = -1;
+    TabTipTracking = false;
 }
 
 CTabWindow::~CTabWindow()
@@ -229,7 +263,7 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
 {
     CALL_STACK_MESSAGE_NONE
     ControlID = controlID;
-    DWORD style = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | TCS_TABS | TCS_TOOLTIPS | TCS_FOCUSNEVER;
+    DWORD style = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | TCS_TABS | TCS_FOCUSNEVER;
 #ifndef _UNICODE
     HWND hwnd = CreateExW(0, WC_TABCONTROLW, L"", style, 0, 0, 0, 0, parent,
                           (HMENU)(INT_PTR)controlID, HInstance, this);
@@ -240,6 +274,7 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
     if (hwnd == NULL)
         return FALSE;
     SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
+
     EnsureNewTabButton();
     return TRUE;
 }
@@ -247,6 +282,13 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
 void CTabWindow::DestroyWindow()
 {
     CALL_STACK_MESSAGE_NONE
+    KillTimer(HWindow, kTabTipTimerId);
+    HideTabToolTip();
+    if (HTabTipWnd != NULL)
+    {
+        ::DestroyWindow(HTabTipWnd);
+        HTabTipWnd = NULL;
+    }
     if (HWindow != NULL)
     {
         HWND hwnd = HWindow;
@@ -488,13 +530,19 @@ int CTabWindow::HitTest(POINT pt) const
 BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
 {
     CALL_STACK_MESSAGE_NONE
-    if (nmhdr == NULL || nmhdr->hwndFrom != HWindow)
+    if (nmhdr == NULL)
+        return FALSE;
+
+    if (nmhdr->hwndFrom != HWindow)
         return FALSE;
 
     switch (nmhdr->code)
     {
     case TCN_SELCHANGE:
     {
+        TabTipHoverIndex = -1;
+        KillTimer(HWindow, kTabTipTimerId);
+        HideTabToolTip();
         if (SuppressSelectionNotifications > 0)
         {
             result = 0;
@@ -614,6 +662,106 @@ void CTabWindow::RefreshLayout()
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
+}
+
+void CTabWindow::EnsureTabTipWnd()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HTabTipWnd != NULL || HWindow == NULL)
+        return;
+
+    if (!g_TabTipClassRegistered)
+    {
+        WNDCLASSEX wc = { sizeof(wc) };
+        wc.lpfnWndProc = TabTipWndProc;
+        wc.hInstance = HInstance;
+        wc.hbrBackground = (HBRUSH)(COLOR_INFOBK + 1);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.lpszClassName = "SalamanderTabTip";
+        RegisterClassEx(&wc);
+        g_TabTipClassRegistered = true;
+    }
+
+    HTabTipWnd = CreateWindowEx(0, "SalamanderTabTip", "",
+                                WS_POPUP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+                                0, 0, 0, 0,
+                                HWindow, NULL, HInstance, NULL);
+}
+
+void CTabWindow::ShowTabToolTip(int tabIndex)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (tabIndex < 0 || IsNewTabButtonIndex(tabIndex))
+    {
+        HideTabToolTip();
+        return;
+    }
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(GetItemData(tabIndex));
+    if (panel == NULL)
+    {
+        HideTabToolTip();
+        return;
+    }
+    char path[MAX_PATH];
+    if (!panel->GetGeneralPath(path, MAX_PATH) || path[0] == 0)
+    {
+        HideTabToolTip();
+        return;
+    }
+
+    // Store text for the tooltip's WM_PAINT
+    lstrcpy(g_TabTipText, path);
+
+    EnsureTabTipWnd();
+    if (HTabTipWnd == NULL)
+        return;
+
+    HDC hdc = GetDC(HTabTipWnd);
+    SelectObject(hdc, (HFONT)GetStockObject(DEFAULT_GUI_FONT));
+    SIZE sz;
+    GetTextExtentPoint32(hdc, path, (int)strlen(path), &sz);
+    ReleaseDC(HTabTipWnd, hdc);
+    int w = sz.cx + 6;
+    int h = sz.cy + 4;
+
+    RECT tabRect;
+    SendMessage(HWindow, TCM_GETITEMRECT, tabIndex, (LPARAM)&tabRect);
+    POINT pt = { tabRect.left, tabRect.bottom };
+    ClientToScreen(HWindow, &pt);
+
+    HMONITOR hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(mi) };
+    GetMonitorInfo(hMon, &mi);
+    if (pt.x + w > mi.rcWork.right)
+        pt.x = mi.rcWork.right - w;
+    if (pt.y + h > mi.rcWork.bottom)
+    {
+        pt.y = tabRect.top;
+        ClientToScreen(HWindow, &pt);
+        pt.y -= h;
+    }
+
+    if (IsWindowVisible(HTabTipWnd))
+    {
+        SetWindowPos(HTabTipWnd, HWND_TOPMOST, pt.x, pt.y, w, h,
+                     SWP_NOACTIVATE);
+        InvalidateRect(HTabTipWnd, NULL, TRUE);
+    }
+    else
+    {
+        SetWindowPos(HTabTipWnd, HWND_TOPMOST, pt.x, pt.y, w, h,
+                     SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    }
+
+    TabTipTabIndex = tabIndex;
+}
+
+void CTabWindow::HideTabToolTip()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HTabTipWnd != NULL && IsWindowVisible(HTabTipWnd))
+        ShowWindow(HTabTipWnd, SW_HIDE);
+    TabTipTabIndex = -1;
 }
 
 void CTabWindow::UpdateOverflowButtonColors()
@@ -1960,6 +2108,9 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_LBUTTONDOWN:
     {
+        TabTipHoverIndex = -1;
+        KillTimer(HWindow, kTabTipTimerId);
+        HideTabToolTip();
         POINTS pts = MAKEPOINTS(lParam);
         POINT pt;
         pt.x = pts.x;
@@ -2035,6 +2186,41 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_MOUSEMOVE:
+    {
+        if (!TabTipTracking)
+        {
+            TRACKMOUSEEVENT tme = { sizeof(tme) };
+            tme.dwFlags = TME_LEAVE;
+            tme.hwndTrack = HWindow;
+            TrackMouseEvent(&tme);
+            TabTipTracking = true;
+        }
+        POINTS pts = MAKEPOINTS(lParam);
+        POINT pt = { pts.x, pts.y };
+        TCHITTESTINFO hti;
+        hti.pt = pt;
+        int hitIndex = (int)SendMessage(HWindow, TCM_HITTEST, 0, (LPARAM)&hti);
+        if (hitIndex >= 0 && !IsNewTabButtonIndex(hitIndex))
+        {
+            if (TabTipHoverIndex != hitIndex)
+            {
+                // New tab hovered – start/restart delay timer
+                TabTipHoverIndex = hitIndex;
+                KillTimer(HWindow, kTabTipTimerId);
+                SetTimer(HWindow, kTabTipTimerId, kTabTipDelayMs, NULL);
+            }
+        }
+        else
+        {
+            if (TabTipHoverIndex != -1 || TabTipTabIndex != -1)
+            {
+                TabTipHoverIndex = -1;
+                KillTimer(HWindow, kTabTipTimerId);
+                HideTabToolTip();
+            }
+        }
+        break;
+    }
         if (DragTracking)
         {
             POINTS pts = MAKEPOINTS(lParam);
@@ -2072,6 +2258,22 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CANCELMODE:
         CancelDragTracking();
+        break;
+
+    case WM_TIMER:
+        if (wParam == kTabTipTimerId)
+        {
+            KillTimer(HWindow, kTabTipTimerId);
+            if (TabTipHoverIndex >= 0 && TabTipTabIndex != TabTipHoverIndex)
+                ShowTabToolTip(TabTipHoverIndex);
+        }
+        break;
+
+    case WM_MOUSELEAVE:
+        TabTipTracking = false;
+        TabTipHoverIndex = -1;
+        KillTimer(HWindow, kTabTipTimerId);
+        HideTabToolTip();
         break;
     }
 

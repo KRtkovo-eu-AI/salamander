@@ -44,6 +44,8 @@ public:
 
     void RefreshLayout();
 
+    HWND GetTabToolTip() const { return HTabTipWnd; }
+
 protected:
     virtual LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -72,6 +74,9 @@ private:
     void ExpandSelectedTabRect(RECT& rect) const;
     bool HandleMouseWheel(WPARAM wParam);
     void ScrollTabsByWheelSteps(int steps);
+    void ShowTabToolTip(int tabIndex);
+    void HideTabToolTip();
+    void EnsureTabTipWnd();
 
     struct STabColor
     {
@@ -112,5 +117,10 @@ private:
     int MouseWheelAccumulator;
 
     std::vector<STabColor> TabColors;
+
+    HWND HTabTipWnd;
+    int TabTipTabIndex;
+    int TabTipHoverIndex;
+    bool TabTipTracking;
 
 };

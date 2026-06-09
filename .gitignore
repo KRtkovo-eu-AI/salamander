@@ -224,3 +224,4 @@ output/
 /src/plugins/hypervm/managed/obj
 /src/plugins/hypervm/managed/bin/Release
 /src/plugins/csdemo/managed/bin/Release
+/.localbuild/ salamander/Release_x86
