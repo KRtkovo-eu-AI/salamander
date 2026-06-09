@@ -652,19 +652,7 @@ void CFilesWindow::RefreshTreeView()
         return;
     }
 
-    BOOL hadFirstVisibleItem = FALSE;
-    char firstVisibleItemPath[MAX_PATH];
-    firstVisibleItemPath[0] = 0;
-    HTREEITEM hFirstVisible = TreeView_GetFirstVisible(HTreeView);
-    const char* firstVisiblePath = GetTreeViewItemPath(HTreeView, hFirstVisible);
-    if (firstVisiblePath != NULL)
-    {
-        hadFirstVisibleItem = TRUE;
-        lstrcpyn(firstVisibleItemPath, firstVisiblePath, MAX_PATH);
-    }
-
     HTREEITEM hRestoreSelected = NULL;
-    HTREEITEM hRestoreFirstVisible = NULL;
 
     BOOL hadSelectedFile = FALSE;
     char selectedFileFullPath[MAX_PATH];
@@ -785,16 +773,14 @@ void CFilesWindow::RefreshTreeView()
 
         TreeView_SelectItem(HTreeView, hSelect);
         hRestoreSelected = hSelect;
-        hRestoreFirstVisible = hadFirstVisibleItem ? FindTreeViewItemByPath(HTreeView, TreeView_GetRoot(HTreeView), firstVisibleItemPath) : NULL;
     } while (0);
 
     SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
 
-    // Selecting a recreated item can scroll it to the bottom when redraw is enabled.
-    // Restore the original first visible item afterward so the selected row keeps its position.
-    if (hRestoreFirstVisible != NULL)
-        SendMessage(HTreeView, TVM_SELECTITEM, TVGN_FIRSTVISIBLE, (LPARAM)hRestoreFirstVisible);
-    else if (hRestoreSelected != NULL)
+    // Always scroll so the current directory (selected item) is visible.  This ensures the
+    // tree view follows the active directory when the user switches tabs or navigates to a
+    // different path — even if both tabs show the same disk.
+    if (hRestoreSelected != NULL)
         TreeView_EnsureVisible(HTreeView, hRestoreSelected);
     TreeViewDisableNotify = FALSE;
     RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
