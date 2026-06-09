@@ -611,7 +611,9 @@
 #define IDC_TABS_ALIGN_LABEL            2697
 #define IDC_TABS_ALIGN                  2698
 #define IDC_TABS_ACTIVEBORDER           2699
-#define IDC_CMDLINEAPP_PATH             2707
+#define IDC_TABS_CLOSEBUTTONACTIVE      2707
+#define IDC_TABS_CLOSEBUTTONALL         2708
+#define IDC_CMDLINEAPP_PATH             2709
 #define IDC_CMDLINEAPP_BROWSE           2705
 #define IDC_CMDLINEAPP_ARGS             2706
 #define IDD_CFGPAGE_ARCHIVERS           2700

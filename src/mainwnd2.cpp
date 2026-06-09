@@ -508,6 +508,8 @@ const char* CONFIG_TABCAPTIONALIGNMENT_REG = "Tab caption alignment";
 const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
 const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
 const char* CONFIG_TABACTIVEBORDER_REG = "Tab active border";
+const char* CONFIG_TABCLOSEBUTTONACTIVE_REG = "Tab close button active";
+const char* CONFIG_TABCLOSEBUTTONALL_REG = "Tab close button all";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
 const char* CONFIG_TITLEBARPREFIXTEXT_REG = "Title bar prefix text";
 const char* CONFIG_MAINWINDOWICONINDEX_REG = "Main window icon index";
@@ -2195,6 +2197,10 @@ void CMainWindow::SaveConfig(HWND parent)
                 SetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &tabMaxWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABACTIVEBORDER_REG, REG_DWORD,
                          &Configuration.TabActiveBorder, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABCLOSEBUTTONACTIVE_REG, REG_DWORD,
+                         &Configuration.TabCloseButtonActive, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABCLOSEBUTTONALL_REG, REG_DWORD,
+                         &Configuration.TabCloseButtonAll, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                          &Configuration.UseTitleBarPrefix, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
@@ -3961,6 +3967,16 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                           &Configuration.TabActiveBorder, sizeof(DWORD)))
             {
                 Configuration.TabActiveBorder = TRUE;
+            }
+            if (!GetValue(actKey, CONFIG_TABCLOSEBUTTONACTIVE_REG, REG_DWORD,
+                          &Configuration.TabCloseButtonActive, sizeof(DWORD)))
+            {
+                Configuration.TabCloseButtonActive = FALSE;
+            }
+            if (!GetValue(actKey, CONFIG_TABCLOSEBUTTONALL_REG, REG_DWORD,
+                          &Configuration.TabCloseButtonAll, sizeof(DWORD)))
+            {
+                Configuration.TabCloseButtonAll = FALSE;
             }
             GetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                      &Configuration.UseTitleBarPrefix, sizeof(DWORD));
