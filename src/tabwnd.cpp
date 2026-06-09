@@ -1968,6 +1968,34 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         DeleteObject(brush);
     }
 
+    if (selected)
+    {
+        COLORREF borderColor;
+        if (hasCustomColor)
+        {
+            borderColor = baseColor;
+        }
+        else if (useDark)
+        {
+            if (CurrentColors != NULL)
+                borderColor = GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
+            else
+                borderColor = DarkModeGetDialogTextColor();
+        }
+        else
+            borderColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
+
+        int borderHeight = 3;
+        RECT borderRect;
+        SetRect(&borderRect, fillRect.left, fillRect.top - 1, fillRect.right, fillRect.top - 1 + borderHeight);
+        HBRUSH borderBrush = CreateSolidBrush(borderColor);
+        if (borderBrush != NULL)
+        {
+            FillRect(hdc, &borderRect, borderBrush);
+            DeleteObject(borderBrush);
+        }
+    }
+
     RECT textRect = fillRect;
     InflateRect(&textRect, -4, 0);
     if (textRect.right <= textRect.left)
