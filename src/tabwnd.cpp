@@ -191,6 +191,36 @@ namespace
 
 }
 
+static char g_TabTipText[MAX_PATH] = "";
+static bool g_TabTipClassRegistered = false;
+static const UINT_PTR kTabTipTimerId = 1001;
+static const int kTabTipDelayMs = 500;
+
+static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+        RECT rc;
+        GetClientRect(hWnd, &rc);
+        FillRect(hdc, &rc, (HBRUSH)(COLOR_INFOBK + 1));
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
+        HFONT hOldFont = (HFONT)SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
+        DrawText(hdc, g_TabTipText, -1, &rc, DT_CENTER | DT_VCENTER | DT_NOPREFIX | DT_SINGLELINE);
+        SelectObject(hdc, hOldFont);
+        EndPaint(hWnd, &ps);
+        return 0;
+    }
+    case WM_ERASEBKGND:
+        return 1;
+    }
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
 CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
 #ifndef _UNICODE
     : CWindow(ooStatic, TRUE)
@@ -217,6 +247,11 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     LastClickedIndex = -1;
     LastClickWasSelected = false;
     MouseWheelAccumulator = 0;
+    HTabTipWnd = NULL;
+    TabTipTabIndex = -1;
+    TabTipHoverIndex = -1;
+    TabTipTracking = false;
+    CloseButtonHoverIndex = -1;
 }
 
 CTabWindow::~CTabWindow()
@@ -229,7 +264,7 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
 {
     CALL_STACK_MESSAGE_NONE
     ControlID = controlID;
-    DWORD style = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | TCS_TABS | TCS_TOOLTIPS | TCS_FOCUSNEVER;
+    DWORD style = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | TCS_TABS | TCS_FOCUSNEVER;
 #ifndef _UNICODE
     HWND hwnd = CreateExW(0, WC_TABCONTROLW, L"", style, 0, 0, 0, 0, parent,
                           (HMENU)(INT_PTR)controlID, HInstance, this);
@@ -240,6 +275,7 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
     if (hwnd == NULL)
         return FALSE;
     SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
+
     EnsureNewTabButton();
     return TRUE;
 }
@@ -247,6 +283,13 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
 void CTabWindow::DestroyWindow()
 {
     CALL_STACK_MESSAGE_NONE
+    KillTimer(HWindow, kTabTipTimerId);
+    HideTabToolTip();
+    if (HTabTipWnd != NULL)
+    {
+        ::DestroyWindow(HTabTipWnd);
+        HTabTipWnd = NULL;
+    }
     if (HWindow != NULL)
     {
         HWND hwnd = HWindow;
@@ -308,7 +351,13 @@ void CTabWindow::RemoveTab(int index)
             removed = (BOOL)SendMessage(HWindow, TCM_DELETEITEM, index, 0);
         }
         if (removed)
+        {
             RemoveTabColorSlot(index);
+            if (CloseButtonHoverIndex == index)
+                CloseButtonHoverIndex = -1;
+            else if (CloseButtonHoverIndex > index)
+                CloseButtonHoverIndex--;
+        }
         EnsureNewTabButton();
     }
 }
@@ -323,6 +372,7 @@ void CTabWindow::RemoveAllTabs()
             SendMessage(HWindow, TCM_DELETEALLITEMS, 0, 0);
         }
         TabColors.clear();
+        CloseButtonHoverIndex = -1;
         EnsureNewTabButton();
     }
 }
@@ -342,12 +392,24 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         SendMessageW(HWindow, TCM_SETITEMW, index, (LPARAM)&item);
     };
 
+    int minWidthPx = DipToPixels(Configuration.TabButtonMinWidth);
+    int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
+
+    int closeBtnExtraPx = 0;
+    if (ShouldShowCloseButton(index, TabCtrl_GetCurSel(HWindow)))
+    {
+        RECT tabRect;
+        if (TabCtrl_GetItemRect(HWindow, index, &tabRect))
+        {
+            RECT closeRect = GetTabCloseButtonRect(tabRect);
+            closeBtnExtraPx = (closeRect.right - closeRect.left) + 6;
+        }
+    }
+
     std::wstring finalText = desired;
     setItemText(finalText);
 
-    int minWidthPx = DipToPixels(Configuration.TabButtonMinWidth);
-    int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
-    if (minWidthPx <= 0 && maxWidthPx <= 0)
+    if (minWidthPx <= 0 && maxWidthPx <= 0 && closeBtnExtraPx <= 0)
         return;
 
     RECT rect;
@@ -370,7 +432,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
         {
             int extraWidth = currentWidth - desiredSize.cx;
-            int allowedTextWidth = maxWidthPx - extraWidth;
+            int allowedTextWidth = maxWidthPx - extraWidth - closeBtnExtraPx;
             if (allowedTextWidth <= 0)
                 finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
             else if (desiredSize.cx > allowedTextWidth)
@@ -394,9 +456,16 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         }
     }
 
-    if (minWidthPx > 0)
+    if (minWidthPx > 0 || closeBtnExtraPx > 0)
     {
         int targetWidth = minWidthPx;
+        if (closeBtnExtraPx > 0)
+        {
+            if (targetWidth <= 0)
+                targetWidth = currentWidth + closeBtnExtraPx;
+            else
+                targetWidth += closeBtnExtraPx;
+        }
         if (maxWidthPx > 0 && targetWidth > maxWidthPx)
             targetWidth = maxWidthPx;
 
@@ -488,13 +557,19 @@ int CTabWindow::HitTest(POINT pt) const
 BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
 {
     CALL_STACK_MESSAGE_NONE
-    if (nmhdr == NULL || nmhdr->hwndFrom != HWindow)
+    if (nmhdr == NULL)
+        return FALSE;
+
+    if (nmhdr->hwndFrom != HWindow)
         return FALSE;
 
     switch (nmhdr->code)
     {
     case TCN_SELCHANGE:
     {
+        TabTipHoverIndex = -1;
+        KillTimer(HWindow, kTabTipTimerId);
+        HideTabToolTip();
         if (SuppressSelectionNotifications > 0)
         {
             result = 0;
@@ -614,6 +689,106 @@ void CTabWindow::RefreshLayout()
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
+}
+
+void CTabWindow::EnsureTabTipWnd()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HTabTipWnd != NULL || HWindow == NULL)
+        return;
+
+    if (!g_TabTipClassRegistered)
+    {
+        WNDCLASSEX wc = { sizeof(wc) };
+        wc.lpfnWndProc = TabTipWndProc;
+        wc.hInstance = HInstance;
+        wc.hbrBackground = (HBRUSH)(COLOR_INFOBK + 1);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.lpszClassName = "SalamanderTabTip";
+        RegisterClassEx(&wc);
+        g_TabTipClassRegistered = true;
+    }
+
+    HTabTipWnd = CreateWindowEx(0, "SalamanderTabTip", "",
+                                WS_POPUP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+                                0, 0, 0, 0,
+                                HWindow, NULL, HInstance, NULL);
+}
+
+void CTabWindow::ShowTabToolTip(int tabIndex)
+{
+    CALL_STACK_MESSAGE_NONE
+    if (tabIndex < 0 || IsNewTabButtonIndex(tabIndex))
+    {
+        HideTabToolTip();
+        return;
+    }
+    CFilesWindow* panel = reinterpret_cast<CFilesWindow*>(GetItemData(tabIndex));
+    if (panel == NULL)
+    {
+        HideTabToolTip();
+        return;
+    }
+    char path[MAX_PATH];
+    if (!panel->GetGeneralPath(path, MAX_PATH) || path[0] == 0)
+    {
+        HideTabToolTip();
+        return;
+    }
+
+    // Store text for the tooltip's WM_PAINT
+    lstrcpy(g_TabTipText, path);
+
+    EnsureTabTipWnd();
+    if (HTabTipWnd == NULL)
+        return;
+
+    HDC hdc = GetDC(HTabTipWnd);
+    SelectObject(hdc, (HFONT)GetStockObject(DEFAULT_GUI_FONT));
+    SIZE sz;
+    GetTextExtentPoint32(hdc, path, (int)strlen(path), &sz);
+    ReleaseDC(HTabTipWnd, hdc);
+    int w = sz.cx + 6;
+    int h = sz.cy + 4;
+
+    RECT tabRect;
+    SendMessage(HWindow, TCM_GETITEMRECT, tabIndex, (LPARAM)&tabRect);
+    POINT pt = { tabRect.left, tabRect.bottom };
+    ClientToScreen(HWindow, &pt);
+
+    HMONITOR hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(mi) };
+    GetMonitorInfo(hMon, &mi);
+    if (pt.x + w > mi.rcWork.right)
+        pt.x = mi.rcWork.right - w;
+    if (pt.y + h > mi.rcWork.bottom)
+    {
+        pt.y = tabRect.top;
+        ClientToScreen(HWindow, &pt);
+        pt.y -= h;
+    }
+
+    if (IsWindowVisible(HTabTipWnd))
+    {
+        SetWindowPos(HTabTipWnd, HWND_TOPMOST, pt.x, pt.y, w, h,
+                     SWP_NOACTIVATE);
+        InvalidateRect(HTabTipWnd, NULL, TRUE);
+    }
+    else
+    {
+        SetWindowPos(HTabTipWnd, HWND_TOPMOST, pt.x, pt.y, w, h,
+                     SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    }
+
+    TabTipTabIndex = tabIndex;
+}
+
+void CTabWindow::HideTabToolTip()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HTabTipWnd != NULL && IsWindowVisible(HTabTipWnd))
+        ShowWindow(HTabTipWnd, SW_HIDE);
+    TabTipTabIndex = -1;
 }
 
 void CTabWindow::UpdateOverflowButtonColors()
@@ -966,20 +1141,19 @@ void CTabWindow::UpdateInsertMarkRect()
         {
             RECT indicatorRect = itemRect;
 
-            int verticalMargin = EnvFontCharHeight / 6;
-            if (verticalMargin < 2)
-                verticalMargin = 2;
-            if (verticalMargin * 2 >= (indicatorRect.bottom - indicatorRect.top))
-                verticalMargin = 0;
-
-            indicatorRect.top += verticalMargin;
-            indicatorRect.bottom -= verticalMargin;
+            int verticalOversize = EnvFontCharHeight / 3;
+            if (verticalOversize < 4)
+                verticalOversize = 4;
+            indicatorRect.top -= verticalOversize;
+            indicatorRect.bottom += verticalOversize;
 
             int indicatorWidth = EnvFontCharHeight / 4;
             if (indicatorWidth < 4)
                 indicatorWidth = 4;
             if (indicatorWidth > 12)
                 indicatorWidth = 12;
+            if (DarkModeShouldUseDarkColors())
+                indicatorWidth = indicatorWidth * 3 / 2;
 
             int center = (DragInsertMarkFlags == TCIMF_AFTER) ? itemRect.right : itemRect.left;
             indicatorRect.left = center - indicatorWidth / 2;
@@ -1029,18 +1203,9 @@ void CTabWindow::PaintDragIndicator(HDC hdc) const
         return;
 
     const bool useDark = DarkModeShouldUseDarkColors();
-    COLORREF baseColor;
-    if (useDark)
-    {
-        if (CurrentColors != NULL)
-            baseColor = GetCOLORREF(CurrentColors[ITEM_BK_SELECTED]);
-        else
-            baseColor = DarkModeGetDialogTextColor();
-    }
-    else
-        baseColor = GetSysColor(COLOR_HIGHLIGHT);
-    COLORREF fillColor = LightenColor(baseColor, useDark ? 48 : 96);
-    COLORREF borderColor = DarkenColor(baseColor, useDark ? 32 : 64);
+    COLORREF baseColor = GetSysColor(COLOR_HIGHLIGHT);
+    COLORREF fillColor = LightenColor(baseColor, useDark ? 80 : 96);
+    COLORREF borderColor = DarkenColor(baseColor, useDark ? 64 : 64);
 
     HBRUSH fillBrush = CreateSolidBrush(fillColor);
     if (fillBrush != NULL)
@@ -1609,6 +1774,32 @@ bool CTabWindow::TryResolveTabColor(int index, COLORREF& color) const
     return false;
 }
 
+RECT CTabWindow::GetTabCloseButtonRect(const RECT& tabRect)
+{
+    int tabHeight = tabRect.bottom - tabRect.top;
+    int btnSize = tabHeight - 4;
+    if (btnSize < 8)
+        btnSize = 8;
+    int margin = 3;
+    RECT closeRect;
+    closeRect.right = tabRect.right - margin + 2;
+    closeRect.left = closeRect.right - btnSize;
+    closeRect.top = tabRect.top + (tabHeight - btnSize) / 2 - 1;
+    closeRect.bottom = closeRect.top + btnSize;
+    return closeRect;
+}
+
+bool CTabWindow::ShouldShowCloseButton(int tabIndex, int selectedIndex) const
+{
+    if (IsNewTabButtonIndex(tabIndex))
+        return false;
+    if (Configuration.TabCloseButtonAll)
+        return true;
+    if (Configuration.TabCloseButtonActive && tabIndex == selectedIndex)
+        return true;
+    return false;
+}
+
 void CTabWindow::PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bool paintIndicator)
 {
     if (hdc == NULL)
@@ -1762,12 +1953,44 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
             TrimTabWidthPadding(drawTextBuffer);
             drawText = drawTextBuffer.c_str();
         }
-        DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus, hasCustomColor);
+        DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus, hasCustomColor, i, selected);
+    }
+
+    // Draw separator lines between tabs (not after the last tab or the new-tab button).
+    COLORREF separatorColor;
+    if (useDark)
+    {
+        if (CurrentColors != NULL)
+            separatorColor = GetCOLORREF(CurrentColors[ITEM_BK_FOCUSED]);
+        else
+            separatorColor = DarkModeGetDialogBackgroundColor();
+    }
+    else
+        separatorColor = GetSysColor(COLOR_BTNSHADOW);
+
+    HPEN hSepPen = CreatePen(PS_SOLID, 1, separatorColor);
+    if (hSepPen != NULL)
+    {
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hSepPen);
+        for (int i = 0; i < total - 1; ++i)
+        {
+            RECT itemRect;
+            if (!TabCtrl_GetItemRect(HWindow, i, &itemRect))
+                continue;
+            if (IsNewTabButtonIndex(i))
+                continue;
+            int x = itemRect.right - 1;
+            MoveToEx(hdc, x, itemRect.top, NULL);
+            LineTo(hdc, x, itemRect.bottom);
+        }
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hSepPen);
     }
 }
 
 void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
-                                bool selected, bool hot, bool hasFocus, bool hasCustomColor) const
+                                bool selected, bool hot, bool hasFocus, bool hasCustomColor,
+                                int tabIndex, int selectedIndex) const
 {
     if (hdc == NULL)
         return;
@@ -1820,6 +2043,34 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         DeleteObject(brush);
     }
 
+    if (selected && Configuration.TabActiveBorder)
+    {
+        COLORREF borderColor;
+        if (hasCustomColor)
+        {
+            borderColor = baseColor;
+        }
+        else if (useDark)
+        {
+            if (CurrentColors != NULL)
+                borderColor = GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
+            else
+                borderColor = DarkModeGetDialogTextColor();
+        }
+        else
+            borderColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
+
+        int borderHeight = 3;
+        RECT borderRect;
+        SetRect(&borderRect, fillRect.left, fillRect.top - 1, fillRect.right, fillRect.top - 1 + borderHeight);
+        HBRUSH borderBrush = CreateSolidBrush(borderColor);
+        if (borderBrush != NULL)
+        {
+            FillRect(hdc, &borderRect, borderBrush);
+            DeleteObject(borderBrush);
+        }
+    }
+
     RECT textRect = fillRect;
     InflateRect(&textRect, -4, 0);
     if (textRect.right <= textRect.left)
@@ -1843,6 +2094,17 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     {
         textRect.top = fillRect.top;
         textRect.bottom = fillRect.bottom;
+    }
+
+    bool showCloseBtn = ShouldShowCloseButton(tabIndex, selectedIndex);
+    RECT closeBtnRect = {0, 0, 0, 0};
+    if (showCloseBtn)
+    {
+        closeBtnRect = GetTabCloseButtonRect(itemRect);
+        int closeBtnWidth = closeBtnRect.right - closeBtnRect.left + 6;
+        textRect.right -= closeBtnWidth;
+        if (textRect.right < textRect.left)
+            textRect.right = textRect.left;
     }
 
     HFONT oldFont = NULL;
@@ -1889,6 +2151,39 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         RECT focusRect = fillRect;
         InflateRect(&focusRect, -3, -3);
         DrawFocusRect(hdc, &focusRect);
+    }
+
+    if (showCloseBtn)
+    {
+        bool isCloseHover = (CloseButtonHoverIndex == tabIndex);
+        if (isCloseHover)
+        {
+            HBRUSH hoverBrush = CreateSolidBrush(useDark ? RGB(0x40, 0x40, 0x40) : RGB(0xE0, 0xE0, 0xE0));
+            if (hoverBrush != NULL)
+            {
+                FillRect(hdc, &closeBtnRect, hoverBrush);
+                DeleteObject(hoverBrush);
+            }
+        }
+        COLORREF closeColor;
+        if (isCloseHover)
+            closeColor = useDark ? RGB(0xFF, 0xFF, 0xFF) : RGB(0x00, 0x00, 0x00);
+        else
+            closeColor = useDark ? RGB(0x88, 0x88, 0x88) : RGB(0x60, 0x60, 0x60);
+        HPEN closePen = CreatePen(PS_SOLID, 1, closeColor);
+        if (closePen != NULL)
+        {
+            HPEN oldPen = (HPEN)SelectObject(hdc, closePen);
+            int inset = (closeBtnRect.right - closeBtnRect.left) / 4;
+            if (inset < 3) inset = 3;
+            MoveToEx(hdc, closeBtnRect.left + inset, closeBtnRect.top + inset, NULL);
+            LineTo(hdc, closeBtnRect.right - inset, closeBtnRect.bottom - inset);
+            MoveToEx(hdc, closeBtnRect.right - inset - 1, closeBtnRect.top + inset, NULL);
+            LineTo(hdc, closeBtnRect.left + inset - 1, closeBtnRect.bottom - inset);
+            if (oldPen != NULL)
+                SelectObject(hdc, oldPen);
+            DeleteObject(closePen);
+        }
     }
 
     if (oldTextColor != CLR_INVALID)
@@ -1960,11 +2255,33 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_LBUTTONDOWN:
     {
+        TabTipHoverIndex = -1;
+        KillTimer(HWindow, kTabTipTimerId);
+        HideTabToolTip();
         POINTS pts = MAKEPOINTS(lParam);
         POINT pt;
         pt.x = pts.x;
         pt.y = pts.y;
         int hit = HitTest(pt);
+        if (hit >= 0 && !IsNewTabButtonIndex(hit))
+        {
+            RECT itemRect;
+            if (TabCtrl_GetItemRect(HWindow, hit, &itemRect))
+            {
+                RECT closeRect = GetTabCloseButtonRect(itemRect);
+                if (PtInRect(&closeRect, pt) && ShouldShowCloseButton(hit, TabCtrl_GetCurSel(HWindow)))
+                {
+                    LastClickedIndex = -1;
+                    if (MainWindow != NULL)
+                    {
+                        CFilesWindow* panel = MainWindow->GetPanelTabAt(Side, hit);
+                        if (panel != NULL && !panel->IsTabLocked())
+                            MainWindow->ClosePanelTab(panel);
+                    }
+                    break;
+                }
+            }
+        }
         LastClickedIndex = hit;
         LastClickWasSelected =
             (hit >= 0 && !IsNewTabButtonIndex(hit) && TabCtrl_GetCurSel(HWindow) == hit);
@@ -2035,6 +2352,60 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_MOUSEMOVE:
+    {
+        if (!TabTipTracking)
+        {
+            TRACKMOUSEEVENT tme = { sizeof(tme) };
+            tme.dwFlags = TME_LEAVE;
+            tme.hwndTrack = HWindow;
+            TrackMouseEvent(&tme);
+            TabTipTracking = true;
+        }
+        POINTS pts = MAKEPOINTS(lParam);
+        POINT pt = { pts.x, pts.y };
+        TCHITTESTINFO hti;
+        hti.pt = pt;
+        int hitIndex = (int)SendMessage(HWindow, TCM_HITTEST, 0, (LPARAM)&hti);
+        if (hitIndex >= 0 && !IsNewTabButtonIndex(hitIndex))
+        {
+            if (TabTipHoverIndex != hitIndex)
+            {
+                // New tab hovered – start/restart delay timer
+                TabTipHoverIndex = hitIndex;
+                KillTimer(HWindow, kTabTipTimerId);
+                SetTimer(HWindow, kTabTipTimerId, kTabTipDelayMs, NULL);
+            }
+        }
+        else
+        {
+            if (TabTipHoverIndex != -1 || TabTipTabIndex != -1)
+            {
+                TabTipHoverIndex = -1;
+                KillTimer(HWindow, kTabTipTimerId);
+                HideTabToolTip();
+            }
+        }
+        int newCloseHover = -1;
+        if (hitIndex >= 0 && !IsNewTabButtonIndex(hitIndex) &&
+            ShouldShowCloseButton(hitIndex, TabCtrl_GetCurSel(HWindow)))
+        {
+            RECT itemRect;
+            if (TabCtrl_GetItemRect(HWindow, hitIndex, &itemRect))
+            {
+                RECT closeRect = GetTabCloseButtonRect(itemRect);
+                if (PtInRect(&closeRect, pt))
+                    newCloseHover = hitIndex;
+            }
+        }
+        if (CloseButtonHoverIndex != newCloseHover)
+        {
+            int oldHover = CloseButtonHoverIndex;
+            CloseButtonHoverIndex = newCloseHover;
+            if (oldHover >= 0)
+                InvalidateTab(oldHover);
+            if (newCloseHover >= 0)
+                InvalidateTab(newCloseHover);
+        }
         if (DragTracking)
         {
             POINTS pts = MAKEPOINTS(lParam);
@@ -2044,6 +2415,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             UpdateDragTracking(pt);
         }
         break;
+    }
 
     case WM_LBUTTONUP:
     {
@@ -2072,6 +2444,28 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_CANCELMODE:
         CancelDragTracking();
+        break;
+
+    case WM_TIMER:
+        if (wParam == kTabTipTimerId)
+        {
+            KillTimer(HWindow, kTabTipTimerId);
+            if (TabTipHoverIndex >= 0 && TabTipTabIndex != TabTipHoverIndex)
+                ShowTabToolTip(TabTipHoverIndex);
+        }
+        break;
+
+    case WM_MOUSELEAVE:
+        TabTipTracking = false;
+        TabTipHoverIndex = -1;
+        KillTimer(HWindow, kTabTipTimerId);
+        HideTabToolTip();
+        if (CloseButtonHoverIndex >= 0)
+        {
+            int oldHover = CloseButtonHoverIndex;
+            CloseButtonHoverIndex = -1;
+            InvalidateTab(oldHover);
+        }
         break;
     }
 

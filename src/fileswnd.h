@@ -730,6 +730,25 @@ struct CTreeViewNodeData
     BOOL Populated;
 };
 
+struct CTreeViewPopulateEntry
+{
+    char Name[MAX_PATH];
+    char FullPath[MAX_PATH];
+    BOOL IsDirectory;
+};
+
+struct CTreeViewAsyncLoadData
+{
+    HWND HHostWindow;                          // panel window handle (for PostMessage)
+    CFilesWindow* Panel;                       // owning panel
+    HTREEITEM hParentItem;                     // parent tree item handle
+    char Path[MAX_PATH];                       // path to read
+    CTreeViewPopulateEntry* DirEntries;        // results: directories
+    int DirCount;
+    BOOL HasChildren;
+    volatile BOOL Cancelled;                   // TRUE = abort reading
+};
+
 class CFilesWindow : public CFilesWindowAncestor
 {
 public:
@@ -769,6 +788,11 @@ public:
     CRITICAL_SECTION ICSleepSection;      // critical section -> sleep-icon-thread must pass through it
     CRITICAL_SECTION ICSectionUsingIcon;  // critical section -> image-list is used inside
     CRITICAL_SECTION ICSectionUsingThumb; // critical section -> thumbnail is used inside
+
+    // Async tree view loading
+    HANDLE TreeViewAsyncLoadThread;                // handle of the async load thread
+    HANDLE TreeViewAsyncTerminateEvent;            // signaled -> terminate the thread
+    volatile struct CTreeViewAsyncLoadData* TreeViewAsyncLoadData; // current async load data
 
     BOOL AutomaticRefresh;      // is the panel refreshed automatically (or manually)?
     BOOL NeedsRefreshOnActivation; // TRUE when the panel should reload its listing when it becomes visible again
@@ -1323,7 +1347,7 @@ public:
     void DestroyTreeView();
     void UpdateTreeView(BOOL active);
     void RefreshTreeView();
-    BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE);
+    BOOL PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh = FALSE, BOOL async = FALSE);
 
     void ConnectNet(BOOL readOnlyUNC, const char* netRootPath = NULL, BOOL changeToNewDrive = TRUE, char* newlyMappedDrive = NULL);
     void DisconnectNet();
@@ -1806,3 +1830,10 @@ void GetTileTexts(CFileData* f, int isDir,
                   DWORD validFileData,
                   CPluginDataInterfaceEncapsulation* pluginData,
                   BOOL isDisk);
+
+// Tree view helper functions (defined in fileswn1.cpp, used in fileswnb.cpp)
+CTreeViewNodeData* GetTreeViewItemDataPtr(HWND hTreeView, HTREEITEM hItem);
+HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text,
+                              CTreeViewNodeTypeEnum type, const char* fullPath,
+                              const char* focusPath, const char* focusName, BOOL hasChildren);
+void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children);

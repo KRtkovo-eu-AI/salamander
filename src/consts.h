@@ -1183,6 +1183,8 @@ struct COpenViewerData
 
 #define WM_USER_USERMENUICONS_READY WM_APP + 415 // [bkgndReaderData, threadID] - notifikace pro hl. okno, ze se dokoncilo cteni ikon pro User Menu v threadu s ID 'threadID'
 
+#define WM_USER_TREEVIEW_ASYNC_DONE WM_APP + 420 // [0, CTreeViewAsyncLoadData*] - asynchronni nacteni obsahu slozky dokonceno
+
 // states for Shift+F1 help mode
 #define HELP_INACTIVE 0 // not in Shift+F1 help mode (must be 0)
 #define HELP_ACTIVE 1   // in Shift+F1 help mode (non-zero)

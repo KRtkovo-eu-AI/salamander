@@ -1350,6 +1350,57 @@ CFilesWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         SetFocus(ListBox->HWindow);
         break;
     }
+
+    case WM_USER_TREEVIEW_ASYNC_DONE:
+    {
+        CTreeViewAsyncLoadData* loadData = (CTreeViewAsyncLoadData*)lParam;
+        if (loadData == NULL)
+            return 0;
+
+        if (loadData->Panel != this || loadData->Cancelled)
+        {
+            free(loadData->DirEntries);
+            free(loadData);
+            TreeViewAsyncLoadData = NULL;
+            return 0;
+        }
+
+        CTreeViewNodeData* parentData = GetTreeViewItemDataPtr(HTreeView, loadData->hParentItem);
+        if (parentData == NULL || !IsTheSamePath(parentData->FullPath, loadData->Path))
+        {
+            free(loadData->DirEntries);
+            free(loadData);
+            TreeViewAsyncLoadData = NULL;
+            return 0;
+        }
+
+        TreeViewDisableNotify = TRUE;
+        SendMessage(HTreeView, WM_SETREDRAW, FALSE, 0);
+
+        int i;
+        BOOL hasChildren = FALSE;
+        for (i = 0; i < loadData->DirCount; i++)
+        {
+            if (InsertTreeViewItem(HTreeView, loadData->hParentItem, loadData->DirEntries[i].Name,
+                                    tvntDirectory, loadData->DirEntries[i].FullPath,
+                                    loadData->DirEntries[i].FullPath, NULL, TRUE) != NULL)
+                hasChildren = TRUE;
+        }
+        // Note: file entries are not inserted into the tree view. The tree view only shows
+        // directories for performance.
+
+        parentData->Populated = TRUE;
+        SetTreeViewItemChildren(HTreeView, loadData->hParentItem, hasChildren ? 1 : 0);
+
+        SendMessage(HTreeView, WM_SETREDRAW, TRUE, 0);
+        TreeViewDisableNotify = FALSE;
+        RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
+
+        TreeViewAsyncLoadData = NULL;
+        free(loadData->DirEntries);
+        free(loadData);
+        return 0;
+    }
     }
 
     return CWindow::WindowProc(uMsg, wParam, lParam);

@@ -590,6 +590,9 @@ CConfiguration::CConfiguration()
     TabButtonMinWidth = 0;
     TabButtonMaxWidth = 0;
     TabCaptionAlignment = TAB_CAPTION_ALIGN_CENTER;
+    TabActiveBorder = TRUE;
+    TabCloseButtonActive = FALSE;
+    TabCloseButtonAll = FALSE;
     UseTitleBarPrefix = FALSE;
     strcpy(TitleBarPrefix, "ADMIN");
     UseTitleBarPrefixForced = FALSE;

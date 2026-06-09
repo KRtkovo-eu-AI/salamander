@@ -2113,6 +2113,23 @@ void CFilesWindow::CreateTreeView()
 void CFilesWindow::DestroyTreeView()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::DestroyTreeView()");
+
+    // Cancel any pending async tree view load
+    if (TreeViewAsyncLoadThread != NULL)
+    {
+        if (TreeViewAsyncLoadData != NULL)
+            ((CTreeViewAsyncLoadData*)TreeViewAsyncLoadData)->Cancelled = TRUE;
+        SetEvent(TreeViewAsyncTerminateEvent);
+        if (WaitForSingleObject(TreeViewAsyncLoadThread, 2000) == WAIT_TIMEOUT)
+        {
+            TRACE_E("Terminating TreeView Async Thread");
+            TerminateThread(TreeViewAsyncLoadThread, 666);
+            WaitForSingleObject(TreeViewAsyncLoadThread, INFINITE);
+        }
+        HANDLES(CloseHandle(TreeViewAsyncLoadThread));
+        TreeViewAsyncLoadThread = NULL;
+    }
+
     if (HTreeHeaderToolTip != NULL)
     {
         DestroyWindow(HTreeHeaderToolTip);
@@ -2600,6 +2617,10 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
             // we'll let the new path load its contents
             BOOL cannotList;
             cannotList = !CommonRefresh(parent, suggestedTopIndex, suggestedFocusName, refreshListBox, TRUE, isRefresh);
+            // Refresh tree view AFTER file list loads so the file list appears immediately
+            // and the tree view update (which may do disk I/O) doesn't block the UI.
+            if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
+                MainWindow->LeftPanel->RefreshTreeView();
             if (isRefresh && !cannotList && GetMonitorChanges() && !AutomaticRefresh)
             {                                                                                                                // auto-refresh failure; we verify whether the directory displayed in the panel is being deleted (happened to me while deleting through the network from another machine) ... If ignored, the panel will never refresh (because auto-refresh is broken)
                 Sleep(400);                                                                                                  // we take a break, so the deletion can proceed (so the directory becomes deleted enough to become unlistable)
@@ -3633,6 +3654,9 @@ BOOL CFilesWindow::ChangePathToPluginFS(const char* fsName, const char* fsUserPa
                             // refresh the panel
                             UpdateDriveIcon(FALSE); // get the icon for the current path from the plugin
                             CommonRefresh(HWindow, suggestedTopIndex, suggestedFocusName, refreshListBox, TRUE, isRefresh);
+                            // Refresh tree view after file list loads
+                            if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
+                                MainWindow->LeftPanel->RefreshTreeView();
 
                             // notify the FS that it is finally opened
                             GetPluginFS()->Event(FSE_OPENED, GetPanelCode());
