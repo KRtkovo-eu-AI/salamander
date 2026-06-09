@@ -7907,7 +7907,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)lParam;
                 if (pnmtv->action == TVE_EXPAND)
-                    treePanel->PopulateTreeViewItem(pnmtv->itemNew.hItem);
+                    treePanel->PopulateTreeViewItem(pnmtv->itemNew.hItem, FALSE, TRUE);
                 return 0;
             }
 

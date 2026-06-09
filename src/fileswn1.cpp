@@ -19,13 +19,6 @@
 #include "geticon.h"
 #include "shiconov.h"
 
-struct CTreeViewPopulateEntry
-{
-    char Name[MAX_PATH];
-    char FullPath[MAX_PATH];
-    BOOL IsDirectory;
-};
-
 struct CTreeViewExpandedPaths
 {
     char** Paths;
@@ -70,7 +63,7 @@ static BOOL GetTreeViewItemData(HWND hTreeView, HTREEITEM hItem, CTreeViewNodeDa
     return TRUE;
 }
 
-static CTreeViewNodeData* GetTreeViewItemDataPtr(HWND hTreeView, HTREEITEM hItem)
+CTreeViewNodeData* GetTreeViewItemDataPtr(HWND hTreeView, HTREEITEM hItem)
 {
     if (hTreeView == NULL || hItem == NULL)
         return NULL;
@@ -132,7 +125,7 @@ static HTREEITEM FindTreeViewItemByPath(HWND hTreeView, HTREEITEM hItem, const c
     return NULL;
 }
 
-static void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children)
+void SetTreeViewItemChildren(HWND hTreeView, HTREEITEM hItem, int children)
 {
     TVITEM item;
     memset(&item, 0, sizeof(item));
@@ -149,11 +142,9 @@ static BOOL GetTreeViewShellIconIndexes(const char* path, BOOL isDirectory,
     memset(&sfi, 0, sizeof(sfi));
 
     DWORD attributes = isDirectory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
-    UINT flags = SHGFI_SYSICONINDEX | SHGFI_SMALLICON;
-    if (path == NULL || path[0] == 0)
-        flags |= SHGFI_USEFILEATTRIBUTES;
+    UINT flags = SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES;
 
-    if (SHGetFileInfo(path, attributes, &sfi, sizeof(sfi), flags) == 0)
+    if (SHGetFileInfo(path ? path : "", attributes, &sfi, sizeof(sfi), flags) == 0)
         return FALSE;
 
     *imageIndex = sfi.iIcon;
@@ -162,7 +153,7 @@ static BOOL GetTreeViewShellIconIndexes(const char* path, BOOL isDirectory,
     {
         SHFILEINFO selectedSfi;
         memset(&selectedSfi, 0, sizeof(selectedSfi));
-        if (SHGetFileInfo(path, attributes, &selectedSfi, sizeof(selectedSfi),
+        if (SHGetFileInfo(path ? path : "", attributes, &selectedSfi, sizeof(selectedSfi),
                           flags | SHGFI_OPENICON) != 0)
             *selectedImageIndex = selectedSfi.iIcon;
         else
@@ -204,7 +195,7 @@ static CTreeViewNodeData* CreateTreeViewNodeData(CTreeViewNodeTypeEnum type, con
     return itemData;
 }
 
-static HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text,
+HTREEITEM InsertTreeViewItem(HWND hTreeView, HTREEITEM hParent, const char* text,
                                     CTreeViewNodeTypeEnum type, const char* fullPath,
                                     const char* focusPath, const char* focusName, BOOL hasChildren)
 {
@@ -348,6 +339,77 @@ static BOOL ShouldSkipTreeViewEntry(const WIN32_FIND_DATA* findData)
         return TRUE;
 
     return FALSE;
+}
+
+static DWORD WINAPI TreeViewAsyncLoadThreadBody(void* param)
+{
+    CALL_STACK_MESSAGE1("TreeViewAsyncLoadThreadBody()");
+    TRACE_I("TreeViewAsyncLoadThread: begin");
+
+    CTreeViewAsyncLoadData* data = (CTreeViewAsyncLoadData*)param;
+
+    data->DirEntries = NULL;
+    data->DirCount = 0;
+    data->HasChildren = FALSE;
+
+    char searchPath[MAX_PATH];
+    lstrcpyn(searchPath, data->Path, MAX_PATH);
+    if (!SalPathAppend(searchPath, "*", MAX_PATH))
+    {
+        PostMessage(data->HHostWindow, WM_USER_TREEVIEW_ASYNC_DONE, 0, (LPARAM)data);
+        TRACE_I("TreeViewAsyncLoadThread: end (path append failed)");
+        return 0;
+    }
+
+    WIN32_FIND_DATA findData;
+    HANDLE find = FindFirstFileEx(searchPath, FindExInfoBasic, &findData,
+                                   FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
+    if (find == INVALID_HANDLE_VALUE)
+    {
+        PostMessage(data->HHostWindow, WM_USER_TREEVIEW_ASYNC_DONE, 0, (LPARAM)data);
+        TRACE_I("TreeViewAsyncLoadThread: end (find failed)");
+        return 0;
+    }
+
+    do
+    {
+        if (data->Cancelled)
+            break;
+
+        if (ShouldSkipTreeViewEntry(&findData))
+            continue;
+
+        BOOL isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        char childPath[MAX_PATH];
+        lstrcpyn(childPath, data->Path, MAX_PATH);
+        if (!SalPathAppend(childPath, findData.cFileName, MAX_PATH))
+            continue;
+
+        // Only collect directories for the tree view (files are not shown)
+        if (!isDir)
+            continue;
+
+        if (!AddTreeViewPopulateEntry(&data->DirEntries, &data->DirCount,
+                                       findData.cFileName, childPath, TRUE))
+        {
+            data->Cancelled = TRUE;
+            break;
+        }
+    } while (FindNextFile(find, &findData));
+
+    FindClose(find);
+
+    if (!data->Cancelled)
+    {
+        if (data->DirCount > 1)
+            qsort(data->DirEntries, data->DirCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
+
+        data->HasChildren = data->DirCount > 0;
+    }
+
+    PostMessage(data->HHostWindow, WM_USER_TREEVIEW_ASYNC_DONE, 0, (LPARAM)data);
+    TRACE_I("TreeViewAsyncLoadThread: end");
+    return 0;
 }
 
 //
@@ -630,13 +692,9 @@ void CFilesWindowAncestor::SetPath(const char* path)
         ((CFilesWindow*)this)->SetAutomaticRefresh(TRUE, TRUE);
     }
 
-    if (MainWindow == NULL || !MainWindow->RestoringPanelPaths)
-    {
-        if (MainWindow != NULL && MainWindow->LeftPanel != NULL)
-            MainWindow->LeftPanel->RefreshTreeView();
-        else
-            ((CFilesWindow*)this)->RefreshTreeView();
-    }
+    // Note: RefreshTreeView() is NOT called here. Callers that need the tree view
+    // updated (e.g. ChangePathToDisk) call RefreshTreeView() explicitly after
+    // CommonRefresh(), so the file list loads first (responsive UI).
 }
 
 void CFilesWindow::RefreshTreeView()
@@ -741,11 +799,6 @@ void CFilesWindow::RefreshTreeView()
                     break;
 
                 HTREEITEM hChild = FindTreeViewChildByPath(HTreeView, hCurrent, nextPath);
-                if (hChild == NULL)
-                {
-                    PopulateTreeViewItem(hCurrent, TRUE);
-                    hChild = FindTreeViewChildByPath(HTreeView, hCurrent, nextPath);
-                }
 
                 if (hChild == NULL)
                     break;
@@ -761,7 +814,7 @@ void CFilesWindow::RefreshTreeView()
             }
         }
 
-        PopulateTreeViewItem(hCurrent, TRUE);
+        PopulateTreeViewItem(hCurrent);
 
         HTREEITEM hSelect = hCurrent;
         if (hadSelectedFile && IsTheSamePath(selectedFileFocusPath, sourcePath))
@@ -783,10 +836,10 @@ void CFilesWindow::RefreshTreeView()
     if (hRestoreSelected != NULL)
         TreeView_EnsureVisible(HTreeView, hRestoreSelected);
     TreeViewDisableNotify = FALSE;
-    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW);
+    RedrawWindow(HTreeView, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 }
 
-BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
+BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh, BOOL async)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::PopulateTreeViewItem()");
 
@@ -810,20 +863,53 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
     if (!forceRefresh && itemData->Populated)
         return TreeView_GetChild(HTreeView, hItem) != NULL;
 
+    // Async mode: start background thread instead of blocking UI
+    if (async)
+    {
+        // If an async load is already in progress, don't start another one
+        if (TreeViewAsyncLoadData != NULL)
+            return FALSE;
+
+        CTreeViewAsyncLoadData* loadData = (CTreeViewAsyncLoadData*)malloc(sizeof(CTreeViewAsyncLoadData));
+        if (loadData == NULL)
+            return FALSE;
+
+        memset(loadData, 0, sizeof(CTreeViewAsyncLoadData));
+        loadData->HHostWindow = HWindow;
+        loadData->Panel = this;
+        loadData->hParentItem = hItem;
+        lstrcpyn(loadData->Path, itemPath, MAX_PATH);
+        loadData->Cancelled = FALSE;
+
+        TreeViewAsyncLoadData = loadData;
+        ResetEvent(TreeViewAsyncTerminateEvent);
+
+        DWORD threadID;
+        TreeViewAsyncLoadThread = HANDLES(CreateThread(NULL, 0, TreeViewAsyncLoadThreadBody,
+                                                        loadData, 0, &threadID));
+        if (TreeViewAsyncLoadThread == NULL)
+        {
+            free(loadData);
+            TreeViewAsyncLoadData = NULL;
+            return FALSE;
+        }
+
+        return FALSE; // no children yet, they will be inserted when async load completes
+    }
+
     char searchPath[MAX_PATH];
     lstrcpyn(searchPath, itemPath, MAX_PATH);
     if (!SalPathAppend(searchPath, "*", MAX_PATH))
         return TreeView_GetChild(HTreeView, hItem) != NULL;
 
     WIN32_FIND_DATA data;
-    HANDLE find = FindFirstFile(searchPath, &data);
+    HANDLE find = FindFirstFileEx(searchPath, FindExInfoBasic, &data,
+                                  FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
     if (find == INVALID_HANDLE_VALUE)
         return TreeView_GetChild(HTreeView, hItem) != NULL;
 
     CTreeViewPopulateEntry* dirEntries = NULL;
-    CTreeViewPopulateEntry* fileEntries = NULL;
     int dirCount = 0;
-    int fileCount = 0;
     BOOL hasChildren = FALSE;
     do
     {
@@ -831,18 +917,19 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
             continue;
 
         BOOL isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        if (!isDirectory)
+            continue; // skip files - tree view only shows directories
+
         char childPath[MAX_PATH];
         lstrcpyn(childPath, itemPath, MAX_PATH);
         if (!SalPathAppend(childPath, data.cFileName, MAX_PATH))
             continue;
 
-        if (!AddTreeViewPopulateEntry(isDirectory ? &dirEntries : &fileEntries,
-                                      isDirectory ? &dirCount : &fileCount,
-                                      data.cFileName, childPath, isDirectory))
+        if (!AddTreeViewPopulateEntry(&dirEntries, &dirCount,
+                                       data.cFileName, childPath, TRUE))
         {
             FindClose(find);
             free(dirEntries);
-            free(fileEntries);
             return TreeView_GetChild(HTreeView, hItem) != NULL;
         }
     } while (FindNextFile(find, &data));
@@ -851,8 +938,6 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
 
     if (dirCount > 1)
         qsort(dirEntries, dirCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
-    if (fileCount > 1)
-        qsort(fileEntries, fileCount, sizeof(CTreeViewPopulateEntry), CompareTreeViewPopulateEntries);
 
     CTreeViewExpandedPaths expanded = {NULL, 0};
     if (forceRefresh)
@@ -873,22 +958,16 @@ BOOL CFilesWindow::PopulateTreeViewItem(HTREEITEM hItem, BOOL forceRefresh)
                                dirEntries[i].FullPath, dirEntries[i].FullPath, NULL, TRUE) != NULL)
             hasChildren = TRUE;
     }
-    for (i = 0; i < fileCount; i++)
-    {
-        if (InsertTreeViewItem(HTreeView, hItem, fileEntries[i].Name, tvntFile,
-                               fileEntries[i].FullPath, itemPath, fileEntries[i].Name, FALSE) != NULL)
-            hasChildren = TRUE;
-    }
+    // Note: file entries are not inserted into the tree view. The tree view only shows
+    // directories for performance (avoids SHGetFileInfo + InsertTreeViewItem per file).
 
     if (expanded.Count > 0)
         RestoreExpandedTreeViewPaths(this, hItem, &expanded);
     FreeExpandedTreeViewPaths(&expanded);
 
     free(dirEntries);
-    free(fileEntries);
 
     itemData->Populated = TRUE;
-    // File items are children too; keep folders that contain only files expandable.
     SetTreeViewItemChildren(HTreeView, hItem, hasChildren ? 1 : 0);
     return hasChildren;
 }
@@ -1970,6 +2049,9 @@ CFilesWindow::CFilesWindow(CMainWindow* parent, CPanelSide side)
     HTreeHeaderToolTip = NULL;
     HTreeSplit = NULL;
     TreeViewAutoHideExpanded = FALSE;
+    TreeViewAsyncLoadThread = NULL;
+    TreeViewAsyncTerminateEvent = HANDLES(CreateEvent(NULL, TRUE, FALSE, NULL)); // manual reset
+    TreeViewAsyncLoadData = NULL;
     StatusLineVisible = TRUE;
     DirectoryLineVisible = TRUE;
     HeaderLineVisible = TRUE;
@@ -2087,6 +2169,22 @@ CFilesWindow::~CFilesWindow()
         delete WorkDirHistory;
     if (PathHistory != NULL)
         delete PathHistory;
+
+    if (TreeViewAsyncLoadThread != NULL)
+    {
+        if (TreeViewAsyncLoadData != NULL)
+            ((CTreeViewAsyncLoadData*)TreeViewAsyncLoadData)->Cancelled = TRUE;
+        SetEvent(TreeViewAsyncTerminateEvent);
+        if (WaitForSingleObject(TreeViewAsyncLoadThread, 2000) == WAIT_TIMEOUT)
+        {
+            TRACE_E("Terminating TreeView Async Thread");
+            TerminateThread(TreeViewAsyncLoadThread, 666);
+            WaitForSingleObject(TreeViewAsyncLoadThread, INFINITE);
+        }
+        HANDLES(CloseHandle(TreeViewAsyncLoadThread));
+    }
+    if (TreeViewAsyncTerminateEvent != NULL)
+        HANDLES(CloseHandle(TreeViewAsyncTerminateEvent));
 
     if (IconCacheThread != NULL)
     {
