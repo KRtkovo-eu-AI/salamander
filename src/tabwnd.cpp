@@ -1965,6 +1965,37 @@ void CTabWindow::PaintCustomTabs(HDC hdc, const RECT* clipRect) const
         }
         DrawColoredTab(hdc, itemRect, drawText, baseColor, isSelected, isHot, hasFocus, hasCustomColor, i, selected);
     }
+
+    // Draw separator lines between tabs (not after the last tab or the new-tab button).
+    COLORREF separatorColor;
+    if (useDark)
+    {
+        if (CurrentColors != NULL)
+            separatorColor = GetCOLORREF(CurrentColors[ITEM_BK_FOCUSED]);
+        else
+            separatorColor = DarkModeGetDialogBackgroundColor();
+    }
+    else
+        separatorColor = GetSysColor(COLOR_BTNSHADOW);
+
+    HPEN hSepPen = CreatePen(PS_SOLID, 1, separatorColor);
+    if (hSepPen != NULL)
+    {
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hSepPen);
+        for (int i = 0; i < total - 1; ++i)
+        {
+            RECT itemRect;
+            if (!TabCtrl_GetItemRect(HWindow, i, &itemRect))
+                continue;
+            if (IsNewTabButtonIndex(i))
+                continue;
+            int x = itemRect.right - 1;
+            MoveToEx(hdc, x, itemRect.top, NULL);
+            LineTo(hdc, x, itemRect.bottom);
+        }
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hSepPen);
+    }
 }
 
 void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* text, COLORREF baseColor,
