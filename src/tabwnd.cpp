@@ -1141,20 +1141,19 @@ void CTabWindow::UpdateInsertMarkRect()
         {
             RECT indicatorRect = itemRect;
 
-            int verticalMargin = EnvFontCharHeight / 6;
-            if (verticalMargin < 2)
-                verticalMargin = 2;
-            if (verticalMargin * 2 >= (indicatorRect.bottom - indicatorRect.top))
-                verticalMargin = 0;
-
-            indicatorRect.top += verticalMargin;
-            indicatorRect.bottom -= verticalMargin;
+            int verticalOversize = EnvFontCharHeight / 3;
+            if (verticalOversize < 4)
+                verticalOversize = 4;
+            indicatorRect.top -= verticalOversize;
+            indicatorRect.bottom += verticalOversize;
 
             int indicatorWidth = EnvFontCharHeight / 4;
             if (indicatorWidth < 4)
                 indicatorWidth = 4;
             if (indicatorWidth > 12)
                 indicatorWidth = 12;
+            if (DarkModeShouldUseDarkColors())
+                indicatorWidth = indicatorWidth * 3 / 2;
 
             int center = (DragInsertMarkFlags == TCIMF_AFTER) ? itemRect.right : itemRect.left;
             indicatorRect.left = center - indicatorWidth / 2;
@@ -1204,18 +1203,9 @@ void CTabWindow::PaintDragIndicator(HDC hdc) const
         return;
 
     const bool useDark = DarkModeShouldUseDarkColors();
-    COLORREF baseColor;
-    if (useDark)
-    {
-        if (CurrentColors != NULL)
-            baseColor = GetCOLORREF(CurrentColors[ITEM_BK_SELECTED]);
-        else
-            baseColor = DarkModeGetDialogTextColor();
-    }
-    else
-        baseColor = GetSysColor(COLOR_HIGHLIGHT);
-    COLORREF fillColor = LightenColor(baseColor, useDark ? 48 : 96);
-    COLORREF borderColor = DarkenColor(baseColor, useDark ? 32 : 64);
+    COLORREF baseColor = GetSysColor(COLOR_HIGHLIGHT);
+    COLORREF fillColor = LightenColor(baseColor, useDark ? 80 : 96);
+    COLORREF borderColor = DarkenColor(baseColor, useDark ? 64 : 64);
 
     HBRUSH fillBrush = CreateSolidBrush(fillColor);
     if (fillBrush != NULL)
@@ -2416,8 +2406,6 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (newCloseHover >= 0)
                 InvalidateTab(newCloseHover);
         }
-        break;
-    }
         if (DragTracking)
         {
             POINTS pts = MAKEPOINTS(lParam);
@@ -2427,6 +2415,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             UpdateDragTracking(pt);
         }
         break;
+    }
 
     case WM_LBUTTONUP:
     {
