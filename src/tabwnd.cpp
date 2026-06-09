@@ -1968,7 +1968,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
         DeleteObject(brush);
     }
 
-    if (selected)
+    if (selected && Configuration.TabActiveBorder)
     {
         COLORREF borderColor;
         if (hasCustomColor)

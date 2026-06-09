@@ -3756,6 +3756,7 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
 
     ti.EditLine(IDC_TABS_MINWIDTH, Configuration.TabButtonMinWidth);
     ti.EditLine(IDC_TABS_MAXWIDTH, Configuration.TabButtonMaxWidth);
+    ti.CheckBox(IDC_TABS_ACTIVEBORDER, Configuration.TabActiveBorder);
 
     if (ti.Type == ttDataToWindow)
     {

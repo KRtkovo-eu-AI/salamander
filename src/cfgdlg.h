@@ -487,6 +487,7 @@ struct CConfiguration
     int TabButtonMinWidth;                       // minimalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
     int TabButtonMaxWidth;                       // maximalni sirka tlacitka tabu v device-independent pixelech (dp) (0 = bez omezeni)
     int TabCaptionAlignment;                     // zarovnani titulku tlacitek tabu (TAB_CAPTION_ALIGN_xxx)
+    int TabActiveBorder;                         // zobrazit barevnou linku na hornim okraji aktivniho tabu
     int UseTitleBarPrefix;                       // should prefix be shown in the title bar?
     char TitleBarPrefix[TITLE_PREFIX_MAX];       // prefix for the title bar
     int UseTitleBarPrefixForced;                 // command-line variant has priority and is not saved

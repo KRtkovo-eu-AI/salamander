@@ -507,6 +507,7 @@ const char* CONFIG_TABCAPTIONMODE_REG = "Tab caption mode";
 const char* CONFIG_TABCAPTIONALIGNMENT_REG = "Tab caption alignment";
 const char* CONFIG_TABMINWIDTH_REG = "Tab min width";
 const char* CONFIG_TABMAXWIDTH_REG = "Tab max width";
+const char* CONFIG_TABACTIVEBORDER_REG = "Tab active border";
 const char* CONFIG_TITLEBARPREFIX_REG = "Title bar prefix";
 const char* CONFIG_TITLEBARPREFIXTEXT_REG = "Title bar prefix text";
 const char* CONFIG_MAINWINDOWICONINDEX_REG = "Main window icon index";
@@ -2192,6 +2193,8 @@ void CMainWindow::SaveConfig(HWND parent)
                                           : 0;
                 SetValue(actKey, CONFIG_TABMINWIDTH_REG, REG_DWORD, &tabMinWidth, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TABMAXWIDTH_REG, REG_DWORD, &tabMaxWidth, sizeof(DWORD));
+                SetValue(actKey, CONFIG_TABACTIVEBORDER_REG, REG_DWORD,
+                         &Configuration.TabActiveBorder, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                          &Configuration.UseTitleBarPrefix, sizeof(DWORD));
                 SetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
@@ -3954,6 +3957,11 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             if (Configuration.TabButtonMinWidth > 0 && Configuration.TabButtonMaxWidth > 0 &&
                 Configuration.TabButtonMinWidth > Configuration.TabButtonMaxWidth)
                 Configuration.TabButtonMinWidth = Configuration.TabButtonMaxWidth;
+            if (!GetValue(actKey, CONFIG_TABACTIVEBORDER_REG, REG_DWORD,
+                          &Configuration.TabActiveBorder, sizeof(DWORD)))
+            {
+                Configuration.TabActiveBorder = TRUE;
+            }
             GetValue(actKey, CONFIG_TITLEBARPREFIX_REG, REG_DWORD,
                      &Configuration.UseTitleBarPrefix, sizeof(DWORD));
             GetValue(actKey, CONFIG_TITLEBARPREFIXTEXT_REG, REG_SZ,
