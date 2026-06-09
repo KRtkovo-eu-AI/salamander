@@ -10,6 +10,7 @@
 #include "fileswnd.h"
 #include "usermenu.h"
 #include "mainwnd.h"
+#include "tabwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
 #include "execute.h"
@@ -1494,7 +1495,29 @@ void CMainWindow::ChangePanel(BOOL force)
         if (IsPanelZoomed(TRUE) || IsPanelZoomed(FALSE))
         {
             if (IsPanelZoomed(TRUE))
-                SplitPosition = 0.0;
+            {
+                int splitWidth = GetSplitBarWidth();
+                int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+                int treeLeftWidth = 0;
+                if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+                {
+                    int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
+                    if (LeftTabWindow != NULL)
+                        treeHeaderH = LeftTabWindow->GetNeededHeight();
+                    if (Configuration.TreeViewAutoHide)
+                        treeLeftWidth = treeHeaderH;
+                    else
+                        treeLeftWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth) + 4;
+                }
+                if (totalPanelsWidth > 0)
+                {
+                    SplitPosition = (double)(treeLeftWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
+                    if (SplitPosition < 0.001)
+                        SplitPosition = 0.001;
+                }
+                else
+                    SplitPosition = 0.0;
+            }
             else
                 SplitPosition = 1.0;
             KeepSplitPositionCenteredOnVisiblePanes = FALSE;

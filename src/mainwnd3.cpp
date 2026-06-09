@@ -2884,7 +2884,33 @@ BOOL CMainWindow::IsPanelZoomed(BOOL leftPanel)
     if (leftPanel)
         return SplitPosition >= 0.99;
     else
-        return SplitPosition <= 0.01;
+    {
+        double minSplitForTree = 0.0;
+        if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
+        {
+            int splitWidth = GetSplitBarWidth();
+            int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+            if (totalPanelsWidth > 0)
+            {
+                int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
+                if (LeftTabWindow != NULL)
+                    treeHeaderH = LeftTabWindow->GetNeededHeight();
+                int treeLeftWidth = 0;
+                if (Configuration.TreeViewAutoHide)
+                    treeLeftWidth = treeHeaderH;
+                else
+                    treeLeftWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth) + 4;
+                if (treeLeftWidth > 0)
+                {
+                    int splitPosNum = treeLeftWidth + 1 - splitWidth;
+                    if (splitPosNum < 1)
+                        splitPosNum = 1;
+                    minSplitForTree = (double)splitPosNum / (totalPanelsWidth + 1);
+                }
+            }
+        }
+        return SplitPosition <= 0.001 || (minSplitForTree > 0.001 && SplitPosition <= minSplitForTree + 0.0001);
+    }
 }
 
 void CMainWindow::ToggleSmartColumnMode(CFilesWindow* panel)
@@ -6945,19 +6971,50 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 BeforeZoomSplitPosition = SplitPosition;
                 KeepSplitPositionCenteredOnVisiblePanes = FALSE;
-                if (LOWORD(wParam) == CM_ACTIVEZOOMPANEL)
+                int splitWidth = GetSplitBarWidth();
+                int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+                int treeLeftWidth = 0;
+                if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
                 {
-                    if (activePanel == LeftPanel)
-                        SplitPosition = 1.0;
+                    int treeHeaderH = LeftPanel->GetTreeViewHeaderHeight();
+                    if (LeftTabWindow != NULL)
+                        treeHeaderH = LeftTabWindow->GetNeededHeight();
+                    if (Configuration.TreeViewAutoHide)
+                        treeLeftWidth = treeHeaderH;
                     else
-                        SplitPosition = 0.0;
+                        treeLeftWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth) + 4; // +TREEVIEW_SPLITTER_WIDTH
                 }
-                else
-                {
-                    if (LOWORD(wParam) == CM_LEFTZOOMPANEL)
-                        SplitPosition = 1.0;
+                    if (LOWORD(wParam) == CM_ACTIVEZOOMPANEL)
+                    {
+                        if (activePanel == LeftPanel)
+                            SplitPosition = 1.0;
+                        else
+                        {
+                            if (totalPanelsWidth > 0)
+                            {
+                                SplitPosition = (double)(treeLeftWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
+                                if (SplitPosition < 0.001)
+                                    SplitPosition = 0.001;
+                            }
+                            else
+                                SplitPosition = 0.0;
+                        }
+                    }
                     else
-                        SplitPosition = 0.0;
+                    {
+                        if (LOWORD(wParam) == CM_LEFTZOOMPANEL)
+                            SplitPosition = 1.0;
+                        else
+                        {
+                            if (totalPanelsWidth > 0)
+                            {
+                                SplitPosition = (double)(treeLeftWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
+                                if (SplitPosition < 0.001)
+                                    SplitPosition = 0.001;
+                            }
+                        else
+                            SplitPosition = 0.0;
+                    }
                 }
             }
             LayoutWindows();
@@ -8110,6 +8167,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (MiddleToolBar->HWindow != NULL)
             middleToolbarWidth = MiddleToolBar->GetNeededWidth();
 
+        int totalPanelsWidth = WindowWidth - 2 - splitWidth;
+        if (totalPanelsWidth < 0)
+            totalPanelsWidth = 0;
+
+        bool rightZoomed = IsPanelZoomed(FALSE);
+
         // Calculate Tree View dimensions first. An auto-hidden Tree View reserves only
         // its vertical header strip; while expanded, its full width floats over the panels.
         int treeWidth = 0;
@@ -8132,8 +8195,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 tempRightWidth = MIN_WIN_WIDTH;
                 tempLeftWidth = WindowWidth - 2 - tempRightWidth - splitWidth;
             }
-            treeDisplayWidth = LeftPanel->GetTreeViewWidth(Configuration.TreeViewAutoHide ? WindowWidth : tempLeftWidth);
+            if (Configuration.TreeViewAutoHide)
+                treeDisplayWidth = LeftPanel->GetTreeViewWidth(WindowWidth);
+            else
+                treeDisplayWidth = LeftPanel->GetTreeViewWidth(totalPanelsWidth);
             treeAutoHideExpanded = Configuration.TreeViewAutoHide && LeftPanel->TreeViewAutoHideExpanded;
+
             if (Configuration.TreeViewAutoHide)
                 treeWidth = treeHeaderHeight;
             else
@@ -8141,14 +8208,21 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 treeWidth = treeDisplayWidth;
                 treeSplitWidth = 4; // TREEVIEW_SPLITTER_WIDTH
             }
+
+            // When right panel is zoomed, position the split bar right after
+            // tree + splitter so the right panel starts exactly where left panel
+            // content would start, preventing left panel bleed and flickering.
+            if (rightZoomed && totalPanelsWidth > 0)
+            {
+                SplitPosition = (double)(treeWidth + treeSplitWidth + 1 - splitWidth) / (totalPanelsWidth + 1);
+                if (SplitPosition < 0.001)
+                    SplitPosition = 0.001;
+            }
         }
 
         // Calculate split widths accounting for treeview:
         // The treeview is part of the left side, so the split ratio applies to
         // (leftPanelContent + treeview + splitter) vs (rightPanel)
-        int totalPanelsWidth = WindowWidth - 2 - splitWidth;
-        if (totalPanelsWidth < 0)
-            totalPanelsWidth = 0;
         int leftTotalWidth = (int)((totalPanelsWidth + 1) * SplitPosition) - 1;
         if (leftTotalWidth < MIN_WIN_WIDTH)
             leftTotalWidth = MIN_WIN_WIDTH;
@@ -8162,7 +8236,26 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         if (panelLeftWidth < 0)
             panelLeftWidth = 0;
 
-        SplitPositionPix = 1 + leftTotalWidth;
+        // When left panel is zoomed (SplitPosition >= 1.0), extend left panel content
+        // to cover the split bar area and one extra pixel, preventing the split bar
+        // from flickering at the right edge.
+        if (SplitPosition >= 1.0)
+            panelLeftWidth += splitWidth + 1;
+
+        // When right panel is zoomed and no tree view is active, override the split
+        // bar position so the right panel starts at x=1 (matching the left panel's
+        // left edge when tree view is off). With tree view active, the natural
+        // computation already places the right panel right after tree+splitter.
+        if (rightZoomed && treeWidth == 0 && treeSplitWidth == 0)
+        {
+            SplitPositionPix = 1 - splitWidth;
+            rightWidth = totalPanelsWidth + splitWidth;
+            panelLeftWidth = 0;
+        }
+        else
+        {
+            SplitPositionPix = 1 + leftTotalWidth;
+        }
 
         TopRebarHeight = 0;
         BottomToolBarHeight = 0;
@@ -8232,15 +8325,18 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             // Position the Tree View on the left. The expanded auto-hide panel is
             // deliberately placed above the work panels without changing their layout.
+            // When right panel is zoomed, tree must also be HWND_TOP to stay visible
+            // above the right panel which extends to x=1.
+            BOOL treeOnTop = Configuration.TreeViewAutoHide || rightZoomed;
             if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
             {
                 BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
                 int headerWidth = collapsed ? treeWidth : treeDisplayWidth;
                 int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader,
-                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              treeOnTop ? HWND_TOP : NULL,
                                               1, TopRebarHeight, headerWidth, headerHeight,
-                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) | SWP_SHOWWINDOW));
+                                              SWP_NOACTIVATE | (treeOnTop ? 0 : SWP_NOZORDER) | SWP_SHOWWINDOW));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
             {
@@ -8249,9 +8345,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     treeViewHeight = 0;
                 BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView,
-                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              treeOnTop ? HWND_TOP : NULL,
                                               1, TopRebarHeight + treeHeaderHeight, treeDisplayWidth, treeViewHeight,
-                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) |
+                                              SWP_NOACTIVATE | (treeOnTop ? 0 : SWP_NOZORDER) |
                                                   (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeSplit != NULL && LeftPanel->TreeViewActive)
@@ -8259,9 +8355,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
                 int displaySplitWidth = show ? 4 : 0;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeSplit,
-                                              Configuration.TreeViewAutoHide ? HWND_TOP : NULL,
+                                              treeOnTop ? HWND_TOP : NULL,
                                               1 + treeDisplayWidth, TopRebarHeight, displaySplitWidth, PanelsHeight,
-                                              SWP_NOACTIVATE | (Configuration.TreeViewAutoHide ? 0 : SWP_NOZORDER) |
+                                              SWP_NOACTIVATE | (treeOnTop ? 0 : SWP_NOZORDER) |
                                                   (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
 
