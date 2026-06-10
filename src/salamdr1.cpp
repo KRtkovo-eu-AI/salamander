@@ -3449,7 +3449,7 @@ void ColorsChanged(BOOL refresh, BOOL colorsOnly, BOOL reloadUMIcons)
         COLORSCHEME cs;
         cs.dwSize = sizeof(cs);
         cs.clrBtnHighlight = useDarkColors ? DarkenColor(rebarColor, 18) : GetSysColor(COLOR_3DHILIGHT);
-        cs.clrBtnShadow = useDarkColors ? DarkenColor(rebarColor, 38) : GetSysColor(COLOR_3DSHADOW);
+        cs.clrBtnShadow = useDarkColors ? RGB(56, 56, 56) : GetSysColor(COLOR_3DSHADOW);
         SendMessage(MainWindow->HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&cs);
         MainWindow->UpdateRebarVisuals();
     }
