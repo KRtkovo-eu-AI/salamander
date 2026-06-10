@@ -13,7 +13,7 @@ struct CCompareOptions
     // Consider all files as text files.
     int ForceText;
 
-    // Consider all files as binaty files.
+    // Consider all files as binary files.
     int ForceBinary;
 
     // Ignore changes in horizontal white space.
@@ -22,7 +22,7 @@ struct CCompareOptions
     // Ignore all horizontal white space.
     int IgnoreAllSpace;
 
-    // zahrnuto do ingnore space change
+    // included in ignore-space-change processing
     // Ignore changes that affect only blank lines.
     //int IgnoreBlankLines;
 
@@ -73,9 +73,9 @@ struct CChange
         struct
         {
             size_t Deleted;   // Length of subsequence deleted from the first sequence.
-            size_t Inserted;  // Length of subsequence inserted to the seccond sequence.
+            size_t Inserted;  // Length of subsequence inserted to the second sequence.
             size_t DeletePos; // Position in the first sequence.
-            size_t InsertPos; // Position in the seccond sequence.
+            size_t InsertPos; // Position in the second sequence.
         };
         struct
         {
@@ -275,26 +275,26 @@ struct CWorkerFileData
 class CFilecompWorker : public CThread
 {
 public:
-    // obecna chyba
+    // generic failure
     class CException : public std::exception
     {
     public:
         CException(const char* s = "Unspecified Error.") : exception(s) {}
         static void Raise(int error, int lastError, ...);
     };
-    // ukonceno uzivatelem
+    // aborted by the user
     class CAbortByUserException : public std::exception
     {
     public:
         CAbortByUserException() : exception("") {}
     };
-    // soubory jsou stejny
+    // files are identical
     class CFilesDontDifferException : public std::exception
     {
     public:
         CFilesDontDifferException() : exception("") {}
     };
-    // soubory jsou stejny
+    // files are identical
     class CAllDiffsIgnoredException : public std::exception
     {
     public:
@@ -308,7 +308,7 @@ protected:
     HWND Parent;
     HWND MainWindow; // The window receiving WM_USER_WORKERNOTIFIES
     CCompareOptions Options;
-    const int& CancelFlag; // 0 ... jedeme dal, jinak konec
+    const int& CancelFlag; // 0 ... keep going, any other value terminates the worker
     HANDLE Event;
 
     CWorkerFileData Files[2];

@@ -1,12 +1,13 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "color.h"
 
-// Konverze barevnych prostoru RGB<->HSL
-// HSL prostor viz http://en.wikipedia.org/wiki/HSL_color_space
-// Rutiny viz "How To Converting Colors Between RGB and HLS (HBS)"
+// RGB<->HSL color space conversion
+// HSL space see http://en.wikipedia.org/wiki/HSL_color_space
+// Routines taken from "How To Converting Colors Between RGB and HLS (HBS)"
 //            http://support.microsoft.com/kb/q29240/
 
 // A point of reference for the algorithms is Foley and Van Dam,
@@ -35,7 +36,7 @@ void ColorRGBToHLS(COLORREF clrRGB, WORD* pwHue, WORD* pwLuminance, WORD* pwSatu
     int h, l, s;     // output HLS values
     WORD cMax, cMin; // max and min RGB values
     WORD cSum, cDif;
-    int rDelta, gDelta, bDelta; // intermediate value: % of spread from max
+    int rDelta, gDelta, bDelta; // intermediate value: % of the spread from the maximum
 
     // get R, G, and B out of DWORD
     r = GetRValue(clrRGB);
@@ -94,7 +95,7 @@ WORD HueToRGB(WORD n1, WORD n2, WORD hue)
     if (hue > HLSMAX)
         hue -= HLSMAX;
 
-    // return r,g, or b value from this tridrant
+    // return the r, g, or b value for this hue segment
     if (hue < (HLSMAX / 6))
         return (n1 + (((n2 - n1) * hue + (HLSMAX / 12)) / (HLSMAX / 6)));
     if (hue < (HLSMAX / 2))
@@ -108,7 +109,7 @@ WORD HueToRGB(WORD n1, WORD n2, WORD hue)
 COLORREF ColorHLSToRGB(WORD wHue, WORD wLuminance, WORD wSaturation)
 {
     WORD r, g, b;        // RGB component values
-    WORD magic1, magic2; // calculated magic numbers (really!)
+    WORD magic1, magic2; // computed magic numbers
 
     if (wSaturation == 0)
     { // achromatic case

@@ -138,7 +138,7 @@ BOOL CData::SaveStrings(HANDLE hUpdateRes)
         }
 
         BOOL result = TRUE;
-        if (strData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // resource neni "neutral", musime ho smaznout, aby ve vyslednem .SLG nebyly stringy dva
+        if (strData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Remove non-neutral resource to avoid duplicating strings in the final .SLG
         {
             result = UpdateResource(hUpdateRes, RT_STRING, MAKEINTRESOURCE(strData->ID),
                                     strData->TLangID,
@@ -186,7 +186,7 @@ int CData::FindStrData(WORD id)
 
 BOOL CData::FindStringWithID(WORD id, int* index, int* subIndex, int* lvIndex)
 {
-    // prohledame strings
+    // Search strings.
     for (int i = 0; i < StrData.Count; i++)
     {
         CStrData* strData = StrData[i];
@@ -218,7 +218,7 @@ BOOL CData::FindStringWithID(WORD id, int* index, int* subIndex, int* lvIndex)
 
 BOOL CData::GetStringWithID(WORD id, wchar_t* buf, int bufSize)
 {
-    // prohledame strings
+    // Search strings.
     for (int i = 0; i < StrData.Count; i++)
     {
         CStrData* strData = StrData[i];

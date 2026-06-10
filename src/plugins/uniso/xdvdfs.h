@@ -5,7 +5,7 @@
 
 #include "fs.h"
 
-// Some elementera info on Xbox DVD format can be found here: http://home.comcast.net/~admiral_powerslave/dvddrives.html
+// Some basic info on Xbox DVD format can be found here: http://home.comcast.net/~admiral_powerslave/dvddrives.html
 
 #define XBOX_DESCRIPTOR "MICROSOFT*XBOX*MEDIA"
 
@@ -14,7 +14,7 @@
 // CXDVDFS
 //
 
-/* typy */
+/* types */
 #define Uint8 BYTE
 #define Uint16 WORD
 #define Uint32 DWORD
@@ -44,7 +44,7 @@ protected:
 public:
     CXDVDFS(CISOImage* image, DWORD extent);
     virtual ~CXDVDFS();
-    // metody
+    // methods
 
     virtual BOOL Open(BOOL quiet);
     virtual BOOL DumpInfo(FILE* outStream);

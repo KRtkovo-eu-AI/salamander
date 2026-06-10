@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "dbg.h"
@@ -99,7 +100,7 @@ BOOL CCHMFile::Open(const char* fileName, BOOL quiet /* = FALSE*/)
         }
         else
         {
-            // can not obtain last write, use current time
+            // cannot obtain the last write time; use the current time
             SYSTEMTIME st;
             GetLocalTime(&st);
             SystemTimeToFileTime(&st, &FileTime);
@@ -173,7 +174,7 @@ BOOL CCHMFile::AddFileDir(struct chmUnitInfo* ui, CSalamanderDirectoryAbstract* 
     fd.NameLen = strlen(fd.Name);
     char* s = strrchr(fd.Name, '.');
     if (s != NULL)
-        fd.Ext = s + 1; // ".cvspass" ve Windows je pripona
+        fd.Ext = s + 1; // ".cvspass" is an extension in Windows
     else
         fd.Ext = fd.Name + fd.NameLen;
 
@@ -192,12 +193,12 @@ BOOL CCHMFile::AddFileDir(struct chmUnitInfo* ui, CSalamanderDirectoryAbstract* 
 
     fd.DosName = NULL;
 
-    fd.Attr = FILE_ATTRIBUTE_READONLY; // vse je defaultne read-only
+    fd.Attr = FILE_ATTRIBUTE_READONLY; // everything is read-only by default
     fd.Hidden = 0;
 
     fd.Size.SetUI64(ui->length);
 
-    // soubor
+    // file
     fd.IsLink = SalamanderGeneral->IsFileLink(fd.Ext);
     fd.IsOffline = 0;
     if (dir && !dir->AddFile(path, fd, pluginData))
@@ -240,7 +241,7 @@ BOOL CCHMFile::EnumObjects(CSalamanderDirectoryAbstract* dir, CPluginDataInterfa
 
     SEnumObjHelper* helper = new SEnumObjHelper(this, dir, pluginData);
     ChmEnumerate(CHM, CHM_ENUMERATE_NORMAL, ChmEnumObjectsCallBack, (void*)helper);
-    // for DEBUG purposes
+    // For debugging
     //  ChmEnumerate(CHM, CHM_ENUMERATE_ALL, ChmEnumObjectsCallBack, (void *) helper);
     delete helper;
 
@@ -276,11 +277,11 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
     // set file time
     SetFileTime(file, &ft, &ft, &ft);
 
-    // celkova operace muze pokracovat dal. pouze skip
+    // the overall operation can continue; only skip this file
     if (toSkip)
         return UNPACK_ERROR;
 
-    // celkova operace nemuze pokracovat dal. cancel
+    // The overall operation cannot continue. Cancel.
     if (file == INVALID_HANDLE_VALUE)
         return UNPACK_CANCEL;
 
@@ -336,14 +337,14 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
             break;
         }
 
-        if (!salamander->ProgressAddSize((int)len, TRUE)) // delayedPaint==TRUE, abychom nebrzdili
+        if (!salamander->ProgressAddSize((int)len, TRUE)) // delayedPaint==TRUE so we do not slow the operation down
         {
             salamander->ProgressDialogAddText(LoadStr(IDS_CANCELOPER), FALSE);
             salamander->ProgressEnableCancel(FALSE);
 
             ret = UNPACK_CANCEL;
             whole = FALSE;
-            break; // preruseni akce
+            break; // interrupt the operation
         }
     } // while
 
@@ -356,14 +357,14 @@ int CCHMFile::ExtractObject(CSalamanderForOperationsAbstract* salamander, const 
         if (ret == UNPACK_OK)
             ret = UNPACK_CANCEL;
 
-        // protoze je vytvoren s read-only atributem, musime R attribut
-        // shodit, aby sel soubor smazat
+        // because the file is created with the read-only attribute, we must clear that attribute
+        // so the file can be deleted
         attrs &= ~FILE_ATTRIBUTE_READONLY;
         if (!SetFileAttributes(name, attrs))
             Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
 
-        // user zrusil operaci
-        // smazat po sobe neuplny soubor
+        // the user canceled the operation
+        // delete the incomplete file
         if (!DeleteFile(name))
             Error(LoadStr(IDS_CANT_DELETE_TEMP_FILE), GetLastError());
     }
@@ -380,16 +381,16 @@ BOOL CCHMFile::UnpackDir(const char* dirName, const CFileData* fileData)
         return UNPACK_ERROR;
 
     /*
-  DWORD attrs = fileData->Attr;
+      DWORD attrs = fileData->Attr;
 
-  // set attrs to dir
-  if (Options.ClearReadOnly)
-    // set ReadOnly Attribute
-    attrs &= ~FILE_ATTRIBUTE_READONLY;
+      // set attributes for the directory
+      if (Options.ClearReadOnly)
+        // clear the ReadOnly attribute
+        attrs &= ~FILE_ATTRIBUTE_READONLY;
 
-  if (!SetFileAttributes(dirName, attrs))
-    Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
-*/
+      if (!SetFileAttributes(dirName, attrs))
+        Error(LoadStr(IDS_CANT_SET_ATTRS), GetLastError());
+    */
 
     return UNPACK_OK;
 }
@@ -405,7 +406,7 @@ int CCHMFile::ExtractAllObjects(CSalamanderForOperationsAbstract* salamander, ch
     for (i = 0; i < count; i++)
     {
         CFileData const* file = dir->GetFile(i);
-        salamander->ProgressDialogAddText(file->Name, TRUE); // delayedPaint==TRUE, abychom nebrzdili
+        salamander->ProgressDialogAddText(file->Name, TRUE); // delayedPaint==TRUE so we do not slow down
 
         salamander->ProgressSetSize(CQuadWord(0, 0), CQuadWord(-1, -1), TRUE);
         salamander->ProgressSetTotalSize(file->Size + CQuadWord(1, 0), CQuadWord(-1, -1));

@@ -14,7 +14,7 @@ const TCHAR szToolTipWindowClass[] = TEXT("Zar.DM.ToolTip.WC");
 #define CS_DROPSHADOW 0x00020000
 #define SPI_GETDROPSHADOW 0x1024
 
-#define MAX_TYPELEN 80 //odpovida SHFILEINFO.szTypeName[80]
+#define MAX_TYPELEN 80 //matches SHFILEINFO.szTypeName[80]
 #define MAX_DATELEN 64
 #define MAX_SIZELEN 64
 
@@ -426,7 +426,7 @@ public:
 
         //Check normal font height
         GetTextExtentPoint32(hdc, TEXT("W"), 1, &sz);
-        this->_headerheight += sz.cy; //even when type string is empty add the space so the tooltip doesn't change its size unexpectedly
+        this->_headerheight += sz.cy; // reserve the space even when the type string is empty so the tooltip size does not change unexpectedly
 
         int dataheight = 0;
         for (int i = 0; i < TT_LINECOUNT; i++)
@@ -532,7 +532,7 @@ public:
             if (this->_hicon)
                 DestroyIcon(this->_hicon);
             this->_hicon = hicon;
-            this->Repaint(TRUE); //kresli se jen ikona pres prazdne misto
+            this->Repaint(TRUE); //only the icon is drawn over the empty space
         }
         else
         {

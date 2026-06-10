@@ -1,13 +1,14 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
-// FS-name pridelene Salamanderem po loadu pluginu
+// FS-name assigned by Salamander after loading the plugin
 char AssignedFSName[MAX_PATH] = "";
 
-// globalni promenne, do ktery si ulozim ukazatele na globalni promenne v Salamanderovi
-// pro archiv i pro FS - promenne se sdileji
+// global variables used to store pointers to Salamander's global variables
+// shared for both the archive and the FS
 const CFileData** TransferFileData = NULL;
 int* TransferIsDir = NULL;
 char* TransferBuffer = NULL;
@@ -17,7 +18,7 @@ CPluginDataInterfaceAbstract** TransferPluginDataIface = NULL;
 DWORD* TransferActCustomData = NULL;
 
 // ****************************************************************************
-// SEKCE FILE SYSTEMU
+// FILE SYSTEM SECTION
 // ****************************************************************************
 
 BOOL InitFS()
@@ -47,7 +48,7 @@ CPluginInterfaceForFS::OpenFS(const char* fsName, int fsNameIndex)
 void WINAPI
 CPluginInterfaceForFS::CloseFS(CPluginFSInterfaceAbstract* fs)
 {
-    CPluginFSInterface* dfsFS = (CPluginFSInterface*)fs; // aby se volal spravny destruktor
+    CPluginFSInterface* dfsFS = (CPluginFSInterface*)fs; // ensure the correct destructor is called
 
     ActiveFSCount--;
 
@@ -63,7 +64,7 @@ CPluginInterfaceForFS::ExecuteChangeDriveMenuItem(int panel)
 {
     CALL_STACK_MESSAGE2("CPluginInterfaceForFS::ExecuteChangeDriveMenuItem(%d)", panel);
 
-    //JR Zaciname v rootu
+    //JR Start at the root
     SalamanderGeneral->ChangePanelPathToPluginFS(panel, AssignedFSName, "\\"); //JR x:
 }
 
@@ -76,7 +77,7 @@ CPluginInterfaceForFS::ChangeDriveMenuItemContextMenu(HWND parent, int panel, in
 {
     CALL_STACK_MESSAGE7("CPluginInterfaceForFS::ChangeDriveMenuItemContextMenu(, %d, %d, %d, , %s, %d, %d, , , ,)",
                         panel, x, y, pluginFSName, pluginFSNameIndex, isDetachedFS);
-    //Windows Mobile plugin nema zadne contextove Change Drive menu
+    // The Windows Mobile plugin has no Change Drive context menu
     return FALSE;
 }
 
@@ -92,36 +93,36 @@ CPluginInterfaceForFS::ExecuteOnFS(int panel, CPluginFSInterfaceAbstract* plugin
                                    CFileData& file, int isDir)
 {
     CPluginFSInterface* fs = (CPluginFSInterface*)pluginFS;
-    if (isDir) // podadresar nebo up-dir
+    if (isDir) // subdirectory or up-dir
     {
         char newPath[MAX_PATH];
         strcpy(newPath, fs->Path);
 
-        if (isDir == 2) // up-dir
+        if (isDir == 2) // parent directory
         {
             char* cutDir = NULL;
-            if (SalamanderGeneral->CutDirectory(newPath, &cutDir)) // zkratime cestu o posl. komponentu
+            if (SalamanderGeneral->CutDirectory(newPath, &cutDir)) // remove the last component from the path
             {
-                int topIndex; // pristi top-index, -1 -> neplatny
+                int topIndex; // next top index, -1 -> invalid
                 if (!fs->TopIndexMem.FindAndPop(newPath, topIndex))
                     topIndex = -1;
-                // zmenime cestu v panelu
+                // change the panel path
                 SalamanderGeneral->ChangePanelPathToPluginFS(panel, pluginFSName, newPath, NULL,
                                                              topIndex, cutDir);
             }
         }
-        else // podadresar
+        else // subdirectory
         {
-            // zaloha udaju pro TopIndexMem (backupPath + topIndex)
+            // backup of data for TopIndexMem (backupPath + topIndex)
             char backupPath[MAX_PATH];
             strcpy(backupPath, newPath);
             int topIndex = SalamanderGeneral->GetPanelTopIndex(panel);
 
             if (CRAPI::PathAppend(newPath, file.Name, MAX_PATH))
             {
-                // zmenime cestu v panelu
+                // change the panel path
                 if (SalamanderGeneral->ChangePanelPathToPluginFS(panel, pluginFSName, newPath))
-                    fs->TopIndexMem.Push(backupPath, topIndex); // zapamatujeme top-index pro navrat
+                    fs->TopIndexMem.Push(backupPath, topIndex); // remember the top index for returning
             }
         }
     }
@@ -204,7 +205,7 @@ CPluginInterfaceForFS::DisconnectFS(HWND parent, BOOL isInPanel, int panel,
 
 void CTopIndexMem::Push(const char* path, int topIndex)
 {
-    // zjistime, jestli path navazuje na Path (path==Path+"\\jmeno")
+    // determine whether the path follows Path (path==Path+"\\name")
     const char* s = path + strlen(path);
     if (s > path && *(s - 1) == '\\')
         s--;
@@ -224,9 +225,9 @@ void CTopIndexMem::Push(const char* path, int topIndex)
         ok = s - path == l && SalamanderGeneral->StrNICmp(path, Path, l) == 0;
     }
 
-    if (ok) // navazuje -> zapamatujeme si dalsi top-index
+    if (ok) // matches -> remember the next top index
     {
-        if (TopIndexesCount == TOP_INDEX_MEM_SIZE) // je potreba vyhodit z pameti prvni top-index
+        if (TopIndexesCount == TOP_INDEX_MEM_SIZE) // need to discard the oldest top index
         {
             int i;
             for (i = 0; i < TOP_INDEX_MEM_SIZE - 1; i++)
@@ -236,7 +237,7 @@ void CTopIndexMem::Push(const char* path, int topIndex)
         strcpy(Path, path);
         TopIndexes[TopIndexesCount++] = topIndex;
     }
-    else // nenavazuje -> prvni top-index v rade
+    else // path does not match -> first top index in the sequence
     {
         strcpy(Path, path);
         TopIndexesCount = 1;
@@ -246,7 +247,7 @@ void CTopIndexMem::Push(const char* path, int topIndex)
 
 BOOL CTopIndexMem::FindAndPop(const char* path, int& topIndex)
 {
-    // zjistime, jestli path odpovida Path (path==Path)
+    // determine whether the path corresponds to Path (path==Path)
     int l1 = (int)strlen(path);
     if (l1 > 0 && path[l1 - 1] == '\\')
         l1--;
@@ -268,13 +269,13 @@ BOOL CTopIndexMem::FindAndPop(const char* path, int& topIndex)
             topIndex = TopIndexes[--TopIndexesCount];
             return TRUE;
         }
-        else // tuto hodnotu jiz nemame (nebyla ulozena nebo mala pamet->byla vyhozena)
+        else // value not stored anymore (never saved or low memory -> was discarded)
         {
             Clear();
             return FALSE;
         }
     }
-    else // dotaz na jinou cestu -> vycistime pamet, doslo k dlouhemu skoku
+    else // query for a different path -> clear memory, a long jump occurred
     {
         Clear();
         return FALSE;

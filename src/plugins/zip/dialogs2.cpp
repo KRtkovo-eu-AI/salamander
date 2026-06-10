@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include <crtdbg.h>
@@ -130,7 +131,7 @@ CAdvancedSEDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SalamanderGeneral->OpenHtmlHelp(Dlg, HHCDisplayContext, IDD_ADVANCEDSE, FALSE);
             return TRUE;
 
-        //spec dir menu
+        //special directory menu
         case CM_TEMP:
         case CM_PROGFILES:
         case CM_WINDIR:
@@ -360,7 +361,7 @@ BOOL CAdvancedSEDialog::OnTargetDir(WORD wNotifyCode, WORD wID, HWND hwndCtl)
     {
         char buffer[2 * MAX_PATH];
         SendDlgItemMessage(Dlg, IDC_TARGETDIR, WM_GETTEXT, 2 * MAX_PATH, (LPARAM)buffer);
-        //orezeme mezery na konci
+        // trim trailing spaces
         char* sour = buffer + lstrlen(buffer);
         while (--sour >= buffer && *sour == ' ')
             ;
@@ -706,16 +707,16 @@ BOOL CAdvancedSEDialog::OnOK(WORD wNotifyCode, WORD wID, HWND hwndCtl)
 BOOL CAdvancedSEDialog::GetSettings(CSfxSettings* sfxSettings)
 {
     CALL_STACK_MESSAGE1("CAdvancedSEDialog::GetSettings()");
-    CSfxSettings settings = TmpSfxSettings; // aby se zkopirovalo jmeno
-    //settings = *sfxSettings;// to abychom si neprepsaly IconFile a IconIndex
+    CSfxSettings settings = TmpSfxSettings; // so that the name gets copied
+    //settings = *sfxSettings;// to avoid overwriting IconFile and IconIndex
     settings.Flags = 0;
     SendDlgItemMessage(Dlg, IDC_TARGETDIR, WM_GETTEXT, 2 * MAX_PATH, (LPARAM)settings.TargetDir);
-    //orezeme mezery na konci
+    // trim trailing spaces
     char* sour = settings.TargetDir + lstrlen(settings.TargetDir);
     while (--sour >= settings.TargetDir && *sour == ' ')
         ;
     sour[1] = 0;
-    //overime syntax
+    // verify the syntax
     DWORD ret = ParseTargetDir(settings.TargetDir, NULL, NULL, NULL, NULL, NULL);
     if (ret)
     {
@@ -787,14 +788,14 @@ BOOL CAdvancedSEDialog::GetSettings(CSfxSettings* sfxSettings)
     return TRUE;
 }
 
-// porovna dva stringy a ignoruje sigle '&'
+// compares two strings and ignores single '&'
 int CompareMenuItems(char* name1, char* name2)
 {
     CALL_STACK_MESSAGE1("CompareMenuItems(, )");
     char buf1[MAX_FAVNAME];
     char buf2[MAX_FAVNAME];
 
-    //odstranime single '&'
+    // remove single '&'
     char* sour = name1;
     char* dest = buf1;
 
@@ -814,23 +815,23 @@ int CompareMenuItems(char* name1, char* name2)
 
     return SalamanderGeneral->StrICmp(buf1, buf2);
 
-    /* tohle bylo case sensitive, ale jiank OK
-  int ret = 0 ;
+    /* this was case-sensitive, but otherwise OK
+      int ret = 0 ;
 
-  while (!(ret = *(unsigned char *)(*name1 == '&' ? name1++ : name1) -
-                 *(unsigned char *)(*name2 == '&' ? name2++ : name2)) && *name2)
-      ++name1, ++name2;
+      while (!(ret = *(unsigned char *)(*name1 == '&' ? name1++ : name1) -
+                     *(unsigned char *)(*name2 == '&' ? name2++ : name2)) && *name2)
+          ++name1, ++name2;
 
-  if (ret < 0)
-    ret = -1;
-  else
-  {
-    if (ret > 0)
-      ret = 1;
-  }
+      if (ret < 0)
+        ret = -1;
+      else
+      {
+        if (ret > 0)
+          ret = 1;
+      }
 
-  return ret;
-*/
+      return ret;
+    */
 }
 
 void SortFavoriteSettings(int left, int right)
@@ -852,7 +853,7 @@ void SortFavoriteSettings(int left, int right)
             i++;
             j--;
         }
-    } while (i <= j); //musej bejt shodny?
+    } while (i <= j); // do they have to match?
     if (left < j)
         SortFavoriteSettings(left, j);
     if (i < right)
@@ -889,7 +890,7 @@ BOOL CAdvancedSEDialog::InitMenu()
         SetMenuItemInfo(Menu, CM_SFX_LASTUSED, FALSE, &mi);
     }
 
-    // zajistime aby mnelo okno spravnou velikost i po pridani menu
+    // ensure the window keeps the correct size even after adding the menu
     RECT wr, cr1, cr2;
     GetClientRect(Dlg, &cr1);
 
@@ -910,7 +911,7 @@ BOOL CAdvancedSEDialog::CreateFavoritesMenu()
     MENUITEMINFO mi;
     if (FavoritiesMenu)
     {
-        // odebereme submenu polozce 'Favorities'
+        // remove the submenu from the 'Favorites' item
         memset(&mi, 0, sizeof(mi));
         mi.cbSize = sizeof(mi);
         mi.fMask = MIIM_SUBMENU;
@@ -971,7 +972,7 @@ BOOL CAdvancedSEDialog::CreateFavoritesMenu()
         InsertMenuItem(FavoritiesMenu, Favorities.Count + 1 /*i*/, TRUE, &mi);
     }
 
-    // nastavime submenu polozce 'Favorities'
+    // assign the submenu to the 'Favorites' item
     memset(&mi, 0, sizeof(mi));
     mi.cbSize = sizeof(mi);
     mi.fMask = MIIM_SUBMENU;
@@ -1052,7 +1053,7 @@ BOOL CAdvancedSEDialog::OnImport()
                 }
 
                 char zip2sfxDir[MAX_PATH];
-                if (GetModuleFileName(DLLInstance, zip2sfxDir, MAX_PATH - 1)) // -1 je rozdil delek "zip2sfx\\" a "zip.spl"
+                if (GetModuleFileName(DLLInstance, zip2sfxDir, MAX_PATH - 1)) // -1 is the length difference between "zip2sfx\\" and "zip.spl"
                 {
                     char* name = strrchr(zip2sfxDir, '\\');
                     if (name != NULL)
@@ -1061,7 +1062,7 @@ BOOL CAdvancedSEDialog::OnImport()
                 else
                     zip2sfxDir[0] = 0;
 
-                //nacteme je poprve abychom ziskaly jmeno sfx balicku (neni to poviny parameter)
+                // load them the first time to obtain the SFX package name (not a mandatory parameter)
                 ret = ImportSFXSettings(buffer, &settings, zip2sfxDir);
                 if (ret == 0)
                 {
@@ -1091,9 +1092,9 @@ BOOL CAdvancedSEDialog::OnImport()
                         lstrcpy(settings.WWW, lang->WWW);
                         GetModuleFileName(DLLInstance, settings.IconFile, MAX_PATH);
                         settings.IconIndex = -IDI_SFXICON;
-                        //nacteme je podruhe abychom ziskali texty (nejsou to povinne parametry)
-                        //kdyz nejsou zadany pouziji se texty ze sfx balicku, budto zadaneho
-                        //nebo defaultniho
+                        // load them a second time to get the texts (these parameters are optional)
+                        // if they are not specified, the texts from the SFX package are used, either the specified one
+                        // or the default one
                         ImportSFXSettings(buffer, &settings, zip2sfxDir);
 
                         SalamanderGeneral->SalPathStripPath(settings.SfxFile);
@@ -1191,7 +1192,7 @@ BOOL CAdvancedSEDialog::OnExport()
 
     if (SalamanderGeneral->SafeGetSaveFileName(&ofn))
     {
-        //otestujem jestli uz existuje
+        // test whether it already exists
         if (SalamanderGeneral->SalGetFileAttributes(fileName) == 0xFFFFFFFF ||
             SalamanderGeneral->SalMessageBox(Dlg, LoadStr(IDS_EXPORTOVEWRITE), LoadStr(IDS_PLUGINNAME),
                                              MB_YESNO | MB_ICONQUESTION) == IDYES)
@@ -1215,7 +1216,7 @@ BOOL CAdvancedSEDialog::OnExport()
                 PackObject->CloseCFile(file);
                 lstrcpy(PackObject->Config.LastExportPath, fileName);
                 SalamanderGeneral->CutDirectory(PackObject->Config.LastExportPath);
-                // ohlasime zmenu na ceste
+                // notify the change on the path
                 SalamanderGeneral->PostChangeOnPathNotification(PackObject->Config.LastExportPath, FALSE);
             }
             else
@@ -1336,8 +1337,8 @@ BOOL CAdvancedSEDialog::OnResetValues()
 {
     CALL_STACK_MESSAGE1("CAdvancedSEDialog::OnResetValues()");
 
-    //nemuzeme pouzit primo TmpSfxSettings = DefOptions.SfxSetting, protoze by nam to preplaclo
-    //ikonu, ktery by razem mohla byt neplatna
+    // We cannot directly use TmpSfxSettings = DefOptions.SfxSettings, because it would overwrite
+    // the icon, which could then be invalid.
     TmpSfxSettings.Flags = DefOptions.SfxSettings.Flags;
     *TmpSfxSettings.Command = 0;
     lstrcpy(TmpSfxSettings.TargetDir, DefOptions.SfxSettings.TargetDir);
@@ -1482,7 +1483,7 @@ BOOL CAdvancedSEDialog::OnAddFavorite()
     }
 
     /*
-  //najdeme si index na, ktery ho pridame
+  // find the index at which we will insert it
   int index;
   for (index = 0; index < Favorities.Count; index++)
   {
@@ -1496,13 +1497,13 @@ BOOL CAdvancedSEDialog::OnAddFavorite()
         SalamanderGeneral->SalMessageBox(Dlg, LoadStr(IDS_LOWMEM), LoadStr(IDS_ERROR), MB_OK | MB_ICONEXCLAMATION);
         return TRUE;
     }
-    // tridi se az v CreateFavoritiesMenu
+    // sorting happens in CreateFavoritiesMenu
     //SortFavoriteSettings(0, Favorities.Count - 1);
 
     CreateFavoritesMenu();
 
     /*
-  //odstranime "empty" v pripade ze pridavame prvni polozku
+  // remove "empty" if we are adding the first item
   if (Favorities.Count == 1) DeleteMenu(FavoritiesMenu, 0, MF_BYPOSITION);
 
   MENUITEMINFO mi;
@@ -1773,7 +1774,7 @@ BOOL CSfxTextsDialog::OnInit(WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE1("CSfxTextsDialog::OnInit");
 
-    //!bacha nize se odkazuji tvrde na poradi
+    //!below we rely strictly on the order
     int i = 0;
     SendDlgItemMessage(Dlg, IDC_MBOXBUTTONS, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_MBOK));
     SendDlgItemMessage(Dlg, IDC_MBOXBUTTONS, CB_SETITEMDATA, i++, (LPARAM)MB_OK);
@@ -1884,19 +1885,19 @@ BOOL CSfxTextsDialog::OnOK(WORD wNotifyCode, WORD wID, HWND hwndCtl)
     CSfxSettings settings = *SfxSettings;
 
     settings.MBoxStyle = 0;
-    // nacteme typ message boxu
+    // read the message box type
     LRESULT i = SendDlgItemMessage(Dlg, IDC_MBOXICON, CB_GETCURSEL, 0, 0);
     if (i != CB_ERR)
     {
-        UINT ui = (UINT)(SendDlgItemMessage(Dlg, IDC_MBOXICON, CB_GETITEMDATA, i, 0) & 0xffffffff); // X64 - ITEMDATA obsahuji DWORD
+        UINT ui = (UINT)(SendDlgItemMessage(Dlg, IDC_MBOXICON, CB_GETITEMDATA, i, 0) & 0xffffffff); // X64 - ITEMDATA contains a DWORD
         if (ui != CB_ERR)
             settings.MBoxStyle |= ui;
     }
-    // nacteme nastaveni tlacitek
+    // read the button configuration
     i = SendDlgItemMessage(Dlg, IDC_MBOXBUTTONS, CB_GETCURSEL, 0, 0);
     if (i != CB_ERR)
     {
-        UINT ui = (UINT)(SendDlgItemMessage(Dlg, IDC_MBOXBUTTONS, CB_GETITEMDATA, i, 0) & 0xffffffff); // X64 - ITEMDATA obsahuji DWORD
+        UINT ui = (UINT)(SendDlgItemMessage(Dlg, IDC_MBOXBUTTONS, CB_GETITEMDATA, i, 0) & 0xffffffff); // X64 - ITEMDATA contains a DWORD
         if (ui != CB_ERR)
         {
             if ((int)settings.MBoxStyle < 0)
