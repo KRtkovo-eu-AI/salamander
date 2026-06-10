@@ -1822,6 +1822,13 @@ void CTabWindow::PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bo
         if (!IsRectEmpty(&fillRect))
             FillRect(hdc, &fillRect, backgroundBrush);
 
+        HPEN hSeparatorPen = CreatePen(PS_SOLID, 1, RGB(56, 56, 56));
+        HGDIOBJ hOldPen = SelectObject(hdc, hSeparatorPen);
+        MoveToEx(hdc, clientRect.left, clientRect.top, nullptr);
+        LineTo(hdc, clientRect.right, clientRect.top);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hSeparatorPen);
+
         HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
         if (frameBrush != NULL && clientRect.bottom > clientRect.top)
         {
