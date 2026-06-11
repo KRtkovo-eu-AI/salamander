@@ -349,21 +349,35 @@ public:
                     CFileData file;
                     memset(&file, 0, sizeof(file));
                     file.Name = SalamanderGeneral->DupStr(line);
-                    file.NameLen = static_cast<int>(strlen(file.Name));
-                    file.Ext = file.Name + file.NameLen;
-                    file.DosName = NULL;
-                    file.IsLink = 0;
-                    file.IsOffline = 0;
-                    file.Hidden = 0;
-                    file.Attr = 0;
+                    if (file.Name != NULL)
+                    {
+                        file.NameLen = static_cast<int>(strlen(file.Name));
+                        file.Ext = file.Name + file.NameLen;
+                        file.DosName = NULL;
+                        file.IsLink = 0;
+                        file.IsOffline = 0;
+                        file.Hidden = 0;
+                        file.Attr = 0;
 
-                    CHyperVItemData* ext = new CHyperVItemData();
-                    long st = 0;
-                    if (vtState.vt == VT_I4) st = vtState.lVal;
-                    else if (vtState.vt == VT_UI4) st = (long)vtState.ulVal;
-                    ext->Running = (st == 2);
-                    file.PluginData = reinterpret_cast<DWORD_PTR>(ext);
-                    dir->AddFile(NULL, file, pluginData);
+                        CHyperVItemData* ext = new CHyperVItemData();
+                        if (ext != NULL)
+                        {
+                            long st = 0;
+                            if (vtState.vt == VT_I4)
+                                st = vtState.lVal;
+                            else if (vtState.vt == VT_UI4)
+                                st = (long)vtState.ulVal;
+                            ext->Running = (st == 2);
+                            file.PluginData = reinterpret_cast<DWORD_PTR>(ext);
+                            if (!dir->AddFile(NULL, file, pluginData))
+                            {
+                                delete ext;
+                                SalamanderGeneral->Free(file.Name);
+                            }
+                        }
+                        else
+                            SalamanderGeneral->Free(file.Name);
+                    }
                 }
 
                 VariantClear(&vtName);

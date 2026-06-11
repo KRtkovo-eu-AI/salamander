@@ -19,7 +19,7 @@
 
 #define VERSINFO_MAJOR       1
 #define VERSINFO_MINORA      0
-#define VERSINFO_MINORB      3
+#define VERSINFO_MINORB      4
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
