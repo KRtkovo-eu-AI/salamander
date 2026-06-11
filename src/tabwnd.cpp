@@ -409,14 +409,6 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     std::wstring finalText = desired;
     setItemText(finalText);
 
-    if (minWidthPx <= 0 && maxWidthPx <= 0 && closeBtnExtraPx <= 0)
-        return;
-
-    RECT rect;
-    if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-        return;
-    int currentWidth = rect.right - rect.left;
-
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
         return;
@@ -426,33 +418,47 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
-    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
+    int desiredWidth = 0;
+    if (!desired.empty() && hdc != NULL)
     {
         SIZE desiredSize = {0, 0};
         if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
+            desiredWidth = desiredSize.cx;
+    }
+
+    RECT rect;
+    if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+    {
+        if (oldFont != NULL)
+            SelectObject(hdc, oldFont);
+        ReleaseDC(HWindow, hdc);
+        return;
+    }
+    int currentWidth = rect.right - rect.left;
+
+    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
+    {
+        int extraWidth = currentWidth - desiredWidth;
+        int allowedTextWidth = maxWidthPx - extraWidth;
+        if (allowedTextWidth <= 0)
+            finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+        else if (desiredWidth > allowedTextWidth)
+            finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+
+        for (int attempt = 0; attempt < 3; ++attempt)
         {
-            int extraWidth = currentWidth - desiredSize.cx;
-            int allowedTextWidth = maxWidthPx - extraWidth - closeBtnExtraPx;
+            setItemText(finalText);
+            if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+                break;
+            currentWidth = rect.right - rect.left;
+            if (currentWidth <= maxWidthPx)
+                break;
+
+            allowedTextWidth -= (currentWidth - maxWidthPx);
             if (allowedTextWidth <= 0)
                 finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-            else if (desiredSize.cx > allowedTextWidth)
+            else
                 finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-
-            for (int attempt = 0; attempt < 3; ++attempt)
-            {
-                setItemText(finalText);
-                if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-                    break;
-                currentWidth = rect.right - rect.left;
-                if (currentWidth <= maxWidthPx)
-                    break;
-
-                allowedTextWidth -= (currentWidth - maxWidthPx);
-                if (allowedTextWidth <= 0)
-                    finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-                else
-                    finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-            }
         }
     }
 
@@ -461,10 +467,10 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         int targetWidth = minWidthPx;
         if (closeBtnExtraPx > 0)
         {
-            if (targetWidth <= 0)
-                targetWidth = currentWidth + closeBtnExtraPx;
-            else
-                targetWidth += closeBtnExtraPx;
+            int baseWidth = desiredWidth > 0 ? desiredWidth : currentWidth;
+            targetWidth = baseWidth + closeBtnExtraPx;
+            if (minWidthPx > 0 && targetWidth < minWidthPx)
+                targetWidth = minWidthPx;
         }
         if (maxWidthPx > 0 && targetWidth > maxWidthPx)
             targetWidth = maxWidthPx;

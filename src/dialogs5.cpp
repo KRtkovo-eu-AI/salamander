@@ -3753,6 +3753,8 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
 
     int oldMinWidth = Configuration.TabButtonMinWidth;
     int oldMaxWidth = Configuration.TabButtonMaxWidth;
+    int oldCloseButtonActive = Configuration.TabCloseButtonActive;
+    int oldCloseButtonAll = Configuration.TabCloseButtonAll;
 
     ti.EditLine(IDC_TABS_MINWIDTH, Configuration.TabButtonMinWidth);
     ti.EditLine(IDC_TABS_MAXWIDTH, Configuration.TabButtonMaxWidth);
@@ -3824,7 +3826,9 @@ void CCfgPageTabs::Transfer(CTransferInfo& ti)
         Configuration.TabCaptionAlignment = newAlignment;
         bool minChanged = (Configuration.TabButtonMinWidth != oldMinWidth);
         bool maxChanged = (Configuration.TabButtonMaxWidth != oldMaxWidth);
-        if ((modeChanged || minChanged || maxChanged || alignmentChanged) && MainWindow != NULL)
+        bool closeActiveChanged = (Configuration.TabCloseButtonActive != oldCloseButtonActive);
+        bool closeAllChanged = (Configuration.TabCloseButtonAll != oldCloseButtonAll);
+        if ((modeChanged || minChanged || maxChanged || alignmentChanged || closeActiveChanged || closeAllChanged) && MainWindow != NULL)
             MainWindow->RefreshPanelTabLayout();
     }
 }

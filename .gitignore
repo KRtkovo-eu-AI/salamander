@@ -228,3 +228,4 @@ output/
 /.localbuild/salamander/Debug_x64
 /src/plugins/csdemo/managed/bin/Debug
 /src/plugins/hypervm/managed/bin/Debug
+/.localbuild/salamander/Release_x64
