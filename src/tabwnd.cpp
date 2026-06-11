@@ -395,6 +395,9 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     int minWidthPx = DipToPixels(Configuration.TabButtonMinWidth);
     int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
 
+    std::wstring finalText = desired;
+    setItemText(finalText);
+
     int closeBtnExtraPx = 0;
     if (ShouldShowCloseButton(index, TabCtrl_GetCurSel(HWindow)))
     {
@@ -405,9 +408,6 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
             closeBtnExtraPx = (closeRect.right - closeRect.left) + 6;
         }
     }
-
-    std::wstring finalText = desired;
-    setItemText(finalText);
 
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
@@ -439,7 +439,7 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
     {
         int extraWidth = currentWidth - desiredWidth;
-        int allowedTextWidth = maxWidthPx - extraWidth;
+        int allowedTextWidth = maxWidthPx - extraWidth - closeBtnExtraPx;
         if (allowedTextWidth <= 0)
             finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
         else if (desiredWidth > allowedTextWidth)
@@ -467,10 +467,10 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         int targetWidth = minWidthPx;
         if (closeBtnExtraPx > 0)
         {
-            int baseWidth = desiredWidth > 0 ? desiredWidth : currentWidth;
-            targetWidth = baseWidth + closeBtnExtraPx;
-            if (minWidthPx > 0 && targetWidth < minWidthPx)
-                targetWidth = minWidthPx;
+            if (targetWidth <= 0)
+                targetWidth = currentWidth + closeBtnExtraPx;
+            else
+                targetWidth += closeBtnExtraPx;
         }
         if (maxWidthPx > 0 && targetWidth > maxWidthPx)
             targetWidth = maxWidthPx;

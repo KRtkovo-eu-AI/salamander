@@ -282,6 +282,8 @@ void CMainWindow::SwitchPanelTab(CFilesWindow* panel)
     }
 
     UpdatePanelTabTitle(panel);
+    if (previousPanel != panel)
+        UpdatePanelTabTitle(previousPanel);
 
     HWND previousToolBar = NULL;
     HWND newToolBar = NULL;
@@ -637,6 +639,14 @@ void CMainWindow::RefreshPanelTabLayout()
             CFilesWindow* panel = GetPanelTabAt(side, i);
             if (panel != NULL)
                 UpdatePanelTabTitle(panel);
+        }
+
+        if (tabWnd != NULL && tabWnd->HWindow != NULL)
+        {
+            RECT rc;
+            GetClientRect(tabWnd->HWindow, &rc);
+            SendMessage(tabWnd->HWindow, WM_SIZE, SIZE_RESTORED,
+                        MAKELPARAM(rc.right, rc.bottom));
         }
     }
 }
