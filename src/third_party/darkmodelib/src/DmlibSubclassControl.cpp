@@ -2551,7 +2551,7 @@ LRESULT CALLBACK dmlib_subclass::ComboBoxExSubclass(
 }
 
 /**
- * @brief Window subclass procedure for custom list view colors and edit control.
+ * @brief Window subclass procedure for custom color for list view's gridlines and edit control.
  *
  * @param[in]   hWnd        Window handle being subclassed.
  * @param[in]   uMsg        Message identifier.
@@ -2590,44 +2590,23 @@ LRESULT CALLBACK dmlib_subclass::ListViewSubclass(
 				break;
 			}
 
-			// The Explorer list-view theme uses COLOR_WINDOW when painting the
-			// empty client area as well as gridlines. Keep the dark-mode system
-			// color overrides active for the complete paint operation. Reapply
-			// the view colors immediately before painting as the native theme
-			// can reset them after WM_THEMECHANGED or when the control is
-			// enabled/disabled.
-			ListView_SetTextColor(hWnd, dmlib::getViewTextColor());
-			ListView_SetTextBkColor(hWnd, dmlib::getViewBackgroundColor());
-			ListView_SetBkColor(hWnd, dmlib::getViewBackgroundColor());
-			dmlib_hook::hookSysColor();
-			const LRESULT retVal = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
-			dmlib_hook::unhookSysColor();
+			const auto lvStyle = ::GetWindowLongPtr(hWnd, GWL_STYLE) & LVS_TYPEMASK;
+			const bool isReport = (lvStyle == LVS_REPORT);
+			bool hasGridlines = false;
+			if (isReport)
+			{
+				const auto lvExStyle = ListView_GetExtendedListViewStyle(hWnd);
+				hasGridlines = (lvExStyle & LVS_EX_GRIDLINES) == LVS_EX_GRIDLINES;
+			}
 
-			// Native themed list views can still paint the unused portion of
-			// their client area with a light brush. Paint only the area below
-			// the final item after the native paint pass, leaving items,
-			// selections, and the header untouched.
-			RECT rcUnused{};
-			::GetClientRect(hWnd, &rcUnused);
-			const int itemCount = ListView_GetItemCount(hWnd);
-			if (itemCount > 0)
+			if (hasGridlines)
 			{
-				RECT rcLastItem{};
-				if (ListView_GetItemRect(hWnd, itemCount - 1, &rcLastItem, LVIR_BOUNDS))
-				{
-					rcUnused.top = (std::min)(rcUnused.bottom, rcLastItem.bottom);
-				}
+				dmlib_hook::hookSysColor();
+				const LRESULT retVal = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+				dmlib_hook::unhookSysColor();
+				return retVal;
 			}
-			if (rcUnused.top < rcUnused.bottom)
-			{
-				HDC hdc = ::GetDC(hWnd);
-				if (hdc != nullptr)
-				{
-					::FillRect(hdc, &rcUnused, dmlib::getViewBackgroundBrush());
-					::ReleaseDC(hWnd, hdc);
-				}
-			}
-			return retVal;
+			break;
 		}
 
 		case WM_DPICHANGED_AFTERPARENT:

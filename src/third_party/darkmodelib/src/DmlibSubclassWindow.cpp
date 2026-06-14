@@ -563,24 +563,13 @@ static void prepaintListViewItem(LPNMLVCUSTOMDRAW& lplvcd, bool isReport, bool h
 	{
 		case CDDS_PREPAINT:
 		{
-			const auto hBrush = [&isDisabled, &hasGridlines]() -> HBRUSH
-			{
-				if (isDisabled)
-				{
-					return dmlib::getDlgBackgroundBrush();
-				}
-
-				if (hasGridlines)
-				{
-					return dmlib::getViewBackgroundBrush();
-				}
-				return nullptr;
-			}();
-
-			if (hBrush != nullptr)
-			{
-				::FillRect(lplvcd->nmcd.hdc, &lplvcd->nmcd.rc, hBrush);
-			}
+			// Paint the complete list-view surface during the custom-draw
+			// prepaint stage. The native Explorer theme otherwise leaves the
+			// area without items at COLOR_WINDOW, which is light even when the
+			// list-view items and header use dark-mode colors.
+			const HBRUSH hBrush = isDisabled ? dmlib::getDlgBackgroundBrush()
+				: dmlib::getViewBackgroundBrush();
+			::FillRect(lplvcd->nmcd.hdc, &lplvcd->nmcd.rc, hBrush);
 
 			return CDRF_NOTIFYITEMDRAW;
 		}
