@@ -118,6 +118,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ListView_SetExtendedListViewStyle(ItemsListView, ListView_GetExtendedListViewStyle(ItemsListView) |
                                                              LVS_EX_FULLROWSELECT); // 4.70
         ItemsListViewObj.Attach(ItemsListView, this, FALSE);
+        DarkModeUpdateListViewColors(ConsListView);
+        DarkModeUpdateListViewColors(ItemsListView);
 
         RECT r1, r2;
         GetWindowRect(HWindow, &r1);
@@ -1045,14 +1047,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        const COLORREF color = DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
-        const COLORREF text = DarkModeShouldUseDarkColors() ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
-        ListView_SetBkColor(ConsListView, color);
-        ListView_SetTextBkColor(ConsListView, color);
-        ListView_SetTextColor(ConsListView, text);
-        ListView_SetBkColor(ItemsListView, color);
-        ListView_SetTextBkColor(ItemsListView, color);
-        ListView_SetTextColor(ItemsListView, text);
+        DarkModeUpdateListViewColors(ConsListView);
+        DarkModeUpdateListViewColors(ItemsListView);
         break;
     }
 
@@ -1063,6 +1059,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
         {
             ApplyFTPDarkMode(HWindow);
+            DarkModeUpdateListViewColors(ConsListView);
+            DarkModeUpdateListViewColors(ItemsListView);
             RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
             return TRUE;
         }
