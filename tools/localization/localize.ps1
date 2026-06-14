@@ -46,12 +46,42 @@ function Require-Project
     }
 }
 
+function Invoke-TranslatorQuiet
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FailureMessage
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $translator
+    $startInfo.WorkingDirectory = Split-Path $translator -Parent
+    $startInfo.UseShellExecute = $false
+    foreach ($argument in $Arguments)
+    {
+        [void]$startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $process.WaitForExit()
+    if ($process.ExitCode -ne 0)
+    {
+        throw $FailureMessage
+    }
+}
+
 switch ($Action)
 {
     "check"
     {
         & python (Join-Path $PSScriptRoot "audit_translation_coverage.py")
-        exit $LASTEXITCODE
+        if (-not $?)
+        {
+            throw "Kontrola pokrytí překladů selhala."
+        }
     }
 
     "start"
@@ -80,11 +110,9 @@ switch ($Action)
             $rebasedDir = Join-Path $workspace "translations\$Language"
             New-Item -ItemType Directory -Path $skeletonDir, $rebasedDir -Force | Out-Null
 
-            & $translator -quiet-export-slt-for-diff $skeletonDir $project
-            if ($LASTEXITCODE -ne 0)
-            {
-                throw "Nepodařilo se exportovat aktuální resource kostru. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
-            }
+            Invoke-TranslatorQuiet `
+                -Arguments @("-quiet-export-slt-for-diff", $skeletonDir, $project) `
+                -FailureMessage "Nepodařilo se exportovat aktuální resource kostru. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
 
             & (Join-Path $PSScriptRoot "rebase_text_archive.ps1") `
                 -CurrentArchive (Join-Path $skeletonDir "$Module.slt") `
@@ -95,11 +123,9 @@ switch ($Action)
                 throw "Převod starého překladu na aktuální resource kostru selhal."
             }
 
-            & $translator -quiet-import-slt $rebasedDir $project
-            if ($LASTEXITCODE -ne 0)
-            {
-                throw "Nepodařilo se importovat rebased překlad. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
-            }
+            Invoke-TranslatorQuiet `
+                -Arguments @("-quiet-import-slt", $rebasedDir, $project) `
+                -FailureMessage "Nepodařilo se importovat rebased překlad. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
         }
 
         Write-Host ""
@@ -131,11 +157,9 @@ switch ($Action)
         Require-Project
         $destination = Join-Path $repoRoot "translations\$Language"
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
-        & $translator -quiet-export-slt $destination $project
-        if ($LASTEXITCODE -ne 0)
-        {
-            throw "Export selhal. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
-        }
+        Invoke-TranslatorQuiet `
+            -Arguments @("-quiet-export-slt", $destination, $project) `
+            -FailureMessage "Export selhal. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
 
         Write-Host ""
         Write-Host "Hotovo: translations\$Language\$Module.slt"
