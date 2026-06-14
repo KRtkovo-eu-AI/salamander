@@ -34,8 +34,22 @@ function Get-Sections
     $currentHeader = $null
     $currentLines = New-Object System.Collections.Generic.List[string]
 
-    foreach ($line in Get-Content -LiteralPath $Path)
+    $lineNumber = 0
+    foreach ($rawLine in Get-Content -LiteralPath $Path)
     {
+        $line = $rawLine
+        if ($lineNumber -eq 0)
+        {
+            # Depending on the PowerShell/.NET version, Get-Content may expose
+            # the decoded UTF-8 BOM as U+FEFF. Never carry it into a rebased
+            # archive; Translator only skips one leading BOM.
+            while ($line.Length -gt 0 -and $line[0] -eq [char]0xFEFF)
+            {
+                $line = $line.Substring(1)
+            }
+        }
+        $lineNumber++
+
         if ($line -match '^\[.+\]$')
         {
             if ($null -ne $currentHeader)
@@ -524,8 +538,8 @@ foreach ($section in $mergedSections)
 }
 
 $outputText = [string]::Join("`r`n", $outputLines)
-$utf8WithBom = [System.Text.UTF8Encoding]::new($true)
-[System.IO.File]::WriteAllText($outputArchivePath, $outputText, $utf8WithBom)
+$utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllText($outputArchivePath, $outputText, $utf8WithoutBom)
 
 Write-Host "Rebased archive written to: $outputArchivePath"
 Write-Host "Reused dialog captions: $($script:MergeStats.DialogCaptions)"

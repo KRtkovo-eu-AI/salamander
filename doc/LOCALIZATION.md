@@ -105,5 +105,6 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **Nové resource texty v Translatoru nejsou**: `-BuildRoot` pravděpodobně ukazuje na starý build; znovu sestavte/populujte aktuální zdroje a spusťte `start` znovu.
 - **Import převedeného archivu selže**: příkaz `start` skončí s chybou a odkazem na existující `out/localization/localize.log`; Translator se neotevře s rozbitým projektem.
 - **Soubor `<module>.quiet.log` neexistuje**: Translator v tomto repozitáři tento log nevytváří a při úspěšné quiet operaci vrací historický exit kód `1`. Wrapper proto zapisuje vlastní `out/localization/localize.log`.
+- **`Syntax error ... on line 1`**: používali jste starší rebase skript, který mohl vytvořit dvojitý UTF-8 BOM; aktualizujte repozitář a spusťte `start` znovu.
 - **`$LASTEXITCODE cannot be retrieved because it has not been set`**: používali jste starší verzi `localize.ps1`, která spouštěla GUI `translator.exe` přímo; aktualizujte repozitář a spusťte stejný příkaz znovu.
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
