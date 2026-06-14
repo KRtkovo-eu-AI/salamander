@@ -2551,7 +2551,7 @@ LRESULT CALLBACK dmlib_subclass::ComboBoxExSubclass(
 }
 
 /**
- * @brief Window subclass procedure for custom color for list view's gridlines and edit control.
+ * @brief Window subclass procedure for custom list view colors and edit control.
  *
  * @param[in]   hWnd        Window handle being subclassed.
  * @param[in]   uMsg        Message identifier.
@@ -2590,23 +2590,14 @@ LRESULT CALLBACK dmlib_subclass::ListViewSubclass(
 				break;
 			}
 
-			const auto lvStyle = ::GetWindowLongPtr(hWnd, GWL_STYLE) & LVS_TYPEMASK;
-			const bool isReport = (lvStyle == LVS_REPORT);
-			bool hasGridlines = false;
-			if (isReport)
-			{
-				const auto lvExStyle = ListView_GetExtendedListViewStyle(hWnd);
-				hasGridlines = (lvExStyle & LVS_EX_GRIDLINES) == LVS_EX_GRIDLINES;
-			}
-
-			if (hasGridlines)
-			{
-				dmlib_hook::hookSysColor();
-				const LRESULT retVal = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
-				dmlib_hook::unhookSysColor();
-				return retVal;
-			}
-			break;
+			// The Explorer list-view theme uses COLOR_WINDOW when painting the
+			// empty client area as well as gridlines. Keep the dark-mode system
+			// color overrides active for the complete paint operation so an
+			// empty list view does not retain a light background.
+			dmlib_hook::hookSysColor();
+			const LRESULT retVal = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+			dmlib_hook::unhookSysColor();
+			return retVal;
 		}
 
 		case WM_DPICHANGED_AFTERPARENT:

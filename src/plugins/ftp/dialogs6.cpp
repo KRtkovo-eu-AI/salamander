@@ -9,27 +9,6 @@
 // COperationDlg
 //
 
-static void ApplyOperationListViewColors(HWND listView)
-{
-    DarkModeUpdateListViewColors(listView);
-    if (listView != NULL && DarkModeShouldUseDarkColors())
-    {
-        // The Explorer theme used for dark scrollbars can keep painting the
-        // client area of an owner-data list view with COLOR_WINDOW. Disable it
-        // after configuring the header, then restore the requested colors.
-        typedef HRESULT(WINAPI * FSetWindowTheme)(HWND, LPCWSTR, LPCWSTR);
-        static FSetWindowTheme setWindowTheme = (FSetWindowTheme)GetProcAddress(GetModuleHandle("uxtheme.dll"),
-                                                                               "SetWindowTheme");
-        if (setWindowTheme != NULL)
-            setWindowTheme(listView, L"", L"");
-        const DarkModeColors& colors = DarkModeGetColors();
-        ListView_SetTextColor(listView, colors.readableText);
-        ListView_SetTextBkColor(listView, colors.background);
-        ListView_SetBkColor(listView, colors.background);
-        InvalidateRect(listView, NULL, TRUE);
-    }
-}
-
 BOOL CALLBACK CorrectDisabledButtons(HWND hwnd, LPARAM lParam)
 { // iterate through disabled buttons and when we encounter the "default" style, remove it (Windows bug that left it there)
     BOOL cont = TRUE;
@@ -139,8 +118,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ListView_SetExtendedListViewStyle(ItemsListView, ListView_GetExtendedListViewStyle(ItemsListView) |
                                                              LVS_EX_FULLROWSELECT); // 4.70
         ItemsListViewObj.Attach(ItemsListView, this, FALSE);
-        ApplyOperationListViewColors(ConsListView);
-        ApplyOperationListViewColors(ItemsListView);
+        DarkModeUpdateListViewColors(ConsListView);
+        DarkModeUpdateListViewColors(ItemsListView);
 
         RECT r1, r2;
         GetWindowRect(HWindow, &r1);
@@ -1068,8 +1047,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SYSCOLORCHANGE:
     {
-        ApplyOperationListViewColors(ConsListView);
-        ApplyOperationListViewColors(ItemsListView);
+        DarkModeUpdateListViewColors(ConsListView);
+        DarkModeUpdateListViewColors(ItemsListView);
         break;
     }
 
@@ -1080,8 +1059,8 @@ COperationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (uMsg == WM_THEMECHANGED || DarkModeHandleSettingChange(uMsg, lParam))
         {
             ApplyFTPDarkMode(HWindow);
-            ApplyOperationListViewColors(ConsListView);
-            ApplyOperationListViewColors(ItemsListView);
+            DarkModeUpdateListViewColors(ConsListView);
+            DarkModeUpdateListViewColors(ItemsListView);
             RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
             return TRUE;
         }
