@@ -2592,12 +2592,30 @@ LRESULT CALLBACK dmlib_subclass::ListViewSubclass(
 
 			// The Explorer list-view theme uses COLOR_WINDOW when painting the
 			// empty client area as well as gridlines. Keep the dark-mode system
-			// color overrides active for the complete paint operation so an
-			// empty list view does not retain a light background.
+			// color overrides active for the complete paint operation. Reapply
+			// the view colors immediately before painting as the native theme
+			// can reset them after WM_THEMECHANGED or when the control is
+			// enabled/disabled.
+			ListView_SetTextColor(hWnd, dmlib::getViewTextColor());
+			ListView_SetTextBkColor(hWnd, dmlib::getViewBackgroundColor());
+			ListView_SetBkColor(hWnd, dmlib::getViewBackgroundColor());
 			dmlib_hook::hookSysColor();
 			const LRESULT retVal = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
 			dmlib_hook::unhookSysColor();
 			return retVal;
+		}
+
+		case WM_ERASEBKGND:
+		{
+			if (!dmlib::isEnabled())
+			{
+				break;
+			}
+
+			RECT rcClient{};
+			::GetClientRect(hWnd, &rcClient);
+			::FillRect(reinterpret_cast<HDC>(wParam), &rcClient, dmlib::getViewBackgroundBrush());
+			return TRUE;
 		}
 
 		case WM_DPICHANGED_AFTERPARENT:
