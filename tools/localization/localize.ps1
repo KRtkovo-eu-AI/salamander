@@ -64,7 +64,10 @@ switch ($Action)
             -Modules $Module `
             -Force
 
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        if (-not $?)
+        {
+            throw "Příprava překladového workspace selhala."
+        }
 
         $legacyArchive = Join-Path $repoRoot "translations\$Language\$Module.slt"
         $hadLegacyArchive = Test-Path -LiteralPath $legacyArchive
@@ -87,6 +90,10 @@ switch ($Action)
                 -CurrentArchive (Join-Path $skeletonDir "$Module.slt") `
                 -LegacyArchive $legacyArchive `
                 -OutputArchive (Join-Path $rebasedDir "$Module.slt")
+            if (-not $?)
+            {
+                throw "Převod starého překladu na aktuální resource kostru selhal."
+            }
 
             & $translator -quiet-import-slt $rebasedDir $project
             if ($LASTEXITCODE -ne 0)
@@ -138,6 +145,9 @@ switch ($Action)
     "build"
     {
         & (Join-Path $PSScriptRoot "build_language_packs.ps1") -BuildRoot $BuildRoot
-        exit $LASTEXITCODE
+        if (-not $?)
+        {
+            throw "Sestavení jazykových balíčků selhalo."
+        }
     }
 }

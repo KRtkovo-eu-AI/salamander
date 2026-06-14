@@ -104,4 +104,5 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **Unknown module**: plugin v buildu nemá `plugins/<plugin>/lang/english.slg`, případně je špatně napsané jeho jméno.
 - **Nové resource texty v Translatoru nejsou**: `-BuildRoot` pravděpodobně ukazuje na starý build; znovu sestavte/populujte aktuální zdroje a spusťte `start` znovu.
 - **Import převedeného archivu selže**: příkaz `start` skončí s chybou a odkazem na `<module>.quiet.log`; Translator se neotevře s rozbitým projektem.
+- **`$LASTEXITCODE cannot be retrieved because it has not been set`**: používali jste starší verzi `localize.ps1`; aktualizujte repozitář a spusťte stejný příkaz znovu.
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
