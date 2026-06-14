@@ -935,6 +935,53 @@ void EnsureDarkStatusBarSubclass(HWND hwnd, bool enableDark)
 }
 #endif
 
+constexpr UINT_PTR kDarkModeListViewSurfaceSubclassId = 0x44524C56; // "DRLV"
+
+LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                             UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    if (msg == WM_NCDESTROY)
+        RemoveWindowSubclass(hwnd, DarkListViewSurfaceSubclass, kDarkModeListViewSurfaceSubclassId);
+
+    LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+    if (msg == WM_PAINT && ShouldUseDarkColorsForSurfaces())
+    {
+        RECT unused;
+        GetClientRect(hwnd, &unused);
+        int count = ListView_GetItemCount(hwnd);
+        if (count > 0)
+        {
+            RECT lastItem;
+            if (ListView_GetItemRect(hwnd, count - 1, &lastItem, LVIR_BOUNDS))
+                unused.top = (std::min)(unused.bottom, lastItem.bottom);
+        }
+        if (unused.top < unused.bottom)
+        {
+            HDC hdc = GetDC(hwnd);
+            if (hdc != NULL)
+            {
+                FillRectWithColor(hdc, unused, DarkModeGetColors().background);
+                ReleaseDC(hwnd, hdc);
+            }
+        }
+    }
+    return result;
+}
+
+void EnsureDarkListViewSurfaceSubclass(HWND hwnd, bool enableDark)
+{
+    if (hwnd == NULL)
+        return;
+
+    if (enableDark)
+        SetWindowSubclass(hwnd, DarkListViewSurfaceSubclass, kDarkModeListViewSurfaceSubclassId, 0);
+    else
+        RemoveWindowSubclass(hwnd, DarkListViewSurfaceSubclass, kDarkModeListViewSurfaceSubclassId);
+}
+
 int ComputeLuminance(COLORREF color)
 {
     return (GetRValue(color) * 30 + GetGValue(color) * 59 + GetBValue(color) * 11) / 100;
@@ -1586,6 +1633,7 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
     ListView_SetTextColor(listView, resolvedText);
     ListView_SetTextBkColor(listView, resolvedBackground);
     ListView_SetBkColor(listView, resolvedBackground);
+    EnsureDarkListViewSurfaceSubclass(listView, applyHeaderColors && ShouldUseDarkColorsForSurfaces());
 
     HWND header = ListView_GetHeader(listView);
     if (header != NULL)
