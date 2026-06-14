@@ -7,10 +7,13 @@ Pro běžnou práci používejte pouze `tools/localization/localize.ps1`. Ostatn
 **Ano.** Příkaz `start` postupuje takto:
 
 1. vezme aktuální `english.slg` z buildu jako úplnou kostru projektu,
-2. do této kostry importuje existující `.slt` překlad,
-3. otevře výsledek v Translatoru.
+2. exportuje z ní aktuální `.slt` kostru,
+3. automaticky na ni převede starý `.slt` překlad podle resource ID,
+4. převedený archiv importuje a otevře výsledek v Translatoru.
 
 Staré přeložené položky se tedy zachovají a nové stringy, dialogy nebo menu z aktuálních `.rc`/`.rh2` resources zůstanou v Translatoru jako **nepřeložené**. Není potřeba je ručně dopisovat do překladových šablon.
+
+Automatický převod je důležitý: Translator neumí přímo importovat starý `.slt`, pokud se mezitím změnila struktura resources. `localize.ps1 start` proto starý archiv před importem automaticky rebased na současnou kostru. Chyba typu `Syntax error ... salamand.slt on line ...` se při běžném použití nemá zobrazit.
 
 Jediná důležitá podmínka je, že před `start` musíte z aktuálních zdrojů znovu sestavit a populovat build. Skript čte nové resources z výsledné `english.slg`, nikoliv přímo ze zdrojových `.rc` souborů. Pokud použijete starý build, nové texty v něm ještě nebudou.
 
@@ -100,5 +103,5 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **Chybí `translator.exe`**: build musí obsahovat `utils/translator.exe`.
 - **Unknown module**: plugin v buildu nemá `plugins/<plugin>/lang/english.slg`, případně je špatně napsané jeho jméno.
 - **Nové resource texty v Translatoru nejsou**: `-BuildRoot` pravděpodobně ukazuje na starý build; znovu sestavte/populujte aktuální zdroje a spusťte `start` znovu.
-- **Import existujícího archivu selže**: workspace se přesto vytvoří a Translator lze použít pro ruční opravu. Detail je v souboru `<module>.quiet.log`.
+- **Import převedeného archivu selže**: příkaz `start` skončí s chybou a odkazem na `<module>.quiet.log`; Translator se neotevře s rozbitým projektem.
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.

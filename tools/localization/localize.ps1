@@ -62,15 +62,51 @@ switch ($Action)
             -OutputDir $workspace `
             -Languages $Language `
             -Modules $Module `
-            -ImportArchives `
             -Force
 
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+        $legacyArchive = Join-Path $repoRoot "translations\$Language\$Module.slt"
+        $hadLegacyArchive = Test-Path -LiteralPath $legacyArchive
+        if ($hadLegacyArchive)
+        {
+            # Translator's SLT importer requires exactly the same resource
+            # structure as the current SLG. Export the current skeleton and
+            # rebase the old archive before importing it.
+            $skeletonDir = Join-Path $workspace "current-skeleton"
+            $rebasedDir = Join-Path $workspace "translations\$Language"
+            New-Item -ItemType Directory -Path $skeletonDir, $rebasedDir -Force | Out-Null
+
+            & $translator -quiet-export-slt-for-diff $skeletonDir $project
+            if ($LASTEXITCODE -ne 0)
+            {
+                throw "Nepodařilo se exportovat aktuální resource kostru. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
+            }
+
+            & (Join-Path $PSScriptRoot "rebase_text_archive.ps1") `
+                -CurrentArchive (Join-Path $skeletonDir "$Module.slt") `
+                -LegacyArchive $legacyArchive `
+                -OutputArchive (Join-Path $rebasedDir "$Module.slt")
+
+            & $translator -quiet-import-slt $rebasedDir $project
+            if ($LASTEXITCODE -ne 0)
+            {
+                throw "Nepodařilo se importovat rebased překlad. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
+            }
+        }
+
         Write-Host ""
         Write-Host "Translator se otevře s projektem $Language/$Module."
         Write-Host "Projekt je založený na aktuální english.slg z buildu."
-        Write-Host "Nové resource texty proto v Translatoru uvidíte jako nepřeložené položky."
+        if ($hadLegacyArchive)
+        {
+            Write-Host "Starý překlad byl automaticky převeden na aktuální resource kostru."
+        }
+        else
+        {
+            Write-Host "Pro modul zatím neexistuje překlad; všechny texty začínají anglicky."
+        }
+        Write-Host "Nové resource texty v Translatoru uvidíte jako nepřeložené položky."
         Write-Host "V Translatoru přeložte nepřeložené texty, opravte případné kontroly a projekt uložte (Ctrl+S)."
         Write-Host "Po zavření Translatoru spusťte:"
         Write-Host "  pwsh -File .\tools\localization\localize.ps1 finish $Language $Module"
