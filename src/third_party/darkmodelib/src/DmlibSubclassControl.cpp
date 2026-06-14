@@ -2602,20 +2602,32 @@ LRESULT CALLBACK dmlib_subclass::ListViewSubclass(
 			dmlib_hook::hookSysColor();
 			const LRESULT retVal = ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
 			dmlib_hook::unhookSysColor();
-			return retVal;
-		}
 
-		case WM_ERASEBKGND:
-		{
-			if (!dmlib::isEnabled())
+			// Native themed list views can still paint the unused portion of
+			// their client area with a light brush. Paint only the area below
+			// the final item after the native paint pass, leaving items,
+			// selections, and the header untouched.
+			RECT rcUnused{};
+			::GetClientRect(hWnd, &rcUnused);
+			const int itemCount = ListView_GetItemCount(hWnd);
+			if (itemCount > 0)
 			{
-				break;
+				RECT rcLastItem{};
+				if (ListView_GetItemRect(hWnd, itemCount - 1, &rcLastItem, LVIR_BOUNDS))
+				{
+					rcUnused.top = (std::min)(rcUnused.bottom, rcLastItem.bottom);
+				}
 			}
-
-			RECT rcClient{};
-			::GetClientRect(hWnd, &rcClient);
-			::FillRect(reinterpret_cast<HDC>(wParam), &rcClient, dmlib::getViewBackgroundBrush());
-			return TRUE;
+			if (rcUnused.top < rcUnused.bottom)
+			{
+				HDC hdc = ::GetDC(hWnd);
+				if (hdc != nullptr)
+				{
+					::FillRect(hdc, &rcUnused, dmlib::getViewBackgroundBrush());
+					::ReleaseDC(hWnd, hdc);
+				}
+			}
+			return retVal;
 		}
 
 		case WM_DPICHANGED_AFTERPARENT:
