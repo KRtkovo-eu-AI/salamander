@@ -1,125 +1,91 @@
-# Lokalizační runbook pro Samandarin
+# Jak přeložit Samandarin
 
-Samandarin používá původní formáty Open Salamanderu: sestavené jazykové DLL mají příponu `.slg`, zatímco verzované textové archivy pro překladatele mají příponu `.slt`. Tento postup je odvozený z workflow forku Sally, ale počítá i s našimi novými pluginy a změnami hlavního okna.
+Pro běžnou práci používejte pouze `tools/localization/localize.ps1`. Ostatní skripty v adresáři jsou jeho implementační detaily.
 
-## Co patří do překladu
+## Nejkratší postup
 
-- Jádro aplikace je modul `salamand`; jeho anglický zdroj vzniká ze `src/salamand.rc`, `src/salamand.rc2` a navázaných `.rh2` souborů.
-- Plugin je lokalizovatelný, pokud má `src/plugins/<plugin>/lang/lang.rc`. Generátor jej objeví z **populovaného buildu**, takže zahrne i nově přidané pluginy, pokud build obsahuje `plugins/<plugin>/lang/english.slg`.
-- Překladové archivy se verzují jako `translations/<language>/<module>.slt`.
-- Negenerované workspace, `.atp`, `.slg` a logy se necommitují.
+Potřebujete Windows, PowerShell 7 (`pwsh`) a hotový x64 build obsahující `salamand.exe`, pluginy, anglické `.slg` a `utils/translator.exe`.
 
-Text viditelný uživateli nesmí být natvrdo v C/C++/C# kódu. Přidejte mu stabilní resource ID do příslušného `.rh2`, anglickou hodnotu do resource souboru/string table a načítejte jej přes stávající lokalizační API (`LoadStr`, `LoadString` apod.). Dialogy a menu patří přímo do `.rc` zdrojů. Jinak Translator text neuvidí a žádný skript jej nemůže nabídnout překladateli.
+### 1. Otevřete jeden překlad
 
-## Předpoklady
-
-Automatizace Translatoru běží na Windows v PowerShellu 7 (`pwsh`). Nejdříve sestavte a populujte x64 build včetně `utils/translator.exe`, jádra, pluginů a jejich anglických `.slg`. Příklad cesty používané níže je `build/out/salamand/Release_x64`; upravte ji podle skutečného buildu.
-
-## 1. Audit pokrytí modulů
-
-Přenosný audit rychle ukáže nové pluginy bez archivů a staré archivy modulů, které už nejsou ve zdrojích:
-
-```bash
-python tools/localization/audit_translation_coverage.py
-```
-
-V CI lze požadovat úplné pokrytí všech aktuálních modulů:
-
-```bash
-python tools/localization/audit_translation_coverage.py --fail-on-missing
-```
-
-Chybějící archiv je očekávaný u právě přidaného pluginu; musí se vytvořit exportem aktuální anglické kostry a následně přeložit. Audit sám nekontroluje hardcoded UI texty, proto je při code review nutné ověřit, že každý nový uživatelský text má resource ID.
-
-## 2. Vygenerování pracovního prostoru
+Například český překlad hlavního okna:
 
 ```powershell
-pwsh -File .\tools\localization\prepare_translation_workspace.ps1 `
-  -BuildRoot .\build\out\salamand\Release_x64 `
-  -OutputDir .\out\translation-workspace `
-  -Languages czech,slovak `
-  -Force
-```
-
-Skript zkopíruje runtime, objeví jádro i všechny pluginy s `english.slg`, vytvoří `projects/<language>/<module>/<module>.atp`, seedne cílové `.slg` a zkopíruje existující `.slt`. Pro aktualizaci existujících překladů přidejte `-ImportArchives`; lze také omezit `-Modules salamand,samandarin,jsonviewer`.
-
-```powershell
-pwsh -File .\tools\localization\prepare_translation_workspace.ps1 `
-  -BuildRoot .\build\out\salamand\Release_x64 `
-  -OutputDir .\out\translation-workspace `
-  -Languages czech `
-  -Modules salamand,samandarin,jsonviewer `
-  -ImportArchives -Force
-```
-
-Workspace používá lokální absolutní cesty v `.atp`, CRLF a symbolové soubory bez BOM; generátor tyto požadavky řeší automaticky.
-
-## 3. Zachycení nových textů a rebase starých překladů
-
-Aktuální anglická `.slg` sestavená z aktuálních resources je zdroj pravdy. Po vygenerování workspace exportujte diff-friendly aktuální kostru:
-
-```powershell
-.\out\translation-workspace\runtime\utils\translator.exe `
-  -quiet-export-slt-for-diff .\out\slt-current `
-  .\out\translation-workspace\projects\czech\salamand\salamand.atp
-```
-
-Pokud starý archiv po změně dialogů, menu nebo ID nejde čistě importovat, přeneste překlady na aktuální kostru podle shodných ID:
-
-```powershell
-pwsh -File .\tools\localization\rebase_text_archive.ps1 `
-  -CurrentArchive .\out\slt-current\salamand.slt `
-  -LegacyArchive .\translations\czech\salamand.slt `
-  -OutputArchive .\out\rebased\czech-salamand.slt
-```
-
-Nové položky zůstanou nepřeložené (`state=0`) a překladatel je uvidí. Stejný postup použijte pro každý nový nebo změněný plugin.
-
-## 4. Překlad a export
-
-Projekt otevřete v Translatoru, přeložte položky a proveďte kontroly layoutu, formátovacích parametrů, akcelerátorů a plurálů. Poté exportujte archiv:
-
-```powershell
-.\out\translation-workspace\runtime\utils\translator.exe `
-  -quiet-export-slt .\out\exports\czech `
-  .\out\translation-workspace\projects\czech\salamand\salamand.atp
-```
-
-Volitelný `translate_slt.py` umí doplnit položky se `state=0` přes Anthropic API; vyžaduje `ANTHROPIC_API_KEY` a výsledek musí zkontrolovat člověk:
-
-```bash
-python tools/localization/translate_slt.py translations/german/samandarin.slt --language german --dry-run
-```
-
-Commitujte pouze zkontrolované archivy do `translations/<language>/` spolu s případnými změnami resources a nástrojů.
-
-## 5. Validace a sestavení jazykových balíčků
-
-Pro ověření reprezentativních projektů a headless import/export workflow:
-
-```powershell
-pwsh -File .\tools\localization\verify_translation_workspace.ps1 -WorkspaceDir .\out\translation-workspace
-```
-
-Ruční smoke test otevření Translator projektů:
-
-```powershell
-pwsh -File .\tools\localization\smoke_test_translation_workspace.ps1 -WorkspaceDir .\out\translation-workspace
-```
-
-Všechny dostupné archivy lze importovat, validovat a výsledná `.slg` vložit do populovaného runtime takto:
-
-```powershell
-pwsh -File .\tools\localization\build_language_packs.ps1 `
+pwsh -File .\tools\localization\localize.ps1 start czech salamand `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
-Skript odmítne nezměněný anglický seed vydávaný za překlad. Pro lokální neúplný build lze použít `-AllowSeedRejections`, ne však pro release.
+Nebo český překlad pluginu Samandarin:
 
-## Checklist pro každou změnu UI
+```powershell
+pwsh -File .\tools\localization\localize.ps1 start czech samandarin `
+  -BuildRoot .\build\out\salamand\Release_x64
+```
 
-1. Nový text má stabilní resource ID a není hardcoded v kódu.
-2. Nový plugin vytváří `lang/english.slg` a objeví se v auditu i generovaném workspace.
-3. Pro každý podporovaný jazyk je aktuální `.slt` rebased/importovaný a nové položky přeložené.
-4. Translator validace prošla; byly ručně zkontrolovány dialogy, menu, klávesové zkratky, `%` parametry a plurály.
-5. Release build vytvořil neanglická `.slg`; do Gitu se dostaly pouze resources, `.slt`, dokumentace a nástroje.
+Příkaz připraví vše potřebné, načte existující překlad a automaticky otevře Translator.
+
+### 2. Co dělat v Translatoru
+
+1. Přeložte nepřeložené položky. Nové texty přidané od posledního překladu zůstávají označené jako nepřeložené.
+2. U dialogů zkontrolujte, že se přeložený text vejde do ovládacích prvků.
+3. Projekt uložte pomocí **Ctrl+S**.
+4. Translator zavřete.
+
+Pokud Translator později potřebujete znovu otevřít bez nové přípravy workspace:
+
+```powershell
+pwsh -File .\tools\localization\localize.ps1 open czech salamand
+```
+
+### 3. Uložte výsledek do repozitáře
+
+```powershell
+pwsh -File .\tools\localization\localize.ps1 finish czech salamand
+```
+
+Výsledkem je soubor `translations/czech/salamand.slt`, který zkontrolujete a commitnete. Pro plugin `samandarin` by příkaz i výsledek používaly jméno `samandarin`.
+
+To je celý běžný překladový postup: **start → překlad a Ctrl+S → finish**.
+
+## Užitečné příkazy
+
+Zobrazit pluginy, kterým chybí překladové archivy:
+
+```powershell
+pwsh -File .\tools\localization\localize.ps1 check
+```
+
+Sestavit všechny dostupné jazykové `.slg` do hotového runtime:
+
+```powershell
+pwsh -File .\tools\localization\localize.ps1 build `
+  -BuildRoot .\build\out\salamand\Release_x64
+```
+
+## Když nový text v Translatoru není
+
+Translator umí překládat pouze texty uložené ve Windows resources. Uživatelský text proto nesmí být natvrdo v C/C++/C# kódu.
+
+- String musí mít stabilní resource ID v příslušném `.rh2`, anglický text ve string table a kód jej musí načítat přes `LoadStr`, `LoadString` nebo odpovídající lokalizační API.
+- Dialogy a menu musí být v příslušném `.rc`.
+- Nový plugin musí sestavit `plugins/<plugin>/lang/english.slg`.
+
+Po opravě resources znovu sestavte/populujte aplikaci a spusťte `localize.ps1 start ...`. Aktuální anglická `.slg` je zdroj pravdy, takže nový text se pak objeví jako nepřeložený.
+
+## Co commitovat
+
+Commitujte:
+
+- změněné resources a kód,
+- výsledné `translations/<language>/<module>.slt`,
+- případné změny dokumentace a lokalizačních nástrojů.
+
+Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy.
+
+## Řešení problémů
+
+- **`Build root ... does not look like ...`**: cesta předaná přes `-BuildRoot` neobsahuje populovaný build se `salamand.exe`.
+- **Chybí `translator.exe`**: build musí obsahovat `utils/translator.exe`.
+- **Unknown module**: plugin v buildu nemá `plugins/<plugin>/lang/english.slg`, případně je špatně napsané jeho jméno.
+- **Import existujícího archivu selže**: workspace se přesto vytvoří a Translator lze použít pro ruční opravu. Detail je v souboru `<module>.quiet.log`.
+- **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
