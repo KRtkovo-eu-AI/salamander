@@ -123,7 +123,7 @@ switch ($Action)
             New-Item -ItemType Directory -Path $skeletonDir, $rebasedDir -Force | Out-Null
 
             Invoke-TranslatorQuiet `
-                -Arguments @("-quiet-export-slt-for-diff", $skeletonDir, $project) `
+                -Arguments @("-quiet-export-slt", $skeletonDir, $project) `
                 -FailureMessage "Nepodařilo se exportovat aktuální resource kostru."
 
             & (Join-Path $PSScriptRoot "rebase_text_archive.ps1") `

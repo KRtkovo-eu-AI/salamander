@@ -375,6 +375,11 @@ $legacySections = Get-Sections -Path $legacyArchivePath
 $currentMap = Get-SectionMap -Sections $currentSections
 $legacyMap = Get-SectionMap -Sections $legacySections
 
+if (-not $currentMap.ContainsKey('[EXPORTINFO]'))
+{
+    throw "Current archive '$currentArchivePath' is not a full importable SLT archive: required [EXPORTINFO] section is missing."
+}
+
 $script:MergeStats = @{
     DialogCaptions = 0
     DialogItems    = 0
@@ -538,8 +543,8 @@ foreach ($section in $mergedSections)
 }
 
 $outputText = [string]::Join("`r`n", $outputLines)
-$utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
-[System.IO.File]::WriteAllText($outputArchivePath, $outputText, $utf8WithoutBom)
+$utf8WithBom = [System.Text.UTF8Encoding]::new($true)
+[System.IO.File]::WriteAllText($outputArchivePath, $outputText, $utf8WithBom)
 
 Write-Host "Rebased archive written to: $outputArchivePath"
 Write-Host "Reused dialog captions: $($script:MergeStats.DialogCaptions)"
