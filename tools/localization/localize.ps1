@@ -69,6 +69,8 @@ switch ($Action)
 
         Write-Host ""
         Write-Host "Translator se otevře s projektem $Language/$Module."
+        Write-Host "Projekt je založený na aktuální english.slg z buildu."
+        Write-Host "Nové resource texty proto v Translatoru uvidíte jako nepřeložené položky."
         Write-Host "V Translatoru přeložte nepřeložené texty, opravte případné kontroly a projekt uložte (Ctrl+S)."
         Write-Host "Po zavření Translatoru spusťte:"
         Write-Host "  pwsh -File .\tools\localization\localize.ps1 finish $Language $Module"

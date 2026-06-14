@@ -2,6 +2,18 @@
 
 Pro běžnou práci používejte pouze `tools/localization/localize.ps1`. Ostatní skripty v adresáři jsou jeho implementační detaily.
 
+## Doplní se nové texty ze zdrojových resources?
+
+**Ano.** Příkaz `start` postupuje takto:
+
+1. vezme aktuální `english.slg` z buildu jako úplnou kostru projektu,
+2. do této kostry importuje existující `.slt` překlad,
+3. otevře výsledek v Translatoru.
+
+Staré přeložené položky se tedy zachovají a nové stringy, dialogy nebo menu z aktuálních `.rc`/`.rh2` resources zůstanou v Translatoru jako **nepřeložené**. Není potřeba je ručně dopisovat do překladových šablon.
+
+Jediná důležitá podmínka je, že před `start` musíte z aktuálních zdrojů znovu sestavit a populovat build. Skript čte nové resources z výsledné `english.slg`, nikoliv přímo ze zdrojových `.rc` souborů. Pokud použijete starý build, nové texty v něm ještě nebudou.
+
 ## Nejkratší postup
 
 Potřebujete Windows, PowerShell 7 (`pwsh`) a hotový x64 build obsahující `salamand.exe`, pluginy, anglické `.slg` a `utils/translator.exe`.
@@ -22,7 +34,7 @@ pwsh -File .\tools\localization\localize.ps1 start czech samandarin `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
-Příkaz připraví vše potřebné, načte existující překlad a automaticky otevře Translator.
+Příkaz připraví vše potřebné, načte existující překlad na aktuální anglickou resource kostru a automaticky otevře Translator.
 
 ### 2. Co dělat v Translatoru
 
@@ -87,5 +99,6 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **`Build root ... does not look like ...`**: cesta předaná přes `-BuildRoot` neobsahuje populovaný build se `salamand.exe`.
 - **Chybí `translator.exe`**: build musí obsahovat `utils/translator.exe`.
 - **Unknown module**: plugin v buildu nemá `plugins/<plugin>/lang/english.slg`, případně je špatně napsané jeho jméno.
+- **Nové resource texty v Translatoru nejsou**: `-BuildRoot` pravděpodobně ukazuje na starý build; znovu sestavte/populujte aktuální zdroje a spusťte `start` znovu.
 - **Import existujícího archivu selže**: workspace se přesto vytvoří a Translator lze použít pro ruční opravu. Detail je v souboru `<module>.quiet.log`.
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
