@@ -67,9 +67,21 @@ function Invoke-TranslatorQuiet
 
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $process.WaitForExit()
-    if ($process.ExitCode -ne 0)
+
+    $diagnosticLog = Join-Path $workspace "localize.log"
+    @(
+        "Timestamp: $([DateTime]::Now.ToString('s'))"
+        "Command: $translator $($Arguments -join ' ')"
+        "Exit code: $($process.ExitCode)"
+        ""
+    ) | Add-Content -LiteralPath $diagnosticLog -Encoding UTF8
+
+    # This repository's Translator uses exit code 1 for a successful quiet
+    # import/export. Unlike Sally's newer Translator, it does not create
+    # <module>.quiet.log files.
+    if ($process.ExitCode -ne 1)
     {
-        throw $FailureMessage
+        throw "$FailureMessage Diagnostika: $diagnosticLog"
     }
 }
 
@@ -112,7 +124,7 @@ switch ($Action)
 
             Invoke-TranslatorQuiet `
                 -Arguments @("-quiet-export-slt-for-diff", $skeletonDir, $project) `
-                -FailureMessage "Nepodařilo se exportovat aktuální resource kostru. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
+                -FailureMessage "Nepodařilo se exportovat aktuální resource kostru."
 
             & (Join-Path $PSScriptRoot "rebase_text_archive.ps1") `
                 -CurrentArchive (Join-Path $skeletonDir "$Module.slt") `
@@ -125,7 +137,7 @@ switch ($Action)
 
             Invoke-TranslatorQuiet `
                 -Arguments @("-quiet-import-slt", $rebasedDir, $project) `
-                -FailureMessage "Nepodařilo se importovat rebased překlad. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
+                -FailureMessage "Nepodařilo se importovat rebased překlad."
         }
 
         Write-Host ""
@@ -159,7 +171,7 @@ switch ($Action)
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
         Invoke-TranslatorQuiet `
             -Arguments @("-quiet-export-slt", $destination, $project) `
-            -FailureMessage "Export selhal. Podrobnosti jsou v projects\$Language\$Module\$Module.quiet.log."
+            -FailureMessage "Export selhal."
 
         Write-Host ""
         Write-Host "Hotovo: translations\$Language\$Module.slt"
