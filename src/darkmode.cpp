@@ -949,24 +949,47 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
     LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
     if (msg == WM_PAINT && ShouldUseDarkColorsForSurfaces())
     {
+        HDC hdc = GetDC(hwnd);
+        if (hdc == NULL)
+            return result;
+
+        const COLORREF background = DarkModeGetColors().background;
         RECT unused;
         GetClientRect(hwnd, &unused);
         int count = ListView_GetItemCount(hwnd);
         if (count > 0)
         {
+            HWND header = ListView_GetHeader(hwnd);
+            int columnCount = header != NULL ? Header_GetItemCount(header) : 0;
+            if (columnCount > 0)
+            {
+                RECT lastColumn;
+                if (Header_GetItemRect(header, columnCount - 1, &lastColumn))
+                {
+                    MapWindowPoints(header, hwnd, reinterpret_cast<POINT*>(&lastColumn), 2);
+                    int firstVisible = ListView_GetTopIndex(hwnd);
+                    int lastVisible = (std::min)(count - 1, firstVisible + ListView_GetCountPerPage(hwnd));
+                    for (int i = firstVisible; i <= lastVisible; ++i)
+                    {
+                        RECT row;
+                        if (ListView_GetItemRect(hwnd, i, &row, LVIR_BOUNDS))
+                        {
+                            row.left = (std::max)(row.left, lastColumn.right);
+                            row.right = unused.right;
+                            if (row.left < row.right)
+                                FillRectWithColor(hdc, row, background);
+                        }
+                    }
+                }
+            }
+
             RECT lastItem;
             if (ListView_GetItemRect(hwnd, count - 1, &lastItem, LVIR_BOUNDS))
                 unused.top = (std::min)(unused.bottom, lastItem.bottom);
         }
         if (unused.top < unused.bottom)
-        {
-            HDC hdc = GetDC(hwnd);
-            if (hdc != NULL)
-            {
-                FillRectWithColor(hdc, unused, DarkModeGetColors().background);
-                ReleaseDC(hwnd, hdc);
-            }
-        }
+            FillRectWithColor(hdc, unused, background);
+        ReleaseDC(hwnd, hdc);
     }
     return result;
 }
