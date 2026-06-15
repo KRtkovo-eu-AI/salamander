@@ -7,7 +7,8 @@ from pathlib import Path
 
 LINE_RE = re.compile(r'^(?P<prefix>.*?,)(?P<state>[01]),"(?P<text>.*)"(?P<ending>\r?\n)?$')
 SECTION_RE = re.compile(r'^\[(?P<kind>DIALOG|MENU|STRINGTABLE)(?:\s+[^]]+)?\]$')
-TOKEN_RE = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\{\d+(?::[^}]*)?\}|\\[nrt]|&.|<[^>]+>|(?:[A-Za-z]:)?(?:\\[^\\\s]+)+')
+TOKEN_RE = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\{\d+(?::[^}]*)?\}|\\[nrt]|<[^>]+>|(?:[A-Za-z]:)?(?:\\[^\\\s]+)+')
+ACCELERATOR_RE = re.compile(r'(?<!&)&(?!&)')
 
 @dataclass
 class Item:
@@ -26,7 +27,10 @@ def parse_items(lines: list[str], force: bool = False) -> list[Item]:
         items.append(Item(index, key, section, match.group("text"), match.group("prefix"), match.group("ending") or ""))
     return items
 
-def tokens(text: str) -> list[str]: return sorted(TOKEN_RE.findall(text))
+def tokens(text: str) -> tuple[list[str], int]:
+    # The accelerator must remain present, but its target letter normally
+    # changes in translation (for example "&File" becomes "&Soubor").
+    return sorted(TOKEN_RE.findall(text)), len(ACCELERATOR_RE.findall(text))
 
 def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
     body = json.dumps({"model": model, "input": [{"role":"system","content":[{"type":"input_text","text":"Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly."}]},{"role":"user","content":[{"type":"input_text","text":json.dumps(payload, ensure_ascii=False)}]}], "text":{"format":{"type":"json_schema","name":"translations","strict":True,"schema":{"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"text":{"type":"string"}},"required":["id","text"],"additionalProperties":False}}},"required":["translations"],"additionalProperties":False}}}}).encode()

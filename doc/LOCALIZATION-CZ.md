@@ -108,6 +108,8 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **`Syntax error ... on line 1`**: používali jste starší wrapper, který pro rebase exportoval diff archiv bez povinné sekce `[EXPORTINFO]`; aktualizujte repozitář a spusťte `start` znovu.
 - **`$LASTEXITCODE cannot be retrieved because it has not been set`**: používali jste starší verzi `localize.ps1`, která spouštěla GUI `translator.exe` přímo; aktualizujte repozitář a spusťte stejný příkaz znovu.
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
+- **`32-bit IDs are not supported`**: modul obsahuje ID ovládacího prvku dialogu, které současný Translator neumí reprezentovat. Znovu sestavte `utils/translator.exe` z aktuálních zdrojů, aby quiet operace skončila chybou bez otevření GUI; dotčený modul je nutné opravit nebo vynechat pomocí `-Modules`.
+- **Quiet operace Translatoru otevře GUI**: znovu sestavte `utils/translator.exe` z aktuálních zdrojů. Lokalizační skripty navíc jako pojistku ukončí quiet operaci, která neskončí do dvou minut.
 
 ## Dávkový překlad pomocí OpenAI
 

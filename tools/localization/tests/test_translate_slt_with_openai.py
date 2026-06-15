@@ -8,6 +8,11 @@ class Tests(unittest.TestCase):
  def test_validate_rejects_changed_tokens_and_incomplete(self):
   items=slt.parse_items(FIX.read_text(encoding="utf-8-sig").splitlines(keepends=True))
   with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":items[0].key,"text":"Otevřít"}]})
+ def test_accelerator_may_move_to_another_letter(self):
+  items=slt.parse_items(FIX.read_text(encoding="utf-8-sig").splitlines(keepends=True))
+  translated=[{"id":item.key,"text":item.text} for item in items]
+  translated[1]["text"]="Použít výchozí &písmo"
+  self.assertEqual(slt.validate(items,{"translations":translated})[items[1].key],"Použít výchozí &písmo")
  def test_translation_preserves_format_and_escaping(self):
   os.environ["OPENAI_API_KEY"]="test"
   def requester(payload,key,model): return {"translations":[{"id":x["id"],"text":x["text"].replace("Open","Otevřít").replace("Use","Použít")} for x in payload["items"]]}

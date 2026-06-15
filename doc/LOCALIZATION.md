@@ -108,6 +108,8 @@ Do not commit the `out/localization` directory, `.atp` files, generated `.slg` f
 - **`Syntax error ... on line 1`**: you used an older wrapper that exported a diff archive without the required `[EXPORTINFO]` section during rebase; update the repository and run `start` again.
 - **`$LASTEXITCODE cannot be retrieved because it has not been set`**: you used an older version of `localize.ps1` that launched the GUI `translator.exe` directly; update the repository and run the same command again.
 - **I need an advanced rebase or headless validation**: use the helper scripts `rebase_text_archive.ps1` and `verify_translation_workspace.ps1`; they are not needed for routine translation.
+- **`32-bit IDs are not supported`**: the module contains a dialog control ID that the current Translator cannot represent. Rebuild `utils/translator.exe` from the current sources so quiet operations fail without opening the GUI; the affected module must be fixed or excluded with `-Modules`.
+- **A quiet Translator operation opens the GUI**: rebuild `utils/translator.exe` from the current sources. As an additional safeguard, localization scripts terminate quiet operations that do not exit within two minutes.
 
 ## Batch Translation with OpenAI
 
