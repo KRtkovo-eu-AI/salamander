@@ -32,6 +32,24 @@ class Tests(unittest.TestCase):
    out=Path(d)/"out.slt"; report=slt.translate(FIX,out,"czech","mock",40,False,False,requester); text=out.read_text(encoding="utf-8-sig")
    self.assertEqual(report["failed"],1); self.assertEqual(report["translated"],1)
    self.assertIn('101,0,"Open %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
+
+ def test_single_item_retry_can_recover_rejected_translation(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  calls=[]
+  def requester(payload,key,model):
+   calls.append(payload)
+   rows=[]
+   for x in payload["items"]:
+    text=x["text"].replace("Open","Otevřít").replace("Use","Použít").replace("&default font","výchozí &písmo")
+    if x["resource_id"] == "101" and not payload.get("retry_instructions"): text=text.replace("%s", "")
+    rows.append({"id":x["id"],"text":text})
+   return {"translations":rows}
+  with tempfile.TemporaryDirectory() as d:
+   out=Path(d)/"out.slt"; trace=Path(d)/"trace.jsonl"; report=slt.translate(FIX,out,"czech","mock",40,False,False,requester,trace_file=trace); text=out.read_text(encoding="utf-8-sig")
+   self.assertEqual(report["failed"],0); self.assertEqual(report["translated"],2)
+   self.assertTrue(any(call.get("retry_instructions") for call in calls))
+   self.assertIn('101,1,"Otevřít %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
+   self.assertIn('"event": "request"', trace.read_text(encoding="utf-8"))
  def test_requires_key(self):
   os.environ.pop("OPENAI_API_KEY",None)
   with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,True,False)
