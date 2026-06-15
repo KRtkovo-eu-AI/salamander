@@ -18,6 +18,20 @@ class Tests(unittest.TestCase):
   def requester(payload,key,model): return {"translations":[{"id":x["id"],"text":x["text"].replace("Open","Otevřít").replace("Use","Použít")} for x in payload["items"]]}
   with tempfile.TemporaryDirectory() as d:
    out=Path(d)/"out.slt"; slt.translate(FIX,out,"czech","mock",40,False,False,requester); text=out.read_text(encoding="utf-8-sig"); self.assertIn('100,1,"Already translated"',text); self.assertIn('101,1,"Otevřít %s\\n"',text)
+
+ def test_invalid_translation_is_skipped_without_aborting_batch(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  def requester(payload,key,model):
+   rows=[]
+   for x in payload["items"]:
+    text=x["text"].replace("Open","Otevřít").replace("Use","Použít").replace("&default font","výchozí &písmo")
+    if x["resource_id"] == "101": text=text.replace("%s", "")
+    rows.append({"id":x["id"],"text":text})
+   return {"translations":rows}
+  with tempfile.TemporaryDirectory() as d:
+   out=Path(d)/"out.slt"; report=slt.translate(FIX,out,"czech","mock",40,False,False,requester); text=out.read_text(encoding="utf-8-sig")
+   self.assertEqual(report["failed"],1); self.assertEqual(report["translated"],1)
+   self.assertIn('101,0,"Open %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
  def test_requires_key(self):
   os.environ.pop("OPENAI_API_KEY",None)
   with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,True,False)

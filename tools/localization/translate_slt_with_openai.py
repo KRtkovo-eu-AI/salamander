@@ -67,14 +67,29 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
     key=os.environ.get("OPENAI_API_KEY")
     if not key: raise RuntimeError("OPENAI_API_KEY is not set")
     changed=list(lines)
-    for start in range(0,len(items),batch_size):
-        batch=items[start:start+batch_size]
+
+    def translate_batch(batch: list[Item]) -> None:
         payload={"target_language":language,"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text} for i in batch]}
-        try: translated=validate(batch, requester(payload,key,model))
-        except Exception: report["failed"] += len(batch); raise
+        try:
+            translated=validate(batch, requester(payload,key,model))
+        except ValueError as exc:
+            if len(batch) == 1:
+                report["failed"] += 1
+                print(f"translation skipped: {batch[0].key}: {exc}", file=sys.stderr)
+                return
+            midpoint=max(1, len(batch)//2)
+            translate_batch(batch[:midpoint])
+            translate_batch(batch[midpoint:])
+            return
+        except Exception:
+            report["failed"] += len(batch)
+            raise
         for item in batch:
             changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
             report["translated"] += 1
+
+    for start in range(0,len(items),batch_size):
+        translate_batch(items[start:start+batch_size])
     if not dry_run: output.write_text("".join(changed),encoding="utf-8-sig",newline="")
     return report
 
