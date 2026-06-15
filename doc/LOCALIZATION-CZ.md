@@ -108,3 +108,20 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **`Syntax error ... on line 1`**: používali jste starší wrapper, který pro rebase exportoval diff archiv bez povinné sekce `[EXPORTINFO]`; aktualizujte repozitář a spusťte `start` znovu.
 - **`$LASTEXITCODE cannot be retrieved because it has not been set`**: používali jste starší verzi `localize.ps1`, která spouštěla GUI `translator.exe` přímo; aktualizujte repozitář a spusťte stejný příkaz znovu.
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
+
+## Dávkový překlad pomocí OpenAI
+
+`localize_all_openai.ps1` umí bez otevření Translatoru připravit a přeložit všechny dostupné jazyky a moduly. Jazyky zjistí z adresáře `translations/`; z populovaného buildu zjistí hlavní modul `salamand` a pluginy obsahující `lang/english.slg`.
+
+API klíč nastavujte pouze v prostředí procesu; nikdy jej neukládejte do repozitáře ani skriptu:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+$env:OPENAI_MODEL = "gpt-5-mini" # volitelné
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64 -DryRun
+```
+
+Po kontrole reportu pro jednotlivé jazyky a moduly odstraňte `-DryRun`. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
+
+Skript odesílá OpenAI pouze nepřeložené resource texty a jejich kontext, takže použití API něco stojí. Ověřuje vrácená ID a technické tokeny, každého kandidáta před nahrazením archivu v repozitáři importuje do Translatoru a API klíč nikdy neloguje. Automatický překlad **nenahrazuje lidskou kontrolu**: před commitem vygenerovaných `.slt` zkontrolujte terminologii, akcelerátory, placeholdery a zda se text vejde do dialogů.

@@ -108,3 +108,20 @@ Do not commit the `out/localization` directory, `.atp` files, generated `.slg` f
 - **`Syntax error ... on line 1`**: you used an older wrapper that exported a diff archive without the required `[EXPORTINFO]` section during rebase; update the repository and run `start` again.
 - **`$LASTEXITCODE cannot be retrieved because it has not been set`**: you used an older version of `localize.ps1` that launched the GUI `translator.exe` directly; update the repository and run the same command again.
 - **I need an advanced rebase or headless validation**: use the helper scripts `rebase_text_archive.ps1` and `verify_translation_workspace.ps1`; they are not needed for routine translation.
+
+## Batch Translation with OpenAI
+
+`localize_all_openai.ps1` can prepare and translate every available language and module without opening Translator. It discovers languages under `translations/` and discovers `salamand` plus plugins with `lang/english.slg` in the populated build.
+
+Set the API key only in the process environment; never save it in the repository or a script:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+$env:OPENAI_MODEL = "gpt-5-mini" # optional
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64 -DryRun
+```
+
+Remove `-DryRun` after reviewing the per-language/module report. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+
+The script sends only untranslated resource texts and their context to OpenAI, so API usage has a cost. It validates returned IDs and technical tokens, imports each candidate into Translator before replacing the repository archive, and never logs the API key. Automated translation does **not** replace human review: check terminology, accelerators, placeholders, and whether text fits in dialogs before committing the generated `.slt` files.
