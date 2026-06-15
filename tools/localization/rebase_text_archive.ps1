@@ -231,7 +231,7 @@ function Format-DialogCaption
         [object]$Legacy
     )
 
-    $state = if ($null -ne $Legacy) { $Legacy.State } else { $Current.State }
+    $state = if ($null -ne $Legacy) { $Legacy.State } else { 0 }
     $text = if ($null -ne $Legacy) { $Legacy.Text } else { $Current.Text }
 
     return '{0},{1},{2},"{3}"' -f $Current.Width, $Current.Height, $state, $text
@@ -246,7 +246,7 @@ function Format-DialogItem
         [object]$Legacy
     )
 
-    $state = if ($null -ne $Legacy) { $Legacy.State } else { $Current.State }
+    $state = if ($null -ne $Legacy) { $Legacy.State } else { 0 }
     $text = if ($null -ne $Legacy) { $Legacy.Text } else { $Current.Text }
 
     return '{0},{1},{2},{3},{4},{5},"{6}"' -f $Current.Id, $Current.X, $Current.Y, $Current.Width, $Current.Height, $state, $text
@@ -261,7 +261,7 @@ function Format-KeyedTextItem
         [object]$Legacy
     )
 
-    $state = if ($null -ne $Legacy) { $Legacy.State } else { $Current.State }
+    $state = if ($null -ne $Legacy) { $Legacy.State } else { 0 }
     $text = if ($null -ne $Legacy) { $Legacy.Text } else { $Current.Text }
 
     return '{0},{1},"{2}"' -f $Current.Id, $state, $text
