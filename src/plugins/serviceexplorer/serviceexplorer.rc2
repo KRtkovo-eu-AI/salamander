@@ -9,7 +9,7 @@
 #include "versinfo.rh2"
 #include "../shared/versinfo.rc2"
 #include "lang/lang.rh"
-#include "plugin.rh"
+#include "serviceexplorer.rh"
 
 IDI_SERVICEEXPLORER_DIR ICON "res\\dir.ico"
 IDB_SERVICEEXPLORER_TOOLBAR BITMAP "res\\svc.bmp"

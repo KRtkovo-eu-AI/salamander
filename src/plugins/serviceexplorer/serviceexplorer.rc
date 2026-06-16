@@ -2,7 +2,7 @@
 //
 #pragma code_page(65001)
 
-#include "plugin.rh"
+#include "serviceexplorer.rh"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -30,7 +30,7 @@ LANGUAGE LANG_NEUTRAL,SUBLANG_NEUTRAL
 
 1 TEXTINCLUDE
 BEGIN
-    "plugin.rh\0"
+    "serviceexplorer.rh\0"
 END
 
 2 TEXTINCLUDE

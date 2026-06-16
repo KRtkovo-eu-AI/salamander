@@ -65,12 +65,12 @@
     <ClInclude Include="..\servicemanager.h">
       <Filter>h</Filter>
     </ClInclude>
-    <ClInclude Include="..\plugin.rh">
+    <ClInclude Include="..\serviceexplorer.rh">
       <Filter>rc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="..\plugin.rc">
+    <ResourceCompile Include="..\serviceexplorer.rc">
       <Filter>rc</Filter>
     </ResourceCompile>
   </ItemGroup>

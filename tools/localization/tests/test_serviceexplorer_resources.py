@@ -14,5 +14,16 @@ class ServiceExplorerResourceTests(unittest.TestCase):
         self.assertTrue(used_dialogs)
         self.assertEqual(used_dialogs - defined_dialogs, set())
 
+    def test_plugin_has_standard_root_resource_files(self):
+        self.assertTrue((PLUGIN / "serviceexplorer.rc").is_file())
+        self.assertTrue((PLUGIN / "serviceexplorer.rc2").is_file())
+        self.assertTrue((PLUGIN / "serviceexplorer.rh").is_file())
+        self.assertTrue((PLUGIN / "versinfo.rh2").is_file())
+        project = (PLUGIN / "vcxproj/serviceexplorer.vcxproj").read_text(encoding="utf-8", errors="replace")
+        self.assertIn(r'ResourceCompile Include="..\serviceexplorer.rc"', project)
+        self.assertIn(r'ClInclude Include="..\serviceexplorer.rh"', project)
+        self.assertNotIn("plugin.rc", project)
+        self.assertNotIn("plugin.rh", project)
+
 if __name__ == "__main__":
     unittest.main()
