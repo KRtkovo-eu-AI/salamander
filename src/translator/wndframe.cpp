@@ -544,6 +544,14 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
             ExitProcess(2); // quiet operation failed; never fall through to the interactive GUI
         }
 
+        if (QuietValidate != 0 || QuietTranslate != 0 || QuietMarkChAsTrl != 0 ||
+            QuietImport[0] != 0 || QuietImportTrlProp[0] != 0 || QuietExportSLT[0] != 0 ||
+            QuietExportSDC[0] != 0 || QuietImportSLT[0] != 0 || QuietExportSpellChecker[0] != 0)
+        {
+            DestroyWindow(HWindow);
+            ExitProcess(1); // quiet mode active but no errors; exit gracefully instead of opening GUI
+        }
+
         ret = TRUE;
         OpenChildWindows();
         SetTitle();
@@ -658,8 +666,6 @@ void CFrameWindow::ProcessCmdLineParams(char* argv[], int p)
         if (OpenLayoutEditorDialogID[0] != 0)
             Data.SelectedTreeItem = TREE_TYPE_DIALOG | atoi(OpenLayoutEditorDialogID);
         OpenProject(argv[1]);
-        if (qval)
-            PostMessage(HWindow, WM_VALIDATIONFAILED, 0, 0);
         if (qtran)
             PostMessage(HWindow, WM_UNTRANSLATEDFOUND, 0, 0);
         if (OpenLayoutEditorDialogID[0] != 0)

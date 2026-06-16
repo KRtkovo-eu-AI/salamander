@@ -83,15 +83,12 @@ function Invoke-TranslatorQuiet
     $startInfo.WorkingDirectory = Split-Path $TranslatorExe -Parent
     $startInfo.UseShellExecute = $false
 
-    foreach ($argument in $Arguments)
-    {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
+    $startInfo.Arguments = ($Arguments | ForEach-Object { if($_ -match '\s'){'"' + $_ + '"'} else { $_ } }) -join ' '
 
     $process = [System.Diagnostics.Process]::Start($startInfo)
     if (-not $process.WaitForExit($TimeoutSeconds * 1000))
     {
-        $process.Kill($true)
+        $process.Kill()
         throw "Translator timed out while running '$Description'.$(Get-QuietFailureDetails -ProjectPath $ProjectPath)"
     }
 

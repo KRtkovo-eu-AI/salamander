@@ -95,7 +95,7 @@ Commitujte:
 - výsledné `translations/<language>/<module>.slt`,
 - případné změny dokumentace a lokalizačních nástrojů.
 
-Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy.
+Necommitujte adresáře `out/localization` ani `out/localization-openai`, `.atp`, vygenerované `.slg` ani logy.
 
 ## Řešení problémů
 
@@ -110,6 +110,8 @@ Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy
 - **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
 - **`32-bit IDs are not supported`**: modul obsahuje ID ovládacího prvku dialogu, které současný Translator neumí reprezentovat. Znovu sestavte `utils/translator.exe` z aktuálních zdrojů, aby quiet operace skončila chybou bez otevření GUI; dotčený modul je nutné opravit nebo vynechat pomocí `-Modules`.
 - **Quiet operace Translatoru otevře GUI**: znovu sestavte `utils/translator.exe` z aktuálních zdrojů. Lokalizační skripty navíc jako pojistku ukončí quiet operaci, která neskončí do dvou minut.
+- **`No candidate file found` v ImportOnly režimu**: adresář `out/localization-openai/candidate/<language>/<module>/` neobsahuje `.slt` soubor. Nejprve spusťte DryRun pro vygenerování kandidátů, nebo zkontrolujte cestu a názvy jazyků/modulů.
+- **`Workspace does not exist` v ImportOnly režimu**: adresář `out/localization-openai` neexistuje nebo byl smazán. Nejprve spusťte DryRun pro vytvoření workspace a vygenerování kandidátů.
 
 ## Dávkový překlad pomocí OpenAI
 
@@ -125,6 +127,24 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 ```
 
 Po kontrole reportu pro jednotlivé jazyky/moduly a vygenerovaných kandidátů odstraňte `-DryRun`. V dávkovém skriptu `-DryRun` stále volá OpenAI a zapisuje přeložené soubory do `out/localization-openai/candidate/`; pouze přeskočí kopírování do `translations/`, import/export validaci v Translatoru a sestavení language packů. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
+
+#### ImportOnly režim
+
+`-ImportOnly` přeskočí export kostry, rebase, OpenAI překlad a přípravu workspace (která by smazala existující kandidáty). Importuje existující soubory kandidátů z `out/localization-openai/candidate/` do `.slg` projektů a volitelně exportuje finální `.slt` soubory do `translations/`. API klíč `OPENAI_API_KEY` není potřeba.
+
+Workspace musí existovat z předchozího DryRun nebo plného běhu. Tento režim se používá, když chcete kandidáty ručně upravit před finálním uložením, nebo když potřebujete znovu importovat dříve přeložené kandidáty bez opětovného spuštění celého pipeline:
+
+```powershell
+# DryRun pro vygenerování kandidátů, pak je ručně zkontrolujte/upravte
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\salamander\Release_x64 -Languages french -Modules salamand -DryRun
+
+# Po kontrole kandidátů v out/localization-openai/candidate/french/salamand/
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\salamander\Release_x64 -Languages french -Modules salamand -ImportOnly
+```
+
+Režim `-ImportOnly` lze kombinovat s `-BuildLanguagePacks` pro sestavení jazykových balíčků po importu.
 
 ### Co OpenAI workflow vytváří
 

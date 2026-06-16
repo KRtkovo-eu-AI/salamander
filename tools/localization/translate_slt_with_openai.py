@@ -61,6 +61,7 @@ def validate(items: list[Item], result: dict) -> dict[str,str]:
     for row in rows:
         if not isinstance(row,dict) or set(row) != {"id","text"} or row["id"] in output or row["id"] not in expected: raise ValueError("response contains invalid, duplicate, or unknown item")
         if "\n" in row["text"] or "\r" in row["text"]: raise ValueError(f"translated text contains newline for {row['id']}")
+        if "\x00" in row["text"]: raise ValueError(f"translated text contains NUL byte for {row['id']}")
         if '"' in row["text"]: raise ValueError(f"translated text contains unescaped quote for {row['id']}")
         if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
         output[row["id"]]=row["text"]
@@ -71,7 +72,7 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True); items=parse_items(lines, force)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
-    if not items or dry_run: return report
+    if not items: return report
     key=os.environ.get("OPENAI_API_KEY")
     if not key: raise RuntimeError("OPENAI_API_KEY is not set")
     changed=list(lines)
@@ -128,7 +129,7 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
             translate_batch(items[start:start+batch_size])
     finally:
         if trace_handle: trace_handle.close()
-    if not dry_run: output.write_text("".join(changed),encoding="utf-8-sig",newline="")
+    output.write_text("".join(changed),encoding="utf-8-sig",newline="")
     return report
 
 def main() -> int:

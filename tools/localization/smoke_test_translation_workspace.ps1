@@ -60,7 +60,7 @@ function Test-TranslatorProjectOpen
     $startInfo.FileName = $TranslatorExe
     $startInfo.WorkingDirectory = Split-Path $TranslatorExe -Parent
     $startInfo.UseShellExecute = $false
-    [void]$startInfo.ArgumentList.Add($ProjectPath)
+    $startInfo.Arguments = '"' + $ProjectPath + '"'
 
     $process = [System.Diagnostics.Process]::Start($startInfo)
     if ($process.WaitForExit($StartupWaitSeconds * 1000))
@@ -70,7 +70,7 @@ function Test-TranslatorProjectOpen
 
     try
     {
-        $process.Kill($true)
+        $process.Kill()
         [void]$process.WaitForExit(5000)
     }
     catch

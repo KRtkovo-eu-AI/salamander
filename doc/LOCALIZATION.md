@@ -95,7 +95,7 @@ Commit:
 - the resulting `translations/<language>/<module>.slt`,
 - any changes to documentation and localization tools.
 
-Do not commit the `out/localization` directory, `.atp` files, generated `.slg` files, or logs.
+Do not commit the `out/localization` or `out/localization-openai` directories, `.atp` files, generated `.slg` files, or logs.
 
 ## Troubleshooting
 
@@ -110,6 +110,8 @@ Do not commit the `out/localization` directory, `.atp` files, generated `.slg` f
 - **I need an advanced rebase or headless validation**: use the helper scripts `rebase_text_archive.ps1` and `verify_translation_workspace.ps1`; they are not needed for routine translation.
 - **`32-bit IDs are not supported`**: the module contains a dialog control ID that the current Translator cannot represent. Rebuild `utils/translator.exe` from the current sources so quiet operations fail without opening the GUI; the affected module must be fixed or excluded with `-Modules`.
 - **A quiet Translator operation opens the GUI**: rebuild `utils/translator.exe` from the current sources. As an additional safeguard, localization scripts terminate quiet operations that do not exit within two minutes.
+- **`No candidate file found` in ImportOnly mode**: the `out/localization-openai/candidate/<language>/<module>/` directory does not contain a `.slt` file. Run a full DryRun first to generate candidates, or check the path and language/module names.
+- **`Workspace does not exist` in ImportOnly mode**: the `out/localization-openai` directory does not exist or was deleted. Run a DryRun first to create the workspace and generate candidates.
 
 ## Batch Translation with OpenAI
 
@@ -125,6 +127,24 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
 ```
 
 Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls OpenAI and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+
+#### ImportOnly Mode
+
+`-ImportOnly` skips skeleton export, rebase, OpenAI translation, and workspace preparation (which would delete existing candidates). It imports existing candidate files from `out/localization-openai/candidate/` into the `.slg` projects and optionally exports the final `.slt` files to `translations/`. No `OPENAI_API_KEY` is required.
+
+The workspace must already exist from a previous DryRun or full run. Use this when you want to manually edit candidates before finalizing them, or when you need to re-import previously translated candidates without re-running the entire pipeline:
+
+```powershell
+# DryRun to generate candidates, then review/edit them manually
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\salamander\Release_x64 -Languages french -Modules salamand -DryRun
+
+# After reviewing candidates in out/localization-openai/candidate/french/salamand/
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\salamander\Release_x64 -Languages french -Modules salamand -ImportOnly
+```
+
+The `-ImportOnly` mode can be combined with `-BuildLanguagePacks` to build language packs after importing.
 
 ### What the OpenAI Workflow Produces
 
