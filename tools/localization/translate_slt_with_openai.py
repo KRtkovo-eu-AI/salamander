@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Translate untranslated SLT resource lines with the OpenAI Responses API."""
 from __future__ import annotations
-import argparse, json, os, re, sys, time, urllib.error, urllib.request
+import argparse, json, os, re, socket, sys, time, urllib.error, urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40,11 +40,14 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
     req = urllib.request.Request("https://api.openai.com/v1/responses", body, {"Authorization": f"Bearer {api_key}", "Content-Type":"application/json"})
     for attempt in range(attempts):
         try:
-            with urllib.request.urlopen(req, timeout=120) as response: result=json.load(response)
+            with urllib.request.urlopen(req, timeout=300) as response: result=json.load(response)
             text = result.get("output_text")
             if text is None:
                 text = next(c["text"] for o in result["output"] for c in o.get("content", []) if c.get("type") == "output_text")
             return json.loads(text)
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+            if attempt + 1 == attempts: raise
+            sleep(2 ** attempt)
         except urllib.error.HTTPError as exc:
             if exc.code not in (408, 409, 429, 500, 502, 503, 504) or attempt + 1 == attempts: raise
             sleep(2 ** attempt)
@@ -57,6 +60,8 @@ def validate(items: list[Item], result: dict) -> dict[str,str]:
     expected={i.key:i for i in items}
     for row in rows:
         if not isinstance(row,dict) or set(row) != {"id","text"} or row["id"] in output or row["id"] not in expected: raise ValueError("response contains invalid, duplicate, or unknown item")
+        if "\n" in row["text"] or "\r" in row["text"]: raise ValueError(f"translated text contains newline for {row['id']}")
+        if '"' in row["text"]: raise ValueError(f"translated text contains unescaped quote for {row['id']}")
         if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
         output[row["id"]]=row["text"]
     if set(output) != set(expected): raise ValueError("response is incomplete")
@@ -106,6 +111,10 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
             midpoint=max(1, len(batch)//2)
             translate_batch(batch[:midpoint])
             translate_batch(batch[midpoint:])
+            return
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+            report["failed"] += len(batch)
+            print(f"batch translation failed (network error, will continue): {exc}", file=sys.stderr)
             return
         except Exception:
             report["failed"] += len(batch)
