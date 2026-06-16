@@ -13,6 +13,14 @@ class Tests(unittest.TestCase):
   translated=[{"id":item.key,"text":item.text} for item in items]
   translated[1]["text"]="Použít výchozí &písmo"
   self.assertEqual(slt.validate(items,{"translations":translated})[items[1].key],"Použít výchozí &písmo")
+
+ def test_angle_bracketed_ui_text_can_be_translated(self):
+  items=[slt.Item(0,"id","[STRINGTABLE 8]","<New name error: %s>","1107,","")]
+  result={"translations":[{"id":"id","text":"<Chyba nového názvu: %s>"}]}
+  self.assertEqual(slt.validate(items,result)["id"],"<Chyba nového názvu: %s>")
+ def test_real_markup_tags_are_still_preserved(self):
+  items=[slt.Item(0,"id","[STRINGTABLE 8]","<b>Error: %s</b>","1107,","")]
+  with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"Chyba: %s"}]})
  def test_translation_preserves_format_and_escaping(self):
   os.environ["OPENAI_API_KEY"]="test"
   def requester(payload,key,model): return {"translations":[{"id":x["id"],"text":x["text"].replace("Open","Otevřít").replace("Use","Použít")} for x in payload["items"]]}
