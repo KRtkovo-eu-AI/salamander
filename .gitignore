@@ -221,6 +221,7 @@ src/plugins/csdemo/managed/obj/
 build/
 
 output/
+out/
 /src/plugins/hypervm/managed/obj
 /src/plugins/hypervm/managed/bin/Release
 /src/plugins/csdemo/managed/bin/Release
