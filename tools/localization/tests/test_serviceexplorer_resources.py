@@ -30,5 +30,10 @@ class ServiceExplorerResourceTests(unittest.TestCase):
         self.assertIn('#include "versinfo.rc2"', lang_rc2)
         self.assertNotIn('..\\shared\\versinfo.rc2', lang_rc2)
 
+    def test_language_symbols_do_not_use_negative_ids(self):
+        lang_rh = (PLUGIN / "lang/lang.rh").read_text(encoding="utf-8", errors="replace")
+        self.assertNotRegex(lang_rh, r"^#define\s+\S+\s+-\d+", msg="Translator include files must not contain negative symbolic IDs")
+        self.assertNotRegex(lang_rh, r"^#define\s+IDC_STATIC\s+-1\b", msg="Do not expose IDC_STATIC=-1 to Translator")
+
 if __name__ == "__main__":
     unittest.main()
