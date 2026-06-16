@@ -61,7 +61,24 @@ function Expand-StringList([string[]]$Values)
 
 function Get-RelativePath([string]$FromDirectory, [string]$ToPath)
 {
-    return [System.IO.Path]::GetRelativePath($FromDirectory, $ToPath).Replace('/', '\')
+    $from = $FromDirectory.TrimEnd('\') + '\'
+    $to = $ToPath.Replace('/', '\')
+    if ($to.StartsWith($from, [System.StringComparison]::OrdinalIgnoreCase))
+    {
+        return $to.Substring($from.Length)
+    }
+    $fromParts = $from.TrimEnd('\').Split('\')
+    $toParts = $to.Split('\')
+    $i = 0
+    while ($i -lt $fromParts.Count -and $i -lt $toParts.Count -and $fromParts[$i].Equals($toParts[$i], [System.StringComparison]::OrdinalIgnoreCase))
+    {
+        $i++
+    }
+    $up = $fromParts.Count - $i
+    $down = $toParts[$i..($toParts.Count - 1)]
+    $upParts = @()
+    for ($j = 0; $j -lt $up; $j++) { $upParts += '..' }
+    return ($upParts + $down) -join '\'
 }
 
 function Get-PortableExecutableMachine
@@ -416,15 +433,12 @@ function Invoke-TranslatorQuiet
     $startInfo.WorkingDirectory = Split-Path $TranslatorExe -Parent
     $startInfo.UseShellExecute = $false
 
-    foreach ($argument in $Arguments)
-    {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
+    $startInfo.Arguments = ($Arguments | ForEach-Object { if($_ -match '\s'){'"' + $_ + '"'} else { $_ } }) -join ' '
 
     $process = [System.Diagnostics.Process]::Start($startInfo)
     if (-not $process.WaitForExit($TimeoutSeconds * 1000))
     {
-        $process.Kill($true)
+        $process.Kill()
         throw "Translator timed out while running '$Description'.$(Get-QuietFailureDetails -ProjectPath $ProjectPath)"
     }
 

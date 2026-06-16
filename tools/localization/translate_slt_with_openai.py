@@ -61,6 +61,7 @@ def validate(items: list[Item], result: dict) -> dict[str,str]:
     for row in rows:
         if not isinstance(row,dict) or set(row) != {"id","text"} or row["id"] in output or row["id"] not in expected: raise ValueError("response contains invalid, duplicate, or unknown item")
         if "\n" in row["text"] or "\r" in row["text"]: raise ValueError(f"translated text contains newline for {row['id']}")
+        if "\x00" in row["text"]: raise ValueError(f"translated text contains NUL byte for {row['id']}")
         if '"' in row["text"]: raise ValueError(f"translated text contains unescaped quote for {row['id']}")
         if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
         output[row["id"]]=row["text"]

@@ -202,13 +202,12 @@ foreach ($language in $requestedLanguages)
                 $startInfo.FileName = $TranslatorExe
                 $startInfo.WorkingDirectory = Split-Path $TranslatorExe -Parent
                 $startInfo.UseShellExecute = $false
-                [void]$startInfo.ArgumentList.Add("-quiet-validate-layout")
-                [void]$startInfo.ArgumentList.Add($atpFile)
+                $startInfo.Arguments = "-quiet-validate-layout `"$atpFile`""
 
                 $proc = [System.Diagnostics.Process]::Start($startInfo)
                 if (-not $proc.WaitForExit(60000))
                 {
-                    $proc.Kill($true)
+                    $proc.Kill()
                     $validationWarnings.Add("${language}/${moduleName}: validation timed out")
                 }
                 else
