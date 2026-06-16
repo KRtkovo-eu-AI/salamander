@@ -25,5 +25,16 @@ class RebaseTextArchiveTests(unittest.TestCase):
         self.assertNotIn("$args+='--dry-run'", script)
         self.assertIn("if(-not $DryRun)", script)
 
+    def test_stringtables_are_rebased_by_global_string_id(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("$legacyStringItemsById = @{}", text)
+        self.assertIn("Merge-StringTableSection -CurrentSection $currentSection -LegacyStringItemsById $legacyStringItemsById", text)
+        self.assertNotIn("Merge-KeyedSection -CurrentSection $currentSection -LegacySection $legacySection -ParseLine ${function:Parse-StringItem}", text)
+
+    def test_stringtable_reuse_checks_technical_tokens(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("Test-CanReuseTranslation -CurrentText $currentItem.Text -TranslatedText $legacyItem.Text", text)
+        self.assertIn("Get-AcceleratorCount", text)
+
 if __name__ == "__main__":
     unittest.main()

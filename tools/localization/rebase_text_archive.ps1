@@ -284,6 +284,51 @@ function Parse-StringItem
     }
 }
 
+
+function Get-TechnicalTokens
+{
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $tokens = New-Object System.Collections.Generic.List[string]
+    foreach ($match in [regex]::Matches($Text, '%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\\[nrt]|<[^>]+>'))
+    {
+        $tokens.Add($match.Value)
+    }
+    return @($tokens | Sort-Object)
+}
+
+function Get-AcceleratorCount
+{
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    return [regex]::Matches($Text, '(?<!&)&(?!&)').Count
+}
+
+function Test-CanReuseTranslation
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$CurrentText,
+        [Parameter(Mandatory = $true)][string]$TranslatedText
+    )
+
+    $currentTokens = @(Get-TechnicalTokens -Text $CurrentText)
+    $translatedTokens = @(Get-TechnicalTokens -Text $TranslatedText)
+    if ($currentTokens.Count -ne $translatedTokens.Count)
+    {
+        return $false
+    }
+
+    for ($i = 0; $i -lt $currentTokens.Count; $i++)
+    {
+        if ($currentTokens[$i] -ne $translatedTokens[$i])
+        {
+            return $false
+        }
+    }
+
+    return (Get-AcceleratorCount -Text $CurrentText) -eq (Get-AcceleratorCount -Text $TranslatedText)
+}
+
 function Format-DialogCaption
 {
     param(
@@ -442,6 +487,40 @@ function Merge-KeyedSection
     return $mergedLines.ToArray()
 }
 
+function Merge-StringTableSection
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$CurrentSection,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$LegacyStringItemsById
+    )
+
+    $mergedLines = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $CurrentSection.Lines)
+    {
+        if ([string]::IsNullOrWhiteSpace($line))
+        {
+            continue
+        }
+
+        $currentItem = Parse-StringItem $line
+        $legacyItem = if ($LegacyStringItemsById.ContainsKey($currentItem.Id)) { $LegacyStringItemsById[$currentItem.Id] } else { $null }
+        if ($null -ne $legacyItem -and $legacyItem.State -eq 1 -and (Test-CanReuseTranslation -CurrentText $currentItem.Text -TranslatedText $legacyItem.Text))
+        {
+            $script:MergeStats.StringItems++
+            $mergedLines.Add((Format-KeyedTextItem -Current $currentItem -Legacy $legacyItem))
+        }
+        else
+        {
+            $mergedLines.Add((Format-KeyedTextItem -Current $currentItem -Legacy $null))
+        }
+    }
+
+    return $mergedLines.ToArray()
+}
+
 $currentArchivePath = Get-FullPath $CurrentArchive
 $legacyArchivePath = Get-FullPath $LegacyArchive
 $outputArchivePath = Get-FullPath $OutputArchive
@@ -450,6 +529,24 @@ $currentSections = Get-Sections -Path $currentArchivePath
 $legacySections = Get-Sections -Path $legacyArchivePath
 $currentMap = Get-SectionMap -Sections $currentSections
 $legacyMap = Get-SectionMap -Sections $legacySections
+
+$legacyStringItemsById = @{}
+foreach ($legacyStringSection in ($legacySections | Where-Object { $_.Header -match '^\[STRINGTABLE ' }))
+{
+    foreach ($line in $legacyStringSection.Lines)
+    {
+        if ([string]::IsNullOrWhiteSpace($line))
+        {
+            continue
+        }
+
+        $item = Parse-StringItem $line
+        if (-not $legacyStringItemsById.ContainsKey($item.Id) -or $item.State -eq 1)
+        {
+            $legacyStringItemsById[$item.Id] = $item
+        }
+    }
+}
 
 if (-not $currentMap.ContainsKey('[EXPORTINFO]'))
 {
@@ -626,18 +723,10 @@ foreach ($currentSection in $currentSections)
 
         '^\[STRINGTABLE '
         {
-            $legacySection = Get-LegacyStructuralSection -CurrentSection $currentSection
-            if ($null -ne $legacySection)
-            {
-                $mergedSections.Add([pscustomobject]@{
-                        Header = $currentSection.Header
-                        Lines  = Merge-KeyedSection -CurrentSection $currentSection -LegacySection $legacySection -ParseLine ${function:Parse-StringItem} -StatKey 'StringItems'
-                    })
-            }
-            else
-            {
-                $mergedSections.Add((Convert-SectionToUntranslated -Section $currentSection))
-            }
+            $mergedSections.Add([pscustomobject]@{
+                    Header = $currentSection.Header
+                    Lines  = Merge-StringTableSection -CurrentSection $currentSection -LegacyStringItemsById $legacyStringItemsById
+                })
             continue
         }
 

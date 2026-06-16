@@ -142,8 +142,10 @@ Pokud neběžíte s `-DryRun`, každý úspěšně přeložený kandidát se př
 Před jakýmkoliv API voláním `rebase_text_archive.ps1` sloučí existující překladový archiv na aktuální skeleton. Výsledek určuje, které stringy se pošlou do OpenAI:
 
 - Existující překlady se zachovávají podle resource ID, pokud je to možné.
-- Pokud se změnilo ID sekce dialogu/menu/stringtable, ale počet sekcí daného typu se nezměnil, rebase umí fallback podle typu a pořadí sekce.
-- Pokud se v nalezené sekci změnila ID položek a počet položek je stejný, rebase umí fallback podle pořadí položek.
+- Položky `STRINGTABLE` se párují globálně podle numerického string ID v prvním sloupci bez ohledu na to, ve kterém bloku `[STRINGTABLE n]` se právě nacházejí. Číslo sekce ani pořadí řádku se u stringtable nikdy nepoužívá jako identita textu.
+- Při převzetí existujícího stringtable překladu rebase kontroluje technické tokeny jako placeholdery, escape sekvence, tagy a počet akcelerátorů. Pokud nesedí, ponechá aktuální anglický text jako `state=0` pro OpenAI/review místo slepého převzetí rizikového překladu.
+- Dialogy a menu mohou dál použít hlídaný fallback: pokud se změnilo ID sekce dialogu/menu, ale počet sekcí daného typu se nezměnil, rebase umí fallback podle typu a pořadí sekce.
+- Pokud se v nalezené dialog/menu sekci změnila ID položek a počet položek je stejný, rebase umí fallback podle pořadí položek. Tento fallback se nepoužívá pro `STRINGTABLE`.
 - Nové sekce nebo položky, které nejde bezpečně spárovat, ponechají anglický text, ale explicitně dostanou `state=0`; OpenAI krok je tedy musí přeložit.
 - Pokud pro celý modul zatím neexistuje legacy archiv, skript vynutí překlad aktuální kostry místo toho, aby anglickou kostru považoval za přeloženou.
 

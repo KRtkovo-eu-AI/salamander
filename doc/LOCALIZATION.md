@@ -142,8 +142,10 @@ When not running with `-DryRun`, each successfully translated candidate is also 
 Before any API call, `rebase_text_archive.ps1` merges the existing translation archive onto the current skeleton. The result determines which strings are sent to OpenAI:
 
 - Existing translated strings are preserved by resource ID when possible.
-- If a dialog/menu/stringtable section ID changed but the number of sections of that type did not change, the rebase can fall back to matching sections by type and order.
-- If item IDs changed inside a matched section and the item count is unchanged, the rebase can fall back to matching items by order.
+- `STRINGTABLE` entries are matched globally by the numeric string ID in the first column, regardless of the `[STRINGTABLE n]` block that currently contains them. Section number and row order are never used as the identity for stringtable text.
+- When reusing an existing stringtable translation, the rebase verifies technical tokens such as placeholders, escapes, tags, and accelerator count. If they do not match, the current English text is left as `state=0` for OpenAI/review instead of blindly reusing a risky translation.
+- Dialog and menu section IDs can still use a guarded fallback: if a dialog/menu section ID changed but the number of sections of that type did not change, the rebase can fall back to matching sections by type and order.
+- If dialog/menu item IDs changed inside a matched section and the item count is unchanged, the rebase can fall back to matching items by order. This fallback is not used for `STRINGTABLE`.
 - New sections or items that cannot be matched safely keep the English text but are explicitly marked `state=0`; the OpenAI step must translate them.
 - If an entire module has no legacy archive yet, the script forces translation of the current skeleton instead of treating the English skeleton as already translated.
 
