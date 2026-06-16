@@ -7,7 +7,7 @@ from pathlib import Path
 
 LINE_RE = re.compile(r'^(?P<prefix>.*?,)(?P<state>[01]),"(?P<text>.*)"(?P<ending>\r?\n)?$')
 SECTION_RE = re.compile(r'^\[(?P<kind>DIALOG|MENU|STRINGTABLE)(?:\s+[^]]+)?\]$')
-TOKEN_RE = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\{\d+(?::[^}]*)?\}|\\[nrt]|<[^>]+>|(?:[A-Za-z]:)?(?:\\[^\\\s]+)+')
+TOKEN_RE = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\{\d+(?::[^}]*)?\}|\\[nrt]|</?[A-Za-z][A-Za-z0-9:_-]*(?:\s+[A-Za-z_:][\w:.-]*(?:=(?:\"[^\"]*\"|\'[^\']*\'|[^\s\"\'>]+))?)*\s*/?>|(?:[A-Za-z]:)?(?:\\[^\\\s]+)+')
 ACCELERATOR_RE = re.compile(r'(?<!&)&(?!&)')
 
 @dataclass
@@ -33,7 +33,10 @@ def tokens(text: str) -> tuple[list[str], int]:
     return sorted(TOKEN_RE.findall(text)), len(ACCELERATOR_RE.findall(text))
 
 def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
-    body = json.dumps({"model": model, "input": [{"role":"system","content":[{"type":"input_text","text":"Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly."}]},{"role":"user","content":[{"type":"input_text","text":json.dumps(payload, ensure_ascii=False)}]}], "text":{"format":{"type":"json_schema","name":"translations","strict":True,"schema":{"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"text":{"type":"string"}},"required":["id","text"],"additionalProperties":False}}},"required":["translations"],"additionalProperties":False}}}}).encode()
+    instructions = "Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly."
+    if payload.get("retry_instructions"):
+        instructions += " " + payload["retry_instructions"]
+    body = json.dumps({"model": model, "input": [{"role":"system","content":[{"type":"input_text","text":instructions}]},{"role":"user","content":[{"type":"input_text","text":json.dumps(payload, ensure_ascii=False)}]}], "text":{"format":{"type":"json_schema","name":"translations","strict":True,"schema":{"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"text":{"type":"string"}},"required":["id","text"],"additionalProperties":False}}},"required":["translations"],"additionalProperties":False}}}}).encode()
     req = urllib.request.Request("https://api.openai.com/v1/responses", body, {"Authorization": f"Bearer {api_key}", "Content-Type":"application/json"})
     for attempt in range(attempts):
         try:
@@ -59,28 +62,69 @@ def validate(items: list[Item], result: dict) -> dict[str,str]:
     if set(output) != set(expected): raise ValueError("response is incomplete")
     return output
 
-def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai) -> dict:
+def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai, trace_file: Path | None = None) -> dict:
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True); items=parse_items(lines, force)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
-    if not items: return report
+    if not items or dry_run: return report
     key=os.environ.get("OPENAI_API_KEY")
     if not key: raise RuntimeError("OPENAI_API_KEY is not set")
     changed=list(lines)
-    for start in range(0,len(items),batch_size):
-        batch=items[start:start+batch_size]
+    trace_handle = trace_file.open("a", encoding="utf-8") if trace_file else None
+
+    def call_model(payload: dict) -> dict:
+        if trace_handle:
+            trace_handle.write(json.dumps({"event":"request","language":language,"item_count":len(payload["items"]),"ids":[i["id"] for i in payload["items"]]}, ensure_ascii=False)+"\n")
+            trace_handle.flush()
+        result = requester(payload,key,model)
+        if trace_handle:
+            trace_handle.write(json.dumps({"event":"response","language":language,"item_count":len(result.get("translations",[]))}, ensure_ascii=False)+"\n")
+            trace_handle.flush()
+        return result
+
+    def translate_batch(batch: list[Item]) -> None:
         payload={"target_language":language,"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text} for i in batch]}
-        try: translated=validate(batch, requester(payload,key,model))
-        except Exception: report["failed"] += len(batch); raise
+        try:
+            translated=validate(batch, call_model(payload))
+        except ValueError as exc:
+            if len(batch) == 1:
+                retry_payload=dict(payload)
+                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again, but keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source."
+                try:
+                    translated=validate(batch, call_model(retry_payload))
+                except ValueError as retry_exc:
+                    report["failed"] += 1
+                    print(f"translation skipped: {batch[0].key}: {retry_exc}", file=sys.stderr)
+                    return
+                except Exception:
+                    report["failed"] += 1
+                    raise
+                for item in batch:
+                    changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
+                    report["translated"] += 1
+                return
+            midpoint=max(1, len(batch)//2)
+            translate_batch(batch[:midpoint])
+            translate_batch(batch[midpoint:])
+            return
+        except Exception:
+            report["failed"] += len(batch)
+            raise
         for item in batch:
             changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
             report["translated"] += 1
+
+    try:
+        for start in range(0,len(items),batch_size):
+            translate_batch(items[start:start+batch_size])
+    finally:
+        if trace_handle: trace_handle.close()
     if not dry_run: output.write_text("".join(changed),encoding="utf-8-sig",newline="")
     return report
 
 def main() -> int:
-    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--model",default=os.environ.get("OPENAI_MODEL","gpt-5-mini")); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true")
+    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--model",default=os.environ.get("OPENAI_MODEL","gpt-5-mini")); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path)
     a=p.parse_args()
-    try: print(json.dumps(translate(a.input,a.output,a.language,a.model,a.batch_size,a.dry_run,a.force_retranslate),ensure_ascii=False)); return 0
+    try: print(json.dumps(translate(a.input,a.output,a.language,a.model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file),ensure_ascii=False)); return 0
     except Exception as exc: print(f"translation failed: {exc}",file=sys.stderr); return 1
 if __name__ == "__main__": raise SystemExit(main())

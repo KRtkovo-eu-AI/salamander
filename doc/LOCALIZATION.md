@@ -124,6 +124,42 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
   -BuildRoot .\build\out\salamand\Release_x64 -DryRun
 ```
 
-Remove `-DryRun` after reviewing the per-language/module report. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls OpenAI and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
 
-The script sends only untranslated resource texts and their context to OpenAI, so API usage has a cost. It validates returned IDs and technical tokens, imports each candidate into Translator before replacing the repository archive, and never logs the API key. Automated translation does **not** replace human review: check terminology, accelerators, placeholders, and whether text fits in dialogs before committing the generated `.slt` files.
+### What the OpenAI Workflow Produces
+
+The OpenAI workflow writes its temporary and diagnostic files under `out/localization-openai/`:
+
+- `skeleton/<language>/<module>/<module>.slt` is the current English skeleton exported from the populated build.
+- `candidate/<language>/<module>/<module>.slt` is the rebased archive after legacy translations have been merged onto that skeleton and OpenAI has translated `state=0` entries.
+- `localize.log` contains Translator quiet-mode command diagnostics.
+- `openai-requests.jsonl` contains one JSON object per OpenAI request/response with language, item count, and item IDs. It never contains the API key.
+
+When not running with `-DryRun`, each successfully translated candidate is also copied to `translations/<language>/<module>.slt` before the final Translator import/export validation. This is intentional: if a later module fails, already produced translations are not lost. Review these repository files before committing.
+
+### Rebase Rules Before OpenAI Translation
+
+Before any API call, `rebase_text_archive.ps1` merges the existing translation archive onto the current skeleton. The result determines which strings are sent to OpenAI:
+
+- Existing translated strings are preserved by resource ID when possible.
+- `STRINGTABLE` entries are matched globally by the numeric string ID in the first column, regardless of the `[STRINGTABLE n]` block that currently contains them. Section number and row order are never used as the identity for stringtable text.
+- When reusing an existing stringtable translation, the rebase verifies technical tokens such as placeholders, escapes, tags, and accelerator count. If they do not match, the current English text is left as `state=0` for OpenAI/review instead of blindly reusing a risky translation.
+- Dialog and menu section IDs can still use a guarded fallback: if a dialog/menu section ID changed but the number of sections of that type did not change, the rebase can fall back to matching sections by type and order.
+- If dialog/menu item IDs changed inside a matched section and the item count is unchanged, the rebase can fall back to matching items by order. This fallback is not used for `STRINGTABLE`.
+- New sections or items that cannot be matched safely keep the English text but are explicitly marked `state=0`; the OpenAI step must translate them.
+- If an entire module has no legacy archive yet, the script forces translation of the current skeleton instead of treating the English skeleton as already translated.
+
+This means candidate files should not silently keep newly added English strings as `state=1`. If you see English text in a candidate, check its state: `state=0` means it is queued for translation or was rejected by validation; `state=1` means it was accepted as translated and needs investigation if it is still English.
+
+### OpenAI Validation and Retries
+
+The script sends only untranslated resource texts and their IDs to OpenAI, so API usage has a cost. Returned translations are accepted only if the response contains the expected IDs and preserves technical tokens such as placeholders, escapes, tags, paths, and accelerator count. If a batch fails validation, it is split into smaller batches; a single failing item is retried once with stricter preservation instructions. If the retry still changes technical tokens, only that item remains untranslated and the run continues.
+
+Automated translation does **not** replace human review: check terminology, accelerators, placeholders, and whether text fits in dialogs before committing the generated `.slt` files.
+
+### Troubleshooting OpenAI Runs
+
+- **Candidate files still contain English text marked `state=1`**: this indicates a bad rebase match or a model response that returned English as if it were translated. Check `out/localization-openai/openai-requests.jsonl`, rerun the affected module with `-ForceRetranslate`, and review the diff.
+- **Candidate files contain English text marked `state=0`**: the text is still untranslated. Check the script report for `Failed`, and search stderr/logs for `translation skipped` or `technical tokens changed`.
+- **A run ends with failed jobs**: successful candidates are still copied to `translations/` unless `-DryRun` was used. Fix the failed module, then rerun with `-Languages`/`-Modules` limited to the affected subset.
+- **Translator opens a window during a quiet operation**: rebuild `utils/translator.exe` from current sources and inspect `out/localization-openai/localize.log`. The wrapper terminates unexpected interactive windows instead of waiting forever.
