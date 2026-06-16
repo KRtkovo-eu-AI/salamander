@@ -59,6 +59,7 @@ $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
 $repoRoot = Split-Path (Split-Path $scriptDir -Parent) -Parent
 $prepareScript = Join-Path $scriptDir "prepare_translation_workspace.ps1"
+Import-Module (Join-Path $scriptDir "Localization.Common.psm1") -Force
 
 if (-not (Test-Path -LiteralPath $prepareScript))
 {
@@ -145,6 +146,7 @@ if ((Test-Path variable:LASTEXITCODE) -and $LASTEXITCODE -ne 0)
 # Copy translated .slg files into the runtime tree
 $projectsRoot = Join-Path $WorkspaceDir "projects"
 $workspaceRuntimeRoot = Join-Path $WorkspaceDir "runtime"
+$diagnosticLog = Join-Path $WorkspaceDir "localize.log"
 $copied = 0
 $copyFailures = New-Object System.Collections.Generic.List[string]
 $seedRejections = New-Object System.Collections.Generic.List[string]
@@ -193,36 +195,24 @@ foreach ($language in $requestedLanguages)
             continue
         }
 
-        # Optional validation (translator.exe is a GUI app; quiet modes auto-close on completion)
+        # Optional validation — uses Invoke-SalamanderTranslatorQuiet for proper window detection
         if (-not $SkipValidation -and (Test-Path -LiteralPath $atpFile))
         {
             try
             {
-                $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-                $startInfo.FileName = $TranslatorExe
-                $startInfo.WorkingDirectory = Split-Path $TranslatorExe -Parent
-                $startInfo.UseShellExecute = $false
-                $startInfo.Arguments = "-quiet-validate-layout `"$atpFile`""
-
-                $proc = [System.Diagnostics.Process]::Start($startInfo)
-                if (-not $proc.WaitForExit(60000))
-                {
-                    $proc.Kill()
-                    $validationWarnings.Add("${language}/${moduleName}: validation timed out")
-                }
-                else
-                {
-                    $validated++
-                    if ($proc.ExitCode -eq 1)
-                    {
-                        $validationWarnings.Add("${language}/${moduleName}: layout validation has findings")
-                    }
-                }
+                Invoke-SalamanderTranslatorQuiet `
+                    -TranslatorExe $TranslatorExe `
+                    -Arguments @("-quiet-validate-layout", $atpFile) `
+                    -FailureMessage "$language/${moduleName}: layout validation failed." `
+                    -DiagnosticLog $diagnosticLog `
+                    -ExpectedExitCodes @(1) `
+                    -TimeoutSeconds 60
+                $validated++
             }
             catch
             {
-                # Validation failure is non-fatal
-                $validationWarnings.Add("${language}/${moduleName}: validation error: $($_.Exception.Message)")
+                # Validation failure is non-fatal — record and continue
+                $validationWarnings.Add("${language}/${moduleName}: $($_.Exception.Message)")
             }
         }
 

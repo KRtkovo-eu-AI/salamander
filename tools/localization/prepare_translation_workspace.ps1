@@ -423,7 +423,8 @@ function Invoke-TranslatorQuiet
         [Parameter(Mandatory = $true)]
         [string]$ProjectPath,
 
-        [int]$TimeoutSeconds = 60
+        [int[]]$ExpectedExitCodes = @(1),
+        [int]$TimeoutSeconds = 120
     )
 
     Write-Host "Running Translator: $Description"
@@ -432,6 +433,7 @@ function Invoke-TranslatorQuiet
     $startInfo.FileName = $TranslatorExe
     $startInfo.WorkingDirectory = Split-Path $TranslatorExe -Parent
     $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
 
     $startInfo.Arguments = ($Arguments | ForEach-Object { if($_ -match '\s'){'"' + $_ + '"'} else { $_ } }) -join ' '
 
@@ -442,7 +444,7 @@ function Invoke-TranslatorQuiet
         throw "Translator timed out while running '$Description'.$(Get-QuietFailureDetails -ProjectPath $ProjectPath)"
     }
 
-    if ($process.ExitCode -ne 0)
+    if ($ExpectedExitCodes -notcontains $process.ExitCode)
     {
         throw "Translator failed while running '$Description' (exit code $($process.ExitCode)).$(Get-QuietFailureDetails -ProjectPath $ProjectPath)"
     }
