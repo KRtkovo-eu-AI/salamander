@@ -535,6 +535,15 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
             }
         }
 
+        if ((QuietValidate != 0 || QuietTranslate != 0 || QuietMarkChAsTrl != 0 ||
+             QuietImport[0] != 0 || QuietImportTrlProp[0] != 0 || QuietExportSLT[0] != 0 ||
+             QuietExportSDC[0] != 0 || QuietImportSLT[0] != 0 || QuietExportSpellChecker[0] != 0) &&
+            OutWindow.GetErrorLines() != 0)
+        {
+            DestroyWindow(HWindow);
+            ExitProcess(2); // quiet operation failed; never fall through to the interactive GUI
+        }
+
         ret = TRUE;
         OpenChildWindows();
         SetTitle();

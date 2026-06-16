@@ -395,6 +395,9 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     int minWidthPx = DipToPixels(Configuration.TabButtonMinWidth);
     int maxWidthPx = DipToPixels(Configuration.TabButtonMaxWidth);
 
+    std::wstring finalText = desired;
+    setItemText(finalText);
+
     int closeBtnExtraPx = 0;
     if (ShouldShowCloseButton(index, TabCtrl_GetCurSel(HWindow)))
     {
@@ -406,17 +409,6 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
         }
     }
 
-    std::wstring finalText = desired;
-    setItemText(finalText);
-
-    if (minWidthPx <= 0 && maxWidthPx <= 0 && closeBtnExtraPx <= 0)
-        return;
-
-    RECT rect;
-    if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-        return;
-    int currentWidth = rect.right - rect.left;
-
     HDC hdc = GetDC(HWindow);
     if (hdc == NULL)
         return;
@@ -426,33 +418,47 @@ void CTabWindow::SetTabText(int index, const wchar_t* text)
     if (fontToUse != NULL)
         oldFont = (HFONT)SelectObject(hdc, fontToUse);
 
-    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
+    int desiredWidth = 0;
+    if (!desired.empty() && hdc != NULL)
     {
         SIZE desiredSize = {0, 0};
         if (GetTextExtentPoint32W(hdc, desired.c_str(), (int)desired.length(), &desiredSize))
+            desiredWidth = desiredSize.cx;
+    }
+
+    RECT rect;
+    if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+    {
+        if (oldFont != NULL)
+            SelectObject(hdc, oldFont);
+        ReleaseDC(HWindow, hdc);
+        return;
+    }
+    int currentWidth = rect.right - rect.left;
+
+    if (maxWidthPx > 0 && currentWidth > maxWidthPx && !desired.empty())
+    {
+        int extraWidth = currentWidth - desiredWidth;
+        int allowedTextWidth = maxWidthPx - extraWidth - closeBtnExtraPx;
+        if (allowedTextWidth <= 0)
+            finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
+        else if (desiredWidth > allowedTextWidth)
+            finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
+
+        for (int attempt = 0; attempt < 3; ++attempt)
         {
-            int extraWidth = currentWidth - desiredSize.cx;
-            int allowedTextWidth = maxWidthPx - extraWidth - closeBtnExtraPx;
+            setItemText(finalText);
+            if (!TabCtrl_GetItemRect(HWindow, index, &rect))
+                break;
+            currentWidth = rect.right - rect.left;
+            if (currentWidth <= maxWidthPx)
+                break;
+
+            allowedTextWidth -= (currentWidth - maxWidthPx);
             if (allowedTextWidth <= 0)
                 finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-            else if (desiredSize.cx > allowedTextWidth)
+            else
                 finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-
-            for (int attempt = 0; attempt < 3; ++attempt)
-            {
-                setItemText(finalText);
-                if (!TabCtrl_GetItemRect(HWindow, index, &rect))
-                    break;
-                currentWidth = rect.right - rect.left;
-                if (currentWidth <= maxWidthPx)
-                    break;
-
-                allowedTextWidth -= (currentWidth - maxWidthPx);
-                if (allowedTextWidth <= 0)
-                    finalText.assign(kEllipsisText, kEllipsisText + _countof(kEllipsisText) - 1);
-                else
-                    finalText = EllipsizeTextToWidth(desired, hdc, allowedTextWidth);
-            }
         }
     }
 
@@ -1821,6 +1827,13 @@ void CTabWindow::PaintWithBase(HDC hdc, const RECT* clipRect, bool paintTabs, bo
         HBRUSH backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
         if (!IsRectEmpty(&fillRect))
             FillRect(hdc, &fillRect, backgroundBrush);
+
+        HPEN hSeparatorPen = CreatePen(PS_SOLID, 1, RGB(56, 56, 56));
+        HGDIOBJ hOldPen = SelectObject(hdc, hSeparatorPen);
+        MoveToEx(hdc, clientRect.left, clientRect.top, nullptr);
+        LineTo(hdc, clientRect.right, clientRect.top);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hSeparatorPen);
 
         HBRUSH frameBrush = DarkModeGetPanelFrameBrush();
         if (frameBrush != NULL && clientRect.bottom > clientRect.top)

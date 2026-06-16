@@ -56,7 +56,7 @@
 #include "servicemanager.h"
 #include "plugin.h"
 #include "dialogs.h"
-#include "plugin.rh"
+#include "serviceexplorer.rh"
 #include "lang/lang.rh"
 
 #ifdef __BORLANDC__

@@ -6,6 +6,7 @@
 #include "wndout.h"
 #include "datarh.h"
 #include "config.h"
+#include "translator.h"
 
 //                               [dlg units]
 #define DIALOG_MARGIN_WIDTH 7
@@ -1048,7 +1049,10 @@ BOOL CDialogData::LoadDialog(WORD* oBuff, WORD* tBuff, BOOL* showStyleWarning,
                 if (!data->MUIMode)
                 {
                     sprintf_s(errtext, "32-bit IDs are not supported");
-                    MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                    if (QuietValidate == 0 && QuietTranslate == 0 && QuietMarkChAsTrl == 0 &&
+                        QuietImport[0] == 0 && QuietImportTrlProp[0] == 0 && QuietExportSLT[0] == 0 &&
+                        QuietExportSDC[0] == 0 && QuietImportSLT[0] == 0 && QuietExportSpellChecker[0] == 0)
+                        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                     delete control;
                     return FALSE;
                 }
@@ -1072,7 +1076,10 @@ BOOL CDialogData::LoadDialog(WORD* oBuff, WORD* tBuff, BOOL* showStyleWarning,
                 if (!data->MUIMode)
                 {
                     sprintf_s(errtext, "32-bit IDs are not supported");
-                    MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+                    if (QuietValidate == 0 && QuietTranslate == 0 && QuietMarkChAsTrl == 0 &&
+                        QuietImport[0] == 0 && QuietImportTrlProp[0] == 0 && QuietExportSLT[0] == 0 &&
+                        QuietExportSDC[0] == 0 && QuietImportSLT[0] == 0 && QuietExportSpellChecker[0] == 0)
+                        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
                     delete control;
                     return FALSE;
                 }

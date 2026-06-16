@@ -1733,7 +1733,15 @@ CInnerText::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 textColor = useDark ? RGB(160, 160, 160) : GetSysColor(COLOR_BTNSHADOW);
             HBRUSH backgroundBrush;
             if (useDark)
-                backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW);
+            {
+                if (EditWindow->Enabled)
+                {
+                    static HBRUSH hCmdLineBrush = CreateSolidBrush(RGB(15, 15, 15));
+                    backgroundBrush = hCmdLineBrush;
+                }
+                else
+                    backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW);
+            }
             else
                 backgroundBrush = (HBRUSH)(UINT_PTR)(EditWindow->Enabled ? COLOR_WINDOW + 1 : COLOR_BTNFACE + 1);
             int oldColor = SetTextColor(dc, textColor);
@@ -2016,8 +2024,17 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             HDC hdc = (HDC)wParam;
             SetTextColor(hdc, Enabled ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL])
                                       : RGB(160, 160, 160));
-            SetBkColor(hdc, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
-            return (LRESULT)HDialogBrush;
+            if (Enabled)
+            {
+                SetBkColor(hdc, RGB(15, 15, 15));
+                static HBRUSH hCmdLineBrush = CreateSolidBrush(RGB(15, 15, 15));
+                return (LRESULT)hCmdLineBrush;
+            }
+            else
+            {
+                SetBkColor(hdc, GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]));
+                return (LRESULT)HDialogBrush;
+            }
         }
         break;
     }
@@ -2049,8 +2066,41 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         r.bottom = cr.bottom - 2;
         ValidateRect(HWindow, &r);
 
-        // we will draw our own (the outer gray and the inner sunken)
         HDC hDC = HANDLES(GetDC(HWindow));
+
+        if (DarkModeShouldUseDarkColors())
+        {
+            HPEN hDarkPen = CreatePen(PS_SOLID, 1, RGB(15, 15, 15));
+            HPEN hOldPen2 = (HPEN)SelectObject(hDC, hDarkPen);
+            HBRUSH hCmdLineBrush = CreateSolidBrush(RGB(15, 15, 15));
+            HBRUSH hOldBrush = (HBRUSH)SelectObject(hDC, hCmdLineBrush);
+            // fill only the border area, exclude child controls
+            if (EditLine != NULL && EditLine->HWindow != NULL)
+            {
+                RECT editRC;
+                GetWindowRect(EditLine->HWindow, &editRC);
+                ScreenToClient(HWindow, (LPPOINT)&editRC);
+                ScreenToClient(HWindow, ((LPPOINT)&editRC) + 1);
+                ExcludeClipRect(hDC, editRC.left, editRC.top, editRC.right, editRC.bottom);
+            }
+            if (Text != NULL && Text->HWindow != NULL)
+            {
+                RECT textRC;
+                GetWindowRect(Text->HWindow, &textRC);
+                ScreenToClient(HWindow, (LPPOINT)&textRC);
+                ScreenToClient(HWindow, ((LPPOINT)&textRC) + 1);
+                ExcludeClipRect(hDC, textRC.left, textRC.top, textRC.right, textRC.bottom);
+            }
+            Rectangle(hDC, cr.left, cr.top, cr.right, cr.bottom);
+            SelectObject(hDC, hOldPen2);
+            DeleteObject(hDarkPen);
+            SelectObject(hDC, hOldBrush);
+            DeleteObject(hCmdLineBrush);
+            HANDLES(ReleaseDC(HWindow, hDC));
+            break;
+        }
+
+        // we will draw our own (the outer gray and the inner sunken)
         HPEN hOldPen = (HPEN)SelectObject(hDC, BtnFacePen);
         SelectObject(hDC, HANDLES(GetStockObject(NULL_BRUSH)));
         Rectangle(hDC, cr.left, cr.top, cr.right, cr.bottom);

@@ -1,0 +1,10 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"sample"
+
+[TRANSLATION]
+LANGID,1029
+
+[STRINGTABLE 0]
+100,1,"Already translated"
+101,0,"Open %s\n"
+102,0,"Use &default font"

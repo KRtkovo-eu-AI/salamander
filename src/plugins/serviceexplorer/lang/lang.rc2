@@ -8,12 +8,21 @@
 
 #ifndef SERVICEEXPLORER_LANG_FALLBACK
 #include "..\\versinfo.rh2"
-#include "..\\shared\\versinfo.rc2"
+#include "versinfo.rc2"
 #endif
 
 /////////////////////////////////////////////////////////////////////////////
 // Dialog
 /////////////////////////////////////////////////////////////////////////////
+
+
+IDD_CFGPAGEVIEWER DIALOGEX 66, 53, 205, 61
+STYLE DS_SETFONT | DS_3DLOOK | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
+CAPTION "Viewer"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    LTEXT           "Service Explorer does not have viewer options.",IDC_STATIC_VIEWER_INFO,6,8,193,16
+END
 
 IDD_CFGPAGEFIRST DIALOGEX 66, 53, 268, 212
 STYLE DS_SETFONT | DS_3DLOOK | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
@@ -34,8 +43,8 @@ BEGIN
     LTEXT           "Description:",IDC_STATIC_5,6,54,52,8
     LTEXT           "Path to executeable:",IDC_STATIC_6,4,100,111,8
     LTEXT           "Servicename",IDC_STATIC_CFG_SERVICENAME,6,72,46,8,NOT WS_VISIBLE
-    LTEXT           "Startup type:",IDC_STATIC,6,136,44,8
-    LTEXT           "Service status:",IDC_STATIC,6,160,49,8
+    LTEXT           "Startup type:",IDC_STATIC_CFG_STARTUPTYPE_LABEL,6,136,44,8
+    LTEXT           "Service status:",IDC_STATIC_CFG_STATUS_LABEL,6,160,49,8
     LTEXT           "Servicestatus",IDC_STATIC_CFG_STATUS,60,160,198,8
 END
 
@@ -53,18 +62,18 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | WS_POPUP | WS_CAPTI
 CAPTION "Register New Service"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-    LTEXT           "Display name:",IDC_STATIC,7,9,60,8
+    LTEXT           "Display name:",IDC_REGISTER_DISPLAYNAME_LABEL,7,9,60,8
     EDITTEXT        IDC_REGISTER_DISPLAYNAME,70,7,229,12,ES_AUTOHSCROLL
-    LTEXT           "Service name:",IDC_STATIC,7,26,60,8
+    LTEXT           "Service name:",IDC_REGISTER_SERVICENAME_LABEL,7,26,60,8
     EDITTEXT        IDC_REGISTER_SERVICENAME,70,24,229,12,ES_AUTOHSCROLL
-    LTEXT           "Executable:",IDC_STATIC,7,43,60,8
+    LTEXT           "Executable:",IDC_REGISTER_BINARY_PATH_LABEL,7,43,60,8
     EDITTEXT        IDC_REGISTER_BINARY_PATH,70,41,189,12,ES_AUTOHSCROLL
     PUSHBUTTON      "&Browse...",IDC_REGISTER_BROWSE,263,40,39,14
-    LTEXT           "Arguments:",IDC_STATIC,7,60,60,8
+    LTEXT           "Arguments:",IDC_REGISTER_ARGUMENTS_LABEL,7,60,60,8
     EDITTEXT        IDC_REGISTER_ARGUMENTS,70,58,229,12,ES_AUTOHSCROLL
-    LTEXT           "Startup type:",IDC_STATIC,7,79,60,8
+    LTEXT           "Startup type:",IDC_REGISTER_STARTTYPE_LABEL,7,79,60,8
     COMBOBOX        IDC_REGISTER_STARTTYPE,70,77,120,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Log on as:",IDC_STATIC,7,96,60,8
+    LTEXT           "Log on as:",IDC_REGISTER_LOGON_AS_LABEL,7,96,60,8
     COMBOBOX        IDC_REGISTER_ACCOUNT,70,94,120,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Account name:",IDC_REGISTER_ACCOUNT_LABEL,7,113,60,8
     EDITTEXT        IDC_REGISTER_ACCOUNT_NAME,70,111,229,12,ES_AUTOHSCROLL
@@ -83,6 +92,11 @@ END
 
 GUIDELINES DESIGNINFO
 BEGIN
+    IDD_CFGPAGEVIEWER, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 55
+    END
+
     IDD_CFGPAGEFIRST, DIALOG
     BEGIN
         BOTTOMMARGIN, 197
