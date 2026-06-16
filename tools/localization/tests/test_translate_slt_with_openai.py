@@ -50,9 +50,14 @@ class Tests(unittest.TestCase):
    self.assertTrue(any(call.get("retry_instructions") for call in calls))
    self.assertIn('101,1,"Otevřít %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
    self.assertIn('"event": "request"', trace.read_text(encoding="utf-8"))
- def test_requires_key(self):
+ def test_requires_key_when_not_dry_run(self):
   os.environ.pop("OPENAI_API_KEY",None)
-  with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,True,False)
+  with self.assertRaises(RuntimeError): slt.translate(FIX,Path("unused"),"czech","mock",40,False,False)
+ def test_dry_run_does_not_require_key_or_call_requester(self):
+  os.environ.pop("OPENAI_API_KEY",None)
+  def requester(payload,key,model): raise AssertionError("requester should not be called during direct dry-run")
+  report=slt.translate(FIX,Path("unused"),"czech","mock",40,True,False,requester)
+  self.assertEqual(report["found"],2); self.assertEqual(report["translated"],0)
  def test_retry(self):
   calls=[]
   old=slt.urllib.request.urlopen

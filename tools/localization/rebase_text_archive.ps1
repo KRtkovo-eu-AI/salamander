@@ -476,7 +476,7 @@ foreach ($h in $currentStructuralHeaders)
 {
     if (-not $legacyStructuralHeaders.Contains($h))
     {
-        Write-Host "  Added section (new in current, will use English): $h"
+        Write-Host "  Added section (new in current, will be marked state=0 for AI translation): $h"
         $script:MergeStats.AddedSections++
     }
 }
@@ -681,7 +681,7 @@ Write-Host "Reused menu items: $($script:MergeStats.MenuItems)"
 Write-Host "Reused string items: $($script:MergeStats.StringItems)"
 if ($script:MergeStats.AddedSections -gt 0)
 {
-    Write-Host "Added sections (English): $($script:MergeStats.AddedSections)"
+    Write-Host "Added sections marked state=0 for AI translation: $($script:MergeStats.AddedSections)"
 }
 if ($script:MergeStats.DroppedSections -gt 0)
 {

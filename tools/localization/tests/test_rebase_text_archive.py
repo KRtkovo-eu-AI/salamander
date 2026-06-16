@@ -20,5 +20,10 @@ class RebaseTextArchiveTests(unittest.TestCase):
         self.assertIn("$sameKindCurrentSections.Count -ne $sameKindLegacySections.Count", text)
         self.assertIn("SectionOrdinalFallbacks", text)
 
+    def test_batch_dry_run_still_writes_translated_candidates(self):
+        script = (Path(__file__).parents[1] / "localize_all_openai.ps1").read_text(encoding="utf-8")
+        self.assertNotIn("$args+='--dry-run'", script)
+        self.assertIn("if(-not $DryRun)", script)
+
 if __name__ == "__main__":
     unittest.main()

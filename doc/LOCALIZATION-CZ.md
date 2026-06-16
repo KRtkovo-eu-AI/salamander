@@ -124,7 +124,7 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
   -BuildRoot .\build\out\salamand\Release_x64 -DryRun
 ```
 
-Po kontrole reportu pro jednotlivé jazyky a moduly odstraňte `-DryRun`. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
+Po kontrole reportu pro jednotlivé jazyky/moduly a vygenerovaných kandidátů odstraňte `-DryRun`. V dávkovém skriptu `-DryRun` stále volá OpenAI a zapisuje přeložené soubory do `out/localization-openai/candidate/`; pouze přeskočí kopírování do `translations/`, import/export validaci v Translatoru a sestavení language packů. Běh lze omezit pomocí `-Languages czech,slovak` nebo `-Modules salamand,automation`; `-BuildLanguagePacks` sestaví balíčky pouze tehdy, když všechny překlady a validace uspějí. `-ForceRetranslate` nahradí také položky již označené jako přeložené, proto jej používejte obzvlášť opatrně.
 
 ### Co OpenAI workflow vytváří
 

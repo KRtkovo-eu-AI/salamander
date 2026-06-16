@@ -66,7 +66,7 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True); items=parse_items(lines, force)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
-    if not items: return report
+    if not items or dry_run: return report
     key=os.environ.get("OPENAI_API_KEY")
     if not key: raise RuntimeError("OPENAI_API_KEY is not set")
     changed=list(lines)

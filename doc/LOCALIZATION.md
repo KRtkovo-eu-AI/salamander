@@ -124,7 +124,7 @@ pwsh -File .\tools\localization\localize_all_openai.ps1 `
   -BuildRoot .\build\out\salamand\Release_x64 -DryRun
 ```
 
-Remove `-DryRun` after reviewing the per-language/module report. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls OpenAI and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
 
 ### What the OpenAI Workflow Produces
 
