@@ -1,110 +1,165 @@
-# Jak přeložit Samandarin
+# How to Translate Samandarin
 
-Pro běžnou práci používejte pouze `tools/localization/localize.ps1`. Ostatní skripty v adresáři jsou jeho implementační detaily.
+For routine work, use only `tools/localization/localize.ps1`. The other scripts in that directory are implementation details.
 
-## Doplní se nové texty ze zdrojových resources?
+## Are New Texts from Source Resources Added?
 
-**Ano.** Příkaz `start` postupuje takto:
+**Yes.** The `start` command works as follows:
 
-1. vezme aktuální `english.slg` z buildu jako úplnou kostru projektu,
-2. exportuje z ní aktuální `.slt` kostru,
-3. automaticky na ni převede starý `.slt` překlad podle resource ID,
-4. převedený archiv importuje a otevře výsledek v Translatoru.
+1. it takes the current `english.slg` from the build as the complete project skeleton,
+2. exports the current `.slt` skeleton from it,
+3. automatically converts the old `.slt` translation to that skeleton using resource IDs,
+4. imports the converted archive and opens the result in Translator.
 
-Staré přeložené položky se tedy zachovají a nové stringy, dialogy nebo menu z aktuálních `.rc`/`.rh2` resources zůstanou v Translatoru jako **nepřeložené**. Není potřeba je ručně dopisovat do překladových šablon.
+Existing translated items are therefore preserved, while new strings, dialogs, or menus from the current `.rc`/`.rh2` resources remain **untranslated** in Translator. You do not need to add them to translation templates manually.
 
-Automatický převod je důležitý: Translator neumí přímo importovat starý `.slt`, pokud se mezitím změnila struktura resources. `localize.ps1 start` proto starý archiv před importem automaticky rebased na současnou kostru. Chyba typu `Syntax error ... salamand.slt on line ...` se při běžném použití nemá zobrazit.
+The automatic conversion is important: Translator cannot directly import an old `.slt` if the resource structure has changed in the meantime. Therefore, `localize.ps1 start` automatically rebases the old archive onto the current skeleton before importing it. An error such as `Syntax error ... salamand.slt on line ...` should not appear during normal use.
 
-Jediná důležitá podmínka je, že před `start` musíte z aktuálních zdrojů znovu sestavit a populovat build. Skript čte nové resources z výsledné `english.slg`, nikoliv přímo ze zdrojových `.rc` souborů. Pokud použijete starý build, nové texty v něm ještě nebudou.
+The only important requirement is that you rebuild and populate the build from the current sources before running `start`. The script reads new resources from the resulting `english.slg`, not directly from the source `.rc` files. If you use an old build, it will not contain the new texts yet.
 
-## Nejkratší postup
+## Quickest Workflow
 
-Potřebujete Windows, PowerShell 7 (`pwsh`) a hotový x64 build obsahující `salamand.exe`, pluginy, anglické `.slg` a `utils/translator.exe`.
+You need Windows, PowerShell 7 (`pwsh`), and a completed x64 build containing `salamand.exe`, plugins, English `.slg` files, and `utils/translator.exe`.
 
-### 1. Otevřete jeden překlad
+### 1. Open a Translation
 
-Například český překlad hlavního okna:
+For example, the Czech translation of the main window:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 start czech salamand `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
-Nebo český překlad pluginu Samandarin:
+Or the Czech translation of the Samandarin plugin:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 start czech samandarin `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
-Příkaz připraví vše potřebné, načte existující překlad na aktuální anglickou resource kostru a automaticky otevře Translator.
+The command prepares everything required, loads the existing translation onto the current English resource skeleton, and automatically opens Translator.
 
-### 2. Co dělat v Translatoru
+### 2. Work in Translator
 
-1. Přeložte nepřeložené položky. Nové texty přidané od posledního překladu zůstávají označené jako nepřeložené.
-2. U dialogů zkontrolujte, že se přeložený text vejde do ovládacích prvků.
-3. Projekt uložte pomocí **Ctrl+S**.
-4. Translator zavřete.
+1. Translate untranslated items. New texts added since the last translation remain marked as untranslated.
+2. For dialogs, verify that translated text fits inside the controls.
+3. Save the project with **Ctrl+S**.
+4. Close Translator.
 
-Pokud Translator později potřebujete znovu otevřít bez nové přípravy workspace:
+If you later need to reopen Translator without preparing a new workspace:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 open czech salamand
 ```
 
-### 3. Uložte výsledek do repozitáře
+### 3. Save the Result to the Repository
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 finish czech salamand
 ```
 
-Výsledkem je soubor `translations/czech/salamand.slt`, který zkontrolujete a commitnete. Pro plugin `samandarin` by příkaz i výsledek používaly jméno `samandarin`.
+The result is `translations/czech/salamand.slt`, which you should review and commit. For the `samandarin` plugin, both the command and the resulting file would use the name `samandarin`.
 
-To je celý běžný překladový postup: **start → překlad a Ctrl+S → finish**.
+That is the complete routine translation workflow: **start → translate and Ctrl+S → finish**.
 
-## Užitečné příkazy
+## Useful Commands
 
-Zobrazit pluginy, kterým chybí překladové archivy:
+List plugins that are missing translation archives:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 check
 ```
 
-Sestavit všechny dostupné jazykové `.slg` do hotového runtime:
+Build all available language `.slg` files into the completed runtime:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 build `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
-## Když nový text v Translatoru není
+## When a New Text Is Missing from Translator
 
-Translator umí překládat pouze texty uložené ve Windows resources. Uživatelský text proto nesmí být natvrdo v C/C++/C# kódu.
+Translator can translate only texts stored in Windows resources. Therefore, user-facing text must not be hard-coded in C/C++/C# code.
 
-- String musí mít stabilní resource ID v příslušném `.rh2`, anglický text ve string table a kód jej musí načítat přes `LoadStr`, `LoadString` nebo odpovídající lokalizační API.
-- Dialogy a menu musí být v příslušném `.rc`.
-- Nový plugin musí sestavit `plugins/<plugin>/lang/english.slg`.
+- A string must have a stable resource ID in the relevant `.rh2`, English text in the string table, and code that loads it through `LoadStr`, `LoadString`, or the corresponding localization API.
+- Dialogs and menus must be in the relevant `.rc`.
+- A new plugin must build `plugins/<plugin>/lang/english.slg`.
 
-Po opravě resources znovu sestavte/populujte aplikaci a spusťte `localize.ps1 start ...`. Aktuální anglická `.slg` je zdroj pravdy, takže nový text se pak objeví jako nepřeložený.
+After fixing the resources, rebuild/populate the application and run `localize.ps1 start ...` again. The current English `.slg` is the source of truth, so the new text will then appear as untranslated.
 
-## Co commitovat
+## What to Commit
 
-Commitujte:
+Commit:
 
-- změněné resources a kód,
-- výsledné `translations/<language>/<module>.slt`,
-- případné změny dokumentace a lokalizačních nástrojů.
+- changed resources and code,
+- the resulting `translations/<language>/<module>.slt`,
+- any changes to documentation and localization tools.
 
-Necommitujte adresář `out/localization`, `.atp`, vygenerované `.slg` ani logy.
+Do not commit the `out/localization` directory, `.atp` files, generated `.slg` files, or logs.
 
-## Řešení problémů
+## Troubleshooting
 
-- **`Build root ... does not look like ...`**: cesta předaná přes `-BuildRoot` neobsahuje populovaný build se `salamand.exe`.
-- **Chybí `translator.exe`**: build musí obsahovat `utils/translator.exe`.
-- **Unknown module**: plugin v buildu nemá `plugins/<plugin>/lang/english.slg`, případně je špatně napsané jeho jméno.
-- **Nové resource texty v Translatoru nejsou**: `-BuildRoot` pravděpodobně ukazuje na starý build; znovu sestavte/populujte aktuální zdroje a spusťte `start` znovu.
-- **Import převedeného archivu selže**: příkaz `start` skončí s chybou a odkazem na existující `out/localization/localize.log`; Translator se neotevře s rozbitým projektem.
-- **Soubor `<module>.quiet.log` neexistuje**: Translator v tomto repozitáři tento log nevytváří a při úspěšné quiet operaci vrací historický exit kód `1`. Wrapper proto zapisuje vlastní `out/localization/localize.log`.
-- **`Syntax error ... on line 1`**: používali jste starší wrapper, který pro rebase exportoval diff archiv bez povinné sekce `[EXPORTINFO]`; aktualizujte repozitář a spusťte `start` znovu.
-- **`$LASTEXITCODE cannot be retrieved because it has not been set`**: používali jste starší verzi `localize.ps1`, která spouštěla GUI `translator.exe` přímo; aktualizujte repozitář a spusťte stejný příkaz znovu.
-- **Potřebuji pokročilý rebase nebo headless validaci**: použijte pomocné skripty `rebase_text_archive.ps1` a `verify_translation_workspace.ps1`; pro běžný překlad nejsou potřeba.
+- **`Build root ... does not look like ...`**: the path passed through `-BuildRoot` does not contain a populated build with `salamand.exe`.
+- **Missing `translator.exe`**: the build must contain `utils/translator.exe`.
+- **Unknown module**: the plugin in the build does not have `plugins/<plugin>/lang/english.slg`, or its name is misspelled.
+- **New resource texts are missing from Translator**: `-BuildRoot` probably points to an old build; rebuild/populate the current sources and run `start` again.
+- **Importing the converted archive fails**: the `start` command exits with an error and a reference to the existing `out/localization/localize.log`; Translator does not open a broken project.
+- **The `<module>.quiet.log` file does not exist**: Translator in this repository does not create this log and returns the historical exit code `1` for a successful quiet operation. The wrapper therefore writes its own `out/localization/localize.log`.
+- **`Syntax error ... on line 1`**: you used an older wrapper that exported a diff archive without the required `[EXPORTINFO]` section during rebase; update the repository and run `start` again.
+- **`$LASTEXITCODE cannot be retrieved because it has not been set`**: you used an older version of `localize.ps1` that launched the GUI `translator.exe` directly; update the repository and run the same command again.
+- **I need an advanced rebase or headless validation**: use the helper scripts `rebase_text_archive.ps1` and `verify_translation_workspace.ps1`; they are not needed for routine translation.
+- **`32-bit IDs are not supported`**: the module contains a dialog control ID that the current Translator cannot represent. Rebuild `utils/translator.exe` from the current sources so quiet operations fail without opening the GUI; the affected module must be fixed or excluded with `-Modules`.
+- **A quiet Translator operation opens the GUI**: rebuild `utils/translator.exe` from the current sources. As an additional safeguard, localization scripts terminate quiet operations that do not exit within two minutes.
+
+## Batch Translation with OpenAI
+
+`localize_all_openai.ps1` can prepare and translate every available language and module without opening Translator. It discovers languages under `translations/` and discovers `salamand` plus plugins with `lang/english.slg` in the populated build.
+
+Set the API key only in the process environment; never save it in the repository or a script:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+$env:OPENAI_MODEL = "gpt-5-mini" # optional
+pwsh -File .\tools\localization\localize_all_openai.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64 -DryRun
+```
+
+Remove `-DryRun` after reviewing the per-language/module report and the generated candidates. In the batch script, `-DryRun` still calls OpenAI and writes translated files under `out/localization-openai/candidate/`; it only skips copying to `translations/`, Translator import/export validation, and language-pack building. Limit a run with `-Languages czech,slovak` or `-Modules salamand,automation`; use `-BuildLanguagePacks` to build packs only after every translation and validation succeeds. `-ForceRetranslate` also replaces entries already marked as translated and should be used with particular care.
+
+### What the OpenAI Workflow Produces
+
+The OpenAI workflow writes its temporary and diagnostic files under `out/localization-openai/`:
+
+- `skeleton/<language>/<module>/<module>.slt` is the current English skeleton exported from the populated build.
+- `candidate/<language>/<module>/<module>.slt` is the rebased archive after legacy translations have been merged onto that skeleton and OpenAI has translated `state=0` entries.
+- `localize.log` contains Translator quiet-mode command diagnostics.
+- `openai-requests.jsonl` contains one JSON object per OpenAI request/response with language, item count, and item IDs. It never contains the API key.
+
+When not running with `-DryRun`, each successfully translated candidate is also copied to `translations/<language>/<module>.slt` before the final Translator import/export validation. This is intentional: if a later module fails, already produced translations are not lost. Review these repository files before committing.
+
+### Rebase Rules Before OpenAI Translation
+
+Before any API call, `rebase_text_archive.ps1` merges the existing translation archive onto the current skeleton. The result determines which strings are sent to OpenAI:
+
+- Existing translated strings are preserved by resource ID when possible.
+- `STRINGTABLE` entries are matched globally by the numeric string ID in the first column, regardless of the `[STRINGTABLE n]` block that currently contains them. Section number and row order are never used as the identity for stringtable text.
+- When reusing an existing stringtable translation, the rebase verifies technical tokens such as placeholders, escapes, tags, and accelerator count. If they do not match, the current English text is left as `state=0` for OpenAI/review instead of blindly reusing a risky translation.
+- Dialog and menu section IDs can still use a guarded fallback: if a dialog/menu section ID changed but the number of sections of that type did not change, the rebase can fall back to matching sections by type and order.
+- If dialog/menu item IDs changed inside a matched section and the item count is unchanged, the rebase can fall back to matching items by order. This fallback is not used for `STRINGTABLE`.
+- New sections or items that cannot be matched safely keep the English text but are explicitly marked `state=0`; the OpenAI step must translate them.
+- If an entire module has no legacy archive yet, the script forces translation of the current skeleton instead of treating the English skeleton as already translated.
+
+This means candidate files should not silently keep newly added English strings as `state=1`. If you see English text in a candidate, check its state: `state=0` means it is queued for translation or was rejected by validation; `state=1` means it was accepted as translated and needs investigation if it is still English.
+
+### OpenAI Validation and Retries
+
+The script sends only untranslated resource texts and their IDs to OpenAI, so API usage has a cost. Returned translations are accepted only if the response contains the expected IDs and preserves technical tokens such as placeholders, escapes, tags, paths, and accelerator count. If a batch fails validation, it is split into smaller batches; a single failing item is retried once with stricter preservation instructions. If the retry still changes technical tokens, only that item remains untranslated and the run continues.
+
+Automated translation does **not** replace human review: check terminology, accelerators, placeholders, and whether text fits in dialogs before committing the generated `.slt` files.
+
+### Troubleshooting OpenAI Runs
+
+- **Candidate files still contain English text marked `state=1`**: this indicates a bad rebase match or a model response that returned English as if it were translated. Check `out/localization-openai/openai-requests.jsonl`, rerun the affected module with `-ForceRetranslate`, and review the diff.
+- **Candidate files contain English text marked `state=0`**: the text is still untranslated. Check the script report for `Failed`, and search stderr/logs for `translation skipped` or `technical tokens changed`.
+- **A run ends with failed jobs**: successful candidates are still copied to `translations/` unless `-DryRun` was used. Fix the failed module, then rerun with `-Languages`/`-Modules` limited to the affected subset.
+- **Translator opens a window during a quiet operation**: rebuild `utils/translator.exe` from current sources and inspect `out/localization-openai/localize.log`. The wrapper terminates unexpected interactive windows instead of waiting forever.

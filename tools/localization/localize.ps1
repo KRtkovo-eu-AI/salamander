@@ -46,44 +46,7 @@ function Require-Project
     }
 }
 
-function Invoke-TranslatorQuiet
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments,
-
-        [Parameter(Mandatory = $true)]
-        [string]$FailureMessage
-    )
-
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $translator
-    $startInfo.WorkingDirectory = Split-Path $translator -Parent
-    $startInfo.UseShellExecute = $false
-    foreach ($argument in $Arguments)
-    {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
-
-    $process = [System.Diagnostics.Process]::Start($startInfo)
-    $process.WaitForExit()
-
-    $diagnosticLog = Join-Path $workspace "localize.log"
-    @(
-        "Timestamp: $([DateTime]::Now.ToString('s'))"
-        "Command: $translator $($Arguments -join ' ')"
-        "Exit code: $($process.ExitCode)"
-        ""
-    ) | Add-Content -LiteralPath $diagnosticLog -Encoding UTF8
-
-    # This repository's Translator uses exit code 1 for a successful quiet
-    # import/export. Unlike Sally's newer Translator, it does not create
-    # <module>.quiet.log files.
-    if ($process.ExitCode -ne 1)
-    {
-        throw "$FailureMessage Diagnostika: $diagnosticLog"
-    }
-}
+Import-Module (Join-Path $PSScriptRoot "Localization.Common.psm1") -Force
 
 switch ($Action)
 {
@@ -122,7 +85,9 @@ switch ($Action)
             $rebasedDir = Join-Path $workspace "translations\$Language"
             New-Item -ItemType Directory -Path $skeletonDir, $rebasedDir -Force | Out-Null
 
-            Invoke-TranslatorQuiet `
+            Invoke-SalamanderTranslatorQuiet `
+                -TranslatorExe $translator `
+                -DiagnosticLog (Join-Path $workspace "localize.log") `
                 -Arguments @("-quiet-export-slt", $skeletonDir, $project) `
                 -FailureMessage "Nepodařilo se exportovat aktuální resource kostru."
 
@@ -135,7 +100,9 @@ switch ($Action)
                 throw "Převod starého překladu na aktuální resource kostru selhal."
             }
 
-            Invoke-TranslatorQuiet `
+            Invoke-SalamanderTranslatorQuiet `
+                -TranslatorExe $translator `
+                -DiagnosticLog (Join-Path $workspace "localize.log") `
                 -Arguments @("-quiet-import-slt", $rebasedDir, $project) `
                 -FailureMessage "Nepodařilo se importovat rebased překlad."
         }
@@ -169,7 +136,9 @@ switch ($Action)
         Require-Project
         $destination = Join-Path $repoRoot "translations\$Language"
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
-        Invoke-TranslatorQuiet `
+        Invoke-SalamanderTranslatorQuiet `
+                -TranslatorExe $translator `
+                -DiagnosticLog (Join-Path $workspace "localize.log") `
             -Arguments @("-quiet-export-slt", $destination, $project) `
             -FailureMessage "Export selhal."
 

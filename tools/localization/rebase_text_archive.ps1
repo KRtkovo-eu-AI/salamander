@@ -114,6 +114,68 @@ function Get-SectionMap
     return $map
 }
 
+
+function Get-StructuralKind
+{
+    param([Parameter(Mandatory = $true)][string]$Header)
+
+    if ($Header -match '^\[(DIALOG|MENU|STRINGTABLE) ')
+    {
+        return $matches[1]
+    }
+
+    return $null
+}
+
+function Convert-SectionToUntranslated
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Section
+    )
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    switch -Regex ($Section.Header)
+    {
+        '^\[DIALOG '
+        {
+            if ($Section.Lines.Count -gt 0)
+            {
+                $caption = Parse-DialogCaption $Section.Lines[0]
+                $lines.Add((Format-DialogCaption -Current $caption -Legacy $null))
+            }
+            foreach ($line in ($Section.Lines | Select-Object -Skip 1))
+            {
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                $item = Parse-DialogItem $line
+                $lines.Add((Format-DialogItem -Current $item -Legacy $null))
+            }
+            break
+        }
+        '^\[(MENU|STRINGTABLE) '
+        {
+            $parseLine = if ($Section.Header -match '^\[MENU ') { ${function:Parse-MenuItem} } else { ${function:Parse-StringItem} }
+            foreach ($line in $Section.Lines)
+            {
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                $item = & $parseLine $line
+                $lines.Add((Format-KeyedTextItem -Current $item -Legacy $null))
+            }
+            break
+        }
+        default
+        {
+            foreach ($line in $Section.Lines) { $lines.Add($line) }
+            break
+        }
+    }
+
+    return [pscustomobject]@{
+        Header = $Section.Header
+        Lines  = $lines.ToArray()
+    }
+}
+
 function Get-KeyedLineMap
 {
     param(
@@ -222,6 +284,51 @@ function Parse-StringItem
     }
 }
 
+
+function Get-TechnicalTokens
+{
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $tokens = New-Object System.Collections.Generic.List[string]
+    foreach ($match in [regex]::Matches($Text, '%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\\[nrt]|<[^>]+>'))
+    {
+        $tokens.Add($match.Value)
+    }
+    return @($tokens | Sort-Object)
+}
+
+function Get-AcceleratorCount
+{
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    return [regex]::Matches($Text, '(?<!&)&(?!&)').Count
+}
+
+function Test-CanReuseTranslation
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$CurrentText,
+        [Parameter(Mandatory = $true)][string]$TranslatedText
+    )
+
+    $currentTokens = @(Get-TechnicalTokens -Text $CurrentText)
+    $translatedTokens = @(Get-TechnicalTokens -Text $TranslatedText)
+    if ($currentTokens.Count -ne $translatedTokens.Count)
+    {
+        return $false
+    }
+
+    for ($i = 0; $i -lt $currentTokens.Count; $i++)
+    {
+        if ($currentTokens[$i] -ne $translatedTokens[$i])
+        {
+            return $false
+        }
+    }
+
+    return (Get-AcceleratorCount -Text $CurrentText) -eq (Get-AcceleratorCount -Text $TranslatedText)
+}
+
 function Format-DialogCaption
 {
     param(
@@ -231,7 +338,7 @@ function Format-DialogCaption
         [object]$Legacy
     )
 
-    $state = if ($null -ne $Legacy) { $Legacy.State } else { $Current.State }
+    $state = if ($null -ne $Legacy) { $Legacy.State } else { 0 }
     $text = if ($null -ne $Legacy) { $Legacy.Text } else { $Current.Text }
 
     return '{0},{1},{2},"{3}"' -f $Current.Width, $Current.Height, $state, $text
@@ -246,7 +353,7 @@ function Format-DialogItem
         [object]$Legacy
     )
 
-    $state = if ($null -ne $Legacy) { $Legacy.State } else { $Current.State }
+    $state = if ($null -ne $Legacy) { $Legacy.State } else { 0 }
     $text = if ($null -ne $Legacy) { $Legacy.Text } else { $Current.Text }
 
     return '{0},{1},{2},{3},{4},{5},"{6}"' -f $Current.Id, $Current.X, $Current.Y, $Current.Width, $Current.Height, $state, $text
@@ -261,7 +368,7 @@ function Format-KeyedTextItem
         [object]$Legacy
     )
 
-    $state = if ($null -ne $Legacy) { $Legacy.State } else { $Current.State }
+    $state = if ($null -ne $Legacy) { $Legacy.State } else { 0 }
     $text = if ($null -ne $Legacy) { $Legacy.Text } else { $Current.Text }
 
     return '{0},{1},"{2}"' -f $Current.Id, $state, $text
@@ -288,6 +395,7 @@ function Merge-DialogSection
     $Stats.DialogCaptions++
 
     $legacyItems = @{}
+    $legacyItemsInOrder = @()
     foreach ($line in ($LegacySection.Lines | Select-Object -Skip 1))
     {
         if ([string]::IsNullOrWhiteSpace($line))
@@ -297,17 +405,23 @@ function Merge-DialogSection
 
         $item = Parse-DialogItem $line
         $legacyItems[$item.Id] = $item
+        $legacyItemsInOrder += $item
     }
 
+    $currentItemsInOrder = @()
     foreach ($line in ($CurrentSection.Lines | Select-Object -Skip 1))
     {
-        if ([string]::IsNullOrWhiteSpace($line))
+        if (-not [string]::IsNullOrWhiteSpace($line))
         {
-            continue
+            $currentItemsInOrder += (Parse-DialogItem $line)
         }
+    }
+    $allowOrdinalFallback = $currentItemsInOrder.Count -eq $legacyItemsInOrder.Count
 
-        $currentItem = Parse-DialogItem $line
-        $legacyItem = if ($legacyItems.ContainsKey($currentItem.Id)) { $legacyItems[$currentItem.Id] } else { $null }
+    for ($i = 0; $i -lt $currentItemsInOrder.Count; $i++)
+    {
+        $currentItem = $currentItemsInOrder[$i]
+        $legacyItem = if ($legacyItems.ContainsKey($currentItem.Id)) { $legacyItems[$currentItem.Id] } elseif ($allowOrdinalFallback) { $legacyItemsInOrder[$i] } else { $null }
         if ($null -ne $legacyItem)
         {
             $Stats.DialogItems++
@@ -335,6 +449,7 @@ function Merge-KeyedSection
     )
 
     $legacyItems = @{}
+    $legacyItemsInOrder = @()
     foreach ($line in $LegacySection.Lines)
     {
         if ([string]::IsNullOrWhiteSpace($line))
@@ -344,7 +459,43 @@ function Merge-KeyedSection
 
         $item = & $ParseLine $line
         $legacyItems[$item.Id] = $item
+        $legacyItemsInOrder += $item
     }
+
+    $currentItemsInOrder = @()
+    foreach ($line in $CurrentSection.Lines)
+    {
+        if (-not [string]::IsNullOrWhiteSpace($line))
+        {
+            $currentItemsInOrder += (& $ParseLine $line)
+        }
+    }
+    $allowOrdinalFallback = $currentItemsInOrder.Count -eq $legacyItemsInOrder.Count
+
+    $mergedLines = New-Object System.Collections.Generic.List[string]
+    for ($i = 0; $i -lt $currentItemsInOrder.Count; $i++)
+    {
+        $currentItem = $currentItemsInOrder[$i]
+        $legacyItem = if ($legacyItems.ContainsKey($currentItem.Id)) { $legacyItems[$currentItem.Id] } elseif ($allowOrdinalFallback) { $legacyItemsInOrder[$i] } else { $null }
+        if ($null -ne $legacyItem)
+        {
+            $script:MergeStats[$StatKey]++
+        }
+        $mergedLines.Add((Format-KeyedTextItem -Current $currentItem -Legacy $legacyItem))
+    }
+
+    return $mergedLines.ToArray()
+}
+
+function Merge-StringTableSection
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$CurrentSection,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$LegacyStringItemsById
+    )
 
     $mergedLines = New-Object System.Collections.Generic.List[string]
     foreach ($line in $CurrentSection.Lines)
@@ -354,13 +505,17 @@ function Merge-KeyedSection
             continue
         }
 
-        $currentItem = & $ParseLine $line
-        $legacyItem = if ($legacyItems.ContainsKey($currentItem.Id)) { $legacyItems[$currentItem.Id] } else { $null }
-        if ($null -ne $legacyItem)
+        $currentItem = Parse-StringItem $line
+        $legacyItem = if ($LegacyStringItemsById.ContainsKey($currentItem.Id)) { $LegacyStringItemsById[$currentItem.Id] } else { $null }
+        if ($null -ne $legacyItem -and $legacyItem.State -eq 1 -and (Test-CanReuseTranslation -CurrentText $currentItem.Text -TranslatedText $legacyItem.Text))
         {
-            $script:MergeStats[$StatKey]++
+            $script:MergeStats.StringItems++
+            $mergedLines.Add((Format-KeyedTextItem -Current $currentItem -Legacy $legacyItem))
         }
-        $mergedLines.Add((Format-KeyedTextItem -Current $currentItem -Legacy $legacyItem))
+        else
+        {
+            $mergedLines.Add((Format-KeyedTextItem -Current $currentItem -Legacy $null))
+        }
     }
 
     return $mergedLines.ToArray()
@@ -375,6 +530,24 @@ $legacySections = Get-Sections -Path $legacyArchivePath
 $currentMap = Get-SectionMap -Sections $currentSections
 $legacyMap = Get-SectionMap -Sections $legacySections
 
+$legacyStringItemsById = @{}
+foreach ($legacyStringSection in ($legacySections | Where-Object { $_.Header -match '^\[STRINGTABLE ' }))
+{
+    foreach ($line in $legacyStringSection.Lines)
+    {
+        if ([string]::IsNullOrWhiteSpace($line))
+        {
+            continue
+        }
+
+        $item = Parse-StringItem $line
+        if (-not $legacyStringItemsById.ContainsKey($item.Id) -or $item.State -eq 1)
+        {
+            $legacyStringItemsById[$item.Id] = $item
+        }
+    }
+}
+
 if (-not $currentMap.ContainsKey('[EXPORTINFO]'))
 {
     throw "Current archive '$currentArchivePath' is not a full importable SLT archive: required [EXPORTINFO] section is missing."
@@ -387,6 +560,7 @@ $script:MergeStats = @{
     StringItems    = 0
     AddedSections  = 0
     DroppedSections = 0
+    SectionOrdinalFallbacks = 0
 }
 
 # Log sections present in current but not in legacy (new UI) and vice versa (removed UI)
@@ -399,7 +573,7 @@ foreach ($h in $currentStructuralHeaders)
 {
     if (-not $legacyStructuralHeaders.Contains($h))
     {
-        Write-Host "  Added section (new in current, will use English): $h"
+        Write-Host "  Added section (new in current, will be marked state=0 for AI translation): $h"
         $script:MergeStats.AddedSections++
     }
 }
@@ -412,10 +586,61 @@ foreach ($h in $legacyStructuralHeaders)
     }
 }
 
+
+$currentSectionsByKind = @{
+    DIALOG      = @($currentSections | Where-Object { (Get-StructuralKind $_.Header) -eq 'DIALOG' })
+    MENU        = @($currentSections | Where-Object { (Get-StructuralKind $_.Header) -eq 'MENU' })
+    STRINGTABLE = @($currentSections | Where-Object { (Get-StructuralKind $_.Header) -eq 'STRINGTABLE' })
+}
+$legacySectionsByKind = @{
+    DIALOG      = @($legacySections | Where-Object { (Get-StructuralKind $_.Header) -eq 'DIALOG' })
+    MENU        = @($legacySections | Where-Object { (Get-StructuralKind $_.Header) -eq 'MENU' })
+    STRINGTABLE = @($legacySections | Where-Object { (Get-StructuralKind $_.Header) -eq 'STRINGTABLE' })
+}
+$currentSectionOrdinalByKind = @{ DIALOG = 0; MENU = 0; STRINGTABLE = 0 }
+
+function Get-LegacyStructuralSection
+{
+    param([Parameter(Mandatory = $true)][object]$CurrentSection)
+
+    if ($legacyMap.ContainsKey($CurrentSection.Header))
+    {
+        return $legacyMap[$CurrentSection.Header]
+    }
+
+    $kind = Get-StructuralKind $CurrentSection.Header
+    if ($null -eq $kind)
+    {
+        return $null
+    }
+
+    $sameKindCurrentSections = $currentSectionsByKind[$kind]
+    $sameKindLegacySections = $legacySectionsByKind[$kind]
+    if ($sameKindCurrentSections.Count -ne $sameKindLegacySections.Count)
+    {
+        return $null
+    }
+
+    $ordinal = $currentSectionOrdinalByKind[$kind] - 1
+    if ($ordinal -lt $sameKindLegacySections.Count)
+    {
+        $script:MergeStats.SectionOrdinalFallbacks++
+        return $sameKindLegacySections[$ordinal]
+    }
+
+    return $null
+}
+
 $mergedSections = New-Object System.Collections.Generic.List[object]
 
 foreach ($currentSection in $currentSections)
 {
+    $currentStructuralKind = Get-StructuralKind $currentSection.Header
+    if ($null -ne $currentStructuralKind)
+    {
+        $currentSectionOrdinalByKind[$currentStructuralKind]++
+    }
+
     switch -Regex ($currentSection.Header)
     {
         '^\[EXPORTINFO\]$'
@@ -463,9 +688,9 @@ foreach ($currentSection in $currentSections)
 
         '^\[DIALOG '
         {
-            if ($legacyMap.ContainsKey($currentSection.Header))
+            $legacySection = Get-LegacyStructuralSection -CurrentSection $currentSection
+            if ($null -ne $legacySection)
             {
-                $legacySection = $legacyMap[$currentSection.Header]
                 $mergedSections.Add([pscustomobject]@{
                         Header = $currentSection.Header
                         Lines  = Merge-DialogSection -CurrentSection $currentSection -LegacySection $legacySection -Stats $script:MergeStats
@@ -473,17 +698,17 @@ foreach ($currentSection in $currentSections)
             }
             else
             {
-                # New section — emit current (English) as-is
-                $mergedSections.Add($currentSection)
+                # New section — keep the English text but mark it untranslated so the AI step translates it.
+                $mergedSections.Add((Convert-SectionToUntranslated -Section $currentSection))
             }
             continue
         }
 
         '^\[MENU '
         {
-            if ($legacyMap.ContainsKey($currentSection.Header))
+            $legacySection = Get-LegacyStructuralSection -CurrentSection $currentSection
+            if ($null -ne $legacySection)
             {
-                $legacySection = $legacyMap[$currentSection.Header]
                 $mergedSections.Add([pscustomobject]@{
                         Header = $currentSection.Header
                         Lines  = Merge-KeyedSection -CurrentSection $currentSection -LegacySection $legacySection -ParseLine ${function:Parse-MenuItem} -StatKey 'MenuItems'
@@ -491,25 +716,17 @@ foreach ($currentSection in $currentSections)
             }
             else
             {
-                $mergedSections.Add($currentSection)
+                $mergedSections.Add((Convert-SectionToUntranslated -Section $currentSection))
             }
             continue
         }
 
         '^\[STRINGTABLE '
         {
-            if ($legacyMap.ContainsKey($currentSection.Header))
-            {
-                $legacySection = $legacyMap[$currentSection.Header]
-                $mergedSections.Add([pscustomobject]@{
-                        Header = $currentSection.Header
-                        Lines  = Merge-KeyedSection -CurrentSection $currentSection -LegacySection $legacySection -ParseLine ${function:Parse-StringItem} -StatKey 'StringItems'
-                    })
-            }
-            else
-            {
-                $mergedSections.Add($currentSection)
-            }
+            $mergedSections.Add([pscustomobject]@{
+                    Header = $currentSection.Header
+                    Lines  = Merge-StringTableSection -CurrentSection $currentSection -LegacyStringItemsById $legacyStringItemsById
+                })
             continue
         }
 
@@ -553,9 +770,13 @@ Write-Host "Reused menu items: $($script:MergeStats.MenuItems)"
 Write-Host "Reused string items: $($script:MergeStats.StringItems)"
 if ($script:MergeStats.AddedSections -gt 0)
 {
-    Write-Host "Added sections (English): $($script:MergeStats.AddedSections)"
+    Write-Host "Added sections marked state=0 for AI translation: $($script:MergeStats.AddedSections)"
 }
 if ($script:MergeStats.DroppedSections -gt 0)
 {
     Write-Host "Dropped sections: $($script:MergeStats.DroppedSections)"
+}
+if ($script:MergeStats.SectionOrdinalFallbacks -gt 0)
+{
+    Write-Host "Matched sections by type/order fallback: $($script:MergeStats.SectionOrdinalFallbacks)"
 }
