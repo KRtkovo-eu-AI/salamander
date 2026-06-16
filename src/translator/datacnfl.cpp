@@ -3564,6 +3564,86 @@ void CData::ValidateTranslation(HWND hParent)
     SetCursor(hOldCursor);
 }
 
+int CData::ResizeAllClippedControls(HWND hParent)
+{
+    // Resize all translated controls whose text is clipped, using actual font metrics.
+    // Returns the number of controls resized.
+    wchar_t buff[1000];
+    swprintf_s(buff, L"Resizing clipped controls...");
+    OutWindow.AddLine(buff, mteInfo);
+
+    int resized = 0;
+
+    for (int i = 0; i < DlgData.Count; i++)
+    {
+        CDialogData* dialog = DlgData[i];
+
+        // Create a temp dialog HWND to measure text with the real font
+        WORD dialogTemplate[200000];
+        DWORD dialogTemplateSize = dialog->PrepareTemplate(dialogTemplate, FALSE, TRUE, FALSE);
+        dialog->TemplateAddRemoveStyles(dialogTemplate, 0, WS_VISIBLE);
+
+        HWND hDlg = CreateDialogIndirectW(HInstance, (LPDLGTEMPLATE)dialogTemplate, hParent, NULL);
+        if (hDlg == NULL)
+            continue;
+
+        CCheckLstItem* multiTextOrComboItem = NULL;
+        CCheckLstItem* checkLstItem = NULL;
+        BOOL findMulTextAndDropDownItems = Data.GetItemFromCheckLst(dialog->ID, 0, &multiTextOrComboItem, &checkLstItem, TRUE);
+
+        int maxRight = 0;
+        for (int j = 1; j < dialog->Controls.Count; j++) // skip index 0 (dialog title)
+        {
+            CControl* control = dialog->Controls[j];
+
+            // Only resize translated controls (State == 1)
+            if (control->State != 1)
+            {
+                int right = control->TX + control->TCX;
+                if (right > maxRight)
+                    maxRight = right;
+                continue;
+            }
+
+            if (findMulTextAndDropDownItems)
+                Data.GetItemFromCheckLst(dialog->ID, control->ID, &multiTextOrComboItem, &checkLstItem);
+
+            int idealSizeX = -1, idealSizeY = -1;
+            if (IsControlClipped(dialog, control, hDlg, &idealSizeX, &idealSizeY,
+                                 multiTextOrComboItem, checkLstItem))
+            {
+                if (idealSizeX != -1)
+                {
+                    if (control->IsStaticText(FALSE, TRUE)) // Expand right-aligned texts to the left
+                        control->TX = control->TX + control->TCX - (idealSizeX + 2);
+                    control->TCX = idealSizeX + 2;
+                    resized++;
+                }
+                if (idealSizeY != -1)
+                    control->TCY = idealSizeY;
+            }
+
+            int right = control->TX + control->TCX;
+            if (right > maxRight)
+                maxRight = right;
+        }
+
+        // Expand dialog caption width if controls extend beyond it
+        if (maxRight > 0 && dialog->Controls.Count > 0)
+        {
+            CControl* titleCtrl = dialog->Controls[0]; // Dialog title stores TCX=width, TCY=height
+            if (maxRight > titleCtrl->TCX)
+                titleCtrl->TCX = maxRight;
+        }
+
+        DestroyWindow(hDlg);
+    }
+
+    swprintf_s(buff, L"Resized %d clipped control(s).", resized);
+    OutWindow.AddLine(buff, mteInfo);
+    return resized;
+}
+
 void CData::LookForIdConflicts()
 {
     HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));

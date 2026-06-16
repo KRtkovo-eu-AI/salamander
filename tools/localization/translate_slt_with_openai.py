@@ -129,8 +129,87 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
             translate_batch(items[start:start+batch_size])
     finally:
         if trace_handle: trace_handle.close()
+    expanded = expand_widths(changed, items)
+    if expanded: report["widths_expanded"] = expanded
     output.write_text("".join(changed),encoding="utf-8-sig",newline="")
     return report
+
+def expand_widths(changed: list[str], items: list[Item]) -> int:
+    """Expand control and dialog widths for translated text longer than original."""
+    item_map = {item.index: item for item in items}
+    in_dialog = False
+    dialog_title_idx = -1
+    max_right = 0
+    modified = 0
+
+    def flush_dialog():
+        nonlocal modified, dialog_title_idx, max_right
+        if dialog_title_idx < 0 or max_right <= 0:
+            return
+        m = LINE_RE.match(changed[dialog_title_idx])
+        if not m:
+            return
+        parts = m.group("prefix").rstrip(",").split(",")
+        if not parts:
+            return
+        try:
+            old_w = int(parts[0])
+        except ValueError:
+            return
+        if max_right > old_w:
+            ending = m.group("ending") or ""
+            changed[dialog_title_idx] = f'{max_right},{parts[1]},{m.group("state")},"{m.group("text")}"{ending}'
+            modified += 1
+
+    for i, line in enumerate(changed):
+        stripped = line.rstrip("\r\n")
+        sm = SECTION_RE.match(stripped)
+        if sm:
+            if in_dialog:
+                flush_dialog()
+            in_dialog = sm.group("kind") == "DIALOG"
+            dialog_title_idx = -1
+            max_right = 0
+            continue
+        if not in_dialog:
+            continue
+        if i not in item_map:
+            if dialog_title_idx < 0:
+                dialog_title_idx = i
+            continue
+        item = item_map[i]
+        parts = item.prefix.rstrip(",").split(",")
+        if len(parts) < 5:
+            continue
+        try:
+            x = int(parts[1])
+            old_w = int(parts[3])
+        except (ValueError, IndexError):
+            continue
+        m = LINE_RE.match(changed[i])
+        if not m or m.group("state") != "1":
+            max_right = max(max_right, x + old_w)
+            continue
+        trans_text = m.group("text")
+        orig_len = len(item.text)
+        trans_len = len(trans_text)
+        if orig_len == 0 or trans_len <= orig_len:
+            max_right = max(max_right, x + old_w)
+            continue
+        ratio = trans_len / orig_len
+        new_w = int(old_w * ratio * 1.15)
+        if new_w <= old_w:
+            new_w = old_w + 1
+        new_prefix = f"{parts[0]},{parts[1]},{parts[2]},{new_w},{parts[4]},"
+        ending = m.group("ending") or ""
+        changed[i] = f'{new_prefix}{m.group("state")},"{trans_text}"{ending}'
+        modified += 1
+        max_right = max(max_right, x + new_w)
+
+    if in_dialog:
+        flush_dialog()
+
+    return modified
 
 def main() -> int:
     p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--model",default=os.environ.get("OPENAI_MODEL","gpt-5-mini")); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path)

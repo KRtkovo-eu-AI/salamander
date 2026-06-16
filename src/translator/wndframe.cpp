@@ -516,6 +516,7 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
                         if (Data.ImportTextArchive(fullSLTPath, TRUE))
                         {
                             Data.ImportTextArchive(fullSLTPath, FALSE);
+                            Data.ResizeAllClippedControls(FrameWindow.HWindow); // resize clipped controls using actual font metrics
                             doNotSaveData = FALSE;
                             Data.SetDirty();
                             Data.UpdateAllNodes(); // refresh translated states in the tree view

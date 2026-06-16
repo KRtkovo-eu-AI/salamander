@@ -967,6 +967,10 @@ public:
     // find conflicting hotkeys; results are written to the Output window
     void ValidateTranslation(HWND hParent);
 
+    // resize all translated controls whose text is clipped, using actual font metrics;
+    // returns the number of controls resized
+    int ResizeAllClippedControls(HWND hParent);
+
     // look for control-ID collisions within a dialog; called after loading the project
     // dump results into the Output window
     void LookForIdConflicts();

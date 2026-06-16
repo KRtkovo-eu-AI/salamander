@@ -1133,6 +1133,13 @@ BOOL CData::Import(const char* project, BOOL trlPropOnly, BOOL onlyDlgLayouts)
                                         }
                                     }
                                 }
+                                // Copy control dimensions from imported data (SLT may have expanded widths for longer translations).
+                                CControl* n = DlgData[i]->Controls[j];
+                                CControl* o = oldData.DlgData[index]->Controls[ctrlIndex];
+                                n->TX = o->TX;
+                                n->TY = o->TY;
+                                n->TCX = o->TCX;
+                                n->TCY = o->TCY;
                             }
                         }
                     }
