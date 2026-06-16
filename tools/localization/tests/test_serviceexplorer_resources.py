@@ -25,5 +25,10 @@ class ServiceExplorerResourceTests(unittest.TestCase):
         self.assertNotIn("plugin.rc", project)
         self.assertNotIn("plugin.rh", project)
 
+    def test_language_resource_uses_standard_version_include(self):
+        lang_rc2 = (PLUGIN / "lang/lang.rc2").read_text(encoding="utf-8", errors="replace")
+        self.assertIn('#include "versinfo.rc2"', lang_rc2)
+        self.assertNotIn('..\\shared\\versinfo.rc2', lang_rc2)
+
 if __name__ == "__main__":
     unittest.main()
