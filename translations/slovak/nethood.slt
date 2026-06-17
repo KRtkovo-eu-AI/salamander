@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\slovak\nethood.atp"
-TEXTVERSION,"1.08 (x86)"
-VERSION,"1,0,8,180"
+PROJECTNAME,"localization-openai\projects\slovak\nethood\nethood.atp"
+TEXTVERSION,"1.08 (x64)"
+VERSION,"1,0,8,183"
 
 [TRANSLATION]
 LANGID,1051
@@ -10,17 +10,17 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
 COMMENT,"Slovenská verzia"
 
 [DIALOG 102]
-232,127,1,"Network - Konfigurácia"
+220,127,1,"Network - Konfigurácia"
 1201,7,7,122,10,1,"Zobraziť &administračné zdieľania"
 1203,13,22,185,10,1,"Zobraziť administračné zdieľania ako s&kryté položky"
 1202,7,37,216,10,1,"Zobraziť položky z &Miesta v sieti na najvyššej úrovni adresára"
 1204,7,52,195,10,1,"Zobraziť sieťové počítače na &najvyššej úrovni adresára"
 1206,7,67,166,10,1,"Zobraziť &disky pripojené cez Vzdialenú plochu"
-1205,7,82,166,10,1,"&Skenovať sieť pri spustení Open Salamandera"
-3000,7,99,218,1,1,""
-1,36,106,50,14,1,"OK"
-2,91,106,50,14,1,"Zrušiť"
-9,146,106,50,14,1,"Nápoveda"
+1205,7,82,167,10,1,"&Skenovať sieť pri spustení Open Salamandera"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Zrušiť"
+9,140,106,50,14,1,"Nápoveda"
 
 [STRINGTABLE 0]
 128,1,"Sieť"

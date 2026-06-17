@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\hungarian\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1038
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6164"
 COMMENT,"Magyar változat"
 
 [MENU 109]
-0,1,"&Fájl"
+0,1,"&Súgó"
 111,1,"&Fájl megnyitása"
 112,1,"&Kikeresés a panelen\tF"
 113,1,"Megsz&akítás\tEsc"
 114,1,"F&rissítés\tCtrl+R"
 115,1,"&Bezárás\tAlt+F4"
-0,1,"&Nézet"
+0,1,"&Súgó"
 121,1,"&Nagyítás\t+"
 122,1,"&Kicsinyítés\t -"
 123,1,"&Alaphelyzet\t Shift+Backspace"
 124,1,"Nap&lózási ablak...\tCtrl+L"
-0,1,"Beállítás&ok"
+0,1,"&Súgó"
 142,1,"&Mappák kiemelése"
 143,1,"Esz&köztipp mutatása\tCtrl+D"
-0,1,"Eszköztipp &elérési útja"
+0,1,"&Súgó"
 303,1,"&Fájlnév"
 302,1,"&Relatív"
 300,1,"&Abszolút"

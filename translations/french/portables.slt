@@ -1,0 +1,29 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\french\portables\portables.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d appareil sélectionné{2:s|0||1|s}"
+129,1,"Aucun appareil"
+
+[STRINGTABLE 1]
+8192,1,"Périphériques portables"
+8193,1,"Gérer les périphériques portables."
+
+[STRINGTABLE 2]
+9216,1,"À propos du module"
+
+[STRINGTABLE 3]
+10240,1,"Erreur lors du changement de répertoire"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 4]
+19457,1,"Le chemin spécifié contient un chemin vers un fichier."
+

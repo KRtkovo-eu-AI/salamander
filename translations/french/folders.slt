@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\french\folders\folders.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Dossiers"
+1001,1,"À propos du module"
+1003,1,"Parcourir des dossiers tels que Bureau, Panneau de configuration, Corbeille, etc."
+1004,1,"'\tDesktop"
+

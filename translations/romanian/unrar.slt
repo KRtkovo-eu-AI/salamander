@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\romanian\unrar.atp"
-TEXTVERSION,"3.01 (x86)"
-VERSION,"3,0,1,180"
+PROJECTNAME,"localization-openai\projects\romanian\unrar\unrar.atp"
+TEXTVERSION,"3.01 (x64)"
+VERSION,"3,0,1,183"
 
 [TRANSLATION]
 LANGID,1048
@@ -30,8 +30,8 @@ COMMENT,"Versiunea romana"
 
 [DIALOG 106]
 220,115,1,"Configurare UnRAR"
-107,12,10,195,12,1,"Sari a&utomat peste fisierele continuate din volumele"
-116,12,32,189,12,1,"&Nu arata atentionare cand tot continutul arhivei"
+107,12,10,200,12,1,"Sari a&utomat peste fisierele continuate din volumele"
+116,12,32,197,12,1,"&Nu arata atentionare cand tot continutul arhivei"
 300,23,22,154,8,1,"anterioare cand dezarhivezi."
 301,23,44,111,8,1,"nu poate fi listat."
 302,6,60,208,1,1,""
@@ -44,15 +44,15 @@ COMMENT,"Versiunea romana"
 350,80,1,"Introdu Parola"
 113,18,18,18,20,1,""
 300,57,10,230,8,1,"Acest fisier e criptat. Va rugam introduceti parola pentru decriptare."
-301,57,25,22,8,1,"Fisier:"
-104,87,25,250,8,1,""
-302,57,38,25,8,1,"&Parola:"
-110,87,36,167,12,1,""
-1,15,58,60,14,1,"O&K"
-112,80,58,60,14,1,"Tot &z"
-109,145,58,60,14,1,"S&ari Peste"
-111,210,58,60,14,1,"Sari Peste &Tot"
-2,275,58,60,14,1,"Anuleaza"
+301,57,25,23,8,1,"Fisier:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Parola:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"O&K"
+112,90,58,50,14,1,"Tot &z"
+109,150,58,50,14,1,"S&ari Peste"
+111,210,58,50,14,1,"Sari Peste &Tot"
+2,270,58,50,14,1,"Anuleaza"
 
 [DIALOG 115]
 213,105,1,"Atentie - UnRAR"

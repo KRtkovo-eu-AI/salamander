@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\russian\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\russian\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1049
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6166"
 COMMENT,"Русская версия"
 
 [MENU 109]
-0,1,"&Файл"
+0,1,"&Справка"
 111,1,"&Открыть файл"
 112,1,"&Показать на панели\tF"
 113,1,"О&тмена\tEsc"
 114,1,"О&бновить\tCtrl+R"
 115,1,"&Закрыть\tAlt+F4"
-0,1,"&Вид"
+0,1,"&Справка"
 121,1,"У&величить \t+"
 122,1,"У&меньшить\t -"
 123,1,"&Нормальный\t Shift+Backspace"
 124,1,"&Журнал...\tCtrl+L"
-0,1,"&Параметры"
+0,1,"&Справка"
 142,1,"&Выделять папки"
 143,1,"П&оказывать подсказку\tCtrl+D"
-0,1,"&Формат пути в подсказке"
+0,1,"&Справка"
 303,1,"&Имя файла"
 302,1,"&Относительный"
 300,1,"&Абсолютный"

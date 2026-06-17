@@ -1,0 +1,146 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovak\demoplug\demoplug.atp"
+TEXTVERSION,"1.94 (x64)"
+VERSION,"1,9,4,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Zobraziť"
+3000,4,6,199,41,1,"Pozícia okna"
+491,11,17,108,12,1,"&Uložiť pri zatvorení"
+492,11,29,156,12,1,"N&astaviť na pozíciu okna Salamander"
+
+[DIALOG 500]
+205,84,1,"Prvá stránka"
+3000,7,10,69,8,1,"Testovací reťazec:"
+501,53,8,144,12,1,""
+3001,7,25,71,8,1,"Testovacie číslo:"
+502,53,23,54,12,1,""
+3002,112,25,91,8,1,"musí byť menšie ako 10"
+3003,57,53,143,1,1,""
+3004,5,49,52,8,1,"Tu je combo"
+3005,15,62,44,8,1,"Test combo:"
+503,61,60,113,50,1,""
+
+[DIALOG 510]
+205,61,1,"Druhá stránka"
+511,5,5,172,12,1,"Zaškrtávacie políčko"
+512,5,20,98,12,1,"Prepínač 1"
+513,5,32,98,12,1,"Prepínač 2"
+514,5,44,98,12,1,"Prepínač 3"
+
+[DIALOG 520]
+205,68,1,"Pripojiť cestu"
+3000,7,10,67,8,1,"&Pripojiť cestu:"
+521,7,20,191,80,1,""
+1,48,45,50,14,1,"OK"
+2,107,45,50,14,1,"Zrušiť"
+
+[DIALOG 530]
+205,79,1,"Zadajte cestu na disk"
+3000,7,10,55,8,1,"Cesta:"
+531,53,8,144,12,1,""
+532,9,31,151,12,1,"Cesta k súboru (off = cesta k adresáru)"
+1,18,55,50,14,1,"OK"
+2,77,55,50,14,1,"Zrušiť"
+9,136,55,71,14,1,"Pomoc"
+
+[DIALOG 540]
+353,77,1,""
+3000,3,11,69,8,1,"Odstraňovanie"
+541,43,11,305,8,1,""
+3001,16,35,24,8,1,"Spolu:"
+542,43,34,297,12,1,""
+2,151,57,50,14,1,"Zrušiť"
+
+[DIALOG 550]
+463,236,1,"Ovládacie prvky poskytuje Open Salamander"
+3000,6,4,254,108,1,"CGUIStaticTextAbstract"
+3001,14,17,118,8,1,"Neviazaný statický text systému"
+551,102,17,186,8,1,"Systém bol spustený pred %d ms."
+3002,14,27,122,8,1,"0 (bez príznakov)"
+565,102,27,152,8,1,"dummy"
+3003,14,37,75,8,1,"STF_CACHED_PAINT"
+554,102,37,152,8,1,"dummy"
+3004,14,47,75,8,1,"STF_BOLD"
+552,102,47,192,8,1,"Tučné &text"
+3005,14,56,75,8,1,"STF_UNDERLINE"
+553,102,56,198,8,1,"Podčiarknutý text"
+3006,14,66,75,8,1,"STF_END_ELLIPSIS"
+556,102,66,194,8,1,"Dlhý dlhý dlhý dlhý dlhý dlhý dlhý dlhý dlhý dlhý reťazec."
+3007,14,76,75,8,1,"STF_PATH_ELLIPSIS"
+555,102,76,216,8,1,"C:\\Program Files\\Some Application With Long Path\\example.exe"
+3008,14,87,75,8,1,"STF_PATH_ELLIPSIS"
+564,102,87,160,8,1,"ftp://ftp.altap.cz/pub/salamander/example.exe"
+3009,151,97,170,8,1,"Presúvajte texty, aby ste zmenili ich veľkosť."
+3010,6,118,254,66,1,"CGUIProgressBarAbstract"
+3011,15,129,60,8,1,"Popis priebehu"
+559,15,138,235,12,1,""
+3012,15,154,67,8,1,"Neznámy priebeh"
+570,15,163,235,12,1,""
+3013,6,188,301,40,1,"Tlačidlo, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract"
+566,15,204,15,14,1,"..."
+562,37,204,15,14,1,""
+560,60,204,50,14,1,"&Vybrať"
+568,117,204,80,14,1,"&Pustiť"
+561,174,204,33,14,1,""
+563,215,204,33,14,1,"Text"
+3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
+3015,277,17,75,8,1,"SetActionOpen"
+557,365,17,47,8,1,"www.altap.cz"
+3016,277,27,81,8,1,"SetActionPostCommand"
+558,365,27,55,8,1,"Povedz niečo!"
+3017,277,37,81,8,1,"SetActionPostCommand"
+569,365,37,40,8,1,"mask hints"
+3018,269,59,185,31,1,"SetCurrentToolTip"
+567,278,73,130,8,1,"Položte kurzor myši na tento text."
+2510,269,102,96,8,1,"CGUIToolbarHeaderAbstract"
+2511,269,113,185,50,1,""
+1,403,213,80,14,1,"Zavrieť"
+
+[STRINGTABLE 0]
+46,1,"DemoPlug"
+47,1,"O plugin-e"
+
+[STRINGTABLE 1]
+48,1,"Tento plugin by vám mal pomôcť pri vytváraní vlastných plugin-ov."
+49,1,"www.altap.cz"
+50,1,"Vyskytla sa výnimka v DemoPlug, prosím informujte autorov!\nAk ste pracovali s nejakým súborom .dop v čase, keď sa výnimka vyskytla,\nprosím skúste chybu zopakovať s týmto súborom .dop a ak sa výnimka\nzopakuje, pošlite nám tento .dop súbor (my ho skompilujeme a opravíme).\nVďaka!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfigurácia je už otvorená."
+53,1,"Niektoré okná prehliadača DemoPlug sú otvorené. Chcete ich zavrieť?"
+54,1,"Konfigurácia DemoPlug"
+55,1,"Neplatné číslo!"
+56,1,"DemoPlug Files (*.dop)|*.dop|All Files (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Súbory"
+2001,1,"&Otvoriť\tCtrl+O"
+2002,1,"E&xit"
+2010,1,"&Upraviť"
+2011,1,"&Vystrihnúť\tCtrl+X"
+2012,1,"&Kopírovať\tCtrl+C"
+2013,1,"&Vložiť\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Zobraziť"
+2021,1,"&Filter"
+2022,1,"Filter"
+2025,1,"&Možnosti"
+2026,1,"&Konfigurácia..."
+
+[STRINGTABLE 4]
+2032,1,"&Pomoc"
+2033,1,"&O programe"
+
+[STRINGTABLE 5]
+2500,1,"Vystrihnúť\tCtrl+X"
+2501,1,"Kopírovať\tCtrl+C"
+2502,1,"Vložiť\tCtrl+V"
+2503,1,"Filter\tCtrl+U"
+

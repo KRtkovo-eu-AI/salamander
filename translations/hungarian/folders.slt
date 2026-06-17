@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hungarian\folders\folders.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Mappák"
+1001,1,"Bővítmény névjegye"
+1003,1,"Mappák böngészése, például Asztal, Vezérlőpult, Lomtár stb."
+1004,1,"'\tAsztal"
+

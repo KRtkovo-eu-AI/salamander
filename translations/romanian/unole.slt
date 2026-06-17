@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Memorie insuficientă."
+1002,1,"Nu se poate deschide fișierul Compound File %s.\n"
+1003,1,"Imposibil de obținut un alocator de memorie.\n"
+1004,1,"Nu se poate scrie în fișier.\n"
+1005,1,"Nu se poate crea fișierul %s.\n"
+1006,1,"Nu se poate deschide fluxul %s.\n"
+1007,1,"Nu se poate scrie în fișier.\n"
+
+[STRINGTABLE 1]
+1008,1,"A apărut o eroare necunoscută."
+1014,1,"Imposibil de adăugat o intrare în arhivă la lista de fișiere."
+1015,1,"Dezambalare fișier Compound"
+1017,1,"dezambalare..."
+1018,1,"dezambalare: "
+
+[STRINGTABLE 2]
+1025,1,"Ne pare rău, pluginul a expirat. Vă rugăm să verificați site-ul nostru web pentru o versiune mai nouă."
+
+[STRINGTABLE 3]
+1041,1,"Eroare"
+1042,1,"Răsfoiți și extrageți fișiere OLE Compound."
+1043,1,"Despre Plugin"
+

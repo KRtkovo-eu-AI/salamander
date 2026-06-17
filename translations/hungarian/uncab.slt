@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\uncab.atp"
-TEXTVERSION,"1.27 (x86)"
-VERSION,"1,2,7,180"
+PROJECTNAME,"localization-openai\projects\hungarian\uncab\uncab.atp"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,2,7,183"
 
 [TRANSLATION]
 LANGID,1038
@@ -12,9 +12,9 @@ COMMENT,"Magyar változat"
 [DIALOG 100]
 221,122,1,"Következő kötet"
 112,12,9,198,32,1,""
-300,12,48,38,8,1,"Lemeznév:"
+300,12,48,40,8,1,"Lemeznév:"
 110,54,48,156,8,1,""
-301,12,59,39,8,1,"CAB név:"
+301,12,59,40,8,1,"CAB név:"
 111,54,59,156,8,1,""
 302,12,70,36,8,1,"&Elérési út:"
 101,12,80,182,12,1,""
@@ -24,20 +24,20 @@ COMMENT,"Magyar változat"
 303,6,97,209,1,1,""
 
 [DIALOG 103]
-350,85,1,"Hiba"
-300,8,10,22,8,1,"Név:"
-104,34,10,309,8,1,""
-301,8,23,22,8,1,"Hiba:"
-302,34,23,309,16,1,"A fájl nem tömöríthető ki, mert egy előző kötet folytatása. A fájl kibontásához, azzal a kötettel kell indítania, ahol a fájl kezdődik."
-105,34,44,183,12,1,"&Ne mutassa ezt az üzenetet."
-108,90,63,50,14,1,"&Kihagy"
-109,150,63,50,14,1,"Mind kih&agy"
-2,210,63,50,14,1,"Mégse"
+352,85,1,"Hiba"
+300,6,10,26,8,1,"Név:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Hiba:"
+302,36,23,309,16,1,"A fájl nem tömöríthető ki, mert egy előző kötet folytatása. A fájl kibontásához, azzal a kötettel kell indítania, ahol a fájl kezdődik."
+105,36,44,183,12,1,"&Ne mutassa ezt az üzenetet."
+108,91,63,50,14,1,"&Kihagy"
+109,151,63,50,14,1,"Mind kih&agy"
+2,211,63,50,14,1,"Mégse"
 
 [DIALOG 106]
 220,85,1,"UnCAB beállítás"
 300,23,22,154,8,1,"folytatandó fájlokat."
-107,12,10,195,12,1,"Kibontáskor &automatikusan hagyja ki az előző kötetből"
+107,12,10,197,12,1,"Kibontáskor &automatikusan hagyja ki az előző kötetből"
 301,23,44,111,8,1,"listázható ki."
 116,12,32,199,12,1,"&Ne figyelmeztessen, ha az archívum teljes tartalma nem"
 302,6,60,208,1,1,""
@@ -45,12 +45,12 @@ COMMENT,"Magyar változat"
 2,112,66,50,14,1,"Mégse"
 
 [DIALOG 115]
-218,108,1,"UnCAB - Figyelmeztetés"
-300,11,9,198,24,1,"A több-kötetes archívum nem minden fájlja listázható (és látható a panelben), mert néhány archívum kötet nem található."
-301,11,40,198,16,1,"A archívum teljes tartalmához, az archívum minden kötetét másoljon egy mappába és nyissa meg az ELSŐ kötetet."
+213,108,1,"UnCAB - Figyelmeztetés"
+300,11,9,193,24,1,"A több-kötetes archívum nem minden fájlja listázható (és látható a panelben), mert néhány archívum kötet nem található."
+301,11,40,193,16,1,"A archívum teljes tartalmához, az archívum minden kötetét másoljon egy mappába és nyissa meg az ELSŐ kötetet."
 105,11,65,157,12,1,"&Ne mutassa ezt az üzenetet"
-302,5,83,207,1,1,""
-1,159,90,50,14,1,"OK"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
 
 [STRINGTABLE 0]
 1000,1,"UnCAB"

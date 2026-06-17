@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Vizualizator de redare WebView2 .NET"
+47,1,"Despre plugin"
+
+[STRINGTABLE 1]
+48,1,"Vizualizator care afișează HTML redat, Markdown și documente web utilizând WebView2."
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,1,"Nu se poate pregăti evenimentul de sincronizare necesar pentru vizualizator."
+51,1,"Fișierul selectat este prea mare pentru a fi deschis. Nu sunt acceptate fișiere mai mari de 32 MB."
+

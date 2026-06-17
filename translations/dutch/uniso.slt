@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\dutch\uniso.atp"
-TEXTVERSION,"1.37 (x86)"
-VERSION,"1,3,7,180"
+PROJECTNAME,"localization-openai\projects\dutch\uniso\uniso.atp"
+TEXTVERSION,"1.37 (x64)"
+VERSION,"1,3,7,183"
 
 [TRANSLATION]
 LANGID,1043
@@ -10,13 +10,13 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7009"
 COMMENT,"Nederlandse versie"
 
 [DIALOG 1200]
-300,83,1,"UnISO Configuratie"
+220,83,1,"UnISO Configuratie"
 1201,8,11,286,10,1,"&Verwijder het alleen lezen attribuut wanneer er gekopieerd wordt van een archief"
 1202,8,23,202,10,1,"&Toon sessie als map (toegang tot all sessies toegestaan)"
 1203,8,35,125,10,1,"T&oon boot image disk als bestand"
-3000,2,58,296,1,1,""
-1,188,64,50,14,1,"OK"
-2,243,64,50,14,1,"Annuleren"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Annuleren"
 
 [STRINGTABLE 0]
 1000,1,"UnISO"
@@ -58,7 +58,7 @@ COMMENT,"Nederlandse versie"
 1036,1,"Bestand "%s" kan niet uitgepakt worden.\n\nInconsistentie tussen bestandsgrootte en ICB blocks."
 1037,1,"Kan track #%d niet openen."
 1038,1,"Dit bestand schijnt een floppy, een hardeschijf of een hard disk partitie image te zijn.\nProbeer het bestand te hernoemen naar .ima om de UnFAT plugin te activeren."
-1039,0,"This disk image contains the APFS file system.\nThis file system is not supported yet."
+1039,1,"Deze schijfkop bevat het APFS-bestandssysteem.\nDit bestandssysteem wordt nog niet ondersteund."
 
 [STRINGTABLE 3]
 1050,1,"Kan partitie header niet lezen. Bestand is te klein."

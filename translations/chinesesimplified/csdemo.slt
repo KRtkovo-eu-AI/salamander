@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesesimplified\csdemo\csdemo.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"C# 演示"
+47,1,"关于插件"
+
+[STRINGTABLE 1]
+48,1,"示例插件：通过 CLR 承载托管 WinForms UI。"
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,1,"显示 &C# 演示窗口"
+

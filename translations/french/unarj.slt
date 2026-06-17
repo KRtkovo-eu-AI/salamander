@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\french\unarj.atp"
-TEXTVERSION,"1.21 (x86)"
-VERSION,"1,2,1,180"
+PROJECTNAME,"localization-openai\projects\french\unarj\unarj.atp"
+TEXTVERSION,"1.21 (x64)"
+VERSION,"1,2,1,183"
 
 [TRANSLATION]
 LANGID,1036
@@ -10,15 +10,15 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6162"
 COMMENT,"Version française"
 
 [DIALOG 100]
-258,110,1,"Volume suivant de l'archive"
-300,12,9,234,32,1,"Veuillez insérer le disque contenant le volume suivant de l'archive, ou sélectionnez le fichier approprié à partir d'un autre emplacement.\n\nPuis appuyez sur OK pour continuer."
+194,110,1,"Volume suivant de l'archive"
+300,12,9,170,32,1,"Veuillez insérer le disque contenant le volume suivant de l'archive, ou sélectionnez le fichier approprié à partir d'un autre emplacement.\n\nPuis appuyez sur OK pour continuer."
 301,12,48,66,8,1,"Volume précédent:"
-103,79,48,167,12,1,""
+103,73,48,109,12,1,""
 302,12,62,56,8,1,"&Volume suivant:"
-101,12,72,219,12,1,""
-102,234,72,13,12,1,"..."
-1,72,91,50,14,1,"OK"
-2,135,91,50,14,1,"Annuler"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Annuler"
 
 [DIALOG 103]
 352,85,1,"Erreur"
@@ -31,22 +31,22 @@ COMMENT,"Version française"
 2,181,63,50,14,1,"Annuler"
 
 [DIALOG 106]
-286,85,1,"Configuration de UnARJ"
+220,85,1,"Configuration de UnARJ"
 300,23,22,154,8,1,"la décompression."
-107,12,10,263,12,1,"&Ignorer automatiquement les fichiers issus d'un volume précédent lors de"
+107,12,10,259,12,1,"&Ignorer automatiquement les fichiers issus d'un volume précédent lors de"
 301,23,44,111,8,1,"ne peut être listé."
 116,12,32,263,12,1,"&Ne pas afficher d'avertissement lorsque l'ensemble du contenu de l'archive"
-302,6,60,274,1,1,""
-1,90,66,50,14,1,"OK"
-2,145,66,50,14,1,"Annuler"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Annuler"
 
 [DIALOG 115]
-223,107,1,"UnARJ - Avertissement"
-300,11,10,204,24,1,"Impossible de lister (et afficher) l'ensemble des fichiers contenus dans cette archive multi-volumes, car certains volumes n'ont pas été trouvés."
-301,11,41,202,16,1,"Pour lister l'intégralité des fichiers contenus dans l'archive, copiez l'ensemble de ses volumes dans le même dossier."
+213,107,1,"UnARJ - Avertissement"
+300,11,10,194,24,1,"Impossible de lister (et afficher) l'ensemble des fichiers contenus dans cette archive multi-volumes, car certains volumes n'ont pas été trouvés."
+301,11,41,192,16,1,"Pour lister l'intégralité des fichiers contenus dans l'archive, copiez l'ensemble de ses volumes dans le même dossier."
 105,11,66,157,12,1,"&Ne plus afficher ce message à l'avenir"
-302,5,83,213,1,1,""
-1,163,89,50,14,1,"OK"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
 
 [STRINGTABLE 0]
 1000,1,"UnARJ"

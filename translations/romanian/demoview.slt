@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\demoview\demoview.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Vizualizator"
+3000,4,6,259,41,1,"Poziția ferestrei"
+491,11,17,113,12,1,"&Salvează la închidere"
+492,11,29,156,12,1,"S&etare la poziția ferestrei Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Despre plugin"
+
+[STRINGTABLE 1]
+48,1,"Acest plugin ar trebui să vă ajute să creați propriul plugin de vizualizare."
+49,1,"www.altap.cz"
+50,1,"A apărut o excepție în DemoView, vă rugăm să informați autorii!\nDacă ați lucrat cu un fișier .DMV în momentul apariției excepției,\nîncercați să reproduceți eroarea cu acest fișier .DMV și dacă excepția\nse produce din nou, trimiteți-ne acest fișier .DMV (îl vom reproduce și vom repara eroarea).\nMulțumim!"
+51,1,"petr.solin@altap.cz"
+52,1,"Configurația este deja deschisă."
+53,1,"Sunt deschise unele ferestre de vizualizare DemoView. Doriți să le închideți?"
+54,1,"Configurare DemoView"
+55,1,"Număr nevalid!"
+56,1,"Fișierele DemoView (*.dmv)|*.dmv|Toate fișierele (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Fișiere"
+2001,1,"&Deschidere\tCtrl+O"
+2002,1,"I&eșire"
+2010,1,"&Editare"
+2011,1,"&Taie\tCtrl+X"
+2012,1,"&Copiază\tCtrl+C"
+2013,1,"&Lipește\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Vizualizare"
+2021,1,"&Filtru"
+2022,1,"Filtru"
+2025,1,"&Opțiuni"
+2026,1,"&Configurație..."
+
+[STRINGTABLE 4]
+2032,1,"&Ajutor"
+2033,1,"&Despre"
+
+[STRINGTABLE 5]
+2500,1,"Taie\tCtrl+X"
+2501,1,"Copiază\tCtrl+C"
+2502,1,"Lipește\tCtrl+V"
+2503,1,"Filtru\tCtrl+U"
+

@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovak\hypervm\hypervm.atp"
+TEXTVERSION,"1.04 (x64)"
+VERSION,"1,0,4,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Stroje Hyper-V"
+47,1,"O doplnku"
+
+[STRINGTABLE 1]
+48,1,"Zobraziť lokálne virtuálne počítače Hyper-V v paneli."
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,1,"Zobraziť okno &Stroje Hyper-V"
+

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hungarian\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Nem elegendő memória."
+1002,1,"Nem lehet megnyitni a(z) Összetett fájlt: %s.\n"
+1003,1,"Nem sikerült memóriakezelőt beszerezni.\n"
+1004,1,"Nem lehet írni a fájlba.\n"
+1005,1,"Nem lehet létrehozni a(z) %s fájlt.\n"
+1006,1,"Nem lehet megnyitni a(z) %s adatfolyamot.\n"
+1007,1,"Nem lehet írni a fájlba.\n"
+
+[STRINGTABLE 1]
+1008,1,"Ismeretlen hiba történt."
+1014,1,"Nem sikerült hozzáadni az archív bejegyzést a fájllistához."
+1015,1,"Összetett fájl kicsomagolása"
+1017,1,"kicsomagolás..."
+1018,1,"kicsomagolás: "
+
+[STRINGTABLE 2]
+1025,1,"Sajnáljuk, a bővítmény lejárt. Kérjük, a weboldalunkon ellenőrizze a frissebb verziót."
+
+[STRINGTABLE 3]
+1041,1,"Hiba"
+1042,1,"Tallózás és OLE Összetett fájlok kinyerése."
+1043,1,"A bővítmény névjegye"
+

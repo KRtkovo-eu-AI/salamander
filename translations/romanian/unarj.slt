@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\romanian\unarj.atp"
-TEXTVERSION,"1.21 (x86)"
-VERSION,"1,2,1,180"
+PROJECTNAME,"localization-openai\projects\romanian\unarj\unarj.atp"
+TEXTVERSION,"1.21 (x64)"
+VERSION,"1,2,1,183"
 
 [TRANSLATION]
 LANGID,1048
@@ -10,15 +10,15 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6165"
 COMMENT,"Versiunea romana"
 
 [DIALOG 100]
-198,110,1,"Urmatorul volum arhiva"
-300,12,9,180,32,1,"Introdu discul cu urmatorul volum arhiva sau localizeaza fisierul potrivit pe disc.\n\nApasa OK cand sunteti gata."
+194,110,1,"Urmatorul volum arhiva"
+300,12,9,170,32,1,"Introdu discul cu urmatorul volum arhiva sau localizeaza fisierul potrivit pe disc.\n\nApasa OK cand sunteti gata."
 301,12,48,68,8,1,"Volumul precedent:"
-103,81,48,109,12,1,""
+103,73,48,109,12,1,""
 302,12,62,61,8,1,"&Volumul urmator:"
-101,12,72,159,12,1,""
-102,174,72,13,12,1,"..."
-1,42,91,50,14,1,"OK"
-2,105,91,50,14,1,"Anuleaza"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Anuleaza"
 
 [DIALOG 103]
 352,85,1,"Eroare"
@@ -31,14 +31,14 @@ COMMENT,"Versiunea romana"
 2,181,63,50,14,1,"Anuleaza"
 
 [DIALOG 106]
-200,85,1,"Configurare UnARJ"
+220,85,1,"Configurare UnARJ"
 300,23,22,154,8,1,"precedent cand dezarhivezi."
-107,12,10,181,12,1,"&Automat sari peste fisierele continuate din volumul"
+107,12,10,197,12,1,"&Automat sari peste fisierele continuate din volumul"
 301,23,44,111,8,1,"nu poate fi listat."
-116,12,32,170,12,1,"Nu afisa atentionare can&d tot continutul arhivei"
-302,6,60,188,1,1,""
-1,47,66,50,14,1,"OK"
-2,102,66,50,14,1,"Anuleaza"
+116,12,32,197,12,1,"Nu afisa atentionare can&d tot continutul arhivei"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Anuleaza"
 
 [DIALOG 115]
 213,107,1,"UnARJ - Atentie"

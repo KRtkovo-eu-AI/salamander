@@ -1,0 +1,29 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\german\portables\portables.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d ausgewählte(s) Gerät{2:s|0||1|s}"
+129,1,"Keine Geräte"
+
+[STRINGTABLE 1]
+8192,1,"Tragbare Geräte"
+8193,1,"Tragbare Geräte verwalten."
+
+[STRINGTABLE 2]
+9216,1,"Über das Plug-in"
+
+[STRINGTABLE 3]
+10240,1,"Fehler beim Ändern des Verzeichnisses"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 4]
+19457,1,"Der angegebene Pfad enthält einen Pfad zu einer Datei."
+

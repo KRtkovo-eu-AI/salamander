@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\dutch\checksum.atp"
-TEXTVERSION,"2.2 (x86)"
-VERSION,"2,2,0,180"
+PROJECTNAME,"localization-openai\projects\dutch\checksum\checksum.atp"
+TEXTVERSION,"2.2 (x64)"
+VERSION,"2,2,0,183"
 
 [TRANSLATION]
 LANGID,1043
@@ -10,14 +10,14 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7009"
 COMMENT,"Nederlandse versie"
 
 [DIALOG 1000]
-362,84,1,"Berekenen controlesom"
-1001,5,5,352,54,1,"Lijst1"
-1007,5,68,41,8,1,"Berekenen:"
-1006,49,68,106,8,1,"Voortgang1"
-1002,162,65,61,14,1,"Con&figureren..."
-1003,229,65,61,14,1,"&Opslaan..."
-1004,296,65,61,14,1,"&Stoppen"
-1005,5,68,49,8,1,"klembord hint"
+344,84,1,"Berekenen controlesom"
+1001,5,5,334,54,1,"Lijst1"
+1007,5,68,42,8,1,"Berekenen:"
+1006,50,68,105,8,1,"Voortgang1"
+1002,162,65,55,14,1,"Con&figureren..."
+1003,223,65,55,14,1,"&Opslaan..."
+1004,284,65,55,14,1,"&Stoppen"
+1005,5,68,48,8,1,"klembord hint"
 
 [DIALOG 1001]
 189,109,1,"Controlesom configuratie"
@@ -35,7 +35,7 @@ COMMENT,"Nederlandse versie"
 260,84,1,""
 1001,5,5,250,54,1,"Lijst1"
 1007,5,68,58,8,1,"Controleren van:"
-1006,67,68,76,8,1,"Voortgang1"
+1006,42,68,101,8,1,"Voortgang1"
 2002,5,68,140,8,1,""
 2001,149,65,50,14,1,"&Selectie"
 1004,205,65,50,14,1,"S&toppen"

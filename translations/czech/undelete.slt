@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\czech\undelete.atp"
-TEXTVERSION,"1.11 (x86)"
-VERSION,"1,1,1,180"
+PROJECTNAME,"localization-openai\projects\czech\undelete\undelete.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,1,1,183"
 
 [TRANSLATION]
 LANGID,1029
@@ -11,8 +11,8 @@ COMMENT,"Česká verze"
 
 [DIALOG 1000]
 341,77,1,"Obnovení souborů a adresářů"
-1001,12,12,324,8,1,""
-1002,42,32,285,12,1,""
+1001,12,12,323,8,1,""
+1002,35,32,292,12,1,""
 2,144,54,50,14,1,"Storno"
 3000,12,33,29,8,1,"Celkem:"
 
@@ -54,16 +54,16 @@ COMMENT,"Česká verze"
 2,156,53,50,14,1,"Storno"
 
 [DIALOG 1400]
-297,100,1,"Obnovení souborů a adresářů - Konfigurace"
+257,100,1,"Obnovení souborů a adresářů - Konfigurace"
 3000,7,7,186,8,1,"Alternativní &dočasný adresář pro zobrazované soubory:"
-1401,7,17,262,14,1,""
-1402,275,17,16,14,1,"..."
+1401,7,17,222,14,1,""
+1402,235,17,16,14,1,"..."
 1403,7,39,214,10,1,"&Vždy použít předchozí cluster skenovaných informací na FAT"
 1404,7,50,226,10,1,"Nezobrazit upozornění při obnovení do &stejného logického disku"
 1405,7,61,269,10,1,"Nezobrazit upozornění při obnovení š&ifrovaného souboru na FAT nebo exFAT"
-1,131,80,50,14,1,"OK"
-2,186,80,50,14,1,"Storno"
-9,241,80,50,14,1,"Nápověda"
+1,91,80,50,14,1,"OK"
+2,146,80,50,14,1,"Storno"
+9,201,80,50,14,1,"Nápověda"
 
 [DIALOG 1500]
 276,95,1,"Obnovení šifrovaného souboru ze zálohy"
@@ -155,7 +155,7 @@ COMMENT,"Česká verze"
 82,1,"Formát"
 83,1,"Velikost"
 84,1,"Volných"
-85,1,"% Volných"
+85,0,"% Free"
 86,1,"GUID cesta"
 90,1,"$Bitmap má nulovou velikost. Odhadnutí poškození souboru se neprovede."
 91,1,"Nelze nalézt $Bitmap na tomto svazku. Odhadnutí poškození souboru se neprovede."

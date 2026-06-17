@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\folders\folders.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Foldere"
+1001,1,"Despre modulul de completare"
+1003,1,"Răsfoiți foldere precum Desktop, Panou de control, Coș de reciclare etc."
+1004,1,"'\tDesktop"
+

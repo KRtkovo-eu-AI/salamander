@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\slovak\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\slovak\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1051
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6167"
 COMMENT,"Slovenská verzia"
 
 [MENU 109]
-0,1,"&Súbor"
+0,1,"&Nápoveda"
 111,1,"&Otvoriť súbor"
 112,1,"&Ukázať v paneli\tF"
 113,1,"&Prerušiť\tEsc"
 114,1,"O&bnoviť\tCtrl+R"
 115,1,"Z&atvoriť\tAlt+F4"
-0,1,"&Zobrazenie"
+0,1,"&Nápoveda"
 121,1,"Zvä&čšiť\t+"
 122,1,"Zm&enšiť\t -"
 123,1,"&Zrušiť lupu\t Shift+Backspace"
 124,1,"&Log okno...\tCtrl+L"
-0,1,"N&astavenie"
+0,1,"&Nápoveda"
 142,1,"&Zvýrazniť adresáre"
 143,1,"Zobraziť &Tooltip\tCtrl+D"
-0,1,"Tooltip &formát cesty"
+0,1,"&Nápoveda"
 303,1,"&Názov súboru"
 302,1,"&Relatívny"
 300,1,"&Absolútny"

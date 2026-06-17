@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\dutch\unarj.atp"
-TEXTVERSION,"1.21 (x86)"
-VERSION,"1,2,1,180"
+PROJECTNAME,"localization-openai\projects\dutch\unarj\unarj.atp"
+TEXTVERSION,"1.21 (x64)"
+VERSION,"1,2,1,183"
 
 [TRANSLATION]
 LANGID,1043
@@ -10,43 +10,43 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7009"
 COMMENT,"Nederlandse versie"
 
 [DIALOG 100]
-213,110,1,"Volgende archief volume"
-300,12,9,195,32,1,"Plaats diskette die het volgende archief volume bevat of zoek naar het desbetreffende bestand in de hardeschijf.\n\nDruk op OK indien gereed."
+194,110,1,"Volgende archief volume"
+300,12,9,170,32,1,"Plaats diskette die het volgende archief volume bevat of zoek naar het desbetreffende bestand in de hardeschijf.\n\nDruk op OK indien gereed."
 301,12,48,60,8,1,"Vorige volume:"
-103,73,48,134,12,1,""
+103,73,48,109,12,1,""
 302,12,62,63,8,1,"&Volgende volume:"
-101,12,72,174,12,1,""
-102,189,72,13,12,1,"..."
-1,50,91,50,14,1,"OK"
-2,113,91,50,14,1,"Annuleren"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Annuleren"
 
 [DIALOG 103]
-356,85,1,"Fout"
+352,85,1,"Fout"
 300,6,10,26,8,1,"Naam:"
-104,36,10,313,8,1,""
+104,36,10,309,8,1,""
 301,6,23,26,8,1,"Fout:"
-302,36,23,313,16,1,"Bestand kan niet uitgepakt worden omdat het gecontinueerd wordt vanaf het vorige volume. Om het bestand uit te pakken moet je beginnen met het volume waar het bestand begint."
+302,36,23,309,16,1,"Bestand kan niet uitgepakt worden omdat het gecontinueerd wordt vanaf het vorige volume. Om het bestand uit te pakken moet je beginnen met het volume waar het bestand begint."
 105,36,44,183,12,1,"&Toon dit bericht niet in het vervolg."
-1,123,63,50,14,1,"OK"
-2,183,63,50,14,1,"Annuleren"
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Annuleren"
 
 [DIALOG 106]
-247,85,1,"UnARJ Configuratie"
+220,85,1,"UnARJ Configuratie"
 300,23,22,154,8,1,"uitpakken."
 107,12,10,212,12,1,"&Automatisch bestanden uit vorige volumes overslaan tijdens"
 301,23,44,111,8,1,"niet opgesomd kan worden."
 116,12,32,229,12,1,"A&ttentie niet weergeven wanneer de hele inhoud van het archief"
-302,6,60,235,1,1,""
-1,69,66,50,14,1,"OK"
-2,128,66,50,14,1,"Annuleren"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Annuleren"
 
 [DIALOG 115]
-222,107,1,"UnARJ - Attentie"
-300,11,10,205,24,1,"Niet alle bestanden in het multi-volume archief kunnen opgesomd worden (en weergegeven worden in het paneel), omdat sommige archief volumes niet zijn gevonden."
-301,11,41,205,16,1,"Om de hele inhoud van het archief op te sommen, kopieer alle volumes naar dezelfde map."
+213,107,1,"UnARJ - Attentie"
+300,11,10,194,24,1,"Niet alle bestanden in het multi-volume archief kunnen opgesomd worden (en weergegeven worden in het paneel), omdat sommige archief volumes niet zijn gevonden."
+301,11,41,192,16,1,"Om de hele inhoud van het archief op te sommen, kopieer alle volumes naar dezelfde map."
 105,11,66,157,12,1,"&Toon dit bericht niet in het vervolg"
-302,5,83,212,1,1,""
-1,162,89,50,14,1,"OK"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
 
 [STRINGTABLE 0]
 1000,1,"UnARJ"

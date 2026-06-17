@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\samandarin\samandarin.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Notificator de actualizări Samandarin"
+47,1,"Despre Notificatorul de actualizări Samandarin"
+
+[STRINGTABLE 1]
+48,1,"Verifică lansările GitHub și oferă să deschidă cea mai recentă versiune Samandarin."
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/releases"
+50,1,"Verifică actualizările acum"
+

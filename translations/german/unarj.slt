@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\german\unarj.atp"
-TEXTVERSION,"1.21 (x86)"
-VERSION,"1,2,1,180"
+PROJECTNAME,"localization-openai\projects\german\unarj\unarj.atp"
+TEXTVERSION,"1.21 (x64)"
+VERSION,"1,2,1,183"
 
 [TRANSLATION]
 LANGID,1031
@@ -10,35 +10,35 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
 COMMENT,"Deutsche Version"
 
 [DIALOG 100]
-199,110,1,"Nächstes Teilarchiv"
-300,12,9,175,32,1,"Legen Sie bitte den Datenträger mit dem nächsten Teilarchiv ein oder wählen Sie die passende Datei.\n\nDrücken Sie 'OK', wenn Sie bereit sind."
+194,110,1,"Nächstes Teilarchiv"
+300,12,9,170,32,1,"Legen Sie bitte den Datenträger mit dem nächsten Teilarchiv ein oder wählen Sie die passende Datei.\n\nDrücken Sie 'OK', wenn Sie bereit sind."
 301,12,48,60,8,1,"Vorheriger Teil:"
-103,73,48,114,12,1,""
+103,73,48,109,12,1,""
 302,12,62,49,8,1,"&Nächster Teil:"
-101,12,72,160,12,1,""
-102,175,72,13,12,1,"..."
-1,43,91,50,14,1,"OK"
-2,106,91,50,14,1,"Abbrechen"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Abbrechen"
 
 [DIALOG 103]
-350,85,1,"Fehler"
-300,4,10,26,8,1,"Name:"
-104,34,10,309,8,1,""
-301,4,23,26,8,1,"Fehler:"
-302,34,23,309,16,1,"Die Datei kann nicht entpackt werden, da es sich um die Fortsetzung eines vorangehenden Teilarchivs handelt. Beginnen Sie mit dem ersten Teilarchiv, um die Datei zu entpacken."
-105,34,44,183,12,1,"&Diesen Hinweis in Zukunft nicht mehr anzeigen."
-1,120,63,50,14,1,"OK"
-2,180,63,50,14,1,"Abbrechen"
+352,85,1,"Fehler"
+300,6,10,26,8,1,"Name:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Fehler:"
+302,36,23,309,16,1,"Die Datei kann nicht entpackt werden, da es sich um die Fortsetzung eines vorangehenden Teilarchivs handelt. Beginnen Sie mit dem ersten Teilarchiv, um die Datei zu entpacken."
+105,36,44,183,12,1,"&Diesen Hinweis in Zukunft nicht mehr anzeigen."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Abbrechen"
 
 [DIALOG 106]
-232,85,1,"UnARJ - Konfiguration"
+220,85,1,"UnARJ - Konfiguration"
 300,23,22,202,8,1,"von einem vorangegangenen Teilarchiv fortgesetzt werden."
 107,12,10,199,12,1,"Beim Entpacken &Dateien automatisch überspringen, die"
 301,23,44,146,8,1,"Archivinhalt nicht aufgelistet werden kann."
-116,12,32,189,12,1,"Keinen &Warnhinweis zeigen, wenn der gesamte"
-302,6,60,220,1,1,""
-1,63,66,50,14,1,"OK"
-2,118,66,50,14,1,"Abbrechen"
+116,12,32,197,12,1,"Keinen &Warnhinweis zeigen, wenn der gesamte"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Abbrechen"
 
 [DIALOG 115]
 213,107,1,"UnARJ - Achtung"

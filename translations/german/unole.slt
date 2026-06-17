@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\german\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Nicht genügend Speicher."
+1002,1,"Compound-Datei %s kann nicht geöffnet werden.\n"
+1003,1,"Speicherzuweiser kann nicht bereitgestellt werden.\n"
+1004,1,"In Datei kann nicht geschrieben werden.\n"
+1005,1,"Datei %s kann nicht erstellt werden.\n"
+1006,1,"Stream %s kann nicht geöffnet werden.\n"
+1007,1,"In Datei kann nicht geschrieben werden.\n"
+
+[STRINGTABLE 1]
+1008,1,"Unbekannter Fehler ist aufgetreten."
+1014,1,"Kann dem Dateien-Listen-Eintrag nicht hinzugefügt werden."
+1015,1,"Compound-Datei wird entpackt"
+1017,1,"entpacken..."
+1018,1,"entpacken: "
+
+[STRINGTABLE 2]
+1025,1,"Entschuldigung, das Plug-in ist abgelaufen. Bitte prüfen Sie unsere Website auf eine neuere Version."
+
+[STRINGTABLE 3]
+1041,1,"Fehler"
+1042,1,"OLE-Compound-Dateien durchsuchen und extrahieren."
+1043,1,"Über das Plug-in"
+

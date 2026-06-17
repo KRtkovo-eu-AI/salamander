@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\spanish\demoview\demoview.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Visor"
+3000,4,6,335,41,1,"Posición de la ventana"
+491,11,17,93,12,1,"&Guardar al cerrar"
+492,11,29,234,12,1,"E&stablecer la posición de la ventana de Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Acerca del complemento"
+
+[STRINGTABLE 1]
+48,1,"Este complemento debería ayudarte a crear tu propio complemento de visor."
+49,1,"www.altap.cz"
+50,1,"Se ha producido una excepción en DemoView, ¡informe a los autores!\nSi has trabajado con algún archivo .DMV cuando se produjo la excepción,\nintenta reproducir el error con este archivo .DMV y, si la excepción\nse vuelve a producir, envíanos este archivo .DMV (lo reproduciremos y corregiremos el error).\n¡Gracias!"
+51,1,"petr.solin@altap.cz"
+52,1,"La configuración ya está abierta."
+53,1,"Hay abiertas algunas ventanas del visor de DemoView. ¿Quieres cerrarlas?"
+54,1,"Configuración de DemoView"
+55,1,"¡Número no válido!"
+56,1,"Archivos de DemoView (*.dmv)|*.dmv|Todos los archivos (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Archivos"
+2001,1,"&Abrir\tCtrl+O"
+2002,1,"S&alir"
+2010,1,"&Edición"
+2011,1,"&Cortar\tCtrl+X"
+2012,1,"&Copiar\tCtrl+C"
+2013,1,"&Pegar\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Ver"
+2021,1,"&Filtro"
+2022,1,"Filtro"
+2025,1,"&Opciones"
+2026,1,"&Configuración..."
+
+[STRINGTABLE 4]
+2032,1,"&Ayuda"
+2033,1,"&Acerca de"
+
+[STRINGTABLE 5]
+2500,1,"Cortar\tCtrl+X"
+2501,1,"Copiar\tCtrl+C"
+2502,1,"Pegar\tCtrl+V"
+2503,1,"Filtro\tCtrl+U"
+

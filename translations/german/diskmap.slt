@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\german\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\german\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1031
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
 COMMENT,"Deutsche Version"
 
 [MENU 109]
-0,1,"&Datei"
+0,1,"&Hilfe"
 111,1,"&Datei öffnen"
 112,1,"&Fokus im Dateifenster\tF"
 113,1,"&Abbrechen\tEsc"
 114,1,"Aktualisie&ren\tStrg+R"
 115,1,"&Beenden\tAlt+F4"
-0,1,"&Ansicht"
+0,1,"&Hilfe"
 121,1,"&Vergrößern\t+"
 122,1,"Ver&kleinern\t -"
 123,1,"&Originalgröße\t Umschalt+Rücktaste"
 124,1,"&Protokollfenster...\tStrg+L"
-0,1,"&Optionen"
+0,1,"&Hilfe"
 142,1,"&Verzeichnisse hervorheben"
 143,1,"&QuickInfo anzeigen\tStrg+D"
-0,1,"QuickInfo Pfad&format"
+0,1,"&Hilfe"
 303,1,"&Dateiname"
 302,1,"&Relativer Pfad"
 300,1,"&Absoluter Pfad"

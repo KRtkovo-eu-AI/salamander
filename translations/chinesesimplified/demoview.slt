@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesesimplified\demoview\demoview.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"查看器"
+3000,4,6,199,41,1,"窗口位置"
+491,11,17,63,12,1,"&关闭时保存"
+492,11,29,156,12,1,"S&et to position of Salamander's window"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"关于插件"
+
+[STRINGTABLE 1]
+48,1,"此插件应能帮助你创建自己的查看器插件。"
+49,1,"www.altap.cz"
+50,1,"在 DemoView 中发生了异常，请通知作者！\n如果你在异常发生时处理了某个 .DMV 文件，\n请尝试使用该 .DMV 文件复现该错误，并且如果异常\n再次发生，请把该 .DMV 文件发给我们（我们将复现并修复该错误）。\n谢谢！"
+51,1,"petr.solin@altap.cz"
+52,1,"配置已打开。"
+53,1,"已打开某些 DemoView 查看器窗口。你想关闭它们吗？"
+54,1,"DemoView 配置"
+55,1,"无效的数字！"
+56,1,"DemoView 文件 (*.dmv)|*.dmv|所有文件 (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&文件"
+2001,1,"&打开\tCtrl+O"
+2002,1,"E&xit"
+2010,1,"&编辑"
+2011,1,"&剪切\tCtrl+X"
+2012,1,"&复制\tCtrl+C"
+2013,1,"&粘贴\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&视图"
+2021,1,"&过滤"
+2022,1,"过滤"
+2025,1,"&选项"
+2026,1,"&Configuration..."
+
+[STRINGTABLE 4]
+2032,1,"&帮助"
+2033,1,"&关于"
+
+[STRINGTABLE 5]
+2500,1,"剪切\tCtrl+X"
+2501,1,"复制\tCtrl+C"
+2502,1,"粘贴\tCtrl+V"
+2503,1,"过滤\tCtrl+U"
+

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\chinesesimplified\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\chinesesimplified\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,2052
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6958"
 COMMENT,"简体中文版"
 
 [MENU 109]
-0,1,"文件(&F)"
+0,1,"帮助(&H)"
 111,1,"打开文件(&O)"
 112,1,"在面板中获得焦点(&F)\tF"
 113,1,"关于(&A)\tEsc"
 114,1,"刷新(&R)\tCtrl+R"
 115,1,"关闭(&C)\tAlt+F4"
-0,1,"查看(&V)"
+0,1,"帮助(&H)"
 121,1,"放大(&I)\t+"
 122,1,"缩小(&O)\t -"
 123,1,"取消缩放(&U)\t Shift+Backspace"
 124,1,"日志窗口(&L)...\tCtrl+L"
-0,1,"选项(&O)"
+0,1,"帮助(&H)"
 142,1,"高亮文件夹(&H)"
 143,1,"显示工具提示(&D)\tCtrl+D"
-0,1,"工具提示路径格式(&F)"
+0,1,"帮助(&H)"
 303,1,"文件名(&F)"
 302,1,"相对的(&R)"
 300,1,"绝对的(&A)"

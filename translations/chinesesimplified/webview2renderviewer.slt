@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesesimplified\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"WebView2 渲染查看器 .NET"
+47,1,"关于插件"
+
+[STRINGTABLE 1]
+48,1,"使用 WebView2 显示已渲染的 HTML、Markdown 和网页文档的查看器。"
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,1,"无法为查看器准备所需的同步事件。"
+51,1,"所选文件过大，无法打开。不支持大于 32 MB 的文件。"
+

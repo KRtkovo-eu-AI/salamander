@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\spanish\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Memoria insuficiente."
+1002,1,"No se puede abrir el archivo compuesto %s.\n"
+1003,1,"No se puede obtener el asignador de memoria.\n"
+1004,1,"No se puede escribir en el archivo.\n"
+1005,1,"No se puede crear el archivo %s.\n"
+1006,1,"No se puede abrir el flujo %s.\n"
+1007,1,"No se puede escribir en el archivo.\n"
+
+[STRINGTABLE 1]
+1008,1,"Se produjo un error desconocido."
+1014,1,"No se puede agregar la entrada del archivo al listado de archivos."
+1015,1,"Extrayendo el archivo compuesto"
+1017,1,"extrayendo..."
+1018,1,"extrayendo: "
+
+[STRINGTABLE 2]
+1025,1,"Lo sentimos, el complemento ha caducado. Revise nuestro sitio web para obtener una versión más reciente."
+
+[STRINGTABLE 3]
+1041,1,"Error"
+1042,1,"Examinar y extraer archivos compuestos OLE."
+1043,1,"Acerca del complemento"
+

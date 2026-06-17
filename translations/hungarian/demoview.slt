@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hungarian\demoview\demoview.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Néző"
+3000,4,6,199,41,1,"Ablak helye"
+491,11,17,93,12,1,"&Mentés bezáráskor"
+492,11,29,156,12,1,"A Salamander ablak helyének b&eállítása"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Névjegy a bővítményről"
+
+[STRINGTABLE 1]
+48,1,"Ennek a bővítménynek segítenie kell abban, hogy saját nézőbővítményt készítsen."
+49,1,"www.altap.cz"
+50,1,"A DemoView-ben kivétel történt, kérjük tájékoztassa a fejlesztőket!\nHa Ön egy .DMV fájllal dolgozott, amikor a kivétel történt,\npróbálja meg a hibát reprodukálni ezzel a .DMV fájllal, és ha a kivétel\nmég egyszer előfordul, küldje el nekünk ezt a .DMV fájlt (mi reprodukáljuk és kijavítjuk a hibát).\nKöszönjük!"
+51,1,"petr.solin@altap.cz"
+52,1,"A konfiguráció már meg van nyitva."
+53,1,"Néhány DemoView nézőablak nyitva van. Le szeretné zárni ezeket?"
+54,1,"DemoView konfiguráció"
+55,1,"Érvénytelen szám!"
+56,1,"DemoView fájlok (*.dmv)|*.dmv|Minden fájl (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Fájlok"
+2001,1,"&Megnyitás\tCtrl+O"
+2002,1,"&Kilépés"
+2010,1,"&Szerkesztés"
+2011,1,"&Kivágás\tCtrl+X"
+2012,1,"&Másolás\tCtrl+C"
+2013,1,"&Beillesztés\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Nézet"
+2021,1,"&Szűrő"
+2022,1,"Szűrő"
+2025,1,"&Beállítások"
+2026,1,"&Konfiguráció..."
+
+[STRINGTABLE 4]
+2032,1,"&Súgó"
+2033,1,"&Névjegy"
+
+[STRINGTABLE 5]
+2500,1,"Kivágás\tCtrl+X"
+2501,1,"Másolás\tCtrl+C"
+2502,1,"Beillesztés\tCtrl+V"
+2503,1,"Szűrő\tCtrl+U"
+

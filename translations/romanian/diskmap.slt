@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\romanian\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\romanian\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1048
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6165"
 COMMENT,"Versiunea romana"
 
 [MENU 109]
-0,1,"&Fisier"
+0,1,"&Help"
 111,1,"&Deschid fisier"
 112,1,"&Focus in Panou\tF"
 113,1,"Re&nunt\tEsc"
 114,1,"Rei&mprospatare\tCtrl+R"
 115,1,"&Inchid\tAlt+F4"
-0,1,"&Vizualizare"
+0,1,"&Help"
 121,1,"Zoom &In\t+"
 122,1,"Zoom &Out\t -"
 123,1,"&Unzoom\t Shift+Backspace"
 124,1,"&Log Fereastra...\tCtrl+L"
-0,1,"&Optiuni"
+0,1,"&Help"
 142,1,"&Directoare iesite in evidenta"
 143,1,"&Afiseaza Tooltip\tCtrl+D"
-0,1,"Tooltip Cale &Format"
+0,1,"&Help"
 303,1,"&Nume fisier"
 302,1,"&Relativ"
 300,1,"&Absolut"

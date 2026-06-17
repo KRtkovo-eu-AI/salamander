@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\french\unrar.atp"
-TEXTVERSION,"3.01 (x86)"
-VERSION,"3,0,1,180"
+PROJECTNAME,"localization-openai\projects\french\unrar\unrar.atp"
+TEXTVERSION,"3.01 (x64)"
+VERSION,"3,0,1,183"
 
 [TRANSLATION]
 LANGID,1036
@@ -10,13 +10,13 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6162"
 COMMENT,"Version française"
 
 [DIALOG 100]
-258,95,1,"Volume suivant de l'archive"
-117,12,9,234,32,1,"Veuillez insérer le disque contenant le volume suivant de l'archive, ou sélectionnez le fichier approprié à partir d'un autre emplacement.\n\nPuis appuyez sur OK pour continuer."
+194,95,1,"Volume suivant de l'archive"
+117,12,9,170,32,1,"Veuillez insérer le disque contenant le volume suivant de l'archive, ou sélectionnez le fichier approprié à partir d'un autre emplacement.\n\nPuis appuyez sur OK pour continuer."
 300,12,48,42,8,1,"&Fichier:"
-101,12,58,219,12,1,""
-102,234,58,13,12,1,"..."
-1,72,76,50,14,1,"OK"
-2,135,76,50,14,1,"Annuler"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Annuler"
 
 [DIALOG 103]
 352,85,1,"Erreur"
@@ -29,38 +29,38 @@ COMMENT,"Version française"
 2,181,63,50,14,1,"Annuler"
 
 [DIALOG 106]
-282,115,1,"Configuration de UnRAR"
+220,115,1,"Configuration de UnRAR"
 107,12,10,259,12,1,"&Ignorer automatiquement les fichiers issus d'un volume précédent lors de"
 116,12,32,263,12,1,"&Ne pas afficher d'avertissement lorsque l'ensemble du contenu de l'archive"
 300,23,22,154,8,1,"la décompression."
 301,23,44,111,8,1,"ne peut être listé."
-302,6,60,270,1,1,""
+302,6,60,208,1,1,""
 117,12,70,230,12,1,"Afficher la colonne "&Compressé" en listant le contenu de l'archive"
-303,6,90,270,1,1,""
-1,88,96,50,14,1,"OK"
-2,143,96,50,14,1,"Annuler"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Annuler"
 
 [DIALOG 108]
-375,80,1,"Saisir le mot de passe"
+350,80,1,"Saisir le mot de passe"
 113,18,18,18,20,1,""
 300,57,10,312,8,1,"Le fichier est protégé par un mot de passe. Veuillez saisir le mot de passe pour le déchiffrer."
 301,57,25,27,8,1,"Fichier:"
-104,108,25,254,8,1,""
+104,97,25,240,8,1,""
 302,57,38,50,8,1,"Mot de &passe:"
-110,108,36,173,12,1,""
-1,42,58,50,14,1,"&OK"
-112,102,58,50,14,1,"&Tout"
-109,162,58,50,14,1,"&Ignorer"
-111,222,58,50,14,1,"Tout i&gnorer"
-2,282,58,50,14,1,"Annuler"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Tout"
+109,150,58,50,14,1,"&Ignorer"
+111,210,58,50,14,1,"Tout i&gnorer"
+2,270,58,50,14,1,"Annuler"
 
 [DIALOG 115]
-223,105,1,"UnRAR - Avertissement"
-300,11,8,204,24,1,"Impossible de lister (et afficher) l'ensemble des fichiers contenus dans cette archive multi-volumes, car certains volumes n'ont pas été trouvés."
-301,11,39,204,16,1,"Pour lister l'intégralité des fichiers contenus dans l'archive, copiez l'ensemble de ses volumes dans le même dossier."
+213,105,1,"UnRAR - Avertissement"
+300,11,8,194,24,1,"Impossible de lister (et afficher) l'ensemble des fichiers contenus dans cette archive multi-volumes, car certains volumes n'ont pas été trouvés."
+301,11,39,194,16,1,"Pour lister l'intégralité des fichiers contenus dans l'archive, copiez l'ensemble de ses volumes dans le même dossier."
 105,11,64,157,12,1,"&Ne plus afficher ce message à l'avenir"
-302,5,81,212,1,1,""
-1,165,87,50,14,1,"OK"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
 
 [STRINGTABLE 0]
 1000,1,"UnRAR"

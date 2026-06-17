@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\undelete.atp"
-TEXTVERSION,"1.11 (x86)"
-VERSION,"1,1,1,180"
+PROJECTNAME,"localization-openai\projects\hungarian\undelete\undelete.atp"
+TEXTVERSION,"1.11 (x64)"
+VERSION,"1,1,1,183"
 
 [TRANSLATION]
 LANGID,1038
@@ -11,10 +11,10 @@ COMMENT,"Magyar változat"
 
 [DIALOG 1000]
 341,77,1,"Visszaállítás"
-1001,10,12,326,8,1,""
-1002,37,32,290,12,1,""
+1001,12,12,323,8,1,""
+1002,35,32,292,12,1,""
 2,144,54,50,14,1,"Mégse"
-3000,10,33,25,8,1,"Teljes:"
+3000,12,33,25,8,1,"Teljes:"
 
 [DIALOG 1100]
 443,285,1,"Visszaállítás"
@@ -34,16 +34,16 @@ COMMENT,"Magyar változat"
 9,386,264,50,14,1,"Súgó"
 
 [DIALOG 1200]
-356,102,1,"Visszaállítás"
-1205,3,11,43,8,1,"Visszaállítás"
-1201,50,11,301,8,1,""
-3000,3,23,43,8,1,"ide"
-1202,50,23,301,8,1,""
-3001,3,41,43,8,1,"Fájl:"
-1203,50,40,293,12,1,""
-3002,3,56,43,8,1,"Teljes:"
-1204,50,55,293,12,1,""
-2,153,78,50,14,1,"Mégse"
+353,102,1,"Visszaállítás"
+1205,0,11,43,8,1,"Visszaállítás"
+1201,47,11,301,8,1,""
+3000,3,23,40,8,1,"ide"
+1202,47,23,301,8,1,""
+3001,3,41,40,8,1,"Fájl:"
+1203,47,40,293,12,1,""
+3002,3,56,40,8,1,"Teljes:"
+1204,47,55,293,12,1,""
+2,151,78,50,14,1,"Mégse"
 
 [DIALOG 1300]
 213,74,1,"Sérült fájlnév"
@@ -54,16 +54,16 @@ COMMENT,"Magyar változat"
 2,156,53,50,14,1,"Mégse"
 
 [DIALOG 1400]
-277,100,1,"Visszaállítási beállítás"
+257,100,1,"Visszaállítási beállítás"
 3000,7,7,169,8,1,"Al&ternatív ideiglenes mappa fájlok megnézéséhez:"
-1401,7,17,242,14,1,""
-1402,255,17,16,14,1,"..."
+1401,7,17,222,14,1,""
+1402,235,17,16,14,1,"..."
 1403,7,39,230,10,1,"Mindig használja az előző klaszte&rből szerzett információt FAT-on"
 1404,7,50,221,10,1,"Ne &szóljon, ugyanarra a logikai lemezre történő visszaállításkor"
-1405,7,61,245,10,1,"N&e szóljon titkosított fájlok visszaállítása előtt FAT-ra vagy exFAT-ra"
-1,111,80,50,14,1,"OK"
-2,166,80,50,14,1,"Mégse"
-9,221,80,50,14,1,"Súgó"
+1405,7,61,240,10,1,"N&e szóljon titkosított fájlok visszaállítása előtt FAT-ra vagy exFAT-ra"
+1,91,80,50,14,1,"OK"
+2,146,80,50,14,1,"Mégse"
+9,201,80,50,14,1,"Súgó"
 
 [DIALOG 1500]
 276,95,1,"Titkosított fájlok helyreállítása biztonsági mentésből"
@@ -155,7 +155,7 @@ COMMENT,"Magyar változat"
 82,1,"Formátum"
 83,1,"Méret"
 84,1,"Szabad"
-85,1,"% szabad"
+85,0,"% Free"
 86,1,"GUID elérési út"
 90,1,"$Bitmap mérete nulla. Fájl sérülési becslés megszakítva."
 91,1,"Sikertelen bemérés $Bitmap a kötetben. Fájl sérülési becslés megszakítva."

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\czech\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Nedostatečná paměť."
+1002,1,"Nelze otevřít soubor Compound %s.\n"
+1003,1,"Nelze získat alokátor paměti.\n"
+1004,1,"Nelze zapisovat do souboru.\n"
+1005,1,"Nelze vytvořit soubor %s.\n"
+1006,1,"Nelze otevřít stream %s.\n"
+1007,1,"Nelze zapisovat do souboru.\n"
+
+[STRINGTABLE 1]
+1008,1,"Vyskytla se neznámá chyba."
+1014,1,"Nelze přidat položku archivu do seznamu souborů."
+1015,1,"Rozbalování souboru Compound"
+1017,1,"rozbalování..."
+1018,1,"rozbalování: "
+
+[STRINGTABLE 2]
+1025,1,"Omlouváme se, zásuvný modul vypršel. Zkontrolujte prosím naše webové stránky pro novější verzi."
+
+[STRINGTABLE 3]
+1041,1,"Chyba"
+1042,1,"Procházet a rozbalovat OLE soubory typu Compound."
+1043,1,"O zásuvném modulu"
+

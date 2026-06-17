@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\french\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Mémoire insuffisante."
+1002,1,"Impossible d'ouvrir le fichier Compound %s.\n"
+1003,1,"Impossible d'obtenir l'allocateur de mémoire.\n"
+1004,1,"Impossible d'écrire dans le fichier.\n"
+1005,1,"Impossible de créer le fichier %s.\n"
+1006,1,"Impossible d'ouvrir le flux %s.\n"
+1007,1,"Impossible d'écrire dans le fichier.\n"
+
+[STRINGTABLE 1]
+1008,1,"Une erreur inconnue est survenue."
+1014,1,"Impossible d'ajouter une entrée d'archive à la liste des fichiers."
+1015,1,"Décompression du fichier Compound"
+1017,1,"décompression..."
+1018,1,"décompression : "
+
+[STRINGTABLE 2]
+1025,1,"Désolé, le module a expiré. Veuillez consulter notre site web pour obtenir une version plus récente."
+
+[STRINGTABLE 3]
+1041,1,"Erreur"
+1042,1,"Parcourir et extraire les fichiers OLE Compound."
+1043,1,"À propos du module"
+

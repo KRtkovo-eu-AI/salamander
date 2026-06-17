@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\chinesesimplified\mmviewer.atp"
-TEXTVERSION,"1.16 (x86)"
-VERSION,"1,1,6,180"
+PROJECTNAME,"localization-openai\projects\chinesesimplified\mmviewer\mmviewer.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,1,6,183"
 
 [TRANSLATION]
 LANGID,2052
@@ -10,22 +10,22 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6958"
 COMMENT,"简体中文版"
 
 [DIALOG 10500]
-334,132,1,"关于插件"
-2,276,113,50,14,1,"关闭"
+364,132,1,"关于插件"
+2,306,113,50,14,1,"关闭"
 10506,11,9,20,20,1,""
-10501,46,9,283,8,1,"MMViewer %s - Open Salamander 的多媒体查看器"
+10501,46,9,313,8,1,"MMViewer %s - Open Salamander 的多媒体查看器"
 10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"MPEG, ID3 Tag 版本 1 和 2, OGG, WMA, VQF 和音轨解析器"
-13001,46,51,37,8,1,"许可来自"
-10504,84,51,200,8,1,"Disk Explorer 专业版"
-13002,46,67,74,8,1,"版权所有 2003-2016"
-13003,120,67,60,8,1,"Tomas Jelinek"
+13001,46,51,60,8,1,"许可来自"
+10504,107,51,200,8,1,"Disk Explorer 专业版"
+13002,46,67,82,8,1,"版权所有 2003-2016"
+13003,128,67,60,8,1,"Tomas Jelinek"
 13004,46,78,30,8,1,"Email:"
-10502,120,78,119,8,1,"tomas@tjelinek.com"
+10502,128,78,119,8,1,"tomas@tjelinek.com"
 13005,46,89,49,8,1,"主页:"
-10503,120,89,118,8,1,"www.tjelinek.com"
-13006,2,107,326,1,1,""
+10503,128,89,118,8,1,"www.tjelinek.com"
+13006,2,107,356,1,1,""
 
 [STRINGTABLE 0]
 11100,1,"内存溢出"

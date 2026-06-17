@@ -1,0 +1,29 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\romanian\portables\portables.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d dispozitive selectate{2:s|0||1|s}"
+129,1,"Niciun dispozitiv"
+
+[STRINGTABLE 1]
+8192,1,"Dispozitive portabile"
+8193,1,"Gestionați dispozitivele portabile."
+
+[STRINGTABLE 2]
+9216,1,"Despre plugin"
+
+[STRINGTABLE 3]
+10240,1,"Eroare la schimbarea directorului"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 4]
+19457,1,"Calea specificată conține o cale către un fișier."
+

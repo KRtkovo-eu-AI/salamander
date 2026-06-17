@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\french\demomenu\demomenu.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Menu de démonstration"
+47,1,"À propos du plug-in"
+
+[STRINGTABLE 1]
+48,1,"Ce plug-in devrait vous aider à créer votre propre plug-in d’extension de menu."
+49,1,"www.altap.cz"
+50,1,"&Commande de test"
+

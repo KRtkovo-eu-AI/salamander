@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovak\folders\folders.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Priečinky"
+1001,1,"O zásuvnom module"
+1003,1,"Prehľadávajte priečinky ako Plocha, Ovládací panel, Kôš atď."
+1004,1,"'\tPlocha"
+

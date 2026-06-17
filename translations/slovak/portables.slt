@@ -1,0 +1,29 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\slovak\portables\portables.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"{!}%d vybrané zariadenie{2:s|0||1|s}"
+129,1,"Žiadne zariadenia"
+
+[STRINGTABLE 1]
+8192,1,"Prenosné zariadenia"
+8193,1,"Spravujte prenosné zariadenia."
+
+[STRINGTABLE 2]
+9216,1,"O module"
+
+[STRINGTABLE 3]
+10240,1,"Chyba pri zmene adresára"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 4]
+19457,1,"Určená cesta obsahuje cestu k súboru."
+

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\german\mmviewer.atp"
-TEXTVERSION,"1.16 (x86)"
-VERSION,"1,1,6,180"
+PROJECTNAME,"localization-openai\projects\german\mmviewer\mmviewer.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,1,6,183"
 
 [TRANSLATION]
 LANGID,1031
@@ -10,22 +10,22 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7334"
 COMMENT,"Deutsche Version"
 
 [DIALOG 10500]
-375,132,1,"Über Plugin"
-2,317,113,50,14,1,"Schließen"
+364,132,1,"Über Plugin"
+2,306,113,50,14,1,"Schließen"
 10506,11,9,20,20,1,""
-10501,46,9,324,8,1,"MMViewer %s - Multimedia Betrachter für Open Salamander"
-10505,46,19,192,8,1,"dummy"
+10501,46,9,313,8,1,"MMViewer %s - Multimedia Betrachter für Open Salamander"
+10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
-13000,46,41,248,8,1,"MPEG, ID3 Tag Version 1 und 2, OGG, WMA, VQF und Tracker-Parser"
+13000,46,41,238,8,1,"MPEG, ID3 Tag Version 1 und 2, OGG, WMA, VQF und Tracker-Parser"
 13001,46,51,62,8,1,"sind lizensiert von"
-10504,109,51,212,8,1,"Disk Explorer Professional"
+10504,107,51,200,8,1,"Disk Explorer Professional"
 13002,46,67,86,8,1,"Copyright 2003-2016 von"
-13003,133,67,60,8,1,"Tomas Jelinek"
+13003,128,67,60,8,1,"Tomas Jelinek"
 13004,46,78,30,8,1,"E-Mail:"
-10502,133,78,119,8,1,"tomas@tjelinek.com"
+10502,128,78,119,8,1,"tomas@tjelinek.com"
 13005,46,89,49,8,1,"Webseite:"
-10503,133,89,118,8,1,"www.tjelinek.com"
-13006,2,107,366,1,1,""
+10503,128,89,118,8,1,"www.tjelinek.com"
+13006,2,107,356,1,1,""
 
 [STRINGTABLE 0]
 11100,1,"Nicht genügend Speicher"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\czech\pak.atp"
-TEXTVERSION,"1.71 (x86)"
-VERSION,"1,7,1,180"
+PROJECTNAME,"localization-openai\projects\czech\pak\pak.atp"
+TEXTVERSION,"1.71 (x64)"
+VERSION,"1,7,1,183"
 
 [TRANSLATION]
 LANGID,1029
@@ -10,16 +10,16 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7008"
 COMMENT,"Česká verze"
 
 [DIALOG 100]
-225,73,1,"Optimalizace PAK archivu"
+194,73,1,"Optimalizace PAK archivu"
 300,8,9,74,8,1,"Velikost platných dat:"
-101,95,9,118,8,1,""
+101,64,9,118,8,1,""
 301,8,20,86,8,1,"Celková velikost souboru:"
-102,95,20,118,8,1,""
+102,64,20,118,8,1,""
 302,8,31,65,8,1,"Nadbytečné místo:"
-103,95,31,118,8,1,""
-303,8,44,209,1,1,""
-1,52,53,55,14,1,"Optimalizovat"
-2,117,53,55,14,1,"Storno"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimalizovat"
+2,101,53,50,14,1,"Storno"
 
 [STRINGTABLE 0]
 500,1,"Nelze otevřít soubor: %s"

@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\czech\folders\folders.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Složky"
+1001,1,"O zásuvném modulu"
+1003,1,"Procházejte složky jako Plocha, Ovládací panely, Koš atd."
+1004,1,"'\tPlocha"
+

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\dutch\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\dutch\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1043
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=7009"
 COMMENT,"Nederlandse versie"
 
 [MENU 109]
-0,1,"&Bestand"
+0,1,"&Help"
 111,1,"Bestand &openen"
 112,1,"&Selectie in paneel\tF"
 113,1,"S&toppen\tEsc"
 114,1,"Ve&rnieuwen\tCtrl+R"
 115,1,"&Afsluiten\tAlt+F4"
-0,1,"Beel&d"
+0,1,"&Help"
 121,1,"&Inzoomen\t+"
 122,1,"&Uitzooment\t -"
 123,1,"Un&zoom\t Shift+Backspace"
 124,1,"&Log venster...\tCtrl+L"
-0,1,"&Opties"
+0,1,"&Help"
 142,1,"&Markeer mappen"
 143,1,"&Toon tooltip\tCtrl+D"
-0,1,"Tooltip pad &formaat"
+0,1,"&Help"
 303,1,"&Bestandsnaam"
 302,1,"&Relatief"
 300,1,"&Absoluut"

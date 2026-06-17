@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesesimplified\unole\unole.atp"
+TEXTVERSION,"1.01 (x64)"
+VERSION,"1,0,1,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"内存不足。"
+1002,1,"无法打开复合文件 %s。\n"
+1003,1,"无法获取内存分配器。\n"
+1004,1,"无法写入文件。\n"
+1005,1,"无法创建文件 %s。\n"
+1006,1,"无法打开流 %s。\n"
+1007,1,"无法写入文件。\n"
+
+[STRINGTABLE 1]
+1008,1,"发生未知错误。"
+1014,1,"无法将归档条目添加到文件列表中。"
+1015,1,"正在解压复合文件"
+1017,1,"正在解压..."
+1018,1,"正在解压："
+
+[STRINGTABLE 2]
+1025,1,"抱歉，插件已过期。请查看我们的网站以获取更新版本。"
+
+[STRINGTABLE 3]
+1041,1,"错误"
+1042,1,"浏览并解压 OLE 复合文件。"
+1043,1,"关于插件"
+

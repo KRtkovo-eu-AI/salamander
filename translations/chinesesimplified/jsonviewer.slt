@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesesimplified\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"JSON 查看器 .NET"
+47,1,"关于插件"
+
+[STRINGTABLE 1]
+48,1,"内部查看器，使用托管的 WinForms UI 显示 JSON 文档。"
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,1,"无法准备查看器所需的同步事件。"
+51,1,"所选 JSON 文件过大，无法打开。不支持大于 8 MB 的文件。"
+

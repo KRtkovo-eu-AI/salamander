@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\french\diskmap.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\french\diskmap\diskmap.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1036
@@ -10,21 +10,21 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6162"
 COMMENT,"Version française"
 
 [MENU 109]
-0,1,"&Fichier"
+0,1,"&Aide"
 111,1,"&Ouvrir le fichier"
 112,1,"&Cibler dans le panneau\tF"
 113,1,"&Annuler\tEchap"
 114,1,"&Rafraîchir\tCtrl+R"
 115,1,"&Fermer\tAlt+F4"
-0,1,"&Visualiser"
+0,1,"&Aide"
 121,1,"&Zoomer\t+"
 122,1,"&Dézoomer\t -"
 123,1,"&Vue initiale\t Maj+Retour arrière"
 124,1,"&Fenêtre de journalisation...\tCtrl+L"
-0,1,"&Options"
+0,1,"&Aide"
 142,1,"&Surligner les dossiers"
 143,1,"&Afficher l'infobulle\tCtrl+D"
-0,1,"&Format du chemin dans l'infobulle"
+0,1,"&Aide"
 303,1,"&Nom de fichier"
 302,1,"&Relatif"
 300,1,"&Absolu"

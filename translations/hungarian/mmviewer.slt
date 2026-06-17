@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\mmviewer.atp"
-TEXTVERSION,"1.16 (x86)"
-VERSION,"1,1,6,180"
+PROJECTNAME,"localization-openai\projects\hungarian\mmviewer\mmviewer.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,1,6,183"
 
 [TRANSLATION]
 LANGID,1038
@@ -10,22 +10,22 @@ WEB,"forum.altap.cz/viewtopic.php?f=23&t=6164"
 COMMENT,"Magyar változat"
 
 [DIALOG 10500]
-357,132,1,"Plugin névjegy"
-2,299,113,50,14,1,"Bezárás"
+364,132,1,"Plugin névjegy"
+2,306,113,50,14,1,"Bezárás"
 10506,11,9,20,20,1,""
-10501,46,9,306,8,1,"MMViewer %s - Multimédia Néző Open Salamander-hez"
+10501,46,9,313,8,1,"MMViewer %s - Multimédia Néző Open Salamander-hez"
 10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
-13000,46,41,233,8,1,"MPEG, ID3 Tag verzió 1 és 2, OGG, WMA, VQF és Tracker parsers"
+13000,46,41,238,8,1,"MPEG, ID3 Tag verzió 1 és 2, OGG, WMA, VQF és Tracker parsers"
 13001,46,51,60,8,1,"are licensed from"
 10504,107,51,200,8,1,"Disk Explorer Professional"
 13002,46,67,82,8,1,"Copyright 2003-2016 by"
-13003,129,67,60,8,1,"Tomas Jelinek"
+13003,128,67,60,8,1,"Tomas Jelinek"
 13004,46,78,30,8,1,"Email:"
-10502,129,78,119,8,1,"tomas@tjelinek.com"
+10502,128,78,119,8,1,"tomas@tjelinek.com"
 13005,46,89,49,8,1,"Honlap:"
-10503,129,89,118,8,1,"www.tjelinek.com"
-13006,2,107,348,1,1,""
+10503,128,89,118,8,1,"www.tjelinek.com"
+13006,2,107,356,1,1,""
 
 [STRINGTABLE 0]
 11100,1,"Kevés memória"

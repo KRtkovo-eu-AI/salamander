@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\chinesesimplified\uniso.atp"
-TEXTVERSION,"1.37 (x86)"
-VERSION,"1,3,7,180"
+PROJECTNAME,"localization-openai\projects\chinesesimplified\uniso\uniso.atp"
+TEXTVERSION,"1.37 (x64)"
+VERSION,"1,3,7,183"
 
 [TRANSLATION]
 LANGID,2052
@@ -58,7 +58,7 @@ COMMENT,"简体中文版"
 1036,1,"不能提取文件 "%s"。\n\n文件大小和 ICB 块之间不匹配。"
 1037,1,"不能打开轨道 #%d。"
 1038,1,"此文件似乎是软盘或硬盘或硬盘分区镜像。\n尝试重命名文件为 .ima 以激活 UnFAT 插件。"
-1039,0,"This disk image contains the APFS file system.\nThis file system is not supported yet."
+1039,1,"此磁盘映像包含 APFS 文件系统。\n此文件系统目前尚不受支持。"
 
 [STRINGTABLE 3]
 1050,1,"不能读取分区头部。文件太小。"

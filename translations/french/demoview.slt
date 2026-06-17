@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\french\demoview\demoview.atp"
+TEXTVERSION,"1.02 (x64)"
+VERSION,"1,0,2,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Visionneuse"
+3000,4,6,335,41,1,"Position de la fenêtre"
+491,11,17,139,12,1,"&Enregistrer à la fermeture"
+492,11,29,234,12,1,"R&égler sur la position de la fenêtre de Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"À propos du module"
+
+[STRINGTABLE 1]
+48,1,"Ce module doit vous aider à créer votre propre module de visionneuse."
+49,1,"www.altap.cz"
+50,1,"Une exception dans DemoView s'est produite, veuillez en informer les auteurs !\nSi vous avez utilisé un fichier .DMV lorsque l'exception s'est produite,\nveuillez essayer de reproduire le bogue avec ce fichier .DMV et si l'exception\nse reproduit, envoyez-nous ce fichier .DMV (nous reproduirons et corrigerons le bogue).\nMerci !"
+51,1,"petr.solin@altap.cz"
+52,1,"La configuration est déjà ouverte."
+53,1,"Des fenêtres de visionneuse DemoView sont ouvertes. Voulez-vous les fermer ?"
+54,1,"Configuration de DemoView"
+55,1,"Nombre non valide !"
+56,1,"Fichiers DemoView (*.dmv)|*.dmv|Tous les fichiers (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Fichiers"
+2001,1,"&Ouvrir\tCtrl+O"
+2002,1,"&Quitter"
+2010,1,"&Édition"
+2011,1,"&Couper\tCtrl+X"
+2012,1,"&Copier\tCtrl+C"
+2013,1,"&Coller\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Affichage"
+2021,1,"&Filtre"
+2022,1,"Filtre"
+2025,1,"&Options"
+2026,1,"&Configuration..."
+
+[STRINGTABLE 4]
+2032,1,"&Aide"
+2033,1,"&À propos"
+
+[STRINGTABLE 5]
+2500,1,"Couper\tCtrl+X"
+2501,1,"Copier\tCtrl+C"
+2502,1,"Coller\tCtrl+V"
+2503,1,"Filtre\tCtrl+U"
+

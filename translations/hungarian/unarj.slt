@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\hungarian\unarj.atp"
-TEXTVERSION,"1.21 (x86)"
-VERSION,"1,2,1,180"
+PROJECTNAME,"localization-openai\projects\hungarian\unarj\unarj.atp"
+TEXTVERSION,"1.21 (x64)"
+VERSION,"1,2,1,183"
 
 [TRANSLATION]
 LANGID,1038
@@ -14,26 +14,26 @@ COMMENT,"Magyar változat"
 300,12,9,170,32,1,"Kérem helyezze be a következő kötet lemezét vagy keresse ki a következő fájlt.\n\nOK ha kész."
 301,12,48,60,8,1,"Előző kötet:"
 103,73,48,109,12,1,""
-302,12,62,57,8,1,"&Következő kötet:"
+302,12,62,58,8,1,"&Következő kötet:"
 101,12,72,155,12,1,""
 102,170,72,13,12,1,"..."
 1,39,91,50,14,1,"OK"
 2,102,91,50,14,1,"Mégse"
 
 [DIALOG 103]
-350,85,1,"Hiba"
-300,8,10,22,8,1,"Név:"
-104,34,10,309,8,1,""
-301,8,23,22,8,1,"Hiba:"
-302,34,23,309,16,1,"A fájl nem tömöríthető ki, mert egy előző kötet folytatása. A fájl kibontásához, azzal a kötettel kell indítania, ahol a fájl kezdődik."
-105,34,44,183,12,1,"&Ne mutassa ezt az üzenetet."
-1,120,63,50,14,1,"OK"
-2,180,63,50,14,1,"Mégse"
+352,85,1,"Hiba"
+300,6,10,26,8,1,"Név:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Hiba:"
+302,36,23,309,16,1,"A fájl nem tömöríthető ki, mert egy előző kötet folytatása. A fájl kibontásához, azzal a kötettel kell indítania, ahol a fájl kezdődik."
+105,36,44,183,12,1,"&Ne mutassa ezt az üzenetet."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Mégse"
 
 [DIALOG 106]
 220,85,1,"UnARJ beállítás"
 300,23,22,154,8,1,"folytatandó fájlokat."
-107,12,10,195,12,1,"Kibontáskor &automatikusan hagyja ki az előző kötetből"
+107,12,10,197,12,1,"Kibontáskor &automatikusan hagyja ki az előző kötetből"
 301,23,44,111,8,1,"listázható ki."
 116,12,32,199,12,1,"&Ne figyelmeztessen, ha az archívum teljes tartalma nem"
 302,6,60,208,1,1,""

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\french\ieviewer.atp"
-TEXTVERSION,"1.12 (x86)"
-VERSION,"1,1,2,180"
+PROJECTNAME,"localization-openai\projects\french\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.12 (x64)"
+VERSION,"1,1,2,183"
 
 [TRANSLATION]
 LANGID,1036
@@ -11,7 +11,7 @@ COMMENT,"Version française"
 
 [STRINGTABLE 0]
 10100,1,"Visualiseur Internet Explorer"
-10101,0,"Unable to open Internet Explorer Viewer.\nPlease report this problem to support@altap.cz."
+10101,1,"Impossible d’ouvrir le visualiseur Internet Explorer.\nVeuillez signaler ce problème à support@altap.cz."
 10102,1,"Erreur"
 10103,1,"Visualiseur rapide HTML et XML basé sur Internet Explorer."
 10105,1,"A propos du module"

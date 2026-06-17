@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\czech\unarj.atp"
-TEXTVERSION,"1.21 (x86)"
-VERSION,"1,2,1,180"
+PROJECTNAME,"localization-openai\projects\czech\unarj\unarj.atp"
+TEXTVERSION,"1.21 (x64)"
+VERSION,"1,2,1,183"
 
 [TRANSLATION]
 LANGID,1029
@@ -21,24 +21,24 @@ COMMENT,"Česká verze"
 2,102,91,50,14,1,"Storno"
 
 [DIALOG 103]
-350,85,1,"Chyba"
-300,4,10,26,8,1,"Název:"
-104,34,10,309,8,1,""
-301,4,23,26,8,1,"Chyba:"
-302,34,23,309,16,1,"Soubor nemůže být extrahován, protože je pokračující z předchozího svazku. Pro extrahování tohoto souboru musíte začít svazkem, v kterém soubor začíná."
-105,34,44,183,12,1,"&Příště nezobrazovat."
-1,120,63,50,14,1,"OK"
-2,180,63,50,14,1,"Storno"
+352,85,1,"Chyba"
+300,6,10,26,8,1,"Název:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Chyba:"
+302,36,23,309,16,1,"Soubor nemůže být extrahován, protože je pokračující z předchozího svazku. Pro extrahování tohoto souboru musíte začít svazkem, v kterém soubor začíná."
+105,36,44,183,12,1,"&Příště nezobrazovat."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Storno"
 
 [DIALOG 106]
-225,85,1,"UnARJ - Konfigurace"
+220,85,1,"UnARJ - Konfigurace"
 300,23,22,154,8,1,"z předchozího svazku."
 107,12,10,203,12,1,"&Při extrahování automaticky přeskočit soubory pokračující"
 301,23,44,111,8,1,"obsah archivu."
 116,12,32,205,12,1,"&Nezobrazovat upozornění, pokud nemůže být vypsán celý"
-302,6,60,213,1,1,""
-1,60,66,50,14,1,"OK"
-2,115,66,50,14,1,"Storno"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Storno"
 
 [DIALOG 115]
 213,107,1,"UnARJ - Upozornění"

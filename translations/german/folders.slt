@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\german\folders\folders.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+1000,1,"Ordner"
+1001,1,"Über das Plug-in"
+1003,1,"Ordner durchsuchen wie Desktop, Systemsteuerung, Papierkorb usw."
+1004,1,"'\tDesktop"
+

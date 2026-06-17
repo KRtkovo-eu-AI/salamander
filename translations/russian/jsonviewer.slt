@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\russian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.0 (x64)"
+VERSION,"1,0,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,1,"Просмотр JSON .NET"
+47,1,"О плагине"
+
+[STRINGTABLE 1]
+48,1,"Встроенный просмотрщик, отображающий документы JSON с помощью управляемого пользовательского интерфейса WinForms."
+49,1,"https://github.com/KRtkovo-eu-AI/salamander/"
+50,1,"Не удалось подготовить событие синхронизации, требуемое средством просмотра."
+51,1,"Выбранный файл JSON слишком велик для открытия. Файлы больше 8 МБ не поддерживаются."
+

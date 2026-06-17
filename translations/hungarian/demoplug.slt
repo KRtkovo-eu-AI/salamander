@@ -1,0 +1,146 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hungarian\demoplug\demoplug.atp"
+TEXTVERSION,"1.94 (x64)"
+VERSION,"1,9,4,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,1,"Néző"
+3000,4,6,199,41,1,"Ablak pozíciója"
+491,11,17,93,12,1,"&Mentés bezáráskor"
+492,11,29,156,12,1,"S&et a Salamander ablakának pozíciójára"
+
+[DIALOG 500]
+205,84,1,"Első oldal"
+3000,7,10,49,8,1,"Teszt szöveg:"
+501,53,8,144,12,1,""
+3001,7,25,44,8,1,"Teszt szám:"
+502,53,23,54,12,1,""
+3002,112,25,115,8,1,"10-nél kisebbnek kell lennie"
+3003,57,53,143,1,1,""
+3004,5,49,92,8,1,"Itt van a kombináció"
+3005,15,62,78,8,1,"Teszt kombináció:"
+503,61,60,113,50,1,""
+
+[DIALOG 510]
+205,61,1,"Második oldal"
+511,5,5,112,12,1,"Jelölőnégyzet"
+512,5,20,60,12,1,"Rádió 1"
+513,5,32,60,12,1,"Rádió 2"
+514,5,44,60,12,1,"Rádió 3"
+
+[DIALOG 520]
+205,68,1,"Csatlakozási útvonal"
+3000,7,10,92,8,1,"&Csatlakozási útvonal:"
+521,7,20,191,80,1,""
+1,48,45,50,14,1,"OK"
+2,107,45,50,14,1,"Mégse"
+
+[DIALOG 530]
+205,79,1,"Lemez útvonalának megadása"
+3000,7,10,73,8,1,"Útvonal:"
+531,53,8,144,12,1,""
+532,9,31,182,12,1,"Útvonal a fájlhoz (off = útvonal a könyvtárhoz)"
+1,18,55,50,14,1,"OK"
+2,77,55,50,14,1,"Mégse"
+9,136,55,50,14,1,"Súgó"
+
+[DIALOG 540]
+353,77,1,""
+3000,3,11,63,8,1,"Törlés alatt"
+541,43,11,305,8,1,""
+3001,16,35,41,8,1,"Összesen:"
+542,43,34,297,12,1,""
+2,151,57,50,14,1,"Mégse"
+
+[DIALOG 550]
+463,236,1,"Az Open Salamander által biztosított vezérlők"
+3000,6,4,254,108,1,"CGUIStaticTextAbstract"
+3001,14,17,103,8,1,"Nem csatolt statikus szöveg"
+551,102,17,223,8,1,"A rendszer indítása óta eltelt %d ms."
+3002,14,27,107,8,1,"0 (nincs jelző)"
+565,102,27,152,8,1,"dummy"
+3003,14,37,75,8,1,"STF_CACHED_PAINT"
+554,102,37,152,8,1,"dummy"
+3004,14,47,75,8,1,"STF_BOLD"
+552,102,47,279,8,1,"Félkövér &szöveg"
+3005,14,56,75,8,1,"STF_UNDERLINE"
+553,102,56,186,8,1,"Aláhúzott szöveg"
+3006,14,66,75,8,1,"STF_END_ELLIPSIS"
+556,102,66,279,8,1,"Hosszú hosszú hosszú hosszú hosszú hosszú hosszú hosszú hosszú hosszú szöveg."
+3007,14,76,75,8,1,"STF_PATH_ELLIPSIS"
+555,102,76,216,8,1,"C:\\Program Files\\Some Application With Long Path\\example.exe"
+3008,14,87,75,8,1,"STF_PATH_ELLIPSIS"
+564,102,87,160,8,1,"ftp://ftp.altap.cz/pub/salamander/example.exe"
+3009,151,97,162,8,1,"Szövegek húzásával módosíthatja a méretüket."
+3010,6,118,254,66,1,"CGUIProgressBarAbstract"
+3011,15,129,60,8,1,"Haladás címke"
+559,15,138,235,12,1,""
+3012,15,154,86,8,1,"Ismeretlen haladás"
+570,15,163,235,12,1,""
+3013,6,188,254,40,1,"Gomb, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract"
+566,15,204,15,14,1,"..."
+562,37,204,15,14,1,""
+560,60,204,82,14,1,"&Választás"
+568,117,204,92,14,1,"&Dobalás"
+561,174,204,33,14,1,""
+563,215,204,56,14,1,"Szöveg"
+3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
+3015,277,17,75,8,1,"SetActionOpen"
+557,365,17,47,8,1,"www.altap.cz"
+3016,277,27,81,8,1,"SetActionPostCommand"
+558,365,27,55,8,1,"Mondj valamit!"
+3017,277,37,81,8,1,"SetActionPostCommand"
+569,365,37,55,8,1,"maszk tippek"
+3018,269,59,185,31,1,"SetCurrentToolTip"
+567,278,73,130,8,1,"Vigye a kurzort erre a szövegre."
+2510,269,102,96,8,1,"CGUIToolbarHeaderAbstract"
+2511,269,113,185,50,1,""
+1,403,213,80,14,1,"Bezárás"
+
+[STRINGTABLE 0]
+46,1,"DemoPlug"
+47,1,"Névjegy bővítményről"
+
+[STRINGTABLE 1]
+48,1,"Ennek a bővítménynek segítenie kell abban, hogy saját bővítményeket készíthessen."
+49,1,"www.altap.cz"
+50,1,"DemoPlug kivétel történt, kérjük értesítse a fejlesztőket!\nHa .dop fájllal dolgozott, amikor a kivétel történt,\npróbálja meg a hibát reprodukálni ezzel a .dop fájllal, és ha a kivétel\nismét jelentkezik, küldje el nekünk ezt a .dop fájlt (mi reprodukáljuk és kijavítjuk a hibát).\nKöszönjük!"
+51,1,"petr.solin@altap.cz"
+52,1,"A konfiguráció már meg van nyitva."
+53,1,"Néhány DemoPlug nézőablak meg van nyitva. Szeretné bezárni őket?"
+54,1,"DemoPlug Konfiguráció"
+55,1,"Érvénytelen szám!"
+56,1,"DemoPlug fájlok (*.dop)|*.dop|Minden fájl (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Fájlok"
+2001,1,"&Megnyitás\tCtrl+O"
+2002,1,"&Kilépés"
+2010,1,"&Szerkesztés"
+2011,1,"&Vágás\tCtrl+X"
+2012,1,"&Másolás\tCtrl+C"
+2013,1,"&Beillesztés\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Nézet"
+2021,1,"&Szűrő"
+2022,1,"Szűrő"
+2025,1,"&Opciók"
+2026,1,"&Konfiguráció..."
+
+[STRINGTABLE 4]
+2032,1,"&Súgó"
+2033,1,"&Névjegy"
+
+[STRINGTABLE 5]
+2500,1,"Vágás\tCtrl+X"
+2501,1,"Másolás\tCtrl+C"
+2502,1,"Beillesztés\tCtrl+V"
+2503,1,"Szűrő\tCtrl+U"
+

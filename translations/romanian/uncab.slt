@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"translator\salamand 4.0\projects\romanian\uncab.atp"
-TEXTVERSION,"1.27 (x86)"
-VERSION,"1,2,7,180"
+PROJECTNAME,"localization-openai\projects\romanian\uncab\uncab.atp"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,2,7,183"
 
 [TRANSLATION]
 LANGID,1048
@@ -14,7 +14,7 @@ COMMENT,"Versiunea romana"
 112,12,9,198,32,1,""
 300,12,48,40,8,1,"Nume disc:"
 110,54,48,156,8,1,""
-301,12,59,41,8,1,"Nume CAB:"
+301,12,59,40,8,1,"Nume CAB:"
 111,54,59,156,8,1,""
 302,12,70,19,8,1,"&Cale:"
 101,12,80,182,12,1,""
@@ -30,19 +30,19 @@ COMMENT,"Versiunea romana"
 301,6,23,26,8,1,"Eroare:"
 302,36,23,309,16,1,"Fisierul nu poate fi extras deoarece continua din volumul precedent. Ca sa extragi acest fisier, trebuie sa pornesti cu volumul de unde incepe fisierul."
 105,36,44,183,12,1,"Nu mai afisa acest mesaj alta &data."
-108,78,63,60,14,1,"S&ari Peste"
-109,146,63,60,14,1,"Sari Peste &Tot"
-2,214,63,60,14,1,"Anuleaza"
+108,91,63,50,14,1,"S&ari Peste"
+109,151,63,50,14,1,"Sari Peste &Tot"
+2,211,63,50,14,1,"Anuleaza"
 
 [DIALOG 106]
-210,85,1,"Configurare UnCAB"
+220,85,1,"Configurare UnCAB"
 300,23,22,154,8,1,"precedent cand dezarhivezi."
-107,12,10,181,12,1,"&Automat sari peste fisierele continuate din volumul"
+107,12,10,197,12,1,"&Automat sari peste fisierele continuate din volumul"
 301,23,44,111,8,1,"nu poate fi listat."
-116,12,32,170,12,1,"Nu afisa atentionare can&d tot continutul arhivei"
-302,6,60,198,1,1,""
-1,52,66,50,14,1,"OK"
-2,107,66,50,14,1,"Anuleaza"
+116,12,32,197,12,1,"Nu afisa atentionare can&d tot continutul arhivei"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Anuleaza"
 
 [DIALOG 115]
 213,108,1,"UnCAB - Atentie"

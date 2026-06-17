@@ -1,0 +1,29 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\russian\portables\portables.atp"
+TEXTVERSION,"0.1 (x64)"
+VERSION,"0,1,0,183"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+128,1,"Выбрано устройст{2:s|0||1|s} {!}%d"
+129,1,"Нет устройств"
+
+[STRINGTABLE 1]
+8192,1,"Портативные устройства"
+8193,1,"Управление портативными устройствами."
+
+[STRINGTABLE 2]
+9216,1,"О плагине"
+
+[STRINGTABLE 3]
+10240,1,"Ошибка при смене каталога"
+10241,0,"Path: "%s"\r\nError: %s"
+
+[STRINGTABLE 4]
+19457,1,"Указанный путь содержит путь к файлу."
+
