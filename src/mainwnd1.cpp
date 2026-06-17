@@ -2184,6 +2184,39 @@ void CMainWindow::OnWmContextMenu(HWND hWnd, int xPos, int yPos)
         POINT screenPt = {xPos, yPos};
         if (ShouldSuppressPanelTabMouseWheelContextMenu(screenPt))
             return;
+
+        auto pointInWindow = [](HWND hwnd, POINT pt) {
+            if (hwnd == NULL || !IsWindowVisible(hwnd))
+                return false;
+            RECT rect;
+            return GetWindowRect(hwnd, &rect) && PtInRect(&rect, pt) != FALSE;
+        };
+
+        CTabWindow* tabWnd = NULL;
+        CPanelSide tabSide = cpsLeft;
+        if (LeftTabWindow != NULL && pointInWindow(LeftTabWindow->HWindow, screenPt))
+        {
+            tabWnd = LeftTabWindow;
+            tabSide = cpsLeft;
+        }
+        else if (RightTabWindow != NULL && pointInWindow(RightTabWindow->HWindow, screenPt))
+        {
+            tabWnd = RightTabWindow;
+            tabSide = cpsRight;
+        }
+
+        if (tabWnd != NULL)
+        {
+            POINT client = screenPt;
+            ScreenToClient(tabWnd->HWindow, &client);
+            int tabHit = tabWnd->HitTest(client);
+            if (tabHit < 0)
+            {
+                OnPanelTabNewTabAreaContextMenu(tabSide, screenPt);
+                return;
+            }
+            return;
+        }
     }
 
     CMainWindowsHitTestEnum hit = HitTest(xPos, yPos);

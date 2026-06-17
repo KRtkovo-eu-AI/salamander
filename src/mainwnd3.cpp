@@ -1128,6 +1128,71 @@ void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT&
     }
 }
 
+void CMainWindow::OnPanelTabNewTabAreaContextMenu(CPanelSide side, const POINT& screenPt)
+{
+    if (!Configuration.UsePanelTabs)
+        return;
+
+    UINT newCmd, reopenCmd;
+    UINT newText, reopenText;
+    if (side == cpsLeft)
+    {
+        newCmd = CM_LEFT_NEWTAB;
+        reopenCmd = CM_LEFT_REOPENTAB;
+        newText = IDS_MENU_LEFT_NEWTAB;
+        reopenText = IDS_MENU_LEFT_REOPENTAB;
+    }
+    else
+    {
+        newCmd = CM_RIGHT_NEWTAB;
+        reopenCmd = CM_RIGHT_REOPENTAB;
+        newText = IDS_MENU_RIGHT_NEWTAB;
+        reopenText = IDS_MENU_RIGHT_REOPENTAB;
+    }
+
+    CMenuPopup popup;
+    popup.SetStyle(MENU_POPUP_UPDATESTATES);
+    popup.SetImageList(HGrayToolBarImageList);
+    popup.SetHotImageList(HHotToolBarImageList);
+
+    MENU_ITEM_INFO mii;
+    ZeroMemory(&mii, sizeof(mii));
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE | MENU_MASK_IMAGEINDEX;
+    mii.Type = MENU_TYPE_STRING;
+    mii.ID = newCmd;
+    mii.String = const_cast<char*>(LoadStr(newText));
+    mii.ImageIndex = IDX_TB_TABSNEW;
+    mii.State = 0;
+    popup.InsertItem(-1, TRUE, &mii);
+
+    ZeroMemory(&mii, sizeof(mii));
+    mii.Mask = MENU_MASK_TYPE | MENU_MASK_ID | MENU_MASK_STRING | MENU_MASK_STATE;
+    mii.Type = MENU_TYPE_STRING;
+    mii.ID = reopenCmd;
+    mii.String = const_cast<char*>(LoadStr(reopenText));
+    mii.State = HasClosedTab(side) ? 0 : MENU_STATE_GRAYED;
+    popup.InsertItem(-1, TRUE, &mii);
+
+    DWORD command = popup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON | MENU_TRACK_HIDEACCEL,
+                                screenPt.x, screenPt.y, HWindow, NULL);
+
+    if (command == 0)
+        return;
+
+    switch (command)
+    {
+    case CM_LEFT_NEWTAB:
+    case CM_RIGHT_NEWTAB:
+        CommandNewTab(side);
+        break;
+
+    case CM_LEFT_REOPENTAB:
+    case CM_RIGHT_REOPENTAB:
+        CommandReopenClosedTab(side);
+        break;
+    }
+}
+
 void CMainWindow::OnPanelTabReordered(CPanelSide side, int from, int to)
 {
     CALL_STACK_MESSAGE4("CMainWindow::OnPanelTabReordered(%d, %d, %d)", side, from, to);

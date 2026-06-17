@@ -196,6 +196,7 @@ static bool g_TabTipClassRegistered = false;
 static const UINT_PTR kTabTipTimerId = 1001;
 static const int kTabTipDelayMs = 500;
 
+
 static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
@@ -611,16 +612,15 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
         POINT client = screen;
         ScreenToClient(HWindow, &client);
         int hit = HitTest(client);
-        if (hit >= 0)
+        if (MainWindow != NULL)
         {
-            if (IsNewTabButtonIndex(hit))
-            {
-                if (MainWindow != NULL)
-                    MainWindow->CommandNewTab(Side, TRUE);
-            }
-            else if (MainWindow != NULL)
+            if (hit >= 0 && !IsNewTabButtonIndex(hit))
             {
                 MainWindow->OnPanelTabContextMenu(Side, hit, screen);
+            }
+            else
+            {
+                MainWindow->OnPanelTabNewTabAreaContextMenu(Side, screen);
             }
         }
         result = 0;
@@ -2262,9 +2262,11 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_RBUTTONDOWN:
+    {
         if (MainWindow != NULL)
             MainWindow->ResetPanelTabMouseWheelContextMenuSuppression();
         break;
+    }
 
     case WM_LBUTTONDOWN:
     {
@@ -2332,6 +2334,8 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         HandleMouseWheel(wParam);
         return 0;
+
+
 
     case WM_MBUTTONDOWN:
     {
