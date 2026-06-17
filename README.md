@@ -13,9 +13,14 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 
 ## Included Features Overview
+### Translations
+<img width="416" height="440" alt="image" src="https://github.com/user-attachments/assets/8d105940-b1b9-4217-8ccd-9a7356e8b96c" />
+
+- automatic translate with OpenAI API (model gpt-5.4-nano)
+
 ### Tabbed Panels
 <img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f" />
-<img width="687" height="200" alt="image" src="https://github.com/user-attachments/assets/0c1b6114-3ab2-411b-a476-3a409cfcb6ff" />
+<img width="687" height="247" alt="image" src="https://github.com/user-attachments/assets/1443370b-e663-48dd-807a-26d17b115c41" />
 <img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467" />
 
 - When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
