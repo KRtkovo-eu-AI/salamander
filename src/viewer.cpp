@@ -1037,6 +1037,7 @@ void CViewerWindow::PaintDecodedText(HDC dc, const RECT& fullLine, int lines, in
             if (redrI < clipFirstRow)
                 redrI = clipFirstRow;
             r.left = BORDER_WIDTH;
+            r.right = Width;
             r.top = CharHeight * redrI;
             r.bottom = CharHeight * clipLastRow;
             if (r.bottom > Height)
