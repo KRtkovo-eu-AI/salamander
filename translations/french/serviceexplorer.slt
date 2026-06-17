@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Visionneuse"
-1031,6,8,241,16,1,"Service Explorer n’a pas d’options de visionneuse."
+1031,6,8,199,16,1,"Service Explorer n’a pas d’options de visionneuse."
 
 [DIALOG 500]
 268,212,1,"Général"
@@ -22,8 +22,8 @@ COMMENT,"Original English resources."
 503,60,136,198,50,1,""
 1009,6,181,93,15,1,"&Démarrer"
 1010,72,181,99,15,1,"&Arrêter"
-1011,138,181,165,15,1,"&Mettre en pause"
-1012,204,181,88,15,1,"&Reprendre"
+1011,138,181,130,15,1,"&Mettre en pause"
+1012,204,181,64,15,1,"&Reprendre"
 3000,6,12,65,8,1,"Nom du service :"
 3001,6,30,68,8,1,"Afficher le &nom :"
 3004,6,54,64,8,1,"Description :"

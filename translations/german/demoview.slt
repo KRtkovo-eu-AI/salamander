@@ -13,7 +13,7 @@ COMMENT,"English version"
 205,61,1,"Ansicht"
 3000,4,6,199,41,1,"Fensterposition"
 491,11,17,129,12,1,"&Speichern beim Schließen"
-492,11,29,225,12,1,"S&et auf die Position des Fensters von Salamander"
+492,11,29,194,12,1,"S&et auf die Position des Fensters von Salamander"
 
 [STRINGTABLE 0]
 46,1,"DemoView"

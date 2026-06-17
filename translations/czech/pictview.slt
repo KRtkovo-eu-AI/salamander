@@ -48,7 +48,7 @@ COMMENT,"Česká verze"
 3010,211,59,42,8,1,"megapixelů."
 2052,7,77,210,12,1,"Automaticky &otáčet obrázky EXIF JPEG (digitální fotografie)"
 2053,7,89,172,12,1,"In&formovat oknem o úspěšném uložení souboru"
-2054,7,101,270,12,1,"&Pamatovat si cestu pro ukládání fotek obrazovky, skenů, obrázků ze schránky"
+2054,7,101,261,12,1,"&Pamatovat si cestu pro ukládání fotek obrazovky, skenů, obrázků ze schránky"
 
 [DIALOG 2060]
 268,150,1,"Klávesnice a myš"

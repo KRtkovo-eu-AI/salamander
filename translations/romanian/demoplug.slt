@@ -11,7 +11,7 @@ COMMENT,"English version"
 
 [DIALOG 490]
 205,61,1,"Vizualizator"
-3000,4,6,259,41,1,"Poziția ferestrei"
+3000,4,6,201,41,1,"Poziția ferestrei"
 491,11,17,113,12,1,"&Salvează la închidere"
 492,11,29,156,12,1,"S&etare la poziția ferestrei Salamander"
 
@@ -21,7 +21,7 @@ COMMENT,"English version"
 501,53,8,144,12,1,""
 3001,7,25,59,8,1,"Număr de test:"
 502,53,23,54,12,1,""
-3002,112,25,115,8,1,"trebuie să fie mai mic de 10"
+3002,112,25,93,8,1,"trebuie să fie mai mic de 10"
 3003,57,53,143,1,1,""
 3004,5,49,68,8,1,"Iată combinația"
 3005,15,62,87,8,1,"Combinație de test:"

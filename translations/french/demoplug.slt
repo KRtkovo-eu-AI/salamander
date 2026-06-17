@@ -11,9 +11,9 @@ COMMENT,"English version"
 
 [DIALOG 490]
 205,61,1,"Visionneuse"
-3000,4,6,335,41,1,"Position de la fenêtre"
+3000,4,6,201,41,1,"Position de la fenêtre"
 491,11,17,139,12,1,"&Enregistrer à la fermeture"
-492,11,29,220,12,1,"D&éfinir la position de la fenêtre de Salamander"
+492,11,29,194,12,1,"D&éfinir la position de la fenêtre de Salamander"
 
 [DIALOG 500]
 205,84,1,"Première page"
@@ -21,7 +21,7 @@ COMMENT,"English version"
 501,53,8,144,12,1,""
 3001,7,25,67,8,1,"Nombre de test :"
 502,53,23,54,12,1,""
-3002,112,25,99,8,1,"doit être inférieur à 10"
+3002,112,25,93,8,1,"doit être inférieur à 10"
 3003,57,53,143,1,1,""
 3004,5,49,96,8,1,"Voici une combinaison"
 3005,15,62,96,8,1,"Combinaison de test :"

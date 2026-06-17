@@ -321,7 +321,7 @@ SLGINCOMPLETE,""
 603,1,107,257,12,1,"Gyors átn&evezés és Tömörítés parancsnál a fájlnév kiterjesztése is kijelölt"
 623,1,120,202,12,1,"Új fájl szerkesztése parancsnál a k&iterjesztés is kijelölt"
 622,1,133,194,12,1,"Gyo&rs mappaáthelyezés használata Novell NetWare-en"
-624,1,146,319,12,1,"Fájlok másolása: gyorsabb aszi&nkron algoritmus használata hálózaton (Windows 7 és újabb)"
+624,1,146,298,12,1,"Fájlok másolása: gyorsabb aszi&nkron algoritmus használata hálózaton (Windows 7 és újabb)"
 625,1,159,196,12,1,"&Környezeti változók frissítése a rendszerbeli értékekhez"
 
 [DIALOG 320]
@@ -1350,8 +1350,8 @@ SLGINCOMPLETE,""
 1151,6,28,224,16,1,"Ahogy tapasztaltabb lesz, lépésről lépésre átveheti az Open Salamander teljes vezérlését."
 
 [DIALOG 2645]
-346,231,1,"Előzmény"
-1150,1,4,345,16,1,"Kiválaszthatja, hogy a nemrég használt értékek (előzmények) a panelek/lapok között legyenek megosztva, vagy panelenként/laponként külön-külön."
+299,231,1,"Előzmény"
+1150,1,4,298,16,1,"Kiválaszthatja, hogy a nemrég használt értékek (előzmények) a panelek/lapok között legyenek megosztva, vagy panelenként/laponként külön-külön."
 2651,1,22,261,10,1,"&Előzmények megosztása panelek/lapok között"
 2652,1,34,232,10,1,"Előzmények megőrzése &panel/lap szerint"
 1151,1,64,254,16,1,"Választhatja, hogy elmenti az utoljára használt értékeket (előzmény) a regisztrációs adatbázisba, ahogy az Open Salamander és plugin-ok beállításai is vannak."
@@ -1387,7 +1387,7 @@ SLGINCOMPLETE,""
 9,129,59,50,14,1,"Súgó"
 
 [DIALOG 2680]
-345,231,1,"Főablak"
+299,231,1,"Főablak"
 2681,1,3,113,12,1,"Indulá&si kép mutatása"
 2682,1,17,217,12,1,"Open Salamander &ikon a Tálca értesítési területén"
 2683,1,31,162,12,1,"&Elérési út a főablak fejlécében mint:"
@@ -1404,7 +1404,7 @@ SLGINCOMPLETE,""
 2705,279,149,12,12,1,""
 1155,8,169,95,8,1,"&Argumentumok:"
 2706,75,167,216,12,1,""
-1156,8,184,337,16,1,"A {command} helyére a parancssori sáv szövegét kell beilleszteni; különben a rendszer hozzáfűzi."
+1156,8,184,291,16,1,"A {command} helyére a parancssori sáv szövegét kell beilleszteni; különben a rendszer hozzáfűzi."
 
 [DIALOG 2700]
 299,231,1,"Archívumok"

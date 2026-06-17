@@ -13,7 +13,7 @@ COMMENT,"English version"
 205,61,1,"Viewer"
 3000,4,6,199,41,1,"Vensterpositie"
 491,11,17,103,12,1,"&Opslaan bij sluiten"
-492,11,29,220,12,1,"S&et naar positie van het venster van Salamander"
+492,11,29,194,12,1,"S&et naar positie van het venster van Salamander"
 
 [STRINGTABLE 0]
 46,1,"DemoView"

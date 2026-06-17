@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Viewer"
-1031,6,8,265,16,1,"Der Service-Explorer verfügt nicht über Vieweroptionen."
+1031,6,8,199,16,1,"Der Service-Explorer verfügt nicht über Vieweroptionen."
 
 [DIALOG 500]
 268,212,1,"Allgemein"
@@ -23,7 +23,7 @@ COMMENT,"Original English resources."
 1009,6,181,54,15,1,"&Start"
 1010,72,181,54,15,1,"S&top"
 1011,138,181,54,15,1,"&Pause"
-1012,204,181,97,15,1,"&Fortsetzen"
+1012,204,181,64,15,1,"&Fortsetzen"
 3000,6,12,48,8,1,"Servicename:"
 3001,6,30,71,8,1,"Anzeigename &name:"
 3004,6,54,64,8,1,"Beschreibung:"

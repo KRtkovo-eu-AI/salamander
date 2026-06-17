@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Vizualizatorul"
-1031,6,8,279,16,1,"Explorerul de servicii nu are opțiuni pentru vizualizator."
+1031,6,8,199,16,1,"Explorerul de servicii nu are opțiuni pentru vizualizator."
 
 [DIALOG 500]
 268,212,1,"General"
@@ -23,7 +23,7 @@ COMMENT,"Original English resources."
 1009,6,181,54,15,1,"&Start"
 1010,72,181,54,15,1,"S&top"
 1011,138,181,54,15,1,"&Pauză"
-1012,204,181,70,15,1,"&Reluare"
+1012,204,181,64,15,1,"&Reluare"
 3000,6,12,77,8,1,"Numele serviciului:"
 3001,6,30,60,8,1,"Afișa&ți numele:"
 3004,6,54,52,8,1,"Descriere:"

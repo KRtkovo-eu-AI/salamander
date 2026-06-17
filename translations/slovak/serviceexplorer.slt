@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Zobraziť"
-1031,6,8,255,16,1,"V službe Service Explorer nie sú možnosti zobrazenia."
+1031,6,8,199,16,1,"V službe Service Explorer nie sú možnosti zobrazenia."
 
 [DIALOG 500]
 268,212,1,"Všeobecné"
@@ -23,7 +23,7 @@ COMMENT,"Original English resources."
 1009,6,181,82,15,1,"&Spustiť"
 1010,72,181,111,15,1,"&Zastaviť"
 1011,138,181,113,15,1,"&Pozastaviť"
-1012,204,181,97,15,1,"&Pokračovať"
+1012,204,181,64,15,1,"&Pokračovať"
 3000,6,12,48,8,1,"Názov služby:"
 3001,6,30,60,8,1,"Zobraziť &názov:"
 3004,6,54,52,8,1,"Popis:"

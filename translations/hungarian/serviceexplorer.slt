@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Néző"
-1031,6,8,410,16,1,"A Szolgáltatáskezelő (Service Explorer) nem rendelkezik néző (viewer) beállításokkal."
+1031,6,8,199,16,1,"A Szolgáltatáskezelő (Service Explorer) nem rendelkezik néző (viewer) beállításokkal."
 
 [DIALOG 500]
 268,212,1,"Általános"
@@ -22,16 +22,16 @@ COMMENT,"Original English resources."
 503,60,136,198,50,1,""
 1009,6,181,82,15,1,"&Indítás"
 1010,72,181,54,15,1,"S&top"
-1011,138,181,144,15,1,"&Szüneteltetés"
-1012,204,181,88,15,1,"&Folytatás"
+1011,138,181,130,15,1,"&Szüneteltetés"
+1012,204,181,64,15,1,"&Folytatás"
 3000,6,12,73,8,1,"Szolgáltatás neve:"
 3001,6,30,71,8,1,"Név &megjelenítése:"
 3004,6,54,52,8,1,"Leírás:"
-3005,4,100,287,8,1,"A futtatandó végrehajtható fájl elérési útja:"
+3005,4,100,264,8,1,"A futtatandó végrehajtható fájl elérési útja:"
 1013,6,72,72,8,1,"Szolgáltatásnév"
 1032,6,136,58,8,1,"Indítási típus:"
 1033,6,160,82,8,1,"Szolgáltatás állapota:"
-1014,60,160,332,8,1,"Szolgáltatásállapot"
+1014,60,160,208,8,1,"Szolgáltatásállapot"
 
 [DIALOG 510]
 230,70,1,"Szolgáltatás vezérlése"

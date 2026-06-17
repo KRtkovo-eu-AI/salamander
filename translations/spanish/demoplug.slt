@@ -11,9 +11,9 @@ COMMENT,"English version"
 
 [DIALOG 490]
 205,61,1,"Visor"
-3000,4,6,335,41,1,"Posición de la ventana"
+3000,4,6,201,41,1,"Posición de la ventana"
 491,11,17,93,12,1,"&Guardar al cerrar"
-492,11,29,239,12,1,"S&eleccionar la posición de la ventana de Salamander"
+492,11,29,194,12,1,"S&eleccionar la posición de la ventana de Salamander"
 
 [DIALOG 500]
 205,84,1,"Primera página"

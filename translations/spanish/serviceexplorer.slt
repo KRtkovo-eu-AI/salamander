@@ -11,7 +11,7 @@ COMMENT,"Original English resources."
 
 [DIALOG 490]
 205,61,1,"Visor"
-1031,6,8,260,16,1,"El Explorador de servicios no tiene opciones de visor."
+1031,6,8,199,16,1,"El Explorador de servicios no tiene opciones de visor."
 
 [DIALOG 500]
 268,212,1,"General"
@@ -23,7 +23,7 @@ COMMENT,"Original English resources."
 1009,6,181,82,15,1,"&Iniciar"
 1010,72,181,99,15,1,"P&aradas"
 1011,138,181,72,15,1,"&Pausar"
-1012,204,181,79,15,1,"&Reanudar"
+1012,204,181,64,15,1,"&Reanudar"
 3000,6,12,81,8,1,"Nombre del servicio:"
 3001,6,30,79,8,1,"&Nombre para mostrar:"
 3004,6,54,52,8,1,"Descripción:"
@@ -31,7 +31,7 @@ COMMENT,"Original English resources."
 1013,6,72,91,8,1,"Nombre del servicio"
 1032,6,136,58,8,1,"Tipo de inicio:"
 1033,6,160,75,8,1,"Estado del servicio:"
-1014,60,160,332,8,1,"Estado del servicio"
+1014,60,160,208,8,1,"Estado del servicio"
 
 [DIALOG 510]
 230,70,1,"Control de servicios"

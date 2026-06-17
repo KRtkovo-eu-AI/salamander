@@ -48,7 +48,7 @@ COMMENT,"Nederlandse versie"
 3010,211,59,42,8,1,"megapixels."
 2052,7,77,238,12,1,"Automatisch d&raaien EXIF JPEG afbeeldingen (van digitale camera)"
 2053,7,89,209,12,1,"&Berichtenvenster weergeven bij succesvol opslaan bestand"
-2054,7,101,272,12,1,"&Pad onthouden bij opslaan schermafdrukken, scans en van klembord plakken"
+2054,7,101,261,12,1,"&Pad onthouden bij opslaan schermafdrukken, scans en van klembord plakken"
 
 [DIALOG 2060]
 268,150,1,"Toetsenbord && Muis"

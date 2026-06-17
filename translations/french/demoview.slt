@@ -11,9 +11,9 @@ COMMENT,"English version"
 
 [DIALOG 490]
 205,61,1,"Visionneuse"
-3000,4,6,335,41,1,"Position de la fenêtre"
+3000,4,6,201,41,1,"Position de la fenêtre"
 491,11,17,139,12,1,"&Enregistrer à la fermeture"
-492,11,29,234,12,1,"R&égler sur la position de la fenêtre de Salamander"
+492,11,29,194,12,1,"R&égler sur la position de la fenêtre de Salamander"
 
 [STRINGTABLE 0]
 46,1,"DemoView"

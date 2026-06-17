@@ -11,7 +11,7 @@ COMMENT,"English version"
 
 [DIALOG 490]
 205,61,1,"Vizualizator"
-3000,4,6,259,41,1,"Poziția ferestrei"
+3000,4,6,201,41,1,"Poziția ferestrei"
 491,11,17,113,12,1,"&Salvează la închidere"
 492,11,29,156,12,1,"S&etare la poziția ferestrei Salamander"
 
