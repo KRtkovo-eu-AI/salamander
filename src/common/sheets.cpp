@@ -660,7 +660,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
 #define _TPD_TOPMARGIN 4   // TreeView and caption top margin
 #define _TPD_TREE_W 100    // TreeView width
-#define _TPD_TREE_W_MAX 125 // max TreeView width in DLU (~219px at 96 DPI; matches English panel width)
+#define _TPD_TREE_W_MAX 145 // max TreeView width in DLU (~219px at 96 DPI; matches English panel width)
 #define _TPD_CAPTION_H 16  // caption height
 #define _TPD_BUTTON_W 50   // button width
 #define _TPD_BUTTON_H 14   // button height
