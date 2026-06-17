@@ -81,7 +81,9 @@ enum
 {
     TREEVIEW_HEADER_HOT_CLOSE = 0x01,
     TREEVIEW_HEADER_HOT_PIN = 0x02,
-    TREEVIEW_AUTOHIDE_TIMER = 1
+    TREEVIEW_AUTOHIDE_TIMER = 1,
+    TREEVIEW_AUTOHIDE_EXPAND_TIMER = 2,
+    TREEVIEW_AUTOHIDE_EXPAND_DELAY = 200
 };
 
 static RECT GetTreeViewHeaderCloseRect(HWND hwnd)
@@ -194,13 +196,21 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     case WM_TIMER:
         if (wParam == TREEVIEW_AUTOHIDE_TIMER)
             panel->CollapseTreeViewAutoHideIfNeeded();
+        else if (wParam == TREEVIEW_AUTOHIDE_EXPAND_TIMER)
+        {
+            KillTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER);
+            POINT pt;
+            GetCursorPos(&pt);
+            if (IsPointInWindow(hwnd, pt))
+                panel->ExpandTreeViewAutoHide();
+        }
         return 0;
 
     case WM_MOUSEMOVE:
     {
         if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
         {
-            panel->ExpandTreeViewAutoHide();
+            SetTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER, TREEVIEW_AUTOHIDE_EXPAND_DELAY, NULL);
             return 0;
         }
         POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
@@ -223,6 +233,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     }
 
     case WM_MOUSELEAVE:
+        KillTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER);
         if (GetWindowLongPtr(hwnd, GWLP_USERDATA) != 0)
         {
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -344,6 +355,7 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
 
     case WM_NCDESTROY:
         KillTimer(hwnd, TREEVIEW_AUTOHIDE_TIMER);
+        KillTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER);
         RemoveWindowSubclass(hwnd, TreeViewHeaderSubclassProc, subclassId);
         break;
     }
