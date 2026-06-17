@@ -517,6 +517,25 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
                         {
                             Data.ImportTextArchive(fullSLTPath, FALSE);
                             Data.ResizeAllClippedControls(FrameWindow.HWindow); // resize clipped controls using actual font metrics
+                            // Property pages (DS_CONTROL) must keep original width; only height is adjustable.
+                            // The property sheet container sizes itself to the widest page, so any width
+                            // change in a single page would widen the entire Configuration dialog.
+                            for (int pi = 0; pi < Data.DlgData.Count; pi++)
+                            {
+                                CDialogData* dlg = Data.DlgData[pi];
+                                if (dlg->Style & DS_CONTROL)
+                                {
+                                    dlg->TCX = dlg->OCX;
+                                    // Also clamp all control widths so nothing extends beyond the dialog edge.
+                                    for (int ci = 0; ci < dlg->Controls.Count; ci++)
+                                    {
+                                        CControl* ctrl = dlg->Controls[ci];
+                                        int right = ctrl->TX + ctrl->TCX;
+                                        if (right > dlg->OCX)
+                                            ctrl->TCX = (short)(dlg->OCX - ctrl->TX);
+                                    }
+                                }
+                            }
                             doNotSaveData = FALSE;
                             Data.SetDirty();
                             Data.UpdateAllNodes(); // refresh translated states in the tree view

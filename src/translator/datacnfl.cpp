@@ -3628,8 +3628,9 @@ int CData::ResizeAllClippedControls(HWND hParent)
                 maxRight = right;
         }
 
-        // Expand dialog caption width if controls extend beyond it
-        if (maxRight > 0 && dialog->Controls.Count > 0)
+        // Expand dialog caption width if controls extend beyond it, but skip property
+        // pages (DS_CONTROL) - their width must stay fixed (only height is adjustable)
+        if (maxRight > 0 && dialog->Controls.Count > 0 && !(dialog->Style & DS_CONTROL))
         {
             CControl* titleCtrl = dialog->Controls[0]; // Dialog title stores TCX=width, TCY=height
             if (maxRight > titleCtrl->TCX)
