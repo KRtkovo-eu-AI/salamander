@@ -660,6 +660,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_LEFTMARGIN 4  // TreeView and caption left margin
 #define _TPD_TOPMARGIN 4   // TreeView and caption top margin
 #define _TPD_TREE_W 100    // TreeView width
+#define _TPD_TREE_W_MAX 125 // max TreeView width in DLU (~219px at 96 DPI; matches English panel width)
 #define _TPD_CAPTION_H 16  // caption height
 #define _TPD_BUTTON_W 50   // button width
 #define _TPD_BUTTON_H 14   // button height
@@ -870,6 +871,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             treeIndent = MulDiv(9 /* odsazeni v dlg-units */, rect.right /* baseUnitX */, 4);
             TreeView_SetIndent(HTreeView, treeIndent);
         }
+        TreeView_SetExtendedStyle(HTreeView, TVS_EX_AUTOHSCROLL, TVS_EX_AUTOHSCROLL);
 
         // dlg units -> pixels conversions
         RECT r = {_TPD_BUTTON_W, _TPD_BUTTON_H, _TPD_LEFTMARGIN, _TPD_TOPMARGIN};
@@ -887,6 +889,13 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (CaptionWindow == NULL)
             TRACE_ET(_T("Low memory!"));
         TreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 + GetSystemMetrics(SM_CXVSCROLL);
+        // Cap TreeView width so the dialog doesn't grow with longer translations (e.g. French vs English).
+        {
+            RECT maxTreeR = {_TPD_TREE_W_MAX, 0};
+            MapDialogRect(HWindow, &maxTreeR);
+            if (TreeWidth > maxTreeR.left)
+                TreeWidth = maxTreeR.left;
+        }
         if (TPD->StartPage < 0 || TPD->StartPage >= TPD->Count)
             TPD->StartPage = 0;
         TreeView_SelectItem(HTreeView, TPD->At(TPD->StartPage)->HTreeItem);
