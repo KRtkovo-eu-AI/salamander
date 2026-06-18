@@ -4394,6 +4394,7 @@ FIND_NEW_SLG_FILE:
 
     CConfigurationStorageType storageType = cstRegistry;
     BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+    Configuration.StorageType = storageType;
 
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU

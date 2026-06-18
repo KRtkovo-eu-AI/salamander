@@ -1132,7 +1132,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
 {
     HKEY hRootKey;
     loadConfiguration = NULL; // we don't want to load any configuration - default values will be used
-    int rootIndex = 0;
+    int rootIndex = Configuration.StorageType == cstRegFile ? 1 : 0;
     const char* root;
     DWORD saveInProgress; // dummy
     HKEY hCfgKey;
