@@ -4488,14 +4488,7 @@ FIND_NEW_SLG_FILE:
     }
     Configuration.StorageType = storageType;
     if (migrateRegistryToFile)
-    {
-        if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE))
-        {
-            SplashScreenCloseIfExist();
-            goto EXIT_2;
-        }
         Configuration.StorageType = cstRegFile;
-    }
 
     InitializeShellib(); // OLE je treba inicializovat pred otevrenim HTML helpu - CSalamanderEvaluation
 
@@ -4814,6 +4807,13 @@ FIND_NEW_SLG_FILE:
 
                         // save uz pujde do nejnovejsiho klice
                         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
+                        if (migrateRegistryToFile)
+                        {
+                            ConfigurationStorage.Flush();
+                            if (!ConfigurationStorage.SwitchStorageType(cstRegFile, FALSE))
+                                TRACE_E("Unable to switch configuration storage to file after loading imported configuration.");
+                            Configuration.StorageType = (int)ConfigurationStorage.GetStorageType();
+                        }
                         // konfiguraci ulozime hned, dokud je to cista konverze stare verze -- user muze
                         // mit vypnuty "Save Cfg on Exit" a pokud behem chodu Salamandera neco zmeni, nechce to na zaver ulozit
                         if (saveNewConfig)
