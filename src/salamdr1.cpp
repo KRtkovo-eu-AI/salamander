@@ -4445,7 +4445,12 @@ FIND_NEW_SLG_FILE:
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
     BOOL registryConfigExists = !currentCfgDoesNotExist;
     BOOL migrateRegistryToFile = FALSE;
-    if (!storageTypeFromBootstrap)
+    if (!storageTypeFromBootstrap && Configuration.StorageType == cstRegFile)
+    {
+        storageType = cstRegistry;
+        migrateRegistryToFile = TRUE;
+    }
+    if (!storageTypeFromBootstrap && !migrateRegistryToFile)
     {
         if (portableConfigExists && registryConfigExists)
         {

@@ -6,6 +6,7 @@
 
 #include "cfgdlg.h"
 #include "dialogs.h"
+#include "configstorage.h"
 #include "usermenu.h"
 #include "execute.h"
 #include "plugins.h"
@@ -653,6 +654,7 @@ CSelectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CImportConfigDialog::CImportConfigDialog()
     : CCommonDialog(HLanguage, IDD_IMPORTCONFIG, NULL)
 {
+    StorageType = cstRegistry;
 }
 
 CImportConfigDialog::~CImportConfigDialog()
@@ -698,6 +700,8 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
             EnableWindow(GetDlgItem(HWindow, IDC_IMPORTCONFIG), FALSE);
         }
         SendDlgItemMessage(HWindow, IDC_IMPORTCONFIG, CB_SETCURSEL, selIndex, NULL);
+        CheckRadioButton(HWindow, IDC_IMPORT_SAVE_TO_REGISTRY, IDC_IMPORT_SAVE_TO_FILE,
+                         StorageType == cstRegFile ? IDC_IMPORT_SAVE_TO_FILE : IDC_IMPORT_SAVE_TO_REGISTRY);
 
         // LISTVIEW Remove Configuration
         HWND hListView = GetDlgItem(HWindow, IDC_REMOVECONFIG);
@@ -734,6 +738,8 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
     }
     else
     {
+        StorageType = IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE) ? cstRegFile : cstRegistry;
+
         // COMBOBOX Import Configuration
         int sel = (int)SendDlgItemMessage(HWindow, IDC_IMPORTCONFIG, CB_GETCURSEL, 0, NULL);
         if (sel > 0)

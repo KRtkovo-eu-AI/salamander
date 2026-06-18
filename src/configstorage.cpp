@@ -314,6 +314,14 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
 
     if (oldRegistry != NULL)
         oldRegistry->Release();
+
+    if (StorageType == cstRegistry)
+    {
+        char portablePath[MAX_PATH];
+        if (GetPortableConfigFilePath(portablePath, SizeOf(portablePath)))
+            DeleteFile(portablePath);
+    }
+
     SaveStorageTypeBootstrap(StorageType);
     return TRUE;
 }

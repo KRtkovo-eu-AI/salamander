@@ -1175,6 +1175,7 @@ public:
     // dialog returns here which configuration the user wants to import; -1 -> none
     // index points into the SalamanderConfigurationRoots array
     int IndexOfConfigurationToLoad;
+    int StorageType;
 
 public:
     CImportConfigDialog();

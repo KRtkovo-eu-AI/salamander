@@ -390,7 +390,6 @@ const char* CONFIG_LONGNAMES_REG = "Use Long File Names";
 const char* CONFIG_RECYCLEBIN_REG = "Use Recycle Bin";
 const char* CONFIG_RECYCLEMASKS_REG = "Use Recycle Bin For";
 const char* CONFIG_SAVEONEXIT_REG = "Save Configuration On Exit";
-const char* CONFIG_STORAGETYPE_REG = "Configuration Storage Type";
 const char* CONFIG_SHOWGREPERRORS_REG = "Show Errors In Find Files";
 const char* CONFIG_FINDFULLROW_REG = "Show Full Row In Find Files";
 const char* CONFIG_MINBEEPWHENDONE_REG = "Use Speeker Beep";
@@ -1142,6 +1141,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     ZeroMemory(dlg.ConfigurationExist, sizeof(dlg.ConfigurationExist)); // none of the configurations found yet
     dlg.DeleteConfigurations = deleteConfigurations;
     dlg.IndexOfConfigurationToLoad = -1;
+    dlg.StorageType = Configuration.StorageType;
 
     BOOL offerImportDlg = FALSE; // if an old configuration or keys exist, offer import
 
@@ -1295,6 +1295,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             return FALSE; // user wants to quit Salamander
         }
+        Configuration.StorageType = dlg.StorageType;
+        ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType);
         if (dlg.IndexOfConfigurationToLoad != -1)
             loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigurationToLoad];
     }
@@ -2051,8 +2053,6 @@ void CMainWindow::SaveConfig(HWND parent)
                          Configuration.RecycleMasks.GetMasksString(), -1);
                 SetValue(actKey, CONFIG_SAVEONEXIT_REG, REG_DWORD,
                          &Configuration.AutoSave, sizeof(DWORD));
-                SetValue(actKey, CONFIG_STORAGETYPE_REG, REG_DWORD,
-                         &Configuration.StorageType, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SHOWGREPERRORS_REG, REG_DWORD,
                          &Configuration.ShowGrepErrors, sizeof(DWORD));
                 SetValue(actKey, CONFIG_FINDFULLROW_REG, REG_DWORD,
