@@ -22,6 +22,7 @@
 #include "fileswnd.h"
 #include "toolbar.h"
 #include "mainwnd.h"
+#include "configstorage.h"
 #include "tabwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
@@ -5151,7 +5152,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         case CM_SAVECONFIG:
         {
             // if an exported configuration already exists, show a warning
-            if (FileExists(ConfigurationName))
+            if (ConfigurationStorage.GetStorageType() == cstRegFile && FileExists(ConfigurationName))
             {
                 char buff[3000];
                 _snprintf_s(buff, _TRUNCATE, LoadStr(IDS_SAVECFG_EXPFILEEXISTS), ConfigurationName);

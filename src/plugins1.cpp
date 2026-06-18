@@ -15,6 +15,7 @@
 #include "cache.h"
 #include <uxtheme.h>
 #include "dialogs.h"
+#include "configstorage.h"
 
 CPlugins Plugins;
 
@@ -1478,55 +1479,90 @@ void CSalamanderBuildMenu::SetIconListForMenu(CGUIIconListAbstract* iconList)
 BOOL CSalamanderRegistry::ClearKey(HKEY key)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::ClearKey()");
-    return ::ClearKey(key);
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->ClearKey(key) : ::ClearKey(key);
 }
 
 BOOL CSalamanderRegistry::CreateKey(HKEY key, const char* name, HKEY& createdKey)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::CreateKey()");
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name))
+    {
+        if (registry->CreateKey(key, name, createdKey))
+        {
+            ConfigurationStorage.RegisterActiveRegistryKey(createdKey);
+            return TRUE;
+        }
+        return FALSE;
+    }
     return ::CreateKey(key, name, createdKey);
 }
 
 BOOL CSalamanderRegistry::OpenKey(HKEY key, const char* name, HKEY& openedKey)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::OpenKey()");
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name))
+    {
+        if (registry->OpenKey(key, name, openedKey))
+        {
+            ConfigurationStorage.RegisterActiveRegistryKey(openedKey);
+            return TRUE;
+        }
+        return FALSE;
+    }
     return ::OpenKey(key, name, openedKey);
 }
 
 void CSalamanderRegistry::CloseKey(HKEY key)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::CloseKey()");
-    ::CloseKey(key);
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key))
+    {
+        registry->CloseKey(key);
+        ConfigurationStorage.UnregisterActiveRegistryKey(key);
+    }
+    else
+        ::CloseKey(key);
 }
 
 BOOL CSalamanderRegistry::DeleteKey(HKEY key, const char* name)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::DeleteKey()");
-    return ::DeleteKey(key, name);
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name) ? registry->DeleteKey(key, name) : ::DeleteKey(key, name);
 }
 
 BOOL CSalamanderRegistry::GetValue(HKEY key, const char* name, DWORD type, void* buffer, DWORD bufferSize)
 {
     SLOW_CALL_STACK_MESSAGE1("CSalamanderRegistry::GetValue()");
-    return ::GetValue(key, name, type, buffer, bufferSize);
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->GetValue(key, name, type, buffer, bufferSize) : ::GetValue(key, name, type, buffer, bufferSize);
 }
 
 BOOL CSalamanderRegistry::SetValue(HKEY key, const char* name, DWORD type, const void* data, DWORD dataSize)
 {
     SLOW_CALL_STACK_MESSAGE1("CSalamanderRegistry::SetValue()");
-    return ::SetValue(key, name, type, data, dataSize);
+    if (dataSize == -1)
+        dataSize = (DWORD)strlen((char*)data) + 1;
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->SetValue(key, name, type, data, dataSize) : ::SetValue(key, name, type, data, dataSize);
 }
 
 BOOL CSalamanderRegistry::DeleteValue(HKEY key, const char* name)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::DeleteValue()");
-    return ::DeleteValue(key, name);
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->DeleteValue(key, name) : ::DeleteValue(key, name);
 }
 
 BOOL CSalamanderRegistry::GetSize(HKEY key, const char* name, DWORD type, DWORD& bufferSize)
 {
     SLOW_CALL_STACK_MESSAGE3("CSalamanderRegistry::GetSize(, %s, 0x%x, )", name, type);
-    return ::GetSize(key, name, type, bufferSize);
+    CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->GetSize(key, name, type, bufferSize) : ::GetSize(key, name, type, bufferSize);
 }
 
 //
@@ -2333,8 +2369,7 @@ BOOL CPluginData::InitDLL(HWND parent, BOOL quiet, BOOL waitCursor, BOOL showUns
                     {
                         LoadSaveToRegistryMutex.Enter();
                         HKEY hSal;
-                        if (SALAMANDER_ROOT_REG != NULL &&
-                            OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, hSal))
+                        if (ConfigurationStorage.OpenConfigurationRootKey(hSal, FALSE))
                         {
                             HKEY actKey;
                             if (OpenKey(hSal, SALAMANDER_PLUGINSCONFIG, actKey))
@@ -2811,8 +2846,7 @@ BOOL CPluginData::Remove(HWND parent, int index, BOOL canDelPluginRegKey)
             BOOL shouldDelete = FALSE;
             LoadSaveToRegistryMutex.Enter();
             HKEY salamander;
-            if (SALAMANDER_ROOT_REG != NULL &&
-                OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
+            if (ConfigurationStorage.OpenConfigurationRootKey(salamander, FALSE))
             {
                 HKEY actKey;
                 if (OpenKey(salamander, SALAMANDER_PLUGINSCONFIG, actKey))
@@ -2829,8 +2863,7 @@ BOOL CPluginData::Remove(HWND parent, int index, BOOL canDelPluginRegKey)
             }
             if (shouldDelete)
             {
-                if (SALAMANDER_ROOT_REG != NULL &&
-                    CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander)) // ensure write permissions
+                if (ConfigurationStorage.OpenConfigurationRootKey(salamander, TRUE)) // ensure write permissions
                 {
                     HKEY actKey;
                     if (CreateKey(salamander, SALAMANDER_PLUGINSCONFIG, actKey))
@@ -2934,8 +2967,7 @@ void CPluginData::CallLoadOrSaveConfiguration(BOOL load,
         {
             LoadSaveToRegistryMutex.Enter();
             HKEY salamander;
-            if (SALAMANDER_ROOT_REG != NULL &&
-                OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
+            if (ConfigurationStorage.OpenConfigurationRootKey(salamander, FALSE))
             {
                 HKEY actKey;
                 if (OpenKey(salamander, SALAMANDER_PLUGINSCONFIG, actKey))
@@ -2974,11 +3006,10 @@ void CPluginData::CallLoadOrSaveConfiguration(BOOL load,
         {
             LoadSaveToRegistryMutex.Enter();
             HKEY salamander;
-            if (SALAMANDER_ROOT_REG != NULL &&
-                OpenKeyAux(NULL, HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander)) // check whether the Salamander key exists at all (otherwise nothing is saved)
+            if (ConfigurationStorage.OpenConfigurationRootKey(salamander, FALSE)) // check whether the Salamander key exists at all (otherwise nothing is saved)
             {                                                                         // OpenKeyAux, because we do not want a Load Configuration message
                 CloseKeyAux(salamander);
-                if (CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
+                if (ConfigurationStorage.OpenConfigurationRootKey(salamander, TRUE))
                 {
                     BOOL cfgIsOK = TRUE;
                     BOOL deleteSALAMANDER_SAVE_IN_PROGRESS = !IsSetSALAMANDER_SAVE_IN_PROGRESS;
@@ -3046,11 +3077,10 @@ BOOL CPluginData::Unload(HWND parent, BOOL ask)
                     LoadSaveToRegistryMutex.Enter();
                     BOOL salKeyDoesNotExist = FALSE;
                     HKEY salamander;
-                    if (SALAMANDER_ROOT_REG != NULL &&
-                        OpenKeyAux(NULL, HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander)) // check whether the Salamander key exists at all (otherwise nothing is saved)
+                    if (ConfigurationStorage.OpenConfigurationRootKey(salamander, FALSE)) // check whether the Salamander key exists at all (otherwise nothing is saved)
                     {                                                                         // OpenKeyAux because we do not want a Load Configuration message
                         CloseKeyAux(salamander);
-                        if (CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, salamander))
+                        if (ConfigurationStorage.OpenConfigurationRootKey(salamander, TRUE))
                         {
                             BOOL cfgIsOK = TRUE;
                             BOOL deleteSALAMANDER_SAVE_IN_PROGRESS = !IsSetSALAMANDER_SAVE_IN_PROGRESS;

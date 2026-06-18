@@ -114,6 +114,8 @@
 #define IDC_CLEARREADONLY               304
 #define IDC_QUICKSEARCH_ALT             305
 #define IDC_CLICKTORENAME               306
+#define IDC_SAVE_TO_REGISTRY            307
+#define IDC_SAVE_TO_FILE                308
 #define IDC_SELECTIONBOX                309
 #define IDC_DISABLEDANDD                310
 #define IDC_SPACESELECTING              311
@@ -475,6 +477,8 @@
 #define IDD_IMPORTCONFIG                2460
 #define IDC_IMPORTCONFIG                2461
 #define IDC_REMOVECONFIG                2463
+#define IDC_IMPORT_SAVE_TO_REGISTRY     2464
+#define IDC_IMPORT_SAVE_TO_FILE         2465
 #define IDD_CHANGECODING                2490
 #define IDC_CHC_CHANGECODING            2491
 #define IDC_CHC_CODING                  2492

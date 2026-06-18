@@ -241,6 +241,8 @@
     </ClCompile>
     <ClCompile Include="..\codetbl.cpp">
     </ClCompile>
+    <ClCompile Include="..\configstorage.cpp">
+    </ClCompile>
     <ClCompile Include="..\color.cpp">
     </ClCompile>
     <ClCompile Include="..\common\allochan.cpp">
@@ -700,6 +702,8 @@
     <ClInclude Include="..\callstk.h">
     </ClInclude>
     <ClInclude Include="..\cfgdlg.h">
+    </ClInclude>
+    <ClInclude Include="..\configstorage.h">
     </ClInclude>
     <ClInclude Include="..\codetbl.h">
     </ClInclude>

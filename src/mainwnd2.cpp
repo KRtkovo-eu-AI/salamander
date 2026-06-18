@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -16,6 +16,7 @@
 #include "fileswnd.h"
 #include "tabwnd.h"
 #include "mainwnd.h"
+#include "configstorage.h"
 #include "cfgdlg.h"
 #include "usermenu.h"
 #include "viewer.h"
@@ -1134,7 +1135,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
 {
     HKEY hRootKey;
     loadConfiguration = NULL; // we don't want to load any configuration - default values will be used
-    int rootIndex = 0;
+    int rootIndex = Configuration.StorageType == cstRegFile ? 1 : 0;
     const char* root;
     DWORD saveInProgress; // dummy
     HKEY hCfgKey;
@@ -1143,6 +1144,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     ZeroMemory(dlg.ConfigurationExist, sizeof(dlg.ConfigurationExist)); // none of the configurations found yet
     dlg.DeleteConfigurations = deleteConfigurations;
     dlg.IndexOfConfigurationToLoad = -1;
+    dlg.StorageType = Configuration.StorageType;
 
     BOOL offerImportDlg = FALSE; // if an old configuration or keys exist, offer import
 
@@ -1296,6 +1298,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             return FALSE; // user wants to quit Salamander
         }
+        Configuration.StorageType = dlg.StorageType;
+        ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType);
         if (dlg.IndexOfConfigurationToLoad != -1)
             loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigurationToLoad];
     }
@@ -2745,6 +2749,8 @@ void CMainWindow::SaveConfig(HWND parent)
         CloseKey(salamander);
     }
 
+    ConfigurationStorage.Flush();
+
     LoadSaveToRegistryMutex.Leave();
 
     if (GlobalSaveWaitWindow == NULL)
@@ -3308,10 +3314,17 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (OpenKey(salamander, SALAMANDER_DEFDIRS_REG, actKey))
         {
-            DWORD values;
-            DWORD res = RegQueryInfoKey(actKey, NULL, 0, 0, NULL, NULL, NULL, &values, NULL,
-                                        NULL, NULL, NULL);
-            if (res == ERROR_SUCCESS)
+            BOOL useActiveRegistry = FALSE;
+            CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+            if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(actKey))
+                useActiveRegistry = TRUE;
+
+            DWORD values = 0;
+            DWORD res = ERROR_SUCCESS;
+            if (!useActiveRegistry)
+                res = RegQueryInfoKey(actKey, NULL, 0, 0, NULL, NULL, NULL, &values, NULL,
+                                      NULL, NULL, NULL);
+            if (useActiveRegistry || res == ERROR_SUCCESS)
             {
                 char dir[4] = " :\\"; // reset DefaultDir
                 char d;
@@ -3326,11 +3339,19 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 DWORD nameLen, dataLen, type;
 
                 int i;
-                for (i = 0; i < (int)values; i++)
+                for (i = 0; useActiveRegistry || i < (int)values; i++)
                 {
                     nameLen = 2;
                     dataLen = MAX_PATH;
-                    res = RegEnumValue(actKey, i, name, &nameLen, 0, &type, path, &dataLen);
+                    if (useActiveRegistry)
+                    {
+                        name[0] = 0;
+                        if (!registry->EnumValue(actKey, i, name, SizeOf(name), &type, path, &dataLen))
+                            break;
+                        res = ERROR_SUCCESS;
+                    }
+                    else
+                        res = RegEnumValue(actKey, i, name, &nameLen, 0, &type, path, &dataLen);
                     if (res == ERROR_SUCCESS)
                         if (type == REG_SZ)
                         {

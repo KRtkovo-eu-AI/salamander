@@ -33,6 +33,7 @@
 #include "color.h"
 #include "toolbar.h"
 #include "darkmode.h"
+#include "configstorage.h"
 
 #include "svg.h"
 
@@ -4318,6 +4319,7 @@ FIND_NEW_SLG_FILE:
         SalMessageBox(NULL, LoadStr(IDS_INVALIDCMDLINE), SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
 
     EXIT_2:
+        ConfigurationStorage.Release();
         if (HLanguage != NULL)
             HANDLES(FreeLibrary(HLanguage));
         goto EXIT_1a;
@@ -4390,10 +4392,18 @@ FIND_NEW_SLG_FILE:
     PackerConfig.InitializeDefaultValues();
     UnpackerConfig.InitializeDefaultValues();
 
-    // pokud soubor existuje, bude importovan do registry
+    CConfigurationStorageType storageType = cstRegistry;
+    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+    Configuration.StorageType = storageType;
+
+    // pokud soubor existuje, bude importovan do registry; v portable file rezimu
+    // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
     BOOL importCfgFromFileWasSkipped = FALSE;
-    ImportConfiguration(NULL, ConfigurationName, ConfigurationNameIgnoreIfNotExists, autoImportConfig,
-                        &importCfgFromFileWasSkipped);
+    if (!storageTypeFromBootstrap || storageType != cstRegFile)
+    {
+        ImportConfiguration(NULL, ConfigurationName, ConfigurationNameIgnoreIfNotExists, autoImportConfig,
+                            &importCfgFromFileWasSkipped);
+    }
 
     // obslouzime prechod ze stareho configu na novy
 
@@ -4413,10 +4423,23 @@ FIND_NEW_SLG_FILE:
 
     CALL_STACK_MESSAGE1("WinMainBody::FindLatestConfiguration");
 
+    char portableConfigPath[MAX_PATH];
+    BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
+                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
+    if (!storageTypeFromBootstrap && portableConfigExists)
+    {
+        storageType = cstRegFile;
+        storageTypeFromBootstrap = TRUE;
+        Configuration.StorageType = storageType;
+        ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
+    }
+
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
+    else if (storageTypeFromBootstrap && storageType == cstRegFile && portableConfigExists)
+        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // existing portable config is authoritative; do not offer Registry import
     else
     {
         if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
@@ -4424,14 +4447,58 @@ FIND_NEW_SLG_FILE:
             SplashScreenCloseIfExist();
             goto EXIT_2;
         }
+        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType); // import dialog may override it
     }
-
-    InitializeShellib(); // OLE je treba inicializovat pred otevrenim HTML helpu - CSalamanderEvaluation
+    Configuration.StorageType = storageType;
 
     // pokud jeste neexistuje novy klic konfigurace, vytvorime ho pred pripadnym smazanim
     // starych klicu
     BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
     BOOL saveNewConfig = currentCfgDoesNotExist;
+
+    BOOL registryConfigExists = !currentCfgDoesNotExist;
+    BOOL migrateRegistryToFile = FALSE;
+    if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
+    {
+        storageType = cstRegistry;
+        migrateRegistryToFile = TRUE;
+    }
+    if (!storageTypeFromBootstrap && !migrateRegistryToFile)
+    {
+        if (portableConfigExists && registryConfigExists)
+        {
+            storageType = SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_BOTHSOURCESPROMPT), LoadStr(IDS_QUESTION),
+                                        MB_YESNO | MB_ICONQUESTION) == IDYES
+                              ? cstRegFile
+                              : cstRegistry;
+        }
+        else if (portableConfigExists)
+        {
+            if (SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_USEFILEPROMPT), LoadStr(IDS_QUESTION),
+                              MB_YESNO | MB_ICONQUESTION) == IDYES)
+                storageType = cstRegFile;
+        }
+        else if (registryConfigExists)
+        {
+            if (SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT), LoadStr(IDS_QUESTION),
+                              MB_YESNO | MB_ICONQUESTION) == IDYES)
+            {
+                storageType = cstRegistry;
+                migrateRegistryToFile = TRUE;
+            }
+        }
+    }
+
+    if (!ConfigurationStorage.Initialize(storageType, NULL))
+    {
+        SplashScreenCloseIfExist();
+        goto EXIT_2;
+    }
+    Configuration.StorageType = storageType;
+    if (migrateRegistryToFile)
+        Configuration.StorageType = cstRegFile;
+
+    InitializeShellib(); // OLE je treba inicializovat pred otevrenim HTML helpu - CSalamanderEvaluation
 
     // pokud uzivatel nechce vic instanci, pouze aktivujeme predchozi
     if (!currentCfgDoesNotExist &&
@@ -4748,6 +4815,13 @@ FIND_NEW_SLG_FILE:
 
                         // save uz pujde do nejnovejsiho klice
                         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
+                        if (migrateRegistryToFile)
+                        {
+                            ConfigurationStorage.Flush();
+                            if (!ConfigurationStorage.SwitchStorageType(cstRegFile, FALSE))
+                                TRACE_E("Unable to switch configuration storage to file after loading imported configuration.");
+                            Configuration.StorageType = (int)ConfigurationStorage.GetStorageType();
+                        }
                         // konfiguraci ulozime hned, dokud je to cista konverze stare verze -- user muze
                         // mit vypnuty "Save Cfg on Exit" a pokud behem chodu Salamandera neco zmeni, nechce to na zaver ulozit
                         if (saveNewConfig)
