@@ -4426,6 +4426,13 @@ FIND_NEW_SLG_FILE:
     char portableConfigPath[MAX_PATH];
     BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
+    if (!storageTypeFromBootstrap && portableConfigExists)
+    {
+        storageType = cstRegFile;
+        storageTypeFromBootstrap = TRUE;
+        Configuration.StorageType = storageType;
+        ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
+    }
 
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
     // nactena (NULL -> zadna; pouziji se default hodnoty)

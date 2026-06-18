@@ -1487,14 +1487,32 @@ BOOL CSalamanderRegistry::CreateKey(HKEY key, const char* name, HKEY& createdKey
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::CreateKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name) ? registry->CreateKey(key, name, createdKey) : ::CreateKey(key, name, createdKey);
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name))
+    {
+        if (registry->CreateKey(key, name, createdKey))
+        {
+            ConfigurationStorage.RegisterActiveRegistryKey(createdKey);
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return ::CreateKey(key, name, createdKey);
 }
 
 BOOL CSalamanderRegistry::OpenKey(HKEY key, const char* name, HKEY& openedKey)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::OpenKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name) ? registry->OpenKey(key, name, openedKey) : ::OpenKey(key, name, openedKey);
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name))
+    {
+        if (registry->OpenKey(key, name, openedKey))
+        {
+            ConfigurationStorage.RegisterActiveRegistryKey(openedKey);
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return ::OpenKey(key, name, openedKey);
 }
 
 void CSalamanderRegistry::CloseKey(HKEY key)
@@ -1502,7 +1520,10 @@ void CSalamanderRegistry::CloseKey(HKEY key)
     CALL_STACK_MESSAGE1("CSalamanderRegistry::CloseKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
     if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key))
+    {
         registry->CloseKey(key);
+        ConfigurationStorage.UnregisterActiveRegistryKey(key);
+    }
     else
         ::CloseKey(key);
 }

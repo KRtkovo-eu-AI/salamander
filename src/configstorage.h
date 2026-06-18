@@ -17,6 +17,7 @@ protected:
     CConfigurationStorageType StorageType;
     CSalamanderRegistryExAbstract* Registry;
     char FilePath[MAX_PATH];
+    TDirectArray<HKEY> ActiveRegistryKeys;
     BOOL DoNotDeleteHiddenKeysAndValues;
 
     CSalamanderRegistryExAbstract* CreateRegistry(CConfigurationStorageType type);
@@ -44,6 +45,8 @@ public:
     BOOL LoadStorageTypeBootstrap(CConfigurationStorageType& type);
     BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type);
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
+    void RegisterActiveRegistryKey(HKEY key);
+    void UnregisterActiveRegistryKey(HKEY key);
     BOOL UseActiveRegistryForKey(HKEY key, const char* name = NULL);
 };
 

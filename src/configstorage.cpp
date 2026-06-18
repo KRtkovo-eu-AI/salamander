@@ -9,6 +9,7 @@
 CConfigurationStorage ConfigurationStorage;
 
 CConfigurationStorage::CConfigurationStorage()
+    : ActiveRegistryKeys(32, 16)
 {
     StorageType = cstRegistry;
     Registry = NULL;
@@ -96,7 +97,11 @@ BOOL CConfigurationStorage::UseActiveRegistryForKey(HKEY key, const char* name)
     if (key == HKEY_LOCAL_MACHINE || key == HKEY_CLASSES_ROOT || key == HKEY_USERS || key == HKEY_CURRENT_CONFIG)
         return FALSE;
 
-    return TRUE;
+    for (int i = 0; i < ActiveRegistryKeys.Count; i++)
+        if (ActiveRegistryKeys[i] == key)
+            return TRUE;
+
+    return FALSE;
 }
 
 BOOL CConfigurationStorage::OpenConfigurationRootKey(HKEY& key, BOOL createKey)
@@ -108,8 +113,20 @@ BOOL CConfigurationStorage::OpenConfigurationRootKey(HKEY& key, BOOL createKey)
     if (registry != NULL)
     {
         if (createKey)
-            return registry->CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
-        return registry->OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
+        {
+            if (registry->CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key))
+            {
+                RegisterActiveRegistryKey(key);
+                return TRUE;
+            }
+            return FALSE;
+        }
+        if (registry->OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key))
+        {
+            RegisterActiveRegistryKey(key);
+            return TRUE;
+        }
+        return FALSE;
     }
 
     if (createKey)
@@ -260,6 +277,7 @@ BOOL CConfigurationStorage::SaveRegFile()
 BOOL CConfigurationStorage::Initialize(CConfigurationStorageType type, const char* filePath)
 {
     Release();
+    ActiveRegistryKeys.ResetState();
 
     StorageType = type;
     if (filePath != NULL && filePath[0] != 0)
@@ -318,6 +336,7 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
     CConfigurationStorageType oldType = StorageType;
     Registry = newRegistry;
     StorageType = newType;
+    ActiveRegistryKeys.ResetState();
 
     if (StorageType == cstRegFile && migrateCurrentData && !SaveRegFile())
     {
@@ -370,11 +389,36 @@ BOOL CConfigurationStorage::Flush()
 
 void CConfigurationStorage::Release()
 {
+    ActiveRegistryKeys.ResetState();
     if (Registry != NULL)
     {
         if (StorageType == cstRegFile)
             Save();
         Registry->Release();
         Registry = NULL;
+    }
+}
+
+void CConfigurationStorage::RegisterActiveRegistryKey(HKEY key)
+{
+    if (key == NULL || StorageType != cstRegFile)
+        return;
+
+    for (int i = 0; i < ActiveRegistryKeys.Count; i++)
+        if (ActiveRegistryKeys[i] == key)
+            return;
+
+    ActiveRegistryKeys.Add(key);
+}
+
+void CConfigurationStorage::UnregisterActiveRegistryKey(HKEY key)
+{
+    for (int i = 0; i < ActiveRegistryKeys.Count; i++)
+    {
+        if (ActiveRegistryKeys[i] == key)
+        {
+            ActiveRegistryKeys.Delete(i);
+            return;
+        }
     }
 }

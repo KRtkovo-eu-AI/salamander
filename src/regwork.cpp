@@ -51,7 +51,14 @@ BOOL CreateKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& createdKey, BO
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
     if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey, name))
-        return registry->CreateKey(hKey, name, createdKey);
+    {
+        if (registry->CreateKey(hKey, name, createdKey))
+        {
+            ConfigurationStorage.RegisterActiveRegistryKey(createdKey);
+            return TRUE;
+        }
+        return FALSE;
+    }
 
     DWORD createType; // info whether the key was created or just opened
     LONG res = HANDLES(RegCreateKeyEx(hKey, name, 0, NULL, REG_OPTION_NON_VOLATILE,
@@ -84,7 +91,14 @@ BOOL OpenKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& openedKey, BOOL 
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
     if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey, name))
-        return registry->OpenKey(hKey, name, openedKey);
+    {
+        if (registry->OpenKey(hKey, name, openedKey))
+        {
+            ConfigurationStorage.RegisterActiveRegistryKey(openedKey);
+            return TRUE;
+        }
+        return FALSE;
+    }
 
     LONG res = HANDLES_Q(RegOpenKeyEx(hKey, name, 0, KEY_READ, &openedKey));
     if (res == ERROR_SUCCESS)
@@ -116,6 +130,7 @@ void CloseKeyAux(HKEY hKey)
     if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
     {
         registry->CloseKey(hKey);
+        ConfigurationStorage.UnregisterActiveRegistryKey(hKey);
         return;
     }
 
