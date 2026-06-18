@@ -69,6 +69,8 @@ void ShowInitializationError(HWND parent)
                                      LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
 }
 
+BOOL SynchronizeLoadOnStartFlagFromSettings();
+
 BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander,
                                                         HWND parent, int id, DWORD eventMask)
 {
@@ -153,10 +155,12 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
     SalamanderGUI = salamander->GetSalamanderGUI();
 
     // nastavime zakladni informace o pluginu
-    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_CONFIGURATION,
+    salamander->SetBasicPluginData(LoadStr(IDS_PLUGINNAME), FUNCTION_CONFIGURATION | FUNCTION_LOADSAVECONFIGURATION,
                                    VERSINFO_VERSION_NO_PLATFORM, VERSINFO_COPYRIGHT,
                                    LoadStr(IDS_PLUGIN_DESCRIPTION), PluginNameShort,
                                    NULL, NULL);
+
+    SynchronizeLoadOnStartFlagFromSettings();
 
     // nastavime URL home-page pluginu
     salamander->SetPluginHomePageURL(LoadStr(IDS_PLUGIN_HOME));
@@ -387,6 +391,20 @@ namespace
     }
 } // namespace
 
+BOOL SynchronizeLoadOnStartFlagFromSettings()
+{
+    if (SalamanderGeneral == NULL)
+    {
+        return FALSE;
+    }
+
+    NativeUpdateSettings settings;
+    InitializeDefaults(&settings);
+    SalamanderGeneral->CallLoadOrSaveConfiguration(TRUE, LoadOrSaveSettingsCallback, &settings);
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(settings.CheckOnStartup != 0);
+    return TRUE;
+}
+
 extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_LoadSettings(NativeUpdateSettings* settings)
 {
     if (settings == nullptr || SalamanderGeneral == NULL)
@@ -407,5 +425,6 @@ extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_SaveSettings(const Na
 
     NativeUpdateSettings localCopy = *settings;
     SalamanderGeneral->CallLoadOrSaveConfiguration(FALSE, LoadOrSaveSettingsCallback, &localCopy);
+    SalamanderGeneral->SetFlagLoadOnSalamanderStart(localCopy.CheckOnStartup != 0);
     return TRUE;
 }
