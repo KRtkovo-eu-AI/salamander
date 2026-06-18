@@ -40,6 +40,7 @@ public:
     void Release();
 
     BOOL GetPortableConfigFilePath(char* filePath, int filePathSize);
+    BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
 };
 
 extern CConfigurationStorage ConfigurationStorage;

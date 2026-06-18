@@ -35,6 +35,25 @@ BOOL CConfigurationStorage::BuildRootKeyName(char* keyName, int keyNameSize)
     return TRUE;
 }
 
+
+BOOL CConfigurationStorage::OpenConfigurationRootKey(HKEY& key, BOOL createKey)
+{
+    if (SALAMANDER_ROOT_REG == NULL)
+        return FALSE;
+
+    CSalamanderRegistryExAbstract* registry = GetRegistry();
+    if (registry != NULL)
+    {
+        if (createKey)
+            return registry->CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
+        return registry->OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
+    }
+
+    if (createKey)
+        return ::CreateKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
+    return ::OpenKey(HKEY_CURRENT_USER, SALAMANDER_ROOT_REG, key);
+}
+
 BOOL CConfigurationStorage::GetPortableConfigFilePath(char* filePath, int filePathSize)
 {
     if (filePath == NULL || filePathSize <= 0)
