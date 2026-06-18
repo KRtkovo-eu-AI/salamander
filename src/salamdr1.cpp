@@ -4392,10 +4392,17 @@ FIND_NEW_SLG_FILE:
     PackerConfig.InitializeDefaultValues();
     UnpackerConfig.InitializeDefaultValues();
 
-    // pokud soubor existuje, bude importovan do registry
+    CConfigurationStorageType storageType = cstRegistry;
+    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+
+    // pokud soubor existuje, bude importovan do registry; v portable file rezimu
+    // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
     BOOL importCfgFromFileWasSkipped = FALSE;
-    ImportConfiguration(NULL, ConfigurationName, ConfigurationNameIgnoreIfNotExists, autoImportConfig,
-                        &importCfgFromFileWasSkipped);
+    if (!storageTypeFromBootstrap || storageType != cstRegFile)
+    {
+        ImportConfiguration(NULL, ConfigurationName, ConfigurationNameIgnoreIfNotExists, autoImportConfig,
+                            &importCfgFromFileWasSkipped);
+    }
 
     // obslouzime prechod ze stareho configu na novy
 
@@ -4433,8 +4440,6 @@ FIND_NEW_SLG_FILE:
     BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
     BOOL saveNewConfig = currentCfgDoesNotExist;
 
-    CConfigurationStorageType storageType = cstRegistry;
-    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
     char portableConfigPath[MAX_PATH];
     BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
