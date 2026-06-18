@@ -4426,6 +4426,8 @@ FIND_NEW_SLG_FILE:
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
+    else if (storageTypeFromBootstrap && storageType == cstRegFile)
+        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // portable config is authoritative; do not offer Registry import
     else
     {
         if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
@@ -4433,7 +4435,9 @@ FIND_NEW_SLG_FILE:
             SplashScreenCloseIfExist();
             goto EXIT_2;
         }
+        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType); // import dialog may override it
     }
+    Configuration.StorageType = storageType;
 
     // pokud jeste neexistuje novy klic konfigurace, vytvorime ho pred pripadnym smazanim
     // starych klicu
@@ -4445,7 +4449,7 @@ FIND_NEW_SLG_FILE:
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
     BOOL registryConfigExists = !currentCfgDoesNotExist;
     BOOL migrateRegistryToFile = FALSE;
-    if (!storageTypeFromBootstrap && Configuration.StorageType == cstRegFile)
+    if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
     {
         storageType = cstRegistry;
         migrateRegistryToFile = TRUE;
