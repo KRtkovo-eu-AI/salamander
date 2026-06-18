@@ -12,7 +12,7 @@
 
 #define MyAppName "Open Salamander Samandarin"
 #define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.5 (x64)"
-#define MyAppVersion "5.0-samandarin-0.5"
+#define MyAppVersion "5.0-samandarin-0.6"
 #define MyAppPublisher "KRtekTM"
 #define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
 #define MyAppExeName "salamand.exe"
@@ -26,7 +26,7 @@
 #endif
 
 [Setup]
-AppId=OpenSalamanderSamandarin-x64-5.0-samandarin-0.5
+AppId=OpenSalamanderSamandarin-x64-5.0-samandarin-0.6
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppDisplayName}
@@ -1237,17 +1237,17 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 ; UninstallString intentionally targets Inno Setup's uninstaller instead of the
 ; legacy remove\remove.exe payload so this installer can uninstall its own files.
 Root: HKCU; Subkey: "Software\Open Salamander Samandarin\Applications\Open Salamander Samandarin (x64)"; ValueType: string; ValueName: "Last Directory"; ValueData: "{app}"; Flags: uninsdeletevalue
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "DisplayName"; ValueData: "{#MyAppDisplayName}"; Flags: uninsdeletekey
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\{#MyAppExeName}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#MyAppVersion}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: dword; ValueName: "VersionMajor"; ValueData: "5"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: dword; ValueName: "VersionMinor"; ValueData: "0"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "InstallLocation"; ValueData: "{app}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "UninstallString"; ValueData: """{uninstallexe}"""
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "QuietUninstallString"; ValueData: """{uninstallexe}"" /SILENT"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "Publisher"; ValueData: "{#MyAppPublisher}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "HelpLink"; ValueData: "{#MyAppURL}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.5 (x64)"; ValueType: string; ValueName: "UrlInfoAbout"; ValueData: "{#MyAppURL}"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "DisplayName"; ValueData: "{#MyAppDisplayName}"; Flags: uninsdeletekey
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\{#MyAppExeName}"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#MyAppVersion}"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: dword; ValueName: "VersionMajor"; ValueData: "5"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: dword; ValueName: "VersionMinor"; ValueData: "0"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "InstallLocation"; ValueData: "{app}"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "UninstallString"; ValueData: """{uninstallexe}"""
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "QuietUninstallString"; ValueData: """{uninstallexe}"" /SILENT"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "Publisher"; ValueData: "{#MyAppPublisher}"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "HelpLink"; ValueData: "{#MyAppURL}"
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "UrlInfoAbout"; ValueData: "{#MyAppURL}"
 
 [UninstallRun]
 ; INF [DelShellExts] listed these shell-extension DLLs for cleanup.
@@ -1265,13 +1265,13 @@ begin
   Result := True;
   DeleteUserConfigurationRegistry := False;
 
-  if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.5') then
+  if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6') then
   begin
     DeleteUserConfigurationRegistry :=
       MsgBox(
         'Do you want to remove the Open Salamander Samandarin user configuration from the registry?'#13#10#13#10 +
         'Registry key:'#13#10 +
-        'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.5'#13#10#13#10 +
+        'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.6'#13#10#13#10 +
         'Choose Yes to delete the key including all contents, or No to keep your settings.',
         mbConfirmation,
         MB_YESNO) = IDYES;
@@ -1281,7 +1281,7 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if (CurUninstallStep = usPostUninstall) and DeleteUserConfigurationRegistry then
-    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.5');
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6');
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -1298,7 +1298,7 @@ begin
   begin
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
       The legacy installer used the registry value
-      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.5\Configuration\Plugins.ver Version (x64)
+      HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.6\Configuration\Plugins.ver Version (x64)
       to decide whether selected plugins should be appended. Inno installs the staged plugins directly. }
     PluginsVer := ExpandConstant('{app}\plugins\plugins.ver');
     if not FileExists(PluginsVer) then
