@@ -1574,16 +1574,15 @@ void LoadPassword(HKEY regKey, CSalamanderRegistryAbstract* registry, const char
     CSalamanderPasswordManagerAbstract* passwordManager = SalamanderGeneral->GetSalamanderPasswordManager();
     BOOL passwordFound = FALSE; // do we have a password?
     // in the first step try to fetch the AES-encrypted or scrambled version of the password
-    DWORD gotType;
     DWORD bufferSize;
     const char* keyName = encryptedPwdName;
-    LONG res = SalamanderGeneral->SalRegQueryValueEx(regKey, keyName, 0, &gotType, NULL, &bufferSize);
-    if (res != ERROR_SUCCESS || gotType != REG_BINARY || bufferSize == 0)
+    if (!registry->GetSize(regKey, keyName, REG_BINARY, bufferSize) || bufferSize == 0)
     {
         keyName = scrambledPwdName;
-        res = SalamanderGeneral->SalRegQueryValueEx(regKey, keyName, 0, &gotType, NULL, &bufferSize);
+        if (!registry->GetSize(regKey, keyName, REG_BINARY, bufferSize))
+            bufferSize = 0;
     }
-    if (res == ERROR_SUCCESS && gotType == REG_BINARY && bufferSize != 0)
+    if (bufferSize != 0)
     {
         BYTE* passwordReg = (BYTE*)SalamanderGeneral->Alloc(bufferSize);
         if (registry->GetValue(regKey, keyName, REG_BINARY, passwordReg, bufferSize))

@@ -79,6 +79,7 @@ namespace RegLib
         CValue* GetValue(LPCTSTR name);
 
         BOOL Clear();
+        BOOL ClearEx(BOOL doNotDeleteHiddenKeysAndValues, BOOL* keyIsNotEmpty);
 
         virtual BOOL Dump(HANDLE hFile, LPCTSTR fullKeyName, LPTSTR name, size_t maxlen);
         virtual BOOL RemoveHiddenKeysAndValues();
@@ -112,7 +113,7 @@ namespace RegLib
         virtual BOOL WINAPI EnumValue(HKEY key, DWORD valIndex, LPTSTR name, DWORD nameSize, LPDWORD valType, LPBYTE data, LPDWORD dataSize);
 
         virtual void WINAPI RemoveHiddenKeysAndValues();
-        virtual BOOL WINAPI ClearKeyEx(HKEY key, BOOL /*doNotDeleteHiddenKeysAndValues*/, BOOL* /*keyIsNotEmpty*/) { return ClearKey(key); }
+        virtual BOOL WINAPI ClearKeyEx(HKEY key, BOOL doNotDeleteHiddenKeysAndValues, BOOL* keyIsNotEmpty);
 
         virtual void WINAPI Release();
         virtual BOOL WINAPI Dump(LPCTSTR fileName, LPCTSTR clearKeyName);
@@ -390,6 +391,39 @@ namespace RegLib
             SubKeys[i]->Release();
         }
         Values.DestroyMembers();
+        return TRUE;
+    }
+
+    BOOL CKey::ClearEx(BOOL doNotDeleteHiddenKeysAndValues, BOOL* keyIsNotEmpty)
+    {
+        int i;
+        for (i = SubKeys.Count - 1; i >= 0; i--)
+        {
+            if (doNotDeleteHiddenKeysAndValues &&
+                ::StrEndsWith(SubKeys[i]->Name, _T(".hidden"), SizeOf(_T(".hidden")) - 1))
+            {
+                if (keyIsNotEmpty != NULL)
+                    *keyIsNotEmpty = TRUE;
+            }
+            else
+            {
+                SubKeys[i]->Release();
+            }
+        }
+
+        for (i = Values.Count - 1; i >= 0; i--)
+        {
+            if (doNotDeleteHiddenKeysAndValues &&
+                ::StrEndsWith(Values[i].Name, _T(".hidden"), SizeOf(_T(".hidden")) - 1))
+            {
+                if (keyIsNotEmpty != NULL)
+                    *keyIsNotEmpty = TRUE;
+            }
+            else
+            {
+                Values.Delete(i);
+            }
+        }
         return TRUE;
     }
 
@@ -690,6 +724,19 @@ namespace RegLib
             return FALSE;
 
         return pKey->Clear();
+    }
+
+    BOOL CMemoryRegistry::ClearKeyEx(HKEY key, BOOL doNotDeleteHiddenKeysAndValues, BOOL* keyIsNotEmpty)
+    {
+        CKey* pKey = (CKey*)key;
+
+        if (!pKey)
+            return FALSE;
+
+        if (keyIsNotEmpty != NULL)
+            *keyIsNotEmpty = FALSE;
+
+        return pKey->ClearEx(doNotDeleteHiddenKeysAndValues, keyIsNotEmpty);
     }
 
     BOOL CMemoryRegistry::CreateOpenKey(HKEY key, LPCTSTR name, HKEY& createdKey, BOOL bCreate)
