@@ -45,6 +45,9 @@
     <ClCompile Include="..\codetbl.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\configstorage.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
     <ClCompile Include="..\color.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
@@ -513,6 +516,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\cfgdlg.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\configstorage.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\codetbl.h">

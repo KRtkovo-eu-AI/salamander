@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -11,6 +11,7 @@
 #include "versinfo.h"
 #include "logo.h"
 #include "reglib\src\regparse.h"
+#include "configstorage.h"
 
 // ****************************************************************************
 
@@ -2672,7 +2673,8 @@ BOOL ExportConfiguration(HWND hParent, const char* fileName, BOOL clearKeyBefore
     BOOL ret = FALSE;
     char keyName[MAX_PATH];
     _snprintf_s(keyName, _TRUNCATE, "HKEY_CURRENT_USER\\%s", SALAMANDER_ROOT_REG);
-    CSalamanderRegistryExAbstract* sysReg = REG_SysRegistryFactory();
+    CSalamanderRegistryExAbstract* activeReg = ConfigurationStorage.GetRegistry();
+    CSalamanderRegistryExAbstract* sysReg = activeReg != NULL ? activeReg : REG_SysRegistryFactory();
     CSalamanderRegistryExAbstract* memReg = REG_MemRegistryFactory();
     if (sysReg != NULL && memReg != NULL)
     {
@@ -2690,7 +2692,7 @@ BOOL ExportConfiguration(HWND hParent, const char* fileName, BOOL clearKeyBefore
         else
             ShowFileError(hParent, IDS_EXPORTCFG_REGERR, fileName, 0 /* not used */);
     }
-    if (sysReg != NULL)
+    if (sysReg != NULL && sysReg != activeReg)
         sysReg->Release();
     if (memReg != NULL)
         memReg->Release();
@@ -2800,7 +2802,8 @@ BOOL ImportConfiguration(HWND hParent, const char* fileName, BOOL ignoreIfNotExi
         memReg->Release();
         if (verIsOK && RPE_OK == regerr) // both the config version and the file itself look OK; import it into the registry
         {
-            CSalamanderRegistryExAbstract* sysReg = REG_SysRegistryFactory();
+            CSalamanderRegistryExAbstract* activeReg = ConfigurationStorage.GetRegistry();
+            CSalamanderRegistryExAbstract* sysReg = activeReg != NULL ? activeReg : REG_SysRegistryFactory();
 
             LoadSaveToRegistryMutex.Enter();
             TRACE_I("ImportConfiguration(): Parse to registry: begin");
@@ -2811,7 +2814,8 @@ BOOL ImportConfiguration(HWND hParent, const char* fileName, BOOL ignoreIfNotExi
             LoadSaveToRegistryMutex.Leave();
 
             Configuration.ConfigWasImported = TRUE;
-            sysReg->Release();
+            if (sysReg != NULL && sysReg != activeReg)
+                sysReg->Release();
         }
         if (RPE_OK != regerr)
         {

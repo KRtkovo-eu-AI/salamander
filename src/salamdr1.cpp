@@ -33,6 +33,7 @@
 #include "color.h"
 #include "toolbar.h"
 #include "darkmode.h"
+#include "configstorage.h"
 
 #include "svg.h"
 
@@ -4318,6 +4319,7 @@ FIND_NEW_SLG_FILE:
         SalMessageBox(NULL, LoadStr(IDS_INVALIDCMDLINE), SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
 
     EXIT_2:
+        ConfigurationStorage.Release();
         if (HLanguage != NULL)
             HANDLES(FreeLibrary(HLanguage));
         goto EXIT_1a;
@@ -4424,6 +4426,12 @@ FIND_NEW_SLG_FILE:
             SplashScreenCloseIfExist();
             goto EXIT_2;
         }
+    }
+
+    if (!ConfigurationStorage.Initialize(cstRegistry, NULL))
+    {
+        SplashScreenCloseIfExist();
+        goto EXIT_2;
     }
 
     InitializeShellib(); // OLE je treba inicializovat pred otevrenim HTML helpu - CSalamanderEvaluation
