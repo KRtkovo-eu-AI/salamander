@@ -46,7 +46,7 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 UninstallDisplayName={#MyAppDisplayName}
 UninstallDisplayIcon=..\..\src\res\samandarin.ico
-; Keep this disabled because [Registry] below writes the legacy Add/Remove Programs key pointing to Inno's uninstaller; enabling it would add a duplicate Inno uninstall entry.
+; Keep this disabled so the installer does not create Add/Remove Programs registry entries.
 CreateUninstallRegKey=no
 SetupIconFile=..\..\src\res\samandarin.ico
 LicenseFile={#SourcePath}\license.txt
@@ -1232,22 +1232,6 @@ Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeNam
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
-[Registry]
-; Legacy keys and values mirrored from [AddRegistryKeys] and [AddRegistryValues].
-; UninstallString intentionally targets Inno Setup's uninstaller instead of the
-; legacy remove\remove.exe payload so this installer can uninstall its own files.
-Root: HKCU; Subkey: "Software\Open Salamander Samandarin\Applications\Open Salamander Samandarin (x64)"; ValueType: string; ValueName: "Last Directory"; ValueData: "{app}"; Flags: uninsdeletevalue
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "DisplayName"; ValueData: "{#MyAppDisplayName}"; Flags: uninsdeletekey
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\{#MyAppExeName}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#MyAppVersion}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: dword; ValueName: "VersionMajor"; ValueData: "5"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: dword; ValueName: "VersionMinor"; ValueData: "0"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "InstallLocation"; ValueData: "{app}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "UninstallString"; ValueData: """{uninstallexe}"""
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "QuietUninstallString"; ValueData: """{uninstallexe}"" /SILENT"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "Publisher"; ValueData: "{#MyAppPublisher}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "HelpLink"; ValueData: "{#MyAppURL}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Open Salamander 5.0-samandarin-0.6 (x64)"; ValueType: string; ValueName: "UrlInfoAbout"; ValueData: "{#MyAppURL}"
 
 [UninstallRun]
 ; INF [DelShellExts] listed these shell-extension DLLs for cleanup.
@@ -1258,18 +1242,46 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 
 
 var
-  DeleteUserConfigurationRegistry: Boolean;
+  DeleteUserConfiguration: Boolean;
+  DeleteUserConfigurationFromFile: Boolean;
+
+function IsFileConfigurationStorageSelected(): Boolean;
+var
+  StorageType: String;
+begin
+  StorageType := GetIniString(
+    'Configuration',
+    'StorageType',
+    'Registry',
+    ExpandConstant('{app}\configstorage.ini'));
+  Result := CompareText(StorageType, 'RegFile') = 0;
+end;
 
 function InitializeUninstall(): Boolean;
 begin
   Result := True;
-  DeleteUserConfigurationRegistry := False;
+  DeleteUserConfiguration := False;
+  DeleteUserConfigurationFromFile := IsFileConfigurationStorageSelected();
 
-  if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6') then
+  if DeleteUserConfigurationFromFile then
   begin
-    DeleteUserConfigurationRegistry :=
+    if FileExists(ExpandConstant('{app}\config.reg')) or FileExists(ExpandConstant('{app}\configstorage.ini')) then
+    begin
+      DeleteUserConfiguration :=
+        MsgBox(
+          'Do you want to remove the Open Salamander Samandarin user configuration?'#13#10#13#10 +
+          'File storage:'#13#10 +
+          ExpandConstant('{app}\config.reg') + #13#10#13#10 +
+          'Choose Yes to delete the configuration files, or No to keep your settings.',
+          mbConfirmation,
+          MB_YESNO) = IDYES;
+    end;
+  end
+  else if RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6') then
+  begin
+    DeleteUserConfiguration :=
       MsgBox(
-        'Do you want to remove the Open Salamander Samandarin user configuration from the registry?'#13#10#13#10 +
+        'Do you want to remove the Open Salamander Samandarin user configuration?'#13#10#13#10 +
         'Registry key:'#13#10 +
         'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.6'#13#10#13#10 +
         'Choose Yes to delete the key including all contents, or No to keep your settings.',
@@ -1280,8 +1292,16 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if (CurUninstallStep = usPostUninstall) and DeleteUserConfigurationRegistry then
-    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6');
+  if (CurUninstallStep = usPostUninstall) and DeleteUserConfiguration then
+  begin
+    if DeleteUserConfigurationFromFile then
+    begin
+      DeleteFile(ExpandConstant('{app}\config.reg'));
+      DeleteFile(ExpandConstant('{app}\configstorage.ini'));
+    end
+    else
+      RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6');
+  end;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
