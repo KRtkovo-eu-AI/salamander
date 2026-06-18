@@ -4,6 +4,7 @@
 #include "precomp.h"
 #include "configstorage.h"
 #include "consts.h"
+#include "cfgdlg.h"
 
 CConfigurationStorage ConfigurationStorage;
 
@@ -12,6 +13,7 @@ CConfigurationStorage::CConfigurationStorage()
     StorageType = cstRegistry;
     Registry = NULL;
     FilePath[0] = 0;
+    DoNotDeleteHiddenKeysAndValues = TRUE;
 }
 
 CConfigurationStorage::~CConfigurationStorage()
@@ -33,38 +35,144 @@ BOOL CConfigurationStorage::BuildRootKeyName(char* keyName, int keyNameSize)
     return TRUE;
 }
 
+BOOL CConfigurationStorage::GetPortableConfigFilePath(char* filePath, int filePathSize)
+{
+    if (filePath == NULL || filePathSize <= 0)
+        return FALSE;
+
+    DWORD len = GetModuleFileName(NULL, filePath, filePathSize);
+    if (len == 0 || len >= (DWORD)filePathSize)
+        return FALSE;
+
+    char* slash = strrchr(filePath, '\\');
+    if (slash != NULL)
+        slash++;
+    else
+        slash = filePath;
+
+    strcpy_s(slash, filePathSize - (int)(slash - filePath), "config.reg");
+    return TRUE;
+}
+
+void CConfigurationStorage::ShowRegFileLoadError(const char* fileName, eRPE_ERROR err)
+{
+    char text[MAX_PATH + 300];
+    _snprintf_s(text, _TRUNCATE,
+                "Unable to load portable configuration file:\n\n%s\n\nThe file is not a valid Registry configuration file or contains unsupported data (parser error %d). The original file was left unchanged.",
+                fileName != NULL ? fileName : "config.reg", err);
+    SalMessageBox(NULL, text, LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
+}
+
+void CConfigurationStorage::ShowRegFileSaveError(const char* fileName, DWORD err)
+{
+    char text[MAX_PATH + 300];
+    _snprintf_s(text, _TRUNCATE,
+                "Unable to save portable configuration file:\n\n%s\n\nThe previous configuration file was left unchanged.\n\n%s",
+                fileName != NULL ? fileName : "config.reg", err != 0 ? GetErrorText(err) : "");
+    SalMessageBox(NULL, text, LoadStr(IDS_ERRORSAVECONFIG), MB_OK | MB_ICONEXCLAMATION);
+}
+
 BOOL CConfigurationStorage::LoadRegFile(CSalamanderRegistryExAbstract* registry)
 {
-    if (registry == NULL || FilePath[0] == 0)
+    if (registry == NULL)
         return FALSE;
+
+    if (FilePath[0] == 0 && !GetPortableConfigFilePath(FilePath, SizeOf(FilePath)))
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(FilePath);
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+    {
+        DWORD err = GetLastError();
+        return err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND;
+    }
+    if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+    {
+        ShowRegFileLoadError(FilePath, RPE_NOT_REG_FILE);
+        return FALSE;
+    }
 
     HANDLE file = HANDLES_Q(CreateFile(FilePath, GENERIC_READ, FILE_SHARE_READ, NULL,
                                        OPEN_EXISTING, 0, 0));
     if (file == INVALID_HANDLE_VALUE)
-        return GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND;
+    {
+        ShowRegFileLoadError(FilePath, RPE_KEY_OPEN);
+        return FALSE;
+    }
 
     BOOL ret = FALSE;
-    DWORD size = GetFileSize(file, NULL);
-    if (size != INVALID_FILE_SIZE && size > 0)
+    LARGE_INTEGER size;
+    size.QuadPart = 0;
+    if (GetFileSizeEx(file, &size) && size.QuadPart == 0)
+        ret = TRUE; // empty portable config means clean/default configuration, same as a missing Registry key
+    else if (size.QuadPart > 0 && size.HighPart == 0)
     {
-        LPTSTR buf = (LPTSTR)malloc(size + sizeof(WCHAR));
+        LPTSTR buf = (LPTSTR)malloc(size.LowPart + sizeof(WCHAR));
         if (buf != NULL)
         {
             DWORD bytesRead;
-            if (ReadFile(file, buf, size, &bytesRead, NULL))
+            if (ReadFile(file, buf, size.LowPart, &bytesRead, NULL))
             {
                 *(WCHAR*)((LPBYTE)buf + bytesRead) = 0;
                 if (ConvertIfNeeded(&buf, bytesRead) != 0)
-                    ret = Parse(buf, registry, TRUE) == RPE_OK;
+                {
+                    eRPE_ERROR regerr = Parse(buf, registry, DoNotDeleteHiddenKeysAndValues);
+                    ret = regerr == RPE_OK;
+                    if (!ret)
+                        ShowRegFileLoadError(FilePath, regerr);
+                }
+                else
+                    ShowRegFileLoadError(FilePath, RPE_OUT_OF_MEMORY);
             }
+            else
+                ShowRegFileLoadError(FilePath, RPE_KEY_OPEN);
             free(buf);
         }
+        else
+            ShowRegFileLoadError(FilePath, RPE_OUT_OF_MEMORY);
     }
     else
-        ret = size == 0;
+        ShowRegFileLoadError(FilePath, RPE_INVALID_FORMAT);
 
     HANDLES(CloseHandle(file));
     return ret;
+}
+
+BOOL CConfigurationStorage::SaveRegFile()
+{
+    if (Registry == NULL)
+        return FALSE;
+
+    if (FilePath[0] == 0 && !GetPortableConfigFilePath(FilePath, SizeOf(FilePath)))
+        return FALSE;
+
+    char tmpFileName[MAX_PATH];
+    _snprintf_s(tmpFileName, _TRUNCATE, "%s.tmp", FilePath);
+
+    char clearKeyName[MAX_PATH];
+    const char* clearKeyNamePtr = BuildRootKeyName(clearKeyName, SizeOf(clearKeyName)) ? clearKeyName : NULL;
+
+    LoadSaveToRegistryMutex.Enter();
+    DeleteFile(tmpFileName);
+    // Portable config is the live configuration store, so preserve hidden entries.
+    // ExportConfiguration() still removes hidden entries for user-visible exports.
+    BOOL dumped = Registry->Dump(tmpFileName, clearKeyNamePtr);
+    DWORD err = dumped ? ERROR_SUCCESS : GetLastError();
+    if (dumped && !MoveFileEx(tmpFileName, FilePath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    {
+        err = GetLastError();
+        dumped = FALSE;
+    }
+    LoadSaveToRegistryMutex.Leave();
+
+    if (!dumped)
+    {
+        DeleteFile(tmpFileName);
+        ShowRegFileSaveError(FilePath, err);
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 BOOL CConfigurationStorage::Initialize(CConfigurationStorageType type, const char* filePath)
@@ -72,10 +180,13 @@ BOOL CConfigurationStorage::Initialize(CConfigurationStorageType type, const cha
     Release();
 
     StorageType = type;
-    if (filePath != NULL)
+    if (filePath != NULL && filePath[0] != 0)
         strncpy_s(FilePath, filePath, _TRUNCATE);
     else
         FilePath[0] = 0;
+
+    if (StorageType == cstRegFile && FilePath[0] == 0 && !GetPortableConfigFilePath(FilePath, SizeOf(FilePath)))
+        return FALSE;
 
     Registry = CreateRegistry(StorageType);
     if (Registry == NULL)
@@ -126,6 +237,9 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
     Registry = newRegistry;
     StorageType = newType;
 
+    if (StorageType == cstRegFile && migrateCurrentData)
+        return SaveRegFile();
+
     return TRUE;
 }
 
@@ -148,10 +262,7 @@ BOOL CConfigurationStorage::Save()
     if (StorageType == cstRegistry)
         return TRUE;
 
-    if (FilePath[0] == 0)
-        return FALSE;
-
-    return Registry->Dump(FilePath, NULL);
+    return SaveRegFile();
 }
 
 BOOL CConfigurationStorage::Flush()

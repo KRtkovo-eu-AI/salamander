@@ -17,10 +17,14 @@ protected:
     CConfigurationStorageType StorageType;
     CSalamanderRegistryExAbstract* Registry;
     char FilePath[MAX_PATH];
+    BOOL DoNotDeleteHiddenKeysAndValues;
 
     CSalamanderRegistryExAbstract* CreateRegistry(CConfigurationStorageType type);
     BOOL BuildRootKeyName(char* keyName, int keyNameSize);
     BOOL LoadRegFile(CSalamanderRegistryExAbstract* registry);
+    BOOL SaveRegFile();
+    void ShowRegFileLoadError(const char* fileName, eRPE_ERROR err);
+    void ShowRegFileSaveError(const char* fileName, DWORD err);
 
 public:
     CConfigurationStorage();
@@ -34,6 +38,8 @@ public:
     BOOL Save();
     BOOL Flush();
     void Release();
+
+    BOOL GetPortableConfigFilePath(char* filePath, int filePathSize);
 };
 
 extern CConfigurationStorage ConfigurationStorage;

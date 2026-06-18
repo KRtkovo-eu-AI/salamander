@@ -248,9 +248,21 @@ BOOL GetValueDontCheckTypeAux(HKEY hKey, const char* name, void* buffer, DWORD b
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
     if (registry != NULL)
-        return registry->GetValue(hKey, name, REG_BINARY, buffer, bufferSize) ||
-               registry->GetValue(hKey, name, REG_DWORD, buffer, bufferSize) ||
-               registry->GetValue(hKey, name, REG_SZ, buffer, bufferSize);
+    {
+        char valueName[MAX_PATH];
+        DWORD valueType;
+        DWORD dataSize;
+        for (DWORD i = 0;; i++)
+        {
+            valueName[0] = 0;
+            dataSize = bufferSize;
+            if (!registry->EnumValue(hKey, i, valueName, SizeOf(valueName), &valueType, (LPBYTE)buffer, &dataSize))
+                break;
+            if (strcmp(valueName, name) == 0)
+                return TRUE;
+        }
+        return FALSE;
+    }
 
     return SalRegQueryValueEx(hKey, name, 0, NULL, (BYTE*)buffer, &bufferSize) == ERROR_SUCCESS;
 }

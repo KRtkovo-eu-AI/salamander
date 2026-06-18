@@ -16,6 +16,7 @@
 #include "fileswnd.h"
 #include "tabwnd.h"
 #include "mainwnd.h"
+#include "configstorage.h"
 #include "cfgdlg.h"
 #include "usermenu.h"
 #include "viewer.h"
@@ -2741,6 +2742,8 @@ void CMainWindow::SaveConfig(HWND parent)
         }
         CloseKey(salamander);
     }
+
+    ConfigurationStorage.Flush();
 
     LoadSaveToRegistryMutex.Leave();
 
