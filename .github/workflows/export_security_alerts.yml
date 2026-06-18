@@ -1,0 +1,30 @@
+            - name: GitHub Security Alert Export
+  # You may pin to the exact commit or the version.
+  # uses: austenstone/security-export@58edeb92925c7be3718da7a807f13d9708e835e2
+  uses: austenstone/security-export@v1.1
+  with:
+    # The GitHub token used to create an authenticated client
+    github-token: # optional, default is ${{ github.token }}
+    # The GitHub Enterprise
+    enterprise: # optional
+    # The GitHub organization
+    organization: # optional
+    # The GitHub repository
+    repository: # optional, default is ${{ github.repository }}
+    # Whether to export code scanning alerts
+    code-scanning: # optional, default is true
+    # query parameters as JSON Ex: {"state": dismissed} https://docs.github.com/en/rest/code-scanning/code-scanning?apiVersion=2022-11-28#list-code-scanning-alerts-for-a-repository
+    code-scanning-query-parameters: # optional
+    # Whether to export secret scanning alerts
+    secret-scanning: # optional, default is true
+    # query parameters as JSON https://docs.github.com/en/rest/secret-scanning/secret-scanning?apiVersion=2022-11-28#list-secret-scanning-alerts-for-a-repository
+    secret-scanning-query-parameters: # optional
+    # Whether to export dependabot alerts
+    dependabot: # optional, default is true
+    # query parameters as JSON Ex: {"state": dismissed} https://docs.github.com/en/rest/dependabot/alerts?apiVersion=2022-11-28#list-dependabot-alerts-for-a-repository
+    dependabot-query-parameters: # optional
+    # Whether to create an artifact with the alerts
+    create-artifact: # optional, default is true
+    # The name of the artifact
+    artifact-name: # optional, default is GitHub Security Alerts
+          
