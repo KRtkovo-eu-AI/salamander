@@ -1524,6 +1524,8 @@ BOOL CSalamanderRegistry::GetValue(HKEY key, const char* name, DWORD type, void*
 BOOL CSalamanderRegistry::SetValue(HKEY key, const char* name, DWORD type, const void* data, DWORD dataSize)
 {
     SLOW_CALL_STACK_MESSAGE1("CSalamanderRegistry::SetValue()");
+    if (dataSize == -1)
+        dataSize = (DWORD)strlen((char*)data) + 1;
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
     return registry != NULL ? registry->SetValue(key, name, type, data, dataSize) : ::SetValue(key, name, type, data, dataSize);
 }

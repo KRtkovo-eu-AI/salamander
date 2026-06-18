@@ -272,12 +272,13 @@ BOOL GetValueDontCheckTypeAux(HKEY hKey, const char* name, void* buffer, DWORD b
 BOOL SetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type,
                  const void* data, DWORD dataSize, BOOL quiet)
 {
+    if (dataSize == -1)
+        dataSize = (DWORD)strlen((char*)data) + 1;
+
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
     if (registry != NULL)
         return registry->SetValue(hKey, name, type, data, dataSize);
 
-    if (dataSize == -1)
-        dataSize = (DWORD)strlen((char*)data) + 1;
     LONG res = RegSetValueEx(hKey, name, 0, type, (CONST BYTE*)data, dataSize);
     if (res == ERROR_SUCCESS)
         return TRUE;
