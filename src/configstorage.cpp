@@ -84,6 +84,21 @@ BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType t
                                      type == cstRegFile ? "RegFile" : "Registry", fileName);
 }
 
+
+BOOL CConfigurationStorage::UseActiveRegistryForKey(HKEY key, const char* name)
+{
+    if (Registry == NULL || StorageType != cstRegFile)
+        return FALSE;
+
+    if (key == HKEY_CURRENT_USER)
+        return SALAMANDER_ROOT_REG != NULL && name != NULL && strcmp(name, SALAMANDER_ROOT_REG) == 0;
+
+    if (key == HKEY_LOCAL_MACHINE || key == HKEY_CLASSES_ROOT || key == HKEY_USERS || key == HKEY_CURRENT_CONFIG)
+        return FALSE;
+
+    return TRUE;
+}
+
 BOOL CConfigurationStorage::OpenConfigurationRootKey(HKEY& key, BOOL createKey)
 {
     if (SALAMANDER_ROOT_REG == NULL)

@@ -4422,12 +4422,16 @@ FIND_NEW_SLG_FILE:
 
     CALL_STACK_MESSAGE1("WinMainBody::FindLatestConfiguration");
 
+    char portableConfigPath[MAX_PATH];
+    BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
+                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
+
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
-    else if (storageTypeFromBootstrap && storageType == cstRegFile)
-        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // portable config is authoritative; do not offer Registry import
+    else if (storageTypeFromBootstrap && storageType == cstRegFile && portableConfigExists)
+        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // existing portable config is authoritative; do not offer Registry import
     else
     {
         if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
@@ -4444,9 +4448,6 @@ FIND_NEW_SLG_FILE:
     BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
     BOOL saveNewConfig = currentCfgDoesNotExist;
 
-    char portableConfigPath[MAX_PATH];
-    BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
-                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
     BOOL registryConfigExists = !currentCfgDoesNotExist;
     BOOL migrateRegistryToFile = FALSE;
     if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)

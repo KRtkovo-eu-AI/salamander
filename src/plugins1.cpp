@@ -1480,28 +1480,28 @@ BOOL CSalamanderRegistry::ClearKey(HKEY key)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::ClearKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->ClearKey(key) : ::ClearKey(key);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->ClearKey(key) : ::ClearKey(key);
 }
 
 BOOL CSalamanderRegistry::CreateKey(HKEY key, const char* name, HKEY& createdKey)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::CreateKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->CreateKey(key, name, createdKey) : ::CreateKey(key, name, createdKey);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name) ? registry->CreateKey(key, name, createdKey) : ::CreateKey(key, name, createdKey);
 }
 
 BOOL CSalamanderRegistry::OpenKey(HKEY key, const char* name, HKEY& openedKey)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::OpenKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->OpenKey(key, name, openedKey) : ::OpenKey(key, name, openedKey);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name) ? registry->OpenKey(key, name, openedKey) : ::OpenKey(key, name, openedKey);
 }
 
 void CSalamanderRegistry::CloseKey(HKEY key)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::CloseKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key))
         registry->CloseKey(key);
     else
         ::CloseKey(key);
@@ -1511,14 +1511,14 @@ BOOL CSalamanderRegistry::DeleteKey(HKEY key, const char* name)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::DeleteKey()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->DeleteKey(key, name) : ::DeleteKey(key, name);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key, name) ? registry->DeleteKey(key, name) : ::DeleteKey(key, name);
 }
 
 BOOL CSalamanderRegistry::GetValue(HKEY key, const char* name, DWORD type, void* buffer, DWORD bufferSize)
 {
     SLOW_CALL_STACK_MESSAGE1("CSalamanderRegistry::GetValue()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->GetValue(key, name, type, buffer, bufferSize) : ::GetValue(key, name, type, buffer, bufferSize);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->GetValue(key, name, type, buffer, bufferSize) : ::GetValue(key, name, type, buffer, bufferSize);
 }
 
 BOOL CSalamanderRegistry::SetValue(HKEY key, const char* name, DWORD type, const void* data, DWORD dataSize)
@@ -1527,21 +1527,21 @@ BOOL CSalamanderRegistry::SetValue(HKEY key, const char* name, DWORD type, const
     if (dataSize == -1)
         dataSize = (DWORD)strlen((char*)data) + 1;
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->SetValue(key, name, type, data, dataSize) : ::SetValue(key, name, type, data, dataSize);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->SetValue(key, name, type, data, dataSize) : ::SetValue(key, name, type, data, dataSize);
 }
 
 BOOL CSalamanderRegistry::DeleteValue(HKEY key, const char* name)
 {
     CALL_STACK_MESSAGE1("CSalamanderRegistry::DeleteValue()");
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->DeleteValue(key, name) : ::DeleteValue(key, name);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->DeleteValue(key, name) : ::DeleteValue(key, name);
 }
 
 BOOL CSalamanderRegistry::GetSize(HKEY key, const char* name, DWORD type, DWORD& bufferSize)
 {
     SLOW_CALL_STACK_MESSAGE3("CSalamanderRegistry::GetSize(, %s, 0x%x, )", name, type);
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    return registry != NULL ? registry->GetSize(key, name, type, bufferSize) : ::GetSize(key, name, type, bufferSize);
+    return registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key) ? registry->GetSize(key, name, type, bufferSize) : ::GetSize(key, name, type, bufferSize);
 }
 
 //

@@ -14,7 +14,7 @@ CRegistryWorkerThread RegistryWorkerThread;
 BOOL ClearKeyAux(HKEY key)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(key))
         return registry->ClearKey(key);
 
     char name[MAX_PATH];
@@ -50,7 +50,7 @@ BOOL ClearKeyAux(HKEY key)
 BOOL CreateKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& createdKey, BOOL quiet)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey, name))
         return registry->CreateKey(hKey, name, createdKey);
 
     DWORD createType; // info whether the key was created or just opened
@@ -83,7 +83,7 @@ BOOL CreateKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& createdKey, BO
 BOOL OpenKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& openedKey, BOOL quiet)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey, name))
         return registry->OpenKey(hKey, name, openedKey);
 
     LONG res = HANDLES_Q(RegOpenKeyEx(hKey, name, 0, KEY_READ, &openedKey));
@@ -113,7 +113,7 @@ BOOL OpenKeyAux(HWND parent, HKEY hKey, const char* name, HKEY& openedKey, BOOL 
 void CloseKeyAux(HKEY hKey)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
     {
         registry->CloseKey(hKey);
         return;
@@ -127,7 +127,7 @@ void CloseKeyAux(HKEY hKey)
 BOOL DeleteKeyAux(HKEY hKey, const char* name)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey, name))
         return registry->DeleteKey(hKey, name);
 
     return RegDeleteKey(hKey, name) == ERROR_SUCCESS;
@@ -138,7 +138,7 @@ BOOL DeleteKeyAux(HKEY hKey, const char* name)
 BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buffer, DWORD bufferSize, BOOL quiet)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
         return registry->GetValue(hKey, name, type, buffer, bufferSize);
 
     DWORD gettedType;
@@ -188,7 +188,7 @@ BOOL GetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type, void* buf
 BOOL GetValue2Aux(HWND parent, HKEY hKey, const char* name, DWORD type1, DWORD type2, DWORD* returnedType, void* buffer, DWORD bufferSize)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
     {
         if (registry->GetValue(hKey, name, type1, buffer, bufferSize))
         {
@@ -247,7 +247,7 @@ BOOL GetValue2Aux(HWND parent, HKEY hKey, const char* name, DWORD type1, DWORD t
 BOOL GetValueDontCheckTypeAux(HKEY hKey, const char* name, void* buffer, DWORD bufferSize)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
     {
         char valueName[MAX_PATH];
         DWORD valueType;
@@ -276,7 +276,7 @@ BOOL SetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type,
         dataSize = (DWORD)strlen((char*)data) + 1;
 
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
         return registry->SetValue(hKey, name, type, data, dataSize);
 
     LONG res = RegSetValueEx(hKey, name, 0, type, (CONST BYTE*)data, dataSize);
@@ -306,7 +306,7 @@ BOOL SetValueAux(HWND parent, HKEY hKey, const char* name, DWORD type,
 BOOL DeleteValueAux(HKEY hKey, const char* name)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
         return registry->DeleteValue(hKey, name);
 
     return RegDeleteValue(hKey, name) == ERROR_SUCCESS;
@@ -317,7 +317,7 @@ BOOL DeleteValueAux(HKEY hKey, const char* name)
 BOOL GetSizeAux(HWND parent, HKEY hKey, const char* name, DWORD type, DWORD& bufferSize)
 {
     CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
-    if (registry != NULL)
+    if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(hKey))
         return registry->GetSize(hKey, name, type, bufferSize);
 
     DWORD gettedType;

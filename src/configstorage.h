@@ -44,6 +44,7 @@ public:
     BOOL LoadStorageTypeBootstrap(CConfigurationStorageType& type);
     BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type);
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
+    BOOL UseActiveRegistryForKey(HKEY key, const char* name = NULL);
 };
 
 extern CConfigurationStorage ConfigurationStorage;
