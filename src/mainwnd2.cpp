@@ -3311,10 +3311,17 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (OpenKey(salamander, SALAMANDER_DEFDIRS_REG, actKey))
         {
-            DWORD values;
-            DWORD res = RegQueryInfoKey(actKey, NULL, 0, 0, NULL, NULL, NULL, &values, NULL,
-                                        NULL, NULL, NULL);
-            if (res == ERROR_SUCCESS)
+            BOOL useActiveRegistry = FALSE;
+            CSalamanderRegistryExAbstract* registry = ConfigurationStorage.GetRegistry();
+            if (registry != NULL && ConfigurationStorage.UseActiveRegistryForKey(actKey))
+                useActiveRegistry = TRUE;
+
+            DWORD values = 0;
+            DWORD res = ERROR_SUCCESS;
+            if (!useActiveRegistry)
+                res = RegQueryInfoKey(actKey, NULL, 0, 0, NULL, NULL, NULL, &values, NULL,
+                                      NULL, NULL, NULL);
+            if (useActiveRegistry || res == ERROR_SUCCESS)
             {
                 char dir[4] = " :\\"; // reset DefaultDir
                 char d;
@@ -3329,11 +3336,19 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 DWORD nameLen, dataLen, type;
 
                 int i;
-                for (i = 0; i < (int)values; i++)
+                for (i = 0; useActiveRegistry || i < (int)values; i++)
                 {
                     nameLen = 2;
                     dataLen = MAX_PATH;
-                    res = RegEnumValue(actKey, i, name, &nameLen, 0, &type, path, &dataLen);
+                    if (useActiveRegistry)
+                    {
+                        name[0] = 0;
+                        if (!registry->EnumValue(actKey, i, name, SizeOf(name), &type, path, &dataLen))
+                            break;
+                        res = ERROR_SUCCESS;
+                    }
+                    else
+                        res = RegEnumValue(actKey, i, name, &nameLen, 0, &type, path, &dataLen);
                     if (res == ERROR_SUCCESS)
                         if (type == REG_SZ)
                         {
