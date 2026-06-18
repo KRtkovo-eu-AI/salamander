@@ -114,6 +114,8 @@
 #define IDC_CLEARREADONLY               304
 #define IDC_QUICKSEARCH_ALT             305
 #define IDC_CLICKTORENAME               306
+#define IDC_SAVE_TO_REGISTRY            307
+#define IDC_SAVE_TO_FILE                308
 #define IDC_SELECTIONBOX                309
 #define IDC_DISABLEDANDD                310
 #define IDC_SPACESELECTING              311

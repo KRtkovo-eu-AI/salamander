@@ -4428,18 +4428,61 @@ FIND_NEW_SLG_FILE:
         }
     }
 
-    if (!ConfigurationStorage.Initialize(cstRegistry, NULL))
-    {
-        SplashScreenCloseIfExist();
-        goto EXIT_2;
-    }
-
-    InitializeShellib(); // OLE je treba inicializovat pred otevrenim HTML helpu - CSalamanderEvaluation
-
     // pokud jeste neexistuje novy klic konfigurace, vytvorime ho pred pripadnym smazanim
     // starych klicu
     BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
     BOOL saveNewConfig = currentCfgDoesNotExist;
+
+    CConfigurationStorageType storageType = cstRegistry;
+    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+    char portableConfigPath[MAX_PATH];
+    BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
+                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
+    BOOL registryConfigExists = !currentCfgDoesNotExist;
+    BOOL migrateRegistryToFile = FALSE;
+    if (!storageTypeFromBootstrap)
+    {
+        if (portableConfigExists && registryConfigExists)
+        {
+            storageType = SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_BOTHSOURCESPROMPT), LoadStr(IDS_QUESTION),
+                                        MB_YESNO | MB_ICONQUESTION) == IDYES
+                              ? cstRegFile
+                              : cstRegistry;
+        }
+        else if (portableConfigExists)
+        {
+            if (SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_USEFILEPROMPT), LoadStr(IDS_QUESTION),
+                              MB_YESNO | MB_ICONQUESTION) == IDYES)
+                storageType = cstRegFile;
+        }
+        else if (registryConfigExists)
+        {
+            if (SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT), LoadStr(IDS_QUESTION),
+                              MB_YESNO | MB_ICONQUESTION) == IDYES)
+            {
+                storageType = cstRegistry;
+                migrateRegistryToFile = TRUE;
+            }
+        }
+    }
+
+    if (!ConfigurationStorage.Initialize(storageType, NULL))
+    {
+        SplashScreenCloseIfExist();
+        goto EXIT_2;
+    }
+    Configuration.StorageType = storageType;
+    if (migrateRegistryToFile)
+    {
+        if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE))
+        {
+            SplashScreenCloseIfExist();
+            goto EXIT_2;
+        }
+        Configuration.StorageType = cstRegFile;
+    }
+
+    InitializeShellib(); // OLE je treba inicializovat pred otevrenim HTML helpu - CSalamanderEvaluation
 
     // pokud uzivatel nechce vic instanci, pouze aktivujeme predchozi
     if (!currentCfgDoesNotExist &&

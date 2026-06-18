@@ -40,6 +40,9 @@ public:
     void Release();
 
     BOOL GetPortableConfigFilePath(char* filePath, int filePathSize);
+    BOOL GetStorageTypeBootstrapFilePath(char* filePath, int filePathSize);
+    BOOL LoadStorageTypeBootstrap(CConfigurationStorageType& type);
+    BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type);
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
 };
 

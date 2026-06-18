@@ -2017,4 +2017,11 @@ STRINGTABLE
  IDS_TREEVIEW_PANEL_CLOSE, "Close Tree View panel"
  IDS_TREEVIEW_PANEL_AUTO_HIDE, "Auto hide Tree View panel"
  IDS_TREEVIEW_PANEL_PIN, "Pin Tree View panel"
+ IDS_CFGSTORAGE_FILEPATHERR, "Cannot determine path to portable configuration file config.reg."
+ IDS_CFGSTORAGE_FILEWRITEERR, "Cannot write to portable configuration file config.reg. Check permissions in the program folder."
+ IDS_CFGSTORAGE_SWITCHCONFIRM, "Do you want to switch configuration storage and migrate current configuration data?"
+ IDS_CFGSTORAGE_MIGRATIONERR, "Configuration storage migration failed. The previous storage type remains active."
+ IDS_CFGSTORAGE_USEFILEPROMPT, "Portable configuration file config.reg was found next to the application. Do you want to use file-based configuration storage?"
+ IDS_CFGSTORAGE_IMPORTFILEPROMPT, "Existing Registry configuration was found and portable config.reg does not exist. Do you want to import current configuration into file-based storage?"
+ IDS_CFGSTORAGE_BOTHSOURCESPROMPT, "Both Registry configuration and portable config.reg were found. Click Yes to use file-based storage, or No to keep using Registry storage."
 }

@@ -36,6 +36,54 @@ BOOL CConfigurationStorage::BuildRootKeyName(char* keyName, int keyNameSize)
 }
 
 
+
+BOOL CConfigurationStorage::GetStorageTypeBootstrapFilePath(char* filePath, int filePathSize)
+{
+    if (filePath == NULL || filePathSize <= 0)
+        return FALSE;
+
+    DWORD len = GetModuleFileName(NULL, filePath, filePathSize);
+    if (len == 0 || len >= (DWORD)filePathSize)
+        return FALSE;
+
+    char* slash = strrchr(filePath, '\\');
+    if (slash != NULL)
+        slash++;
+    else
+        slash = filePath;
+
+    strcpy_s(slash, filePathSize - (int)(slash - filePath), "configstorage.ini");
+    return TRUE;
+}
+
+BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& type)
+{
+    char fileName[MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    char value[40];
+    DWORD read = GetPrivateProfileString("Configuration", "StorageType", "", value, SizeOf(value), fileName);
+    if (read == 0)
+        return FALSE;
+
+    if (_stricmp(value, "RegFile") == 0)
+        type = cstRegFile;
+    else
+        type = cstRegistry;
+    return TRUE;
+}
+
+BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType type)
+{
+    char fileName[MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    return WritePrivateProfileString("Configuration", "StorageType",
+                                     type == cstRegFile ? "RegFile" : "Registry", fileName);
+}
+
 BOOL CConfigurationStorage::OpenConfigurationRootKey(HKEY& key, BOOL createKey)
 {
     if (SALAMANDER_ROOT_REG == NULL)
@@ -251,14 +299,22 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
         return FALSE;
     }
 
-    if (Registry != NULL)
-        Registry->Release();
+    CSalamanderRegistryExAbstract* oldRegistry = Registry;
+    CConfigurationStorageType oldType = StorageType;
     Registry = newRegistry;
     StorageType = newType;
 
-    if (StorageType == cstRegFile && migrateCurrentData)
-        return SaveRegFile();
+    if (StorageType == cstRegFile && migrateCurrentData && !SaveRegFile())
+    {
+        Registry = oldRegistry;
+        StorageType = oldType;
+        newRegistry->Release();
+        return FALSE;
+    }
 
+    if (oldRegistry != NULL)
+        oldRegistry->Release();
+    SaveStorageTypeBootstrap(StorageType);
     return TRUE;
 }
 

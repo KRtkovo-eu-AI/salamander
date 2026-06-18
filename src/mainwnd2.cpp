@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -390,6 +390,7 @@ const char* CONFIG_LONGNAMES_REG = "Use Long File Names";
 const char* CONFIG_RECYCLEBIN_REG = "Use Recycle Bin";
 const char* CONFIG_RECYCLEMASKS_REG = "Use Recycle Bin For";
 const char* CONFIG_SAVEONEXIT_REG = "Save Configuration On Exit";
+const char* CONFIG_STORAGETYPE_REG = "Configuration Storage Type";
 const char* CONFIG_SHOWGREPERRORS_REG = "Show Errors In Find Files";
 const char* CONFIG_FINDFULLROW_REG = "Show Full Row In Find Files";
 const char* CONFIG_MINBEEPWHENDONE_REG = "Use Speeker Beep";
@@ -2050,6 +2051,8 @@ void CMainWindow::SaveConfig(HWND parent)
                          Configuration.RecycleMasks.GetMasksString(), -1);
                 SetValue(actKey, CONFIG_SAVEONEXIT_REG, REG_DWORD,
                          &Configuration.AutoSave, sizeof(DWORD));
+                SetValue(actKey, CONFIG_STORAGETYPE_REG, REG_DWORD,
+                         &Configuration.StorageType, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SHOWGREPERRORS_REG, REG_DWORD,
                          &Configuration.ShowGrepErrors, sizeof(DWORD));
                 SetValue(actKey, CONFIG_FINDFULLROW_REG, REG_DWORD,

@@ -9,6 +9,7 @@
 #include "edtlbwnd.h"
 #include "cfgdlg.h"
 #include "dialogs.h"
+#include "configstorage.h"
 #include "plugins.h"
 #include "fileswnd.h"
 #include "shellib.h"
@@ -312,6 +313,7 @@ CConfiguration::CConfiguration()
     ConfigVersion = 0;
     IncludeDirs = FALSE;
     AutoSave = TRUE;
+    StorageType = cstRegistry;
     CloseShell = FALSE;
     CommandLineApplication[0] = 0; // empty means use COMSPEC
     CommandLineArguments[0] = 0;   // empty keeps the default cmd.exe /C or /K handling
@@ -922,11 +924,58 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
             ti.ErrorOn(IDE_TIMERESOLUTION);
         }
     }
+
+    int storageType = Configuration.StorageType;
+    ti.RadioButton(IDC_SAVE_TO_REGISTRY, cstRegistry, storageType);
+    ti.RadioButton(IDC_SAVE_TO_FILE, cstRegFile, storageType);
+    if (storageType == cstRegFile)
+    {
+        char configPath[MAX_PATH];
+        if (!ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath)))
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEPATHERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_SAVE_TO_FILE);
+            return;
+        }
+
+        char tmpPath[MAX_PATH];
+        _snprintf_s(tmpPath, _TRUNCATE, "%s.test", configPath);
+        HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_SAVE_TO_FILE);
+            return;
+        }
+        HANDLES(CloseHandle(file));
+        DeleteFile(tmpPath);
+    }
 }
 
 void CCfgPageGeneral::Transfer(CTransferInfo& ti)
 {
     ti.CheckBox(IDC_AUTOSAVE, Configuration.AutoSave);
+    int oldStorageType = Configuration.StorageType;
+    ti.RadioButton(IDC_SAVE_TO_REGISTRY, cstRegistry, Configuration.StorageType);
+    ti.RadioButton(IDC_SAVE_TO_FILE, cstRegFile, Configuration.StorageType);
+    if (ti.Type == ttDataFromWindow && oldStorageType != Configuration.StorageType)
+    {
+        if (SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_SWITCHCONFIRM), LoadStr(IDS_QUESTION),
+                          MB_YESNO | MB_ICONQUESTION) == IDYES)
+        {
+            ConfigurationStorage.Flush();
+            if (!ConfigurationStorage.SwitchStorageType((CConfigurationStorageType)Configuration.StorageType, TRUE))
+            {
+                Configuration.StorageType = oldStorageType;
+                SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_MIGRATIONERR), LoadStr(IDS_ERRORTITLE),
+                              MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
+        else
+            Configuration.StorageType = oldStorageType;
+    }
     ti.CheckBox(IDC_CLOSESHELL, Configuration.CloseShell);
     ti.CheckBox(IDC_CLEARREADONLY, Configuration.ClearReadOnly);
     //  ti.CheckBox(IDC_FASTDIRMOVE, Configuration.FastDirectoryMove);
@@ -984,6 +1033,8 @@ void CCfgPageGeneral::EnableControls()
     BOOL useTimeRes = IsDlgButtonChecked(HWindow, IDC_TIMERESOLUTION);
     EnableWindow(GetDlgItem(HWindow, IDE_TIMERESOLUTION), useTimeRes);
     EnableWindow(GetDlgItem(HWindow, IDC_ASYNCCOPYALG), Windows7AndLater);
+    char configPath[MAX_PATH];
+    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE), ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath)));
 
     BOOL defaultCommandShell = IsDefaultCommandShellApplication();
     HWND hCloseShell = GetDlgItem(HWindow, IDC_CLOSESHELL);
