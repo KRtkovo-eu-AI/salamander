@@ -11,7 +11,7 @@
 ; the fallback path below is relative to this .iss file.
 
 #define MyAppName "Open Salamander Samandarin"
-#define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.5 (x64)"
+#define MyAppDisplayName "Open Salamander 5.0 Samandarin 0.6 (x64)"
 #define MyAppVersion "5.0-samandarin-0.6"
 #define MyAppPublisher "KRtekTM"
 #define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
