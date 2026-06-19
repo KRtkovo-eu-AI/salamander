@@ -326,6 +326,8 @@ CConfiguration::CConfiguration()
     RecycleMasks.SetMasksString("*.txt;*.doc");
     LastFocusedPage = 0;
     ConfigurationHeight = 0; // the dialog logic will not allow a smaller dialog than the largest page it contains
+    ConfigurationWidth = 0;
+    ConfigurationTreeWidth = 0;
     ViewersAndEditorsExpanded = 0;
     PackersAndUnpackersExpanded = 0;
     ClearReadOnly = TRUE;
@@ -753,7 +755,9 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                                                             : 12 /* mode == 6 */,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
-                      &Configuration.ConfigurationHeight),
+                      &Configuration.ConfigurationHeight,
+                      &Configuration.ConfigurationWidth,
+                      &Configuration.ConfigurationTreeWidth),
       TabsPageVisible(TRUE),
       PageView(mode == 4 ? param : -1), //-1 = active panel
       PageUserMenu(userMenuItems),
@@ -3312,7 +3316,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ChangeToArrowButton(HWindow, IDC_HOTPATH_BROWSE);
 
         // dialog elements should stretch with the dialog size, set split controls
-        ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
+        ElasticLayoutControls(1, 2, 1, IDC_HOTPATH_LIST, IDC_HOTPATH_HEADER, IDC_HOTPATH_PATH,
+                              IDC_HOTPATH_BROWSE);
 
         DarkModeUpdateListViewColors(HListView);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))

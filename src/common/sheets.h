@@ -11,7 +11,14 @@ class CTreePropHolderDlg;
 struct CElasticLayoutCtrl
 {
     HWND HCtrl; // handl prvku, ktery mame posouvat
-    POINT Pos;  // pozice prvku vuci spodni hrane opsane obalky
+    POINT Pos;  // pozice prvku vuci spodni/prave hrane opsane obalky nebo dialogu
+};
+
+struct CPageHorizontalLayoutCtrl
+{
+    HWND HCtrl;
+    RECT Rect;
+    int Mode;
 };
 
 // pomocna trida slouzici pro layout prvku dialogu na zaklade jeho velikosti
@@ -20,6 +27,8 @@ class CElasticLayout
 public:
     CElasticLayout(HWND hWindow);
     void AddResizeCtrl(int resID);
+    void AddResizeRightCtrl(int resID);
+    void AddMoveRightCtrl(int resID);
     // provede rozmisteni prvku
     void LayoutCtrls();
 
@@ -36,6 +45,10 @@ protected:
     int SplitY;
     // prvky ktere s velikosti natahujeme (typicky listview)
     TDirectArray<CElasticLayoutCtrl> ResizeCtrls;
+    // prvky, ktere natahujeme pouze k pravemu okraji dialogu
+    TDirectArray<CElasticLayoutCtrl> ResizeRightCtrls;
+    // prvky, ktere posouvame k pravemu okraji dialogu
+    TDirectArray<CElasticLayoutCtrl> MoveRightCtrls;
     // docasne pole plnene z FindMoveCtrls; idealne by slo o lokalni promennou, ale
     // pro pohodlne volani callbacku FindMoveControls (kam ho potrebujeme predat)
     // ho umistuji jako atribut tridy
@@ -74,6 +87,7 @@ public:
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ElasticVerticalLayout(int count, ...);
+    BOOL ElasticLayoutControls(int resizeCount, int resizeRightCount, int moveRightCount, ...);
 
     TCHAR* Title;
     DWORD Flags;
@@ -87,6 +101,11 @@ protected:
 
     // pokud je ruzne od NULL, se zmenou velikosti dialogu menime layout prvku
     CElasticLayout* ElasticLayout;
+
+    TDirectArray<CPageHorizontalLayoutCtrl>* HorizontalLayoutCtrls;
+    int HorizontalLayoutWidth;
+    void InitHorizontalLayout();
+    void ApplyHorizontalLayout();
 
     friend class CPropertyDialog;
     friend class CTreePropDialog;
@@ -181,7 +200,12 @@ protected:
     // rozmery v bodech
     SIZE MinWindowSize;  // minimalni rozmery dialogu (urcene podle nejvetsiho child dlg)
     DWORD* WindowHeight; // aktualni vyska dialogu
+    DWORD* WindowWidth;  // aktualni sirka dialogu
+    DWORD* WindowTreeWidth; // uzivatelska sirka treeview
     int TreeWidth;       // sirka treeview, pocitana na zaklade obsahu
+    int MinTreeWidth;    // minimalni sirka treeview
+    int MinChildWidth;   // minimalni sirka praveho panelu
+    BOOL TreeSplitDragging;
     int CaptionHeight;   // vyska titulku
     SIZE ButtonSize;     // rozmery tlacitek na spodni hrane dialogu
     int ButtonMargin;    // mezera mezi tlacitky
@@ -189,7 +213,7 @@ protected:
     SIZE MarginSize;     // vodorovny a svisly okraj
 
 public:
-    CTreePropHolderDlg(HWND hParent, DWORD* windowHeight);
+    CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth);
 
     int ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate);
 
@@ -214,9 +238,9 @@ protected:
 public:
     CTreePropDialog(HWND hParent, HINSTANCE hInstance, TCHAR* caption,
                     int startPage, DWORD flags, DWORD* lastPage,
-                    DWORD* windowHeight)
+                    DWORD* windowHeight, DWORD* windowWidth = NULL, DWORD* windowTreeWidth = NULL)
         : CPropertyDialog(hParent, hInstance, caption, startPage, flags, NULL, lastPage),
-          Dialog(hParent, windowHeight)
+          Dialog(hParent, windowHeight, windowWidth, windowTreeWidth)
     {
         Dialog.TPD = this;
     }

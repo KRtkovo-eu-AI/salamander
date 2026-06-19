@@ -121,7 +121,7 @@ void RedrawChoiceButtonAfterClick(HWND ctrl)
 //
 
 CElasticLayout::CElasticLayout(HWND hWindow)
-    : ResizeCtrls(2, 2), MoveCtrls(20, 20)
+    : ResizeCtrls(2, 2), ResizeRightCtrls(2, 2), MoveRightCtrls(2, 2), MoveCtrls(20, 20)
 {
     HWindow = hWindow;
     SplitY = 0;
@@ -141,15 +141,70 @@ void CElasticLayout::AddResizeCtrl(int resID)
         if (p.y > SplitY)
             SplitY = p.y;
 
+        RECT cR;
+        GetClientRect(HWindow, &cR);
+
         CElasticLayoutCtrl ctrl;
         ctrl.HCtrl = hChild;
-        ctrl.Pos.x = r.right - r.left;
+        ctrl.Pos.x = cR.right - p.x; // distance from the original right edge of the control to the dialog right edge
         ctrl.Pos.y = 0;
         ResizeCtrls.Add(ctrl);
     }
     else
     {
         TRACE_E("CElasticLayout::AddResizeCtrl() Unknown control: resID=" << resID);
+    }
+}
+
+
+
+void CElasticLayout::AddResizeRightCtrl(int resID)
+{
+    HWND hChild = GetDlgItem(HWindow, resID);
+    if (hChild != NULL)
+    {
+        RECT r;
+        GetWindowRect(hChild, &r);
+        POINT p = {r.right, r.bottom};
+        ScreenToClient(HWindow, &p);
+
+        RECT cR;
+        GetClientRect(HWindow, &cR);
+
+        CElasticLayoutCtrl ctrl;
+        ctrl.HCtrl = hChild;
+        ctrl.Pos.x = cR.right - p.x; // distance from the original right edge of the control to the dialog right edge
+        ctrl.Pos.y = 0;
+        ResizeRightCtrls.Add(ctrl);
+    }
+    else
+    {
+        TRACE_E("CElasticLayout::AddResizeRightCtrl() Unknown control: resID=" << resID);
+    }
+}
+
+void CElasticLayout::AddMoveRightCtrl(int resID)
+{
+    HWND hChild = GetDlgItem(HWindow, resID);
+    if (hChild != NULL)
+    {
+        RECT r;
+        GetWindowRect(hChild, &r);
+        POINT p = {r.left, r.top};
+        ScreenToClient(HWindow, &p);
+
+        RECT cR;
+        GetClientRect(HWindow, &cR);
+
+        CElasticLayoutCtrl ctrl;
+        ctrl.HCtrl = hChild;
+        ctrl.Pos.x = cR.right - p.x; // keep the original distance from the dialog right edge
+        ctrl.Pos.y = 0;
+        MoveRightCtrls.Add(ctrl);
+    }
+    else
+    {
+        TRACE_E("CElasticLayout::AddMoveRightCtrl() Unknown control: resID=" << resID);
     }
 }
 
@@ -226,7 +281,7 @@ void CElasticLayout::LayoutCtrls()
 
     FindMoveCtrls();
 
-    HDWP hdwp = HANDLES(BeginDeferWindowPos(ResizeCtrls.Count + MoveCtrls.Count));
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(ResizeCtrls.Count + ResizeRightCtrls.Count + MoveRightCtrls.Count + MoveCtrls.Count));
     if (hdwp != NULL)
     {
         for (int i = 0; i < ResizeCtrls.Count; i++)
@@ -238,14 +293,35 @@ void CElasticLayout::LayoutCtrls()
             ScreenToClient(HWindow, &p);
             HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
                                    0, 0,
-                                   ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                   cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                   SWP_NOMOVE | SWP_NOZORDER));
+        }
+        for (int i = 0; i < ResizeRightCtrls.Count; i++)
+        {
+            HWND hCtrl = ResizeRightCtrls[i].HCtrl;
+            RECT r;
+            GetWindowRect(hCtrl, &r);
+            POINT p = {r.left, r.top};
+            ScreenToClient(HWindow, &p);
+            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                   0, 0,
+                                   cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
                                    SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < MoveCtrls.Count; i++)
         {
             HWND hCtrl = MoveCtrls[i].HCtrl;
+            int x = MoveCtrls[i].Pos.x;
+            for (int j = 0; j < MoveRightCtrls.Count; j++)
+            {
+                if (MoveRightCtrls[j].HCtrl == hCtrl)
+                {
+                    x = cR.right - MoveRightCtrls[j].Pos.x;
+                    break;
+                }
+            }
             HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   MoveCtrls[i].Pos.x, cR.bottom - MoveCtrls[i].Pos.y,
+                                   x, cR.bottom - MoveCtrls[i].Pos.y,
                                    0, 0,
                                    SWP_NOSIZE | SWP_NOZORDER));
         }
@@ -294,6 +370,8 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
     HTreeItem = NULL;
     Expanded = NULL;
     ElasticLayout = NULL;
+    HorizontalLayoutCtrls = NULL;
+    HorizontalLayoutWidth = 0;
 }
 
 CPropSheetPage::~CPropSheetPage()
@@ -302,6 +380,8 @@ CPropSheetPage::~CPropSheetPage()
         delete[] Title;
     if (ElasticLayout != NULL)
         delete ElasticLayout;
+    if (HorizontalLayoutCtrls != NULL)
+        delete HorizontalLayoutCtrls;
 }
 
 BOOL CPropSheetPage::ValidateData()
@@ -370,6 +450,192 @@ BOOL CPropSheetPage::ElasticVerticalLayout(int count, ...)
     return TRUE;
 }
 
+BOOL CPropSheetPage::ElasticLayoutControls(int resizeCount, int resizeRightCount, int moveRightCount, ...)
+{
+    if (ElasticLayout != NULL)
+    {
+        TRACE_E("ElasticLayout already set!");
+        return FALSE;
+    }
+    ElasticLayout = new CElasticLayout(HWindow);
+    va_list list;
+    va_start(list, moveRightCount);
+    for (int arg = 0; arg < resizeCount; arg++)
+        ElasticLayout->AddResizeCtrl(va_arg(list, int));
+    for (int arg = 0; arg < resizeRightCount; arg++)
+        ElasticLayout->AddResizeRightCtrl(va_arg(list, int));
+    for (int arg = 0; arg < moveRightCount; arg++)
+        ElasticLayout->AddMoveRightCtrl(va_arg(list, int));
+    va_end(list);
+    return TRUE;
+}
+
+
+#define PHLM_RESIZE_RIGHT 1
+#define PHLM_MOVE_RIGHT 2
+
+static BOOL IsHorizontalLayoutStatic(HWND hCtrl)
+{
+    LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
+    LONG_PTR type = style & SS_TYPEMASK;
+    return type == SS_LEFT || type == SS_LEFTNOWORDWRAP || type == SS_CENTER ||
+           type == SS_RIGHT || type == SS_ETCHEDHORZ;
+}
+
+static BOOL IsHorizontalLayoutButton(HWND hCtrl, BOOL* resizeRight)
+{
+    LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    if (type == BS_GROUPBOX)
+    {
+        *resizeRight = TRUE;
+        return TRUE;
+    }
+    if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+        type == BS_AUTO3STATE || type == BS_3STATE)
+    {
+        return FALSE;
+    }
+    if (type == BS_PUSHBUTTON || type == BS_DEFPUSHBUTTON || type == BS_OWNERDRAW)
+    {
+        *resizeRight = FALSE;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+
+static BOOL HasOverlappingControlToRight(HWND hParent, HWND hCtrl, const RECT* ctrlRect)
+{
+    HWND hChild = GetWindow(hParent, GW_CHILD);
+    while (hChild != NULL)
+    {
+        if (hChild != hCtrl && IsWindowVisible(hChild))
+        {
+            RECT wR;
+            GetWindowRect(hChild, &wR);
+            POINT p1 = {wR.left, wR.top};
+            POINT p2 = {wR.right, wR.bottom};
+            ScreenToClient(hParent, &p1);
+            ScreenToClient(hParent, &p2);
+            RECT r = {p1.x, p1.y, p2.x, p2.y};
+            if (r.left > ctrlRect->left && r.top < ctrlRect->bottom && r.bottom > ctrlRect->top)
+                return TRUE;
+        }
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+    return FALSE;
+}
+
+void CPropSheetPage::InitHorizontalLayout()
+{
+    if (HorizontalLayoutCtrls != NULL)
+        delete HorizontalLayoutCtrls;
+    HorizontalLayoutCtrls = new TDirectArray<CPageHorizontalLayoutCtrl>(20, 20);
+    if (HorizontalLayoutCtrls == NULL)
+    {
+        TRACE_E("Low memory!");
+        HorizontalLayoutWidth = 0;
+        return;
+    }
+
+    RECT cR;
+    GetClientRect(HWindow, &cR);
+    HorizontalLayoutWidth = cR.right;
+
+    HWND hChild = GetWindow(HWindow, GW_CHILD);
+    while (hChild != NULL)
+    {
+        TCHAR className[64];
+        className[0] = 0;
+        GetClassName(hChild, className, _countof(className));
+
+        RECT wR;
+        GetWindowRect(hChild, &wR);
+        POINT p1 = {wR.left, wR.top};
+        POINT p2 = {wR.right, wR.bottom};
+        ScreenToClient(HWindow, &p1);
+        ScreenToClient(HWindow, &p2);
+        RECT r = {p1.x, p1.y, p2.x, p2.y};
+
+        int mode = 0;
+        BOOL resizeRight = FALSE;
+        if (_tcsicmp(className, _T("Edit")) == 0 ||
+            _tcsicmp(className, WC_LISTVIEW) == 0 ||
+            _tcsicmp(className, WC_TREEVIEW) == 0 ||
+            _tcsicmp(className, TOOLBARCLASSNAME) == 0)
+        {
+            // Stretch regular data controls, except very small numeric edits.
+            if (r.right - r.left > 80 || cR.right - r.right < 40)
+                mode = PHLM_RESIZE_RIGHT;
+        }
+        else if (_tcsicmp(className, _T("Static")) == 0)
+        {
+            LONG_PTR staticType = GetWindowLongPtr(hChild, GWL_STYLE) & SS_TYPEMASK;
+            if (IsHorizontalLayoutStatic(hChild) &&
+                (staticType == SS_ETCHEDHORZ || !HasOverlappingControlToRight(HWindow, hChild, &r)))
+            {
+                mode = PHLM_RESIZE_RIGHT;
+            }
+        }
+        else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
+        {
+            if (resizeRight)
+            {
+                LONG_PTR buttonType = GetWindowLongPtr(hChild, GWL_STYLE) & BS_TYPEMASK;
+                if (buttonType == BS_GROUPBOX || !HasOverlappingControlToRight(HWindow, hChild, &r))
+                    mode = PHLM_RESIZE_RIGHT;
+            }
+            else if (cR.right - r.right < 40)
+                mode = PHLM_MOVE_RIGHT;
+        }
+
+        if (mode != 0)
+        {
+            CPageHorizontalLayoutCtrl ctrl;
+            ctrl.HCtrl = hChild;
+            ctrl.Rect = r;
+            ctrl.Mode = mode;
+            HorizontalLayoutCtrls->Add(ctrl);
+        }
+
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+}
+
+void CPropSheetPage::ApplyHorizontalLayout()
+{
+    if (HorizontalLayoutCtrls == NULL || HorizontalLayoutWidth == 0)
+        return;
+
+    RECT cR;
+    GetClientRect(HWindow, &cR);
+    int dx = cR.right - HorizontalLayoutWidth;
+    if (dx < 0)
+        dx = 0;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(HorizontalLayoutCtrls->Count));
+    if (hdwp != NULL)
+    {
+        for (int i = 0; i < HorizontalLayoutCtrls->Count; i++)
+        {
+            CPageHorizontalLayoutCtrl* ctrl = &(*HorizontalLayoutCtrls)[i];
+            RECT r = ctrl->Rect;
+            if (ctrl->Mode == PHLM_RESIZE_RIGHT)
+                r.right += dx;
+            else if (ctrl->Mode == PHLM_MOVE_RIGHT)
+            {
+                r.left += dx;
+                r.right += dx;
+            }
+            HANDLES(DeferWindowPos(hdwp, ctrl->HCtrl, NULL,
+                                   r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                   SWP_NOZORDER));
+        }
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+}
+
 INT_PTR
 CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -384,6 +650,8 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         ParentDialog->HWindow = Parent;
         TransferData(ttDataToWindow);
+        InitHorizontalLayout();
+        ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         return TRUE; // chci focus od DefDlgProc
@@ -391,6 +659,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
+        ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         break;
@@ -809,15 +1078,15 @@ CTPHGripWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_SETCURSOR:
     {
-        // chceme pouze north-south kurzor
-        SetCursor(LoadCursor(NULL, IDC_SIZENS));
+        // resize grip can now resize the dialog in both directions
+        SetCursor(LoadCursor(NULL, IDC_SIZENWSE));
         return TRUE;
     }
     }
     return CWindow::WindowProc(uMsg, wParam, lParam);
 }
 
-CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight)
+CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth)
     : CDialog(NULL, 0, hParent, ooStatic)
 {
     HTreeView = NULL;
@@ -829,6 +1098,11 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight)
     MinWindowSize.cx = 0;
     MinWindowSize.cy = 0;
     WindowHeight = windowHeight;
+    WindowWidth = windowWidth;
+    WindowTreeWidth = windowTreeWidth;
+    MinTreeWidth = 0;
+    MinChildWidth = 0;
+    TreeSplitDragging = FALSE;
 }
 
 INT_PTR
@@ -888,13 +1162,15 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CaptionWindow = new CTPHCaptionWindow(HWindow, _TPD_IDC_CAPTION);
         if (CaptionWindow == NULL)
             TRACE_ET(_T("Low memory!"));
-        TreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 + GetSystemMetrics(SM_CXVSCROLL);
+        MinTreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 + GetSystemMetrics(SM_CXVSCROLL);
+        TreeWidth = MinTreeWidth;
         // Cap TreeView width so the dialog doesn't grow with longer translations (e.g. French vs English).
         {
             RECT maxTreeR = {_TPD_TREE_W_MAX, 0};
             MapDialogRect(HWindow, &maxTreeR);
             if (TreeWidth > maxTreeR.left)
                 TreeWidth = maxTreeR.left;
+            MinTreeWidth = TreeWidth;
         }
         if (TPD->StartPage < 0 || TPD->StartPage >= TPD->Count)
             TPD->StartPage = 0;
@@ -908,13 +1184,19 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetClientRect(HWindow, &cR);
         int marginW = (r.right - r.left) - cR.right;
         int marginH = (r.bottom - r.top) - cR.bottom;
-        MinWindowSize.cx = TreeWidth + ChildDialogRect.right - ChildDialogRect.left + 3 * MarginSize.cx + marginW;
+        MinChildWidth = ChildDialogRect.right - ChildDialogRect.left;
+        if (WindowTreeWidth != NULL && (int)*WindowTreeWidth > TreeWidth)
+            TreeWidth = (int)*WindowTreeWidth;
+        MinWindowSize.cx = MinTreeWidth + MinChildWidth + 3 * MarginSize.cx + marginW;
         MinWindowSize.cy = MarginSize.cy + CaptionHeight + MarginSize.cy +
                            ChildDialogRect.bottom - ChildDialogRect.top +
                            MarginSize.cy + 1 + MarginSize.cy +
                            ButtonSize.cy + MarginSize.cy + marginH;
 
         // nastavime uzivatelsky rozmer okna a provedeme layout prvku
+        int width = WindowWidth != NULL ? (int)*WindowWidth : r.right - r.left;
+        if (width < MinWindowSize.cx + TreeWidth - MinTreeWidth)
+            width = MinWindowSize.cx + TreeWidth - MinTreeWidth;
         int height = (int)*WindowHeight;
         RECT clipR; // nechceme byt vetsi nez vyska obrazovky
         MultiMonGetClipRectByWindow(HWindow, &clipR, NULL);
@@ -922,7 +1204,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             height = clipR.bottom - clipR.top;
         if (height < MinWindowSize.cy)
             height = MinWindowSize.cy;
-        SetWindowPos(HWindow, NULL, 0, 0, r.right - r.left, height,
+        SetWindowPos(HWindow, NULL, 0, 0, width, height,
                      SWP_NOZORDER | SWP_NOMOVE);
 
         LayoutControls();
@@ -1072,39 +1354,15 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NCHITTEST:
     {
-        // Resize chceme pouze ve svyslem smeru
         LRESULT ht = DefWindowProc(HWindow, uMsg, wParam, lParam);
-        switch (ht)
-        {
-        case HTBOTTOMLEFT:
-            ht = HTBOTTOM;
-            break;
-        case HTBOTTOMRIGHT:
-            ht = HTBOTTOM;
-            break;
-        case HTTOPLEFT:
-            ht = HTTOP;
-            break;
-        case HTTOPRIGHT:
-            ht = HTTOP;
-            break;
-        case HTLEFT:
-            ht = HTBORDER;
-            break;
-        case HTRIGHT:
-            ht = HTBORDER;
-            break;
-        }
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, ht);
         return TRUE;
     }
 
     case WM_GETMINMAXINFO:
     {
-        // Resize chceme pouze ve svyslem smeru
         LPMINMAXINFO lpmmi = (LPMINMAXINFO)lParam;
-        lpmmi->ptMinTrackSize.x = MinWindowSize.cx;
-        lpmmi->ptMaxTrackSize.x = MinWindowSize.cx;
+        lpmmi->ptMinTrackSize.x = MinWindowSize.cx + TreeWidth - MinTreeWidth;
         lpmmi->ptMinTrackSize.y = MinWindowSize.cy;
 
         // Adjust the height: https://blogs.msdn.microsoft.com/oldnewthing/20150504-00/?p=44944
@@ -1121,8 +1379,68 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         RECT r;
         GetWindowRect(HWindow, &r);
-        *WindowHeight = r.bottom - r.top;
+        if (WindowHeight != NULL)
+            *WindowHeight = r.bottom - r.top;
+        if (WindowWidth != NULL)
+            *WindowWidth = r.right - r.left;
         LayoutControls();
+        break;
+    }
+
+
+    case WM_LBUTTONDOWN:
+    {
+        int x = GET_X_LPARAM(lParam);
+        int splitX = MarginSize.cx + TreeWidth + MarginSize.cx / 2;
+        if (abs(x - splitX) <= max(3, MarginSize.cx))
+        {
+            TreeSplitDragging = TRUE;
+            SetCapture(HWindow);
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_LBUTTONUP:
+    {
+        if (TreeSplitDragging)
+        {
+            TreeSplitDragging = FALSE;
+            ReleaseCapture();
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        int x = GET_X_LPARAM(lParam);
+        if (TreeSplitDragging)
+        {
+            RECT cRect;
+            GetClientRect(HWindow, &cRect);
+            int newTreeWidth = x - MarginSize.cx;
+            int maxTreeWidth = cRect.right - MinChildWidth - 3 * MarginSize.cx;
+            if (maxTreeWidth < MinTreeWidth)
+                maxTreeWidth = MinTreeWidth;
+            if (newTreeWidth < MinTreeWidth)
+                newTreeWidth = MinTreeWidth;
+            if (newTreeWidth > maxTreeWidth)
+                newTreeWidth = maxTreeWidth;
+            if (newTreeWidth != TreeWidth)
+            {
+                TreeWidth = newTreeWidth;
+                if (WindowTreeWidth != NULL)
+                    *WindowTreeWidth = TreeWidth;
+                LayoutControls();
+            }
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        int splitX = MarginSize.cx + TreeWidth + MarginSize.cx / 2;
+        if (abs(x - splitX) <= max(3, MarginSize.cx))
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
         break;
     }
 
