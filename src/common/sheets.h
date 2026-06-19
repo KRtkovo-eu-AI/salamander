@@ -11,7 +11,7 @@ class CTreePropHolderDlg;
 struct CElasticLayoutCtrl
 {
     HWND HCtrl; // handl prvku, ktery mame posouvat
-    POINT Pos;  // pozice prvku vuci spodni hrane opsane obalky
+    POINT Pos;  // pozice prvku vuci spodni/prave hrane opsane obalky nebo dialogu
 };
 
 // pomocna trida slouzici pro layout prvku dialogu na zaklade jeho velikosti
@@ -20,6 +20,8 @@ class CElasticLayout
 public:
     CElasticLayout(HWND hWindow);
     void AddResizeCtrl(int resID);
+    void AddResizeRightCtrl(int resID);
+    void AddMoveRightCtrl(int resID);
     // provede rozmisteni prvku
     void LayoutCtrls();
 
@@ -36,6 +38,10 @@ protected:
     int SplitY;
     // prvky ktere s velikosti natahujeme (typicky listview)
     TDirectArray<CElasticLayoutCtrl> ResizeCtrls;
+    // prvky, ktere natahujeme pouze k pravemu okraji dialogu
+    TDirectArray<CElasticLayoutCtrl> ResizeRightCtrls;
+    // prvky, ktere posouvame k pravemu okraji dialogu
+    TDirectArray<CElasticLayoutCtrl> MoveRightCtrls;
     // docasne pole plnene z FindMoveCtrls; idealne by slo o lokalni promennou, ale
     // pro pohodlne volani callbacku FindMoveControls (kam ho potrebujeme predat)
     // ho umistuji jako atribut tridy
@@ -74,6 +80,7 @@ public:
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
     BOOL ElasticVerticalLayout(int count, ...);
+    BOOL ElasticLayoutControls(int resizeCount, int resizeRightCount, int moveRightCount, ...);
 
     TCHAR* Title;
     DWORD Flags;

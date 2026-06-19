@@ -3316,7 +3316,8 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ChangeToArrowButton(HWindow, IDC_HOTPATH_BROWSE);
 
         // dialog elements should stretch with the dialog size, set split controls
-        ElasticVerticalLayout(1, IDC_HOTPATH_LIST);
+        ElasticLayoutControls(1, 2, 1, IDC_HOTPATH_LIST, IDC_HOTPATH_HEADER, IDC_HOTPATH_PATH,
+                              IDC_HOTPATH_BROWSE);
 
         DarkModeUpdateListViewColors(HListView);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))

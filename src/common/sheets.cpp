@@ -121,7 +121,7 @@ void RedrawChoiceButtonAfterClick(HWND ctrl)
 //
 
 CElasticLayout::CElasticLayout(HWND hWindow)
-    : ResizeCtrls(2, 2), MoveCtrls(20, 20)
+    : ResizeCtrls(2, 2), ResizeRightCtrls(2, 2), MoveRightCtrls(2, 2), MoveCtrls(20, 20)
 {
     HWindow = hWindow;
     SplitY = 0;
@@ -141,15 +141,70 @@ void CElasticLayout::AddResizeCtrl(int resID)
         if (p.y > SplitY)
             SplitY = p.y;
 
+        RECT cR;
+        GetClientRect(HWindow, &cR);
+
         CElasticLayoutCtrl ctrl;
         ctrl.HCtrl = hChild;
-        ctrl.Pos.x = r.right - r.left;
+        ctrl.Pos.x = cR.right - p.x; // distance from the original right edge of the control to the dialog right edge
         ctrl.Pos.y = 0;
         ResizeCtrls.Add(ctrl);
     }
     else
     {
         TRACE_E("CElasticLayout::AddResizeCtrl() Unknown control: resID=" << resID);
+    }
+}
+
+
+
+void CElasticLayout::AddResizeRightCtrl(int resID)
+{
+    HWND hChild = GetDlgItem(HWindow, resID);
+    if (hChild != NULL)
+    {
+        RECT r;
+        GetWindowRect(hChild, &r);
+        POINT p = {r.right, r.bottom};
+        ScreenToClient(HWindow, &p);
+
+        RECT cR;
+        GetClientRect(HWindow, &cR);
+
+        CElasticLayoutCtrl ctrl;
+        ctrl.HCtrl = hChild;
+        ctrl.Pos.x = cR.right - p.x; // distance from the original right edge of the control to the dialog right edge
+        ctrl.Pos.y = 0;
+        ResizeRightCtrls.Add(ctrl);
+    }
+    else
+    {
+        TRACE_E("CElasticLayout::AddResizeRightCtrl() Unknown control: resID=" << resID);
+    }
+}
+
+void CElasticLayout::AddMoveRightCtrl(int resID)
+{
+    HWND hChild = GetDlgItem(HWindow, resID);
+    if (hChild != NULL)
+    {
+        RECT r;
+        GetWindowRect(hChild, &r);
+        POINT p = {r.left, r.top};
+        ScreenToClient(HWindow, &p);
+
+        RECT cR;
+        GetClientRect(HWindow, &cR);
+
+        CElasticLayoutCtrl ctrl;
+        ctrl.HCtrl = hChild;
+        ctrl.Pos.x = cR.right - p.x; // keep the original distance from the dialog right edge
+        ctrl.Pos.y = 0;
+        MoveRightCtrls.Add(ctrl);
+    }
+    else
+    {
+        TRACE_E("CElasticLayout::AddMoveRightCtrl() Unknown control: resID=" << resID);
     }
 }
 
@@ -226,7 +281,7 @@ void CElasticLayout::LayoutCtrls()
 
     FindMoveCtrls();
 
-    HDWP hdwp = HANDLES(BeginDeferWindowPos(ResizeCtrls.Count + MoveCtrls.Count));
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(ResizeCtrls.Count + ResizeRightCtrls.Count + MoveRightCtrls.Count + MoveCtrls.Count));
     if (hdwp != NULL)
     {
         for (int i = 0; i < ResizeCtrls.Count; i++)
@@ -238,14 +293,35 @@ void CElasticLayout::LayoutCtrls()
             ScreenToClient(HWindow, &p);
             HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
                                    0, 0,
-                                   ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                   cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                   SWP_NOMOVE | SWP_NOZORDER));
+        }
+        for (int i = 0; i < ResizeRightCtrls.Count; i++)
+        {
+            HWND hCtrl = ResizeRightCtrls[i].HCtrl;
+            RECT r;
+            GetWindowRect(hCtrl, &r);
+            POINT p = {r.left, r.top};
+            ScreenToClient(HWindow, &p);
+            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                   0, 0,
+                                   cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
                                    SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < MoveCtrls.Count; i++)
         {
             HWND hCtrl = MoveCtrls[i].HCtrl;
+            int x = MoveCtrls[i].Pos.x;
+            for (int j = 0; j < MoveRightCtrls.Count; j++)
+            {
+                if (MoveRightCtrls[j].HCtrl == hCtrl)
+                {
+                    x = cR.right - MoveRightCtrls[j].Pos.x;
+                    break;
+                }
+            }
             HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   MoveCtrls[i].Pos.x, cR.bottom - MoveCtrls[i].Pos.y,
+                                   x, cR.bottom - MoveCtrls[i].Pos.y,
                                    0, 0,
                                    SWP_NOSIZE | SWP_NOZORDER));
         }
@@ -366,6 +442,26 @@ BOOL CPropSheetPage::ElasticVerticalLayout(int count, ...)
     va_start(list, count);
     for (int arg = 0; arg < count; arg++)
         ElasticLayout->AddResizeCtrl(va_arg(list, int));
+    va_end(list);
+    return TRUE;
+}
+
+BOOL CPropSheetPage::ElasticLayoutControls(int resizeCount, int resizeRightCount, int moveRightCount, ...)
+{
+    if (ElasticLayout != NULL)
+    {
+        TRACE_E("ElasticLayout already set!");
+        return FALSE;
+    }
+    ElasticLayout = new CElasticLayout(HWindow);
+    va_list list;
+    va_start(list, moveRightCount);
+    for (int arg = 0; arg < resizeCount; arg++)
+        ElasticLayout->AddResizeCtrl(va_arg(list, int));
+    for (int arg = 0; arg < resizeRightCount; arg++)
+        ElasticLayout->AddResizeRightCtrl(va_arg(list, int));
+    for (int arg = 0; arg < moveRightCount; arg++)
+        ElasticLayout->AddMoveRightCtrl(va_arg(list, int));
     va_end(list);
     return TRUE;
 }
