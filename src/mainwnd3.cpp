@@ -8406,15 +8406,16 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             // When right panel is zoomed, tree must also be HWND_TOP to stay visible
             // above the right panel which extends to x=1.
             BOOL treeOnTop = Configuration.TreeViewAutoHide || rightZoomed;
+            int treeX = Configuration.TreeViewAutoHide ? 0 : 1;
+            int treeWindowWidth = treeDisplayWidth + (Configuration.TreeViewAutoHide ? 1 : 0);
             if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
             {
                 BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
-                int headerX = collapsed ? 0 : 1;
-                int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth;
+                int headerWidth = collapsed ? treeWidth + 1 : treeWindowWidth;
                 int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader,
                                               treeOnTop ? HWND_TOP : NULL,
-                                              headerX, TopRebarHeight, headerWidth, headerHeight,
+                                              treeX, TopRebarHeight, headerWidth, headerHeight,
                                               SWP_NOACTIVATE | (treeOnTop ? 0 : SWP_NOZORDER) | SWP_SHOWWINDOW));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)
@@ -8425,7 +8426,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 BOOL show = !Configuration.TreeViewAutoHide || treeAutoHideExpanded;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeView,
                                               treeOnTop ? HWND_TOP : NULL,
-                                              1, TopRebarHeight + treeHeaderHeight, treeDisplayWidth, treeViewHeight,
+                                              treeX, TopRebarHeight + treeHeaderHeight, treeWindowWidth, treeViewHeight,
                                               SWP_NOACTIVATE | (treeOnTop ? 0 : SWP_NOZORDER) |
                                                   (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW)));
             }
