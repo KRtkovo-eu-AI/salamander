@@ -39,7 +39,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ### Tree View panel 
 - based on [fgodoy](https://github.com/OpenSalamander/salamander/issues?q=is%3Apr+is%3Aopen+author%3Afgodoy) changes
-<img width="690" height="480" alt="image" src="https://github.com/user-attachments/assets/09aaf1a8-378e-4b6b-9668-12be74b900a9" />
+<img width="689" height="377" alt="image" src="https://github.com/user-attachments/assets/0717d01f-5f59-454c-a821-288b9f74b1fe" />
 
 ### Internal Viewer support for Unicode encoding in text files
 
@@ -72,6 +72,7 @@ Supported File Types
 ### Network 1.08
 ### PAK 1.71
 ### PictView 2.21
+- using [WIC](https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs) backend
 ### Portable Devices 0.1
 ### Portable Executable Viewer 3.0
 ### PrismSharp Text Viewer .NET 1.0
