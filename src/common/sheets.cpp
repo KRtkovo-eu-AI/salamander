@@ -487,8 +487,7 @@ static BOOL IsHorizontalLayoutButton(HWND hCtrl, BOOL* resizeRight)
     LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
     LONG_PTR type = style & BS_TYPEMASK;
     if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
-        type == BS_AUTO3STATE || type == BS_3STATE ||
-        type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON || type == BS_GROUPBOX)
+        type == BS_AUTO3STATE || type == BS_3STATE || type == BS_GROUPBOX)
     {
         *resizeRight = TRUE;
         return TRUE;
@@ -535,7 +534,6 @@ void CPropSheetPage::InitHorizontalLayout()
         int mode = 0;
         BOOL resizeRight = FALSE;
         if (_tcsicmp(className, _T("Edit")) == 0 ||
-            _tcsicmp(className, _T("ComboBox")) == 0 ||
             _tcsicmp(className, WC_LISTVIEW) == 0 ||
             _tcsicmp(className, WC_TREEVIEW) == 0 ||
             _tcsicmp(className, TOOLBARCLASSNAME) == 0)
