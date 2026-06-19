@@ -53,6 +53,17 @@ extern "C"
 
 #pragma comment(lib, "UxTheme.lib")
 
+static void DeleteStoredRegistryConfiguration(const char* keyName)
+{
+    HKEY key;
+    if (keyName != NULL && OpenKey(HKEY_CURRENT_USER, keyName, key))
+    {
+        ClearKey(key);
+        CloseKey(key);
+        DeleteKey(HKEY_CURRENT_USER, keyName);
+    }
+}
+
 // zpristupnime si puvodni vstupni bod aplikace
 extern "C" int WinMainCRTStartup();
 
@@ -4426,13 +4437,6 @@ FIND_NEW_SLG_FILE:
     char portableConfigPath[MAX_PATH];
     BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
-    if (!storageTypeFromBootstrap && portableConfigExists)
-    {
-        storageType = cstRegFile;
-        storageTypeFromBootstrap = TRUE;
-        Configuration.StorageType = storageType;
-        ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
-    }
 
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
     // nactena (NULL -> zadna; pouziji se default hodnoty)
@@ -4458,6 +4462,7 @@ FIND_NEW_SLG_FILE:
 
     BOOL registryConfigExists = !currentCfgDoesNotExist;
     BOOL migrateRegistryToFile = FALSE;
+    BOOL storedConfigurationRemoved = FALSE;
     if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
     {
         storageType = cstRegistry;
@@ -4465,28 +4470,84 @@ FIND_NEW_SLG_FILE:
     }
     if (!storageTypeFromBootstrap && !migrateRegistryToFile)
     {
-        if (portableConfigExists && registryConfigExists)
+        if (portableConfigExists)
         {
-            storageType = SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_BOTHSOURCESPROMPT), LoadStr(IDS_QUESTION),
-                                        MB_YESNO | MB_ICONQUESTION) == IDYES
-                              ? cstRegFile
-                              : cstRegistry;
-        }
-        else if (portableConfigExists)
-        {
-            if (SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_USEFILEPROMPT), LoadStr(IDS_QUESTION),
-                              MB_YESNO | MB_ICONQUESTION) == IDYES)
+            MSGBOXEX_PARAMS params;
+            memset(&params, 0, sizeof(params));
+            params.HParent = NULL;
+            params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
+            params.Caption = LoadStr(IDS_QUESTION);
+            params.Text = "Existing File storage configuration was found. Do you want to import it?";
+            params.AliasBtnNames = "6\tYes - Import file configuration\t7\tYes - Import and convert to Registry\t2\tRemove stored configuration";
+
+            int res = SalMessageBoxEx(&params);
+            if (res == DIALOG_YES)
+            {
                 storageType = cstRegFile;
+                ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
+                storageTypeFromBootstrap = TRUE;
+            }
+            else if (res == DIALOG_NO)
+            {
+                storageType = cstRegistry;
+                DeleteFile(portableConfigPath);
+                ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
+                storageTypeFromBootstrap = TRUE;
+                portableConfigExists = FALSE;
+            }
+            else if (res == DIALOG_CANCEL)
+            {
+                DeleteFile(portableConfigPath);
+                DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
+                portableConfigExists = FALSE;
+                storedConfigurationRemoved = TRUE;
+            }
         }
         else if (registryConfigExists)
         {
-            if (SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT), LoadStr(IDS_QUESTION),
-                              MB_YESNO | MB_ICONQUESTION) == IDYES)
+            MSGBOXEX_PARAMS params;
+            memset(&params, 0, sizeof(params));
+            params.HParent = NULL;
+            params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
+            params.Caption = LoadStr(IDS_QUESTION);
+            params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT);
+            params.AliasBtnNames = "6\tYes - Convert to File storage\t7\tNo - Keep Registry Storage\t2\tRemove stored configuration";
+
+            int res = SalMessageBoxEx(&params);
+            if (res == DIALOG_YES)
             {
                 storageType = cstRegistry;
                 migrateRegistryToFile = TRUE;
             }
+            else if (res == DIALOG_NO)
+            {
+                storageType = cstRegistry;
+                ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
+                storageTypeFromBootstrap = TRUE;
+            }
+            else if (res == DIALOG_CANCEL)
+            {
+                DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
+                storedConfigurationRemoved = TRUE;
+            }
         }
+    }
+    if (storedConfigurationRemoved)
+    {
+        storageType = cstRegistry;
+        migrateRegistryToFile = FALSE;
+        Configuration.StorageType = storageType;
+        ZeroMemory(deleteConfigurations, sizeof(deleteConfigurations));
+        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
+        {
+            SplashScreenCloseIfExist();
+            goto EXIT_2;
+        }
+        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+        Configuration.StorageType = storageType;
+        currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
+        saveNewConfig = currentCfgDoesNotExist;
+        registryConfigExists = !currentCfgDoesNotExist;
     }
 
     if (!ConfigurationStorage.Initialize(storageType, NULL))
