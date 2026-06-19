@@ -53,6 +53,17 @@ extern "C"
 
 #pragma comment(lib, "UxTheme.lib")
 
+static void DeleteStoredRegistryConfiguration(const char* keyName)
+{
+    HKEY key;
+    if (keyName != NULL && OpenKey(HKEY_CURRENT_USER, keyName, key))
+    {
+        ClearKey(key);
+        CloseKey(key);
+        DeleteKey(HKEY_CURRENT_USER, keyName);
+    }
+}
+
 // zpristupnime si puvodni vstupni bod aplikace
 extern "C" int WinMainCRTStartup();
 
@@ -4486,7 +4497,7 @@ FIND_NEW_SLG_FILE:
             else if (res == DIALOG_CANCEL)
             {
                 DeleteFile(portableConfigPath);
-                SHDeleteKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0]);
+                DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
                 portableConfigExists = FALSE;
                 currentCfgDoesNotExist = TRUE;
                 registryConfigExists = FALSE;
@@ -4517,7 +4528,7 @@ FIND_NEW_SLG_FILE:
             }
             else if (res == DIALOG_CANCEL)
             {
-                SHDeleteKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0]);
+                DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
                 currentCfgDoesNotExist = TRUE;
                 registryConfigExists = FALSE;
                 saveNewConfig = TRUE;
