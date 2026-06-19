@@ -4462,6 +4462,7 @@ FIND_NEW_SLG_FILE:
 
     BOOL registryConfigExists = !currentCfgDoesNotExist;
     BOOL migrateRegistryToFile = FALSE;
+    BOOL storedConfigurationRemoved = FALSE;
     if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
     {
         storageType = cstRegistry;
@@ -4499,9 +4500,7 @@ FIND_NEW_SLG_FILE:
                 DeleteFile(portableConfigPath);
                 DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
                 portableConfigExists = FALSE;
-                currentCfgDoesNotExist = TRUE;
-                registryConfigExists = FALSE;
-                saveNewConfig = TRUE;
+                storedConfigurationRemoved = TRUE;
             }
         }
         else if (registryConfigExists)
@@ -4529,11 +4528,26 @@ FIND_NEW_SLG_FILE:
             else if (res == DIALOG_CANCEL)
             {
                 DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
-                currentCfgDoesNotExist = TRUE;
-                registryConfigExists = FALSE;
-                saveNewConfig = TRUE;
+                storedConfigurationRemoved = TRUE;
             }
         }
+    }
+    if (storedConfigurationRemoved)
+    {
+        storageType = cstRegistry;
+        migrateRegistryToFile = FALSE;
+        Configuration.StorageType = storageType;
+        ZeroMemory(deleteConfigurations, sizeof(deleteConfigurations));
+        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
+        {
+            SplashScreenCloseIfExist();
+            goto EXIT_2;
+        }
+        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+        Configuration.StorageType = storageType;
+        currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
+        saveNewConfig = currentCfgDoesNotExist;
+        registryConfigExists = !currentCfgDoesNotExist;
     }
 
     if (!ConfigurationStorage.Initialize(storageType, NULL))
