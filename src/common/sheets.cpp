@@ -479,7 +479,7 @@ static BOOL IsHorizontalLayoutStatic(HWND hCtrl)
     LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
     LONG_PTR type = style & SS_TYPEMASK;
     return type == SS_LEFT || type == SS_LEFTNOWORDWRAP || type == SS_CENTER ||
-           type == SS_RIGHT || type == SS_ETCHEDHORZ || type == SS_GROUPBOX;
+           type == SS_RIGHT || type == SS_ETCHEDHORZ;
 }
 
 static BOOL IsHorizontalLayoutButton(HWND hCtrl, BOOL* resizeRight)
