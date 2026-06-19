@@ -37,6 +37,17 @@ BOOL CConfigurationStorage::BuildRootKeyName(char* keyName, int keyNameSize)
 }
 
 
+void CConfigurationStorage::DeleteStoredRegistryConfiguration(CSalamanderRegistryExAbstract* registry, const char* keyName)
+{
+    HKEY key;
+    if (registry != NULL && keyName != NULL && registry->OpenKey(HKEY_CURRENT_USER, keyName, key))
+    {
+        registry->ClearKey(key);
+        registry->CloseKey(key);
+        registry->DeleteKey(HKEY_CURRENT_USER, keyName);
+    }
+}
+
 
 BOOL CConfigurationStorage::GetStorageTypeBootstrapFilePath(char* filePath, int filePathSize)
 {
@@ -345,6 +356,9 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
         newRegistry->Release();
         return FALSE;
     }
+
+    if (oldType == cstRegistry && StorageType == cstRegFile && migrateCurrentData)
+        DeleteStoredRegistryConfiguration(oldRegistry, SALAMANDER_ROOT_REG);
 
     if (oldRegistry != NULL)
         oldRegistry->Release();

@@ -4879,7 +4879,7 @@ FIND_NEW_SLG_FILE:
                         if (migrateRegistryToFile)
                         {
                             ConfigurationStorage.Flush();
-                            if (!ConfigurationStorage.SwitchStorageType(cstRegFile, FALSE))
+                            if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE))
                                 TRACE_E("Unable to switch configuration storage to file after loading imported configuration.");
                             Configuration.StorageType = (int)ConfigurationStorage.GetStorageType();
                         }
