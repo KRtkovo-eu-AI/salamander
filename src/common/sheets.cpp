@@ -809,15 +809,15 @@ CTPHGripWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_SETCURSOR:
     {
-        // chceme pouze north-south kurzor
-        SetCursor(LoadCursor(NULL, IDC_SIZENS));
+        // resize grip can now resize the dialog in both directions
+        SetCursor(LoadCursor(NULL, IDC_SIZENWSE));
         return TRUE;
     }
     }
     return CWindow::WindowProc(uMsg, wParam, lParam);
 }
 
-CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight)
+CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth)
     : CDialog(NULL, 0, hParent, ooStatic)
 {
     HTreeView = NULL;
@@ -829,6 +829,11 @@ CTreePropHolderDlg::CTreePropHolderDlg(HWND hParent, DWORD* windowHeight)
     MinWindowSize.cx = 0;
     MinWindowSize.cy = 0;
     WindowHeight = windowHeight;
+    WindowWidth = windowWidth;
+    WindowTreeWidth = windowTreeWidth;
+    MinTreeWidth = 0;
+    MinChildWidth = 0;
+    TreeSplitDragging = FALSE;
 }
 
 INT_PTR
@@ -888,13 +893,15 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         CaptionWindow = new CTPHCaptionWindow(HWindow, _TPD_IDC_CAPTION);
         if (CaptionWindow == NULL)
             TRACE_ET(_T("Low memory!"));
-        TreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 + GetSystemMetrics(SM_CXVSCROLL);
+        MinTreeWidth = BuildAndMeasureTree() + 2 * treeIndent + treeIndent / 2 + GetSystemMetrics(SM_CXVSCROLL);
+        TreeWidth = MinTreeWidth;
         // Cap TreeView width so the dialog doesn't grow with longer translations (e.g. French vs English).
         {
             RECT maxTreeR = {_TPD_TREE_W_MAX, 0};
             MapDialogRect(HWindow, &maxTreeR);
             if (TreeWidth > maxTreeR.left)
                 TreeWidth = maxTreeR.left;
+            MinTreeWidth = TreeWidth;
         }
         if (TPD->StartPage < 0 || TPD->StartPage >= TPD->Count)
             TPD->StartPage = 0;
@@ -908,13 +915,19 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetClientRect(HWindow, &cR);
         int marginW = (r.right - r.left) - cR.right;
         int marginH = (r.bottom - r.top) - cR.bottom;
-        MinWindowSize.cx = TreeWidth + ChildDialogRect.right - ChildDialogRect.left + 3 * MarginSize.cx + marginW;
+        MinChildWidth = ChildDialogRect.right - ChildDialogRect.left;
+        if (WindowTreeWidth != NULL && (int)*WindowTreeWidth > TreeWidth)
+            TreeWidth = (int)*WindowTreeWidth;
+        MinWindowSize.cx = MinTreeWidth + MinChildWidth + 3 * MarginSize.cx + marginW;
         MinWindowSize.cy = MarginSize.cy + CaptionHeight + MarginSize.cy +
                            ChildDialogRect.bottom - ChildDialogRect.top +
                            MarginSize.cy + 1 + MarginSize.cy +
                            ButtonSize.cy + MarginSize.cy + marginH;
 
         // nastavime uzivatelsky rozmer okna a provedeme layout prvku
+        int width = WindowWidth != NULL ? (int)*WindowWidth : r.right - r.left;
+        if (width < MinWindowSize.cx + TreeWidth - MinTreeWidth)
+            width = MinWindowSize.cx + TreeWidth - MinTreeWidth;
         int height = (int)*WindowHeight;
         RECT clipR; // nechceme byt vetsi nez vyska obrazovky
         MultiMonGetClipRectByWindow(HWindow, &clipR, NULL);
@@ -922,7 +935,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             height = clipR.bottom - clipR.top;
         if (height < MinWindowSize.cy)
             height = MinWindowSize.cy;
-        SetWindowPos(HWindow, NULL, 0, 0, r.right - r.left, height,
+        SetWindowPos(HWindow, NULL, 0, 0, width, height,
                      SWP_NOZORDER | SWP_NOMOVE);
 
         LayoutControls();
@@ -1072,39 +1085,15 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_NCHITTEST:
     {
-        // Resize chceme pouze ve svyslem smeru
         LRESULT ht = DefWindowProc(HWindow, uMsg, wParam, lParam);
-        switch (ht)
-        {
-        case HTBOTTOMLEFT:
-            ht = HTBOTTOM;
-            break;
-        case HTBOTTOMRIGHT:
-            ht = HTBOTTOM;
-            break;
-        case HTTOPLEFT:
-            ht = HTTOP;
-            break;
-        case HTTOPRIGHT:
-            ht = HTTOP;
-            break;
-        case HTLEFT:
-            ht = HTBORDER;
-            break;
-        case HTRIGHT:
-            ht = HTBORDER;
-            break;
-        }
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, ht);
         return TRUE;
     }
 
     case WM_GETMINMAXINFO:
     {
-        // Resize chceme pouze ve svyslem smeru
         LPMINMAXINFO lpmmi = (LPMINMAXINFO)lParam;
-        lpmmi->ptMinTrackSize.x = MinWindowSize.cx;
-        lpmmi->ptMaxTrackSize.x = MinWindowSize.cx;
+        lpmmi->ptMinTrackSize.x = MinWindowSize.cx + TreeWidth - MinTreeWidth;
         lpmmi->ptMinTrackSize.y = MinWindowSize.cy;
 
         // Adjust the height: https://blogs.msdn.microsoft.com/oldnewthing/20150504-00/?p=44944
@@ -1121,8 +1110,68 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         RECT r;
         GetWindowRect(HWindow, &r);
-        *WindowHeight = r.bottom - r.top;
+        if (WindowHeight != NULL)
+            *WindowHeight = r.bottom - r.top;
+        if (WindowWidth != NULL)
+            *WindowWidth = r.right - r.left;
         LayoutControls();
+        break;
+    }
+
+
+    case WM_LBUTTONDOWN:
+    {
+        int x = GET_X_LPARAM(lParam);
+        int splitX = MarginSize.cx + TreeWidth + MarginSize.cx / 2;
+        if (abs(x - splitX) <= max(3, MarginSize.cx))
+        {
+            TreeSplitDragging = TRUE;
+            SetCapture(HWindow);
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_LBUTTONUP:
+    {
+        if (TreeSplitDragging)
+        {
+            TreeSplitDragging = FALSE;
+            ReleaseCapture();
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        int x = GET_X_LPARAM(lParam);
+        if (TreeSplitDragging)
+        {
+            RECT cRect;
+            GetClientRect(HWindow, &cRect);
+            int newTreeWidth = x - MarginSize.cx;
+            int maxTreeWidth = cRect.right - MinChildWidth - 3 * MarginSize.cx;
+            if (maxTreeWidth < MinTreeWidth)
+                maxTreeWidth = MinTreeWidth;
+            if (newTreeWidth < MinTreeWidth)
+                newTreeWidth = MinTreeWidth;
+            if (newTreeWidth > maxTreeWidth)
+                newTreeWidth = maxTreeWidth;
+            if (newTreeWidth != TreeWidth)
+            {
+                TreeWidth = newTreeWidth;
+                if (WindowTreeWidth != NULL)
+                    *WindowTreeWidth = TreeWidth;
+                LayoutControls();
+            }
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+            return TRUE;
+        }
+        int splitX = MarginSize.cx + TreeWidth + MarginSize.cx / 2;
+        if (abs(x - splitX) <= max(3, MarginSize.cx))
+            SetCursor(LoadCursor(NULL, IDC_SIZEWE));
         break;
     }
 

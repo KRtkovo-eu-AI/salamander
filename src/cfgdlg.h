@@ -463,6 +463,8 @@ struct CConfiguration
 
     DWORD LastFocusedPage;          // last visited page in the dialog
     DWORD ConfigurationHeight;      // height of the configuration dialog in points
+    DWORD ConfigurationWidth;       // width of the configuration dialog in pixels
+    DWORD ConfigurationTreeWidth;   // width of the configuration dialog tree in pixels
     BOOL ViewersAndEditorsExpanded; // expanded items in the tree
     BOOL PackersAndUnpackersExpanded;
 

@@ -181,7 +181,12 @@ protected:
     // rozmery v bodech
     SIZE MinWindowSize;  // minimalni rozmery dialogu (urcene podle nejvetsiho child dlg)
     DWORD* WindowHeight; // aktualni vyska dialogu
+    DWORD* WindowWidth;  // aktualni sirka dialogu
+    DWORD* WindowTreeWidth; // uzivatelska sirka treeview
     int TreeWidth;       // sirka treeview, pocitana na zaklade obsahu
+    int MinTreeWidth;    // minimalni sirka treeview
+    int MinChildWidth;   // minimalni sirka praveho panelu
+    BOOL TreeSplitDragging;
     int CaptionHeight;   // vyska titulku
     SIZE ButtonSize;     // rozmery tlacitek na spodni hrane dialogu
     int ButtonMargin;    // mezera mezi tlacitky
@@ -189,7 +194,7 @@ protected:
     SIZE MarginSize;     // vodorovny a svisly okraj
 
 public:
-    CTreePropHolderDlg(HWND hParent, DWORD* windowHeight);
+    CTreePropHolderDlg(HWND hParent, DWORD* windowHeight, DWORD* windowWidth, DWORD* windowTreeWidth);
 
     int ExecuteIndirect(LPCDLGTEMPLATE hDialogTemplate);
 
@@ -214,9 +219,9 @@ protected:
 public:
     CTreePropDialog(HWND hParent, HINSTANCE hInstance, TCHAR* caption,
                     int startPage, DWORD flags, DWORD* lastPage,
-                    DWORD* windowHeight)
+                    DWORD* windowHeight, DWORD* windowWidth = NULL, DWORD* windowTreeWidth = NULL)
         : CPropertyDialog(hParent, hInstance, caption, startPage, flags, NULL, lastPage),
-          Dialog(hParent, windowHeight)
+          Dialog(hParent, windowHeight, windowWidth, windowTreeWidth)
     {
         Dialog.TPD = this;
     }
