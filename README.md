@@ -90,7 +90,7 @@ Common text and configuration formats
 | Project and build files | `.csproj`, `.fsproj`, `.vbproj`, `.vcxproj`, `.vcproj`, `.props`, `.targets` |
 
 #### Prism syntax highlighting identifiers
-The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salamander/blob/release/5.0-samandarin-0.1/src/plugins/textviewer/SUPPORTED_FILE_TYPES.md) so matching file extensions open in this viewer. 
+The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salamander/blob/release/5.0-samandarin-0.6/src/plugins/textviewer/SUPPORTED_FILE_TYPES.md#prism-syntax-highlighting-identifiers) so matching file extensions open in this viewer. 
 
 ### Registry Editor 1.14
 ### Renamer 1.13
