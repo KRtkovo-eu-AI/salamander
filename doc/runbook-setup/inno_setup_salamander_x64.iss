@@ -45,9 +45,8 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 UninstallDisplayName={#MyAppDisplayName}
-UninstallDisplayIcon=..\..\src\res\samandarin.ico
-; Keep this disabled so the installer does not create Add/Remove Programs registry entries.
-CreateUninstallRegKey=no
+UninstallDisplayIcon={app}\salamand.exe
+CreateUninstallRegKey=yes
 SetupIconFile=..\..\src\res\samandarin.ico
 LicenseFile={#SourcePath}\license.txt
 DisableFinishedPage=yes
