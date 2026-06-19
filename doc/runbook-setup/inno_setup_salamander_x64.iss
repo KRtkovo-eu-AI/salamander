@@ -1300,7 +1300,10 @@ begin
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
     end
     else
+    begin
       RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6');
+      DeleteFile(ExpandConstant('{app}\configstorage.ini'));
+    end;
   end;
 end;
 
