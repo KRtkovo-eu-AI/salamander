@@ -500,6 +500,29 @@ static BOOL IsHorizontalLayoutButton(HWND hCtrl, BOOL* resizeRight)
     return FALSE;
 }
 
+
+static BOOL HasOverlappingControlToRight(HWND hParent, HWND hCtrl, const RECT* ctrlRect)
+{
+    HWND hChild = GetWindow(hParent, GW_CHILD);
+    while (hChild != NULL)
+    {
+        if (hChild != hCtrl && IsWindowVisible(hChild))
+        {
+            RECT wR;
+            GetWindowRect(hChild, &wR);
+            POINT p1 = {wR.left, wR.top};
+            POINT p2 = {wR.right, wR.bottom};
+            ScreenToClient(hParent, &p1);
+            ScreenToClient(hParent, &p2);
+            RECT r = {p1.x, p1.y, p2.x, p2.y};
+            if (r.left >= ctrlRect->right && r.top < ctrlRect->bottom && r.bottom > ctrlRect->top)
+                return TRUE;
+        }
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+    return FALSE;
+}
+
 void CPropSheetPage::InitHorizontalLayout()
 {
     if (HorizontalLayoutCtrls != NULL)
@@ -550,7 +573,10 @@ void CPropSheetPage::InitHorizontalLayout()
         else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
         {
             if (resizeRight)
-                mode = PHLM_RESIZE_RIGHT;
+            {
+                if (!HasOverlappingControlToRight(HWindow, hChild, &r))
+                    mode = PHLM_RESIZE_RIGHT;
+            }
             else if (cR.right - r.right < 40)
                 mode = PHLM_MOVE_RIGHT;
         }
