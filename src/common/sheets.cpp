@@ -370,6 +370,8 @@ void CPropSheetPage::Init(const TCHAR* title, HINSTANCE modul, int resID,
     HTreeItem = NULL;
     Expanded = NULL;
     ElasticLayout = NULL;
+    HorizontalLayoutCtrls = NULL;
+    HorizontalLayoutWidth = 0;
 }
 
 CPropSheetPage::~CPropSheetPage()
@@ -378,6 +380,8 @@ CPropSheetPage::~CPropSheetPage()
         delete[] Title;
     if (ElasticLayout != NULL)
         delete ElasticLayout;
+    if (HorizontalLayoutCtrls != NULL)
+        delete HorizontalLayoutCtrls;
 }
 
 BOOL CPropSheetPage::ValidateData()
@@ -466,6 +470,139 @@ BOOL CPropSheetPage::ElasticLayoutControls(int resizeCount, int resizeRightCount
     return TRUE;
 }
 
+
+#define PHLM_RESIZE_RIGHT 1
+#define PHLM_MOVE_RIGHT 2
+
+static BOOL IsHorizontalLayoutStatic(HWND hCtrl)
+{
+    LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
+    LONG_PTR type = style & SS_TYPEMASK;
+    return type == SS_LEFT || type == SS_LEFTNOWORDWRAP || type == SS_CENTER ||
+           type == SS_RIGHT || type == SS_ETCHEDHORZ || type == SS_GROUPBOX;
+}
+
+static BOOL IsHorizontalLayoutButton(HWND hCtrl, BOOL* resizeRight)
+{
+    LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
+    LONG_PTR type = style & BS_TYPEMASK;
+    if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+        type == BS_AUTO3STATE || type == BS_3STATE ||
+        type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON || type == BS_GROUPBOX)
+    {
+        *resizeRight = TRUE;
+        return TRUE;
+    }
+    if (type == BS_PUSHBUTTON || type == BS_DEFPUSHBUTTON || type == BS_OWNERDRAW)
+    {
+        *resizeRight = FALSE;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void CPropSheetPage::InitHorizontalLayout()
+{
+    if (HorizontalLayoutCtrls != NULL)
+        delete HorizontalLayoutCtrls;
+    HorizontalLayoutCtrls = new TDirectArray<CPageHorizontalLayoutCtrl>(20, 20);
+    if (HorizontalLayoutCtrls == NULL)
+    {
+        TRACE_E("Low memory!");
+        HorizontalLayoutWidth = 0;
+        return;
+    }
+
+    RECT cR;
+    GetClientRect(HWindow, &cR);
+    HorizontalLayoutWidth = cR.right;
+
+    HWND hChild = GetWindow(HWindow, GW_CHILD);
+    while (hChild != NULL)
+    {
+        TCHAR className[64];
+        className[0] = 0;
+        GetClassName(hChild, className, _countof(className));
+
+        RECT wR;
+        GetWindowRect(hChild, &wR);
+        POINT p1 = {wR.left, wR.top};
+        POINT p2 = {wR.right, wR.bottom};
+        ScreenToClient(HWindow, &p1);
+        ScreenToClient(HWindow, &p2);
+        RECT r = {p1.x, p1.y, p2.x, p2.y};
+
+        int mode = 0;
+        BOOL resizeRight = FALSE;
+        if (_tcsicmp(className, _T("Edit")) == 0 ||
+            _tcsicmp(className, _T("ComboBox")) == 0 ||
+            _tcsicmp(className, WC_LISTVIEW) == 0 ||
+            _tcsicmp(className, WC_TREEVIEW) == 0 ||
+            _tcsicmp(className, TOOLBARCLASSNAME) == 0)
+        {
+            // Stretch regular data controls, except very small numeric edits.
+            if (r.right - r.left > 80 || cR.right - r.right < 40)
+                mode = PHLM_RESIZE_RIGHT;
+        }
+        else if (_tcsicmp(className, _T("Static")) == 0)
+        {
+            if (IsHorizontalLayoutStatic(hChild))
+                mode = PHLM_RESIZE_RIGHT;
+        }
+        else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
+        {
+            if (resizeRight)
+                mode = PHLM_RESIZE_RIGHT;
+            else if (cR.right - r.right < 40)
+                mode = PHLM_MOVE_RIGHT;
+        }
+
+        if (mode != 0)
+        {
+            CPageHorizontalLayoutCtrl ctrl;
+            ctrl.HCtrl = hChild;
+            ctrl.Rect = r;
+            ctrl.Mode = mode;
+            HorizontalLayoutCtrls->Add(ctrl);
+        }
+
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+}
+
+void CPropSheetPage::ApplyHorizontalLayout()
+{
+    if (HorizontalLayoutCtrls == NULL || HorizontalLayoutWidth == 0)
+        return;
+
+    RECT cR;
+    GetClientRect(HWindow, &cR);
+    int dx = cR.right - HorizontalLayoutWidth;
+    if (dx < 0)
+        dx = 0;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(HorizontalLayoutCtrls->Count));
+    if (hdwp != NULL)
+    {
+        for (int i = 0; i < HorizontalLayoutCtrls->Count; i++)
+        {
+            CPageHorizontalLayoutCtrl* ctrl = &(*HorizontalLayoutCtrls)[i];
+            RECT r = ctrl->Rect;
+            if (ctrl->Mode == PHLM_RESIZE_RIGHT)
+                r.right += dx;
+            else if (ctrl->Mode == PHLM_MOVE_RIGHT)
+            {
+                r.left += dx;
+                r.right += dx;
+            }
+            HANDLES(DeferWindowPos(hdwp, ctrl->HCtrl, NULL,
+                                   r.left, r.top, r.right - r.left, r.bottom - r.top,
+                                   SWP_NOZORDER));
+        }
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+}
+
 INT_PTR
 CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -480,6 +617,8 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         ParentDialog->HWindow = Parent;
         TransferData(ttDataToWindow);
+        InitHorizontalLayout();
+        ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         return TRUE; // chci focus od DefDlgProc
@@ -487,6 +626,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
+        ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
         break;

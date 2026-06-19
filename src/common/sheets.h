@@ -14,6 +14,13 @@ struct CElasticLayoutCtrl
     POINT Pos;  // pozice prvku vuci spodni/prave hrane opsane obalky nebo dialogu
 };
 
+struct CPageHorizontalLayoutCtrl
+{
+    HWND HCtrl;
+    RECT Rect;
+    int Mode;
+};
+
 // pomocna trida slouzici pro layout prvku dialogu na zaklade jeho velikosti
 class CElasticLayout
 {
@@ -94,6 +101,11 @@ protected:
 
     // pokud je ruzne od NULL, se zmenou velikosti dialogu menime layout prvku
     CElasticLayout* ElasticLayout;
+
+    TDirectArray<CPageHorizontalLayoutCtrl>* HorizontalLayoutCtrls;
+    int HorizontalLayoutWidth;
+    void InitHorizontalLayout();
+    void ApplyHorizontalLayout();
 
     friend class CPropertyDialog;
     friend class CTreePropDialog;
