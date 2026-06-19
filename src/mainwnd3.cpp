@@ -8409,11 +8409,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             if (LeftPanel != NULL && LeftPanel->HTreeHeader != NULL && LeftPanel->TreeViewActive)
             {
                 BOOL collapsed = Configuration.TreeViewAutoHide && !treeAutoHideExpanded;
-                int headerWidth = collapsed ? treeWidth : treeDisplayWidth;
+                int headerX = collapsed ? 0 : 1;
+                int headerWidth = collapsed ? treeWidth + 1 : treeDisplayWidth;
                 int headerHeight = collapsed ? PanelsHeight : treeHeaderHeight;
                 hdwp = HANDLES(DeferWindowPos(hdwp, LeftPanel->HTreeHeader,
                                               treeOnTop ? HWND_TOP : NULL,
-                                              1, TopRebarHeight, headerWidth, headerHeight,
+                                              headerX, TopRebarHeight, headerWidth, headerHeight,
                                               SWP_NOACTIVATE | (treeOnTop ? 0 : SWP_NOZORDER) | SWP_SHOWWINDOW));
             }
             if (LeftPanel != NULL && LeftPanel->HTreeView != NULL && LeftPanel->TreeViewActive)

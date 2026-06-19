@@ -81,6 +81,7 @@ enum
 {
     TREEVIEW_HEADER_HOT_CLOSE = 0x01,
     TREEVIEW_HEADER_HOT_PIN = 0x02,
+    TREEVIEW_HEADER_AUTOHIDE_EXPAND_TIMER_SET = 0x04,
     TREEVIEW_AUTOHIDE_TIMER = 1,
     TREEVIEW_AUTOHIDE_EXPAND_TIMER = 2,
     TREEVIEW_AUTOHIDE_EXPAND_DELAY = 150
@@ -199,6 +200,8 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
         else if (wParam == TREEVIEW_AUTOHIDE_EXPAND_TIMER)
         {
             KillTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER);
+            SetWindowLongPtr(hwnd, GWLP_USERDATA,
+                             GetWindowLongPtr(hwnd, GWLP_USERDATA) & ~TREEVIEW_HEADER_AUTOHIDE_EXPAND_TIMER_SET);
             POINT pt;
             GetCursorPos(&pt);
             if (IsPointInWindow(hwnd, pt))
@@ -210,7 +213,15 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
     {
         if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
         {
-            SetTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER, TREEVIEW_AUTOHIDE_EXPAND_DELAY, NULL);
+            LONG_PTR state = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            if ((state & TREEVIEW_HEADER_AUTOHIDE_EXPAND_TIMER_SET) == 0)
+            {
+                SetTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER, TREEVIEW_AUTOHIDE_EXPAND_DELAY, NULL);
+                SetWindowLongPtr(hwnd, GWLP_USERDATA,
+                                 state | TREEVIEW_HEADER_AUTOHIDE_EXPAND_TIMER_SET);
+            }
+            TRACKMOUSEEVENT track = {sizeof(track), TME_LEAVE, hwnd, 0};
+            TrackMouseEvent(&track);
             return 0;
         }
         POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
@@ -241,10 +252,22 @@ static LRESULT CALLBACK TreeViewHeaderSubclassProc(HWND hwnd, UINT message, WPAR
         }
         break;
 
+    case WM_LBUTTONDOWN:
+        if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
+        {
+            KillTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER);
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+            panel->ExpandTreeViewAutoHide();
+            return 0;
+        }
+        break;
+
     case WM_LBUTTONUP:
     {
         if (Configuration.TreeViewAutoHide && !panel->TreeViewAutoHideExpanded)
         {
+            KillTimer(hwnd, TREEVIEW_AUTOHIDE_EXPAND_TIMER);
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
             panel->ExpandTreeViewAutoHide();
             return 0;
         }
