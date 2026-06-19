@@ -14,7 +14,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 ## Included Features Overview
 ### Translations
-<img width="416" height="440" alt="image" src="https://github.com/user-attachments/assets/8d105940-b1b9-4217-8ccd-9a7356e8b96c" />
+<img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb" />
 
 - automatic translate with OpenAI API (model gpt-5.4-nano)
 
@@ -57,7 +57,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### FTP Client 1.35
 ### File Comparator 1.19
 ### Folders 0.1
-### Hyper-V Machines 1.03
+### Hyper-V Machines 1.04
 Show local Hyper-V virtual machines. You can Start/Turn Off/Shut Down/Connect/Create New Machine through the plugin.
 
 ### JSON Viewer .NET 1.0
@@ -92,7 +92,7 @@ The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salama
 
 ### Registry Editor 1.14
 ### Renamer 1.13
-### Samandarin Update Notifier 0.1
+### Samandarin Update Notifier 0.2
 ### Service Explorer 0.012
 ### Split & Combine 1.11
 ### TAR 3.34
