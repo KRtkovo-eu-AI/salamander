@@ -26,7 +26,7 @@
 #endif
 
 [Setup]
-AppId=OpenSalamanderSamandarin-x64-5.0-samandarin-0.6
+AppId=OpenSalamanderSamandarin-x64-{#MyAppVersion}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppDisplayName}
@@ -40,7 +40,7 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=setup_{#MyAppVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
-WizardStyle=modern
+WizardStyle=modern dark
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
@@ -52,6 +52,7 @@ SetupIconFile=..\..\src\res\samandarin.ico
 LicenseFile={#SourcePath}\license.txt
 DisableFinishedPage=yes
 ChangesAssociations=yes
+WizardSmallImageFile={#SourcePath}\setup_img_small.png
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
