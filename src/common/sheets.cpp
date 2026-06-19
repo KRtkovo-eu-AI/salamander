@@ -486,11 +486,15 @@ static BOOL IsHorizontalLayoutButton(HWND hCtrl, BOOL* resizeRight)
 {
     LONG_PTR style = GetWindowLongPtr(hCtrl, GWL_STYLE);
     LONG_PTR type = style & BS_TYPEMASK;
-    if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
-        type == BS_AUTO3STATE || type == BS_3STATE || type == BS_GROUPBOX)
+    if (type == BS_GROUPBOX)
     {
         *resizeRight = TRUE;
         return TRUE;
+    }
+    if (type == BS_AUTOCHECKBOX || type == BS_CHECKBOX ||
+        type == BS_AUTO3STATE || type == BS_3STATE)
+    {
+        return FALSE;
     }
     if (type == BS_PUSHBUTTON || type == BS_DEFPUSHBUTTON || type == BS_OWNERDRAW)
     {
@@ -567,8 +571,12 @@ void CPropSheetPage::InitHorizontalLayout()
         }
         else if (_tcsicmp(className, _T("Static")) == 0)
         {
-            if (IsHorizontalLayoutStatic(hChild))
+            LONG_PTR staticType = GetWindowLongPtr(hChild, GWL_STYLE) & SS_TYPEMASK;
+            if (IsHorizontalLayoutStatic(hChild) &&
+                (staticType == SS_ETCHEDHORZ || !HasOverlappingControlToRight(HWindow, hChild, &r)))
+            {
                 mode = PHLM_RESIZE_RIGHT;
+            }
         }
         else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
         {
