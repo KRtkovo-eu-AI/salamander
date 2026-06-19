@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -16,9 +16,17 @@
 #include "fx.h"
 #include "fxfs.h"
 
+class CWpdDevice;
+class CWpdBaseContentItem;
+
 class CWpdFS final : public TFxPluginFSInterface<CWpdFS>
 {
 protected:
+    HRESULT WINAPI GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
+    HRESULT WINAPI CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name);
+    HRESULT WINAPI RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName);
+    HRESULT WINAPI DeleteWpdObject(CWpdBaseContentItem* item);
+
     /* CFxPluginFSInterface Overrides */
 
     virtual CFxPluginDataInterface* WINAPI CreatePluginData(CFxItemEnumerator* enumerator) override;
@@ -29,12 +37,37 @@ protected:
         int level,
         bool forceRefresh) override;
 
+    virtual BOOL WINAPI QuickRename(
+        const char* fsName,
+        int mode,
+        HWND parent,
+        CFileData& file,
+        BOOL isDir,
+        char* newName,
+        BOOL& cancel) override;
+
+    virtual BOOL WINAPI CreateDir(
+        const char* fsName,
+        int mode,
+        HWND parent,
+        char* newName,
+        BOOL& cancel) override;
+
+    virtual BOOL WINAPI Delete(
+        const char* fsName,
+        int mode,
+        HWND parent,
+        int panel,
+        int selectedFiles,
+        int selectedDirs,
+        BOOL& cancelOrError) override;
+
 public:
     CWpdFS(CFxPluginInterfaceForFS& owner);
 
     enum _SupportedServices
     {
-        SUPPORTED_SERVICES = 0U
+        SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE
     };
 
     static PCTSTR SUGGESTED_NAME;
