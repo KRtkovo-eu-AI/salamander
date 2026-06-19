@@ -114,6 +114,28 @@ static void WINAPI WpdShowOperationError(HWND parent, PCSTR operation, PCSTR nam
     SalamanderGeneral->ShowMessageBox(message, "Portable Devices", MSGBOX_ERROR);
 }
 
+static HRESULT WINAPI WpdObjectIdToString(PCWSTR objectId, CFxString& s)
+{
+    _ASSERTE(objectId != nullptr);
+
+    int len = ::WideCharToMultiByte(CP_ACP, 0, objectId, -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 0)
+    {
+        return HRESULT_FROM_WIN32(::GetLastError());
+    }
+
+    PSTR buffer = s.GetBuffer(len);
+    if (::WideCharToMultiByte(CP_ACP, 0, objectId, -1, buffer, len, nullptr, nullptr) <= 0)
+    {
+        HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
+        s.ReleaseBuffer(0);
+        return hr;
+    }
+
+    s.ReleaseBuffer();
+    return S_OK;
+}
+
 HRESULT WINAPI CWpdFS::GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId)
 {
     device = nullptr;
@@ -163,18 +185,26 @@ HRESULT WINAPI CWpdFS::GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out
                 if (!wpdItem->IsDevice())
                 {
                     auto contentItem = static_cast<CWpdBaseContentItem*>(item);
-                    objectId = CW2A(contentItem->GetObjectId());
-                    if (device != nullptr)
+                    hr = WpdObjectIdToString(contentItem->GetObjectId(), objectId);
+                    if (SUCCEEDED(hr))
                     {
-                        device->Release();
+                        if (device != nullptr)
+                        {
+                            device->Release();
+                        }
+                        device = contentItem->GetDeviceNoAddRef();
+                        device->AddRef();
                     }
-                    device = contentItem->GetDeviceNoAddRef();
-                    device->AddRef();
                 }
                 item->Release();
                 break;
             }
             item->Release();
+        }
+
+        if (FAILED(hr))
+        {
+            break;
         }
 
         if (!found)
