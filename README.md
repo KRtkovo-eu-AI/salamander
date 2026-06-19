@@ -13,18 +13,20 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 
 
 ## Included Features Overview
+### Portability
+- Save the Configuration into file storage instead of Registry
+<img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/2ff3e823-b29b-4b49-b5d1-714ac00e868b" />
+
 ### Translations
+- automatic translate with OpenAI API (model gpt-5.4-nano)
 <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb" />
 
-- automatic translate with OpenAI API (model gpt-5.4-nano)
-
 ### Tabbed Panels
+- When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
+- You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.
 <img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/cd8919c4-2640-4c99-b83d-94f814100d9f" />
 <img width="687" height="247" alt="image" src="https://github.com/user-attachments/assets/1443370b-e663-48dd-807a-26d17b115c41" />
 <img width="687" height="479" alt="image" src="https://github.com/user-attachments/assets/30765cbf-a26b-4a2e-8e76-720908342467" />
-
-- When tabs overflow the tab bar, you can scroll the tab bar with the mouse wheel.
-- You can switch between tabs on one side when holding right mouse button and scrolling with the mouse wheel.
 
 ### Shared/separate History
 <img width="687" height="154" alt="image" src="https://github.com/user-attachments/assets/a8e16767-4df5-4d11-8767-7701464611a6" />
