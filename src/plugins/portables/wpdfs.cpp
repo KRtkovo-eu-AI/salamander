@@ -136,15 +136,21 @@ static HRESULT WINAPI WpdObjectIdToString(PCWSTR objectId, CFxString& s)
     return S_OK;
 }
 
-HRESULT WINAPI CWpdFS::GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId)
+HRESULT WINAPI CWpdFS::GetContentLocationForPath(PCSTR userPart, _Out_ CWpdDevice*& device, _Out_ CFxString& objectId)
 {
     device = nullptr;
     objectId.Empty();
 
-    CFxPath* path = CreatePath(GetCurrentPath().GetString());
+    CFxPath* path = CreatePath(userPart);
+    HRESULT hr = path->Canonicalize();
+    if (FAILED(hr))
+    {
+        delete path;
+        return hr;
+    }
+
     CFxPathComponentToken token;
     CFxItemEnumerator* parentEnumerator = nullptr;
-    HRESULT hr = S_OK;
     int level = 0;
 
     while (path->GetNextPathComponent(token))
@@ -232,6 +238,11 @@ HRESULT WINAPI CWpdFS::GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out
     return hr;
 }
 
+HRESULT WINAPI CWpdFS::GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId)
+{
+    return GetContentLocationForPath(GetCurrentPath().GetString(), device, objectId);
+}
+
 HRESULT WINAPI CWpdFS::CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name)
 {
     ATL::CComPtr<IPortableDeviceValues> values;
@@ -263,34 +274,54 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName)
     {
         ATL::CA2W wideName(newName);
         hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
-        if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideName);
         if (SUCCEEDED(hr)) hr = device->GetPropertiesNoAddRef()->SetValues(item->GetObjectId(), values, nullptr);
     }
     device->Close();
     return hr;
 }
 
-HRESULT WINAPI CWpdFS::DeleteWpdObject(CWpdBaseContentItem* item)
+HRESULT WINAPI CWpdFS::AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId)
 {
-    CWpdDevice* device = item->GetDeviceNoAddRef();
+    _ASSERTE(objects != nullptr);
+    _ASSERTE(objectId != nullptr);
+
+    PROPVARIANT pv;
+    PropVariantInit(&pv);
+    pv.vt = VT_LPWSTR;
+    pv.pwszVal = const_cast<PWSTR>(objectId);
+    return objects->Add(&pv);
+}
+
+HRESULT WINAPI CWpdFS::DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects)
+{
     HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
     if (FAILED(hr)) return hr;
 
-    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
-    hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
-    if (SUCCEEDED(hr))
+    ATL::CComPtr<IPortableDevicePropVariantCollection> results;
+    hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
+    device->Close();
+    return hr;
+}
+
+HRESULT WINAPI CWpdFS::CopyOrMoveWpdObjects(
+    CWpdDevice* device,
+    IPortableDevicePropVariantCollection* objects,
+    PCWSTR destinationObjectId,
+    bool copy)
+{
+    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+    if (FAILED(hr)) return hr;
+
+    ATL::CComPtr<IPortableDevicePropVariantCollection> results;
+    if (copy)
     {
-        PROPVARIANT pv;
-        PropVariantInit(&pv);
-        pv.vt = VT_LPWSTR;
-        pv.pwszVal = const_cast<PWSTR>(item->GetObjectId());
-        hr = objects->Add(&pv);
-        if (SUCCEEDED(hr))
-        {
-            ATL::CComPtr<IPortableDevicePropVariantCollection> results;
-            hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
-        }
+        hr = device->GetContentNoAddRef()->Copy(objects, destinationObjectId, &results);
     }
+    else
+    {
+        hr = device->GetContentNoAddRef()->Move(objects, destinationObjectId, &results);
+    }
+
     device->Close();
     return hr;
 }
@@ -343,6 +374,16 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
     cancelOrError = FALSE;
     if (mode == 1) return FALSE;
 
+    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
+    HRESULT hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+    if (FAILED(hr))
+    {
+        WpdShowOperationError(parent, "Delete", "", hr);
+        cancelOrError = TRUE;
+        return TRUE;
+    }
+
+    CWpdDevice* device = nullptr;
     BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
     int index = 0;
     bool ok = true;
@@ -352,7 +393,11 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
         if (f == nullptr) break;
         auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
-        HRESULT hr = DeleteWpdObject(item);
+        if (device == nullptr)
+        {
+            device = item->GetDeviceNoAddRef();
+        }
+        hr = AddWpdObjectId(objects, item->GetObjectId());
         if (FAILED(hr))
         {
             WpdShowOperationError(parent, "Delete", f->Name, hr);
@@ -361,7 +406,149 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         }
         if (focused) break;
     }
+    if (ok && device != nullptr)
+    {
+        hr = DeleteWpdObjects(device, objects);
+        if (FAILED(hr))
+        {
+            WpdShowOperationError(parent, "Delete", "", hr);
+            ok = false;
+        }
+    }
     cancelOrError = !ok;
-    SalamanderGeneral->PostRefreshPanelFS(this);
+    if (ok)
+    {
+        SalamanderGeneral->PostRefreshPanelFS(this);
+    }
     return TRUE;
+}
+
+BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
+    BOOL copy,
+    int mode,
+    const char* fsName,
+    HWND parent,
+    int panel,
+    int selectedFiles,
+    int selectedDirs,
+    char* targetPath,
+    BOOL& operationMask,
+    BOOL& cancelOrHandlePath,
+    HWND)
+{
+    operationMask = FALSE;
+    cancelOrHandlePath = FALSE;
+
+    if (mode == 1 || mode == 4)
+    {
+        return FALSE;
+    }
+
+    int fsNameLen = lstrlen(fsName);
+    bool isOurFsTarget = SalamanderGeneral->StrNICmp(targetPath, fsName, fsNameLen) == 0 &&
+                         targetPath[fsNameLen] == ':';
+    if (isOurFsTarget)
+    {
+        CWpdDevice* targetDevice = nullptr;
+        CFxString targetObjectId;
+        HRESULT hr = GetContentLocationForPath(targetPath + fsNameLen + 1, targetDevice, targetObjectId);
+        if (FAILED(hr))
+        {
+            WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+            cancelOrHandlePath = TRUE;
+            return TRUE;
+        }
+
+        ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
+        hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+        if (FAILED(hr))
+        {
+            targetDevice->Release();
+            WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+            cancelOrHandlePath = TRUE;
+            return TRUE;
+        }
+
+        BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
+        int index = 0;
+        for (;;)
+        {
+            BOOL isDir = FALSE;
+            const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+            if (f == nullptr) break;
+
+            auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
+            hr = AddWpdObjectId(objects, item->GetObjectId());
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
+                break;
+            }
+
+            if (focused) break;
+        }
+
+        if (SUCCEEDED(hr))
+        {
+            ATL::CA2W wideTargetObjectId(targetObjectId);
+            hr = CopyOrMoveWpdObjects(targetDevice, objects, wideTargetObjectId, !!copy);
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+            }
+        }
+
+        targetDevice->Release();
+        cancelOrHandlePath = FAILED(hr);
+        if (SUCCEEDED(hr))
+        {
+            targetPath[0] = '\0';
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        }
+        return TRUE;
+    }
+
+    // For Windows targets ask Salamander to parse the path and use its standard
+    // fallback path handling.
+    if (mode == 2 || mode == 5)
+    {
+        cancelOrHandlePath = TRUE;
+        return FALSE;
+    }
+
+    // Salamander calls mode 3 after its standard target-path handling.  The
+    // framework will continue with its own fallback if we return FALSE here.
+    targetPath[0] = '\0';
+    return FALSE;
+}
+
+BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
+    BOOL copy,
+    int mode,
+    const char*,
+    HWND,
+    const char*,
+    SalEnumSelection2,
+    void*,
+    int,
+    int,
+    char* targetPath,
+    BOOL* invalidPathOrCancel)
+{
+    UNREFERENCED_PARAMETER(copy);
+
+    if (invalidPathOrCancel != nullptr)
+    {
+        *invalidPathOrCancel = FALSE;
+    }
+
+    if (mode == 1)
+    {
+        GetCurrentPath(targetPath);
+        return TRUE;
+    }
+
+    // Returning FALSE with invalidPathOrCancel == FALSE tells Salamander this
+    // FS instance cannot process the transfer and allows the host fallback path.
+    return FALSE;
 }
