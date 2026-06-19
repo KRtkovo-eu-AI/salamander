@@ -515,7 +515,7 @@ static BOOL HasOverlappingControlToRight(HWND hParent, HWND hCtrl, const RECT* c
             ScreenToClient(hParent, &p1);
             ScreenToClient(hParent, &p2);
             RECT r = {p1.x, p1.y, p2.x, p2.y};
-            if (r.left >= ctrlRect->right && r.top < ctrlRect->bottom && r.bottom > ctrlRect->top)
+            if (r.left > ctrlRect->left && r.top < ctrlRect->bottom && r.bottom > ctrlRect->top)
                 return TRUE;
         }
         hChild = GetWindow(hChild, GW_HWNDNEXT);
@@ -574,7 +574,8 @@ void CPropSheetPage::InitHorizontalLayout()
         {
             if (resizeRight)
             {
-                if (!HasOverlappingControlToRight(HWindow, hChild, &r))
+                LONG_PTR buttonType = GetWindowLongPtr(hChild, GWL_STYLE) & BS_TYPEMASK;
+                if (buttonType == BS_GROUPBOX || !HasOverlappingControlToRight(HWindow, hChild, &r))
                     mode = PHLM_RESIZE_RIGHT;
             }
             else if (cR.right - r.right < 40)
