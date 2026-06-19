@@ -274,8 +274,87 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName)
     {
         ATL::CA2W wideName(newName);
         hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
-        if (SUCCEEDED(hr)) hr = device->GetPropertiesNoAddRef()->SetValues(item->GetObjectId(), values, nullptr);
+        ATL::CComPtr<IPortableDeviceValues> results;
+        if (SUCCEEDED(hr)) hr = device->GetPropertiesNoAddRef()->SetValues(item->GetObjectId(), values, &results);
     }
+    device->Close();
+    return hr;
+}
+
+HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName)
+{
+    CWpdDevice* device = item->GetDeviceNoAddRef();
+    HRESULT hr = device->Open(GENERIC_READ);
+    if (FAILED(hr)) return hr;
+
+    ATL::CComPtr<IPortableDeviceResources> resources;
+    hr = device->GetContentNoAddRef()->Transfer(&resources);
+    if (SUCCEEDED(hr))
+    {
+        ATL::CComPtr<IStream> source;
+        DWORD optimalBufferSize = 0;
+        hr = resources->GetStream(item->GetObjectId(), WPD_RESOURCE_DEFAULT, STGM_READ, &optimalBufferSize, &source);
+        if (SUCCEEDED(hr))
+        {
+            ATL::CComPtr<IStream> target;
+            hr = ::SHCreateStreamOnFile(targetName, STGM_CREATE | STGM_WRITE, &target);
+            if (SUCCEEDED(hr))
+            {
+                ULARGE_INTEGER size;
+                size.QuadPart = MAXULONGLONG;
+                hr = source->CopyTo(target, size, nullptr, nullptr);
+                if (SUCCEEDED(hr))
+                {
+                    hr = target->Commit(STGC_DEFAULT);
+                }
+            }
+        }
+    }
+
+    device->Close();
+    return hr;
+}
+
+HRESULT WINAPI CWpdFS::UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName)
+{
+    ATL::CComPtr<IStream> source;
+    HRESULT hr = ::SHCreateStreamOnFile(sourceName, STGM_READ, &source);
+    if (FAILED(hr)) return hr;
+
+    STATSTG stat;
+    hr = source->Stat(&stat, STATFLAG_NONAME);
+    if (FAILED(hr)) return hr;
+
+    ATL::CComPtr<IPortableDeviceValues> values;
+    hr = values.CoCreateInstance(CLSID_PortableDeviceValues);
+    if (FAILED(hr)) return hr;
+
+    ATL::CA2W wideTargetName(targetName);
+    hr = values->SetStringValue(WPD_OBJECT_PARENT_ID, parentObjectId);
+    if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_NAME, wideTargetName);
+    if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideTargetName);
+    if (SUCCEEDED(hr)) hr = values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_GENERIC_FILE);
+    if (SUCCEEDED(hr)) hr = values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_UNSPECIFIED);
+    if (SUCCEEDED(hr)) hr = values->SetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, stat.cbSize.QuadPart);
+    if (FAILED(hr)) return hr;
+
+    hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+    if (FAILED(hr)) return hr;
+
+    ATL::CComPtr<IStream> target;
+    DWORD optimalBufferSize = 0;
+    PWSTR newObjectId = nullptr;
+    hr = device->GetContentNoAddRef()->CreateObjectWithPropertiesAndData(values, &target, &optimalBufferSize, &newObjectId);
+    if (SUCCEEDED(hr))
+    {
+        ULARGE_INTEGER size = stat.cbSize;
+        hr = source->CopyTo(target, size, nullptr, nullptr);
+        if (SUCCEEDED(hr))
+        {
+            hr = target->Commit(STGC_DEFAULT);
+        }
+    }
+    ::CoTaskMemFree(newObjectId);
     device->Close();
     return hr;
 }
@@ -439,7 +518,24 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
     operationMask = FALSE;
     cancelOrHandlePath = FALSE;
 
-    if (mode == 1 || mode == 4)
+    if (mode == 1)
+    {
+        if (*targetPath == '\0')
+        {
+            char path[2 * MAX_PATH];
+            int targetPanel = (panel == PANEL_LEFT ? PANEL_RIGHT : PANEL_LEFT);
+            int type;
+            char* fs;
+            if (SalamanderGeneral->GetPanelPath(targetPanel, path, _countof(path), &type, &fs))
+            {
+                lstrcpyn(targetPath, path, 2 * MAX_PATH);
+                SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_TARGET);
+            }
+        }
+        return FALSE;
+    }
+
+    if (mode == 4)
     {
         return FALSE;
     }
@@ -451,7 +547,23 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
     {
         CWpdDevice* targetDevice = nullptr;
         CFxString targetObjectId;
-        HRESULT hr = GetContentLocationForPath(targetPath + fsNameLen + 1, targetDevice, targetObjectId);
+        char targetUserPart[2 * MAX_PATH];
+        lstrcpyn(targetUserPart, targetPath + fsNameLen + 1, _countof(targetUserPart));
+        char* lastSlash = strrchr(targetUserPart, '\\');
+        char* lastComponent = lastSlash != nullptr ? lastSlash + 1 : targetUserPart;
+        if (strchr(lastComponent, '*') != nullptr || strchr(lastComponent, '?') != nullptr)
+        {
+            if (lastSlash != nullptr)
+            {
+                *lastSlash = '\0';
+            }
+            else
+            {
+                lstrcpyn(targetUserPart, "\\", _countof(targetUserPart));
+            }
+        }
+
+        HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
         if (FAILED(hr))
         {
             WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
@@ -516,8 +628,66 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         return FALSE;
     }
 
-    // Salamander calls mode 3 after its standard target-path handling.  The
-    // framework will continue with its own fallback if we return FALSE here.
+    if (mode == 3)
+    {
+        bool ok = true;
+        BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
+        int index = 0;
+        for (;;)
+        {
+            BOOL isDir = FALSE;
+            const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+            if (f == nullptr) break;
+
+            if (isDir)
+            {
+                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, E_NOTIMPL);
+                ok = false;
+                break;
+            }
+
+            char targetName[MAX_PATH];
+            lstrcpyn(targetName, targetPath, _countof(targetName));
+            if (!SalamanderGeneral->SalPathAppend(targetName, f->Name, _countof(targetName)))
+            {
+                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE));
+                ok = false;
+                break;
+            }
+
+            auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
+            HRESULT hr = DownloadWpdFile(item, targetName);
+            if (SUCCEEDED(hr) && !copy)
+            {
+                ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
+                hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+                if (SUCCEEDED(hr))
+                {
+                    hr = AddWpdObjectId(objects, item->GetObjectId());
+                }
+                if (SUCCEEDED(hr))
+                {
+                    hr = DeleteWpdObjects(item->GetDeviceNoAddRef(), objects);
+                }
+            }
+            if (FAILED(hr))
+            {
+                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
+                ok = false;
+                break;
+            }
+
+            if (focused) break;
+        }
+        cancelOrHandlePath = !ok;
+        if (ok)
+        {
+            targetPath[0] = '\0';
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        }
+        return TRUE;
+    }
+
     targetPath[0] = '\0';
     return FALSE;
 }
@@ -525,18 +695,16 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
 BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     BOOL copy,
     int mode,
-    const char*,
-    HWND,
-    const char*,
-    SalEnumSelection2,
-    void*,
+    const char* fsName,
+    HWND parent,
+    const char* sourcePath,
+    SalEnumSelection2 next,
+    void* nextParam,
     int,
     int,
     char* targetPath,
     BOOL* invalidPathOrCancel)
 {
-    UNREFERENCED_PARAMETER(copy);
-
     if (invalidPathOrCancel != nullptr)
     {
         *invalidPathOrCancel = FALSE;
@@ -548,7 +716,101 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
         return TRUE;
     }
 
-    // Returning FALSE with invalidPathOrCancel == FALSE tells Salamander this
-    // FS instance cannot process the transfer and allows the host fallback path.
-    return FALSE;
+    if (mode != 2 && mode != 3)
+    {
+        return FALSE;
+    }
+
+    int fsNameLen = lstrlen(fsName);
+    if (!(SalamanderGeneral->StrNICmp(targetPath, fsName, fsNameLen) == 0 && targetPath[fsNameLen] == ':'))
+    {
+        return FALSE;
+    }
+
+    char targetUserPart[2 * MAX_PATH];
+    lstrcpyn(targetUserPart, targetPath + fsNameLen + 1, _countof(targetUserPart));
+    char* lastSlash = strrchr(targetUserPart, '\\');
+    char* lastComponent = lastSlash != nullptr ? lastSlash + 1 : targetUserPart;
+    if (strchr(lastComponent, '*') != nullptr || strchr(lastComponent, '?') != nullptr)
+    {
+        if (lastSlash != nullptr)
+        {
+            *lastSlash = '\0';
+        }
+        else
+        {
+            lstrcpyn(targetUserPart, "\\", _countof(targetUserPart));
+        }
+    }
+
+    CWpdDevice* targetDevice = nullptr;
+    CFxString targetObjectId;
+    HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
+    if (FAILED(hr))
+    {
+        WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+        if (invalidPathOrCancel != nullptr)
+        {
+            *invalidPathOrCancel = TRUE;
+        }
+        return TRUE;
+    }
+
+    ATL::CA2W wideTargetObjectId(targetObjectId);
+    BOOL ok = TRUE;
+    const char* name;
+    const char* dosName;
+    BOOL isDir;
+    CQuadWord size;
+    DWORD attr;
+    FILETIME lastWrite;
+    int errorOccured = SALENUM_SUCCESS;
+    while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
+    {
+        char sourceName[MAX_PATH];
+        lstrcpyn(sourceName, sourcePath, _countof(sourceName));
+        if (!SalamanderGeneral->SalPathAppend(sourceName, name, _countof(sourceName)))
+        {
+            hr = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
+        }
+        else if (isDir)
+        {
+            hr = CreateWpdFolder(targetDevice, wideTargetObjectId, name);
+        }
+        else
+        {
+            const char* targetName = strrchr(name, '\\');
+            targetName = targetName != nullptr ? targetName + 1 : name;
+            hr = UploadDiskFile(targetDevice, wideTargetObjectId, sourceName, targetName);
+            if (SUCCEEDED(hr) && !copy)
+            {
+                if (!::DeleteFile(sourceName))
+                {
+                    hr = HRESULT_FROM_WIN32(::GetLastError());
+                }
+            }
+        }
+
+        if (FAILED(hr))
+        {
+            WpdShowOperationError(parent, copy ? "Copy" : "Move", name, hr);
+            ok = FALSE;
+            break;
+        }
+    }
+
+    targetDevice->Release();
+    if (errorOccured == SALENUM_CANCEL)
+    {
+        ok = FALSE;
+    }
+    if (invalidPathOrCancel != nullptr)
+    {
+        *invalidPathOrCancel = !ok;
+    }
+    if (ok)
+    {
+        SalamanderGeneral->PostRefreshPanelFS(this);
+    }
+    return TRUE;
 }

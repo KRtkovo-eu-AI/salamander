@@ -33,6 +33,8 @@ protected:
         IPortableDevicePropVariantCollection* objects,
         PCWSTR destinationObjectId,
         bool copy);
+    HRESULT WINAPI DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName);
+    HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
 
     /* CFxPluginFSInterface Overrides */
 
