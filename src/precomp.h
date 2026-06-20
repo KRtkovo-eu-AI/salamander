@@ -4,6 +4,10 @@
 
 #pragma once
 
+#ifdef __TRACESERVER
+#include "tserver/precomp.h"
+#else
+
 #ifndef USE_DARKMODELIB
 #define USE_DARKMODELIB 0
 #endif
@@ -96,3 +100,5 @@
 #include "lang\lang.rh"
 #include "salamand.rh"
 #include "resource.rh2"
+
+#endif // __TRACESERVER
