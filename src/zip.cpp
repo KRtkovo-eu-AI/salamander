@@ -4936,10 +4936,18 @@ void CSalamanderGeneral::OpenNetworkContextMenu(HWND parent, int panel, BOOL for
                 int cmd = 0;
                 if (GetMenuItemCount(h) > 0) // guard against a completely trimmed menu
                 {
-                    CMenuPopup contextPopup;
-                    contextPopup.SetTemplateMenu(h);
-                    cmd = contextPopup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
-                                             menuX, menuY, parent, NULL);
+                    if (Windows11AndLater)
+                    {
+                        cmd = TrackPopupMenuEx(h, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
+                                               menuX, menuY, parent, NULL);
+                    }
+                    else
+                    {
+                        CMenuPopup contextPopup;
+                        contextPopup.SetTemplateMenu(h);
+                        cmd = contextPopup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                                                 menuX, menuY, parent, NULL);
+                    }
                 }
                 if (cmd != 0)
                 {

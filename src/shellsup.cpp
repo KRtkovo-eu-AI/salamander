@@ -2195,13 +2195,22 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 
                     if (GetMenuItemCount(h) > 0) // protection against a completely cut-out menu
                     {
-                        CMenuPopup contextPopup;
-                        contextPopup.SetTemplateMenu(h);
-                        cmd = contextPopup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
-                                                 pt.x, pt.y, panel->GetListBoxHWND(), NULL);
-                        //            for testing only -- show the menu via the Windows API
-                        //            cmd = TrackPopupMenuEx(h, TPM_RETURNCMD | TPM_LEFTALIGN |
-                        //                                   TPM_LEFTBUTTON, pt.x, pt.y, panel->GetListBoxHWND(), NULL);
+                        if (Windows11AndLater)
+                        {
+                            // Windows 11's SendTo/Compressed Folder cascade depends on the
+                            // native menu loop.  Salamander's custom menu wrapper can miss
+                            // shell-managed lazy submenu state, so use the shell menu directly
+                            // on Windows 11 while keeping the existing path on Windows 10.
+                            cmd = TrackPopupMenuEx(h, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
+                                                   pt.x, pt.y, panel->GetListBoxHWND(), NULL);
+                        }
+                        else
+                        {
+                            CMenuPopup contextPopup;
+                            contextPopup.SetTemplateMenu(h);
+                            cmd = contextPopup.Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON,
+                                                     pt.x, pt.y, panel->GetListBoxHWND(), NULL);
+                        }
                     }
                     else
                         cmd = 0;
