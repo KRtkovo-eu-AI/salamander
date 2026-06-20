@@ -260,7 +260,7 @@ public:
             m_filePulse = 0;
             m_filePos = 0;
             m_totalPos = m_doneItems * 1000 / m_totalItems;
-            Redraw();
+            RedrawProgress();
             PumpMessages();
         }
         return !m_canceled;
@@ -294,7 +294,7 @@ public:
             {
                 m_totalPos = 1000;
             }
-            Redraw();
+            RedrawProgress();
             PumpMessages();
         }
         return !m_canceled;
@@ -468,7 +468,23 @@ private:
                 ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
             }
         }
-        ::RedrawWindow(m_window, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    }
+
+    void RedrawProgress()
+    {
+        if (m_window == nullptr)
+        {
+            return;
+        }
+
+        HWND controls[] = {m_fileProgress, m_totalProgress};
+        for (int i = 0; i < _countof(controls); ++i)
+        {
+            if (controls[i] != nullptr)
+            {
+                ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
+            }
+        }
     }
 
     void DrawButton(DRAWITEMSTRUCT* drawItem)
@@ -500,10 +516,19 @@ private:
 
         char textBuffer[128];
         ::GetWindowText(drawItem->hwndItem, textBuffer, _countof(textBuffer));
+        HGDIOBJ oldFont = nullptr;
+        if (m_font != nullptr)
+        {
+            oldFont = ::SelectObject(drawItem->hDC, m_font);
+        }
         ::SetBkMode(drawItem->hDC, TRANSPARENT);
         ::SetTextColor(drawItem->hDC, text);
         RECT textRect = drawItem->rcItem;
         ::DrawText(drawItem->hDC, textBuffer, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        if (oldFont != nullptr)
+        {
+            ::SelectObject(drawItem->hDC, oldFont);
+        }
         if ((drawItem->itemState & ODS_FOCUS) != 0)
         {
             RECT focusRect = drawItem->rcItem;
@@ -514,16 +539,30 @@ private:
 
     void DrawProgress(DRAWITEMSTRUCT* drawItem, int pos)
     {
+        RECT targetRect = drawItem->rcItem;
+        const int width = targetRect.right - targetRect.left;
+        const int height = targetRect.bottom - targetRect.top;
+        RECT rect = targetRect;
+        HDC dc = drawItem->hDC;
+        HDC memDC = ::CreateCompatibleDC(dc);
+        HBITMAP bitmap = memDC != nullptr ? ::CreateCompatibleBitmap(dc, width, height) : nullptr;
+        HGDIOBJ oldBitmap = nullptr;
+        if (memDC != nullptr && bitmap != nullptr)
+        {
+            oldBitmap = ::SelectObject(memDC, bitmap);
+            dc = memDC;
+            ::SetRect(&rect, 0, 0, width, height);
+        }
+
         bool dark = PluginDarkMode_ShouldUseDark();
         PluginDarkModeColors colors = PluginDarkMode_GetColors();
         COLORREF background = dark ? RGB(0x2B, 0x2B, 0x2B) : RGB(0xF0, 0xF0, 0xF0);
         COLORREF border = dark ? RGB(0x5A, 0x5A, 0x5A) : RGB(0x80, 0x80, 0x80);
         COLORREF bar = RGB(0x00, 0x78, 0xD7);
         COLORREF text = dark ? colors.readableText : RGB(0, 0, 0);
-        RECT rect = drawItem->rcItem;
 
         HBRUSH brush = ::CreateSolidBrush(background);
-        ::FillRect(drawItem->hDC, &rect, brush);
+        ::FillRect(dc, &rect, brush);
         ::DeleteObject(brush);
 
         RECT fill = rect;
@@ -540,23 +579,44 @@ private:
         if (fill.right > fill.left)
         {
             brush = ::CreateSolidBrush(bar);
-            ::FillRect(drawItem->hDC, &fill, brush);
+            ::FillRect(dc, &fill, brush);
             ::DeleteObject(brush);
         }
 
         HPEN pen = ::CreatePen(PS_SOLID, 1, border);
-        HGDIOBJ oldPen = ::SelectObject(drawItem->hDC, pen);
-        HGDIOBJ oldBrush = ::SelectObject(drawItem->hDC, ::GetStockObject(NULL_BRUSH));
-        ::Rectangle(drawItem->hDC, rect.left, rect.top, rect.right, rect.bottom);
-        ::SelectObject(drawItem->hDC, oldBrush);
-        ::SelectObject(drawItem->hDC, oldPen);
+        HGDIOBJ oldPen = ::SelectObject(dc, pen);
+        HGDIOBJ oldBrush = ::SelectObject(dc, ::GetStockObject(NULL_BRUSH));
+        ::Rectangle(dc, rect.left, rect.top, rect.right, rect.bottom);
+        ::SelectObject(dc, oldBrush);
+        ::SelectObject(dc, oldPen);
         ::DeleteObject(pen);
 
         char percent[16];
         StringCchPrintf(percent, _countof(percent), "%d %%", pos / 10);
-        ::SetBkMode(drawItem->hDC, TRANSPARENT);
-        ::SetTextColor(drawItem->hDC, text);
-        ::DrawText(drawItem->hDC, percent, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        HGDIOBJ oldFont = nullptr;
+        if (m_font != nullptr)
+        {
+            oldFont = ::SelectObject(dc, m_font);
+        }
+        ::SetBkMode(dc, TRANSPARENT);
+        ::SetTextColor(dc, text);
+        ::DrawText(dc, percent, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        if (oldFont != nullptr)
+        {
+            ::SelectObject(dc, oldFont);
+        }
+
+        if (memDC != nullptr && bitmap != nullptr)
+        {
+            ::BitBlt(drawItem->hDC, targetRect.left, targetRect.top, width, height, memDC, 0, 0, SRCCOPY);
+            ::SelectObject(memDC, oldBitmap);
+            ::DeleteObject(bitmap);
+            ::DeleteDC(memDC);
+        }
+        else if (memDC != nullptr)
+        {
+            ::DeleteDC(memDC);
+        }
     }
 
     void PumpMessages()
