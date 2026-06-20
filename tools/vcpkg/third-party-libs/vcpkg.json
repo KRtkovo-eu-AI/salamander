@@ -1,0 +1,19 @@
+{
+  "name": "opensalamander-third-party-libs",
+  "version-string": "0",
+  "dependencies": [
+    "openssl",
+    "unrar"
+  ],
+  "builtin-baseline": "a0b1c8d3a477c1cb4813d8e127a56961707ca42b",
+  "overrides": [
+    {
+      "name": "openssl",
+      "version-string": "1.0.2o-3"
+    },
+    {
+      "name": "unrar",
+      "version": "7.2.6"
+    }
+  ]
+}
