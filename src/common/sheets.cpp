@@ -577,6 +577,7 @@ void CPropSheetPage::InitHorizontalLayout()
         int mode = 0;
         BOOL resizeRight = FALSE;
         if (_tcsicmp(className, _T("Edit")) == 0 ||
+            _tcsicmp(className, _T("ComboBox")) == 0 ||
             _tcsicmp(className, WC_LISTVIEW) == 0 ||
             _tcsicmp(className, WC_TREEVIEW) == 0 ||
             _tcsicmp(className, TOOLBARCLASSNAME) == 0)
@@ -605,6 +606,13 @@ void CPropSheetPage::InitHorizontalLayout()
             else if (cR.right - r.right < 40)
                 mode = PHLM_MOVE_RIGHT;
         }
+
+        // Some narrow helper buttons are owner-drawn/subclassed and are not reliably
+        // recognized by the class/style based button branch above.  If such a small
+        // control starts next to the right edge, keep it docked there so adjacent
+        // edit boxes cannot stretch over it.
+        if (mode == 0 && r.right - r.left <= 40 && cR.right - r.right < 40)
+            mode = PHLM_MOVE_RIGHT;
 
         if (mode != 0)
         {
