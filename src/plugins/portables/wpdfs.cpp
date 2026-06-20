@@ -109,6 +109,77 @@ CFxPluginDataInterface* WINAPI CWpdFS::CreatePluginData(CFxItemEnumerator* enume
 }
 
 
+class CWpdOperationProgress
+{
+public:
+    CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
+        : m_open(false),
+          m_operation(operation),
+          m_totalItems(totalItems > 0 ? totalItems : 1),
+          m_doneItems(0)
+    {
+        char text[256];
+        StringCchPrintf(text, _countof(text), "%s...", m_operation);
+        SalamanderGeneral->CreateSafeWaitWindow(text, "Portable Devices", 500, TRUE, parent);
+        m_open = true;
+    }
+
+    ~CWpdOperationProgress()
+    {
+        Close();
+    }
+
+    bool Step(PCSTR sourceName, PCSTR targetName = nullptr)
+    {
+        if (!m_open)
+        {
+            return true;
+        }
+        if (SalamanderGeneral->GetSafeWaitWindowClosePressed())
+        {
+            return false;
+        }
+
+        char text[2 * MAX_PATH + 256];
+        if (targetName != nullptr && targetName[0] != '\0')
+        {
+            StringCchPrintf(text, _countof(text), "%s %d/%d:\n%s\n->\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName, targetName);
+        }
+        else
+        {
+            StringCchPrintf(text, _countof(text), "%s %d/%d:\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName);
+        }
+        SalamanderGeneral->SetSafeWaitWindowText(text);
+        return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+    }
+
+    bool Advance()
+    {
+        ++m_doneItems;
+        return !m_open || !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+    }
+
+    bool IsCanceled() const
+    {
+        return m_open && SalamanderGeneral->GetSafeWaitWindowClosePressed();
+    }
+
+    void Close()
+    {
+        if (m_open)
+        {
+            SalamanderGeneral->DestroySafeWaitWindow();
+            m_open = false;
+        }
+    }
+
+private:
+    bool m_open;
+    PCSTR m_operation;
+    int m_totalItems;
+    int m_doneItems;
+};
+
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
 {
     _ASSERTE(source != nullptr);
@@ -844,6 +915,75 @@ BOOL WINAPI CWpdFS::QuickRename(const char*, int mode, HWND parent, CFileData& f
     return TRUE;
 }
 
+BOOL WINAPI CWpdFS::GetPathForMainWindowTitle(const char* fsName, int mode, char* buf, int bufSize)
+{
+    if (buf == nullptr || bufSize <= 0)
+    {
+        return FALSE;
+    }
+
+    buf[0] = '\0';
+
+    char currentPath[MAX_PATH];
+    GetCurrentPath(currentPath);
+
+    const char* lastComponent = currentPath;
+    int len = lstrlen(currentPath);
+    while (len > 1 && currentPath[len - 1] == '\\')
+    {
+        currentPath[--len] = '\0';
+    }
+
+    char* lastSlash = strrchr(currentPath, '\\');
+    if (lastSlash != nullptr && lastSlash[1] != '\0')
+    {
+        lastComponent = lastSlash + 1;
+    }
+
+    if (mode == 1)
+    {
+        if (lastComponent[0] == '\\' && lastComponent[1] == '\0')
+        {
+            StringCchPrintf(buf, bufSize, "%s:%s", fsName, currentPath);
+        }
+        else
+        {
+            StringCchCopy(buf, bufSize, lastComponent);
+        }
+        return TRUE;
+    }
+
+    if (mode == 2)
+    {
+        const char* firstComponent = currentPath;
+        if (firstComponent[0] == '\\')
+        {
+            ++firstComponent;
+        }
+
+        const char* firstSlash = strchr(firstComponent, '\\');
+        if (firstSlash != nullptr && firstSlash[1] != '\0')
+        {
+            char rootComponent[MAX_PATH];
+            size_t rootLen = firstSlash - firstComponent;
+            if (rootLen >= _countof(rootComponent))
+            {
+                rootLen = _countof(rootComponent) - 1;
+            }
+            memcpy(rootComponent, firstComponent, rootLen);
+            rootComponent[rootLen] = '\0';
+            StringCchPrintf(buf, bufSize, "%s:\\%s\\...\\%s", fsName, rootComponent, lastComponent);
+        }
+        else
+        {
+            StringCchPrintf(buf, bufSize, "%s:%s", fsName, currentPath);
+        }
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 BOOL WINAPI CWpdFS::CreateDir(const char*, int mode, HWND parent, char* newName, BOOL& cancel)
 {
     cancel = FALSE;
@@ -945,6 +1085,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
 
     CWpdDevice* device = nullptr;
     BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
+    CWpdOperationProgress progress(parent, "Delete", focused ? 1 : selectedFiles + selectedDirs);
     int index = 0;
     bool ok = true;
     for (;;)
@@ -952,6 +1093,12 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         BOOL isDir = FALSE;
         const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
         if (f == nullptr) break;
+        if (!progress.Step(f->Name))
+        {
+            ok = false;
+            break;
+        }
+
         auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
         if (device == nullptr)
         {
@@ -964,10 +1111,16 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
             ok = false;
             break;
         }
+        if (!progress.Advance())
+        {
+            ok = false;
+            break;
+        }
         if (focused) break;
     }
     if (ok && device != nullptr)
     {
+        progress.Step("Deleting selected items");
         hr = DeleteWpdObjects(device, objects);
         if (FAILED(hr))
         {
@@ -975,6 +1128,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
             ok = false;
         }
     }
+    progress.Close();
     cancelOrError = !ok;
     if (ok)
     {
@@ -1042,12 +1196,19 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
 
         ATL::CA2W wideTargetObjectId(targetObjectId);
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
+        CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
         int index = 0;
         for (;;)
         {
             BOOL isDir = FALSE;
             const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
             if (f == nullptr) break;
+
+            if (!progress.Step(f->Name, targetPath))
+            {
+                hr = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+                break;
+            }
 
             char tempPath[MAX_PATH];
             char tempName[MAX_PATH];
@@ -1094,9 +1255,15 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 break;
             }
 
+            if (!progress.Advance())
+            {
+                hr = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+                break;
+            }
             if (focused) break;
         }
 
+        progress.Close();
         targetDevice->Release();
         cancelOrHandlePath = FAILED(hr);
         if (SUCCEEDED(hr))
@@ -1119,6 +1286,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
     {
         bool ok = true;
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
+        CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
         int index = 0;
         for (;;)
         {
@@ -1131,6 +1299,12 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
             if (!SalamanderGeneral->SalPathAppend(targetName, f->Name, _countof(targetName)))
             {
                 WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE));
+                ok = false;
+                break;
+            }
+
+            if (!progress.Step(f->Name, targetName))
+            {
                 ok = false;
                 break;
             }
@@ -1163,8 +1337,14 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 break;
             }
 
+            if (!progress.Advance())
+            {
+                ok = false;
+                break;
+            }
             if (focused) break;
         }
+        progress.Close();
         cancelOrHandlePath = !ok;
         if (ok)
         {
@@ -1233,8 +1413,15 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     DWORD attr;
     FILETIME lastWrite;
     int errorOccured = SALENUM_SUCCESS;
+    CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", sourceFiles + sourceDirs);
     while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
     {
+        if (!progress.Step(name, targetPath))
+        {
+            ok = FALSE;
+            break;
+        }
+
         char sourceName[MAX_PATH];
         lstrcpyn(sourceName, sourcePath, _countof(sourceName));
         if (!SalamanderGeneral->SalPathAppend(sourceName, name, _countof(sourceName)))
@@ -1266,8 +1453,14 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
             ok = FALSE;
             break;
         }
+        if (!progress.Advance())
+        {
+            ok = FALSE;
+            break;
+        }
     }
 
+    progress.Close();
     targetDevice->Release();
     if (errorOccured == SALENUM_CANCEL)
     {

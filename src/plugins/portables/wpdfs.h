@@ -58,6 +58,12 @@ protected:
         char* newName,
         BOOL& cancel) override;
 
+    virtual BOOL WINAPI GetPathForMainWindowTitle(
+        const char* fsName,
+        int mode,
+        char* buf,
+        int bufSize) override;
+
     virtual BOOL WINAPI CreateDir(
         const char* fsName,
         int mode,
@@ -113,7 +119,7 @@ public:
     {
         SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE |
                              FS_SERVICE_COPYFROMFS | FS_SERVICE_MOVEFROMFS |
-                             FS_SERVICE_VIEWFILE |
+                             FS_SERVICE_VIEWFILE | FS_SERVICE_GETPATHFORMAINWNDTITLE |
                              FS_SERVICE_COPYFROMDISKTOFS | FS_SERVICE_MOVEFROMDISKTOFS
     };
 
