@@ -350,10 +350,9 @@ IDD_CHANGE_MASTERPWD=hh\salamand\dlgboxes_masterpwd_change.htm
 IDD_REMOVE_MASTERPWD=hh\salamand\dlgboxes_masterpwd_remove.htm
 
 [MAP]
-#include "..\..\LANG\lang.rh"
-#include "..\..\resource.rh2"
-#include "..\..\salamand.rh"
-#include "..\..\viewer.rh"
+#include "..\..\src\lang\lang.rh"
+#include "..\..\src\resource.rh2"
+#include "..\..\src\salamand.rh"
 
 [MERGE FILES]
 zip.chm
