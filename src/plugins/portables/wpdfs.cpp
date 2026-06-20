@@ -180,7 +180,7 @@ public:
             y,
             width,
             height,
-            nullptr,
+            owner,
             nullptr,
             Fx::FxGetModuleInstance(),
             this);
