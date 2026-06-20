@@ -3962,6 +3962,69 @@ void CCfgPageColors::StoreMasks()
     }
 }
 
+
+static void MoveDlgCtrlVertically(HWND hWindow, HDWP& hdwp, int resID, int y)
+{
+    HWND hCtrl = GetDlgItem(hWindow, resID);
+    if (hCtrl == NULL || hdwp == NULL)
+        return;
+
+    RECT r;
+    GetWindowRect(hCtrl, &r);
+    POINT p = {r.left, r.top};
+    ScreenToClient(hWindow, &p);
+    hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                  p.x, y, 0, 0,
+                                  SWP_NOSIZE | SWP_NOZORDER));
+}
+
+void CCfgPageColors::LayoutMaskControls()
+{
+    HWND hList = GetDlgItem(HWindow, IDC_C_LIST);
+    if (hList == NULL)
+        return;
+
+    RECT listRect;
+    GetWindowRect(hList, &listRect);
+    POINT listBottom = {listRect.left, listRect.bottom};
+    ScreenToClient(HWindow, &listBottom);
+
+    // Keep the attribute block anchored below the resized mask list.  The generic
+    // elastic layout moves these controls as one bottom-aligned envelope, which
+    // can collapse the gaps between the list, the attribute label/checkboxes and
+    // the mask color buttons after the page is resized horizontally.  Reapply the
+    // original vertical spacing from the dialog resource after the generic layout
+    // has finished.
+    const int attrLabelY = listBottom.y + 4;
+    const int checkColY = attrLabelY + 9;
+    const int maskLabelY = attrLabelY + 3;
+    const int maskButtonY = attrLabelY + 1;
+    const int noteY = attrLabelY + 59;
+    const int rowStep = 14;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(1 + PAGE7_CTRLCOUNT + 1 + 2 * CFG_COLORS_BUTTONS));
+    if (hdwp == NULL)
+        return;
+
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_STATIC_3, attrLabelY);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_ARCHIVE, checkColY);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_READONLY, checkColY + 12);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_HIDDEN, checkColY + 24);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_SYSTEM, checkColY + 36);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_COMPRESSED, checkColY);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_ENCRYPTED, checkColY + 12);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_DIRECTORY, checkColY + 24);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_STATIC_6, noteY);
+
+    for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
+    {
+        MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7Masks[i], maskLabelY + i * rowStep);
+        MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonY + i * rowStep);
+    }
+
+    HANDLES(EndDeferWindowPos(hdwp));
+}
+
 void CCfgPageColors::EnableControls()
 {
     CALL_STACK_MESSAGE1("CCfgPageColors::EnableControls()");
@@ -4525,7 +4588,11 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
         break;
     }
     }
-    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+
+    INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    if (uMsg == WM_INITDIALOG || uMsg == WM_SIZE)
+        LayoutMaskControls();
+    return result;
 }
 
 //
