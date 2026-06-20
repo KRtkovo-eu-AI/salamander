@@ -125,6 +125,7 @@ CElasticLayout::CElasticLayout(HWND hWindow)
 {
     HWindow = hWindow;
     SplitY = 0;
+    MoveCtrlsInitialized = FALSE;
 }
 
 void CElasticLayout::AddResizeCtrl(int resID)
@@ -233,6 +234,10 @@ void CElasticLayout::AddMoveCtrl(HWND hChild)
 
 void CElasticLayout::FindMoveCtrls()
 {
+    if (MoveCtrlsInitialized)
+        return;
+    MoveCtrlsInitialized = TRUE;
+
     // Only top-level dialog controls belong to the page layout.  EnumChildWindows()
     // is recursive and also returns implementation windows owned by compound controls
     // (for example SysHeader32 or the label-edit child inside a SysListView32).  Moving
@@ -339,7 +344,6 @@ void CElasticLayout::LayoutCtrls()
         }
         HANDLES(EndDeferWindowPos(hdwp));
     }
-    MoveCtrls.DestroyMembers();
 }
 
 //
