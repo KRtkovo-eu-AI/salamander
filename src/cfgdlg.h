@@ -809,6 +809,7 @@ protected:
     void LoadMasks();
     void StoreMasks();
     void EnableControls();
+    void LayoutMaskControls();
 };
 
 //
