@@ -700,8 +700,13 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
             EnableWindow(GetDlgItem(HWindow, IDC_IMPORTCONFIG), FALSE);
         }
         SendDlgItemMessage(HWindow, IDC_IMPORTCONFIG, CB_SETCURSEL, selIndex, NULL);
+        BOOL canSaveStorageTypeBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
+        if (!canSaveStorageTypeBootstrap)
+            StorageType = cstRegistry;
         CheckRadioButton(HWindow, IDC_IMPORT_SAVE_TO_REGISTRY, IDC_IMPORT_SAVE_TO_FILE,
                          StorageType == cstRegFile ? IDC_IMPORT_SAVE_TO_FILE : IDC_IMPORT_SAVE_TO_REGISTRY);
+        EnableWindow(GetDlgItem(HWindow, IDC_IMPORT_SAVE_TO_REGISTRY), canSaveStorageTypeBootstrap);
+        EnableWindow(GetDlgItem(HWindow, IDC_IMPORT_SAVE_TO_FILE), canSaveStorageTypeBootstrap);
 
         // LISTVIEW Remove Configuration
         HWND hListView = GetDlgItem(HWindow, IDC_REMOVECONFIG);
@@ -738,7 +743,9 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
     }
     else
     {
-        StorageType = IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE) ? cstRegFile : cstRegistry;
+        StorageType = ConfigurationStorage.CanSaveStorageTypeBootstrap() && IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE) ?
+                          cstRegFile :
+                          cstRegistry;
 
         // COMBOBOX Import Configuration
         int sel = (int)SendDlgItemMessage(HWindow, IDC_IMPORTCONFIG, CB_GETCURSEL, 0, NULL);

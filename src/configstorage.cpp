@@ -86,6 +86,35 @@ BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& 
     return TRUE;
 }
 
+
+BOOL CConfigurationStorage::CanSaveStorageTypeBootstrap()
+{
+    char fileName[MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(fileName);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        HANDLE file = HANDLES_Q(CreateFile(fileName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", fileName, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
 BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType type)
 {
     char fileName[MAX_PATH];

@@ -102,8 +102,8 @@ CAPTION "General"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     CONTROL         "&Save configuration on exit",IDC_AUTOSAVE,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,1,3,100,12
-    CONTROL         "Save configuration into &Registry",IDC_SAVE_TO_REGISTRY,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,16,100,12
-    CONTROL         "Save configuration into &file",IDC_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,29,100,12
+    CONTROL         "Save configuration into &Registry",IDC_SAVE_TO_REGISTRY,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,16,130,12
+    CONTROL         "Save configuration into &file",IDC_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,29,130,12
     CONTROL         "&Clear read-only attribute when copying from Compact Disc",IDC_CLEARREADONLY,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,42,209,12
     CONTROL         "&Allow only one instance of Salamander at one time",IDC_ONLYONEINSTANCE,
@@ -1493,7 +1493,7 @@ BEGIN
     CONTROL         "",IDC_REMOVECONFIG,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,6,47,253,57
     LTEXT           "Save configuration into",IDC_STATIC_4,6,108,90,8
     CONTROL         "&Registry",IDC_IMPORT_SAVE_TO_REGISTRY,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,101,106,62,12
-    CONTROL         "&File",IDC_IMPORT_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,168,106,45,12
+    CONTROL         "&File storage",IDC_IMPORT_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,168,106,70,12
     DEFPUSHBUTTON   "&Start",IDOK,79,132,50,14
     PUSHBUTTON      "&Exit",IDCANCEL,136,132,50,14
 END

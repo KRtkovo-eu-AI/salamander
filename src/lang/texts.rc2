@@ -2023,5 +2023,9 @@ STRINGTABLE
  IDS_CFGSTORAGE_MIGRATIONERR, "Configuration storage migration failed. The previous storage type remains active."
  IDS_CFGSTORAGE_USEFILEPROMPT, "Portable configuration file config.reg was found next to the application. Do you want to use file-based configuration storage?"
  IDS_CFGSTORAGE_IMPORTFILEPROMPT, "Existing Registry configuration was found and portable config.reg does not exist. Do you want to import current configuration into file-based storage?"
+ IDS_CFGSTORAGE_IMPORTREGPROMPT, "Existing File storage configuration was found. Do you want to import it?"
+ IDS_CFGSTORAGE_IMPORTREGDONE, "Existing File storage configuration was found. It was automatically imported and converted to Registry storage because configstorage.ini cannot be written."
+ IDS_CFGSTORAGE_IMPORTREGALIAS, "6\tYes - Import file configuration\t7\tYes - Import and convert to Registry\t2\tRemove stored configuration"
+ IDS_CFGSTORAGE_IMPORTFILEALIAS, "6\tYes - Convert to File storage\t7\tNo - Keep Registry Storage\t2\tRemove stored configuration"
  IDS_CFGSTORAGE_BOTHSOURCESPROMPT, "Both Registry configuration and portable config.reg were found. Click Yes to use file-based storage, or No to keep using Registry storage."
 }

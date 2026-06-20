@@ -1038,7 +1038,10 @@ void CCfgPageGeneral::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDE_TIMERESOLUTION), useTimeRes);
     EnableWindow(GetDlgItem(HWindow, IDC_ASYNCCOPYALG), Windows7AndLater);
     char configPath[MAX_PATH];
-    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE), ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath)));
+    BOOL canSaveStorageTypeBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
+    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_REGISTRY), canSaveStorageTypeBootstrap);
+    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE),
+                 canSaveStorageTypeBootstrap && ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath)));
 
     BOOL defaultCommandShell = IsDefaultCommandShellApplication();
     HWND hCloseShell = GetDlgItem(HWindow, IDC_CLOSESHELL);

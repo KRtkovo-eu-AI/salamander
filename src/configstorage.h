@@ -45,6 +45,7 @@ public:
     BOOL GetStorageTypeBootstrapFilePath(char* filePath, int filePathSize);
     BOOL LoadStorageTypeBootstrap(CConfigurationStorageType& type);
     BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type);
+    BOOL CanSaveStorageTypeBootstrap();
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
     void RegisterActiveRegistryKey(HKEY key);
     void UnregisterActiveRegistryKey(HKEY key);
