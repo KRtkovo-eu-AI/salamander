@@ -125,6 +125,7 @@ CElasticLayout::CElasticLayout(HWND hWindow)
 {
     HWindow = hWindow;
     SplitY = 0;
+    MoveCtrlsInitialized = FALSE;
 }
 
 void CElasticLayout::AddResizeCtrl(int resID)
@@ -132,6 +133,13 @@ void CElasticLayout::AddResizeCtrl(int resID)
     HWND hChild = GetDlgItem(HWindow, resID);
     if (hChild != NULL)
     {
+        // The controls resized by this helper (lists/list-views/tree-views) can
+        // grow across the area where lower controls are being moved during a
+        // property-page resize.  Force sibling clipping so the resized control
+        // cannot repaint over those controls while the layout is settling.
+        LONG_PTR style = GetWindowLongPtr(hChild, GWL_STYLE);
+        SetWindowLongPtr(hChild, GWL_STYLE, style | WS_CLIPSIBLINGS);
+
         RECT r;
         GetWindowRect(hChild, &r);
 
@@ -208,30 +216,39 @@ void CElasticLayout::AddMoveRightCtrl(int resID)
     }
 }
 
-BOOL CALLBACK
-CElasticLayout::FindMoveControls(HWND hChild, LPARAM lParam)
+void CElasticLayout::AddMoveCtrl(HWND hChild)
 {
-    CElasticLayout* el = (CElasticLayout*)lParam;
-
     // pokud prvek lezi pod SplitY, pridame ho do seznamu prvku, ktere budou posouvat
     RECT r;
     GetWindowRect(hChild, &r);
     POINT p = {r.left, r.top};
-    ScreenToClient(el->HWindow, &p);
-    if (p.y >= el->SplitY)
+    ScreenToClient(HWindow, &p);
+    if (p.y >= SplitY)
     {
         CElasticLayoutCtrl mc;
         mc.HCtrl = hChild;
         mc.Pos = p;
-        el->MoveCtrls.Add(mc);
+        MoveCtrls.Add(mc);
     }
-
-    return TRUE;
 }
 
 void CElasticLayout::FindMoveCtrls()
 {
-    EnumChildWindows(HWindow, FindMoveControls, (LPARAM)this);
+    if (MoveCtrlsInitialized)
+        return;
+    MoveCtrlsInitialized = TRUE;
+
+    // Only top-level dialog controls belong to the page layout.  EnumChildWindows()
+    // is recursive and also returns implementation windows owned by compound controls
+    // (for example SysHeader32 or the label-edit child inside a SysListView32).  Moving
+    // those nested windows independently breaks list/list-view based configuration
+    // pages after the property sheet is resized.
+    HWND hChild = GetWindow(HWindow, GW_CHILD);
+    while (hChild != NULL)
+    {
+        AddMoveCtrl(hChild);
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
 
     // najdeme obalku vsech 'move' prvku
     RECT rEnvelope = {0};
@@ -291,10 +308,10 @@ void CElasticLayout::LayoutCtrls()
             GetWindowRect(hCtrl, &r);
             POINT p = {r.left, r.top};
             ScreenToClient(HWindow, &p);
-            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   0, 0,
-                                   cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
-                                   SWP_NOMOVE | SWP_NOZORDER));
+            hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                           0, 0,
+                                           cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                           SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < ResizeRightCtrls.Count; i++)
         {
@@ -303,10 +320,10 @@ void CElasticLayout::LayoutCtrls()
             GetWindowRect(hCtrl, &r);
             POINT p = {r.left, r.top};
             ScreenToClient(HWindow, &p);
-            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   0, 0,
-                                   cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
-                                   SWP_NOMOVE | SWP_NOZORDER));
+            hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                           0, 0,
+                                           cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
+                                           SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < MoveCtrls.Count; i++)
         {
@@ -320,14 +337,13 @@ void CElasticLayout::LayoutCtrls()
                     break;
                 }
             }
-            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   x, cR.bottom - MoveCtrls[i].Pos.y,
-                                   0, 0,
-                                   SWP_NOSIZE | SWP_NOZORDER));
+            hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                           x, cR.bottom - MoveCtrls[i].Pos.y,
+                                           0, 0,
+                                           SWP_NOSIZE | SWP_NOZORDER));
         }
         HANDLES(EndDeferWindowPos(hdwp));
     }
-    MoveCtrls.DestroyMembers();
 }
 
 //
@@ -527,6 +543,27 @@ static BOOL HasOverlappingControlToRight(HWND hParent, HWND hCtrl, const RECT* c
     return FALSE;
 }
 
+static BOOL HorizontalLayoutContains(TDirectArray<CPageHorizontalLayoutCtrl>* ctrls, HWND hCtrl)
+{
+    for (int i = 0; i < ctrls->Count; i++)
+    {
+        if ((*ctrls)[i].HCtrl == hCtrl)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void AddHorizontalLayoutCtrl(TDirectArray<CPageHorizontalLayoutCtrl>* ctrls, HWND hCtrl, const RECT& r, int mode)
+{
+    if (HorizontalLayoutContains(ctrls, hCtrl))
+        return;
+    CPageHorizontalLayoutCtrl ctrl;
+    ctrl.HCtrl = hCtrl;
+    ctrl.Rect = r;
+    ctrl.Mode = mode;
+    ctrls->Add(ctrl);
+}
+
 void CPropSheetPage::InitHorizontalLayout()
 {
     if (HorizontalLayoutCtrls != NULL)
@@ -541,9 +578,29 @@ void CPropSheetPage::InitHorizontalLayout()
 
     RECT cR;
     GetClientRect(HWindow, &cR);
-    HorizontalLayoutWidth = cR.right;
 
+    int maxChildRight = 0;
     HWND hChild = GetWindow(HWindow, GW_CHILD);
+    while (hChild != NULL)
+    {
+        RECT wR;
+        GetWindowRect(hChild, &wR);
+        POINT p = {wR.right, wR.bottom};
+        ScreenToClient(HWindow, &p);
+        if (p.x > maxChildRight)
+            maxChildRight = p.x;
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+
+    // When a tree property page is created, its window can already have the
+    // final (larger) holder size while child controls are still at resource
+    // coordinates. Use the controls' right edge as the design width in that
+    // case; otherwise small right-edge buttons are not recognized as docked.
+    HorizontalLayoutWidth = cR.right;
+    if (maxChildRight > 0 && cR.right - maxChildRight >= 40)
+        HorizontalLayoutWidth = maxChildRight;
+
+    hChild = GetWindow(HWindow, GW_CHILD);
     while (hChild != NULL)
     {
         TCHAR className[64];
@@ -566,17 +623,18 @@ void CPropSheetPage::InitHorizontalLayout()
             _tcsicmp(className, TOOLBARCLASSNAME) == 0)
         {
             // Stretch regular data controls, except very small numeric edits.
-            if (r.right - r.left > 80 || cR.right - r.right < 40)
+            if (r.right - r.left > 80 || HorizontalLayoutWidth - r.right < 40)
                 mode = PHLM_RESIZE_RIGHT;
         }
         else if (_tcsicmp(className, _T("Static")) == 0)
         {
             LONG_PTR staticType = GetWindowLongPtr(hChild, GWL_STYLE) & SS_TYPEMASK;
+            // Only horizontal separator lines should stretch automatically.
+            // Text labels can have opaque backgrounds in dark mode and may cover
+            // adjacent inputs if they are widened with the page.
             if (IsHorizontalLayoutStatic(hChild) &&
-                (staticType == SS_ETCHEDHORZ || !HasOverlappingControlToRight(HWindow, hChild, &r)))
-            {
+                (staticType == SS_ETCHEDHORZ || GetProp(hChild, _T("SalamanderToolbarHeader")) != NULL))
                 mode = PHLM_RESIZE_RIGHT;
-            }
         }
         else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
         {
@@ -586,20 +644,90 @@ void CPropSheetPage::InitHorizontalLayout()
                 if (buttonType == BS_GROUPBOX || !HasOverlappingControlToRight(HWindow, hChild, &r))
                     mode = PHLM_RESIZE_RIGHT;
             }
-            else if (cR.right - r.right < 40)
+            else if (HorizontalLayoutWidth - r.right < 40)
                 mode = PHLM_MOVE_RIGHT;
         }
 
         if (mode != 0)
         {
-            CPageHorizontalLayoutCtrl ctrl;
-            ctrl.HCtrl = hChild;
-            ctrl.Rect = r;
-            ctrl.Mode = mode;
-            HorizontalLayoutCtrls->Add(ctrl);
+            AddHorizontalLayoutCtrl(HorizontalLayoutCtrls, hChild, r, mode);
+
+            if (mode == PHLM_RESIZE_RIGHT && _tcsicmp(className, _T("Edit")) == 0)
+            {
+                HWND hSibling = GetWindow(HWindow, GW_CHILD);
+                while (hSibling != NULL)
+                {
+                    if (hSibling != hChild)
+                    {
+                        RECT sWR;
+                        GetWindowRect(hSibling, &sWR);
+                        POINT s1 = {sWR.left, sWR.top};
+                        POINT s2 = {sWR.right, sWR.bottom};
+                        ScreenToClient(HWindow, &s1);
+                        ScreenToClient(HWindow, &s2);
+                        RECT sR = {s1.x, s1.y, s2.x, s2.y};
+
+                        if (sR.left >= r.right && sR.left - r.right <= 8 &&
+                            sR.top < r.bottom && sR.bottom > r.top &&
+                            sR.right - sR.left <= 40)
+                        {
+                            AddHorizontalLayoutCtrl(HorizontalLayoutCtrls, hSibling, sR, PHLM_MOVE_RIGHT);
+                            break;
+                        }
+                    }
+                    hSibling = GetWindow(hSibling, GW_HWNDNEXT);
+                }
+            }
         }
 
         hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+}
+
+
+static void DockOverlappingEditButtons(HWND hWindow)
+{
+    HWND hEdit = GetWindow(hWindow, GW_CHILD);
+    while (hEdit != NULL)
+    {
+        TCHAR editClass[64];
+        editClass[0] = 0;
+        GetClassName(hEdit, editClass, _countof(editClass));
+        if (_tcsicmp(editClass, _T("Edit")) == 0)
+        {
+            RECT eWR;
+            GetWindowRect(hEdit, &eWR);
+            POINT e1 = {eWR.left, eWR.top};
+            POINT e2 = {eWR.right, eWR.bottom};
+            ScreenToClient(hWindow, &e1);
+            ScreenToClient(hWindow, &e2);
+            RECT eR = {e1.x, e1.y, e2.x, e2.y};
+
+            HWND hChild = GetWindow(hWindow, GW_CHILD);
+            while (hChild != NULL)
+            {
+                if (hChild != hEdit)
+                {
+                    RECT cWR;
+                    GetWindowRect(hChild, &cWR);
+                    POINT c1 = {cWR.left, cWR.top};
+                    POINT c2 = {cWR.right, cWR.bottom};
+                    ScreenToClient(hWindow, &c1);
+                    ScreenToClient(hWindow, &c2);
+                    RECT cR = {c1.x, c1.y, c2.x, c2.y};
+                    int cW = cR.right - cR.left;
+
+                    if (cW <= 40 && cR.left > eR.left && cR.left < eR.right &&
+                        cR.top < eR.bottom && cR.bottom > eR.top)
+                    {
+                        SetWindowPos(hChild, NULL, eR.right + 4, cR.top, 0, 0,
+                                     SWP_NOSIZE | SWP_NOZORDER);
+                    }
+                }
+                hChild = GetWindow(hChild, GW_HWNDNEXT);
+            }
+        }
+        hEdit = GetWindow(hEdit, GW_HWNDNEXT);
     }
 }
 
@@ -654,6 +782,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
+        DockOverlappingEditButtons(HWindow);
         return TRUE; // chci focus od DefDlgProc
     }
 
@@ -662,6 +791,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
+        DockOverlappingEditButtons(HWindow);
         break;
     }
 

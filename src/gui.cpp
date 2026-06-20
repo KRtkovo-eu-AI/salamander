@@ -2706,6 +2706,7 @@ CToolbarHeader::CToolbarHeader(HWND hDlg, int ctrlID, HWND hAlignWindow, DWORD b
     CALL_STACK_MESSAGE3("CToolbarHeader::CToolbarHeader(, %d, , %u)", ctrlID, buttonMask);
     HNotifyWindow = hDlg;
     ButtonMask = buttonMask;
+    SetProp(HWindow, _T("SalamanderToolbarHeader"), (HANDLE)1);
     ToolBar = new CToolBar(HWindow);
     ToolBar->CreateWnd(HWindow);
 
@@ -2932,6 +2933,7 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_DESTROY:
     {
+        RemoveProp(HWindow, _T("SalamanderToolbarHeader"));
         if (ToolBar != NULL)
             DestroyWindow(ToolBar->HWindow);
 #ifdef TOOLBARHDR_USE_SVG
@@ -2958,6 +2960,20 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+
+    case WM_SIZE:
+    {
+        if (ToolBar != NULL && ToolBar->HWindow != NULL)
+        {
+            SIZE sz;
+            sz.cx = ToolBar->GetNeededWidth();
+            sz.cy = ToolBar->GetNeededHeight();
+            RECT r;
+            GetClientRect(HWindow, &r);
+            SetWindowPos(ToolBar->HWindow, HWND_TOP, r.right - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
+        }
+        break;
+    }
     case WM_UPDATEUISTATE:
     {
         // unfortunately we cannot rely on the standard static handling because

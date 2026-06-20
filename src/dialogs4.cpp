@@ -1881,6 +1881,8 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CCfgPageViewer
 //
 
+static void AlignDlgCtrlLeftOfCtrl(HWND hWindow, int labelID, int ctrlID);
+
 CCfgPageViewer::CCfgPageViewer()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_VIEWER, IDD_CFGPAGE_VIEWER, PSP_USETITLE, NULL)
 {
@@ -2238,7 +2240,10 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
     }
 
     }
-    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    if (uMsg == WM_INITDIALOG || uMsg == WM_SIZE)
+        AlignDlgCtrlLeftOfCtrl(HWindow, IDC_STATIC_11, IDC_IV_SELECTED_TEXT);
+    return result;
 }
 //
 // ****************************************************************************
@@ -3970,6 +3975,39 @@ static int CfgPageColorsDluY(HWND hWindow, int dluY)
     return r.bottom;
 }
 
+static void MoveDlgCtrl(HWND hWindow, HDWP& hdwp, int resID, int x, int y)
+{
+    HWND hCtrl = GetDlgItem(hWindow, resID);
+    if (hCtrl == NULL || hdwp == NULL)
+        return;
+
+    hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                  x, y, 0, 0,
+                                  SWP_NOSIZE | SWP_NOZORDER));
+}
+
+
+static void AlignDlgCtrlLeftOfCtrl(HWND hWindow, int labelID, int ctrlID)
+{
+    HWND hLabel = GetDlgItem(hWindow, labelID);
+    HWND hCtrl = GetDlgItem(hWindow, ctrlID);
+    if (hLabel == NULL || hCtrl == NULL)
+        return;
+
+    RECT labelR;
+    RECT ctrlR;
+    GetWindowRect(hLabel, &labelR);
+    GetWindowRect(hCtrl, &ctrlR);
+    POINT labelP = {labelR.left, labelR.top};
+    POINT ctrlP = {ctrlR.left, ctrlR.top};
+    ScreenToClient(hWindow, &labelP);
+    ScreenToClient(hWindow, &ctrlP);
+
+    const int gap = 5;
+    SetWindowPos(hLabel, NULL, ctrlP.x - (labelR.right - labelR.left) - gap, labelP.y,
+                 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
 static void MoveDlgCtrlVertically(HWND hWindow, HDWP& hdwp, int resID, int y)
 {
     HWND hCtrl = GetDlgItem(hWindow, resID);
@@ -3980,9 +4018,7 @@ static void MoveDlgCtrlVertically(HWND hWindow, HDWP& hdwp, int resID, int y)
     GetWindowRect(hCtrl, &r);
     POINT p = {r.left, r.top};
     ScreenToClient(hWindow, &p);
-    hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                  p.x, y, 0, 0,
-                                  SWP_NOSIZE | SWP_NOZORDER));
+    MoveDlgCtrl(hWindow, hdwp, resID, p.x, y);
 }
 
 void CCfgPageColors::LayoutMaskControls()
@@ -4025,13 +4061,33 @@ void CCfgPageColors::LayoutMaskControls()
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_DIRECTORY, checkColY + 2 * checkStep);
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_STATIC_6, noteY);
 
+    HWND hTopButton = GetDlgItem(HWindow, IDC_C_ITEM1_C);
+    int maskButtonX = -1;
+    if (hTopButton != NULL)
+    {
+        RECT r;
+        GetWindowRect(hTopButton, &r);
+        POINT p = {r.left, r.top};
+        ScreenToClient(HWindow, &p);
+        maskButtonX = p.x;
+    }
+
     for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
     {
         MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7Masks[i], maskLabelY + i * rowStep);
-        MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonY + i * rowStep);
+        if (maskButtonX >= 0)
+            MoveDlgCtrl(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonX, maskButtonY + i * rowStep);
+        else
+            MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonY + i * rowStep);
     }
 
     HANDLES(EndDeferWindowPos(hdwp));
+
+    for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
+    {
+        AlignDlgCtrlLeftOfCtrl(HWindow, CConfigurationPage7Items[i], CConfigurationPage7ItemsBut[i]);
+        AlignDlgCtrlLeftOfCtrl(HWindow, CConfigurationPage7Masks[i], CConfigurationPage7MasksBut[i]);
+    }
 }
 
 void CCfgPageColors::EnableControls()

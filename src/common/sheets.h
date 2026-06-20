@@ -33,8 +33,7 @@ public:
     void LayoutCtrls();
 
 protected:
-    static BOOL CALLBACK FindMoveControls(HWND hChild, LPARAM lParam);
-
+    void AddMoveCtrl(HWND hChild);
     void FindMoveCtrls();
 
 protected:
@@ -49,10 +48,10 @@ protected:
     TDirectArray<CElasticLayoutCtrl> ResizeRightCtrls;
     // prvky, ktere posouvame k pravemu okraji dialogu
     TDirectArray<CElasticLayoutCtrl> MoveRightCtrls;
-    // docasne pole plnene z FindMoveCtrls; idealne by slo o lokalni promennou, ale
-    // pro pohodlne volani callbacku FindMoveControls (kam ho potrebujeme predat)
-    // ho umistuji jako atribut tridy
+    // prvky, ktere posouvame pod natahovanymi prvky; plni se jednou z puvodniho layoutu,
+    // aby se pri opakovanem resize neposouval baseline podle aktualne prepoctenych pozic
     TDirectArray<CElasticLayoutCtrl> MoveCtrls;
+    BOOL MoveCtrlsInitialized;
 };
 
 class CPropSheetPage : protected CDialog
