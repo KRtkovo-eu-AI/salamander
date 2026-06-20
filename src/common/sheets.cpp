@@ -632,7 +632,8 @@ void CPropSheetPage::InitHorizontalLayout()
             // Only horizontal separator lines should stretch automatically.
             // Text labels can have opaque backgrounds in dark mode and may cover
             // adjacent inputs if they are widened with the page.
-            if (IsHorizontalLayoutStatic(hChild) && staticType == SS_ETCHEDHORZ)
+            if (IsHorizontalLayoutStatic(hChild) &&
+                (staticType == SS_ETCHEDHORZ || GetProp(hChild, _T("SalamanderToolbarHeader")) != NULL))
                 mode = PHLM_RESIZE_RIGHT;
         }
         else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
