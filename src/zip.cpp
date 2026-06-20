@@ -4811,6 +4811,22 @@ void CSalamanderGeneral::SetPluginUsesPasswordManager()
         TRACE_E("Unexpected situation in CSalamanderGeneral::SetPluginUsesPasswordManager().");
 }
 
+
+#ifndef CMIC_MASK_NOASYNC
+#define CMIC_MASK_NOASYNC 0x00000100
+#endif
+
+static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici)
+{
+    if (Windows11AndLater)
+    {
+        // Keep Windows 11 shell verbs synchronous.  The built-in compressed-folder
+        // SendTo target can otherwise outlive Salamander's context menu/data object
+        // and delete the just-created .zip when those objects are released.
+        ici->fMask |= CMIC_MASK_NOASYNC;
+    }
+}
+
 void CSalamanderGeneral::OpenNetworkContextMenu(HWND parent, int panel, BOOL forItems, int menuX,
                                                 int menuY, const char* netPath, char* newlyMappedDrive)
 {
@@ -4941,6 +4957,7 @@ void CSalamanderGeneral::OpenNetworkContextMenu(HWND parent, int panel, BOOL for
                         ZeroMemory(&ici, sizeof(CMINVOKECOMMANDINFOEX));
                         ici.cbSize = sizeof(CMINVOKECOMMANDINFOEX);
                         ici.fMask = CMIC_MASK_PTINVOKE;
+                        ApplyWindows11ShellInvokeWorkarounds(&ici);
                         if (CanUseShellExecuteWndAsParent(cmdName))
                             ici.hwnd = shellExecuteWnd.Create(MainWindow->HWindow, "SEW: CSalamanderGeneral::OpenNetworkContextMenu cmd=%d", cmd);
                         else

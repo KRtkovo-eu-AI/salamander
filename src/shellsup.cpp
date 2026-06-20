@@ -738,6 +738,24 @@ void SetClipCutCopyInfo(HWND hwnd, BOOL copy, BOOL salObject)
 }
 
 //
+
+#ifndef CMIC_MASK_NOASYNC
+#define CMIC_MASK_NOASYNC 0x00000100
+#endif
+
+static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici)
+{
+    if (Windows11AndLater)
+    {
+        // Windows 11's built-in "Send to > Compressed (zipped) folder" handler may
+        // continue working after InvokeCommand returns.  If Salamander releases the
+        // context menu/data object immediately, the transient .zip is created and
+        // then removed again.  Force synchronous invocation only on Windows 11+ so
+        // older Windows 10 behavior stays unchanged.
+        ici->fMask |= CMIC_MASK_NOASYNC;
+    }
+}
+
 // ****************************************************************************
 // ShellAction
 //
@@ -2272,6 +2290,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 ZeroMemory(&ici, sizeof(CMINVOKECOMMANDINFOEX));
                                 ici.cbSize = sizeof(CMINVOKECOMMANDINFOEX);
                                 ici.fMask = CMIC_MASK_PTINVOKE;
+                                ApplyWindows11ShellInvokeWorkarounds(&ici);
                                 if (CanUseShellExecuteWndAsParent(cmdName))
                                     ici.hwnd = shellExecuteWnd.Create(MainWindow->HWindow, "SEW: ShellAction::context_menu cmd=%d", cmd);
                                 else

@@ -1345,6 +1345,7 @@ extern BOOL Windows7AndLater;     // Windows 7 nebo pozdejsi
 extern BOOL Windows8AndLater;     // Windows 8 nebo pozdejsi
 extern BOOL Windows8_1AndLater;   // Windows 8.1 nebo pozdejsi
 extern BOOL Windows10AndLater;    // Windows 10 nebo pozdejsi
+extern BOOL Windows11AndLater;    // Windows 11 nebo pozdejsi
 
 extern BOOL Windows64Bit; // x64 verze Windows
 
