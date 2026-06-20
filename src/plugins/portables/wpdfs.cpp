@@ -122,6 +122,7 @@ public:
         StringCchPrintf(text, _countof(text), "%s...", m_operation);
         HWND foreground = parent != nullptr ? parent : SalamanderGeneral->GetMainWindowHWND();
         SalamanderGeneral->CreateSafeWaitWindow(text, "Portable Devices", 0, TRUE, foreground);
+        SalamanderGeneral->ShowSafeWaitWindow(TRUE);
         m_open = true;
     }
 
@@ -151,6 +152,7 @@ public:
             StringCchPrintf(text, _countof(text), "%s %d/%d:\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName);
         }
         SalamanderGeneral->SetSafeWaitWindowText(text);
+        SalamanderGeneral->ShowSafeWaitWindow(TRUE);
         return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
     }
 
@@ -850,6 +852,110 @@ HRESULT WINAPI CWpdFS::UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectI
     return hr;
 }
 
+HRESULT WINAPI CWpdFS::FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes)
+{
+    _ASSERTE(childObjectId != nullptr);
+    *childObjectId = nullptr;
+    if (attributes != nullptr)
+    {
+        *attributes = 0;
+    }
+
+    HRESULT hr = device->Open(GENERIC_READ);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    ATL::CComPtr<IEnumPortableDeviceObjectIDs> childEnum;
+    hr = device->GetContentNoAddRef()->EnumObjects(0U, parentObjectId, nullptr, &childEnum);
+    if (FAILED(hr))
+    {
+        device->Close();
+        return hr;
+    }
+
+    for (;;)
+    {
+        PWSTR enumObjectId = nullptr;
+        ULONG fetched = 0;
+        hr = childEnum->Next(1, &enumObjectId, &fetched);
+        if (hr != S_OK)
+        {
+            device->Close();
+            return hr == S_FALSE ? S_FALSE : hr;
+        }
+
+        CFxString enumName;
+        DWORD enumAttributes = 0;
+        hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), enumObjectId, enumName, enumAttributes);
+        if (SUCCEEDED(hr) && enumName.Compare(childName) == 0)
+        {
+            *childObjectId = enumObjectId;
+            if (attributes != nullptr)
+            {
+                *attributes = enumAttributes;
+            }
+            device->Close();
+            return S_OK;
+        }
+
+        ::CoTaskMemFree(enumObjectId);
+        if (FAILED(hr))
+        {
+            device->Close();
+            return hr;
+        }
+    }
+}
+
+HRESULT WINAPI CWpdFS::ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, _Out_ bool& skip)
+{
+    skip = false;
+
+    PWSTR existingObjectId = nullptr;
+    DWORD existingAttributes = 0;
+    HRESULT hr = FindWpdChildObject(device, parentObjectId, targetName, &existingObjectId, &existingAttributes);
+    if (hr == S_FALSE)
+    {
+        return S_OK;
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    char existingInfo[64];
+    StringCchCopy(existingInfo, _countof(existingInfo), (existingAttributes & FILE_ATTRIBUTE_DIRECTORY) ? "Folder" : "File");
+    char sourceInfo[64];
+    StringCchCopy(sourceInfo, _countof(sourceInfo), "File");
+    int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, existingInfo, sourceName, sourceInfo);
+    if (answer == DIALOG_SKIP || answer == DIALOG_SKIPALL)
+    {
+        skip = true;
+        ::CoTaskMemFree(existingObjectId);
+        return S_OK;
+    }
+    if (answer != DIALOG_YES && answer != DIALOG_ALL)
+    {
+        ::CoTaskMemFree(existingObjectId);
+        return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    }
+
+    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
+    hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+    if (SUCCEEDED(hr))
+    {
+        hr = AddWpdObjectId(objects, existingObjectId);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = DeleteWpdObjects(device, objects);
+    }
+    ::CoTaskMemFree(existingObjectId);
+    return hr;
+}
+
 HRESULT WINAPI CWpdFS::AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId)
 {
     _ASSERTE(objects != nullptr);
@@ -1226,7 +1332,12 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 }
                 if (SUCCEEDED(hr))
                 {
-                    hr = UploadDiskObject(targetDevice, wideTargetObjectId, tempName, f->Name);
+                    bool skipExisting = false;
+                    hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, f->Name, f->Name, skipExisting);
+                    if (SUCCEEDED(hr) && !skipExisting)
+                    {
+                        hr = UploadDiskObject(targetDevice, wideTargetObjectId, tempName, f->Name);
+                    }
                 }
                 if (SUCCEEDED(hr) && !copy)
                 {
@@ -1297,6 +1408,22 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE));
                 ok = false;
                 break;
+            }
+
+            DWORD targetAttributes = ::GetFileAttributes(targetName);
+            if (targetAttributes != INVALID_FILE_ATTRIBUTES)
+            {
+                int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, "", f->Name, "");
+                if (answer == DIALOG_SKIP || answer == DIALOG_SKIPALL)
+                {
+                    if (focused) break;
+                    continue;
+                }
+                if (answer != DIALOG_YES && answer != DIALOG_ALL)
+                {
+                    ok = false;
+                    break;
+                }
             }
 
             if (!progress.Step(f->Name, targetName))
@@ -1428,8 +1555,13 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
         {
             const char* targetName = strrchr(name, '\\');
             targetName = targetName != nullptr ? targetName + 1 : name;
-            hr = UploadDiskObject(targetDevice, wideTargetObjectId, sourceName, targetName);
-            if (SUCCEEDED(hr) && !copy)
+            bool skipExisting = false;
+            hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, targetName, sourceName, skipExisting);
+            if (SUCCEEDED(hr) && !skipExisting)
+            {
+                hr = UploadDiskObject(targetDevice, wideTargetObjectId, sourceName, targetName);
+            }
+            if (SUCCEEDED(hr) && !skipExisting && !copy)
             {
                 if (isDir)
                 {
