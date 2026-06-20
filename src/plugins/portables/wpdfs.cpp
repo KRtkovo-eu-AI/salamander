@@ -125,11 +125,14 @@ public:
     CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
         : m_window(nullptr),
           m_text(nullptr),
+          m_fileLabel(nullptr),
+          m_totalLabel(nullptr),
           m_fileProgress(nullptr),
           m_totalProgress(nullptr),
           m_minimize(nullptr),
           m_pause(nullptr),
           m_cancel(nullptr),
+          m_font(nullptr),
           m_canceled(false),
           m_operation(operation),
           m_totalItems(totalItems > 0 ? totalItems : 1),
@@ -138,6 +141,20 @@ public:
         INITCOMMONCONTROLSEX icc = {sizeof(icc), ICC_PROGRESS_CLASS};
         ::InitCommonControlsEx(&icc);
         RegisterWindowClass();
+        BOOL useDarkMode = FALSE;
+        int configType = SALCFGTYPE_NOTFOUND;
+        if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE, &useDarkMode, sizeof(useDarkMode), &configType) &&
+            configType == SALCFGTYPE_BOOL)
+        {
+            PluginDarkMode_SetHostPolicyAvailable(TRUE, useDarkMode);
+        }
+
+        NONCLIENTMETRICS metrics = {};
+        metrics.cbSize = sizeof(metrics);
+        if (::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0))
+        {
+            m_font = ::CreateFontIndirect(&metrics.lfMessageFont);
+        }
 
         HWND owner = SalamanderGeneral->GetMainWindowHWND();
         RECT ownerRect;
@@ -173,12 +190,12 @@ public:
 
         m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
                                   24, 22, width - 48, 42, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                         24, 76, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                                       24, 76, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileProgress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
                                           70, 74, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                         24, 102, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_totalLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                                        24, 102, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalProgress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
                                            70, 100, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
@@ -188,6 +205,7 @@ public:
         m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                                     320, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
         ::EnableWindow(m_pause, FALSE);
+        ApplyFont();
 
         ApplyTheme();
         ::SendMessage(m_fileProgress, PBM_SETRANGE32, 0, 1000);
@@ -204,6 +222,11 @@ public:
     ~CWpdOperationProgress()
     {
         Close();
+        if (m_font != nullptr)
+        {
+            ::DeleteObject(m_font);
+            m_font = nullptr;
+        }
     }
 
     bool Step(PCSTR sourceName, PCSTR targetName = nullptr)
@@ -254,6 +277,21 @@ public:
         }
     }
 
+    void ApplyFont()
+    {
+        if (m_font != nullptr)
+        {
+            HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_minimize, m_pause, m_cancel};
+            for (int i = 0; i < _countof(controls); ++i)
+            {
+                if (controls[i] != nullptr)
+                {
+                    ::SendMessage(controls[i], WM_SETFONT, reinterpret_cast<WPARAM>(m_font), TRUE);
+                }
+            }
+        }
+    }
+
     void Close()
     {
         if (WpdActiveOperationProgress == this)
@@ -265,6 +303,11 @@ public:
             HWND window = m_window;
             m_window = nullptr;
             ::DestroyWindow(window);
+            if (m_font != nullptr)
+            {
+                ::DeleteObject(m_font);
+                m_font = nullptr;
+            }
             PumpMessages();
         }
     }
@@ -376,11 +419,14 @@ private:
 
     HWND m_window;
     HWND m_text;
+    HWND m_fileLabel;
+    HWND m_totalLabel;
     HWND m_fileProgress;
     HWND m_totalProgress;
     HWND m_minimize;
     HWND m_pause;
     HWND m_cancel;
+    HFONT m_font;
     bool m_canceled;
     PCSTR m_operation;
     int m_totalItems;
