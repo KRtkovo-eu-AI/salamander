@@ -11,7 +11,7 @@ COMMENT,"Magyar változat"
 
 [DIALOG 1200]
 220,200,1,"7-Zip beállítás"
-1300,5,6,58,8,1,"Panel beállítások, Török József"
+1300,5,6,58,8,1,"Török József"
 1301,56,10,161,1,1,""
 1201,10,19,202,10,1,"Beállítás&ok ablak mutatása tömörítés előtt"
 1202,10,31,157,10,1,"Kiegészítő &információ archívum listázásakor"

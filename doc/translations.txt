@@ -1,0 +1,59 @@
+License Agreement for language translations available on ALTAP website
+----------------------------------------------------------------------
+
+Czech version:
+Copyright © 2010-2019 ALTAP
+Copyright © 2008-2010 Hynek Mikulic (Gtein)
+
+Dutch version:
+Copyright © 2013-2019 Cor van der Smissen (CeSium)
+Copyright © 2010-2012 Marco Fung (SuperBK)
+Copyright © 2013 Patrick Vijgeboom (PatrickV)
+Copyright © 2010-2012 S.V. (Stephan) Rietveld (Canefield)
+
+French version:
+Copyright © 2012-2019 Arnaud Dupin de Beyssat (ADB)
+Copyright © 2011-2012 Gérard Gréco
+Copyright © 2016-2019 Jérémy MARC (Bromatofiel)
+Copyright © 2016-2019 Maxime Abbey (Maxime)
+
+German version:
+Copyright © 2007-2010 Dirk Bornhuetter (Nighthawk)
+Copyright © 2007-2019 Thomas Kelso (Thomas)
+Copyright © 2006-2009 Thomas Pagels (Silbereis)
+Copyright © 2005-2009 Thomas Woelk (Beta)
+
+Hungarian version:
+Copyright © 2010-2019 Jozsef Torok (Evin)
+
+Romanian version:
+Copyright © 2010 Donca Radu
+Copyright © 2010-2019 Ioan Stefancu
+
+Russian version:
+Copyright © 2010-2012 Alen Khayrullin (Adept)
+Copyright © 2012-2019 Igor V. Polyakoff (Polyakoff)
+Copyright © 2012 Neutron16 (Neutron16)
+Copyright © 2010-2012 Vasiliy (Vasiliy)
+
+Chinese Simplified version:
+Copyright © 2013-2019 Michael Lu (Michael Lu)
+
+Slovak version:
+Copyright © 2011-2019 Roman Paholik (Wizzard)
+
+Spanish version:
+Copyright © 2010-2019 Juan Pablo Barrio Lera (jpbarrio)
+
+(languages and translators are in alphabetical order)
+
+Author of the language translation (the "Translation") is granting permission
+to any person obtaining free of charge copy of Translation and use, modify,
+merge, publish, and distribute it, providing that Translation stays free of
+charge and the above copyright notice and this permission notice will be
+included in all copies.
+
+
+For more information about language versions please visit Language Translations
+section on forum:
+https://forum.altap.cz/viewforum.php?f=23
