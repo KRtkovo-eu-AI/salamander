@@ -189,22 +189,29 @@ public:
             return;
         }
 
+        RECT clientRect;
+        ::GetClientRect(m_window, &clientRect);
+        const int topMargin = 32;
+        const int bottomMargin = 32;
+        const int buttonHeight = 24;
+        const int buttonY = clientRect.bottom - bottomMargin - buttonHeight;
+
         m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                  24, 22, width - 48, 42, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                  24, topMargin, width - 48, 42, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                       24, 76, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                       24, topMargin + 54, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                          70, 74, width - 120, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                          70, topMargin + 52, width - 120, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                        24, 102, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                        24, topMargin + 80, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                           70, 100, width - 120, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                           70, topMargin + 78, width - 120, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
-                                      140, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
+                                      140, buttonY, 74, buttonHeight, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
         m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
-                                   230, 150, 74, 24, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                   230, buttonY, 74, buttonHeight, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
-                                    320, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
+                                    320, buttonY, 74, buttonHeight, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
         ::EnableWindow(m_pause, FALSE);
         ApplyFont();
 
