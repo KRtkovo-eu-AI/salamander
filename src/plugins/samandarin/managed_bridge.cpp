@@ -227,3 +227,14 @@ extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int
 
     return SalamanderGeneral->GetCurrentColor(color);
 }
+
+extern "C" __declspec(dllexport) int __stdcall Samandarin_LoadString(int resourceId, wchar_t* buffer, int bufferLength)
+{
+    if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)
+    {
+        return 0;
+    }
+
+    buffer[0] = L'\0';
+    return LoadStringW(HLanguage, resourceId, buffer, bufferLength);
+}

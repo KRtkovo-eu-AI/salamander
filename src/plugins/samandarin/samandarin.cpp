@@ -63,10 +63,8 @@ char* LoadStr(int resID)
 
 void ShowInitializationError(HWND parent)
 {
-    SalamanderGeneral->SalMessageBox(parent,
-                                     "Unable to initialize the Samandarin managed helper.\n"
-                                     "Verify that Samandarin.Managed.dll is located next to the plugin.",
-                                     LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+    SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_INIT_MANAGED_ERROR), LoadStr(IDS_PLUGINNAME),
+                                     MB_OK | MB_ICONERROR);
 }
 
 BOOL SynchronizeLoadOnStartFlagFromSettings();
@@ -83,13 +81,13 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
         if (!ManagedBridge_CheckNow(parent))
         {
             SalamanderGeneral->SalMessageBox(parent,
-                                             "Unable to trigger the managed update check.",
+                                             LoadStr(IDS_TRIGGER_CHECK_ERROR),
                                              LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
         }
         break;
 
     default:
-        SalamanderGeneral->SalMessageBox(parent, "Unknown command.", LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+        SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_UNKNOWN_COMMAND), LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
         break;
     }
 
