@@ -44,7 +44,7 @@ public static class EntryPoint
         }
         catch (Exception ex)
         {
-            ShowError(parentHandle, "Unexpected managed exception:", ex);
+            ShowError(parentHandle, NativeStrings.Get(NativeStringId.UnexpectedException), ex);
             return -1;
         }
     }
@@ -118,8 +118,63 @@ public static class EntryPoint
     {
         var owner = parent != IntPtr.Zero ? new WindowHandleWrapper(parent) : null;
         var message = $"{caption}{Environment.NewLine}{ex.Message}";
-        ThemeHelper.ShowMessageBox(owner, message, "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        ThemeHelper.ShowMessageBox(owner, message, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
+}
+
+internal enum NativeStringId
+{
+    PluginName = 46,
+    UnexpectedException = 51,
+    UpdateAvailable = 55,
+    CurrentVersion = 56,
+    LatestVersion = 57,
+    OpenDownloadPage = 58,
+    OpenBrowserError = 59,
+    UpToDateRelease = 60,
+    UpToDateNoRelease = 61,
+    CheckError = 62,
+    Unknown = 63,
+    ConfigTitle = 64,
+    ConfigDescription = 65,
+    CheckOnStartup = 66,
+    PeriodicCheck = 67,
+    FrequencyDisabled = 68,
+    FrequencyDaily = 69,
+    FrequencyWeekly = 70,
+    FrequencyMonthly = 71,
+    Ok = 72,
+    Cancel = 73,
+    CheckNow = 74,
+    StatusChecking = 75,
+    PerformCheckError = 76,
+    StatusCompleted = 77,
+    LastAutoCheck = 78,
+    LastAutoCheckNever = 79,
+    LastKnownRelease = 80,
+    LastKnownReleaseUnknown = 81,
+}
+
+internal static class NativeStrings
+{
+    private const int BufferLength = 1024;
+
+    public static string PluginCaption => Get(NativeStringId.PluginName);
+
+    public static string Get(NativeStringId id)
+    {
+        var buffer = new StringBuilder(BufferLength);
+        int length = Samandarin_LoadString((int)id, buffer, buffer.Capacity);
+        return length > 0 ? buffer.ToString() : id.ToString();
+    }
+
+    public static string Format(NativeStringId id, params object[] args)
+    {
+        return string.Format(CultureInfo.CurrentCulture, Get(id), args);
+    }
+
+    [DllImport("Samandarin.Spl", EntryPoint = "Samandarin_LoadString", ExactSpelling = true, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+    private static extern int Samandarin_LoadString(int resourceId, StringBuilder buffer, int bufferLength);
 }
 
 internal static class UpdateCoordinator
@@ -515,11 +570,12 @@ internal static class UpdateCoordinator
     private static async Task ShowUpdateAvailableAsync(IntPtr parent, string latestVersion)
     {
         string current = GetCurrentVersion();
-        string message = $"A newer Samandarin build is available.{Environment.NewLine}{Environment.NewLine}" +
-            $"Current version: {current}{Environment.NewLine}Latest version: {latestVersion}{Environment.NewLine}{Environment.NewLine}" +
-            "Open the download page now?";
+        string message = NativeStrings.Get(NativeStringId.UpdateAvailable) + Environment.NewLine + Environment.NewLine +
+            NativeStrings.Format(NativeStringId.CurrentVersion, current) + Environment.NewLine +
+            NativeStrings.Format(NativeStringId.LatestVersion, latestVersion) + Environment.NewLine + Environment.NewLine +
+            NativeStrings.Get(NativeStringId.OpenDownloadPage);
 
-        var result = await ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, "Samandarin Update Notifier", MessageBoxButtons.OKCancel, MessageBoxIcon.Information)).ConfigureAwait(false);
+        var result = await ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, NativeStrings.PluginCaption, MessageBoxButtons.OKCancel, MessageBoxIcon.Information)).ConfigureAwait(false);
         if (result == DialogResult.OK)
         {
             await RunOnUiThreadAsync(parent, owner =>
@@ -534,8 +590,8 @@ internal static class UpdateCoordinator
                 }
                 catch (Exception ex)
                 {
-                    var errorMessage = $"Unable to open the browser.{Environment.NewLine}{ex.Message}";
-                    ThemeHelper.ShowMessageBox(owner, errorMessage, "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    var errorMessage = $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}";
+                    ThemeHelper.ShowMessageBox(owner, errorMessage, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }).ConfigureAwait(false);
         }
@@ -545,15 +601,15 @@ internal static class UpdateCoordinator
     {
         string current = GetCurrentVersion();
         string message = latestVersion is { Length: > 0 }
-            ? $"Samandarin {current} is already up to date.{Environment.NewLine}Latest release: {latestVersion}."
-            : $"Samandarin {current} is already up to date.{Environment.NewLine}No newer release is currently available.";
-        return ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            ? NativeStrings.Format(NativeStringId.UpToDateRelease, current, latestVersion)
+            : NativeStrings.Format(NativeStringId.UpToDateNoRelease, current);
+        return ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information));
     }
 
     private static Task ShowErrorAsync(IntPtr parent, string error)
     {
-        string message = $"Unable to check for updates.{Environment.NewLine}{error}";
-        return ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Error));
+        string message = $"{NativeStrings.Get(NativeStringId.CheckError)}{Environment.NewLine}{error}";
+        return ShowMessageAsync(parent, owner => ThemeHelper.ShowMessageBox(owner, message, NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error));
     }
 
     private static Task<DialogResult> ShowMessageAsync(IntPtr parent, Func<IWin32Window?, DialogResult> presenter)
@@ -625,7 +681,7 @@ internal static class UpdateCoordinator
     {
         lock (SyncRoot)
         {
-            return string.IsNullOrWhiteSpace(CurrentVersion) ? "Unknown" : CurrentVersion;
+            return string.IsNullOrWhiteSpace(CurrentVersion) ? NativeStrings.Get(NativeStringId.Unknown) : CurrentVersion;
         }
     }
 
@@ -723,7 +779,7 @@ internal sealed class ConfigurationDialog : Form
     {
         _settings = snapshot.Settings.Clone();
 
-        Text = "Samandarin Update Settings";
+        Text = NativeStrings.Get(NativeStringId.ConfigTitle);
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -746,7 +802,7 @@ internal sealed class ConfigurationDialog : Form
 
         var description = new Label
         {
-            Text = "Choose when Samandarin should check GitHub for a newer build.",
+            Text = NativeStrings.Get(NativeStringId.ConfigDescription),
             AutoSize = true,
             MaximumSize = new System.Drawing.Size(460, 0),
         };
@@ -755,7 +811,7 @@ internal sealed class ConfigurationDialog : Form
 
         _checkOnStartup = new CheckBox
         {
-            Text = "Check when Salamander starts",
+            Text = NativeStrings.Get(NativeStringId.CheckOnStartup),
             AutoSize = true,
         };
         layout.SetColumnSpan(_checkOnStartup, 2);
@@ -763,7 +819,7 @@ internal sealed class ConfigurationDialog : Form
 
         var frequencyLabel = new Label
         {
-            Text = "Periodic check:",
+            Text = NativeStrings.Get(NativeStringId.PeriodicCheck),
             AutoSize = true,
             Anchor = AnchorStyles.Left,
         };
@@ -776,10 +832,10 @@ internal sealed class ConfigurationDialog : Form
         };
         _frequency.Items.AddRange(new object[]
         {
-            new FrequencyOption(UpdateFrequency.Disabled, "Disabled"),
-            new FrequencyOption(UpdateFrequency.Daily, "Daily"),
-            new FrequencyOption(UpdateFrequency.Weekly, "Weekly"),
-            new FrequencyOption(UpdateFrequency.Monthly, "Monthly"),
+            new FrequencyOption(UpdateFrequency.Disabled, NativeStrings.Get(NativeStringId.FrequencyDisabled)),
+            new FrequencyOption(UpdateFrequency.Daily, NativeStrings.Get(NativeStringId.FrequencyDaily)),
+            new FrequencyOption(UpdateFrequency.Weekly, NativeStrings.Get(NativeStringId.FrequencyWeekly)),
+            new FrequencyOption(UpdateFrequency.Monthly, NativeStrings.Get(NativeStringId.FrequencyMonthly)),
         });
         layout.Controls.Add(_frequency, 1, 2);
 
@@ -808,9 +864,9 @@ internal sealed class ConfigurationDialog : Form
             Padding = new Padding(0, 12, 0, 0),
         };
 
-        var okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true };
-        var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
-        _checkNowButton = new Button { Text = "Check now", AutoSize = true };
+        var okButton = new Button { Text = NativeStrings.Get(NativeStringId.Ok), DialogResult = DialogResult.OK, AutoSize = true };
+        var cancelButton = new Button { Text = NativeStrings.Get(NativeStringId.Cancel), DialogResult = DialogResult.Cancel, AutoSize = true };
+        _checkNowButton = new Button { Text = NativeStrings.Get(NativeStringId.CheckNow), AutoSize = true };
         _checkNowButton.Click += CheckNowButtonOnClick;
 
         buttons.Controls.Add(okButton);
@@ -828,8 +884,8 @@ internal sealed class ConfigurationDialog : Form
         _checkOnStartup.Checked = _settings.CheckOnStartup;
         SelectFrequency(_settings.Frequency);
         _currentVersionLabel.Text = string.IsNullOrWhiteSpace(snapshot.CurrentVersion)
-            ? "Current version: Unknown"
-            : string.Format(CultureInfo.CurrentCulture, "Current version: {0}", snapshot.CurrentVersion);
+            ? NativeStrings.Format(NativeStringId.CurrentVersion, NativeStrings.Get(NativeStringId.Unknown))
+            : NativeStrings.Format(NativeStringId.CurrentVersion, snapshot.CurrentVersion);
         UpdateStatusLabels();
         _statusLabel.Text = string.Empty;
     }
@@ -846,20 +902,20 @@ internal sealed class ConfigurationDialog : Form
     private async void CheckNowButtonOnClick(object? sender, EventArgs e)
     {
         _checkNowButton.Enabled = false;
-        _statusLabel.Text = "Status: Checking for updates...";
+        _statusLabel.Text = NativeStrings.Get(NativeStringId.StatusChecking);
         try
         {
             await UpdateCoordinator.CheckForUpdatesAsync(Handle, userInitiated: true, showIfCurrent: true).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            ThemeHelper.ShowMessageBox(this, $"Unable to perform the check.{Environment.NewLine}{ex.Message}", "Samandarin Update Notifier", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemeHelper.ShowMessageBox(this, $"{NativeStrings.Get(NativeStringId.PerformCheckError)}{Environment.NewLine}{ex.Message}", NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
             _checkNowButton.Enabled = true;
             UpdateStatusLabels();
-            _statusLabel.Text = "Status: Last check completed.";
+            _statusLabel.Text = NativeStrings.Get(NativeStringId.StatusCompleted);
         }
     }
 
@@ -868,11 +924,11 @@ internal sealed class ConfigurationDialog : Form
         var snapshot = UpdateCoordinator.GetSnapshot();
         _settings = snapshot.Settings.Clone();
         _lastCheckLabel.Text = _settings.LastCheckUtc.HasValue
-            ? string.Format(CultureInfo.CurrentCulture, "Last automatic check: {0:g}", _settings.LastCheckUtc.Value.ToLocalTime())
-            : "Last automatic check: Never";
+            ? NativeStrings.Format(NativeStringId.LastAutoCheck, _settings.LastCheckUtc.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture))
+            : NativeStrings.Get(NativeStringId.LastAutoCheckNever);
         _latestVersionLabel.Text = string.IsNullOrWhiteSpace(_settings.LastKnownRemoteVersion)
-            ? "Last known release: Unknown"
-            : string.Format(CultureInfo.CurrentCulture, "Last known release: {0}", _settings.LastKnownRemoteVersion);
+            ? NativeStrings.Get(NativeStringId.LastKnownReleaseUnknown)
+            : NativeStrings.Format(NativeStringId.LastKnownRelease, _settings.LastKnownRemoteVersion!);
     }
 
     private void SelectFrequency(UpdateFrequency frequency)
