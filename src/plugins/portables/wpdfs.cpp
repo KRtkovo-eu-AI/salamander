@@ -301,7 +301,7 @@ HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetNa
             if (SUCCEEDED(hr))
             {
                 ULARGE_INTEGER size;
-                size.QuadPart = MAXULONGLONG;
+                size.QuadPart = static_cast<ULONGLONG>(-1);
                 hr = source->CopyTo(target, size, nullptr, nullptr);
                 if (SUCCEEDED(hr))
                 {
