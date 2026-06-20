@@ -159,11 +159,6 @@ public:
         return !m_open || !SalamanderGeneral->GetSafeWaitWindowClosePressed();
     }
 
-    bool IsCanceled() const
-    {
-        return m_open && SalamanderGeneral->GetSafeWaitWindowClosePressed();
-    }
-
     void Close()
     {
         if (m_open)
@@ -1366,8 +1361,8 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     const char* sourcePath,
     SalEnumSelection2 next,
     void* nextParam,
-    int,
-    int,
+    int sourceFiles,
+    int sourceDirs,
     char* targetPath,
     BOOL* invalidPathOrCancel)
 {
