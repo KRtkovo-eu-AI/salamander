@@ -191,8 +191,8 @@ public:
 
         RECT clientRect;
         ::GetClientRect(m_window, &clientRect);
-        const int topMargin = 32;
-        const int bottomMargin = 32;
+        const int topMargin = 10;
+        const int bottomMargin = 10;
         const int buttonHeight = 24;
         const int buttonY = clientRect.bottom - bottomMargin - buttonHeight;
 
