@@ -247,6 +247,7 @@ public:
         m_filePos = 0;
         m_totalPos = m_doneItems * 1000 / m_totalItems;
         ::ShowWindow(m_window, SW_SHOWNORMAL);
+        UpdateTitle();
         Redraw();
         PumpMessages();
         return !m_canceled;
@@ -260,6 +261,7 @@ public:
             m_filePulse = 0;
             m_filePos = 0;
             m_totalPos = m_doneItems * 1000 / m_totalItems;
+            UpdateTitle();
             RedrawProgress();
             PumpMessages();
         }
@@ -294,10 +296,20 @@ public:
             {
                 m_totalPos = 1000;
             }
+            UpdateTitle();
             RedrawProgress();
             PumpMessages();
         }
         return !m_canceled;
+    }
+
+    void SetDevice(CWpdDevice* device)
+    {
+        if (device != nullptr)
+        {
+            device->GetName(m_deviceName);
+            UpdateTitle();
+        }
     }
 
     void ApplyFont()
@@ -468,6 +480,25 @@ private:
                 ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
             }
         }
+    }
+
+    void UpdateTitle()
+    {
+        if (m_window == nullptr)
+        {
+            return;
+        }
+
+        char title[MAX_PATH + 64];
+        if (!m_deviceName.IsEmpty())
+        {
+            StringCchPrintf(title, _countof(title), "(%d %%) %s - %s", m_totalPos / 10, m_operation, m_deviceName.GetString());
+        }
+        else
+        {
+            StringCchPrintf(title, _countof(title), "(%d %%) %s", m_totalPos / 10, m_operation);
+        }
+        ::SetWindowText(m_window, title);
     }
 
     void RedrawProgress()
@@ -641,6 +672,7 @@ private:
     HFONT m_font;
     bool m_canceled;
     PCSTR m_operation;
+    CFxString m_deviceName;
     int m_totalItems;
     int m_doneItems;
     int m_filePulse;
@@ -654,19 +686,15 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
     _ASSERTE(target != nullptr);
 
     BYTE buffer[64 * 1024];
-    ULONGLONG remaining = size;
     ULONGLONG copied = 0;
     for (;;)
     {
-        ULONG toRead = sizeof(buffer);
-        if (remaining != static_cast<ULONGLONG>(-1) && remaining < toRead)
-        {
-            toRead = static_cast<ULONG>(remaining);
-        }
-        if (toRead == 0)
+        if (size != static_cast<ULONGLONG>(-1) && copied >= size)
         {
             return S_OK;
         }
+
+        ULONG toRead = sizeof(buffer);
 
         ULONG read = 0;
         HRESULT hr = source->Read(buffer, toRead, &read);
@@ -683,11 +711,17 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
             return S_OK;
         }
 
+        ULONG toWrite = read;
+        if (size != static_cast<ULONGLONG>(-1) && copied + toWrite > size)
+        {
+            toWrite = static_cast<ULONG>(size - copied);
+        }
+
         ULONG writtenTotal = 0;
-        while (writtenTotal < read)
+        while (writtenTotal < toWrite)
         {
             ULONG written = 0;
-            hr = target->Write(buffer + writtenTotal, read - writtenTotal, &written);
+            hr = target->Write(buffer + writtenTotal, toWrite - writtenTotal, &written);
             if (FAILED(hr))
             {
                 return hr;
@@ -699,15 +733,11 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
             writtenTotal += written;
         }
 
-        copied += read;
+        copied += toWrite;
         if (WpdActiveOperationProgress != nullptr &&
             !WpdActiveOperationProgress->SetFileProgress(copied, size))
         {
             return HRESULT_FROM_WIN32(ERROR_CANCELLED);
-        }
-        if (remaining != static_cast<ULONGLONG>(-1))
-        {
-            remaining -= read;
         }
         if (hr == S_FALSE)
         {
@@ -1101,8 +1131,7 @@ HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetNa
             hr = ::SHCreateStreamOnFile(targetName, STGM_CREATE | STGM_WRITE, &target);
             if (SUCCEEDED(hr))
             {
-                ULONGLONG size = static_cast<ULONGLONG>(-1);
-                item->GetSize(size);
+                ULONGLONG size = WpdGetObjectSizeOrUnknown(device->GetPropertiesNoAddRef(), item->GetObjectId());
                 hr = WpdCopyStream(source, target, size);
                 if (SUCCEEDED(hr))
                 {
@@ -1715,16 +1744,17 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         BOOL isDir = FALSE;
         const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
         if (f == nullptr) break;
-        if (!progress.Step(f->Name))
-        {
-            ok = false;
-            break;
-        }
 
         auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
         if (device == nullptr)
         {
             device = item->GetDeviceNoAddRef();
+            progress.SetDevice(device);
+        }
+        if (!progress.Step(f->Name))
+        {
+            ok = false;
+            break;
         }
         hr = AddWpdObjectId(objects, item->GetObjectId());
         if (FAILED(hr))
@@ -1819,6 +1849,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         ATL::CA2W wideTargetObjectId(targetObjectId);
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
         CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
+        progress.SetDevice(targetDevice);
         int index = 0;
         for (;;)
         {
@@ -1915,11 +1946,18 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
         CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
         int index = 0;
+        bool progressDeviceSet = false;
         for (;;)
         {
             BOOL isDir = FALSE;
             const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
             if (f == nullptr) break;
+            auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
+            if (!progressDeviceSet)
+            {
+                progress.SetDevice(item->GetDeviceNoAddRef());
+                progressDeviceSet = true;
+            }
 
             char targetName[MAX_PATH];
             lstrcpyn(targetName, targetPath, _countof(targetName));
@@ -1952,7 +1990,6 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 break;
             }
 
-            auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
             CWpdDevice* device = item->GetDeviceNoAddRef();
             HRESULT hr = device->Open(GENERIC_READ);
             if (SUCCEEDED(hr))
@@ -2057,6 +2094,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     FILETIME lastWrite;
     int errorOccured = SALENUM_SUCCESS;
     CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", sourceFiles + sourceDirs);
+    progress.SetDevice(targetDevice);
     while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
     {
         if (!progress.Step(name, targetPath))
