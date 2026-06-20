@@ -132,6 +132,13 @@ void CElasticLayout::AddResizeCtrl(int resID)
     HWND hChild = GetDlgItem(HWindow, resID);
     if (hChild != NULL)
     {
+        // The controls resized by this helper (lists/list-views/tree-views) can
+        // grow across the area where lower controls are being moved during a
+        // property-page resize.  Force sibling clipping so the resized control
+        // cannot repaint over those controls while the layout is settling.
+        LONG_PTR style = GetWindowLongPtr(hChild, GWL_STYLE);
+        SetWindowLongPtr(hChild, GWL_STYLE, style | WS_CLIPSIBLINGS);
+
         RECT r;
         GetWindowRect(hChild, &r);
 
