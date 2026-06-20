@@ -4,12 +4,12 @@
 #include "precomp.h"
 
 #include <windows.h>
+#include <windowsx.h>
 #include <crtdbg.h>
 #include <tchar.h>
 #include <ostream>
 #include <uxtheme.h>
 
-#include "../consts.h"
 #include "../darkmode.h"
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
@@ -63,8 +63,8 @@ void ApplyTreeViewColors(HWND treeView)
         return;
 
     const bool useDark = DarkModeShouldUseDarkColors();
-    const COLORREF text = useDark ? GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]) : GetSysColor(COLOR_WINDOWTEXT);
-    const COLORREF background = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_WINDOW);
+    const COLORREF text = useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT);
+    const COLORREF background = useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_WINDOW);
 
     TreeView_SetTextColor(treeView, text);
     TreeView_SetBkColor(treeView, background);
@@ -982,7 +982,7 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetClientRect(HWindow, &r);
 
         const bool useDark = DarkModeShouldUseDarkColors();
-        const COLORREF background = useDark ? GetCOLORREF(CurrentColors[ITEM_BK_NORMAL]) : GetSysColor(COLOR_BTNFACE);
+        const COLORREF background = useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
         const int devCaps = GetDeviceCaps(hdc, NUMCOLORS);
 
         if (useDark)
@@ -1049,7 +1049,7 @@ CTPHCaptionWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             COLORREF textColor;
             if (useDark)
-                textColor = GetCOLORREF(CurrentColors[ITEM_FG_NORMAL]);
+                textColor = DarkModeGetDialogTextColor();
             else if (devCaps == -1)
                 textColor = GetSysColor(COLOR_BTNTEXT);
             else
