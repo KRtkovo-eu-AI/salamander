@@ -172,7 +172,7 @@ public:
         int y = ownerRect.top + ((ownerRect.bottom - ownerRect.top) - height) / 2;
 
         m_window = ::CreateWindowEx(
-            WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
+            WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
             WindowClassName(),
             WpdLoadStr(IDS_OPERATIONPROGRESS_TITLE),
             WS_POPUP | WS_CAPTION | WS_SYSMENU,
@@ -180,7 +180,7 @@ public:
             y,
             width,
             height,
-            owner,
+            nullptr,
             nullptr,
             Fx::FxGetModuleInstance(),
             this);
@@ -194,11 +194,11 @@ public:
         m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
                                        24, 76, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                          70, 74, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                          70, 74, width - 120, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
                                         24, 102, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                                           70, 100, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                           70, 100, width - 120, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
                                       140, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
         m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
