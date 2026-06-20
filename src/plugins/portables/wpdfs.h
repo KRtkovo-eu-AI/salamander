@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
@@ -16,9 +16,27 @@
 #include "fx.h"
 #include "fxfs.h"
 
+class CWpdDevice;
+class CWpdBaseContentItem;
+
 class CWpdFS final : public TFxPluginFSInterface<CWpdFS>
 {
 protected:
+    HRESULT WINAPI GetContentLocationForPath(PCSTR path, _Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
+    HRESULT WINAPI GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
+    HRESULT WINAPI CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name);
+    HRESULT WINAPI RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName);
+    HRESULT WINAPI AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId);
+    HRESULT WINAPI AddWpdObjectIdsRecursive(CWpdDevice* device, PCWSTR objectId, IPortableDevicePropVariantCollection* objects);
+    HRESULT WINAPI DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects);
+    HRESULT WINAPI CopyOrMoveWpdObjects(
+        CWpdDevice* device,
+        IPortableDevicePropVariantCollection* objects,
+        PCWSTR destinationObjectId,
+        bool copy);
+    HRESULT WINAPI DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName);
+    HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
+
     /* CFxPluginFSInterface Overrides */
 
     virtual CFxPluginDataInterface* WINAPI CreatePluginData(CFxItemEnumerator* enumerator) override;
@@ -29,12 +47,65 @@ protected:
         int level,
         bool forceRefresh) override;
 
+    virtual BOOL WINAPI QuickRename(
+        const char* fsName,
+        int mode,
+        HWND parent,
+        CFileData& file,
+        BOOL isDir,
+        char* newName,
+        BOOL& cancel) override;
+
+    virtual BOOL WINAPI CreateDir(
+        const char* fsName,
+        int mode,
+        HWND parent,
+        char* newName,
+        BOOL& cancel) override;
+
+    virtual BOOL WINAPI Delete(
+        const char* fsName,
+        int mode,
+        HWND parent,
+        int panel,
+        int selectedFiles,
+        int selectedDirs,
+        BOOL& cancelOrError) override;
+
+    virtual BOOL WINAPI CopyOrMoveFromFS(
+        BOOL copy,
+        int mode,
+        const char* fsName,
+        HWND parent,
+        int panel,
+        int selectedFiles,
+        int selectedDirs,
+        char* targetPath,
+        BOOL& operationMask,
+        BOOL& cancelOrHandlePath,
+        HWND dropTarget) override;
+
+    virtual BOOL WINAPI CopyOrMoveFromDiskToFS(
+        BOOL copy,
+        int mode,
+        const char* fsName,
+        HWND parent,
+        const char* sourcePath,
+        SalEnumSelection2 next,
+        void* nextParam,
+        int sourceFiles,
+        int sourceDirs,
+        char* targetPath,
+        BOOL* invalidPathOrCancel) override;
+
 public:
     CWpdFS(CFxPluginInterfaceForFS& owner);
 
     enum _SupportedServices
     {
-        SUPPORTED_SERVICES = 0U
+        SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE |
+                             FS_SERVICE_COPYFROMFS | FS_SERVICE_MOVEFROMFS |
+                             FS_SERVICE_COPYFROMDISKTOFS | FS_SERVICE_MOVEFROMDISKTOFS
     };
 
     static PCTSTR SUGGESTED_NAME;
