@@ -4479,6 +4479,8 @@ FIND_NEW_SLG_FILE:
                 DeleteFile(portableConfigPath);
                 storageTypeFromBootstrap = TRUE;
                 portableConfigExists = FALSE;
+                SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_IMPORTREGDONE), LoadStr(IDS_INFOTITLE),
+                              MB_OK | MB_ICONINFORMATION);
             }
             else
             {
@@ -4487,8 +4489,8 @@ FIND_NEW_SLG_FILE:
                 params.HParent = NULL;
                 params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
                 params.Caption = LoadStr(IDS_QUESTION);
-                params.Text = "Existing File storage configuration was found. Do you want to import it?";
-                params.AliasBtnNames = "6\tYes - Import file configuration\t7\tYes - Import and convert to Registry\t2\tRemove stored configuration";
+                params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTREGPROMPT);
+                params.AliasBtnNames = LoadStr(IDS_CFGSTORAGE_IMPORTREGALIAS);
 
                 int res = SalMessageBoxEx(&params);
                 if (res == DIALOG_YES)
@@ -4522,7 +4524,7 @@ FIND_NEW_SLG_FILE:
             params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
             params.Caption = LoadStr(IDS_QUESTION);
             params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT);
-            params.AliasBtnNames = "6\tYes - Convert to File storage\t7\tNo - Keep Registry Storage\t2\tRemove stored configuration";
+            params.AliasBtnNames = LoadStr(IDS_CFGSTORAGE_IMPORTFILEALIAS);
 
             int res = SalMessageBoxEx(&params);
             if (res == DIALOG_YES)
