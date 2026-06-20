@@ -4,6 +4,9 @@
 //
 #define IDS_SELECTEDDEVICEFMT           128
 #define IDS_NODEVICEINFOLINE            129
+#define IDS_OPERATIONPROGRESS_TITLE     130
+#define IDS_OPERATIONPROGRESS_CANCEL    131
+#define IDS_OPERATIONPROGRESS_PREPARING 132
 
 // Next default values for new objects
 // 

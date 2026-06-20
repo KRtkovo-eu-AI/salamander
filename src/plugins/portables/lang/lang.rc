@@ -79,6 +79,9 @@ STRINGTABLE
 BEGIN
     IDS_SELECTEDDEVICEFMT   "{!}%d selected device{2:s|0||1|s}"
     IDS_NODEVICEINFOLINE    "No devices"
+    IDS_OPERATIONPROGRESS_TITLE "Portable Devices"
+    IDS_OPERATIONPROGRESS_CANCEL "Cancel"
+    IDS_OPERATIONPROGRESS_PREPARING "Preparing..."
 END
 
 #endif    // Czech (Czech Republic) resources

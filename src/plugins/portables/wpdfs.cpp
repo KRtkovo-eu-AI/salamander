@@ -19,6 +19,7 @@
 #include "device.h"
 #include "wpdhelpers.h"
 #include "config.h"
+#include "..\shared\plugindarkmode.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // CWpdFS
@@ -109,6 +110,11 @@ CFxPluginDataInterface* WINAPI CWpdFS::CreatePluginData(CFxItemEnumerator* enume
 }
 
 
+static PCSTR WpdLoadStr(UINT id)
+{
+    return SalamanderGeneral->LoadStr(Fx::FxGetLangInstance(), id);
+}
+
 class CWpdOperationProgress
 {
 public:
@@ -126,7 +132,7 @@ public:
         ::InitCommonControlsEx(&icc);
         RegisterWindowClass();
 
-        HWND owner = parent != nullptr ? parent : SalamanderGeneral->GetMainWindowHWND();
+        HWND owner = SalamanderGeneral->GetMainWindowHWND();
         RECT ownerRect;
         if (owner == nullptr || !::GetWindowRect(owner, &ownerRect))
         {
@@ -143,7 +149,7 @@ public:
         m_window = ::CreateWindowEx(
             WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
             WindowClassName(),
-            "Portable Devices",
+            WpdLoadStr(IDS_OPERATIONPROGRESS_TITLE),
             WS_POPUP | WS_CAPTION | WS_SYSMENU,
             x,
             y,
@@ -162,12 +168,13 @@ public:
                                   12, 12, width - 24, 52, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_progress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
                                       12, 70, width - 24, 18, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_cancel = ::CreateWindowEx(0, "BUTTON", "Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                                     width - 98, 100, 86, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
 
+        ApplyTheme();
         ::SendMessage(m_progress, PBM_SETRANGE32, 0, m_totalItems);
         ::SendMessage(m_progress, PBM_SETPOS, 0, 0);
-        Step("Preparing...");
+        Step(WpdLoadStr(IDS_OPERATIONPROGRESS_PREPARING));
         ::ShowWindow(m_window, SW_SHOWNORMAL);
         ::UpdateWindow(m_window);
         PumpMessages();
@@ -224,6 +231,17 @@ public:
         }
     }
 
+    void ApplyTheme()
+    {
+        if (m_window == nullptr)
+        {
+            return;
+        }
+        PluginDarkMode_ApplyTitleBar(m_window);
+        PluginDarkMode_ApplyListTreeThemeRecursive(m_window);
+        InvalidateRect(m_window, nullptr, TRUE);
+    }
+
 private:
     static PCSTR WindowClassName()
     {
@@ -258,6 +276,16 @@ private:
         }
         if (self != nullptr)
         {
+            if (PluginDarkMode_HandleThemeMessage(window, message, lParam))
+            {
+                self->ApplyTheme();
+                return 0;
+            }
+            LRESULT brush = 0;
+            if (PluginDarkMode_HandleCtlColor(message, wParam, lParam, &brush))
+            {
+                return brush;
+            }
             if (message == WM_COMMAND && LOWORD(wParam) == IDCANCEL)
             {
                 self->m_canceled = true;

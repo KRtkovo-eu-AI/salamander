@@ -119,6 +119,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\shared\dbg.cpp"></ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp"></ClCompile>
     <ClCompile Include="..\..\shared\winliblt.cpp"></ClCompile>
     <ClCompile Include="..\device.cpp"></ClCompile>
@@ -141,6 +143,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\shared\dbg.h"></ClInclude>
+    <ClInclude Include="..\..\shared\plugindarkmode.h">
+    </ClInclude>
     <ClInclude Include="..\..\shared\mhandles.h"></ClInclude>
     <ClInclude Include="..\..\shared\spl_arc.h"></ClInclude>
     <ClInclude Include="..\..\shared\spl_base.h"></ClInclude>
