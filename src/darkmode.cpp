@@ -1,12 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#ifdef __TRACESERVER
-#include "tserver/precomp.h"
-#include "handles.h"
-#else
 #include "precomp.h"
-#endif
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 
