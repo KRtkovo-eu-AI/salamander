@@ -4956,22 +4956,24 @@ FIND_NEW_SLG_FILE:
 
                         // save uz pujde do nejnovejsiho klice
                         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
-                        if (migrateRegistryToFile)
-                        {
-                            ConfigurationStorage.Flush();
-                            if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE))
-                                TRACE_E("Unable to switch configuration storage to file after loading imported configuration.");
-                            Configuration.StorageType = (int)ConfigurationStorage.GetStorageType();
-                        }
                         // konfiguraci ulozime hned, dokud je to cista konverze stare verze -- user muze
                         // mit vypnuty "Save Cfg on Exit" a pokud behem chodu Salamandera neco zmeni, nechce to na zaver ulozit
                         if (saveNewConfig)
                         {
                             MainWindow->SaveConfig();
-                            // When the Welcome import dialog switches storage to config.reg, the
-                            // registry backend is in-memory.  SaveConfig() updates that in-memory
-                            // tree, so flush it right away to create/update config.reg during the
-                            // first startup instead of waiting until application shutdown.
+                            if (migrateRegistryToFile)
+                            {
+                                // SaveConfig() has just created the current-version registry key.
+                                // Only now can the migration copy that key into config.reg; doing
+                                // this before SaveConfig() copies a non-existent key and leaves the
+                                // startup on Registry storage.
+                                if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE))
+                                    TRACE_E("Unable to switch configuration storage to file after saving imported configuration.");
+                                Configuration.StorageType = (int)ConfigurationStorage.GetStorageType();
+                            }
+                            // When file storage is active the registry backend is in-memory, so
+                            // flush it right away to create/update config.reg during the first
+                            // startup instead of waiting until application shutdown.
                             if (ConfigurationStorage.GetStorageType() == cstRegFile)
                                 ConfigurationStorage.Flush();
                         }
