@@ -2744,14 +2744,12 @@ void CMainWindow::SafeHandleMenuNewMsg2(UINT uMsg, WPARAM wParam, LPARAM lParam,
     {
         IContextMenu3* contextMenu3 = NULL;
         *plResult = 0;
-        if (uMsg == WM_MENUCHAR)
+        if (SUCCEEDED(ContextMenuNew->GetMenu2()->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
         {
-            if (SUCCEEDED(ContextMenuNew->GetMenu2()->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
-            {
-                contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult);
-                contextMenu3->Release();
+            HRESULT hr = contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult);
+            contextMenu3->Release();
+            if (SUCCEEDED(hr))
                 return;
-            }
         }
         // the menu is destroyed directly from the menu it was attached to
         ContextMenuNew->GetMenu2()->HandleMenuMsg(uMsg, wParam, lParam); // this call occasionally crashes
@@ -3038,14 +3036,12 @@ void CMainWindow::SafeHandleMenuChngDrvMsg2(UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         IContextMenu3* contextMenu3 = NULL;
         *plResult = 0;
-        if (uMsg == WM_MENUCHAR)
+        if (SUCCEEDED(ContextMenuChngDrv->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
         {
-            if (SUCCEEDED(ContextMenuChngDrv->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
-            {
-                contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult);
-                contextMenu3->Release();
+            HRESULT hr = contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult);
+            contextMenu3->Release();
+            if (SUCCEEDED(hr))
                 return;
-            }
         }
         ContextMenuChngDrv->HandleMenuMsg(uMsg, wParam, lParam);
     }

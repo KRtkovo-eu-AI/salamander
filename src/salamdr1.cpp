@@ -191,6 +191,7 @@ BOOL Windows7AndLater = FALSE;     // JRYFIXME - zrusit
 BOOL Windows8AndLater = FALSE;
 BOOL Windows8_1AndLater = FALSE;
 BOOL Windows10AndLater = FALSE;
+BOOL Windows11AndLater = FALSE;
 
 BOOL Windows64Bit = FALSE;
 
@@ -4180,6 +4181,25 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     Windows8AndLater = SalIsWindowsVersionOrGreater(6, 2, 0);
     Windows8_1AndLater = SalIsWindowsVersionOrGreater(6, 3, 0);
     Windows10AndLater = SalIsWindowsVersionOrGreater(10, 0, 0);
+    Windows11AndLater = FALSE;
+    if (Windows10AndLater && NtDLL != NULL)
+    {
+        typedef LONG(WINAPI * PRtlGetVersion)(LPOSVERSIONINFOEXW lpVersionInformation);
+        PRtlGetVersion rtlGetVersion = (PRtlGetVersion)GetProcAddress(NtDLL, "RtlGetVersion");
+        if (rtlGetVersion != NULL)
+        {
+            OSVERSIONINFOEXW osvi;
+            memset(&osvi, 0, sizeof(osvi));
+            osvi.dwOSVersionInfoSize = sizeof(osvi);
+            if (rtlGetVersion(&osvi) == 0)
+                Windows11AndLater = osvi.dwMajorVersion > 10 ||
+                                    (osvi.dwMajorVersion == 10 && osvi.dwBuildNumber >= 22000);
+        }
+        else
+        {
+            Windows11AndLater = FALSE;
+        }
+    }
 
     DWORD integrityLevel;
     if (GetProcessIntegrityLevel(&integrityLevel) && integrityLevel >= SECURITY_MANDATORY_HIGH_RID)
