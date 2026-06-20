@@ -19,6 +19,7 @@
 #include "device.h"
 #include "wpdhelpers.h"
 #include "config.h"
+#include "lang\lang.rh"
 #include "..\shared\plugindarkmode.h"
 
 ////////////////////////////////////////////////////////////////////////////////
