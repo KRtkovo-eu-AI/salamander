@@ -557,9 +557,29 @@ void CPropSheetPage::InitHorizontalLayout()
 
     RECT cR;
     GetClientRect(HWindow, &cR);
-    HorizontalLayoutWidth = cR.right;
 
+    int maxChildRight = 0;
     HWND hChild = GetWindow(HWindow, GW_CHILD);
+    while (hChild != NULL)
+    {
+        RECT wR;
+        GetWindowRect(hChild, &wR);
+        POINT p = {wR.right, wR.bottom};
+        ScreenToClient(HWindow, &p);
+        if (p.x > maxChildRight)
+            maxChildRight = p.x;
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+
+    // When a tree property page is created, its window can already have the
+    // final (larger) holder size while child controls are still at resource
+    // coordinates. Use the controls' right edge as the design width in that
+    // case; otherwise small right-edge buttons are not recognized as docked.
+    HorizontalLayoutWidth = cR.right;
+    if (maxChildRight > 0 && cR.right - maxChildRight >= 40)
+        HorizontalLayoutWidth = maxChildRight;
+
+    hChild = GetWindow(HWindow, GW_CHILD);
     while (hChild != NULL)
     {
         TCHAR className[64];
@@ -577,13 +597,12 @@ void CPropSheetPage::InitHorizontalLayout()
         int mode = 0;
         BOOL resizeRight = FALSE;
         if (_tcsicmp(className, _T("Edit")) == 0 ||
-            _tcsicmp(className, _T("ComboBox")) == 0 ||
             _tcsicmp(className, WC_LISTVIEW) == 0 ||
             _tcsicmp(className, WC_TREEVIEW) == 0 ||
             _tcsicmp(className, TOOLBARCLASSNAME) == 0)
         {
             // Stretch regular data controls, except very small numeric edits.
-            if (r.right - r.left > 80 || cR.right - r.right < 40)
+            if (r.right - r.left > 80 || HorizontalLayoutWidth - r.right < 40)
                 mode = PHLM_RESIZE_RIGHT;
         }
         else if (_tcsicmp(className, _T("Static")) == 0)
@@ -603,7 +622,7 @@ void CPropSheetPage::InitHorizontalLayout()
                 if (buttonType == BS_GROUPBOX || !HasOverlappingControlToRight(HWindow, hChild, &r))
                     mode = PHLM_RESIZE_RIGHT;
             }
-            else if (cR.right - r.right < 40)
+            else if (HorizontalLayoutWidth - r.right < 40)
                 mode = PHLM_MOVE_RIGHT;
         }
 
@@ -611,7 +630,7 @@ void CPropSheetPage::InitHorizontalLayout()
         // recognized by the class/style based button branch above.  If such a small
         // control starts next to the right edge, keep it docked there so adjacent
         // edit boxes cannot stretch over it.
-        if (mode == 0 && r.right - r.left <= 40 && cR.right - r.right < 40)
+        if (mode == 0 && r.right - r.left <= 40 && HorizontalLayoutWidth - r.right < 40)
             mode = PHLM_MOVE_RIGHT;
 
         if (mode != 0)
