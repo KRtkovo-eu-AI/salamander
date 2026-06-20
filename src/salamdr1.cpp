@@ -4510,7 +4510,12 @@ FIND_NEW_SLG_FILE:
             SplashScreenCloseIfExist();
             goto EXIT_2;
         }
-        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType); // import dialog may override it
+        // FindLatestConfiguration() shows the Welcome import dialog and stores the
+        // user's storage choice in Configuration.StorageType.  Do not re-read the
+        // bootstrap file here: on first run it may not exist yet or the write can be
+        // deferred by the profile APIs, which would lose a File Storage choice and
+        // continue with Registry storage.
+        storageType = (CConfigurationStorageType)Configuration.StorageType;
     }
     Configuration.StorageType = storageType;
 
