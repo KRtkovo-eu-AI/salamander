@@ -27,7 +27,6 @@ protected:
     HRESULT WINAPI CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name);
     HRESULT WINAPI RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName);
     HRESULT WINAPI AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId);
-    HRESULT WINAPI AddWpdObjectIdsRecursive(CWpdDevice* device, PCWSTR objectId, IPortableDevicePropVariantCollection* objects);
     HRESULT WINAPI DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects);
     HRESULT WINAPI CopyOrMoveWpdObjects(
         CWpdDevice* device,
@@ -35,6 +34,7 @@ protected:
         PCWSTR destinationObjectId,
         bool copy);
     HRESULT WINAPI DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName);
+    HRESULT WINAPI DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PCSTR targetName);
     HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
 
     /* CFxPluginFSInterface Overrides */

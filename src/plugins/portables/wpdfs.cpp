@@ -17,6 +17,7 @@
 #include "wpdfsdevicelevel.h"
 #include "wpdfscontentlevel.h"
 #include "device.h"
+#include "wpdhelpers.h"
 #include "config.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -133,6 +134,56 @@ static HRESULT WINAPI WpdObjectIdToString(PCWSTR objectId, CFxString& s)
     }
 
     s.ReleaseBuffer();
+    return S_OK;
+}
+
+static bool WINAPI WpdIsFolderContentType(const GUID& contentType)
+{
+    return IsEqualGUID(contentType, WPD_CONTENT_TYPE_FOLDER) ||
+           IsEqualGUID(contentType, WPD_CONTENT_TYPE_FUNCTIONAL_OBJECT);
+}
+
+static HRESULT WINAPI WpdGetObjectNameAndAttributes(
+    IPortableDeviceProperties* properties,
+    PCWSTR objectId,
+    CFxString& name,
+    DWORD& attributes)
+{
+    static const PROPERTYKEY* const keys[] =
+        {
+            &WPD_OBJECT_ORIGINAL_FILE_NAME,
+            &WPD_OBJECT_NAME,
+            &WPD_OBJECT_CONTENT_TYPE,
+        };
+
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+
+    ATL::CComPtr<IPortableDeviceValues> values;
+    HRESULT hr = properties->GetValues(objectId, keyCollection, &values);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = WpdGetStringValue(values, WPD_OBJECT_ORIGINAL_FILE_NAME, name);
+    if (FAILED(hr) || name.IsEmpty())
+    {
+        hr = WpdGetStringValue(values, WPD_OBJECT_NAME, name);
+    }
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    GUID contentType;
+    hr = values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &contentType);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    attributes = WpdIsFolderContentType(contentType) ? FILE_ATTRIBUTE_DIRECTORY : 0;
     return S_OK;
 }
 
@@ -274,8 +325,21 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName)
     {
         ATL::CA2W wideName(newName);
         hr = values->SetStringValue(WPD_OBJECT_NAME, wideName);
+        if (SUCCEEDED(hr)) hr = values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, wideName);
         ATL::CComPtr<IPortableDeviceValues> results;
         if (SUCCEEDED(hr)) hr = device->GetPropertiesNoAddRef()->SetValues(item->GetObjectId(), values, &results);
+        if (SUCCEEDED(hr) && results != nullptr)
+        {
+            HRESULT propertyHr;
+            if (SUCCEEDED(results->GetErrorValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &propertyHr)) && FAILED(propertyHr))
+            {
+                hr = propertyHr;
+            }
+            else if (SUCCEEDED(results->GetErrorValue(WPD_OBJECT_NAME, &propertyHr)) && FAILED(propertyHr))
+            {
+                hr = propertyHr;
+            }
+        }
     }
     device->Close();
     return hr;
@@ -312,6 +376,112 @@ HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetNa
     }
 
     device->Close();
+    return hr;
+}
+
+HRESULT WINAPI CWpdFS::DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PCSTR targetName)
+{
+    _ASSERTE(device != nullptr);
+    _ASSERTE(objectId != nullptr);
+    _ASSERTE(targetName != nullptr);
+
+    CFxString name;
+    DWORD attributes;
+    HRESULT hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), objectId, name, attributes);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+    {
+        if (!::CreateDirectory(targetName, nullptr))
+        {
+            DWORD err = ::GetLastError();
+            if (err != ERROR_ALREADY_EXISTS)
+            {
+                return HRESULT_FROM_WIN32(err);
+            }
+        }
+
+        ATL::CComPtr<IEnumPortableDeviceObjectIDs> childEnum;
+        hr = device->GetContentNoAddRef()->EnumObjects(0U, objectId, nullptr, &childEnum);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        for (;;)
+        {
+            PWSTR childObjectId = nullptr;
+            ULONG fetched = 0;
+            hr = childEnum->Next(1, &childObjectId, &fetched);
+            if (hr != S_OK)
+            {
+                if (hr == S_FALSE)
+                {
+                    hr = S_OK;
+                }
+                break;
+            }
+
+            CFxString childName;
+            DWORD childAttributes;
+            hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), childObjectId, childName, childAttributes);
+            if (SUCCEEDED(hr))
+            {
+                char childTargetName[MAX_PATH];
+                lstrcpyn(childTargetName, targetName, _countof(childTargetName));
+                if (!SalamanderGeneral->SalPathAppend(childTargetName, childName, _countof(childTargetName)))
+                {
+                    hr = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
+                }
+                else
+                {
+                    hr = DownloadWpdObject(device, childObjectId, childTargetName);
+                }
+            }
+
+            ::CoTaskMemFree(childObjectId);
+            if (FAILED(hr))
+            {
+                break;
+            }
+        }
+
+        return hr;
+    }
+
+    ATL::CComPtr<IPortableDeviceResources> resources;
+    hr = device->GetContentNoAddRef()->Transfer(&resources);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    ATL::CComPtr<IStream> source;
+    DWORD optimalBufferSize = 0;
+    hr = resources->GetStream(objectId, WPD_RESOURCE_DEFAULT, STGM_READ, &optimalBufferSize, &source);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    ATL::CComPtr<IStream> target;
+    hr = ::SHCreateStreamOnFile(targetName, STGM_CREATE | STGM_WRITE, &target);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    ULARGE_INTEGER size;
+    size.QuadPart = static_cast<ULONGLONG>(-1);
+    hr = source->CopyTo(target, size, nullptr, nullptr);
+    if (SUCCEEDED(hr))
+    {
+        hr = target->Commit(STGC_DEFAULT);
+    }
+
     return hr;
 }
 
@@ -371,57 +541,13 @@ HRESULT WINAPI CWpdFS::AddWpdObjectId(IPortableDevicePropVariantCollection* obje
     return objects->Add(&pv);
 }
 
-HRESULT WINAPI CWpdFS::AddWpdObjectIdsRecursive(CWpdDevice* device, PCWSTR objectId, IPortableDevicePropVariantCollection* objects)
-{
-    _ASSERTE(device != nullptr);
-    _ASSERTE(objectId != nullptr);
-    _ASSERTE(objects != nullptr);
-
-    // Build the collection bottom-up.  Some WPD drivers block for a long time
-    // when PORTABLE_DEVICE_DELETE_WITH_RECURSION is used.  Deleting children
-    // first lets us use PORTABLE_DEVICE_DELETE_NO_RECURSION later.
-    ATL::CComPtr<IEnumPortableDeviceObjectIDs> childEnum;
-    HRESULT hr = device->GetContentNoAddRef()->EnumObjects(0U, objectId, nullptr, &childEnum);
-    if (SUCCEEDED(hr))
-    {
-        for (;;)
-        {
-            PWSTR childObjectId = nullptr;
-            ULONG fetched = 0;
-            hr = childEnum->Next(1, &childObjectId, &fetched);
-            if (hr != S_OK)
-            {
-                if (hr == S_FALSE)
-                {
-                    hr = S_OK;
-                }
-                break;
-            }
-
-            hr = AddWpdObjectIdsRecursive(device, childObjectId, objects);
-            ::CoTaskMemFree(childObjectId);
-            if (FAILED(hr))
-            {
-                break;
-            }
-        }
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        hr = AddWpdObjectId(objects, objectId);
-    }
-
-    return hr;
-}
-
 HRESULT WINAPI CWpdFS::DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects)
 {
     HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
     if (FAILED(hr)) return hr;
 
     ATL::CComPtr<IPortableDevicePropVariantCollection> results;
-    hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_NO_RECURSION, objects, &results);
+    hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
     device->Close();
     return hr;
 }
@@ -519,15 +645,8 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         if (device == nullptr)
         {
             device = item->GetDeviceNoAddRef();
-            hr = device->Open(GENERIC_READ | GENERIC_WRITE);
-            if (FAILED(hr))
-            {
-                WpdShowOperationError(parent, "Delete", f->Name, hr);
-                ok = false;
-                break;
-            }
         }
-        hr = isDir ? AddWpdObjectIdsRecursive(device, item->GetObjectId(), objects) : AddWpdObjectId(objects, item->GetObjectId());
+        hr = AddWpdObjectId(objects, item->GetObjectId());
         if (FAILED(hr))
         {
             WpdShowOperationError(parent, "Delete", f->Name, hr);
@@ -535,10 +654,6 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
             break;
         }
         if (focused) break;
-    }
-    if (device != nullptr)
-    {
-        device->Close();
     }
     if (ok && device != nullptr)
     {
@@ -694,13 +809,6 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
             const CFileData* f = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
             if (f == nullptr) break;
 
-            if (isDir)
-            {
-                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, E_NOTIMPL);
-                ok = false;
-                break;
-            }
-
             char targetName[MAX_PATH];
             lstrcpyn(targetName, targetPath, _countof(targetName));
             if (!SalamanderGeneral->SalPathAppend(targetName, f->Name, _countof(targetName)))
@@ -711,7 +819,13 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
             }
 
             auto item = static_cast<CWpdBaseContentItem*>(reinterpret_cast<CFxItem*>(f->PluginData));
-            HRESULT hr = DownloadWpdFile(item, targetName);
+            CWpdDevice* device = item->GetDeviceNoAddRef();
+            HRESULT hr = device->Open(GENERIC_READ);
+            if (SUCCEEDED(hr))
+            {
+                hr = DownloadWpdObject(device, item->GetObjectId(), targetName);
+                device->Close();
+            }
             if (SUCCEEDED(hr) && !copy)
             {
                 ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
