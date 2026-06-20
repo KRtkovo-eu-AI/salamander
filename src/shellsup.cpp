@@ -780,6 +780,132 @@ static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici, UIN
     }
 }
 
+
+static BOOL FindMenuItemTextByCommand(HMENU menu, UINT cmd, char* text, int textSize)
+{
+    int count = GetMenuItemCount(menu);
+    for (int i = 0; i < count; i++)
+    {
+        MENUITEMINFO mi;
+        char itemText[300];
+        ZeroMemory(&mi, sizeof(mi));
+        itemText[0] = 0;
+        mi.cbSize = sizeof(mi);
+        mi.fMask = MIIM_ID | MIIM_SUBMENU | MIIM_STRING;
+        mi.dwTypeData = itemText;
+        mi.cch = _countof(itemText);
+        if (GetMenuItemInfo(menu, i, TRUE, &mi))
+        {
+            if (mi.wID == cmd && itemText[0] != 0)
+            {
+                lstrcpyn(text, itemText, textSize);
+                return TRUE;
+            }
+            if (mi.hSubMenu != NULL && FindMenuItemTextByCommand(mi.hSubMenu, cmd, text, textSize))
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static BOOL IsWindows11CompressedFolderCommand(HMENU menu, UINT cmd)
+{
+    char text[300];
+    if (!Windows11AndLater || !FindMenuItemTextByCommand(menu, cmd, text, _countof(text)))
+        return FALSE;
+    _strlwr_s(text, _countof(text));
+    return strstr(text, "zip") != NULL &&
+           (strstr(text, "compressed") != NULL || strstr(text, "zipped") != NULL ||
+            strstr(text, "komprim") != NULL || strstr(text, "comprim") != NULL);
+}
+
+static void AppendPowerShellSingleQuotedPath(char* command, int commandSize, const char* path)
+{
+    lstrcat(command, "'");
+    for (const char* s = path; *s != 0 && (int)strlen(command) < commandSize - 4; s++)
+    {
+        if (*s == '\'')
+            lstrcat(command, "''");
+        else
+        {
+            int len = (int)strlen(command);
+            command[len] = *s;
+            command[len + 1] = 0;
+        }
+    }
+    lstrcat(command, "'");
+}
+
+static BOOL InvokeWindows11CompressedFolderFallback(CFilesWindow* panel, BOOL useSelection,
+                                                    int count, int index, int* indexes)
+{
+    if (!Windows11AndLater || !useSelection || panel == NULL || !panel->Is(ptDisk))
+        return FALSE;
+
+    int selectedCount = count == 0 ? 1 : count;
+    if (selectedCount <= 0)
+        return FALSE;
+
+    int firstIndex = count == 0 ? index : indexes[0];
+    if (firstIndex < 0 || firstIndex >= panel->Dirs->Count + panel->Files->Count)
+        return FALSE;
+
+    const char* firstName = firstIndex < panel->Dirs->Count ? panel->Dirs->At(firstIndex).Name : panel->Files->At(firstIndex - panel->Dirs->Count).Name;
+    char baseName[MAX_PATH];
+    lstrcpyn(baseName, firstName, MAX_PATH);
+    if (firstIndex >= panel->Dirs->Count)
+    {
+        char* dot = strrchr(baseName, '.');
+        if (dot != NULL && dot != baseName)
+            *dot = 0;
+    }
+
+    char zipPath[MAX_PATH];
+    _snprintf_s(zipPath, _TRUNCATE, "%s\\%s.zip", panel->GetPath(), baseName);
+    for (int suffix = 2; FileExists(zipPath) && suffix < 10000; suffix++)
+        _snprintf_s(zipPath, _TRUNCATE, "%s\\%s (%d).zip", panel->GetPath(), baseName, suffix);
+
+    char command[32000];
+    lstrcpy(command, "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Compress-Archive -LiteralPath @(");
+    for (int i = 0; i < selectedCount; i++)
+    {
+        int itemIndex = count == 0 ? index : indexes[i];
+        if (itemIndex < 0 || itemIndex >= panel->Dirs->Count + panel->Files->Count)
+            return FALSE;
+        if (i > 0)
+            lstrcat(command, ",");
+        const char* name = itemIndex < panel->Dirs->Count ? panel->Dirs->At(itemIndex).Name : panel->Files->At(itemIndex - panel->Dirs->Count).Name;
+        char fullName[MAX_PATH];
+        _snprintf_s(fullName, _TRUNCATE, "%s\\%s", panel->GetPath(), name);
+        AppendPowerShellSingleQuotedPath(command, _countof(command), fullName);
+    }
+    lstrcat(command, ") -DestinationPath ");
+    AppendPowerShellSingleQuotedPath(command, _countof(command), zipPath);
+    lstrcat(command, " -Force\"");
+
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    if (!CreateProcess(NULL, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, panel->GetPath(), &si, &pi))
+        return FALSE;
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    DWORD exitCode = 1;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    if (exitCode == 0)
+    {
+        panel->FocusFirstNewItem = TRUE;
+        MainWindow->PostChangeOnPathNotification(panel->GetPath(), FALSE);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 // ****************************************************************************
 // ShellAction
 //
@@ -2214,6 +2340,13 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                     }
                     else
                         cmd = 0;
+                    if (cmd != 0)
+                    {
+                        BOOL handledByCompressedFolderFallback = IsWindows11CompressedFolderCommand(h, cmd) &&
+                                                                 InvokeWindows11CompressedFolderFallback(panel, useSelection, count, index, indexes);
+                        if (handledByCompressedFolderFallback)
+                            cmd = 0;
+                    }
                     if (cmd != 0)
                     {
                         CALL_STACK_MESSAGE1("ShellAction::context_menu::exec0");
