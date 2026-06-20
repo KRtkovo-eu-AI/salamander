@@ -739,20 +739,44 @@ void SetClipCutCopyInfo(HWND hwnd, BOOL copy, BOOL salObject)
 
 //
 
+#ifndef CMF_SYNCCASCADEMENU
+#define CMF_SYNCCASCADEMENU 0x00001000
+#endif
+
 #ifndef CMIC_MASK_NOASYNC
 #define CMIC_MASK_NOASYNC 0x00000100
 #endif
 
-static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici)
+#ifndef CMIC_MASK_UNICODE
+#define CMIC_MASK_UNICODE 0x00004000
+#endif
+
+static void ApplyWindows11ShellQueryContextMenuWorkarounds(UINT* flags)
 {
     if (Windows11AndLater)
     {
-        // Windows 11's built-in "Send to > Compressed (zipped) folder" handler may
-        // continue working after InvokeCommand returns.  If Salamander releases the
-        // context menu/data object immediately, the transient .zip is created and
-        // then removed again.  Force synchronous invocation only on Windows 11+ so
-        // older Windows 10 behavior stays unchanged.
-        ici->fMask |= CMIC_MASK_NOASYNC;
+        // The Windows 11 SendTo menu is a cascade; populate it synchronously so
+        // the command ID chosen by Salamander is backed by a fully initialized
+        // shell submenu before InvokeCommand is called.
+        *flags |= CMF_SYNCCASCADEMENU;
+    }
+}
+
+static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici, UINT cmdOffset)
+{
+    if (Windows11AndLater)
+    {
+        // Windows 11's built-in "Send to > Compressed (zipped) folder" handler
+        // expects the extended Unicode invoke structure and may keep working
+        // after InvokeCommand returns. Keep the call synchronous and leave
+        // lpParameters/lpDirectory NULL as required for Shell extension items.
+        ici->fMask |= CMIC_MASK_UNICODE | CMIC_MASK_NOASYNC;
+        ici->lpVerb = MAKEINTRESOURCEA(cmdOffset);
+        ici->lpVerbW = MAKEINTRESOURCEW(cmdOffset);
+        ici->lpParameters = NULL;
+        ici->lpParametersW = NULL;
+        ici->lpDirectory = NULL;
+        ici->lpDirectoryW = NULL;
     }
 }
 
@@ -1931,6 +1955,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                 BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
                 if (shiftPressed)
                     flags |= CMF_EXTENDEDVERBS;
+                ApplyWindows11ShellQueryContextMenuWorkarounds(&flags);
 
                 if (useSelection && count <= 1)
                     flags |= CMF_CANRENAME;
@@ -2290,7 +2315,6 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 ZeroMemory(&ici, sizeof(CMINVOKECOMMANDINFOEX));
                                 ici.cbSize = sizeof(CMINVOKECOMMANDINFOEX);
                                 ici.fMask = CMIC_MASK_PTINVOKE;
-                                ApplyWindows11ShellInvokeWorkarounds(&ici);
                                 if (CanUseShellExecuteWndAsParent(cmdName))
                                     ici.hwnd = shellExecuteWnd.Create(MainWindow->HWindow, "SEW: ShellAction::context_menu cmd=%d", cmd);
                                 else
@@ -2299,7 +2323,9 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                     ici.lpVerb = MAKEINTRESOURCE(cmd);
                                 else
                                     ici.lpVerb = MAKEINTRESOURCE(cmd - 5000);
-                                ici.lpDirectory = panel->GetPath();
+                                ApplyWindows11ShellInvokeWorkarounds(&ici, cmd < 5000 ? cmd : cmd - 5000);
+                                if (!Windows11AndLater)
+                                    ici.lpDirectory = panel->GetPath();
                                 ici.nShow = SW_SHOWNORMAL;
                                 ici.ptInvoke = pt;
 

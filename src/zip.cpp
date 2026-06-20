@@ -4812,18 +4812,35 @@ void CSalamanderGeneral::SetPluginUsesPasswordManager()
 }
 
 
+#ifndef CMF_SYNCCASCADEMENU
+#define CMF_SYNCCASCADEMENU 0x00001000
+#endif
+
 #ifndef CMIC_MASK_NOASYNC
 #define CMIC_MASK_NOASYNC 0x00000100
 #endif
 
-static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici)
+#ifndef CMIC_MASK_UNICODE
+#define CMIC_MASK_UNICODE 0x00004000
+#endif
+
+static void ApplyWindows11ShellQueryContextMenuWorkarounds(UINT* flags)
+{
+    if (Windows11AndLater)
+        *flags |= CMF_SYNCCASCADEMENU;
+}
+
+static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici, UINT cmdOffset)
 {
     if (Windows11AndLater)
     {
-        // Keep Windows 11 shell verbs synchronous.  The built-in compressed-folder
-        // SendTo target can otherwise outlive Salamander's context menu/data object
-        // and delete the just-created .zip when those objects are released.
-        ici->fMask |= CMIC_MASK_NOASYNC;
+        ici->fMask |= CMIC_MASK_UNICODE | CMIC_MASK_NOASYNC;
+        ici->lpVerb = MAKEINTRESOURCEA(cmdOffset);
+        ici->lpVerbW = MAKEINTRESOURCEW(cmdOffset);
+        ici->lpParameters = NULL;
+        ici->lpParametersW = NULL;
+        ici->lpDirectory = NULL;
+        ici->lpDirectoryW = NULL;
     }
 }
 
@@ -4911,6 +4928,7 @@ void CSalamanderGeneral::OpenNetworkContextMenu(HWND parent, int panel, BOOL for
                 BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
                 if (shiftPressed)
                     flags |= CMF_EXTENDEDVERBS;
+                ApplyWindows11ShellQueryContextMenuWorkarounds(&flags);
 
                 ShellActionAux5(flags, p, h);
                 RemoveUselessSeparatorsFromMenu(h);
@@ -4957,12 +4975,12 @@ void CSalamanderGeneral::OpenNetworkContextMenu(HWND parent, int panel, BOOL for
                         ZeroMemory(&ici, sizeof(CMINVOKECOMMANDINFOEX));
                         ici.cbSize = sizeof(CMINVOKECOMMANDINFOEX);
                         ici.fMask = CMIC_MASK_PTINVOKE;
-                        ApplyWindows11ShellInvokeWorkarounds(&ici);
                         if (CanUseShellExecuteWndAsParent(cmdName))
                             ici.hwnd = shellExecuteWnd.Create(MainWindow->HWindow, "SEW: CSalamanderGeneral::OpenNetworkContextMenu cmd=%d", cmd);
                         else
                             ici.hwnd = MainWindow->HWindow;
                         ici.lpVerb = MAKEINTRESOURCE(cmd);
+                        ApplyWindows11ShellInvokeWorkarounds(&ici, cmd);
                         ici.nShow = SW_SHOWNORMAL;
                         ici.ptInvoke.x = menuX;
                         ici.ptInvoke.y = menuY;
