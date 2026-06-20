@@ -4509,6 +4509,7 @@ FIND_NEW_SLG_FILE:
     }
     if (!storageTypeFromBootstrap && !migrateRegistryToFile)
     {
+        BOOL showRegistryImportPrompt = !portableConfigExists;
         if (portableConfigExists)
         {
             if (!storageTypeBootstrapWritable)
@@ -4549,13 +4550,15 @@ FIND_NEW_SLG_FILE:
                 else if (res == DIALOG_CANCEL)
                 {
                     DeleteFile(portableConfigPath);
-                    DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
                     portableConfigExists = FALSE;
-                    storedConfigurationRemoved = TRUE;
+                    if (registryConfigExists)
+                        showRegistryImportPrompt = TRUE;
+                    else
+                        storedConfigurationRemoved = TRUE;
                 }
             }
         }
-        else if (registryConfigExists && storageTypeBootstrapWritable)
+        if (showRegistryImportPrompt && registryConfigExists && storageTypeBootstrapWritable)
         {
             MSGBOXEX_PARAMS params;
             memset(&params, 0, sizeof(params));
