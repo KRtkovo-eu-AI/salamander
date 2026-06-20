@@ -543,6 +543,27 @@ static BOOL HasOverlappingControlToRight(HWND hParent, HWND hCtrl, const RECT* c
     return FALSE;
 }
 
+static BOOL HorizontalLayoutContains(TDirectArray<CPageHorizontalLayoutCtrl>* ctrls, HWND hCtrl)
+{
+    for (int i = 0; i < ctrls->Count; i++)
+    {
+        if ((*ctrls)[i].HCtrl == hCtrl)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void AddHorizontalLayoutCtrl(TDirectArray<CPageHorizontalLayoutCtrl>* ctrls, HWND hCtrl, const RECT& r, int mode)
+{
+    if (HorizontalLayoutContains(ctrls, hCtrl))
+        return;
+    CPageHorizontalLayoutCtrl ctrl;
+    ctrl.HCtrl = hCtrl;
+    ctrl.Rect = r;
+    ctrl.Mode = mode;
+    ctrls->Add(ctrl);
+}
+
 void CPropSheetPage::InitHorizontalLayout()
 {
     if (HorizontalLayoutCtrls != NULL)
@@ -626,20 +647,36 @@ void CPropSheetPage::InitHorizontalLayout()
                 mode = PHLM_MOVE_RIGHT;
         }
 
-        // Some narrow helper buttons are owner-drawn/subclassed and are not reliably
-        // recognized by the class/style based button branch above.  If such a small
-        // control starts next to the right edge, keep it docked there so adjacent
-        // edit boxes cannot stretch over it.
-        if (mode == 0 && r.right - r.left <= 40 && HorizontalLayoutWidth - r.right < 40)
-            mode = PHLM_MOVE_RIGHT;
-
         if (mode != 0)
         {
-            CPageHorizontalLayoutCtrl ctrl;
-            ctrl.HCtrl = hChild;
-            ctrl.Rect = r;
-            ctrl.Mode = mode;
-            HorizontalLayoutCtrls->Add(ctrl);
+            AddHorizontalLayoutCtrl(HorizontalLayoutCtrls, hChild, r, mode);
+
+            if (mode == PHLM_RESIZE_RIGHT && _tcsicmp(className, _T("Edit")) == 0)
+            {
+                HWND hSibling = GetWindow(HWindow, GW_CHILD);
+                while (hSibling != NULL)
+                {
+                    if (hSibling != hChild)
+                    {
+                        RECT sWR;
+                        GetWindowRect(hSibling, &sWR);
+                        POINT s1 = {sWR.left, sWR.top};
+                        POINT s2 = {sWR.right, sWR.bottom};
+                        ScreenToClient(HWindow, &s1);
+                        ScreenToClient(HWindow, &s2);
+                        RECT sR = {s1.x, s1.y, s2.x, s2.y};
+
+                        if (sR.left >= r.right && sR.left - r.right <= 8 &&
+                            sR.top < r.bottom && sR.bottom > r.top &&
+                            sR.right - sR.left <= 40)
+                        {
+                            AddHorizontalLayoutCtrl(HorizontalLayoutCtrls, hSibling, sR, PHLM_MOVE_RIGHT);
+                            break;
+                        }
+                    }
+                    hSibling = GetWindow(hSibling, GW_HWNDNEXT);
+                }
+            }
         }
 
         hChild = GetWindow(hChild, GW_HWNDNEXT);
