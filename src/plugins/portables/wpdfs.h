@@ -37,6 +37,7 @@ protected:
     HRESULT WINAPI DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName);
     HRESULT WINAPI DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PCSTR targetName);
     HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
+    HRESULT WINAPI UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
 
     /* CFxPluginFSInterface Overrides */
 
@@ -63,6 +64,12 @@ protected:
         HWND parent,
         char* newName,
         BOOL& cancel) override;
+
+    virtual void WINAPI ViewFile(
+        const char* fsName,
+        HWND parent,
+        CSalamanderForViewFileOnFSAbstract* salamander,
+        CFileData& file) override;
 
     virtual BOOL WINAPI Delete(
         const char* fsName,
@@ -106,6 +113,7 @@ public:
     {
         SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE |
                              FS_SERVICE_COPYFROMFS | FS_SERVICE_MOVEFROMFS |
+                             FS_SERVICE_VIEWFILE |
                              FS_SERVICE_COPYFROMDISKTOFS | FS_SERVICE_MOVEFROMDISKTOFS
     };
 
