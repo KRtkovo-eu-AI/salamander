@@ -2059,11 +2059,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
     if (selected && Configuration.TabActiveBorder)
     {
         COLORREF borderColor;
-        if (hasCustomColor)
-        {
-            borderColor = baseColor;
-        }
-        else if (useDark)
+        if (useDark)
         {
             if (CurrentColors != NULL)
                 borderColor = GetCOLORREF(CurrentColors[ITEM_FG_FOCUSED]);
@@ -2071,7 +2067,7 @@ void CTabWindow::DrawColoredTab(HDC hdc, const RECT& itemRect, const wchar_t* te
                 borderColor = DarkModeGetDialogTextColor();
         }
         else
-            borderColor = IsColorDark(fillColor) ? RGB(255, 255, 255) : RGB(0, 0, 0);
+            borderColor = GetSysColor(COLOR_BTNTEXT);
 
         int borderHeight = 3;
         RECT borderRect;
