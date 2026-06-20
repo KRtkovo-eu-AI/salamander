@@ -2958,6 +2958,20 @@ CToolbarHeader::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+
+    case WM_SIZE:
+    {
+        if (ToolBar != NULL && ToolBar->HWindow != NULL)
+        {
+            SIZE sz;
+            sz.cx = ToolBar->GetNeededWidth();
+            sz.cy = ToolBar->GetNeededHeight();
+            RECT r;
+            GetClientRect(HWindow, &r);
+            SetWindowPos(ToolBar->HWindow, HWND_TOP, r.right - sz.cx - 1, 1, sz.cx, sz.cy, SWP_SHOWWINDOW);
+        }
+        break;
+    }
     case WM_UPDATEUISTATE:
     {
         // unfortunately we cannot rely on the standard static handling because

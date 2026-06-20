@@ -3970,6 +3970,17 @@ static int CfgPageColorsDluY(HWND hWindow, int dluY)
     return r.bottom;
 }
 
+static void MoveDlgCtrl(HWND hWindow, HDWP& hdwp, int resID, int x, int y)
+{
+    HWND hCtrl = GetDlgItem(hWindow, resID);
+    if (hCtrl == NULL || hdwp == NULL)
+        return;
+
+    hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                  x, y, 0, 0,
+                                  SWP_NOSIZE | SWP_NOZORDER));
+}
+
 static void MoveDlgCtrlVertically(HWND hWindow, HDWP& hdwp, int resID, int y)
 {
     HWND hCtrl = GetDlgItem(hWindow, resID);
@@ -3980,9 +3991,7 @@ static void MoveDlgCtrlVertically(HWND hWindow, HDWP& hdwp, int resID, int y)
     GetWindowRect(hCtrl, &r);
     POINT p = {r.left, r.top};
     ScreenToClient(hWindow, &p);
-    hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                  p.x, y, 0, 0,
-                                  SWP_NOSIZE | SWP_NOZORDER));
+    MoveDlgCtrl(hWindow, hdwp, resID, p.x, y);
 }
 
 void CCfgPageColors::LayoutMaskControls()
@@ -4025,10 +4034,24 @@ void CCfgPageColors::LayoutMaskControls()
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_DIRECTORY, checkColY + 2 * checkStep);
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_STATIC_6, noteY);
 
+    HWND hTopButton = GetDlgItem(HWindow, IDC_C_ITEM1_C);
+    int maskButtonX = -1;
+    if (hTopButton != NULL)
+    {
+        RECT r;
+        GetWindowRect(hTopButton, &r);
+        POINT p = {r.left, r.top};
+        ScreenToClient(HWindow, &p);
+        maskButtonX = p.x;
+    }
+
     for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
     {
         MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7Masks[i], maskLabelY + i * rowStep);
-        MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonY + i * rowStep);
+        if (maskButtonX >= 0)
+            MoveDlgCtrl(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonX, maskButtonY + i * rowStep);
+        else
+            MoveDlgCtrlVertically(HWindow, hdwp, CConfigurationPage7MasksBut[i], maskButtonY + i * rowStep);
     }
 
     HANDLES(EndDeferWindowPos(hdwp));

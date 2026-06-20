@@ -683,6 +683,53 @@ void CPropSheetPage::InitHorizontalLayout()
     }
 }
 
+
+static void DockOverlappingEditButtons(HWND hWindow)
+{
+    HWND hEdit = GetWindow(hWindow, GW_CHILD);
+    while (hEdit != NULL)
+    {
+        TCHAR editClass[64];
+        editClass[0] = 0;
+        GetClassName(hEdit, editClass, _countof(editClass));
+        if (_tcsicmp(editClass, _T("Edit")) == 0)
+        {
+            RECT eWR;
+            GetWindowRect(hEdit, &eWR);
+            POINT e1 = {eWR.left, eWR.top};
+            POINT e2 = {eWR.right, eWR.bottom};
+            ScreenToClient(hWindow, &e1);
+            ScreenToClient(hWindow, &e2);
+            RECT eR = {e1.x, e1.y, e2.x, e2.y};
+
+            HWND hChild = GetWindow(hWindow, GW_CHILD);
+            while (hChild != NULL)
+            {
+                if (hChild != hEdit)
+                {
+                    RECT cWR;
+                    GetWindowRect(hChild, &cWR);
+                    POINT c1 = {cWR.left, cWR.top};
+                    POINT c2 = {cWR.right, cWR.bottom};
+                    ScreenToClient(hWindow, &c1);
+                    ScreenToClient(hWindow, &c2);
+                    RECT cR = {c1.x, c1.y, c2.x, c2.y};
+                    int cW = cR.right - cR.left;
+
+                    if (cW <= 40 && cR.left > eR.left && cR.left < eR.right &&
+                        cR.top < eR.bottom && cR.bottom > eR.top)
+                    {
+                        SetWindowPos(hChild, NULL, eR.right + 4, cR.top, 0, 0,
+                                     SWP_NOSIZE | SWP_NOZORDER);
+                    }
+                }
+                hChild = GetWindow(hChild, GW_HWNDNEXT);
+            }
+        }
+        hEdit = GetWindow(hEdit, GW_HWNDNEXT);
+    }
+}
+
 void CPropSheetPage::ApplyHorizontalLayout()
 {
     if (HorizontalLayoutCtrls == NULL || HorizontalLayoutWidth == 0)
@@ -714,6 +761,7 @@ void CPropSheetPage::ApplyHorizontalLayout()
         }
         HANDLES(EndDeferWindowPos(hdwp));
     }
+    DockOverlappingEditButtons(HWindow);
 }
 
 INT_PTR
