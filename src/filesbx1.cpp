@@ -1590,17 +1590,21 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (Parent->ContextMenu != NULL)
         {
             IContextMenu3* contextMenu3 = NULL;
-            if (uMsg == WM_MENUCHAR)
+            if (SUCCEEDED(Parent->ContextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
             {
-                if (SUCCEEDED(Parent->ContextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
+                LRESULT lResult = 0;
+                HRESULT hr = contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, &lResult);
+                contextMenu3->Release();
+                if (SUCCEEDED(hr))
                 {
-                    LRESULT lResult;
-                    contextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, &lResult);
-                    contextMenu3->Release();
-                    return lResult;
+                    if (uMsg == WM_MENUCHAR)
+                        return lResult;
                 }
+                else
+                    Parent->ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
             }
-            Parent->ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
+            else
+                Parent->ContextMenu->HandleMenuMsg(uMsg, wParam, lParam);
         }
         // to make the New submenu work we must also forward the message there
         if (Parent->ContextSubmenuNew != NULL && Parent->ContextSubmenuNew->MenuIsAssigned())
