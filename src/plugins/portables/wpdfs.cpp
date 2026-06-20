@@ -113,17 +113,64 @@ class CWpdOperationProgress
 {
 public:
     CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
-        : m_open(false),
+        : m_window(nullptr),
+          m_text(nullptr),
+          m_progress(nullptr),
+          m_cancel(nullptr),
+          m_canceled(false),
           m_operation(operation),
           m_totalItems(totalItems > 0 ? totalItems : 1),
           m_doneItems(0)
     {
-        char text[256];
-        StringCchPrintf(text, _countof(text), "%s...", m_operation);
-        HWND foreground = parent != nullptr ? parent : SalamanderGeneral->GetMainWindowHWND();
-        SalamanderGeneral->CreateSafeWaitWindow(text, "Portable Devices", 0, TRUE, foreground);
-        SalamanderGeneral->ShowSafeWaitWindow(TRUE);
-        m_open = true;
+        INITCOMMONCONTROLSEX icc = {sizeof(icc), ICC_PROGRESS_CLASS};
+        ::InitCommonControlsEx(&icc);
+        RegisterWindowClass();
+
+        HWND owner = parent != nullptr ? parent : SalamanderGeneral->GetMainWindowHWND();
+        RECT ownerRect;
+        if (owner == nullptr || !::GetWindowRect(owner, &ownerRect))
+        {
+            ownerRect.left = ownerRect.top = 0;
+            ownerRect.right = ::GetSystemMetrics(SM_CXSCREEN);
+            ownerRect.bottom = ::GetSystemMetrics(SM_CYSCREEN);
+        }
+
+        const int width = 460;
+        const int height = 150;
+        int x = ownerRect.left + ((ownerRect.right - ownerRect.left) - width) / 2;
+        int y = ownerRect.top + ((ownerRect.bottom - ownerRect.top) - height) / 2;
+
+        m_window = ::CreateWindowEx(
+            WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE,
+            WindowClassName(),
+            "Portable Devices",
+            WS_POPUP | WS_CAPTION | WS_SYSMENU,
+            x,
+            y,
+            width,
+            height,
+            owner,
+            nullptr,
+            Fx::FxGetModuleInstance(),
+            this);
+        if (m_window == nullptr)
+        {
+            return;
+        }
+
+        m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
+                                  12, 12, width - 24, 52, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_progress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+                                      12, 70, width - 24, 18, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_cancel = ::CreateWindowEx(0, "BUTTON", "Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                    width - 98, 100, 86, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
+
+        ::SendMessage(m_progress, PBM_SETRANGE32, 0, m_totalItems);
+        ::SendMessage(m_progress, PBM_SETPOS, 0, 0);
+        Step("Preparing...");
+        ::ShowWindow(m_window, SW_SHOWNORMAL);
+        ::UpdateWindow(m_window);
+        PumpMessages();
     }
 
     ~CWpdOperationProgress()
@@ -133,46 +180,115 @@ public:
 
     bool Step(PCSTR sourceName, PCSTR targetName = nullptr)
     {
-        if (!m_open)
+        if (m_window == nullptr)
         {
             return true;
-        }
-        if (SalamanderGeneral->GetSafeWaitWindowClosePressed())
-        {
-            return false;
         }
 
         char text[2 * MAX_PATH + 256];
         if (targetName != nullptr && targetName[0] != '\0')
         {
-            StringCchPrintf(text, _countof(text), "%s %d/%d:\n%s\n->\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName, targetName);
+            StringCchPrintf(text, _countof(text), "%s %d/%d:\r\n%s\r\n->\r\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName, targetName);
         }
         else
         {
-            StringCchPrintf(text, _countof(text), "%s %d/%d:\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName);
+            StringCchPrintf(text, _countof(text), "%s %d/%d:\r\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName);
         }
-        SalamanderGeneral->SetSafeWaitWindowText(text);
-        SalamanderGeneral->ShowSafeWaitWindow(TRUE);
-        return !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+        ::SetWindowText(m_text, text);
+        ::SendMessage(m_progress, PBM_SETPOS, m_doneItems, 0);
+        ::ShowWindow(m_window, SW_SHOWNORMAL);
+        ::UpdateWindow(m_window);
+        PumpMessages();
+        return !m_canceled;
     }
 
     bool Advance()
     {
         ++m_doneItems;
-        return !m_open || !SalamanderGeneral->GetSafeWaitWindowClosePressed();
+        if (m_window != nullptr)
+        {
+            ::SendMessage(m_progress, PBM_SETPOS, m_doneItems, 0);
+            PumpMessages();
+        }
+        return !m_canceled;
     }
 
     void Close()
     {
-        if (m_open)
+        if (m_window != nullptr)
         {
-            SalamanderGeneral->DestroySafeWaitWindow();
-            m_open = false;
+            HWND window = m_window;
+            m_window = nullptr;
+            ::DestroyWindow(window);
+            PumpMessages();
         }
     }
 
 private:
-    bool m_open;
+    static PCSTR WindowClassName()
+    {
+        return "OpenSalamanderWpdOperationProgress";
+    }
+
+    static void RegisterWindowClass()
+    {
+        static ATOM atom = 0;
+        if (atom != 0)
+        {
+            return;
+        }
+
+        WNDCLASS wc = {};
+        wc.lpfnWndProc = WindowProc;
+        wc.hInstance = Fx::FxGetModuleInstance();
+        wc.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
+        wc.lpszClassName = WindowClassName();
+        atom = ::RegisterClass(&wc);
+    }
+
+    static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        CWpdOperationProgress* self = reinterpret_cast<CWpdOperationProgress*>(::GetWindowLongPtr(window, GWLP_USERDATA));
+        if (message == WM_NCCREATE)
+        {
+            auto createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
+            self = reinterpret_cast<CWpdOperationProgress*>(createStruct->lpCreateParams);
+            ::SetWindowLongPtr(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
+        }
+        if (self != nullptr)
+        {
+            if (message == WM_COMMAND && LOWORD(wParam) == IDCANCEL)
+            {
+                self->m_canceled = true;
+                ::EnableWindow(self->m_cancel, FALSE);
+                return 0;
+            }
+            if (message == WM_CLOSE)
+            {
+                self->m_canceled = true;
+                ::EnableWindow(self->m_cancel, FALSE);
+                return 0;
+            }
+        }
+        return ::DefWindowProc(window, message, wParam, lParam);
+    }
+
+    void PumpMessages()
+    {
+        MSG msg;
+        while (::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+        {
+            ::TranslateMessage(&msg);
+            ::DispatchMessage(&msg);
+        }
+    }
+
+    HWND m_window;
+    HWND m_text;
+    HWND m_progress;
+    HWND m_cancel;
+    bool m_canceled;
     PCSTR m_operation;
     int m_totalItems;
     int m_doneItems;
