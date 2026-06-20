@@ -136,10 +136,11 @@ public:
           m_canceled(false),
           m_operation(operation),
           m_totalItems(totalItems > 0 ? totalItems : 1),
-          m_doneItems(0)
+          m_doneItems(0),
+          m_filePulse(0),
+          m_filePos(0),
+          m_totalPos(0)
     {
-        INITCOMMONCONTROLSEX icc = {sizeof(icc), ICC_PROGRESS_CLASS};
-        ::InitCommonControlsEx(&icc);
         RegisterWindowClass();
         BOOL useDarkMode = FALSE;
         int configType = SALCFGTYPE_NOTFOUND;
@@ -192,26 +193,22 @@ public:
                                   24, 22, width - 48, 42, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
                                        24, 76, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_fileProgress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+        m_fileProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
                                           70, 74, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
                                         24, 102, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_totalProgress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+        m_totalProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
                                            70, 100, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
                                       140, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
-        m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
                                    230, 150, 74, 24, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
                                     320, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
         ::EnableWindow(m_pause, FALSE);
         ApplyFont();
 
         ApplyTheme();
-        ::SendMessage(m_fileProgress, PBM_SETRANGE32, 0, 1000);
-        ::SendMessage(m_fileProgress, PBM_SETPOS, 0, 0);
-        ::SendMessage(m_totalProgress, PBM_SETRANGE32, 0, m_totalItems);
-        ::SendMessage(m_totalProgress, PBM_SETPOS, 0, 0);
         WpdActiveOperationProgress = this;
         Step(WpdLoadStr(IDS_OPERATIONPROGRESS_PREPARING));
         ::ShowWindow(m_window, SW_SHOWNORMAL);
@@ -246,10 +243,11 @@ public:
             StringCchPrintf(text, _countof(text), "%sing %s", m_operation, sourceName);
         }
         ::SetWindowText(m_text, text);
-        ::SendMessage(m_fileProgress, PBM_SETPOS, 0, 0);
-        ::SendMessage(m_totalProgress, PBM_SETPOS, m_doneItems, 0);
+        m_filePulse = 0;
+        m_filePos = 0;
+        m_totalPos = m_doneItems * 1000 / m_totalItems;
         ::ShowWindow(m_window, SW_SHOWNORMAL);
-        ::UpdateWindow(m_window);
+        Redraw();
         PumpMessages();
         return !m_canceled;
     }
@@ -259,22 +257,38 @@ public:
         ++m_doneItems;
         if (m_window != nullptr)
         {
-            ::SendMessage(m_fileProgress, PBM_SETPOS, 0, 0);
-            ::SendMessage(m_totalProgress, PBM_SETPOS, m_doneItems, 0);
+            m_filePulse = 0;
+            m_filePos = 0;
+            m_totalPos = m_doneItems * 1000 / m_totalItems;
+            Redraw();
             PumpMessages();
         }
         return !m_canceled;
     }
 
-    void SetFileProgress(ULONGLONG current, ULONGLONG total)
+    bool SetFileProgress(ULONGLONG current, ULONGLONG total)
     {
-        if (m_window != nullptr && total != 0)
+        if (m_window != nullptr)
         {
-            int pos = static_cast<int>((current * 1000) / total);
-            ::SendMessage(m_fileProgress, PBM_SETPOS, pos, 0);
-            ::UpdateWindow(m_window);
+            int pos;
+            if (total != 0 && total != static_cast<ULONGLONG>(-1))
+            {
+                pos = static_cast<int>((current * 1000) / total);
+                if (pos > 1000)
+                {
+                    pos = 1000;
+                }
+            }
+            else
+            {
+                m_filePulse = (m_filePulse + 25) % 1000;
+                pos = m_filePulse;
+            }
+            m_filePos = pos;
+            Redraw();
             PumpMessages();
         }
+        return !m_canceled;
     }
 
     void ApplyFont()
@@ -322,13 +336,11 @@ public:
         PluginDarkMode_ApplyListTreeThemeRecursive(m_window);
         if (PluginDarkMode_ShouldUseDark())
         {
-            PluginDarkModeColors colors = PluginDarkMode_GetColors();
-            ::SendMessage(m_fileProgress, PBM_SETBKCOLOR, 0, colors.background);
-            ::SendMessage(m_fileProgress, PBM_SETBARCOLOR, 0, RGB(0x00, 0x78, 0xD7));
-            ::SendMessage(m_totalProgress, PBM_SETBKCOLOR, 0, colors.background);
-            ::SendMessage(m_totalProgress, PBM_SETBARCOLOR, 0, RGB(0x00, 0x78, 0xD7));
+            ::InvalidateRect(m_fileProgress, nullptr, TRUE);
+            ::InvalidateRect(m_totalProgress, nullptr, TRUE);
         }
         InvalidateRect(m_window, nullptr, TRUE);
+        Redraw();
     }
 
 private:
@@ -375,6 +387,31 @@ private:
             {
                 return brush;
             }
+            if (message == WM_CTLCOLORSTATIC && PluginDarkMode_ShouldUseDark())
+            {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                PluginDarkModeColors colors = PluginDarkMode_GetColors();
+                ::SetTextColor(dc, colors.readableText);
+                ::SetBkColor(dc, colors.background);
+                ::SetBkMode(dc, TRANSPARENT);
+                return reinterpret_cast<LRESULT>(PluginDarkMode_GetDialogCtlColorBrush(dc, message));
+            }
+            if (message == WM_DRAWITEM)
+            {
+                auto drawItem = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
+                if (drawItem != nullptr &&
+                    (drawItem->hwndItem == self->m_minimize || drawItem->hwndItem == self->m_pause || drawItem->hwndItem == self->m_cancel))
+                {
+                    self->DrawButton(drawItem);
+                    return TRUE;
+                }
+                if (drawItem != nullptr &&
+                    (drawItem->hwndItem == self->m_fileProgress || drawItem->hwndItem == self->m_totalProgress))
+                {
+                    self->DrawProgress(drawItem, drawItem->hwndItem == self->m_fileProgress ? self->m_filePos : self->m_totalPos);
+                    return TRUE;
+                }
+            }
             if (message == WM_ERASEBKGND && PluginDarkMode_ShouldUseDark())
             {
                 RECT rect;
@@ -407,10 +444,116 @@ private:
         return ::DefWindowProc(window, message, wParam, lParam);
     }
 
+    void Redraw()
+    {
+        if (m_window == nullptr)
+        {
+            return;
+        }
+
+        HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
+        for (int i = 0; i < _countof(controls); ++i)
+        {
+            if (controls[i] != nullptr)
+            {
+                ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+            }
+        }
+        ::RedrawWindow(m_window, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+    }
+
+    void DrawButton(DRAWITEMSTRUCT* drawItem)
+    {
+        bool dark = PluginDarkMode_ShouldUseDark();
+        PluginDarkModeColors colors = PluginDarkMode_GetColors();
+        COLORREF background = dark ? RGB(0x2B, 0x2B, 0x2B) : ::GetSysColor(COLOR_BTNFACE);
+        COLORREF border = dark ? RGB(0x80, 0x80, 0x80) : ::GetSysColor(COLOR_BTNSHADOW);
+        COLORREF text = dark ? colors.readableText : ::GetSysColor(COLOR_BTNTEXT);
+        if ((drawItem->itemState & ODS_DISABLED) != 0)
+        {
+            text = dark ? RGB(0x80, 0x80, 0x80) : ::GetSysColor(COLOR_GRAYTEXT);
+        }
+        if ((drawItem->itemState & ODS_SELECTED) != 0)
+        {
+            background = dark ? RGB(0x3A, 0x3A, 0x3A) : ::GetSysColor(COLOR_3DLIGHT);
+        }
+
+        HBRUSH brush = ::CreateSolidBrush(background);
+        ::FillRect(drawItem->hDC, &drawItem->rcItem, brush);
+        ::DeleteObject(brush);
+        HPEN pen = ::CreatePen(PS_SOLID, 1, border);
+        HGDIOBJ oldPen = ::SelectObject(drawItem->hDC, pen);
+        HGDIOBJ oldBrush = ::SelectObject(drawItem->hDC, ::GetStockObject(NULL_BRUSH));
+        ::Rectangle(drawItem->hDC, drawItem->rcItem.left, drawItem->rcItem.top, drawItem->rcItem.right, drawItem->rcItem.bottom);
+        ::SelectObject(drawItem->hDC, oldBrush);
+        ::SelectObject(drawItem->hDC, oldPen);
+        ::DeleteObject(pen);
+
+        char textBuffer[128];
+        ::GetWindowText(drawItem->hwndItem, textBuffer, _countof(textBuffer));
+        ::SetBkMode(drawItem->hDC, TRANSPARENT);
+        ::SetTextColor(drawItem->hDC, text);
+        RECT textRect = drawItem->rcItem;
+        ::DrawText(drawItem->hDC, textBuffer, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        if ((drawItem->itemState & ODS_FOCUS) != 0)
+        {
+            RECT focusRect = drawItem->rcItem;
+            ::InflateRect(&focusRect, -3, -3);
+            ::DrawFocusRect(drawItem->hDC, &focusRect);
+        }
+    }
+
+    void DrawProgress(DRAWITEMSTRUCT* drawItem, int pos)
+    {
+        bool dark = PluginDarkMode_ShouldUseDark();
+        PluginDarkModeColors colors = PluginDarkMode_GetColors();
+        COLORREF background = dark ? RGB(0x2B, 0x2B, 0x2B) : RGB(0xF0, 0xF0, 0xF0);
+        COLORREF border = dark ? RGB(0x5A, 0x5A, 0x5A) : RGB(0x80, 0x80, 0x80);
+        COLORREF bar = RGB(0x00, 0x78, 0xD7);
+        COLORREF text = dark ? colors.readableText : RGB(0, 0, 0);
+        RECT rect = drawItem->rcItem;
+
+        HBRUSH brush = ::CreateSolidBrush(background);
+        ::FillRect(drawItem->hDC, &rect, brush);
+        ::DeleteObject(brush);
+
+        RECT fill = rect;
+        ::InflateRect(&fill, -1, -1);
+        if (pos < 0)
+        {
+            pos = 0;
+        }
+        if (pos > 1000)
+        {
+            pos = 1000;
+        }
+        fill.right = fill.left + ((fill.right - fill.left) * pos) / 1000;
+        if (fill.right > fill.left)
+        {
+            brush = ::CreateSolidBrush(bar);
+            ::FillRect(drawItem->hDC, &fill, brush);
+            ::DeleteObject(brush);
+        }
+
+        HPEN pen = ::CreatePen(PS_SOLID, 1, border);
+        HGDIOBJ oldPen = ::SelectObject(drawItem->hDC, pen);
+        HGDIOBJ oldBrush = ::SelectObject(drawItem->hDC, ::GetStockObject(NULL_BRUSH));
+        ::Rectangle(drawItem->hDC, rect.left, rect.top, rect.right, rect.bottom);
+        ::SelectObject(drawItem->hDC, oldBrush);
+        ::SelectObject(drawItem->hDC, oldPen);
+        ::DeleteObject(pen);
+
+        char percent[16];
+        StringCchPrintf(percent, _countof(percent), "%d %%", pos / 10);
+        ::SetBkMode(drawItem->hDC, TRANSPARENT);
+        ::SetTextColor(drawItem->hDC, text);
+        ::DrawText(drawItem->hDC, percent, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+
     void PumpMessages()
     {
         MSG msg;
-        while (::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+        while (m_window != nullptr && ::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         {
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
@@ -431,6 +574,9 @@ private:
     PCSTR m_operation;
     int m_totalItems;
     int m_doneItems;
+    int m_filePulse;
+    int m_filePos;
+    int m_totalPos;
 };
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
@@ -440,6 +586,7 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
 
     BYTE buffer[64 * 1024];
     ULONGLONG remaining = size;
+    ULONGLONG copied = 0;
     for (;;)
     {
         ULONG toRead = sizeof(buffer);
@@ -479,9 +626,11 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
             writtenTotal += written;
         }
 
-        if (WpdActiveOperationProgress != nullptr && size != static_cast<ULONGLONG>(-1))
+        copied += read;
+        if (WpdActiveOperationProgress != nullptr &&
+            !WpdActiveOperationProgress->SetFileProgress(copied, size))
         {
-            WpdActiveOperationProgress->SetFileProgress(size - remaining + read, size);
+            return HRESULT_FROM_WIN32(ERROR_CANCELLED);
         }
         if (remaining != static_cast<ULONGLONG>(-1))
         {
