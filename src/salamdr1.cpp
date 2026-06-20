@@ -4963,6 +4963,12 @@ FIND_NEW_SLG_FILE:
                         if (saveNewConfig)
                         {
                             MainWindow->SaveConfig();
+                            // When the Welcome import dialog switches storage to config.reg, the
+                            // registry backend is in-memory.  SaveConfig() updates that in-memory
+                            // tree, so flush it right away to create/update config.reg during the
+                            // first startup instead of waiting until application shutdown.
+                            if (ConfigurationStorage.GetStorageType() == cstRegFile)
+                                ConfigurationStorage.Flush();
                         }
                         // prohleda pole a pokud je nektery z rootu oznaceny pro smazani, smaze ho + smaze starou konfiguraci
                         // po UPGRADE a tez smazne hodnotu "AutoImportConfig" v klici konfigurace teto verze Salama
