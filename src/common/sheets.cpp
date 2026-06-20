@@ -629,11 +629,11 @@ void CPropSheetPage::InitHorizontalLayout()
         else if (_tcsicmp(className, _T("Static")) == 0)
         {
             LONG_PTR staticType = GetWindowLongPtr(hChild, GWL_STYLE) & SS_TYPEMASK;
-            if (IsHorizontalLayoutStatic(hChild) &&
-                (staticType == SS_ETCHEDHORZ || !HasOverlappingControlToRight(HWindow, hChild, &r)))
-            {
+            // Only horizontal separator lines should stretch automatically.
+            // Text labels can have opaque backgrounds in dark mode and may cover
+            // adjacent inputs if they are widened with the page.
+            if (IsHorizontalLayoutStatic(hChild) && staticType == SS_ETCHEDHORZ)
                 mode = PHLM_RESIZE_RIGHT;
-            }
         }
         else if (_tcsicmp(className, _T("Button")) == 0 && IsHorizontalLayoutButton(hChild, &resizeRight))
         {
