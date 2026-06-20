@@ -140,9 +140,9 @@ BOOL SaveIconList(HKEY hKey, const char* valueName, CIconList* iconList)
     DWORD rawPNGSize;
     if (iconList->SaveToPNG(&rawPNG, &rawPNGSize))
     {
-        LONG res = RegSetValueEx(hKey, valueName, 0, REG_BINARY, rawPNG, rawPNGSize);
+        BOOL ret = SetValue(hKey, valueName, REG_BINARY, rawPNG, rawPNGSize);
         free(rawPNG);
-        return TRUE;
+        return ret;
     }
     else
         return FALSE;
@@ -150,17 +150,15 @@ BOOL SaveIconList(HKEY hKey, const char* valueName, CIconList* iconList)
 
 BOOL LoadIconList(HKEY hKey, const char* valueName, CIconList** iconList)
 {
-    DWORD gettedType;
     DWORD bufferSize;
-    LONG res = SalRegQueryValueEx(hKey, valueName, 0, &gettedType, NULL, &bufferSize);
-    if (res != ERROR_SUCCESS || gettedType != REG_BINARY)
+    if (!GetSize(hKey, valueName, REG_BINARY, bufferSize))
         return FALSE;
 
     BYTE* buff = (BYTE*)malloc(bufferSize);
+    if (buff == NULL)
+        return FALSE;
 
-    DWORD bufferSize2 = bufferSize;
-    res = SalRegQueryValueEx(hKey, valueName, 0, &gettedType, buff, &bufferSize2);
-    if (res != ERROR_SUCCESS || bufferSize2 != bufferSize)
+    if (!GetValue(hKey, valueName, REG_BINARY, buff, bufferSize))
     {
         free(buff);
         return FALSE;
@@ -168,7 +166,12 @@ BOOL LoadIconList(HKEY hKey, const char* valueName, CIconList** iconList)
 
     *iconList = new CIconList();
     //(*iconList)->Dump = TRUE;
-    BOOL ret = (*iconList)->CreateFromRawPNG(buff, bufferSize2, 16);
+    BOOL ret = (*iconList)->CreateFromRawPNG(buff, bufferSize, 16);
+    if (!ret)
+    {
+        delete *iconList;
+        *iconList = NULL;
+    }
     free(buff);
     return ret;
 }
