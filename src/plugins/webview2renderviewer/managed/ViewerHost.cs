@@ -1228,6 +1228,14 @@ internal static class ViewerHost
     {
         private static readonly Lazy<MarkdownPipeline> s_pipeline = new Lazy<MarkdownPipeline>(CreatePipeline, LazyThreadSafetyMode.ExecutionAndPublication);
 
+        private const string MarkdownCodeCopyScript = @"(function(){
+function setButtonText(button,text){button.textContent=text;button.setAttribute('aria-label',text);}
+function copyWithTextArea(text){var textArea=document.createElement('textarea');textArea.value=text;textArea.setAttribute('readonly','');textArea.style.position='fixed';textArea.style.left='-9999px';textArea.style.top='0';document.body.appendChild(textArea);textArea.select();try{return document.execCommand('copy');}finally{document.body.removeChild(textArea);}}
+function copyText(text){if(navigator.clipboard&&navigator.clipboard.writeText){return navigator.clipboard.writeText(text).then(function(){return true;},function(){return copyWithTextArea(text);});}return Promise.resolve(copyWithTextArea(text));}
+function enhanceCodeBlocks(){var blocks=document.querySelectorAll('pre > code');for(var i=0;i<blocks.length;i++){var code=blocks[i];var pre=code.parentElement;if(!pre||pre.getAttribute('data-copy-enhanced')==='true'){continue;}pre.setAttribute('data-copy-enhanced','true');var wrapper=document.createElement('div');wrapper.className='code-block';pre.parentNode.insertBefore(wrapper,pre);wrapper.appendChild(pre);var button=document.createElement('button');button.type='button';button.className='copy-code-button';setButtonText(button,'Copy');button.addEventListener('click',function(ev){var currentButton=ev.currentTarget;var currentWrapper=currentButton.parentElement;var currentCode=currentWrapper?currentWrapper.querySelector('pre > code'):null;if(!currentCode){return;}currentButton.disabled=true;copyText(currentCode.textContent||'').then(function(success){setButtonText(currentButton,success?'Copied':'Copy failed');window.setTimeout(function(){setButtonText(currentButton,'Copy');currentButton.disabled=false;},success?1600:2400);},function(){setButtonText(currentButton,'Copy failed');window.setTimeout(function(){setButtonText(currentButton,'Copy');currentButton.disabled=false;},2400);});});wrapper.appendChild(button);}}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',enhanceCodeBlocks);}else{enhanceCodeBlocks();}
+})();";
+
         public static string BuildHtml(string markdown, string sourcePath, string caption)
         {
             MarkdownPipeline pipeline;
@@ -1301,6 +1309,7 @@ internal static class ViewerHost
                 .Append(WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(caption) ? "WebView2 Render Viewer .NET" : caption))
                 .Append("</title>");
             builder.Append("<script>").Append(EscapeScript).Append("</script>");
+            builder.Append("<script>").Append(MarkdownCodeCopyScript).Append("</script>");
             builder.Append("<style>");
             AppendStyles(builder, palette);
             builder.Append("</style>");
@@ -1332,11 +1341,23 @@ internal static class ViewerHost
             builder.Append("code{font-family:'Consolas','Courier New',monospace;background-color:")
                 .Append(ColorToCss(codeBackground))
                 .Append(";padding:2px 4px;border-radius:4px;}");
+            builder.Append(".code-block{position:relative;margin:1em 0;}");
             builder.Append("pre{overflow:auto;padding:12px;border-radius:6px;background-color:")
                 .Append(ColorToCss(codeBackground))
                 .Append(";border:1px solid ")
                 .Append(ColorToCss(border))
                 .Append(";}");
+            builder.Append(".code-block pre{margin:0;padding-right:76px;}");
+            builder.Append(".copy-code-button{position:absolute;top:8px;right:8px;border:1px solid ")
+                .Append(ColorToCss(border))
+                .Append(";border-radius:4px;background:")
+                .Append(ColorToCss(background))
+                .Append(";color:")
+                .Append(ColorToCss(foreground))
+                .Append(";font:12px 'Segoe UI',SegoeUI,Helvetica,Arial,sans-serif;padding:3px 8px;cursor:pointer;opacity:0.85;}");
+            builder.Append(".copy-code-button:hover,.copy-code-button:focus{opacity:1;outline:1px solid ")
+                .Append(ColorToCss(accent))
+                .Append(";}.copy-code-button:disabled{cursor:default;opacity:0.7;}");
             builder.Append("table{border-collapse:collapse;margin:1em 0;width:100%;}th,td{border:1px solid ")
                 .Append(ColorToCss(border))
                 .Append(";padding:8px;text-align:left;}");
