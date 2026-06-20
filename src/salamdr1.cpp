@@ -64,6 +64,41 @@ static void DeleteStoredRegistryConfiguration(const char* keyName)
     }
 }
 
+static const char* CONFIG_RESTRICTEDFILESTORAGEIMPORT_REG = "Restricted File Storage Imported";
+
+static BOOL WasRestrictedFileStorageImported()
+{
+    HKEY salamander;
+    HKEY config;
+    DWORD imported = 0;
+    if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], salamander))
+    {
+        if (OpenKey(salamander, SALAMANDER_CONFIG_REG, config))
+        {
+            GetValue(config, CONFIG_RESTRICTEDFILESTORAGEIMPORT_REG, REG_DWORD, &imported, sizeof(imported));
+            CloseKey(config);
+        }
+        CloseKey(salamander);
+    }
+    return imported != 0;
+}
+
+static void SetRestrictedFileStorageImported()
+{
+    HKEY salamander;
+    HKEY config;
+    if (CreateKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], salamander))
+    {
+        if (CreateKey(salamander, SALAMANDER_CONFIG_REG, config))
+        {
+            DWORD imported = 1;
+            SetValue(config, CONFIG_RESTRICTEDFILESTORAGEIMPORT_REG, REG_DWORD, &imported, sizeof(imported));
+            CloseKey(config);
+        }
+        CloseKey(salamander);
+    }
+}
+
 // zpristupnime si puvodni vstupni bod aplikace
 extern "C" int WinMainCRTStartup();
 
@@ -4406,12 +4441,14 @@ FIND_NEW_SLG_FILE:
     CConfigurationStorageType storageType = cstRegistry;
     BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
     BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+    BOOL restrictedFileStorageImported = !storageTypeBootstrapWritable && !storageTypeFromBootstrap &&
+                                         WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
     BOOL importCfgFromFileWasSkipped = FALSE;
-    if (!storageTypeFromBootstrap || storageType != cstRegFile)
+    if ((!storageTypeFromBootstrap || storageType != cstRegFile) && !restrictedFileStorageImported)
     {
         ImportConfiguration(NULL, ConfigurationName, ConfigurationNameIgnoreIfNotExists, autoImportConfig,
                             &importCfgFromFileWasSkipped);
@@ -4436,7 +4473,8 @@ FIND_NEW_SLG_FILE:
     CALL_STACK_MESSAGE1("WinMainBody::FindLatestConfiguration");
 
     char portableConfigPath[MAX_PATH];
-    BOOL portableConfigExists = ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
+    BOOL portableConfigExists = !restrictedFileStorageImported &&
+                                ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
 
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
@@ -4477,6 +4515,7 @@ FIND_NEW_SLG_FILE:
             {
                 storageType = cstRegistry;
                 DeleteFile(portableConfigPath);
+                SetRestrictedFileStorageImported();
                 storageTypeFromBootstrap = TRUE;
                 portableConfigExists = FALSE;
                 SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_IMPORTREGDONE), LoadStr(IDS_INFOTITLE),
