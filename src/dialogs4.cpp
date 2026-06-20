@@ -3963,6 +3963,13 @@ void CCfgPageColors::StoreMasks()
 }
 
 
+static int CfgPageColorsDluY(HWND hWindow, int dluY)
+{
+    RECT r = {0, 0, 0, dluY};
+    MapDialogRect(hWindow, &r);
+    return r.bottom;
+}
+
 static void MoveDlgCtrlVertically(HWND hWindow, HDWP& hdwp, int resID, int y)
 {
     HWND hCtrl = GetDlgItem(hWindow, resID);
@@ -3994,13 +4001,15 @@ void CCfgPageColors::LayoutMaskControls()
     // can collapse the gaps between the list, the attribute label/checkboxes and
     // the mask color buttons after the page is resized horizontally.  Reapply the
     // original vertical spacing from the dialog resource after the generic layout
-    // has finished.
-    const int attrLabelY = listBottom.y + 4;
-    const int checkColY = attrLabelY + 9;
-    const int maskLabelY = attrLabelY + 3;
-    const int maskButtonY = attrLabelY + 1;
-    const int noteY = attrLabelY + 59;
-    const int rowStep = 14;
+    // has finished.  Convert the resource DLU offsets to pixels first; using raw
+    // DLU values as pixels makes the controls look vertically glued together.
+    const int attrLabelY = listBottom.y + CfgPageColorsDluY(HWindow, 4);
+    const int checkColY = attrLabelY + CfgPageColorsDluY(HWindow, 9);
+    const int maskLabelY = attrLabelY + CfgPageColorsDluY(HWindow, 3);
+    const int maskButtonY = attrLabelY + CfgPageColorsDluY(HWindow, 1);
+    const int noteY = attrLabelY + CfgPageColorsDluY(HWindow, 59);
+    const int rowStep = CfgPageColorsDluY(HWindow, 14);
+    const int checkStep = CfgPageColorsDluY(HWindow, 12);
 
     HDWP hdwp = HANDLES(BeginDeferWindowPos(1 + PAGE7_CTRLCOUNT + 1 + 2 * CFG_COLORS_BUTTONS));
     if (hdwp == NULL)
@@ -4008,12 +4017,12 @@ void CCfgPageColors::LayoutMaskControls()
 
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_STATIC_3, attrLabelY);
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_ARCHIVE, checkColY);
-    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_READONLY, checkColY + 12);
-    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_HIDDEN, checkColY + 24);
-    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_SYSTEM, checkColY + 36);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_READONLY, checkColY + checkStep);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_HIDDEN, checkColY + 2 * checkStep);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_SYSTEM, checkColY + 3 * checkStep);
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_COMPRESSED, checkColY);
-    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_ENCRYPTED, checkColY + 12);
-    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_DIRECTORY, checkColY + 24);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_ENCRYPTED, checkColY + checkStep);
+    MoveDlgCtrlVertically(HWindow, hdwp, IDC_C_DIRECTORY, checkColY + 2 * checkStep);
     MoveDlgCtrlVertically(HWindow, hdwp, IDC_STATIC_6, noteY);
 
     for (int i = 0; i < CFG_COLORS_BUTTONS; i++)
