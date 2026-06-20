@@ -281,10 +281,19 @@ public:
             }
             else
             {
-                m_filePulse = (m_filePulse + 25) % 1000;
+                m_filePulse += 25;
+                if (m_filePulse > 990)
+                {
+                    m_filePulse = 990;
+                }
                 pos = m_filePulse;
             }
             m_filePos = pos;
+            m_totalPos = ((m_doneItems * 1000) + m_filePos) / m_totalItems;
+            if (m_totalPos > 1000)
+            {
+                m_totalPos = 1000;
+            }
             Redraw();
             PumpMessages();
         }
@@ -607,6 +616,10 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         }
         if (read == 0)
         {
+            if (WpdActiveOperationProgress != nullptr)
+            {
+                WpdActiveOperationProgress->SetFileProgress(1, 1);
+            }
             return S_OK;
         }
 
@@ -638,13 +651,27 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         }
         if (hr == S_FALSE)
         {
+            if (WpdActiveOperationProgress != nullptr)
+            {
+                WpdActiveOperationProgress->SetFileProgress(1, 1);
+            }
             return S_OK;
         }
     }
 }
 
+static bool WINAPI WpdIsOperationCancelled(HRESULT hr)
+{
+    return hr == HRESULT_FROM_WIN32(ERROR_CANCELLED);
+}
+
 static void WINAPI WpdShowOperationError(HWND parent, PCSTR operation, PCSTR name, HRESULT hr)
 {
+    if (WpdIsOperationCancelled(hr))
+    {
+        return;
+    }
+
     CFxString message;
     message.Format("%s '%s' failed (0x%08X).", operation, name != nullptr ? name : "", hr);
     SalamanderGeneral->ShowMessageBox(message, "Portable Devices", MSGBOX_ERROR);
@@ -720,6 +747,28 @@ static HRESULT WINAPI WpdGetObjectNameAndAttributes(
 
     attributes = WpdIsFolderContentType(contentType) ? FILE_ATTRIBUTE_DIRECTORY : 0;
     return S_OK;
+}
+
+static ULONGLONG WINAPI WpdGetObjectSizeOrUnknown(IPortableDeviceProperties* properties, PCWSTR objectId)
+{
+    static const PROPERTYKEY* const keys[] =
+        {
+            &WPD_OBJECT_SIZE,
+        };
+
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+
+    ATL::CComPtr<IPortableDeviceValues> values;
+    HRESULT hr = properties->GetValues(objectId, keyCollection, &values);
+    if (FAILED(hr))
+    {
+        return static_cast<ULONGLONG>(-1);
+    }
+
+    ULONGLONG size = 0;
+    hr = values->GetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, &size);
+    return SUCCEEDED(hr) ? size : static_cast<ULONGLONG>(-1);
 }
 
 static PCSTR WINAPI WpdGetUserPartFromFSPath(PCSTR fsName, PCSTR path)
@@ -992,7 +1041,9 @@ HRESULT WINAPI CWpdFS::DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetNa
             hr = ::SHCreateStreamOnFile(targetName, STGM_CREATE | STGM_WRITE, &target);
             if (SUCCEEDED(hr))
             {
-                hr = WpdCopyStream(source, target, static_cast<ULONGLONG>(-1));
+                ULONGLONG size = static_cast<ULONGLONG>(-1);
+                item->GetSize(size);
+                hr = WpdCopyStream(source, target, size);
                 if (SUCCEEDED(hr))
                 {
                     hr = target->Commit(STGC_DEFAULT);
@@ -1100,7 +1151,8 @@ HRESULT WINAPI CWpdFS::DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PC
         return hr;
     }
 
-    hr = WpdCopyStream(source, target, static_cast<ULONGLONG>(-1));
+    ULONGLONG size = WpdGetObjectSizeOrUnknown(device->GetPropertiesNoAddRef(), objectId);
+    hr = WpdCopyStream(source, target, size);
     if (SUCCEEDED(hr))
     {
         hr = target->Commit(STGC_DEFAULT);
