@@ -120,7 +120,8 @@ public:
     {
         char text[256];
         StringCchPrintf(text, _countof(text), "%s...", m_operation);
-        SalamanderGeneral->CreateSafeWaitWindow(text, "Portable Devices", 500, TRUE, parent);
+        HWND foreground = parent != nullptr ? parent : SalamanderGeneral->GetMainWindowHWND();
+        SalamanderGeneral->CreateSafeWaitWindow(text, "Portable Devices", 0, TRUE, foreground);
         m_open = true;
     }
 
