@@ -208,30 +208,35 @@ void CElasticLayout::AddMoveRightCtrl(int resID)
     }
 }
 
-BOOL CALLBACK
-CElasticLayout::FindMoveControls(HWND hChild, LPARAM lParam)
+void CElasticLayout::AddMoveCtrl(HWND hChild)
 {
-    CElasticLayout* el = (CElasticLayout*)lParam;
-
     // pokud prvek lezi pod SplitY, pridame ho do seznamu prvku, ktere budou posouvat
     RECT r;
     GetWindowRect(hChild, &r);
     POINT p = {r.left, r.top};
-    ScreenToClient(el->HWindow, &p);
-    if (p.y >= el->SplitY)
+    ScreenToClient(HWindow, &p);
+    if (p.y >= SplitY)
     {
         CElasticLayoutCtrl mc;
         mc.HCtrl = hChild;
         mc.Pos = p;
-        el->MoveCtrls.Add(mc);
+        MoveCtrls.Add(mc);
     }
-
-    return TRUE;
 }
 
 void CElasticLayout::FindMoveCtrls()
 {
-    EnumChildWindows(HWindow, FindMoveControls, (LPARAM)this);
+    // Only top-level dialog controls belong to the page layout.  EnumChildWindows()
+    // is recursive and also returns implementation windows owned by compound controls
+    // (for example SysHeader32 or the label-edit child inside a SysListView32).  Moving
+    // those nested windows independently breaks list/list-view based configuration
+    // pages after the property sheet is resized.
+    HWND hChild = GetWindow(HWindow, GW_CHILD);
+    while (hChild != NULL)
+    {
+        AddMoveCtrl(hChild);
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
 
     // najdeme obalku vsech 'move' prvku
     RECT rEnvelope = {0};

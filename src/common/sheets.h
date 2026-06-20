@@ -33,8 +33,7 @@ public:
     void LayoutCtrls();
 
 protected:
-    static BOOL CALLBACK FindMoveControls(HWND hChild, LPARAM lParam);
-
+    void AddMoveCtrl(HWND hChild);
     void FindMoveCtrls();
 
 protected:
@@ -50,8 +49,7 @@ protected:
     // prvky, ktere posouvame k pravemu okraji dialogu
     TDirectArray<CElasticLayoutCtrl> MoveRightCtrls;
     // docasne pole plnene z FindMoveCtrls; idealne by slo o lokalni promennou, ale
-    // pro pohodlne volani callbacku FindMoveControls (kam ho potrebujeme predat)
-    // ho umistuji jako atribut tridy
+    // pro zachovani jednoducheho sdileni pomocnych metod ho umistuji jako atribut tridy
     TDirectArray<CElasticLayoutCtrl> MoveCtrls;
 };
 
