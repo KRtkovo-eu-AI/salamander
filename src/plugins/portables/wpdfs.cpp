@@ -187,6 +187,34 @@ static HRESULT WINAPI WpdGetObjectNameAndAttributes(
     return S_OK;
 }
 
+static PCSTR WINAPI WpdGetUserPartFromFSPath(PCSTR fsName, PCSTR path)
+{
+    int fsNameLen = lstrlen(fsName);
+    if (SalamanderGeneral->StrNICmp(path, fsName, fsNameLen) == 0 && path[fsNameLen] == ':')
+    {
+        return path + fsNameLen + 1;
+    }
+
+    return path;
+}
+
+static void WINAPI WpdStripOperationMask(PSTR userPart, int userPartSize)
+{
+    char* lastSlash = strrchr(userPart, '\\');
+    char* lastComponent = lastSlash != nullptr ? lastSlash + 1 : userPart;
+    if (strchr(lastComponent, '*') != nullptr || strchr(lastComponent, '?') != nullptr)
+    {
+        if (lastSlash != nullptr)
+        {
+            *lastSlash = '\0';
+        }
+        else
+        {
+            lstrcpyn(userPart, "\\", userPartSize);
+        }
+    }
+}
+
 HRESULT WINAPI CWpdFS::GetContentLocationForPath(PCSTR userPart, _Out_ CWpdDevice*& device, _Out_ CFxString& objectId)
 {
     device = nullptr;
@@ -341,6 +369,96 @@ HRESULT WINAPI CWpdFS::RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName)
             }
         }
     }
+    device->Close();
+    if (FAILED(hr))
+    {
+        return RenameWpdObjectByCopy(item, newName);
+    }
+
+    CFxString verifiedName;
+    DWORD attributes;
+    hr = device->Open(GENERIC_READ);
+    if (SUCCEEDED(hr))
+    {
+        hr = WpdGetObjectNameAndAttributes(device->GetPropertiesNoAddRef(), item->GetObjectId(), verifiedName, attributes);
+        device->Close();
+    }
+    if (FAILED(hr) || verifiedName.Compare(newName) != 0)
+    {
+        return RenameWpdObjectByCopy(item, newName);
+    }
+
+    return S_OK;
+}
+
+HRESULT WINAPI CWpdFS::RenameWpdObjectByCopy(CWpdBaseContentItem* item, PCSTR newName)
+{
+    CWpdDevice* device = item->GetDeviceNoAddRef();
+    HRESULT hr = device->Open(GENERIC_READ | GENERIC_WRITE);
+    if (FAILED(hr)) return hr;
+
+    static const PROPERTYKEY* const keys[] =
+        {
+            &WPD_OBJECT_PARENT_ID,
+        };
+
+    ATL::CComPtr<IPortableDeviceKeyCollection> keyCollection;
+    keyCollection.Attach(WpdInitKeys(keys, _countof(keys)));
+
+    ATL::CComPtr<IPortableDeviceValues> values;
+    hr = device->GetPropertiesNoAddRef()->GetValues(item->GetObjectId(), keyCollection, &values);
+    PWSTR parentObjectId = nullptr;
+    if (SUCCEEDED(hr))
+    {
+        hr = values->GetStringValue(WPD_OBJECT_PARENT_ID, &parentObjectId);
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        DWORD attributes = item->GetAttributes();
+        if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            // Directory rename fallback requires recursive WPD-to-WPD copy.  If
+            // property rename was ignored for a directory, report a real error
+            // instead of silently leaving the item unchanged.
+            hr = E_NOTIMPL;
+        }
+        else
+        {
+            char tempPath[MAX_PATH];
+            char tempName[MAX_PATH];
+            if (::GetTempPath(_countof(tempPath), tempPath) == 0 ||
+                ::GetTempFileName(tempPath, "wpd", 0, tempName) == 0)
+            {
+                hr = HRESULT_FROM_WIN32(::GetLastError());
+            }
+            else
+            {
+                hr = DownloadWpdObject(device, item->GetObjectId(), tempName);
+                if (SUCCEEDED(hr))
+                {
+                    hr = UploadDiskFile(device, parentObjectId, tempName, newName);
+                }
+                if (SUCCEEDED(hr))
+                {
+                    ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
+                    hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+                    if (SUCCEEDED(hr))
+                    {
+                        hr = AddWpdObjectId(objects, item->GetObjectId());
+                    }
+                    if (SUCCEEDED(hr))
+                    {
+                        ATL::CComPtr<IPortableDevicePropVariantCollection> results;
+                        hr = device->GetContentNoAddRef()->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, objects, &results);
+                    }
+                }
+                ::DeleteFile(tempName);
+            }
+        }
+    }
+
+    ::CoTaskMemFree(parentObjectId);
     device->Close();
     return hr;
 }
@@ -718,20 +836,8 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         CWpdDevice* targetDevice = nullptr;
         CFxString targetObjectId;
         char targetUserPart[2 * MAX_PATH];
-        lstrcpyn(targetUserPart, targetPath + fsNameLen + 1, _countof(targetUserPart));
-        char* lastSlash = strrchr(targetUserPart, '\\');
-        char* lastComponent = lastSlash != nullptr ? lastSlash + 1 : targetUserPart;
-        if (strchr(lastComponent, '*') != nullptr || strchr(lastComponent, '?') != nullptr)
-        {
-            if (lastSlash != nullptr)
-            {
-                *lastSlash = '\0';
-            }
-            else
-            {
-                lstrcpyn(targetUserPart, "\\", _countof(targetUserPart));
-            }
-        }
+        lstrcpyn(targetUserPart, WpdGetUserPartFromFSPath(fsName, targetPath), _countof(targetUserPart));
+        WpdStripOperationMask(targetUserPart, _countof(targetUserPart));
 
         HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
         if (FAILED(hr))
@@ -890,27 +996,9 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
         return FALSE;
     }
 
-    int fsNameLen = lstrlen(fsName);
-    if (!(SalamanderGeneral->StrNICmp(targetPath, fsName, fsNameLen) == 0 && targetPath[fsNameLen] == ':'))
-    {
-        return FALSE;
-    }
-
     char targetUserPart[2 * MAX_PATH];
-    lstrcpyn(targetUserPart, targetPath + fsNameLen + 1, _countof(targetUserPart));
-    char* lastSlash = strrchr(targetUserPart, '\\');
-    char* lastComponent = lastSlash != nullptr ? lastSlash + 1 : targetUserPart;
-    if (strchr(lastComponent, '*') != nullptr || strchr(lastComponent, '?') != nullptr)
-    {
-        if (lastSlash != nullptr)
-        {
-            *lastSlash = '\0';
-        }
-        else
-        {
-            lstrcpyn(targetUserPart, "\\", _countof(targetUserPart));
-        }
-    }
+    lstrcpyn(targetUserPart, WpdGetUserPartFromFSPath(fsName, targetPath), _countof(targetUserPart));
+    WpdStripOperationMask(targetUserPart, _countof(targetUserPart));
 
     CWpdDevice* targetDevice = nullptr;
     CFxString targetObjectId;

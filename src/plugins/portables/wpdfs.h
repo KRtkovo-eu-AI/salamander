@@ -26,6 +26,7 @@ protected:
     HRESULT WINAPI GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
     HRESULT WINAPI CreateWpdFolder(CWpdDevice* device, PCWSTR parentObjectId, PCSTR name);
     HRESULT WINAPI RenameWpdObject(CWpdBaseContentItem* item, PCSTR newName);
+    HRESULT WINAPI RenameWpdObjectByCopy(CWpdBaseContentItem* item, PCSTR newName);
     HRESULT WINAPI AddWpdObjectId(IPortableDevicePropVariantCollection* objects, PCWSTR objectId);
     HRESULT WINAPI DeleteWpdObjects(CWpdDevice* device, IPortableDevicePropVariantCollection* objects);
     HRESULT WINAPI CopyOrMoveWpdObjects(
