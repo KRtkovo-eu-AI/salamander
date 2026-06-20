@@ -1465,7 +1465,7 @@ HRESULT WINAPI CWpdFS::FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjec
     }
 }
 
-HRESULT WINAPI CWpdFS::ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, _Out_ bool& skip)
+HRESULT WINAPI CWpdFS::ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip)
 {
     skip = false;
 
@@ -1481,21 +1481,42 @@ HRESULT WINAPI CWpdFS::ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice
         return hr;
     }
 
-    char existingInfo[64];
-    StringCchCopy(existingInfo, _countof(existingInfo), (existingAttributes & FILE_ATTRIBUTE_DIRECTORY) ? "Folder" : "File");
-    char sourceInfo[64];
-    StringCchCopy(sourceInfo, _countof(sourceInfo), "File");
-    int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, existingInfo, sourceName, sourceInfo);
-    if (answer == DIALOG_SKIP || answer == DIALOG_SKIPALL)
+    if (skipAll)
     {
         skip = true;
         ::CoTaskMemFree(existingObjectId);
         return S_OK;
     }
-    if (answer != DIALOG_YES && answer != DIALOG_ALL)
+
+    if (!overwriteAll)
     {
-        ::CoTaskMemFree(existingObjectId);
-        return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+        char existingInfo[64];
+        StringCchCopy(existingInfo, _countof(existingInfo), (existingAttributes & FILE_ATTRIBUTE_DIRECTORY) ? "Folder" : "File");
+        char sourceInfo[64];
+        StringCchCopy(sourceInfo, _countof(sourceInfo), "File");
+        int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, existingInfo, sourceName, sourceInfo);
+        if (answer == DIALOG_ALL)
+        {
+            overwriteAll = true;
+        }
+        else if (answer == DIALOG_SKIPALL)
+        {
+            skipAll = true;
+            skip = true;
+            ::CoTaskMemFree(existingObjectId);
+            return S_OK;
+        }
+        else if (answer == DIALOG_SKIP)
+        {
+            skip = true;
+            ::CoTaskMemFree(existingObjectId);
+            return S_OK;
+        }
+        else if (answer != DIALOG_YES)
+        {
+            ::CoTaskMemFree(existingObjectId);
+            return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+        }
     }
 
     ATL::CComPtr<IPortableDevicePropVariantCollection> objects;
@@ -1858,6 +1879,8 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
         progress.SetDevice(targetDevice);
         int index = 0;
+        bool overwriteAll = false;
+        bool skipAll = false;
         for (;;)
         {
             BOOL isDir = FALSE;
@@ -1891,7 +1914,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
                 if (SUCCEEDED(hr))
                 {
                     bool skipExisting = false;
-                    hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, f->Name, f->Name, skipExisting);
+                    hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, f->Name, f->Name, overwriteAll, skipAll, skipExisting);
                     if (SUCCEEDED(hr) && !skipExisting)
                     {
                         hr = UploadDiskObject(targetDevice, wideTargetObjectId, tempName, f->Name);
@@ -1954,6 +1977,8 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
         int index = 0;
         bool progressDeviceSet = false;
+        bool overwriteAll = false;
+        bool skipAll = false;
         for (;;)
         {
             BOOL isDir = FALSE;
@@ -1978,16 +2003,34 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
             DWORD targetAttributes = ::GetFileAttributes(targetName);
             if (targetAttributes != INVALID_FILE_ATTRIBUTES)
             {
-                int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, "", f->Name, "");
-                if (answer == DIALOG_SKIP || answer == DIALOG_SKIPALL)
+                if (skipAll)
                 {
                     if (focused) break;
                     continue;
                 }
-                if (answer != DIALOG_YES && answer != DIALOG_ALL)
+                if (!overwriteAll)
                 {
-                    ok = false;
-                    break;
+                    int answer = SalamanderGeneral->DialogOverwrite(parent, BUTTONS_YESALLSKIPCANCEL, targetName, "", f->Name, "");
+                    if (answer == DIALOG_ALL)
+                    {
+                        overwriteAll = true;
+                    }
+                    else if (answer == DIALOG_SKIPALL)
+                    {
+                        skipAll = true;
+                        if (focused) break;
+                        continue;
+                    }
+                    else if (answer == DIALOG_SKIP)
+                    {
+                        if (focused) break;
+                        continue;
+                    }
+                    else if (answer != DIALOG_YES)
+                    {
+                        ok = false;
+                        break;
+                    }
                 }
             }
 
@@ -2102,6 +2145,8 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     int errorOccured = SALENUM_SUCCESS;
     CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", sourceFiles + sourceDirs);
     progress.SetDevice(targetDevice);
+    bool overwriteAll = false;
+    bool skipAll = false;
     while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
     {
         if (!progress.Step(name, targetPath))
@@ -2121,7 +2166,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
             const char* targetName = strrchr(name, '\\');
             targetName = targetName != nullptr ? targetName + 1 : name;
             bool skipExisting = false;
-            hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, targetName, sourceName, skipExisting);
+            hr = ConfirmAndDeleteExistingWpdObject(parent, targetDevice, wideTargetObjectId, targetName, sourceName, overwriteAll, skipAll, skipExisting);
             if (SUCCEEDED(hr) && !skipExisting)
             {
                 hr = UploadDiskObject(targetDevice, wideTargetObjectId, sourceName, targetName);

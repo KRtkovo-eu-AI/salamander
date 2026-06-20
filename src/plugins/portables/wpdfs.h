@@ -39,7 +39,7 @@ protected:
     HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
     HRESULT WINAPI UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
     HRESULT WINAPI FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes);
-    HRESULT WINAPI ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, _Out_ bool& skip);
+    HRESULT WINAPI ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip);
 
     /* CFxPluginFSInterface Overrides */
 
