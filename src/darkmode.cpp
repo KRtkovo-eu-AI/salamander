@@ -716,7 +716,7 @@ void PaintDarkHeaderControl(HWND hwnd, HDC hdc)
         if (!Header_GetItemRect(hwnd, i, &itemRect))
             continue;
 
-        char text[256];
+        TCHAR text[256];
         text[0] = 0;
         HDITEM item;
         memset(&item, 0, sizeof(item));

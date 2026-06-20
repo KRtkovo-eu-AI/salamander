@@ -20,6 +20,8 @@
 #include "trace.h"
 #include "messages.h"
 #include "handles.h"
+#include "array.h"
+#include "winlib.h"
 
 #ifdef INSIDE_SALAMANDER
 #include "../darkmode.h"
@@ -122,10 +124,6 @@ static void WinLib_DarkMode_ApplyStaticTextColors(HWND hwndParent, HWND specific
     UNREFERENCED_PARAMETER(specificCtrl);
 }
 #endif
-
-#include "array.h"
-
-#include "winlib.h"
 
 // opatreni proti runtime check failure v debug verzi: puvodni verze makra pretypovava rgb na WORD,
 // takze hlasi ztratu dat (RED slozky)
