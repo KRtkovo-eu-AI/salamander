@@ -303,10 +303,10 @@ void CElasticLayout::LayoutCtrls()
             GetWindowRect(hCtrl, &r);
             POINT p = {r.left, r.top};
             ScreenToClient(HWindow, &p);
-            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   0, 0,
-                                   cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
-                                   SWP_NOMOVE | SWP_NOZORDER));
+            hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                           0, 0,
+                                           cR.right - p.x - ResizeCtrls[i].Pos.x, cR.bottom - p.y - ResizeCtrls[i].Pos.y,
+                                           SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < ResizeRightCtrls.Count; i++)
         {
@@ -315,10 +315,10 @@ void CElasticLayout::LayoutCtrls()
             GetWindowRect(hCtrl, &r);
             POINT p = {r.left, r.top};
             ScreenToClient(HWindow, &p);
-            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   0, 0,
-                                   cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
-                                   SWP_NOMOVE | SWP_NOZORDER));
+            hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                           0, 0,
+                                           cR.right - p.x - ResizeRightCtrls[i].Pos.x, r.bottom - r.top,
+                                           SWP_NOMOVE | SWP_NOZORDER));
         }
         for (int i = 0; i < MoveCtrls.Count; i++)
         {
@@ -332,10 +332,10 @@ void CElasticLayout::LayoutCtrls()
                     break;
                 }
             }
-            HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
-                                   x, cR.bottom - MoveCtrls[i].Pos.y,
-                                   0, 0,
-                                   SWP_NOSIZE | SWP_NOZORDER));
+            hdwp = HANDLES(DeferWindowPos(hdwp, hCtrl, NULL,
+                                           x, cR.bottom - MoveCtrls[i].Pos.y,
+                                           0, 0,
+                                           SWP_NOSIZE | SWP_NOZORDER));
         }
         HANDLES(EndDeferWindowPos(hdwp));
     }
