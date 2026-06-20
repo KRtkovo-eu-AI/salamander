@@ -5,9 +5,9 @@ VERSION,"0,0,12,183"
 
 [TRANSLATION]
 LANGID,1033
-AUTHOR,"ALTAP"
-WEB,"http://www.jamik.de"
-COMMENT,"Original English resources."
+AUTHOR,"KRtekTM"
+WEB,"https://github.com/KRtkovo-eu-AI/salamander/"
+COMMENT,"automatic translate with gpt-5.4-nano"
 
 [DIALOG 490]
 205,61,1,"查看器"

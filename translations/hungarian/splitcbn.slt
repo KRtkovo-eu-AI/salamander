@@ -71,7 +71,7 @@ COMMENT,"Magyar változat"
 1018,7,22,20,20,1,""
 
 [STRINGTABLE 0]
-1,0,"Split & Combine"
+1,1,"Részek összevonása & felosztása"
 2,1,"Fájl megnyitási hiba."
 3,1,"Válasszon egy cél mappát."
 4,1,"Nem elég nagy a fájl a daraboláshoz."

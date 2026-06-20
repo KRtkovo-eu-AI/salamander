@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\samandarin\samandarin.atp"
-TEXTVERSION,"0.1 (x64)"
-VERSION,"0,1,0,183"
+TEXTVERSION,"0.2 (x64)"
+VERSION,"0,2,0,183"
 
 [TRANSLATION]
 LANGID,1033
-AUTHOR,"Open Salamander"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+AUTHOR,"KRtekTM"
+WEB,"https://github.com/KRtkovo-eu-AI/salamander/"
+COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
 46,1,"Notifications de mise à jour de Samandarin"
