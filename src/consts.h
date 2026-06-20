@@ -3,6 +3,12 @@
 
 #pragma once
 
+// Trace Server shares a few common sources, but it is not linked with the
+// Salamander core/plugin interfaces declared below.  If an include path or
+// precompiled-header setting pulls this header into tserver, keep it empty
+// instead of requiring the full Salamander declaration stack.
+#ifndef __TRACESERVER
+
 // aktualni verze konfigurace (popis viz. mainwnd2.cpp)
 extern const DWORD THIS_CONFIG_VERSION;
 
@@ -2503,3 +2509,5 @@ int GetScaleForSystemDPI();
 
 // prevod mezi device-independent pixels (DIP) a fyzickymi pixely
 int DipToPixels(int dips);
+
+#endif // __TRACESERVER
