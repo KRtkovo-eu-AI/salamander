@@ -928,7 +928,7 @@ internal sealed class ConfigurationDialog : Form
             : NativeStrings.Get(NativeStringId.LastAutoCheckNever);
         _latestVersionLabel.Text = string.IsNullOrWhiteSpace(_settings.LastKnownRemoteVersion)
             ? NativeStrings.Get(NativeStringId.LastKnownReleaseUnknown)
-            : NativeStrings.Format(NativeStringId.LastKnownRelease, _settings.LastKnownRemoteVersion);
+            : NativeStrings.Format(NativeStringId.LastKnownRelease, _settings.LastKnownRemoteVersion!);
     }
 
     private void SelectFrequency(UpdateFrequency frequency)
