@@ -116,13 +116,19 @@ static PCSTR WpdLoadStr(UINT id)
     return SalamanderGeneral->LoadStr(Fx::FxGetLangInstance(), id);
 }
 
+class CWpdOperationProgress;
+static CWpdOperationProgress* WpdActiveOperationProgress = nullptr;
+
 class CWpdOperationProgress
 {
 public:
     CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
         : m_window(nullptr),
           m_text(nullptr),
-          m_progress(nullptr),
+          m_fileProgress(nullptr),
+          m_totalProgress(nullptr),
+          m_minimize(nullptr),
+          m_pause(nullptr),
           m_cancel(nullptr),
           m_canceled(false),
           m_operation(operation),
@@ -142,8 +148,8 @@ public:
             ownerRect.bottom = ::GetSystemMetrics(SM_CYSCREEN);
         }
 
-        const int width = 460;
-        const int height = 150;
+        const int width = 535;
+        const int height = 245;
         int x = ownerRect.left + ((ownerRect.right - ownerRect.left) - width) / 2;
         int y = ownerRect.top + ((ownerRect.bottom - ownerRect.top) - height) / 2;
 
@@ -166,15 +172,29 @@ public:
         }
 
         m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                  12, 12, width - 24, 52, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_progress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
-                                      12, 70, width - 24, 18, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                  24, 22, width - 48, 42, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                         24, 76, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_fileProgress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+                                          70, 74, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_TOTAL), WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                         24, 102, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_totalProgress = ::CreateWindowEx(0, PROGRESS_CLASS, "", WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+                                           70, 100, width - 90, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                      140, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
+        m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                   230, 150, 74, 24, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_cancel = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_CANCEL), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                                    width - 98, 100, 86, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
+                                    320, 150, 74, 24, m_window, reinterpret_cast<HMENU>(IDCANCEL), Fx::FxGetModuleInstance(), nullptr);
+        ::EnableWindow(m_pause, FALSE);
 
         ApplyTheme();
-        ::SendMessage(m_progress, PBM_SETRANGE32, 0, m_totalItems);
-        ::SendMessage(m_progress, PBM_SETPOS, 0, 0);
+        ::SendMessage(m_fileProgress, PBM_SETRANGE32, 0, 1000);
+        ::SendMessage(m_fileProgress, PBM_SETPOS, 0, 0);
+        ::SendMessage(m_totalProgress, PBM_SETRANGE32, 0, m_totalItems);
+        ::SendMessage(m_totalProgress, PBM_SETPOS, 0, 0);
+        WpdActiveOperationProgress = this;
         Step(WpdLoadStr(IDS_OPERATIONPROGRESS_PREPARING));
         ::ShowWindow(m_window, SW_SHOWNORMAL);
         ::UpdateWindow(m_window);
@@ -196,14 +216,15 @@ public:
         char text[2 * MAX_PATH + 256];
         if (targetName != nullptr && targetName[0] != '\0')
         {
-            StringCchPrintf(text, _countof(text), "%s %d/%d:\r\n%s\r\n->\r\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName, targetName);
+            StringCchPrintf(text, _countof(text), "%sing %s\r\nto %s", m_operation, sourceName, targetName);
         }
         else
         {
-            StringCchPrintf(text, _countof(text), "%s %d/%d:\r\n%s", m_operation, m_doneItems + 1, m_totalItems, sourceName);
+            StringCchPrintf(text, _countof(text), "%sing %s", m_operation, sourceName);
         }
         ::SetWindowText(m_text, text);
-        ::SendMessage(m_progress, PBM_SETPOS, m_doneItems, 0);
+        ::SendMessage(m_fileProgress, PBM_SETPOS, 0, 0);
+        ::SendMessage(m_totalProgress, PBM_SETPOS, m_doneItems, 0);
         ::ShowWindow(m_window, SW_SHOWNORMAL);
         ::UpdateWindow(m_window);
         PumpMessages();
@@ -215,14 +236,30 @@ public:
         ++m_doneItems;
         if (m_window != nullptr)
         {
-            ::SendMessage(m_progress, PBM_SETPOS, m_doneItems, 0);
+            ::SendMessage(m_fileProgress, PBM_SETPOS, 0, 0);
+            ::SendMessage(m_totalProgress, PBM_SETPOS, m_doneItems, 0);
             PumpMessages();
         }
         return !m_canceled;
     }
 
+    void SetFileProgress(ULONGLONG current, ULONGLONG total)
+    {
+        if (m_window != nullptr && total != 0)
+        {
+            int pos = static_cast<int>((current * 1000) / total);
+            ::SendMessage(m_fileProgress, PBM_SETPOS, pos, 0);
+            ::UpdateWindow(m_window);
+            PumpMessages();
+        }
+    }
+
     void Close()
     {
+        if (WpdActiveOperationProgress == this)
+        {
+            WpdActiveOperationProgress = nullptr;
+        }
         if (m_window != nullptr)
         {
             HWND window = m_window;
@@ -240,6 +277,14 @@ public:
         }
         PluginDarkMode_ApplyTitleBar(m_window);
         PluginDarkMode_ApplyListTreeThemeRecursive(m_window);
+        if (PluginDarkMode_ShouldUseDark())
+        {
+            PluginDarkModeColors colors = PluginDarkMode_GetColors();
+            ::SendMessage(m_fileProgress, PBM_SETBKCOLOR, 0, colors.background);
+            ::SendMessage(m_fileProgress, PBM_SETBARCOLOR, 0, RGB(0x00, 0x78, 0xD7));
+            ::SendMessage(m_totalProgress, PBM_SETBKCOLOR, 0, colors.background);
+            ::SendMessage(m_totalProgress, PBM_SETBARCOLOR, 0, RGB(0x00, 0x78, 0xD7));
+        }
         InvalidateRect(m_window, nullptr, TRUE);
     }
 
@@ -287,6 +332,22 @@ private:
             {
                 return brush;
             }
+            if (message == WM_ERASEBKGND && PluginDarkMode_ShouldUseDark())
+            {
+                RECT rect;
+                GetClientRect(window, &rect);
+                HBRUSH darkBrush = PluginDarkMode_GetDialogCtlColorBrush(reinterpret_cast<HDC>(wParam), WM_CTLCOLORDLG);
+                if (darkBrush != nullptr)
+                {
+                    FillRect(reinterpret_cast<HDC>(wParam), &rect, darkBrush);
+                    return 1;
+                }
+            }
+            if (message == WM_COMMAND && LOWORD(wParam) == IDOK)
+            {
+                ::ShowWindow(window, SW_MINIMIZE);
+                return 0;
+            }
             if (message == WM_COMMAND && LOWORD(wParam) == IDCANCEL)
             {
                 self->m_canceled = true;
@@ -315,7 +376,10 @@ private:
 
     HWND m_window;
     HWND m_text;
-    HWND m_progress;
+    HWND m_fileProgress;
+    HWND m_totalProgress;
+    HWND m_minimize;
+    HWND m_pause;
     HWND m_cancel;
     bool m_canceled;
     PCSTR m_operation;
@@ -369,6 +433,10 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
             writtenTotal += written;
         }
 
+        if (WpdActiveOperationProgress != nullptr && size != static_cast<ULONGLONG>(-1))
+        {
+            WpdActiveOperationProgress->SetFileProgress(size - remaining + read, size);
+        }
         if (remaining != static_cast<ULONGLONG>(-1))
         {
             remaining -= read;
