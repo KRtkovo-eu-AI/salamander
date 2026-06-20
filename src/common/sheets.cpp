@@ -761,7 +761,6 @@ void CPropSheetPage::ApplyHorizontalLayout()
         }
         HANDLES(EndDeferWindowPos(hdwp));
     }
-    DockOverlappingEditButtons(HWindow);
 }
 
 INT_PTR
@@ -782,6 +781,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
+        DockOverlappingEditButtons(HWindow);
         return TRUE; // chci focus od DefDlgProc
     }
 
@@ -790,6 +790,7 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ApplyHorizontalLayout();
         if (ElasticLayout != NULL)
             ElasticLayout->LayoutCtrls();
+        DockOverlappingEditButtons(HWindow);
         break;
     }
 
