@@ -126,6 +126,7 @@ public:
     CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
         : m_window(nullptr),
           m_text(nullptr),
+          m_targetText(nullptr),
           m_fileLabel(nullptr),
           m_totalLabel(nullptr),
           m_bytesLabel(nullptr),
@@ -202,7 +203,9 @@ public:
         const int buttonY = clientRect.bottom - bottomMargin - buttonHeight;
 
         m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                  24, topMargin, width - 48, 42, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                  24, topMargin, width - 48, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_targetText = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
+                                        24, topMargin + 20, width - 48, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
                                        24, topMargin + 51, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
@@ -247,16 +250,22 @@ public:
             return true;
         }
 
-        char text[2 * MAX_PATH + 256];
         if (targetName != nullptr && targetName[0] != '\0')
         {
-            StringCchPrintf(text, _countof(text), "%sing %s\r\nto %s", m_operation, sourceName, targetName);
+            char sourceText[MAX_PATH + 128];
+            char targetText[MAX_PATH + 128];
+            StringCchPrintf(sourceText, _countof(sourceText), "%sing %s", m_operation, sourceName);
+            StringCchPrintf(targetText, _countof(targetText), "to %s", targetName);
+            ::SetWindowText(m_text, sourceText);
+            ::SetWindowText(m_targetText, targetText);
         }
         else
         {
+            char text[MAX_PATH + 128];
             StringCchPrintf(text, _countof(text), "%sing %s", m_operation, sourceName);
+            ::SetWindowText(m_text, text);
+            ::SetWindowText(m_targetText, "");
         }
-        ::SetWindowText(m_text, text);
         m_filePulse = 0;
         m_filePos = 0;
         m_currentFileBytes = 0;
@@ -347,7 +356,7 @@ public:
     {
         if (m_font != nullptr)
         {
-            HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_bytesLabel, m_minimize, m_pause, m_cancel};
+            HWND controls[] = {m_text, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_minimize, m_pause, m_cancel};
             for (int i = 0; i < _countof(controls); ++i)
             {
                 if (controls[i] != nullptr)
@@ -503,7 +512,7 @@ private:
             return;
         }
 
-        HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_bytesLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
+        HWND controls[] = {m_text, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
         for (int i = 0; i < _countof(controls); ++i)
         {
             if (controls[i] != nullptr)
@@ -558,12 +567,37 @@ private:
 
         char copiedText[64];
         char totalText[64];
-        SalamanderGeneral->PrintDiskSize(copiedText, copiedSize, 1);
-        SalamanderGeneral->PrintDiskSize(totalText, totalSize, 1);
+        char copiedFormatted[64];
+        char totalFormatted[64];
+        SalamanderGeneral->PrintDiskSize(copiedFormatted, copiedSize, 1);
+        SalamanderGeneral->PrintDiskSize(totalFormatted, totalSize, 1);
+        ExtractSizeInParentheses(copiedFormatted, copiedText, _countof(copiedText));
+        ExtractSizeInParentheses(totalFormatted, totalText, _countof(totalText));
 
         char text[160];
         StringCchPrintf(text, _countof(text), WpdLoadStr(IDS_OPERATIONPROGRESS_BYTES), copiedText, totalText);
         ::SetWindowText(m_bytesLabel, text);
+    }
+
+    static void ExtractSizeInParentheses(PCSTR text, char* buffer, int bufferSize)
+    {
+        const char* begin = text != nullptr ? strrchr(text, '(') : nullptr;
+        const char* end = begin != nullptr ? strchr(begin + 1, ')') : nullptr;
+        if (begin != nullptr && end != nullptr && end > begin + 1)
+        {
+            size_t capacity = static_cast<size_t>(bufferSize - 1);
+            size_t len = static_cast<size_t>(end - begin - 1);
+            if (len > capacity)
+            {
+                len = capacity;
+            }
+            memcpy(buffer, begin + 1, len);
+            buffer[len] = '\0';
+        }
+        else
+        {
+            StringCchCopy(buffer, bufferSize, text != nullptr ? text : "");
+        }
     }
 
     void RedrawProgress()
@@ -727,6 +761,7 @@ private:
 
     HWND m_window;
     HWND m_text;
+    HWND m_targetText;
     HWND m_fileLabel;
     HWND m_totalLabel;
     HWND m_bytesLabel;
