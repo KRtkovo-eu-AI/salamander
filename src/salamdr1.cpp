@@ -315,12 +315,6 @@ HBRUSH HMenuGrayTextBrush = NULL;
 
 static bool gDarkModeBrushesOwned = false;
 
-static bool gWindowsDarkPaletteActive = false;
-static SALCOLOR* gWindowsDarkPaletteTarget = NULL;
-static SALCOLOR gWindowsDarkPaletteBackup[NUMBER_OF_COLORS];
-static SALCOLOR gWindowsDarkViewerBackup[NUMBER_OF_VIEWERCOLORS];
-static bool gWindowsDarkViewerSaved = false;
-static CHighlightMasks* gWindowsDarkHighlightBackup = NULL;
 
 static COLORREF LightenColor(COLORREF color, int amount)
 {
@@ -562,64 +556,13 @@ void WindowsDarkModeBuildPalette(SALCOLOR* colors, SALCOLOR* viewerColors)
 
 static void WindowsDarkModeUpdatePalette(bool useDarkColors)
 {
-    SALCOLOR* target = CurrentColors;
-    if (!useDarkColors)
+    if (useDarkColors)
     {
-        if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != NULL)
-        {
-            memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
-            if (gWindowsDarkViewerSaved)
-                WindowsLightModeBuildViewerPalette(ViewerColors);
-            if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
-                MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
-        }
-        if (gWindowsDarkHighlightBackup != NULL)
-        {
-            delete gWindowsDarkHighlightBackup;
-            gWindowsDarkHighlightBackup = NULL;
-        }
-        gWindowsDarkPaletteActive = false;
-        gWindowsDarkPaletteTarget = NULL;
-        gWindowsDarkViewerSaved = false;
-        return;
+        // The Windows Dark Mode scheme is only an initial preset for UserColors.
+        // Do not rebuild the preset on every color refresh: doing so overwrites
+        // colors customized on Configuration / Colors (for example Hot Items,
+        // captions and panel colors) and prevents them from being saved and used.
     }
-
-    if (gWindowsDarkPaletteActive && gWindowsDarkPaletteTarget != target)
-    {
-        if (gWindowsDarkPaletteTarget != NULL)
-            memcpy(gWindowsDarkPaletteTarget, gWindowsDarkPaletteBackup, sizeof(gWindowsDarkPaletteBackup));
-        if (gWindowsDarkViewerSaved)
-            memcpy(ViewerColors, gWindowsDarkViewerBackup, sizeof(gWindowsDarkViewerBackup));
-        if (gWindowsDarkHighlightBackup != NULL && MainWindow != NULL && MainWindow->HighlightMasks != NULL)
-            MainWindow->HighlightMasks->Load(*gWindowsDarkHighlightBackup);
-        if (gWindowsDarkHighlightBackup != NULL)
-        {
-            delete gWindowsDarkHighlightBackup;
-            gWindowsDarkHighlightBackup = NULL;
-        }
-        gWindowsDarkPaletteActive = false;
-        gWindowsDarkPaletteTarget = NULL;
-        gWindowsDarkViewerSaved = false;
-    }
-
-    if (!gWindowsDarkPaletteActive)
-    {
-        gWindowsDarkPaletteTarget = target;
-        memcpy(gWindowsDarkPaletteBackup, target, sizeof(gWindowsDarkPaletteBackup));
-        memcpy(gWindowsDarkViewerBackup, ViewerColors, sizeof(gWindowsDarkViewerBackup));
-        gWindowsDarkViewerSaved = true;
-        if (MainWindow != NULL && MainWindow->HighlightMasks != NULL)
-        {
-            gWindowsDarkHighlightBackup = new CHighlightMasks(10, 5);
-            if (gWindowsDarkHighlightBackup != NULL)
-                gWindowsDarkHighlightBackup->Load(*MainWindow->HighlightMasks);
-        }
-        gWindowsDarkPaletteActive = true;
-    }
-
-    WindowsDarkModeBuildPalette(target, ViewerColors);
-    if (MainWindow != NULL && MainWindow->HighlightMasks != NULL)
-        WindowsDarkModeBuildHighlightMasks(MainWindow->HighlightMasks);
 }
 
 
