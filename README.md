@@ -15,7 +15,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ## Included Features Overview
 ### Portability
 - Save the Configuration into file storage instead of Registry
-<img width="687" height="147" alt="image" src="https://github.com/user-attachments/assets/2ff3e823-b29b-4b49-b5d1-714ac00e868b" />
+<img width="687" height="139" alt="image" src="https://github.com/user-attachments/assets/d3c0219d-6216-4dcc-ba04-df3445acc535" />
 
 ### Translations
 - automatic translate with OpenAI API (model gpt-5.4-nano)
