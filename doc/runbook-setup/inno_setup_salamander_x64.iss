@@ -16,7 +16,6 @@
 #define MyAppPublisher "KRtekTM"
 #define MyAppURL "https://github.com/KRtkovo-eu-AI/salamander"
 #define MyAppExeName "salamand.exe"
-#define SLG "english.slg"
 #ifndef PayloadDir
   #if GetEnv("OPENSAL_BUILD_DIR") != ""
     #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "salamander\Release_x64"
@@ -1254,6 +1253,10 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 [Code]
 
 
+const
+  CurrentConfigRoot = 'Software\Open Salamander Samandarin\5.0-samandarin-0.6';
+  CurrentConfigVersion = 109;
+
 var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
@@ -1268,6 +1271,61 @@ begin
     'Registry',
     ExpandConstant('{app}\configstorage.ini'));
   Result := CompareText(StorageType, 'RegFile') = 0;
+end;
+
+
+function HasExistingSalamanderConfiguration(): Boolean;
+begin
+  Result :=
+    RegKeyExists(HKCU, CurrentConfigRoot + '\Configuration') or
+    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.5\Configuration') or
+    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.4\Configuration') or
+    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.3\Configuration') or
+    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.2\Configuration') or
+    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.1\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0 beta 1 (DB177)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0 beta 1 (DB171)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.08\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0 beta 1 (DB168)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.07\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB162)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB159)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.06\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB153)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.05\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB147)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.04\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB141)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.03\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB135)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.02\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB129)\Configuration') or
+    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.01\Configuration');
+end;
+
+function SelectedSalamanderSLGName(): String;
+begin
+  Result := ActiveLanguage + '.slg';
+end;
+
+procedure SeedInitialSalamanderLanguage();
+var
+  ConfigRegPath: String;
+begin
+  { On clean installs, pre-seed just enough configuration for Salamander's
+    first start to load the same .SLG language that the user selected for the
+    installer. Existing registry/file configurations are left untouched so that
+    upgrades and portable installs keep their previous language/import flow. }
+  if HasExistingSalamanderConfiguration() or
+     FileExists(ExpandConstant('{app}\config.reg')) or
+     IsFileConfigurationStorageSelected() then
+    Exit;
+
+  ConfigRegPath := CurrentConfigRoot + '\Configuration';
+  RegWriteDWordValue(HKCU, CurrentConfigRoot + '\Version', 'Configuration', CurrentConfigVersion);
+  RegWriteStringValue(HKCU, ConfigRegPath, 'Language', SelectedSalamanderSLGName());
+  RegWriteDWordValue(HKCU, ConfigRegPath, 'Language Changed', 1);
 end;
 
 function InitializeUninstall(): Boolean;
@@ -1339,5 +1397,7 @@ begin
     PluginsVer := ExpandConstant('{app}\plugins\plugins.ver');
     if not FileExists(PluginsVer) then
       SaveStringToFile(PluginsVer, '', False);
+
+    SeedInitialSalamanderLanguage();
   end;
 end;
