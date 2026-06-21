@@ -120,10 +120,17 @@ static PCSTR WpdLoadStr(UINT id)
 class CWpdOperationProgress;
 static CWpdOperationProgress* WpdActiveOperationProgress = nullptr;
 
+enum CWpdOperationProgressType
+{
+    wpdProgressCopy,
+    wpdProgressMove,
+    wpdProgressDelete
+};
+
 class CWpdOperationProgress
 {
 public:
-    CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
+    CWpdOperationProgress(HWND parent, CWpdOperationProgressType operationType, int totalItems)
         : m_window(nullptr),
           m_operationLabel(nullptr),
           m_text(nullptr),
@@ -139,7 +146,7 @@ public:
           m_cancel(nullptr),
           m_font(nullptr),
           m_canceled(false),
-          m_operation(operation),
+          m_operationType(operationType),
           m_totalItems(totalItems > 0 ? totalItems : 1),
           m_doneItems(0),
           m_filePulse(0),
@@ -271,14 +278,14 @@ public:
             char targetText[MAX_PATH + 128];
             ::SetWindowText(m_operationLabel, GetOperationVerb());
             ::SetWindowText(m_text, sourceName);
-            ::SetWindowText(m_targetLabel, "to");
+            ::SetWindowText(m_targetLabel, WpdLoadStr(IDS_OPERATIONPROGRESS_TO));
             StringCchPrintf(targetText, _countof(targetText), "%s", targetName);
             ::SetWindowText(m_targetText, targetText);
         }
         else
         {
             char text[MAX_PATH + 128];
-            StringCchPrintf(text, _countof(text), "%sing %s", m_operation, sourceName);
+            StringCchPrintf(text, _countof(text), "%s %s", GetOperationVerb(), sourceName);
             ::SetWindowText(m_operationLabel, "");
             ::SetWindowText(m_text, text);
             ::SetWindowText(m_targetLabel, "");
@@ -432,21 +439,48 @@ public:
     }
 
 private:
+    PCSTR GetOperationName() const
+    {
+        switch (m_operationType)
+        {
+        case wpdProgressCopy:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_COPY);
+        case wpdProgressMove:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_MOVE);
+        case wpdProgressDelete:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_DELETE);
+        default:
+            return "";
+        }
+    }
+
     PCSTR GetOperationVerb() const
     {
-        if (lstrcmpi(m_operation, "Copy") == 0)
+        switch (m_operationType)
         {
-            return "Copying";
+        case wpdProgressCopy:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_COPYING);
+        case wpdProgressMove:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_MOVING);
+        case wpdProgressDelete:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_DELETING);
+        default:
+            return "";
         }
-        if (lstrcmpi(m_operation, "Move") == 0)
+    }
+
+    PCSTR GetBytesFormat() const
+    {
+        switch (m_operationType)
         {
-            return "Moving";
+        case wpdProgressMove:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_MOVED);
+        case wpdProgressDelete:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_PROCESSED);
+        case wpdProgressCopy:
+        default:
+            return WpdLoadStr(IDS_OPERATIONPROGRESS_BYTES);
         }
-        if (lstrcmpi(m_operation, "Delete") == 0)
-        {
-            return "Deleting";
-        }
-        return m_operation;
     }
 
     static PCSTR WindowClassName()
@@ -581,11 +615,11 @@ private:
         char title[MAX_PATH + 64];
         if (!m_deviceName.IsEmpty())
         {
-            StringCchPrintf(title, _countof(title), "(%d %%) %s - %s", m_totalPos / 10, m_operation, m_deviceName.GetString());
+            StringCchPrintf(title, _countof(title), "(%d %%) %s - %s", m_totalPos / 10, GetOperationName(), m_deviceName.GetString());
         }
         else
         {
-            StringCchPrintf(title, _countof(title), "(%d %%) %s", m_totalPos / 10, m_operation);
+            StringCchPrintf(title, _countof(title), "(%d %%) %s", m_totalPos / 10, GetOperationName());
         }
         ::SetWindowText(m_window, title);
     }
@@ -632,7 +666,7 @@ private:
         ExtractSizeInParentheses(totalFormatted, totalText, _countof(totalText));
 
         char text[160];
-        StringCchPrintf(text, _countof(text), WpdLoadStr(IDS_OPERATIONPROGRESS_BYTES), copiedText, totalText);
+        StringCchPrintf(text, _countof(text), GetBytesFormat(), copiedText, totalText);
         if (lstrcmp(m_bytesText, text) != 0)
         {
             StringCchCopy(m_bytesText, _countof(m_bytesText), text);
@@ -893,7 +927,7 @@ private:
     HWND m_cancel;
     HFONT m_font;
     bool m_canceled;
-    PCSTR m_operation;
+    CWpdOperationProgressType m_operationType;
     CFxString m_deviceName;
     int m_totalItems;
     int m_doneItems;
@@ -2350,7 +2384,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
 
     CWpdDevice* device = nullptr;
     BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-    CWpdOperationProgress progress(parent, "Delete", focused ? 1 : selectedFiles + selectedDirs);
+    CWpdOperationProgress progress(parent, wpdProgressDelete, focused ? 1 : selectedFiles + selectedDirs);
     int index = 0;
     bool ok = true;
     for (;;)
@@ -2386,7 +2420,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
     }
     if (ok && device != nullptr)
     {
-        progress.Step("Deleting selected items");
+        progress.Step(WpdLoadStr(IDS_OPERATIONPROGRESS_DELETINGSELECTED));
         hr = DeleteWpdObjects(device, objects);
         if (FAILED(hr))
         {
@@ -2462,7 +2496,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
 
         ATL::CA2W wideTargetObjectId(targetObjectId);
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-        CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
+        CWpdOperationProgress progress(parent, copy ? wpdProgressCopy : wpdProgressMove, focused ? 1 : selectedFiles + selectedDirs);
         progress.SetDevice(targetDevice);
         WpdAddSelectedPanelTotalBytes(progress, panel, focused);
         int index = 0;
@@ -2561,7 +2595,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
     {
         bool ok = true;
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
-        CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
+        CWpdOperationProgress progress(parent, copy ? wpdProgressCopy : wpdProgressMove, focused ? 1 : selectedFiles + selectedDirs);
         WpdAddSelectedPanelTotalBytes(progress, panel, focused);
         int index = 0;
         bool progressDeviceSet = false;
@@ -2731,7 +2765,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     DWORD attr;
     FILETIME lastWrite;
     int errorOccured = SALENUM_SUCCESS;
-    CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", sourceFiles + sourceDirs);
+    CWpdOperationProgress progress(parent, copy ? wpdProgressCopy : wpdProgressMove, sourceFiles + sourceDirs);
     progress.SetDevice(targetDevice);
     bool overwriteAll = false;
     bool skipAll = false;
