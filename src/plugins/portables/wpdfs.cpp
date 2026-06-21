@@ -150,6 +150,7 @@ public:
           m_currentFileTotal(static_cast<ULONGLONG>(-1))
     {
         m_bytesText[0] = '\0';
+        m_bytesTextDirty = true;
         RegisterWindowClass();
         BOOL useDarkMode = FALSE;
         int configType = SALCFGTYPE_NOTFOUND;
@@ -597,6 +598,7 @@ private:
             if (m_bytesText[0] != '\0')
             {
                 m_bytesText[0] = '\0';
+                m_bytesTextDirty = true;
             }
             return;
         }
@@ -620,6 +622,7 @@ private:
         if (lstrcmp(m_bytesText, text) != 0)
         {
             StringCchCopy(m_bytesText, _countof(m_bytesText), text);
+            m_bytesTextDirty = true;
         }
     }
 
@@ -651,13 +654,18 @@ private:
             return;
         }
 
-        HWND controls[] = {m_fileProgress, m_totalProgress, m_bytesLabel};
+        HWND controls[] = {m_fileProgress, m_totalProgress};
         for (int i = 0; i < _countof(controls); ++i)
         {
             if (controls[i] != nullptr)
             {
                 ::RedrawWindow(controls[i], nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
             }
+        }
+        if (m_bytesTextDirty && m_bytesLabel != nullptr)
+        {
+            ::RedrawWindow(m_bytesLabel, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
+            m_bytesTextDirty = false;
         }
     }
 
@@ -713,27 +721,54 @@ private:
 
     void DrawBytesLabel(DRAWITEMSTRUCT* drawItem)
     {
+        RECT targetRect = drawItem->rcItem;
+        const int width = targetRect.right - targetRect.left;
+        const int height = targetRect.bottom - targetRect.top;
+        RECT rect = targetRect;
+        HDC dc = drawItem->hDC;
+        HDC memDC = ::CreateCompatibleDC(dc);
+        HBITMAP bitmap = memDC != nullptr ? ::CreateCompatibleBitmap(dc, width, height) : nullptr;
+        HGDIOBJ oldBitmap = nullptr;
+        if (memDC != nullptr && bitmap != nullptr)
+        {
+            oldBitmap = ::SelectObject(memDC, bitmap);
+            dc = memDC;
+            ::SetRect(&rect, 0, 0, width, height);
+        }
+
         bool dark = PluginDarkMode_ShouldUseDark();
         PluginDarkModeColors colors = PluginDarkMode_GetColors();
         COLORREF background = dark ? colors.background : ::GetSysColor(COLOR_BTNFACE);
         COLORREF text = dark ? colors.readableText : ::GetSysColor(COLOR_BTNTEXT);
 
         HBRUSH brush = ::CreateSolidBrush(background);
-        ::FillRect(drawItem->hDC, &drawItem->rcItem, brush);
+        ::FillRect(dc, &rect, brush);
         ::DeleteObject(brush);
 
         HGDIOBJ oldFont = nullptr;
         if (m_font != nullptr)
         {
-            oldFont = ::SelectObject(drawItem->hDC, m_font);
+            oldFont = ::SelectObject(dc, m_font);
         }
-        ::SetBkMode(drawItem->hDC, TRANSPARENT);
-        ::SetTextColor(drawItem->hDC, text);
-        RECT textRect = drawItem->rcItem;
-        ::DrawText(drawItem->hDC, m_bytesText, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        ::SetBkMode(dc, TRANSPARENT);
+        ::SetTextColor(dc, text);
+        RECT textRect = rect;
+        ::DrawText(dc, m_bytesText, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         if (oldFont != nullptr)
         {
-            ::SelectObject(drawItem->hDC, oldFont);
+            ::SelectObject(dc, oldFont);
+        }
+
+        if (memDC != nullptr && bitmap != nullptr)
+        {
+            ::BitBlt(drawItem->hDC, targetRect.left, targetRect.top, width, height, memDC, 0, 0, SRCCOPY);
+            ::SelectObject(memDC, oldBitmap);
+            ::DeleteObject(bitmap);
+            ::DeleteDC(memDC);
+        }
+        else if (memDC != nullptr)
+        {
+            ::DeleteDC(memDC);
         }
     }
 
@@ -855,6 +890,7 @@ private:
     ULONGLONG m_currentFileBytes;
     ULONGLONG m_currentFileTotal;
     char m_bytesText[160];
+    bool m_bytesTextDirty;
 };
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
