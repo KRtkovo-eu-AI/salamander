@@ -147,7 +147,8 @@ public:
           m_totalPos(0),
           m_doneBytes(0),
           m_currentFileBytes(0),
-          m_currentFileTotal(static_cast<ULONGLONG>(-1))
+          m_currentFileTotal(static_cast<ULONGLONG>(-1)),
+          m_totalBytes(0)
     {
         m_bytesText[0] = '\0';
         m_bytesTextDirty = true;
@@ -366,6 +367,15 @@ public:
         {
             device->GetName(m_deviceName);
             UpdateTitle();
+        }
+    }
+
+    void AddTotalBytes(ULONGLONG bytes)
+    {
+        if (bytes != 0 && bytes != static_cast<ULONGLONG>(-1))
+        {
+            m_totalBytes += bytes;
+            UpdateBytesText();
         }
     }
 
@@ -588,10 +598,14 @@ private:
         }
 
         ULONGLONG copied = m_doneBytes + m_currentFileBytes;
-        ULONGLONG total = copied;
-        if (m_currentFileTotal != static_cast<ULONGLONG>(-1))
+        ULONGLONG total = m_totalBytes;
+        if (total == 0 && m_currentFileTotal != static_cast<ULONGLONG>(-1))
         {
             total = m_doneBytes + m_currentFileTotal;
+        }
+        if (total < copied)
+        {
+            total = copied;
         }
         if (copied == 0 && total == 0)
         {
@@ -889,9 +903,29 @@ private:
     ULONGLONG m_doneBytes;
     ULONGLONG m_currentFileBytes;
     ULONGLONG m_currentFileTotal;
+    ULONGLONG m_totalBytes;
     char m_bytesText[160];
     bool m_bytesTextDirty;
 };
+
+static void WINAPI WpdAddSelectedPanelTotalBytes(CWpdOperationProgress& progress, int panel, BOOL focused)
+{
+    int index = 0;
+    for (;;)
+    {
+        BOOL isDir = FALSE;
+        const CFileData* file = focused ? SalamanderGeneral->GetPanelFocusedItem(panel, &isDir) : SalamanderGeneral->GetPanelSelectedItem(panel, &index, &isDir);
+        if (file == nullptr)
+        {
+            break;
+        }
+        progress.AddTotalBytes(file->Size.Value);
+        if (focused)
+        {
+            break;
+        }
+    }
+}
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
 {
@@ -2430,6 +2464,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
         CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
         progress.SetDevice(targetDevice);
+        WpdAddSelectedPanelTotalBytes(progress, panel, focused);
         int index = 0;
         bool overwriteAll = false;
         bool skipAll = false;
@@ -2527,6 +2562,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         bool ok = true;
         BOOL focused = (selectedFiles == 0 && selectedDirs == 0);
         CWpdOperationProgress progress(parent, copy ? "Copy" : "Move", focused ? 1 : selectedFiles + selectedDirs);
+        WpdAddSelectedPanelTotalBytes(progress, panel, focused);
         int index = 0;
         bool progressDeviceSet = false;
         bool overwriteAll = false;
@@ -2701,6 +2737,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     bool skipAll = false;
     while ((name = next(parent, 0, &dosName, &isDir, &size, &attr, &lastWrite, nextParam, &errorOccured)) != nullptr)
     {
+        progress.AddTotalBytes(size.Value);
         if (!progress.Step(name, targetPath))
         {
             ok = FALSE;
