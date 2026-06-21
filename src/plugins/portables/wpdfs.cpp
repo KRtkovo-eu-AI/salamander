@@ -1829,8 +1829,94 @@ void WINAPI CWpdFS::ViewFile(const char* fsName, HWND parent, CSalamanderForView
     salamander->FreeFileNameInCache(uniqueFileName, fileExists, newFileOK, newFileSize, fileLock, fileLockOwner, FALSE);
 }
 
+BOOL WINAPI CWpdFS::TryShellContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int panel)
+{
+    UNREFERENCED_PARAMETER(fsName);
+    BOOL focusIsDir = FALSE;
+    const CFileData* focused = SalamanderGeneral->GetPanelFocusedItem(panel, &focusIsDir);
+    UNREFERENCED_PARAMETER(focusIsDir);
+    if (focused == nullptr)
+    {
+        return FALSE;
+    }
+
+    char currentPath[MAX_PATH];
+    GetCurrentPath(currentPath);
+
+    char shellPath[2 * MAX_PATH];
+    StringCchCopy(shellPath, _countof(shellPath), "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}");
+    StringCchCat(shellPath, _countof(shellPath), currentPath);
+    if (!SalamanderGeneral->SalPathAppend(shellPath, focused->Name, _countof(shellPath)))
+    {
+        return FALSE;
+    }
+
+    ATL::CA2W wideShellPath(shellPath);
+    LPITEMIDLIST absolutePidl = nullptr;
+    HRESULT hr = ::SHParseDisplayName(wideShellPath, nullptr, &absolutePidl, 0, nullptr);
+    if (FAILED(hr) || absolutePidl == nullptr)
+    {
+        return FALSE;
+    }
+
+    ATL::CComPtr<IShellFolder> parentFolder;
+    LPCITEMIDLIST childPidl = nullptr;
+    hr = ::SHBindToParent(absolutePidl, IID_IShellFolder, reinterpret_cast<void**>(&parentFolder.p), &childPidl);
+    if (FAILED(hr) || parentFolder == nullptr || childPidl == nullptr)
+    {
+        ::CoTaskMemFree(absolutePidl);
+        return FALSE;
+    }
+
+    ATL::CComPtr<IContextMenu> contextMenu;
+    hr = parentFolder->GetUIObjectOf(parent, 1, &childPidl, IID_IContextMenu, nullptr, reinterpret_cast<void**>(&contextMenu.p));
+    if (FAILED(hr) || contextMenu == nullptr)
+    {
+        ::CoTaskMemFree(absolutePidl);
+        return FALSE;
+    }
+
+    HMENU menu = ::CreatePopupMenu();
+    if (menu == nullptr)
+    {
+        ::CoTaskMemFree(absolutePidl);
+        return FALSE;
+    }
+
+    m_shellContextMenu2.Release();
+    m_shellContextMenu3.Release();
+    contextMenu->QueryInterface(IID_IContextMenu2, reinterpret_cast<void**>(&m_shellContextMenu2.p));
+    contextMenu->QueryInterface(IID_IContextMenu3, reinterpret_cast<void**>(&m_shellContextMenu3.p));
+
+    bool menuShown = SUCCEEDED(contextMenu->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL | CMF_EXPLORE));
+    if (menuShown)
+    {
+        UINT cmd = ::TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_RIGHTBUTTON, menuX, menuY, parent, nullptr);
+        if (cmd != 0)
+        {
+            CMINVOKECOMMANDINFO invoke = {};
+            invoke.cbSize = sizeof(invoke);
+            invoke.hwnd = parent;
+            invoke.lpVerb = MAKEINTRESOURCEA(cmd - 1);
+            invoke.nShow = SW_SHOWNORMAL;
+            contextMenu->InvokeCommand(&invoke);
+        }
+    }
+
+    m_shellContextMenu3.Release();
+    m_shellContextMenu2.Release();
+    ::DestroyMenu(menu);
+    ::CoTaskMemFree(absolutePidl);
+    return menuShown;
+}
+
 void WINAPI CWpdFS::ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs)
 {
+    if (type == fscmItemsInPanel && selectedFiles + selectedDirs <= 1 && TryShellContextMenu(fsName, parent, menuX, menuY, panel))
+    {
+        return;
+    }
+
     CGUIMenuPopupAbstract* menu = SalamanderGUI->CreateMenuPopup();
     if (menu == nullptr)
     {
@@ -1896,6 +1982,19 @@ void WINAPI CWpdFS::ContextMenu(const char* fsName, HWND parent, int menuX, int 
     }
 
     SalamanderGUI->DestroyMenuPopup(menu);
+}
+
+BOOL WINAPI CWpdFS::HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult)
+{
+    if (m_shellContextMenu3 != nullptr)
+    {
+        return SUCCEEDED(m_shellContextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, plResult));
+    }
+    if (m_shellContextMenu2 != nullptr)
+    {
+        return SUCCEEDED(m_shellContextMenu2->HandleMenuMsg(uMsg, wParam, lParam));
+    }
+    return FALSE;
 }
 
 BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)

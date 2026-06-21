@@ -41,6 +41,7 @@ protected:
     HRESULT WINAPI FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes);
     HRESULT WINAPI ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip);
     BOOL WINAPI HandleDeviceReconnectRequired(HWND parent, HRESULT hr);
+    BOOL WINAPI TryShellContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int panel);
 
     /* CFxPluginFSInterface Overrides */
 
@@ -99,6 +100,12 @@ protected:
         int selectedFiles,
         int selectedDirs) override;
 
+    virtual BOOL WINAPI HandleMenuMsg(
+        UINT uMsg,
+        WPARAM wParam,
+        LPARAM lParam,
+        LRESULT* plResult) override;
+
     virtual BOOL WINAPI Delete(
         const char* fsName,
         int mode,
@@ -147,6 +154,10 @@ public:
     };
 
     static PCTSTR SUGGESTED_NAME;
+
+private:
+    ATL::CComPtr<IContextMenu2> m_shellContextMenu2;
+    ATL::CComPtr<IContextMenu3> m_shellContextMenu3;
 };
 
 typedef enum _WPDFS_LEVEL
