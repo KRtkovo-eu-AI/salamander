@@ -37,6 +37,11 @@ protected:
     HRESULT WINAPI DownloadWpdFile(CWpdBaseContentItem* item, PCSTR targetName);
     HRESULT WINAPI DownloadWpdObject(CWpdDevice* device, PCWSTR objectId, PCSTR targetName);
     HRESULT WINAPI UploadDiskFile(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
+    HRESULT WINAPI UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
+    HRESULT WINAPI FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes);
+    HRESULT WINAPI ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip);
+    BOOL WINAPI HandleDeviceReconnectRequired(HWND parent, HRESULT hr);
+    BOOL WINAPI TryShellContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int panel);
 
     /* CFxPluginFSInterface Overrides */
 
@@ -57,12 +62,49 @@ protected:
         char* newName,
         BOOL& cancel) override;
 
+    virtual BOOL WINAPI GetPathForMainWindowTitle(
+        const char* fsName,
+        int mode,
+        char* buf,
+        int bufSize) override;
+
+    virtual BOOL WINAPI GetNextDirectoryLineHotPath(
+        const char* text,
+        int pathLen,
+        int& offset) override;
+
+    virtual void WINAPI CompleteDirectoryLineHotPath(
+        char* path,
+        int pathBufSize) override;
+
     virtual BOOL WINAPI CreateDir(
         const char* fsName,
         int mode,
         HWND parent,
         char* newName,
         BOOL& cancel) override;
+
+    virtual void WINAPI ViewFile(
+        const char* fsName,
+        HWND parent,
+        CSalamanderForViewFileOnFSAbstract* salamander,
+        CFileData& file) override;
+
+    virtual void WINAPI ContextMenu(
+        const char* fsName,
+        HWND parent,
+        int menuX,
+        int menuY,
+        int type,
+        int panel,
+        int selectedFiles,
+        int selectedDirs) override;
+
+    virtual BOOL WINAPI HandleMenuMsg(
+        UINT uMsg,
+        WPARAM wParam,
+        LPARAM lParam,
+        LRESULT* plResult) override;
 
     virtual BOOL WINAPI Delete(
         const char* fsName,
@@ -106,10 +148,16 @@ public:
     {
         SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE |
                              FS_SERVICE_COPYFROMFS | FS_SERVICE_MOVEFROMFS |
+                             FS_SERVICE_VIEWFILE | FS_SERVICE_GETPATHFORMAINWNDTITLE |
+                             FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETNEXTDIRLINEHOTPATH |
                              FS_SERVICE_COPYFROMDISKTOFS | FS_SERVICE_MOVEFROMDISKTOFS
     };
 
     static PCTSTR SUGGESTED_NAME;
+
+private:
+    ATL::CComPtr<IContextMenu2> m_shellContextMenu2;
+    ATL::CComPtr<IContextMenu3> m_shellContextMenu3;
 };
 
 typedef enum _WPDFS_LEVEL

@@ -79,6 +79,25 @@ STRINGTABLE
 BEGIN
     IDS_SELECTEDDEVICEFMT   "{!}%d selected device{2:s|0||1|s}"
     IDS_NODEVICEINFOLINE    "No devices"
+    IDS_OPERATIONPROGRESS_TITLE "Portable Devices"
+    IDS_OPERATIONPROGRESS_CANCEL "Cancel"
+    IDS_OPERATIONPROGRESS_PREPARING "Preparing..."
+    IDS_OPERATIONPROGRESS_FILE "File:"
+    IDS_OPERATIONPROGRESS_TOTAL "Total:"
+    IDS_OPERATIONPROGRESS_MINIMIZE "Minimize"
+    IDS_OPERATIONPROGRESS_PAUSE "Pause"
+    IDS_RECONNECT_DEVICE_REQUIRED "The portable device stopped responding. Please disconnect and reconnect it. The Portables panel will return to the device list."
+    IDS_OPERATIONPROGRESS_BYTES "%s of %s copied"
+    IDS_OPERATIONPROGRESS_COPY "Copy"
+    IDS_OPERATIONPROGRESS_MOVE "Move"
+    IDS_OPERATIONPROGRESS_DELETE "Delete"
+    IDS_OPERATIONPROGRESS_COPYING "Copying"
+    IDS_OPERATIONPROGRESS_MOVING "Moving"
+    IDS_OPERATIONPROGRESS_DELETING "Deleting"
+    IDS_OPERATIONPROGRESS_TO "to"
+    IDS_OPERATIONPROGRESS_MOVED "%s of %s moved"
+    IDS_OPERATIONPROGRESS_PROCESSED "%s of %s processed"
+    IDS_OPERATIONPROGRESS_DELETINGSELECTED "Deleting selected items"
 END
 
 #endif    // Czech (Czech Republic) resources
@@ -98,4 +117,3 @@ LANGUAGE LANG_NEUTRAL,SUBLANG_NEUTRAL
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
