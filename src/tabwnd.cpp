@@ -534,13 +534,72 @@ void CTabWindow::EnsureSelectedTabVisible()
     if (upDown == NULL || !IsWindowVisible(upDown))
         return;
 
-    // TCM_SETCURFOCUS asks the tab control to scroll its internal strip so that
-    // the focused tab is visible. Keep the logical selection unchanged and do
-    // not notify the main window; this is only a visual scroll adjustment.
     CSelChangeGuard guard(SuppressSelectionNotifications);
+
+    // TCM_SETCURFOCUS can move the native tab strip close to the selected tab,
+    // but during startup/restored layouts it is not reliable enough by itself.
+    // Use it as a cheap first attempt, then fall back to clicking the native
+    // overflow arrows until the selected tab rectangle is inside the visible
+    // strip area.
     SendMessage(HWindow, TCM_SETCURFOCUS, sel, 0);
     if (TabCtrl_GetCurSel(HWindow) != sel)
         TabCtrl_SetCurSel(HWindow, sel);
+
+    RECT clientRect;
+    if (!GetClientRect(HWindow, &clientRect))
+        return;
+
+    RECT visibleRect = clientRect;
+    RECT upDownRect;
+    if (GetWindowRect(upDown, &upDownRect))
+    {
+        POINT pt = {upDownRect.left, upDownRect.top};
+        ScreenToClient(HWindow, &pt);
+        upDownRect.left = pt.x;
+        upDownRect.top = pt.y;
+        pt.x = upDownRect.right;
+        pt.y = upDownRect.bottom;
+        ScreenToClient(HWindow, &pt);
+        upDownRect.right = pt.x;
+        upDownRect.bottom = pt.y;
+
+        if (upDownRect.left > visibleRect.left && upDownRect.left < visibleRect.right)
+            visibleRect.right = upDownRect.left;
+    }
+
+    RECT upDownClientRect;
+    if (!GetClientRect(upDown, &upDownClientRect))
+        return;
+
+    int width = upDownClientRect.right - upDownClientRect.left;
+    int height = upDownClientRect.bottom - upDownClientRect.top;
+    if (width <= 0 || height <= 0)
+        return;
+
+    int leftArrowX = width / 4;
+    int rightArrowX = (3 * width) / 4;
+    int arrowY = height / 2;
+    int maxScrollAttempts = GetDisplayedTabCount() * 2;
+    if (maxScrollAttempts < 1)
+        maxScrollAttempts = 1;
+
+    for (int i = 0; i < maxScrollAttempts; ++i)
+    {
+        RECT tabRect;
+        if (!TabCtrl_GetItemRect(HWindow, sel, &tabRect))
+            break;
+
+        if (tabRect.left >= visibleRect.left && tabRect.right <= visibleRect.right)
+            break;
+
+        bool scrollLeft = tabRect.left < visibleRect.left;
+        LPARAM clickPoint = MAKELPARAM(scrollLeft ? leftArrowX : rightArrowX, arrowY);
+        SendMessage(upDown, WM_LBUTTONDOWN, MK_LBUTTON, clickPoint);
+        SendMessage(upDown, WM_LBUTTONUP, 0, clickPoint);
+
+        if (TabCtrl_GetCurSel(HWindow) != sel)
+            TabCtrl_SetCurSel(HWindow, sel);
+    }
 
     UpdateOverflowButtonColors();
 }
