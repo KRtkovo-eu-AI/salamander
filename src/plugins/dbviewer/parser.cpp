@@ -1156,3 +1156,511 @@ BOOL CParserInterfaceCSV::IsRecordDeleted()
     // the CSV format does not support this state
     return FALSE;
 }
+
+//****************************************************************************
+//
+// CParserInterfaceJSONL
+//
+
+static bool SkipJSONWhitespace(const char* s, int len, int& i)
+{
+    while (i < len && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n'))
+        i++;
+    return i < len;
+}
+
+static char* DupWithMalloc(const char* src)
+{
+    if (src == NULL)
+        return NULL;
+    size_t n = strlen(src) + 1;
+    char* dst = (char*)malloc(n);
+    if (dst != NULL)
+        memcpy(dst, src, n);
+    return dst;
+}
+
+static char* ConvertJSONLineToKeyValueText(const char* line)
+{
+    if (line == NULL)
+        return NULL;
+
+    const int len = (int)strlen(line);
+    int i = 0;
+    SkipJSONWhitespace(line, len, i);
+    if (i >= len || line[i] != '{')
+        return DupWithMalloc(line);
+    i++;
+
+    char* out = (char*)malloc((size_t)len * 2 + 1);
+    if (out == NULL)
+        return NULL;
+    int outLen = 0;
+    bool first = true;
+
+    while (i < len)
+    {
+        SkipJSONWhitespace(line, len, i);
+        if (i < len && line[i] == '}')
+            break;
+        if (i >= len || line[i] != '"')
+        {
+            free(out);
+            return DupWithMalloc(line);
+        }
+        i++;
+        int keyStart = i;
+        while (i < len)
+        {
+            if (line[i] == '\\' && i + 1 < len)
+                i += 2;
+            else if (line[i] == '"')
+                break;
+            else
+                i++;
+        }
+        if (i >= len)
+        {
+            free(out);
+            return DupWithMalloc(line);
+        }
+        int keyEnd = i++;
+        SkipJSONWhitespace(line, len, i);
+        if (i >= len || line[i] != ':')
+        {
+            free(out);
+            return DupWithMalloc(line);
+        }
+        i++;
+        SkipJSONWhitespace(line, len, i);
+        int valStart = i;
+        int depth = 0;
+        bool inStr = false;
+        while (i < len)
+        {
+            char ch = line[i];
+            if (inStr)
+            {
+                if (ch == '\\' && i + 1 < len)
+                    i += 2;
+                else if (ch == '"')
+                {
+                    inStr = false;
+                    i++;
+                }
+                else
+                    i++;
+            }
+            else
+            {
+                if (ch == '"')
+                    inStr = true, i++;
+                else if (ch == '{' || ch == '[')
+                    depth++, i++;
+                else if (ch == '}' || ch == ']')
+                {
+                    if (depth == 0)
+                        break;
+                    depth--, i++;
+                }
+                else if (ch == ',' && depth == 0)
+                    break;
+                else
+                    i++;
+            }
+        }
+        int valEnd = i;
+        while (valEnd > valStart && (line[valEnd - 1] == ' ' || line[valEnd - 1] == '\t' || line[valEnd - 1] == '\r' || line[valEnd - 1] == '\n'))
+            valEnd--;
+
+        if (!first)
+        {
+            out[outLen++] = ';';
+            out[outLen++] = ' ';
+        }
+        memcpy(out + outLen, line + keyStart, keyEnd - keyStart);
+        outLen += keyEnd - keyStart;
+        out[outLen++] = ':';
+        out[outLen++] = ' ';
+        memcpy(out + outLen, line + valStart, valEnd - valStart);
+        outLen += valEnd - valStart;
+        first = false;
+
+        if (i < len && line[i] == ',')
+            i++;
+    }
+
+    out[outLen] = 0;
+    if (first)
+    {
+        free(out);
+        return DupWithMalloc(line);
+    }
+    return out;
+}
+
+static DWORD CountColumnsInRecord(const char* record)
+{
+    if (record == NULL || *record == 0)
+        return 1;
+    DWORD count = 1;
+    for (const char* p = record; *p != 0; p++)
+    {
+        if (*p == ';')
+            count++;
+    }
+    return count;
+}
+
+static size_t GetColumnTokenLen(const char* record, DWORD index)
+{
+    if (record == NULL)
+        return 0;
+    const char* tokenStart = record;
+    DWORD tokenIndex = 0;
+    const char* p = record;
+    while (*p != 0 && tokenIndex < index)
+    {
+        if (*p == ';')
+        {
+            tokenIndex++;
+            tokenStart = p + 1;
+        }
+        p++;
+    }
+    if (tokenIndex != index)
+        return 0;
+
+    const char* tokenEnd = tokenStart;
+    while (*tokenEnd != 0 && *tokenEnd != ';')
+        tokenEnd++;
+    while (tokenStart < tokenEnd && (*tokenStart == ' ' || *tokenStart == '\t'))
+        tokenStart++;
+    while (tokenEnd > tokenStart && (tokenEnd[-1] == ' ' || tokenEnd[-1] == '\t'))
+        tokenEnd--;
+    return (size_t)(tokenEnd - tokenStart);
+}
+
+static bool UpdateJSONLColumnWidths(TDirectArray<DWORD>& maxLens, const char* record, DWORD cols)
+{
+    while ((DWORD)maxLens.Count < cols)
+    {
+        maxLens.Add(0);
+        if (!maxLens.IsGood())
+        {
+            maxLens.ResetState();
+            return false;
+        }
+    }
+    for (DWORD i = 0; i < cols; i++)
+    {
+        size_t len = GetColumnTokenLen(record, i);
+        if (len > maxLens[i])
+            maxLens[i] = (DWORD)len;
+    }
+    return true;
+}
+
+CParserInterfaceJSONL::CParserInterfaceJSONL()
+    : Records(1000, 1000), ColumnMaxLens(32, 32)
+{
+    FileName[0] = 0;
+    CurrentRecordIndex = 0;
+    MaxColumns = 1;
+    CellBuffer = NULL;
+}
+
+CParserInterfaceJSONL::~CParserInterfaceJSONL()
+{
+    CloseFile();
+}
+
+CParserStatusEnum
+CParserInterfaceJSONL::OpenFile(const char* fileName)
+{
+    if (fileName == NULL)
+        return psUnknownFile;
+
+    CloseFile();
+
+    FILE* f = fopen(fileName, "rb");
+    if (f == NULL)
+        return psFileNotFound;
+
+    const int initialCap = 4096;
+    int cap = initialCap;
+    int len = 0;
+    char* line = (char*)malloc(cap);
+    if (line == NULL)
+    {
+        fclose(f);
+        return psOOM;
+    }
+
+    CParserStatusEnum status = psOK;
+    int c;
+    while ((c = fgetc(f)) != EOF)
+    {
+        if (c == '\n')
+        {
+            while (len > 0 && line[len - 1] == '\r')
+                len--;
+
+            line[len] = 0;
+
+            if (len > 0)
+            {
+                char* record = ConvertJSONLineToKeyValueText(line);
+                if (record == NULL)
+                {
+                    status = psOOM;
+                    break;
+                }
+                Records.Add(record);
+                if (!Records.IsGood())
+                {
+                    free(record);
+                    Records.ResetState();
+                    status = psOOM;
+                    break;
+                }
+                DWORD cols = CountColumnsInRecord(record);
+                if (cols > MaxColumns)
+                    MaxColumns = cols;
+                if (!UpdateJSONLColumnWidths(ColumnMaxLens, record, cols))
+                {
+                    status = psOOM;
+                    break;
+                }
+            }
+            len = 0;
+            continue;
+        }
+
+        if (len + 1 >= cap)
+        {
+            int newCap = cap * 2;
+            char* grown = (char*)realloc(line, newCap);
+            if (grown == NULL)
+            {
+                status = psOOM;
+                break;
+            }
+            line = grown;
+            cap = newCap;
+        }
+        line[len++] = (char)c;
+    }
+
+    if (status == psOK && ferror(f))
+        status = psReadError;
+
+    if (status == psOK && len > 0)
+    {
+        while (len > 0 && line[len - 1] == '\r')
+            len--;
+        line[len] = 0;
+
+        char* record = ConvertJSONLineToKeyValueText(line);
+        if (record == NULL)
+            status = psOOM;
+        else
+        {
+            Records.Add(record);
+            if (!Records.IsGood())
+            {
+                free(record);
+                Records.ResetState();
+                status = psOOM;
+            }
+            else
+            {
+                DWORD cols = CountColumnsInRecord(record);
+                if (cols > MaxColumns)
+                    MaxColumns = cols;
+                if (!UpdateJSONLColumnWidths(ColumnMaxLens, record, cols))
+                    status = psOOM;
+            }
+        }
+    }
+
+    free(line);
+    fclose(f);
+
+    if (status != psOK)
+    {
+        CloseFile();
+        return status;
+    }
+
+    lstrcpyn(FileName, fileName, MAX_PATH);
+    CurrentRecordIndex = 0;
+    return psOK;
+}
+
+void CParserInterfaceJSONL::CloseFile()
+{
+    for (int i = 0; i < Records.Count; i++)
+    {
+        free(Records[i]);
+    }
+    Records.DestroyMembers();
+    FileName[0] = 0;
+    CurrentRecordIndex = 0;
+    MaxColumns = 1;
+    ColumnMaxLens.DestroyMembers();
+    if (CellBuffer != NULL)
+    {
+        free(CellBuffer);
+        CellBuffer = NULL;
+    }
+}
+
+BOOL CParserInterfaceJSONL::GetFileInfo(HWND hEdit)
+{
+    char buff[1000];
+    char buff2[1000];
+
+    SetWindowText(hEdit, "");
+    DWORD tab = 80;
+    SendMessage(hEdit, EM_SETTABSTOPS, 1, (LPARAM)&tab);
+    sprintf(buff, "%s\r\n\r\n", FileName);
+    SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+    HANDLE file = CreateFile(FileName, GENERIC_READ,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE,
+                             NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file != INVALID_HANDLE_VALUE)
+    {
+        FILETIME fileTime;
+        CQuadWord fileSize;
+        GetFileTime(file, NULL, NULL, &fileTime);
+        DWORD err;
+        SalGeneral->SalGetFileSize(file, fileSize, err);
+        CloseHandle(file);
+
+        SYSTEMTIME st;
+        FILETIME ft;
+        FileTimeToLocalFileTime(&fileTime, &ft);
+        FileTimeToSystemTime(&ft, &st);
+
+        GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, 100);
+        strcat(buff2, ", ");
+        GetTimeFormat(LOCALE_USER_DEFAULT, LOCALE_NOUSEROVERRIDE, &st, NULL, buff2 + strlen(buff2), 100);
+        sprintf(buff, "%s:\t%s\r\n", LoadStr(IDS_FINFO_MODIFIED), buff2);
+        SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+        SalGeneral->PrintDiskSize(buff2, fileSize, 1);
+        sprintf(buff, "%s:\t%s\r\n", LoadStr(IDS_FINFO_SIZE), buff2);
+        SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+    }
+
+    sprintf(buff, "%s:\t%u\r\n", LoadStr(IDS_FINFO_RECCOUNT), GetRecordCount());
+    SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+    sprintf(buff, "%s:\t%u\r\n", LoadStr(IDS_FINFO_FIELDCOUNT), GetFieldCount());
+    SendMessage(hEdit, EM_REPLACESEL, FALSE, (LPARAM)buff);
+
+    return TRUE;
+}
+
+DWORD CParserInterfaceJSONL::GetRecordCount()
+{
+    return Records.Count;
+}
+
+DWORD CParserInterfaceJSONL::GetFieldCount()
+{
+    return MaxColumns;
+}
+
+BOOL CParserInterfaceJSONL::GetFieldInfo(DWORD index, CFieldInfo* info)
+{
+    if (index >= MaxColumns)
+        return FALSE;
+
+    char colName[32];
+    sprintf(colName, "Field %u", index + 1);
+    if (info->Name == NULL)
+        info->NameMax = (int)strlen(colName) + 1;
+    else
+        lstrcpynA(info->Name, colName, info->NameMax);
+
+    info->LeftAlign = TRUE;
+    info->TextMax = (index < (DWORD)ColumnMaxLens.Count && ColumnMaxLens[index] > 0) ? (int)ColumnMaxLens[index] : -1;
+    if (info->Type != NULL)
+        lstrcpyn(info->Type, LoadStr(IDS_FTYPE_CHAR), 100);
+    info->FieldLen = -1;
+    info->Decimals = -1;
+    return TRUE;
+}
+
+CParserStatusEnum CParserInterfaceJSONL::FetchRecord(DWORD index)
+{
+    if (index >= (DWORD)Records.Count)
+        return psCount;
+    CurrentRecordIndex = index;
+    return psOK;
+}
+
+const char* CParserInterfaceJSONL::GetCellText(DWORD index, size_t* textLen)
+{
+    if (CurrentRecordIndex >= (DWORD)Records.Count || index >= MaxColumns)
+    {
+        *textLen = 0;
+        return "";
+    }
+
+    const char* record = Records[CurrentRecordIndex];
+    const char* tokenStart = record;
+    DWORD tokenIndex = 0;
+    const char* p = record;
+    while (*p != 0 && tokenIndex < index)
+    {
+        if (*p == ';')
+        {
+            tokenIndex++;
+            tokenStart = p + 1;
+        }
+        p++;
+    }
+    if (tokenIndex != index)
+    {
+        *textLen = 0;
+        return "";
+    }
+
+    const char* tokenEnd = tokenStart;
+    while (*tokenEnd != 0 && *tokenEnd != ';')
+        tokenEnd++;
+
+    while (tokenStart < tokenEnd && (*tokenStart == ' ' || *tokenStart == '\t'))
+        tokenStart++;
+    while (tokenEnd > tokenStart && (tokenEnd[-1] == ' ' || tokenEnd[-1] == '\t'))
+        tokenEnd--;
+
+    size_t len = (size_t)(tokenEnd - tokenStart);
+    free(CellBuffer);
+    CellBuffer = (char*)malloc(len + 1);
+    if (CellBuffer == NULL)
+    {
+        *textLen = 0;
+        return "";
+    }
+    memcpy(CellBuffer, tokenStart, len);
+    CellBuffer[len] = 0;
+    *textLen = len;
+    return CellBuffer;
+}
+
+const wchar_t* CParserInterfaceJSONL::GetCellTextW(DWORD index, size_t* textLen)
+{
+    UNREFERENCED_PARAMETER(index);
+    *textLen = 0;
+    return L"";
+}
+
+BOOL CParserInterfaceJSONL::IsRecordDeleted()
+{
+    return FALSE;
+}

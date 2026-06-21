@@ -48,18 +48,40 @@ BOOL CDatabase::Open(const char* fileName)
         status = Parser->OpenFile(fileName);
         if (status != psOK)
         {
-            // if that failed, try to open it as a CSV
+            const char* ext = strrchr(fileName, '.');
+
+            // if that failed, try to open it as a JSONL (for *.jsonl files)
             delete Parser;
-            CParserInterfaceCSV* pCSVParser;
-            Parser = pCSVParser = new CParserInterfaceCSV(&Renderer->Viewer->CfgCSV);
-            if (Parser == NULL)
-                goto OUT_OF_MEMORY;
-            status = Parser->OpenFile(fileName);
-            if (status == psOK)
+            Parser = NULL;
+
+            if (ext != NULL && _stricmp(ext, ".jsonl") == 0)
             {
-                IsUnicode = pCSVParser->GetIsUnicode();
-                IsUTF8 = pCSVParser->GetIsUTF8();
+                Parser = new CParserInterfaceJSONL();
+                if (Parser == NULL)
+                    goto OUT_OF_MEMORY;
+                status = Parser->OpenFile(fileName);
             }
+
+            // if JSONL parsing was not requested or failed, try to open it as a CSV
+            if (status != psOK)
+            {
+                delete Parser;
+                CParserInterfaceCSV* pCSVParser;
+                Parser = pCSVParser = new CParserInterfaceCSV(&Renderer->Viewer->CfgCSV);
+                if (Parser == NULL)
+                    goto OUT_OF_MEMORY;
+                status = Parser->OpenFile(fileName);
+                if (status == psOK)
+                {
+                    IsUnicode = pCSVParser->GetIsUnicode();
+                    IsUTF8 = pCSVParser->GetIsUTF8();
+                }
+            }
+        }
+        if (status == psOK && _stricmp(Parser->GetParserName(), "csv") != 0)
+        {
+            IsUnicode = FALSE;
+            IsUTF8 = FALSE;
         }
         if (status == psOK)
         {
