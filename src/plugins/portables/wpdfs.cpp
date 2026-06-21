@@ -166,10 +166,10 @@ public:
             HDC dc = ::GetDC(nullptr);
             if (dc != nullptr)
             {
-                metrics.lfMessageFont.lfHeight = -::MulDiv(9, ::GetDeviceCaps(dc, LOGPIXELSY), 72);
+                metrics.lfMessageFont.lfHeight = -::MulDiv(8, ::GetDeviceCaps(dc, LOGPIXELSY), 72);
                 ::ReleaseDC(nullptr, dc);
             }
-            StringCchCopy(metrics.lfMessageFont.lfFaceName, _countof(metrics.lfMessageFont.lfFaceName), "Segoe UI");
+            StringCchCopy(metrics.lfMessageFont.lfFaceName, _countof(metrics.lfMessageFont.lfFaceName), "MS Shell Dlg");
             m_font = ::CreateFontIndirect(&metrics.lfMessageFont);
         }
 
@@ -213,11 +213,11 @@ public:
         const int buttonY = clientRect.bottom - bottomMargin - buttonHeight;
 
         m_operationLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                            24, topMargin, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                            14, topMargin, 50, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
                                   70, topMargin, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_targetLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_RIGHT,
-                                         24, topMargin + 20, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                         14, topMargin + 20, 50, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_targetText = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
                                         70, topMargin + 20, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
