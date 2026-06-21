@@ -1253,10 +1253,6 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 [Code]
 
 
-const
-  CurrentConfigRoot = 'Software\Open Salamander Samandarin\5.0-samandarin-0.6';
-  CurrentConfigVersion = 109;
-
 var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
@@ -1277,7 +1273,7 @@ end;
 function HasExistingSalamanderConfiguration(): Boolean;
 begin
   Result :=
-    RegKeyExists(HKCU, CurrentConfigRoot + '\Configuration') or
+    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6\Configuration') or
     RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.5\Configuration') or
     RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.4\Configuration') or
     RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.3\Configuration') or
@@ -1304,28 +1300,21 @@ begin
     RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.01\Configuration');
 end;
 
-function SelectedSalamanderSLGName(): String;
-begin
-  Result := ActiveLanguage + '.slg';
-end;
-
 procedure SeedInitialSalamanderLanguage();
-var
-  ConfigRegPath: String;
 begin
-  { On clean installs, pre-seed just enough configuration for Salamander's
-    first start to load the same .SLG language that the user selected for the
-    installer. Existing registry/file configurations are left untouched so that
-    upgrades and portable installs keep their previous language/import flow. }
+  { On clean installs, write a tiny one-shot bootstrap outside Salamander's
+    real configuration. Salamander reads this only when no registry/file
+    configuration supplied a language, so the Welcome/import/storage flow still
+    sees a clean install instead of a fake registry configuration. }
   if HasExistingSalamanderConfiguration() or
      FileExists(ExpandConstant('{app}\config.reg')) or
      IsFileConfigurationStorageSelected() then
     Exit;
 
-  ConfigRegPath := CurrentConfigRoot + '\Configuration';
-  RegWriteDWordValue(HKCU, CurrentConfigRoot + '\Version', 'Configuration', CurrentConfigVersion);
-  RegWriteStringValue(HKCU, ConfigRegPath, 'Language', SelectedSalamanderSLGName());
-  RegWriteDWordValue(HKCU, ConfigRegPath, 'Language Changed', 1);
+  SaveStringToFile(
+    ExpandConstant('{app}\initial-language.ini'),
+    '[Configuration]'#13#10 + 'Language=' + ActiveLanguage + '.slg'#13#10,
+    False);
 end;
 
 function InitializeUninstall(): Boolean;

@@ -4224,6 +4224,31 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     }
     LoadSaveToRegistryMutex.Leave();
 
+    char initialLanguageBootstrapPath[MAX_PATH];
+    initialLanguageBootstrapPath[0] = 0;
+    if (Configuration.SLGName[0] == 0)
+    {
+        GetModuleFileName(NULL, initialLanguageBootstrapPath, MAX_PATH);
+        char* fileName = strrchr(initialLanguageBootstrapPath, '\\');
+        if (fileName != NULL)
+        {
+            strcpy(fileName + 1, "initial-language.ini");
+
+            char initialSLGName[MAX_PATH];
+            initialSLGName[0] = 0;
+            GetPrivateProfileString("Configuration", "Language", "", initialSLGName,
+                                    MAX_PATH, initialLanguageBootstrapPath);
+            if (initialSLGName[0] != 0 &&
+                strchr(initialSLGName, '\\') == NULL &&
+                strchr(initialSLGName, '/') == NULL &&
+                strchr(initialSLGName, ':') == NULL)
+            {
+                lstrcpyn(Configuration.SLGName, initialSLGName, MAX_PATH);
+                langChanged = TRUE;
+            }
+        }
+    }
+
 FIND_NEW_SLG_FILE:
 
     // pokud klic neexistuje, zobrazime vyberovy dialog
@@ -4314,6 +4339,8 @@ FIND_NEW_SLG_FILE:
     }
 
     strcpy(Configuration.LoadedSLGName, Configuration.SLGName);
+    if (initialLanguageBootstrapPath[0] != 0)
+        DeleteFile(initialLanguageBootstrapPath);
 
     // nechame jiz bezici salmon nacist zvolene SLG (zatim pouzival nejake provizorni)
     SalmonSetSLG(Configuration.SLGName);
