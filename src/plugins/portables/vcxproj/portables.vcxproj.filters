@@ -36,6 +36,9 @@
     <ClCompile Include="..\globals.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\shared\plugindarkmode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\shared\mhandles.cpp">
       <Filter>cpp\shared</Filter>
     </ClCompile>
@@ -106,6 +109,9 @@
     </ClInclude>
     <ClInclude Include="..\globals.h">
       <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\shared\plugindarkmode.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\shared\mhandles.h">
       <Filter>h\shared</Filter>
