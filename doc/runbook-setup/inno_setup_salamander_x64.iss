@@ -1242,7 +1242,7 @@ Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyApp
 Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Parameters: "-language ""{language}.slg"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
 
 
 [UninstallRun]
@@ -1269,53 +1269,6 @@ begin
   Result := CompareText(StorageType, 'RegFile') = 0;
 end;
 
-
-function HasExistingSalamanderConfiguration(): Boolean;
-begin
-  Result :=
-    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.6\Configuration') or
-    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.5\Configuration') or
-    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.4\Configuration') or
-    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.3\Configuration') or
-    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.2\Configuration') or
-    RegKeyExists(HKCU, 'Software\Open Salamander Samandarin\5.0-samandarin-0.1\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0 beta 1 (DB177)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0 beta 1 (DB171)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.08\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 4.0 beta 1 (DB168)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.07\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB162)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB159)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.06\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB153)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.05\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB147)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.04\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB141)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.03\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB135)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.02\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.1 beta 1 (DB129)\Configuration') or
-    RegKeyExists(HKCU, 'Software\Altap\Altap Salamander 3.01\Configuration');
-end;
-
-procedure SeedInitialSalamanderLanguage();
-begin
-  { On clean installs, write a tiny one-shot bootstrap outside Salamander's
-    real configuration. Salamander reads this only when no registry/file
-    configuration supplied a language, so the Welcome/import/storage flow still
-    sees a clean install instead of a fake registry configuration. }
-  if HasExistingSalamanderConfiguration() or
-     FileExists(ExpandConstant('{app}\config.reg')) or
-     IsFileConfigurationStorageSelected() then
-    Exit;
-
-  SaveStringToFile(
-    ExpandConstant('{app}\initial-language.ini'),
-    '[Configuration]'#13#10 + 'Language=' + ActiveLanguage + '.slg'#13#10,
-    False);
-end;
 
 function InitializeUninstall(): Boolean;
 begin
@@ -1387,6 +1340,5 @@ begin
     if not FileExists(PluginsVer) then
       SaveStringToFile(PluginsVer, '', False);
 
-    SeedInitialSalamanderLanguage();
   end;
 end;

@@ -3801,6 +3801,45 @@ void GetCommandLineParamExpandEnvVars(const char* argv, char* target, DWORD targ
 }
 
 // pokud jsou parametry OK, vraci TRUE, jinak vraci FALSE
+
+BOOL GetCommandLineLanguageOverride(LPSTR cmdLine, char* slgName, int slgNameSize)
+{
+    slgName[0] = 0;
+
+    char buf[4096];
+    char* argv[20];
+    int p = 20;
+    if (!GetCmdLine(buf, _countof(buf), argv, p, cmdLine))
+        return FALSE;
+
+    for (int i = 0; i < p; i++)
+    {
+        if (StrICmp(argv[i], "-language") == 0 || StrICmp(argv[i], "/language") == 0)
+        {
+            if (i + 1 >= p)
+                return FALSE;
+
+            const char* requestedLanguage = argv[i + 1];
+            if (requestedLanguage[0] == 0 ||
+                strchr(requestedLanguage, '\\') != NULL ||
+                strchr(requestedLanguage, '/') != NULL ||
+                strchr(requestedLanguage, ':') != NULL)
+                return FALSE;
+
+            lstrcpyn(slgName, requestedLanguage, slgNameSize);
+            if (strchr(slgName, '.') == NULL)
+            {
+                if ((int)strlen(slgName) + 5 > slgNameSize)
+                    return FALSE;
+                strcat(slgName, ".slg");
+            }
+            return TRUE;
+        }
+    }
+
+    return TRUE;
+}
+
 BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams)
 {
     // nechceme menit cesty, menit ikonu, menit prefix -- vse je potreba vynulovat
@@ -3959,6 +3998,15 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
                 lstrcpyn(OpenReadmeInNotepad, argv[i + 1], MAX_PATH);
                 i++;
                 continue;
+            }
+
+            if (StrICmp(argv[i], "-language") == 0 || StrICmp(argv[i], "/language") == 0)
+            {
+                if (i + 1 < p)
+                {
+                    i++;
+                    continue;
+                }
             }
 
             return FALSE; // wrong parameters
@@ -4193,6 +4241,13 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     }
     const char* configKey = autoImportConfig ? autoImportConfigFromKey : SalamanderConfigurationRoots[0];
 
+    char commandLineSLGName[MAX_PATH];
+    if (!GetCommandLineLanguageOverride(cmdLine, commandLineSLGName, MAX_PATH))
+    {
+        MessageBox(NULL, "Invalid language command line parameter.", SALAMANDER_TEXT_VERSION, MB_OK | MB_ICONERROR);
+        goto EXIT_1a;
+    }
+
     // zkusime z aktualni konfigurace vytahnout klic urcujici jazyk
     LoadSaveToRegistryMutex.Enter();
     HKEY hSalamander;
@@ -4226,6 +4281,14 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
 
     char initialLanguageBootstrapPath[MAX_PATH];
     initialLanguageBootstrapPath[0] = 0;
+    if (commandLineSLGName[0] != 0)
+    {
+        lstrcpyn(Configuration.SLGName, commandLineSLGName, MAX_PATH);
+        Configuration.UseAsAltSLGInOtherPlugins = FALSE;
+        Configuration.AltPluginSLGName[0] = 0;
+        langChanged = TRUE;
+    }
+
     if (Configuration.SLGName[0] == 0)
     {
         GetModuleFileName(NULL, initialLanguageBootstrapPath, MAX_PATH);
