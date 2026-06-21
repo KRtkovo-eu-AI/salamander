@@ -1,0 +1,18 @@
+Open Salamander Samandarin
+
+Open Salamander Samandarin je neoficiálny, experimentálny open-source fork
+Open Salamandera, vytvorený KRtekTM s pomocou vývoja s AI / vibe-codingu.
+Je určený dobrodružným používateľom; počítajte, prosím, s nedostatkami a pred
+použitím na dôležitú prácu si overte poznámky k vydaniu.
+
+Hlavný kód Open Salamandera je licencovaný pod GNU GPL verzie 2 alebo novšej.
+Niektoré pribalené komponenty a pluginy používajú vlastné licencie vrátane
+GPLv3, MIT, Zlib a ďalších open-source licencií. Toto krátke upozornenie
+nenahrádza tieto licenčné podmienky; pozrite si súbor LICENSE v repozitári a
+upozornenia tretích strán.
+
+Tento softvér sa poskytuje „tak, ako je“, bez akejkoľvek výslovnej alebo
+predpokladanej záruky. Povolenie používať, kopírovať, upravovať a šíriť ho je
+udelené podľa príslušných open-source licencií relevantných súborov a
+komponentov. Neskresľujte pôvod tohto forku, zmenené verzie riadne označte a
+ponechajte licenčné a autorské upozornenia nedotknuté.

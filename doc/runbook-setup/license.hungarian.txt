@@ -1,0 +1,20 @@
+Open Salamander Samandarin
+
+Az Open Salamander Samandarin az Open Salamander nem hivatalos, kísérleti,
+nyílt forráskódú forkja, amelyet a KRtekTM hozott létre MI-támogatott /
+vibe-coding fejlesztéssel. Kalandvágyó felhasználóknak készült; kérjük,
+számítson kisebb hibákra, és fontos munkához való használat előtt ellenőrizze a
+kiadási megjegyzéseket.
+
+Az Open Salamander fő kódja a GNU GPL 2-es vagy újabb verziója alatt licencelt.
+Néhány mellékelt komponens és bővítmény saját licencet használ, többek között
+GPLv3, MIT, Zlib és más nyílt forráskódú licenceket. Ez a rövid tájékoztató nem
+helyettesíti ezeket a licencfeltételeket; lásd a tároló LICENSE fájlját és a
+harmadik felekre vonatkozó értesítéseket.
+
+Ezt a szoftvert „adott állapotban” biztosítjuk, minden kifejezett vagy
+hallgatólagos garancia nélkül. A használatára, másolására, módosítására és
+terjesztésére vonatkozó engedélyt az érintett fájlok és komponensek alkalmazandó
+nyílt forráskódú licencei adják meg. Ne tüntesse fel hamisan ennek a forknak az
+eredetét, a módosított verziókat megfelelően jelölje meg, és őrizze meg a
+licenc- és szerzői jogi értesítéseket.

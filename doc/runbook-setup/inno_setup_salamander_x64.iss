@@ -48,17 +48,72 @@ UninstallDisplayName={#MyAppDisplayName}
 UninstallDisplayIcon={app}\salamand.exe
 CreateUninstallRegKey=yes
 SetupIconFile=..\..\src\res\samandarin.ico
-LicenseFile={#SourcePath}\license.txt
 DisableFinishedPage=yes
 ChangesAssociations=yes
 WizardSmallImageFile={#SourcePath}\setup_img_small.png
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "{#SourcePath}\license.txt"
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"; LicenseFile: "{#SourcePath}\license.chinesesimplified.txt"
+Name: "czech"; MessagesFile: "compiler:Languages\Czech.isl"; LicenseFile: "{#SourcePath}\license.czech.txt"
+Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"; LicenseFile: "{#SourcePath}\license.dutch.txt"
+Name: "french"; MessagesFile: "compiler:Languages\French.isl"; LicenseFile: "{#SourcePath}\license.french.txt"
+Name: "german"; MessagesFile: "compiler:Languages\German.isl"; LicenseFile: "{#SourcePath}\license.german.txt"
+Name: "hungarian"; MessagesFile: "compiler:Languages\Hungarian.isl"; LicenseFile: "{#SourcePath}\license.hungarian.txt"
+Name: "romanian"; MessagesFile: "compiler:Languages\Romanian.isl"; LicenseFile: "{#SourcePath}\license.romanian.txt"
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"; LicenseFile: "{#SourcePath}\license.russian.txt"
+Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#SourcePath}\license.slovak.txt"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; LicenseFile: "{#SourcePath}\license.spanish.txt"
+
+[CustomMessages]
+english.StartMenuShortcut=Create a &Start Menu shortcut
+english.DesktopShortcut=Create a &desktop shortcut
+english.Shortcuts=Shortcuts:
+english.LaunchProgram=Launch {#MyAppName}
+chinesesimplified.StartMenuShortcut=创建“开始”菜单快捷方式(&S)
+chinesesimplified.DesktopShortcut=创建桌面快捷方式(&D)
+chinesesimplified.Shortcuts=快捷方式:
+chinesesimplified.LaunchProgram=启动 {#MyAppName}
+czech.StartMenuShortcut=Vytvořit zástupce v nabídce &Start
+czech.DesktopShortcut=Vytvořit zástupce na &ploše
+czech.Shortcuts=Zástupci:
+czech.LaunchProgram=Spustit {#MyAppName}
+dutch.StartMenuShortcut=Een snelkoppeling in het menu &Start maken
+dutch.DesktopShortcut=Een snelkoppeling op het &bureaublad maken
+dutch.Shortcuts=Snelkoppelingen:
+dutch.LaunchProgram={#MyAppName} starten
+french.StartMenuShortcut=Créer un raccourci dans le menu &Démarrer
+french.DesktopShortcut=Créer un raccourci sur le &Bureau
+french.Shortcuts=Raccourcis :
+french.LaunchProgram=Lancer {#MyAppName}
+german.StartMenuShortcut=Eine Verknüpfung im &Startmenü erstellen
+german.DesktopShortcut=Eine Verknüpfung auf dem &Desktop erstellen
+german.Shortcuts=Verknüpfungen:
+german.LaunchProgram={#MyAppName} starten
+hungarian.StartMenuShortcut=&Start menü parancsikon létrehozása
+hungarian.DesktopShortcut=&Asztali parancsikon létrehozása
+hungarian.Shortcuts=Parancsikonok:
+hungarian.LaunchProgram={#MyAppName} indítása
+romanian.StartMenuShortcut=Creează o scurtătură în meniul &Start
+romanian.DesktopShortcut=Creează o scurtătură pe &desktop
+romanian.Shortcuts=Scurtături:
+romanian.LaunchProgram=Pornește {#MyAppName}
+russian.StartMenuShortcut=Создать ярлык в меню «&Пуск»
+russian.DesktopShortcut=Создать ярлык на &рабочем столе
+russian.Shortcuts=Ярлыки:
+russian.LaunchProgram=Запустить {#MyAppName}
+slovak.StartMenuShortcut=Vytvoriť odkaz v ponuke &Štart
+slovak.DesktopShortcut=Vytvoriť odkaz na &pracovnej ploche
+slovak.Shortcuts=Odkazy:
+slovak.LaunchProgram=Spustiť {#MyAppName}
+spanish.StartMenuShortcut=Crear un acceso directo en el menú &Inicio
+spanish.DesktopShortcut=Crear un acceso directo en el &escritorio
+spanish.Shortcuts=Accesos directos:
+spanish.LaunchProgram=Iniciar {#MyAppName}
 
 [Tasks]
-Name: "startmenuicon"; Description: "Create a &Start Menu shortcut"; GroupDescription: "Shortcuts:"
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
+Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"
+Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked
 
 [Dirs]
 Name: "{app}\convert"
@@ -1188,7 +1243,7 @@ Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyApp
 Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
 
 
 [UninstallRun]
