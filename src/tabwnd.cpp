@@ -17,6 +17,10 @@
 #define TCM_SETINSERTMARK (TCM_FIRST + 44)
 #endif
 
+#ifndef TCM_SETCURFOCUS
+#define TCM_SETCURFOCUS (TCM_FIRST + 48)
+#endif
+
 #ifndef TCINSERTMARK
 typedef struct tagTCINSERTMARK
 {
@@ -195,6 +199,7 @@ static char g_TabTipText[MAX_PATH] = "";
 static bool g_TabTipClassRegistered = false;
 static const UINT_PTR kTabTipTimerId = 1001;
 static const int kTabTipDelayMs = 500;
+static const UINT WM_USER_ENSURE_SELECTED_TAB_VISIBLE = WM_APP + 321;
 
 
 static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -511,7 +516,92 @@ void CTabWindow::SetCurSel(int index)
             CSelChangeGuard guard(SuppressSelectionNotifications);
             TabCtrl_SetCurSel(HWindow, index);
         }
+        EnsureSelectedTabVisible();
     }
+}
+
+void CTabWindow::EnsureSelectedTabVisible()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return;
+
+    int sel = TabCtrl_GetCurSel(HWindow);
+    if (sel < 0 || IsNewTabButtonIndex(sel))
+        return;
+
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    if (upDown == NULL || !IsWindowVisible(upDown))
+        return;
+
+    CSelChangeGuard guard(SuppressSelectionNotifications);
+
+    // TCM_SETCURFOCUS can move the native tab strip close to the selected tab,
+    // but during startup/restored layouts it is not reliable enough by itself.
+    // Use it as a cheap first attempt, then fall back to clicking the native
+    // overflow arrows until the selected tab rectangle is inside the visible
+    // strip area.
+    SendMessage(HWindow, TCM_SETCURFOCUS, sel, 0);
+    if (TabCtrl_GetCurSel(HWindow) != sel)
+        TabCtrl_SetCurSel(HWindow, sel);
+
+    RECT clientRect;
+    if (!GetClientRect(HWindow, &clientRect))
+        return;
+
+    RECT visibleRect = clientRect;
+    RECT upDownRect;
+    if (GetWindowRect(upDown, &upDownRect))
+    {
+        POINT pt = {upDownRect.left, upDownRect.top};
+        ScreenToClient(HWindow, &pt);
+        upDownRect.left = pt.x;
+        upDownRect.top = pt.y;
+        pt.x = upDownRect.right;
+        pt.y = upDownRect.bottom;
+        ScreenToClient(HWindow, &pt);
+        upDownRect.right = pt.x;
+        upDownRect.bottom = pt.y;
+
+        if (upDownRect.left > visibleRect.left && upDownRect.left < visibleRect.right)
+            visibleRect.right = upDownRect.left;
+    }
+
+    RECT upDownClientRect;
+    if (!GetClientRect(upDown, &upDownClientRect))
+        return;
+
+    int width = upDownClientRect.right - upDownClientRect.left;
+    int height = upDownClientRect.bottom - upDownClientRect.top;
+    if (width <= 0 || height <= 0)
+        return;
+
+    int leftArrowX = width / 4;
+    int rightArrowX = (3 * width) / 4;
+    int arrowY = height / 2;
+    int maxScrollAttempts = GetDisplayedTabCount() * 2;
+    if (maxScrollAttempts < 1)
+        maxScrollAttempts = 1;
+
+    for (int i = 0; i < maxScrollAttempts; ++i)
+    {
+        RECT tabRect;
+        if (!TabCtrl_GetItemRect(HWindow, sel, &tabRect))
+            break;
+
+        if (tabRect.left >= visibleRect.left && tabRect.right <= visibleRect.right)
+            break;
+
+        bool scrollLeft = tabRect.left < visibleRect.left;
+        LPARAM clickPoint = MAKELPARAM(scrollLeft ? leftArrowX : rightArrowX, arrowY);
+        SendMessage(upDown, WM_LBUTTONDOWN, MK_LBUTTON, clickPoint);
+        SendMessage(upDown, WM_LBUTTONUP, 0, clickPoint);
+
+        if (TabCtrl_GetCurSel(HWindow) != sel)
+            TabCtrl_SetCurSel(HWindow, sel);
+    }
+
+    UpdateOverflowButtonColors();
 }
 
 int CTabWindow::GetCurSel() const
@@ -695,6 +785,7 @@ void CTabWindow::RefreshLayout()
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
+    EnsureSelectedTabVisible();
 }
 
 void CTabWindow::EnsureTabTipWnd()
@@ -2210,7 +2301,12 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
     case WM_THEMECHANGED:
         UpdateOverflowButtonColors();
+        PostMessage(HWindow, WM_USER_ENSURE_SELECTED_TAB_VISIBLE, 0, 0);
         break;
+
+    case WM_USER_ENSURE_SELECTED_TAB_VISIBLE:
+        EnsureSelectedTabVisible();
+        return 0;
 
     case WM_PARENTNOTIFY:
         if (LOWORD(wParam) == WM_CREATE)

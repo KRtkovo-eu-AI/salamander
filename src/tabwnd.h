@@ -26,6 +26,7 @@ public:
     void RemoveAllTabs();
     void SetTabText(int index, const wchar_t* text);
     void SetCurSel(int index);
+    void EnsureSelectedTabVisible();
     int GetCurSel() const;
     int GetTabCount() const;
     LPARAM GetItemData(int index) const;
