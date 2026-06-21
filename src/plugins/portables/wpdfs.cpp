@@ -1843,43 +1843,141 @@ BOOL WINAPI CWpdFS::TryShellContextMenu(const char* fsName, HWND parent, int men
     char currentPath[MAX_PATH];
     GetCurrentPath(currentPath);
 
-    char shellPath[2 * MAX_PATH];
-    StringCchCopy(shellPath, _countof(shellPath), "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}");
-    StringCchCat(shellPath, _countof(shellPath), currentPath);
-    if (!SalamanderGeneral->SalPathAppend(shellPath, focused->Name, _countof(shellPath)))
+    char fullPortablePath[2 * MAX_PATH];
+    lstrcpyn(fullPortablePath, currentPath, _countof(fullPortablePath));
+    if (!SalamanderGeneral->SalPathAppend(fullPortablePath, focused->Name, _countof(fullPortablePath)))
     {
         return FALSE;
     }
 
-    ATL::CA2W wideShellPath(shellPath);
-    LPITEMIDLIST absolutePidl = nullptr;
-    HRESULT hr = ::SHParseDisplayName(wideShellPath, nullptr, &absolutePidl, 0, nullptr);
-    if (FAILED(hr) || absolutePidl == nullptr)
+    char components[16][MAX_PATH];
+    int componentCount = 0;
+    char* context = nullptr;
+    char* token = strtok_s(fullPortablePath, "\\", &context);
+    while (token != nullptr && componentCount < _countof(components))
+    {
+        if (token[0] != '\0')
+        {
+            lstrcpyn(components[componentCount++], token, _countof(components[0]));
+        }
+        token = strtok_s(nullptr, "\\", &context);
+    }
+    if (componentCount == 0)
     {
         return FALSE;
     }
+
+    auto findChildByDisplayName = [](IShellFolder* folder, HWND enumParent, PCSTR name, _Out_ LPITEMIDLIST* childPidl) -> HRESULT
+    {
+        *childPidl = nullptr;
+        ATL::CComPtr<IEnumIDList> childEnum;
+        HRESULT hr = folder->EnumObjects(enumParent, SHCONTF_FOLDERS | SHCONTF_NONFOLDERS | SHCONTF_INCLUDEHIDDEN, &childEnum);
+        if (FAILED(hr))
+        {
+            return hr;
+        }
+
+        for (;;)
+        {
+            LPITEMIDLIST enumPidl = nullptr;
+            ULONG fetched = 0;
+            hr = childEnum->Next(1, &enumPidl, &fetched);
+            if (hr != S_OK)
+            {
+                return S_FALSE;
+            }
+
+            char displayName[MAX_PATH];
+            STRRET strret;
+            hr = folder->GetDisplayNameOf(enumPidl, SHGDN_NORMAL, &strret);
+            if (SUCCEEDED(hr))
+            {
+                hr = ::StrRetToBuf(&strret, enumPidl, displayName, _countof(displayName));
+            }
+            if (SUCCEEDED(hr) && SalamanderGeneral->StrICmp(displayName, name) == 0)
+            {
+                *childPidl = enumPidl;
+                return S_OK;
+            }
+            ::CoTaskMemFree(enumPidl);
+        }
+    };
+
+    static PCWSTR const shellRoots[] =
+        {
+            L"::{35786D3C-B075-49b9-88DD-029876E11C01}", // Portable Devices
+            L"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}", // This PC / My Computer
+        };
 
     ATL::CComPtr<IShellFolder> parentFolder;
-    LPCITEMIDLIST childPidl = nullptr;
-    hr = ::SHBindToParent(absolutePidl, IID_IShellFolder, reinterpret_cast<void**>(&parentFolder.p), &childPidl);
-    if (FAILED(hr) || parentFolder == nullptr || childPidl == nullptr)
+    LPITEMIDLIST childPidl = nullptr;
+    HRESULT hr = E_FAIL;
+    for (int rootIndex = 0; rootIndex < _countof(shellRoots) && parentFolder == nullptr; ++rootIndex)
     {
-        ::CoTaskMemFree(absolutePidl);
+        LPITEMIDLIST rootPidl = nullptr;
+        hr = ::SHParseDisplayName(shellRoots[rootIndex], nullptr, &rootPidl, 0, nullptr);
+        if (FAILED(hr) || rootPidl == nullptr)
+        {
+            continue;
+        }
+
+        ATL::CComPtr<IShellFolder> desktop;
+        ATL::CComPtr<IShellFolder> currentFolder;
+        hr = ::SHGetDesktopFolder(&desktop);
+        if (SUCCEEDED(hr))
+        {
+            hr = desktop->BindToObject(rootPidl, nullptr, IID_IShellFolder, reinterpret_cast<void**>(&currentFolder.p));
+        }
+        ::CoTaskMemFree(rootPidl);
+        if (FAILED(hr) || currentFolder == nullptr)
+        {
+            continue;
+        }
+
+        for (int component = 0; component < componentCount; ++component)
+        {
+            LPITEMIDLIST nextPidl = nullptr;
+            hr = findChildByDisplayName(currentFolder, parent, components[component], &nextPidl);
+            if (FAILED(hr) || nextPidl == nullptr)
+            {
+                break;
+            }
+            if (component == componentCount - 1)
+            {
+                parentFolder = currentFolder;
+                childPidl = nextPidl;
+                hr = S_OK;
+                break;
+            }
+
+            ATL::CComPtr<IShellFolder> nextFolder;
+            hr = currentFolder->BindToObject(nextPidl, nullptr, IID_IShellFolder, reinterpret_cast<void**>(&nextFolder.p));
+            ::CoTaskMemFree(nextPidl);
+            if (FAILED(hr) || nextFolder == nullptr)
+            {
+                break;
+            }
+            currentFolder = nextFolder;
+        }
+    }
+    if (parentFolder == nullptr || childPidl == nullptr)
+    {
         return FALSE;
     }
 
+    LPCITEMIDLIST childPidlConst = childPidl;
     ATL::CComPtr<IContextMenu> contextMenu;
-    hr = parentFolder->GetUIObjectOf(parent, 1, &childPidl, IID_IContextMenu, nullptr, reinterpret_cast<void**>(&contextMenu.p));
+    hr = parentFolder->GetUIObjectOf(parent, 1, &childPidlConst, IID_IContextMenu, nullptr, reinterpret_cast<void**>(&contextMenu.p));
     if (FAILED(hr) || contextMenu == nullptr)
     {
-        ::CoTaskMemFree(absolutePidl);
+        ::CoTaskMemFree(childPidl);
         return FALSE;
     }
 
     HMENU menu = ::CreatePopupMenu();
     if (menu == nullptr)
     {
-        ::CoTaskMemFree(absolutePidl);
+        ::CoTaskMemFree(childPidl);
         return FALSE;
     }
 
@@ -1906,7 +2004,7 @@ BOOL WINAPI CWpdFS::TryShellContextMenu(const char* fsName, HWND parent, int men
     m_shellContextMenu3.Release();
     m_shellContextMenu2.Release();
     ::DestroyMenu(menu);
-    ::CoTaskMemFree(absolutePidl);
+    ::CoTaskMemFree(childPidl);
     return menuShown;
 }
 
