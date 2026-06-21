@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\portables\portables.atp"
-TEXTVERSION,"0.1 (x64)"
-VERSION,"0,1,0,183"
+TEXTVERSION,"0.2 (x64)"
+VERSION,"0,2,0,183"
 
 [TRANSLATION]
 LANGID,1033
@@ -12,18 +12,39 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 0]
 128,1,"{!}%d vybrané zařízení{2:s|0||1|s}"
 129,1,"Žádná zařízení"
+130,1,"Přenosná zařízení"
+131,1,"Zrušit"
+132,1,"Připravuje se..."
+133,1,"Soubor:"
+134,1,"Celkem:"
+135,1,"Minimalizovat"
+136,1,"Pozastavit"
+137,1,"Přenosné zařízení přestalo reagovat. Odpojte jej a znovu připojte. Panel Přenosná zařízení se vrátí do seznamu zařízení."
+138,1,"%s z %s zkopírováno"
+139,1,"Kopírovat"
+140,1,"Přesunout"
+141,1,"Smazat"
+142,1,"Kopírování"
+143,1,"Přesouvání"
 
 [STRINGTABLE 1]
+144,1,"Mazání"
+145,1,"na"
+146,1,"%s z %s přesunuto"
+147,1,"%s z %s zpracováno"
+148,1,"Odstraňování vybraných položek"
+
+[STRINGTABLE 2]
 8192,1,"Přenosná zařízení"
 8193,1,"Spravujte přenosná zařízení."
 
-[STRINGTABLE 2]
+[STRINGTABLE 3]
 9216,1,"O zásuvném modulu"
 
-[STRINGTABLE 3]
+[STRINGTABLE 4]
 10240,1,"Chyba při změně adresáře"
 10241,0,"Path: "%s"\r\nError: %s"
 
-[STRINGTABLE 4]
+[STRINGTABLE 5]
 19457,1,"Určená cesta obsahuje cestu k souboru."
 

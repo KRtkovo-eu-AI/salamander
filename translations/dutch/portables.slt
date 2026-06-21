@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\portables\portables.atp"
-TEXTVERSION,"0.1 (x64)"
-VERSION,"0,1,0,183"
+TEXTVERSION,"0.2 (x64)"
+VERSION,"0,2,0,183"
 
 [TRANSLATION]
 LANGID,1033
@@ -12,18 +12,39 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 0]
 128,1,"{!}%d geselecteerde apparaten{2:s|0||1|s}"
 129,1,"Geen apparaten"
+130,1,"Draagbare apparaten"
+131,1,"Annuleren"
+132,1,"Bezig met voorbereiden..."
+133,1,"Bestand:"
+134,1,"Totaal:"
+135,1,"Minimaliseren"
+136,1,"Pauzeren"
+137,1,"Het draagbare apparaat reageert niet meer. Koppel het los en sluit het opnieuw aan. Het paneel Draagbare apparaten wordt teruggezet naar de apparatenlijst."
+138,1,"%s van %s gekopieerd"
+139,1,"Kopiëren"
+140,1,"Verplaatsen"
+141,1,"Verwijderen"
+142,1,"Kopieert"
+143,1,"Verplaatst"
 
 [STRINGTABLE 1]
+144,1,"Verwijderen"
+145,1,"tot"
+146,1,"%s van %s verplaatst"
+147,1,"%s van %s verwerkt"
+148,1,"Geselecteerde items verwijderen"
+
+[STRINGTABLE 2]
 8192,1,"Draagbare apparaten"
 8193,1,"Draagbare apparaten beheren."
 
-[STRINGTABLE 2]
+[STRINGTABLE 3]
 9216,1,"Over plug-in"
 
-[STRINGTABLE 3]
+[STRINGTABLE 4]
 10240,1,"Fout bij het wijzigen van de map"
 10241,0,"Path: "%s"\r\nError: %s"
 
-[STRINGTABLE 4]
+[STRINGTABLE 5]
 19457,1,"Het opgegeven pad bevat een pad naar een bestand."
 

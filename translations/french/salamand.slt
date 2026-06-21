@@ -2629,7 +2629,7 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 75]
 12033,1,"Échec de l'empaquetage dans l'archive de fichier(s) modifié(s). Nouvel essai ? En cas de choix négatif, vous serez renvoyé vers le dialogue Mise à jour d'archives ; il sera alors possible de copier le ou les fichier(s) modifié(s) dans le disque afin de paquetage ultérieur dans l'archive."
-12039,0,"The size of the block selected in this viewer is over 100MB. Copying this block to clipboard or moving it by drag & drop may be slow. Do you want to skip such operations for blocks over 100MB in this viewer?"
+12039,1,"La taille du bloc sélectionné dans cette visionneuse dépasse 100 Mo. La copie de ce bloc dans le Presse-papiers ou son déplacement par glisser & déposer peut être lente. Voulez-vous ignorer ces opérations pour les blocs de plus de 100 Mo dans cette visionneuse ?"
 12040,1,"Erreur inconnue."
 12041,1,"Plus de 10 000 caractères dans ce fichier. Il s'agit vraisemblablement d'un fichier binaire.\nAfficher le code hexadécimal correspondant ?\n\nATTENTION à la lenteur possible de l'affichage du texte de très longues lignes."
 12042,1,"Annulation de la recherche."

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\portables\portables.atp"
-TEXTVERSION,"0.1 (x64)"
-VERSION,"0,1,0,183"
+TEXTVERSION,"0.2 (x64)"
+VERSION,"0,2,0,183"
 
 [TRANSLATION]
 LANGID,1033
@@ -12,18 +12,39 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 0]
 128,1,"{!}%d 已选设备{2:s|0||1|s}"
 129,1,"没有设备"
+130,1,"便携式设备"
+131,1,"取消"
+132,1,"正在准备..."
+133,1,"文件："
+134,1,"总计："
+135,1,"最小化"
+136,1,"暂停"
+137,1,"便携式设备停止响应。请断开并重新连接。便携式设备面板将返回到设备列表。"
+138,1,"已复制 %s，共 %s"
+139,1,"复制"
+140,1,"移动"
+141,1,"删除"
+142,1,"正在复制"
+143,1,"正在移动"
 
 [STRINGTABLE 1]
+144,1,"正在删除"
+145,1,"到"
+146,1,"已移动 %s，共 %s"
+147,1,"已处理 %s，共 %s"
+148,1,"正在删除所选项目"
+
+[STRINGTABLE 2]
 8192,1,"便携式设备"
 8193,1,"管理便携式设备。"
 
-[STRINGTABLE 2]
+[STRINGTABLE 3]
 9216,1,"关于插件"
 
-[STRINGTABLE 3]
+[STRINGTABLE 4]
 10240,1,"更改目录时出错"
 10241,1,"路径：“%s”\r\n错误：%s"
 
-[STRINGTABLE 4]
+[STRINGTABLE 5]
 19457,1,"指定的路径包含指向文件的路径。"
 

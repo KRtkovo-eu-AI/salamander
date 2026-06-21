@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\portables\portables.atp"
-TEXTVERSION,"0.1 (x64)"
-VERSION,"0,1,0,183"
+TEXTVERSION,"0.2 (x64)"
+VERSION,"0,2,0,183"
 
 [TRANSLATION]
 LANGID,1033
@@ -12,18 +12,39 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 0]
 128,1,"{!}%d appareil sélectionné{2:s|0||1|s}"
 129,1,"Aucun appareil"
+130,1,"Appareils portables"
+131,1,"Annuler"
+132,1,"Préparation..."
+133,1,"Fichier :"
+134,1,"Total :"
+135,1,"Réduire"
+136,1,"Pause"
+137,1,"L’appareil portable ne répond plus. Déconnectez-le puis reconnectez-le. Le panneau Appareils portables revient à la liste des appareils."
+138,1,"%s sur %s copiés"
+139,1,"Copier"
+140,1,"Déplacer"
+141,1,"Supprimer"
+142,1,"Copie en cours"
+143,1,"Déplacement en cours"
 
 [STRINGTABLE 1]
+144,1,"Suppression en cours"
+145,1,"vers"
+146,1,"%s de %s déplacé"
+147,1,"%s sur %s traités"
+148,1,"Suppression des éléments sélectionnés"
+
+[STRINGTABLE 2]
 8192,1,"Périphériques portables"
 8193,1,"Gérer les périphériques portables."
 
-[STRINGTABLE 2]
+[STRINGTABLE 3]
 9216,1,"À propos du module"
 
-[STRINGTABLE 3]
+[STRINGTABLE 4]
 10240,1,"Erreur lors du changement de répertoire"
 10241,0,"Path: "%s"\r\nError: %s"
 
-[STRINGTABLE 4]
+[STRINGTABLE 5]
 19457,1,"Le chemin spécifié contient un chemin vers un fichier."
 
