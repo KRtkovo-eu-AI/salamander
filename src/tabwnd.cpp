@@ -17,6 +17,10 @@
 #define TCM_SETINSERTMARK (TCM_FIRST + 44)
 #endif
 
+#ifndef TCM_SETCURFOCUS
+#define TCM_SETCURFOCUS (TCM_FIRST + 48)
+#endif
+
 #ifndef TCINSERTMARK
 typedef struct tagTCINSERTMARK
 {
@@ -195,6 +199,7 @@ static char g_TabTipText[MAX_PATH] = "";
 static bool g_TabTipClassRegistered = false;
 static const UINT_PTR kTabTipTimerId = 1001;
 static const int kTabTipDelayMs = 500;
+static const UINT WM_USER_ENSURE_SELECTED_TAB_VISIBLE = WM_APP + 321;
 
 
 static LRESULT CALLBACK TabTipWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -511,7 +516,33 @@ void CTabWindow::SetCurSel(int index)
             CSelChangeGuard guard(SuppressSelectionNotifications);
             TabCtrl_SetCurSel(HWindow, index);
         }
+        EnsureSelectedTabVisible();
     }
+}
+
+void CTabWindow::EnsureSelectedTabVisible()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (HWindow == NULL)
+        return;
+
+    int sel = TabCtrl_GetCurSel(HWindow);
+    if (sel < 0 || IsNewTabButtonIndex(sel))
+        return;
+
+    HWND upDown = FindWindowEx(HWindow, NULL, UPDOWN_CLASS, NULL);
+    if (upDown == NULL || !IsWindowVisible(upDown))
+        return;
+
+    // TCM_SETCURFOCUS asks the tab control to scroll its internal strip so that
+    // the focused tab is visible. Keep the logical selection unchanged and do
+    // not notify the main window; this is only a visual scroll adjustment.
+    CSelChangeGuard guard(SuppressSelectionNotifications);
+    SendMessage(HWindow, TCM_SETCURFOCUS, sel, 0);
+    if (TabCtrl_GetCurSel(HWindow) != sel)
+        TabCtrl_SetCurSel(HWindow, sel);
+
+    UpdateOverflowButtonColors();
 }
 
 int CTabWindow::GetCurSel() const
@@ -695,6 +726,7 @@ void CTabWindow::RefreshLayout()
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
+    EnsureSelectedTabVisible();
 }
 
 void CTabWindow::EnsureTabTipWnd()
@@ -2210,7 +2242,12 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
     case WM_THEMECHANGED:
         UpdateOverflowButtonColors();
+        PostMessage(HWindow, WM_USER_ENSURE_SELECTED_TAB_VISIBLE, 0, 0);
         break;
+
+    case WM_USER_ENSURE_SELECTED_TAB_VISIBLE:
+        EnsureSelectedTabVisible();
+        return 0;
 
     case WM_PARENTNOTIFY:
         if (LOWORD(wParam) == WM_CREATE)
