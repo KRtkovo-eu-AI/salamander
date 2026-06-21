@@ -1242,7 +1242,7 @@ Name: "{autodesktop}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyApp
 Name: "{group}\Open Salamander Samandarin (x64)"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startmenuicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "-language ""{language}.slg"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Parameters: "-language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
 
 
 [UninstallRun]

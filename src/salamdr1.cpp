@@ -3823,16 +3823,15 @@ BOOL GetCommandLineLanguageOverride(LPSTR cmdLine, char* slgName, int slgNameSiz
             if (requestedLanguage[0] == 0 ||
                 strchr(requestedLanguage, '\\') != NULL ||
                 strchr(requestedLanguage, '/') != NULL ||
-                strchr(requestedLanguage, ':') != NULL)
+                strchr(requestedLanguage, ':') != NULL ||
+                strchr(requestedLanguage, '.') != NULL)
                 return FALSE;
 
-            lstrcpyn(slgName, requestedLanguage, slgNameSize);
-            if (strchr(slgName, '.') == NULL)
-            {
-                if ((int)strlen(slgName) + 5 > slgNameSize)
-                    return FALSE;
-                strcat(slgName, ".slg");
-            }
+            if ((int)strlen(requestedLanguage) + 5 > slgNameSize)
+                return FALSE;
+
+            strcpy(slgName, requestedLanguage);
+            strcat(slgName, ".slg");
             return TRUE;
         }
     }
