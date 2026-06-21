@@ -86,6 +86,7 @@ BEGIN
     IDS_OPERATIONPROGRESS_TOTAL "Total:"
     IDS_OPERATIONPROGRESS_MINIMIZE "Minimize"
     IDS_OPERATIONPROGRESS_PAUSE "Pause"
+    IDS_RECONNECT_DEVICE_REQUIRED "The portable device stopped responding. Please disconnect and reconnect it. The Portables panel will return to the device list."
 END
 
 #endif    // Czech (Czech Republic) resources
@@ -105,4 +106,3 @@ LANGUAGE LANG_NEUTRAL,SUBLANG_NEUTRAL
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-

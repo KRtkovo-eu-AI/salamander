@@ -763,6 +763,18 @@ static bool WINAPI WpdIsOperationCancelled(HRESULT hr)
     return hr == HRESULT_FROM_WIN32(ERROR_CANCELLED);
 }
 
+static bool WINAPI WpdRequiresDeviceReconnect(HRESULT hr)
+{
+    return hr == HRESULT_FROM_WIN32(ERROR_SEM_TIMEOUT) ||
+           hr == HRESULT_FROM_WIN32(ERROR_GEN_FAILURE) ||
+           hr == HRESULT_FROM_WIN32(ERROR_DEVICE_NOT_CONNECTED) ||
+           hr == HRESULT_FROM_WIN32(ERROR_DEV_NOT_EXIST)
+#ifdef ERROR_DEVICE_REINITIALIZATION_NEEDED
+           || hr == HRESULT_FROM_WIN32(ERROR_DEVICE_REINITIALIZATION_NEEDED)
+#endif
+        ;
+}
+
 static void WINAPI WpdShowOperationError(HWND parent, PCSTR operation, PCSTR name, HRESULT hr)
 {
     if (WpdIsOperationCancelled(hr))
@@ -1588,7 +1600,7 @@ BOOL WINAPI CWpdFS::QuickRename(const char*, int mode, HWND parent, CFileData& f
     HRESULT hr = RenameWpdObject(item, newName);
     if (FAILED(hr))
     {
-        WpdShowOperationError(parent, "Rename", file.Name, hr);
+        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Rename", file.Name, hr);
         return FALSE;
     }
     SalamanderGeneral->PostRefreshPanelFS(this);
@@ -1664,6 +1676,74 @@ BOOL WINAPI CWpdFS::GetPathForMainWindowTitle(const char* fsName, int mode, char
     return FALSE;
 }
 
+BOOL WINAPI CWpdFS::GetNextDirectoryLineHotPath(const char* text, int pathLen, int& offset)
+{
+    const char* end = text + pathLen;
+    const char* root = text;
+    while (root < end && *root != ':')
+    {
+        ++root;
+    }
+    if (root < end && *root == ':')
+    {
+        ++root;
+        if (root < end && *root == '\\')
+        {
+            ++root;
+        }
+    }
+
+    const char* s = text + offset;
+    if (s >= end)
+    {
+        return FALSE;
+    }
+    if (s < root)
+    {
+        offset = static_cast<int>(root - text);
+    }
+    else
+    {
+        if (*s == '\\')
+        {
+            ++s;
+        }
+        while (s < end && *s != '\\')
+        {
+            ++s;
+        }
+        offset = static_cast<int>(s - text);
+    }
+    return s < end;
+}
+
+void WINAPI CWpdFS::CompleteDirectoryLineHotPath(char* path, int pathBufSize)
+{
+    if (path == nullptr || pathBufSize <= 0)
+    {
+        return;
+    }
+
+    int len = lstrlen(path);
+    while (len > 1 && path[len - 1] == '\\')
+    {
+        path[--len] = '\0';
+    }
+}
+
+BOOL WINAPI CWpdFS::HandleDeviceReconnectRequired(HWND parent, HRESULT hr)
+{
+    if (!WpdRequiresDeviceReconnect(hr))
+    {
+        return FALSE;
+    }
+
+    SalamanderGeneral->ShowMessageBox(WpdLoadStr(IDS_RECONNECT_DEVICE_REQUIRED), WpdLoadStr(IDS_OPERATIONPROGRESS_TITLE), MSGBOX_ERROR);
+    ChangeDirectory("\\");
+    SalamanderGeneral->PostRefreshPanelFS(this);
+    return TRUE;
+}
+
 BOOL WINAPI CWpdFS::CreateDir(const char*, int mode, HWND parent, char* newName, BOOL& cancel)
 {
     cancel = FALSE;
@@ -1685,7 +1765,7 @@ BOOL WINAPI CWpdFS::CreateDir(const char*, int mode, HWND parent, char* newName,
     }
     if (FAILED(hr))
     {
-        WpdShowOperationError(parent, "Create folder", newName, hr);
+        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Create folder", newName, hr);
         return FALSE;
     }
     SalamanderGeneral->PostRefreshPanelFS(this);
@@ -1734,7 +1814,7 @@ void WINAPI CWpdFS::ViewFile(const char* fsName, HWND parent, CSalamanderForView
         }
         else
         {
-            WpdShowOperationError(parent, "View", file.Name, hr);
+            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "View", file.Name, hr);
         }
     }
 
@@ -1793,6 +1873,9 @@ void WINAPI CWpdFS::ContextMenu(const char* fsName, HWND parent, int menuX, int 
 
         insertSalamanderCommand(index, SALCMD_OPEN, MENU_STATE_DEFAULT);
         insertSalamanderCommand(index, SALCMD_VIEW, fileOnlyState);
+        insertSalamanderCommand(index, SALCMD_VIEWWITH, fileOnlyState);
+        insertSalamanderCommand(index, SALCMD_EDIT, fileOnlyState);
+        insertSalamanderCommand(index, SALCMD_EDITWITH, fileOnlyState);
         insertSeparator(index);
         insertSalamanderCommand(index, SALCMD_COPY);
         insertSalamanderCommand(index, SALCMD_MOVE);
@@ -1824,7 +1907,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
     HRESULT hr = objects.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
     if (FAILED(hr))
     {
-        WpdShowOperationError(parent, "Delete", "", hr);
+        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Delete", "", hr);
         cancelOrError = TRUE;
         return TRUE;
     }
@@ -1854,7 +1937,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         hr = AddWpdObjectId(objects, item->GetObjectId());
         if (FAILED(hr))
         {
-            WpdShowOperationError(parent, "Delete", f->Name, hr);
+            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Delete", f->Name, hr);
             ok = false;
             break;
         }
@@ -1871,7 +1954,7 @@ BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int se
         hr = DeleteWpdObjects(device, objects);
         if (FAILED(hr))
         {
-            WpdShowOperationError(parent, "Delete", "", hr);
+            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, "Delete", "", hr);
             ok = false;
         }
     }
@@ -1936,7 +2019,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
         HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
         if (FAILED(hr))
         {
-            WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
             cancelOrHandlePath = TRUE;
             return TRUE;
         }
@@ -2006,7 +2089,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
             }
             if (FAILED(hr))
             {
-                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
+                if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
                 break;
             }
 
@@ -2129,7 +2212,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromFS(
             }
             if (FAILED(hr))
             {
-                WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
+                if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", f->Name, hr);
                 ok = false;
                 break;
             }
@@ -2193,7 +2276,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
     HRESULT hr = GetContentLocationForPath(targetUserPart, targetDevice, targetObjectId);
     if (FAILED(hr))
     {
-        WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
+        if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", targetPath, hr);
         if (invalidPathOrCancel != nullptr)
         {
             *invalidPathOrCancel = TRUE;
@@ -2254,7 +2337,7 @@ BOOL WINAPI CWpdFS::CopyOrMoveFromDiskToFS(
 
         if (FAILED(hr))
         {
-            WpdShowOperationError(parent, copy ? "Copy" : "Move", name, hr);
+            if (!HandleDeviceReconnectRequired(parent, hr)) WpdShowOperationError(parent, copy ? "Copy" : "Move", name, hr);
             ok = FALSE;
             break;
         }

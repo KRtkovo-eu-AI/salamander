@@ -40,6 +40,7 @@ protected:
     HRESULT WINAPI UploadDiskObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR sourceName, PCSTR targetName);
     HRESULT WINAPI FindWpdChildObject(CWpdDevice* device, PCWSTR parentObjectId, PCSTR childName, _Out_ PWSTR* childObjectId, _Out_opt_ DWORD* attributes);
     HRESULT WINAPI ConfirmAndDeleteExistingWpdObject(HWND parent, CWpdDevice* device, PCWSTR parentObjectId, PCSTR targetName, PCSTR sourceName, bool& overwriteAll, bool& skipAll, _Out_ bool& skip);
+    BOOL WINAPI HandleDeviceReconnectRequired(HWND parent, HRESULT hr);
 
     /* CFxPluginFSInterface Overrides */
 
@@ -65,6 +66,15 @@ protected:
         int mode,
         char* buf,
         int bufSize) override;
+
+    virtual BOOL WINAPI GetNextDirectoryLineHotPath(
+        const char* text,
+        int pathLen,
+        int& offset) override;
+
+    virtual void WINAPI CompleteDirectoryLineHotPath(
+        char* path,
+        int pathBufSize) override;
 
     virtual BOOL WINAPI CreateDir(
         const char* fsName,
@@ -132,7 +142,7 @@ public:
         SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE |
                              FS_SERVICE_COPYFROMFS | FS_SERVICE_MOVEFROMFS |
                              FS_SERVICE_VIEWFILE | FS_SERVICE_GETPATHFORMAINWNDTITLE |
-                             FS_SERVICE_CONTEXTMENU |
+                             FS_SERVICE_CONTEXTMENU | FS_SERVICE_GETNEXTDIRLINEHOTPATH |
                              FS_SERVICE_COPYFROMDISKTOFS | FS_SERVICE_MOVEFROMDISKTOFS
     };
 
