@@ -1,7 +1,7 @@
 Open Salamander Samandarin
 
 Az Open Salamander Samandarin az Open Salamander nem hivatalos, kísérleti,
-nyílt forráskódú forkja, amelyet a KRtekTM hozott létre MI-támogatott /
+nyílt forráskódú forkja, amelyet a Ondrej Kotas (KRtekTM) hozott létre MI-támogatott /
 vibe-coding fejlesztéssel. Kalandvágyó felhasználóknak készült; kérjük,
 számítson kisebb hibákra, és fontos munkához való használat előtt ellenőrizze a
 kiadási megjegyzéseket.

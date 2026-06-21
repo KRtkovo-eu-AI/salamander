@@ -1,7 +1,7 @@
 Open Salamander Samandarin
 
 Open Salamander Samandarin je neoficiální, experimentální open-source fork
-Open Salamanderu, vytvořený KRtekTM za pomoci vývoje s AI / vibe-codingu.
+Open Salamanderu, vytvořený Ondřejem Kotasem (KRtekTM) za pomoci vývoje s AI / vibe-codingu.
 Je určen dobrodružným uživatelům; počítejte prosím s nedostatky a před
 použitím pro důležitou práci si ověřte poznámky k vydání.
 

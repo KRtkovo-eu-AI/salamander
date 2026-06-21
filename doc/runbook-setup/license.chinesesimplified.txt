@@ -1,7 +1,7 @@
 Open Salamander Samandarin
 
 Open Salamander Samandarin 是 Open Salamander 的非官方、实验性开源分支，
-由 KRtekTM 借助 AI 辅助 / vibe-coding 开发创建。它面向愿意尝试的用户；
+由 Ondrej Kotas (KRtekTM) 借助 AI 辅助 / vibe-coding 开发创建。它面向愿意尝试的用户；
 请预期可能存在不完善之处，并在将其用于重要工作前查看发行说明。
 
 Open Salamander 的主体代码采用 GNU GPL 第 2 版或更新版本授权。部分随附组件
