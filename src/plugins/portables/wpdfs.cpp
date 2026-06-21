@@ -125,7 +125,9 @@ class CWpdOperationProgress
 public:
     CWpdOperationProgress(HWND parent, PCSTR operation, int totalItems)
         : m_window(nullptr),
+          m_operationLabel(nullptr),
           m_text(nullptr),
+          m_targetLabel(nullptr),
           m_targetText(nullptr),
           m_fileLabel(nullptr),
           m_totalLabel(nullptr),
@@ -160,6 +162,13 @@ public:
         metrics.cbSize = sizeof(metrics);
         if (::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0))
         {
+            HDC dc = ::GetDC(nullptr);
+            if (dc != nullptr)
+            {
+                metrics.lfMessageFont.lfHeight = -::MulDiv(9, ::GetDeviceCaps(dc, LOGPIXELSY), 72);
+                ::ReleaseDC(nullptr, dc);
+            }
+            StringCchCopy(metrics.lfMessageFont.lfFaceName, _countof(metrics.lfMessageFont.lfFaceName), "Segoe UI");
             m_font = ::CreateFontIndirect(&metrics.lfMessageFont);
         }
 
@@ -202,10 +211,14 @@ public:
         const int buttonHeight = 24;
         const int buttonY = clientRect.bottom - bottomMargin - buttonHeight;
 
+        m_operationLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                                            24, topMargin, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_text = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                  24, topMargin, width - 48, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                  70, topMargin, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_targetLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                                         24, topMargin + 20, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_targetText = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
-                                        24, topMargin + 20, width - 48, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+                                        70, topMargin + 20, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileLabel = ::CreateWindowEx(0, "STATIC", WpdLoadStr(IDS_OPERATIONPROGRESS_FILE), WS_CHILD | WS_VISIBLE | SS_RIGHT,
                                        24, topMargin + 51, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_fileProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
@@ -252,18 +265,20 @@ public:
 
         if (targetName != nullptr && targetName[0] != '\0')
         {
-            char sourceText[MAX_PATH + 128];
             char targetText[MAX_PATH + 128];
-            StringCchPrintf(sourceText, _countof(sourceText), "%sing %s", m_operation, sourceName);
-            StringCchPrintf(targetText, _countof(targetText), "to %s", targetName);
-            ::SetWindowText(m_text, sourceText);
+            ::SetWindowText(m_operationLabel, GetOperationVerb());
+            ::SetWindowText(m_text, sourceName);
+            ::SetWindowText(m_targetLabel, "to");
+            StringCchPrintf(targetText, _countof(targetText), "%s", targetName);
             ::SetWindowText(m_targetText, targetText);
         }
         else
         {
             char text[MAX_PATH + 128];
             StringCchPrintf(text, _countof(text), "%sing %s", m_operation, sourceName);
+            ::SetWindowText(m_operationLabel, "");
             ::SetWindowText(m_text, text);
+            ::SetWindowText(m_targetLabel, "");
             ::SetWindowText(m_targetText, "");
         }
         m_filePulse = 0;
@@ -356,7 +371,7 @@ public:
     {
         if (m_font != nullptr)
         {
-            HWND controls[] = {m_text, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_minimize, m_pause, m_cancel};
+            HWND controls[] = {m_operationLabel, m_text, m_targetLabel, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_minimize, m_pause, m_cancel};
             for (int i = 0; i < _countof(controls); ++i)
             {
                 if (controls[i] != nullptr)
@@ -405,6 +420,23 @@ public:
     }
 
 private:
+    PCSTR GetOperationVerb() const
+    {
+        if (lstrcmpi(m_operation, "Copy") == 0)
+        {
+            return "Copying";
+        }
+        if (lstrcmpi(m_operation, "Move") == 0)
+        {
+            return "Moving";
+        }
+        if (lstrcmpi(m_operation, "Delete") == 0)
+        {
+            return "Deleting";
+        }
+        return m_operation;
+    }
+
     static PCSTR WindowClassName()
     {
         return "OpenSalamanderWpdOperationProgress";
@@ -512,7 +544,7 @@ private:
             return;
         }
 
-        HWND controls[] = {m_text, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
+        HWND controls[] = {m_operationLabel, m_text, m_targetLabel, m_targetText, m_fileLabel, m_totalLabel, m_bytesLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
         for (int i = 0; i < _countof(controls); ++i)
         {
             if (controls[i] != nullptr)
@@ -760,7 +792,9 @@ private:
     }
 
     HWND m_window;
+    HWND m_operationLabel;
     HWND m_text;
+    HWND m_targetLabel;
     HWND m_targetText;
     HWND m_fileLabel;
     HWND m_totalLabel;
