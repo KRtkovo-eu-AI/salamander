@@ -128,6 +128,7 @@ public:
           m_text(nullptr),
           m_fileLabel(nullptr),
           m_totalLabel(nullptr),
+          m_bytesLabel(nullptr),
           m_fileProgress(nullptr),
           m_totalProgress(nullptr),
           m_minimize(nullptr),
@@ -140,7 +141,10 @@ public:
           m_doneItems(0),
           m_filePulse(0),
           m_filePos(0),
-          m_totalPos(0)
+          m_totalPos(0),
+          m_doneBytes(0),
+          m_currentFileBytes(0),
+          m_currentFileTotal(static_cast<ULONGLONG>(-1))
     {
         RegisterWindowClass();
         BOOL useDarkMode = FALSE;
@@ -207,6 +211,8 @@ public:
                                         24, topMargin + 77, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
                                            70, topMargin + 74, width - 100, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
+        m_bytesLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
+                                        70, topMargin + 100, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
                                       140, buttonY, 74, buttonHeight, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
         m_pause = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_PAUSE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
@@ -253,9 +259,12 @@ public:
         ::SetWindowText(m_text, text);
         m_filePulse = 0;
         m_filePos = 0;
+        m_currentFileBytes = 0;
+        m_currentFileTotal = static_cast<ULONGLONG>(-1);
         m_totalPos = m_doneItems * 1000 / m_totalItems;
         ::ShowWindow(m_window, SW_SHOWNORMAL);
         UpdateTitle();
+        UpdateBytesText();
         Redraw();
         PumpMessages();
         return !m_canceled;
@@ -266,10 +275,21 @@ public:
         ++m_doneItems;
         if (m_window != nullptr)
         {
+            if (m_currentFileTotal != static_cast<ULONGLONG>(-1))
+            {
+                m_doneBytes += m_currentFileTotal;
+            }
+            else
+            {
+                m_doneBytes += m_currentFileBytes;
+            }
             m_filePulse = 0;
             m_filePos = 0;
+            m_currentFileBytes = 0;
+            m_currentFileTotal = static_cast<ULONGLONG>(-1);
             m_totalPos = m_doneItems * 1000 / m_totalItems;
             UpdateTitle();
+            UpdateBytesText();
             RedrawProgress();
             PumpMessages();
         }
@@ -299,12 +319,15 @@ public:
                 pos = m_filePulse;
             }
             m_filePos = pos;
+            m_currentFileBytes = current;
+            m_currentFileTotal = total;
             m_totalPos = ((m_doneItems * 1000) + m_filePos) / m_totalItems;
             if (m_totalPos > 1000)
             {
                 m_totalPos = 1000;
             }
             UpdateTitle();
+            UpdateBytesText();
             RedrawProgress();
             PumpMessages();
         }
@@ -324,7 +347,7 @@ public:
     {
         if (m_font != nullptr)
         {
-            HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_minimize, m_pause, m_cancel};
+            HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_bytesLabel, m_minimize, m_pause, m_cancel};
             for (int i = 0; i < _countof(controls); ++i)
             {
                 if (controls[i] != nullptr)
@@ -480,7 +503,7 @@ private:
             return;
         }
 
-        HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
+        HWND controls[] = {m_text, m_fileLabel, m_totalLabel, m_bytesLabel, m_fileProgress, m_totalProgress, m_minimize, m_pause, m_cancel};
         for (int i = 0; i < _countof(controls); ++i)
         {
             if (controls[i] != nullptr)
@@ -509,6 +532,40 @@ private:
         ::SetWindowText(m_window, title);
     }
 
+    void UpdateBytesText()
+    {
+        if (m_bytesLabel == nullptr)
+        {
+            return;
+        }
+
+        ULONGLONG copied = m_doneBytes + m_currentFileBytes;
+        ULONGLONG total = copied;
+        if (m_currentFileTotal != static_cast<ULONGLONG>(-1))
+        {
+            total = m_doneBytes + m_currentFileTotal;
+        }
+        if (copied == 0 && total == 0)
+        {
+            ::SetWindowText(m_bytesLabel, "");
+            return;
+        }
+
+        CQuadWord copiedSize;
+        CQuadWord totalSize;
+        copiedSize.SetUI64(copied);
+        totalSize.SetUI64(total);
+
+        char copiedText[64];
+        char totalText[64];
+        SalamanderGeneral->PrintDiskSize(copiedText, copiedSize, 1);
+        SalamanderGeneral->PrintDiskSize(totalText, totalSize, 1);
+
+        char text[160];
+        StringCchPrintf(text, _countof(text), WpdLoadStr(IDS_OPERATIONPROGRESS_BYTES), copiedText, totalText);
+        ::SetWindowText(m_bytesLabel, text);
+    }
+
     void RedrawProgress()
     {
         if (m_window == nullptr)
@@ -516,7 +573,7 @@ private:
             return;
         }
 
-        HWND controls[] = {m_fileProgress, m_totalProgress};
+        HWND controls[] = {m_fileProgress, m_totalProgress, m_bytesLabel};
         for (int i = 0; i < _countof(controls); ++i)
         {
             if (controls[i] != nullptr)
@@ -672,6 +729,7 @@ private:
     HWND m_text;
     HWND m_fileLabel;
     HWND m_totalLabel;
+    HWND m_bytesLabel;
     HWND m_fileProgress;
     HWND m_totalProgress;
     HWND m_minimize;
@@ -686,6 +744,9 @@ private:
     int m_filePulse;
     int m_filePos;
     int m_totalPos;
+    ULONGLONG m_doneBytes;
+    ULONGLONG m_currentFileBytes;
+    ULONGLONG m_currentFileTotal;
 };
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
@@ -714,7 +775,7 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         {
             if (WpdActiveOperationProgress != nullptr)
             {
-                WpdActiveOperationProgress->SetFileProgress(1, 1);
+                WpdActiveOperationProgress->SetFileProgress(copied, copied != 0 ? copied : 1);
             }
             return S_OK;
         }
@@ -751,7 +812,7 @@ static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG 
         {
             if (WpdActiveOperationProgress != nullptr)
             {
-                WpdActiveOperationProgress->SetFileProgress(1, 1);
+                WpdActiveOperationProgress->SetFileProgress(copied, copied != 0 ? copied : 1);
             }
             return S_OK;
         }
