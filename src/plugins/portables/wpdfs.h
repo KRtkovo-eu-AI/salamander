@@ -79,6 +79,16 @@ protected:
         CSalamanderForViewFileOnFSAbstract* salamander,
         CFileData& file) override;
 
+    virtual void WINAPI ContextMenu(
+        const char* fsName,
+        HWND parent,
+        int menuX,
+        int menuY,
+        int type,
+        int panel,
+        int selectedFiles,
+        int selectedDirs) override;
+
     virtual BOOL WINAPI Delete(
         const char* fsName,
         int mode,
@@ -122,6 +132,7 @@ public:
         SUPPORTED_SERVICES = FS_SERVICE_QUICKRENAME | FS_SERVICE_CREATEDIR | FS_SERVICE_DELETE |
                              FS_SERVICE_COPYFROMFS | FS_SERVICE_MOVEFROMFS |
                              FS_SERVICE_VIEWFILE | FS_SERVICE_GETPATHFORMAINWNDTITLE |
+                             FS_SERVICE_CONTEXTMENU |
                              FS_SERVICE_COPYFROMDISKTOFS | FS_SERVICE_MOVEFROMDISKTOFS
     };
 

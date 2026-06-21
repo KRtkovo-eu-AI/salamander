@@ -19,6 +19,7 @@
 #include "device.h"
 #include "wpdhelpers.h"
 #include "config.h"
+#include "globals.h"
 #include "lang\lang.rh"
 #include "..\shared\plugindarkmode.h"
 
@@ -1746,6 +1747,72 @@ void WINAPI CWpdFS::ViewFile(const char* fsName, HWND parent, CSalamanderForView
     }
 
     salamander->FreeFileNameInCache(uniqueFileName, fileExists, newFileOK, newFileSize, fileLock, fileLockOwner, FALSE);
+}
+
+void WINAPI CWpdFS::ContextMenu(const char* fsName, HWND parent, int menuX, int menuY, int type, int panel, int selectedFiles, int selectedDirs)
+{
+    CGUIMenuPopupAbstract* menu = SalamanderGUI->CreateMenuPopup();
+    if (menu == nullptr)
+    {
+        return;
+    }
+
+    auto insertSalamanderCommand = [menu](int& index, int command, DWORD state = 0)
+    {
+        char name[256];
+        if (!SalamanderGeneral->GetSalamanderCommand(command, name, _countof(name), nullptr, nullptr))
+        {
+            return;
+        }
+
+        MENU_ITEM_INFO mi;
+        mi.Mask = MENU_MASK_TYPE | MENU_MASK_STATE | MENU_MASK_ID | MENU_MASK_STRING;
+        mi.Type = MENU_TYPE_STRING;
+        mi.State = state;
+        mi.ID = command + 1;
+        mi.String = name;
+        menu->InsertItem(index++, TRUE, &mi);
+    };
+
+    auto insertSeparator = [menu](int& index)
+    {
+        MENU_ITEM_INFO mi;
+        mi.Mask = MENU_MASK_TYPE;
+        mi.Type = MENU_TYPE_SEPARATOR;
+        menu->InsertItem(index++, TRUE, &mi);
+    };
+
+    int index = 0;
+    if (type == fscmItemsInPanel)
+    {
+        BOOL focusIsDir = FALSE;
+        const CFileData* focused = SalamanderGeneral->GetPanelFocusedItem(panel, &focusIsDir);
+        const bool hasFocusedItem = focused != nullptr;
+        const bool multipleSelection = selectedFiles + selectedDirs > 1;
+        const DWORD fileOnlyState = (!hasFocusedItem || focusIsDir || multipleSelection) ? MENU_STATE_GRAYED : 0;
+
+        insertSalamanderCommand(index, SALCMD_OPEN, MENU_STATE_DEFAULT);
+        insertSalamanderCommand(index, SALCMD_VIEW, fileOnlyState);
+        insertSeparator(index);
+        insertSalamanderCommand(index, SALCMD_COPY);
+        insertSalamanderCommand(index, SALCMD_MOVE);
+        insertSalamanderCommand(index, SALCMD_DELETE);
+        insertSalamanderCommand(index, SALCMD_QUICKRENAME, multipleSelection ? MENU_STATE_GRAYED : 0);
+    }
+    else if (type == fscmPathInPanel || type == fscmPanel)
+    {
+        insertSalamanderCommand(index, SALCMD_CREATEDIRECTORY);
+        insertSeparator(index);
+        insertSalamanderCommand(index, SALCMD_REFRESH);
+    }
+
+    DWORD cmd = menu->Track(MENU_TRACK_RETURNCMD | MENU_TRACK_RIGHTBUTTON | MENU_TRACK_NONOTIFY, menuX, menuY, parent, nullptr);
+    if (cmd > 0)
+    {
+        SalamanderGeneral->PostSalamanderCommand(cmd - 1);
+    }
+
+    SalamanderGUI->DestroyMenuPopup(menu);
 }
 
 BOOL WINAPI CWpdFS::Delete(const char*, int mode, HWND parent, int panel, int selectedFiles, int selectedDirs, BOOL& cancelOrError)
