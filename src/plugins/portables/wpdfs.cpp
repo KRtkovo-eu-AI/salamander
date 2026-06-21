@@ -149,6 +149,7 @@ public:
           m_currentFileBytes(0),
           m_currentFileTotal(static_cast<ULONGLONG>(-1))
     {
+        m_bytesText[0] = '\0';
         RegisterWindowClass();
         BOOL useDarkMode = FALSE;
         int configType = SALCFGTYPE_NOTFOUND;
@@ -227,7 +228,7 @@ public:
                                         24, topMargin + 77, 40, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_totalProgress = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
                                            70, topMargin + 74, width - 100, 20, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
-        m_bytesLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_LEFT,
+        m_bytesLabel = ::CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
                                         70, topMargin + 100, width - 100, 16, m_window, nullptr, Fx::FxGetModuleInstance(), nullptr);
         m_minimize = ::CreateWindowEx(0, "BUTTON", WpdLoadStr(IDS_OPERATIONPROGRESS_MINIMIZE), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_OWNERDRAW,
                                       140, buttonY, 74, buttonHeight, m_window, reinterpret_cast<HMENU>(IDOK), Fx::FxGetModuleInstance(), nullptr);
@@ -504,6 +505,11 @@ private:
                     self->DrawProgress(drawItem, drawItem->hwndItem == self->m_fileProgress ? self->m_filePos : self->m_totalPos);
                     return TRUE;
                 }
+                if (drawItem != nullptr && drawItem->hwndItem == self->m_bytesLabel)
+                {
+                    self->DrawBytesLabel(drawItem);
+                    return TRUE;
+                }
             }
             if (message == WM_ERASEBKGND && PluginDarkMode_ShouldUseDark())
             {
@@ -588,7 +594,10 @@ private:
         }
         if (copied == 0 && total == 0)
         {
-            ::SetWindowText(m_bytesLabel, "");
+            if (m_bytesText[0] != '\0')
+            {
+                m_bytesText[0] = '\0';
+            }
             return;
         }
 
@@ -608,7 +617,10 @@ private:
 
         char text[160];
         StringCchPrintf(text, _countof(text), WpdLoadStr(IDS_OPERATIONPROGRESS_BYTES), copiedText, totalText);
-        ::SetWindowText(m_bytesLabel, text);
+        if (lstrcmp(m_bytesText, text) != 0)
+        {
+            StringCchCopy(m_bytesText, _countof(m_bytesText), text);
+        }
     }
 
     static void ExtractSizeInParentheses(PCSTR text, char* buffer, int bufferSize)
@@ -696,6 +708,32 @@ private:
             RECT focusRect = drawItem->rcItem;
             ::InflateRect(&focusRect, -3, -3);
             ::DrawFocusRect(drawItem->hDC, &focusRect);
+        }
+    }
+
+    void DrawBytesLabel(DRAWITEMSTRUCT* drawItem)
+    {
+        bool dark = PluginDarkMode_ShouldUseDark();
+        PluginDarkModeColors colors = PluginDarkMode_GetColors();
+        COLORREF background = dark ? colors.background : ::GetSysColor(COLOR_BTNFACE);
+        COLORREF text = dark ? colors.readableText : ::GetSysColor(COLOR_BTNTEXT);
+
+        HBRUSH brush = ::CreateSolidBrush(background);
+        ::FillRect(drawItem->hDC, &drawItem->rcItem, brush);
+        ::DeleteObject(brush);
+
+        HGDIOBJ oldFont = nullptr;
+        if (m_font != nullptr)
+        {
+            oldFont = ::SelectObject(drawItem->hDC, m_font);
+        }
+        ::SetBkMode(drawItem->hDC, TRANSPARENT);
+        ::SetTextColor(drawItem->hDC, text);
+        RECT textRect = drawItem->rcItem;
+        ::DrawText(drawItem->hDC, m_bytesText, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        if (oldFont != nullptr)
+        {
+            ::SelectObject(drawItem->hDC, oldFont);
         }
     }
 
@@ -816,6 +854,7 @@ private:
     ULONGLONG m_doneBytes;
     ULONGLONG m_currentFileBytes;
     ULONGLONG m_currentFileTotal;
+    char m_bytesText[160];
 };
 
 static HRESULT WINAPI WpdCopyStream(IStream* source, IStream* target, ULONGLONG size)
