@@ -762,24 +762,138 @@ static void ApplyWindows11ShellQueryContextMenuWorkarounds(UINT* flags)
     }
 }
 
-static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici, UINT cmdOffset)
+static void InitializeShellCascadeMenus(IContextMenu2* contextMenu, HMENU menu, int depth)
 {
-    if (Windows11AndLater)
+    if (contextMenu == NULL || menu == NULL || depth > 4)
+        return;
+
+    int count = GetMenuItemCount(menu);
+    for (int i = 0; i < count; i++)
     {
-        // Windows 11's built-in "Send to > Compressed (zipped) folder" handler
-        // expects the extended Unicode invoke structure and may keep working
-        // after InvokeCommand returns. Keep the call synchronous and leave
-        // lpParameters/lpDirectory NULL as required for Shell extension items.
-        ici->fMask |= CMIC_MASK_UNICODE | CMIC_MASK_NOASYNC;
-        ici->lpVerb = MAKEINTRESOURCEA(cmdOffset);
-        ici->lpVerbW = MAKEINTRESOURCEW(cmdOffset);
-        ici->lpParameters = NULL;
-        ici->lpParametersW = NULL;
-        ici->lpDirectory = NULL;
-        ici->lpDirectoryW = NULL;
+        MENUITEMINFO mi;
+        ZeroMemory(&mi, sizeof(mi));
+        mi.cbSize = sizeof(mi);
+        mi.fMask = MIIM_SUBMENU;
+        if (GetMenuItemInfo(menu, i, TRUE, &mi) && mi.hSubMenu != NULL)
+        {
+            __try
+            {
+                IContextMenu3* contextMenu3 = NULL;
+                LRESULT result = 0;
+                if (SUCCEEDED(contextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
+                {
+                    HRESULT hr = contextMenu3->HandleMenuMsg2(WM_INITMENUPOPUP, (WPARAM)mi.hSubMenu, MAKELPARAM(i, FALSE), &result);
+                    contextMenu3->Release();
+                    if (SUCCEEDED(hr))
+                    {
+                        InitializeShellCascadeMenus(contextMenu, mi.hSubMenu, depth + 1);
+                        continue;
+                    }
+                }
+                contextMenu->HandleMenuMsg(WM_INITMENUPOPUP, (WPARAM)mi.hSubMenu, MAKELPARAM(i, FALSE));
+            }
+            __except (CCallStack::HandleException(GetExceptionInformation(), 19))
+            {
+                MenuNewExceptionHasOccured++;
+            }
+            InitializeShellCascadeMenus(contextMenu, mi.hSubMenu, depth + 1);
+        }
     }
 }
 
+
+static BOOL ContainsTextI(const char* text, const char* pattern)
+{
+    if (text == NULL || pattern == NULL)
+        return FALSE;
+
+    char textLower[500];
+    char patternLower[100];
+    lstrcpyn(textLower, text, _countof(textLower));
+    lstrcpyn(patternLower, pattern, _countof(patternLower));
+    _strlwr_s(textLower, _countof(textLower));
+    _strlwr_s(patternLower, _countof(patternLower));
+    return strstr(textLower, patternLower) != NULL;
+}
+
+static BOOL IsSharingMenuText(const char* itemName, HMENU submenu)
+{
+    if (submenu == NULL)
+        return FALSE;
+
+    return ContainsTextI(itemName, "give access") ||
+           ContainsTextI(itemName, "share with") ||
+           ContainsTextI(itemName, "sharing");
+}
+
+static BOOL IsSharingMenuItem(IContextMenu2* contextMenu, UINT id, const char* itemName, HMENU submenu)
+{
+    if (contextMenu == NULL || submenu == NULL)
+        return FALSE;
+
+    char verb[200];
+    verb[0] = 0;
+    if (AuxGetCommandString(contextMenu, id, GCS_VERB, NULL, verb, _countof(verb)) == NOERROR &&
+        ContainsTextI(verb, "shar"))
+    {
+        return TRUE;
+    }
+
+    return IsSharingMenuText(itemName, submenu);
+}
+
+static BOOL ReplaceBackgroundSharingMenu(IContextMenu2* itemContextMenu, HMENU itemMenu,
+                                         IContextMenu2* backgroundContextMenu, HMENU backgroundMenu)
+{
+    if (itemContextMenu == NULL || itemMenu == NULL || backgroundContextMenu == NULL || backgroundMenu == NULL)
+        return FALSE;
+
+    int itemCount = GetMenuItemCount(itemMenu);
+    for (int i = 0; i < itemCount; i++)
+    {
+        MENUITEMINFO itemMI;
+        char itemName[500];
+        ZeroMemory(&itemMI, sizeof(itemMI));
+        itemName[0] = 0;
+        itemMI.cbSize = sizeof(itemMI);
+        itemMI.fMask = MIIM_STATE | MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
+        itemMI.dwTypeData = itemName;
+        itemMI.cch = _countof(itemName);
+        if (!GetMenuItemInfo(itemMenu, i, TRUE, &itemMI) ||
+            !IsSharingMenuItem(itemContextMenu, itemMI.wID, itemName, itemMI.hSubMenu))
+        {
+            continue;
+        }
+
+        int backgroundCount = GetMenuItemCount(backgroundMenu);
+        for (int j = 0; j < backgroundCount; j++)
+        {
+            MENUITEMINFO backgroundMI;
+            char backgroundName[500];
+            ZeroMemory(&backgroundMI, sizeof(backgroundMI));
+            backgroundName[0] = 0;
+            backgroundMI.cbSize = sizeof(backgroundMI);
+            backgroundMI.fMask = MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
+            backgroundMI.dwTypeData = backgroundName;
+            backgroundMI.cch = _countof(backgroundName);
+            if (!GetMenuItemInfo(backgroundMenu, j, TRUE, &backgroundMI))
+                continue;
+
+            UINT backgroundCmd = backgroundMI.wID >= 5000 ? backgroundMI.wID - 5000 : backgroundMI.wID;
+            if (!IsSharingMenuItem(backgroundContextMenu, backgroundCmd, backgroundName, backgroundMI.hSubMenu))
+                continue;
+
+            // Detach the working shell submenu from the item menu before
+            // destroying that menu, then replace the background menu item
+            // whose submenu is empty in Salamander.
+            RemoveMenu(itemMenu, i, MF_BYPOSITION);
+            DeleteMenu(backgroundMenu, j, MF_BYPOSITION);
+            InsertMenuItem(backgroundMenu, j, TRUE, &itemMI);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 
 static BOOL FindMenuItemTextByCommand(HMENU menu, UINT cmd, char* text, int textSize)
 {
@@ -2288,8 +2402,21 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
                             }
 
+                            // The background Sharing handler exposes "Give access to"
+                            // without the submenu in Salamander. The folder-item
+                            // context menu has the working Sharing submenu, so graft it
+                            // into the background menu before destroying the item menu.
+                            ReplaceBackgroundSharingMenu(panel->ContextMenu, h, panel->ContextSubmenuNew->GetMenu2(), bckgndMenu);
+
                             DestroyMenu(h);
                             h = bckgndMenu;
+
+                            // Some Explorer background cascades (notably
+                            // "Give access to") do not build their submenu
+                            // during QueryContextMenu. Pre-initialize shell
+                            // submenus here so both the native menu loop and
+                            // Salamander's menu wrapper can display them.
+                            InitializeShellCascadeMenus(panel->ContextSubmenuNew->GetMenu2(), h, 0);
                         }
                     }
                     else
@@ -2465,9 +2592,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                     ici.lpVerb = MAKEINTRESOURCE(cmd);
                                 else
                                     ici.lpVerb = MAKEINTRESOURCE(cmd - 5000);
-                                ApplyWindows11ShellInvokeWorkarounds(&ici, cmd < 5000 ? cmd : cmd - 5000);
-                                if (!Windows11AndLater)
-                                    ici.lpDirectory = panel->GetPath();
+                                ici.lpDirectory = panel->GetPath();
                                 ici.nShow = SW_SHOWNORMAL;
                                 ici.ptInvoke = pt;
 

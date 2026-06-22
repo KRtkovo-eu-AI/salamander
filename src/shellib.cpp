@@ -2497,11 +2497,21 @@ void GetMenuNewAux(IContextMenu2* contextMenu2, HMENU m, int minCmd, int maxCmd)
     __try
     {
         UINT flags = CMF_NORMAL | CMF_EXPLORE;
+        // Windows 11's Explorer asks for the view-background menu without
+        // CMF_EXPLORE. Keeping CMF_EXPLORE there makes some background-only
+        // verbs disappear (for example Git/Code/Visual Studio entries).
+        if (Windows11AndLater)
+            flags &= ~CMF_EXPLORE;
         // handle the pressed Shift key - extended context menu; on W2K it contains items like Run as...
 #define CMF_EXTENDEDVERBS 0x00000100 // rarely used verbs
         BOOL shiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         if (shiftPressed)
             flags |= CMF_EXTENDEDVERBS;
+#ifndef CMF_SYNCCASCADEMENU
+#define CMF_SYNCCASCADEMENU 0x00001000
+#endif
+        if (Windows11AndLater)
+            flags |= CMF_SYNCCASCADEMENU;
 
         contextMenu2->QueryContextMenu(m, 0, minCmd, maxCmd, flags);
     }
