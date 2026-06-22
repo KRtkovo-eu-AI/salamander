@@ -392,6 +392,8 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
                 strcpy_s(FilePath, oldFilePath);
                 return FALSE;
             }
+            if (oldFilePath[0] != 0 && _stricmp(oldFilePath, FilePath) != 0)
+                DeleteFile(oldFilePath);
             return SaveStorageTypeBootstrap(StorageType, FilePath);
         }
         return TRUE;
@@ -443,6 +445,11 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
         newRegistry->Release();
         return FALSE;
     }
+    if (StorageType == cstRegFile && oldType == cstRegFile && oldFilePath[0] != 0 &&
+        _stricmp(oldFilePath, FilePath) != 0)
+    {
+        DeleteFile(oldFilePath);
+    }
 
     if (oldType == cstRegistry && StorageType == cstRegFile && migrateCurrentData)
         DeleteStoredRegistryConfiguration(oldRegistry, SALAMANDER_ROOT_REG);
@@ -452,9 +459,14 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
 
     if (StorageType == cstRegistry)
     {
-        char portablePath[MAX_PATH];
-        if (GetPortableConfigFilePath(portablePath, SizeOf(portablePath)))
-            DeleteFile(portablePath);
+        if (oldType == cstRegFile && oldFilePath[0] != 0)
+            DeleteFile(oldFilePath);
+        else
+        {
+            char portablePath[MAX_PATH];
+            if (GetPortableConfigFilePath(portablePath, SizeOf(portablePath)))
+                DeleteFile(portablePath);
+        }
     }
 
     SaveStorageTypeBootstrap(StorageType, StorageType == cstRegFile ? FilePath : NULL);
