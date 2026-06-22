@@ -2510,10 +2510,8 @@ void GetMenuNewAux(IContextMenu2* contextMenu2, HMENU m, int minCmd, int maxCmd)
 #ifndef CMF_SYNCCASCADEMENU
 #define CMF_SYNCCASCADEMENU 0x00001000
 #endif
-        // Some shell cascades, including Explorer's "Give access to" menu,
-        // populate their submenu only when the cascade is initialized during
-        // QueryContextMenu. Request that behavior on both Windows 10 and 11.
-        flags |= CMF_SYNCCASCADEMENU;
+        if (Windows11AndLater)
+            flags |= CMF_SYNCCASCADEMENU;
 
         contextMenu2->QueryContextMenu(m, 0, minCmd, maxCmd, flags);
     }

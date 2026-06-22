@@ -762,20 +762,42 @@ static void ApplyWindows11ShellQueryContextMenuWorkarounds(UINT* flags)
     }
 }
 
-static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici, UINT cmdOffset)
+static void InitializeShellCascadeMenus(IContextMenu2* contextMenu, HMENU menu, int depth)
 {
-    if (Windows11AndLater)
+    if (contextMenu == NULL || menu == NULL || depth > 4)
+        return;
+
+    int count = GetMenuItemCount(menu);
+    for (int i = 0; i < count; i++)
     {
-        // Windows 11 shell handlers expect the extended Unicode invoke
-        // structure more often than Windows 10 handlers do. Keep InvokeCommand
-        // synchronous, but do not clear lpDirectory here: background verbs such
-        // as "Open PowerShell window here" and "Open Command Prompt here"
-        // need the directory to be supplied by the caller.
-        ici->fMask |= CMIC_MASK_UNICODE | CMIC_MASK_NOASYNC;
-        ici->lpVerb = MAKEINTRESOURCEA(cmdOffset);
-        ici->lpVerbW = MAKEINTRESOURCEW(cmdOffset);
-        ici->lpParameters = NULL;
-        ici->lpParametersW = NULL;
+        MENUITEMINFO mi;
+        ZeroMemory(&mi, sizeof(mi));
+        mi.cbSize = sizeof(mi);
+        mi.fMask = MIIM_SUBMENU;
+        if (GetMenuItemInfo(menu, i, TRUE, &mi) && mi.hSubMenu != NULL)
+        {
+            __try
+            {
+                IContextMenu3* contextMenu3 = NULL;
+                LRESULT result = 0;
+                if (SUCCEEDED(contextMenu->QueryInterface(IID_IContextMenu3, (void**)&contextMenu3)))
+                {
+                    HRESULT hr = contextMenu3->HandleMenuMsg2(WM_INITMENUPOPUP, (WPARAM)mi.hSubMenu, MAKELPARAM(i, FALSE), &result);
+                    contextMenu3->Release();
+                    if (SUCCEEDED(hr))
+                    {
+                        InitializeShellCascadeMenus(contextMenu, mi.hSubMenu, depth + 1);
+                        continue;
+                    }
+                }
+                contextMenu->HandleMenuMsg(WM_INITMENUPOPUP, (WPARAM)mi.hSubMenu, MAKELPARAM(i, FALSE));
+            }
+            __except (CCallStack::HandleException(GetExceptionInformation(), 19))
+            {
+                MenuNewExceptionHasOccured++;
+            }
+            InitializeShellCascadeMenus(contextMenu, mi.hSubMenu, depth + 1);
+        }
     }
 }
 
@@ -2289,6 +2311,13 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
 
                             DestroyMenu(h);
                             h = bckgndMenu;
+
+                            // Some Explorer background cascades (notably
+                            // "Give access to") do not build their submenu
+                            // during QueryContextMenu. Pre-initialize shell
+                            // submenus here so both the native menu loop and
+                            // Salamander's menu wrapper can display them.
+                            InitializeShellCascadeMenus(panel->ContextSubmenuNew->GetMenu2(), h, 0);
                         }
                     }
                     else
@@ -2464,15 +2493,7 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                     ici.lpVerb = MAKEINTRESOURCE(cmd);
                                 else
                                     ici.lpVerb = MAKEINTRESOURCE(cmd - 5000);
-                                ApplyWindows11ShellInvokeWorkarounds(&ici, cmd < 5000 ? cmd : cmd - 5000);
-                                WCHAR directoryW[MAX_PATH];
-                                directoryW[0] = 0;
                                 ici.lpDirectory = panel->GetPath();
-                                if (Windows11AndLater &&
-                                    MultiByteToWideChar(CP_ACP, 0, panel->GetPath(), -1, directoryW, _countof(directoryW)) != 0)
-                                {
-                                    ici.lpDirectoryW = directoryW;
-                                }
                                 ici.nShow = SW_SHOWNORMAL;
                                 ici.ptInvoke = pt;
 
