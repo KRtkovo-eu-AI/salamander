@@ -389,6 +389,7 @@ void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 constexpr UINT_PTR kDarkModeTabOverflowSubclassId = 0x4452544F; // "DRTO"
 constexpr UINT_PTR kDarkModeRebarSeparatorSubclassId = 0x44525253; // "DRRS"
+const wchar_t* kDarkModeCustomTreeViewProp = L"Salamander.DarkModeLib.CustomTree";
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
 {
@@ -1823,6 +1824,25 @@ void DarkModePreserveCustomTabControl(HWND tabControl)
 #else
     (void)tabControl;
 #endif
+}
+
+void DarkModePreserveCustomTreeView(HWND treeView)
+{
+    EnsureInitialized();
+    if (treeView == NULL)
+        return;
+
+    SetPropW(treeView, kDarkModeCustomTreeViewProp, reinterpret_cast<HANDLE>(1));
+
+    const bool wantDark = IsWindowsDarkSchemeSelected();
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(treeView, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+
+    const COLORREF bg = wantDark ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
+    const COLORREF fg = wantDark ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
+    TreeView_SetTextColor(treeView, fg);
+    TreeView_SetBkColor(treeView, bg);
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 
 void DarkModeApplyRebarSeparators(HWND rebar)

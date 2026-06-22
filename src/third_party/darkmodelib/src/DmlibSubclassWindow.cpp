@@ -980,6 +980,10 @@ static LRESULT onNotifyCustomDrawOrDTPDropDown(
 
 		if (className == WC_TREEVIEW)
 		{
+			if (::GetPropW(lpnmhdr->hwndFrom, L"Salamander.DarkModeLib.CustomTree") != nullptr)
+			{
+				return ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+			}
 			return darkTreeViewNotifyCustomDraw(hWnd, uMsg, wParam, lParam);
 		}
 
