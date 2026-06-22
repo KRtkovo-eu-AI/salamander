@@ -30,38 +30,6 @@ const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 HWINEVENTHOOK HPathAutoCompleteWinEventHook = NULL;
 const UINT_PTR PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID = 1;
 
-bool PaintPathAutoCompleteWithDarkSysColors(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& result)
-{
-    if (!DarkModeShouldUseDarkColors())
-        return false;
-
-    static bool paintingWithDarkSysColors = false;
-    if (paintingWithDarkSysColors)
-        return false;
-
-    // The shell auto-suggest popup paints some surfaces internally using system colors,
-    // so WM_CTLCOLOR alone is not enough. Keep the override scoped to the native
-    // popup paint call and restore the process/system colors immediately afterwards.
-    const DarkModeColors& colors = DarkModeGetColors();
-    const int indexes[] = {COLOR_WINDOW, COLOR_WINDOWTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT,
-                           COLOR_BTNFACE, COLOR_BTNTEXT, COLOR_3DFACE};
-    COLORREF oldColors[_countof(indexes)];
-    COLORREF darkColors[_countof(indexes)] = {colors.background, colors.readableText,
-                                              RGB(0x4A, 0x4A, 0x4A), colors.readableText,
-                                              colors.background, colors.readableText, colors.background};
-
-    const int count = static_cast<int>(_countof(indexes));
-    for (int i = 0; i < count; ++i)
-        oldColors[i] = GetSysColor(indexes[i]);
-
-    paintingWithDarkSysColors = true;
-    SetSysColors(count, indexes, darkColors);
-    result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
-    SetSysColors(count, indexes, oldColors);
-    paintingWithDarkSysColors = false;
-    return true;
-}
-
 BOOL GetPathAutoCompletePopupClassName(HWND hwnd, wchar_t* className, int classNameSize)
 {
     if (className == NULL || classNameSize <= 0)
@@ -139,16 +107,6 @@ LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM 
         break;
     }
 
-    case WM_PAINT:
-    case WM_PRINTCLIENT:
-    case WM_NCPAINT:
-    {
-        LRESULT result;
-        if (PaintPathAutoCompleteWithDarkSysColors(hwnd, uMsg, wParam, lParam, result))
-            return result;
-        break;
-    }
-
     case WM_ERASEBKGND:
         if (DarkModeShouldUseDarkColors())
         {
@@ -166,10 +124,23 @@ LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM 
     return DefSubclassProc(hwnd, uMsg, wParam, lParam);
 }
 
+
+void SubclassPathAutoCompletePopupOwnerWindows(HWND hwnd)
+{
+    HWND parent = GetParent(hwnd);
+    if (parent != NULL && parent != hwnd)
+        SetWindowSubclass(parent, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
+
+    HWND owner = GetWindow(hwnd, GW_OWNER);
+    if (owner != NULL && owner != hwnd && owner != parent)
+        SetWindowSubclass(owner, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
+}
+
 BOOL CALLBACK ApplyPathAutoCompletePopupChildDarkModeProc(HWND hwnd, LPARAM)
 {
     DarkModeApplyWindow(hwnd);
     SetWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
+    SubclassPathAutoCompletePopupOwnerWindows(hwnd);
 
     wchar_t className[64];
     if (GetClassNameW(hwnd, className, _countof(className)) != 0 && lstrcmpiW(className, L"SysListView32") == 0)
@@ -194,6 +165,7 @@ void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
     DarkModeApplyWindow(popup);
     DarkModeRefreshTree(popup);
     SetWindowSubclass(popup, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
+    SubclassPathAutoCompletePopupOwnerWindows(popup);
     EnumChildWindows(popup, ApplyPathAutoCompletePopupChildDarkModeProc, 0);
     DarkModeRefreshTree(popup);
     RedrawWindow(popup, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
