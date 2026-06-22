@@ -15,6 +15,7 @@
 #include <uxtheme.h>
 #include <commctrl.h>
 #include <vector>
+#include <cwchar>
 
 #ifndef HDM_SETBKCOLOR
 #define HDM_SETBKCOLOR (HDM_FIRST + 29)
@@ -389,6 +390,7 @@ void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 constexpr UINT_PTR kDarkModeTabOverflowSubclassId = 0x4452544F; // "DRTO"
 constexpr UINT_PTR kDarkModeRebarSeparatorSubclassId = 0x44525253; // "DRRS"
+constexpr UINT_PTR kDarkModeAutoSuggestSubclassId = 0x44524153; // "DRAS"
 const wchar_t* kDarkModeCustomTreeViewProp = L"Salamander.DarkModeLib.CustomTree";
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
@@ -720,6 +722,170 @@ LRESULT CALLBACK DarkRebarSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, 
 
     return DefSubclassProc(hwnd, msg, wParam, lParam);
 }
+
+
+bool IsAutoSuggestDropdownClass(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[128];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return false;
+
+    return lstrcmpiW(className, L"Auto-Suggest Dropdown") == 0 ||
+           wcsstr(className, L"Auto-Suggest") != NULL ||
+           wcsstr(className, L"AutoSuggest") != NULL;
+}
+
+HWND FindAutoSuggestDropdown(HWND hwnd)
+{
+    for (HWND candidate = hwnd; candidate != NULL; candidate = GetParent(candidate))
+    {
+        if (IsAutoSuggestDropdownClass(candidate))
+            return candidate;
+    }
+
+    HWND rootOwner = GetAncestor(hwnd, GA_ROOTOWNER);
+    if (IsAutoSuggestDropdownClass(rootOwner))
+        return rootOwner;
+
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+    if (IsAutoSuggestDropdownClass(root))
+        return root;
+
+    return NULL;
+}
+
+void ApplyAutoSuggestChildDarkMode(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    DarkModeApplyWindow(hwnd);
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(hwnd, L"DarkMode_Explorer", nullptr);
+
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) != 0)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        if (lstrcmpiW(className, WC_LISTVIEWW) == 0)
+        {
+            ListView_SetTextColor(hwnd, colors.readableText);
+            ListView_SetTextBkColor(hwnd, colors.background);
+            ListView_SetBkColor(hwnd, colors.background);
+#if USE_DARKMODELIB
+            dmlib::setListViewCtrlSubclass(hwnd);
+#endif
+        }
+        else if (lstrcmpiW(className, L"ListBox") == 0 || lstrcmpiW(className, L"Edit") == 0)
+        {
+#if USE_DARKMODELIB
+            dmlib::setCustomBorderForListBoxOrEditCtrlSubclass(hwnd);
+#endif
+            if (lstrcmpiW(className, L"ListBox") == 0)
+                SendMessage(hwnd, LB_SETITEMHEIGHT, 0, SendMessage(hwnd, LB_GETITEMHEIGHT, 0, 0));
+        }
+    }
+
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
+BOOL CALLBACK ApplyAutoSuggestChildDarkModeProc(HWND hwnd, LPARAM)
+{
+    ApplyAutoSuggestChildDarkMode(hwnd);
+    return TRUE;
+}
+
+LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId);
+        break;
+
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = reinterpret_cast<HDC>(wParam);
+            if (hdc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(hdc, colors.readableText);
+                SetBkColor(hdc, colors.background);
+                SetBkMode(hdc, OPAQUE);
+            }
+            return reinterpret_cast<LRESULT>(gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_WINDOW));
+        }
+        break;
+    }
+
+    case WM_ERASEBKGND:
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRectWithColor(reinterpret_cast<HDC>(wParam), rc, DarkModeGetColors().background);
+            return 1;
+        }
+        break;
+
+    case WM_SHOWWINDOW:
+        if (wParam != 0 && DarkModeShouldUseDarkColors())
+            EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void ApplyAutoSuggestDropdownDarkMode(HWND dropdown)
+{
+    if (dropdown == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    DarkModeApplyWindow(dropdown);
+#if USE_DARKMODELIB
+    dmlib::setDarkWndNotifySafe(dropdown);
+    dmlib::setChildCtrlsSubclassAndTheme(dropdown);
+#endif
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(dropdown, L"DarkMode_Explorer", nullptr);
+
+    SetWindowSubclass(dropdown, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
+    EnumChildWindows(dropdown, ApplyAutoSuggestChildDarkModeProc, 0);
+    RedrawWindow(dropdown, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+}
+
+void CALLBACK AutoSuggestWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
+                                      DWORD eventThread, DWORD)
+{
+    if ((event != EVENT_OBJECT_CREATE && event != EVENT_OBJECT_SHOW) || hwnd == NULL || idObject != OBJID_WINDOW || idChild != CHILDID_SELF)
+        return;
+
+    if (eventThread != GetCurrentThreadId())
+        return;
+
+    DWORD processId = 0;
+    GetWindowThreadProcessId(hwnd, &processId);
+    if (processId != GetCurrentProcessId())
+        return;
+
+    ApplyAutoSuggestDropdownDarkMode(FindAutoSuggestDropdown(hwnd));
+}
+
+HWINEVENTHOOK gAutoSuggestWinEventHook = NULL;
+DWORD gAutoSuggestWinEventThreadId = 0;
 
 LRESULT CALLBACK DarkTabOverflowSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                          UINT_PTR subclassId, DWORD_PTR refData)
@@ -1843,6 +2009,33 @@ void DarkModePreserveCustomTreeView(HWND treeView)
     TreeView_SetTextColor(treeView, fg);
     TreeView_SetBkColor(treeView, bg);
     RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+}
+
+
+void DarkModeEnableAutoSuggestSupport(HWND edit)
+{
+    EnsureInitialized();
+    if (edit == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    const DWORD threadId = GetWindowThreadProcessId(edit, NULL);
+    if (threadId == 0)
+        return;
+
+    if (gAutoSuggestWinEventHook == NULL || gAutoSuggestWinEventThreadId != threadId)
+    {
+        if (gAutoSuggestWinEventHook != NULL)
+            UnhookWinEvent(gAutoSuggestWinEventHook);
+
+        gAutoSuggestWinEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, NULL,
+                                                   AutoSuggestWinEventProc, GetCurrentProcessId(), threadId,
+                                                   WINEVENT_OUTOFCONTEXT);
+        gAutoSuggestWinEventThreadId = gAutoSuggestWinEventHook != NULL ? threadId : 0;
+    }
+
+    HWND dropdown = FindAutoSuggestDropdown(edit);
+    if (dropdown != NULL)
+        ApplyAutoSuggestDropdownDarkMode(dropdown);
 }
 
 void DarkModeApplyRebarSeparators(HWND rebar)

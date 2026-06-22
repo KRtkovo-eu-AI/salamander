@@ -86,5 +86,6 @@ void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
 void DarkModePreserveCustomTabControl(HWND tabControl);
 void DarkModePreserveCustomTreeView(HWND treeView);
 void DarkModeApplyRebarSeparators(HWND rebar);
+void DarkModeEnableAutoSuggestSupport(HWND edit);
 void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark = false);
 void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont, bool forceDark = false);
