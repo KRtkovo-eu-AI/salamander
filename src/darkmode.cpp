@@ -737,26 +737,23 @@ void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
         if ((rbi.fStyle & RBBS_NOGRIPPER) == 0)
         {
             RECT gripRect = bandRect;
-            gripRect.left += 2;
-            gripRect.right = rbi.hwndChild != NULL ? bandRect.left + rbi.cxHeader : bandRect.left + 10;
-            if (gripRect.right > gripRect.left + 8)
-                gripRect.right = gripRect.left + 8;
+            gripRect.right = gripRect.left + 3;
+            if (gripRect.right > bandRect.right)
+                gripRect.right = bandRect.right;
             if (gripRect.right <= gripRect.left)
                 continue;
-            FillRectWithColor(hdc, gripRect, DarkModeGetColors().background);
 
+            // Keep the original simple one-line gripper shape, but replace the
+            // light native RGB(192,192,192) paint with the same dark separator
+            // color used inside the toolbars.
+            FillRectWithColor(hdc, gripRect, DarkModeGetColors().background);
             HPEN gripPen = CreatePen(PS_SOLID, 1, RGB(95, 95, 95));
             if (gripPen != NULL)
             {
                 HGDIOBJ gripOldPen = SelectObject(hdc, gripPen);
-                for (int x = gripRect.left + 1; x <= gripRect.left + 4; x += 3)
-                {
-                    for (int y = gripRect.top + 4; y < gripRect.bottom - 3; y += 4)
-                    {
-                        MoveToEx(hdc, x, y, NULL);
-                        LineTo(hdc, x, y + 2);
-                    }
-                }
+                const int x = gripRect.left + 1;
+                MoveToEx(hdc, x, gripRect.top + 3, NULL);
+                LineTo(hdc, x, gripRect.bottom - 3);
                 if (gripOldPen != NULL)
                     SelectObject(hdc, gripOldPen);
                 DeleteObject(gripPen);
