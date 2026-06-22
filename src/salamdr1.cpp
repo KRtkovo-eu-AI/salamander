@@ -99,6 +99,89 @@ static void SetRestrictedFileStorageImported()
     }
 }
 
+static BOOL LoadLanguageFromRegistry(CSalamanderRegistryExAbstract* registry, const char* configKey, DWORD& langChanged)
+{
+    if (registry == NULL || configKey == NULL)
+        return FALSE;
+
+    HKEY hSalamander;
+    if (!registry->OpenKey(HKEY_CURRENT_USER, configKey, hSalamander))
+        return FALSE;
+
+    BOOL loaded = FALSE;
+    HKEY actKey;
+    DWORD configVersion = 1; // configuration from 1.52 or older
+    if (registry->OpenKey(hSalamander, SALAMANDER_VERSION_REG, actKey))
+    {
+        configVersion = 2; // configuration from 1.6b1
+        registry->GetValue(actKey, SALAMANDER_VERSIONREG_REG, REG_DWORD,
+                           &configVersion, sizeof(DWORD));
+        registry->CloseKey(actKey);
+    }
+    if (configVersion >= 59 /* 2.53 beta 2 */ &&
+        registry->OpenKey(hSalamander, SALAMANDER_CONFIG_REG, actKey))
+    {
+        registry->GetValue(actKey, CONFIG_LANGUAGE_REG, REG_SZ,
+                           Configuration.SLGName, MAX_PATH);
+        registry->GetValue(actKey, CONFIG_USEALTLANGFORPLUGINS_REG, REG_DWORD,
+                           &Configuration.UseAsAltSLGInOtherPlugins, sizeof(DWORD));
+        registry->GetValue(actKey, CONFIG_ALTLANGFORPLUGINS_REG, REG_SZ,
+                           Configuration.AltPluginSLGName, MAX_PATH);
+        registry->GetValue(actKey, CONFIG_LANGUAGECHANGED_REG, REG_DWORD, &langChanged, sizeof(DWORD));
+        registry->CloseKey(actKey);
+        loaded = TRUE;
+    }
+    registry->CloseKey(hSalamander);
+    return loaded;
+}
+
+static BOOL LoadLanguageFromPortableConfig(const char* configKey, DWORD& langChanged)
+{
+    char fileName[MAX_PATH];
+    if (!ConfigurationStorage.GetPortableConfigFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    HANDLE file = HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
+                                       OPEN_EXISTING, 0, 0));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    BOOL loaded = FALSE;
+    LARGE_INTEGER size;
+    size.QuadPart = 0;
+    if (GetFileSizeEx(file, &size) && size.QuadPart > 0 && size.HighPart == 0)
+    {
+        LPTSTR buf = (LPTSTR)malloc(size.LowPart + sizeof(WCHAR));
+        if (buf != NULL)
+        {
+            DWORD bytesRead;
+            if (ReadFile(file, buf, size.LowPart, &bytesRead, NULL))
+            {
+                *(WCHAR*)((LPBYTE)buf + bytesRead) = 0;
+                if (ConvertIfNeeded(&buf, bytesRead) != 0)
+                {
+                    CSalamanderRegistryExAbstract* memReg = REG_MemRegistryFactory();
+                    if (memReg != NULL)
+                    {
+                        LPTSTR parseBuf = _tcsdup(buf);
+                        if (parseBuf != NULL)
+                        {
+                            if (Parse(parseBuf, memReg, TRUE) == RPE_OK)
+                                loaded = LoadLanguageFromRegistry(memReg, configKey, langChanged);
+                            free(parseBuf);
+                        }
+                        memReg->Release();
+                    }
+                }
+            }
+            free(buf);
+        }
+    }
+
+    HANDLES(CloseHandle(file));
+    return loaded;
+}
+
 // zpristupnime si puvodni vstupni bod aplikace
 extern "C" int WinMainCRTStartup();
 
@@ -4248,35 +4331,26 @@ int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine,
     }
 
     // zkusime z aktualni konfigurace vytahnout klic urcujici jazyk
-    LoadSaveToRegistryMutex.Enter();
-    HKEY hSalamander;
     DWORD langChanged = FALSE; // TRUE = startujeme Salama poprve s jinym jazykem (naloadime vsechny pluginy, at se overi ze mame tuto jazykovou verzi i pro ne, pripadne at user vyresi jake nahradni verze chce pouzivat)
-    if (OpenKey(HKEY_CURRENT_USER, configKey, hSalamander))
+    BOOL languageLoadedFromPortableConfig = FALSE;
+    CConfigurationStorageType languageStorageType = cstRegistry;
+    if (!autoImportConfig &&
+        ConfigurationStorage.LoadStorageTypeBootstrap(languageStorageType) && languageStorageType == cstRegFile)
     {
-        HKEY actKey;
-        DWORD configVersion = 1; // toto je konfig od 1.52 a starsi
-        if (OpenKey(hSalamander, SALAMANDER_VERSION_REG, actKey))
-        {
-            configVersion = 2; // toto je konfig od 1.6b1
-            GetValue(actKey, SALAMANDER_VERSIONREG_REG, REG_DWORD,
-                     &configVersion, sizeof(DWORD));
-            CloseKey(actKey);
-        }
-        if (configVersion >= 59 /* 2.53 beta 2 */ && // pred 2.53 beta 2 byla jen anglictina, tedy cteni nema smysl, nabidneme userovi defaultni jazyk systemu nebo rucni vyber jazyku
-            OpenKey(hSalamander, SALAMANDER_CONFIG_REG, actKey))
-        {
-            GetValue(actKey, CONFIG_LANGUAGE_REG, REG_SZ,
-                     Configuration.SLGName, MAX_PATH);
-            GetValue(actKey, CONFIG_USEALTLANGFORPLUGINS_REG, REG_DWORD,
-                     &Configuration.UseAsAltSLGInOtherPlugins, sizeof(DWORD));
-            GetValue(actKey, CONFIG_ALTLANGFORPLUGINS_REG, REG_SZ,
-                     Configuration.AltPluginSLGName, MAX_PATH);
-            GetValue(actKey, CONFIG_LANGUAGECHANGED_REG, REG_DWORD, &langChanged, sizeof(DWORD));
-            CloseKey(actKey);
-        }
-        CloseKey(hSalamander);
+        languageLoadedFromPortableConfig = LoadLanguageFromPortableConfig(configKey, langChanged);
     }
-    LoadSaveToRegistryMutex.Leave();
+
+    if (!languageLoadedFromPortableConfig)
+    {
+        LoadSaveToRegistryMutex.Enter();
+        CSalamanderRegistryExAbstract* sysReg = REG_SysRegistryFactory();
+        if (sysReg != NULL)
+        {
+            LoadLanguageFromRegistry(sysReg, configKey, langChanged);
+            sysReg->Release();
+        }
+        LoadSaveToRegistryMutex.Leave();
+    }
 
     char initialLanguageBootstrapPath[MAX_PATH];
     initialLanguageBootstrapPath[0] = 0;
