@@ -687,6 +687,16 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
             result = 0;
             return TRUE;
         }
+
+        // Activating another tab is a selection operation, not a reorder.  Some
+        // plug-in panels can run their activation code before the matching
+        // button-up is delivered back here, so cancel any pending drag state now
+        // to avoid leaving the insert mark painted in the tab bar.
+        if (DragTracking)
+            CancelDragTracking();
+        else
+            ClearInsertMark();
+
         int sel = TabCtrl_GetCurSel(HWindow);
         if (IsNewTabButtonIndex(sel))
         {
