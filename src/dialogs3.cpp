@@ -5,6 +5,8 @@
 #include "precomp.h"
 
 #include <shlwapi.h>
+#include <string>
+#include <vector>
 #undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
 
 #include "mainwnd.h"
@@ -27,32 +29,148 @@ namespace
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
 
+void AddCurrentDirectoryAutoCompleteItem(std::vector<std::wstring>& items, const char* name)
+{
+    if (name == NULL || name[0] == 0 || strcmp(name, "..") == 0)
+        return;
+
+    int wideLen = MultiByteToWideChar(CP_ACP, 0, name, -1, NULL, 0);
+    if (wideLen <= 1)
+        return;
+
+    std::wstring wideName;
+    wideName.resize(wideLen - 1);
+    MultiByteToWideChar(CP_ACP, 0, name, -1, &wideName[0], wideLen);
+    items.push_back(wideName);
+}
+
+class CCurrentDirectoryEnumString : public IEnumString
+{
+public:
+    explicit CCurrentDirectoryEnumString(const std::vector<std::wstring>& items)
+        : RefCount(1), Items(items), Index(0)
+    {
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppvObject)
+    {
+        if (ppvObject == NULL)
+            return E_POINTER;
+
+        if (riid == IID_IUnknown || riid == IID_IEnumString)
+        {
+            *ppvObject = static_cast<IEnumString*>(this);
+            AddRef();
+            return S_OK;
+        }
+
+        *ppvObject = NULL;
+        return E_NOINTERFACE;
+    }
+
+    STDMETHODIMP_(ULONG) AddRef()
+    {
+        return InterlockedIncrement(&RefCount);
+    }
+
+    STDMETHODIMP_(ULONG) Release()
+    {
+        ULONG ref = InterlockedDecrement(&RefCount);
+        if (ref == 0)
+            delete this;
+        return ref;
+    }
+
+    STDMETHODIMP Next(ULONG celt, LPOLESTR* rgelt, ULONG* pceltFetched)
+    {
+        if (rgelt == NULL)
+            return E_POINTER;
+        if (celt != 1 && pceltFetched == NULL)
+            return E_POINTER;
+
+        ULONG fetched = 0;
+        while (fetched < celt && Index < Items.size())
+        {
+            const std::wstring& item = Items[Index++];
+            size_t bytes = (item.length() + 1) * sizeof(wchar_t);
+            rgelt[fetched] = static_cast<LPOLESTR>(CoTaskMemAlloc(bytes));
+            if (rgelt[fetched] == NULL)
+                return E_OUTOFMEMORY;
+            memcpy(rgelt[fetched], item.c_str(), bytes);
+            ++fetched;
+        }
+
+        if (pceltFetched != NULL)
+            *pceltFetched = fetched;
+        return fetched == celt ? S_OK : S_FALSE;
+    }
+
+    STDMETHODIMP Skip(ULONG celt)
+    {
+        Index += celt;
+        if (Index > Items.size())
+        {
+            Index = Items.size();
+            return S_FALSE;
+        }
+        return S_OK;
+    }
+
+    STDMETHODIMP Reset()
+    {
+        Index = 0;
+        return S_OK;
+    }
+
+    STDMETHODIMP Clone(IEnumString** ppenum)
+    {
+        if (ppenum == NULL)
+            return E_POINTER;
+
+        CCurrentDirectoryEnumString* clone = new CCurrentDirectoryEnumString(Items);
+        if (clone == NULL)
+            return E_OUTOFMEMORY;
+        clone->Index = Index;
+        *ppenum = clone;
+        return S_OK;
+    }
+
+private:
+    LONG RefCount;
+    std::vector<std::wstring> Items;
+    size_t Index;
+};
+
 HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
 {
+    std::vector<std::wstring> items;
+    CFilesWindow* panel = MainWindow != NULL ? MainWindow->GetActivePanel() : NULL;
+    if (panel != NULL)
+    {
+        for (int i = 0; i < panel->Dirs->Count; ++i)
+            AddCurrentDirectoryAutoCompleteItem(items, panel->Dirs->At(i).Name);
+        for (int i = 0; i < panel->Files->Count; ++i)
+            AddCurrentDirectoryAutoCompleteItem(items, panel->Files->At(i).Name);
+    }
+
     IAutoComplete2* autoComplete = NULL;
     HRESULT hr = CoCreateInstance(CLSID_AutoComplete, NULL, CLSCTX_INPROC_SERVER,
                                   IID_IAutoComplete2, (void**)&autoComplete);
     if (FAILED(hr))
         return hr;
 
-    IUnknown* source = NULL;
-    hr = CoCreateInstance(CLSID_ACListISF, NULL, CLSCTX_INPROC_SERVER,
-                          IID_IUnknown, (void**)&source);
-    if (SUCCEEDED(hr))
+    CCurrentDirectoryEnumString* source = new CCurrentDirectoryEnumString(items);
+    if (source == NULL)
     {
-        IACList2* acList = NULL;
-        if (SUCCEEDED(source->QueryInterface(IID_IACList2, (void**)&acList)))
-        {
-            acList->SetOptions(ACLO_CURRENTDIR | ACLO_FILESYSONLY);
-            acList->Release();
-        }
-
-        hr = autoComplete->Init(hEdit, source, NULL, NULL);
-        if (SUCCEEDED(hr))
-            autoComplete->SetOptions(ACO_AUTOSUGGEST | ACO_AUTOAPPEND);
-        source->Release();
+        autoComplete->Release();
+        return E_OUTOFMEMORY;
     }
 
+    hr = autoComplete->Init(hEdit, source, NULL, NULL);
+    if (SUCCEEDED(hr))
+        autoComplete->SetOptions(ACO_AUTOSUGGEST | ACO_AUTOAPPEND);
+
+    source->Release();
     autoComplete->Release();
     return hr;
 }
