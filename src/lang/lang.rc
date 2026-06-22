@@ -132,8 +132,8 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,185,193,12
     CONTROL         "Enable path auto-&completion in operation dialogs",IDC_PATHAUTOCOMPLETE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,198,193,12
-    CONTROL         "Enable auto-completion in &Create Directory dialog",IDC_CREATEDIR_AUTOCOMPLETE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,211,193,12
+    CONTROL         "Enable auto-completion in &Create Directory and Quick Rename dialogs",IDC_CREATEDIR_AUTOCOMPLETE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,211,290,12
 END
 
 IDD_CFGPAGE_REGIONAL DIALOGEX 65, 18, 299, 231

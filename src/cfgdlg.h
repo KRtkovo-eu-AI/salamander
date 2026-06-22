@@ -232,7 +232,7 @@ struct CConfiguration
         UseAsyncCopyAlg,        // Win7+ only (older OS: always FALSE): should asynchronous file copy algorithm be used on network drives?
         ReloadEnvVariables,     // should we perform regeneration when environment variables change??
         PathAutoComplete,       // enable file-system path auto completion in path input dialogs
-        CreateDirAutoComplete,  // enable current-directory name suggestions in the Create Directory dialog
+        CreateDirAutoComplete,  // enable current-directory name suggestions in the Create Directory and Quick Rename dialogs
         QuickRenameSelectAll,   // Quick Rename/Pack selects everything (not just the name) (users disliked the new selection)
         EditNewSelectAll,       // EditNew should select everything (not just the name). users requested a separate option because some always create .TXT (and are fine with overwriting just the name) while others use different extensions and want to overwrite the entire filename
         ShiftForHotPaths,       // use Shift+1..0 for go to hot path?

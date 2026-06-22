@@ -47,7 +47,7 @@ void ApplyPathAutoCompleteDarkMode(HWND hCombo)
     }
 }
 
-BOOL PreparePathAutoCompleteSearch(const char* text, BOOL createDirectoryMode,
+BOOL PreparePathAutoCompleteSearch(const char* text, BOOL nameAutoCompleteMode,
                                    char* searchMask, int searchMaskSize,
                                    char* itemPrefix, int itemPrefixSize)
 {
@@ -87,8 +87,8 @@ BOOL PreparePathAutoCompleteSearch(const char* text, BOOL createDirectoryMode,
             return FALSE;
         SalPathAddBackslash(dir, MAX_PATH);
         name = text;
-        // For relative Create Directory names, keep the visible suggestions relative to the current folder.
-        if (!createDirectoryMode)
+        // For relative Create Directory and Quick Rename names, keep the visible suggestions relative to the current folder.
+        if (!nameAutoCompleteMode)
             itemPrefix[0] = 0;
     }
 
@@ -99,10 +99,10 @@ BOOL PreparePathAutoCompleteSearch(const char* text, BOOL createDirectoryMode,
     return searchMask[0] != 0;
 }
 
-void UpdatePathAutoCompleteSuggestions(HWND hCombo, BOOL createDirectoryMode, BOOL* updating)
+void UpdatePathAutoCompleteSuggestions(HWND hCombo, BOOL nameAutoCompleteMode, BOOL* updating)
 {
     if (hCombo == NULL || updating == NULL || *updating || !Configuration.PathAutoComplete ||
-        (createDirectoryMode && !Configuration.CreateDirAutoComplete))
+        (nameAutoCompleteMode && !Configuration.CreateDirAutoComplete))
         return;
 
     char className[32];
@@ -120,43 +120,62 @@ void UpdatePathAutoCompleteSuggestions(HWND hCombo, BOOL createDirectoryMode, BO
 
     char searchMask[2 * MAX_PATH];
     char itemPrefix[2 * MAX_PATH];
-    if (!PreparePathAutoCompleteSearch(text, createDirectoryMode, searchMask, _countof(searchMask), itemPrefix, _countof(itemPrefix)))
+    if (!PreparePathAutoCompleteSearch(text, nameAutoCompleteMode, searchMask, _countof(searchMask), itemPrefix, _countof(itemPrefix)))
         return;
 
     *updating = TRUE;
     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
 
     int count = 0;
-    WIN32_FIND_DATA fd;
-    HANDLE find = HANDLES_Q(FindFirstFile(searchMask, &fd));
-    if (find != INVALID_HANDLE_VALUE)
+    char firstItem[2 * MAX_PATH];
+    firstItem[0] = 0;
+
+    for (int pass = 0; pass < 2 && count < PATH_AUTOCOMPLETE_MAX_ITEMS; pass++)
     {
-        do
+        const BOOL wantDirectory = pass == 0;
+        WIN32_FIND_DATA fd;
+        HANDLE find = HANDLES_Q(FindFirstFile(searchMask, &fd));
+        if (find != INVALID_HANDLE_VALUE)
         {
-            if (strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0)
+            do
             {
-                char item[2 * MAX_PATH];
-                _snprintf_s(item, _TRUNCATE, "%s%s", itemPrefix, fd.cFileName);
-                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)item);
-                if (++count >= PATH_AUTOCOMPLETE_MAX_ITEMS)
-                    break;
-            }
-        } while (FindNextFile(find, &fd));
-        HANDLES(FindClose(find));
+                const BOOL isDirectory = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                if (isDirectory == wantDirectory &&
+                    strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0)
+                {
+                    char item[2 * MAX_PATH];
+                    _snprintf_s(item, _TRUNCATE, "%s%s", itemPrefix, fd.cFileName);
+                    if (firstItem[0] == 0)
+                        lstrcpyn(firstItem, item, _countof(firstItem));
+                    SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)item);
+                    if (++count >= PATH_AUTOCOMPLETE_MAX_ITEMS)
+                        break;
+                }
+            } while (FindNextFile(find, &fd));
+            HANDLES(FindClose(find));
+        }
     }
 
-    SetWindowText(hCombo, text);
-    SendMessage(hCombo, CB_SETEDITSEL, 0, MAKELPARAM(selStart, selEnd));
+    if (count > 0 && _strnicmp(firstItem, text, strlen(text)) == 0)
+    {
+        SetWindowText(hCombo, firstItem);
+        SendMessage(hCombo, CB_SETEDITSEL, 0, MAKELPARAM((int)strlen(text), (int)strlen(firstItem)));
+    }
+    else
+    {
+        SetWindowText(hCombo, text);
+        SendMessage(hCombo, CB_SETEDITSEL, 0, MAKELPARAM(selStart, selEnd));
+    }
     SendMessage(hCombo, CB_SHOWDROPDOWN, count > 0, 0);
     ApplyPathAutoCompleteDarkMode(hCombo);
 
     *updating = FALSE;
 }
 
-void EnablePathAutoComplete(HWND hComboOrEdit, BOOL createDirectoryMode)
+void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
 {
     if (hComboOrEdit == NULL || !Configuration.PathAutoComplete ||
-        (createDirectoryMode && !Configuration.CreateDirAutoComplete))
+        (nameAutoCompleteMode && !Configuration.CreateDirAutoComplete))
         return;
 
     ApplyPathAutoCompleteDarkMode(hComboOrEdit);
@@ -584,7 +603,7 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     : CCommonDialog(HLanguage, history ? IDD_COPYMOVEDIALOG_CB : IDD_COPYMOVEDIALOG, parent)
 {
     DirectoryHelper = FALSE;
-    CreateDirectoryMode = helpID == IDD_CREATEDIRDIALOG;
+    NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
     UpdatingPathAutoComplete = FALSE;
     if (directoryHelper)
     {
@@ -670,7 +689,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_ENABLEPATHAUTOCOMPLETE:
     {
-        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), CreateDirectoryMode);
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), NameAutoCompleteMode);
         return 0;
     }
 
@@ -679,7 +698,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (reinterpret_cast<HWND>(lParam) == GetDlgItem(HWindow, IDE_PATH) &&
             (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_EDITUPDATE))
-            UpdatePathAutoCompleteSuggestions(GetDlgItem(HWindow, IDE_PATH), CreateDirectoryMode, &UpdatingPathAutoComplete);
+            UpdatePathAutoCompleteSuggestions(GetDlgItem(HWindow, IDE_PATH), NameAutoCompleteMode, &UpdatingPathAutoComplete);
         break;
     }
 
