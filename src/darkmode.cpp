@@ -215,6 +215,7 @@ struct WINDOWCOMPOSITIONATTRIBDATA
 
 using fnRtlGetNtVersionNumbers = void(WINAPI*)(LPDWORD major, LPDWORD minor, LPDWORD build);
 using fnSetWindowCompositionAttribute = BOOL(WINAPI*)(HWND hWnd, WINDOWCOMPOSITIONATTRIBDATA*);
+using fnDwmSetWindowAttribute = HRESULT(WINAPI*)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute);
 using fnShouldAppsUseDarkMode = bool(WINAPI*)();
 using fnAllowDarkModeForWindow = bool(WINAPI*)(HWND hWnd, bool allow);
 using fnAllowDarkModeForApp = bool(WINAPI*)(bool allow);
@@ -230,6 +231,7 @@ using fnIsDarkModeAllowedForApp = bool(WINAPI*)();
 
 HMODULE gUxTheme = nullptr;
 fnSetWindowCompositionAttribute gSetWindowCompositionAttribute = nullptr;
+fnDwmSetWindowAttribute gDwmSetWindowAttribute = nullptr;
 fnShouldAppsUseDarkMode gShouldAppsUseDarkMode = nullptr;
 fnAllowDarkModeForWindow gAllowDarkModeForWindow = nullptr;
 fnAllowDarkModeForApp gAllowDarkModeForApp = nullptr;
@@ -1391,6 +1393,10 @@ void EnsureInitialized()
     if (hUser32)
         gSetWindowCompositionAttribute = reinterpret_cast<fnSetWindowCompositionAttribute>(GetProcAddress(hUser32, "SetWindowCompositionAttribute"));
 
+    auto hDwmApi = LoadLibraryExW(L"dwmapi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (hDwmApi)
+        gDwmSetWindowAttribute = reinterpret_cast<fnDwmSetWindowAttribute>(GetProcAddress(hDwmApi, "DwmSetWindowAttribute"));
+
     gSupported = gAllowDarkModeForWindow != nullptr &&
                  (gAllowDarkModeForApp != nullptr || gSetPreferredAppMode != nullptr) &&
                  gShouldAppsUseDarkMode != nullptr;
@@ -1513,6 +1519,10 @@ void DarkModeRefreshTitleBar(HWND hwnd)
     if (gBuildNumber < 18362)
     {
         SetPropW(hwnd, L"UseImmersiveDarkModeColors", reinterpret_cast<HANDLE>(static_cast<INT_PTR>(useDark)));
+    }
+    else if (gDwmSetWindowAttribute)
+    {
+        gDwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &useDark, sizeof(useDark));
     }
     else if (gSetWindowCompositionAttribute)
     {
