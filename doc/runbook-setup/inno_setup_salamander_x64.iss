@@ -1312,6 +1312,7 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
+  DeleteUserConfigurationFilePath: String;
 
 function IsFileConfigurationStorageSelected(): Boolean;
 var
@@ -1325,22 +1326,39 @@ begin
   Result := CompareText(StorageType, 'RegFile') = 0;
 end;
 
+function GetFileConfigurationPath(): String;
+begin
+  Result := GetIniString(
+    'Configuration',
+    'RegFilePath',
+    '',
+    ExpandConstant('{app}\configstorage.ini'));
+
+  if Result = '' then
+  begin
+    Result := ExpandConstant('{app}\config.reg');
+  end;
+end;
+
 
 function InitializeUninstall(): Boolean;
 begin
   Result := True;
   DeleteUserConfiguration := False;
+  DeleteUserConfigurationFilePath := '';
   DeleteUserConfigurationFromFile := IsFileConfigurationStorageSelected();
 
   if DeleteUserConfigurationFromFile then
   begin
-    if FileExists(ExpandConstant('{app}\config.reg')) or FileExists(ExpandConstant('{app}\configstorage.ini')) then
+    DeleteUserConfigurationFilePath := GetFileConfigurationPath();
+
+    if FileExists(DeleteUserConfigurationFilePath) or FileExists(ExpandConstant('{app}\configstorage.ini')) then
     begin
       DeleteUserConfiguration :=
         MsgBox(
           CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
           CustomMessage('FileStorage') + #13#10 +
-          ExpandConstant('{app}\config.reg') + #13#10#13#10 +
+          DeleteUserConfigurationFilePath + #13#10#13#10 +
           CustomMessage('RemoveUserConfigFiles'),
           mbConfirmation,
           MB_YESNO) = IDYES;
@@ -1365,7 +1383,7 @@ begin
   begin
     if DeleteUserConfigurationFromFile then
     begin
-      DeleteFile(ExpandConstant('{app}\config.reg'));
+      DeleteFile(DeleteUserConfigurationFilePath);
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
     end
     else
