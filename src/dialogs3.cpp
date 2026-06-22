@@ -46,6 +46,15 @@ HWND GetPathAutoCompletePopupRoot(HWND hwnd)
         if (IsPathAutoCompletePopup(walk))
             return walk;
     }
+
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+    if (root != hwnd && IsPathAutoCompletePopup(root))
+        return root;
+
+    HWND rootOwner = GetAncestor(hwnd, GA_ROOTOWNER);
+    if (rootOwner != hwnd && rootOwner != root && IsPathAutoCompletePopup(rootOwner))
+        return rootOwner;
+
     return NULL;
 }
 
@@ -106,10 +115,11 @@ void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
         return;
 
     DarkModeApplyWindow(popup);
-    DarkModeApplyTree(popup);
+    DarkModeRefreshTree(popup);
     SetWindowSubclass(popup, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
     EnumChildWindows(popup, ApplyPathAutoCompletePopupChildDarkModeProc, 0);
-    RedrawWindow(popup, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+    DarkModeRefreshTree(popup);
+    RedrawWindow(popup, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
 }
 
 void CALLBACK PathAutoCompleteWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
