@@ -24,6 +24,8 @@
 namespace
 {
 
+const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
+
 void EnablePathAutoComplete(HWND hComboOrEdit)
 {
     if (hComboOrEdit == NULL || !Configuration.PathAutoComplete)
@@ -42,7 +44,7 @@ void EnablePathAutoComplete(HWND hComboOrEdit)
     }
 
     if (hEdit != NULL)
-        SHAutoComplete(hEdit, SHACF_FILESYS_DIRS | SHACF_AUTOSUGGEST_FORCE_ON);
+        SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
 }
 
 bool ShouldUseCopyMoveDarkPalette()
@@ -528,7 +530,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
         InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
-        EnablePathAutoComplete(hPath);
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         if (DirectoryHelper)
@@ -547,6 +549,12 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         PostMessage(GetDlgItem(HWindow, IDE_PATH), CB_SETEDITSEL, 0,
                     MAKELPARAM(0, SelectionEnd));
         return FALSE;
+    }
+
+    case WM_USER_ENABLEPATHAUTOCOMPLETE:
+    {
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH));
+        return 0;
     }
 
     case WM_USER_KEYDOWN:
@@ -1075,7 +1083,9 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH)); // install WordBreakProc into the combobox
+        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
         // EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), !OperationsQueue.IsEmpty());
@@ -1118,6 +1128,12 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (!Criteria->IsDirty()) // collapse the dialog if Criteria do not contain any data
             DisplayMore(FALSE, TRUE);
         break;
+    }
+
+    case WM_USER_ENABLEPATHAUTOCOMPLETE:
+    {
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH));
+        return 0;
     }
 
     case WM_USER_KEYDOWN:
