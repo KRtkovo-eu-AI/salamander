@@ -32,15 +32,36 @@ void EnablePathAutoComplete(HWND hComboOrEdit)
         return;
 
     HWND hEdit = hComboOrEdit;
+    HWND hComboList = NULL;
     char className[32];
     if (GetClassName(hComboOrEdit, className, _countof(className)) != 0 &&
         lstrcmpi(className, "ComboBox") == 0)
     {
-        HWND hComboEdit = FindWindowEx(hComboOrEdit, NULL, "Edit", NULL);
-        if (hComboEdit != NULL)
-            hEdit = hComboEdit;
+        COMBOBOXINFO cbi;
+        cbi.cbSize = sizeof(cbi);
+        if (GetComboBoxInfo(hComboOrEdit, &cbi))
+        {
+            if (cbi.hwndItem != NULL)
+                hEdit = cbi.hwndItem;
+            hComboList = cbi.hwndList;
+        }
         else
-            hEdit = GetWindow(hComboOrEdit, GW_CHILD);
+        {
+            HWND hComboEdit = FindWindowEx(hComboOrEdit, NULL, "Edit", NULL);
+            if (hComboEdit != NULL)
+                hEdit = hComboEdit;
+            else
+                hEdit = GetWindow(hComboOrEdit, GW_CHILD);
+        }
+    }
+
+    if (DarkModeShouldUseDarkColors())
+    {
+        DarkModeApplyWindow(hComboOrEdit);
+        if (hEdit != NULL && hEdit != hComboOrEdit)
+            DarkModeApplyWindow(hEdit);
+        if (hComboList != NULL)
+            DarkModeApplyWindow(hComboList);
     }
 
     if (hEdit != NULL)
