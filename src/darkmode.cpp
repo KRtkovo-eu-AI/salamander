@@ -4,6 +4,7 @@
 #include "precomp.h"
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
+#include "salamand.rh"
 
 #if USE_DARKMODELIB
 #include "third_party/darkmodelib/include/Darkmodelib.h"
@@ -1970,7 +1971,7 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
 
 void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor)
 {
-    if (chooseColor == NULL || !DarkModeShouldUseDarkColors())
+    if (chooseColor == NULL || !IsWindowsDarkSchemeSelected())
         return;
 
 #if USE_DARKMODELIB
@@ -1992,7 +1993,7 @@ void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor)
 
 void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont)
 {
-    if (chooseFont == NULL || !DarkModeShouldUseDarkColors())
+    if (chooseFont == NULL || !IsWindowsDarkSchemeSelected())
         return;
 
 #if USE_DARKMODELIB
@@ -2008,6 +2009,12 @@ void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont)
     {
         chooseFont->Flags |= CF_ENABLEHOOK;
         chooseFont->lpfnHook = reinterpret_cast<LPCFHOOKPROC>(DarkModeCommonDialogHook);
+    }
+    if ((chooseFont->Flags & CF_ENABLETEMPLATE) == 0)
+    {
+        chooseFont->Flags |= CF_ENABLETEMPLATE;
+        chooseFont->hInstance = GetModuleHandle(NULL);
+        chooseFont->lpTemplateName = MAKEINTRESOURCE(IDD_DARK_FONT_DIALOG);
     }
 #endif
 }
