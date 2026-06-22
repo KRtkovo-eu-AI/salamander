@@ -345,10 +345,17 @@ bool IsCheckboxOrRadioButtonControl(HWND hwnd)
 
 bool ShouldOwnerDrawChoiceButton(HWND hwnd)
 {
-    // Radio captions need the fallback on all supported builds.  Checkbox text is
-    // already painted correctly by the themed control on Windows 11, but Windows
-    // 10 keeps drawing it with the light-theme text color in dark dialogs, so use
-    // the same owner-draw fallback there only.
+    // With darkmodelib enabled, Windows 11 can use the library's modern themed
+    // checkbox/radio subclass instead of Salamander's legacy owner-draw fallback.
+#if USE_DARKMODELIB
+    if (gBuildNumber >= 22000)
+        return false;
+#endif
+
+    // Without that path, radio captions need the fallback on all supported
+    // builds. Checkbox text is already painted correctly by the themed control
+    // on Windows 11, but Windows 10 keeps drawing it with the light-theme text
+    // color in dark dialogs, so use the same owner-draw fallback there only.
     return IsRadioButtonControl(hwnd) || (IsCheckboxControl(hwnd) && gBuildNumber < 22000);
 }
 
@@ -1315,8 +1322,12 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
 #endif
                 if (ShouldOwnerDrawChoiceButton(hwnd))
                     EnsureDarkChoiceButtonSubclass(hwnd, wantDark);
-                else if (gSetWindowTheme != nullptr)
-                    gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+                else
+                {
+                    EnsureDarkChoiceButtonSubclass(hwnd, false);
+                    if (gSetWindowTheme != nullptr)
+                        gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+                }
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
@@ -1800,6 +1811,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
                 result = reinterpret_cast<LRESULT>(brush);
                 return true;
             }
+            EnsureDarkChoiceButtonSubclass(ctrl, false);
         }
     }
 
