@@ -16,6 +16,9 @@ namespace DarkModeBackendDarkModelib
 #if USE_DARKMODELIB
 static const wchar_t* DARKMODELIB_TREE_STATE_PROP = L"Salamander.DarkModeLib.TreeState";
 static const wchar_t* DARKMODELIB_MENU_DARK_PROP = L"Salamander.DarkModeLib.MenuDark";
+static const wchar_t* DARKMODELIB_CUSTOM_TAB_PROP = L"Salamander.DarkModeLib.CustomTab";
+
+void RestoreCustomTabControls(HWND hwndParent);
 
 static void RemoveControlSubclass(HWND hwnd)
 {
@@ -62,6 +65,21 @@ static void RemoveControlSubclass(HWND hwnd)
 static BOOL CALLBACK RemoveControlSubclassProc(HWND hwnd, LPARAM)
 {
     RemoveControlSubclass(hwnd);
+    return TRUE;
+}
+
+static void RestoreCustomTabControl(HWND hwnd)
+{
+    if (hwnd == NULL || GetPropW(hwnd, DARKMODELIB_CUSTOM_TAB_PROP) == NULL)
+        return;
+
+    dmlib::removeTabCtrlSubclass(hwnd);
+    dmlib::removeTabCtrlUpDownSubclass(hwnd);
+}
+
+static BOOL CALLBACK RestoreCustomTabControlProc(HWND hwnd, LPARAM)
+{
+    RestoreCustomTabControl(hwnd);
     return TRUE;
 }
 
@@ -139,6 +157,7 @@ void ApplyTree(HWND hwnd)
         dmlib::setDarkTitleBar(hwnd);
         if (wasApplied && wasDark != dark)
             RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
+        RestoreCustomTabControls(hwnd);
     }
 #else
     (void)hwnd;
@@ -328,6 +347,32 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
     (void)textColor;
     (void)backgroundColor;
     (void)applyHeaderColors;
+#endif
+}
+
+void MarkCustomTabControl(HWND tabControl)
+{
+#if USE_DARKMODELIB
+    if (tabControl != NULL)
+    {
+        SetPropW(tabControl, DARKMODELIB_CUSTOM_TAB_PROP, reinterpret_cast<HANDLE>(1));
+        RestoreCustomTabControl(tabControl);
+    }
+#else
+    (void)tabControl;
+#endif
+}
+
+void RestoreCustomTabControls(HWND hwndParent)
+{
+#if USE_DARKMODELIB
+    if (hwndParent != NULL)
+    {
+        RestoreCustomTabControl(hwndParent);
+        EnumChildWindows(hwndParent, RestoreCustomTabControlProc, 0);
+    }
+#else
+    (void)hwndParent;
 #endif
 }
 } // namespace DarkModeBackendDarkModelib

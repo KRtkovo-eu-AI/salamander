@@ -1706,9 +1706,6 @@ void DarkModeUpdateTabControlOverflowButtons(HWND tabControl)
         return;
 
     const bool enableDark = DarkModeShouldUseDarkColors();
-#if USE_DARKMODELIB
-    DarkModeBackendDarkModelib::UpdateTabControlOverflowButtons(tabControl, enableDark);
-#endif
 
     HWND upDown = NULL;
     while ((upDown = FindWindowEx(tabControl, upDown, UPDOWN_CLASS, NULL)) != NULL)
@@ -1724,6 +1721,16 @@ void DarkModeUpdateTabControlOverflowButtons(HWND tabControl)
         EnsureDarkTabOverflowSubclass(upDown, enableDark && gBuildNumber < 22000);
         InvalidateRect(upDown, NULL, TRUE);
     }
+}
+
+void DarkModePreserveCustomTabControl(HWND tabControl)
+{
+    EnsureInitialized();
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::MarkCustomTabControl(tabControl);
+#else
+    (void)tabControl;
+#endif
 }
 
 void DarkModeUpdateListViewColors(HWND listView)

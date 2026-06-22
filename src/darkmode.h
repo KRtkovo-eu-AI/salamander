@@ -83,5 +83,6 @@ void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
+void DarkModePreserveCustomTabControl(HWND tabControl);
 void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark = false);
 void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont, bool forceDark = false);
