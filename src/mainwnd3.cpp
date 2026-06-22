@@ -3332,11 +3332,10 @@ void CMainWindow::UpdateRebarVisuals()
 
     DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
     DWORD desiredStyle = style;
-    desiredStyle |= RBS_BANDBORDERS;
     if (useDark)
-        desiredStyle &= ~WS_BORDER;
+        desiredStyle &= ~(WS_BORDER | RBS_BANDBORDERS);
     else
-        desiredStyle |= WS_BORDER;
+        desiredStyle |= WS_BORDER | RBS_BANDBORDERS;
 
     if (desiredStyle != style)
     {
@@ -3404,10 +3403,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
         DWORD rebarStyle = WS_VISIBLE | WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN | RBS_AUTOSIZE |
-                           RBS_BANDBORDERS;
+                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN | RBS_AUTOSIZE;
         if (!DarkModeShouldUseDarkColors())
-            rebarStyle |= WS_BORDER;
+            rebarStyle |= WS_BORDER | RBS_BANDBORDERS;
 
         HTopRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, "",
                                    rebarStyle,
