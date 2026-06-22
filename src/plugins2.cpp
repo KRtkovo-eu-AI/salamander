@@ -2916,6 +2916,46 @@ BOOL CPlugins::ReadPluginsVer(HWND parent, BOOL importFromOldConfig)
     if (SearchForAddedSPLs(buf, s, foundFiles))
     {
         ret = TRUE;
+
+        BOOL foundPluginToInstall = FALSE;
+        if (foundFiles.IsGood())
+        {
+            char pluginsDir[MAX_PATH + 20];
+            lstrcpyn(pluginsDir, buf, SizeOf(pluginsDir));
+            char* pluginsDirEnd = strrchr(pluginsDir, '\\');
+            if (pluginsDirEnd != NULL)
+                *pluginsDirEnd = 0;
+
+            char pluginName[MAX_PATH];
+            for (int i = 0; i < foundFiles.Count; i++)
+            {
+                char* file = foundFiles[i];
+                if (StrNICmp(file, pluginsDir, (int)strlen(pluginsDir)) == 0 && file[strlen(pluginsDir)] == '\\')
+                    memmove(pluginName, file + strlen(pluginsDir) + 1, strlen(file) - strlen(pluginsDir) + 1 - 1);
+                else
+                    strcpy(pluginName, file);
+
+                int index;
+                if (!Plugins.FindDLL(pluginName, index))
+                {
+                    foundPluginToInstall = TRUE;
+                    break;
+                }
+            }
+        }
+        else
+            foundFiles.ResetState();
+
+        // plugins.ver can be reported as new even when all listed plug-ins are already
+        // present in the configuration (for example after switching to file storage from
+        // a stale config.reg).  In that case only the version marker needs saving; avoid
+        // the expensive installation/check dialog and full plug-in load on every start.
+        if (!foundPluginToInstall)
+        {
+            LoadInfoBase &= ~LOADINFO_NEWPLUGINSVER;
+            return ret;
+        }
+
         // first uninstall plugins that no longer have a .spl file (are no longer supported)
         RemoveNoLongerExistingPlugins(!importFromOldConfig); // we must not delete the plugin key from the registry when importing from a previous Salamander version
 
@@ -2932,32 +2972,27 @@ BOOL CPlugins::ReadPluginsVer(HWND parent, BOOL importFromOldConfig)
         analysing.SetProgressMax((foundFiles.IsGood() ? foundFiles.Count : 0) + toLoadCount);
         int progress = 0;
 
-        if (foundFiles.IsGood())
+        *s = 0; // correct the path in buf
+        char pluginName[MAX_PATH];
+        for (int i = 0; i < foundFiles.Count; i++)
         {
-            *s = 0; // correct the path in buf
-            char pluginName[MAX_PATH];
-            for (int i = 0; i < foundFiles.Count; i++)
+            char* file = foundFiles[i];
+            if (StrNICmp(file, buf, (int)strlen(buf)) == 0 && file[strlen(buf)] == '\\')
             {
-                char* file = foundFiles[i];
-                if (StrNICmp(file, buf, (int)strlen(buf)) == 0 && file[strlen(buf)] == '\\')
-                {
-                    memmove(pluginName, file + strlen(buf) + 1, strlen(file) - strlen(buf) + 1 - 1);
-                }
-                else
-                    strcpy(pluginName, file);
-                int index;
-                if (!Plugins.FindDLL(pluginName, index))
-                {
-                    _snprintf_s(textProgress, _TRUNCATE, "%s\n%s", LoadStr(IDS_AUTOINSTALLPLUGINS), pluginName);
-                    analysing.SetText(textProgress);
-
-                    Plugins.AddPlugin(parent, pluginName); // whatever we add will already be loaded (loading verifies it is a plugin)
-                }
-                analysing.SetProgressPos(++progress);
+                memmove(pluginName, file + strlen(buf) + 1, strlen(file) - strlen(buf) + 1 - 1);
             }
+            else
+                strcpy(pluginName, file);
+            int index;
+            if (!Plugins.FindDLL(pluginName, index))
+            {
+                _snprintf_s(textProgress, _TRUNCATE, "%s\n%s", LoadStr(IDS_AUTOINSTALLPLUGINS), pluginName);
+                analysing.SetText(textProgress);
+
+                Plugins.AddPlugin(parent, pluginName); // whatever we add will already be loaded (loading verifies it is a plugin)
+            }
+            analysing.SetProgressPos(++progress);
         }
-        else
-            foundFiles.ResetState();
 
         // load all plugins so they can restore their data in Salamander...
         for (int i = 0; i < Data.Count; i++)
