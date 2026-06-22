@@ -4574,10 +4574,19 @@ FIND_NEW_SLG_FILE:
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
 
+    char portableConfigPath[MAX_PATH];
+    portableConfigPath[0] = 0;
+    if (storageType == cstRegFile && storageRegFilePath[0] != 0)
+        strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);
+    else
+        ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
+    BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
+                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
+
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
     BOOL importCfgFromFileWasSkipped = FALSE;
-    if ((!storageTypeFromBootstrap || storageType != cstRegFile) && !restrictedFileStorageImported)
+    if ((!storageTypeFromBootstrap || storageType != cstRegFile) && !restrictedFileStorageImported && !portableConfigExists)
     {
         ImportConfiguration(NULL, ConfigurationName, ConfigurationNameIgnoreIfNotExists, autoImportConfig,
                             &importCfgFromFileWasSkipped);
@@ -4601,20 +4610,11 @@ FIND_NEW_SLG_FILE:
 
     CALL_STACK_MESSAGE1("WinMainBody::FindLatestConfiguration");
 
-    char portableConfigPath[MAX_PATH];
-    portableConfigPath[0] = 0;
-    if (storageType == cstRegFile && storageRegFilePath[0] != 0)
-        strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);
-    else
-        ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
-    BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
-                                GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
-
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
-    else if (storageTypeFromBootstrap && storageType == cstRegFile && portableConfigExists)
+    else if (portableConfigExists && (!storageTypeFromBootstrap || storageType == cstRegFile))
         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // existing portable config is authoritative; do not offer Registry import
     else
     {
@@ -4637,7 +4637,13 @@ FIND_NEW_SLG_FILE:
     BOOL currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
     BOOL saveNewConfig = currentCfgDoesNotExist;
 
-    BOOL registryConfigExists = !currentCfgDoesNotExist;
+    BOOL registryConfigExists = FALSE;
+    HKEY existingRegistryConfigKey;
+    if (!currentCfgDoesNotExist && OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], existingRegistryConfigKey))
+    {
+        registryConfigExists = TRUE;
+        CloseKey(existingRegistryConfigKey);
+    }
     BOOL migrateRegistryToFile = FALSE;
     BOOL storedConfigurationRemoved = FALSE;
     if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
@@ -4680,10 +4686,13 @@ FIND_NEW_SLG_FILE:
                 else if (res == DIALOG_NO)
                 {
                     storageType = cstRegistry;
+                    ImportConfiguration(NULL, portableConfigPath, FALSE, autoImportConfig,
+                                        &importCfgFromFileWasSkipped);
                     DeleteFile(portableConfigPath);
                     ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
                     storageTypeFromBootstrap = TRUE;
                     portableConfigExists = FALSE;
+                    registryConfigExists = TRUE;
                 }
                 else if (res == DIALOG_CANCEL)
                 {
@@ -4740,7 +4749,12 @@ FIND_NEW_SLG_FILE:
         Configuration.StorageType = storageType;
         currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
         saveNewConfig = currentCfgDoesNotExist;
-        registryConfigExists = !currentCfgDoesNotExist;
+        registryConfigExists = FALSE;
+        if (!currentCfgDoesNotExist && OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], existingRegistryConfigKey))
+        {
+            registryConfigExists = TRUE;
+            CloseKey(existingRegistryConfigKey);
+        }
     }
 
     if (storageType == cstRegFile && storageRegFilePath[0] == 0)
