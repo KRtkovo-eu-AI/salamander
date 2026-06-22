@@ -863,20 +863,80 @@ namespace RegLib
 
     BOOL CMemoryRegistry::DeleteKey(HKEY key, LPCTSTR name)
     {
-        CKey* pKey = (CKey*)key;
-
-        if (!pKey)
+        if (name == NULL || *name == 0 || *name == '\\')
             return FALSE;
 
-        // Get the subkey
-        pKey = pKey->GetKey(name);
-        if (!pKey)
+        CKey* pParentKey = NULL;
+        LPCTSTR pRootName = NULL;
+
+        switch (reinterpret_cast<ULONG_PTR>(key))
+        {
+        case reinterpret_cast<ULONG_PTR>(HKEY_CLASSES_ROOT):
+            pRootName = _T("HKEY_CLASSES_ROOT");
+            break;
+        case reinterpret_cast<ULONG_PTR>(HKEY_CURRENT_USER):
+            pRootName = _T("HKEY_CURRENT_USER");
+            break;
+        case reinterpret_cast<ULONG_PTR>(HKEY_LOCAL_MACHINE):
+            pRootName = _T("HKEY_LOCAL_MACHINE");
+            break;
+        case reinterpret_cast<ULONG_PTR>(HKEY_USERS):
+            pRootName = _T("HKEY_USERS");
+            break;
+        case reinterpret_cast<ULONG_PTR>(HKEY_CURRENT_CONFIG):
+            pRootName = _T("HKEY_CURRENT_CONFIG");
+            break;
+        case reinterpret_cast<ULONG_PTR>(HKEY_DYN_DATA):
+            pRootName = _T("HKEY_DYN_DATA");
+            break;
+        case reinterpret_cast<ULONG_PTR>(HKEY_PERFORMANCE_DATA):
+            pRootName = _T("HKEY_PERFORMANCE_DATA");
+            break;
+        case 0:
             return FALSE;
+        default:
+            pParentKey = (CKey*)key;
+        }
 
-        // The key will be deleted when its counter reaches zero when all handles are closed
-        pKey->Release();
+        if (pRootName != NULL)
+        {
+            pParentKey = RootKey.GetKey(pRootName);
+            if (pParentKey == NULL)
+                return FALSE;
+        }
 
-        return TRUE;
+        TCHAR keyName[REG_MAX_KEY_NAME_LEN];
+        LPCTSTR s = name;
+        while (*s != 0)
+        {
+            TCHAR* d = keyName;
+            while (*s != 0 && *s != '\\')
+            {
+                if (d - keyName >= SizeOf(keyName) - 1)
+                    return FALSE;
+                *d++ = *s++;
+            }
+            *d = 0;
+            if (*s == '\\')
+                s++;
+
+            if (keyName[0] == 0)
+                continue; // ignore doubled '\\' in name, same as CreateOpenKey()
+
+            CKey* pKey = pParentKey->GetKey(keyName);
+            if (pKey == NULL)
+                return FALSE;
+
+            if (*s == 0)
+            {
+                // The key will be deleted when its counter reaches zero after all handles are closed.
+                pKey->Release();
+                return TRUE;
+            }
+            pParentKey = pKey;
+        }
+
+        return FALSE;
     }
 
     BOOL CMemoryRegistry::GetValue(HKEY key, LPCTSTR name, DWORD type, LPVOID buffer, DWORD bufferSize)
