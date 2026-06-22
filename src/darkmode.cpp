@@ -32,6 +32,23 @@
 
 namespace
 {
+#if USE_DARKMODELIB
+UINT_PTR CALLBACK DarkModeCommonDialogHook(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == WM_INITDIALOG)
+    {
+        // Common-dialog hooks can receive a child dialog page instead of the
+        // top-level dialog (notably ChooseColor).  Darken both handles so the
+        // frame/background and all common controls are subclassed.
+        HWND parent = GetParent(hwnd);
+        if (parent != NULL)
+            dmlib::setDarkWndSafe(parent);
+        dmlib::setDarkWndSafe(hwnd);
+    }
+    return dmlib::HookDlgProc(hwnd, message, wParam, lParam);
+}
+#endif
+
 #if DARKMODE_TRACE_CTLFLOW
 bool IsDarkModeTraceControlId(int ctrlId)
 {
@@ -1968,7 +1985,7 @@ void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor)
     if ((chooseColor->Flags & CC_ENABLEHOOK) == 0)
     {
         chooseColor->Flags |= CC_ENABLEHOOK;
-        chooseColor->lpfnHook = reinterpret_cast<LPCCHOOKPROC>(dmlib::HookDlgProc);
+        chooseColor->lpfnHook = reinterpret_cast<LPCCHOOKPROC>(DarkModeCommonDialogHook);
     }
 #endif
 }
@@ -1990,7 +2007,7 @@ void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont)
     if ((chooseFont->Flags & CF_ENABLEHOOK) == 0)
     {
         chooseFont->Flags |= CF_ENABLEHOOK;
-        chooseFont->lpfnHook = reinterpret_cast<LPCFHOOKPROC>(dmlib::HookDlgProc);
+        chooseFont->lpfnHook = reinterpret_cast<LPCFHOOKPROC>(DarkModeCommonDialogHook);
     }
 #endif
 }
