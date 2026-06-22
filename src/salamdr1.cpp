@@ -4526,6 +4526,7 @@ FIND_NEW_SLG_FILE:
     // pokud konfigurace neexistuje nebo bude nasledne pri importu ze souboru zmenena, ma uzivatel
     // smulu a splash screen se bude ridit implicitni nebo starou hodnotou
     LoadSaveToRegistryMutex.Enter();
+    HKEY hSalamander;
     if (OpenKey(HKEY_CURRENT_USER, configKey, hSalamander))
     {
         HKEY actKey;
