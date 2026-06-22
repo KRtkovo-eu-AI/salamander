@@ -4755,6 +4755,11 @@ FIND_NEW_SLG_FILE:
             registryConfigExists = TRUE;
             CloseKey(existingRegistryConfigKey);
         }
+        if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
+        {
+            storageType = cstRegistry;
+            migrateRegistryToFile = TRUE;
+        }
     }
 
     if (storageType == cstRegFile && storageRegFilePath[0] == 0)
