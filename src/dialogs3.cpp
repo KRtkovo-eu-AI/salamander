@@ -27,6 +27,52 @@ namespace
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
 
+HWINEVENTHOOK HPathAutoCompleteWinEventHook = NULL;
+
+BOOL IsPathAutoCompletePopup(HWND hwnd)
+{
+    wchar_t className[128];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return FALSE;
+
+    return wcsstr(className, L"Auto-Suggest") != NULL;
+}
+
+void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
+{
+    if (hwnd != NULL && DarkModeShouldUseDarkColors() && IsPathAutoCompletePopup(hwnd))
+        DarkModeApplyTree(hwnd);
+}
+
+void CALLBACK PathAutoCompleteWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
+                                           DWORD, DWORD)
+{
+    if ((event == EVENT_OBJECT_SHOW || event == EVENT_OBJECT_CREATE) && idObject == OBJID_WINDOW && idChild == CHILDID_SELF)
+        ApplyPathAutoCompletePopupDarkMode(hwnd);
+}
+
+void EnsurePathAutoCompleteWinEventHook()
+{
+    if (HPathAutoCompleteWinEventHook == NULL)
+    {
+        HPathAutoCompleteWinEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, NULL,
+                                                       PathAutoCompleteWinEventProc, GetCurrentProcessId(),
+                                                       GetCurrentThreadId(), WINEVENT_OUTOFCONTEXT);
+    }
+}
+
+BOOL CALLBACK ApplyExistingPathAutoCompletePopupDarkModeProc(HWND hwnd, LPARAM)
+{
+    ApplyPathAutoCompletePopupDarkMode(hwnd);
+    return TRUE;
+}
+
+void ApplyExistingPathAutoCompletePopupDarkMode()
+{
+    EnumThreadWindows(GetCurrentThreadId(), ApplyExistingPathAutoCompletePopupDarkModeProc, 0);
+}
+
+
 void ApplyPathAutoCompleteDarkMode(HWND hComboOrEdit, HWND hEdit)
 {
     if (!DarkModeShouldUseDarkColors())
@@ -68,9 +114,13 @@ void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
     }
 
     ApplyPathAutoCompleteDarkMode(hComboOrEdit, hEdit);
+    EnsurePathAutoCompleteWinEventHook();
 
     if (hEdit != NULL)
+    {
         SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
+        ApplyExistingPathAutoCompletePopupDarkMode();
+    }
 }
 
 bool ShouldUseCopyMoveDarkPalette()
