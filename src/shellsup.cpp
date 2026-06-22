@@ -802,6 +802,99 @@ static void InitializeShellCascadeMenus(IContextMenu2* contextMenu, HMENU menu, 
 }
 
 
+static BOOL ContainsTextI(const char* text, const char* pattern)
+{
+    if (text == NULL || pattern == NULL)
+        return FALSE;
+
+    char textLower[500];
+    char patternLower[100];
+    lstrcpyn(textLower, text, _countof(textLower));
+    lstrcpyn(patternLower, pattern, _countof(patternLower));
+    _strlwr_s(textLower, _countof(textLower));
+    _strlwr_s(patternLower, _countof(patternLower));
+    return strstr(textLower, patternLower) != NULL;
+}
+
+static BOOL IsSharingMenuText(const char* itemName, HMENU submenu)
+{
+    if (submenu == NULL)
+        return FALSE;
+
+    return ContainsTextI(itemName, "give access") ||
+           ContainsTextI(itemName, "share with") ||
+           ContainsTextI(itemName, "sharing");
+}
+
+static BOOL IsSharingMenuItem(IContextMenu2* contextMenu, UINT id, const char* itemName, HMENU submenu)
+{
+    if (contextMenu == NULL || submenu == NULL)
+        return FALSE;
+
+    char verb[200];
+    verb[0] = 0;
+    if (AuxGetCommandString(contextMenu, id, GCS_VERB, NULL, verb, _countof(verb)) == NOERROR &&
+        ContainsTextI(verb, "shar"))
+    {
+        return TRUE;
+    }
+
+    return IsSharingMenuText(itemName, submenu);
+}
+
+static BOOL ReplaceBackgroundSharingMenu(IContextMenu2* itemContextMenu, HMENU itemMenu,
+                                         IContextMenu2* backgroundContextMenu, HMENU backgroundMenu)
+{
+    if (itemContextMenu == NULL || itemMenu == NULL || backgroundContextMenu == NULL || backgroundMenu == NULL)
+        return FALSE;
+
+    int itemCount = GetMenuItemCount(itemMenu);
+    for (int i = 0; i < itemCount; i++)
+    {
+        MENUITEMINFO itemMI;
+        char itemName[500];
+        ZeroMemory(&itemMI, sizeof(itemMI));
+        itemName[0] = 0;
+        itemMI.cbSize = sizeof(itemMI);
+        itemMI.fMask = MIIM_STATE | MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
+        itemMI.dwTypeData = itemName;
+        itemMI.cch = _countof(itemName);
+        if (!GetMenuItemInfo(itemMenu, i, TRUE, &itemMI) ||
+            !IsSharingMenuItem(itemContextMenu, itemMI.wID, itemName, itemMI.hSubMenu))
+        {
+            continue;
+        }
+
+        int backgroundCount = GetMenuItemCount(backgroundMenu);
+        for (int j = 0; j < backgroundCount; j++)
+        {
+            MENUITEMINFO backgroundMI;
+            char backgroundName[500];
+            ZeroMemory(&backgroundMI, sizeof(backgroundMI));
+            backgroundName[0] = 0;
+            backgroundMI.cbSize = sizeof(backgroundMI);
+            backgroundMI.fMask = MIIM_TYPE | MIIM_ID | MIIM_SUBMENU;
+            backgroundMI.dwTypeData = backgroundName;
+            backgroundMI.cch = _countof(backgroundName);
+            if (!GetMenuItemInfo(backgroundMenu, j, TRUE, &backgroundMI))
+                continue;
+
+            UINT backgroundCmd = backgroundMI.wID >= 5000 ? backgroundMI.wID - 5000 : backgroundMI.wID;
+            if (!IsSharingMenuItem(backgroundContextMenu, backgroundCmd, backgroundName, backgroundMI.hSubMenu))
+                continue;
+
+            // Detach the working shell submenu from the item menu before
+            // destroying that menu, then replace the background menu item
+            // whose submenu is empty in Salamander.
+            RemoveMenu(itemMenu, i, MF_BYPOSITION);
+            DeleteMenu(backgroundMenu, j, MF_BYPOSITION);
+            InsertMenuItem(backgroundMenu, j, TRUE, &itemMI);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 static BOOL FindMenuItemTextByCommand(HMENU menu, UINT cmd, char* text, int textSize)
 {
     int count = GetMenuItemCount(menu);
@@ -2308,6 +2401,12 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 mi.dwTypeData = NULL;
                                 InsertMenuItem(bckgndMenu, bckgndMenuInsert++, TRUE, &mi);
                             }
+
+                            // The background Sharing handler exposes "Give access to"
+                            // without the submenu in Salamander. The folder-item
+                            // context menu has the working Sharing submenu, so graft it
+                            // into the background menu before destroying the item menu.
+                            ReplaceBackgroundSharingMenu(panel->ContextMenu, h, panel->ContextSubmenuNew->GetMenu2(), bckgndMenu);
 
                             DestroyMenu(h);
                             h = bckgndMenu;
