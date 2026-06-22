@@ -4762,8 +4762,11 @@ FIND_NEW_SLG_FILE:
         }
     }
 
-    if (storageType == cstRegFile && storageRegFilePath[0] == 0)
-        ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
+    if ((storageType == cstRegFile || migrateRegistryToFile) && storageRegFilePath[0] == 0)
+    {
+        CConfigurationStorageType bootstrapStorageType = storageType;
+        ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapStorageType, storageRegFilePath, SizeOf(storageRegFilePath));
+    }
 
     if (!ConfigurationStorage.Initialize(storageType, storageType == cstRegFile ? storageRegFilePath : NULL))
     {
@@ -5102,7 +5105,7 @@ FIND_NEW_SLG_FILE:
                                 // Only now can the migration copy that key into config.reg; doing
                                 // this before SaveConfig() copies a non-existent key and leaves the
                                 // startup on Registry storage.
-                                if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE))
+                                if (!ConfigurationStorage.SwitchStorageType(cstRegFile, TRUE, storageRegFilePath))
                                     TRACE_E("Unable to switch configuration storage to file after saving imported configuration.");
                                 Configuration.StorageType = (int)ConfigurationStorage.GetStorageType();
                             }
