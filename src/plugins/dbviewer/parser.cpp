@@ -16,6 +16,8 @@
 
 #define UTF8_DETECT_BUF_SIZE 65536
 
+static bool DetectUTF8EncodedFileSample(FILE* f);
+
 #define LongSwap(x) ((UINT32)((((UINT32)((x) & 0x000000FFL)) << 24) | \
                               (((UINT32)((x) & 0x0000FF00L)) << 8) | \
                               (((UINT32)((x) & 0x00FF0000L)) >> 8) | \
@@ -23,73 +25,77 @@
 
 bool IsUTF8Encoded(const char* s, int cnt)
 {
-    int nUTF8 = 0;
+    if (s == NULL || cnt <= 0)
+        return false;
 
-    while (cnt-- > 0)
+    const unsigned char* bytes = (const unsigned char*)s;
+    bool sawMultibyte = false;
+
+    for (int i = 0; i < cnt;)
     {
-        if (*s & 0x80)
+        unsigned char lead = bytes[i];
+        if (lead == 0)
+            return false;
+        if (lead < 0x80)
         {
-            if ((*s & 0xe0) == 0xc0)
-            {
-                if (!s[1])
-                {
-                    if (cnt)
-                    { // incomplete 2-byte sequence
-                        nUTF8 = 0;
-                    }
-                    break;
-                }
-                else if ((s[1] & 0xc0) != 0x80)
-                {
-                    nUTF8 = 0;
-                    break; // not in UCS2
-                }
-                else
-                {
-                    nUTF8++;
-                    s += 2;
-                    cnt--;
-                }
-            }
-            else if ((*s & 0xf0) == 0xe0)
-            {
-                if (!s[1] || !s[2])
-                {
-                    if (cnt > 1)
-                    { // incomplete 3-byte sequence
-                        nUTF8 = 0;
-                    }
-                    break;
-                }
-                else if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80)
-                {
-                    nUTF8 = 0;
-                    break; // not in UCS2
-                }
-                else
-                {
-                    nUTF8++;
-                    s += 3;
-                    cnt -= 2;
-                }
-            }
-            else
-            {
-                nUTF8 = 0;
-                break; // not in UCS2
-            }
+            i++;
+            continue;
+        }
+
+        int need = 0;
+        unsigned int scalar = 0;
+        unsigned int minScalar = 0;
+        if (lead >= 0xC2 && lead <= 0xDF)
+        {
+            need = 2;
+            scalar = lead & 0x1F;
+            minScalar = 0x80;
+        }
+        else if (lead >= 0xE0 && lead <= 0xEF)
+        {
+            need = 3;
+            scalar = lead & 0x0F;
+            minScalar = 0x800;
+        }
+        else if (lead >= 0xF0 && lead <= 0xF4)
+        {
+            need = 4;
+            scalar = lead & 0x07;
+            minScalar = 0x10000;
         }
         else
+            return false;
+
+        if (i + need > cnt)
+            break;
+        for (int j = 1; j < need; j++)
         {
-            s++;
+            if ((bytes[i + j] & 0xC0) != 0x80)
+                return false;
+            scalar = (scalar << 6) | (bytes[i + j] & 0x3F);
         }
+        if (scalar < minScalar || scalar > 0x10FFFF || (scalar >= 0xD800 && scalar <= 0xDFFF))
+            return false;
+        sawMultibyte = true;
+        i += need;
     }
 
-    if (nUTF8 > 0)
-    { // At least one 2-or-more-bytes UTF8 sequence found and no invalid sequences found
-        return true;
-    }
-    return false;
+    return sawMultibyte;
+}
+
+static bool DetectUTF8EncodedFileSample(FILE* f)
+{
+    if (f == NULL)
+        return false;
+
+    char buf[UTF8_DETECT_BUF_SIZE];
+    fseek(f, 0, SEEK_SET);
+    size_t len = fread(buf, 1, sizeof(buf), f);
+    fseek(f, 0, SEEK_SET);
+
+    if (ferror(f) || len == 0)
+        return false;
+    return IsUTF8Encoded(buf, (int)len);
 }
 
 void CParserInterfaceAbstract::ShowParserError(HWND hParent, CParserStatusEnum status)
@@ -872,7 +878,7 @@ CParserInterfaceCSV::OpenFile(const char* fileName)
         break;
     }
 
-    FILE* f = fopen(fileName, "r");
+    FILE* f = fopen(fileName, "rb");
     if (f)
     {
         WORD w;
@@ -886,17 +892,7 @@ CParserInterfaceCSV::OpenFile(const char* fileName)
             IsUnicode = IsUTF8 = b == 0xBF;
         }
         if (!IsUnicode)
-        {
-            char* buf = (char*)malloc(UTF8_DETECT_BUF_SIZE);
-            if (buf)
-            {
-                fseek(f, 0, SEEK_SET);
-                size_t len = fread(buf, 1, UTF8_DETECT_BUF_SIZE, f);
-                if (len > 0)
-                    IsUnicode = IsUTF8 = IsUTF8Encoded(buf, (int)len);
-                free(buf);
-            }
-        }
+            IsUnicode = IsUTF8 = DetectUTF8EncodedFileSample(f);
         fclose(f);
     }
 
@@ -1368,6 +1364,8 @@ CParserInterfaceJSONL::CParserInterfaceJSONL()
     CurrentRecordIndex = 0;
     MaxColumns = 1;
     CellBuffer = NULL;
+    CellBufferW = NULL;
+    CellBufferWSize = 0;
 }
 
 CParserInterfaceJSONL::~CParserInterfaceJSONL()
@@ -1514,6 +1512,12 @@ void CParserInterfaceJSONL::CloseFile()
         free(CellBuffer);
         CellBuffer = NULL;
     }
+    if (CellBufferW != NULL)
+    {
+        free(CellBufferW);
+        CellBufferW = NULL;
+        CellBufferWSize = 0;
+    }
 }
 
 BOOL CParserInterfaceJSONL::GetFileInfo(HWND hEdit)
@@ -1579,12 +1583,15 @@ BOOL CParserInterfaceJSONL::GetFieldInfo(DWORD index, CFieldInfo* info)
     if (index >= MaxColumns)
         return FALSE;
 
-    char colName[32];
-    sprintf(colName, "Field %u", index + 1);
+    WCHAR colName[32];
+    swprintf(colName, SizeOf(colName), L"Field %u", index + 1);
     if (info->Name == NULL)
-        info->NameMax = (int)strlen(colName) + 1;
+        info->NameMax = sizeof(WCHAR) * ((int)wcslen(colName) + 1);
     else
-        lstrcpynA(info->Name, colName, info->NameMax);
+    {
+        wcsncpy((LPWSTR)info->Name, colName, info->NameMax / sizeof(WCHAR));
+        ((LPWSTR)info->Name)[info->NameMax / sizeof(WCHAR) - 1] = 0;
+    }
 
     info->LeftAlign = TRUE;
     info->TextMax = (index < (DWORD)ColumnMaxLens.Count && ColumnMaxLens[index] > 0) ? (int)ColumnMaxLens[index] : -1;
@@ -1655,9 +1662,42 @@ const char* CParserInterfaceJSONL::GetCellText(DWORD index, size_t* textLen)
 
 const wchar_t* CParserInterfaceJSONL::GetCellTextW(DWORD index, size_t* textLen)
 {
-    UNREFERENCED_PARAMETER(index);
-    *textLen = 0;
-    return L"";
+    size_t utf8Len;
+    const char* text = GetCellText(index, &utf8Len);
+    if (utf8Len == 0)
+    {
+        *textLen = 0;
+        return L"";
+    }
+
+    int required = MultiByteToWideChar(CP_UTF8, 0, text, (int)utf8Len, NULL, 0);
+    if (required <= 0)
+    {
+        *textLen = 0;
+        return L"";
+    }
+
+    if (required + 1 > CellBufferWSize)
+    {
+        wchar_t* grown = (wchar_t*)realloc(CellBufferW, (required + 1) * sizeof(wchar_t));
+        if (grown == NULL)
+        {
+            *textLen = 0;
+            return L"";
+        }
+        CellBufferW = grown;
+        CellBufferWSize = required + 1;
+    }
+
+    int converted = MultiByteToWideChar(CP_UTF8, 0, text, (int)utf8Len, CellBufferW, CellBufferWSize);
+    if (converted <= 0)
+    {
+        *textLen = 0;
+        return L"";
+    }
+    CellBufferW[converted] = 0;
+    *textLen = converted;
+    return CellBufferW;
 }
 
 BOOL CParserInterfaceJSONL::IsRecordDeleted()
