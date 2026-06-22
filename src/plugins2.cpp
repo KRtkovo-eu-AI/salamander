@@ -2921,7 +2921,7 @@ BOOL CPlugins::ReadPluginsVer(HWND parent, BOOL importFromOldConfig)
         if (foundFiles.IsGood())
         {
             char pluginsDir[MAX_PATH + 20];
-            lstrcpyn(pluginsDir, buf, SizeOf(pluginsDir));
+            lstrcpyn(pluginsDir, buf, _countof(pluginsDir));
             char* pluginsDirEnd = strrchr(pluginsDir, '\\');
             if (pluginsDirEnd != NULL)
                 *pluginsDirEnd = 0;
