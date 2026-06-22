@@ -3574,9 +3574,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
     case WM_SYSCOLORCHANGE:
     {
-        if (DarkModeIsTemporarySysColorChange())
-            return 0;
-
         UserMenuIconBkgndReader.SetSysColorsChanged();
 
         // propagate the color change to the rebar

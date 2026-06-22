@@ -11,6 +11,8 @@ bool DarkModeShouldUseDarkColors() { return false; }
 BOOL DarkMode_ShouldUseDark() { return FALSE; }
 void DarkModeApplyWindow(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
 void DarkModeApplyTree(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
+void DarkModeApplyDropdownListTheme(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
+void DarkModeRefreshTree(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
 void DarkModeApplyMenuBar(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
 void DarkModeRefreshTitleBar(HWND hwnd) { UNREFERENCED_PARAMETER(hwnd); }
 bool DarkModeHandleSettingChange(UINT message, LPARAM lParam)

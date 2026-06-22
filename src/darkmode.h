@@ -34,6 +34,10 @@ void DarkModeApplyWindow(HWND hwnd);
 // Applies dark mode opt-in to the specified window and all of its descendants.
 void DarkModeApplyTree(HWND hwnd);
 
+// Applies the Explorer/ScrollBar theme combination used by native dropdown/list popups
+// in dark mode without forcing a full listbox theme.
+void DarkModeApplyDropdownListTheme(HWND hwnd);
+
 // Re-applies dark mode to a subtree even if it was already marked as themed;
 // useful for native popups that create child windows after the initial theme pass.
 void DarkModeRefreshTree(HWND hwnd);
@@ -58,12 +62,6 @@ void DarkModeConfigureDialogColors(COLORREF textColor, COLORREF backgroundColor,
 void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgroundColor,
                                  COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor);
 const DarkModeColors& DarkModeGetColors();
-
-// Suppresses expensive app-wide handling of the temporary system color changes
-// used while painting native popups that otherwise cannot be recolored.
-void DarkModeBeginTemporarySysColorChange();
-void DarkModeEndTemporarySysColorChange();
-bool DarkModeIsTemporarySysColorChange();
 
 // Handles WM_CTLCOLOR* messages for dark mode aware parents. Returns true when
 // a dark brush was supplied and the caller should stop default processing.

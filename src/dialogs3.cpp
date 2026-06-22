@@ -29,37 +29,7 @@ const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
 HWINEVENTHOOK HPathAutoCompleteWinEventHook = NULL;
 const UINT_PTR PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID = 1;
-
-bool PaintPathAutoCompleteWithDarkSysColors(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& result)
-{
-    if (!DarkModeShouldUseDarkColors())
-        return false;
-
-    static bool paintingWithDarkSysColors = false;
-    if (paintingWithDarkSysColors)
-        return false;
-
-    const DarkModeColors& colors = DarkModeGetColors();
-    const int indexes[] = {COLOR_WINDOW, COLOR_WINDOWTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT,
-                           COLOR_BTNFACE, COLOR_BTNTEXT, COLOR_3DFACE};
-    COLORREF oldColors[_countof(indexes)];
-    COLORREF darkColors[_countof(indexes)] = {colors.background, colors.readableText,
-                                              RGB(0x4A, 0x4A, 0x4A), colors.readableText,
-                                              colors.background, colors.readableText, colors.background};
-
-    const int count = static_cast<int>(_countof(indexes));
-    for (int i = 0; i < count; ++i)
-        oldColors[i] = GetSysColor(indexes[i]);
-
-    paintingWithDarkSysColors = true;
-    DarkModeBeginTemporarySysColorChange();
-    SetSysColors(count, indexes, darkColors);
-    result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
-    SetSysColors(count, indexes, oldColors);
-    DarkModeEndTemporarySysColorChange();
-    paintingWithDarkSysColors = false;
-    return true;
-}
+const wchar_t* PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP = L"Salamander.PathAutoCompletePopupSurface";
 
 BOOL GetPathAutoCompletePopupClassName(HWND hwnd, wchar_t* className, int classNameSize)
 {
@@ -111,6 +81,51 @@ HWND GetPathAutoCompletePopupRoot(HWND hwnd)
     return NULL;
 }
 
+
+void PaintPathAutoCompletePopupFrame(HWND hwnd)
+{
+    if (!DarkModeShouldUseDarkColors() || GetPropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP) == NULL)
+        return;
+
+    HDC dc = GetWindowDC(hwnd);
+    if (dc == NULL)
+        return;
+
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+    OffsetRect(&rc, -rc.left, -rc.top);
+
+    HBRUSH borderBrush = CreateSolidBrush(RGB(0x70, 0x70, 0x70));
+    if (borderBrush != NULL)
+    {
+        FrameRect(dc, &rc, borderBrush);
+        DeleteObject(borderBrush);
+    }
+
+    if ((GetWindowLongPtr(hwnd, GWL_STYLE) & WS_THICKFRAME) != 0)
+    {
+        const int gripSize = GetSystemMetrics(SM_CXVSCROLL);
+        RECT grip = {rc.right - gripSize, rc.bottom - gripSize, rc.right - 1, rc.bottom - 1};
+        HBRUSH backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW);
+        FillRect(dc, &grip, backgroundBrush);
+
+        HPEN gripPen = CreatePen(PS_SOLID, 1, RGB(0x80, 0x80, 0x80));
+        if (gripPen != NULL)
+        {
+            HPEN oldPen = (HPEN)SelectObject(dc, gripPen);
+            for (int i = 4; i <= gripSize - 4; i += 4)
+            {
+                MoveToEx(dc, rc.right - i, rc.bottom - 2, NULL);
+                LineTo(dc, rc.right - 2, rc.bottom - i);
+            }
+            SelectObject(dc, oldPen);
+            DeleteObject(gripPen);
+        }
+    }
+
+    ReleaseDC(hwnd, dc);
+}
+
 LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
                                                    UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
@@ -138,14 +153,18 @@ LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM 
         break;
     }
 
-    case WM_PAINT:
-    case WM_PRINTCLIENT:
     case WM_NCPAINT:
     {
-        LRESULT result;
-        if (PaintPathAutoCompleteWithDarkSysColors(hwnd, uMsg, wParam, lParam, result))
-            return result;
-        break;
+        LRESULT result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
+        PaintPathAutoCompletePopupFrame(hwnd);
+        return result;
+    }
+
+    case WM_PAINT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
+        PaintPathAutoCompletePopupFrame(hwnd);
+        return result;
     }
 
     case WM_ERASEBKGND:
@@ -159,6 +178,7 @@ LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM 
         break;
 
     case WM_NCDESTROY:
+        RemovePropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP);
         RemoveWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID);
         break;
     }
@@ -180,6 +200,11 @@ void SubclassPathAutoCompletePopupOwnerWindows(HWND hwnd)
 BOOL CALLBACK ApplyPathAutoCompletePopupChildDarkModeProc(HWND hwnd, LPARAM)
 {
     DarkModeApplyWindow(hwnd);
+    if (IsPathAutoCompletePopupPaintSurface(hwnd))
+    {
+        SetPropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP, reinterpret_cast<HANDLE>(1));
+        DarkModeApplyDropdownListTheme(hwnd);
+    }
     SetWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
     SubclassPathAutoCompletePopupOwnerWindows(hwnd);
 
@@ -204,7 +229,9 @@ void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
         return;
 
     DarkModeApplyWindow(popup);
+    DarkModeApplyDropdownListTheme(popup);
     DarkModeRefreshTree(popup);
+    SetPropW(popup, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP, reinterpret_cast<HANDLE>(1));
     SetWindowSubclass(popup, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
     SubclassPathAutoCompletePopupOwnerWindows(popup);
     EnumChildWindows(popup, ApplyPathAutoCompletePopupChildDarkModeProc, 0);
@@ -253,7 +280,7 @@ void ApplyPathAutoCompleteDarkMode(HWND hComboOrEdit, HWND hEdit)
     COMBOBOXINFO cbi;
     cbi.cbSize = sizeof(cbi);
     if (GetComboBoxInfo(hComboOrEdit, &cbi) && cbi.hwndList != NULL)
-        DarkModeApplyWindow(cbi.hwndList);
+        DarkModeApplyDropdownListTheme(cbi.hwndList);
 }
 
 void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
