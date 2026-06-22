@@ -5,6 +5,7 @@
 #include "precomp.h"
 
 #include <shlwapi.h>
+#undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
 
 #include "mainwnd.h"
 #include "plugins.h"
