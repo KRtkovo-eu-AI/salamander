@@ -675,7 +675,8 @@ void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
     std::sort(lines.begin(), lines.end());
     lines.erase(std::unique(lines.begin(), lines.end()), lines.end());
 
-    HPEN pen = CreatePen(PS_SOLID, 1, RGB(0x38, 0x38, 0x38));
+    const COLORREF separatorColor = RGB(0x38, 0x38, 0x38);
+    HPEN pen = CreatePen(PS_SOLID, 1, separatorColor);
     if (pen == NULL)
         return;
 
@@ -687,6 +688,82 @@ void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
     }
     if (oldPen != NULL)
         SelectObject(hdc, oldPen);
+
+    // Without native RBS_BANDBORDERS the toolbar child windows can cover the
+    // row separator pixels. Paint the same separator over the affected child
+    // windows so the dark-mode row lines remain visible without re-enabling the
+    // native light-colored band borders.
+    const int childCount = static_cast<int>(SendMessage(hwnd, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < childCount; ++i)
+    {
+        REBARBANDINFO rbi = {0};
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_CHILD | RBBIM_STYLE | RBBIM_HEADERSIZE;
+        RECT bandRect = {0, 0, 0, 0};
+        if (SendMessage(hwnd, RB_GETBANDINFO, i, reinterpret_cast<LPARAM>(&rbi)) == 0 ||
+            SendMessage(hwnd, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) == 0)
+        {
+            continue;
+        }
+
+        if (rbi.hwndChild != NULL)
+        {
+            RECT childRect;
+            GetWindowRect(rbi.hwndChild, &childRect);
+            MapWindowPoints(NULL, hwnd, reinterpret_cast<LPPOINT>(&childRect), 2);
+
+            HDC childDC = GetDC(rbi.hwndChild);
+            if (childDC != NULL)
+            {
+                HGDIOBJ childOldPen = SelectObject(childDC, pen);
+                for (int y : lines)
+                {
+                    if (y >= childRect.top && y <= childRect.bottom)
+                    {
+                        int childY = y - childRect.top;
+                        const int childHeight = childRect.bottom - childRect.top;
+                        if (childY >= childHeight)
+                            childY = childHeight - 1;
+                        MoveToEx(childDC, 0, childY, NULL);
+                        LineTo(childDC, childRect.right - childRect.left, childY);
+                    }
+                }
+                if (childOldPen != NULL)
+                    SelectObject(childDC, childOldPen);
+                ReleaseDC(rbi.hwndChild, childDC);
+            }
+        }
+
+        if ((rbi.fStyle & RBBS_NOGRIPPER) == 0)
+        {
+            RECT gripRect = bandRect;
+            gripRect.left += 2;
+            gripRect.right = rbi.hwndChild != NULL ? bandRect.left + rbi.cxHeader : bandRect.left + 10;
+            if (gripRect.right > gripRect.left + 8)
+                gripRect.right = gripRect.left + 8;
+            if (gripRect.right <= gripRect.left)
+                continue;
+            FillRectWithColor(hdc, gripRect, DarkModeGetColors().background);
+
+            HPEN gripPen = CreatePen(PS_SOLID, 1, RGB(95, 95, 95));
+            if (gripPen != NULL)
+            {
+                HGDIOBJ gripOldPen = SelectObject(hdc, gripPen);
+                for (int x = gripRect.left + 1; x <= gripRect.left + 4; x += 3)
+                {
+                    for (int y = gripRect.top + 4; y < gripRect.bottom - 3; y += 4)
+                    {
+                        MoveToEx(hdc, x, y, NULL);
+                        LineTo(hdc, x, y + 2);
+                    }
+                }
+                if (gripOldPen != NULL)
+                    SelectObject(hdc, gripOldPen);
+                DeleteObject(gripPen);
+            }
+        }
+    }
+
     DeleteObject(pen);
 }
 
