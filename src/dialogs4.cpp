@@ -202,6 +202,37 @@ BOOL ValidatePathIsNotEmpty(HWND hParent, const char* path)
     return TRUE;
 }
 
+static BOOL CanWriteRegStorageFilePath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            return FALSE;
+
+        HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
 //
 // ****************************************************************************
 // CLoadSaveToRegistryMutex
@@ -905,6 +936,21 @@ void CConfigurationDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 }
 
+static BOOL BrowseConfigurationStorageFile(HWND hParent, char* path, int pathSize)
+{
+    OPENFILENAME ofn;
+    memset(&ofn, 0, sizeof(ofn));
+    char filter[] = "Registration Files (*.reg)\0*.reg\0All Files (*.*)\0*.*\0\0";
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hParent;
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = pathSize;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.lpstrDefExt = "reg";
+    return SafeGetSaveFileName(&ofn);
+}
+
 //
 // ****************************************************************************
 // CCfgPageGeneral
@@ -937,7 +983,8 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
     if (storageType == cstRegFile)
     {
         char configPath[MAX_PATH];
-        if (!ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath)))
+        ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
+        if (configPath[0] == 0)
         {
             SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEPATHERR), LoadStr(IDS_ERRORTITLE),
                           MB_OK | MB_ICONEXCLAMATION);
@@ -945,34 +992,49 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
             return;
         }
 
-        char tmpPath[MAX_PATH];
-        _snprintf_s(tmpPath, _TRUNCATE, "%s.test", configPath);
-        HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL));
-        if (file == INVALID_HANDLE_VALUE)
+        if (!CanWriteRegStorageFilePath(configPath))
         {
             SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
                           MB_OK | MB_ICONEXCLAMATION);
             ti.ErrorOn(IDC_SAVE_TO_FILE);
             return;
         }
-        HANDLES(CloseHandle(file));
-        DeleteFile(tmpPath);
     }
 }
 
 void CCfgPageGeneral::Transfer(CTransferInfo& ti)
 {
     ti.CheckBox(IDC_AUTOSAVE, Configuration.AutoSave);
+    if (ti.Type == ttDataToWindow)
+    {
+        char configPath[MAX_PATH];
+        configPath[0] = 0;
+        CConfigurationStorageType bootstrapType = (CConfigurationStorageType)Configuration.StorageType;
+        ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapType, configPath, SizeOf(configPath));
+        if (configPath[0] == 0)
+            ConfigurationStorage.GetRegFilePath(configPath, SizeOf(configPath));
+        ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
+    }
     int oldStorageType = Configuration.StorageType;
     ti.RadioButton(IDC_SAVE_TO_REGISTRY, cstRegistry, Configuration.StorageType);
     ti.RadioButton(IDC_SAVE_TO_FILE, cstRegFile, Configuration.StorageType);
+    if (ti.Type == ttDataFromWindow && oldStorageType == Configuration.StorageType && Configuration.StorageType == cstRegFile)
+    {
+        char configPath[MAX_PATH];
+        ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
+        if (!ConfigurationStorage.SwitchStorageType(cstRegFile, FALSE, configPath))
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_MIGRATIONERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+    }
     if (ti.Type == ttDataFromWindow && oldStorageType != Configuration.StorageType)
     {
         if (SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_SWITCHCONFIRM), LoadStr(IDS_QUESTION),
                           MB_YESNO | MB_ICONQUESTION) == IDYES)
         {
+            char configPath[MAX_PATH];
+            ti.EditLine(IDC_SAVE_TO_FILE_PATH, configPath, SizeOf(configPath));
             ConfigurationStorage.Flush();
-            if (!ConfigurationStorage.SwitchStorageType((CConfigurationStorageType)Configuration.StorageType, TRUE))
+            if (!ConfigurationStorage.SwitchStorageType((CConfigurationStorageType)Configuration.StorageType, TRUE, configPath))
             {
                 Configuration.StorageType = oldStorageType;
                 SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_MIGRATIONERR), LoadStr(IDS_ERRORTITLE),
@@ -1043,9 +1105,12 @@ void CCfgPageGeneral::EnableControls()
     EnableWindow(GetDlgItem(HWindow, IDC_ASYNCCOPYALG), Windows7AndLater);
     char configPath[MAX_PATH];
     BOOL canSaveStorageTypeBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
+    BOOL canUseFileStorage = canSaveStorageTypeBootstrap && ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath));
+    BOOL fileStorageSelected = IsDlgButtonChecked(HWindow, IDC_SAVE_TO_FILE) == BST_CHECKED;
     EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_REGISTRY), canSaveStorageTypeBootstrap);
-    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE),
-                 canSaveStorageTypeBootstrap && ConfigurationStorage.GetPortableConfigFilePath(configPath, SizeOf(configPath)));
+    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE), canUseFileStorage);
+    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE_PATH), canUseFileStorage && fileStorageSelected);
+    EnableWindow(GetDlgItem(HWindow, IDC_SAVE_TO_FILE_BROWSE), canUseFileStorage && fileStorageSelected);
 
     BOOL defaultCommandShell = IsDefaultCommandShellApplication();
     HWND hCloseShell = GetDlgItem(HWindow, IDC_CLOSESHELL);
@@ -1071,7 +1136,20 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
     {
-        if (HIWORD(wParam) == BN_CLICKED)
+        if (LOWORD(wParam) == IDC_SAVE_TO_FILE_BROWSE)
+        {
+            char path[MAX_PATH];
+            GetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path, SizeOf(path));
+            if (BrowseConfigurationStorageFile(HWindow, path, SizeOf(path)))
+            {
+                if (CanWriteRegStorageFilePath(path))
+                    SetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path);
+                else
+                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
+        else if (HIWORD(wParam) == BN_CLICKED)
             EnableControls();
         break;
     }

@@ -655,10 +655,65 @@ CImportConfigDialog::CImportConfigDialog()
     : CCommonDialog(HLanguage, IDD_IMPORTCONFIG, NULL)
 {
     StorageType = cstRegistry;
+    RegFilePath[0] = 0;
 }
 
 CImportConfigDialog::~CImportConfigDialog()
 {
+}
+
+static BOOL BrowseRegStorageFile(HWND hParent, char* path, int pathSize)
+{
+    OPENFILENAME ofn;
+    memset(&ofn, 0, sizeof(ofn));
+    char filter[] = "Registration Files (*.reg)\0*.reg\0All Files (*.*)\0*.*\0\0";
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hParent;
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = pathSize;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.lpstrDefExt = "reg";
+    return SafeGetSaveFileName(&ofn);
+}
+
+static BOOL CanWriteRegStorageFilePath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            return FALSE;
+
+        HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
+static void EnableImportStoragePathControls(HWND hWindow)
+{
+    BOOL enabled = IsDlgButtonChecked(hWindow, IDC_IMPORT_SAVE_TO_FILE) == BST_CHECKED &&
+                   IsWindowEnabled(GetDlgItem(hWindow, IDC_IMPORT_SAVE_TO_FILE));
+    EnableWindow(GetDlgItem(hWindow, IDC_IMPORT_SAVE_TO_FILE_PATH), enabled);
+    EnableWindow(GetDlgItem(hWindow, IDC_IMPORT_SAVE_TO_FILE_BROWSE), enabled);
 }
 
 extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
@@ -701,12 +756,21 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
         }
         SendDlgItemMessage(HWindow, IDC_IMPORTCONFIG, CB_SETCURSEL, selIndex, NULL);
         BOOL canSaveStorageTypeBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
+        if (RegFilePath[0] == 0)
+        {
+            CConfigurationStorageType bootstrapType = (CConfigurationStorageType)StorageType;
+            ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapType, RegFilePath, SizeOf(RegFilePath));
+        }
+        if (RegFilePath[0] == 0)
+            ConfigurationStorage.GetPortableConfigFilePath(RegFilePath, SizeOf(RegFilePath));
+        SetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, RegFilePath);
         if (!canSaveStorageTypeBootstrap)
             StorageType = cstRegistry;
         CheckRadioButton(HWindow, IDC_IMPORT_SAVE_TO_REGISTRY, IDC_IMPORT_SAVE_TO_FILE,
                          StorageType == cstRegFile ? IDC_IMPORT_SAVE_TO_FILE : IDC_IMPORT_SAVE_TO_REGISTRY);
         EnableWindow(GetDlgItem(HWindow, IDC_IMPORT_SAVE_TO_REGISTRY), canSaveStorageTypeBootstrap);
         EnableWindow(GetDlgItem(HWindow, IDC_IMPORT_SAVE_TO_FILE), canSaveStorageTypeBootstrap);
+        EnableImportStoragePathControls(HWindow);
 
         // LISTVIEW Remove Configuration
         HWND hListView = GetDlgItem(HWindow, IDC_REMOVECONFIG);
@@ -743,6 +807,7 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
     }
     else
     {
+        GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, RegFilePath, SizeOf(RegFilePath));
         StorageType = ConfigurationStorage.CanSaveStorageTypeBootstrap() && IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE) ?
                           cstRegFile :
                           cstRegistry;
@@ -786,6 +851,29 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
     }
 }
 
+void CImportConfigDialog::Validate(CTransferInfo& ti)
+{
+    if (ConfigurationStorage.CanSaveStorageTypeBootstrap() && IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE))
+    {
+        char path[MAX_PATH];
+        GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path, SizeOf(path));
+        if (path[0] == 0)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEPATHERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_IMPORT_SAVE_TO_FILE_PATH);
+            return;
+        }
+        if (!CanWriteRegStorageFilePath(path))
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_IMPORT_SAVE_TO_FILE_PATH);
+            return;
+        }
+    }
+}
+
 INT_PTR
 CImportConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -815,6 +903,27 @@ CImportConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ListView_SetColumnWidth(hListView, 0, LVSCW_AUTOSIZE);
 
         return ret;
+    }
+
+    case WM_COMMAND:
+    {
+        if (HIWORD(wParam) == BN_CLICKED &&
+            (LOWORD(wParam) == IDC_IMPORT_SAVE_TO_FILE || LOWORD(wParam) == IDC_IMPORT_SAVE_TO_REGISTRY))
+            EnableImportStoragePathControls(HWindow);
+        else if (LOWORD(wParam) == IDC_IMPORT_SAVE_TO_FILE_BROWSE)
+        {
+            char path[MAX_PATH];
+            GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path, SizeOf(path));
+            if (BrowseRegStorageFile(HWindow, path, SizeOf(path)))
+            {
+                if (CanWriteRegStorageFilePath(path))
+                    SetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path);
+                else
+                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
+        break;
     }
     }
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);

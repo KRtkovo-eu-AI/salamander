@@ -68,7 +68,7 @@ BOOL CConfigurationStorage::GetStorageTypeBootstrapFilePath(char* filePath, int 
     return TRUE;
 }
 
-BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& type)
+BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& type, char* regFilePath, int regFilePathSize)
 {
     char fileName[MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
@@ -83,6 +83,14 @@ BOOL CConfigurationStorage::LoadStorageTypeBootstrap(CConfigurationStorageType& 
         type = cstRegFile;
     else
         type = cstRegistry;
+
+    if (regFilePath != NULL && regFilePathSize > 0)
+    {
+        regFilePath[0] = 0;
+        GetPrivateProfileString("Configuration", "RegFilePath", "", regFilePath, regFilePathSize, fileName);
+        if (regFilePath[0] == 0)
+            GetPortableConfigFilePath(regFilePath, regFilePathSize);
+    }
     return TRUE;
 }
 
@@ -115,16 +123,42 @@ BOOL CConfigurationStorage::CanSaveStorageTypeBootstrap()
     return TRUE;
 }
 
-BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType type)
+BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType type, const char* regFilePath)
 {
     char fileName[MAX_PATH];
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
-    return WritePrivateProfileString("Configuration", "StorageType",
-                                     type == cstRegFile ? "RegFile" : "Registry", fileName);
+    BOOL ret = WritePrivateProfileString("Configuration", "StorageType",
+                                          type == cstRegFile ? "RegFile" : "Registry", fileName);
+    if (ret && type == cstRegFile && regFilePath != NULL && regFilePath[0] != 0)
+        ret = WritePrivateProfileString("Configuration", "RegFilePath", regFilePath, fileName);
+    return ret;
 }
 
+
+BOOL CConfigurationStorage::GetRegFilePath(char* filePath, int filePathSize) const
+{
+    if (filePath == NULL || filePathSize <= 0)
+        return FALSE;
+
+    if (FilePath[0] != 0)
+    {
+        strncpy_s(filePath, filePathSize, FilePath, _TRUNCATE);
+        return TRUE;
+    }
+
+    return const_cast<CConfigurationStorage*>(this)->GetPortableConfigFilePath(filePath, filePathSize);
+}
+
+BOOL CConfigurationStorage::SetRegFilePath(const char* filePath)
+{
+    if (filePath == NULL || filePath[0] == 0)
+        return FALSE;
+
+    strncpy_s(FilePath, filePath, _TRUNCATE);
+    return TRUE;
+}
 
 BOOL CConfigurationStorage::UseActiveRegistryForKey(HKEY key, const char* name)
 {
@@ -345,10 +379,34 @@ CConfigurationStorageType CConfigurationStorage::GetStorageType() const
     return StorageType;
 }
 
-BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType, BOOL migrateCurrentData)
+BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType, BOOL migrateCurrentData, const char* filePath)
 {
     if (newType == StorageType)
+    {
+        if (newType == cstRegFile && filePath != NULL && filePath[0] != 0 && strcmp(FilePath, filePath) != 0)
+        {
+            char oldFilePath[MAX_PATH];
+            strcpy_s(oldFilePath, FilePath);
+            BOOL movedFile = FALSE;
+            DWORD oldAttrs = oldFilePath[0] != 0 ? GetFileAttributes(oldFilePath) : INVALID_FILE_ATTRIBUTES;
+            if (oldAttrs != INVALID_FILE_ATTRIBUTES && (oldAttrs & FILE_ATTRIBUTE_DIRECTORY) == 0 &&
+                _stricmp(oldFilePath, filePath) != 0)
+            {
+                if (!MoveFileEx(oldFilePath, filePath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH))
+                    return FALSE;
+                movedFile = TRUE;
+            }
+            if (!SetRegFilePath(filePath) || (!movedFile && !SaveRegFile()) || !SaveStorageTypeBootstrap(StorageType, FilePath))
+            {
+                if (movedFile)
+                    MoveFileEx(filePath, oldFilePath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
+                strcpy_s(FilePath, oldFilePath);
+                return FALSE;
+            }
+            return TRUE;
+        }
         return TRUE;
+    }
 
     CSalamanderRegistryExAbstract* newRegistry = CreateRegistry(newType);
     if (newRegistry == NULL)
@@ -372,6 +430,16 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
         return FALSE;
     }
 
+    char oldFilePath[MAX_PATH];
+    strcpy_s(oldFilePath, FilePath);
+    if (newType == cstRegFile && filePath != NULL && filePath[0] != 0)
+        strncpy_s(FilePath, filePath, _TRUNCATE);
+    else if (newType == cstRegFile && FilePath[0] == 0 && !GetPortableConfigFilePath(FilePath, SizeOf(FilePath)))
+    {
+        newRegistry->Release();
+        return FALSE;
+    }
+
     CSalamanderRegistryExAbstract* oldRegistry = Registry;
     CConfigurationStorageType oldType = StorageType;
     Registry = newRegistry;
@@ -382,8 +450,14 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
     {
         Registry = oldRegistry;
         StorageType = oldType;
+        strcpy_s(FilePath, oldFilePath);
         newRegistry->Release();
         return FALSE;
+    }
+    if (StorageType == cstRegFile && oldType == cstRegFile && oldFilePath[0] != 0 &&
+        _stricmp(oldFilePath, FilePath) != 0)
+    {
+        DeleteFile(oldFilePath);
     }
 
     if (oldType == cstRegistry && StorageType == cstRegFile && migrateCurrentData)
@@ -394,12 +468,17 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
 
     if (StorageType == cstRegistry)
     {
-        char portablePath[MAX_PATH];
-        if (GetPortableConfigFilePath(portablePath, SizeOf(portablePath)))
-            DeleteFile(portablePath);
+        if (oldType == cstRegFile && oldFilePath[0] != 0)
+            DeleteFile(oldFilePath);
+        else
+        {
+            char portablePath[MAX_PATH];
+            if (GetPortableConfigFilePath(portablePath, SizeOf(portablePath)))
+                DeleteFile(portablePath);
+        }
     }
 
-    SaveStorageTypeBootstrap(StorageType);
+    SaveStorageTypeBootstrap(StorageType, StorageType == cstRegFile ? FilePath : NULL);
     return TRUE;
 }
 

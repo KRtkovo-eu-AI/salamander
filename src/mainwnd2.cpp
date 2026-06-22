@@ -1303,7 +1303,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             return FALSE; // user wants to quit Salamander
         }
         Configuration.StorageType = dlg.StorageType;
-        ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType);
+        ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType, dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
         if (dlg.IndexOfConfigurationToLoad != -1)
             loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigurationToLoad];
     }

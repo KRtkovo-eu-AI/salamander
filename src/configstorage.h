@@ -35,7 +35,7 @@ public:
     BOOL Initialize(CConfigurationStorageType type, const char* filePath);
     CSalamanderRegistryExAbstract* GetRegistry();
     CConfigurationStorageType GetStorageType() const;
-    BOOL SwitchStorageType(CConfigurationStorageType newType, BOOL migrateCurrentData);
+    BOOL SwitchStorageType(CConfigurationStorageType newType, BOOL migrateCurrentData, const char* filePath = NULL);
     BOOL Load();
     BOOL Save();
     BOOL Flush();
@@ -43,9 +43,11 @@ public:
 
     BOOL GetPortableConfigFilePath(char* filePath, int filePathSize);
     BOOL GetStorageTypeBootstrapFilePath(char* filePath, int filePathSize);
-    BOOL LoadStorageTypeBootstrap(CConfigurationStorageType& type);
-    BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type);
+    BOOL LoadStorageTypeBootstrap(CConfigurationStorageType& type, char* regFilePath = NULL, int regFilePathSize = 0);
+    BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type, const char* regFilePath = NULL);
     BOOL CanSaveStorageTypeBootstrap();
+    BOOL GetRegFilePath(char* filePath, int filePathSize) const;
+    BOOL SetRegFilePath(const char* filePath);
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
     void RegisterActiveRegistryKey(HKEY key);
     void UnregisterActiveRegistryKey(HKEY key);
