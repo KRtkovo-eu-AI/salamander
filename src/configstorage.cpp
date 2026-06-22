@@ -387,14 +387,23 @@ BOOL CConfigurationStorage::SwitchStorageType(CConfigurationStorageType newType,
         {
             char oldFilePath[MAX_PATH];
             strcpy_s(oldFilePath, FilePath);
-            if (!SetRegFilePath(filePath) || !SaveRegFile())
+            BOOL movedFile = FALSE;
+            DWORD oldAttrs = oldFilePath[0] != 0 ? GetFileAttributes(oldFilePath) : INVALID_FILE_ATTRIBUTES;
+            if (oldAttrs != INVALID_FILE_ATTRIBUTES && (oldAttrs & FILE_ATTRIBUTE_DIRECTORY) == 0 &&
+                _stricmp(oldFilePath, filePath) != 0)
             {
+                if (!MoveFileEx(oldFilePath, filePath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH))
+                    return FALSE;
+                movedFile = TRUE;
+            }
+            if (!SetRegFilePath(filePath) || (!movedFile && !SaveRegFile()) || !SaveStorageTypeBootstrap(StorageType, FilePath))
+            {
+                if (movedFile)
+                    MoveFileEx(filePath, oldFilePath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
                 strcpy_s(FilePath, oldFilePath);
                 return FALSE;
             }
-            if (oldFilePath[0] != 0 && _stricmp(oldFilePath, FilePath) != 0)
-                DeleteFile(oldFilePath);
-            return SaveStorageTypeBootstrap(StorageType, FilePath);
+            return TRUE;
         }
         return TRUE;
     }

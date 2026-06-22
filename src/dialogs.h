@@ -1185,6 +1185,7 @@ public:
 
 protected:
     virtual void Transfer(CTransferInfo& ti);
+    virtual void Validate(CTransferInfo& ti);
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 

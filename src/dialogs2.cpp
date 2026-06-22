@@ -677,6 +677,37 @@ static BOOL BrowseRegStorageFile(HWND hParent, char* path, int pathSize)
     return SafeGetSaveFileName(&ofn);
 }
 
+static BOOL CanWriteRegStorageFilePath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            return FALSE;
+
+        HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
 static void EnableImportStoragePathControls(HWND hWindow)
 {
     BOOL enabled = IsDlgButtonChecked(hWindow, IDC_IMPORT_SAVE_TO_FILE) == BST_CHECKED &&
@@ -820,6 +851,29 @@ void CImportConfigDialog::Transfer(CTransferInfo& ti)
     }
 }
 
+void CImportConfigDialog::Validate(CTransferInfo& ti)
+{
+    if (ConfigurationStorage.CanSaveStorageTypeBootstrap() && IsDlgButtonChecked(HWindow, IDC_IMPORT_SAVE_TO_FILE))
+    {
+        char path[MAX_PATH];
+        GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path, SizeOf(path));
+        if (path[0] == 0)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEPATHERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_IMPORT_SAVE_TO_FILE_PATH);
+            return;
+        }
+        if (!CanWriteRegStorageFilePath(path))
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_IMPORT_SAVE_TO_FILE_PATH);
+            return;
+        }
+    }
+}
+
 INT_PTR
 CImportConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -861,7 +915,13 @@ CImportConfigDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             char path[MAX_PATH];
             GetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path, SizeOf(path));
             if (BrowseRegStorageFile(HWindow, path, SizeOf(path)))
-                SetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path);
+            {
+                if (CanWriteRegStorageFilePath(path))
+                    SetDlgItemText(HWindow, IDC_IMPORT_SAVE_TO_FILE_PATH, path);
+                else
+                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
         }
         break;
     }

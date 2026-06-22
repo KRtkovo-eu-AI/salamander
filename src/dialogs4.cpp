@@ -202,6 +202,37 @@ BOOL ValidatePathIsNotEmpty(HWND hParent, const char* path)
     return TRUE;
 }
 
+static BOOL CanWriteRegStorageFilePath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            return FALSE;
+
+        HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
 //
 // ****************************************************************************
 // CLoadSaveToRegistryMutex
@@ -961,18 +992,13 @@ void CCfgPageGeneral::Validate(CTransferInfo& ti)
             return;
         }
 
-        char tmpPath[MAX_PATH];
-        _snprintf_s(tmpPath, _TRUNCATE, "%s.test", configPath);
-        HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL));
-        if (file == INVALID_HANDLE_VALUE)
+        if (!CanWriteRegStorageFilePath(configPath))
         {
             SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
                           MB_OK | MB_ICONEXCLAMATION);
             ti.ErrorOn(IDC_SAVE_TO_FILE);
             return;
         }
-        HANDLES(CloseHandle(file));
-        DeleteFile(tmpPath);
     }
 }
 
@@ -1115,7 +1141,13 @@ CCfgPageGeneral::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             char path[MAX_PATH];
             GetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path, SizeOf(path));
             if (BrowseConfigurationStorageFile(HWindow, path, SizeOf(path)))
-                SetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path);
+            {
+                if (CanWriteRegStorageFilePath(path))
+                    SetDlgItemText(HWindow, IDC_SAVE_TO_FILE_PATH, path);
+                else
+                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+            }
         }
         else if (HIWORD(wParam) == BN_CLICKED)
             EnableControls();
