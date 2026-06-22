@@ -351,6 +351,7 @@ CConfiguration::CConfiguration()
     UseAsyncCopyAlg = TRUE;
     ReloadEnvVariables = TRUE;
     PathAutoComplete = TRUE;
+    CreateDirAutoComplete = FALSE;
     QuickRenameSelectAll = FALSE;
     EditNewSelectAll = TRUE;
     ShiftForHotPaths = TRUE;
@@ -999,6 +1000,7 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     int oldReloadEnvVariables = Configuration.ReloadEnvVariables;
     ti.CheckBox(IDC_RELOADENVVARS, Configuration.ReloadEnvVariables);
     ti.CheckBox(IDC_PATHAUTOCOMPLETE, Configuration.PathAutoComplete);
+    ti.CheckBox(IDC_CREATEDIR_AUTOCOMPLETE, Configuration.CreateDirAutoComplete);
     if (ti.Type == ttDataFromWindow && Configuration.ReloadEnvVariables && oldReloadEnvVariables != Configuration.ReloadEnvVariables)
     {
         InitEnvironmentVariablesDifferences();

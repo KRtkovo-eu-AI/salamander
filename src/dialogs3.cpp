@@ -25,10 +25,13 @@ namespace
 {
 
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
+const UINT WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE = WM_APP + 342;
+const UINT_PTR IDT_PATHAUTOCOMPLETE_DARKMODE = 341;
 
-void EnablePathAutoComplete(HWND hComboOrEdit)
+void EnablePathAutoComplete(HWND hComboOrEdit, BOOL createDirectoryMode)
 {
-    if (hComboOrEdit == NULL || !Configuration.PathAutoComplete)
+    if (hComboOrEdit == NULL || !Configuration.PathAutoComplete ||
+        (createDirectoryMode && !Configuration.CreateDirAutoComplete))
         return;
 
     HWND hEdit = hComboOrEdit;
@@ -66,6 +69,40 @@ void EnablePathAutoComplete(HWND hComboOrEdit)
 
     if (hEdit != NULL)
         SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
+}
+
+BOOL CALLBACK ApplyPathAutoSuggestDarkModeProc(HWND hwnd, LPARAM)
+{
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) != 0 &&
+        wcsstr(className, L"Auto-Suggest") != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+    return TRUE;
+}
+
+void ApplyPathAutoSuggestDarkMode()
+{
+    if (DarkModeShouldUseDarkColors())
+        EnumThreadWindows(GetCurrentThreadId(), ApplyPathAutoSuggestDarkModeProc, 0);
+}
+
+void QueuePathAutoSuggestDarkMode(HWND hDialog, WPARAM wParam, LPARAM lParam)
+{
+    if (!DarkModeShouldUseDarkColors() || reinterpret_cast<HWND>(lParam) != GetDlgItem(hDialog, IDE_PATH))
+        return;
+
+    switch (HIWORD(wParam))
+    {
+    case CBN_EDITCHANGE:
+    case CBN_EDITUPDATE:
+    case EN_CHANGE:
+        PostMessage(hDialog, WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE, 0, 0);
+        SetTimer(hDialog, IDT_PATHAUTOCOMPLETE_DARKMODE, 50, NULL);
+        break;
+    }
 }
 
 bool ShouldUseCopyMoveDarkPalette()
@@ -490,6 +527,7 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     : CCommonDialog(HLanguage, history ? IDD_COPYMOVEDIALOG_CB : IDD_COPYMOVEDIALOG, parent)
 {
     DirectoryHelper = FALSE;
+    CreateDirectoryMode = helpID == IDD_CREATEDIRDIALOG;
     if (directoryHelper)
     {
         if (history != NULL)
@@ -574,8 +612,31 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_ENABLEPATHAUTOCOMPLETE:
     {
-        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH));
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), CreateDirectoryMode);
         return 0;
+    }
+
+    case WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE:
+    {
+        ApplyPathAutoSuggestDarkMode();
+        return 0;
+    }
+
+    case WM_COMMAND:
+    {
+        QueuePathAutoSuggestDarkMode(HWindow, wParam, lParam);
+        break;
+    }
+
+    case WM_TIMER:
+    {
+        if (wParam == IDT_PATHAUTOCOMPLETE_DARKMODE)
+        {
+            KillTimer(HWindow, IDT_PATHAUTOCOMPLETE_DARKMODE);
+            ApplyPathAutoSuggestDarkMode();
+            return 0;
+        }
+        break;
     }
 
     case WM_USER_KEYDOWN:
@@ -596,6 +657,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
@@ -605,6 +667,9 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (ShouldUseCopyMoveDarkPalette())
         {
+            if (uMsg == WM_CTLCOLORLISTBOX)
+                return ApplyCopyMoveDialogColors(wParam, false);
+
             HWND ctrl = reinterpret_cast<HWND>(lParam);
             if (ctrl != NULL)
             {
@@ -1153,8 +1218,25 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_USER_ENABLEPATHAUTOCOMPLETE:
     {
-        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH));
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), FALSE);
         return 0;
+    }
+
+    case WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE:
+    {
+        ApplyPathAutoSuggestDarkMode();
+        return 0;
+    }
+
+    case WM_TIMER:
+    {
+        if (wParam == IDT_PATHAUTOCOMPLETE_DARKMODE)
+        {
+            KillTimer(HWindow, IDT_PATHAUTOCOMPLETE_DARKMODE);
+            ApplyPathAutoSuggestDarkMode();
+            return 0;
+        }
+        break;
     }
 
     case WM_USER_KEYDOWN:
@@ -1173,6 +1255,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
@@ -1182,6 +1265,9 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (ShouldUseCopyMoveDarkPalette())
         {
+            if (uMsg == WM_CTLCOLORLISTBOX)
+                return ApplyCopyMoveDialogColors(wParam, false);
+
             HWND ctrl = reinterpret_cast<HWND>(lParam);
             if (ctrl != NULL)
             {
@@ -1299,6 +1385,8 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
     case WM_COMMAND:
     {
+        QueuePathAutoSuggestDarkMode(HWindow, wParam, lParam);
+
         if (HIWORD(wParam) == BN_CLICKED)
         {
             switch (LOWORD(wParam))
