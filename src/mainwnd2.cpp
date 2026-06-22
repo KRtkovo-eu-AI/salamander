@@ -3080,10 +3080,12 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         if (OpenKey(salamander, SALAMANDER_COLORS_REG, actKey))
         {
-            DWORD scheme;
+            DWORD scheme = 5;
+            BOOL colorSchemeLoaded = FALSE;
             CurrentColors = UserColors;
             DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
-            if (GetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD)))
+            BOOL useWinDarkLoaded = GetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
+            if (useWinDarkLoaded)
                 Configuration.UseWindowsDarkMode = useWinDark != 0;
             if (GetValue(actKey, SALAMANDER_CLRSCHEME_REG, REG_DWORD, &scheme, sizeof(DWORD)))
             {
@@ -3125,6 +3127,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     CurrentColors = UserColors;
                     Configuration.UseWindowsDarkMode = FALSE;
                 }
+                colorSchemeLoaded = TRUE;
             }
 
             LoadRGBF(actKey, SALAMANDER_CLR_ITEM_FG_NORMAL_REG, UserColors[ITEM_FG_NORMAL]);
@@ -3175,6 +3178,25 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_NORMAL_REG, ViewerColors[VIEWER_BK_NORMAL]);
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_SELECTED_REG, ViewerColors[VIEWER_FG_SELECTED]);
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_SELECTED_REG, ViewerColors[VIEWER_BK_SELECTED]);
+
+            if (!useWinDarkLoaded && colorSchemeLoaded && scheme == 4)
+            {
+                SALCOLOR windowsDarkColors[NUMBER_OF_COLORS];
+                SALCOLOR windowsDarkViewerColors[NUMBER_OF_VIEWERCOLORS];
+                memset(windowsDarkColors, 0, sizeof(windowsDarkColors));
+                memset(windowsDarkViewerColors, 0, sizeof(windowsDarkViewerColors));
+                WindowsDarkModeBuildPalette(windowsDarkColors, windowsDarkViewerColors);
+
+                BOOL windowsDarkPalette =
+                    UserColors[ITEM_FG_NORMAL] == windowsDarkColors[ITEM_FG_NORMAL] &&
+                    UserColors[ITEM_BK_NORMAL] == windowsDarkColors[ITEM_BK_NORMAL] &&
+                    UserColors[ITEM_FG_SELECTED] == windowsDarkColors[ITEM_FG_SELECTED] &&
+                    UserColors[ITEM_BK_FOCUSED] == windowsDarkColors[ITEM_BK_FOCUSED] &&
+                    ViewerColors[VIEWER_FG_NORMAL] == windowsDarkViewerColors[VIEWER_FG_NORMAL] &&
+                    ViewerColors[VIEWER_BK_NORMAL] == windowsDarkViewerColors[VIEWER_BK_NORMAL];
+                if (windowsDarkPalette)
+                    Configuration.UseWindowsDarkMode = TRUE;
+            }
 
             // load colors for file highlighting
             HKEY hHltKey;
