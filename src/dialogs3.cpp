@@ -2899,7 +2899,10 @@ HWND CWaitWindow::Create(HWND hForegroundWnd)
              this);
 
     if (HWindow != NULL)
+    {
         DarkModeApplyWindow(HWindow);
+        DarkModeRefreshTitleBar(HWindow);
+    }
 
     // hack: adjust window size in real time so it works with both old (5 / XP compatible) and new toolsets
     RECT clientR;

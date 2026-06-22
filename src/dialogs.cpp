@@ -562,6 +562,14 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
+
         SetDlgItemText(HWindow, IDB_PAUSERESUME, LoadStr(IDS_PROGDLGPAUSE));
 
         if (!RunningInOwnThread)
