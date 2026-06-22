@@ -1957,9 +1957,15 @@ void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor)
         return;
 
 #if USE_DARKMODELIB
+    static bool dmlibInitialized = false;
+    if (!dmlibInitialized)
+    {
+        dmlib::initDarkMode();
+        dmlibInitialized = true;
+    }
     dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
     dmlib::setDefaultColors(true);
-    if ((chooseColor->Flags & CC_ENABLEHOOK) == 0 && chooseColor->lpfnHook == NULL)
+    if ((chooseColor->Flags & CC_ENABLEHOOK) == 0)
     {
         chooseColor->Flags |= CC_ENABLEHOOK;
         chooseColor->lpfnHook = reinterpret_cast<LPCCHOOKPROC>(dmlib::HookDlgProc);
@@ -1973,9 +1979,15 @@ void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont)
         return;
 
 #if USE_DARKMODELIB
+    static bool dmlibInitialized = false;
+    if (!dmlibInitialized)
+    {
+        dmlib::initDarkMode();
+        dmlibInitialized = true;
+    }
     dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
     dmlib::setDefaultColors(true);
-    if ((chooseFont->Flags & CF_ENABLEHOOK) == 0 && chooseFont->lpfnHook == NULL)
+    if ((chooseFont->Flags & CF_ENABLEHOOK) == 0)
     {
         chooseFont->Flags |= CF_ENABLEHOOK;
         chooseFont->lpfnHook = reinterpret_cast<LPCFHOOKPROC>(dmlib::HookDlgProc);
