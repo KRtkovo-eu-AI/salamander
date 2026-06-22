@@ -26,6 +26,37 @@ namespace
 
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
+
+HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
+{
+    IAutoComplete2* autoComplete = NULL;
+    HRESULT hr = CoCreateInstance(CLSID_AutoComplete, NULL, CLSCTX_INPROC_SERVER,
+                                  IID_IAutoComplete2, (void**)&autoComplete);
+    if (FAILED(hr))
+        return hr;
+
+    IUnknown* source = NULL;
+    hr = CoCreateInstance(CLSID_ACListISF, NULL, CLSCTX_INPROC_SERVER,
+                          IID_IUnknown, (void**)&source);
+    if (SUCCEEDED(hr))
+    {
+        IACList2* acList = NULL;
+        if (SUCCEEDED(source->QueryInterface(IID_IACList2, (void**)&acList)))
+        {
+            acList->SetOptions(ACLO_CURRENTDIR | ACLO_FILESYSONLY);
+            acList->Release();
+        }
+
+        hr = autoComplete->Init(hEdit, source, NULL, NULL);
+        if (SUCCEEDED(hr))
+            autoComplete->SetOptions(ACO_AUTOSUGGEST | ACO_AUTOAPPEND);
+        source->Release();
+    }
+
+    autoComplete->Release();
+    return hr;
+}
+
 void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
 {
     if (hComboOrEdit == NULL || !Configuration.PathAutoComplete ||
@@ -52,7 +83,12 @@ void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
     }
 
     if (hEdit != NULL)
-        SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
+    {
+        if (nameAutoCompleteMode)
+            EnableCurrentDirectoryAutoComplete(hEdit);
+        else
+            SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
+    }
 }
 
 bool ShouldUseCopyMoveDarkPalette()
