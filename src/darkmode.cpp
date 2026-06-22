@@ -345,18 +345,19 @@ bool IsCheckboxOrRadioButtonControl(HWND hwnd)
 
 bool ShouldOwnerDrawChoiceButton(HWND hwnd)
 {
-    // With darkmodelib enabled, Windows 11 can use the library's modern themed
-    // checkbox/radio subclass instead of Salamander's legacy owner-draw fallback.
+    // With darkmodelib enabled, use the library's modern themed checkbox/radio
+    // subclass instead of Salamander's legacy owner-draw fallback on all
+    // supported Windows versions.
 #if USE_DARKMODELIB
-    if (gBuildNumber >= 22000)
-        return false;
-#endif
-
-    // Without that path, radio captions need the fallback on all supported
+    (void)hwnd;
+    return false;
+#else
+    // Without darkmodelib, radio captions need the fallback on all supported
     // builds. Checkbox text is already painted correctly by the themed control
     // on Windows 11, but Windows 10 keeps drawing it with the light-theme text
     // color in dark dialogs, so use the same owner-draw fallback there only.
     return IsRadioButtonControl(hwnd) || (IsCheckboxControl(hwnd) && gBuildNumber < 22000);
+#endif
 }
 
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
