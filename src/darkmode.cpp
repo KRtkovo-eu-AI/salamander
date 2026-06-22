@@ -912,7 +912,8 @@ void PaintAutoSuggestListView(HWND hwnd, HDC hdc)
     int perPage = ListView_GetCountPerPage(hwnd);
     if (perPage <= 0)
         perPage = count;
-    const int lastIndex = std::min(count, topIndex + perPage + 2);
+    const int requestedLastIndex = topIndex + perPage + 2;
+    const int lastIndex = requestedLastIndex < count ? requestedLastIndex : count;
 
     HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
     HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
