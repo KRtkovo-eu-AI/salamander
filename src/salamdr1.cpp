@@ -4602,8 +4602,12 @@ FIND_NEW_SLG_FILE:
     CALL_STACK_MESSAGE1("WinMainBody::FindLatestConfiguration");
 
     char portableConfigPath[MAX_PATH];
-    BOOL portableConfigExists = !restrictedFileStorageImported &&
-                                ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath)) &&
+    portableConfigPath[0] = 0;
+    if (storageType == cstRegFile && storageRegFilePath[0] != 0)
+        strncpy_s(portableConfigPath, storageRegFilePath, _TRUNCATE);
+    else
+        ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
+    BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
 
     // ukazatel do pole 'SalamanderConfigurationRoots' na konfiguraci, ktera ma byt
