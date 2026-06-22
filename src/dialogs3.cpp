@@ -4,6 +4,8 @@
 
 #include "precomp.h"
 
+#include <shlwapi.h>
+
 #include "mainwnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
@@ -28,7 +30,7 @@ void EnablePathAutoComplete(HWND hComboOrEdit)
 
     HWND hEdit = hComboOrEdit;
     char className[32];
-    if (GetClassName(hComboOrEdit, className, SizeOf(className)) != 0 &&
+    if (GetClassName(hComboOrEdit, className, _countof(className)) != 0 &&
         lstrcmpi(className, "ComboBox") == 0)
     {
         HWND hComboEdit = FindWindowEx(hComboOrEdit, NULL, "Edit", NULL);
