@@ -766,17 +766,16 @@ static void ApplyWindows11ShellInvokeWorkarounds(CMINVOKECOMMANDINFOEX* ici, UIN
 {
     if (Windows11AndLater)
     {
-        // Windows 11's built-in "Send to > Compressed (zipped) folder" handler
-        // expects the extended Unicode invoke structure and may keep working
-        // after InvokeCommand returns. Keep the call synchronous and leave
-        // lpParameters/lpDirectory NULL as required for Shell extension items.
+        // Windows 11 shell handlers expect the extended Unicode invoke
+        // structure more often than Windows 10 handlers do. Keep InvokeCommand
+        // synchronous, but do not clear lpDirectory here: background verbs such
+        // as "Open PowerShell window here" and "Open Command Prompt here"
+        // need the directory to be supplied by the caller.
         ici->fMask |= CMIC_MASK_UNICODE | CMIC_MASK_NOASYNC;
         ici->lpVerb = MAKEINTRESOURCEA(cmdOffset);
         ici->lpVerbW = MAKEINTRESOURCEW(cmdOffset);
         ici->lpParameters = NULL;
         ici->lpParametersW = NULL;
-        ici->lpDirectory = NULL;
-        ici->lpDirectoryW = NULL;
     }
 }
 
@@ -2466,8 +2465,14 @@ MENU_TEMPLATE_ITEM PanelBkgndMenu[] =
                                 else
                                     ici.lpVerb = MAKEINTRESOURCE(cmd - 5000);
                                 ApplyWindows11ShellInvokeWorkarounds(&ici, cmd < 5000 ? cmd : cmd - 5000);
-                                if (!Windows11AndLater)
-                                    ici.lpDirectory = panel->GetPath();
+                                WCHAR directoryW[MAX_PATH];
+                                directoryW[0] = 0;
+                                ici.lpDirectory = panel->GetPath();
+                                if (Windows11AndLater &&
+                                    MultiByteToWideChar(CP_ACP, 0, panel->GetPath(), -1, directoryW, _countof(directoryW)) != 0)
+                                {
+                                    ici.lpDirectoryW = directoryW;
+                                }
                                 ici.nShow = SW_SHOWNORMAL;
                                 ici.ptInvoke = pt;
 
