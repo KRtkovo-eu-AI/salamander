@@ -52,6 +52,7 @@ protected:
 
 private:
     void EnsureSelection();
+    void EnsureInitialSelectedTabVisible();
     void EnsureNewTabButton();
     int GetDisplayedTabCount() const;
     int GetNewTabButtonIndex() const;
@@ -117,6 +118,7 @@ private:
     int LastClickedIndex;
     bool LastClickWasSelected;
     int MouseWheelAccumulator;
+    bool InitialEnsureSelectedTabVisiblePending;
 
     std::vector<STabColor> TabColors;
 
