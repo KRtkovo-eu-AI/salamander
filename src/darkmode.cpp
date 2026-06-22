@@ -1491,23 +1491,6 @@ void DarkModeApplyTree(HWND hwnd)
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
-void DarkModeApplyDropdownListTheme(HWND hwnd)
-{
-    EnsureInitialized();
-    if (!gSupported || hwnd == NULL)
-        return;
-
-    DarkModeApplyWindow(hwnd);
-    if (ShouldUseDarkColorsInternal() && gSetWindowTheme)
-    {
-        // wxWidgets found this limited Explorer/ScrollBar combination to keep native
-        // dropdown/list selection readable while allowing dark scrollbars. Avoid using
-        // a full ComboBox/ListBox theme here, as that can break item rendering.
-        gSetWindowTheme(hwnd, L"Explorer", L"ScrollBar");
-        SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
-    }
-}
-
 void DarkModeRefreshTree(HWND hwnd)
 {
 #if USE_DARKMODELIB

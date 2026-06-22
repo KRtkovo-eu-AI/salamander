@@ -203,7 +203,6 @@ BOOL CALLBACK ApplyPathAutoCompletePopupChildDarkModeProc(HWND hwnd, LPARAM)
     if (IsPathAutoCompletePopupPaintSurface(hwnd))
     {
         SetPropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP, reinterpret_cast<HANDLE>(1));
-        DarkModeApplyDropdownListTheme(hwnd);
     }
     SetWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
     SubclassPathAutoCompletePopupOwnerWindows(hwnd);
@@ -229,7 +228,6 @@ void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
         return;
 
     DarkModeApplyWindow(popup);
-    DarkModeApplyDropdownListTheme(popup);
     DarkModeRefreshTree(popup);
     SetPropW(popup, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP, reinterpret_cast<HANDLE>(1));
     SetWindowSubclass(popup, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
@@ -270,17 +268,15 @@ void ApplyExistingPathAutoCompletePopupDarkMode()
 
 void ApplyPathAutoCompleteDarkMode(HWND hComboOrEdit, HWND hEdit)
 {
+    UNREFERENCED_PARAMETER(hEdit);
+
     if (!DarkModeShouldUseDarkColors())
         return;
 
+    // Keep the target path combo/edit dark, but don't theme the shell autocomplete
+    // popup or the combo edit child: popup theming was inconsistent and the child
+    // edit background didn't match the combo field in dark mode.
     DarkModeApplyWindow(hComboOrEdit);
-    if (hEdit != NULL && hEdit != hComboOrEdit)
-        DarkModeApplyWindow(hEdit);
-
-    COMBOBOXINFO cbi;
-    cbi.cbSize = sizeof(cbi);
-    if (GetComboBoxInfo(hComboOrEdit, &cbi) && cbi.hwndList != NULL)
-        DarkModeApplyDropdownListTheme(cbi.hwndList);
 }
 
 void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
@@ -309,13 +305,9 @@ void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
     }
 
     ApplyPathAutoCompleteDarkMode(hComboOrEdit, hEdit);
-    EnsurePathAutoCompleteWinEventHook();
 
     if (hEdit != NULL)
-    {
         SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
-        ApplyExistingPathAutoCompletePopupDarkMode();
-    }
 }
 
 bool ShouldUseCopyMoveDarkPalette()
@@ -850,7 +842,6 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
@@ -860,9 +851,6 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (ShouldUseCopyMoveDarkPalette())
         {
-            if (uMsg == WM_CTLCOLORLISTBOX)
-                return ApplyCopyMoveDialogColors(wParam, false);
-
             HWND ctrl = reinterpret_cast<HWND>(lParam);
             if (ctrl != NULL)
             {
@@ -1434,7 +1422,6 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
@@ -1444,9 +1431,6 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (ShouldUseCopyMoveDarkPalette())
         {
-            if (uMsg == WM_CTLCOLORLISTBOX)
-                return ApplyCopyMoveDialogColors(wParam, false);
-
             HWND ctrl = reinterpret_cast<HWND>(lParam);
             if (ctrl != NULL)
             {

@@ -34,10 +34,6 @@ void DarkModeApplyWindow(HWND hwnd);
 // Applies dark mode opt-in to the specified window and all of its descendants.
 void DarkModeApplyTree(HWND hwnd);
 
-// Applies the Explorer/ScrollBar theme combination used by native dropdown/list popups
-// in dark mode without forcing a full listbox theme.
-void DarkModeApplyDropdownListTheme(HWND hwnd);
-
 // Re-applies dark mode to a subtree even if it was already marked as themed;
 // useful for native popups that create child windows after the initial theme pass.
 void DarkModeRefreshTree(HWND hwnd);
