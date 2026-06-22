@@ -3281,10 +3281,31 @@ void CMainWindow::UpdateRebarVisuals()
     if (HTopRebar == NULL)
         return;
 
+    const BOOL useDark = DarkModeShouldUseDarkColors();
+
+    // The rebar is created before the user can switch the color scheme. When
+    // switching from a light scheme to Windows Dark Mode in Configuration, it
+    // may still keep the light/classic theme and border colors until restart.
+    // Re-apply the same theme/style choices used during creation every time
+    // colors are refreshed.
+    if (useDark)
+    {
+        SetWindowTheme(HTopRebar, L"DarkMode_Explorer", nullptr);
+        SendMessage(HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
+        SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
+    }
+    else
+    {
+        SetWindowTheme(HTopRebar, (L" "), (L" "));
+        SendMessage(HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)CLR_DEFAULT);
+        SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)CLR_DEFAULT);
+    }
+    DarkModeApplyWindow(HTopRebar);
+
     DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
     DWORD desiredStyle = style;
     desiredStyle |= RBS_BANDBORDERS;
-    if (DarkModeShouldUseDarkColors())
+    if (useDark)
         desiredStyle &= ~WS_BORDER;
     else
         desiredStyle |= WS_BORDER;
@@ -3296,6 +3317,7 @@ void CMainWindow::UpdateRebarVisuals()
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
     DarkModeApplyRebarSeparators(HTopRebar);
+    RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
 LRESULT
