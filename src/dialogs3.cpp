@@ -26,259 +26,6 @@ namespace
 
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
-
-HWINEVENTHOOK HPathAutoCompleteWinEventHook = NULL;
-const UINT_PTR PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID = 1;
-const wchar_t* PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP = L"Salamander.PathAutoCompletePopupSurface";
-
-BOOL GetPathAutoCompletePopupClassName(HWND hwnd, wchar_t* className, int classNameSize)
-{
-    if (className == NULL || classNameSize <= 0)
-        return FALSE;
-
-    className[0] = 0;
-    return GetClassNameW(hwnd, className, classNameSize) != 0;
-}
-
-BOOL IsPathAutoCompletePopup(HWND hwnd)
-{
-    wchar_t className[128];
-    if (!GetPathAutoCompletePopupClassName(hwnd, className, _countof(className)))
-        return FALSE;
-
-    return wcsstr(className, L"Auto-Suggest") != NULL;
-}
-
-BOOL IsPathAutoCompletePopupPaintSurface(HWND hwnd)
-{
-    wchar_t className[128];
-    if (!GetPathAutoCompletePopupClassName(hwnd, className, _countof(className)))
-        return FALSE;
-
-    return IsPathAutoCompletePopup(hwnd) ||
-           lstrcmpiW(className, L"ListBox") == 0 ||
-           lstrcmpiW(className, L"ListBoxX") == 0 ||
-           lstrcmpiW(className, L"ComboLBox") == 0 ||
-           lstrcmpiW(className, L"SysListView32") == 0;
-}
-
-HWND GetPathAutoCompletePopupRoot(HWND hwnd)
-{
-    for (HWND walk = hwnd; walk != NULL; walk = GetParent(walk))
-    {
-        if (IsPathAutoCompletePopup(walk))
-            return walk;
-    }
-
-    HWND root = GetAncestor(hwnd, GA_ROOT);
-    if (root != hwnd && IsPathAutoCompletePopup(root))
-        return root;
-
-    HWND rootOwner = GetAncestor(hwnd, GA_ROOTOWNER);
-    if (rootOwner != hwnd && rootOwner != root && IsPathAutoCompletePopup(rootOwner))
-        return rootOwner;
-
-    return NULL;
-}
-
-
-void PaintPathAutoCompletePopupFrame(HWND hwnd)
-{
-    if (!DarkModeShouldUseDarkColors() || GetPropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP) == NULL)
-        return;
-
-    HDC dc = GetWindowDC(hwnd);
-    if (dc == NULL)
-        return;
-
-    RECT rc;
-    GetWindowRect(hwnd, &rc);
-    OffsetRect(&rc, -rc.left, -rc.top);
-
-    HBRUSH borderBrush = CreateSolidBrush(RGB(0x70, 0x70, 0x70));
-    if (borderBrush != NULL)
-    {
-        FrameRect(dc, &rc, borderBrush);
-        DeleteObject(borderBrush);
-    }
-
-    if ((GetWindowLongPtr(hwnd, GWL_STYLE) & WS_THICKFRAME) != 0)
-    {
-        const int gripSize = GetSystemMetrics(SM_CXVSCROLL);
-        RECT grip = {rc.right - gripSize, rc.bottom - gripSize, rc.right - 1, rc.bottom - 1};
-        HBRUSH backgroundBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW);
-        FillRect(dc, &grip, backgroundBrush);
-
-        HPEN gripPen = CreatePen(PS_SOLID, 1, RGB(0x80, 0x80, 0x80));
-        if (gripPen != NULL)
-        {
-            HPEN oldPen = (HPEN)SelectObject(dc, gripPen);
-            for (int i = 4; i <= gripSize - 4; i += 4)
-            {
-                MoveToEx(dc, rc.right - i, rc.bottom - 2, NULL);
-                LineTo(dc, rc.right - 2, rc.bottom - i);
-            }
-            SelectObject(dc, oldPen);
-            DeleteObject(gripPen);
-        }
-    }
-
-    ReleaseDC(hwnd, dc);
-}
-
-LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
-                                                   UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
-{
-    UNREFERENCED_PARAMETER(uIdSubclass);
-    UNREFERENCED_PARAMETER(dwRefData);
-
-    switch (uMsg)
-    {
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORSTATIC:
-    {
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, OPAQUE);
-            }
-            return reinterpret_cast<LRESULT>(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW));
-        }
-        break;
-    }
-
-    case WM_NCPAINT:
-    {
-        LRESULT result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
-        PaintPathAutoCompletePopupFrame(hwnd);
-        return result;
-    }
-
-    case WM_PAINT:
-    {
-        LRESULT result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
-        PaintPathAutoCompletePopupFrame(hwnd);
-        return result;
-    }
-
-    case WM_ERASEBKGND:
-        if (DarkModeShouldUseDarkColors())
-        {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
-            FillRect(reinterpret_cast<HDC>(wParam), &rc, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW));
-            return TRUE;
-        }
-        break;
-
-    case WM_NCDESTROY:
-        RemovePropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP);
-        RemoveWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID);
-        break;
-    }
-    return DefSubclassProc(hwnd, uMsg, wParam, lParam);
-}
-
-
-void SubclassPathAutoCompletePopupOwnerWindows(HWND hwnd)
-{
-    HWND parent = GetParent(hwnd);
-    if (parent != NULL && parent != hwnd)
-        SetWindowSubclass(parent, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
-
-    HWND owner = GetWindow(hwnd, GW_OWNER);
-    if (owner != NULL && owner != hwnd && owner != parent)
-        SetWindowSubclass(owner, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
-}
-
-BOOL CALLBACK ApplyPathAutoCompletePopupChildDarkModeProc(HWND hwnd, LPARAM)
-{
-    DarkModeApplyWindow(hwnd);
-    if (IsPathAutoCompletePopupPaintSurface(hwnd))
-    {
-        SetPropW(hwnd, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP, reinterpret_cast<HANDLE>(1));
-    }
-    SetWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
-    SubclassPathAutoCompletePopupOwnerWindows(hwnd);
-
-    wchar_t className[64];
-    if (GetClassNameW(hwnd, className, _countof(className)) != 0 && lstrcmpiW(className, L"SysListView32") == 0)
-    {
-        const DarkModeColors& colors = DarkModeGetColors();
-        DarkModeUpdateListViewColors(hwnd, colors.readableText, colors.background, true);
-    }
-    return TRUE;
-}
-
-void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
-{
-    if (hwnd == NULL || !DarkModeShouldUseDarkColors())
-        return;
-
-    HWND popup = GetPathAutoCompletePopupRoot(hwnd);
-    if (popup == NULL && IsPathAutoCompletePopupPaintSurface(hwnd))
-        popup = hwnd;
-    if (popup == NULL)
-        return;
-
-    DarkModeApplyWindow(popup);
-    DarkModeRefreshTree(popup);
-    SetPropW(popup, PATH_AUTOCOMPLETE_POPUP_SURFACE_PROP, reinterpret_cast<HANDLE>(1));
-    SetWindowSubclass(popup, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
-    SubclassPathAutoCompletePopupOwnerWindows(popup);
-    EnumChildWindows(popup, ApplyPathAutoCompletePopupChildDarkModeProc, 0);
-    DarkModeRefreshTree(popup);
-    RedrawWindow(popup, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
-}
-
-void CALLBACK PathAutoCompleteWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
-                                           DWORD, DWORD)
-{
-    if ((event == EVENT_OBJECT_SHOW || event == EVENT_OBJECT_CREATE) && idObject == OBJID_WINDOW && idChild == CHILDID_SELF)
-        ApplyPathAutoCompletePopupDarkMode(hwnd);
-}
-
-void EnsurePathAutoCompleteWinEventHook()
-{
-    if (HPathAutoCompleteWinEventHook == NULL)
-    {
-        HPathAutoCompleteWinEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, NULL,
-                                                       PathAutoCompleteWinEventProc, GetCurrentProcessId(),
-                                                       GetCurrentThreadId(), WINEVENT_OUTOFCONTEXT);
-    }
-}
-
-BOOL CALLBACK ApplyExistingPathAutoCompletePopupDarkModeProc(HWND hwnd, LPARAM)
-{
-    ApplyPathAutoCompletePopupDarkMode(hwnd);
-    return TRUE;
-}
-
-void ApplyExistingPathAutoCompletePopupDarkMode()
-{
-    EnumThreadWindows(GetCurrentThreadId(), ApplyExistingPathAutoCompletePopupDarkModeProc, 0);
-}
-
-
-void ApplyPathAutoCompleteDarkMode(HWND hComboOrEdit, HWND hEdit)
-{
-    UNREFERENCED_PARAMETER(hEdit);
-
-    if (!DarkModeShouldUseDarkColors())
-        return;
-
-    // Keep the target path combo/edit dark, but don't theme the shell autocomplete
-    // popup or the combo edit child: popup theming was inconsistent and the child
-    // edit background didn't match the combo field in dark mode.
-    DarkModeApplyWindow(hComboOrEdit);
-}
-
 void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
 {
     if (hComboOrEdit == NULL || !Configuration.PathAutoComplete ||
@@ -304,8 +51,6 @@ void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
         }
     }
 
-    ApplyPathAutoCompleteDarkMode(hComboOrEdit, hEdit);
-
     if (hEdit != NULL)
         SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
 }
@@ -320,29 +65,6 @@ bool ShouldUseCopyMoveDarkPalette()
     return luminance < 128;
 }
 
-
-bool IsPathInputEditControl(HWND dialog, HWND ctrl)
-{
-    if (dialog == NULL || ctrl == NULL)
-        return false;
-
-    HWND path = GetDlgItem(dialog, IDE_PATH);
-    return ctrl == path || GetParent(ctrl) == path;
-}
-
-LRESULT ApplyCopyMovePathEditColors(WPARAM wParam)
-{
-    HDC dc = reinterpret_cast<HDC>(wParam);
-    if (dc != NULL)
-    {
-        const DarkModeColors& colors = DarkModeGetColors();
-        const COLORREF pathBackground = RGB(0x38, 0x38, 0x38);
-        SetTextColor(dc, colors.readableText);
-        SetBkColor(dc, pathBackground);
-        SetBkMode(dc, OPAQUE);
-    }
-    return reinterpret_cast<LRESULT>(DarkModeGetPanelFrameBrush());
-}
 
 LRESULT ApplyCopyMoveDialogColors(WPARAM wParam, bool transparent)
 {
@@ -818,8 +540,6 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
         InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
-        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
-            DarkModeApplyTree(HWindow);
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
@@ -869,12 +589,6 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
-        if (uMsg == WM_CTLCOLOREDIT && ShouldUseCopyMoveDarkPalette() &&
-            IsPathInputEditControl(HWindow, reinterpret_cast<HWND>(lParam)))
-        {
-            return ApplyCopyMovePathEditColors(wParam);
-        }
-
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
         DARKMODE_RETURN_IF_HANDLED(handled, brush);
@@ -1382,8 +1096,6 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
         InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
-        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
-            DarkModeApplyTree(HWindow);
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
@@ -1455,12 +1167,6 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
-        if (uMsg == WM_CTLCOLOREDIT && ShouldUseCopyMoveDarkPalette() &&
-            IsPathInputEditControl(HWindow, reinterpret_cast<HWND>(lParam)))
-        {
-            return ApplyCopyMovePathEditColors(wParam);
-        }
-
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
         DARKMODE_RETURN_IF_HANDLED(handled, brush);

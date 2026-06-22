@@ -17,16 +17,6 @@ namespace DarkModeBackendDarkModelib
 static const wchar_t* DARKMODELIB_TREE_STATE_PROP = L"Salamander.DarkModeLib.TreeState";
 static const wchar_t* DARKMODELIB_MENU_DARK_PROP = L"Salamander.DarkModeLib.MenuDark";
 
-static void EnsureDmlibInitialized()
-{
-    static bool dmlibInitialized = false;
-    if (!dmlibInitialized)
-    {
-        dmlib::initDarkMode();
-        dmlibInitialized = true;
-    }
-}
-
 static void RemoveControlSubclass(HWND hwnd)
 {
     if (hwnd == NULL)
@@ -110,7 +100,12 @@ void ApplyTree(HWND hwnd)
 #if USE_DARKMODELIB
     if (hwnd != NULL)
     {
-        EnsureDmlibInitialized();
+        static bool dmlibInitialized = false;
+        if (!dmlibInitialized)
+        {
+            dmlib::initDarkMode();
+            dmlibInitialized = true;
+        }
         const bool dark = DarkMode_ShouldUseDark() != FALSE;
         HANDLE appliedState = GetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP);
         const bool wasApplied = appliedState != NULL;
@@ -150,35 +145,6 @@ void ApplyTree(HWND hwnd)
 #endif
 }
 
-
-void RefreshTree(HWND hwnd)
-{
-#if USE_DARKMODELIB
-    if (hwnd != NULL)
-    {
-        EnsureDmlibInitialized();
-        const bool dark = DarkMode_ShouldUseDark() != FALSE;
-        dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
-        dmlib::setDefaultColors(true);
-        if (dark)
-        {
-            dmlib::setDarkWndNotifySafe(hwnd);
-            dmlib::setChildCtrlsSubclassAndTheme(hwnd);
-            SetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP, reinterpret_cast<HANDLE>(2));
-        }
-        else
-        {
-            dmlib::setChildCtrlsTheme(hwnd);
-            SetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP, reinterpret_cast<HANDLE>(1));
-        }
-        ApplyMenuBar(hwnd, dark);
-        dmlib::setDarkTitleBar(hwnd);
-        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
-    }
-#else
-    (void)hwnd;
-#endif
-}
 
 void ApplyMenuBar(HWND hwnd, bool enableDark)
 {

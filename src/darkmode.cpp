@@ -1491,15 +1491,6 @@ void DarkModeApplyTree(HWND hwnd)
     EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
-void DarkModeRefreshTree(HWND hwnd)
-{
-#if USE_DARKMODELIB
-    DarkModeBackendDarkModelib::RefreshTree(hwnd);
-#else
-    DarkModeApplyTree(hwnd);
-#endif
-}
-
 void DarkModeApplyMenuBar(HWND hwnd)
 {
 #if USE_DARKMODELIB

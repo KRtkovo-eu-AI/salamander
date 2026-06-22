@@ -34,10 +34,6 @@ void DarkModeApplyWindow(HWND hwnd);
 // Applies dark mode opt-in to the specified window and all of its descendants.
 void DarkModeApplyTree(HWND hwnd);
 
-// Re-applies dark mode to a subtree even if it was already marked as themed;
-// useful for native popups that create child windows after the initial theme pass.
-void DarkModeRefreshTree(HWND hwnd);
-
 // Applies or removes dark custom drawing for a native window menu bar.
 void DarkModeApplyMenuBar(HWND hwnd);
 
