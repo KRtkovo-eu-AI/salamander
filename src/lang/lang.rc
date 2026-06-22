@@ -96,44 +96,46 @@ BEGIN
     PUSHBUTTON      "Help",IDHELP,135,50,50,14
 END
 
-IDD_CFGPAGE_GENERAL DIALOGEX 65, 18, 299, 231
+IDD_CFGPAGE_GENERAL DIALOGEX 65, 18, 299, 245
 STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "General"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     CONTROL         "&Save configuration on exit",IDC_AUTOSAVE,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,1,3,100,12
     CONTROL         "Save configuration into &Registry",IDC_SAVE_TO_REGISTRY,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,16,130,12
-    CONTROL         "Save configuration into &file",IDC_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,29,130,12
+    CONTROL         "Save configuration into &File storage",IDC_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,12,29,160,12
+    EDITTEXT        IDC_SAVE_TO_FILE_PATH,24,42,220,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...",IDC_SAVE_TO_FILE_BROWSE,249,41,45,14
     CONTROL         "&Clear read-only attribute when copying from Compact Disc",IDC_CLEARREADONLY,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,42,209,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,56,209,12
     CONTROL         "&Allow only one instance of Salamander at one time",IDC_ONLYONEINSTANCE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,55,182,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,69,182,12
     CONTROL         "&Use speaker beep to announce finishing of work in inactive window",IDC_MINBEEPWHENDONE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,68,238,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,82,238,12
     CONTROL         "C&lose shell window after command execution (in Command line)",IDC_CLOSESHELL,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,81,294,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,95,294,12
     CONTROL         "Co&mpare Directories: ignore time differences up to",IDC_TIMERESOLUTION,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,94,182,12
-    EDITTEXT        IDE_TIMERESOLUTION,184,94,28,12,ES_AUTOHSCROLL
-    LTEXT           "s",IDC_STATIC_2,216,96,6,8,NOT WS_GROUP
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,108,182,12
+    EDITTEXT        IDE_TIMERESOLUTION,184,108,28,12,ES_AUTOHSCROLL
+    LTEXT           "s",IDC_STATIC_2,216,110,6,8,NOT WS_GROUP
     CONTROL         "Com&pare Directories: ignore time differences of exactly one or two hours",IDC_IGNOREDSTSHIFTS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,107,256,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,121,256,12
     CONTROL         "&Open files through salopen.exe (it bypasses shell extensions errors)",IDC_USESALOPEN,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,120,238,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,134,238,12
     CONTROL         "S&elect also filename extension in Quick Rename and Pack commands",IDC_QUICKRENAME_SELALL,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,133,243,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,147,243,12
     CONTROL         "Select also f&ilename extension in Edit New File command",IDC_EDITNEW_SELALL,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,146,202,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,160,202,12
     CONTROL         "Use &fast directory move on Novell NetWare",IDC_NETWAREFASTDIRMOVE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,159,156,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,173,156,12
     CONTROL         "Copy files: use faster asy&nchronous algorithm on network (Windows 7 and later)",IDC_ASYNCCOPYALG,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,172,282,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,186,282,12
     CONTROL         "&Keep environment variables updated to system values",IDC_RELOADENVVARS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,185,193,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,199,193,12
     CONTROL         "Enable path auto-&completion in operation dialogs",IDC_PATHAUTOCOMPLETE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,198,193,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,212,193,12
     CONTROL         "Enable auto-completion in &Create Directory and Quick Rename dialogs",IDC_CREATEDIR_AUTOCOMPLETE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,211,290,12
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,1,225,290,12
 END
 
 IDD_CFGPAGE_REGIONAL DIALOGEX 65, 18, 299, 231
@@ -1496,10 +1498,12 @@ BEGIN
     LTEXT           "&Remove old configurations",IDC_STATIC_3,6,37,90,8
     CONTROL         "",IDC_REMOVECONFIG,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,6,47,253,57
     LTEXT           "Save configuration into",IDC_STATIC_4,6,108,90,8
-    CONTROL         "&Registry",IDC_IMPORT_SAVE_TO_REGISTRY,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,101,106,62,12
-    CONTROL         "&File storage",IDC_IMPORT_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,168,106,70,12
-    DEFPUSHBUTTON   "&Start",IDOK,79,132,50,14
-    PUSHBUTTON      "&Exit",IDCANCEL,136,132,50,14
+    CONTROL         "&File storage",IDC_IMPORT_SAVE_TO_FILE,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,101,106,70,12
+    CONTROL         "&Registry",IDC_IMPORT_SAVE_TO_REGISTRY,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,178,106,62,12
+    EDITTEXT        IDC_IMPORT_SAVE_TO_FILE_PATH,101,120,107,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...",IDC_IMPORT_SAVE_TO_FILE_BROWSE,213,119,45,14
+    DEFPUSHBUTTON   "&Start",IDOK,79,136,50,14
+    PUSHBUTTON      "&Exit",IDCANCEL,136,136,50,14
 END
 
 IDD_CONVERSION_TABLES DIALOGEX 71, 53, 298, 148

@@ -4566,8 +4566,10 @@ FIND_NEW_SLG_FILE:
     UnpackerConfig.InitializeDefaultValues();
 
     CConfigurationStorageType storageType = cstRegistry;
+    char storageRegFilePath[MAX_PATH];
+    storageRegFilePath[0] = 0;
     BOOL storageTypeBootstrapWritable = ConfigurationStorage.CanSaveStorageTypeBootstrap();
-    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+    BOOL storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
     BOOL restrictedFileStorageImported = !storageTypeBootstrapWritable && !storageTypeFromBootstrap &&
                                          WasRestrictedFileStorageImported();
     Configuration.StorageType = storageType;
@@ -4730,14 +4732,17 @@ FIND_NEW_SLG_FILE:
             SplashScreenCloseIfExist();
             goto EXIT_2;
         }
-        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType);
+        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
         Configuration.StorageType = storageType;
         currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
         saveNewConfig = currentCfgDoesNotExist;
         registryConfigExists = !currentCfgDoesNotExist;
     }
 
-    if (!ConfigurationStorage.Initialize(storageType, NULL))
+    if (storageType == cstRegFile && storageRegFilePath[0] == 0)
+        ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
+
+    if (!ConfigurationStorage.Initialize(storageType, storageType == cstRegFile ? storageRegFilePath : NULL))
     {
         SplashScreenCloseIfExist();
         goto EXIT_2;

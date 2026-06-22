@@ -116,6 +116,8 @@
 #define IDC_CLICKTORENAME               306
 #define IDC_SAVE_TO_REGISTRY            307
 #define IDC_SAVE_TO_FILE                308
+#define IDC_SAVE_TO_FILE_PATH           309
+#define IDC_SAVE_TO_FILE_BROWSE         310
 #define IDC_SELECTIONBOX                309
 #define IDC_DISABLEDANDD                310
 #define IDC_SPACESELECTING              311
@@ -481,6 +483,8 @@
 #define IDC_REMOVECONFIG                2463
 #define IDC_IMPORT_SAVE_TO_REGISTRY     2464
 #define IDC_IMPORT_SAVE_TO_FILE         2465
+#define IDC_IMPORT_SAVE_TO_FILE_PATH    2466
+#define IDC_IMPORT_SAVE_TO_FILE_BROWSE  2467
 #define IDD_CHANGECODING                2490
 #define IDC_CHC_CHANGECODING            2491
 #define IDC_CHC_CODING                  2492

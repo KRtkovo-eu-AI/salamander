@@ -1177,6 +1177,7 @@ public:
     // index points into the SalamanderConfigurationRoots array
     int IndexOfConfigurationToLoad;
     int StorageType;
+    char RegFilePath[MAX_PATH];
 
 public:
     CImportConfigDialog();
