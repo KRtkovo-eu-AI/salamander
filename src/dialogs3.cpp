@@ -85,6 +85,16 @@ LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM 
         break;
     }
 
+    case WM_ERASEBKGND:
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRect(reinterpret_cast<HDC>(wParam), &rc, HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW));
+            return TRUE;
+        }
+        break;
+
     case WM_NCDESTROY:
         RemoveWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID);
         break;
@@ -95,6 +105,7 @@ LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM 
 BOOL CALLBACK ApplyPathAutoCompletePopupChildDarkModeProc(HWND hwnd, LPARAM)
 {
     DarkModeApplyWindow(hwnd);
+    SetWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
 
     wchar_t className[64];
     if (GetClassNameW(hwnd, className, _countof(className)) != 0 && lstrcmpiW(className, L"SysListView32") == 0)
