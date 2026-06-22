@@ -4,9 +4,6 @@
 
 #include "precomp.h"
 
-#include <shlwapi.h>
-#undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
-
 #include "mainwnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
@@ -25,8 +22,136 @@ namespace
 {
 
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
-const UINT WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE = WM_APP + 342;
-const UINT_PTR IDT_PATHAUTOCOMPLETE_DARKMODE = 341;
+const int PATH_AUTOCOMPLETE_MAX_ITEMS = 100;
+
+BOOL IsPathSeparator(char ch)
+{
+    return ch == '\\' || ch == '/';
+}
+
+void ApplyPathAutoCompleteDarkMode(HWND hCombo)
+{
+    if (!DarkModeShouldUseDarkColors())
+        return;
+
+    DarkModeApplyWindow(hCombo);
+
+    COMBOBOXINFO cbi;
+    cbi.cbSize = sizeof(cbi);
+    if (GetComboBoxInfo(hCombo, &cbi))
+    {
+        if (cbi.hwndItem != NULL)
+            DarkModeApplyWindow(cbi.hwndItem);
+        if (cbi.hwndList != NULL)
+            DarkModeApplyWindow(cbi.hwndList);
+    }
+}
+
+BOOL PreparePathAutoCompleteSearch(const char* text, BOOL createDirectoryMode,
+                                   char* searchMask, int searchMaskSize,
+                                   char* itemPrefix, int itemPrefixSize)
+{
+    searchMask[0] = 0;
+    itemPrefix[0] = 0;
+
+    const char* name = text;
+    const char* lastSlash = strrchr(text, '\\');
+    const char* lastFwdSlash = strrchr(text, '/');
+    if (lastFwdSlash != NULL && (lastSlash == NULL || lastFwdSlash > lastSlash))
+        lastSlash = lastFwdSlash;
+
+    char dir[MAX_PATH];
+    if (lastSlash != NULL)
+    {
+        int dirLen = (int)(lastSlash - text) + 1;
+        if (dirLen >= MAX_PATH || dirLen >= itemPrefixSize)
+            return FALSE;
+        memcpy(dir, text, dirLen);
+        dir[dirLen] = 0;
+        memcpy(itemPrefix, text, dirLen);
+        itemPrefix[dirLen] = 0;
+        name = lastSlash + 1;
+    }
+    else if (isalpha((unsigned char)text[0]) && text[1] == ':')
+    {
+        _snprintf_s(dir, _TRUNCATE, "%c:\\", text[0]);
+        _snprintf_s(itemPrefix, itemPrefixSize, _TRUNCATE, "%c:\\", text[0]);
+        name = text + 2;
+        if (IsPathSeparator(*name))
+            name++;
+    }
+    else
+    {
+        DWORD len = GetCurrentDirectory(MAX_PATH, dir);
+        if (len == 0 || len >= MAX_PATH)
+            return FALSE;
+        SalPathAddBackslash(dir, MAX_PATH);
+        name = text;
+        // For relative Create Directory names, keep the visible suggestions relative to the current folder.
+        if (!createDirectoryMode)
+            itemPrefix[0] = 0;
+    }
+
+    if (strlen(name) >= MAX_PATH)
+        return FALSE;
+
+    _snprintf_s(searchMask, searchMaskSize, _TRUNCATE, "%s%s*", dir, name);
+    return searchMask[0] != 0;
+}
+
+void UpdatePathAutoCompleteSuggestions(HWND hCombo, BOOL createDirectoryMode, BOOL* updating)
+{
+    if (hCombo == NULL || updating == NULL || *updating || !Configuration.PathAutoComplete ||
+        (createDirectoryMode && !Configuration.CreateDirAutoComplete))
+        return;
+
+    char className[32];
+    if (GetClassName(hCombo, className, _countof(className)) == 0 || lstrcmpi(className, "ComboBox") != 0)
+        return;
+
+    char text[2 * MAX_PATH];
+    GetWindowText(hCombo, text, _countof(text));
+
+    DWORD editSel = (DWORD)SendMessage(hCombo, CB_GETEDITSEL, 0, 0);
+    int selStart = LOWORD(editSel);
+    int selEnd = HIWORD(editSel);
+    if (selStart != selEnd || selEnd != (int)strlen(text))
+        return;
+
+    char searchMask[2 * MAX_PATH];
+    char itemPrefix[2 * MAX_PATH];
+    if (!PreparePathAutoCompleteSearch(text, createDirectoryMode, searchMask, _countof(searchMask), itemPrefix, _countof(itemPrefix)))
+        return;
+
+    *updating = TRUE;
+    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+
+    int count = 0;
+    WIN32_FIND_DATA fd;
+    HANDLE find = HANDLES_Q(FindFirstFile(searchMask, &fd));
+    if (find != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0)
+            {
+                char item[2 * MAX_PATH];
+                _snprintf_s(item, _TRUNCATE, "%s%s", itemPrefix, fd.cFileName);
+                SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)item);
+                if (++count >= PATH_AUTOCOMPLETE_MAX_ITEMS)
+                    break;
+            }
+        } while (FindNextFile(find, &fd));
+        HANDLES(FindClose(find));
+    }
+
+    SetWindowText(hCombo, text);
+    SendMessage(hCombo, CB_SETEDITSEL, 0, MAKELPARAM(selStart, selEnd));
+    SendMessage(hCombo, CB_SHOWDROPDOWN, count > 0, 0);
+    ApplyPathAutoCompleteDarkMode(hCombo);
+
+    *updating = FALSE;
+}
 
 void EnablePathAutoComplete(HWND hComboOrEdit, BOOL createDirectoryMode)
 {
@@ -34,75 +159,7 @@ void EnablePathAutoComplete(HWND hComboOrEdit, BOOL createDirectoryMode)
         (createDirectoryMode && !Configuration.CreateDirAutoComplete))
         return;
 
-    HWND hEdit = hComboOrEdit;
-    HWND hComboList = NULL;
-    char className[32];
-    if (GetClassName(hComboOrEdit, className, _countof(className)) != 0 &&
-        lstrcmpi(className, "ComboBox") == 0)
-    {
-        COMBOBOXINFO cbi;
-        cbi.cbSize = sizeof(cbi);
-        if (GetComboBoxInfo(hComboOrEdit, &cbi))
-        {
-            if (cbi.hwndItem != NULL)
-                hEdit = cbi.hwndItem;
-            hComboList = cbi.hwndList;
-        }
-        else
-        {
-            HWND hComboEdit = FindWindowEx(hComboOrEdit, NULL, "Edit", NULL);
-            if (hComboEdit != NULL)
-                hEdit = hComboEdit;
-            else
-                hEdit = GetWindow(hComboOrEdit, GW_CHILD);
-        }
-    }
-
-    if (DarkModeShouldUseDarkColors())
-    {
-        DarkModeApplyWindow(hComboOrEdit);
-        if (hEdit != NULL && hEdit != hComboOrEdit)
-            DarkModeApplyWindow(hEdit);
-        if (hComboList != NULL)
-            DarkModeApplyWindow(hComboList);
-    }
-
-    if (hEdit != NULL)
-        SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
-}
-
-BOOL CALLBACK ApplyPathAutoSuggestDarkModeProc(HWND hwnd, LPARAM)
-{
-    wchar_t className[64];
-    if (GetClassNameW(hwnd, className, _countof(className)) != 0 &&
-        wcsstr(className, L"Auto-Suggest") != NULL)
-    {
-        DarkModeApplyWindow(hwnd);
-        DarkModeApplyTree(hwnd);
-    }
-    return TRUE;
-}
-
-void ApplyPathAutoSuggestDarkMode()
-{
-    if (DarkModeShouldUseDarkColors())
-        EnumThreadWindows(GetCurrentThreadId(), ApplyPathAutoSuggestDarkModeProc, 0);
-}
-
-void QueuePathAutoSuggestDarkMode(HWND hDialog, WPARAM wParam, LPARAM lParam)
-{
-    if (!DarkModeShouldUseDarkColors() || reinterpret_cast<HWND>(lParam) != GetDlgItem(hDialog, IDE_PATH))
-        return;
-
-    switch (HIWORD(wParam))
-    {
-    case CBN_EDITCHANGE:
-    case CBN_EDITUPDATE:
-    case EN_CHANGE:
-        PostMessage(hDialog, WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE, 0, 0);
-        SetTimer(hDialog, IDT_PATHAUTOCOMPLETE_DARKMODE, 50, NULL);
-        break;
-    }
+    ApplyPathAutoCompleteDarkMode(hComboOrEdit);
 }
 
 bool ShouldUseCopyMoveDarkPalette()
@@ -528,6 +585,7 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
 {
     DirectoryHelper = FALSE;
     CreateDirectoryMode = helpID == IDD_CREATEDIRDIALOG;
+    UpdatingPathAutoComplete = FALSE;
     if (directoryHelper)
     {
         if (history != NULL)
@@ -616,28 +674,15 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE:
-    {
-        ApplyPathAutoSuggestDarkMode();
-        return 0;
-    }
 
     case WM_COMMAND:
     {
-        QueuePathAutoSuggestDarkMode(HWindow, wParam, lParam);
+        if (reinterpret_cast<HWND>(lParam) == GetDlgItem(HWindow, IDE_PATH) &&
+            (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_EDITUPDATE))
+            UpdatePathAutoCompleteSuggestions(GetDlgItem(HWindow, IDE_PATH), CreateDirectoryMode, &UpdatingPathAutoComplete);
         break;
     }
 
-    case WM_TIMER:
-    {
-        if (wParam == IDT_PATHAUTOCOMPLETE_DARKMODE)
-        {
-            KillTimer(HWindow, IDT_PATHAUTOCOMPLETE_DARKMODE);
-            ApplyPathAutoSuggestDarkMode();
-            return 0;
-        }
-        break;
-    }
 
     case WM_USER_KEYDOWN:
     {
@@ -821,6 +866,7 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
     HavePermissions = havePermissions;
     SupportsADS = supportsADS;
     MoreButton = NULL;
+    UpdatingPathAutoComplete = FALSE;
 }
 
 CCopyMoveMoreDialog::~CCopyMoveMoreDialog()
@@ -1222,22 +1268,6 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_USER_APPLYPATHAUTOCOMPLETE_DARKMODE:
-    {
-        ApplyPathAutoSuggestDarkMode();
-        return 0;
-    }
-
-    case WM_TIMER:
-    {
-        if (wParam == IDT_PATHAUTOCOMPLETE_DARKMODE)
-        {
-            KillTimer(HWindow, IDT_PATHAUTOCOMPLETE_DARKMODE);
-            ApplyPathAutoSuggestDarkMode();
-            return 0;
-        }
-        break;
-    }
 
     case WM_USER_KEYDOWN:
     {
@@ -1385,7 +1415,9 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
     case WM_COMMAND:
     {
-        QueuePathAutoSuggestDarkMode(HWindow, wParam, lParam);
+        if (reinterpret_cast<HWND>(lParam) == GetDlgItem(HWindow, IDE_PATH) &&
+            (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_EDITUPDATE))
+            UpdatePathAutoCompleteSuggestions(GetDlgItem(HWindow, IDE_PATH), FALSE, &UpdatingPathAutoComplete);
 
         if (HIWORD(wParam) == BN_CLICKED)
         {

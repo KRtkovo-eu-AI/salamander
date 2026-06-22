@@ -38,6 +38,7 @@ protected:
     int HistoryCount;
     BOOL DirectoryHelper;
     BOOL CreateDirectoryMode;
+    BOOL UpdatingPathAutoComplete;
     int SelectionEnd;
 
 public:
@@ -89,6 +90,7 @@ protected:
     int OriginalButtonsY; // Y position of the buttons in client coordinates
     int SpacerHeight;     // spacer used when shrinking/expanding the dialog
     BOOL Expanded;        // is the dialog currently expanded?
+    BOOL UpdatingPathAutoComplete;
 
     CButton* MoreButton;
 
