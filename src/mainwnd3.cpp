@@ -3295,6 +3295,7 @@ void CMainWindow::UpdateRebarVisuals()
         SetWindowPos(HTopRebar, NULL, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
+    DarkModeApplyRebarSeparators(HTopRebar);
 }
 
 LRESULT

@@ -14,6 +14,7 @@
 #include <delayimp.h>
 #include <uxtheme.h>
 #include <commctrl.h>
+#include <vector>
 
 #ifndef HDM_SETBKCOLOR
 #define HDM_SETBKCOLOR (HDM_FIRST + 29)
@@ -387,6 +388,7 @@ void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 
 constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 constexpr UINT_PTR kDarkModeTabOverflowSubclassId = 0x4452544F; // "DRTO"
+constexpr UINT_PTR kDarkModeRebarSeparatorSubclassId = 0x44525253; // "DRRS"
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
 {
@@ -638,6 +640,84 @@ void PaintDarkTabOverflowButton(HWND hwnd, HDC hdc)
         SelectObject(hdc, oldPen);
         SelectObject(hdc, oldBrush);
     }
+}
+
+void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    if (client.right <= client.left || client.bottom <= client.top)
+        return;
+
+    std::vector<int> lines;
+    lines.push_back(client.top);
+
+    const int bandCount = static_cast<int>(SendMessage(hwnd, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < bandCount; ++i)
+    {
+        RECT bandRect = {0, 0, 0, 0};
+        if (SendMessage(hwnd, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) != 0 &&
+            bandRect.bottom > client.top && bandRect.bottom < client.bottom)
+        {
+            lines.push_back(bandRect.bottom);
+        }
+    }
+
+    lines.push_back(client.bottom - 1);
+    std::sort(lines.begin(), lines.end());
+    lines.erase(std::unique(lines.begin(), lines.end()), lines.end());
+
+    HPEN pen = CreatePen(PS_SOLID, 1, RGB(0x38, 0x38, 0x38));
+    if (pen == NULL)
+        return;
+
+    HGDIOBJ oldPen = SelectObject(hdc, pen);
+    for (int y : lines)
+    {
+        MoveToEx(hdc, client.left, y, NULL);
+        LineTo(hdc, client.right, y);
+    }
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
+LRESULT CALLBACK DarkRebarSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                            UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId);
+        break;
+
+    case WM_PAINT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+        HDC hdc = GetDC(hwnd);
+        if (hdc != NULL)
+        {
+            PaintDarkRebarSeparators(hwnd, hdc);
+            ReleaseDC(hwnd, hdc);
+        }
+        return result;
+    }
+
+    case WM_PRINTCLIENT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+        PaintDarkRebarSeparators(hwnd, reinterpret_cast<HDC>(wParam));
+        return result;
+    }
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
 }
 
 LRESULT CALLBACK DarkTabOverflowSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
@@ -1743,6 +1823,27 @@ void DarkModePreserveCustomTabControl(HWND tabControl)
 #else
     (void)tabControl;
 #endif
+}
+
+void DarkModeApplyRebarSeparators(HWND rebar)
+{
+    EnsureInitialized();
+    if (rebar == NULL)
+        return;
+
+    const bool enableDark = DarkModeShouldUseDarkColors();
+    DWORD_PTR refData = 0;
+    const bool subclassed = GetWindowSubclass(rebar, DarkRebarSeparatorSubclass,
+                                              kDarkModeRebarSeparatorSubclassId, &refData) != FALSE;
+    if (enableDark)
+    {
+        if (!subclassed)
+            SetWindowSubclass(rebar, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId, 0);
+    }
+    else if (subclassed)
+        RemoveWindowSubclass(rebar, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId);
+
+    InvalidateRect(rebar, NULL, TRUE);
 }
 
 void DarkModeUpdateListViewColors(HWND listView)
