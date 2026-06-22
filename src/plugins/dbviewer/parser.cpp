@@ -16,7 +16,7 @@
 
 #define UTF8_DETECT_BUF_SIZE 65536
 
-static bool DetectUTF8EncodedFile(FILE* f);
+static bool DetectUTF8EncodedFileSample(FILE* f);
 
 #define LongSwap(x) ((UINT32)((((UINT32)((x) & 0x000000FFL)) << 24) | \
                               (((UINT32)((x) & 0x0000FF00L)) << 8) | \
@@ -83,91 +83,19 @@ bool IsUTF8Encoded(const char* s, int cnt)
     return sawMultibyte;
 }
 
-static bool DetectUTF8EncodedFile(FILE* f)
+static bool DetectUTF8EncodedFileSample(FILE* f)
 {
     if (f == NULL)
         return false;
 
-    char* buf = (char*)malloc(UTF8_DETECT_BUF_SIZE);
-    if (buf == NULL)
+    char buf[UTF8_DETECT_BUF_SIZE];
+    fseek(f, 0, SEEK_SET);
+    size_t len = fread(buf, 1, sizeof(buf), f);
+    fseek(f, 0, SEEK_SET);
+
+    if (ferror(f) || len == 0)
         return false;
-
-    bool sawMultibyte = false;
-    bool invalid = false;
-    int pending = 0;
-    unsigned int scalar = 0;
-    unsigned int minScalar = 0;
-
-    fseek(f, 0, SEEK_SET);
-    for (;;)
-    {
-        size_t len = fread(buf, 1, UTF8_DETECT_BUF_SIZE, f);
-        if (len == 0)
-            break;
-
-        const unsigned char* bytes = (const unsigned char*)buf;
-        for (size_t i = 0; i < len; i++)
-        {
-            unsigned char ch = bytes[i];
-            if (pending > 0)
-            {
-                if ((ch & 0xC0) != 0x80)
-                {
-                    invalid = true;
-                    break;
-                }
-                scalar = (scalar << 6) | (ch & 0x3F);
-                pending--;
-                if (pending == 0)
-                {
-                    if (scalar < minScalar || scalar > 0x10FFFF || (scalar >= 0xD800 && scalar <= 0xDFFF))
-                    {
-                        invalid = true;
-                        break;
-                    }
-                    sawMultibyte = true;
-                }
-                continue;
-            }
-
-            if (ch == 0)
-            {
-                invalid = true;
-                break;
-            }
-            if (ch < 0x80)
-                continue;
-            if (ch >= 0xC2 && ch <= 0xDF)
-            {
-                pending = 1;
-                scalar = ch & 0x1F;
-                minScalar = 0x80;
-            }
-            else if (ch >= 0xE0 && ch <= 0xEF)
-            {
-                pending = 2;
-                scalar = ch & 0x0F;
-                minScalar = 0x800;
-            }
-            else if (ch >= 0xF0 && ch <= 0xF4)
-            {
-                pending = 3;
-                scalar = ch & 0x07;
-                minScalar = 0x10000;
-            }
-            else
-            {
-                invalid = true;
-                break;
-            }
-        }
-        if (invalid || ferror(f))
-            break;
-    }
-
-    free(buf);
-    fseek(f, 0, SEEK_SET);
-    return !invalid && pending == 0 && sawMultibyte;
+    return IsUTF8Encoded(buf, (int)len);
 }
 
 void CParserInterfaceAbstract::ShowParserError(HWND hParent, CParserStatusEnum status)
@@ -964,7 +892,7 @@ CParserInterfaceCSV::OpenFile(const char* fileName)
             IsUnicode = IsUTF8 = b == 0xBF;
         }
         if (!IsUnicode)
-            IsUnicode = IsUTF8 = DetectUTF8EncodedFile(f);
+            IsUnicode = IsUTF8 = DetectUTF8EncodedFileSample(f);
         fclose(f);
     }
 
