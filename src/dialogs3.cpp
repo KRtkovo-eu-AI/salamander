@@ -28,6 +28,7 @@ const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
 
 HWINEVENTHOOK HPathAutoCompleteWinEventHook = NULL;
+const UINT_PTR PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID = 1;
 
 BOOL IsPathAutoCompletePopup(HWND hwnd)
 {
@@ -38,10 +39,77 @@ BOOL IsPathAutoCompletePopup(HWND hwnd)
     return wcsstr(className, L"Auto-Suggest") != NULL;
 }
 
+HWND GetPathAutoCompletePopupRoot(HWND hwnd)
+{
+    for (HWND walk = hwnd; walk != NULL; walk = GetParent(walk))
+    {
+        if (IsPathAutoCompletePopup(walk))
+            return walk;
+    }
+    return NULL;
+}
+
+LRESULT CALLBACK PathAutoCompletePopupSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+    UNREFERENCED_PARAMETER(uIdSubclass);
+    UNREFERENCED_PARAMETER(dwRefData);
+
+    switch (uMsg)
+    {
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORSTATIC:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(dc, colors.readableText);
+                SetBkColor(dc, colors.background);
+                SetBkMode(dc, OPAQUE);
+            }
+            return reinterpret_cast<LRESULT>(HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_WINDOW));
+        }
+        break;
+    }
+
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID);
+        break;
+    }
+    return DefSubclassProc(hwnd, uMsg, wParam, lParam);
+}
+
+BOOL CALLBACK ApplyPathAutoCompletePopupChildDarkModeProc(HWND hwnd, LPARAM)
+{
+    DarkModeApplyWindow(hwnd);
+
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) != 0 && lstrcmpiW(className, L"SysListView32") == 0)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        DarkModeUpdateListViewColors(hwnd, colors.readableText, colors.background, true);
+    }
+    return TRUE;
+}
+
 void ApplyPathAutoCompletePopupDarkMode(HWND hwnd)
 {
-    if (hwnd != NULL && DarkModeShouldUseDarkColors() && IsPathAutoCompletePopup(hwnd))
-        DarkModeApplyTree(hwnd);
+    if (hwnd == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    HWND popup = GetPathAutoCompletePopupRoot(hwnd);
+    if (popup == NULL)
+        return;
+
+    DarkModeApplyWindow(popup);
+    DarkModeApplyTree(popup);
+    SetWindowSubclass(popup, PathAutoCompletePopupSubclassProc, PATH_AUTOCOMPLETE_POPUP_SUBCLASS_ID, 0);
+    EnumChildWindows(popup, ApplyPathAutoCompletePopupChildDarkModeProc, 0);
+    RedrawWindow(popup, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
 }
 
 void CALLBACK PathAutoCompleteWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
