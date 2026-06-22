@@ -738,6 +738,9 @@ bool IsAutoSuggestDropdownClass(HWND hwnd)
            wcsstr(className, L"AutoSuggest") != NULL;
 }
 
+LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclassId, DWORD_PTR refData);
+
 HWND FindAutoSuggestDropdown(HWND hwnd)
 {
     for (HWND candidate = hwnd; candidate != NULL; candidate = GetParent(candidate))
@@ -765,6 +768,13 @@ void ApplyAutoSuggestChildDarkMode(HWND hwnd)
     DarkModeApplyWindow(hwnd);
     if (gSetWindowTheme != nullptr)
         gSetWindowTheme(hwnd, L"DarkMode_Explorer", nullptr);
+
+    // The Shell auto-suggest list is wrapped in helper windows (for example
+    // CtrlNotifySink) and its ListBox asks its immediate parent for
+    // WM_CTLCOLORLISTBOX. Subclass every child window, not only the top-level
+    // Auto-Suggest Dropdown, so the parent that actually receives CTLCOLOR can
+    // return our dark brush.
+    SetWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
 
     wchar_t className[64];
     if (GetClassNameW(hwnd, className, _countof(className)) != 0)
