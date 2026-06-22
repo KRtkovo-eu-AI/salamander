@@ -447,6 +447,8 @@ const char* CONFIG_USESALOPEN_REG = "Use salopen.exe";
 const char* CONFIG_NETWAREFASTDIRMOVE_REG = "Netware Fast Dir Move";
 const char* CONFIG_ASYNCCOPYALG_REG = "Async Copy Alg On Network";
 const char* CONFIG_RELOAD_ENV_VARS_REG = "Reload Environment Variables";
+const char* CONFIG_PATH_AUTOCOMPLETE_REG = "Path Auto Complete";
+const char* CONFIG_CREATEDIR_AUTOCOMPLETE_REG = "Create Directory Auto Complete";
 const char* CONFIG_QUICKRENAME_SELALL_REG = "Quick Rename Select All";
 const char* CONFIG_EDITNEW_SELALL_REG = "Edit New File Select All";
 const char* CONFIG_SHIFTFORHOTPATHS_REG = "Use Shift For GoTo HotPath";
@@ -2168,6 +2170,10 @@ void CMainWindow::SaveConfig(HWND parent)
                              &Configuration.UseAsyncCopyAlg, sizeof(DWORD));
                 SetValue(actKey, CONFIG_RELOAD_ENV_VARS_REG, REG_DWORD,
                          &Configuration.ReloadEnvVariables, sizeof(DWORD));
+                SetValue(actKey, CONFIG_PATH_AUTOCOMPLETE_REG, REG_DWORD,
+                         &Configuration.PathAutoComplete, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CREATEDIR_AUTOCOMPLETE_REG, REG_DWORD,
+                         &Configuration.CreateDirAutoComplete, sizeof(DWORD));
                 SetValue(actKey, CONFIG_QUICKRENAME_SELALL_REG, REG_DWORD,
                          &Configuration.QuickRenameSelectAll, sizeof(DWORD));
                 SetValue(actKey, CONFIG_EDITNEW_SELALL_REG, REG_DWORD,
@@ -3970,6 +3976,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                          &Configuration.UseAsyncCopyAlg, sizeof(DWORD));
             GetValue(actKey, CONFIG_RELOAD_ENV_VARS_REG, REG_DWORD,
                      &Configuration.ReloadEnvVariables, sizeof(DWORD));
+            GetValue(actKey, CONFIG_PATH_AUTOCOMPLETE_REG, REG_DWORD,
+                     &Configuration.PathAutoComplete, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CREATEDIR_AUTOCOMPLETE_REG, REG_DWORD,
+                     &Configuration.CreateDirAutoComplete, sizeof(DWORD));
             GetValue(actKey, CONFIG_SHIFTFORHOTPATHS_REG, REG_DWORD,
                      &Configuration.ShiftForHotPaths, sizeof(DWORD));
             //      GetValue(actKey, CONFIG_LANGUAGE_REG, REG_SZ,

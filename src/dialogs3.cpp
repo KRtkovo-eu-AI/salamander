@@ -4,6 +4,11 @@
 
 #include "precomp.h"
 
+#include <shlwapi.h>
+#include <string>
+#include <vector>
+#undef PathIsPrefix // otherwise conflicts with CSalamanderGeneral::PathIsPrefix
+
 #include "mainwnd.h"
 #include "plugins.h"
 #include "fileswnd.h"
@@ -20,6 +25,190 @@
 
 namespace
 {
+
+const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
+
+
+void AddCurrentDirectoryAutoCompleteItem(std::vector<std::wstring>& items, const char* name)
+{
+    if (name == NULL || name[0] == 0 || strcmp(name, "..") == 0)
+        return;
+
+    int wideLen = MultiByteToWideChar(CP_ACP, 0, name, -1, NULL, 0);
+    if (wideLen <= 1)
+        return;
+
+    std::wstring wideName;
+    wideName.resize(wideLen - 1);
+    MultiByteToWideChar(CP_ACP, 0, name, -1, &wideName[0], wideLen);
+    items.push_back(wideName);
+}
+
+class CCurrentDirectoryEnumString : public IEnumString
+{
+public:
+    explicit CCurrentDirectoryEnumString(const std::vector<std::wstring>& items)
+        : RefCount(1), Items(items), Index(0)
+    {
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppvObject)
+    {
+        if (ppvObject == NULL)
+            return E_POINTER;
+
+        if (riid == IID_IUnknown || riid == IID_IEnumString)
+        {
+            *ppvObject = static_cast<IEnumString*>(this);
+            AddRef();
+            return S_OK;
+        }
+
+        *ppvObject = NULL;
+        return E_NOINTERFACE;
+    }
+
+    STDMETHODIMP_(ULONG) AddRef()
+    {
+        return InterlockedIncrement(&RefCount);
+    }
+
+    STDMETHODIMP_(ULONG) Release()
+    {
+        ULONG ref = InterlockedDecrement(&RefCount);
+        if (ref == 0)
+            delete this;
+        return ref;
+    }
+
+    STDMETHODIMP Next(ULONG celt, LPOLESTR* rgelt, ULONG* pceltFetched)
+    {
+        if (rgelt == NULL)
+            return E_POINTER;
+        if (celt != 1 && pceltFetched == NULL)
+            return E_POINTER;
+
+        ULONG fetched = 0;
+        while (fetched < celt && Index < Items.size())
+        {
+            const std::wstring& item = Items[Index++];
+            size_t bytes = (item.length() + 1) * sizeof(wchar_t);
+            rgelt[fetched] = static_cast<LPOLESTR>(CoTaskMemAlloc(bytes));
+            if (rgelt[fetched] == NULL)
+                return E_OUTOFMEMORY;
+            memcpy(rgelt[fetched], item.c_str(), bytes);
+            ++fetched;
+        }
+
+        if (pceltFetched != NULL)
+            *pceltFetched = fetched;
+        return fetched == celt ? S_OK : S_FALSE;
+    }
+
+    STDMETHODIMP Skip(ULONG celt)
+    {
+        Index += celt;
+        if (Index > Items.size())
+        {
+            Index = Items.size();
+            return S_FALSE;
+        }
+        return S_OK;
+    }
+
+    STDMETHODIMP Reset()
+    {
+        Index = 0;
+        return S_OK;
+    }
+
+    STDMETHODIMP Clone(IEnumString** ppenum)
+    {
+        if (ppenum == NULL)
+            return E_POINTER;
+
+        CCurrentDirectoryEnumString* clone = new CCurrentDirectoryEnumString(Items);
+        if (clone == NULL)
+            return E_OUTOFMEMORY;
+        clone->Index = Index;
+        *ppenum = clone;
+        return S_OK;
+    }
+
+private:
+    LONG RefCount;
+    std::vector<std::wstring> Items;
+    size_t Index;
+};
+
+HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
+{
+    std::vector<std::wstring> items;
+    CFilesWindow* panel = MainWindow != NULL ? MainWindow->GetActivePanel() : NULL;
+    if (panel != NULL)
+    {
+        for (int i = 0; i < panel->Dirs->Count; ++i)
+            AddCurrentDirectoryAutoCompleteItem(items, panel->Dirs->At(i).Name);
+        for (int i = 0; i < panel->Files->Count; ++i)
+            AddCurrentDirectoryAutoCompleteItem(items, panel->Files->At(i).Name);
+    }
+
+    IAutoComplete2* autoComplete = NULL;
+    HRESULT hr = CoCreateInstance(CLSID_AutoComplete, NULL, CLSCTX_INPROC_SERVER,
+                                  IID_IAutoComplete2, (void**)&autoComplete);
+    if (FAILED(hr))
+        return hr;
+
+    CCurrentDirectoryEnumString* source = new CCurrentDirectoryEnumString(items);
+    if (source == NULL)
+    {
+        autoComplete->Release();
+        return E_OUTOFMEMORY;
+    }
+
+    hr = autoComplete->Init(hEdit, source, NULL, NULL);
+    if (SUCCEEDED(hr))
+        autoComplete->SetOptions(ACO_AUTOSUGGEST | ACO_AUTOAPPEND);
+
+    source->Release();
+    autoComplete->Release();
+    return hr;
+}
+
+void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
+{
+    if (hComboOrEdit == NULL || !Configuration.PathAutoComplete ||
+        (nameAutoCompleteMode && !Configuration.CreateDirAutoComplete))
+        return;
+
+    HWND hEdit = hComboOrEdit;
+    char className[32];
+    if (GetClassName(hComboOrEdit, className, _countof(className)) != 0 &&
+        lstrcmpi(className, "ComboBox") == 0)
+    {
+        COMBOBOXINFO cbi;
+        cbi.cbSize = sizeof(cbi);
+        if (GetComboBoxInfo(hComboOrEdit, &cbi) && cbi.hwndItem != NULL)
+            hEdit = cbi.hwndItem;
+        else
+        {
+            HWND hComboEdit = FindWindowEx(hComboOrEdit, NULL, "Edit", NULL);
+            if (hComboEdit != NULL)
+                hEdit = hComboEdit;
+            else
+                hEdit = GetWindow(hComboOrEdit, GW_CHILD);
+        }
+    }
+
+    if (hEdit != NULL)
+    {
+        if (nameAutoCompleteMode)
+            EnableCurrentDirectoryAutoComplete(hEdit);
+        else
+            SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
+    }
+}
+
 bool ShouldUseCopyMoveDarkPalette()
 {
     if (DarkModeShouldUseDarkColors())
@@ -29,6 +218,7 @@ bool ShouldUseCopyMoveDarkPalette()
     const int luminance = (GetRValue(background) * 30 + GetGValue(background) * 59 + GetBValue(background) * 11) / 100;
     return luminance < 128;
 }
+
 
 LRESULT ApplyCopyMoveDialogColors(WPARAM wParam, bool transparent)
 {
@@ -442,6 +632,7 @@ CCopyMoveDialog::CCopyMoveDialog(HWND parent, char* path, int pathBufSize, char*
     : CCommonDialog(HLanguage, history ? IDD_COPYMOVEDIALOG_CB : IDD_COPYMOVEDIALOG, parent)
 {
     DirectoryHelper = FALSE;
+    NameAutoCompleteMode = helpID == IDD_CREATEDIRDIALOG || helpID == IDD_RENAMEDIALOG;
     if (directoryHelper)
     {
         if (history != NULL)
@@ -501,7 +692,9 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH)); // install WordBreakProc into the combobox
+        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         if (DirectoryHelper)
@@ -521,6 +714,13 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     MAKELPARAM(0, SelectionEnd));
         return FALSE;
     }
+
+    case WM_USER_ENABLEPATHAUTOCOMPLETE:
+    {
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), NameAutoCompleteMode);
+        return 0;
+    }
+
 
     case WM_USER_KEYDOWN:
     {
@@ -1048,7 +1248,9 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH)); // install WordBreakProc into the combobox
+        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
 
         // since 2.53 we can save options, so IDC_CM_STARTONIDLE must always be enabled so the user can preset it
         // EnableWindow(GetDlgItem(HWindow, IDC_CM_STARTONIDLE), !OperationsQueue.IsEmpty());
@@ -1092,6 +1294,13 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             DisplayMore(FALSE, TRUE);
         break;
     }
+
+    case WM_USER_ENABLEPATHAUTOCOMPLETE:
+    {
+        EnablePathAutoComplete(GetDlgItem(HWindow, IDE_PATH), FALSE);
+        return 0;
+    }
+
 
     case WM_USER_KEYDOWN:
     {

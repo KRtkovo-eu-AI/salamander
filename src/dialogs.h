@@ -37,6 +37,7 @@ protected:
     char** History;
     int HistoryCount;
     BOOL DirectoryHelper;
+    BOOL NameAutoCompleteMode;
     int SelectionEnd;
 
 public:
