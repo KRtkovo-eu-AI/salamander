@@ -320,6 +320,30 @@ bool ShouldUseCopyMoveDarkPalette()
     return luminance < 128;
 }
 
+
+bool IsPathInputEditControl(HWND dialog, HWND ctrl)
+{
+    if (dialog == NULL || ctrl == NULL)
+        return false;
+
+    HWND path = GetDlgItem(dialog, IDE_PATH);
+    return ctrl == path || GetParent(ctrl) == path;
+}
+
+LRESULT ApplyCopyMovePathEditColors(WPARAM wParam)
+{
+    HDC dc = reinterpret_cast<HDC>(wParam);
+    if (dc != NULL)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        const COLORREF pathBackground = RGB(0x38, 0x38, 0x38);
+        SetTextColor(dc, colors.readableText);
+        SetBkColor(dc, pathBackground);
+        SetBkMode(dc, OPAQUE);
+    }
+    return reinterpret_cast<LRESULT>(DarkModeGetPanelFrameBrush());
+}
+
 LRESULT ApplyCopyMoveDialogColors(WPARAM wParam, bool transparent)
 {
     HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
@@ -845,6 +869,12 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
     {
+        if (uMsg == WM_CTLCOLOREDIT && ShouldUseCopyMoveDarkPalette() &&
+            IsPathInputEditControl(HWindow, reinterpret_cast<HWND>(lParam)))
+        {
+            return ApplyCopyMovePathEditColors(wParam);
+        }
+
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
         DARKMODE_RETURN_IF_HANDLED(handled, brush);
@@ -1425,6 +1455,12 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORBTN:
     case WM_CTLCOLOREDIT:
     {
+        if (uMsg == WM_CTLCOLOREDIT && ShouldUseCopyMoveDarkPalette() &&
+            IsPathInputEditControl(HWindow, reinterpret_cast<HWND>(lParam)))
+        {
+            return ApplyCopyMovePathEditColors(wParam);
+        }
+
         LRESULT brush = 0;
         const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
         DARKMODE_RETURN_IF_HANDLED(handled, brush);
