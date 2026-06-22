@@ -44,6 +44,28 @@ LRESULT ApplyCopyMoveDialogColors(WPARAM wParam, bool transparent)
     SetBkMode(dc, transparent ? TRANSPARENT : OPAQUE);
     return reinterpret_cast<LRESULT>(dialogBrush);
 }
+
+COLORREF GetWaitWindowBackgroundColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+}
+
+COLORREF GetWaitWindowTextColor()
+{
+    return DarkModeShouldUseDarkColors() ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT);
+}
+
+void FillWaitWindowRect(HDC dc, const RECT* rect)
+{
+    HBRUSH brush = CreateSolidBrush(GetWaitWindowBackgroundColor());
+    if (brush != NULL)
+    {
+        FillRect(dc, rect, brush);
+        DeleteObject(brush);
+    }
+    else
+        FillRect(dc, rect, (HBRUSH)(COLOR_BTNFACE + 1));
+}
 }
 
 //
@@ -2667,6 +2689,9 @@ HWND CWaitWindow::Create(HWND hForegroundWnd)
              HInstance,
              this);
 
+    if (HWindow != NULL)
+        DarkModeApplyWindow(HWindow);
+
     // hack: adjust window size in real time so it works with both old (5 / XP compatible) and new toolsets
     RECT clientR;
     GetClientRect(HWindow, &clientR);
@@ -2719,11 +2744,18 @@ void CWaitWindow::PaintProgressBar(HDC dc)
         dc = GetDC(HWindow);
         releaseDC = TRUE;
     }
+    const bool useDark = DarkModeShouldUseDarkColors();
+    HPEN borderPen = CreatePen(PS_SOLID, 1, useDark ? RGB(0x70, 0x70, 0x70) : GetSysColor(COLOR_WINDOWTEXT));
+    HPEN oldPen = borderPen != NULL ? (HPEN)SelectObject(dc, borderPen) : NULL;
     MoveToEx(dc, BarRect.left, BarRect.top, NULL);
     LineTo(dc, BarRect.right, BarRect.top);
     LineTo(dc, BarRect.right, BarRect.bottom);
     LineTo(dc, BarRect.left, BarRect.bottom);
     LineTo(dc, BarRect.left, BarRect.top);
+    if (oldPen != NULL)
+        SelectObject(dc, oldPen);
+    if (borderPen != NULL)
+        DeleteObject(borderPen);
 
     int width = BarRect.right - BarRect.left;
     if (width > 2)
@@ -2738,10 +2770,16 @@ void CWaitWindow::PaintProgressBar(HDC dc)
         r.top++;
         RECT r2 = r;
         r2.right = r2.left + done;
-        FillRect(dc, &r2, (HBRUSH)(COLOR_HIGHLIGHT + 1));
+        HBRUSH doneBrush = CreateSolidBrush(useDark ? RGB(0x4C, 0x9C, 0xE6) : GetSysColor(COLOR_HIGHLIGHT));
+        HBRUSH restBrush = CreateSolidBrush(useDark ? RGB(0x2B, 0x2B, 0x2B) : GetSysColor(COLOR_WINDOW));
+        FillRect(dc, &r2, doneBrush != NULL ? doneBrush : (HBRUSH)(COLOR_HIGHLIGHT + 1));
         r2 = r;
         r2.left = r2.left + done;
-        FillRect(dc, &r2, (HBRUSH)(COLOR_WINDOW + 1));
+        FillRect(dc, &r2, restBrush != NULL ? restBrush : (HBRUSH)(COLOR_WINDOW + 1));
+        if (doneBrush != NULL)
+            DeleteObject(doneBrush);
+        if (restBrush != NULL)
+            DeleteObject(restBrush);
     }
     if (releaseDC)
         ReleaseDC(HWindow, dc);
@@ -2771,11 +2809,11 @@ void CWaitWindow::PaintText(HDC hDC)
         if (CacheBitmap != NULL && CacheBitmap->HMemDC != NULL)
             hDestDC = CacheBitmap->HMemDC;
 
-        FillRect(hDestDC, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+        FillWaitWindowRect(hDestDC, &r);
 
         HFONT hOldFont = (HFONT)SelectObject(hDestDC, EnvFont);
         int prevBkMode = SetBkMode(hDestDC, TRANSPARENT);
-        SetTextColor(hDestDC, GetSysColor(COLOR_BTNTEXT));
+        SetTextColor(hDestDC, GetWaitWindowTextColor());
         // we won't clip so that we survive minor text extension
         // that may occur during a SetText call
         DrawText(hDestDC, Text, (int)strlen(Text), &r, DT_LEFT | DT_NOPREFIX | DT_NOCLIP | (NeedWrap ? DT_WORDBREAK : 0));
@@ -2802,7 +2840,7 @@ CWaitWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         RECT r;
         GetClientRect(HWindow, &r);
-        FillRect(hDC, &r, (HBRUSH)(COLOR_BTNFACE + 1));
+        FillWaitWindowRect(hDC, &r);
 
         PaintText(hDC);
 
