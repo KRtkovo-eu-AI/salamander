@@ -20,6 +20,28 @@
 
 namespace
 {
+
+void EnablePathAutoComplete(HWND hComboOrEdit)
+{
+    if (hComboOrEdit == NULL || !Configuration.PathAutoComplete)
+        return;
+
+    HWND hEdit = hComboOrEdit;
+    char className[32];
+    if (GetClassName(hComboOrEdit, className, SizeOf(className)) != 0 &&
+        lstrcmpi(className, "ComboBox") == 0)
+    {
+        HWND hComboEdit = FindWindowEx(hComboOrEdit, NULL, "Edit", NULL);
+        if (hComboEdit != NULL)
+            hEdit = hComboEdit;
+        else
+            hEdit = GetWindow(hComboOrEdit, GW_CHILD);
+    }
+
+    if (hEdit != NULL)
+        SHAutoComplete(hEdit, SHACF_FILESYS_DIRS | SHACF_AUTOSUGGEST_FORCE_ON);
+}
+
 bool ShouldUseCopyMoveDarkPalette()
 {
     if (DarkModeShouldUseDarkColors())
@@ -501,7 +523,9 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        InstallWordBreakProc(GetDlgItem(HWindow, IDE_PATH)); // install WordBreakProc into the combobox
+        HWND hPath = GetDlgItem(HWindow, IDE_PATH);
+        InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
+        EnablePathAutoComplete(hPath);
 
         CreateKeyForwarder(HWindow, IDE_PATH); // so that we receive WM_USER_KEYDOWN
         if (DirectoryHelper)

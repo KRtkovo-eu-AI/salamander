@@ -350,6 +350,7 @@ CConfiguration::CConfiguration()
     NetwareFastDirMove = FALSE; // choose the slower but 100% working mode; power users can switch it
     UseAsyncCopyAlg = TRUE;
     ReloadEnvVariables = TRUE;
+    PathAutoComplete = TRUE;
     QuickRenameSelectAll = FALSE;
     EditNewSelectAll = TRUE;
     ShiftForHotPaths = TRUE;
@@ -997,6 +998,7 @@ void CCfgPageGeneral::Transfer(CTransferInfo& ti)
     ti.CheckBox(IDC_ASYNCCOPYALG, Windows7AndLater ? Configuration.UseAsyncCopyAlg : dummy);
     int oldReloadEnvVariables = Configuration.ReloadEnvVariables;
     ti.CheckBox(IDC_RELOADENVVARS, Configuration.ReloadEnvVariables);
+    ti.CheckBox(IDC_PATHAUTOCOMPLETE, Configuration.PathAutoComplete);
     if (ti.Type == ttDataFromWindow && Configuration.ReloadEnvVariables && oldReloadEnvVariables != Configuration.ReloadEnvVariables)
     {
         InitEnvironmentVariablesDifferences();
