@@ -66,22 +66,16 @@ BOOL CDatabase::Open(const char* fileName)
             if (status != psOK)
             {
                 delete Parser;
-                CParserInterfaceCSV* pCSVParser;
-                Parser = pCSVParser = new CParserInterfaceCSV(&Renderer->Viewer->CfgCSV);
+                Parser = new CParserInterfaceCSV(&Renderer->Viewer->CfgCSV);
                 if (Parser == NULL)
                     goto OUT_OF_MEMORY;
                 status = Parser->OpenFile(fileName);
-                if (status == psOK)
-                {
-                    IsUnicode = pCSVParser->GetIsUnicode();
-                    IsUTF8 = pCSVParser->GetIsUTF8();
-                }
             }
         }
-        if (status == psOK && _stricmp(Parser->GetParserName(), "csv") != 0)
+        if (status == psOK)
         {
-            IsUnicode = FALSE;
-            IsUTF8 = FALSE;
+            IsUnicode = Parser->IsUnicodeText();
+            IsUTF8 = Parser->IsUTF8Text();
         }
         if (status == psOK)
         {

@@ -47,6 +47,8 @@ public:
 
     // identify the parser ("dbf", "csv", ...)
     virtual const char* GetParserName() = 0;
+    virtual BOOL IsUnicodeText() { return FALSE; }
+    virtual BOOL IsUTF8Text() { return FALSE; }
 
     // called to open the requested file
     virtual CParserStatusEnum OpenFile(const char* fileName) = 0;
@@ -163,6 +165,8 @@ public:
     virtual BOOL GetFileInfo(HWND hEdit);
     BOOL GetIsUnicode() { return IsUnicode; };
     BOOL GetIsUTF8() { return IsUTF8; };
+    virtual BOOL IsUnicodeText() { return IsUnicode; }
+    virtual BOOL IsUTF8Text() { return IsUTF8; }
     virtual DWORD GetRecordCount();
     virtual DWORD GetFieldCount();
     virtual BOOL GetFieldInfo(DWORD index, CFieldInfo* info);
@@ -189,6 +193,8 @@ private:
     DWORD CurrentRecordIndex;
     DWORD MaxColumns;
     char* CellBuffer;
+    wchar_t* CellBufferW;
+    int CellBufferWSize;
     TDirectArray<DWORD> ColumnMaxLens;
 
 public:
@@ -196,6 +202,8 @@ public:
     virtual ~CParserInterfaceJSONL();
 
     virtual const char* GetParserName() { return "jsonl"; }
+    virtual BOOL IsUnicodeText() { return TRUE; }
+    virtual BOOL IsUTF8Text() { return TRUE; }
 
     virtual CParserStatusEnum OpenFile(const char* fileName);
     virtual void CloseFile();

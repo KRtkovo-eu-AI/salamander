@@ -1364,6 +1364,8 @@ CParserInterfaceJSONL::CParserInterfaceJSONL()
     CurrentRecordIndex = 0;
     MaxColumns = 1;
     CellBuffer = NULL;
+    CellBufferW = NULL;
+    CellBufferWSize = 0;
 }
 
 CParserInterfaceJSONL::~CParserInterfaceJSONL()
@@ -1510,6 +1512,12 @@ void CParserInterfaceJSONL::CloseFile()
         free(CellBuffer);
         CellBuffer = NULL;
     }
+    if (CellBufferW != NULL)
+    {
+        free(CellBufferW);
+        CellBufferW = NULL;
+        CellBufferWSize = 0;
+    }
 }
 
 BOOL CParserInterfaceJSONL::GetFileInfo(HWND hEdit)
@@ -1575,12 +1583,15 @@ BOOL CParserInterfaceJSONL::GetFieldInfo(DWORD index, CFieldInfo* info)
     if (index >= MaxColumns)
         return FALSE;
 
-    char colName[32];
-    sprintf(colName, "Field %u", index + 1);
+    WCHAR colName[32];
+    swprintf(colName, SizeOf(colName), L"Field %u", index + 1);
     if (info->Name == NULL)
-        info->NameMax = (int)strlen(colName) + 1;
+        info->NameMax = sizeof(WCHAR) * ((int)wcslen(colName) + 1);
     else
-        lstrcpynA(info->Name, colName, info->NameMax);
+    {
+        wcsncpy((LPWSTR)info->Name, colName, info->NameMax / sizeof(WCHAR));
+        ((LPWSTR)info->Name)[info->NameMax / sizeof(WCHAR) - 1] = 0;
+    }
 
     info->LeftAlign = TRUE;
     info->TextMax = (index < (DWORD)ColumnMaxLens.Count && ColumnMaxLens[index] > 0) ? (int)ColumnMaxLens[index] : -1;
@@ -1651,9 +1662,42 @@ const char* CParserInterfaceJSONL::GetCellText(DWORD index, size_t* textLen)
 
 const wchar_t* CParserInterfaceJSONL::GetCellTextW(DWORD index, size_t* textLen)
 {
-    UNREFERENCED_PARAMETER(index);
-    *textLen = 0;
-    return L"";
+    size_t utf8Len;
+    const char* text = GetCellText(index, &utf8Len);
+    if (utf8Len == 0)
+    {
+        *textLen = 0;
+        return L"";
+    }
+
+    int required = MultiByteToWideChar(CP_UTF8, 0, text, (int)utf8Len, NULL, 0);
+    if (required <= 0)
+    {
+        *textLen = 0;
+        return L"";
+    }
+
+    if (required + 1 > CellBufferWSize)
+    {
+        wchar_t* grown = (wchar_t*)realloc(CellBufferW, (required + 1) * sizeof(wchar_t));
+        if (grown == NULL)
+        {
+            *textLen = 0;
+            return L"";
+        }
+        CellBufferW = grown;
+        CellBufferWSize = required + 1;
+    }
+
+    int converted = MultiByteToWideChar(CP_UTF8, 0, text, (int)utf8Len, CellBufferW, CellBufferWSize);
+    if (converted <= 0)
+    {
+        *textLen = 0;
+        return L"";
+    }
+    CellBufferW[converted] = 0;
+    *textLen = converted;
+    return CellBufferW;
 }
 
 BOOL CParserInterfaceJSONL::IsRecordDeleted()
