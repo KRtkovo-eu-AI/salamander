@@ -4532,6 +4532,7 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
             {
                 int index = (int)SendMessage(HScheme, CB_GETCURSEL, 0, 0);
                 int schemeId = (int)SendMessage(HScheme, CB_GETITEMDATA, index, 0);
+                const bool forceDarkCommonDialog = (schemeId == 4);
                 if (schemeId >= 0 && schemeId <= 3)
                 {
                     COLORREF* colors;
@@ -4570,7 +4571,7 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
                     else
                         cc.rgbResult = button->GetBkgndColor();
                     cc.Flags = CC_RGBINIT | CC_FULLOPEN;
-                    DarkModePrepareChooseColor(&cc);
+                    DarkModePrepareChooseColor(&cc, forceDarkCommonDialog);
                     if (ChooseColor(&cc))
                     {
                         if (item)
