@@ -253,6 +253,7 @@ CTabWindow::CTabWindow(CMainWindow* mainWindow, CPanelSide side)
     LastClickedIndex = -1;
     LastClickWasSelected = false;
     MouseWheelAccumulator = 0;
+    InitialEnsureSelectedTabVisiblePending = true;
     HTabTipWnd = NULL;
     TabTipTabIndex = -1;
     TabTipHoverIndex = -1;
@@ -516,8 +517,22 @@ void CTabWindow::SetCurSel(int index)
             CSelChangeGuard guard(SuppressSelectionNotifications);
             TabCtrl_SetCurSel(HWindow, index);
         }
-        EnsureSelectedTabVisible();
+        EnsureInitialSelectedTabVisible();
     }
+}
+
+void CTabWindow::EnsureInitialSelectedTabVisible()
+{
+    CALL_STACK_MESSAGE_NONE
+    if (!InitialEnsureSelectedTabVisiblePending || HWindow == NULL)
+        return;
+
+    int sel = TabCtrl_GetCurSel(HWindow);
+    if (sel < 0 || IsNewTabButtonIndex(sel) || !IsWindowVisible(HWindow))
+        return;
+
+    EnsureSelectedTabVisible();
+    InitialEnsureSelectedTabVisiblePending = false;
 }
 
 void CTabWindow::EnsureSelectedTabVisible()
@@ -672,6 +687,16 @@ BOOL CTabWindow::HandleNotify(LPNMHDR nmhdr, LRESULT& result)
             result = 0;
             return TRUE;
         }
+
+        // Activating another tab is a selection operation, not a reorder.  Some
+        // plug-in panels can run their activation code before the matching
+        // button-up is delivered back here, so cancel any pending drag state now
+        // to avoid leaving the insert mark painted in the tab bar.
+        if (DragTracking)
+            CancelDragTracking();
+        else
+            ClearInsertMark();
+
         int sel = TabCtrl_GetCurSel(HWindow);
         if (IsNewTabButtonIndex(sel))
         {
@@ -785,7 +810,7 @@ void CTabWindow::RefreshLayout()
     CALL_STACK_MESSAGE_NONE
     UpdateNewTabButtonWidth();
     UpdateOverflowButtonColors();
-    EnsureSelectedTabVisible();
+    EnsureInitialSelectedTabVisible();
 }
 
 void CTabWindow::EnsureTabTipWnd()
@@ -2305,7 +2330,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_USER_ENSURE_SELECTED_TAB_VISIBLE:
-        EnsureSelectedTabVisible();
+        EnsureInitialSelectedTabVisible();
         return 0;
 
     case WM_PARENTNOTIFY:
