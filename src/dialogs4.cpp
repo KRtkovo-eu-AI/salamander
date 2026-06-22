@@ -2224,6 +2224,7 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
                     cf.iPointSize = 10;
                     cf.Flags = CF_NOVERTFONTS | CF_FIXEDPITCHONLY | CF_SCREENFONTS |
                                CF_INITTOLOGFONTSTRUCT;
+                    DarkModePrepareChooseFont(&cf);
                     if (ChooseFont(&cf) != 0)
                     {
                         LocalViewerLogFont = logFont;
@@ -2289,6 +2290,7 @@ MENU_TEMPLATE_ITEM CfgPageViewerMenu[] =
                             else
                                 cc.rgbResult = button->GetBkgndColor();
                             cc.Flags = CC_RGBINIT | CC_FULLOPEN;
+                            DarkModePrepareChooseColor(&cc);
                             if (ChooseColor(&cc) == TRUE)
                             {
                                 if (cmd == 1)
@@ -4568,6 +4570,7 @@ MENU_TEMPLATE_ITEM CfgPageColorsMenu3[] =
                     else
                         cc.rgbResult = button->GetBkgndColor();
                     cc.Flags = CC_RGBINIT | CC_FULLOPEN;
+                    DarkModePrepareChooseColor(&cc);
                     if (ChooseColor(&cc))
                     {
                         if (item)

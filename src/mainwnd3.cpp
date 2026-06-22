@@ -38,6 +38,7 @@
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
+#include "darkmode.h"
 extern "C"
 {
 #include "shexreg.h"
@@ -1797,6 +1798,7 @@ void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
     cc.lpCustColors = customColors;
     cc.Flags = CC_FULLOPEN | CC_RGBINIT;
     cc.rgbResult = panel->HasCustomTabColor() ? panel->GetCustomTabColor() : GetSysColor(COLOR_BTNFACE);
+    DarkModePrepareChooseColor(&cc);
     if (ChooseColor(&cc))
     {
         panel->SetCustomTabColor(cc.rgbResult);

@@ -5,6 +5,10 @@
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
 
+#if USE_DARKMODELIB
+#include "third_party/darkmodelib/include/Darkmodelib.h"
+#endif
+
 #include <algorithm>
 #include <delayimp.h>
 #include <uxtheme.h>
@@ -1945,6 +1949,38 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
         for (HWND child = GetWindow(hwndParent, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
             applyOne(child);
     }
+}
+
+void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor)
+{
+    if (chooseColor == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+#if USE_DARKMODELIB
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+    dmlib::setDefaultColors(true);
+    if ((chooseColor->Flags & CC_ENABLEHOOK) == 0 && chooseColor->lpfnHook == NULL)
+    {
+        chooseColor->Flags |= CC_ENABLEHOOK;
+        chooseColor->lpfnHook = reinterpret_cast<LPCCHOOKPROC>(dmlib::HookDlgProc);
+    }
+#endif
+}
+
+void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont)
+{
+    if (chooseFont == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+#if USE_DARKMODELIB
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+    dmlib::setDefaultColors(true);
+    if ((chooseFont->Flags & CF_ENABLEHOOK) == 0 && chooseFont->lpfnHook == NULL)
+    {
+        chooseFont->Flags |= CF_ENABLEHOOK;
+        chooseFont->lpfnHook = reinterpret_cast<LPCFHOOKPROC>(dmlib::HookDlgProc);
+    }
+#endif
 }
 
 HBRUSH DarkModeGetPanelFrameBrush()

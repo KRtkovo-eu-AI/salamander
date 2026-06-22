@@ -4,6 +4,7 @@
 #pragma once
 
 #include <windows.h>
+#include <commdlg.h>
 
 struct DarkModeColors
 {
@@ -82,3 +83,5 @@ void DarkModeUpdateListViewColors(HWND listView);
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
+void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor);
+void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont);
