@@ -16,6 +16,7 @@
 #include <commctrl.h>
 #include <vector>
 #include <cwchar>
+#include <string>
 
 #ifndef HDM_SETBKCOLOR
 #define HDM_SETBKCOLOR (HDM_FIRST + 29)
@@ -808,6 +809,72 @@ BOOL CALLBACK ApplyAutoSuggestChildDarkModeProc(HWND hwnd, LPARAM)
     return TRUE;
 }
 
+
+bool IsListBoxWindow(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[32];
+    return GetClassNameW(hwnd, className, _countof(className)) != 0 &&
+           lstrcmpiW(className, L"ListBox") == 0;
+}
+
+void PaintAutoSuggestListBox(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const DarkModeColors& colors = DarkModeGetColors();
+    FillRectWithColor(hdc, client, colors.background);
+
+    const int count = static_cast<int>(SendMessage(hwnd, LB_GETCOUNT, 0, 0));
+    if (count <= 0 || count == LB_ERR)
+        return;
+
+    const int topIndex = static_cast<int>(SendMessage(hwnd, LB_GETTOPINDEX, 0, 0));
+    const int curSel = static_cast<int>(SendMessage(hwnd, LB_GETCURSEL, 0, 0));
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    for (int index = topIndex; index < count; ++index)
+    {
+        RECT itemRect;
+        if (SendMessage(hwnd, LB_GETITEMRECT, index, reinterpret_cast<LPARAM>(&itemRect)) == LB_ERR)
+            break;
+        if (itemRect.top >= client.bottom)
+            break;
+
+        const LRESULT selected = SendMessage(hwnd, LB_GETSEL, index, 0);
+        const bool isSelected = selected > 0 || index == curSel;
+        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
+        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        FillRectWithColor(hdc, itemRect, itemBk);
+        SetTextColor(hdc, itemText);
+
+        const LRESULT textLength = SendMessageW(hwnd, LB_GETTEXTLEN, index, 0);
+        if (textLength > 0)
+        {
+            std::wstring text;
+            text.resize(static_cast<size_t>(textLength) + 1);
+            SendMessageW(hwnd, LB_GETTEXT, index, reinterpret_cast<LPARAM>(&text[0]));
+            text.resize(wcslen(text.c_str()));
+            RECT textRect = itemRect;
+            textRect.left += 4;
+            textRect.right -= 4;
+            DrawTextW(hdc, text.c_str(), static_cast<int>(text.length()), &textRect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
+    }
+
+    SetBkMode(hdc, oldBkMode);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
 LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                          UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -818,6 +885,49 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     {
     case WM_NCDESTROY:
         RemoveWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId);
+        break;
+
+    case WM_ERASEBKGND:
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRectWithColor(reinterpret_cast<HDC>(wParam), rc, DarkModeGetColors().background);
+            return 1;
+        }
+        break;
+
+    case WM_PAINT:
+        if (IsListBoxWindow(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            PaintAutoSuggestListBox(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (IsListBoxWindow(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            PaintAutoSuggestListBox(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case WM_KEYDOWN:
+    case WM_CHAR:
+    case WM_MOUSEMOVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_VSCROLL:
+        if (IsListBoxWindow(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+            InvalidateRect(hwnd, NULL, TRUE);
+            return result;
+        }
         break;
 
     case WM_CTLCOLORLISTBOX:
@@ -839,16 +949,6 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
         }
         break;
     }
-
-    case WM_ERASEBKGND:
-        if (DarkModeShouldUseDarkColors())
-        {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
-            FillRectWithColor(reinterpret_cast<HDC>(wParam), rc, DarkModeGetColors().background);
-            return 1;
-        }
-        break;
 
     case WM_SHOWWINDOW:
         if (wParam != 0 && DarkModeShouldUseDarkColors())
