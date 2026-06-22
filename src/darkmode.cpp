@@ -392,6 +392,7 @@ constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 constexpr UINT_PTR kDarkModeTabOverflowSubclassId = 0x4452544F; // "DRTO"
 constexpr UINT_PTR kDarkModeRebarSeparatorSubclassId = 0x44525253; // "DRRS"
 constexpr UINT_PTR kDarkModeAutoSuggestSubclassId = 0x44524153; // "DRAS"
+constexpr UINT_PTR kDarkModeAutoSuggestTimerId = 0x44524154; // "DRAT"
 const wchar_t* kDarkModeCustomTreeViewProp = L"Salamander.DarkModeLib.CustomTree";
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
@@ -820,6 +821,21 @@ bool IsListBoxWindow(HWND hwnd)
            lstrcmpiW(className, L"ListBox") == 0;
 }
 
+bool IsListViewWindow(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[32];
+    return GetClassNameW(hwnd, className, _countof(className)) != 0 &&
+           lstrcmpiW(className, WC_LISTVIEWW) == 0;
+}
+
+bool IsAutoSuggestItemsWindow(HWND hwnd)
+{
+    return IsListBoxWindow(hwnd) || IsListViewWindow(hwnd);
+}
+
 void PaintAutoSuggestListBox(HWND hwnd, HDC hdc)
 {
     if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
@@ -875,6 +891,78 @@ void PaintAutoSuggestListBox(HWND hwnd, HDC hdc)
         SelectObject(hdc, oldFont);
 }
 
+
+void PaintAutoSuggestListView(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const DarkModeColors& colors = DarkModeGetColors();
+    FillRectWithColor(hdc, client, colors.background);
+
+    const int count = ListView_GetItemCount(hwnd);
+    if (count <= 0)
+        return;
+
+    int topIndex = ListView_GetTopIndex(hwnd);
+    if (topIndex < 0)
+        topIndex = 0;
+    int perPage = ListView_GetCountPerPage(hwnd);
+    if (perPage <= 0)
+        perPage = count;
+    const int lastIndex = std::min(count, topIndex + perPage + 2);
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    wchar_t text[4096];
+    for (int index = topIndex; index < lastIndex; ++index)
+    {
+        RECT itemRect;
+        if (!ListView_GetItemRect(hwnd, index, &itemRect, LVIR_BOUNDS))
+            continue;
+        if (itemRect.top >= client.bottom)
+            break;
+
+        const bool isSelected = ListView_GetItemState(hwnd, index, LVIS_SELECTED) != 0;
+        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
+        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        FillRectWithColor(hdc, itemRect, itemBk);
+        SetTextColor(hdc, itemText);
+
+        LVITEMW item = {};
+        item.mask = LVIF_TEXT;
+        item.iItem = index;
+        item.iSubItem = 0;
+        item.pszText = text;
+        item.cchTextMax = _countof(text);
+        text[0] = 0;
+        if (SendMessageW(hwnd, LVM_GETITEMW, 0, reinterpret_cast<LPARAM>(&item)) != 0)
+        {
+            RECT textRect = itemRect;
+            textRect.left += 4;
+            textRect.right -= 4;
+            DrawTextW(hdc, text, -1, &textRect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
+    }
+
+    SetBkMode(hdc, oldBkMode);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+void PaintAutoSuggestItemsWindow(HWND hwnd, HDC hdc)
+{
+    if (IsListBoxWindow(hwnd))
+        PaintAutoSuggestListBox(hwnd, hdc);
+    else if (IsListViewWindow(hwnd))
+        PaintAutoSuggestListView(hwnd, hdc);
+}
+
 LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                          UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -884,6 +972,7 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     switch (msg)
     {
     case WM_NCDESTROY:
+        KillTimer(hwnd, kDarkModeAutoSuggestTimerId);
         RemoveWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId);
         break;
 
@@ -898,20 +987,29 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
         break;
 
     case WM_PAINT:
-        if (IsListBoxWindow(hwnd) && DarkModeShouldUseDarkColors())
+        if (IsAutoSuggestItemsWindow(hwnd) && DarkModeShouldUseDarkColors())
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
-            PaintAutoSuggestListBox(hwnd, hdc);
+            PaintAutoSuggestItemsWindow(hwnd, hdc);
             EndPaint(hwnd, &ps);
             return 0;
         }
         break;
 
     case WM_PRINTCLIENT:
-        if (IsListBoxWindow(hwnd) && DarkModeShouldUseDarkColors())
+        if (IsAutoSuggestItemsWindow(hwnd) && DarkModeShouldUseDarkColors())
         {
-            PaintAutoSuggestListBox(hwnd, reinterpret_cast<HDC>(wParam));
+            PaintAutoSuggestItemsWindow(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case WM_TIMER:
+        if (wParam == kDarkModeAutoSuggestTimerId && IsAutoSuggestDropdownClass(hwnd) &&
+            DarkModeShouldUseDarkColors())
+        {
+            EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
             return 0;
         }
         break;
@@ -922,7 +1020,7 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
     case WM_VSCROLL:
-        if (IsListBoxWindow(hwnd) && DarkModeShouldUseDarkColors())
+        if (IsAutoSuggestItemsWindow(hwnd) && DarkModeShouldUseDarkColors())
         {
             LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
             InvalidateRect(hwnd, NULL, TRUE);
@@ -951,8 +1049,16 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     }
 
     case WM_SHOWWINDOW:
-        if (wParam != 0 && DarkModeShouldUseDarkColors())
-            EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+        if (IsAutoSuggestDropdownClass(hwnd))
+        {
+            if (wParam != 0 && DarkModeShouldUseDarkColors())
+            {
+                SetTimer(hwnd, kDarkModeAutoSuggestTimerId, 100, NULL);
+                EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+            }
+            else
+                KillTimer(hwnd, kDarkModeAutoSuggestTimerId);
+        }
         break;
     }
 
@@ -973,6 +1079,7 @@ void ApplyAutoSuggestDropdownDarkMode(HWND dropdown)
         gSetWindowTheme(dropdown, L"DarkMode_Explorer", nullptr);
 
     SetWindowSubclass(dropdown, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
+    SetTimer(dropdown, kDarkModeAutoSuggestTimerId, 100, NULL);
     EnumChildWindows(dropdown, ApplyAutoSuggestChildDarkModeProc, 0);
     RedrawWindow(dropdown, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
 }
