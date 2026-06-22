@@ -59,6 +59,12 @@ void DarkModeSetConfiguredColors(COLORREF schemeTextColor, COLORREF schemeBackgr
                                  COLORREF fallbackTextColor, COLORREF fallbackBackgroundColor);
 const DarkModeColors& DarkModeGetColors();
 
+// Suppresses expensive app-wide handling of the temporary system color changes
+// used while painting native popups that otherwise cannot be recolored.
+void DarkModeBeginTemporarySysColorChange();
+void DarkModeEndTemporarySysColorChange();
+bool DarkModeIsTemporarySysColorChange();
+
 // Handles WM_CTLCOLOR* messages for dark mode aware parents. Returns true when
 // a dark brush was supplied and the caller should stop default processing.
 bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
