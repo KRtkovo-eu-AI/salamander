@@ -3082,6 +3082,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         {
             DWORD scheme = 5;
             BOOL colorSchemeLoaded = FALSE;
+            BOOL restoreWindowsDarkPalette = FALSE;
             CurrentColors = UserColors;
             DWORD useWinDark = Configuration.UseWindowsDarkMode ? 1U : 0U;
             BOOL useWinDarkLoaded = GetValue(actKey, SALAMANDER_CLR_USE_WIN_DARK_REG, REG_DWORD, &useWinDark, sizeof(DWORD));
@@ -3179,7 +3180,7 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_FG_SELECTED_REG, ViewerColors[VIEWER_FG_SELECTED]);
             LoadRGBF(actKey, SALAMANDER_CLR_VIEWER_BK_SELECTED_REG, ViewerColors[VIEWER_BK_SELECTED]);
 
-            if (!useWinDarkLoaded && colorSchemeLoaded && scheme == 4)
+            if (colorSchemeLoaded && scheme == 4 && (!useWinDarkLoaded || Configuration.UseWindowsDarkMode))
             {
                 SALCOLOR windowsDarkColors[NUMBER_OF_COLORS];
                 SALCOLOR windowsDarkViewerColors[NUMBER_OF_VIEWERCOLORS];
@@ -3187,15 +3188,21 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 memset(windowsDarkViewerColors, 0, sizeof(windowsDarkViewerColors));
                 WindowsDarkModeBuildPalette(windowsDarkColors, windowsDarkViewerColors);
 
-                BOOL windowsDarkPalette =
-                    UserColors[ITEM_FG_NORMAL] == windowsDarkColors[ITEM_FG_NORMAL] &&
-                    UserColors[ITEM_BK_NORMAL] == windowsDarkColors[ITEM_BK_NORMAL] &&
-                    UserColors[ITEM_FG_SELECTED] == windowsDarkColors[ITEM_FG_SELECTED] &&
-                    UserColors[ITEM_BK_FOCUSED] == windowsDarkColors[ITEM_BK_FOCUSED] &&
-                    ViewerColors[VIEWER_FG_NORMAL] == windowsDarkViewerColors[VIEWER_FG_NORMAL] &&
-                    ViewerColors[VIEWER_BK_NORMAL] == windowsDarkViewerColors[VIEWER_BK_NORMAL];
-                if (windowsDarkPalette)
-                    Configuration.UseWindowsDarkMode = TRUE;
+                // A file-storage configuration can contain the Windows dark scheme and dark-mode flag
+                // while the serialized palette falls back to the light defaults. In that state the
+                // non-client/menu areas are dark, but the panels stay white. Treat scheme 4 as the
+                // authoritative Windows dark preset and repair the panel/viewer palette before applying it.
+                if (!useWinDarkLoaded ||
+                    UserColors[ITEM_FG_NORMAL] != windowsDarkColors[ITEM_FG_NORMAL] ||
+                    UserColors[ITEM_BK_NORMAL] != windowsDarkColors[ITEM_BK_NORMAL] ||
+                    ViewerColors[VIEWER_FG_NORMAL] != windowsDarkViewerColors[VIEWER_FG_NORMAL] ||
+                    ViewerColors[VIEWER_BK_NORMAL] != windowsDarkViewerColors[VIEWER_BK_NORMAL])
+                {
+                    memcpy(UserColors, windowsDarkColors, sizeof(UserColors));
+                    memcpy(ViewerColors, windowsDarkViewerColors, sizeof(ViewerColors));
+                    restoreWindowsDarkPalette = TRUE;
+                }
+                Configuration.UseWindowsDarkMode = TRUE;
             }
 
             // load colors for file highlighting
@@ -3264,6 +3271,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 }
                 CloseKey(hHltKey);
             }
+            if (restoreWindowsDarkPalette)
+                WindowsDarkModeBuildHighlightMasks(HighlightMasks);
 
             ColorsChanged(FALSE, TRUE, TRUE); // save time by updating only color-dependent items
 
