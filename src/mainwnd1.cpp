@@ -22,6 +22,7 @@
 #include "gui.h"
 #include "execute.h"
 #include "jumplist.h"
+#include "darkmode.h"
 
 #include "versinfo.rh2"
 
@@ -3403,6 +3404,9 @@ void CMainWindow::OnEnterIdle()
 
 void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
 {
+    DarkModeApplyTree(HWindow);
+    DarkModeRefreshTitleBar(HWindow);
+
     // screen colors or color depth changed; new imagelists have been created
     // for the toolbars and must be attached to the controls that use them
 
@@ -3505,8 +3509,8 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
 
     if (EditWindow != NULL && EditWindow->HWindow != NULL)
     {
-        InvalidateRect(EditWindow->HWindow, NULL, TRUE);
-        UpdateWindow(EditWindow->HWindow);
+        DarkModeApplyTree(EditWindow->HWindow);
+        RedrawWindow(EditWindow->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 
         CEditLine* editLine = EditWindow->GetEditLine();
         if (editLine != NULL && editLine->HWindow != NULL)
@@ -3515,6 +3519,8 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
             UpdateWindow(editLine->HWindow);
         }
     }
+
+    RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
 void CMainWindow::StartAnimate()

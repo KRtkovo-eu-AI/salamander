@@ -3288,6 +3288,11 @@ void CMainWindow::UpdateRebarVisuals()
     // may still keep the light/classic theme and border colors until restart.
     // Re-apply the same theme/style choices used during creation every time
     // colors are refreshed.
+    // Reset the previous explicit theme first. The light scheme disables visual
+    // styles with SetWindowTheme(" ", " "), and switching directly from that
+    // state to DarkMode_Explorer can leave the old light non-client/border
+    // colors cached until restart.
+    SetWindowTheme(HTopRebar, nullptr, nullptr);
     if (useDark)
     {
         SetWindowTheme(HTopRebar, L"DarkMode_Explorer", nullptr);
@@ -3301,6 +3306,19 @@ void CMainWindow::UpdateRebarVisuals()
         SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)CLR_DEFAULT);
     }
     DarkModeApplyWindow(HTopRebar);
+
+    const int bandCount = (int)SendMessage(HTopRebar, RB_GETBANDCOUNT, 0, 0);
+    for (int i = 0; i < bandCount; ++i)
+    {
+        REBARBANDINFO rbi = {0};
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_CHILD;
+        if (SendMessage(HTopRebar, RB_GETBANDINFO, i, (LPARAM)&rbi) != 0 && rbi.hwndChild != NULL)
+        {
+            DarkModeApplyTree(rbi.hwndChild);
+            RedrawWindow(rbi.hwndChild, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        }
+    }
 
     DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
     DWORD desiredStyle = style;
