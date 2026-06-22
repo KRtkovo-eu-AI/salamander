@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
-#include "../../darkmode.h"
 #include "..\\shared\\plugindarkmode.h"
 
 #include "data.h"
@@ -451,7 +450,6 @@ MENU_TEMPLATE_ITEM ConfigurationDialogMenu[] =
                 cf.lpLogFont = &LogFont;
                 cf.iPointSize = 10;
                 cf.Flags = CF_NOVERTFONTS | CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT;
-                DarkModePrepareChooseFont(&cf);
                 if (ChooseFont(&cf) != 0)
                 {
                     UseCustomFont = TRUE;
