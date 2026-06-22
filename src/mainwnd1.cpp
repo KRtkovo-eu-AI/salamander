@@ -3509,15 +3509,12 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
 
     if (EditWindow != NULL && EditWindow->HWindow != NULL)
     {
-        DarkModeApplyTree(EditWindow->HWindow);
-        RedrawWindow(EditWindow->HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
-
-        CEditLine* editLine = EditWindow->GetEditLine();
-        if (editLine != NULL && editLine->HWindow != NULL)
-        {
-            InvalidateRect(editLine->HWindow, NULL, TRUE);
-            UpdateWindow(editLine->HWindow);
-        }
+        // The command-line combo has custom painting and native combo child
+        // windows. Recreate it on a color-scheme switch; this follows the same
+        // path as startup, which avoids stale themed combo background pieces.
+        const BOOL focusCommandLine = EditWindow->KnowHWND(GetFocus());
+        HideCommandLine(TRUE, FALSE);
+        ShowCommandLine(focusCommandLine);
     }
 
     RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);

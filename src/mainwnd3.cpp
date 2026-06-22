@@ -3298,12 +3298,22 @@ void CMainWindow::UpdateRebarVisuals()
         SetWindowTheme(HTopRebar, L"DarkMode_Explorer", nullptr);
         SendMessage(HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
         SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
+        COLORSCHEME colorScheme = {0};
+        colorScheme.dwSize = sizeof(colorScheme);
+        colorScheme.clrBtnHighlight = RGB(0x38, 0x38, 0x38);
+        colorScheme.clrBtnShadow = RGB(0x38, 0x38, 0x38);
+        SendMessage(HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
     }
     else
     {
         SetWindowTheme(HTopRebar, (L" "), (L" "));
         SendMessage(HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)CLR_DEFAULT);
         SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)CLR_DEFAULT);
+        COLORSCHEME colorScheme = {0};
+        colorScheme.dwSize = sizeof(colorScheme);
+        colorScheme.clrBtnHighlight = CLR_DEFAULT;
+        colorScheme.clrBtnShadow = CLR_DEFAULT;
+        SendMessage(HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
     }
     DarkModeApplyWindow(HTopRebar);
 
