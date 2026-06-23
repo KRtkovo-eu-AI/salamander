@@ -12,7 +12,7 @@ FILETYPE 0x2
             VALUE "FileDescription", "WinSCP: SFTP/SCP client for Open Salamander\0"
             VALUE "FileVersion", "1.7.0.92\0"
             VALUE "InternalName", "WINSCP\0"
-            VALUE "LegalCopyright", "(c) 2000-2023 Martin Prikryl\0"
+            VALUE "LegalCopyright", "(c) 2000-2026 Martin Prikryl\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "winscp.spl\0"
             VALUE "ProductName", "WinSCP\0"

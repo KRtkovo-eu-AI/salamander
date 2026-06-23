@@ -15,7 +15,7 @@
 
 #include "spl_vers.h" // fetch the version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2003-2023 Juraj Rojko"
+#define VERSINFO_COPYRIGHT   "Copyright © 2003-2026 Juraj Rojko"
 #define VERSINFO_COMPANY     "Juraj Rojko"
 
 #define VERSINFO_DESCRIPTION "Windows Mobile plugin for Open Salamander"

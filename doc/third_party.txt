@@ -10,11 +10,11 @@ ZLIB Library Copyright (C) 1995-2002 Jean-loup Gailly and Mark Adler
 
 === Tomas Jelinek ===
 The Multimedia Viewer plugin includes software written by Tomas Jelinek.
-Copyright (C) 2003-2023 Tomas Jelinek
+Copyright (C) 2003-2026 Tomas Jelinek
 
 === Jan Patera ===
 Portions of PictView plugin licensed from Jan Patera.
-Copyright (C) 1994-2023 Jan Patera
+Copyright (C) 1994-2026 Jan Patera
 
 === Curtis Galloway and Lutz Muller ===
 Portions of PictView plugin utilizes libexif library.
@@ -38,11 +38,11 @@ Copyright (C) 1993-2019 Alexander Roshal
 
 === Martin Prikryl ===
 Portions of WinSCP plugin licensed from Martin Prikryl.
-Copyright (C) 2000-2023 Martin Prikryl
+Copyright (C) 2000-2026 Martin Prikryl
 
 === Juraj Rojko ===
 The Windows Mobile plugin includes software written by Juraj Rojko.
-Copyright (C) 2003-2023 Juraj Rojko
+Copyright (C) 2003-2026 Juraj Rojko
 
 === Jed Wing === 
 The UnCHM plugin utilizes CHMLIB library.

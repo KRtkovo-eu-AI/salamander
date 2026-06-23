@@ -23,7 +23,7 @@
 
 #include "spl_vers.h" // get version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2008-2023 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyright © 2008-2026 Open Salamander Authors"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Network plugin for Open Salamander"

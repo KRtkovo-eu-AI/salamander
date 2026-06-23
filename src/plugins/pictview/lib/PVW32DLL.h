@@ -6,7 +6,7 @@
  * 
  * Version 1.56
  *
- * Copyright (c) 1999-2023, Jan Patera
+ * Copyright (c) 1999-2026, Jan Patera
  * Copyright (c) 2026, Open Salamander Authors, Ondrej Kotas (KRtekTM)
  *****************************************************************************/
 

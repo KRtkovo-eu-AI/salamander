@@ -15,7 +15,7 @@
 
 #include "spl_vers.h" // pull in the version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2003-2023 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyright © 2003-2026 Open Salamander Authors"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "UnISO plugin for Open Salamander"

@@ -4,7 +4,7 @@
 /*
 	Network Plugin for Open Salamander
 	
-	Copyright (c) 2008-2023 Milan Kase <manison@manison.cz>
+	Copyright (c) 2008-2026 Milan Kase <manison@manison.cz>
 	
 	TODO:
 	Open-source license goes here...

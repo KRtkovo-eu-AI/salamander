@@ -2,7 +2,7 @@
 
 Zip2Sfx 2.9
 
-Copyright © 2000-2023 Open Salamander Authors   Home page: www.altap.cz
+Copyright © 2000-2026 Open Salamander Authors   Home page: www.altap.cz
                                             E-mail:    support@altap.cz
 
 ----------------------------------------------------------------------

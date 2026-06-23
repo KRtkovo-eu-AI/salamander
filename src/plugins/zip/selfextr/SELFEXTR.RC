@@ -37,7 +37,7 @@ BEGIN
             VALUE "CompanyName", "Open Salamander" "\0"
             VALUE "FileDescription", "Self-Extractor" "\0"
             VALUE "FileVersion", "1.40.0.0" "\0"
-            VALUE "LegalCopyright", "Copyright © 2000-2023 Open Salamander Authors" "\0"
+            VALUE "LegalCopyright", "Copyright © 2000-2026 Open Salamander Authors" "\0"
         END
     END
     BLOCK "VarFileInfo"

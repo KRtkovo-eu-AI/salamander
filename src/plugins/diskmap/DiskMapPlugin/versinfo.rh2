@@ -15,8 +15,8 @@
 
 #include "spl_vers.h" // pull version numbers + build
 
-//#define VERSINFO_COPYRIGHT   "Copyright © 2009-2023 Ondřej Zarevúcky"
-#define VERSINFO_COPYRIGHT   "Copyright © 2009-2023 Ondrej Zarevucky"
+//#define VERSINFO_COPYRIGHT   "Copyright © 2009-2026 Ondřej Zarevúcky"
+#define VERSINFO_COPYRIGHT   "Copyright © 2009-2026 Ondrej Zarevucky"
 #define VERSINFO_COMPANY     "Ondrej Zarevucky"
 
 #define VERSINFO_DESCRIPTION "DiskMap Plugin for Open Salamander"

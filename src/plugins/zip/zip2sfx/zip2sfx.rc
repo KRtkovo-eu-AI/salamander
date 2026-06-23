@@ -36,7 +36,7 @@ BEGIN
             VALUE "FileVersion", "2.9" "\0"
             VALUE "InternalName", "Zip2Sfx" "\0"
             VALUE "OriginalFilename", "zip2sfx.exe" "\0"
-            VALUE "LegalCopyright", "Copyright © 2000-2023 Open Salamander Authors" "\0"
+            VALUE "LegalCopyright", "Copyright © 2000-2026 Open Salamander Authors" "\0"
             VALUE "ProductVersion", VERSINFO_SALAMANDER_VERSION "\0"
             VALUE "ProductName", "Open Salamander\0"
         END

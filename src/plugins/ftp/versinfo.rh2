@@ -15,7 +15,7 @@
 
 #include "spl_vers.h" // retrieve version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2002-2023 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyright © 2002-2026 Open Salamander Authors"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "FTP Client for Open Salamander"

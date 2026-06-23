@@ -6,8 +6,8 @@
 /*
 	PE File Viewer Plugin for Open Salamander
 
-	Copyright (c) 2015-2023 Milan Kase <manison@manison.cz>
-	Copyright (c) 2015-2023 Open Salamander Authors
+	Copyright (c) 2015-2026 Milan Kase <manison@manison.cz>
+	Copyright (c) 2015-2026 Open Salamander Authors
 
 	cfgdlg.h
 	Configuration dialog box.

@@ -607,7 +607,7 @@ public:
                                  FUNCTION_CONFIGURATION | FUNCTION_LOADSAVECONFIGURATION |
                                  FUNCTION_VIEWER | FUNCTION_FILESYSTEM,
                                  "2.0",
-                                 "Copyright © 1999-2023 Open Salamander Authors",
+                                 "Copyright © 1999-2026 Open Salamander Authors",
                                  "This plugin should help you to make your own plugins.",
 -                                "DEMOPLUG", "dmp", "dfs");
 +                                "DEMOPLUG", "dmp;dmp2", "dfs");

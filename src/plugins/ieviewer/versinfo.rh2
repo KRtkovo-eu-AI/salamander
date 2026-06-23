@@ -15,7 +15,7 @@
 
 #include "spl_vers.h" // pull version numbers + build
 
-#define VERSINFO_COPYRIGHT   "Copyright © 1999-2023 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyright © 1999-2026 Open Salamander Authors"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Internet Explorer Viewer for Open Salamander"

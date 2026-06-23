@@ -5,7 +5,7 @@
 // Microsoft JScript for Open Salamander Automation plugin
 // Contact us on forum.altap.cz
 //
-// Copyright (c) 2010-2023 Open Salamander Authors
+// Copyright (c) 2010-2026 Open Salamander Authors
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation

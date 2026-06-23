@@ -338,7 +338,7 @@ BOOL CZipPack::LoadDefaults()
             lstrcpy(Options.SfxSettings.Title, LoadStr(IDS_DEFSFXTITLE));
             lstrcpy(Options.About, "Version 1.40");
             lstrcpy(Options.SfxSettings.ExtractBtnText, LoadStr(IDS_DEFEXTRBUTTON));
-            lstrcpy(Options.SfxSettings.Vendor, "Self-Extractor © 2000-2023 Open Salamander Authors");
+            lstrcpy(Options.SfxSettings.Vendor, "Self-Extractor © 2000-2026 Open Salamander Authors");
             lstrcpy(Options.SfxSettings.WWW, "https://www.altap.cz");
         }
         else

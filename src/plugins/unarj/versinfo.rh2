@@ -15,7 +15,7 @@
 
 #include "spl_vers.h" // fetch version and build numbers
 
-#define VERSINFO_COPYRIGHT   "Copyright © 2000-2023 Open Salamander Authors"
+#define VERSINFO_COPYRIGHT   "Copyright © 2000-2026 Open Salamander Authors"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "UnARJ plugin for Open Salamander"
