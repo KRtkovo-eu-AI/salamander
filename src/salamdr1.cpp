@@ -4098,61 +4098,6 @@ BOOL ParseCommandLineParameters(LPSTR cmdLine, CCommandLineParams* cmdLineParams
     return TRUE;
 }
 
-
-static int ShowConfigurationStoragePromptW(int textID, int aliasID)
-{
-    wchar_t aliasBuffer[1000];
-    lstrcpynW(aliasBuffer, LoadStrW(aliasID), _countof(aliasBuffer));
-
-    TASKDIALOG_BUTTON buttons[3];
-    ZeroMemory(buttons, sizeof(buttons));
-    int buttonCount = 0;
-
-    wchar_t* context = NULL;
-    wchar_t* token = wcstok_s(aliasBuffer, L"\t", &context);
-    while (token != NULL && buttonCount < (int)_countof(buttons))
-    {
-        int buttonID = _wtoi(token);
-        wchar_t* buttonText = wcstok_s(NULL, L"\t", &context);
-        if (buttonID == 0 || buttonText == NULL)
-            break;
-
-        buttons[buttonCount].nButtonID = buttonID;
-        buttons[buttonCount].pszButtonText = buttonText;
-        buttonCount++;
-        token = wcstok_s(NULL, L"\t", &context);
-    }
-
-    if (buttonCount > 0)
-    {
-        TASKDIALOGCONFIG config;
-        ZeroMemory(&config, sizeof(config));
-        config.cbSize = sizeof(config);
-        config.hwndParent = NULL;
-        config.hInstance = HInstance;
-        config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION;
-        config.pszWindowTitle = LoadStrW(IDS_QUESTION);
-        config.pszMainIcon = TD_INFORMATION_ICON;
-        config.pszContent = LoadStrW(textID);
-        config.cButtons = buttonCount;
-        config.pButtons = buttons;
-        config.nDefaultButton = buttons[0].nButtonID;
-
-        int pressedButton = 0;
-        if (TaskDialogIndirect(&config, &pressedButton, NULL, NULL) == S_OK)
-            return pressedButton;
-    }
-
-    MSGBOXEX_PARAMS params;
-    memset(&params, 0, sizeof(params));
-    params.HParent = NULL;
-    params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
-    params.Caption = LoadStr(IDS_QUESTION);
-    params.Text = LoadStr(textID);
-    params.AliasBtnNames = LoadStr(aliasID);
-    return SalMessageBoxEx(&params);
-}
-
 int WinMainBody(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmdShow)
 {
     int myExitCode = 1;
@@ -4724,8 +4669,15 @@ FIND_NEW_SLG_FILE:
             }
             else
             {
-                int res = ShowConfigurationStoragePromptW(IDS_CFGSTORAGE_IMPORTREGPROMPT,
-                                                         IDS_CFGSTORAGE_IMPORTREGALIAS);
+                MSGBOXEX_PARAMS params;
+                memset(&params, 0, sizeof(params));
+                params.HParent = NULL;
+                params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
+                params.Caption = LoadStr(IDS_QUESTION);
+                params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTREGPROMPT);
+                params.AliasBtnNames = LoadStr(IDS_CFGSTORAGE_IMPORTREGALIAS);
+
+                int res = SalMessageBoxEx(&params);
                 if (res == DIALOG_YES)
                 {
                     storageType = cstRegFile;
@@ -4756,8 +4708,15 @@ FIND_NEW_SLG_FILE:
         }
         if (showRegistryImportPrompt && registryConfigExists && storageTypeBootstrapWritable)
         {
-            int res = ShowConfigurationStoragePromptW(IDS_CFGSTORAGE_IMPORTFILEPROMPT,
-                                                     IDS_CFGSTORAGE_IMPORTFILEALIAS);
+            MSGBOXEX_PARAMS params;
+            memset(&params, 0, sizeof(params));
+            params.HParent = NULL;
+            params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
+            params.Caption = LoadStr(IDS_QUESTION);
+            params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT);
+            params.AliasBtnNames = LoadStr(IDS_CFGSTORAGE_IMPORTFILEALIAS);
+
+            int res = SalMessageBoxEx(&params);
             if (res == DIALOG_YES)
             {
                 storageType = cstRegistry;
