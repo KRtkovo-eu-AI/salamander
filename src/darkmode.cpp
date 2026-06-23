@@ -1246,9 +1246,10 @@ void PaintAutoSuggestSizeGrip(HWND hwnd, HDC hdc)
 
     HTHEME hTheme = OpenThemeData(hwnd, L"DarkMode_Explorer::Status");
 
+    const int statusGripPart = 6;
     SIZE szGrip{};
     if (hTheme != NULL)
-        GetThemePartSize(hTheme, hdc, SP_GRIPPER, 0, &rcClient, TS_DRAW, &szGrip);
+        GetThemePartSize(hTheme, hdc, statusGripPart, 0, &rcClient, TS_DRAW, &szGrip);
     if (szGrip.cx <= 0 || szGrip.cy <= 0)
     {
         szGrip.cx = GetSystemMetrics(SM_CXVSCROLL);
@@ -1262,7 +1263,7 @@ void PaintAutoSuggestSizeGrip(HWND hwnd, HDC hdc)
 
     if (hTheme != NULL)
     {
-        DrawThemeBackground(hTheme, hdc, SP_GRIPPER, 0, &rcGrip, NULL);
+        DrawThemeBackground(hTheme, hdc, statusGripPart, 0, &rcGrip, NULL);
         CloseThemeData(hTheme);
     }
     else
