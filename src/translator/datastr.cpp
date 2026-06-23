@@ -137,24 +137,17 @@ BOOL CData::SaveStrings(HANDLE hUpdateRes)
             }
         }
 
-        WORD targetLangID = SLGSignature.LanguageID;
         BOOL result = TRUE;
-        if (strData->TLangID != targetLangID) // Remove the seed resource language so only the translated language remains in the final .SLG.
+        if (strData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Remove non-neutral resource to avoid duplicating strings in the final .SLG
         {
             result = UpdateResource(hUpdateRes, RT_STRING, MAKEINTRESOURCE(strData->ID),
                                     strData->TLangID,
                                     NULL, 0);
         }
-        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL) &&
-            strData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Also remove older neutral resources produced by previous automation runs.
-        {
-            result = DeleteOptionalResourceLanguage(hUpdateRes, RT_STRING, MAKEINTRESOURCE(strData->ID),
-                                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
-        }
         if (result)
         {
             result = UpdateResource(hUpdateRes, RT_STRING, MAKEINTRESOURCE(strData->ID),
-                                    targetLangID,
+                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
                                     buff, (iter - buff) * sizeof(wchar_t));
         }
         if (!result)

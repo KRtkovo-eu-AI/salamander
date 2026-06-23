@@ -34,14 +34,6 @@ COLORREF GetSelectionColor(BOOL clipped);
 
 BOOL __GetNextChar(wchar_t& charValue, wchar_t*& start, wchar_t* end);
 
-inline BOOL DeleteOptionalResourceLanguage(HANDLE hUpdateRes, LPCSTR resourceType, LPCSTR resourceName, WORD languageID)
-{
-    if (UpdateResource(hUpdateRes, resourceType, resourceName, languageID, NULL, 0))
-        return TRUE;
-
-    DWORD err = GetLastError();
-    return err == ERROR_RESOURCE_DATA_NOT_FOUND || err == ERROR_INVALID_PARAMETER;
-}
 
 #define PUT_WORD(ptr, w) (*(WORD*)(ptr) = (w))
 #define GET_WORD(ptr) (*(WORD*)(ptr))
