@@ -2988,7 +2988,7 @@ void dmlib::setDarkListView(HWND hWnd)
 }
 
 /**
- * @brief Replaces list view or tree view image list checkbox state images with themed dark mode versions on Windows 11.
+ * @brief Replaces list view or tree view image list checkbox state images with themed dark mode versions.
  *
  * Uses `"DarkMode_Explorer::Button"` as the theme class if experimental dark mode is active;
  * otherwise falls back to `VSCLASS_BUTTON`.
@@ -2997,15 +2997,10 @@ void dmlib::setDarkListView(HWND hWnd)
  * @param[in]   hImgList      Handle to the image list of control containing checkbox state images.
  * @param[in]   viewCheckbox  Type of checkbox style.
  *
- * @note Does nothing on pre-Windows 11 systems.
+ * @note Requires an existing state image list.
  */
 static void setDarkCheckboxes(HWND hWnd, HIMAGELIST hImgList, ViewCheckbox viewCheckbox) noexcept
 {
-	if (!dmlib::isAtLeastWindows11())
-	{
-		return;
-	}
-
 	HDC hdc = ::GetDC(nullptr);
 
 	const bool useDark = dmlib::isExperimentalActive() && dmlib::isThemeDark();
@@ -3025,7 +3020,10 @@ static void setDarkCheckboxes(HWND hWnd, HIMAGELIST hImgList, ViewCheckbox viewC
 
 	HDC hBoxDC = ::CreateCompatibleDC(hdc);
 	HBITMAP hBoxBmp = ::CreateCompatibleBitmap(hdc, szBox.cx, szBox.cy);
-	HBITMAP hMaskBmp = ::CreateCompatibleBitmap(hdc, szBox.cx, szBox.cy);
+	// Use a monochrome, initially opaque icon mask. A compatible color mask can
+	// leave themed checkbox pixels blending with the light default list-view
+	// background on Windows 10, which shows up as white rectangles in dark lists.
+	HBITMAP hMaskBmp = ::CreateBitmap(szBox.cx, szBox.cy, 1, 1, nullptr);
 
 	auto holdBmp = static_cast<HBITMAP>(::SelectObject(hBoxDC, hBoxBmp));
 	::DrawThemeBackground(hTheme, hBoxDC, BP_CHECKBOX, CBS_UNCHECKEDNORMAL, &rcBox, nullptr);
@@ -3095,11 +3093,11 @@ static void setDarkCheckboxes(HWND hWnd, HIMAGELIST hImgList, ViewCheckbox viewC
 }
 
 /**
- * @brief Replaces default list view checkboxes with themed dark-mode versions on Windows 11.
+ * @brief Replaces default list view checkboxes with themed dark-mode versions.
  *
- * If the list view uses `LVS_EX_CHECKBOXES` and is running on Windows 11 or later,
- * this function then manually draws the unchecked and checked checkbox visuals using
- * themed drawing APIs, then inserts the resulting icons into the state image list.
+ * If the list view uses `LVS_EX_CHECKBOXES`, this function manually draws the unchecked
+ * and checked checkbox visuals using themed drawing APIs, then inserts the resulting
+ * icons into the state image list.
  *
  * Uses `"DarkMode_Explorer::Button"` as the theme class if experimental dark mode is active;
  * otherwise falls back to `VSCLASS_BUTTON`.
@@ -3108,7 +3106,7 @@ static void setDarkCheckboxes(HWND hWnd, HIMAGELIST hImgList, ViewCheckbox viewC
  *
  * @see setDarkCheckboxes()
  *
- * @note Does nothing on pre-Windows 11 systems or if checkboxes are not enabled.
+ * @note Does nothing if checkboxes are not enabled.
  */
 void dmlib::setDarkListViewCheckboxes(HWND hWnd)
 {
@@ -3122,12 +3120,12 @@ void dmlib::setDarkListViewCheckboxes(HWND hWnd)
 }
 
 /**
- * @brief Replaces default tree view checkboxes with themed dark-mode versions on Windows 11.
+ * @brief Replaces default tree view checkboxes with themed dark-mode versions.
  *
  * If the tree view uses `TVS_CHECKBOXES` or any combination of `TVS_EX_PARTIALCHECKBOXES`,
- * `TVS_EX_EXCLUSIONCHECKBOXES`, `TVS_EX_DIMMEDCHECKBOXES` extended styles and is running on
- * Windows 11 or later, this function then manually draws the checkbox state visuals using
- * themed drawing APIs, then inserts the resulting icons into the state image list.
+ * `TVS_EX_EXCLUSIONCHECKBOXES`, `TVS_EX_DIMMEDCHECKBOXES` extended styles, this function
+ * manually draws the checkbox state visuals using themed drawing APIs, then inserts the
+ * resulting icons into the state image list.
  *
  * Uses `"DarkMode_Explorer::Button"` as the theme class if experimental dark mode is active;
  * otherwise falls back to `VSCLASS_BUTTON`.
@@ -3136,7 +3134,7 @@ void dmlib::setDarkListViewCheckboxes(HWND hWnd)
  *
  * @see setDarkCheckboxes()
  *
- * @note Does nothing on pre-Windows 11 systems or if checkboxes are not enabled.
+ * @note Does nothing if checkboxes are not enabled.
  */
 void dmlib::setDarkTreeViewCheckboxes(HWND hWnd)
 {

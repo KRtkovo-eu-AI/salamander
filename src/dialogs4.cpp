@@ -1518,15 +1518,16 @@ void CCfgPageView::EnableControls()
     BOOL enableLeftEdit = supportFixedWidth && IsDlgButtonChecked(HWindow, IDC_VIEW_LEFT_FIXED) == BST_CHECKED;
     BOOL enableRightEdit = supportFixedWidth && IsDlgButtonChecked(HWindow, IDC_VIEW_RIGHT_FIXED) == BST_CHECKED;
 
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT4), enable);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT6), enable);
+    const BOOL keepStaticTextReadable = DarkModeShouldUseDarkColors();
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT4), keepStaticTextReadable || enable);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT6), keepStaticTextReadable || enable);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_LEFT_FIXED), supportFixedWidth);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_RIGHT_FIXED), supportFixedWidth);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_LEFT_WIDTH), enableLeftEdit);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_RIGHT_WIDTH), enableRightEdit);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT2), supportFixedWidth);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT5), supportFixedWidth);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT7), enable);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT2), keepStaticTextReadable || supportFixedWidth);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT5), keepStaticTextReadable || supportFixedWidth);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT7), keepStaticTextReadable || enable);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_LEFT_SMARTMODE), enable);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_RIGHT_SMARTMODE), enable);
 }
