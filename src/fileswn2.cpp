@@ -2815,7 +2815,11 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                 if (!pathInvalid &&               // the user already knows the UNC path couldn't be revived
                     err != ERROR_USER_TERMINATED) // the user also knows about the abort (ESC)
                 {
-                    CheckPath(TRUE, changedPath, err, TRUE, parent); // other errors - just display the message
+                    if (!SuppressChangeDirHistoryErr ||
+                        err != ERROR_FILE_NOT_FOUND && err != ERROR_PATH_NOT_FOUND)
+                    {
+                        CheckPath(TRUE, changedPath, err, TRUE, parent); // other errors - just display the message
+                    }
                 }
             }
 

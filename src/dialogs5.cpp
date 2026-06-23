@@ -1764,6 +1764,7 @@ void CCfgPageConfirmations::InitTree()
     AddItem(HShowMessage, -1, IDS_CNFRM_ONADDTOARCHIVE, &Configuration.CnfrmAddToArchive);
     AddItem(HShowMessage, -1, IDS_CNFRM_ONCREATEDIR, &Configuration.CnfrmCreateDir);
     AddItem(HShowMessage, -1, IDS_CNFRM_COPYMOVEOPTNS, &Configuration.CnfrmCopyMoveOptionsNS);
+    AddItem(HShowMessage, -1, IDS_CNFRM_CHANGEDIRHISTORYERR, &Configuration.CnfrmChangeDirHistoryErr);
 
     // select the first usable item
     TreeView_Select(HTreeView, hFirst, TVGN_CARET);

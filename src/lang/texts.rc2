@@ -1730,6 +1730,7 @@ STRINGTABLE
  IDS_CNFRM_ONADDTOARCHIVE, "Do you want to add files into existing archive?"
  IDS_CNFRM_ONCREATEDIR, "The directory doesn't exist. Do you want to create it?"
  IDS_CNFRM_COPYMOVEOPTNS, "Copy/Move to archives and plugin FS: options will be ignored."
+ IDS_CNFRM_CHANGEDIRHISTORYERR, "Error changing directory while browsing history (path not found)."
 
  IDS_CANCLOSESALAMANDER, "Do you want to close Open Salamander?"
 

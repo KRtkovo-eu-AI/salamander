@@ -2386,6 +2386,7 @@
 #define IDS_CNFRM_STOPFIND              13476
 #define IDS_CNFRM_CLOSEARCHIVE          13477
 #define IDS_CNFRM_ONCREATEDIR           13478
+#define IDS_CNFRM_CHANGEDIRHISTORYERR    13479
 
 //                        rezervovat do 13550
 #define IDS_CANCLOSESALAMANDER          13551
