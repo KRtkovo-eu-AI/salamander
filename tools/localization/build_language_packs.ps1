@@ -153,6 +153,7 @@ $seedRejections = New-Object System.Collections.Generic.List[string]
 $coreSeedRejections = New-Object System.Collections.Generic.List[string]
 $validated = 0
 $validationWarnings = New-Object System.Collections.Generic.List[string]
+$roundtripFailures = New-Object System.Collections.Generic.List[string]
 
 foreach ($language in $requestedLanguages)
 {
@@ -216,6 +217,38 @@ foreach ($language in $requestedLanguages)
             }
         }
 
+        # Verify that Translator preserved the source SLT text after the
+        # import/export round-trip.  This catches code-page or encoding
+        # regressions before a corrupted .slg language pack is shipped.
+        $sourceArchivePath = Join-Path $WorkspaceDir "translations\$language\$moduleName.slt"
+        if (Test-Path -LiteralPath $sourceArchivePath)
+        {
+            $roundtripDir = Join-Path $WorkspaceDir "roundtrip\$language\$moduleName"
+            New-Item -ItemType Directory -Path $roundtripDir -Force | Out-Null
+            try
+            {
+                Invoke-SalamanderTranslatorQuiet `
+                    -TranslatorExe $TranslatorExe `
+                    -Arguments @("-quiet-export-slt", $roundtripDir, $atpFile) `
+                    -FailureMessage "$language/${moduleName}: SLT round-trip export failed." `
+                    -DiagnosticLog $diagnosticLog `
+                    -TimeoutSeconds 60
+
+                $roundtripArchivePath = Join-Path $roundtripDir "$moduleName.slt"
+                & python (Join-Path $scriptDir "verify_slt_roundtrip.py") $sourceArchivePath $roundtripArchivePath
+                if (-not $?)
+                {
+                    $roundtripFailures.Add("${language}/${moduleName}: SLT text changed after Translator import/export")
+                    continue
+                }
+            }
+            catch
+            {
+                $roundtripFailures.Add("${language}/${moduleName}: $($_.Exception.Message)")
+                continue
+            }
+        }
+
         # Determine destination in runtime tree
         if ($moduleName -eq "salamand")
         {
@@ -248,6 +281,7 @@ Write-Host "  Languages:           $($requestedLanguages.Count)"
 Write-Host "  .slg files copied:   $copied"
 Write-Host "  Seed rejections:     $($seedRejections.Count)"
 Write-Host "  Core rejections:     $($coreSeedRejections.Count)"
+Write-Host "  Round-trip failures: $($roundtripFailures.Count)"
 
 if (-not $SkipValidation)
 {
@@ -270,6 +304,16 @@ if ($copyFailures.Count -gt 0)
     Write-Host ""
     Write-Warning "Copy failures:"
     foreach ($failure in $copyFailures)
+    {
+        Write-Warning "  $failure"
+    }
+}
+
+if ($roundtripFailures.Count -gt 0)
+{
+    Write-Host ""
+    Write-Warning "SLT round-trip failures (generated .slg does not preserve source translations):"
+    foreach ($failure in $roundtripFailures)
     {
         Write-Warning "  $failure"
     }
@@ -305,8 +349,8 @@ else
 # Fail the build if core Samandarin imports produced untranslated seeds. Plugin seed
 # rejections may be tolerated for local builds and optional/incomplete plugins,
 # but dropping the main application language packs makes the release incomplete.
-$fatalFailures = $copyFailures.Count + $coreSeedRejections.Count + $(if ($AllowSeedRejections) { 0 } else { $seedRejections.Count })
+$fatalFailures = $copyFailures.Count + $roundtripFailures.Count + $coreSeedRejections.Count + $(if ($AllowSeedRejections) { 0 } else { $seedRejections.Count })
 if ($fatalFailures -gt 0)
 {
-    throw "Language pack build completed with $fatalFailures failure(s): $($seedRejections.Count) seed rejection(s), $($coreSeedRejections.Count) core seed rejection(s), $($copyFailures.Count) copy failure(s). The release zip has incomplete localization."
+    throw "Language pack build completed with $fatalFailures failure(s): $($seedRejections.Count) seed rejection(s), $($coreSeedRejections.Count) core seed rejection(s), $($roundtripFailures.Count) round-trip failure(s), $($copyFailures.Count) copy failure(s). The release zip has incomplete localization."
 }
