@@ -61,6 +61,75 @@ static bool DarkModeTryHandleCtlColorForDialogPage(UINT uMsg, WPARAM wParam, LPA
     return true;
 }
 
+
+static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
+{
+    HBRUSH brush = CreateSolidBrush(color);
+    if (brush != NULL)
+    {
+        FillRect(hdc, &rect, brush);
+        DeleteObject(brush);
+    }
+}
+
+static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
+{
+    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
+        return;
+
+    const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
+    RECT iconRect;
+    if (!ListView_GetItemRect(listView, item, &iconRect, LVIR_ICON))
+        return;
+
+    HDC hdc = customDraw->nmcd.hdc;
+    if (hdc == NULL)
+        return;
+
+    const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
+    const COLORREF rowBackground = selected ? GetSysColor(COLOR_HIGHLIGHT) : DarkModeGetColors().background;
+    FillRectWithSysColor(hdc, iconRect, rowBackground);
+
+    const int checkSize = (std::min)(13, (std::max)(9, iconRect.bottom - iconRect.top - 2));
+    RECT checkRect;
+    checkRect.left = iconRect.left + ((iconRect.right - iconRect.left) - checkSize) / 2;
+    checkRect.top = iconRect.top + ((iconRect.bottom - iconRect.top) - checkSize) / 2;
+    checkRect.right = checkRect.left + checkSize;
+    checkRect.bottom = checkRect.top + checkSize;
+
+    const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
+    const COLORREF fill = checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24);
+    const COLORREF border = checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78);
+
+    HBRUSH fillBrush = CreateSolidBrush(fill);
+    HPEN borderPen = CreatePen(PS_SOLID, 1, border);
+    HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
+    HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
+    Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
+
+    if (checked)
+    {
+        HPEN checkPen = CreatePen(PS_SOLID, 2, RGB(0x10, 0x10, 0x10));
+        HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
+        MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
+        LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
+        LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
+        if (oldCheckPen != NULL)
+            SelectObject(hdc, oldCheckPen);
+        if (checkPen != NULL)
+            DeleteObject(checkPen);
+    }
+
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    if (oldBrush != NULL)
+        SelectObject(hdc, oldBrush);
+    if (borderPen != NULL)
+        DeleteObject(borderPen);
+    if (fillBrush != NULL)
+        DeleteObject(fillBrush);
+}
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -1734,6 +1803,23 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LPNMHDR nmh = (LPNMHDR)lParam;
             switch (nmh->code)
             {
+            case NM_CUSTOMDRAW:
+            {
+                LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
+                LRESULT customDrawResult = CDRF_DODEFAULT;
+                if (DarkModeShouldUseDarkColors())
+                {
+                    if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
+                        customDrawResult = CDRF_NOTIFYITEMDRAW;
+                    else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                        customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                    else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                        DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
+                }
+                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
+                return TRUE;
+            }
+
             case NM_DBLCLK:
             {
                 LVHITTESTINFO ht;
