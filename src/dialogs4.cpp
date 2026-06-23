@@ -72,6 +72,26 @@ static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
     }
 }
 
+static void RemoveViewsListViewWhiteClientEdge(HWND listView)
+{
+    if (listView == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    DWORD exStyle = (DWORD)GetWindowLongPtr(listView, GWL_EXSTYLE);
+    if ((exStyle & WS_EX_CLIENTEDGE) == 0)
+        return;
+
+    SetWindowLongPtr(listView, GWL_EXSTYLE, exStyle & ~WS_EX_CLIENTEDGE);
+    SetWindowPos(listView, NULL, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+}
+
+static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
+{
+    RemoveViewsListViewWhiteClientEdge(listView);
+    RemoveViewsListViewWhiteClientEdge(listView2);
+}
+
 // Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
 // darkmodelib's setDarkCheckboxes() only works on Win11+, so on Win10 we must
 // draw the checkboxes ourselves. On Win11+ with USE_DARKMODELIB, darkmodelib
@@ -1791,6 +1811,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
+        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -1803,20 +1824,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // visible at the edges. Remove WS_EX_CLIENTEDGE so only the CToolbarHeader's
             // dark sunken border remains. On Win11+, darkmodelib's setDarkCheckboxes
             // replaces the native state images entirely, so the border isn't an issue.
-            if (DarkModeShouldUseDarkColors())
-            {
-                auto RemoveWhiteClientEdge = [](HWND hList) {
-                    DWORD exStyle = (DWORD)GetWindowLongPtr(hList, GWL_EXSTYLE);
-                    if (exStyle & WS_EX_CLIENTEDGE)
-                    {
-                        SetWindowLongPtr(hList, GWL_EXSTYLE, exStyle & ~WS_EX_CLIENTEDGE);
-                        SetWindowPos(hList, NULL, 0, 0, 0, 0,
-                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-                    }
-                };
-                RemoveWhiteClientEdge(HListView);
-                RemoveWhiteClientEdge(HListView2);
-            }
+            RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
@@ -1828,6 +1836,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
+        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
         break;
     }
 
