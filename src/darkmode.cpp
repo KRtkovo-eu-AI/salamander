@@ -668,6 +668,8 @@ void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
         if (SendMessage(hwnd, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) != 0 &&
             bandRect.bottom > client.top && bandRect.bottom < client.bottom)
         {
+            lines.push_back(bandRect.top);
+            lines.push_back(bandRect.bottom - 1);
             lines.push_back(bandRect.bottom);
         }
     }

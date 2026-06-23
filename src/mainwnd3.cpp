@@ -3322,9 +3322,56 @@ void CMainWindow::UpdateRebarVisuals()
     {
         REBARBANDINFO rbi = {0};
         rbi.cbSize = sizeof(rbi);
-        rbi.fMask = RBBIM_CHILD;
+        rbi.fMask = RBBIM_CHILD | RBBIM_ID;
         if (SendMessage(HTopRebar, RB_GETBANDINFO, i, (LPARAM)&rbi) != 0 && rbi.hwndChild != NULL)
         {
+            int neededHeight = 0;
+            switch (rbi.wID)
+            {
+            case BANDID_MENU:
+                if (MenuBar != NULL)
+                    neededHeight = MenuBar->GetNeededHeight();
+                break;
+            case BANDID_TOPTOOLBAR:
+                if (TopToolBar != NULL)
+                    neededHeight = TopToolBar->GetNeededHeight();
+                break;
+            case BANDID_PLUGINSBAR:
+                if (PluginsBar != NULL)
+                    neededHeight = PluginsBar->GetNeededHeight();
+                break;
+            case BANDID_UMTOOLBAR:
+                if (UMToolBar != NULL)
+                    neededHeight = UMToolBar->GetNeededHeight();
+                break;
+            case BANDID_HPTOOLBAR:
+                if (HPToolBar != NULL)
+                    neededHeight = HPToolBar->GetNeededHeight();
+                break;
+            case BANDID_DRIVEBAR:
+                if (DriveBar != NULL)
+                    neededHeight = DriveBar->GetNeededHeight();
+                break;
+            case BANDID_DRIVEBAR2:
+                if (DriveBar2 != NULL)
+                    neededHeight = DriveBar2->GetNeededHeight();
+                break;
+            }
+
+            if (neededHeight > 0)
+            {
+                // Native RBS_BANDBORDERS used to reserve vertical pixels between
+                // toolbar rows.  It is disabled in dark mode because it paints a
+                // white border after switching schemes at runtime, so reserve the
+                // same row separator space ourselves and draw it in darkmode.cpp.
+                REBARBANDINFO sizeInfo = {0};
+                sizeInfo.cbSize = sizeof(sizeInfo);
+                sizeInfo.fMask = RBBIM_CHILDSIZE;
+                sizeInfo.cxMinChild = 10;
+                sizeInfo.cyMinChild = neededHeight + (useDark ? 2 : 0);
+                SendMessage(HTopRebar, RB_SETBANDINFO, i, (LPARAM)&sizeInfo);
+            }
+
             DarkModeApplyTree(rbi.hwndChild);
             RedrawWindow(rbi.hwndChild, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
         }

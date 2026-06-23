@@ -961,7 +961,7 @@ BOOL CMainWindow::InsertMenuBand()
     rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE |
                  RBBIM_ID;
     rbbi.cxMinChild = 10;
-    rbbi.cyMinChild = MenuBar->GetNeededHeight();
+    rbbi.cyMinChild = MenuBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
     rbbi.cx = Configuration.MenuWidth;
     if (Configuration.MenuBreak)
         rbbi.fStyle |= RBBS_BREAK;
@@ -1031,7 +1031,7 @@ BOOL CMainWindow::InsertTopToolbarBand()
     rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE |
                  RBBIM_ID;
     rbbi.cxMinChild = 10;
-    rbbi.cyMinChild = TopToolBar->GetNeededHeight();
+    rbbi.cyMinChild = TopToolBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
     rbbi.cx = Configuration.TopToolbarWidth;
     if (Configuration.TopToolbarBreak)
         rbbi.fStyle |= RBBS_BREAK;
@@ -1067,7 +1067,7 @@ BOOL CMainWindow::InsertPluginsBarBand()
     rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE |
                  RBBIM_ID;
     rbbi.cxMinChild = 10;
-    rbbi.cyMinChild = PluginsBar->GetNeededHeight();
+    rbbi.cyMinChild = PluginsBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
     rbbi.cx = Configuration.PluginsBarWidth;
     if (Configuration.PluginsBarBreak)
         rbbi.fStyle |= RBBS_BREAK;
@@ -1103,7 +1103,7 @@ BOOL CMainWindow::InsertUMToolbarBand()
     rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE |
                  RBBIM_ID;
     rbbi.cxMinChild = 10;
-    rbbi.cyMinChild = UMToolBar->GetNeededHeight();
+    rbbi.cyMinChild = UMToolBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
     rbbi.cx = Configuration.UserMenuToolbarWidth;
     if (Configuration.UserMenuToolbarBreak)
         rbbi.fStyle |= RBBS_BREAK;
@@ -1140,7 +1140,7 @@ BOOL CMainWindow::InsertHPToolbarBand()
     rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE |
                  RBBIM_ID;
     rbbi.cxMinChild = 10;
-    rbbi.cyMinChild = HPToolBar->GetNeededHeight();
+    rbbi.cyMinChild = HPToolBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
     rbbi.cx = Configuration.HotPathsBarWidth;
     if (Configuration.HotPathsBarBreak)
         rbbi.fStyle |= RBBS_BREAK;
@@ -1176,7 +1176,7 @@ BOOL CMainWindow::InsertDriveBarBand(BOOL twoDriveBars)
     rbbi.cbSize = sizeof(REBARBANDINFO);
     rbbi.fMask = RBBIM_SIZE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_STYLE |
                  RBBIM_ID;
-    rbbi.cyMinChild = DriveBar->GetNeededHeight();
+    rbbi.cyMinChild = DriveBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
     rbbi.cx = Configuration.DriveBarWidth;
     if (twoDriveBars)
     {
@@ -1542,12 +1542,12 @@ void CMainWindow::SetEnvFont()
         rbbi.cxMinChild = 10;
         if (MenuBar != NULL)
         {
-            rbbi.cyMinChild = MenuBar->GetNeededHeight();
+            rbbi.cyMinChild = MenuBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
             SendMessage(HTopRebar, RB_SETBANDINFO, (WPARAM)Configuration.MenuIndex, (LPARAM)&rbbi);
         }
         if (DriveBar != NULL && DriveBar->HWindow != NULL)
         {
-            rbbi.cyMinChild = DriveBar->GetNeededHeight();
+            rbbi.cyMinChild = DriveBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
             int index;
             if (DriveBar2 != NULL && DriveBar2->HWindow != NULL)
                 index = (int)SendMessage(HTopRebar, RB_GETBANDCOUNT, 0, 0) - 2;
@@ -1557,18 +1557,18 @@ void CMainWindow::SetEnvFont()
         }
         if (DriveBar2 != NULL && DriveBar2->HWindow != NULL)
         {
-            rbbi.cyMinChild = DriveBar2->GetNeededHeight();
+            rbbi.cyMinChild = DriveBar2->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
             int index = (int)SendMessage(HTopRebar, RB_GETBANDCOUNT, 0, 0) - 1;
             SendMessage(HTopRebar, RB_SETBANDINFO, (WPARAM)index, (LPARAM)&rbbi);
         }
         if (UMToolBar != NULL && UMToolBar->HWindow != NULL)
         {
-            rbbi.cyMinChild = UMToolBar->GetNeededHeight();
+            rbbi.cyMinChild = UMToolBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
             SendMessage(HTopRebar, RB_SETBANDINFO, (WPARAM)Configuration.UserMenuToolbarIndex, (LPARAM)&rbbi);
         }
         if (HPToolBar != NULL && HPToolBar->HWindow != NULL)
         {
-            rbbi.cyMinChild = HPToolBar->GetNeededHeight();
+            rbbi.cyMinChild = HPToolBar->GetNeededHeight() + (DarkModeShouldUseDarkColors() ? 2 : 0);
             SendMessage(HTopRebar, RB_SETBANDINFO, (WPARAM)Configuration.HotPathsBarIndex, (LPARAM)&rbbi);
         }
     }
@@ -3480,6 +3480,7 @@ void CMainWindow::OnColorsChanged(BOOL reloadUMIcons)
     }
 
     UpdateRebarVisuals();
+    LayoutWindows();
 
     // main menu
     MainMenu.SetImageList(HGrayToolBarImageList, TRUE);
