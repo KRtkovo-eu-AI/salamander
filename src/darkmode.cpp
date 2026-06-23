@@ -2841,3 +2841,16 @@ HBRUSH DarkModeGetPanelFrameBrush()
         brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
     return brush;
 }
+
+void DarkModeApplyUpDownSubclass(HWND hWnd)
+{
+#if USE_DARKMODELIB
+    if (hWnd != NULL && DarkModeShouldUseDarkColors())
+    {
+        SetWindowTheme(hWnd, L"DarkMode_Explorer", nullptr);
+        dmlib::setUpDownCtrlSubclass(hWnd);
+    }
+#else
+    (void)hWnd;
+#endif
+}

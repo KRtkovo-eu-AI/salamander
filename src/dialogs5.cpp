@@ -3280,7 +3280,7 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // drawing the dialog on a slow machine looked odd
             // (the UpDown was drawn only after all the other controls)
             SetWindowPos(hWnd, hEdit, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-            DarkModeApplyWindow(hWnd);
+            DarkModeApplyUpDownSubclass(hWnd);
         }
 
         break;
