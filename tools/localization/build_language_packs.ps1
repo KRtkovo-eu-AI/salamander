@@ -229,7 +229,7 @@ foreach ($language in $requestedLanguages)
             {
                 Invoke-SalamanderTranslatorQuiet `
                     -TranslatorExe $TranslatorExe `
-                    -Arguments @("-quiet-export-slt", $roundtripDir, $atpFile) `
+                    -Arguments @("-quiet-export-slt-for-diff", $roundtripDir, $atpFile) `
                     -FailureMessage "$language/${moduleName}: SLT round-trip export failed." `
                     -DiagnosticLog $diagnosticLog `
                     -TimeoutSeconds 60
