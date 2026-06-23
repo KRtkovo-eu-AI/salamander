@@ -269,7 +269,7 @@ HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
         return E_OUTOFMEMORY;
     }
 
-    hr = autoComplete->Init(hEdit, source, NULL, NULL);
+    hr = autoComplete->Init(hEdit, static_cast<IUnknown*>(static_cast<IEnumString*>(source)), NULL, NULL);
     if (SUCCEEDED(hr))
         autoComplete->SetOptions(ACO_AUTOSUGGEST | ACO_AUTOAPPEND);
 
