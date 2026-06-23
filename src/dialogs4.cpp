@@ -107,24 +107,15 @@ static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
 
 static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
 {
-    if (!DarkModeShouldUseDarkColors())
-        return false;
-
-#if USE_DARKMODELIB
-    // On Win11+ darkmodelib replaces list-view checkbox state images with
-    // dark themed images. Older Windows keep native state images with light
-    // backgrounds, so we bypass native item painting there.
-    return !Windows11AndLater;
-#else
-    return true;
-#endif
+    // This one list-view has repeatedly shown native checkbox state-image
+    // backgrounds in dark mode. Bypass native item painting for it on every
+    // Windows version; darkmodelib still themes the list-view/header chrome.
+    return DarkModeShouldUseDarkColors();
 }
 
 // Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
-// darkmodelib's setDarkCheckboxes() only works on Win11+, so on Win10 we must
-// draw the checkboxes ourselves. On Win11+ with USE_DARKMODELIB, darkmodelib
-// handles them natively and we must not draw on top (causes white-background
-// artifacts).
+// We draw the whole item ourselves and return CDRF_SKIPDEFAULT so native checkbox
+// state images cannot leave white backgrounds in the checkbox gutter.
 static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
     if (!ShouldCustomDrawViewsAvailableColumnCheckboxes() || listView == NULL || customDraw == NULL)
