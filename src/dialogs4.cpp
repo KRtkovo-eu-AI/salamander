@@ -4218,6 +4218,30 @@ void CCfgPageColors::LayoutMaskControls()
 
     RECT listRect;
     GetWindowRect(hList, &listRect);
+    RECT firstMaskButtonRect = {};
+    GetWindowRect(GetDlgItem(HWindow, IDC_C_MASK1_C), &firstMaskButtonRect);
+    RECT clientRect;
+    GetClientRect(HWindow, &clientRect);
+
+    POINT listTop = {listRect.left, listRect.top};
+    ScreenToClient(HWindow, &listTop);
+    const int maskButtonHeight = firstMaskButtonRect.bottom - firstMaskButtonRect.top;
+    const int requiredBelowList = CfgPageColorsDluY(HWindow, 4 + 1 + 4 * 14) + maskButtonHeight;
+    const int bottomPadding = CfgPageColorsDluY(HWindow, 8);
+    const int maxListBottom = clientRect.bottom - bottomPadding - requiredBelowList;
+    const int minListHeight = CfgPageColorsDluY(HWindow, 24);
+    if (listRect.bottom - listRect.top > minListHeight)
+    {
+        const int currentListBottom = listTop.y + (listRect.bottom - listRect.top);
+        if (currentListBottom > maxListBottom)
+        {
+            const int newListHeight = maxListBottom - listTop.y > minListHeight ? maxListBottom - listTop.y : minListHeight;
+            SetWindowPos(hList, NULL, 0, 0, listRect.right - listRect.left, newListHeight,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+            GetWindowRect(hList, &listRect);
+        }
+    }
+
     POINT listBottom = {listRect.left, listRect.bottom};
     ScreenToClient(HWindow, &listBottom);
 
