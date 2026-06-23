@@ -1267,6 +1267,30 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
             EndPaint(hwnd, &ps);
             return 0;
         }
+        if (IsAutoSuggestDropdownClass(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            LRESULT ret = DefSubclassProc(hwnd, msg, wParam, lParam);
+            HDC hdc = GetDC(hwnd);
+            if (hdc != NULL)
+            {
+                RECT rcClient;
+                GetClientRect(hwnd, &rcClient);
+                HTHEME hTheme = OpenThemeData(hwnd, L"Status");
+                if (hTheme != NULL)
+                {
+                    SIZE szGrip{};
+                    const int SP_GRIPPER = 6;
+                    GetThemePartSize(hTheme, hdc, SP_GRIPPER, 0, &rcClient, TS_DRAW, &szGrip);
+                    RECT rcGrip{ rcClient };
+                    rcGrip.left = rcGrip.right - szGrip.cx;
+                    rcGrip.top = rcGrip.bottom - szGrip.cy;
+                    DrawThemeBackground(hTheme, hdc, SP_GRIPPER, 0, &rcGrip, NULL);
+                    CloseThemeData(hTheme);
+                }
+                ReleaseDC(hwnd, hdc);
+            }
+            return ret;
+        }
         break;
 
     case WM_PRINTCLIENT:
