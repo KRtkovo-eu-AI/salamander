@@ -680,7 +680,12 @@ void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
     std::sort(lines.begin(), lines.end());
     lines.erase(std::unique(lines.begin(), lines.end()), lines.end());
 
-    const COLORREF separatorColor = RGB(0x38, 0x38, 0x38);
+    // Row separators are drawn by small overlay child windows below.  Keep the
+    // legacy parent/child repaint path from adding extra visible pixels; when
+    // both paths draw, the separators become too thick and flicker at the
+    // rebar's left edge during light->dark switches.
+    lines.clear();
+    const COLORREF separatorColor = DarkModeGetColors().background;
     HPEN pen = CreatePen(PS_SOLID, 1, separatorColor);
     if (pen == NULL)
         return;
@@ -772,26 +777,8 @@ void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
 
 void PaintDarkRebarChildSeparators(HWND hwnd, HDC hdc)
 {
-    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
-        return;
-
-    RECT client;
-    GetClientRect(hwnd, &client);
-    if (client.right <= client.left || client.bottom <= client.top)
-        return;
-
-    HPEN pen = CreatePen(PS_SOLID, 1, RGB(0x38, 0x38, 0x38));
-    if (pen == NULL)
-        return;
-
-    HGDIOBJ oldPen = SelectObject(hdc, pen);
-    MoveToEx(hdc, client.left, client.top, NULL);
-    LineTo(hdc, client.right, client.top);
-    MoveToEx(hdc, client.left, client.bottom - 1, NULL);
-    LineTo(hdc, client.right, client.bottom - 1);
-    if (oldPen != NULL)
-        SelectObject(hdc, oldPen);
-    DeleteObject(pen);
+    (void)hwnd;
+    (void)hdc;
 }
 
 void PaintDarkRebarOverlaySeparator(HWND hwnd, HDC hdc)
@@ -804,7 +791,13 @@ void PaintDarkRebarOverlaySeparator(HWND hwnd, HDC hdc)
     if (client.right <= client.left || client.bottom <= client.top)
         return;
 
-    FillRectWithColor(hdc, client, RGB(95, 95, 95));
+    RECT topLine = client;
+    topLine.bottom = topLine.top + 1;
+    FillRectWithColor(hdc, topLine, RGB(56, 56, 56));
+
+    RECT bottomLine = client;
+    bottomLine.top = topLine.bottom;
+    FillRectWithColor(hdc, bottomLine, RGB(14, 14, 14));
 }
 
 LRESULT CALLBACK DarkRebarOverlaySeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
@@ -864,10 +857,8 @@ std::vector<int> GetDarkRebarOverlaySeparatorLines(HWND rebar)
         if (SendMessage(rebar, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) == 0)
             continue;
 
-        if (bandRect.top > client.top && bandRect.top < client.bottom)
-            lines.push_back(bandRect.top);
-        if (bandRect.bottom > client.top && bandRect.bottom < client.bottom)
-            lines.push_back(bandRect.bottom - 1);
+        if (bandRect.bottom - 2 > client.top && bandRect.bottom < client.bottom)
+            lines.push_back(bandRect.bottom - 2);
     }
 
     std::sort(lines.begin(), lines.end());
@@ -895,14 +886,14 @@ void UpdateDarkRebarOverlaySeparators(HWND rebar, bool enable)
     {
         HWND line = CreateWindowExW(WS_EX_NOACTIVATE, L"STATIC", L"",
                                     WS_CHILD | WS_VISIBLE,
-                                    client.left, y, width, 1,
+                                    client.left, y, width, 2,
                                     rebar, NULL, GetModuleHandle(NULL), NULL);
         if (line == NULL)
             continue;
 
         SetPropW(line, kDarkModeRebarOverlaySeparatorProp, reinterpret_cast<HANDLE>(1));
         SetWindowSubclass(line, DarkRebarOverlaySeparatorSubclass, kDarkModeRebarOverlaySeparatorSubclassId, 0);
-        SetWindowPos(line, HWND_TOP, client.left, y, width, 1,
+        SetWindowPos(line, HWND_TOP, client.left, y, width, 2,
                      SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
 }
@@ -991,7 +982,6 @@ LRESULT CALLBACK DarkRebarSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, 
             PaintDarkRebarSeparators(hwnd, hdc);
             ReleaseDC(hwnd, hdc);
         }
-        UpdateDarkRebarOverlaySeparators(hwnd, DarkModeShouldUseDarkColors());
         return result;
     }
 
