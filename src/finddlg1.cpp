@@ -65,8 +65,7 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
 
     if (statusBar != NULL)
     {
-        SendMessage(statusBar, SB_SETBKCOLOR, 0,
-                    DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : CLR_DEFAULT);
+        DarkModeApplyTree(statusBar);
         InvalidateRect(statusBar, NULL, TRUE);
     }
 
@@ -1602,6 +1601,7 @@ void CFindDialog::SetTwoStatusParts(BOOL two, BOOL force)
                                           progressWidth, r.bottom - 2,
                                           HStatusBar, (HMENU)0, HInstance, NULL);
             SendMessage(HProgressBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
+            DarkModeApplyTree(HProgressBar);
         }
     }
     else
@@ -3064,6 +3064,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        DarkModeApplyTree(HStatusBar);
         SetTwoStatusParts(FALSE, TRUE);
         SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(IDS_FIND_INIT_HINT));
 
