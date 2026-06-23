@@ -15,6 +15,8 @@ from pathlib import Path
 
 SECTION_RE = re.compile(r"^\[(?P<section>[^]]+)\]$")
 LINE_RE = re.compile(r'^(?P<prefix>.*?,)(?P<state>[01]),"(?P<text>.*)"\r?\n?$')
+MOJIBAKE_RE = re.compile(r'[ÃÂÅ][\u0080-\u00BF\u00A0-\u00BF\u0100-\u017F\u2122]')
+REPLACEMENT_CHARS = {"\ufffd", "\u25a1", "\u25a0"}
 
 
 def parse(path: Path) -> dict[str, tuple[int, str]]:
@@ -35,6 +37,17 @@ def parse(path: Path) -> dict[str, tuple[int, str]]:
     return items
 
 
+def validate_text(path: Path, line_no: int, text: str) -> list[str]:
+    errors = []
+    if any(ch in text for ch in REPLACEMENT_CHARS):
+        errors.append(f"{path}:{line_no}: text contains a replacement/box glyph: {text}")
+    if MOJIBAKE_RE.search(text):
+        errors.append(f"{path}:{line_no}: text looks mojibaked: {text}")
+    if "??" in text:
+        errors.append(f"{path}:{line_no}: text contains repeated question marks: {text}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="Source/committed SLT archive")
@@ -45,6 +58,11 @@ def main() -> int:
     source = parse(args.source)
     roundtrip = parse(args.roundtrip)
     mismatches: list[str] = []
+
+    for _, (line_no, source_text) in source.items():
+        mismatches.extend(validate_text(args.source, line_no, source_text))
+    for _, (line_no, roundtrip_text) in roundtrip.items():
+        mismatches.extend(validate_text(args.roundtrip, line_no, roundtrip_text))
 
     for key, (line_no, source_text) in source.items():
         if key not in roundtrip:

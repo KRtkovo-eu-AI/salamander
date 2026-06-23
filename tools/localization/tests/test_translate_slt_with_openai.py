@@ -21,6 +21,25 @@ class Tests(unittest.TestCase):
  def test_real_markup_tags_are_still_preserved(self):
   items=[slt.Item(0,"id","[STRINGTABLE 8]","<b>Error: %s</b>","1107,","")]
   with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"Chyba: %s"}]})
+
+ def test_validate_rejects_replacement_glyphs_and_mojibake(self):
+  items=[slt.Item(0,"id","[STRINGTABLE 8]","Open","1107,","")]
+  with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"Otev\ufffdít"}]})
+  with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"PÅ™enosnÃ½"}]})
+  with self.assertRaises(ValueError): slt.validate(items,{"translations":[{"id":"id","text":"??"}]})
+
+ def test_payload_uses_language_metadata(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  seen=[]
+  def requester(payload,key,model):
+   seen.append(payload)
+   return {"translations":[{"id":x["id"],"text":"Открыть %s\n" if x["resource_id"] == "101" else "Использовать &шрифт по умолчанию"} for x in payload["items"]]}
+  with tempfile.TemporaryDirectory() as d:
+   out=Path(d)/"out.slt"; slt.translate(FIX,out,"russian","mock",40,False,False,requester)
+  self.assertEqual(seen[0]["target_language"],"Russian")
+  self.assertEqual(seen[0]["target_locale"],"ru-RU")
+  self.assertEqual(seen[0]["target_langid"],1049)
+  self.assertEqual(seen[0]["target_script"],"Cyrillic")
  def test_translation_preserves_format_and_escaping(self):
   os.environ["OPENAI_API_KEY"]="test"
   def requester(payload,key,model): return {"translations":[{"id":x["id"],"text":x["text"].replace("Open","Otevřít").replace("Use","Použít")} for x in payload["items"]]}
