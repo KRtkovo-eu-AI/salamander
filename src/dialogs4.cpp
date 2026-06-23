@@ -4227,7 +4227,7 @@ void CCfgPageColors::LayoutMaskControls()
     ScreenToClient(HWindow, &listTop);
     const int maskButtonHeight = firstMaskButtonRect.bottom - firstMaskButtonRect.top;
     const int requiredBelowList = CfgPageColorsDluY(HWindow, 4 + 1 + 4 * 14) + maskButtonHeight;
-    const int bottomPadding = CfgPageColorsDluY(HWindow, 8);
+    const int bottomPadding = CfgPageColorsDluY(HWindow, 2);
     const int maxListBottom = clientRect.bottom - bottomPadding - requiredBelowList;
     const int minListHeight = CfgPageColorsDluY(HWindow, 24);
     if (listRect.bottom - listRect.top > minListHeight)

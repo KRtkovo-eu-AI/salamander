@@ -798,16 +798,16 @@ BEGIN
     COMBOBOX        IDC_C_SCHEME,3,13,129,88,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "&Item",IDC_STATIC_2,3,29,46,8
     COMBOBOX        IDC_C_ITEM,3,39,129,99,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    RTEXT           "dummy",IDC_C_ITEM1_L,178,7,82,8
-    PUSHBUTTON      "",IDC_C_ITEM1_C,265,5,30,12
-    RTEXT           "dummy",IDC_C_ITEM2_L,178,21,82,8
-    PUSHBUTTON      "",IDC_C_ITEM2_C,265,19,30,12
-    RTEXT           "dummy",IDC_C_ITEM3_L,178,35,82,8
-    PUSHBUTTON      "",IDC_C_ITEM3_C,265,33,30,12
-    RTEXT           "dummy",IDC_C_ITEM4_L,172,49,88,8
-    PUSHBUTTON      "",IDC_C_ITEM4_C,265,47,30,12
-    RTEXT           "dummy",IDC_C_ITEM5_L,172,63,88,8
-    PUSHBUTTON      "",IDC_C_ITEM5_C,265,61,30,12
+    RTEXT           "dummy",IDC_C_ITEM1_L,178,3,82,8
+    PUSHBUTTON      "",IDC_C_ITEM1_C,265,1,30,12
+    RTEXT           "dummy",IDC_C_ITEM2_L,178,17,82,8
+    PUSHBUTTON      "",IDC_C_ITEM2_C,265,15,30,12
+    RTEXT           "dummy",IDC_C_ITEM3_L,178,31,82,8
+    PUSHBUTTON      "",IDC_C_ITEM3_C,265,29,30,12
+    RTEXT           "dummy",IDC_C_ITEM4_L,172,45,88,8
+    PUSHBUTTON      "",IDC_C_ITEM4_C,265,43,30,12
+    RTEXT           "dummy",IDC_C_ITEM5_L,172,59,88,8
+    PUSHBUTTON      "",IDC_C_ITEM5_C,265,57,30,12
     CONTROL         "",IDC_STATIC_4,"Static",SS_ETCHEDHORZ | WS_GROUP,225,80,71,1
     LTEXT           "Additional Rules for Highlighting of Files and Directories in Panels",IDC_STATIC_5,3,76,220,8
     LTEXT           "Masks Priority &List:",IDC_C_LIST_HEADER,3,94,66,8
