@@ -113,17 +113,27 @@ bool IsAvailable()
 #endif
 }
 
+static void ConfigureDarkModelib(bool dark)
+{
+#if USE_DARKMODELIB
+    static bool dmlibInitialized = false;
+    if (!dmlibInitialized)
+    {
+        dmlib::initDarkMode();
+        dmlibInitialized = true;
+    }
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
+    dmlib::setDefaultColors(true);
+#else
+    (void)dark;
+#endif
+}
+
 void ApplyTree(HWND hwnd)
 {
 #if USE_DARKMODELIB
     if (hwnd != NULL)
     {
-        static bool dmlibInitialized = false;
-        if (!dmlibInitialized)
-        {
-            dmlib::initDarkMode();
-            dmlibInitialized = true;
-        }
         const bool dark = DarkMode_ShouldUseDark() != FALSE;
         HANDLE appliedState = GetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP);
         const bool wasApplied = appliedState != NULL;
@@ -131,8 +141,7 @@ void ApplyTree(HWND hwnd)
         if (wasApplied && wasDark == dark)
             return;
 
-        dmlib::setDarkModeConfigEx(static_cast<UINT>(dark ? dmlib::DarkModeType::dark : dmlib::DarkModeType::classic));
-        dmlib::setDefaultColors(true);
+        ConfigureDarkModelib(dark);
         if (dark)
         {
             if (!wasDark)
@@ -196,10 +205,47 @@ void ApplyCheckboxOrRadioButton(HWND hwnd, bool enableDark)
 #if USE_DARKMODELIB
     if (hwnd != NULL)
     {
+        ConfigureDarkModelib(enableDark);
         if (enableDark)
             dmlib::setCheckboxOrRadioBtnCtrlSubclass(hwnd);
         else
             dmlib::removeCheckboxOrRadioBtnCtrlSubclass(hwnd);
+    }
+#else
+    (void)hwnd;
+    (void)enableDark;
+#endif
+}
+
+void ApplyStatusBar(HWND hwnd, bool enableDark)
+{
+#if USE_DARKMODELIB
+    if (hwnd != NULL)
+    {
+        ConfigureDarkModelib(enableDark);
+        if (enableDark)
+            dmlib::setStatusBarCtrlSubclass(hwnd);
+        else
+            dmlib::removeStatusBarCtrlSubclass(hwnd);
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+#else
+    (void)hwnd;
+    (void)enableDark;
+#endif
+}
+
+void ApplyProgressBar(HWND hwnd, bool enableDark)
+{
+#if USE_DARKMODELIB
+    if (hwnd != NULL)
+    {
+        ConfigureDarkModelib(enableDark);
+        if (enableDark)
+            dmlib::setProgressBarCtrlSubclass(hwnd);
+        else
+            dmlib::removeProgressBarCtrlSubclass(hwnd);
+        InvalidateRect(hwnd, NULL, TRUE);
     }
 #else
     (void)hwnd;
@@ -310,7 +356,7 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
         if (applyHeaderColors && DarkMode_ShouldUseDark())
         {
             const COLORREF headerBackground = RGB(0x20, 0x20, 0x20);
-            const COLORREF headerEdge = RGB(0x4A, 0x4A, 0x4A);
+            const COLORREF headerEdge = RGB(0x38, 0x38, 0x38);
             dmlib::setViewBackgroundColor(backgroundColor);
             dmlib::setViewTextColor(textColor);
             dmlib::setHeaderBackgroundColor(headerBackground);
@@ -318,6 +364,7 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
             dmlib::setHeaderTextColor(textColor);
             dmlib::setHeaderEdgeColor(headerEdge);
             dmlib::updateViewBrushesAndPens();
+            dmlib::replaceClientEdgeWithBorderSafe(listView);
             dmlib::setDarkListView(listView);
             dmlib::setDarkListViewCheckboxes(listView);
             dmlib::setListViewCtrlSubclass(listView);
@@ -332,6 +379,7 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
         else
         {
             dmlib::removeListViewCtrlSubclass(listView);
+            dmlib::replaceClientEdgeWithBorderSafeEx(listView, false);
             HWND header = ListView_GetHeader(listView);
             if (header != NULL)
             {

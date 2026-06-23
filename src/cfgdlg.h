@@ -589,6 +589,9 @@ protected:
     BOOL DisableNotification;
     BOOL LabelEdit;
     int SelectIndex;
+    int AvailableColumnsWidth;
+    int AvailableColumnsRightMargin;
+    int ViewsListGap;
 
 public:
     CCfgPageView(int index);
@@ -604,6 +607,7 @@ public:
     void StoreControls();
     void EnableControls();
     void EnableHeader();
+    void LayoutViewsListControls();
     DWORD GetEnabledFunctions();
 
     BOOL IsDirty();

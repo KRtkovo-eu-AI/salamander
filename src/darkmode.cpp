@@ -1687,7 +1687,135 @@ void EnsureDarkStatusBarSubclass(HWND hwnd, bool enableDark)
 }
 #endif
 
+constexpr UINT_PTR kDarkModeStaticFrameSubclassId = 0x44525346; // "DRSF"
+
+bool IsStaticFrameStyle(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[16] = {0};
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0 || wcscmp(className, L"Static") != 0)
+        return false;
+
+    const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const LONG_PTR type = style & SS_TYPEMASK;
+    const LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    return type == SS_ETCHEDHORZ || type == SS_ETCHEDVERT || type == SS_ETCHEDFRAME ||
+           type == SS_GRAYFRAME || type == SS_BLACKFRAME ||
+           (exStyle & WS_EX_STATICEDGE) == WS_EX_STATICEDGE;
+}
+
+void PaintDarkStaticFrame(HWND hwnd, HDC hdc)
+{
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
+    const COLORREF lineColor = RGB(0x38, 0x38, 0x38);
+    const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const LONG_PTR type = style & SS_TYPEMASK;
+
+    if (type == SS_ETCHEDVERT)
+    {
+        RECT line = rc;
+        line.left += (line.right - line.left) / 2;
+        line.right = line.left + 1;
+        FillRectWithColor(hdc, line, lineColor);
+    }
+    else if (type == SS_ETCHEDFRAME || type == SS_GRAYFRAME || type == SS_BLACKFRAME ||
+             (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_STATICEDGE) == WS_EX_STATICEDGE)
+    {
+        HBRUSH brush = CreateSolidBrush(lineColor);
+        if (brush != NULL)
+        {
+            FrameRect(hdc, &rc, brush);
+            DeleteObject(brush);
+        }
+    }
+    else
+    {
+        RECT line = rc;
+        line.top += (line.bottom - line.top) / 2;
+        line.bottom = line.top + 1;
+        FillRectWithColor(hdc, line, lineColor);
+    }
+}
+
+LRESULT CALLBACK DarkStaticFrameSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkStaticFrameSubclass, kDarkModeStaticFrameSubclassId);
+        break;
+
+    case WM_ERASEBKGND:
+        return ShouldUseDarkColorsForSurfaces() ? TRUE : DefSubclassProc(hwnd, msg, wParam, lParam);
+
+    case WM_PAINT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            if (hdc != NULL)
+                PaintDarkStaticFrame(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (ShouldUseDarkColorsForSurfaces())
+        {
+            PaintDarkStaticFrame(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case WM_THEMECHANGED:
+    case WM_ENABLE:
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void EnsureDarkStaticFrameSubclass(HWND hwnd, bool enableDark)
+{
+    if (hwnd == NULL || !IsStaticFrameStyle(hwnd))
+        return;
+
+    if (enableDark)
+        SetWindowSubclass(hwnd, DarkStaticFrameSubclass, kDarkModeStaticFrameSubclassId, 0);
+    else
+        RemoveWindowSubclass(hwnd, DarkStaticFrameSubclass, kDarkModeStaticFrameSubclassId);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
 constexpr UINT_PTR kDarkModeListViewSurfaceSubclassId = 0x44524C56; // "DRLV"
+
+void PaintDarkListViewBorder(HWND hwnd)
+{
+    HDC hdc = GetWindowDC(hwnd);
+    if (hdc == NULL)
+        return;
+
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+    OffsetRect(&rc, -rc.left, -rc.top);
+    HBRUSH brush = CreateSolidBrush(RGB(0x38, 0x38, 0x38));
+    if (brush != NULL)
+    {
+        FrameRect(hdc, &rc, brush);
+        DeleteObject(brush);
+    }
+    ReleaseDC(hwnd, hdc);
+}
 
 LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                              UINT_PTR subclassId, DWORD_PTR refData)
@@ -1699,6 +1827,9 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
         RemoveWindowSubclass(hwnd, DarkListViewSurfaceSubclass, kDarkModeListViewSurfaceSubclassId);
 
     LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+    if ((msg == WM_NCPAINT || msg == WM_NCACTIVATE || msg == WM_SIZE) && ShouldUseDarkColorsForSurfaces())
+        PaintDarkListViewBorder(hwnd);
+
     if (msg == WM_PAINT && ShouldUseDarkColorsForSurfaces())
     {
         HDC hdc = GetDC(hwnd);
@@ -1742,6 +1873,7 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
         if (unused.top < unused.bottom)
             FillRectWithColor(hdc, unused, background);
         ReleaseDC(hwnd, hdc);
+        PaintDarkListViewBorder(hwnd);
     }
     return result;
 }
@@ -2076,22 +2208,29 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
+        else if (wcscmp(className, L"msctls_statusbar32") == 0)
+        {
+#if USE_DARKMODELIB
+            DarkModeBackendDarkModelib::ApplyStatusBar(hwnd, wantDark && ShouldUseDarkColorsForSurfaces());
+#else
+            EnsureDarkStatusBarSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
+#endif
+        }
+        else if (wcscmp(className, L"msctls_progress32") == 0)
+        {
+#if USE_DARKMODELIB
+            DarkModeBackendDarkModelib::ApplyProgressBar(hwnd, wantDark && ShouldUseDarkColorsForSurfaces());
+#endif
+        }
 #if !USE_DARKMODELIB
         else if (wcscmp(className, L"SysHeader32") == 0)
         {
             EnsureDarkHeaderSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
         }
-        else if (wcscmp(className, L"msctls_statusbar32") == 0)
-        {
-            EnsureDarkStatusBarSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
-        }
 #endif
         else if (wcscmp(className, L"Static") == 0)
         {
-            const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-            const LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-            if ((exStyle & WS_EX_STATICEDGE) == WS_EX_STATICEDGE || (style & SS_ETCHEDFRAME) == SS_ETCHEDFRAME)
-                InvalidateRect(hwnd, NULL, TRUE);
+            EnsureDarkStaticFrameSubclass(hwnd, wantDark && ShouldUseDarkColorsForSurfaces());
         }
     }
     applyChromeTheme(hwnd, className);

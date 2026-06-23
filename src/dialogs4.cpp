@@ -72,21 +72,66 @@ static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
     }
 }
 
-// Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
-// darkmodelib's setDarkCheckboxes() only works on Win11+, so on Win10 we must
-// draw the checkboxes ourselves. On Win11+ with USE_DARKMODELIB, darkmodelib
-// handles them natively and we must not draw on top (causes white-background
-// artifacts).
-static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
+static void SetViewsAvailableColumnsColumnWidth(HWND listView)
 {
-    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
+    if (listView == NULL)
         return;
 
-    // On Win11+ with USE_DARKMODELIB, darkmodelib handles checkboxes natively
-#if USE_DARKMODELIB
-    if (Windows11AndLater)
+    RECT rc;
+    GetClientRect(listView, &rc);
+    // This list has a single column. Let it cover the full client area so the
+    // report-view background is painted by that column instead of leaving a
+    // separate native strip on the right side.
+    int width = rc.right - rc.left;
+    if (width < 20)
+        width = 20;
+    ListView_SetColumnWidth(listView, 0, width);
+}
+
+static void RemoveViewsListViewWhiteClientEdge(HWND listView)
+{
+    if (listView == NULL || !DarkModeShouldUseDarkColors())
         return;
-#endif
+
+    DWORD exStyle = (DWORD)GetWindowLongPtr(listView, GWL_EXSTYLE);
+    DWORD style = (DWORD)GetWindowLongPtr(listView, GWL_STYLE);
+    DWORD newExStyle = exStyle & ~WS_EX_CLIENTEDGE;
+    DWORD newStyle = style & ~WS_BORDER;
+    if (newExStyle == exStyle && newStyle == style)
+        return;
+
+    if (newExStyle != exStyle)
+        SetWindowLongPtr(listView, GWL_EXSTYLE, newExStyle);
+    if (newStyle != style)
+        SetWindowLongPtr(listView, GWL_STYLE, newStyle);
+    SetWindowPos(listView, NULL, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+}
+
+static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
+{
+    RemoveViewsListViewWhiteClientEdge(listView);
+    RemoveViewsListViewWhiteClientEdge(listView2);
+}
+
+static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
+{
+    // Available Columns used to be fixed by overlaying the checkbox cell after
+    // the native list-view item has been painted. Keep the post-paint path for
+    // this single list-view whenever dark colors are active: darkmodelib still
+    // themes the list-view/header chrome, and this pass covers any native
+    // state-image background that can remain white.
+    return DarkModeShouldUseDarkColors();
+}
+
+// Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
+// Called from CDDS_ITEMPOSTPAINT so the native/default item draw stays intact
+// and this pass only overlays the problematic state-image area (plus the row
+// background/text) with dark colors.
+static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
+{
+    if (!ShouldCustomDrawViewsAvailableColumnCheckboxes() || listView == NULL || customDraw == NULL)
+        return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
     RECT boundsRect;
@@ -101,14 +146,21 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
     if (hdc == NULL)
         return;
 
-    // Fill the full item width with dark background to cover any white pixels
-    // from the native checkbox state images.
+    // Fill the entire visual row. LVIR_BOUNDS does not cover the state-image
+    // gutter nor the unused space to the right of the text, and those are
+    // exactly the areas where native list-view painting leaves white pixels.
+    RECT clientRect;
+    GetClientRect(listView, &clientRect);
+    RECT rowRect = boundsRect;
+    rowRect.left = clientRect.left;
+    rowRect.right = clientRect.right;
+
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
     const COLORREF rowBackground = selected ? DarkModeGetColors().background : DarkModeGetDialogBackgroundColor();
-    FillRectWithSysColor(hdc, boundsRect, rowBackground);
+    FillRectWithSysColor(hdc, rowRect, rowBackground);
 
     // Calculate checkbox area (same region the native state image occupies)
-    RECT stateRect = boundsRect;
+    RECT stateRect = rowRect;
     stateRect.right = labelRect.left;
     if (stateRect.right <= stateRect.left)
         return;
@@ -146,6 +198,17 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
         if (checkPen != NULL)
             DeleteObject(checkPen);
     }
+
+    char text[256];
+    text[0] = 0;
+    ListView_GetItemText(listView, item, 0, text, _countof(text));
+    RECT textRect = labelRect;
+    textRect.left += 2;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+    COLORREF oldTextColor = SetTextColor(hdc, DarkModeGetDialogTextColor());
+    DrawText(hdc, text, -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
+    SetTextColor(hdc, oldTextColor);
+    SetBkMode(hdc, oldBkMode);
 
     if (oldPen != NULL)
         SelectObject(hdc, oldPen);
@@ -1417,6 +1480,9 @@ CCfgPageView::CCfgPageView(int index)
     HListView2 = NULL;
     DisableNotification = FALSE;
     LabelEdit = FALSE;
+    AvailableColumnsWidth = 0;
+    AvailableColumnsRightMargin = 0;
+    ViewsListGap = 0;
     if (index == -1)
         index = MainWindow->GetActivePanel()->GetViewTemplateIndex();
     SelectIndex = index;
@@ -1500,6 +1566,63 @@ const int CFGP2ItemsCount = 8 /*9*/;
 const int CFGP2Flags[CFGP2ItemsCount] = {0, VIEW_SHOW_EXTENSION, VIEW_SHOW_DOSNAME, VIEW_SHOW_SIZE, VIEW_SHOW_TYPE, VIEW_SHOW_DATE, VIEW_SHOW_TIME, VIEW_SHOW_ATTRIBUTES /*, VIEW_SHOW_DESCRIPTION*/};
 const int CFGP2ResID[CFGP2ItemsCount] = {IDS_COLUMN_CFG_NAME, IDS_COLUMN_CFG_EXT, IDS_COLUMN_CFG_DOSNAME, IDS_COLUMN_CFG_SIZE, IDS_COLUMN_CFG_TYPE, IDS_COLUMN_CFG_DATE, IDS_COLUMN_CFG_TIME, IDS_COLUMN_CFG_ATTR /*,  IDS_COLUMN_CFG_DESC*/};
 
+void CCfgPageView::LayoutViewsListControls()
+{
+    if (HListView == NULL || HListView2 == NULL || Header == NULL || Header2 == NULL ||
+        AvailableColumnsWidth <= 0)
+    {
+        return;
+    }
+
+    RECT client;
+    GetClientRect(HWindow, &client);
+
+    RECT leftRect;
+    RECT rightRect;
+    RECT headerRect;
+    RECT header2Rect;
+    GetWindowRect(HListView, &leftRect);
+    GetWindowRect(HListView2, &rightRect);
+    GetWindowRect(Header->HWindow, &headerRect);
+    GetWindowRect(Header2->HWindow, &header2Rect);
+    POINT leftTop = {leftRect.left, leftRect.top};
+    POINT rightTop = {rightRect.left, rightRect.top};
+    ScreenToClient(HWindow, &leftTop);
+    ScreenToClient(HWindow, &rightTop);
+
+    const int rightLeft = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth;
+    int leftWidth = rightLeft - ViewsListGap - leftTop.x;
+    if (leftWidth < 20)
+        leftWidth = 20;
+    const int listHeight = rightRect.bottom - rightRect.top;
+    const int leftHeight = leftRect.bottom - leftRect.top;
+    const int headerHeight = headerRect.bottom - headerRect.top;
+    const int header2Height = header2Rect.bottom - header2Rect.top;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(4));
+    if (hdwp != NULL)
+    {
+        hdwp = HANDLES(DeferWindowPos(hdwp, HListView, NULL,
+                                      0, 0, leftWidth, leftHeight,
+                                      SWP_NOMOVE | SWP_NOZORDER));
+        hdwp = HANDLES(DeferWindowPos(hdwp, HListView2, NULL,
+                                      rightLeft, rightTop.y, AvailableColumnsWidth, listHeight,
+                                      SWP_NOZORDER));
+        hdwp = HANDLES(DeferWindowPos(hdwp, Header->HWindow, NULL,
+                                      0, 0, leftWidth, headerHeight,
+                                      SWP_NOMOVE | SWP_NOZORDER));
+        hdwp = HANDLES(DeferWindowPos(hdwp, Header2->HWindow, NULL,
+                                      rightLeft, rightTop.y - header2Height,
+                                      AvailableColumnsWidth, header2Height,
+                                      SWP_NOZORDER));
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+
+    SetViewsAvailableColumnsColumnWidth(HListView2);
+    InvalidateRect(HListView, NULL, TRUE);
+    InvalidateRect(HListView2, NULL, TRUE);
+}
+
 void CCfgPageView::LoadControls()
 {
     DisableNotification = TRUE;
@@ -1533,7 +1656,7 @@ void CCfgPageView::LoadControls()
             ListView_InsertItem(HListView2, &lvi);
         }
         ListView_SetItemState(HListView2, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
-        ListView_SetColumnWidth(HListView2, 0, LVSCW_AUTOSIZE_USEHEADER);
+        SetViewsAvailableColumnsColumnWidth(HListView2);
     }
     int index2 = -1;
     if (!empty)
@@ -1785,12 +1908,31 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         lvc.fmt = LVCFMT_LEFT;
         lvc.iSubItem = 0;
         ListView_InsertColumn(HListView2, 0, &lvc);
+        SetViewsAvailableColumnsColumnWidth(HListView2);
+
+        RECT rightWindowRect;
+        RECT leftWindowRect;
+        RECT clientRect;
+        GetWindowRect(HListView2, &rightWindowRect);
+        GetWindowRect(HListView, &leftWindowRect);
+        GetClientRect(HWindow, &clientRect);
+        POINT rightBottom = {rightWindowRect.right, rightWindowRect.bottom};
+        POINT rightTop = {rightWindowRect.left, rightWindowRect.top};
+        POINT leftBottom = {leftWindowRect.right, leftWindowRect.bottom};
+        ScreenToClient(HWindow, &rightBottom);
+        ScreenToClient(HWindow, &rightTop);
+        ScreenToClient(HWindow, &leftBottom);
+        AvailableColumnsWidth = rightBottom.x - rightTop.x;
+        AvailableColumnsRightMargin = clientRect.right - rightBottom.x;
+        ViewsListGap = rightTop.x - leftBottom.x;
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
+        LayoutViewsListControls();
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
+        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -1803,20 +1945,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // visible at the edges. Remove WS_EX_CLIENTEDGE so only the CToolbarHeader's
             // dark sunken border remains. On Win11+, darkmodelib's setDarkCheckboxes
             // replaces the native state images entirely, so the border isn't an issue.
-            if (DarkModeShouldUseDarkColors())
-            {
-                auto RemoveWhiteClientEdge = [](HWND hList) {
-                    DWORD exStyle = (DWORD)GetWindowLongPtr(hList, GWL_EXSTYLE);
-                    if (exStyle & WS_EX_CLIENTEDGE)
-                    {
-                        SetWindowLongPtr(hList, GWL_EXSTYLE, exStyle & ~WS_EX_CLIENTEDGE);
-                        SetWindowPos(hList, NULL, 0, 0, 0, 0,
-                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-                    }
-                };
-                RemoveWhiteClientEdge(HListView);
-                RemoveWhiteClientEdge(HListView2);
-            }
+            RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
@@ -1824,10 +1953,18 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_SIZE:
+    {
+        INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+        LayoutViewsListControls();
+        return result;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
+        RemoveViewsListViewsWhiteClientEdge(HListView, HListView2);
         break;
     }
 
@@ -1863,14 +2000,18 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         customDrawResult = CDRF_NOTIFYITEMDRAW;
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                     {
-                        // Ensure the system draws item backgrounds in dark color,
-                        // preventing white bleed-through from default rendering.
                         customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
                         customDraw->clrText = DarkModeGetDialogTextColor();
-                        customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                        if (ShouldCustomDrawViewsAvailableColumnCheckboxes())
+                            customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                        else
+                            customDrawResult = CDRF_DODEFAULT;
                     }
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                    {
                         DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
+                        customDrawResult = CDRF_DODEFAULT;
+                    }
                 }
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
                 return TRUE;
