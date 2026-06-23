@@ -24,7 +24,7 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
     <Link>
-      <AdditionalDependencies>comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>comctl32.lib;UxTheme.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)$(ProjectName).spl</OutputFile>
       <AdditionalLibraryDirectories>..\..\shared\libs\$(ShortPlatform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
