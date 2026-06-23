@@ -269,13 +269,10 @@ void CConfigurationStorage::ShowRegFileLoadError(const char* fileName, eRPE_ERRO
     SalMessageBox(NULL, text, LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
 }
 
-void CConfigurationStorage::ShowRegFileSaveError(const char* fileName, DWORD err)
+void CConfigurationStorage::ShowRegFileSaveError(HWND parent)
 {
-    char text[MAX_PATH + 300];
-    _snprintf_s(text, _TRUNCATE,
-                "Unable to save portable configuration file:\n\n%s\n\nThe previous configuration file was left unchanged.\n\n%s",
-                fileName != NULL ? fileName : "config.reg", err != 0 ? GetErrorText(err) : "");
-    SalMessageBox(NULL, text, LoadStr(IDS_ERRORSAVECONFIG), MB_OK | MB_ICONEXCLAMATION);
+    SalMessageBox(parent, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                  MB_OK | MB_ICONEXCLAMATION);
 }
 
 BOOL CConfigurationStorage::LoadRegFile(CSalamanderRegistryExAbstract* registry)
@@ -376,7 +373,7 @@ BOOL CConfigurationStorage::SaveRegFile(BOOL showError)
         DeleteFile(tmpFileName);
         TRACE_E("Unable to save portable configuration file: " << FilePath << ", error: " << err);
         if (showError)
-            ShowRegFileSaveError(FilePath, err);
+            ShowRegFileSaveError(NULL);
         return FALSE;
     }
 

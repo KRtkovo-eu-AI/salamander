@@ -25,7 +25,7 @@ protected:
     BOOL LoadRegFile(CSalamanderRegistryExAbstract* registry);
     BOOL SaveRegFile(BOOL showError = TRUE);
     void ShowRegFileLoadError(const char* fileName, eRPE_ERROR err);
-    void ShowRegFileSaveError(const char* fileName, DWORD err);
+    void ShowRegFileSaveError(HWND parent);
     void DeleteStoredRegistryConfiguration(CSalamanderRegistryExAbstract* registry, const char* keyName);
 
 public:
