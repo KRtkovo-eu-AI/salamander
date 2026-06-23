@@ -9383,6 +9383,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return 0;
         }
 
+        if (uMsg == WM_USER_CLOSE_MAINWND && Configuration.AutoSave &&
+            ConfigurationStorage.GetStorageType() == cstRegFile && !ConfigurationStorage.CanWriteRegFile())
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+        }
+
         // we have some dialogs with disk operations running
         WCHAR blockReason[MAX_STR_BLOCKREASON];
         if (ProgressDlgArray.RemoveFinishedDlgs() > 0)

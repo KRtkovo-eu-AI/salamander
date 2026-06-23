@@ -151,6 +151,39 @@ BOOL CConfigurationStorage::GetRegFilePath(char* filePath, int filePathSize) con
     return const_cast<CConfigurationStorage*>(this)->GetPortableConfigFilePath(filePath, filePathSize);
 }
 
+
+BOOL CConfigurationStorage::CanWriteRegFile() const
+{
+    char path[MAX_PATH];
+    if (!GetRegFilePath(path, SizeOf(path)) || path[0] == 0)
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            return FALSE;
+
+        HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
 BOOL CConfigurationStorage::SetRegFilePath(const char* filePath)
 {
     if (filePath == NULL || filePath[0] == 0)

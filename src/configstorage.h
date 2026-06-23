@@ -47,6 +47,7 @@ public:
     BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type, const char* regFilePath = NULL);
     BOOL CanSaveStorageTypeBootstrap();
     BOOL GetRegFilePath(char* filePath, int filePathSize) const;
+    BOOL CanWriteRegFile() const;
     BOOL SetRegFilePath(const char* filePath);
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
     void RegisterActiveRegistryKey(HKEY key);
