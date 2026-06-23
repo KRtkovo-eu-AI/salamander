@@ -2076,14 +2076,24 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
+        else if (wcscmp(className, L"msctls_statusbar32") == 0)
+        {
+#if USE_DARKMODELIB
+            DarkModeBackendDarkModelib::ApplyStatusBar(hwnd, wantDark && ShouldUseDarkColorsForSurfaces());
+#else
+            EnsureDarkStatusBarSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
+#endif
+        }
+        else if (wcscmp(className, L"msctls_progress32") == 0)
+        {
+#if USE_DARKMODELIB
+            DarkModeBackendDarkModelib::ApplyProgressBar(hwnd, wantDark && ShouldUseDarkColorsForSurfaces());
+#endif
+        }
 #if !USE_DARKMODELIB
         else if (wcscmp(className, L"SysHeader32") == 0)
         {
             EnsureDarkHeaderSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
-        }
-        else if (wcscmp(className, L"msctls_statusbar32") == 0)
-        {
-            EnsureDarkStatusBarSubclass(hwnd, ShouldUseDarkColorsForSurfaces());
         }
 #endif
         else if (wcscmp(className, L"Static") == 0)

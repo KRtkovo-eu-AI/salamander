@@ -16,6 +16,8 @@ bool IsAvailable();
 void ApplyTree(HWND hwnd);
 void ApplyMenuBar(HWND hwnd, bool enableDark);
 void ApplyCheckboxOrRadioButton(HWND hwnd, bool enableDark);
+void ApplyStatusBar(HWND hwnd, bool enableDark);
+void ApplyProgressBar(HWND hwnd, bool enableDark);
 bool HandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result,
                     const DarkModeColors& colors, HBRUSH dialogBrush);
 void ApplyStaticTextColors(HWND hwndParent, HWND specificCtrl, const DarkModeColors& colors);
