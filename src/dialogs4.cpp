@@ -94,10 +94,16 @@ static void RemoveViewsListViewWhiteClientEdge(HWND listView)
         return;
 
     DWORD exStyle = (DWORD)GetWindowLongPtr(listView, GWL_EXSTYLE);
-    if ((exStyle & WS_EX_CLIENTEDGE) == 0)
+    DWORD style = (DWORD)GetWindowLongPtr(listView, GWL_STYLE);
+    DWORD newExStyle = exStyle & ~WS_EX_CLIENTEDGE;
+    DWORD newStyle = style & ~WS_BORDER;
+    if (newExStyle == exStyle && newStyle == style)
         return;
 
-    SetWindowLongPtr(listView, GWL_EXSTYLE, exStyle & ~WS_EX_CLIENTEDGE);
+    if (newExStyle != exStyle)
+        SetWindowLongPtr(listView, GWL_EXSTYLE, newExStyle);
+    if (newStyle != style)
+        SetWindowLongPtr(listView, GWL_STYLE, newStyle);
     SetWindowPos(listView, NULL, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 }
