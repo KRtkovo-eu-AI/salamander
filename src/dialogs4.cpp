@@ -72,6 +72,19 @@ static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
     }
 }
 
+static void SetViewsAvailableColumnsColumnWidth(HWND listView)
+{
+    if (listView == NULL)
+        return;
+
+    RECT rc;
+    GetClientRect(listView, &rc);
+    int width = rc.right - rc.left - GetSystemMetrics(SM_CXVSCROLL) - 4;
+    if (width < 20)
+        width = 20;
+    ListView_SetColumnWidth(listView, 0, width);
+}
+
 static void RemoveViewsListViewWhiteClientEdge(HWND listView)
 {
     if (listView == NULL || !DarkModeShouldUseDarkColors())
@@ -1573,7 +1586,7 @@ void CCfgPageView::LoadControls()
             ListView_InsertItem(HListView2, &lvi);
         }
         ListView_SetItemState(HListView2, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
-        ListView_SetColumnWidth(HListView2, 0, LVSCW_AUTOSIZE_USEHEADER);
+        SetViewsAvailableColumnsColumnWidth(HListView2);
     }
     int index2 = -1;
     if (!empty)
@@ -1825,9 +1838,11 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         lvc.fmt = LVCFMT_LEFT;
         lvc.iSubItem = 0;
         ListView_InsertColumn(HListView2, 0, &lvc);
+        SetViewsAvailableColumnsColumnWidth(HListView2);
 
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
+        SetViewsAvailableColumnsColumnWidth(HListView2);
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
