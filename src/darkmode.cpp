@@ -1235,65 +1235,6 @@ void PaintAutoSuggestItemsWindow(HWND hwnd, HDC hdc)
         PaintAutoSuggestListView(hwnd, hdc);
 }
 
-void PaintAutoSuggestSizeGrip(HWND hwnd, HDC hdc)
-{
-    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
-        return;
-
-    RECT rcClient;
-    GetClientRect(hwnd, &rcClient);
-    const DarkModeColors& colors = DarkModeGetColors();
-
-    HTHEME hTheme = OpenThemeData(hwnd, L"DarkMode_Explorer::Status");
-
-    const int statusGripPart = 6;
-    SIZE szGrip{};
-    if (hTheme != NULL)
-        GetThemePartSize(hTheme, hdc, statusGripPart, 0, &rcClient, TS_DRAW, &szGrip);
-    if (szGrip.cx <= 0 || szGrip.cy <= 0)
-    {
-        szGrip.cx = GetSystemMetrics(SM_CXVSCROLL);
-        szGrip.cy = GetSystemMetrics(SM_CYHSCROLL);
-    }
-
-    RECT rcGrip{rcClient};
-    rcGrip.left = rcGrip.right - szGrip.cx;
-    rcGrip.top = rcGrip.bottom - szGrip.cy;
-    FillRectWithColor(hdc, rcGrip, colors.background);
-
-    if (hTheme != NULL)
-    {
-        DrawThemeBackground(hTheme, hdc, statusGripPart, 0, &rcGrip, NULL);
-        CloseThemeData(hTheme);
-    }
-    else
-    {
-        HPEN lightPen = CreatePen(PS_SOLID, 1, RGB(105, 105, 105));
-        HPEN darkPen = CreatePen(PS_SOLID, 1, RGB(50, 50, 50));
-        if (lightPen != NULL && darkPen != NULL)
-        {
-            HGDIOBJ oldPen = SelectObject(hdc, lightPen);
-            for (int offset = 4; offset <= 12; offset += 4)
-            {
-                MoveToEx(hdc, rcGrip.right - offset, rcGrip.bottom - 2, NULL);
-                LineTo(hdc, rcGrip.right - 2, rcGrip.bottom - offset);
-            }
-            SelectObject(hdc, darkPen);
-            for (int offset = 5; offset <= 13; offset += 4)
-            {
-                MoveToEx(hdc, rcGrip.right - offset, rcGrip.bottom - 2, NULL);
-                LineTo(hdc, rcGrip.right - 2, rcGrip.bottom - offset);
-            }
-            if (oldPen != NULL)
-                SelectObject(hdc, oldPen);
-        }
-        if (lightPen != NULL)
-            DeleteObject(lightPen);
-        if (darkPen != NULL)
-            DeleteObject(darkPen);
-    }
-}
-
 LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                          UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -1325,17 +1266,6 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
             PaintAutoSuggestItemsWindow(hwnd, hdc);
             EndPaint(hwnd, &ps);
             return 0;
-        }
-        if (IsAutoSuggestDropdownClass(hwnd) && DarkModeShouldUseDarkColors())
-        {
-            LRESULT ret = DefSubclassProc(hwnd, msg, wParam, lParam);
-            HDC hdc = GetDC(hwnd);
-            if (hdc != NULL)
-            {
-                PaintAutoSuggestSizeGrip(hwnd, hdc);
-                ReleaseDC(hwnd, hdc);
-            }
-            return ret;
         }
         break;
 
