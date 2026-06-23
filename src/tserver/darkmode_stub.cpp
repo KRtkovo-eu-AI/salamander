@@ -70,3 +70,6 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
     UNREFERENCED_PARAMETER(specificCtrl);
 }
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl) { UNREFERENCED_PARAMETER(tabControl); }
+void DarkModePreserveCustomTreeView(HWND treeView) { UNREFERENCED_PARAMETER(treeView); }
+void DarkModeApplyRebarSeparators(HWND rebar) { UNREFERENCED_PARAMETER(rebar); }
+void DarkModeEnableAutoSuggestSupport(HWND edit) { UNREFERENCED_PARAMETER(edit); }

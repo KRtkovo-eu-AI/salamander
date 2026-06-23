@@ -38,6 +38,7 @@
 #include "zip.h"
 #include "tasklist.h"
 #include "jumplist.h"
+#include "darkmode.h"
 extern "C"
 {
 #include "shexreg.h"
@@ -1797,6 +1798,7 @@ void CMainWindow::CommandSetPanelTabColor(CFilesWindow* panel)
     cc.lpCustColors = customColors;
     cc.Flags = CC_FULLOPEN | CC_RGBINIT;
     cc.rgbResult = panel->HasCustomTabColor() ? panel->GetCustomTabColor() : GetSysColor(COLOR_BTNFACE);
+    DarkModePrepareChooseColor(&cc);
     if (ChooseColor(&cc))
     {
         panel->SetCustomTabColor(cc.rgbResult);
@@ -3279,13 +3281,108 @@ void CMainWindow::UpdateRebarVisuals()
     if (HTopRebar == NULL)
         return;
 
+    const BOOL useDark = DarkModeShouldUseDarkColors();
+
+    // The rebar is created before the user can switch the color scheme. When
+    // switching from a light scheme to Windows Dark Mode in Configuration, it
+    // may still keep the light/classic theme and border colors until restart.
+    // Re-apply the same theme/style choices used during creation every time
+    // colors are refreshed.
+    // Reset the previous explicit theme first. The light scheme disables visual
+    // styles with SetWindowTheme(" ", " "), and switching directly from that
+    // state to DarkMode_Explorer can leave the old light non-client/border
+    // colors cached until restart.
+    SetWindowTheme(HTopRebar, nullptr, nullptr);
+    if (useDark)
+    {
+        SetWindowTheme(HTopRebar, L"DarkMode_Explorer", nullptr);
+        SendMessage(HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)DarkModeGetColors().background);
+        SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)DarkModeGetColors().readableText);
+        COLORSCHEME colorScheme = {0};
+        colorScheme.dwSize = sizeof(colorScheme);
+        colorScheme.clrBtnHighlight = RGB(0x38, 0x38, 0x38);
+        colorScheme.clrBtnShadow = RGB(0x38, 0x38, 0x38);
+        SendMessage(HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
+    }
+    else
+    {
+        SetWindowTheme(HTopRebar, (L" "), (L" "));
+        SendMessage(HTopRebar, RB_SETBKCOLOR, 0, (LPARAM)CLR_DEFAULT);
+        SendMessage(HTopRebar, RB_SETTEXTCOLOR, 0, (LPARAM)CLR_DEFAULT);
+        COLORSCHEME colorScheme = {0};
+        colorScheme.dwSize = sizeof(colorScheme);
+        colorScheme.clrBtnHighlight = CLR_DEFAULT;
+        colorScheme.clrBtnShadow = CLR_DEFAULT;
+        SendMessage(HTopRebar, RB_SETCOLORSCHEME, 0, (LPARAM)&colorScheme);
+    }
+    DarkModeApplyWindow(HTopRebar);
+
+    const int bandCount = (int)SendMessage(HTopRebar, RB_GETBANDCOUNT, 0, 0);
+    for (int i = 0; i < bandCount; ++i)
+    {
+        REBARBANDINFO rbi = {0};
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_CHILD | RBBIM_ID;
+        if (SendMessage(HTopRebar, RB_GETBANDINFO, i, (LPARAM)&rbi) != 0 && rbi.hwndChild != NULL)
+        {
+            int neededHeight = 0;
+            switch (rbi.wID)
+            {
+            case BANDID_MENU:
+                if (MenuBar != NULL)
+                    neededHeight = MenuBar->GetNeededHeight();
+                break;
+            case BANDID_TOPTOOLBAR:
+                if (TopToolBar != NULL)
+                    neededHeight = TopToolBar->GetNeededHeight();
+                break;
+            case BANDID_PLUGINSBAR:
+                if (PluginsBar != NULL)
+                    neededHeight = PluginsBar->GetNeededHeight();
+                break;
+            case BANDID_UMTOOLBAR:
+                if (UMToolBar != NULL)
+                    neededHeight = UMToolBar->GetNeededHeight();
+                break;
+            case BANDID_HPTOOLBAR:
+                if (HPToolBar != NULL)
+                    neededHeight = HPToolBar->GetNeededHeight();
+                break;
+            case BANDID_DRIVEBAR:
+                if (DriveBar != NULL)
+                    neededHeight = DriveBar->GetNeededHeight();
+                break;
+            case BANDID_DRIVEBAR2:
+                if (DriveBar2 != NULL)
+                    neededHeight = DriveBar2->GetNeededHeight();
+                break;
+            }
+
+            if (neededHeight > 0)
+            {
+                // Native RBS_BANDBORDERS used to reserve vertical pixels between
+                // toolbar rows.  It is disabled in dark mode because it paints a
+                // white border after switching schemes at runtime, so reserve the
+                // same row separator space ourselves and draw it in darkmode.cpp.
+                REBARBANDINFO sizeInfo = {0};
+                sizeInfo.cbSize = sizeof(sizeInfo);
+                sizeInfo.fMask = RBBIM_CHILDSIZE;
+                sizeInfo.cxMinChild = 10;
+                sizeInfo.cyMinChild = neededHeight + (useDark ? 2 : 0);
+                SendMessage(HTopRebar, RB_SETBANDINFO, i, (LPARAM)&sizeInfo);
+            }
+
+            DarkModeApplyTree(rbi.hwndChild);
+            RedrawWindow(rbi.hwndChild, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+        }
+    }
+
     DWORD style = (DWORD)GetWindowLongPtr(HTopRebar, GWL_STYLE);
     DWORD desiredStyle = style;
-    desiredStyle |= RBS_BANDBORDERS;
-    if (DarkModeShouldUseDarkColors())
-        desiredStyle &= ~WS_BORDER;
+    if (useDark)
+        desiredStyle &= ~(WS_BORDER | RBS_BANDBORDERS);
     else
-        desiredStyle |= WS_BORDER;
+        desiredStyle |= WS_BORDER | RBS_BANDBORDERS;
 
     if (desiredStyle != style)
     {
@@ -3293,6 +3390,8 @@ void CMainWindow::UpdateRebarVisuals()
         SetWindowPos(HTopRebar, NULL, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
+    DarkModeApplyRebarSeparators(HTopRebar);
+    RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
 LRESULT
@@ -3351,10 +3450,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
         DWORD rebarStyle = WS_VISIBLE | WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN | RBS_AUTOSIZE |
-                           RBS_BANDBORDERS;
+                           RBS_VARHEIGHT | CCS_NODIVIDER | CCS_NOPARENTALIGN | RBS_AUTOSIZE;
         if (!DarkModeShouldUseDarkColors())
-            rebarStyle |= WS_BORDER;
+            rebarStyle |= WS_BORDER | RBS_BANDBORDERS;
 
         HTopRebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, "",
                                    rebarStyle,

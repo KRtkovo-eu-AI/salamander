@@ -3353,6 +3353,7 @@ MENU_TEMPLATE_ITEM CfgPageAppearanceMenu[] =
                     cf.lpLogFont = &LocalPanelLogFont;
                     cf.iPointSize = 10;
                     cf.Flags = CF_NOVERTFONTS | CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT;
+                    DarkModePrepareChooseFont(&cf);
                     if (ChooseFont(&cf) != 0)
                     {
                         LocalUseCustomPanelFont = TRUE;

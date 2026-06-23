@@ -281,6 +281,7 @@ BOOL CTabWindow::Create(HWND parent, int controlID)
 #endif
     if (hwnd == NULL)
         return FALSE;
+    DarkModePreserveCustomTabControl(HWindow);
     SendMessage(HWindow, WM_SETFONT, (WPARAM)EnvFont, FALSE);
 
     EnsureNewTabButton();
@@ -2325,6 +2326,7 @@ LRESULT CTabWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_SIZE:
     case WM_THEMECHANGED:
+        DarkModePreserveCustomTabControl(HWindow);
         UpdateOverflowButtonColors();
         PostMessage(HWindow, WM_USER_ENSURE_SELECTED_TAB_VISIBLE, 0, 0);
         break;

@@ -600,6 +600,7 @@ MENU_TEMPLATE_ITEM ConfigPageColorsMenu[] =
                         cc.lpCustColors = (LPDWORD)customColors;
                         cc.rgbResult = GetCOLORREF(*clr);
                         cc.Flags = CC_RGBINIT | CC_FULLOPEN | CC_SOLIDCOLOR;
+                        DarkModePrepareChooseColor(&cc);
                         if (ChooseColor(&cc) == TRUE)
                         {
                             *clr = 0;

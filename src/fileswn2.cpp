@@ -617,6 +617,7 @@ void CFilesWindow::UpdateTreeViewColors()
     if (HTreeView == NULL)
         return;
 
+    DarkModePreserveCustomTreeView(HTreeView);
     TreeView_SetTextColor(HTreeView, GetTreeViewTextColor());
     TreeView_SetBkColor(HTreeView, GetTreeViewBkColor());
     TreeView_SetLineColor(HTreeView, GetTreeViewTextColor());
@@ -2066,6 +2067,7 @@ void CFilesWindow::CreateTreeView()
         if (appIsThemed)
             SetWindowTheme(HTreeView, (L" "), (L" "));
         DarkModeApplyWindow(HTreeView);
+        DarkModePreserveCustomTreeView(HTreeView);
 
         SHFILEINFO sfi;
         memset(&sfi, 0, sizeof(sfi));

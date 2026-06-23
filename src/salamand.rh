@@ -20,6 +20,8 @@
 #define IDC_SPLASH_COPYRIGHT            2493
 #define IDC_SPLASH_STATUS               2494
 
+#define IDD_DARK_FONT_DIALOG            2495
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED

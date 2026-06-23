@@ -4,11 +4,19 @@
 #include "precomp.h"
 #include "darkmode_backend_darkmodelib.h"
 #include "darkmode.h"
+#include "salamand.rh"
+
+#if USE_DARKMODELIB
+#include "third_party/darkmodelib/include/Darkmodelib.h"
+#endif
 
 #include <algorithm>
 #include <delayimp.h>
 #include <uxtheme.h>
 #include <commctrl.h>
+#include <vector>
+#include <cwchar>
+#include <string>
 
 #ifndef HDM_SETBKCOLOR
 #define HDM_SETBKCOLOR (HDM_FIRST + 29)
@@ -340,11 +348,19 @@ bool IsCheckboxOrRadioButtonControl(HWND hwnd)
 
 bool ShouldOwnerDrawChoiceButton(HWND hwnd)
 {
-    // Radio captions need the fallback on all supported builds.  Checkbox text is
-    // already painted correctly by the themed control on Windows 11, but Windows
-    // 10 keeps drawing it with the light-theme text color in dark dialogs, so use
-    // the same owner-draw fallback there only.
+    // With darkmodelib enabled, use the library's modern themed checkbox/radio
+    // subclass instead of Salamander's legacy owner-draw fallback on all
+    // supported Windows versions.
+#if USE_DARKMODELIB
+    (void)hwnd;
+    return false;
+#else
+    // Without darkmodelib, radio captions need the fallback on all supported
+    // builds. Checkbox text is already painted correctly by the themed control
+    // on Windows 11, but Windows 10 keeps drawing it with the light-theme text
+    // color in dark dialogs, so use the same owner-draw fallback there only.
     return IsRadioButtonControl(hwnd) || (IsCheckboxControl(hwnd) && gBuildNumber < 22000);
+#endif
 }
 
 void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
@@ -374,6 +390,13 @@ void EnsureClassicButtonTheme(HWND hwnd, bool forceClassic)
 
 constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 constexpr UINT_PTR kDarkModeTabOverflowSubclassId = 0x4452544F; // "DRTO"
+constexpr UINT_PTR kDarkModeRebarSeparatorSubclassId = 0x44525253; // "DRRS"
+constexpr UINT_PTR kDarkModeRebarChildSeparatorSubclassId = 0x44524353; // "DRCS"
+constexpr UINT_PTR kDarkModeRebarOverlaySeparatorSubclassId = 0x44524F53; // "DROS"
+constexpr UINT_PTR kDarkModeAutoSuggestSubclassId = 0x44524153; // "DRAS"
+constexpr UINT_PTR kDarkModeAutoSuggestTimerId = 0x44524154; // "DRAT"
+const wchar_t* kDarkModeCustomTreeViewProp = L"Salamander.DarkModeLib.CustomTree";
+const wchar_t* kDarkModeRebarOverlaySeparatorProp = L"Salamander.DarkMode.RebarOverlaySeparator";
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
 {
@@ -626,6 +649,732 @@ void PaintDarkTabOverflowButton(HWND hwnd, HDC hdc)
         SelectObject(hdc, oldBrush);
     }
 }
+
+void PaintDarkRebarSeparators(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    if (client.right <= client.left || client.bottom <= client.top)
+        return;
+
+    std::vector<int> lines;
+    lines.push_back(client.top);
+
+    const int bandCount = static_cast<int>(SendMessage(hwnd, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < bandCount; ++i)
+    {
+        RECT bandRect = {0, 0, 0, 0};
+        if (SendMessage(hwnd, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) != 0 &&
+            bandRect.bottom > client.top && bandRect.bottom < client.bottom)
+        {
+            lines.push_back(bandRect.top);
+            lines.push_back(bandRect.bottom - 1);
+            lines.push_back(bandRect.bottom);
+        }
+    }
+
+    lines.push_back(client.bottom - 1);
+    std::sort(lines.begin(), lines.end());
+    lines.erase(std::unique(lines.begin(), lines.end()), lines.end());
+
+    // Row separators are drawn by small overlay child windows below.  Keep the
+    // legacy parent/child repaint path from adding extra visible pixels; when
+    // both paths draw, the separators become too thick and flicker at the
+    // rebar's left edge during light->dark switches.
+    lines.clear();
+    const COLORREF separatorColor = DarkModeGetColors().background;
+    HPEN pen = CreatePen(PS_SOLID, 1, separatorColor);
+    if (pen == NULL)
+        return;
+
+    HGDIOBJ oldPen = SelectObject(hdc, pen);
+    for (int y : lines)
+    {
+        MoveToEx(hdc, client.left, y, NULL);
+        LineTo(hdc, client.right, y);
+    }
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+
+    // Without native RBS_BANDBORDERS the toolbar child windows can cover the
+    // row separator pixels. Paint the same separator over the affected child
+    // windows so the dark-mode row lines remain visible without re-enabling the
+    // native light-colored band borders.
+    const int childCount = static_cast<int>(SendMessage(hwnd, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < childCount; ++i)
+    {
+        REBARBANDINFO rbi = {0};
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_CHILD | RBBIM_STYLE | RBBIM_HEADERSIZE;
+        RECT bandRect = {0, 0, 0, 0};
+        if (SendMessage(hwnd, RB_GETBANDINFO, i, reinterpret_cast<LPARAM>(&rbi)) == 0 ||
+            SendMessage(hwnd, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) == 0)
+        {
+            continue;
+        }
+
+        if (rbi.hwndChild != NULL)
+        {
+            RECT childRect;
+            GetWindowRect(rbi.hwndChild, &childRect);
+            MapWindowPoints(NULL, hwnd, reinterpret_cast<LPPOINT>(&childRect), 2);
+
+            HDC childDC = GetDC(rbi.hwndChild);
+            if (childDC != NULL)
+            {
+                HGDIOBJ childOldPen = SelectObject(childDC, pen);
+                for (int y : lines)
+                {
+                    if (y >= childRect.top && y <= childRect.bottom)
+                    {
+                        int childY = y - childRect.top;
+                        const int childHeight = childRect.bottom - childRect.top;
+                        if (childY >= childHeight)
+                            childY = childHeight - 1;
+                        MoveToEx(childDC, 0, childY, NULL);
+                        LineTo(childDC, childRect.right - childRect.left, childY);
+                    }
+                }
+                if (childOldPen != NULL)
+                    SelectObject(childDC, childOldPen);
+                ReleaseDC(rbi.hwndChild, childDC);
+            }
+        }
+
+        if ((rbi.fStyle & RBBS_NOGRIPPER) == 0)
+        {
+            RECT gripRect = bandRect;
+            gripRect.right = gripRect.left + 3;
+            if (gripRect.right > bandRect.right)
+                gripRect.right = bandRect.right;
+            if (gripRect.right <= gripRect.left)
+                continue;
+
+            // Keep the original simple one-line gripper shape, but replace the
+            // light native RGB(192,192,192) paint with the same dark separator
+            // color used inside the toolbars.
+            FillRectWithColor(hdc, gripRect, DarkModeGetColors().background);
+            HPEN gripPen = CreatePen(PS_SOLID, 1, RGB(95, 95, 95));
+            if (gripPen != NULL)
+            {
+                HGDIOBJ gripOldPen = SelectObject(hdc, gripPen);
+                const int x = gripRect.left + 1;
+                MoveToEx(hdc, x, gripRect.top + 3, NULL);
+                LineTo(hdc, x, gripRect.bottom - 3);
+                if (gripOldPen != NULL)
+                    SelectObject(hdc, gripOldPen);
+                DeleteObject(gripPen);
+            }
+        }
+    }
+
+    DeleteObject(pen);
+}
+
+
+void PaintDarkRebarChildSeparators(HWND hwnd, HDC hdc)
+{
+    (void)hwnd;
+    (void)hdc;
+}
+
+void PaintDarkRebarOverlaySeparator(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL)
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    if (client.right <= client.left || client.bottom <= client.top)
+        return;
+
+    RECT topLine = client;
+    topLine.bottom = topLine.top + 1;
+    FillRectWithColor(hdc, topLine, RGB(56, 56, 56));
+
+    RECT bottomLine = client;
+    bottomLine.top = topLine.bottom;
+    FillRectWithColor(hdc, bottomLine, RGB(14, 14, 14));
+}
+
+LRESULT CALLBACK DarkRebarOverlaySeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkRebarOverlaySeparatorSubclass, kDarkModeRebarOverlaySeparatorSubclassId);
+        RemovePropW(hwnd, kDarkModeRebarOverlaySeparatorProp);
+        break;
+
+    case WM_ERASEBKGND:
+        PaintDarkRebarOverlaySeparator(hwnd, reinterpret_cast<HDC>(wParam));
+        return 1;
+
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        PaintDarkRebarOverlaySeparator(hwnd, hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_PRINTCLIENT:
+        PaintDarkRebarOverlaySeparator(hwnd, reinterpret_cast<HDC>(wParam));
+        return 0;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+BOOL CALLBACK DestroyDarkRebarOverlaySeparatorProc(HWND hwnd, LPARAM)
+{
+    if (GetPropW(hwnd, kDarkModeRebarOverlaySeparatorProp) != NULL)
+        DestroyWindow(hwnd);
+    return TRUE;
+}
+
+std::vector<int> GetDarkRebarOverlaySeparatorLines(HWND rebar)
+{
+    std::vector<int> lines;
+
+    RECT client;
+    GetClientRect(rebar, &client);
+    if (client.right <= client.left || client.bottom <= client.top)
+        return lines;
+
+    const int bandCount = static_cast<int>(SendMessage(rebar, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < bandCount; ++i)
+    {
+        RECT bandRect = {0, 0, 0, 0};
+        if (SendMessage(rebar, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) == 0)
+            continue;
+
+        if (bandRect.bottom - 2 > client.top && bandRect.bottom < client.bottom)
+            lines.push_back(bandRect.bottom - 2);
+    }
+
+    std::sort(lines.begin(), lines.end());
+    lines.erase(std::unique(lines.begin(), lines.end()), lines.end());
+    return lines;
+}
+
+void UpdateDarkRebarOverlaySeparators(HWND rebar, bool enable)
+{
+    if (rebar == NULL)
+        return;
+
+    EnumChildWindows(rebar, DestroyDarkRebarOverlaySeparatorProc, 0);
+    if (!enable)
+        return;
+
+    RECT client;
+    GetClientRect(rebar, &client);
+    const int width = client.right - client.left;
+    if (width <= 0)
+        return;
+
+    const std::vector<int> lines = GetDarkRebarOverlaySeparatorLines(rebar);
+    for (int y : lines)
+    {
+        HWND line = CreateWindowExW(WS_EX_NOACTIVATE, L"STATIC", L"",
+                                    WS_CHILD | WS_VISIBLE,
+                                    client.left, y, width, 2,
+                                    rebar, NULL, GetModuleHandle(NULL), NULL);
+        if (line == NULL)
+            continue;
+
+        SetPropW(line, kDarkModeRebarOverlaySeparatorProp, reinterpret_cast<HANDLE>(1));
+        SetWindowSubclass(line, DarkRebarOverlaySeparatorSubclass, kDarkModeRebarOverlaySeparatorSubclassId, 0);
+        SetWindowPos(line, HWND_TOP, client.left, y, width, 2,
+                     SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+}
+
+LRESULT CALLBACK DarkRebarChildSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                                 UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkRebarChildSeparatorSubclass, kDarkModeRebarChildSeparatorSubclassId);
+        break;
+
+    case WM_PAINT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+        HDC hdc = GetDC(hwnd);
+        if (hdc != NULL)
+        {
+            PaintDarkRebarChildSeparators(hwnd, hdc);
+            ReleaseDC(hwnd, hdc);
+        }
+        return result;
+    }
+
+    case WM_PRINTCLIENT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+        PaintDarkRebarChildSeparators(hwnd, reinterpret_cast<HDC>(wParam));
+        return result;
+    }
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void UpdateDarkRebarChildSeparators(HWND rebar, bool enable)
+{
+    if (rebar == NULL)
+        return;
+
+    const int bandCount = static_cast<int>(SendMessage(rebar, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < bandCount; ++i)
+    {
+        REBARBANDINFO rbi = {0};
+        rbi.cbSize = sizeof(rbi);
+        rbi.fMask = RBBIM_CHILD;
+        if (SendMessage(rebar, RB_GETBANDINFO, i, reinterpret_cast<LPARAM>(&rbi)) == 0 || rbi.hwndChild == NULL)
+            continue;
+
+        if (enable)
+            SetWindowSubclass(rbi.hwndChild, DarkRebarChildSeparatorSubclass, kDarkModeRebarChildSeparatorSubclassId, 0);
+        else
+            RemoveWindowSubclass(rbi.hwndChild, DarkRebarChildSeparatorSubclass, kDarkModeRebarChildSeparatorSubclassId);
+        InvalidateRect(rbi.hwndChild, NULL, TRUE);
+    }
+}
+
+LRESULT CALLBACK DarkRebarSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                            UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        UpdateDarkRebarOverlaySeparators(hwnd, false);
+        RemoveWindowSubclass(hwnd, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId);
+        break;
+
+    case WM_SIZE:
+    case WM_WINDOWPOSCHANGED:
+        UpdateDarkRebarOverlaySeparators(hwnd, DarkModeShouldUseDarkColors());
+        break;
+
+    case WM_PAINT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+        HDC hdc = GetDC(hwnd);
+        if (hdc != NULL)
+        {
+            PaintDarkRebarSeparators(hwnd, hdc);
+            ReleaseDC(hwnd, hdc);
+        }
+        return result;
+    }
+
+    case WM_PRINTCLIENT:
+    {
+        LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+        PaintDarkRebarSeparators(hwnd, reinterpret_cast<HDC>(wParam));
+        return result;
+    }
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+
+bool IsAutoSuggestDropdownClass(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[128];
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return false;
+
+    return lstrcmpiW(className, L"Auto-Suggest Dropdown") == 0 ||
+           wcsstr(className, L"Auto-Suggest") != NULL ||
+           wcsstr(className, L"AutoSuggest") != NULL;
+}
+
+LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclassId, DWORD_PTR refData);
+
+HWND FindAutoSuggestDropdown(HWND hwnd)
+{
+    for (HWND candidate = hwnd; candidate != NULL; candidate = GetParent(candidate))
+    {
+        if (IsAutoSuggestDropdownClass(candidate))
+            return candidate;
+    }
+
+    HWND rootOwner = GetAncestor(hwnd, GA_ROOTOWNER);
+    if (IsAutoSuggestDropdownClass(rootOwner))
+        return rootOwner;
+
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+    if (IsAutoSuggestDropdownClass(root))
+        return root;
+
+    return NULL;
+}
+
+void ApplyAutoSuggestChildDarkMode(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    DarkModeApplyWindow(hwnd);
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(hwnd, L"DarkMode_Explorer", nullptr);
+
+    // The Shell auto-suggest list is wrapped in helper windows (for example
+    // CtrlNotifySink) and its ListBox asks its immediate parent for
+    // WM_CTLCOLORLISTBOX. Subclass every child window, not only the top-level
+    // Auto-Suggest Dropdown, so the parent that actually receives CTLCOLOR can
+    // return our dark brush.
+    SetWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
+
+    wchar_t className[64];
+    if (GetClassNameW(hwnd, className, _countof(className)) != 0)
+    {
+        const DarkModeColors& colors = DarkModeGetColors();
+        if (lstrcmpiW(className, WC_LISTVIEWW) == 0)
+        {
+            ListView_SetTextColor(hwnd, colors.readableText);
+            ListView_SetTextBkColor(hwnd, colors.background);
+            ListView_SetBkColor(hwnd, colors.background);
+#if USE_DARKMODELIB
+            dmlib::setListViewCtrlSubclass(hwnd);
+#endif
+        }
+        else if (lstrcmpiW(className, L"ListBox") == 0 || lstrcmpiW(className, L"Edit") == 0)
+        {
+#if USE_DARKMODELIB
+            dmlib::setCustomBorderForListBoxOrEditCtrlSubclass(hwnd);
+#endif
+            if (lstrcmpiW(className, L"ListBox") == 0)
+                SendMessage(hwnd, LB_SETITEMHEIGHT, 0, SendMessage(hwnd, LB_GETITEMHEIGHT, 0, 0));
+        }
+    }
+
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
+BOOL CALLBACK ApplyAutoSuggestChildDarkModeProc(HWND hwnd, LPARAM)
+{
+    ApplyAutoSuggestChildDarkMode(hwnd);
+    return TRUE;
+}
+
+
+bool IsListBoxWindow(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[32];
+    return GetClassNameW(hwnd, className, _countof(className)) != 0 &&
+           lstrcmpiW(className, L"ListBox") == 0;
+}
+
+bool IsListViewWindow(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return false;
+
+    wchar_t className[32];
+    return GetClassNameW(hwnd, className, _countof(className)) != 0 &&
+           lstrcmpiW(className, WC_LISTVIEWW) == 0;
+}
+
+bool IsAutoSuggestItemsWindow(HWND hwnd)
+{
+    return IsListBoxWindow(hwnd) || IsListViewWindow(hwnd);
+}
+
+void PaintAutoSuggestListBox(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const DarkModeColors& colors = DarkModeGetColors();
+    FillRectWithColor(hdc, client, colors.background);
+
+    const int count = static_cast<int>(SendMessage(hwnd, LB_GETCOUNT, 0, 0));
+    if (count <= 0 || count == LB_ERR)
+        return;
+
+    const int topIndex = static_cast<int>(SendMessage(hwnd, LB_GETTOPINDEX, 0, 0));
+    const int curSel = static_cast<int>(SendMessage(hwnd, LB_GETCURSEL, 0, 0));
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    for (int index = topIndex; index < count; ++index)
+    {
+        RECT itemRect;
+        if (SendMessage(hwnd, LB_GETITEMRECT, index, reinterpret_cast<LPARAM>(&itemRect)) == LB_ERR)
+            break;
+        if (itemRect.top >= client.bottom)
+            break;
+
+        const LRESULT selected = SendMessage(hwnd, LB_GETSEL, index, 0);
+        const bool isSelected = selected > 0 || index == curSel;
+        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
+        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        FillRectWithColor(hdc, itemRect, itemBk);
+        SetTextColor(hdc, itemText);
+
+        const LRESULT textLength = SendMessageW(hwnd, LB_GETTEXTLEN, index, 0);
+        if (textLength > 0)
+        {
+            std::wstring text;
+            text.resize(static_cast<size_t>(textLength) + 1);
+            SendMessageW(hwnd, LB_GETTEXT, index, reinterpret_cast<LPARAM>(&text[0]));
+            text.resize(wcslen(text.c_str()));
+            RECT textRect = itemRect;
+            textRect.left += 4;
+            textRect.right -= 4;
+            DrawTextW(hdc, text.c_str(), static_cast<int>(text.length()), &textRect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
+    }
+
+    SetBkMode(hdc, oldBkMode);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+
+void PaintAutoSuggestListView(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const DarkModeColors& colors = DarkModeGetColors();
+    FillRectWithColor(hdc, client, colors.background);
+
+    const int count = ListView_GetItemCount(hwnd);
+    if (count <= 0)
+        return;
+
+    int topIndex = ListView_GetTopIndex(hwnd);
+    if (topIndex < 0)
+        topIndex = 0;
+    int perPage = ListView_GetCountPerPage(hwnd);
+    if (perPage <= 0)
+        perPage = count;
+    const int requestedLastIndex = topIndex + perPage + 2;
+    const int lastIndex = requestedLastIndex < count ? requestedLastIndex : count;
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessage(hwnd, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = font != NULL ? SelectObject(hdc, font) : NULL;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+    wchar_t text[4096];
+    for (int index = topIndex; index < lastIndex; ++index)
+    {
+        RECT itemRect;
+        if (!ListView_GetItemRect(hwnd, index, &itemRect, LVIR_BOUNDS))
+            continue;
+        if (itemRect.top >= client.bottom)
+            break;
+
+        const bool isSelected = ListView_GetItemState(hwnd, index, LVIS_SELECTED) != 0;
+        const COLORREF itemBk = isSelected ? RGB(0, 120, 215) : colors.background;
+        const COLORREF itemText = isSelected ? RGB(255, 255, 255) : colors.readableText;
+        FillRectWithColor(hdc, itemRect, itemBk);
+        SetTextColor(hdc, itemText);
+
+        LVITEMW item = {};
+        item.mask = LVIF_TEXT;
+        item.iItem = index;
+        item.iSubItem = 0;
+        item.pszText = text;
+        item.cchTextMax = _countof(text);
+        text[0] = 0;
+        if (SendMessageW(hwnd, LVM_GETITEMW, 0, reinterpret_cast<LPARAM>(&item)) != 0)
+        {
+            RECT textRect = itemRect;
+            textRect.left += 4;
+            textRect.right -= 4;
+            DrawTextW(hdc, text, -1, &textRect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+        }
+    }
+
+    SetBkMode(hdc, oldBkMode);
+    if (oldFont != NULL)
+        SelectObject(hdc, oldFont);
+}
+
+void PaintAutoSuggestItemsWindow(HWND hwnd, HDC hdc)
+{
+    if (IsListBoxWindow(hwnd))
+        PaintAutoSuggestListBox(hwnd, hdc);
+    else if (IsListViewWindow(hwnd))
+        PaintAutoSuggestListView(hwnd, hdc);
+}
+
+LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        KillTimer(hwnd, kDarkModeAutoSuggestTimerId);
+        RemoveWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId);
+        break;
+
+    case WM_ERASEBKGND:
+        if (DarkModeShouldUseDarkColors())
+        {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRectWithColor(reinterpret_cast<HDC>(wParam), rc, DarkModeGetColors().background);
+            return 1;
+        }
+        break;
+
+    case WM_PAINT:
+        if (IsAutoSuggestItemsWindow(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            PaintAutoSuggestItemsWindow(hwnd, hdc);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        break;
+
+    case WM_PRINTCLIENT:
+        if (IsAutoSuggestItemsWindow(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            PaintAutoSuggestItemsWindow(hwnd, reinterpret_cast<HDC>(wParam));
+            return 0;
+        }
+        break;
+
+    case WM_TIMER:
+        if (wParam == kDarkModeAutoSuggestTimerId && IsAutoSuggestDropdownClass(hwnd) &&
+            DarkModeShouldUseDarkColors())
+        {
+            EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+            return 0;
+        }
+        break;
+
+    case WM_KEYDOWN:
+    case WM_CHAR:
+    case WM_MOUSEMOVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_VSCROLL:
+        if (IsAutoSuggestItemsWindow(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+            InvalidateRect(hwnd, NULL, TRUE);
+            return result;
+        }
+        break;
+
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            HDC hdc = reinterpret_cast<HDC>(wParam);
+            if (hdc != NULL)
+            {
+                const DarkModeColors& colors = DarkModeGetColors();
+                SetTextColor(hdc, colors.readableText);
+                SetBkColor(hdc, colors.background);
+                SetBkMode(hdc, OPAQUE);
+            }
+            return reinterpret_cast<LRESULT>(gDialogBrushHandle != NULL ? gDialogBrushHandle : GetSysColorBrush(COLOR_WINDOW));
+        }
+        break;
+    }
+
+    case WM_SHOWWINDOW:
+        if (IsAutoSuggestDropdownClass(hwnd))
+        {
+            if (wParam != 0 && DarkModeShouldUseDarkColors())
+            {
+                SetTimer(hwnd, kDarkModeAutoSuggestTimerId, 100, NULL);
+                EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+            }
+            else
+                KillTimer(hwnd, kDarkModeAutoSuggestTimerId);
+        }
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void ApplyAutoSuggestDropdownDarkMode(HWND dropdown)
+{
+    if (dropdown == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    DarkModeApplyWindow(dropdown);
+#if USE_DARKMODELIB
+    dmlib::setDarkWndNotifySafe(dropdown);
+    dmlib::setChildCtrlsSubclassAndTheme(dropdown);
+#endif
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(dropdown, L"DarkMode_Explorer", nullptr);
+
+    SetWindowSubclass(dropdown, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
+    SetTimer(dropdown, kDarkModeAutoSuggestTimerId, 100, NULL);
+    EnumChildWindows(dropdown, ApplyAutoSuggestChildDarkModeProc, 0);
+    RedrawWindow(dropdown, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+}
+
+void CALLBACK AutoSuggestWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
+                                      DWORD eventThread, DWORD)
+{
+    if ((event != EVENT_OBJECT_CREATE && event != EVENT_OBJECT_SHOW) || hwnd == NULL || idObject != OBJID_WINDOW || idChild != CHILDID_SELF)
+        return;
+
+    if (eventThread != GetCurrentThreadId())
+        return;
+
+    DWORD processId = 0;
+    GetWindowThreadProcessId(hwnd, &processId);
+    if (processId != GetCurrentProcessId())
+        return;
+
+    ApplyAutoSuggestDropdownDarkMode(FindAutoSuggestDropdown(hwnd));
+}
+
+HWINEVENTHOOK gAutoSuggestWinEventHook = NULL;
+DWORD gAutoSuggestWinEventThreadId = 0;
 
 LRESULT CALLBACK DarkTabOverflowSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                          UINT_PTR subclassId, DWORD_PTR refData)
@@ -1310,8 +2059,12 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
 #endif
                 if (ShouldOwnerDrawChoiceButton(hwnd))
                     EnsureDarkChoiceButtonSubclass(hwnd, wantDark);
-                else if (gSetWindowTheme != nullptr)
-                    gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+                else
+                {
+                    EnsureDarkChoiceButtonSubclass(hwnd, false);
+                    if (gSetWindowTheme != nullptr)
+                        gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+                }
                 InvalidateRect(hwnd, NULL, TRUE);
             }
         }
@@ -1701,9 +2454,6 @@ void DarkModeUpdateTabControlOverflowButtons(HWND tabControl)
         return;
 
     const bool enableDark = DarkModeShouldUseDarkColors();
-#if USE_DARKMODELIB
-    DarkModeBackendDarkModelib::UpdateTabControlOverflowButtons(tabControl, enableDark);
-#endif
 
     HWND upDown = NULL;
     while ((upDown = FindWindowEx(tabControl, upDown, UPDOWN_CLASS, NULL)) != NULL)
@@ -1719,6 +2469,85 @@ void DarkModeUpdateTabControlOverflowButtons(HWND tabControl)
         EnsureDarkTabOverflowSubclass(upDown, enableDark && gBuildNumber < 22000);
         InvalidateRect(upDown, NULL, TRUE);
     }
+}
+
+void DarkModePreserveCustomTabControl(HWND tabControl)
+{
+    EnsureInitialized();
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::MarkCustomTabControl(tabControl);
+#else
+    (void)tabControl;
+#endif
+}
+
+void DarkModePreserveCustomTreeView(HWND treeView)
+{
+    EnsureInitialized();
+    if (treeView == NULL)
+        return;
+
+    SetPropW(treeView, kDarkModeCustomTreeViewProp, reinterpret_cast<HANDLE>(1));
+
+    const bool wantDark = IsWindowsDarkSchemeSelected();
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(treeView, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
+
+    const COLORREF bg = wantDark ? DarkModeGetColors().background : GetSysColor(COLOR_WINDOW);
+    const COLORREF fg = wantDark ? DarkModeGetColors().readableText : GetSysColor(COLOR_WINDOWTEXT);
+    TreeView_SetTextColor(treeView, fg);
+    TreeView_SetBkColor(treeView, bg);
+    RedrawWindow(treeView, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+}
+
+
+void DarkModeEnableAutoSuggestSupport(HWND edit)
+{
+    EnsureInitialized();
+    if (edit == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    const DWORD threadId = GetWindowThreadProcessId(edit, NULL);
+    if (threadId == 0)
+        return;
+
+    if (gAutoSuggestWinEventHook == NULL || gAutoSuggestWinEventThreadId != threadId)
+    {
+        if (gAutoSuggestWinEventHook != NULL)
+            UnhookWinEvent(gAutoSuggestWinEventHook);
+
+        gAutoSuggestWinEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, NULL,
+                                                   AutoSuggestWinEventProc, GetCurrentProcessId(), threadId,
+                                                   WINEVENT_OUTOFCONTEXT);
+        gAutoSuggestWinEventThreadId = gAutoSuggestWinEventHook != NULL ? threadId : 0;
+    }
+
+    HWND dropdown = FindAutoSuggestDropdown(edit);
+    if (dropdown != NULL)
+        ApplyAutoSuggestDropdownDarkMode(dropdown);
+}
+
+void DarkModeApplyRebarSeparators(HWND rebar)
+{
+    EnsureInitialized();
+    if (rebar == NULL)
+        return;
+
+    const bool enableDark = DarkModeShouldUseDarkColors();
+    UpdateDarkRebarChildSeparators(rebar, enableDark);
+    UpdateDarkRebarOverlaySeparators(rebar, enableDark);
+    DWORD_PTR refData = 0;
+    const bool subclassed = GetWindowSubclass(rebar, DarkRebarSeparatorSubclass,
+                                              kDarkModeRebarSeparatorSubclassId, &refData) != FALSE;
+    if (enableDark)
+    {
+        if (!subclassed)
+            SetWindowSubclass(rebar, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId, 0);
+    }
+    else if (subclassed)
+        RemoveWindowSubclass(rebar, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId);
+
+    InvalidateRect(rebar, NULL, TRUE);
 }
 
 void DarkModeUpdateListViewColors(HWND listView)
@@ -1788,6 +2617,7 @@ bool DarkModeHandleCtlColor(UINT message, WPARAM wParam, LPARAM lParam, LRESULT&
                 result = reinterpret_cast<LRESULT>(brush);
                 return true;
             }
+            EnsureDarkChoiceButtonSubclass(ctrl, false);
         }
     }
 
@@ -1945,6 +2775,56 @@ void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl)
         for (HWND child = GetWindow(hwndParent, GW_CHILD); child != NULL; child = GetWindow(child, GW_HWNDNEXT))
             applyOne(child);
     }
+}
+
+void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark)
+{
+    if (chooseColor == NULL || (!forceDark && !IsWindowsDarkSchemeSelected()))
+        return;
+
+#if USE_DARKMODELIB
+    static bool dmlibInitialized = false;
+    if (!dmlibInitialized)
+    {
+        dmlib::initDarkMode();
+        dmlibInitialized = true;
+    }
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+    dmlib::setDefaultColors(true);
+    if ((chooseColor->Flags & CC_ENABLEHOOK) == 0)
+    {
+        chooseColor->Flags |= CC_ENABLEHOOK;
+        chooseColor->lpfnHook = reinterpret_cast<LPCCHOOKPROC>(dmlib::HookDlgProc);
+    }
+#endif
+}
+
+void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont, bool forceDark)
+{
+    if (chooseFont == NULL || (!forceDark && !IsWindowsDarkSchemeSelected()))
+        return;
+
+#if USE_DARKMODELIB
+    static bool dmlibInitialized = false;
+    if (!dmlibInitialized)
+    {
+        dmlib::initDarkMode();
+        dmlibInitialized = true;
+    }
+    dmlib::setDarkModeConfigEx(static_cast<UINT>(dmlib::DarkModeType::dark));
+    dmlib::setDefaultColors(true);
+    if ((chooseFont->Flags & CF_ENABLEHOOK) == 0)
+    {
+        chooseFont->Flags |= CF_ENABLEHOOK;
+        chooseFont->lpfnHook = reinterpret_cast<LPCFHOOKPROC>(dmlib::HookDlgProc);
+    }
+    if ((chooseFont->Flags & CF_ENABLETEMPLATE) == 0)
+    {
+        chooseFont->Flags |= CF_ENABLETEMPLATE;
+        chooseFont->hInstance = GetModuleHandle(NULL);
+        chooseFont->lpTemplateName = MAKEINTRESOURCE(IDD_DARK_FONT_DIALOG);
+    }
+#endif
 }
 
 HBRUSH DarkModeGetPanelFrameBrush()

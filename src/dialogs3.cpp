@@ -206,6 +206,8 @@ void EnablePathAutoComplete(HWND hComboOrEdit, BOOL nameAutoCompleteMode)
             EnableCurrentDirectoryAutoComplete(hEdit);
         else
             SHAutoComplete(hEdit, SHACF_FILESYSTEM | SHACF_AUTOSUGGEST_FORCE_ON | SHACF_AUTOAPPEND_FORCE_ON);
+
+        DarkModeEnableAutoSuggestSupport(hEdit);
     }
 }
 
