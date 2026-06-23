@@ -65,6 +65,61 @@ Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#S
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; LicenseFile: "{#SourcePath}\license.spanish.txt"
 
 [CustomMessages]
+english.RemoveUserConfigQuestion=Do you want to remove the Open Salamander Samandarin user configuration?
+english.FileStorage=File storage:
+english.RegistryKey=Registry key:
+english.RemoveUserConfigFiles=Choose Yes to delete the configuration files, or No to keep your settings.
+english.RemoveUserConfigRegistry=Choose Yes to delete the key including all contents, or No to keep your settings.
+chinesesimplified.RemoveUserConfigQuestion=是否要删除 Open Salamander Samandarin 用户配置？
+chinesesimplified.FileStorage=文件存储:
+chinesesimplified.RegistryKey=注册表项:
+chinesesimplified.RemoveUserConfigFiles=选择“是”删除配置文件，选择“否”保留您的设置。
+chinesesimplified.RemoveUserConfigRegistry=选择“是”删除该项及其所有内容，选择“否”保留您的设置。
+czech.RemoveUserConfigQuestion=Chcete odstranit uživatelskou konfiguraci Open Salamander Samandarin?
+czech.FileStorage=Úložiště souborů:
+czech.RegistryKey=Klíč registru:
+czech.RemoveUserConfigFiles=Zvolte Ano pro odstranění konfiguračních souborů, nebo Ne pro zachování nastavení.
+czech.RemoveUserConfigRegistry=Zvolte Ano pro odstranění klíče včetně celého obsahu, nebo Ne pro zachování nastavení.
+dutch.RemoveUserConfigQuestion=Wilt u de gebruikersconfiguratie van Open Salamander Samandarin verwijderen?
+dutch.FileStorage=Bestandsopslag:
+dutch.RegistryKey=Registersleutel:
+dutch.RemoveUserConfigFiles=Kies Ja om de configuratiebestanden te verwijderen, of Nee om uw instellingen te behouden.
+dutch.RemoveUserConfigRegistry=Kies Ja om de sleutel inclusief alle inhoud te verwijderen, of Nee om uw instellingen te behouden.
+french.RemoveUserConfigQuestion=Voulez-vous supprimer la configuration utilisateur d’Open Salamander Samandarin ?
+french.FileStorage=Stockage des fichiers :
+french.RegistryKey=Clé de registre :
+french.RemoveUserConfigFiles=Choisissez Oui pour supprimer les fichiers de configuration, ou Non pour conserver vos paramètres.
+french.RemoveUserConfigRegistry=Choisissez Oui pour supprimer la clé avec tout son contenu, ou Non pour conserver vos paramètres.
+german.RemoveUserConfigQuestion=Möchten Sie die Benutzerkonfiguration von Open Salamander Samandarin entfernen?
+german.FileStorage=Dateispeicher:
+german.RegistryKey=Registrierungsschlüssel:
+german.RemoveUserConfigFiles=Wählen Sie Ja, um die Konfigurationsdateien zu löschen, oder Nein, um Ihre Einstellungen beizubehalten.
+german.RemoveUserConfigRegistry=Wählen Sie Ja, um den Schlüssel einschließlich aller Inhalte zu löschen, oder Nein, um Ihre Einstellungen beizubehalten.
+hungarian.RemoveUserConfigQuestion=Szeretné eltávolítani az Open Salamander Samandarin felhasználói konfigurációját?
+hungarian.FileStorage=Fájltároló:
+hungarian.RegistryKey=Beállításkulcs:
+hungarian.RemoveUserConfigFiles=Válassza az Igen lehetőséget a konfigurációs fájlok törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
+hungarian.RemoveUserConfigRegistry=Válassza az Igen lehetőséget a kulcs és teljes tartalmának törléséhez, vagy a Nem lehetőséget a beállítások megtartásához.
+romanian.RemoveUserConfigQuestion=Doriți să eliminați configurația de utilizator Open Salamander Samandarin?
+romanian.FileStorage=Stocare în fișiere:
+romanian.RegistryKey=Cheie de registru:
+romanian.RemoveUserConfigFiles=Alegeți Da pentru a șterge fișierele de configurare sau Nu pentru a păstra setările.
+romanian.RemoveUserConfigRegistry=Alegeți Da pentru a șterge cheia, inclusiv tot conținutul, sau Nu pentru a păstra setările.
+russian.RemoveUserConfigQuestion=Удалить пользовательскую конфигурацию Open Salamander Samandarin?
+russian.FileStorage=Файловое хранилище:
+russian.RegistryKey=Раздел реестра:
+russian.RemoveUserConfigFiles=Выберите «Да», чтобы удалить файлы конфигурации, или «Нет», чтобы сохранить настройки.
+russian.RemoveUserConfigRegistry=Выберите «Да», чтобы удалить раздел со всем содержимым, или «Нет», чтобы сохранить настройки.
+slovak.RemoveUserConfigQuestion=Chcete odstrániť používateľskú konfiguráciu Open Salamander Samandarin?
+slovak.FileStorage=Úložisko súborov:
+slovak.RegistryKey=Kľúč registra:
+slovak.RemoveUserConfigFiles=Zvoľte Áno na odstránenie konfiguračných súborov alebo Nie na zachovanie nastavení.
+slovak.RemoveUserConfigRegistry=Zvoľte Áno na odstránenie kľúča vrátane celého obsahu alebo Nie na zachovanie nastavení.
+spanish.RemoveUserConfigQuestion=¿Desea eliminar la configuración de usuario de Open Salamander Samandarin?
+spanish.FileStorage=Almacenamiento de archivos:
+spanish.RegistryKey=Clave del Registro:
+spanish.RemoveUserConfigFiles=Elija Sí para eliminar los archivos de configuración, o No para conservar la configuración.
+spanish.RemoveUserConfigRegistry=Elija Sí para eliminar la clave con todo su contenido, o No para conservar la configuración.
 english.StartMenuShortcut=Create a &Start Menu shortcut
 english.DesktopShortcut=Create a &desktop shortcut
 english.Shortcuts=Shortcuts:
@@ -1257,6 +1312,7 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\utils\salextx86.dll""
 var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
+  DeleteUserConfigurationFilePath: String;
 
 function IsFileConfigurationStorageSelected(): Boolean;
 var
@@ -1270,23 +1326,40 @@ begin
   Result := CompareText(StorageType, 'RegFile') = 0;
 end;
 
+function GetFileConfigurationPath(): String;
+begin
+  Result := GetIniString(
+    'Configuration',
+    'RegFilePath',
+    '',
+    ExpandConstant('{app}\configstorage.ini'));
+
+  if Result = '' then
+  begin
+    Result := ExpandConstant('{app}\config.reg');
+  end;
+end;
+
 
 function InitializeUninstall(): Boolean;
 begin
   Result := True;
   DeleteUserConfiguration := False;
+  DeleteUserConfigurationFilePath := '';
   DeleteUserConfigurationFromFile := IsFileConfigurationStorageSelected();
 
   if DeleteUserConfigurationFromFile then
   begin
-    if FileExists(ExpandConstant('{app}\config.reg')) or FileExists(ExpandConstant('{app}\configstorage.ini')) then
+    DeleteUserConfigurationFilePath := GetFileConfigurationPath();
+
+    if FileExists(DeleteUserConfigurationFilePath) or FileExists(ExpandConstant('{app}\configstorage.ini')) then
     begin
       DeleteUserConfiguration :=
         MsgBox(
-          'Do you want to remove the Open Salamander Samandarin user configuration?'#13#10#13#10 +
-          'File storage:'#13#10 +
-          ExpandConstant('{app}\config.reg') + #13#10#13#10 +
-          'Choose Yes to delete the configuration files, or No to keep your settings.',
+          CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
+          CustomMessage('FileStorage') + #13#10 +
+          DeleteUserConfigurationFilePath + #13#10#13#10 +
+          CustomMessage('RemoveUserConfigFiles'),
           mbConfirmation,
           MB_YESNO) = IDYES;
     end;
@@ -1295,10 +1368,10 @@ begin
   begin
     DeleteUserConfiguration :=
       MsgBox(
-        'Do you want to remove the Open Salamander Samandarin user configuration?'#13#10#13#10 +
-        'Registry key:'#13#10 +
+        CustomMessage('RemoveUserConfigQuestion') + #13#10#13#10 +
+        CustomMessage('RegistryKey') + #13#10 +
         'HKCU\Software\Open Salamander Samandarin\5.0-samandarin-0.6'#13#10#13#10 +
-        'Choose Yes to delete the key including all contents, or No to keep your settings.',
+        CustomMessage('RemoveUserConfigRegistry'),
         mbConfirmation,
         MB_YESNO) = IDYES;
   end;
@@ -1310,7 +1383,7 @@ begin
   begin
     if DeleteUserConfigurationFromFile then
     begin
-      DeleteFile(ExpandConstant('{app}\config.reg'));
+      DeleteFile(DeleteUserConfigurationFilePath);
       DeleteFile(ExpandConstant('{app}\configstorage.ini'));
     end
     else
