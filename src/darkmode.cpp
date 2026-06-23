@@ -392,9 +392,11 @@ constexpr UINT_PTR kDarkModeChoiceButtonSubclassId = 0x44524B52; // "DRKR"
 constexpr UINT_PTR kDarkModeTabOverflowSubclassId = 0x4452544F; // "DRTO"
 constexpr UINT_PTR kDarkModeRebarSeparatorSubclassId = 0x44525253; // "DRRS"
 constexpr UINT_PTR kDarkModeRebarChildSeparatorSubclassId = 0x44524353; // "DRCS"
+constexpr UINT_PTR kDarkModeRebarOverlaySeparatorSubclassId = 0x44524F53; // "DROS"
 constexpr UINT_PTR kDarkModeAutoSuggestSubclassId = 0x44524153; // "DRAS"
 constexpr UINT_PTR kDarkModeAutoSuggestTimerId = 0x44524154; // "DRAT"
 const wchar_t* kDarkModeCustomTreeViewProp = L"Salamander.DarkModeLib.CustomTree";
+const wchar_t* kDarkModeRebarOverlaySeparatorProp = L"Salamander.DarkMode.RebarOverlaySeparator";
 
 void FillRectWithColor(HDC hdc, const RECT& rect, COLORREF color)
 {
@@ -792,6 +794,119 @@ void PaintDarkRebarChildSeparators(HWND hwnd, HDC hdc)
     DeleteObject(pen);
 }
 
+void PaintDarkRebarOverlaySeparator(HWND hwnd, HDC hdc)
+{
+    if (hwnd == NULL || hdc == NULL)
+        return;
+
+    RECT client;
+    GetClientRect(hwnd, &client);
+    if (client.right <= client.left || client.bottom <= client.top)
+        return;
+
+    FillRectWithColor(hdc, client, RGB(95, 95, 95));
+}
+
+LRESULT CALLBACK DarkRebarOverlaySeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (msg)
+    {
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, DarkRebarOverlaySeparatorSubclass, kDarkModeRebarOverlaySeparatorSubclassId);
+        RemovePropW(hwnd, kDarkModeRebarOverlaySeparatorProp);
+        break;
+
+    case WM_ERASEBKGND:
+        PaintDarkRebarOverlaySeparator(hwnd, reinterpret_cast<HDC>(wParam));
+        return 1;
+
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        PaintDarkRebarOverlaySeparator(hwnd, hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_PRINTCLIENT:
+        PaintDarkRebarOverlaySeparator(hwnd, reinterpret_cast<HDC>(wParam));
+        return 0;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+BOOL CALLBACK DestroyDarkRebarOverlaySeparatorProc(HWND hwnd, LPARAM)
+{
+    if (GetPropW(hwnd, kDarkModeRebarOverlaySeparatorProp) != NULL)
+        DestroyWindow(hwnd);
+    return TRUE;
+}
+
+std::vector<int> GetDarkRebarOverlaySeparatorLines(HWND rebar)
+{
+    std::vector<int> lines;
+
+    RECT client;
+    GetClientRect(rebar, &client);
+    if (client.right <= client.left || client.bottom <= client.top)
+        return lines;
+
+    const int bandCount = static_cast<int>(SendMessage(rebar, RB_GETBANDCOUNT, 0, 0));
+    for (int i = 0; i < bandCount; ++i)
+    {
+        RECT bandRect = {0, 0, 0, 0};
+        if (SendMessage(rebar, RB_GETRECT, i, reinterpret_cast<LPARAM>(&bandRect)) == 0)
+            continue;
+
+        if (bandRect.top > client.top && bandRect.top < client.bottom)
+            lines.push_back(bandRect.top);
+        if (bandRect.bottom > client.top && bandRect.bottom < client.bottom)
+            lines.push_back(bandRect.bottom - 1);
+    }
+
+    std::sort(lines.begin(), lines.end());
+    lines.erase(std::unique(lines.begin(), lines.end()), lines.end());
+    return lines;
+}
+
+void UpdateDarkRebarOverlaySeparators(HWND rebar, bool enable)
+{
+    if (rebar == NULL)
+        return;
+
+    EnumChildWindows(rebar, DestroyDarkRebarOverlaySeparatorProc, 0);
+    if (!enable)
+        return;
+
+    RECT client;
+    GetClientRect(rebar, &client);
+    const int width = client.right - client.left;
+    if (width <= 0)
+        return;
+
+    const std::vector<int> lines = GetDarkRebarOverlaySeparatorLines(rebar);
+    for (int y : lines)
+    {
+        HWND line = CreateWindowExW(WS_EX_NOACTIVATE, L"STATIC", L"",
+                                    WS_CHILD | WS_VISIBLE,
+                                    client.left, y, width, 1,
+                                    rebar, NULL, GetModuleHandle(NULL), NULL);
+        if (line == NULL)
+            continue;
+
+        SetPropW(line, kDarkModeRebarOverlaySeparatorProp, reinterpret_cast<HANDLE>(1));
+        SetWindowSubclass(line, DarkRebarOverlaySeparatorSubclass, kDarkModeRebarOverlaySeparatorSubclassId, 0);
+        SetWindowPos(line, HWND_TOP, client.left, y, width, 1,
+                     SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+}
+
 LRESULT CALLBACK DarkRebarChildSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                                  UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -858,7 +973,13 @@ LRESULT CALLBACK DarkRebarSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, 
     switch (msg)
     {
     case WM_NCDESTROY:
+        UpdateDarkRebarOverlaySeparators(hwnd, false);
         RemoveWindowSubclass(hwnd, DarkRebarSeparatorSubclass, kDarkModeRebarSeparatorSubclassId);
+        break;
+
+    case WM_SIZE:
+    case WM_WINDOWPOSCHANGED:
+        UpdateDarkRebarOverlaySeparators(hwnd, DarkModeShouldUseDarkColors());
         break;
 
     case WM_PAINT:
@@ -870,6 +991,7 @@ LRESULT CALLBACK DarkRebarSeparatorSubclass(HWND hwnd, UINT msg, WPARAM wParam, 
             PaintDarkRebarSeparators(hwnd, hdc);
             ReleaseDC(hwnd, hdc);
         }
+        UpdateDarkRebarOverlaySeparators(hwnd, DarkModeShouldUseDarkColors());
         return result;
     }
 
@@ -2423,6 +2545,7 @@ void DarkModeApplyRebarSeparators(HWND rebar)
 
     const bool enableDark = DarkModeShouldUseDarkColors();
     UpdateDarkRebarChildSeparators(rebar, enableDark);
+    UpdateDarkRebarOverlaySeparators(rebar, enableDark);
     DWORD_PTR refData = 0;
     const bool subclassed = GetWindowSubclass(rebar, DarkRebarSeparatorSubclass,
                                               kDarkModeRebarSeparatorSubclassId, &refData) != FALSE;
