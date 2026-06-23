@@ -2047,7 +2047,14 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
             const LONG_PTR type = style & BS_TYPEMASK;
             if (type == BS_GROUPBOX)
             {
+#if USE_DARKMODELIB
+                // darkmodelib's setGroupboxCtrlSubclass handles groupbox rendering
+                // natively. EnsureClassicButtonTheme strips the theme and produces
+                // a classic look with white thick borders, which conflicts with
+                // darkmodelib's dark groupbox styling.
+#else
                 EnsureClassicButtonTheme(hwnd, wantDark);
+#endif
                 InvalidateRect(hwnd, NULL, TRUE);
             }
             else if (type == BS_AUTORADIOBUTTON || type == BS_RADIOBUTTON ||
@@ -2833,4 +2840,17 @@ HBRUSH DarkModeGetPanelFrameBrush()
     if (brush == NULL)
         brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
     return brush;
+}
+
+void DarkModeApplyUpDownSubclass(HWND hWnd)
+{
+#if USE_DARKMODELIB
+    if (hWnd != NULL && DarkModeShouldUseDarkColors())
+    {
+        SetWindowTheme(hWnd, L"DarkMode_Explorer", nullptr);
+        dmlib::setUpDownCtrlSubclass(hWnd);
+    }
+#else
+    (void)hWnd;
+#endif
 }

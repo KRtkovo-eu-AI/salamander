@@ -1307,6 +1307,7 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         TreeView_SelectItem(HTreeView, TPD->At(TPD->StartPage)->HTreeItem);
 
         GripWindow = new CTPHGripWindow(HWindow, _TPD_IDC_GRIP);
+        DarkModeApplyWindow(GripWindow->HWindow);
 
         // default rozmery jsou minimalni - ulozime si je, abychom je nasledne mohli hlidat
         GetWindowRect(HWindow, &r);

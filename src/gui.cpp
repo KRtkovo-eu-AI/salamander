@@ -1622,8 +1622,15 @@ CColorGraph::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
   {
     case WM_PAINT:
     {
-      PAINTSTRUCT ps;
-      HDC hdc = HANDLES(BeginPaint(HWindow, &ps));
+        // In dark mode, skip CButton's custom painting entirely.
+        // darkmodelib applies DarkMode_Explorer theme to all push buttons via
+        // setBtnCtrlSubclassAndTheme(), so the system draws modern flat dark buttons.
+        // CButton's custom 3D painting would override that and look legacy.
+        if (DarkModeShouldUseDarkColors())
+            break;
+
+        PAINTSTRUCT ps;
+        HDC hdc = HANDLES(BeginPaint(HWindow, &ps));
       FillRect(hdc, &ClientRect, (HBRUSH)(COLOR_BTNFACE + 1));
       PaintFace(hdc);
       HANDLES(EndPaint(HWindow, &ps));
@@ -2112,9 +2119,20 @@ CButton::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
                 // erase the background, the button has transparent areas
-                HBRUSH hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
-                //          if (!(ButtonPressed && Pressed) && (Flags & BTF_CHECKBOX) && Checked) hBrush = HDitherBrush;
+                // In dark mode, COLOR_BTNFACE is still light and shows through
+                // transparent areas of DrawThemeBackground. Use dark background instead.
+                HBRUSH hBrush;
+                BOOL createdDarkBrush = FALSE;
+                if (DarkModeShouldUseDarkColors())
+                {
+                    hBrush = HANDLES(CreateSolidBrush(DarkModeGetDialogBackgroundColor()));
+                    createdDarkBrush = TRUE;
+                }
+                else
+                    hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
                 FillRect(hMemDC, &ClientRect, hBrush);
+                if (createdDarkBrush)
+                    DeleteObject(hBrush);
 
                 // draw the button background
                 DrawThemeBackground(hTheme, hMemDC, BP_PUSHBUTTON, state, &ClientRect, NULL);
@@ -2617,7 +2635,7 @@ CColorButton::PaintFace(HDC hdc, const RECT *rect)
 //
 
 CColorArrowButton::CColorArrowButton(HWND hDlg, int ctrlID, BOOL showArrow, CObjectOrigin origin)
-    : CButton(hDlg, ctrlID, origin)
+    : CButton(hDlg, ctrlID, BTF_CUSTOMPAINT, origin)
 {
     TextColor = RGB(0, 0, 0);
     BkgndColor = RGB(255, 255, 255);

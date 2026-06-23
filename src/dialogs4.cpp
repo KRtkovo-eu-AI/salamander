@@ -61,6 +61,102 @@ static bool DarkModeTryHandleCtlColorForDialogPage(UINT uMsg, WPARAM wParam, LPA
     return true;
 }
 
+
+static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
+{
+    HBRUSH brush = CreateSolidBrush(color);
+    if (brush != NULL)
+    {
+        FillRect(hdc, &rect, brush);
+        DeleteObject(brush);
+    }
+}
+
+// Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
+// darkmodelib's setDarkCheckboxes() only works on Win11+, so on Win10 we must
+// draw the checkboxes ourselves. On Win11+ with USE_DARKMODELIB, darkmodelib
+// handles them natively and we must not draw on top (causes white-background
+// artifacts).
+static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
+{
+    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
+        return;
+
+    // On Win11+ with USE_DARKMODELIB, darkmodelib handles checkboxes natively
+#if USE_DARKMODELIB
+    if (Windows11AndLater)
+        return;
+#endif
+
+    const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
+    RECT boundsRect;
+    RECT labelRect;
+    if (!ListView_GetItemRect(listView, item, &boundsRect, LVIR_BOUNDS) ||
+        !ListView_GetItemRect(listView, item, &labelRect, LVIR_LABEL))
+    {
+        return;
+    }
+
+    HDC hdc = customDraw->nmcd.hdc;
+    if (hdc == NULL)
+        return;
+
+    // Fill the full item width with dark background to cover any white pixels
+    // from the native checkbox state images.
+    const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
+    const COLORREF rowBackground = selected ? DarkModeGetColors().background : DarkModeGetDialogBackgroundColor();
+    FillRectWithSysColor(hdc, boundsRect, rowBackground);
+
+    // Calculate checkbox area (same region the native state image occupies)
+    RECT stateRect = boundsRect;
+    stateRect.right = labelRect.left;
+    if (stateRect.right <= stateRect.left)
+        return;
+
+    int checkSize = stateRect.bottom - stateRect.top - 2;
+    if (checkSize < 9)
+        checkSize = 9;
+    if (checkSize > 13)
+        checkSize = 13;
+    RECT checkRect;
+    checkRect.left = stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2;
+    checkRect.top = stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2;
+    checkRect.right = checkRect.left + checkSize;
+    checkRect.bottom = checkRect.top + checkSize;
+
+    const bool checked = (ListView_GetItemState(listView, item, LVIS_STATEIMAGEMASK) == INDEXTOSTATEIMAGEMASK(2));
+    const COLORREF fill = checked ? RGB(0x4C, 0xC2, 0xF0) : RGB(0x24, 0x24, 0x24);
+    const COLORREF border = checked ? RGB(0x7A, 0xD7, 0xF7) : RGB(0x78, 0x78, 0x78);
+
+    HBRUSH fillBrush = CreateSolidBrush(fill);
+    HPEN borderPen = CreatePen(PS_SOLID, 1, border);
+    HGDIOBJ oldBrush = fillBrush != NULL ? SelectObject(hdc, fillBrush) : NULL;
+    HGDIOBJ oldPen = borderPen != NULL ? SelectObject(hdc, borderPen) : NULL;
+    Rectangle(hdc, checkRect.left, checkRect.top, checkRect.right, checkRect.bottom);
+
+    if (checked)
+    {
+        HPEN checkPen = CreatePen(PS_SOLID, 2, RGB(0x10, 0x10, 0x10));
+        HGDIOBJ oldCheckPen = checkPen != NULL ? SelectObject(hdc, checkPen) : NULL;
+        MoveToEx(hdc, checkRect.left + 3, checkRect.top + checkSize / 2, NULL);
+        LineTo(hdc, checkRect.left + checkSize / 2 - 1, checkRect.bottom - 4);
+        LineTo(hdc, checkRect.right - 3, checkRect.top + 3);
+        if (oldCheckPen != NULL)
+            SelectObject(hdc, oldCheckPen);
+        if (checkPen != NULL)
+            DeleteObject(checkPen);
+    }
+
+    if (oldPen != NULL)
+        SelectObject(hdc, oldPen);
+    if (oldBrush != NULL)
+        SelectObject(hdc, oldBrush);
+    if (borderPen != NULL)
+        DeleteObject(borderPen);
+    if (fillBrush != NULL)
+        DeleteObject(fillBrush);
+}
+
 //****************************************************************************
 //
 // CHighlightMasksItem
@@ -1518,15 +1614,16 @@ void CCfgPageView::EnableControls()
     BOOL enableLeftEdit = supportFixedWidth && IsDlgButtonChecked(HWindow, IDC_VIEW_LEFT_FIXED) == BST_CHECKED;
     BOOL enableRightEdit = supportFixedWidth && IsDlgButtonChecked(HWindow, IDC_VIEW_RIGHT_FIXED) == BST_CHECKED;
 
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT4), enable);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT6), enable);
+    const BOOL keepStaticTextReadable = DarkModeShouldUseDarkColors();
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT4), keepStaticTextReadable || enable);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT6), keepStaticTextReadable || enable);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_LEFT_FIXED), supportFixedWidth);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_RIGHT_FIXED), supportFixedWidth);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_LEFT_WIDTH), enableLeftEdit);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_RIGHT_WIDTH), enableRightEdit);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT2), supportFixedWidth);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT5), supportFixedWidth);
-    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT7), enable);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT2), keepStaticTextReadable || supportFixedWidth);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT5), keepStaticTextReadable || supportFixedWidth);
+    EnableWindow(GetDlgItem(HWindow, IDC_VIEW_TEXT7), keepStaticTextReadable || enable);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_LEFT_SMARTMODE), enable);
     EnableWindow(GetDlgItem(HWindow, IDC_VIEW_RIGHT_SMARTMODE), enable);
 }
@@ -1697,6 +1794,29 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
+            // darkmodelib's replaceClientEdgeWithBorderSafeEx replaces WS_BORDER with
+            // WS_EX_CLIENTEDGE for enabled windows. On Win10, WS_EX_CLIENTEDGE creates
+            // a white/light 3D border that bleeds into the listview client area and shows
+            // as white backgrounds behind the native checkbox state images. The custom
+            // NM_CUSTOMDRAW handler fills the item rect with dark background and draws dark
+            // checkboxes, but the WS_EX_CLIENTEDGE border pixels remain white and are
+            // visible at the edges. Remove WS_EX_CLIENTEDGE so only the CToolbarHeader's
+            // dark sunken border remains. On Win11+, darkmodelib's setDarkCheckboxes
+            // replaces the native state images entirely, so the border isn't an issue.
+            if (DarkModeShouldUseDarkColors())
+            {
+                auto RemoveWhiteClientEdge = [](HWND hList) {
+                    DWORD exStyle = (DWORD)GetWindowLongPtr(hList, GWL_EXSTYLE);
+                    if (exStyle & WS_EX_CLIENTEDGE)
+                    {
+                        SetWindowLongPtr(hList, GWL_EXSTYLE, exStyle & ~WS_EX_CLIENTEDGE);
+                        SetWindowPos(hList, NULL, 0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+                    }
+                };
+                RemoveWhiteClientEdge(HListView);
+                RemoveWhiteClientEdge(HListView2);
+            }
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
@@ -1733,6 +1853,29 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LPNMHDR nmh = (LPNMHDR)lParam;
             switch (nmh->code)
             {
+            case NM_CUSTOMDRAW:
+            {
+                LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
+                LRESULT customDrawResult = CDRF_DODEFAULT;
+                if (DarkModeShouldUseDarkColors())
+                {
+                    if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
+                        customDrawResult = CDRF_NOTIFYITEMDRAW;
+                    else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                    {
+                        // Ensure the system draws item backgrounds in dark color,
+                        // preventing white bleed-through from default rendering.
+                        customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
+                        customDraw->clrText = DarkModeGetDialogTextColor();
+                        customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                    }
+                    else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                        DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
+                }
+                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
+                return TRUE;
+            }
+
             case NM_DBLCLK:
             {
                 LVHITTESTINFO ht;
@@ -2139,22 +2282,9 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-        DARKMODE_RETURN_IF_HANDLED(handled, brush);
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -2629,22 +2759,9 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-        DARKMODE_RETURN_IF_HANDLED(handled, brush);
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -3337,22 +3454,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-        DARKMODE_RETURN_IF_HANDLED(handled, brush);
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -4114,6 +4218,30 @@ void CCfgPageColors::LayoutMaskControls()
 
     RECT listRect;
     GetWindowRect(hList, &listRect);
+    RECT firstMaskButtonRect = {};
+    GetWindowRect(GetDlgItem(HWindow, IDC_C_MASK1_C), &firstMaskButtonRect);
+    RECT clientRect;
+    GetClientRect(HWindow, &clientRect);
+
+    POINT listTop = {listRect.left, listRect.top};
+    ScreenToClient(HWindow, &listTop);
+    const int maskButtonHeight = firstMaskButtonRect.bottom - firstMaskButtonRect.top;
+    const int requiredBelowList = CfgPageColorsDluY(HWindow, 4 + 1 + 4 * 14) + maskButtonHeight;
+    const int bottomPadding = CfgPageColorsDluY(HWindow, 2);
+    const int maxListBottom = clientRect.bottom - bottomPadding - requiredBelowList;
+    const int minListHeight = CfgPageColorsDluY(HWindow, 24);
+    if (listRect.bottom - listRect.top > minListHeight)
+    {
+        const int currentListBottom = listTop.y + (listRect.bottom - listRect.top);
+        if (currentListBottom > maxListBottom)
+        {
+            const int newListHeight = maxListBottom - listTop.y > minListHeight ? maxListBottom - listTop.y : minListHeight;
+            SetWindowPos(hList, NULL, 0, 0, listRect.right - listRect.left, newListHeight,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+            GetWindowRect(hList, &listRect);
+        }
+    }
+
     POINT listBottom = {listRect.left, listRect.bottom};
     ScreenToClient(HWindow, &listBottom);
 
