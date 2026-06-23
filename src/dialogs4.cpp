@@ -78,8 +78,17 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
         return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
-    RECT iconRect;
-    if (!ListView_GetItemRect(listView, item, &iconRect, LVIR_ICON))
+    RECT boundsRect;
+    RECT labelRect;
+    if (!ListView_GetItemRect(listView, item, &boundsRect, LVIR_BOUNDS) ||
+        !ListView_GetItemRect(listView, item, &labelRect, LVIR_LABEL))
+    {
+        return;
+    }
+
+    RECT stateRect = boundsRect;
+    stateRect.right = labelRect.left;
+    if (stateRect.right <= stateRect.left)
         return;
 
     HDC hdc = customDraw->nmcd.hdc;
@@ -88,16 +97,16 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
 
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
     const COLORREF rowBackground = selected ? GetSysColor(COLOR_HIGHLIGHT) : DarkModeGetColors().background;
-    FillRectWithSysColor(hdc, iconRect, rowBackground);
+    FillRectWithSysColor(hdc, stateRect, rowBackground);
 
-    int checkSize = iconRect.bottom - iconRect.top - 2;
+    int checkSize = stateRect.bottom - stateRect.top - 2;
     if (checkSize < 9)
         checkSize = 9;
     if (checkSize > 13)
         checkSize = 13;
     RECT checkRect;
-    checkRect.left = iconRect.left + ((iconRect.right - iconRect.left) - checkSize) / 2;
-    checkRect.top = iconRect.top + ((iconRect.bottom - iconRect.top) - checkSize) / 2;
+    checkRect.left = stateRect.left + ((stateRect.right - stateRect.left) - checkSize) / 2;
+    checkRect.top = stateRect.top + ((stateRect.bottom - stateRect.top) - checkSize) / 2;
     checkRect.right = checkRect.left + checkSize;
     checkRect.bottom = checkRect.top + checkSize;
 
