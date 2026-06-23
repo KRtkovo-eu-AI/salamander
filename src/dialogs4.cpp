@@ -79,7 +79,10 @@ static void SetViewsAvailableColumnsColumnWidth(HWND listView)
 
     RECT rc;
     GetClientRect(listView, &rc);
-    int width = rc.right - rc.left - GetSystemMetrics(SM_CXVSCROLL) - 4;
+    // This list has a single column. Let it cover the full client area so the
+    // report-view background is painted by that column instead of leaving a
+    // separate native strip on the right side.
+    int width = rc.right - rc.left;
     if (width < 20)
         width = 20;
     ListView_SetColumnWidth(listView, 0, width);
@@ -108,11 +111,11 @@ static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
 static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
 {
     // Available Columns used to be fixed by overlaying the checkbox cell after
-    // the native list-view item has been painted. Keep that exact Win11+ dark
-    // mode path: darkmodelib still themes the list-view/header chrome, and this
-    // post-paint pass covers the native state-image background that can remain
-    // white in this single list-view.
-    return Windows11AndLater && DarkModeShouldUseDarkColors();
+    // the native list-view item has been painted. Keep the post-paint path for
+    // this single list-view whenever dark colors are active: darkmodelib still
+    // themes the list-view/header chrome, and this pass covers any native
+    // state-image background that can remain white.
+    return DarkModeShouldUseDarkColors();
 }
 
 // Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
