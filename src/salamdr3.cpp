@@ -1832,7 +1832,10 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
             {
                 Lock = TRUE;
                 item = Paths[ForwardIndex + index - 1];
+                BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
+                SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
                 change = item->Execute(panel);
+                SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
                 if (!change)
                     item = NULL; // failed to change the path => keep it in the history
                 Lock = FALSE;
@@ -1855,7 +1858,10 @@ void CPathHistory::Execute(int index, BOOL forward, CFilesWindow* panel, BOOL al
                 {
                     Lock = TRUE;
                     item = Paths[count - index];
+                    BOOL oldSuppressChangeDirHistoryErr = SuppressChangeDirHistoryErr;
+                    SuppressChangeDirHistoryErr = !Configuration.CnfrmChangeDirHistoryErr;
                     change = item->Execute(panel);
+                    SuppressChangeDirHistoryErr = oldSuppressChangeDirHistoryErr;
                     if (!change)
                         item = NULL; // failed to change the path => keep it in the history
                     Lock = FALSE;

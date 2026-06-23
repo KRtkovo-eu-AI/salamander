@@ -299,6 +299,7 @@ BOOL PostStatusbarRepaint = FALSE;
 
 int ChangeDirectoryAllowed = 0;
 BOOL ChangeDirectoryRequest = FALSE;
+BOOL SuppressChangeDirHistoryErr = FALSE;
 
 BOOL SkipOneActivateRefresh = FALSE;
 

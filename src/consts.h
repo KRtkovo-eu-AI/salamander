@@ -1599,6 +1599,7 @@ extern const char* SALCF_FAKE_SRCFSPATH;
 // promenne pro CanChangeDirectory() a AllowChangeDirectory()
 extern int ChangeDirectoryAllowed; // 0 znamena, ze je mozne menit adresar
 extern BOOL ChangeDirectoryRequest;
+extern BOOL SuppressChangeDirHistoryErr; // TRUE = suppress path-not-found error while browsing directory history
 // funkce obsluhujici automatickou zmenu aktualniho adresare na systemovy
 // - kvuli odmapovavani z jinych softu a mazani adresaru zobrazenych Salamandrem
 BOOL CanChangeDirectory();
