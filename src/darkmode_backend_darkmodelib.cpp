@@ -365,7 +365,6 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
             dmlib::setHeaderEdgeColor(headerEdge);
             dmlib::updateViewBrushesAndPens();
             dmlib::replaceClientEdgeWithBorderSafe(listView);
-            dmlib::setCustomBorderForListBoxOrEditCtrlSubclass(listView);
             dmlib::setDarkListView(listView);
             dmlib::setDarkListViewCheckboxes(listView);
             dmlib::setListViewCtrlSubclass(listView);
@@ -380,7 +379,6 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
         else
         {
             dmlib::removeListViewCtrlSubclass(listView);
-            dmlib::removeCustomBorderForListBoxOrEditCtrlSubclass(listView);
             dmlib::replaceClientEdgeWithBorderSafeEx(listView, false);
             HWND header = ListView_GetHeader(listView);
             if (header != NULL)

@@ -1799,6 +1799,24 @@ void EnsureDarkStaticFrameSubclass(HWND hwnd, bool enableDark)
 
 constexpr UINT_PTR kDarkModeListViewSurfaceSubclassId = 0x44524C56; // "DRLV"
 
+void PaintDarkListViewBorder(HWND hwnd)
+{
+    HDC hdc = GetWindowDC(hwnd);
+    if (hdc == NULL)
+        return;
+
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+    OffsetRect(&rc, -rc.left, -rc.top);
+    HBRUSH brush = CreateSolidBrush(RGB(0x38, 0x38, 0x38));
+    if (brush != NULL)
+    {
+        FrameRect(hdc, &rc, brush);
+        DeleteObject(brush);
+    }
+    ReleaseDC(hwnd, hdc);
+}
+
 LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
                                              UINT_PTR subclassId, DWORD_PTR refData)
 {
@@ -1809,6 +1827,9 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
         RemoveWindowSubclass(hwnd, DarkListViewSurfaceSubclass, kDarkModeListViewSurfaceSubclassId);
 
     LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+    if ((msg == WM_NCPAINT || msg == WM_NCACTIVATE || msg == WM_SIZE) && ShouldUseDarkColorsForSurfaces())
+        PaintDarkListViewBorder(hwnd);
+
     if (msg == WM_PAINT && ShouldUseDarkColorsForSurfaces())
     {
         HDC hdc = GetDC(hwnd);
@@ -1852,6 +1873,7 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
         if (unused.top < unused.bottom)
             FillRectWithColor(hdc, unused, background);
         ReleaseDC(hwnd, hdc);
+        PaintDarkListViewBorder(hwnd);
     }
     return result;
 }
