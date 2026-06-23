@@ -3026,13 +3026,19 @@ static void setDarkCheckboxes(HWND hWnd, HIMAGELIST hImgList, ViewCheckbox viewC
 	HBITMAP hMaskBmp = ::CreateBitmap(szBox.cx, szBox.cy, 1, 1, nullptr);
 
 	auto holdBmp = static_cast<HBITMAP>(::SelectObject(hBoxDC, hBoxBmp));
-	::DrawThemeBackground(hTheme, hBoxDC, BP_CHECKBOX, CBS_UNCHECKEDNORMAL, &rcBox, nullptr);
+	const auto drawCheckboxState = [&](int iStateId) noexcept
+	{
+		::FillRect(hBoxDC, &rcBox, dmlib::getViewBackgroundBrush());
+		::DrawThemeBackground(hTheme, hBoxDC, BP_CHECKBOX, iStateId, &rcBox, nullptr);
+	};
+	drawCheckboxState(CBS_UNCHECKEDNORMAL);
 
 	ICONINFO ii{};
 	ii.fIcon = TRUE;
 	ii.hbmColor = hBoxBmp;
 	ii.hbmMask = hMaskBmp;
 
+	::ImageList_SetBkColor(hImgList, CLR_NONE);
 	int idx = (viewCheckbox == ViewCheckbox::listView) ? 0 : 1; // tree view state images start from index 1
 
 	HICON hIcon = ::CreateIconIndirect(&ii);
@@ -3052,7 +3058,7 @@ static void setDarkCheckboxes(HWND hWnd, HIMAGELIST hImgList, ViewCheckbox viewC
 
 	auto addIconState = [&](int iStateId) noexcept
 	{
-		::DrawThemeBackground(hTheme, hBoxDC, BP_CHECKBOX, iStateId, &rcBox, nullptr);
+		drawCheckboxState(iStateId);
 		ii.hbmColor = hBoxBmp;
 
 		hIcon = ::CreateIconIndirect(&ii);
