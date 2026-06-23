@@ -92,6 +92,21 @@ static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
     RemoveViewsListViewWhiteClientEdge(listView2);
 }
 
+static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
+{
+    if (!DarkModeShouldUseDarkColors())
+        return false;
+
+#if USE_DARKMODELIB
+    // On Win11+ darkmodelib replaces list-view checkbox state images with
+    // dark themed images. Older Windows keep native state images with light
+    // backgrounds, so we bypass native item painting there.
+    return !Windows11AndLater;
+#else
+    return true;
+#endif
+}
+
 // Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
 // darkmodelib's setDarkCheckboxes() only works on Win11+, so on Win10 we must
 // draw the checkboxes ourselves. On Win11+ with USE_DARKMODELIB, darkmodelib
@@ -99,14 +114,8 @@ static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
 // artifacts).
 static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
-    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
+    if (!ShouldCustomDrawViewsAvailableColumnCheckboxes() || listView == NULL || customDraw == NULL)
         return;
-
-    // On Win11+ with USE_DARKMODELIB, darkmodelib handles checkboxes natively
-#if USE_DARKMODELIB
-    if (Windows11AndLater)
-        return;
-#endif
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
     RECT boundsRect;
@@ -166,6 +175,17 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
         if (checkPen != NULL)
             DeleteObject(checkPen);
     }
+
+    char text[256];
+    text[0] = 0;
+    ListView_GetItemText(listView, item, 0, text, _countof(text));
+    RECT textRect = labelRect;
+    textRect.left += 2;
+    int oldBkMode = SetBkMode(hdc, TRANSPARENT);
+    COLORREF oldTextColor = SetTextColor(hdc, DarkModeGetDialogTextColor());
+    DrawText(hdc, text, -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_END_ELLIPSIS);
+    SetTextColor(hdc, oldTextColor);
+    SetBkMode(hdc, oldBkMode);
 
     if (oldPen != NULL)
         SelectObject(hdc, oldPen);
@@ -1872,14 +1892,16 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         customDrawResult = CDRF_NOTIFYITEMDRAW;
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                     {
-                        // Ensure the system draws item backgrounds in dark color,
-                        // preventing white bleed-through from default rendering.
                         customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
                         customDraw->clrText = DarkModeGetDialogTextColor();
-                        customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                        if (ShouldCustomDrawViewsAvailableColumnCheckboxes())
+                        {
+                            DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
+                            customDrawResult = CDRF_SKIPDEFAULT;
+                        }
+                        else
+                            customDrawResult = CDRF_DODEFAULT;
                     }
-                    else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
-                        DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
                 }
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
                 return TRUE;
