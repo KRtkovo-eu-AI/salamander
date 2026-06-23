@@ -672,7 +672,7 @@ static BOOL BrowseRegStorageFile(HWND hParent, char* path, int pathSize)
     ofn.lpstrFilter = filter;
     ofn.lpstrFile = path;
     ofn.nMaxFile = pathSize;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
     ofn.lpstrDefExt = "reg";
     return SafeGetSaveFileName(&ofn);
 }
