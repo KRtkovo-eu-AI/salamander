@@ -9838,7 +9838,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         if (Configuration.AutoSave)
-            SaveConfig();
+        {
+            // During automatic shutdown/close, do not show a modal save-error dialog here.
+            // If the portable configuration file cannot be written (for example due to ACLs),
+            // a dialog at this point can outlive the main window and leave Salamander hanging.
+            SaveConfig(NULL, FALSE);
+        }
 
         if (uMsg == WM_ENDSESSION)
             LoadSaveToRegistryMutex.Leave(); // pairs with Enter() called when WM_QUERYENDSESSION was received

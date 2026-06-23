@@ -1694,7 +1694,7 @@ void CMainWindow::SavePanelConfig(CPanelSide side, HKEY hSalamander, const char*
     CloseKey(actKey);
 }
 
-void CMainWindow::SaveConfig(HWND parent)
+void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
 {
     CALL_STACK_MESSAGE1("CMainWindow::SaveConfig()");
 
@@ -2764,7 +2764,7 @@ void CMainWindow::SaveConfig(HWND parent)
         CloseKey(salamander);
     }
 
-    ConfigurationStorage.Flush();
+    ConfigurationStorage.Flush(showConfigFileSaveError);
 
     LoadSaveToRegistryMutex.Leave();
 

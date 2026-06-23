@@ -23,7 +23,7 @@ protected:
     CSalamanderRegistryExAbstract* CreateRegistry(CConfigurationStorageType type);
     BOOL BuildRootKeyName(char* keyName, int keyNameSize);
     BOOL LoadRegFile(CSalamanderRegistryExAbstract* registry);
-    BOOL SaveRegFile();
+    BOOL SaveRegFile(BOOL showError = TRUE);
     void ShowRegFileLoadError(const char* fileName, eRPE_ERROR err);
     void ShowRegFileSaveError(const char* fileName, DWORD err);
     void DeleteStoredRegistryConfiguration(CSalamanderRegistryExAbstract* registry, const char* keyName);
@@ -37,8 +37,8 @@ public:
     CConfigurationStorageType GetStorageType() const;
     BOOL SwitchStorageType(CConfigurationStorageType newType, BOOL migrateCurrentData, const char* filePath = NULL);
     BOOL Load();
-    BOOL Save();
-    BOOL Flush();
+    BOOL Save(BOOL showError = TRUE);
+    BOOL Flush(BOOL showError = TRUE);
     void Release();
 
     BOOL GetPortableConfigFilePath(char* filePath, int filePathSize);

@@ -311,7 +311,7 @@ BOOL CConfigurationStorage::LoadRegFile(CSalamanderRegistryExAbstract* registry)
     return ret;
 }
 
-BOOL CConfigurationStorage::SaveRegFile()
+BOOL CConfigurationStorage::SaveRegFile(BOOL showError)
 {
     if (Registry == NULL)
         return FALSE;
@@ -341,7 +341,9 @@ BOOL CConfigurationStorage::SaveRegFile()
     if (!dumped)
     {
         DeleteFile(tmpFileName);
-        ShowRegFileSaveError(FilePath, err);
+        TRACE_E("Unable to save portable configuration file: " << FilePath << ", error: " << err);
+        if (showError)
+            ShowRegFileSaveError(FilePath, err);
         return FALSE;
     }
 
@@ -493,7 +495,7 @@ BOOL CConfigurationStorage::Load()
     return LoadRegFile(Registry);
 }
 
-BOOL CConfigurationStorage::Save()
+BOOL CConfigurationStorage::Save(BOOL showError)
 {
     if (Registry == NULL)
         return FALSE;
@@ -501,12 +503,12 @@ BOOL CConfigurationStorage::Save()
     if (StorageType == cstRegistry)
         return TRUE;
 
-    return SaveRegFile();
+    return SaveRegFile(showError);
 }
 
-BOOL CConfigurationStorage::Flush()
+BOOL CConfigurationStorage::Flush(BOOL showError)
 {
-    return Save();
+    return Save(showError);
 }
 
 void CConfigurationStorage::Release()
@@ -515,7 +517,7 @@ void CConfigurationStorage::Release()
     if (Registry != NULL)
     {
         if (StorageType == cstRegFile)
-            Save();
+            Save(FALSE);
         Registry->Release();
         Registry = NULL;
     }
