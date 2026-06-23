@@ -261,6 +261,7 @@ bool gWindowsDarkSchemeSelected = false;
 bool gScrollbarsHooked = false;
 thread_local int gThemeChangeDepth = 0;
 thread_local int gThemeBatchDepth = 0;
+thread_local int gListViewColorUpdateDepth = 0;
 
 static COLORREF gDialogTextColor = GetSysColor(COLOR_BTNTEXT);
 static COLORREF gDialogBackgroundColor = GetSysColor(COLOR_BTNFACE);
@@ -2410,16 +2411,32 @@ COLORREF DarkModeEnsureReadableForeground(COLORREF foreground, COLORREF backgrou
 
 void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF backgroundColor, bool applyHeaderColors)
 {
-#if USE_DARKMODELIB
-    DarkModeBackendDarkModelib::UpdateListViewColors(listView, textColor, backgroundColor, applyHeaderColors);
-#endif
     EnsureInitialized();
 
     if (listView == NULL)
         return;
 
+    // Updating the native or darkmodelib theme for a list view may synchronously
+    // send WM_THEMECHANGED back to the same control.  The find dialog's result
+    // list handles that message by refreshing its list-view colors, so without a
+    // guard the nested WM_THEMECHANGED re-enters this function until the stack is
+    // exhausted.  Let the outer refresh finish; it already applies the requested
+    // colors and invalidates the control.
+    if (gListViewColorUpdateDepth != 0)
+        return;
+
+    struct ListViewColorUpdateScope
+    {
+        ListViewColorUpdateScope() { ++gListViewColorUpdateDepth; }
+        ~ListViewColorUpdateScope() { --gListViewColorUpdateDepth; }
+    } scope;
+
     const COLORREF resolvedText = DarkModeEnsureReadableForeground(textColor, backgroundColor);
     const COLORREF resolvedBackground = backgroundColor;
+
+#if USE_DARKMODELIB
+    DarkModeBackendDarkModelib::UpdateListViewColors(listView, resolvedText, resolvedBackground, applyHeaderColors);
+#endif
 
     DarkModeApplyWindow(listView);
 
