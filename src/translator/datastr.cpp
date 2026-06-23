@@ -145,11 +145,11 @@ BOOL CData::SaveStrings(HANDLE hUpdateRes)
                                     strData->TLangID,
                                     NULL, 0);
         }
-        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Also remove older neutral resources produced by previous automation runs.
+        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL) &&
+            strData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Also remove older neutral resources produced by previous automation runs.
         {
-            result = UpdateResource(hUpdateRes, RT_STRING, MAKEINTRESOURCE(strData->ID),
-                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
-                                    NULL, 0);
+            result = DeleteOptionalResourceLanguage(hUpdateRes, RT_STRING, MAKEINTRESOURCE(strData->ID),
+                                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
         }
         if (result)
         {
