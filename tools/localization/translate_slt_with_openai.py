@@ -9,6 +9,23 @@ LINE_RE = re.compile(r'^(?P<prefix>.*?,)(?P<state>[01]),"(?P<text>.*)"(?P<ending
 SECTION_RE = re.compile(r'^\[(?P<kind>DIALOG|MENU|STRINGTABLE)(?:\s+[^]]+)?\]$')
 TOKEN_RE = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\{\d+(?::[^}]*)?\}|\\[nrt]|</?[A-Za-z][A-Za-z0-9:_-]*(?:\s+[A-Za-z_:][\w:.-]*(?:=(?:\"[^\"]*\"|\'[^\']*\'|[^\s\"\'>]+))?)*\s*/?>|(?:[A-Za-z]:)?(?:\\[^\\\s]+)+')
 ACCELERATOR_RE = re.compile(r'(?<!&)&(?!&)')
+MOJIBAKE_RE = re.compile(r'[ÃÂÅ][\u0080-\u00BF\u00A0-\u00BF\u0100-\u017F\u2122]')
+REPLACEMENT_CHARS = {"\ufffd", "\u25a1", "\u25a0"}
+LANGUAGES = {
+    "chinesesimplified": {"name": "Simplified Chinese", "locale": "zh-CN", "langid": 2052, "script": "Simplified Chinese characters"},
+    "czech": {"name": "Czech", "locale": "cs-CZ", "langid": 1029, "script": "Czech Latin with accents"},
+    "dutch": {"name": "Dutch", "locale": "nl-NL", "langid": 1043, "script": "Dutch Latin"},
+    "french": {"name": "French", "locale": "fr-FR", "langid": 1036, "script": "French Latin with accents"},
+    "german": {"name": "German", "locale": "de-DE", "langid": 1031, "script": "German Latin with umlauts and ß"},
+    "hungarian": {"name": "Hungarian", "locale": "hu-HU", "langid": 1038, "script": "Hungarian Latin with accents"},
+    "romanian": {"name": "Romanian", "locale": "ro-RO", "langid": 1048, "script": "Romanian Latin with ș/ț diacritics"},
+    "russian": {"name": "Russian", "locale": "ru-RU", "langid": 1049, "script": "Cyrillic"},
+    "slovak": {"name": "Slovak", "locale": "sk-SK", "langid": 1051, "script": "Slovak Latin with accents"},
+    "spanish": {"name": "Spanish", "locale": "es-ES", "langid": 3082, "script": "Spanish Latin with accents"},
+}
+
+def language_info(language: str) -> dict:
+    return LANGUAGES.get(language.lower(), {"name": language, "locale": language, "langid": None, "script": "the native script for the language"})
 
 @dataclass
 class Item:
@@ -33,7 +50,14 @@ def tokens(text: str) -> tuple[list[str], int]:
     return sorted(TOKEN_RE.findall(text)), len(ACCELERATOR_RE.findall(text))
 
 def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, sleep=time.sleep) -> dict:
-    instructions = "Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly."
+    language_name = payload.get("target_language", "the target language")
+    language_script = payload.get("target_script", "the native script for the language")
+    instructions = (
+        "Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. "
+        "Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly. "
+        f"Use natural {language_name} in {language_script}; do not transliterate, strip accents/diacritics, "
+        "or replace unrepresentable characters with '?', boxes, replacement characters, or mojibake."
+    )
     if payload.get("retry_instructions"):
         instructions += " " + payload["retry_instructions"]
     body = json.dumps({"model": model, "input": [{"role":"system","content":[{"type":"input_text","text":instructions}]},{"role":"user","content":[{"type":"input_text","text":json.dumps(payload, ensure_ascii=False)}]}], "text":{"format":{"type":"json_schema","name":"translations","strict":True,"schema":{"type":"object","properties":{"translations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"text":{"type":"string"}},"required":["id","text"],"additionalProperties":False}}},"required":["translations"],"additionalProperties":False}}}}).encode()
@@ -53,7 +77,7 @@ def request_openai(payload: dict, api_key: str, model: str, attempts: int = 5, s
             sleep(2 ** attempt)
     raise RuntimeError("OpenAI request failed")
 
-def validate(items: list[Item], result: dict) -> dict[str,str]:
+def validate(items: list[Item], result: dict, language: str | None = None) -> dict[str,str]:
     rows=result.get("translations")
     if not isinstance(rows,list): raise ValueError("response has no translations array")
     output={}
@@ -63,16 +87,20 @@ def validate(items: list[Item], result: dict) -> dict[str,str]:
         if "\n" in row["text"] or "\r" in row["text"]: raise ValueError(f"translated text contains newline for {row['id']}")
         if "\x00" in row["text"]: raise ValueError(f"translated text contains NUL byte for {row['id']}")
         if '"' in row["text"]: raise ValueError(f"translated text contains unescaped quote for {row['id']}")
+        if any(ch in row["text"] for ch in REPLACEMENT_CHARS): raise ValueError(f"translated text contains replacement glyph for {row['id']}")
+        if MOJIBAKE_RE.search(row["text"]): raise ValueError(f"translated text looks mojibaked for {row['id']}")
+        if "??" in row["text"]: raise ValueError(f"translated text contains repeated question marks for {row['id']}")
         if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
         output[row["id"]]=row["text"]
     if set(output) != set(expected): raise ValueError("response is incomplete")
     return output
 
 def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai, trace_file: Path | None = None) -> dict:
+    lang = language_info(language)
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True); items=parse_items(lines, force)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
-    if not items: return report
+    if not items or dry_run: return report
     key=os.environ.get("OPENAI_API_KEY")
     if not key: raise RuntimeError("OPENAI_API_KEY is not set")
     changed=list(lines)
@@ -89,15 +117,15 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
         return result
 
     def translate_batch(batch: list[Item]) -> None:
-        payload={"target_language":language,"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text} for i in batch]}
+        payload={"target_language":lang["name"],"target_language_key":language,"target_locale":lang["locale"],"target_langid":lang["langid"],"target_script":lang["script"],"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text} for i in batch]}
         try:
-            translated=validate(batch, call_model(payload))
+            translated=validate(batch, call_model(payload), language)
         except ValueError as exc:
             if len(batch) == 1:
                 retry_payload=dict(payload)
-                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again, but keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source."
+                retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters."
                 try:
-                    translated=validate(batch, call_model(retry_payload))
+                    translated=validate(batch, call_model(retry_payload), language)
                 except ValueError as retry_exc:
                     report["failed"] += 1
                     print(f"translation skipped: {batch[0].key}: {retry_exc}", file=sys.stderr)
