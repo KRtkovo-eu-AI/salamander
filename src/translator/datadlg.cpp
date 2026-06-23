@@ -2088,11 +2088,11 @@ BOOL CData::SaveDialogs(HANDLE hUpdateRes)
                                     dlgData->TLangID,
                                     NULL, 0);
         }
-        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Clean up neutral resources emitted by older language-pack automation.
+        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL) &&
+            dlgData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Clean up neutral resources emitted by older language-pack automation.
         {
-            result = UpdateResource(hUpdateRes, RT_DIALOG, MAKEINTRESOURCE(dlgData->ID),
-                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
-                                    NULL, 0);
+            result = DeleteOptionalResourceLanguage(hUpdateRes, RT_DIALOG, MAKEINTRESOURCE(dlgData->ID),
+                                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
         }
         if (result)
         {

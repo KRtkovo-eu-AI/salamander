@@ -358,11 +358,11 @@ BOOL CData::SaveMenus(HANDLE hUpdateRes)
                                     menuData->TLangID,
                                     NULL, 0);
         }
-        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Clean up neutral resources emitted by older language-pack automation.
+        if (result && targetLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL) &&
+            menuData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Clean up neutral resources emitted by older language-pack automation.
         {
-            result = UpdateResource(hUpdateRes, RT_MENU, MAKEINTRESOURCE(menuData->ID),
-                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
-                                    NULL, 0);
+            result = DeleteOptionalResourceLanguage(hUpdateRes, RT_MENU, MAKEINTRESOURCE(menuData->ID),
+                                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL));
         }
         if (result)
         {
