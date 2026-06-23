@@ -65,6 +65,8 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
 
     if (statusBar != NULL)
     {
+        if (DarkModeShouldUseDarkColors())
+            DarkModeApplyTree(statusBar);
         SendMessage(statusBar, SB_SETBKCOLOR, 0,
                     DarkModeShouldUseDarkColors() ? DarkModeGetColors().background : CLR_DEFAULT);
         InvalidateRect(statusBar, NULL, TRUE);
@@ -118,10 +120,11 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
 
         RECT line = cd->rc;
         line.left = line.right - 1;
-        FillFindRect(cd->hdc, &line, RGB(0x4A, 0x4A, 0x4A));
+        const COLORREF separatorColor = RGB(0x38, 0x38, 0x38);
+        FillFindRect(cd->hdc, &line, separatorColor);
         line = cd->rc;
         line.top = line.bottom - 1;
-        FillFindRect(cd->hdc, &line, RGB(0x4A, 0x4A, 0x4A));
+        FillFindRect(cd->hdc, &line, separatorColor);
 
         result = CDRF_SKIPDEFAULT;
         return true;

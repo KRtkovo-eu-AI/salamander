@@ -38,9 +38,9 @@ namespace dmlib_color
 		dmlib_color::HEXRGB(0xC0C0C0),   // darkerTextColor
 		dmlib_color::HEXRGB(0x808080),   // disabledTextColor
 		dmlib_color::HEXRGB(0x60CDFF),   // linkTextColor
-		dmlib_color::HEXRGB(0x646464),   // edgeColor
+		dmlib_color::HEXRGB(0x383838),   // edgeColor
 		dmlib_color::HEXRGB(0x9B9B9B),   // hotEdgeColor
-		dmlib_color::HEXRGB(0x484848),   // disabledEdgeColor
+		dmlib_color::HEXRGB(0x383838),   // disabledEdgeColor
 		dmlib_color::HEXRGB(0x60CDFF)    // highlight
 	};
 
