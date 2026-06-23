@@ -29,6 +29,12 @@ namespace
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
 
 
+void AddAutoCompleteItem(std::vector<std::wstring>& items, const std::wstring& item)
+{
+    if (!item.empty() && item != L"..")
+        items.push_back(item);
+}
+
 void AddCurrentDirectoryAutoCompleteItem(std::vector<std::wstring>& items, const char* name)
 {
     if (name == NULL || name[0] == 0 || strcmp(name, "..") == 0)
@@ -41,14 +47,56 @@ void AddCurrentDirectoryAutoCompleteItem(std::vector<std::wstring>& items, const
     std::wstring wideName;
     wideName.resize(wideLen - 1);
     MultiByteToWideChar(CP_ACP, 0, name, -1, &wideName[0], wideLen);
-    items.push_back(wideName);
+    AddAutoCompleteItem(items, wideName);
 }
 
-class CCurrentDirectoryEnumString : public IEnumString
+void AddDirectoryAutoCompleteItems(std::vector<std::wstring>& items, const std::wstring& directory,
+                                   const std::wstring& resultPrefix)
+{
+    if (directory.empty())
+        return;
+
+    std::wstring mask = directory;
+    if (mask[mask.length() - 1] != L'\\' && mask[mask.length() - 1] != L'/')
+        mask += L'\\';
+    mask += L'*';
+
+    WIN32_FIND_DATAW findData;
+    HANDLE find = FindFirstFileW(mask.c_str(), &findData);
+    if (find == INVALID_HANDLE_VALUE)
+        return;
+
+    do
+    {
+        if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0)
+            continue;
+
+        AddAutoCompleteItem(items, resultPrefix + findData.cFileName);
+    } while (FindNextFileW(find, &findData));
+
+    FindClose(find);
+}
+
+std::wstring MultiByteToWideString(const char* text)
+{
+    if (text == NULL || text[0] == 0)
+        return std::wstring();
+
+    int wideLen = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
+    if (wideLen <= 1)
+        return std::wstring();
+
+    std::wstring wideText;
+    wideText.resize(wideLen - 1);
+    MultiByteToWideChar(CP_ACP, 0, text, -1, &wideText[0], wideLen);
+    return wideText;
+}
+
+class CCurrentDirectoryEnumString : public IEnumString, public IACList2
 {
 public:
-    explicit CCurrentDirectoryEnumString(const std::vector<std::wstring>& items)
-        : RefCount(1), Items(items), Index(0)
+    CCurrentDirectoryEnumString(const std::vector<std::wstring>& items, const std::wstring& basePath)
+        : RefCount(1), InitialItems(items), Items(items), BasePath(basePath), Index(0), Options(0)
     {
     }
 
@@ -58,14 +106,17 @@ public:
             return E_POINTER;
 
         if (riid == IID_IUnknown || riid == IID_IEnumString)
-        {
             *ppvObject = static_cast<IEnumString*>(this);
-            AddRef();
-            return S_OK;
+        else if (riid == IID_IACList || riid == IID_IACList2)
+            *ppvObject = static_cast<IACList2*>(this);
+        else
+        {
+            *ppvObject = NULL;
+            return E_NOINTERFACE;
         }
 
-        *ppvObject = NULL;
-        return E_NOINTERFACE;
+        AddRef();
+        return S_OK;
     }
 
     STDMETHODIMP_(ULONG) AddRef()
@@ -127,23 +178,72 @@ public:
         if (ppenum == NULL)
             return E_POINTER;
 
-        CCurrentDirectoryEnumString* clone = new CCurrentDirectoryEnumString(Items);
+        CCurrentDirectoryEnumString* clone = new CCurrentDirectoryEnumString(InitialItems, BasePath);
         if (clone == NULL)
             return E_OUTOFMEMORY;
+        clone->Items = Items;
         clone->Index = Index;
+        clone->Options = Options;
         *ppenum = clone;
+        return S_OK;
+    }
+
+    STDMETHODIMP Expand(LPCOLESTR pszExpand)
+    {
+        Items = InitialItems;
+        Index = 0;
+
+        if (pszExpand == NULL || pszExpand[0] == 0)
+            return S_OK;
+
+        std::wstring typed(pszExpand);
+        size_t slash = typed.find_last_of(L"\\/");
+        if (slash == std::wstring::npos)
+            return S_OK;
+
+        std::wstring prefix = typed.substr(0, slash + 1);
+        std::wstring directory;
+        if (!PathIsRelativeW(prefix.c_str()))
+            directory = prefix;
+        else if (!BasePath.empty())
+        {
+            directory = BasePath;
+            if (directory[directory.length() - 1] != L'\\' && directory[directory.length() - 1] != L'/')
+                directory += L'\\';
+            directory += prefix;
+        }
+
+        AddDirectoryAutoCompleteItems(Items, directory, prefix);
+        return S_OK;
+    }
+
+    STDMETHODIMP SetOptions(DWORD dwFlag)
+    {
+        Options = dwFlag;
+        return S_OK;
+    }
+
+    STDMETHODIMP GetOptions(DWORD* pdwFlag)
+    {
+        if (pdwFlag == NULL)
+            return E_POINTER;
+        *pdwFlag = Options;
         return S_OK;
     }
 
 private:
     LONG RefCount;
+    std::vector<std::wstring> InitialItems;
     std::vector<std::wstring> Items;
+    std::wstring BasePath;
     size_t Index;
+    DWORD Options;
 };
 
 HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
 {
     std::vector<std::wstring> items;
+    std::wstring basePath;
     CFilesWindow* panel = MainWindow != NULL ? MainWindow->GetActivePanel() : NULL;
     if (panel != NULL)
     {
@@ -151,6 +251,9 @@ HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
             AddCurrentDirectoryAutoCompleteItem(items, panel->Dirs->At(i).Name);
         for (int i = 0; i < panel->Files->Count; ++i)
             AddCurrentDirectoryAutoCompleteItem(items, panel->Files->At(i).Name);
+
+        if (panel->Is(ptDisk))
+            basePath = MultiByteToWideString(panel->GetPath());
     }
 
     IAutoComplete2* autoComplete = NULL;
@@ -159,7 +262,7 @@ HRESULT EnableCurrentDirectoryAutoComplete(HWND hEdit)
     if (FAILED(hr))
         return hr;
 
-    CCurrentDirectoryEnumString* source = new CCurrentDirectoryEnumString(items);
+    CCurrentDirectoryEnumString* source = new CCurrentDirectoryEnumString(items, basePath);
     if (source == NULL)
     {
         autoComplete->Release();
