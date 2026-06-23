@@ -75,63 +75,6 @@ void UpdateFindDarkChrome(HWND dialog, HWND statusBar, HWND listView, CFindTBHea
     if (tbHeader != NULL && tbHeader->HWindow != NULL)
         InvalidateRect(tbHeader->HWindow, NULL, TRUE);
 }
-
-bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
-{
-    if (cd == NULL || !DarkModeShouldUseDarkColors())
-        return false;
-
-    switch (cd->dwDrawStage)
-    {
-    case CDDS_PREPAINT:
-        result = CDRF_NOTIFYITEMDRAW;
-        return true;
-
-    case CDDS_ITEMPREPAINT:
-    {
-        const DarkModeColors& colors = DarkModeGetColors();
-        RECT rc = cd->rc;
-        FillFindRect(cd->hdc, &rc, RGB(0x20, 0x20, 0x20));
-
-        char text[256];
-        text[0] = 0;
-        HDITEM item;
-        memset(&item, 0, sizeof(item));
-        item.mask = HDI_TEXT | HDI_FORMAT;
-        item.pszText = text;
-        item.cchTextMax = _countof(text);
-        Header_GetItem(cd->hdr.hwndFrom, (int)cd->dwItemSpec, &item);
-
-        rc.left += 5;
-        rc.right -= 5;
-        UINT format = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS;
-        if ((item.fmt & HDF_RIGHT) != 0)
-            format |= DT_RIGHT;
-        else if ((item.fmt & HDF_CENTER) != 0)
-            format |= DT_CENTER;
-        else
-            format |= DT_LEFT;
-
-        int oldBkMode = SetBkMode(cd->hdc, TRANSPARENT);
-        COLORREF oldText = SetTextColor(cd->hdc, colors.readableText);
-        DrawText(cd->hdc, text, -1, &rc, format);
-        SetTextColor(cd->hdc, oldText);
-        SetBkMode(cd->hdc, oldBkMode);
-
-        RECT line = cd->rc;
-        line.left = line.right - 1;
-        const COLORREF separatorColor = RGB(0x38, 0x38, 0x38);
-        FillFindRect(cd->hdc, &line, separatorColor);
-        line = cd->rc;
-        line.top = line.bottom - 1;
-        FillFindRect(cd->hdc, &line, separatorColor);
-
-        result = CDRF_SKIPDEFAULT;
-        return true;
-    }
-    }
-    return false;
-}
 }
 
 //****************************************************************************
@@ -4012,19 +3955,6 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_NOTIFY:
     {
-        LPNMHDR notifyHeader = (LPNMHDR)lParam;
-        if (FoundFilesListView != NULL && FoundFilesListView->HWindow != NULL && notifyHeader != NULL &&
-            notifyHeader->hwndFrom == ListView_GetHeader(FoundFilesListView->HWindow) &&
-            notifyHeader->code == NM_CUSTOMDRAW)
-        {
-            LRESULT customDrawResult = 0;
-            if (PaintFindListHeader((LPNMCUSTOMDRAW)lParam, customDrawResult))
-            {
-                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
-                return TRUE;
-            }
-        }
-
         if (wParam == IDC_FIND_RESULTS)
         {
             switch (((LPNMHDR)lParam)->code)

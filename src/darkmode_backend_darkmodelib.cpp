@@ -62,6 +62,48 @@ static void RemoveControlSubclass(HWND hwnd)
         dmlib::removeDTPCtrlSubclass(hwnd);
 }
 
+static void ApplyControlSubclass(HWND hwnd)
+{
+    if (hwnd == NULL)
+        return;
+
+    wchar_t className[64] = {0};
+    if (GetClassNameW(hwnd, className, _countof(className)) == 0)
+        return;
+
+    if (lstrcmpiW(className, L"Button") == 0)
+    {
+        dmlib::setCheckboxOrRadioBtnCtrlSubclass(hwnd);
+        dmlib::setGroupboxCtrlSubclass(hwnd);
+    }
+    else if (lstrcmpiW(className, L"Static") == 0)
+        dmlib::setStaticTextCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"ComboBox") == 0)
+        dmlib::setComboBoxCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"ComboBoxEx32") == 0)
+        dmlib::setComboBoxExCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"Edit") == 0 || lstrcmpiW(className, L"ListBox") == 0)
+        dmlib::setCustomBorderForListBoxOrEditCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysListView32") == 0)
+        dmlib::setListViewCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysHeader32") == 0)
+        dmlib::setHeaderCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_updown32") == 0)
+        dmlib::setUpDownCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysTabControl32") == 0)
+        dmlib::setTabCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_statusbar32") == 0)
+        dmlib::setStatusBarCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_progress32") == 0)
+        dmlib::setProgressBarCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysIPAddress32") == 0)
+        dmlib::setIPAddressCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"msctls_hotkey32") == 0)
+        dmlib::setHotKeyCtrlSubclass(hwnd);
+    else if (lstrcmpiW(className, L"SysDateTimePick32") == 0)
+        dmlib::setDTPCtrlSubclass(hwnd);
+}
+
 static BOOL CALLBACK RemoveControlSubclassProc(HWND hwnd, LPARAM)
 {
     RemoveControlSubclass(hwnd);
@@ -85,6 +127,7 @@ static BOOL CALLBACK RestoreCustomTabControlProc(HWND hwnd, LPARAM)
 
 static void RemoveWindowAndChildSubclasses(HWND hwnd)
 {
+    RemoveControlSubclass(hwnd);
     dmlib::removeWindowCtlColorSubclass(hwnd);
     dmlib::removeWindowNotifyCustomDrawSubclass(hwnd);
     dmlib::removeWindowSettingChangeSubclass(hwnd);
@@ -138,6 +181,7 @@ void ApplyTree(HWND hwnd)
             if (!wasDark)
             {
                 dmlib::setDarkWndNotifySafe(hwnd);
+                ApplyControlSubclass(hwnd);
                 dmlib::setChildCtrlsSubclassAndTheme(hwnd);
                 SetPropW(hwnd, DARKMODELIB_TREE_STATE_PROP, reinterpret_cast<HANDLE>(2));
             }
