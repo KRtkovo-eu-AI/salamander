@@ -508,8 +508,11 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
                     if (QuietImportSLT[0] == 0)
                     {
                         Data.ExportAsTextArchive(fullSLTPath, QuietExportSLTForDiff);
-                        doNotSaveData = FALSE; // update SLGCRCofImpSLT to the CRC of the exported SLT
-                        Data.SetDirty();
+                        if (!QuietExportSLTForDiff)
+                        {
+                            doNotSaveData = FALSE; // update SLGCRCofImpSLT to the CRC of the exported SLT
+                            Data.SetDirty();
+                        }
                     }
                     else
                     {

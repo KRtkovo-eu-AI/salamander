@@ -34,7 +34,6 @@ COLORREF GetSelectionColor(BOOL clipped);
 
 BOOL __GetNextChar(wchar_t& charValue, wchar_t*& start, wchar_t* end);
 
-
 #define PUT_WORD(ptr, w) (*(WORD*)(ptr) = (w))
 #define GET_WORD(ptr) (*(WORD*)(ptr))
 #define PUT_DWORD(ptr, d) (*(DWORD*)(ptr) = (d))

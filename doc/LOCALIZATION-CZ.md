@@ -77,6 +77,24 @@ pwsh -File .\tools\localization\localize.ps1 build `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
+Příkaz `build` je release krok pro jazykové balíčky. Interně volá
+`tools/localization/build_language_packs.ps1`, vytvoří zahoditelný workspace pro
+Translator, importuje commitnuté archivy `translations/<language>/<module>.slt`
+do kopií aktuálních anglických `.slg`, ověří layout, zkontroluje SLT round-trip a
+potom hotové `.slg` zkopíruje zpět do populovaného runtime stromu.
+
+Při ladění balení lze implementační skript spustit i přímo:
+
+```powershell
+pwsh -File .\tools\localization\build_language_packs.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64
+```
+
+Pro zúžení práce použijte filtry `-Languages` nebo `-Modules` na přípravných a
+OpenAI skriptech. `build_language_packs.ps1` záměrně staví z commitnutých `.slt`
+a čerstvého workspace; soubory v dočasném workspace neupravujte a vygenerovaná
+`.slg` necommitujte.
+
 ## Když nový text v Translatoru není
 
 Translator umí překládat pouze texty uložené ve Windows resources. Uživatelský text proto nesmí být natvrdo v C/C++/C# kódu.
@@ -112,6 +130,7 @@ Necommitujte adresáře `out/localization` ani `out/localization-openai`, `.atp`
 - **Quiet operace Translatoru otevře GUI**: znovu sestavte `utils/translator.exe` z aktuálních zdrojů. Lokalizační skripty navíc jako pojistku ukončí quiet operaci, která neskončí do dvou minut.
 - **`No candidate file found` v ImportOnly režimu**: adresář `out/localization-openai/candidate/<language>/<module>/` neobsahuje `.slt` soubor. Nejprve spusťte DryRun pro vygenerování kandidátů, nebo zkontrolujte cestu a názvy jazyků/modulů.
 - **`Workspace does not exist` v ImportOnly režimu**: adresář `out/localization-openai` neexistuje nebo byl smazán. Nejprve spusťte DryRun pro vytvoření workspace a vygenerování kandidátů.
+- **`Error updating resource file ... (1359) An internal error occurred` při buildu language packů**: znovu sestavte `utils/translator.exe` z aktuálních zdrojů. Round-trip verifier v language-pack buildu používá `-quiet-export-slt-for-diff`, který exportuje text bez označení projektu jako změněného a bez ukládání `.slg`; starší buildy Translatoru používaly běžný export a během verifikace se mohly pokoušet přepsat každé vygenerované `.slg`.
 
 ## Dávkový překlad pomocí OpenAI
 

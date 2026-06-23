@@ -77,6 +77,25 @@ pwsh -File .\tools\localization\localize.ps1 build `
   -BuildRoot .\build\out\salamand\Release_x64
 ```
 
+The `build` command is the release step for language packs. Internally it calls
+`tools/localization/build_language_packs.ps1`, creates a disposable Translator
+workspace, imports committed `translations/<language>/<module>.slt` archives into
+copies of the current English `.slg` files, validates layout, verifies an SLT
+round-trip, and then copies the produced `.slg` files back into the populated
+runtime tree.
+
+You can also call the implementation script directly when debugging packaging:
+
+```powershell
+pwsh -File .\tools\localization\build_language_packs.ps1 `
+  -BuildRoot .\build\out\salamand\Release_x64
+```
+
+Use the `-Languages` or `-Modules` filters on the preparation/OpenAI scripts to
+narrow down translation work. `build_language_packs.ps1` intentionally rebuilds
+from committed `.slt` files and a fresh workspace; do not edit files in the temp
+workspace and do not commit generated `.slg` files.
+
 ## When a New Text Is Missing from Translator
 
 Translator can translate only texts stored in Windows resources. Therefore, user-facing text must not be hard-coded in C/C++/C# code.
@@ -112,6 +131,7 @@ Do not commit the `out/localization` or `out/localization-openai` directories, `
 - **A quiet Translator operation opens the GUI**: rebuild `utils/translator.exe` from the current sources. As an additional safeguard, localization scripts terminate quiet operations that do not exit within two minutes.
 - **`No candidate file found` in ImportOnly mode**: the `out/localization-openai/candidate/<language>/<module>/` directory does not contain a `.slt` file. Run a full DryRun first to generate candidates, or check the path and language/module names.
 - **`Workspace does not exist` in ImportOnly mode**: the `out/localization-openai` directory does not exist or was deleted. Run a DryRun first to create the workspace and generate candidates.
+- **`Error updating resource file ... (1359) An internal error occurred` during language-pack build**: rebuild `utils/translator.exe` from current sources. The language-pack round-trip verifier uses `-quiet-export-slt-for-diff`, which exports text without marking the project dirty or saving the `.slg`; older Translator builds used the normal export path and could try to rewrite every generated `.slg` during verification.
 
 ## Batch Translation with OpenAI
 
