@@ -327,8 +327,8 @@ SLGINCOMPLETE,""
 622,1,173,176,12,1,"Použít rychlý přesun adresářů na Novell Net&Ware"
 624,1,186,298,12,1,"Kopírování &souborů: na síti používat rychlejší asynchronní algoritmus (Windows 7 a novější)"
 625,1,199,235,12,1,"U&držovat proměnné prostředí aktualizované na systémové hodnoty"
-626,1,212,235,12,1,"Povolit automatické doplňování &cesty v dialogových oknech operací"
-627,1,225,294,12,1,"Povolit automatické dokončování v dialozích &Vytvořit adresář a Rychlé přejmenování"
+626,1,212,235,12,1,"Povolit našeptávač &cesty v dialogových oknech operací"
+627,1,225,294,12,1,"Povolit našeptávač cesty v dialozích &Vytvořit adresář a Rychlé přejmenování"
 
 [DIALOG 320]
 299,231,1,"Zobrazení"
