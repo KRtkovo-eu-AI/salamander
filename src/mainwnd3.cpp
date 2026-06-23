@@ -9383,6 +9383,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 return 0;
         }
 
+        if (uMsg == WM_USER_CLOSE_MAINWND && Configuration.AutoSave &&
+            ConfigurationStorage.GetStorageType() == cstRegFile && !ConfigurationStorage.CanWriteRegFile())
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+        }
+
         // we have some dialogs with disk operations running
         WCHAR blockReason[MAX_STR_BLOCKREASON];
         if (ProgressDlgArray.RemoveFinishedDlgs() > 0)
@@ -9838,7 +9845,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
         }
 
         if (Configuration.AutoSave)
-            SaveConfig();
+        {
+            // During automatic shutdown/close, do not show a modal save-error dialog here.
+            // If the portable configuration file cannot be written (for example due to ACLs),
+            // a dialog at this point can outlive the main window and leave Salamander hanging.
+            SaveConfig(NULL, FALSE);
+        }
 
         if (uMsg == WM_ENDSESSION)
             LoadSaveToRegistryMutex.Leave(); // pairs with Enter() called when WM_QUERYENDSESSION was received

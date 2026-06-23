@@ -23,9 +23,9 @@ protected:
     CSalamanderRegistryExAbstract* CreateRegistry(CConfigurationStorageType type);
     BOOL BuildRootKeyName(char* keyName, int keyNameSize);
     BOOL LoadRegFile(CSalamanderRegistryExAbstract* registry);
-    BOOL SaveRegFile();
+    BOOL SaveRegFile(BOOL showError = TRUE);
     void ShowRegFileLoadError(const char* fileName, eRPE_ERROR err);
-    void ShowRegFileSaveError(const char* fileName, DWORD err);
+    void ShowRegFileSaveError(HWND parent);
     void DeleteStoredRegistryConfiguration(CSalamanderRegistryExAbstract* registry, const char* keyName);
 
 public:
@@ -37,8 +37,8 @@ public:
     CConfigurationStorageType GetStorageType() const;
     BOOL SwitchStorageType(CConfigurationStorageType newType, BOOL migrateCurrentData, const char* filePath = NULL);
     BOOL Load();
-    BOOL Save();
-    BOOL Flush();
+    BOOL Save(BOOL showError = TRUE);
+    BOOL Flush(BOOL showError = TRUE);
     void Release();
 
     BOOL GetPortableConfigFilePath(char* filePath, int filePathSize);
@@ -47,6 +47,7 @@ public:
     BOOL SaveStorageTypeBootstrap(CConfigurationStorageType type, const char* regFilePath = NULL);
     BOOL CanSaveStorageTypeBootstrap();
     BOOL GetRegFilePath(char* filePath, int filePathSize) const;
+    BOOL CanWriteRegFile() const;
     BOOL SetRegFilePath(const char* filePath);
     BOOL OpenConfigurationRootKey(HKEY& key, BOOL createKey);
     void RegisterActiveRegistryKey(HKEY key);

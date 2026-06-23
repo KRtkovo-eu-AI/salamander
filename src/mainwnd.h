@@ -648,7 +648,7 @@ public:
     // interfaces that must be set to NULL after closing (to prevent accidental match just because FS interfaces were allocated at the same address)
     void ClearPluginFSFromHistory(CPluginFSInterfaceAbstract* fs);
 
-    void SaveConfig(HWND parent = NULL); // parent: NULL = MainWindow->HWindow
+    void SaveConfig(HWND parent = NULL, BOOL showConfigFileSaveError = TRUE); // parent: NULL = MainWindow->HWindow
     BOOL LoadConfig(BOOL importingOldConfig, const CCommandLineParams* cmdLineParams);
     void SavePanelConfig(CPanelSide side, HKEY hSalamander, const char* reg);
     void LoadPanelConfig(char* panelPath, CPanelSide side, HKEY hSalamander, const char* reg);

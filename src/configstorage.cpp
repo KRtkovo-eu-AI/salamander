@@ -151,6 +151,39 @@ BOOL CConfigurationStorage::GetRegFilePath(char* filePath, int filePathSize) con
     return const_cast<CConfigurationStorage*>(this)->GetPortableConfigFilePath(filePath, filePathSize);
 }
 
+
+BOOL CConfigurationStorage::CanWriteRegFile() const
+{
+    char path[MAX_PATH];
+    if (!GetRegFilePath(path, SizeOf(path)) || path[0] == 0)
+        return FALSE;
+
+    DWORD attrs = GetFileAttributes(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES)
+    {
+        if ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            return FALSE;
+
+        HANDLE file = HANDLES_Q(CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, NULL));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+
+        HANDLES(CloseHandle(file));
+        return TRUE;
+    }
+
+    char tmpPath[MAX_PATH];
+    _snprintf_s(tmpPath, _TRUNCATE, "%s.%lu.test", path, GetCurrentProcessId());
+    HANDLE file = HANDLES_Q(CreateFile(tmpPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL));
+    if (file == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    HANDLES(CloseHandle(file));
+    DeleteFile(tmpPath);
+    return TRUE;
+}
+
 BOOL CConfigurationStorage::SetRegFilePath(const char* filePath)
 {
     if (filePath == NULL || filePath[0] == 0)
@@ -236,13 +269,10 @@ void CConfigurationStorage::ShowRegFileLoadError(const char* fileName, eRPE_ERRO
     SalMessageBox(NULL, text, LoadStr(IDS_ERRORLOADCONFIG), MB_OK | MB_ICONEXCLAMATION);
 }
 
-void CConfigurationStorage::ShowRegFileSaveError(const char* fileName, DWORD err)
+void CConfigurationStorage::ShowRegFileSaveError(HWND parent)
 {
-    char text[MAX_PATH + 300];
-    _snprintf_s(text, _TRUNCATE,
-                "Unable to save portable configuration file:\n\n%s\n\nThe previous configuration file was left unchanged.\n\n%s",
-                fileName != NULL ? fileName : "config.reg", err != 0 ? GetErrorText(err) : "");
-    SalMessageBox(NULL, text, LoadStr(IDS_ERRORSAVECONFIG), MB_OK | MB_ICONEXCLAMATION);
+    SalMessageBox(parent, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                  MB_OK | MB_ICONEXCLAMATION);
 }
 
 BOOL CConfigurationStorage::LoadRegFile(CSalamanderRegistryExAbstract* registry)
@@ -311,7 +341,7 @@ BOOL CConfigurationStorage::LoadRegFile(CSalamanderRegistryExAbstract* registry)
     return ret;
 }
 
-BOOL CConfigurationStorage::SaveRegFile()
+BOOL CConfigurationStorage::SaveRegFile(BOOL showError)
 {
     if (Registry == NULL)
         return FALSE;
@@ -341,7 +371,9 @@ BOOL CConfigurationStorage::SaveRegFile()
     if (!dumped)
     {
         DeleteFile(tmpFileName);
-        ShowRegFileSaveError(FilePath, err);
+        TRACE_E("Unable to save portable configuration file: " << FilePath << ", error: " << err);
+        if (showError)
+            ShowRegFileSaveError(NULL);
         return FALSE;
     }
 
@@ -493,7 +525,7 @@ BOOL CConfigurationStorage::Load()
     return LoadRegFile(Registry);
 }
 
-BOOL CConfigurationStorage::Save()
+BOOL CConfigurationStorage::Save(BOOL showError)
 {
     if (Registry == NULL)
         return FALSE;
@@ -501,12 +533,12 @@ BOOL CConfigurationStorage::Save()
     if (StorageType == cstRegistry)
         return TRUE;
 
-    return SaveRegFile();
+    return SaveRegFile(showError);
 }
 
-BOOL CConfigurationStorage::Flush()
+BOOL CConfigurationStorage::Flush(BOOL showError)
 {
-    return Save();
+    return Save(showError);
 }
 
 void CConfigurationStorage::Release()
@@ -515,7 +547,7 @@ void CConfigurationStorage::Release()
     if (Registry != NULL)
     {
         if (StorageType == cstRegFile)
-            Save();
+            Save(FALSE);
         Registry->Release();
         Registry = NULL;
     }

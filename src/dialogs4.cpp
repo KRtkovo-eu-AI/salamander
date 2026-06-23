@@ -947,7 +947,7 @@ static BOOL BrowseConfigurationStorageFile(HWND hParent, char* path, int pathSiz
     ofn.lpstrFilter = filter;
     ofn.lpstrFile = path;
     ofn.nMaxFile = pathSize;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
     ofn.lpstrDefExt = "reg";
     return SafeGetSaveFileName(&ofn);
 }
