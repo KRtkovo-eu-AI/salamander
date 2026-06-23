@@ -74,7 +74,7 @@ static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
 
 static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
-    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
+    if (!Windows11AndLater || !DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
         return;
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
@@ -90,7 +90,11 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
     const COLORREF rowBackground = selected ? GetSysColor(COLOR_HIGHLIGHT) : DarkModeGetColors().background;
     FillRectWithSysColor(hdc, iconRect, rowBackground);
 
-    const int checkSize = (std::min)(13, (std::max)(9, iconRect.bottom - iconRect.top - 2));
+    int checkSize = iconRect.bottom - iconRect.top - 2;
+    if (checkSize < 9)
+        checkSize = 9;
+    if (checkSize > 13)
+        checkSize = 13;
     RECT checkRect;
     checkRect.left = iconRect.left + ((iconRect.right - iconRect.left) - checkSize) / 2;
     checkRect.top = iconRect.top + ((iconRect.bottom - iconRect.top) - checkSize) / 2;
@@ -1807,7 +1811,7 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
                 LRESULT customDrawResult = CDRF_DODEFAULT;
-                if (DarkModeShouldUseDarkColors())
+                if (Windows11AndLater && DarkModeShouldUseDarkColors())
                 {
                     if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
                         customDrawResult = CDRF_NOTIFYITEMDRAW;
