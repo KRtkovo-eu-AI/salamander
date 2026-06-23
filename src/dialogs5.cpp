@@ -3272,7 +3272,7 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         for (i = 0; resID[i] != -1; i++)
         {
             HWND hEdit = GetDlgItem(HWindow, resID[i]);
-            HWND hWnd = CreateUpDownControl(WS_VISIBLE | WS_CHILD | WS_BORDER | UDS_SETBUDDYINT |
+            HWND hWnd = CreateUpDownControl(WS_VISIBLE | WS_CHILD | UDS_SETBUDDYINT |
                                                 UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS,
                                             0, 0, 0, 0, HWindow, upDownID[i], HInstance,
                                             hEdit, THUMBNAIL_SIZE_MAX, THUMBNAIL_SIZE_MIN, 0);
@@ -3280,6 +3280,7 @@ CCfgPageAppearance::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             // drawing the dialog on a slow machine looked odd
             // (the UpDown was drawn only after all the other controls)
             SetWindowPos(hWnd, hEdit, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            DarkModeApplyWindow(hWnd);
         }
 
         break;
@@ -3564,21 +3565,41 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             BOOL selected = (lpdis->itemState & ODS_SELECTED) != 0;
             BOOL focused = (GetFocus() == lpdis->hwndItem);
 
-            FillRect(hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
+            const bool useDark = DarkModeShouldUseDarkColors();
+            const DarkModeColors& darkColors = DarkModeGetColors();
+
+            COLORREF bkBrushColor;
+            if (useDark)
+                bkBrushColor = darkColors.background;
+            else
+                bkBrushColor = GetSysColor(COLOR_WINDOW);
+            HBRUSH bkBrush = CreateSolidBrush(bkBrushColor);
+            FillRect(hDC, &r, bkBrush);
+            DeleteObject(bkBrush);
+
             if (selected)
             {
                 RECT rr = r;
                 InflateRect(&rr, -1, -1);
-                FillRect(hDC, &rr, (HBRUSH)(UINT_PTR)((focused ? COLOR_HIGHLIGHT : COLOR_3DFACE) + 1));
+                COLORREF selColor;
+                if (useDark)
+                    selColor = RGB(0x33, 0x33, 0x33);
+                else
+                    selColor = GetSysColor(focused ? COLOR_HIGHLIGHT : COLOR_3DFACE);
+                HBRUSH selBrush = CreateSolidBrush(selColor);
+                FillRect(hDC, &rr, selBrush);
+                DeleteObject(selBrush);
             }
 
-            int textColor;
-            if (selected)
-                textColor = focused ? COLOR_HIGHLIGHTTEXT : COLOR_WINDOWTEXT;
+            COLORREF textColor;
+            if (useDark)
+                textColor = darkColors.readableText;
+            else if (selected)
+                textColor = GetSysColor(focused ? COLOR_HIGHLIGHTTEXT : COLOR_WINDOWTEXT);
             else
-                textColor = focused ? COLOR_GRAYTEXT : COLOR_GRAYTEXT;
+                textColor = GetSysColor(COLOR_GRAYTEXT);
 
-            SetTextColor(hDC, GetSysColor(textColor));
+            SetTextColor(hDC, textColor);
             SetBkMode(hDC, TRANSPARENT);
             RECT dr = r;
             char text[] = " :";
@@ -3587,7 +3608,7 @@ CCfgPageChangeDrive::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if (lpdis->itemState & ODS_FOCUS)
             {
-                SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
+                SetTextColor(hDC, useDark ? darkColors.readableText : GetSysColor(COLOR_WINDOWTEXT));
                 DrawFocusRect(hDC, &r);
             }
         }

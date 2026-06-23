@@ -1952,6 +1952,7 @@ public:
 #define BTF_LBUTTONDOWN 0x00000004 // tlacitko reaguje na LBUTTONDOWN a posila WM_USER_BUTTON
 #define BTF_RIGHTARROW 0x00000008  // tlacitko ma na konci sipku ukazujici vpravo
 #define BTF_MORE 0x00000010        // tlacitko ma na konci symbol pro rozbaleni dialogu
+#define BTF_CUSTOMPAINT 0x00000020 // CButton always does custom painting (e.g. CColorArrowButton with colored text)
 
 class CSalamanderGUIAbstract
 {

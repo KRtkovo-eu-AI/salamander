@@ -72,10 +72,21 @@ static void FillRectWithSysColor(HDC hdc, const RECT& rect, COLORREF color)
     }
 }
 
+// Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
+// darkmodelib's setDarkCheckboxes() only works on Win11+, so on Win10 we must
+// draw the checkboxes ourselves. On Win11+ with USE_DARKMODELIB, darkmodelib
+// handles them natively and we must not draw on top (causes white-background
+// artifacts).
 static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
-    if (!Windows11AndLater || !DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
+    if (!DarkModeShouldUseDarkColors() || listView == NULL || customDraw == NULL)
         return;
+
+    // On Win11+ with USE_DARKMODELIB, darkmodelib handles checkboxes natively
+#if USE_DARKMODELIB
+    if (Windows11AndLater)
+        return;
+#endif
 
     const int item = static_cast<int>(customDraw->nmcd.dwItemSpec);
     RECT boundsRect;
@@ -86,18 +97,21 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
         return;
     }
 
-    RECT stateRect = boundsRect;
-    stateRect.right = labelRect.left;
-    if (stateRect.right <= stateRect.left)
-        return;
-
     HDC hdc = customDraw->nmcd.hdc;
     if (hdc == NULL)
         return;
 
+    // Fill the full item width with dark background to cover any white pixels
+    // from the native checkbox state images.
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
-    const COLORREF rowBackground = selected ? GetSysColor(COLOR_HIGHLIGHT) : DarkModeGetColors().background;
-    FillRectWithSysColor(hdc, stateRect, rowBackground);
+    const COLORREF rowBackground = selected ? DarkModeGetColors().background : DarkModeGetDialogBackgroundColor();
+    FillRectWithSysColor(hdc, boundsRect, rowBackground);
+
+    // Calculate checkbox area (same region the native state image occupies)
+    RECT stateRect = boundsRect;
+    stateRect.right = labelRect.left;
+    if (stateRect.right <= stateRect.left)
+        return;
 
     int checkSize = stateRect.bottom - stateRect.top - 2;
     if (checkSize < 9)
@@ -1780,6 +1794,29 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
+            // darkmodelib's replaceClientEdgeWithBorderSafeEx replaces WS_BORDER with
+            // WS_EX_CLIENTEDGE for enabled windows. On Win10, WS_EX_CLIENTEDGE creates
+            // a white/light 3D border that bleeds into the listview client area and shows
+            // as white backgrounds behind the native checkbox state images. The custom
+            // NM_CUSTOMDRAW handler fills the item rect with dark background and draws dark
+            // checkboxes, but the WS_EX_CLIENTEDGE border pixels remain white and are
+            // visible at the edges. Remove WS_EX_CLIENTEDGE so only the CToolbarHeader's
+            // dark sunken border remains. On Win11+, darkmodelib's setDarkCheckboxes
+            // replaces the native state images entirely, so the border isn't an issue.
+            if (DarkModeShouldUseDarkColors())
+            {
+                auto RemoveWhiteClientEdge = [](HWND hList) {
+                    DWORD exStyle = (DWORD)GetWindowLongPtr(hList, GWL_EXSTYLE);
+                    if (exStyle & WS_EX_CLIENTEDGE)
+                    {
+                        SetWindowLongPtr(hList, GWL_EXSTYLE, exStyle & ~WS_EX_CLIENTEDGE);
+                        SetWindowPos(hList, NULL, 0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+                    }
+                };
+                RemoveWhiteClientEdge(HListView);
+                RemoveWhiteClientEdge(HListView2);
+            }
             DarkModeApplyStaticTextColors(HWindow, NULL);
             WinLib_DarkMode_PostDeferredRedraw(HWindow);
         }
@@ -1820,12 +1857,18 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 LPNMLVCUSTOMDRAW customDraw = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
                 LRESULT customDrawResult = CDRF_DODEFAULT;
-                if (Windows11AndLater && DarkModeShouldUseDarkColors())
+                if (DarkModeShouldUseDarkColors())
                 {
                     if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
                         customDrawResult = CDRF_NOTIFYITEMDRAW;
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                    {
+                        // Ensure the system draws item backgrounds in dark color,
+                        // preventing white bleed-through from default rendering.
+                        customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
+                        customDraw->clrText = DarkModeGetDialogTextColor();
                         customDrawResult = CDRF_NOTIFYPOSTPAINT;
+                    }
                     else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                         DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
                 }
@@ -2239,22 +2282,9 @@ CCfgPageViewer::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-        DARKMODE_RETURN_IF_HANDLED(handled, brush);
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -2729,22 +2759,9 @@ CCfgPageUserMenu::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-        DARKMODE_RETURN_IF_HANDLED(handled, brush);
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
@@ -3437,22 +3454,9 @@ CCfgPageHotPath::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
     {
-        LRESULT brush = 0;
-        const bool handled = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
-        DARKMODE_RETURN_IF_HANDLED(handled, brush);
-        if (DarkModeShouldUseDarkColors())
-        {
-            HDC dc = reinterpret_cast<HDC>(wParam);
-            if (dc != NULL)
-            {
-                const DarkModeColors& colors = DarkModeGetColors();
-                SetTextColor(dc, colors.readableText);
-                SetBkColor(dc, colors.background);
-                SetBkMode(dc, TRANSPARENT);
-            }
-            HBRUSH dialogBrush = HDialogBrush != NULL ? HDialogBrush : GetSysColorBrush(COLOR_BTNFACE);
-            return reinterpret_cast<INT_PTR>(dialogBrush);
-        }
+        INT_PTR result = 0;
+        if (DarkModeTryHandleCtlColorForDialogPage(uMsg, wParam, lParam, result))
+            return result;
         break;
     }
 
