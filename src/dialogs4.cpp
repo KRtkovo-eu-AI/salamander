@@ -107,15 +107,18 @@ static void RemoveViewsListViewsWhiteClientEdge(HWND listView, HWND listView2)
 
 static bool ShouldCustomDrawViewsAvailableColumnCheckboxes()
 {
-    // This one list-view has repeatedly shown native checkbox state-image
-    // backgrounds in dark mode. Bypass native item painting for it on every
-    // Windows version; darkmodelib still themes the list-view/header chrome.
-    return DarkModeShouldUseDarkColors();
+    // Available Columns used to be fixed by overlaying the checkbox cell after
+    // the native list-view item has been painted. Keep that exact Win11+ dark
+    // mode path: darkmodelib still themes the list-view/header chrome, and this
+    // post-paint pass covers the native state-image background that can remain
+    // white in this single list-view.
+    return Windows11AndLater && DarkModeShouldUseDarkColors();
 }
 
 // Custom-draw handler for dark-mode checkboxes in the Available Columns ListView.
-// We draw the whole item ourselves and return CDRF_SKIPDEFAULT so native checkbox
-// state images cannot leave white backgrounds in the checkbox gutter.
+// Called from CDDS_ITEMPOSTPAINT so the native/default item draw stays intact
+// and this pass only overlays the problematic state-image area (plus the row
+// background/text) with dark colors.
 static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* customDraw)
 {
     if (!ShouldCustomDrawViewsAvailableColumnCheckboxes() || listView == NULL || customDraw == NULL)
@@ -1991,12 +1994,14 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
                         customDraw->clrText = DarkModeGetDialogTextColor();
                         if (ShouldCustomDrawViewsAvailableColumnCheckboxes())
-                        {
-                            DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
-                            customDrawResult = CDRF_SKIPDEFAULT;
-                        }
+                            customDrawResult = CDRF_NOTIFYPOSTPAINT;
                         else
                             customDrawResult = CDRF_DODEFAULT;
+                    }
+                    else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                    {
+                        DrawViewsAvailableColumnCheckbox(HListView2, customDraw);
+                        customDrawResult = CDRF_DODEFAULT;
                     }
                 }
                 SetWindowLongPtr(HWindow, DWLP_MSGRESULT, customDrawResult);
