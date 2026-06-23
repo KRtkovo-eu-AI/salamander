@@ -117,10 +117,10 @@ bool PaintFindListHeader(LPNMCUSTOMDRAW cd, LRESULT& result)
 
         RECT line = cd->rc;
         line.left = line.right - 1;
-        FillFindRect(cd->hdc, &line, RGB(0x4A, 0x4A, 0x4A));
+        FillFindRect(cd->hdc, &line, RGB(0x38, 0x38, 0x38));
         line = cd->rc;
         line.top = line.bottom - 1;
-        FillFindRect(cd->hdc, &line, RGB(0x4A, 0x4A, 0x4A));
+        FillFindRect(cd->hdc, &line, RGB(0x38, 0x38, 0x38));
 
         result = CDRF_SKIPDEFAULT;
         return true;
