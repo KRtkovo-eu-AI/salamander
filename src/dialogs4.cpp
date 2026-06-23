@@ -143,14 +143,21 @@ static void DrawViewsAvailableColumnCheckbox(HWND listView, NMLVCUSTOMDRAW* cust
     if (hdc == NULL)
         return;
 
-    // Fill the full item width with dark background to cover any white pixels
-    // from the native checkbox state images.
+    // Fill the entire visual row. LVIR_BOUNDS does not cover the state-image
+    // gutter nor the unused space to the right of the text, and those are
+    // exactly the areas where native list-view painting leaves white pixels.
+    RECT clientRect;
+    GetClientRect(listView, &clientRect);
+    RECT rowRect = boundsRect;
+    rowRect.left = clientRect.left;
+    rowRect.right = clientRect.right;
+
     const bool selected = (ListView_GetItemState(listView, item, LVIS_SELECTED) & LVIS_SELECTED) != 0;
     const COLORREF rowBackground = selected ? DarkModeGetColors().background : DarkModeGetDialogBackgroundColor();
-    FillRectWithSysColor(hdc, boundsRect, rowBackground);
+    FillRectWithSysColor(hdc, rowRect, rowBackground);
 
     // Calculate checkbox area (same region the native state image occupies)
-    RECT stateRect = boundsRect;
+    RECT stateRect = rowRect;
     stateRect.right = labelRect.left;
     if (stateRect.right <= stateRect.left)
         return;
@@ -1470,6 +1477,9 @@ CCfgPageView::CCfgPageView(int index)
     HListView2 = NULL;
     DisableNotification = FALSE;
     LabelEdit = FALSE;
+    AvailableColumnsWidth = 0;
+    AvailableColumnsRightMargin = 0;
+    ViewsListGap = 0;
     if (index == -1)
         index = MainWindow->GetActivePanel()->GetViewTemplateIndex();
     SelectIndex = index;
@@ -1552,6 +1562,63 @@ void CCfgPageView::Validate(CTransferInfo& ti)
 const int CFGP2ItemsCount = 8 /*9*/;
 const int CFGP2Flags[CFGP2ItemsCount] = {0, VIEW_SHOW_EXTENSION, VIEW_SHOW_DOSNAME, VIEW_SHOW_SIZE, VIEW_SHOW_TYPE, VIEW_SHOW_DATE, VIEW_SHOW_TIME, VIEW_SHOW_ATTRIBUTES /*, VIEW_SHOW_DESCRIPTION*/};
 const int CFGP2ResID[CFGP2ItemsCount] = {IDS_COLUMN_CFG_NAME, IDS_COLUMN_CFG_EXT, IDS_COLUMN_CFG_DOSNAME, IDS_COLUMN_CFG_SIZE, IDS_COLUMN_CFG_TYPE, IDS_COLUMN_CFG_DATE, IDS_COLUMN_CFG_TIME, IDS_COLUMN_CFG_ATTR /*,  IDS_COLUMN_CFG_DESC*/};
+
+void CCfgPageView::LayoutViewsListControls()
+{
+    if (HListView == NULL || HListView2 == NULL || Header == NULL || Header2 == NULL ||
+        AvailableColumnsWidth <= 0)
+    {
+        return;
+    }
+
+    RECT client;
+    GetClientRect(HWindow, &client);
+
+    RECT leftRect;
+    RECT rightRect;
+    RECT headerRect;
+    RECT header2Rect;
+    GetWindowRect(HListView, &leftRect);
+    GetWindowRect(HListView2, &rightRect);
+    GetWindowRect(Header->HWindow, &headerRect);
+    GetWindowRect(Header2->HWindow, &header2Rect);
+    POINT leftTop = {leftRect.left, leftRect.top};
+    POINT rightTop = {rightRect.left, rightRect.top};
+    ScreenToClient(HWindow, &leftTop);
+    ScreenToClient(HWindow, &rightTop);
+
+    const int rightLeft = client.right - AvailableColumnsRightMargin - AvailableColumnsWidth;
+    int leftWidth = rightLeft - ViewsListGap - leftTop.x;
+    if (leftWidth < 20)
+        leftWidth = 20;
+    const int listHeight = rightRect.bottom - rightRect.top;
+    const int leftHeight = leftRect.bottom - leftRect.top;
+    const int headerHeight = headerRect.bottom - headerRect.top;
+    const int header2Height = header2Rect.bottom - header2Rect.top;
+
+    HDWP hdwp = HANDLES(BeginDeferWindowPos(4));
+    if (hdwp != NULL)
+    {
+        hdwp = HANDLES(DeferWindowPos(hdwp, HListView, NULL,
+                                      0, 0, leftWidth, leftHeight,
+                                      SWP_NOMOVE | SWP_NOZORDER));
+        hdwp = HANDLES(DeferWindowPos(hdwp, HListView2, NULL,
+                                      rightLeft, rightTop.y, AvailableColumnsWidth, listHeight,
+                                      SWP_NOZORDER));
+        hdwp = HANDLES(DeferWindowPos(hdwp, Header->HWindow, NULL,
+                                      0, 0, leftWidth, headerHeight,
+                                      SWP_NOMOVE | SWP_NOZORDER));
+        hdwp = HANDLES(DeferWindowPos(hdwp, Header2->HWindow, NULL,
+                                      rightLeft, rightTop.y - header2Height,
+                                      AvailableColumnsWidth, header2Height,
+                                      SWP_NOZORDER));
+        HANDLES(EndDeferWindowPos(hdwp));
+    }
+
+    SetViewsAvailableColumnsColumnWidth(HListView2);
+    InvalidateRect(HListView, NULL, TRUE);
+    InvalidateRect(HListView2, NULL, TRUE);
+}
 
 void CCfgPageView::LoadControls()
 {
@@ -1840,9 +1907,25 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         ListView_InsertColumn(HListView2, 0, &lvc);
         SetViewsAvailableColumnsColumnWidth(HListView2);
 
+        RECT rightWindowRect;
+        RECT leftWindowRect;
+        RECT clientRect;
+        GetWindowRect(HListView2, &rightWindowRect);
+        GetWindowRect(HListView, &leftWindowRect);
+        GetClientRect(HWindow, &clientRect);
+        POINT rightBottom = {rightWindowRect.right, rightWindowRect.bottom};
+        POINT rightTop = {rightWindowRect.left, rightWindowRect.top};
+        POINT leftBottom = {leftWindowRect.right, leftWindowRect.bottom};
+        ScreenToClient(HWindow, &rightBottom);
+        ScreenToClient(HWindow, &rightTop);
+        ScreenToClient(HWindow, &leftBottom);
+        AvailableColumnsWidth = rightBottom.x - rightTop.x;
+        AvailableColumnsRightMargin = clientRect.right - rightBottom.x;
+        ViewsListGap = rightTop.x - leftBottom.x;
+
         // dialog elements should stretch with the dialog size, set split controls
         ElasticVerticalLayout(2, IDC_VIEW_LIST, IDC_VIEW_LIST2);
-        SetViewsAvailableColumnsColumnWidth(HListView2);
+        LayoutViewsListControls();
 
         DarkModeUpdateListViewColors(HListView);
         DarkModeUpdateListViewColors(HListView2);
@@ -1865,6 +1948,13 @@ CCfgPageView::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         break;
+    }
+
+    case WM_SIZE:
+    {
+        INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+        LayoutViewsListControls();
+        return result;
     }
 
     case WM_SYSCOLORCHANGE:
