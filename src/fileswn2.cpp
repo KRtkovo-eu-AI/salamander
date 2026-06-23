@@ -2746,7 +2746,9 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                 // we just received a new listing; if there are any reported panel changes, we cancel them
                 InvalidateChangesInPanelWeHaveNewListing();
 
-                if (lastErr != ERROR_SUCCESS && (!isRefresh || openIfPathIsInaccessibleGoToCfg) && shorterPathWarning)
+                if (lastErr != ERROR_SUCCESS && (!isRefresh || openIfPathIsInaccessibleGoToCfg) && shorterPathWarning &&
+                    (!SuppressChangeDirHistoryErr ||
+                     lastErr != ERROR_FILE_NOT_FOUND && lastErr != ERROR_PATH_NOT_FOUND))
                 {                        // if it's not a refresh and messages about path-shortening are supposed to be shown ...
                     if (!refreshListBox) // we'll display a message; we must perform refresh-list-box
                     {
