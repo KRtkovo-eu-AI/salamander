@@ -12,6 +12,18 @@ if($Languages){$selectedLanguages=Expand-List $Languages}else{$selectedLanguages
 $runtime=(Resolve-Path $BuildRoot).Path; $availableModules=@('salamand') + @(Get-ChildItem (Join-Path $runtime 'plugins') -Recurse -Filter english.slg | ForEach-Object {$_.Directory.Parent.Name.ToLowerInvariant()}) | Sort-Object -Unique
 if($Modules){$selectedModules=Expand-List $Modules}else{$selectedModules=$availableModules}
 $unknown=@($selectedModules | Where-Object {$availableModules -notcontains $_}); if($unknown){throw "Unknown modules: $($unknown -join ', ')"}
+
+$langIdByLanguage = @{
+ chinesesimplified = 2052; czech = 1029; dutch = 1043; french = 1036; german = 1031
+ hungarian = 1038; romanian = 1048; russian = 1049; slovak = 1051; spanish = 3082
+}
+function Set-SltLangId([string]$Path,[string]$Language){
+ $langId=$langIdByLanguage[$Language]
+ if($null -eq $langId){return}
+ $text=[IO.File]::ReadAllText($Path,[Text.UTF8Encoding]::new($true))
+ $updated=[regex]::Replace($text,'(?m)^(LANGID,)\d+',('${1}' + $langId),1)
+ if($updated -ne $text){[IO.File]::WriteAllText($Path,$updated,[Text.UTF8Encoding]::new($true))}
+}
 if($ImportOnly){
  if(-not (Test-Path (Join-Path $workspace 'runtime\utils\translator.exe'))){throw "Workspace '$workspace' does not exist. Run a full DryRun first to generate the workspace and candidates."}
 } else {
@@ -32,6 +44,7 @@ foreach($language in $selectedLanguages){foreach($module in $selectedModules){
    if(-not (Test-Path $rebased)){Write-Warning "No candidate file found for $language/$module - skipping import."; continue}
    Write-Host "ImportOnly: importing existing candidate for $language/$module"
   }
+   Set-SltLangId -Path $rebased -Language $language
    Invoke-SalamanderTranslatorQuiet -TranslatorExe $translator -Arguments @('-quiet-import-slt',$candidateDir,$project) -FailureMessage "Candidate import/validation failed for $language/$module." -DiagnosticLog $log
    if(-not $DryRun){
     $destination=Join-Path $repoRoot "translations\$language"; New-Item -ItemType Directory -Force $destination|Out-Null

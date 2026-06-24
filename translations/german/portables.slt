@@ -4,7 +4,7 @@ TEXTVERSION,"0.2 (x64)"
 VERSION,"0,2,0,183"
 
 [TRANSLATION]
-LANGID,1033
+LANGID,1031
 AUTHOR,"KRtekTM"
 WEB,"https://github.com/KRtkovo-eu-AI/salamander/"
 COMMENT,"automatic translate with gpt-5.4-nano"

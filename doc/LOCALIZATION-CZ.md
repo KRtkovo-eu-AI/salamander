@@ -93,6 +93,11 @@ Tímhle krokem se nemění runtime architektura Salamandera: `.slg` musí být s
 vygenerované už před spuštěním aplikace. Pokud round-trip validace selže, nejde
 o varování k ignorování — výsledný language pack se nesmí testovat ani shipovat.
 
+Každý `.slt` archiv musí mít v sekci `[TRANSLATION]` správné `LANGID` podle
+adresáře jazyka. OpenAI skript ho při zápisu kandidátů normalizuje a
+`build_language_packs.ps1` ho při round-trip kontrole ověřuje; chyba typu
+`LANGID,1033` v čínském nebo českém archivu znamená vadný zdrojový `.slt`.
+
 Při ladění balení lze implementační skript spustit i přímo:
 
 ```powershell

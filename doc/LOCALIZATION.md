@@ -95,6 +95,11 @@ This step does not change Salamander's runtime architecture: `.slg` files must b
 correct before the application starts. If round-trip validation fails, it is not
 a warning to ignore — that language pack must not be smoke-tested or shipped.
 
+Every `.slt` archive must also carry the correct `LANGID` in its `[TRANSLATION]`
+section for the language folder. The OpenAI script normalizes this when writing
+candidates and `build_language_packs.ps1` checks it during round-trip validation;
+for example, `LANGID,1033` in a Chinese or Czech archive is a broken source SLT.
+
 You can also call the implementation script directly when debugging packaging:
 
 ```powershell
