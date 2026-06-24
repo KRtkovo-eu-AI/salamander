@@ -377,7 +377,7 @@ else
 }
 
 # Cleanup workspace
-if (-not $env:SALLY_KEEP_LANGPACK_WORKSPACE)
+if (-not $env:SAMANDARIN_KEEP_LANGPACK_WORKSPACE)
 {
     Remove-Item -Recurse -Force -LiteralPath $WorkspaceDir -ErrorAction SilentlyContinue
     Write-Host "  Workspace cleaned up."

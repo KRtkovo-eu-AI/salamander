@@ -626,11 +626,11 @@ WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR cmdLine, int cmd
         HACCEL hAccelTableLayout = HANDLES(LoadAccelerators(HInstance,
                                                             MAKEINTRESOURCE(IDA_LAYOUTACCELS)));
 
-        char buf[MAX_PATH];
+        char buf[MAX_PATH * 2];
         char* argv[20];
         int p = 20; // number of available elements in argv
         BOOL cmdLineParamsUsed = FALSE;
-        if (GetCmdLine(buf, MAX_PATH, argv, p, cmdLine))
+        if (GetCmdLine(buf, MAX_PATH * 2, argv, p, cmdLine))
         {
             if (p > 0)
             {
