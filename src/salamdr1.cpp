@@ -1299,28 +1299,51 @@ void InitLocales()
         IsAlpha[i] = IsCharAlpha((char)i);
     }
 
-    if ((DecimalSeparatorLen = GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, DecimalSeparator, 5)) == 0 ||
-        DecimalSeparatorLen > 5)
+    // Ziskame desetinny a tisicovy oddelovac pomoci WideChar verze a prevedeme
+    // do aktualniho ANSI codepage. Pokud prevedeni selze nebo pouzije defaultni
+    // znak, pouzijeme fallback ( '.' resp. ' ').
+    wchar_t wBuff[5];
+
+    if (GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, wBuff, 5) == 0)
     {
         strcpy(DecimalSeparator, ".");
         DecimalSeparatorLen = 1;
     }
     else
     {
-        DecimalSeparatorLen--;
-        DecimalSeparator[DecimalSeparatorLen] = 0; // posychrujeme nulu na konci
+        BOOL usedDefault = FALSE;
+        int len = WideCharToMultiByte(CP_ACP, 0, wBuff, -1, DecimalSeparator, 5, NULL, &usedDefault);
+        if (len == 0 || usedDefault)
+        {
+            strcpy(DecimalSeparator, ".");
+            DecimalSeparatorLen = 1;
+        }
+        else
+        {
+            DecimalSeparatorLen = len - 1; // bez nuly na konci
+            DecimalSeparator[DecimalSeparatorLen] = 0;
+        }
     }
 
-    if ((ThousandsSeparatorLen = GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_STHOUSAND, ThousandsSeparator, 5)) == 0 ||
-        ThousandsSeparatorLen > 5)
+    if (GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_STHOUSAND, wBuff, 5) == 0)
     {
         strcpy(ThousandsSeparator, " ");
         ThousandsSeparatorLen = 1;
     }
     else
     {
-        ThousandsSeparatorLen--;
-        ThousandsSeparator[ThousandsSeparatorLen] = 0; // posychrujeme nulu na konci
+        BOOL usedDefault = FALSE;
+        int len = WideCharToMultiByte(CP_ACP, 0, wBuff, -1, ThousandsSeparator, 5, NULL, &usedDefault);
+        if (len == 0 || usedDefault)
+        {
+            strcpy(ThousandsSeparator, " ");
+            ThousandsSeparatorLen = 1;
+        }
+        else
+        {
+            ThousandsSeparatorLen = len - 1; // bez nuly na konci
+            ThousandsSeparator[ThousandsSeparatorLen] = 0;
+        }
     }
 }
 
