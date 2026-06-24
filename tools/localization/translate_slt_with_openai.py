@@ -27,6 +27,28 @@ LANGUAGES = {
 def language_info(language: str) -> dict:
     return LANGUAGES.get(language.lower(), {"name": language, "locale": language, "langid": None, "script": "the native script for the language"})
 
+def normalize_translation_header(lines: list[str], language: str) -> int:
+    """Keep SLT metadata aligned with the target language folder."""
+    langid = language_info(language).get("langid")
+    if langid is None:
+        return 0
+    in_translation = False
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == "[TRANSLATION]":
+            in_translation = True
+            continue
+        if in_translation and stripped.startswith("["):
+            return 0
+        if in_translation and stripped.startswith("LANGID,"):
+            desired = f"LANGID,{langid}"
+            if stripped == desired:
+                return 0
+            ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+            lines[index] = desired + ending
+            return 1
+    return 0
+
 @dataclass
 class Item:
     index: int; key: str; section: str; text: str; prefix: str; ending: str
@@ -97,10 +119,16 @@ def validate(items: list[Item], result: dict, language: str | None = None) -> di
 
 def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=request_openai, trace_file: Path | None = None) -> dict:
     lang = language_info(language)
-    lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True); items=parse_items(lines, force)
+    lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True)
+    header_updates = 0 if dry_run else normalize_translation_header(lines, language)
+    items=parse_items(lines, force)
     all_items=parse_items(lines, True)
     report={"found":len(items),"translated":0,"skipped":len(all_items)-len(items),"failed":0,"estimated_input_characters":sum(len(i.text) for i in items)}
-    if not items or dry_run: return report
+    if dry_run: return report
+    if not items:
+        if header_updates:
+            output.write_text("".join(lines),encoding="utf-8-sig",newline="")
+        return report
     key=os.environ.get("OPENAI_API_KEY")
     if not key: raise RuntimeError("OPENAI_API_KEY is not set")
     changed=list(lines)

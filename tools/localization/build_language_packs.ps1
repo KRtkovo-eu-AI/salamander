@@ -155,6 +155,18 @@ $validated = 0
 $validationWarnings = New-Object System.Collections.Generic.List[string]
 $roundtripFailures = New-Object System.Collections.Generic.List[string]
 $pendingCopies = New-Object System.Collections.Generic.List[object]
+$languageLangIds = @{
+    chinesesimplified = 2052
+    czech = 1029
+    dutch = 1043
+    french = 1036
+    german = 1031
+    hungarian = 1038
+    romanian = 1048
+    russian = 1049
+    slovak = 1051
+    spanish = 3082
+}
 
 foreach ($language in $requestedLanguages)
 {
@@ -236,7 +248,13 @@ foreach ($language in $requestedLanguages)
                     -TimeoutSeconds 60
 
                 $roundtripArchivePath = Join-Path $roundtripDir "$moduleName.slt"
-                $verifyOutput = & python (Join-Path $scriptDir "verify_slt_roundtrip.py") $sourceArchivePath $roundtripArchivePath 2>&1
+                $expectedLangId = $languageLangIds[$language]
+                $verifyArgs = @($sourceArchivePath, $roundtripArchivePath)
+                if ($null -ne $expectedLangId)
+                {
+                    $verifyArgs += @("--expected-langid", $expectedLangId)
+                }
+                $verifyOutput = & python (Join-Path $scriptDir "verify_slt_roundtrip.py") @verifyArgs 2>&1
                 if (-not $?)
                 {
                     $details = ($verifyOutput | Select-Object -First 12) -join "`n    "

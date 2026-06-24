@@ -40,6 +40,30 @@ class Tests(unittest.TestCase):
   self.assertEqual(seen[0]["target_locale"],"ru-RU")
   self.assertEqual(seen[0]["target_langid"],1049)
   self.assertEqual(seen[0]["target_script"],"Cyrillic")
+
+ def test_translation_updates_langid_even_without_untranslated_items(self):
+  os.environ["OPENAI_API_KEY"]="test"
+  content = """[EXPORTINFO]
+PROJECTNAME,\"x\"
+TEXTVERSION,\"1\"
+VERSION,\"1\"
+
+[TRANSLATION]
+LANGID,1033
+AUTHOR,\"\"
+WEB,\"\"
+COMMENT,\"\"
+
+[STRINGTABLE 0]
+46,1,\"WebView2 渲染查看器 .NET\"
+"""
+  with tempfile.TemporaryDirectory() as d:
+   src=Path(d)/"in.slt"; out=Path(d)/"out.slt"
+   src.write_text(content,encoding="utf-8-sig")
+   def requester(*_): raise AssertionError("no model call expected")
+   report=slt.translate(src,out,"chinesesimplified","mock",40,False,False,requester)
+   self.assertEqual(report["found"],0)
+   self.assertIn("LANGID,2052",out.read_text(encoding="utf-8-sig"))
  def test_translation_preserves_format_and_escaping(self):
   os.environ["OPENAI_API_KEY"]="test"
   def requester(payload,key,model): return {"translations":[{"id":x["id"],"text":x["text"].replace("Open","Otevřít").replace("Use","Použít")} for x in payload["items"]]}
