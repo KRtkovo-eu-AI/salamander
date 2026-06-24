@@ -84,6 +84,22 @@ copies of the current English `.slg` files, validates layout, verifies an SLT
 round-trip, and then copies the produced `.slg` files back into the populated
 runtime tree.
 
+If the committed files under `translations/` already contain the correct text, do
+not re-encode them and do not send them through OpenAI again. Build Salamander,
+build the current `utils\translator.exe`, and run only the `localize.ps1 build`
+command above. When a fatal validation error occurs, the script does not copy new
+`.slg` files into the runtime tree; fix the reported problem and run the build
+again.
+
+Salamander is still mostly an ANSI application, but the main process runs the
+localized UI with the UTF-8 active code page and `LoadStr()` loads resource
+strings through Unicode (`LoadStringW`) before returning UTF-8. This is required
+so the same `.slg` works independently of the Windows system locale for
+non-Unicode programs — not only Czech and Slovak, but also French, Russian, and
+Simplified Chinese. Translator is not switched to this mode; `.slt` files remain
+UTF-8 with BOM and `.slg` files are still produced by Translator through the
+standard workflow.
+
 You can also call the implementation script directly when debugging packaging:
 
 ```powershell

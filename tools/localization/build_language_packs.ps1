@@ -154,6 +154,7 @@ $coreSeedRejections = New-Object System.Collections.Generic.List[string]
 $validated = 0
 $validationWarnings = New-Object System.Collections.Generic.List[string]
 $roundtripFailures = New-Object System.Collections.Generic.List[string]
+$pendingCopies = New-Object System.Collections.Generic.List[object]
 
 foreach ($language in $requestedLanguages)
 {
@@ -267,7 +268,19 @@ foreach ($language in $requestedLanguages)
         }
 
         $destFile = Join-Path $destDir "$language.slg"
-        Copy-Item -LiteralPath $slgFile -Destination $destFile -Force
+        $pendingCopies.Add([pscustomobject]@{ Source = $slgFile; Destination = $destFile })
+    }
+}
+
+# Do not touch the runtime tree if any fatal validation failed.  Otherwise a
+# failed build can still leave corrupted or partially rebuilt .slg files in
+# BuildRoot, which makes the next manual Salamander smoke test misleading.
+$fatalFailures = $copyFailures.Count + $roundtripFailures.Count + $coreSeedRejections.Count + $(if ($AllowSeedRejections) { 0 } else { $seedRejections.Count })
+if ($fatalFailures -eq 0)
+{
+    foreach ($copy in $pendingCopies)
+    {
+        Copy-Item -LiteralPath $copy.Source -Destination $copy.Destination -Force
         $copied++
     }
 }
@@ -330,10 +343,18 @@ if ($validationWarnings.Count -gt 0)
 }
 
 # Verify
-$langDir = Join-Path $buildRootFull "lang"
-$coreLangs = Get-ChildItem -LiteralPath $langDir -Filter "*.slg" | ForEach-Object { $_.Name }
-Write-Host ""
-Write-Host "  Language packs now in runtime lang/: $($coreLangs -join ', ')"
+if ($fatalFailures -eq 0)
+{
+    $langDir = Join-Path $buildRootFull "lang"
+    $coreLangs = Get-ChildItem -LiteralPath $langDir -Filter "*.slg" | ForEach-Object { $_.Name }
+    Write-Host ""
+    Write-Host "  Language packs now in runtime lang/: $($coreLangs -join ', ')"
+}
+else
+{
+    Write-Host ""
+    Write-Warning "Language packs were not copied into the runtime tree because the build has fatal validation failures."
+}
 
 # Cleanup workspace
 if (-not $env:SALLY_KEEP_LANGPACK_WORKSPACE)
@@ -349,7 +370,6 @@ else
 # Fail the build if core Samandarin imports produced untranslated seeds. Plugin seed
 # rejections may be tolerated for local builds and optional/incomplete plugins,
 # but dropping the main application language packs makes the release incomplete.
-$fatalFailures = $copyFailures.Count + $roundtripFailures.Count + $coreSeedRejections.Count + $(if ($AllowSeedRejections) { 0 } else { $seedRejections.Count })
 if ($fatalFailures -gt 0)
 {
     throw "Language pack build completed with $fatalFailures failure(s): $($seedRejections.Count) seed rejection(s), $($coreSeedRejections.Count) core seed rejection(s), $($roundtripFailures.Count) round-trip failure(s), $($copyFailures.Count) copy failure(s). The release zip has incomplete localization."
