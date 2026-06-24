@@ -2081,16 +2081,15 @@ BOOL CData::SaveDialogs(HANDLE hUpdateRes)
         CDialogData* dlgData = DlgData[i];
         DWORD size = dlgData->PrepareTemplate((WORD*)buff, TRUE, FALSE, FALSE);
         BOOL result = TRUE;
-        if (dlgData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // resource is not "neutral"; delete it so the resulting .SLG does not contain the dialog twice
-        {
-            result = UpdateResource(hUpdateRes, RT_DIALOG, MAKEINTRESOURCE(dlgData->ID),
-                                    dlgData->TLangID,
-                                    NULL, 0);
-        }
+        // Always delete old resource at its original language (even LANG_NEUTRAL)
+        result = UpdateResource(hUpdateRes, RT_DIALOG, MAKEINTRESOURCE(dlgData->ID),
+                                dlgData->TLangID,
+                                NULL, 0);
         if (result)
         {
+            WORD targetLangID = Data.SLGSignature.LanguageID ? Data.SLGSignature.LanguageID : MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
             result = UpdateResource(hUpdateRes, RT_DIALOG, MAKEINTRESOURCE(dlgData->ID),
-                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
+                                    targetLangID,
                                     buff, size);
         }
         if (!result)

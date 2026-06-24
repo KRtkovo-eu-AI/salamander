@@ -92,7 +92,7 @@ public:
     BOOL SetString(const char* block, const wchar_t* buffer);
 
     // Allocate a buffer, build the VERSIONINFO stream, and update the resource.
-    BOOL UpdateResource(HANDLE hUpdateRes, int resID);
+    BOOL UpdateResource(HANDLE hUpdateRes, int resID, WORD targetLangID = 0);
 #endif //VERSINFO_SUPPORT_WRITE
 
 #ifdef VERSINFO_SUPPORT_DEBUG

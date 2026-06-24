@@ -505,7 +505,7 @@ BOOL CVersionInfo::SaveBlock(CVersionBlock* block, BYTE*& ptr, const BYTE* maxPt
     return TRUE;
 }
 
-BOOL CVersionInfo::UpdateResource(HANDLE hUpdateRes, int resID)
+BOOL CVersionInfo::UpdateResource(HANDLE hUpdateRes, int resID, WORD targetLangID)
 {
     BYTE* buff = (BYTE*)malloc(50000);
     if (buff == NULL)
@@ -523,15 +523,13 @@ BOOL CVersionInfo::UpdateResource(HANDLE hUpdateRes, int resID)
     DWORD resSize = ptr - buff;
 
     BOOL result = TRUE;
-    if (TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // Remove the non-neutral resource so the final .SLG contains only one version block
-    {
-        result = ::UpdateResource(hUpdateRes, RT_VERSION, MAKEINTRESOURCE(resID),
-                                  TLangID, NULL, 0);
-    }
+    // Always delete old version info at its original language (even LANG_NEUTRAL)
+    result = ::UpdateResource(hUpdateRes, RT_VERSION, MAKEINTRESOURCE(resID),
+                              TLangID, NULL, 0);
     if (result)
     {
         result = ::UpdateResource(hUpdateRes, RT_VERSION, MAKEINTRESOURCE(resID),
-                                  MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
+                                  targetLangID ? targetLangID : MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
                                   buff, resSize);
     }
     free(buff);

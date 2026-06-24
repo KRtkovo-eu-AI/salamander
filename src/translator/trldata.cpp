@@ -342,7 +342,8 @@ BOOL CData::Save()
             if (ret)
                 ret &= SaveModuleName(hUpdate);
             if (ret)
-                ret &= VersionInfo.UpdateResource(hUpdate, VS_VERSION_INFO);
+                ret &= VersionInfo.UpdateResource(hUpdate, VS_VERSION_INFO,
+                                                    Data.SLGSignature.LanguageID);
             if (ret)
                 ret &= EndUpdateResource(hUpdate, FALSE);
 
@@ -423,16 +424,30 @@ BOOL CData::Save()
 }
 
 BOOL CALLBACK EnumResLangProc(HANDLE hModule, LPCTSTR lpszType, LPCTSTR lpszName,
-                              WORD wIDLanguage, LONG_PTR lParam)
+                               WORD wIDLanguage, LONG_PTR lParam)
 {
-    if (*(DWORD*)lParam != 0xFFFFFFFF)
+    DWORD* langID = (DWORD*)lParam;
+    if (*langID == 0xFFFFFFFF)
     {
-        // multiple languages found inside the same resource—report an error
-        *(DWORD*)lParam = 0xFFFFFFFF;
+        // First language found — store it.
+        *langID = wIDLanguage;
+    }
+    else if (*langID == 0 && wIDLanguage != 0)
+    {
+        // Seed had LANG_NEUTRAL, import added a specific language — prefer the specific one.
+        *langID = wIDLanguage;
+    }
+    else if (*langID != 0 && wIDLanguage == 0)
+    {
+        // Seed had a specific language, resource also has LANG_NEUTRAL — keep the specific one.
+    }
+    else if (*langID != wIDLanguage)
+    {
+        // Two different specific languages for the same resource — report an error.
+        *langID = 0xFFFFFFFF;
         return FALSE;
     }
-    *(WORD*)lParam = wIDLanguage;
-    return TRUE; // continue enumeration to discover additional languages for diagnostics
+    return TRUE; // continue enumeration
 }
 
 BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName, LPARAM lParam)
@@ -453,7 +468,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         DWORD err = GetLastError();
         sprintf_s(errtext, "EnumResourceLanguages() failed for resource type: %d name: %d\n%s",
                   (WORD)(UINT_PTR)lpszType, (WORD)(UINT_PTR)lpszName, GetErrorText(err));
-        MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        // In quiet mode, skip silently; in interactive mode, show the error
+        if (QuietImportSLT[0] == 0 && QuietImport[0] == 0)
+            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
         data->EnumReturn = FALSE;
         return FALSE;
     }
@@ -486,7 +503,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         BOOL added = FALSE;
 
         HRSRC oHrsrc = FindResource(hModule, lpszName, RT_DIALOG);
-        HRSRC tHrsrc = FindResource(data->HTranModule, lpszName, RT_DIALOG);
+        HRSRC tHrsrc = FindResourceEx(data->HTranModule, lpszName, RT_DIALOG, (WORD)langID);
+        if (tHrsrc == NULL)
+            tHrsrc = FindResource(data->HTranModule, lpszName, RT_DIALOG); // fallback: FindResourceEx with wLanguage=0 may not find LANG_NEUTRAL resources
         if (oHrsrc != NULL && tHrsrc != NULL)
         {
             HGLOBAL oHglb = LoadResource(hModule, oHrsrc);
@@ -514,11 +533,19 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
                 MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
             }
         }
+        else if (oHrsrc == NULL)
+        {
+            sprintf_s(errtext, "Cannot find RT_DIALOG id:%d in original file.", dlgData->ID);
+            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            delete dlgData;
+            data->EnumReturn = FALSE;
+            return FALSE;
+        }
         else
         {
-            sprintf_s(errtext, (oHrsrc == NULL) ? "Cannot find RT_DIALOG id:%d in original file." : "Cannot find RT_DIALOG id:%d in translated file.",
-                      dlgData->ID);
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            // Resource not found in translated module — skip silently (normal for partial translations)
+            delete dlgData;
+            return TRUE;
         }
 
         if (!added)
@@ -554,7 +581,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         BOOL added = FALSE;
 
         HRSRC oHrsrc = FindResource(hModule, lpszName, RT_MENU);
-        HRSRC tHrsrc = FindResource(data->HTranModule, lpszName, RT_MENU);
+        HRSRC tHrsrc = FindResourceEx(data->HTranModule, lpszName, RT_MENU, (WORD)langID);
+        if (tHrsrc == NULL)
+            tHrsrc = FindResource(data->HTranModule, lpszName, RT_MENU);
         if (oHrsrc != NULL && tHrsrc != NULL)
         {
             HGLOBAL oHglb = LoadResource(hModule, oHrsrc);
@@ -607,11 +636,19 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
                 }
             }
         }
+        else if (oHrsrc == NULL)
+        {
+            sprintf_s(errtext, "Cannot find RT_MENU id:%d in original file.", menuData->ID);
+            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            delete menuData;
+            data->EnumReturn = FALSE;
+            return FALSE;
+        }
         else
         {
-            sprintf_s(errtext, (oHrsrc == NULL) ? "Cannot find RT_MENU id:%d in original file." : "Cannot find RT_MENU id:%d in translated file.",
-                      menuData->ID);
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            // Resource not found in translated module — skip silently (normal for partial translations)
+            delete menuData;
+            return TRUE;
         }
 
         if (!added)
@@ -647,7 +684,9 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
         BOOL added = FALSE;
 
         HRSRC oHrsrc = FindResource(hModule, lpszName, RT_STRING);
-        HRSRC tHrsrc = FindResource(data->HTranModule, lpszName, RT_STRING);
+        HRSRC tHrsrc = FindResourceEx(data->HTranModule, lpszName, RT_STRING, (WORD)langID);
+        if (tHrsrc == NULL)
+            tHrsrc = FindResource(data->HTranModule, lpszName, RT_STRING);
         if (oHrsrc != NULL && tHrsrc != NULL)
         {
             HGLOBAL oHglb = LoadResource(hModule, oHrsrc);
@@ -662,15 +701,22 @@ BOOL CALLBACK EnumResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName
                 }
             }
         }
+        else if (oHrsrc == NULL)
+        {
+            sprintf_s(errtext, "Cannot find RT_STRING id:%d in original file.", strData->ID);
+            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            delete strData;
+            data->EnumReturn = FALSE;
+            return FALSE;
+        }
         else
         {
-            sprintf_s(errtext, (oHrsrc == NULL) ? "Cannot find RT_STRING id:%d in original file." : "Cannot find RT_STRING id:%d in translated file.",
-                      strData->ID);
-            MessageBox(GetMsgParent(), errtext, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+            // Resource not found in translated module — skip silently (normal for partial translations)
+            delete strData;
+            return TRUE;
         }
         if (!added)
         {
-            //TRACE_E("Low memory");
             delete strData;
             data->EnumReturn = FALSE;
             return FALSE;
@@ -2366,24 +2412,31 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
 
     if (testOnly && SLGSignature.IsSLTDataChanged())
     {
-        sprintf_s(buf, "You have made changes to this module in Translator since last "
-                       "import from SLT file, export to SLT file, or creating this language module. "
-                       "Now you are trying to import SLT file %s. Import will overwrite all these "
-                       "changes.\n\n"
-                       "Do you really want to continue with import and so lose your changes?\n\n"
-                       "We recommend to export SLT file for this module to filename with some suffix "
-                       "(e.g. \"_cur\"), use menu File / Export Translation as Text File (Ctrl+D key). "
-                       "Then compare exported SLT file with SLT file which you want to import. "
-                       "If changes in both files are relevant, you can merge them and then import "
-                       "resulting SLT file.",
-                  fileName);
-        if (MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
+        if (QuietImport[0] != 0)
         {
-            free(data);
-            HANDLES(CloseHandle(hFile));
-            swprintf_s(outputBuff, L"Importing translation from SLT text archive was cancelled.");
-            OutWindow.AddLine(outputBuff, mteError);
-            return FALSE;
+            // Quiet mode: auto-accept import over stale changes
+        }
+        else
+        {
+            sprintf_s(buf, "You have made changes to this module in Translator since last "
+                           "import from SLT file, export to SLT file, or creating this language module. "
+                           "Now you are trying to import SLT file %s. Import will overwrite all these "
+                           "changes.\n\n"
+                           "Do you really want to continue with import and so lose your changes?\n\n"
+                           "We recommend to export SLT file for this module to filename with some suffix "
+                           "(e.g. \"_cur\"), use menu File / Export Translation as Text File (Ctrl+D key). "
+                           "Then compare exported SLT file with SLT file which you want to import. "
+                           "If changes in both files are relevant, you can merge them and then import "
+                           "resulting SLT file.",
+                      fileName);
+            if (MessageBox(GetMsgParent(), buf, FRAMEWINDOW_NAME, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDNO)
+            {
+                free(data);
+                HANDLES(CloseHandle(hFile));
+                swprintf_s(outputBuff, L"Importing translation from SLT text archive was cancelled.");
+                OutWindow.AddLine(outputBuff, mteError);
+                return FALSE;
+            }
         }
     }
 
@@ -2601,8 +2654,11 @@ BOOL CData::ImportTextArchive(const char* fileName, BOOL testOnly)
 
     if (!ret /*&& lineNumber > 1*/) // Do not report a bad BOM here.
     {
-        sprintf_s(buf, "Syntax error in file %s on line %d.", fileName, lineNumber - 1);
-        MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        if (!testOnly)
+        {
+            sprintf_s(buf, "Syntax error in file %s on line %d.", fileName, lineNumber - 1);
+            MessageBox(GetMsgParent(), buf, ERROR_TITLE, MB_OK | MB_ICONEXCLAMATION);
+        }
 
         swprintf_s(outputBuff, L"Syntax error in file %hs on line %d.", fileName, lineNumber - 1);
         OutWindow.AddLine(outputBuff, mteError);

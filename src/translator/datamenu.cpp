@@ -351,16 +351,15 @@ BOOL CData::SaveMenus(HANDLE hUpdateRes)
             EncodeString(menuItem->TString, (wchar_t**)&iter);
         }
         BOOL result = TRUE;
-        if (menuData->TLangID != MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) // resource is not "neutral"; delete it so the resulting .SLG does not contain the menu twice
-        {
-            result = UpdateResource(hUpdateRes, RT_MENU, MAKEINTRESOURCE(menuData->ID),
-                                    menuData->TLangID,
-                                    NULL, 0);
-        }
+        // Always delete old resource at its original language (even LANG_NEUTRAL)
+        result = UpdateResource(hUpdateRes, RT_MENU, MAKEINTRESOURCE(menuData->ID),
+                                menuData->TLangID,
+                                NULL, 0);
         if (result)
         {
+            WORD targetLangID = Data.SLGSignature.LanguageID ? Data.SLGSignature.LanguageID : MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
             result = UpdateResource(hUpdateRes, RT_MENU, MAKEINTRESOURCE(menuData->ID),
-                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
+                                    targetLangID,
                                     buff, iter - buff);
         }
         if (!result)
