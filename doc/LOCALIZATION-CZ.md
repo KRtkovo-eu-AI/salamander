@@ -83,6 +83,20 @@ Translator, importuje commitnuté archivy `translations/<language>/<module>.slt`
 do kopií aktuálních anglických `.slg`, ověří layout, zkontroluje SLT round-trip a
 potom hotové `.slg` zkopíruje zpět do populovaného runtime stromu.
 
+Pokud jsou texty v `translations/` správně, už je nepřekódovávejte a znovu je
+nespouštějte přes OpenAI. Udělejte jen čerstvý build Salamandera, čerstvý build
+`utils\translator.exe` a spusťte výše uvedený `localize.ps1 build`. Skript při
+jakékoliv fatální chybě nezapíše nové `.slg` do runtime stromu; nejdřív opravte
+vypsaný problém a potom build spusťte znovu.
+
+Runtime Salamandera je pořád převážně ANSI aplikace, ale hlavní proces je pro
+lokalizované UI spuštěný s UTF-8 active code page a `LoadStr()` načítá resource
+stringy přes Unicode (`LoadStringW`) a vrací UTF-8. To je nutné, aby stejné `.slg`
+fungovalo nezávisle na systémové non-Unicode locale Windows — tedy nejen čeština
+a slovenština, ale i francouzština, ruština a zjednodušená čínština. Translator
+se kvůli tomu nepřepíná; `.slt` soubory zůstávají UTF-8 s BOM a `.slg` dál vyrábí
+Translator ze standardního workflow.
+
 Při ladění balení lze implementační skript spustit i přímo:
 
 ```powershell
