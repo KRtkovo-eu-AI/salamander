@@ -34,11 +34,13 @@ C__StrCriticalSection __StrCriticalSection2;
 
 char* LoadStr(int resID, HINSTANCE hInstance)
 {
-    static char buffer[40000]; // UTF-8 buffer for many strings
+    static char buffer[10000]; // buffer for many strings
     static char* act = buffer;
-    WCHAR wideBuffer[10000];
 
     HANDLES(EnterCriticalSection(&__StrCriticalSection.cs));
+
+    if (10000 - (act - buffer) < 200)
+        act = buffer;
 
     if (hInstance == NULL)
         hInstance = HLanguage;
@@ -48,25 +50,25 @@ char* LoadStr(int resID, HINSTANCE hInstance)
         TRACE_E("LoadStr: hInstance == NULL");
 #endif // _DEBUG
 
-    int size = LoadStringW(hInstance, resID, wideBuffer, _countof(wideBuffer));
+RELOAD:
+    int size = LoadString(hInstance, resID, act, 10000 - (int)(act - buffer));
+    // size contains the number of copied characters without the terminator
+    //  DWORD error = GetLastError();
     char* ret;
     if (size != 0 /* || error == NO_ERROR*/) // error is NO_ERROR even if the string does not exist - useless
     {
-        int needed = WideCharToMultiByte(CP_UTF8, 0, wideBuffer, size, NULL, 0, NULL, NULL);
-        if (needed > 0)
+        if ((10000 - (act - buffer) == size + 1) && (act > buffer))
         {
-            if (40000 - (act - buffer) < needed + 1)
-                act = buffer;
-            ret = act;
-            WideCharToMultiByte(CP_UTF8, 0, wideBuffer, size, ret, needed, NULL, NULL);
-            ret[needed] = 0;
-            act += needed + 1;
+            // if the string was exactly at the end of the buffer, it may
+            // have been truncated -- if we can move the window
+            // to the beginning of the buffer, load the string once more
+            act = buffer;
+            goto RELOAD;
         }
         else
         {
-            TRACE_E("Error converting string in LoadStr(" << resID << ") to UTF-8: " << GetErrorText(GetLastError()));
-            static char bufferError[] = "ERROR CONVERTING STRING";
-            ret = bufferError;
+            ret = act;
+            act += size + 1;
         }
     }
     else

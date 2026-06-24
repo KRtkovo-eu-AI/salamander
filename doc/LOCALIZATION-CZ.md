@@ -89,13 +89,9 @@ nespouštějte přes OpenAI. Udělejte jen čerstvý build Salamandera, čerstv�
 jakékoliv fatální chybě nezapíše nové `.slg` do runtime stromu; nejdřív opravte
 vypsaný problém a potom build spusťte znovu.
 
-Runtime Salamandera je pořád převážně ANSI aplikace, ale hlavní proces je pro
-lokalizované UI spuštěný s UTF-8 active code page a `LoadStr()` načítá resource
-stringy přes Unicode (`LoadStringW`) a vrací UTF-8. To je nutné, aby stejné `.slg`
-fungovalo nezávisle na systémové non-Unicode locale Windows — tedy nejen čeština
-a slovenština, ale i francouzština, ruština a zjednodušená čínština. Translator
-se kvůli tomu nepřepíná; `.slt` soubory zůstávají UTF-8 s BOM a `.slg` dál vyrábí
-Translator ze standardního workflow.
+Tímhle krokem se nemění runtime architektura Salamandera: `.slg` musí být správně
+vygenerované už před spuštěním aplikace. Pokud round-trip validace selže, nejde
+o varování k ignorování — výsledný language pack se nesmí testovat ani shipovat.
 
 Při ladění balení lze implementační skript spustit i přímo:
 
