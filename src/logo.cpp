@@ -112,6 +112,29 @@ BOOL CSplashScreen::PaintText(const char* text, int x, int y, BOOL bold, COLORRE
     return TRUE;
 }
 
+BOOL CSplashScreen::PaintTextW(const wchar_t* text, int x, int y, BOOL bold, COLORREF clr)
+{
+    HDC hDC = NULL;
+    if (Bitmap != NULL)
+        hDC = Bitmap->HMemDC;
+    if (hDC != NULL)
+    {
+        RECT r;
+        r.left = x;
+        r.top = y;
+        r.right = x + Width;
+        r.bottom = y + Height;
+        int oldBkMode = SetBkMode(hDC, TRANSPARENT);
+        COLORREF oldTextColor = SetTextColor(hDC, clr);
+        HFONT hOldFont = (HFONT)SelectObject(hDC, bold ? HBoldFont : HNormalFont);
+        ::DrawTextW(hDC, text, -1, &r, DT_SINGLELINE | DT_NOPREFIX | DT_NOCLIP);
+        SelectObject(hDC, hOldFont);
+        SetTextColor(hDC, oldTextColor);
+        SetBkMode(hDC, oldBkMode);
+    }
+    return TRUE;
+}
+
 BOOL CSplashScreen::PrepareBitmap()
 {
     Bitmap = new CBitmap();
@@ -172,10 +195,10 @@ BOOL CSplashScreen::PrepareBitmap()
               VersionR.top,
               FALSE, RGB(128, 128, 128));
 
-    PaintText(VERSINFO_COPYRIGHT,
-              CopyrightR.left,
-              CopyrightR.top,
-              TRUE, RGB(255, 255, 255));
+    PaintTextW(L"Copyright \u00A9 1997-2026 Open Salamander Authors",
+               CopyrightR.left,
+               CopyrightR.top,
+               TRUE, RGB(255, 255, 255));
 
     // backup of the bitmap without text
     BitBlt(OriginalBitmap->HMemDC, 0, 0, Width, Height, Bitmap->HMemDC, 0, 0, SRCCOPY);

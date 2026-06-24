@@ -820,6 +820,7 @@ public:
     ~CSplashScreen();
 
     BOOL PaintText(const char* text, int x, int y, BOOL bold, COLORREF clr);
+    BOOL PaintTextW(const wchar_t* text, int x, int y, BOOL bold, COLORREF clr);
     void SetText(const char* text);
     int GetWidth() { return Width; }
     int GetHeight() { return Height; }
