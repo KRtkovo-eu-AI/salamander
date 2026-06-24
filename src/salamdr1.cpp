@@ -367,6 +367,25 @@ HINSTANCE HLanguage = NULL;         // handle k jazykove zavislym resourcum (.SP
 char CurrentHelpDir[MAX_PATH] = ""; // po prvnim pouziti helpu je zde cesta do adresare helpu (umisteni vsech .chm souboru)
 WORD LanguageID = 0;                // language-id .SPL souboru
 
+static void ActivateLanguageLocaleForAnsiResources()
+{
+    if (LanguageID == 0)
+        return;
+
+    LCID locale = MAKELCID(LanguageID, SORT_DEFAULT);
+    if (!SetThreadLocale(locale))
+        TRACE_E("SetThreadLocale failed for language ID " << LanguageID << ": " << GetErrorText(GetLastError()));
+
+    typedef LANGID(WINAPI * FSetThreadUILanguage)(LANGID LangId);
+    HMODULE kernel32 = GetModuleHandle("kernel32.dll");
+    if (kernel32 != NULL)
+    {
+        FSetThreadUILanguage setThreadUILanguage = (FSetThreadUILanguage)GetProcAddress(kernel32, "SetThreadUILanguage");
+        if (setThreadUILanguage != NULL && setThreadUILanguage(LanguageID) == 0)
+            TRACE_E("SetThreadUILanguage failed for language ID " << LanguageID << ": " << GetErrorText(GetLastError()));
+    }
+}
+
 char OpenReadmeInNotepad[MAX_PATH]; // pouziva se jen pri spusteni z instalaku: jmeno souboru, ktere mame v IDLE otevrit v notepadu (spustit notepad)
 
 BOOL UseCustomPanelFont = FALSE;
@@ -4474,6 +4493,8 @@ FIND_NEW_SLG_FILE:
             goto EXIT_1a;
         }
     }
+
+    ActivateLanguageLocaleForAnsiResources();
 
     strcpy(Configuration.LoadedSLGName, Configuration.SLGName);
     if (initialLanguageBootstrapPath[0] != 0)
