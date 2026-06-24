@@ -5,13 +5,13 @@ function Invoke-SalamanderTranslatorQuiet {
     $info.Arguments=($Arguments|ForEach-Object{if($_ -match '\s'){'"'+$_+'"'}else{$_}})-join ' '
     $process=[Diagnostics.Process]::Start($info)
     $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    $windowDeadline=[DateTime]::UtcNow.AddSeconds($WindowGraceSeconds)
+    $windowDeadline=if($WindowGraceSeconds -gt 0){[DateTime]::UtcNow.AddSeconds($WindowGraceSeconds)}else{[DateTime]::MaxValue}
     while(-not $process.HasExited){
         if([DateTime]::UtcNow -ge $deadline){
             $process.Kill()
             throw "$FailureMessage Translator timed out after $TimeoutSeconds seconds and was terminated. Diagnostika: $DiagnosticLog"
         }
-        if([DateTime]::UtcNow -ge $windowDeadline){
+        if($WindowGraceSeconds -gt 0 -and [DateTime]::UtcNow -ge $windowDeadline){
             $process.Refresh()
             if($process.MainWindowHandle -ne [IntPtr]::Zero){
                 $title=$process.MainWindowTitle

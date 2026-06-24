@@ -245,7 +245,8 @@ foreach ($language in $requestedLanguages)
                     -Arguments @("-quiet-export-slt-for-diff", $roundtripDir, $atpFile) `
                     -FailureMessage "$language/${moduleName}: SLT round-trip export failed." `
                     -DiagnosticLog $diagnosticLog `
-                    -TimeoutSeconds 60
+                    -TimeoutSeconds 180 `
+                    -WindowGraceSeconds 0
 
                 $roundtripArchivePath = Join-Path $roundtripDir "$moduleName.slt"
                 $expectedLangId = $languageLangIds[$language]
