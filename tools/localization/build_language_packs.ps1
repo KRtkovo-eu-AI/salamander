@@ -236,10 +236,11 @@ foreach ($language in $requestedLanguages)
                     -TimeoutSeconds 60
 
                 $roundtripArchivePath = Join-Path $roundtripDir "$moduleName.slt"
-                & python (Join-Path $scriptDir "verify_slt_roundtrip.py") $sourceArchivePath $roundtripArchivePath
+                $verifyOutput = & python (Join-Path $scriptDir "verify_slt_roundtrip.py") $sourceArchivePath $roundtripArchivePath 2>&1
                 if (-not $?)
                 {
-                    $roundtripFailures.Add("${language}/${moduleName}: SLT text changed after Translator import/export")
+                    $details = ($verifyOutput | Select-Object -First 12) -join "`n    "
+                    $roundtripFailures.Add("${language}/${moduleName}: SLT text changed after Translator import/export`n    $details")
                     continue
                 }
             }
