@@ -1057,8 +1057,13 @@ void ApplyAutoSuggestChildDarkMode(HWND hwnd)
         if (lstrcmpiW(className, WC_LISTVIEWW) == 0)
         {
             ListView_SetTextColor(hwnd, colors.readableText);
+#if USE_DARKMODELIB
+            ListView_SetTextBkColor(hwnd, dmlib::getCtrlBackgroundColor());
+            ListView_SetBkColor(hwnd, dmlib::getCtrlBackgroundColor());
+#else
             ListView_SetTextBkColor(hwnd, colors.background);
             ListView_SetBkColor(hwnd, colors.background);
+#endif
 #if USE_DARKMODELIB
             dmlib::setListViewCtrlSubclass(hwnd);
 #endif
@@ -1836,7 +1841,11 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
         if (hdc == NULL)
             return result;
 
+#if USE_DARKMODELIB
+        const COLORREF background = dmlib::getCtrlBackgroundColor();
+#else
         const COLORREF background = DarkModeGetColors().background;
+#endif
         RECT unused;
         GetClientRect(hwnd, &unused);
         int count = ListView_GetItemCount(hwnd);
@@ -2138,8 +2147,14 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
             if (wcscmp(className, L"SysListView32") == 0)
             {
                 ListView_SetTextColor(hwnd, fg);
+#if USE_DARKMODELIB
+                const COLORREF lvBg = DarkMode_ShouldUseDark() ? dmlib::getCtrlBackgroundColor() : bg;
+                ListView_SetTextBkColor(hwnd, lvBg);
+                ListView_SetBkColor(hwnd, lvBg);
+#else
                 ListView_SetTextBkColor(hwnd, bg);
                 ListView_SetBkColor(hwnd, bg);
+#endif
 #if USE_DARKMODELIB
                 DarkModeBackendDarkModelib::UpdateListViewColors(hwnd, fg, bg, wantDark && ShouldUseDarkColorsForSurfaces());
 #else
@@ -2580,8 +2595,14 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
     DarkModeApplyWindow(listView);
 
     ListView_SetTextColor(listView, resolvedText);
+#if USE_DARKMODELIB
+    const COLORREF lvBg = DarkMode_ShouldUseDark() ? dmlib::getCtrlBackgroundColor() : resolvedBackground;
+    ListView_SetTextBkColor(listView, lvBg);
+    ListView_SetBkColor(listView, lvBg);
+#else
     ListView_SetTextBkColor(listView, resolvedBackground);
     ListView_SetBkColor(listView, resolvedBackground);
+#endif
     EnsureDarkListViewSurfaceSubclass(listView, applyHeaderColors && ShouldUseDarkColorsForSurfaces());
 
     HWND header = ListView_GetHeader(listView);

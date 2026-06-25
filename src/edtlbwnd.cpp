@@ -7,6 +7,10 @@
 #include "edtlbwnd.h"
 #include "gui.h"
 
+#if USE_DARKMODELIB
+#include "third_party/darkmodelib/include/Darkmodelib.h"
+#endif
+
 //****************************************************************************
 //
 // CEditLBEdit
@@ -585,15 +589,20 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
             COLORREF bkColor;
             const bool useDark = DarkModeShouldUseDarkColors();
             const DarkModeColors& darkColors = DarkModeGetColors();
+#if USE_DARKMODELIB
+            const COLORREF darkBg = dmlib::getCtrlBackgroundColor();
+#else
+            const COLORREF darkBg = darkColors.background;
+#endif
             if (lpdis->itemState & ODS_SELECTED)
             {
                 if (lpdis->itemState & ODS_FOCUS)
-                    bkColor = useDark ? darkColors.background : COLOR_HIGHLIGHT;
+                    bkColor = useDark ? darkBg : COLOR_HIGHLIGHT;
                 else
-                    bkColor = useDark ? darkColors.background : COLOR_3DFACE;
+                    bkColor = useDark ? darkBg : COLOR_3DFACE;
             }
             else
-                bkColor = useDark ? darkColors.background : COLOR_WINDOW;
+                bkColor = useDark ? darkBg : COLOR_WINDOW;
 
             RECT itemRect = lpdis->rcItem;
             if (Flags & ELB_SHOWICON)
@@ -646,7 +655,7 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                         // If a brush is passed to DrawIconEx as (HBRUSH)(COLOR_WINDOW + 1),
                         // under NT 4.0 US with 256 colors a black spot appears in the background;
                         // this patch fixes the problem.
-                        HBRUSH hBrush = HANDLES(CreateSolidBrush(useDark ? darkColors.background : GetSysColor(COLOR_WINDOW)));
+                        HBRUSH hBrush = HANDLES(CreateSolidBrush(useDark ? darkBg : GetSysColor(COLOR_WINDOW)));
                         int iconSize = IconSizes[ICONSIZE_16];
                         DrawIconEx(lpdis->hDC, lpdis->rcItem.left + 1, lpdis->rcItem.top + 1,
                                    DispInfo.HIcon, iconSize, iconSize, 0, hBrush /*(HBRUSH)(COLOR_WINDOW + 1)*/, DI_NORMAL);
@@ -659,7 +668,7 @@ void CEditListBox::OnDrawItem(LPARAM lParam)
                         r.right = IconSizes[ICONSIZE_16] + 2;
                         if (useDark)
                         {
-                            HBRUSH hBrush = HANDLES(CreateSolidBrush(darkColors.background));
+                            HBRUSH hBrush = HANDLES(CreateSolidBrush(darkBg));
                             FillRect(lpdis->hDC, &r, hBrush);
                             HANDLES(DeleteObject(hBrush));
                         }

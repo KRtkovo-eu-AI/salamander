@@ -350,14 +350,15 @@ void UpdateListViewColors(HWND listView, COLORREF textColor, COLORREF background
     if (listView != NULL)
     {
         ListView_SetTextColor(listView, textColor);
-        ListView_SetTextBkColor(listView, backgroundColor);
-        ListView_SetBkColor(listView, backgroundColor);
+        const COLORREF bg = DarkMode_ShouldUseDark() ? dmlib::getCtrlBackgroundColor() : backgroundColor;
+        ListView_SetTextBkColor(listView, bg);
+        ListView_SetBkColor(listView, bg);
 
         if (applyHeaderColors && DarkMode_ShouldUseDark())
         {
             const COLORREF headerBackground = RGB(0x20, 0x20, 0x20);
             const COLORREF headerEdge = RGB(0x38, 0x38, 0x38);
-            dmlib::setViewBackgroundColor(backgroundColor);
+            dmlib::setViewBackgroundColor(DarkMode_ShouldUseDark() ? dmlib::getCtrlBackgroundColor() : backgroundColor);
             dmlib::setViewTextColor(textColor);
             dmlib::setHeaderBackgroundColor(headerBackground);
             dmlib::setHeaderHotBackgroundColor(RGB(0x2A, 0x2A, 0x2A));
