@@ -8,6 +8,77 @@
 
 //*****************************************************************************
 //
+// Scroll-fix subclass for owner-drawn ListBoxes in dark mode.
+//
+// The dark theme's scroll-paint cycle paints over WM_DRAWITEM output,
+// making newly-exposed items invisible.  This subclass suppresses all
+// intermediate painting during scroll (WM_SETREDRAW FALSE), lets the
+// ListBox update its internal state, then forces one clean repaint
+// (WM_SETREDRAW TRUE + RedrawWindow).
+//
+static const UINT_PTR kScrollFixSubclassId = 1;
+
+static LRESULT CALLBACK ScrollFixSubclass(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                          UINT_PTR subclassId, DWORD_PTR refData)
+{
+    (void)subclassId;
+    (void)refData;
+
+    switch (uMsg)
+    {
+    case WM_VSCROLL:
+    case WM_HSCROLL:
+    {
+        // Suppress painting, let the ListBox scroll internally, then
+        // force one clean repaint that triggers WM_DRAWITEM for all
+        // newly-visible items.
+        SendMessage(hwnd, WM_SETREDRAW, FALSE, 0);
+        LRESULT ret = DefSubclassProc(hwnd, uMsg, wParam, lParam);
+        SendMessage(hwnd, WM_SETREDRAW, TRUE, 0);
+        RedrawWindow(hwnd, NULL, NULL,
+                     RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        return ret;
+    }
+
+    case WM_MOUSEWHEEL:
+    {
+        // Standard Win32 ListBoxes do not handle WM_MOUSEWHEEL.
+        // Translate to WM_VSCROLL so the ListBox scrolls natively,
+        // then the WM_VSCROLL case above handles the repaint.
+        int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+        int scrollLines = 3;
+        SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &scrollLines, 0);
+        int count = scrollLines * abs(zDelta) / WHEEL_DELTA;
+        if (count < 1)
+            count = 1;
+        UINT vScrollMsg = (zDelta > 0) ? SB_LINEUP : SB_LINEDOWN;
+        for (int i = 0; i < count; i++)
+            SendMessage(hwnd, WM_VSCROLL, MAKEWPARAM(vScrollMsg, 0), 0);
+        return 0;
+    }
+
+    case WM_KEYDOWN:
+    {
+        // Arrow keys and Page Up/Down also scroll the ListBox.
+        UINT vk = (UINT)wParam;
+        if (vk == VK_UP || vk == VK_DOWN || vk == VK_PRIOR || vk == VK_NEXT ||
+            vk == VK_HOME || vk == VK_END)
+        {
+            SendMessage(hwnd, WM_SETREDRAW, FALSE, 0);
+            LRESULT ret = DefSubclassProc(hwnd, uMsg, wParam, lParam);
+            SendMessage(hwnd, WM_SETREDRAW, TRUE, 0);
+            RedrawWindow(hwnd, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+            return ret;
+        }
+        break;
+    }
+    }
+    return DefSubclassProc(hwnd, uMsg, wParam, lParam);
+}
+
+//*****************************************************************************
+//
 // CTBCustomizeDialog
 //
 
@@ -419,7 +490,54 @@ CTBCustomizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         // nastavime oba listboxy
         SendMessage(HAvailableLB, LB_SETITEMHEIGHT, 0, minHeight);
         SendMessage(HCurrentLB, LB_SETITEMHEIGHT, 0, minHeight);
+
+        // Install scroll-fix subclass on both ListBoxes.
+        // MakeDragList only handles mouse messages for drag-and-drop, so our
+        // subclass for WM_VSCROLL/WM_HSCROLL/WM_KEYDOWN doesn't conflict.
+        SetWindowSubclass(HAvailableLB, ScrollFixSubclass, kScrollFixSubclassId, 0);
+        SetWindowSubclass(HCurrentLB, ScrollFixSubclass, kScrollFixSubclassId, 0);
         break;
+    }
+
+    case WM_MOUSEWHEEL:
+    {
+        // Standard Win32 ListBoxes do not handle WM_MOUSEWHEEL.  Translate
+        // the wheel delta into WM_VSCROLL so the ListBox scrolls natively
+        // and its standard paint cycle renders the items.
+        int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+        int scrollLines = 3;
+        SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &scrollLines, 0);
+        int count = scrollLines * abs(zDelta) / WHEEL_DELTA;
+        if (count < 1)
+            count = 1;
+        UINT vScrollMsg = (zDelta > 0) ? SB_LINEUP : SB_LINEDOWN;
+
+        HWND hTarget = NULL;
+        HWND hFocus = GetFocus();
+        if (hFocus == HAvailableLB || hFocus == HCurrentLB)
+            hTarget = hFocus;
+        else if (hFocus != NULL && ::GetParent(hFocus) == HAvailableLB)
+            hTarget = HAvailableLB;
+        else if (hFocus != NULL && ::GetParent(hFocus) == HCurrentLB)
+            hTarget = HCurrentLB;
+        if (hTarget == NULL)
+        {
+            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            ScreenToClient(HWindow, &pt);
+            HWND hHit = ::ChildWindowFromPoint(HWindow, pt);
+            if (hHit == HAvailableLB || hHit == HCurrentLB)
+                hTarget = hHit;
+            else if (hHit != NULL && ::GetParent(hHit) == HAvailableLB)
+                hTarget = HAvailableLB;
+            else if (hHit != NULL && ::GetParent(hHit) == HCurrentLB)
+                hTarget = HCurrentLB;
+        }
+        if (hTarget != NULL)
+        {
+            for (int i = 0; i < count; i++)
+                SendMessage(hTarget, WM_VSCROLL, MAKEWPARAM(vScrollMsg, 0), 0);
+        }
+        return TRUE;
     }
 
     case WM_COMMAND:
@@ -469,7 +587,16 @@ CTBCustomizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         //      BOOL focused = (dis->itemState & ODS_FOCUS);
         BOOL focused = selected && GetFocus() == GetDlgItem(HWindow, dis->CtlID);
 
-        if (selected && focused)
+        const bool useDark = DarkModeShouldUseDarkColors();
+        const DarkModeColors& darkColors = DarkModeGetColors();
+
+        if (useDark)
+        {
+            HBRUSH hBrush = CreateSolidBrush(darkColors.background);
+            FillRect(hDC, &r, hBrush);
+            DeleteObject(hBrush);
+        }
+        else if (selected && focused)
             FillRect(hDC, &r, (HBRUSH)(COLOR_HIGHLIGHT + 1));
         else
             FillRect(hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
@@ -492,15 +619,20 @@ CTBCustomizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         r.left += imageWidth;
-        int normalColor = index == -1 ? COLOR_GRAYTEXT : COLOR_WINDOWTEXT;
-        SetTextColor(hDC, GetSysColor(selected && focused ? COLOR_HIGHLIGHTTEXT : normalColor));
+        if (useDark)
+            SetTextColor(hDC, darkColors.readableText);
+        else
+        {
+            int normalColor = index == -1 ? COLOR_GRAYTEXT : COLOR_WINDOWTEXT;
+            SetTextColor(hDC, GetSysColor(selected && focused ? COLOR_HIGHLIGHTTEXT : normalColor));
+        }
         SetBkMode(hDC, TRANSPARENT);
         DrawText(hDC, text, -1, &r, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
         r.left -= imageWidth;
         if (selected && !focused)
         {
             SelectObject(hDC, HANDLES(GetStockObject(NULL_BRUSH)));
-            HPEN hPen = HANDLES(CreatePen(PS_SOLID, 0, GetSysColor(COLOR_HIGHLIGHT)));
+            HPEN hPen = HANDLES(CreatePen(PS_SOLID, 0, useDark ? darkColors.readableText : GetSysColor(COLOR_HIGHLIGHT)));
             HPEN hOldPen = (HPEN)SelectObject(hDC, hPen);
             Rectangle(hDC, r.left, r.top, r.right, r.bottom);
             SelectObject(hDC, hOldPen);
@@ -510,7 +642,7 @@ CTBCustomizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if (focused)
             {
-                SetTextColor(hDC, RGB(0, 0, 0));
+                SetTextColor(hDC, useDark ? darkColors.readableText : RGB(0, 0, 0));
                 DrawFocusRect(hDC, &r);
             }
         }
