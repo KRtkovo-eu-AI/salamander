@@ -2070,9 +2070,9 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (DarkModeShouldUseDarkColors())
         {
-            HPEN hDarkPen = CreatePen(PS_SOLID, 1, RGB(15, 15, 15));
+            HPEN hDarkPen = CreatePen(PS_SOLID, 1, RGB(24, 24, 24));
             HPEN hOldPen2 = (HPEN)SelectObject(hDC, hDarkPen);
-            HBRUSH hCmdLineBrush = CreateSolidBrush(RGB(15, 15, 15));
+            HBRUSH hCmdLineBrush = CreateSolidBrush(RGB(24, 24, 24));
             HBRUSH hOldBrush = (HBRUSH)SelectObject(hDC, hCmdLineBrush);
             // fill only the border area, exclude child controls
             if (EditLine != NULL && EditLine->HWindow != NULL)
