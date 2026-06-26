@@ -2414,6 +2414,25 @@ bool DarkModeIsSupported()
     return gSupported;
 }
 
+void DarkModeDetectAndEnableSystemDarkMode()
+{
+    EnsureInitialized();
+    if (gSupported && gShouldAppsUseDarkMode && gShouldAppsUseDarkMode() && !IsHighContrast())
+    {
+        DarkModeSetEnabled(true);
+
+        // Set up default dark dialog colors and brush so that WM_CTLCOLOR* handlers
+        // return dark brushes for message boxes shown before ColorsChanged() runs.
+        const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+        const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
+        DarkModeSetConfiguredColors(darkText, darkBg,
+                                    GetSysColor(COLOR_BTNTEXT), GetSysColor(COLOR_BTNFACE));
+        const DarkModeColors& palette = DarkModeGetColors();
+        HBRUSH darkBrush = CreateSolidBrush(palette.background);
+        DarkModeConfigureDialogColors(palette.readableText, palette.background, darkBrush);
+    }
+}
+
 void DarkModeSetEnabled(bool enabled)
 {
     EnsureInitialized();

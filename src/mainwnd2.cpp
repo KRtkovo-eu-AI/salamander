@@ -1307,6 +1307,14 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType, dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
         if (dlg.IndexOfConfigurationToLoad != -1)
             loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigurationToLoad];
+        else if (DarkModeShouldUseDarkColors())
+        {
+            // User chose "Start with default settings" and system dark mode is active:
+            // set the default Colors - Scheme to "Windows Dark Mode (experimental)".
+            Configuration.UseWindowsDarkMode = TRUE;
+            WindowsDarkModeBuildPalette(UserColors, ViewerColors);
+            CurrentColors = UserColors;
+        }
     }
     return TRUE;
 }

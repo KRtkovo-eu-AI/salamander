@@ -1336,8 +1336,13 @@ BOOL CFilesWindow::ChangeToRescuePathOrFixedDrive(HWND parent, BOOL* noChange, B
     {
         if (!CriticalShutdown)
         {
-            SalMessageBox(parent, LoadStr(IDS_INVALIDESCAPEPATH), LoadStr(IDS_ERRORCHANGINGDIR),
-                          MB_OK | MB_ICONEXCLAMATION);
+            static BOOL errorChangingDirDialogShown = FALSE;
+            if (!errorChangingDirDialogShown)
+            {
+                errorChangingDirDialogShown = TRUE;
+                SalMessageBox(parent, LoadStr(IDS_INVALIDESCAPEPATH), LoadStr(IDS_ERRORCHANGINGDIR),
+                              MB_OK | MB_ICONEXCLAMATION);
+            }
             OpenCfgToChangeIfPathIsInaccessibleGoTo = TRUE;
         }
     }

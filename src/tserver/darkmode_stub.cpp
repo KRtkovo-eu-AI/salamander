@@ -6,6 +6,7 @@
 
 bool DarkModeInitialize() { return false; }
 bool DarkModeIsSupported() { return false; }
+void DarkModeDetectAndEnableSystemDarkMode() {}
 void DarkModeSetEnabled(bool enabled) { UNREFERENCED_PARAMETER(enabled); }
 bool DarkModeShouldUseDarkColors() { return false; }
 BOOL DarkMode_ShouldUseDark() { return FALSE; }

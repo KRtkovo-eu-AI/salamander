@@ -4583,6 +4583,19 @@ FIND_NEW_SLG_FILE:
 
     SetWinLibStrings(LoadStr(IDS_INVALIDNUMBER), MAINWINDOW_NAME); // j.r. - posunout na spravne misto
 
+    // detect system dark mode and enable it early, before any dialogs are shown
+    DarkModeDetectAndEnableSystemDarkMode();
+    if (DarkModeShouldUseDarkColors())
+    {
+        // Set up the global dialog/message-box brushes early so that message boxes
+        // shown before ColorsChanged() paint dark backgrounds (WM_ERASEBKGND,
+        // WM_CTLCOLORSTATIC in CMessageBox all use HDialogBrush).
+        const COLORREF darkBg = RGB(0x20, 0x20, 0x20);
+        const COLORREF darkText = RGB(0xDC, 0xDC, 0xDC);
+        HDialogBrush = HANDLES(CreateSolidBrush(darkBg));
+        HButtonTextBrush = HANDLES(CreateSolidBrush(darkText));
+    }
+
     // inicializace pakovacu; drive provadeno v konstruktorech; ted presunuto sem,
     // kdy uz je rozhodnuto o jazykovem DLL
     PackerFormatConfig.InitializeDefaultValues();
@@ -5011,6 +5024,10 @@ FIND_NEW_SLG_FILE:
 
                 CALL_STACK_MESSAGE1("WinMainBody::load_config");
                 BOOL setActivePanelAndPanelPaths = FALSE; // aktivni panel + cesty v panelech se nastavuji v MainWindow->LoadConfig()
+                // Track whether the user chose "Start with default settings" from the Welcome
+                // dialog with system dark mode active (not an upgrade/auto-import).
+                BOOL applyDefaultDarkScheme = DarkModeShouldUseDarkColors() && !autoImportConfig &&
+                                              currentCfgDoesNotExist;
                 if (!MainWindow->LoadConfig(currentCfgDoesNotExist, !importCfgFromFileWasSkipped ? &cmdLineParams : NULL))
                 {
                     setActivePanelAndPanelPaths = TRUE;
@@ -5041,6 +5058,19 @@ FIND_NEW_SLG_FILE:
                     UpdateWindow(MainWindow->HWindow);
                     MainWindow->RefreshDirs();
                     MainWindow->FocusLeftPanel();
+                }
+
+                // Apply dark mode color scheme when user chose "Start with default settings"
+                // from the Welcome dialog with system dark mode active.
+                // Replicates the exact runtime color scheme change flow from dialogs4.cpp
+                // (Configuration > Colors > Scheme > "Windows Dark Mode (experimental)").
+                if (applyDefaultDarkScheme)
+                {
+                    CurrentColors = UserColors;
+                    WindowsDarkModeBuildPalette(UserColors, ViewerColors);
+                    Configuration.UseWindowsDarkMode = TRUE;
+                    WindowsDarkModeBuildHighlightMasks(MainWindow->HighlightMasks);
+                    ColorsChanged(TRUE, TRUE, FALSE);
                 }
 
                 if (Configuration.ReloadEnvVariables)

@@ -90,3 +90,7 @@ void DarkModeEnableAutoSuggestSupport(HWND edit);
 void DarkModeApplyUpDownSubclass(HWND hWnd);
 void DarkModePrepareChooseColor(CHOOSECOLOR* chooseColor, bool forceDark = false);
 void DarkModePrepareChooseFont(CHOOSEFONT* chooseFont, bool forceDark = false);
+
+// Detects whether the OS is configured for dark mode and enables it if so.
+// Call early during startup, before any dialogs are shown.
+void DarkModeDetectAndEnableSystemDarkMode();
