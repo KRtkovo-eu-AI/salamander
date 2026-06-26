@@ -39,6 +39,9 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=setup_{#MyAppVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
+; Keep the installer compiled with the explicit dark theme. InitializeSetup below
+; relaunches the same installer with /NOSTYLE on light-mode systems so we avoid
+; WizardStyle=dynamic and still choose the appearance before the wizard opens.
 WizardStyle=modern dark
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -1311,6 +1314,91 @@ var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
+
+const
+  ThemeSelectedParam = '/SALAMANDERTHEMESELECTED';
+  PersonalizeRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize';
+
+function CmdLineParamExists(const Value: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+  begin
+    if CompareText(ParamStr(I), Value) = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+function QuoteCmdLineParam(const Value: String): String;
+var
+  QuotedValue: String;
+begin
+  QuotedValue := Value;
+  StringChangeEx(QuotedValue, '"', '\"', True);
+  Result := '"' + QuotedValue + '"';
+end;
+
+function GetRelaunchParams(): String;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 1 to ParamCount do
+  begin
+    if Result <> '' then
+      Result := Result + ' ';
+
+    Result := Result + QuoteCmdLineParam(ParamStr(I));
+  end;
+end;
+
+function IsWindowsAppDarkMode(): Boolean;
+var
+  AppsUseLightTheme: Cardinal;
+begin
+  { Windows stores app-theme preference per user. 0 means dark, 1 means light.
+    If the value is missing, Windows defaults apps to light mode. }
+  Result := RegQueryDWordValue(
+    HKCU,
+    PersonalizeRegistryKey,
+    'AppsUseLightTheme',
+    AppsUseLightTheme) and (AppsUseLightTheme = 0);
+end;
+
+function InitializeSetup(): Boolean;
+var
+  RelaunchParams: String;
+  ResultCode: Integer;
+begin
+  Result := True;
+
+  if CmdLineParamExists(ThemeSelectedParam) then
+    Exit;
+
+  if not IsWindowsAppDarkMode() then
+  begin
+    RelaunchParams := GetRelaunchParams();
+    if RelaunchParams <> '' then
+      RelaunchParams := RelaunchParams + ' ';
+
+    RelaunchParams := RelaunchParams + '/NOSTYLE ' + ThemeSelectedParam;
+    Log('Windows app dark mode is disabled; relaunching setup with light theme.');
+
+    if Exec(ExpandConstant('{srcexe}'), RelaunchParams, '', SW_SHOWNORMAL, ewNoWait, ResultCode) then
+      Result := False
+    else
+      Log('Unable to relaunch setup with light theme; continuing with the compiled dark theme.');
+  end
+  else
+  begin
+    Log('Windows app dark mode is enabled; continuing with the compiled dark theme.');
+  end;
+end;
 
 function IsFileConfigurationStorageSelected(): Boolean;
 var
