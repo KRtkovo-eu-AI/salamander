@@ -34,6 +34,8 @@
 #define DARKMODE_TRACE_CTLFLOW 0
 #endif
 
+#define DARKMODE_SUGGESTIONS_GRIP_HANDLE_TIMER 1 /* timer set to 1 ms, it was enough to keep the autocomplete suggestions list grip handle dark in darkmode */
+
 namespace
 {
 #if DARKMODE_TRACE_CTLFLOW
@@ -1254,6 +1256,22 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
         RemoveWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId);
         break;
 
+    case WM_NCPAINT:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+
+            if (IsAutoSuggestDropdownClass(hwnd) && (style & WS_THICKFRAME))
+            {
+                LRESULT result = DefSubclassProc(hwnd, msg, wParam, lParam);
+                InvalidateRect(hwnd, NULL, FALSE);
+                return result;
+            }
+        }
+        break;
+    }
+
     case WM_ERASEBKGND:
         if (DarkModeShouldUseDarkColors())
         {
@@ -1273,6 +1291,51 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
             EndPaint(hwnd, &ps);
             return 0;
         }
+        else if (IsAutoSuggestDropdownClass(hwnd) && DarkModeShouldUseDarkColors())
+        {
+            PAINTSTRUCT ps;
+            BeginPaint(hwnd, &ps);
+
+            HDC hdcWnd = GetWindowDC(hwnd);
+            if (hdcWnd != NULL)
+            {
+                RECT rcWnd;
+                GetWindowRect(hwnd, &rcWnd);
+                const int wndW = rcWnd.right - rcWnd.left;
+                const int wndH = rcWnd.bottom - rcWnd.top;
+
+                RECT rcCli;
+                GetClientRect(hwnd, &rcCli);
+
+                const int borderX = (wndW - rcCli.right) / 2;
+                const int borderY = (wndH - rcCli.bottom) / 2;
+                const int gripW = GetSystemMetrics(SM_CXVSCROLL);
+                const int gripH = GetSystemMetrics(SM_CYHSCROLL);
+
+                RECT gripRc = {wndW - borderX - gripW, wndH - borderY - gripH,
+                               wndW - borderX, wndH - borderY};
+
+                const DarkModeColors& colors = DarkModeGetColors();
+                HBRUSH hBrush = CreateSolidBrush(colors.background);
+                FillRect(hdcWnd, &gripRc, hBrush);
+                DeleteObject(hBrush);
+
+                HPEN hPen = CreatePen(PS_SOLID, 1, colors.readableText);
+                HPEN hOldPen = static_cast<HPEN>(SelectObject(hdcWnd, hPen));
+                for (int i = 0; i < gripW - 2; i += 4)
+                {
+                    MoveToEx(hdcWnd, gripRc.right - i - 2, gripRc.bottom - 2, NULL);
+                    LineTo(hdcWnd, gripRc.right - 2, gripRc.bottom - i - 2);
+                }
+                SelectObject(hdcWnd, hOldPen);
+                DeleteObject(hPen);
+
+                ReleaseDC(hwnd, hdcWnd);
+            }
+
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
         break;
 
     case WM_PRINTCLIENT:
@@ -1287,7 +1350,7 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
         if (wParam == kDarkModeAutoSuggestTimerId && IsAutoSuggestDropdownClass(hwnd) &&
             DarkModeShouldUseDarkColors())
         {
-            EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+            InvalidateRect(hwnd, NULL, FALSE);
             return 0;
         }
         break;
@@ -1313,6 +1376,9 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
     {
         if (DarkModeShouldUseDarkColors())
         {
+            if (IsAutoSuggestDropdownClass(hwnd))
+                InvalidateRect(hwnd, NULL, FALSE);
+
             HDC hdc = reinterpret_cast<HDC>(wParam);
             if (hdc != NULL)
             {
@@ -1331,11 +1397,19 @@ LRESULT CALLBACK DarkAutoSuggestSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPA
         {
             if (wParam != 0 && DarkModeShouldUseDarkColors())
             {
-                SetTimer(hwnd, kDarkModeAutoSuggestTimerId, 100, NULL);
+                SetWindowSubclass(hwnd, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
+                if (gSetWindowTheme != nullptr)
+                    gSetWindowTheme(hwnd, L"DarkMode_CFD", nullptr);
+                DarkModeRefreshTitleBar(hwnd);
+                if (gDwmSetWindowAttribute)
+                {
+                    BOOL useDark = TRUE;
+                    gDwmSetWindowAttribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &useDark, sizeof(useDark));
+                }
                 EnumChildWindows(hwnd, ApplyAutoSuggestChildDarkModeProc, 0);
+                SetTimer(hwnd, kDarkModeAutoSuggestTimerId, DARKMODE_SUGGESTIONS_GRIP_HANDLE_TIMER, NULL);  /* timer set to 1 ms, it was enough to keep the autocomplete suggestions list grip handle dark in darkmode */
+                RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_NOCHILDREN | RDW_UPDATENOW);
             }
-            else
-                KillTimer(hwnd, kDarkModeAutoSuggestTimerId);
         }
         break;
     }
@@ -1349,17 +1423,23 @@ void ApplyAutoSuggestDropdownDarkMode(HWND dropdown)
         return;
 
     DarkModeApplyWindow(dropdown);
+    if (gSetWindowTheme != nullptr)
+        gSetWindowTheme(dropdown, L"DarkMode_CFD", nullptr);
 #if USE_DARKMODELIB
     dmlib::setDarkWndNotifySafe(dropdown);
     dmlib::setChildCtrlsSubclassAndTheme(dropdown);
 #endif
-    if (gSetWindowTheme != nullptr)
-        gSetWindowTheme(dropdown, L"DarkMode_Explorer", nullptr);
+    DarkModeRefreshTitleBar(dropdown);
+    if (gDwmSetWindowAttribute)
+    {
+        BOOL useDark = TRUE;
+        gDwmSetWindowAttribute(dropdown, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &useDark, sizeof(useDark));
+    }
 
     SetWindowSubclass(dropdown, DarkAutoSuggestSubclass, kDarkModeAutoSuggestSubclassId, 0);
-    SetTimer(dropdown, kDarkModeAutoSuggestTimerId, 100, NULL);
+    SetTimer(dropdown, kDarkModeAutoSuggestTimerId, DARKMODE_SUGGESTIONS_GRIP_HANDLE_TIMER, NULL);  /* timer set to 1 ms, it was enough to keep the autocomplete suggestions list grip handle dark in darkmode */
     EnumChildWindows(dropdown, ApplyAutoSuggestChildDarkModeProc, 0);
-    RedrawWindow(dropdown, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+    RedrawWindow(dropdown, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 
 void CALLBACK AutoSuggestWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild,
