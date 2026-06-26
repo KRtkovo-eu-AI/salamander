@@ -3137,7 +3137,6 @@ DWORD GetExpectedCodePageForLanguageID(WORD langID)
     case 0x02: // LANG_BULGARIAN
         return 1251; // Cyrillic
 
-    case 0x09: // LANG_ENGLISH
     case 0x07: // LANG_GERMAN
     case 0x0C: // LANG_FRENCH
     case 0x0A: // LANG_SPANISH

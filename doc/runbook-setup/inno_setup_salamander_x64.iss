@@ -1341,6 +1341,7 @@ function GetACP: DWORD;
 function GetExpectedCodePageForLanguage(const LanguageName: String): DWORD;
 begin
   // Map language names to expected Windows code pages
+  // English is not included here because ASCII works on all code pages
   if (CompareText(LanguageName, 'czech') = 0) or
      (CompareText(LanguageName, 'slovak') = 0) or
      (CompareText(LanguageName, 'hungarian') = 0) or
@@ -1356,8 +1357,7 @@ begin
           (CompareText(LanguageName, 'ukrainian') = 0) or
           (CompareText(LanguageName, 'bulgarian') = 0) then
     Result := 1251  // Cyrillic
-  else if (CompareText(LanguageName, 'english') = 0) or
-          (CompareText(LanguageName, 'german') = 0) or
+  else if (CompareText(LanguageName, 'german') = 0) or
           (CompareText(LanguageName, 'french') = 0) or
           (CompareText(LanguageName, 'spanish') = 0) or
           (CompareText(LanguageName, 'italian') = 0) or
@@ -1377,7 +1377,7 @@ begin
   else if (CompareText(LanguageName, 'korean') = 0) then
     Result := 949   // Korean
   else
-    Result := 0;    // unknown
+    Result := 0;    // unknown or English (ASCII works everywhere)
 end;
 
 procedure CheckCodePageCompatibility;
