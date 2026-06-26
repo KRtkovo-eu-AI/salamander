@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\renamer\renamer.atp"
 TEXTVERSION,"1.13 (x64)"
 VERSION,"1,1,3,183"
@@ -256,7 +256,7 @@ COMMENT,"Česká verze"
 1104,1,"Očekáváno zarovnání ('l') nebo zadání šířky (kladné celé číslo)."
 1105,1,"Očekáváno zadání šířky (kladné celé číslo)"
 1106,1,"Očekáváno zadání filtru (jedno písmeno)"
-1107,1,"<Chyba nového nazvu: %s>"
+1107,1,"<Chyba nového názvu: %s>"
 1108,0,"<Invalid value in some input field>"
 1109,1,"<Chyba regulárního výrazu: %s>"
 1110,1,"<Chyba Boyer-Moore: %s>"
