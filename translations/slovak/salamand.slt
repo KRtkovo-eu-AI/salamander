@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\salamand\salamand.atp"
 TEXTVERSION,"5.0 (x64)"
 VERSION,"5,0,0,183"
@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tÁno - Importovať konfiguráciu súboru\t7\tÁno - Importovať a konvertovať na ukladanie do registra\t2\tOdstrániť uloženú konfiguráciu"
 14219,1,"6\tÁno - Konvertovať na ukladanie do súboru\t7\tNie - Ponechať ukladanie do registra\t2\tOdstrániť uloženú konfiguráciu"
 14220,1,"Našli sa oba: konfigurácia registra aj prenosný config.reg. Kliknite na položku Áno a použite ukladanie založené na súboroch, alebo na položku Nie a ponechajte používanie ukladania v registri."
+14221,1,"Upozornenie na kompatibilitu kódovej stránky"
+14222,1,"Vybraný jazyk nemusí správne zobrazovať všetky znaky, pretože kódová stránka vášho systémového nastavenia Windows (%u) nezodpovedá kódovej stránke požadovanej týmto jazykom (%u).\n\nNa opravu zmeňte svoje systémové nastavenie v Windows: Nastavenie > Čas a jazyk > Región > Správa > Zmeniť systémové nastavenie."
 

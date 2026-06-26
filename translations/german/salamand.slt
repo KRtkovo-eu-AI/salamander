@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tJa - Importieren der Dateikonfiguration\t7\tJa - Importieren und in Registrierung konvertieren\t2\tGespeicherte Konfiguration entfernen"
 14219,1,"6\tJa - In Dateispeicherung konvertieren\t7\tNein - Registrierungsspeicherung beibehalten\t2\tGespeicherte Konfiguration entfernen"
 14220,1,"Sowohl die Registrierungskonfiguration als auch die portable config.reg wurden gefunden. Klicken Sie auf Ja, um die dateibasierte Speicherung zu verwenden, oder auf Nein, um die Registrierungsspeicherung beizubehalten."
+14221,1,"Codepage-Kompatibilitätswarnung"
+14222,1,"Die ausgewählte Sprache zeigt möglicherweise nicht alle Zeichen korrekt an, da Ihre Windows-Systemgebietsschema-Codepage (%u) nicht mit der von dieser Sprache erwarteten Codepage (%u) übereinstimmt.\n\nUm dies zu beheben, ändern Sie Ihr Systemgebietsschema in Windows: Einstellungen > Zeit und Sprache > Region > Verwaltung > Systemsprache ändern."
 

@@ -602,6 +602,10 @@ public:
     BOOL GetLanguageName(char* buffer, int bufferSize);
 };
 
+// Returns the expected Windows code page identifier (e.g., 1250, 1252) for a given language ID.
+// Returns 0 if the language does not have a well-defined code page requirement.
+DWORD GetExpectedCodePageForLanguageID(WORD langID);
+
 BOOL IsSLGFileValid(HINSTANCE hModule, HINSTANCE hSLG, WORD& slgLangID, char* isIncomplete);
 
 //*****************************************************************************

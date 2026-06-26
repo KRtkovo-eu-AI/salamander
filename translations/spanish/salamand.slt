@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tSí - Importar configuración de archivos\t7\tSí - Importar y convertir a Registro\t2\tQuitar la configuración almacenada"
 14219,1,"6\tSí - Convertir a almacenamiento de archivos\t7\tNo - Mantener almacenamiento del Registro\t2\tQuitar la configuración almacenada"
 14220,1,"Se encontraron tanto la configuración del Registro como el archivo portátil config.reg. Haga clic en Sí para usar el almacenamiento basado en archivos, o en No para seguir usando el almacenamiento del Registro."
+14221,1,"Advertencia de compatibilidad de páginas de códigos"
+14222,1,"El idioma seleccionado puede no mostrar todos los caracteres correctamente porque su página de códigos de configuración regional del sistema Windows (%u) no coincide con la página de códigos esperada para este idioma (%u).\n\nPara solucionarlo, cambie su configuración regional del sistema en Windows: Configuración > Hora e idioma > Región > Administración > Cambiar configuración regional del sistema."
 

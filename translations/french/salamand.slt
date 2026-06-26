@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tOui - Importer la configuration de fichier\t7\tOui - Importer et convertir en Registre\t2\tSupprimer la configuration stockée"
 14219,1,"6\tOui - Convertir en stockage de fichiers\t7\tNon - Conserver le stockage du Registre\t2\tSupprimer la configuration stockée"
 14220,1,"Une configuration du Registre et config.reg portable ont été trouvés. Cliquez sur Oui pour utiliser le stockage basé sur les fichiers, ou sur Non pour continuer à utiliser le stockage du Registre."
+14221,1,"Avertissement de compatibilité de page de codes"
+14222,1,"La langue sélectionnée peut ne pas afficher correctement tous les caractères car votre page de codes de locale système Windows (%u) ne correspond pas à la page de codes attendue par cette langue (%u).\n\nPour corriger cela, modifiez votre locale système dans Windows : Paramètres > Heure et langue > Région > Administration > Modifier le système local."
 

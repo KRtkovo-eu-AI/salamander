@@ -2029,4 +2029,7 @@ STRINGTABLE
  IDS_CFGSTORAGE_IMPORTREGALIAS, "6\tYes - Import file configuration\t7\tYes - Import and convert to Registry\t2\tRemove stored configuration"
  IDS_CFGSTORAGE_IMPORTFILEALIAS, "6\tYes - Convert to File storage\t7\tNo - Keep Registry Storage\t2\tRemove stored configuration"
  IDS_CFGSTORAGE_BOTHSOURCESPROMPT, "Both Registry configuration and portable config.reg were found. Click Yes to use file-based storage, or No to keep using Registry storage."
+
+ IDS_CODEPAGE_WARNING_TITLE, "Code Page Compatibility Warning"
+ IDS_CODEPAGE_WARNING, "The selected language may not display all characters correctly because your Windows system locale code page (%u) does not match the code page expected by this language (%u).\n\nTo fix this, change your system locale in Windows: Settings > Time & Language > Region > Administrative > Change system locale."
 }

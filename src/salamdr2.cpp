@@ -3115,3 +3115,62 @@ BOOL CLanguage::GetLanguageName(char* buffer, int bufferSize)
     }
     return TRUE;
 }
+
+DWORD GetExpectedCodePageForLanguageID(WORD langID)
+{
+    switch (PRIMARYLANGID(langID))
+    {
+    case 0x05: // LANG_CZECH
+    case 0x1B: // LANG_SLOVAK
+    case 0x0E: // LANG_HUNGARIAN
+    case 0x18: // LANG_ROMANIAN
+    case 0x15: // LANG_POLISH
+    case 0x1A: // LANG_CROATIAN, LANG_SERBIAN
+    case 0x24: // LANG_SLOVENIAN
+    case 0x26: // LANG_LATVIAN
+    case 0x27: // LANG_LITHUANIAN
+    case 0x25: // LANG_ESTONIAN
+        return 1250; // Central Europe
+
+    case 0x19: // LANG_RUSSIAN
+    case 0x22: // LANG_UKRAINIAN
+    case 0x02: // LANG_BULGARIAN
+        return 1251; // Cyrillic
+
+    case 0x09: // LANG_ENGLISH
+    case 0x07: // LANG_GERMAN
+    case 0x0C: // LANG_FRENCH
+    case 0x0A: // LANG_SPANISH
+    case 0x10: // LANG_ITALIAN
+    case 0x13: // LANG_DUTCH
+    case 0x16: // LANG_PORTUGUESE
+    case 0x1D: // LANG_SWEDISH
+    case 0x14: // LANG_NORWEGIAN
+    case 0x06: // LANG_DANISH
+    case 0x0B: // LANG_FINNISH
+    case 0x08: // LANG_GREEK
+    case 0x1F: // LANG_TURKISH
+    case 0x0D: // LANG_HEBREW
+    case 0x01: // LANG_ARABIC
+    case 0x2A: // LANG_VIETNAMESE
+        return 1252; // Western Europe (also covers Greek 1253, Turkish 1254, Hebrew 1255, Arabic 1256, Vietnamese 1258)
+
+    case 0x11: // LANG_JAPANESE
+        return 932; // Shift-JIS
+
+    case 0x04: // LANG_CHINESE
+    {
+        WORD subLang = SUBLANGID(langID);
+        if (subLang == SUBLANG_CHINESE_SIMPLIFIED || subLang == SUBLANG_CHINESE_SINGAPORE)
+            return 936; // GBK (Simplified)
+        else
+            return 950; // Big5 (Traditional)
+    }
+
+    case 0x12: // LANG_KOREAN
+        return 949; // Korean
+
+    default:
+        return 0; // unknown, no warning
+    }
+}

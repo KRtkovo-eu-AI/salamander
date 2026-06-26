@@ -1068,6 +1068,20 @@ void CLanguageSelectorDialog::Transfer(CTransferInfo& ti)
         int index = ListView_GetNextItem(HListView, -1, LVIS_FOCUSED);
         if (index != -1)
         {
+            // Check if the selected language's code page matches the Windows system code page
+            DWORD expectedCP = GetExpectedCodePageForLanguageID(Items[index].LanguageID);
+            if (expectedCP != 0)
+            {
+                DWORD systemCP = GetACP();
+                // Skip warning if system code page is UTF-8 (65001) - Windows 11 Unicode beta support works with all languages
+                if (systemCP != 65001 && systemCP != expectedCP)
+                {
+                    char msg[500];
+                    _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_CODEPAGE_WARNING), systemCP, expectedCP);
+                    SalMessageBox(HWindow, msg, LoadStr(IDS_CODEPAGE_WARNING_TITLE),
+                                  MB_OK | MB_ICONWARNING);
+                }
+            }
             lstrcpy(SLGName, Items[index].FileName);
             if (PluginName != NULL) // store the alternative language name only when selecting an alternative language for a plug-in
             {

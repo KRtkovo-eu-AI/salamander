@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tIgen - Fájlkrefkonfiguráció importálása\t7\tIgen - Importálás és konvertálás Registry tárolásra\t2\tA mentett konfiguráció eltávolítása"
 14219,1,"6\tIgen - Konvertálás fájltárolásra\t7\tNem - Registry tárolás megtartása\t2\tA mentett konfiguráció eltávolítása"
 14220,1,"Mind a Registry konfiguráció, mind a hordozható config.reg fájl megtalálható. Kattintson az Igen gombra a fájalapú tárolás használatához, vagy a Nem gombra a Registry tárolás használatának megtartásához."
+14221,1,"Kódlap kompatibilitási figyelmeztetés"
+14222,1,"A kiválasztott nyelv nem jeleníti meg helyesen az összes karaktert, mert a Windows rendszerterületi kódlapja (%u) nem egyezik ezzel a nyelvvel elvárt kódlappal (%u).\n\nA javításhoz módosítsa a rendszerterületet a Windowsban: Beállítások > Idő és nyelv > Régió > Kezelés > Rendszerterület módosítása."
 

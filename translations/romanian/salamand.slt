@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\salamand\salamand.atp"
 TEXTVERSION,"5.0 (x64)"
 VERSION,"5,0,0,183"
@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tDa - Importă configurația fișierului\t7\tDa - Importă și convertește în Registry\t2\tElimină configurația stocată"
 14219,1,"6\tDa - Convertește în stocare în fișier\t7\tNu - Păstrează stocarea în Registry\t2\tElimină configurația stocată"
 14220,1,"Au fost găsite atât configurația din Registry, cât și config.reg portabil. Faceți clic pe Da pentru a utiliza stocarea bazată pe fișiere sau pe Nu pentru a păstra utilizarea stocării în Registry."
+14221,1,"Avertisament compatibilitate pagină de coduri"
+14222,1,"Limba selectată poate să nu afișeze corect toate caracterele, deoarece pagina de coduri a setărilor de sistem Windows (%u) nu corespunde paginii de coduri așteptate de această limbă (%u).\n\nPentru a remedia, modificați setările de sistem în Windows: Setări > Ora și limba > Regiune > Administrare > Modificarea setărilor de sistem."
 

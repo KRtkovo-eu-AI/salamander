@@ -3575,4 +3575,6 @@ SLGINCOMPLETE,""
 14218,1,"6\tJa - Importeer bestandsconfiguratie\t7\tJa - Importeren en converteren naar Register\t2\tOpgeslagen configuratie verwijderen"
 14219,1,"6\tJa - Converteren naar bestandsopslag\t7\tNee - Registeropslag behouden\t2\tOpgeslagen configuratie verwijderen"
 14220,1,"Beide: Registerconfiguratie en draagbare config.reg werden gevonden. Klik op Ja om bestandsgebaseerde opslag te gebruiken, of op Nee om Registeropslag te blijven gebruiken."
+14221,1,"Codepaginacompatibiliteit waarschuwing"
+14222,1,"De geselecteerde taal kan mogelijk niet alle tekens correct weergeven omdat uw Windows-systeemlocale codepagina (%u) niet overeenkomt met de codepagina die door deze taal wordt verwacht (%u).\n\nOm dit op te lossen, wijzig uw systeemlocale in Windows: Instellingen > Tijd en taal > Regio > Beheer > Systeemlocale wijzigen."
 

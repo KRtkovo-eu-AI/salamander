@@ -165,6 +165,28 @@ spanish.StartMenuShortcut=Crear un acceso directo en el menú &Inicio
 spanish.DesktopShortcut=Crear un acceso directo en el &escritorio
 spanish.Shortcuts=Accesos directos:
 spanish.LaunchProgram=Iniciar {#MyAppName}
+english.CodePageWarningTitle=Code Page Compatibility Warning
+english.CodePageWarning=The selected language may not display all characters correctly because your Windows system locale code page (%u) does not match the code page expected by this language (%u).\n\nTo fix this, change your system locale in Windows: Settings > Time & Language > Region > Administrative > Change system locale.
+chinesesimplified.CodePageWarningTitle=代码页兼容性警告
+chinesesimplified.CodePageWarning=所选语言可能无法正确显示所有字符，因为您的 Windows 系统区域代码页 (%u) 与该语言预期的代码页 (%u) 不匹配。\n\n要解决此问题，请在 Windows 中更改系统区域设置：设置 > 时间和语言 > 区域 > 管理 > 更改系统区域设置。
+czech.CodePageWarningTitle=Upozornění na kompatibilitu kódové stránky
+czech.CodePageWarning=Vybraný jazyk nemusí správně zobrazovat všechny znaky, protože kódová stránka vašeho systémového nastavení Windows (%u) neodpovídá kódové stránce požadované tímto jazykem (%u).\n\nPro opravu změňte své systémové nastavení v Windows: Nastavení > Čas a jazyk > Region > Správa > Změnit systémové nastavení.
+dutch.CodePageWarningTitle=Codepaginacompatibiliteit waarschuwing
+dutch.CodePageWarning=De geselecteerde taal kan mogelijk niet alle tekens correct weergeven omdat uw Windows-systeemlocale codepagina (%u) niet overeenkomt met de codepagina die door deze taal wordt verwacht (%u).\n\nOm dit op te lossen, wijzig uw systeemlocale in Windows: Instellingen > Tijd en taal > Regio > Beheer > Systeemlocale wijzigen.
+french.CodePageWarningTitle=Avertissement de compatibilité de page de codes
+french.CodePageWarning=La langue sélectionnée peut ne pas afficher correctement tous les caractères car votre page de codes de locale système Windows (%u) ne correspond pas à la page de codes attendue par cette langue (%u).\n\nPour corriger cela, modifiez votre locale système dans Windows : Paramètres > Heure et langue > Région > Administration > Modifier le système local.
+german.CodePageWarningTitle=Codepage-Kompatibilitätswarnung
+german.CodePageWarning=Die ausgewählte Sprache zeigt möglicherweise nicht alle Zeichen korrekt an, da Ihre Windows-Systemgebietsschema-Codepage (%u) nicht mit der von dieser Sprache erwarteten Codepage (%u) übereinstimmt.\n\nUm dies zu beheben, ändern Sie Ihr Systemgebietsschema in Windows: Einstellungen > Zeit und Sprache > Region > Verwaltung > Systemsprache ändern.
+hungarian.CodePageWarningTitle=Kódlap kompatibilitási figyelmeztetés
+hungarian.CodePageWarning=A kiválasztott nyelv nem jeleníti meg helyesen az összes karaktert, mert a Windows rendszerterületi kódlapja (%u) nem egyezik ezzel a nyelvvel elvárt kódlappal (%u).\n\nA javításhoz módosítsa a rendszerterületet a Windowsban: Beállítások > Idő és nyelv > Régió > Kezelés > Rendszerterület módosítása.
+romanian.CodePageWarningTitle=Avertisament compatibilitate pagină de coduri
+romanian.CodePageWarning=Limba selectată poate să nu afișeze corect toate caracterele, deoarece pagina de coduri a setărilor de sistem Windows (%u) nu corespunde paginii de coduri așteptate de această limbă (%u).\n\nPentru a remedia, modificați setările de sistem în Windows: Setări > Ora și limba > Regiune > Administrare > Modificarea setărilor de sistem.
+russian.CodePageWarningTitle=Предупреждение о совместимости кодовых страниц
+russian.CodePageWarning=Выбранный язык может отображать символы неправильно, потому что кодовая страница системных параметров Windows (%u) не соответствует кодовой странице, ожидаемой для этого языка (%u).\n\nДля исправления измените системные параметры в Windows: Параметры > Время и язык > Регион > Администрирование > Изменить параметры системы.
+slovak.CodePageWarningTitle=Upozornenie na kompatibilitu kódovej stránky
+slovak.CodePageWarning=Vybraný jazyk nemusí správne zobrazovať všetky znaky, pretože kódová stránka vášho systémového nastavenia Windows (%u) nezodpovedá kódovej stránke požadovanej týmto jazykom (%u).\n\nNa opravu zmeňte svoje systémové nastavenie v Windows: Nastavenie > Čas a jazyk > Región > Správa > Zmeniť systémové nastavenie.
+spanish.CodePageWarningTitle=Advertencia de compatibilidad de páginas de códigos
+spanish.CodePageWarning=El idioma seleccionado puede no mostrar todos los caracteres correctamente porque su página de códigos de configuración regional del sistema Windows (%u) no coincide con la página de códigos esperada para este idioma (%u).\n\nPara solucionarlo, cambie su configuración regional del sistema en Windows: Configuración > Hora e idioma > Región > Administración > Cambiar configuración regional del sistema.
 
 [Tasks]
 Name: "startmenuicon"; Description: "{cm:StartMenuShortcut}"; GroupDescription: "{cm:Shortcuts}"
@@ -1312,6 +1334,80 @@ var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
+
+function GetACP: DWORD;
+  external 'GetACP@kernel32.dll stdcall';
+
+function GetExpectedCodePageForLanguage(const LanguageName: String): DWORD;
+begin
+  // Map language names to expected Windows code pages
+  if (CompareText(LanguageName, 'czech') = 0) or
+     (CompareText(LanguageName, 'slovak') = 0) or
+     (CompareText(LanguageName, 'hungarian') = 0) or
+     (CompareText(LanguageName, 'polish') = 0) or
+     (CompareText(LanguageName, 'croatian') = 0) or
+     (CompareText(LanguageName, 'slovenian') = 0) or
+     (CompareText(LanguageName, 'latvian') = 0) or
+     (CompareText(LanguageName, 'lithuanian') = 0) or
+     (CompareText(LanguageName, 'estonian') = 0) or
+     (CompareText(LanguageName, 'romanian') = 0) then
+    Result := 1250  // Central Europe
+  else if (CompareText(LanguageName, 'russian') = 0) or
+          (CompareText(LanguageName, 'ukrainian') = 0) or
+          (CompareText(LanguageName, 'bulgarian') = 0) then
+    Result := 1251  // Cyrillic
+  else if (CompareText(LanguageName, 'english') = 0) or
+          (CompareText(LanguageName, 'german') = 0) or
+          (CompareText(LanguageName, 'french') = 0) or
+          (CompareText(LanguageName, 'spanish') = 0) or
+          (CompareText(LanguageName, 'italian') = 0) or
+          (CompareText(LanguageName, 'dutch') = 0) or
+          (CompareText(LanguageName, 'portuguese') = 0) or
+          (CompareText(LanguageName, 'swedish') = 0) or
+          (CompareText(LanguageName, 'norwegian') = 0) or
+          (CompareText(LanguageName, 'danish') = 0) or
+          (CompareText(LanguageName, 'finnish') = 0) then
+    Result := 1252  // Western Europe
+  else if (CompareText(LanguageName, 'japanese') = 0) then
+    Result := 932   // Shift-JIS
+  else if (CompareText(LanguageName, 'chinesesimplified') = 0) then
+    Result := 936   // GBK
+  else if (CompareText(LanguageName, 'chinesetraditional') = 0) then
+    Result := 950   // Big5
+  else if (CompareText(LanguageName, 'korean') = 0) then
+    Result := 949   // Korean
+  else
+    Result := 0;    // unknown
+end;
+
+procedure CheckCodePageCompatibility;
+var
+  SystemCP: DWORD;
+  ExpectedCP: DWORD;
+  Msg: String;
+  LanguageName: String;
+begin
+  SystemCP := GetACP;
+  // Skip check if system code page is UTF-8 (65001) - Windows 11 Unicode beta support works with all languages
+  if SystemCP = 65001 then
+    Exit;
+
+  LanguageName := ExpandConstant('{language}');
+  ExpectedCP := GetExpectedCodePageForLanguage(LanguageName);
+  if (ExpectedCP <> 0) and (SystemCP <> ExpectedCP) then
+  begin
+    Msg := Format(CustomMessage('CodePageWarning'), [SystemCP, ExpectedCP]);
+    // Replace \n with actual newlines
+    StringChangeEx(Msg, '\n', #13#10, True);
+    MsgBox(Msg, mbError, MB_OK);
+  end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  CheckCodePageCompatibility;
+end;
 
 function IsFileConfigurationStorageSelected(): Boolean;
 var
