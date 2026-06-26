@@ -39,7 +39,7 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=setup_{#MyAppVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
-WizardStyle=modern dark
+WizardStyle=modern dynamic
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
@@ -50,6 +50,7 @@ SetupIconFile=..\..\src\res\samandarin.ico
 DisableFinishedPage=yes
 ChangesAssociations=yes
 WizardSmallImageFile={#SourcePath}\setup_img_small.png
+WizardSmallImageFileDynamicDark={#SourcePath}\setup_img_small.png
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "{#SourcePath}\license.txt"
