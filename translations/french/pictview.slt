@@ -499,8 +499,8 @@ COMMENT,"Version française"
 1160,1,"Impossible de récupérer une image de l'appareil. Vérifiez que l'appareil est bien branché et recommencez. Erreur: (0x%08X) %s"
 1161,1,"Patientez..."
 1162,0,"Reading data from the device (%d%% complete)"
-1163,0,"Processing data (%d%% complete)"
-1164,0,"Transferring data (%d%% complete)"
+1163,1,"Traitement des donnees (%d%% complet)"
+1164,1,"Transfert des donnees (%d%% complete)"
 
 [STRINGTABLE 19]
 1170,1,"Vous avez reçu plusieurs images du scanner. La première image a été ouverte dans cette fenêtre. Voulez-vous ouvrir d'autres images chacune dans sa propre fenêtre? Si non, les images seront ignorées.\n\nNombre de nouvelles fenêtres: %d"

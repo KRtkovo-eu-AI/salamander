@@ -536,10 +536,10 @@ COMMENT,"Magyar változat"
 1228,1,"\r\n;program, http-hivatkozás vagy dokumentum, amely futtatandó/megnyitandó, ha a fájlok\r\n;kicsomagolása sikeresen befejeződött. A\r\n;útvonal a kicsomagolási célmappához viszonyított. Ha megad egy programot, akkor\r\n;annak argumentumait is beírhatja\r\n\r\n"
 1229,1,"\r\n;önkicsomagoló archívum létrehozásakor használandó sfx-csomag\r\n;a relatív útvonal a zip2sfx.exe-t tartalmazó mappához viszonyított\r\n\r\n"
 1230,0,"\r\n;buttons in the optional message box\r\n;could be one of the following: "ok", "ok_cancel", "yes_no",\r\n;"agree_disagree"\r\n\r\n"
-1231,0,"\r\n;type of the optional message box\r\n;could be one of the following: "simple", "exclamation", "information",\r\n;"question", "long_message"\r\n\r\n"
+1231,1,"\r\n;az opcionális üzenetmező típusa\r\n;az alábbiak valamelyike lehet: „simple”, „exclamation”, „information”,\r\n;„question”, „long_message”\r\n\r\n"
 
 [STRINGTABLE 16]
-1232,0,"\r\n;text and title of the optional message box, which is shown before\r\n;the extraction begins\r\n;if you don't want to display any message box leave both fields\r\n;empty ("")\r\n\r\n"
+1232,1,"\r\n;a opcionális üzenetmező szövege és címe, amely a\r\n;kivonás megkezdése előtt jelenik meg\r\n;ha nem szeretnél megjeleníteni üzenetmezőt, hagyd mindkét mezőt\r\n;üresen („”)\r\n\r\n"
 1233,1,"\r\n;szöveg, amely a fő önkicsomagoló párbeszédablakában jelenik meg\r\n\r\n"
 1234,1,"\r\n;a fő önkicsomagoló párbeszédablak címe\r\n\r\n"
 1235,1,"\r\n;szöveg a fő SFX párbeszédablak kibontás (Extract) gombján\r\n\r\n"
