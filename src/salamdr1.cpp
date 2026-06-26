@@ -5121,7 +5121,7 @@ FIND_NEW_SLG_FILE:
                         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
                         // konfiguraci ulozime hned, dokud je to cista konverze stare verze -- user muze
                         // mit vypnuty "Save Cfg on Exit" a pokud behem chodu Salamandera neco zmeni, nechce to na zaver ulozit
-                        if (saveNewConfig)
+                        if (saveNewConfig || migrateRegistryToFile)
                         {
                             MainWindow->SaveConfig();
                             if (migrateRegistryToFile)
