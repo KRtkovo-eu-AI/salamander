@@ -24,17 +24,6 @@
   #endif
 #endif
 
-#ifndef InstallerTheme
-  #define InstallerTheme "dark"
-#endif
-#if InstallerTheme == "dark"
-  #define InstallerThemeStyle "modern dark"
-  #define InstallerThemeOther "light"
-#else
-  #define InstallerThemeStyle "modern light"
-  #define InstallerThemeOther "dark"
-#endif
-#define OutputBaseFilenameBase "setup_" + MyAppVersion + "_win_x64"
 
 [Setup]
 AppId=OpenSalamanderSamandarin-x64-{#MyAppVersion}
@@ -48,15 +37,14 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\Open Salamander Samandarin
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputBaseFilename={#OutputBaseFilenameBase}_{#InstallerTheme}
+OutputBaseFilename=setup_{#MyAppVersion}_win_x64
 Compression=lzma2/ultra64
 SolidCompression=yes
-; Build two explicit-theme installers from this script, for example:
-;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DInstallerTheme=dark
-;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DInstallerTheme=light
-; InitializeSetup below relaunches the matching counterpart before the wizard opens,
-; avoiding WizardStyle=dynamic while still honoring the user's Windows app theme.
-WizardStyle={#InstallerThemeStyle}
+; Single-EXE theme selection has to use Inno Setup's dynamic mode; forced
+; light/dark modes are compile-time only and cannot be changed from Pascal before
+; the wizard opens. Keep the custom icon and explicitly set the dark small image
+; so dynamic mode does not replace our branding assets.
+WizardStyle=modern dynamic
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
@@ -67,6 +55,7 @@ SetupIconFile=..\..\src\res\samandarin.ico
 DisableFinishedPage=yes
 ChangesAssociations=yes
 WizardSmallImageFile={#SourcePath}\setup_img_small.png
+WizardSmallImageFileDynamicDark={#SourcePath}\setup_img_small.png
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"; LicenseFile: "{#SourcePath}\license.txt"
@@ -1328,109 +1317,6 @@ var
   DeleteUserConfiguration: Boolean;
   DeleteUserConfigurationFromFile: Boolean;
   DeleteUserConfigurationFilePath: String;
-
-const
-  ThemeSelectedParam = '/SALAMANDERTHEMESELECTED';
-  CurrentInstallerTheme = '{#InstallerTheme}';
-  OtherInstallerTheme = '{#InstallerThemeOther}';
-  OtherInstallerFileName = '{#OutputBaseFilenameBase}_{#InstallerThemeOther}.exe';
-  PersonalizeRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize';
-
-function CmdLineParamExists(const Value: String): Boolean;
-var
-  I: Integer;
-begin
-  Result := False;
-  for I := 1 to ParamCount do
-  begin
-    if CompareText(ParamStr(I), Value) = 0 then
-    begin
-      Result := True;
-      Exit;
-    end;
-  end;
-end;
-
-function QuoteCmdLineParam(const Value: String): String;
-var
-  QuotedValue: String;
-begin
-  QuotedValue := Value;
-  StringChangeEx(QuotedValue, '"', '\"', True);
-  Result := '"' + QuotedValue + '"';
-end;
-
-function GetRelaunchParams(): String;
-var
-  I: Integer;
-begin
-  Result := '';
-  for I := 1 to ParamCount do
-  begin
-    if Result <> '' then
-      Result := Result + ' ';
-
-    Result := Result + QuoteCmdLineParam(ParamStr(I));
-  end;
-
-  if Result <> '' then
-    Result := Result + ' ';
-
-  Result := Result + ThemeSelectedParam;
-end;
-
-function IsWindowsAppDarkMode(): Boolean;
-var
-  AppsUseLightTheme: Cardinal;
-begin
-  { Windows stores app-theme preference per user. 0 means dark, 1 means light.
-    If the value is missing, Windows defaults apps to light mode. }
-  Result := RegQueryDWordValue(
-    HKCU,
-    PersonalizeRegistryKey,
-    'AppsUseLightTheme',
-    AppsUseLightTheme) and (AppsUseLightTheme = 0);
-end;
-
-function ExpectedInstallerTheme(): String;
-begin
-  if IsWindowsAppDarkMode() then
-    Result := 'dark'
-  else
-    Result := 'light';
-end;
-
-function InitializeSetup(): Boolean;
-var
-  ExpectedTheme: String;
-  OtherInstallerPath: String;
-  ResultCode: Integer;
-begin
-  Result := True;
-
-  if CmdLineParamExists(ThemeSelectedParam) then
-    Exit;
-
-  ExpectedTheme := ExpectedInstallerTheme();
-  Log('Windows app theme expects the ' + ExpectedTheme + ' installer; current installer is ' + CurrentInstallerTheme + '.');
-
-  if CompareText(ExpectedTheme, CurrentInstallerTheme) <> 0 then
-  begin
-    OtherInstallerPath := AddBackslash(ExpandConstant('{src}')) + OtherInstallerFileName;
-    if FileExists(OtherInstallerPath) then
-    begin
-      Log('Relaunching counterpart installer before the wizard opens: ' + OtherInstallerPath);
-      if Exec(OtherInstallerPath, GetRelaunchParams(), '', SW_SHOWNORMAL, ewNoWait, ResultCode) then
-        Result := False
-      else
-        Log('Unable to relaunch ' + OtherInstallerTheme + ' installer; continuing with the current installer.');
-    end
-    else
-    begin
-      Log('Counterpart installer not found: ' + OtherInstallerPath + '; continuing with the current installer.');
-    end;
-  end;
-end;
 
 function IsFileConfigurationStorageSelected(): Boolean;
 var
