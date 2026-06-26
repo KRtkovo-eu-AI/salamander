@@ -4696,6 +4696,11 @@ FIND_NEW_SLG_FILE:
         {
             if (!storageTypeBootstrapWritable)
             {
+                // configstorage.ini cannot be written: import config.reg values
+                // into the registry before deleting the file, so all configuration
+                // (including IfPathIsInaccessibleGoTo, dark mode settings, etc.)
+                // is preserved.
+                ImportConfiguration(NULL, portableConfigPath, FALSE, FALSE, NULL);
                 storageType = cstRegistry;
                 DeleteFile(portableConfigPath);
                 SetRestrictedFileStorageImported();
