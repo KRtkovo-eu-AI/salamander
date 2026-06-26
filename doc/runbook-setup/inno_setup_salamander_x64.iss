@@ -24,6 +24,18 @@
   #endif
 #endif
 
+#ifndef InstallerTheme
+  #define InstallerTheme "dark"
+#endif
+#if InstallerTheme == "dark"
+  #define InstallerThemeStyle "modern dark"
+  #define InstallerThemeOther "light"
+#else
+  #define InstallerThemeStyle "modern light"
+  #define InstallerThemeOther "dark"
+#endif
+#define OutputBaseFilenameBase "setup_" + MyAppVersion + "_win_x64"
+
 [Setup]
 AppId=OpenSalamanderSamandarin-x64-{#MyAppVersion}
 AppName={#MyAppName}
@@ -36,13 +48,15 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\Open Salamander Samandarin
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputBaseFilename=setup_{#MyAppVersion}_win_x64
+OutputBaseFilename={#OutputBaseFilenameBase}_{#InstallerTheme}
 Compression=lzma2/ultra64
 SolidCompression=yes
-; Keep the installer compiled with the explicit dark theme. InitializeSetup below
-; relaunches the same installer with /NOSTYLE on light-mode systems so we avoid
-; WizardStyle=dynamic and still choose the appearance before the wizard opens.
-WizardStyle=modern dark
+; Build two explicit-theme installers from this script, for example:
+;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DInstallerTheme=dark
+;   iscc.exe "doc\runbook-setup\inno_setup_salamander_x64.iss" /DInstallerTheme=light
+; InitializeSetup below relaunches the matching counterpart before the wizard opens,
+; avoiding WizardStyle=dynamic while still honoring the user's Windows app theme.
+WizardStyle={#InstallerThemeStyle}
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
@@ -1317,6 +1331,9 @@ var
 
 const
   ThemeSelectedParam = '/SALAMANDERTHEMESELECTED';
+  CurrentInstallerTheme = '{#InstallerTheme}';
+  OtherInstallerTheme = '{#InstallerThemeOther}';
+  OtherInstallerFileName = '{#OutputBaseFilenameBase}_{#InstallerThemeOther}.exe';
   PersonalizeRegistryKey = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize';
 
 function CmdLineParamExists(const Value: String): Boolean;
@@ -1355,6 +1372,11 @@ begin
 
     Result := Result + QuoteCmdLineParam(ParamStr(I));
   end;
+
+  if Result <> '' then
+    Result := Result + ' ';
+
+  Result := Result + ThemeSelectedParam;
 end;
 
 function IsWindowsAppDarkMode(): Boolean;
@@ -1370,9 +1392,18 @@ begin
     AppsUseLightTheme) and (AppsUseLightTheme = 0);
 end;
 
+function ExpectedInstallerTheme(): String;
+begin
+  if IsWindowsAppDarkMode() then
+    Result := 'dark'
+  else
+    Result := 'light';
+end;
+
 function InitializeSetup(): Boolean;
 var
-  RelaunchParams: String;
+  ExpectedTheme: String;
+  OtherInstallerPath: String;
   ResultCode: Integer;
 begin
   Result := True;
@@ -1380,23 +1411,24 @@ begin
   if CmdLineParamExists(ThemeSelectedParam) then
     Exit;
 
-  if not IsWindowsAppDarkMode() then
+  ExpectedTheme := ExpectedInstallerTheme();
+  Log('Windows app theme expects the ' + ExpectedTheme + ' installer; current installer is ' + CurrentInstallerTheme + '.');
+
+  if CompareText(ExpectedTheme, CurrentInstallerTheme) <> 0 then
   begin
-    RelaunchParams := GetRelaunchParams();
-    if RelaunchParams <> '' then
-      RelaunchParams := RelaunchParams + ' ';
-
-    RelaunchParams := RelaunchParams + '/NOSTYLE ' + ThemeSelectedParam;
-    Log('Windows app dark mode is disabled; relaunching setup with light theme.');
-
-    if Exec(ExpandConstant('{srcexe}'), RelaunchParams, '', SW_SHOWNORMAL, ewNoWait, ResultCode) then
-      Result := False
+    OtherInstallerPath := AddBackslash(ExpandConstant('{src}')) + OtherInstallerFileName;
+    if FileExists(OtherInstallerPath) then
+    begin
+      Log('Relaunching counterpart installer before the wizard opens: ' + OtherInstallerPath);
+      if Exec(OtherInstallerPath, GetRelaunchParams(), '', SW_SHOWNORMAL, ewNoWait, ResultCode) then
+        Result := False
+      else
+        Log('Unable to relaunch ' + OtherInstallerTheme + ' installer; continuing with the current installer.');
+    end
     else
-      Log('Unable to relaunch setup with light theme; continuing with the compiled dark theme.');
-  end
-  else
-  begin
-    Log('Windows app dark mode is enabled; continuing with the compiled dark theme.');
+    begin
+      Log('Counterpart installer not found: ' + OtherInstallerPath + '; continuing with the current installer.');
+    end;
   end;
 end;
 
