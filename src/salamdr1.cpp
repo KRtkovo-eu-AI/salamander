@@ -4658,8 +4658,6 @@ FIND_NEW_SLG_FILE:
         // the dialog is only for first-time/unselected storage or explicit Manage
         // Configurations from the menu.
         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
-    else if (portableConfigExists && (!storageTypeFromBootstrap || storageType == cstRegFile))
-        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // existing portable config is authoritative; do not offer Registry import
     else
     {
         if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
