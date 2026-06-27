@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -1499,10 +1499,12 @@ static DWORD ReadConfigVersion(HKEY hRootKey)
     return configVersion;
 }
 
-BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration, BOOL forceWelcomeDialog)
+BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration, BOOL forceWelcomeDialog, char* selectedRegFilePath, int selectedRegFilePathSize)
 {
     HKEY hRootKey;
     loadConfiguration = NULL;
+    if (selectedRegFilePath != NULL && selectedRegFilePathSize > 0)
+        selectedRegFilePath[0] = 0;
     DWORD saveInProgress;
     HKEY hCfgKey;
 
@@ -1644,7 +1646,11 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             // Zkontrolovat WelcomeProcessed v tomto klici
             DWORD wpVal = 0;
             GetValueAux(NULL, hCfgKey, "WelcomeProcessed", REG_DWORD, &wpVal, sizeof(wpVal));
-            if (wpVal == 1)
+            // WelcomeProcessed suppresses the first-run Welcome dialog only for the current
+            // target registry root.  Older discovered configurations remain import sources;
+            // they must never become an implicit active configuration just because they
+            // contain stale metadata from a previous version/import.
+            if (rootIndex == 0 && wpVal == 1)
                 strncpy_s(dlg.WelcomeProcessedLocation, cfg.Location, _TRUNCATE);
 
             CloseKeyAux(hCfgKey);
@@ -1843,6 +1849,8 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         return FALSE;
     if (selectedLoadConfiguration != NULL)
         loadConfiguration = selectedLoadConfiguration;
+    if (dlg.StorageType == cstRegFile && selectedRegFilePath != NULL && selectedRegFilePathSize > 0)
+        strncpy_s(selectedRegFilePath, selectedRegFilePathSize, dlg.RegFilePath, _TRUNCATE);
 
     BOOL bootstrapSaved = ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
                                                                         dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);

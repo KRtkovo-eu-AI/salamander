@@ -4685,7 +4685,7 @@ FIND_NEW_SLG_FILE:
         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
     else
     {
-        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG, forceWelcomeDialog))
+        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG, forceWelcomeDialog, storageRegFilePath, SizeOf(storageRegFilePath)))
         {
             SplashScreenCloseIfExist();
             goto EXIT_2;
