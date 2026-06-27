@@ -1706,6 +1706,17 @@ void CManageConfigsDialog::SortConfigs()
     if (SortColumn < 0 || SortColumn > 5)
         return;
 
+    char selectedLocation[MAX_PATH];
+    selectedLocation[0] = 0;
+    int selectedRootIndex = -2;
+    BOOL selectedIsPortable = FALSE;
+    if (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount && Configs[SelectedSourceIndex].Exists)
+    {
+        strncpy_s(selectedLocation, Configs[SelectedSourceIndex].Location, _TRUNCATE);
+        selectedRootIndex = Configs[SelectedSourceIndex].RootIndex;
+        selectedIsPortable = Configs[SelectedSourceIndex].IsPortable;
+    }
+
     // Jednoduchy bubble sort (pole je male, max 100)
     for (int i = 0; i < ConfigsCount - 1; i++)
     {
@@ -1732,6 +1743,21 @@ void CManageConfigsDialog::SortConfigs()
                 CFoundConfig tmp = Configs[i];
                 Configs[i] = Configs[j];
                 Configs[j] = tmp;
+            }
+        }
+    }
+
+    if (selectedLocation[0] != 0)
+    {
+        SelectedSourceIndex = -1;
+        for (int i = 0; i < ConfigsCount; i++)
+        {
+            if (Configs[i].Exists && Configs[i].RootIndex == selectedRootIndex &&
+                Configs[i].IsPortable == selectedIsPortable &&
+                _stricmp(Configs[i].Location, selectedLocation) == 0)
+            {
+                SelectedSourceIndex = i;
+                break;
             }
         }
     }
@@ -1780,7 +1806,12 @@ void CManageConfigsDialog::OnDeleteSelected()
     HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
     int selItem = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
 
-    DeleteConfigByIndex(SelectedSourceIndex);
+    if (!DeleteConfigByIndex(SelectedSourceIndex))
+    {
+        UpdateSourcePanel();
+        UpdateDeleteButtonState();
+        return;
+    }
 
     SelectedSourceIndex = -1;
     PopulateConfigsList();
@@ -2127,9 +2158,13 @@ BOOL CManageConfigsDialog::DeleteConfigByIndex(int configIndex)
     if (cfg.IsPortable)
     {
         if (DeleteFile(cfg.Location))
+        {
             deleted = TRUE;
-        // Odstranit z known paths
-        ConfigurationStorage.RemoveKnownFileStoragePath(cfg.Location);
+            // Odstranit z known paths az po uspesnem smazani souboru.
+            ConfigurationStorage.RemoveKnownFileStoragePath(cfg.Location);
+        }
+        else
+            ShowFileError(HWindow, IDS_MCD_DELETEFILEERR, cfg.Location, GetLastError());
     }
     else if (cfg.RootIndex >= 0)
     {
@@ -2257,7 +2292,8 @@ void CManageConfigsDialog::Validate(CTransferInfo& ti)
     }
     else // Registry storage
     {
-        // Overwrite confirmation - check if registry config already exists
+        // Registry target is the current-version root shown in IDC_MCD_REGISTRY_PATH.
+        // Source rows may point elsewhere, but overwrite validation is for this explicit target.
         HKEY hKey;
         if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hKey))
         {

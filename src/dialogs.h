@@ -1212,6 +1212,7 @@ struct CFoundConfig
     FILETIME LastUpdate;      // timestamp posledni zmeny
 };
 
+
 class CManageConfigsDialog : public CCommonDialog
 {
 public:
@@ -1266,6 +1267,8 @@ protected:
     void CreateFonts();
     void DestroyFonts();
 };
+
+BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg, BOOL markWelcomeProcessed, const char*& loadConfiguration);
 
 //****************************************************************************
 //

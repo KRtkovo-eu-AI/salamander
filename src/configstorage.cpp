@@ -129,10 +129,21 @@ BOOL CConfigurationStorage::SaveStorageTypeBootstrap(CConfigurationStorageType t
     if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
         return FALSE;
 
+    if (type == cstRegFile && (regFilePath == NULL || regFilePath[0] == 0))
+        return FALSE;
+
     BOOL ret = WritePrivateProfileString("Configuration", "StorageType",
                                           type == cstRegFile ? "RegFile" : "Registry", fileName);
-    if (ret && type == cstRegFile && regFilePath != NULL && regFilePath[0] != 0)
+    if (ret && type == cstRegFile)
+    {
+        // RegFilePath is meaningful only for file-backed configuration storage.
         ret = WritePrivateProfileString("Configuration", "RegFilePath", regFilePath, fileName);
+    }
+    else if (ret)
+    {
+        // Registry storage must not keep a stale file target from a previous selection.
+        ret = WritePrivateProfileString("Configuration", "RegFilePath", NULL, fileName);
+    }
     return ret;
 }
 
