@@ -1114,7 +1114,7 @@ extern CSalamanderSafeFile SalSafeFile; // interface for comfortable work with f
 
 extern const char* SalamanderConfigurationRoots[];                                                           // description in mainwnd2.cpp
 BOOL GetUpgradeInfo(BOOL* autoImportConfig, char* autoImportConfigFromKey, int autoImportConfigFromKeySize); // description in mainwnd2.cpp
-BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration);                    // description in mainwnd2.cpp
+BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration, BOOL forceWelcomeDialog = FALSE);                    // description in mainwnd2.cpp
 BOOL FindLanguageFromPrevVerOfSal(char* slgName);                                                            // description in mainwnd2.cpp
 
 // creates and attaches a special class to the edit line/combobox 'ctrlID' that enables

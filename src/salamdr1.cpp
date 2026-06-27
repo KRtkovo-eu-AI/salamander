@@ -4621,26 +4621,30 @@ FIND_NEW_SLG_FILE:
     BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
 
+    BOOL currentRegistryConfigExistsAtStartup = FALSE;
+    HKEY hStartupRootKey;
+    if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hStartupRootKey))
+    {
+        HKEY hStartupCfgKey;
+        if (OpenKey(hStartupRootKey, SALAMANDER_CONFIG_REG, hStartupCfgKey))
+        {
+            currentRegistryConfigExistsAtStartup = TRUE;
+            CloseKey(hStartupCfgKey);
+        }
+        CloseKey(hStartupRootKey);
+    }
+
     BOOL bootstrapStorageUsable = FALSE;
     if (storageTypeFromBootstrap)
     {
         if (storageType == cstRegFile)
             bootstrapStorageUsable = portableConfigExists;
         else
-        {
-            HKEY hBootstrapRootKey;
-            if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hBootstrapRootKey))
-            {
-                HKEY hBootstrapCfgKey;
-                if (OpenKey(hBootstrapRootKey, SALAMANDER_CONFIG_REG, hBootstrapCfgKey))
-                {
-                    bootstrapStorageUsable = TRUE;
-                    CloseKey(hBootstrapCfgKey);
-                }
-                CloseKey(hBootstrapRootKey);
-            }
-        }
+            bootstrapStorageUsable = currentRegistryConfigExistsAtStartup;
     }
+
+    BOOL forceWelcomeDialog = !autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
+                              !portableConfigExists && !currentRegistryConfigExistsAtStartup;
 
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
@@ -4681,7 +4685,7 @@ FIND_NEW_SLG_FILE:
         SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
     else
     {
-        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
+        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG, forceWelcomeDialog))
         {
             SplashScreenCloseIfExist();
             goto EXIT_2;

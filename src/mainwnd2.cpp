@@ -1499,7 +1499,7 @@ static DWORD ReadConfigVersion(HKEY hRootKey)
     return configVersion;
 }
 
-BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration)
+BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration, BOOL forceWelcomeDialog)
 {
     HKEY hRootKey;
     loadConfiguration = NULL;
@@ -1777,7 +1777,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
 
     // Check if we should skip the dialog
     // Skip if: WelcomeProcessed is set in any of the scanned configs
-    BOOL welcomeProcessed = (dlg.WelcomeProcessedLocation[0] != 0);
+    BOOL welcomeProcessed = !forceWelcomeDialog && (dlg.WelcomeProcessedLocation[0] != 0);
 
     if (welcomeProcessed)
     {
