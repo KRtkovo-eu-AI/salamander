@@ -1534,7 +1534,7 @@ BEGIN
 
     GROUPBOX        "3. Target configuration storage",-1,6,252,508,44
     CONTROL         "Registry",IDC_MCD_REG_RADIO,"Button",
-                    BS_AUTORADIOBUTTON | WS_TABSTOP,12,263,42,12
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,12,263,42,12
     EDITTEXT        IDC_MCD_REGISTRY_PATH,72,262,380,12,ES_AUTOHSCROLL | WS_DISABLED
     CONTROL         "File Storage",IDC_MCD_FILE_RADIO,"Button",
                     BS_AUTORADIOBUTTON | WS_TABSTOP,12,280,56,12
