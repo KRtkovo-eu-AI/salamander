@@ -5605,34 +5605,28 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
                 }
 
-                // Ulozit vlastni nazev konfigurace do TARGET (kam se config kopiruje)
-                if (dlg.CustomConfigName[0] != 0 && dlg.SelectedSourceIndex >= 0 &&
-                    dlg.SelectedSourceIndex < dlg.ConfigsCount &&
-                    !dlg.Configs[dlg.SelectedSourceIndex].IsPortable &&
-                    dlg.Configs[dlg.SelectedSourceIndex].Location[0] != 0)
+                // Ulozit vlastni nazev konfigurace do TARGET (aktualni konfigurace),
+                // nikdy ne do vybrane source konfigurace.
+                if (dlg.CustomConfigName[0] != 0)
                 {
-                    // Extrahujeme presnou subkey z Location ("reg:\HKEY_CURRENT_USER\<subkey>")
-                    const char* loc = dlg.Configs[dlg.SelectedSourceIndex].Location;
-                    const char* subkey = strchr(loc, '\\');
-                    if (subkey) subkey++;
-                    if (subkey) subkey = strchr(subkey, '\\');
-                    if (subkey) subkey++;
-                    if (subkey && subkey[0] != 0)
+                    HKEY hKey;
+                    if (CreateKeyAux(NULL, HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hKey))
                     {
-                        HKEY hKey;
-                        if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
+                        HKEY hCfgKey;
+                        if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
                         {
-                            HKEY hCfgKey;
-                            if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                            {
-                                SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
-                                            dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
-                                CloseKeyAux(hCfgKey);
-                            }
-                            CloseKeyAux(hKey);
+                            SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
+                                        dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
+                            CloseKeyAux(hCfgKey);
                         }
+                        CloseKeyAux(hKey);
                     }
                 }
+
+                // Vypnout AutoSave jeste pred restartem, aby ukonceni bezici instance
+                // neprepsalo prave importovanou cilovou konfiguraci starou konfiguraci
+                // nactenou pri startu teto instance.
+                Configuration.AutoSave = FALSE;
 
                 // Spustit novou instanci Salamandera
                 char exePath[MAX_PATH];
@@ -5654,9 +5648,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 se.lpDirectory = initDir;
 
                 BOOL started = ShellExecuteEx(&se);
-
-                // Vypnout AutoSave aby se pri ukonceni neprepisovala nova konfigurace
-                Configuration.AutoSave = FALSE;
 
                 // Zavrit aplikaci bez ulozeni konfigurace
                 if (started)

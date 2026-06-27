@@ -28,6 +28,85 @@
 #include "tasklist.h"
 #include "pwdmngr.h"
 
+static const char* MCDSubKeyFromLocation(const char* location)
+{
+    if (location == NULL || _strnicmp(location, "reg:\\HKEY_CURRENT_USER\\", 22) != 0)
+        return NULL;
+    const char* subkey = location + 22;
+    return subkey[0] != 0 ? subkey : NULL;
+}
+
+
+static BOOL MCDCopyRegKey(HKEY hSrcKey, HKEY hDstKey)
+{
+    char name[MAX_PATH];
+    DWORD valIndex = 0;
+    DWORD valType, dataSize;
+    BYTE data[4096];
+    DWORD nameLen;
+    while (TRUE)
+    {
+        nameLen = SizeOf(name);
+        dataSize = sizeof(data);
+        if (RegEnumValue(hSrcKey, valIndex, name, &nameLen, NULL, &valType, data, &dataSize) != ERROR_SUCCESS)
+            break;
+        if (RegSetValueEx(hDstKey, name, 0, valType, data, dataSize) != ERROR_SUCCESS)
+            return FALSE;
+        valIndex++;
+    }
+
+    DWORD keyIndex = 0;
+    HKEY hSrcSubKey, hDstSubKey;
+    while (TRUE)
+    {
+        nameLen = SizeOf(name);
+        if (RegEnumKeyEx(hSrcKey, keyIndex, name, &nameLen, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
+            break;
+        if (RegOpenKeyEx(hSrcKey, name, 0, KEY_READ, &hSrcSubKey) == ERROR_SUCCESS)
+        {
+            if (RegCreateKeyEx(hDstKey, name, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hDstSubKey, NULL) == ERROR_SUCCESS)
+            {
+                MCDCopyRegKey(hSrcSubKey, hDstSubKey);
+                RegCloseKey(hDstSubKey);
+            }
+            RegCloseKey(hSrcSubKey);
+        }
+        keyIndex++;
+    }
+    return TRUE;
+}
+
+static BOOL MCDSetConfigValue(const char* subkey, const char* valueName, DWORD type, const void* data, DWORD dataSize)
+{
+    if (subkey == NULL || subkey[0] == 0)
+        return FALSE;
+
+    HKEY hRootKey;
+    if (!CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hRootKey))
+        return FALSE;
+
+    BOOL ret = FALSE;
+    HKEY hCfgKey;
+    if (CreateKeyAux(NULL, hRootKey, SALAMANDER_CONFIG_REG, hCfgKey))
+    {
+        ret = SetValueAux(NULL, hCfgKey, valueName, type, (void*)data, dataSize);
+        CloseKeyAux(hCfgKey);
+    }
+    CloseKeyAux(hRootKey);
+    return ret;
+}
+
+static void MCDApplyWelcomeTargetMetadata(const char* targetSubkey, const char* customConfigName)
+{
+    if (customConfigName != NULL && customConfigName[0] != 0)
+        MCDSetConfigValue(targetSubkey, "ConfigDisplayName", REG_SZ,
+                          customConfigName, (DWORD)(strlen(customConfigName) + 1));
+
+    DWORD processed = 1;
+    MCDSetConfigValue(targetSubkey, "WelcomeProcessed", REG_DWORD, &processed, sizeof(processed));
+}
+
+
 //
 // ConfigVersion - version number of the loaded configuration
 //
@@ -1518,6 +1597,8 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         return FALSE;
     }
 
+    const char* targetSubkey = SalamanderConfigurationRoots[0];
+
     Configuration.StorageType = dlg.StorageType;
     ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
                                                   dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
@@ -1528,124 +1609,51 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
     }
 
-    // Zapsat ConfigDisplayName do TARGET konfigurace (kam se config uklada)
-    // TARGET muze byt registry klic nebo file storage - podle volby uzivatele
-    if (dlg.CustomConfigName[0] != 0 && dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
-    {
-        const CFoundConfig& targetCfg = dlg.Configs[dlg.SelectedSourceIndex];
-        if (targetCfg.IsPortable)
-        {
-            // File storage - zapsat do .reg souboru (presne cesta z configu)
-            // TODO: zatim neumime zapisovat ConfigDisplayName do .reg souboru
-        }
-        else if (targetCfg.Location[0] != 0 && targetCfg.Location[0] != '-')
-        {
-            // Registry config s platnou cestou - extrahujeme presnou subkey
-            const char* loc = targetCfg.Location;
-            const char* subkey = strchr(loc, '\\');
-            if (subkey) subkey++;
-            if (subkey) subkey = strchr(subkey, '\\');
-            if (subkey) subkey++;
-            if (subkey && subkey[0] != 0)
-            {
-                HKEY hKey;
-                if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
-                {
-                    HKEY hCfgKey;
-                    if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                    {
-                        SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
-                                    dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
-                        CloseKeyAux(hCfgKey);
-                    }
-                    CloseKeyAux(hKey);
-                }
-            }
-        }
-        else
-        {
-            // Clean config (Location = "-") - najdeme aktualni verzi v seznamu
-            for (int i = 0; i < dlg.ConfigsCount; i++)
-            {
-                if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
-                    dlg.Configs[i].Location[0] != 0 && dlg.Configs[i].Location[0] != '-')
-                {
-                    const char* loc = dlg.Configs[i].Location;
-                    const char* subkey = strchr(loc, '\\');
-                    if (subkey) subkey++;
-                    if (subkey) subkey = strchr(subkey, '\\');
-                    if (subkey) subkey++;
-                    if (subkey && subkey[0] != 0)
-                    {
-                        HKEY hKey;
-                        if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
-                        {
-                            HKEY hCfgKey;
-                            if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                            {
-                                SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
-                                            dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
-                                CloseKeyAux(hCfgKey);
-                            }
-                            CloseKeyAux(hKey);
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    // WelcomeProcessed - zapise se do presneho klice kde config zije
-    if (dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
+    // If a registry source was selected, copy it into the exact target registry
+    // root.  The selected row is only a read-only source; all writes below go to
+    // the target storage chosen in the lower part of the dialog.
+    if (dlg.StorageType == cstRegistry && dlg.SelectedSourceIndex >= 0 &&
+        dlg.SelectedSourceIndex < dlg.ConfigsCount)
     {
         const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
-        const char* wpLocation = NULL;
-
-        if (!srcCfg.IsPortable && srcCfg.Location[0] != 0 && srcCfg.Location[0] != '-')
+        if (srcCfg.IsPortable && srcCfg.Location[0] != 0)
         {
-            // Registry config s platnou cestou
-            wpLocation = srcCfg.Location;
-        }
-        else if (srcCfg.Location[0] == '-')
-        {
-            // Clean config - najdeme aktualni verzi v seznamu
-            for (int i = 0; i < dlg.ConfigsCount; i++)
-            {
-                if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
-                    dlg.Configs[i].Location[0] != 0 && dlg.Configs[i].Location[0] != '-')
-                {
-                    wpLocation = dlg.Configs[i].Location;
-                    break;
-                }
-            }
+            ImportConfiguration(NULL, srcCfg.Location, FALSE, FALSE, NULL);
         }
 
-        if (wpLocation != NULL)
+        const char* srcSubkey = MCDSubKeyFromLocation(srcCfg.Location);
+        if (srcSubkey != NULL && _stricmp(srcSubkey, targetSubkey) != 0)
         {
-            const char* subkey = strchr(wpLocation, '\\');
-            if (subkey) subkey++;
-            if (subkey) subkey = strchr(subkey, '\\');
-            if (subkey) subkey++;
-            if (subkey && subkey[0] != 0)
+            HKEY hSrcKey, hDstKey;
+            if (RegOpenKeyEx(HKEY_CURRENT_USER, srcSubkey, 0, KEY_READ, &hSrcKey) == ERROR_SUCCESS)
             {
-                HKEY hKey;
-                if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
+                if (RegOpenKeyEx(HKEY_CURRENT_USER, targetSubkey, 0, KEY_WRITE, &hDstKey) == ERROR_SUCCESS)
                 {
-                    HKEY hCfgKey;
-                    if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                    {
-                        DWORD processed = 1;
-                        SetValueAux(NULL, hCfgKey, "WelcomeProcessed", REG_DWORD, &processed, sizeof(DWORD));
-                        CloseKeyAux(hCfgKey);
-                    }
-                    CloseKeyAux(hKey);
+                    ClearKeyAux(hDstKey);
+                    RegCloseKey(hDstKey);
                 }
+
+                if (RegCreateKeyEx(HKEY_CURRENT_USER, targetSubkey, 0, NULL, REG_OPTION_NON_VOLATILE,
+                                   KEY_WRITE, NULL, &hDstKey, NULL) == ERROR_SUCCESS)
+                {
+                    MCDCopyRegKey(hSrcKey, hDstKey);
+                    RegCloseKey(hDstKey);
+                }
+                RegCloseKey(hSrcKey);
             }
         }
     }
 
-    if (dlg.IndexOfConfigToLoad != -1)
+    // Always store the user-entered name and WelcomeProcessed flag in the target
+    // configuration.  This also covers the clean/default source, where there is
+    // intentionally no source location to update.
+    if (dlg.StorageType == cstRegistry)
+    {
+        MCDApplyWelcomeTargetMetadata(targetSubkey, dlg.CustomConfigName);
+        loadConfiguration = targetSubkey;
+    }
+
+    if (dlg.StorageType != cstRegistry && dlg.IndexOfConfigToLoad != -1)
     {
         // Nastavit loadConfiguration z presne cesty nactene konfigurace
         const CFoundConfig& loadCfg = dlg.Configs[dlg.SelectedSourceIndex];

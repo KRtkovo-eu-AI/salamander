@@ -2029,16 +2029,39 @@ void CManageConfigsDialog::OnImport()
                 // Pridat cestu k souboru do seznamu known file storage paths
                 ConfigurationStorage.AddKnownFileStoragePath(file);
 
+                if (ConfigsCount < MCD_MAX_CONFIGS)
+                {
+                    CFoundConfig& cfg = Configs[ConfigsCount];
+                    memset(&cfg, 0, sizeof(cfg));
+                    cfg.Exists = TRUE;
+                    cfg.IsCurrentVersion = FALSE;
+                    cfg.IsPortable = TRUE;
+                    cfg.IsCorrupted = FALSE;
+                    cfg.RootIndex = -1;
+                    _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), file);
+                    strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+                    if (StrIStr(cfg.Version, "Samandarin") != NULL)
+                        for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
+                    strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
+                    cfg.Language[0] = 0;
+                    strncpy_s(cfg.Location, file, _TRUNCATE);
+                    WIN32_FILE_ATTRIBUTE_DATA fad;
+                    if (GetFileAttributesEx(file, GetFileExInfoStandard, &fad))
+                        cfg.LastUpdate = fad.ftLastWriteTime;
+                    int importedIndex = ConfigsCount++;
+
+                    PopulateConfigsList();
+                    ListView_SetItemState(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST), importedIndex,
+                                          LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+                    SelectedSourceIndex = importedIndex;
+                }
+                else
+                    PopulateConfigsList();
+
                 SalMessageBox(HWindow, LoadStr(IDS_MCD_IMPORTSUCCESS), LoadStr(IDS_INFOTITLE),
                               MB_OK | MB_ICONINFORMATION);
 
-                // Obnovit seznam konfiguraci
-                PopulateConfigsList();
-                if (ConfigsCount > 0)
-                {
-                    SelectedSourceIndex = 0;
-                    UpdateSourcePanel();
-                }
+                UpdateSourcePanel();
                 UpdateDeleteButtonState();
             }
         }
@@ -2141,10 +2164,9 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
         // Precist editovatelný Configuration name z IDC_MCD_SRC_NAME
         char cfgName[256];
         GetDlgItemText(HWindow, IDC_MCD_SRC_NAME, cfgName, SizeOf(cfgName));
-        if (cfgName[0] != 0 && SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount)
-        {
-            strncpy_s(Configs[SelectedSourceIndex].DisplayName, cfgName, _TRUNCATE);
-        }
+        // Do not write the edited target name back to the selected source row.
+        // The row is a read-only import source; the name is applied to the target
+        // configuration by the caller after the target storage has been created.
         // Ulozit custom name pro pripadne ulozeni do registrů
         if (cfgName[0] != 0)
         {
