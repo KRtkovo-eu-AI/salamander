@@ -2105,28 +2105,30 @@ void CManageConfigsDialog::OnImport()
 
             if (valid)
             {
+                int existingIndex = -1;
+                for (int i = 0; i < ConfigsCount; i++)
+                {
+                    if (Configs[i].Exists && Configs[i].IsPortable && IsTheSamePath(Configs[i].Location, file))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
+                }
+
                 // Pridat cestu k souboru do seznamu known file storage paths
                 ConfigurationStorage.AddKnownFileStoragePath(file);
 
-                if (ConfigsCount < MCD_MAX_CONFIGS)
+                if (existingIndex >= 0)
+                {
+                    SelectedSourceIndex = existingIndex;
+                    PopulateConfigsList();
+                    MCDSelectListItem(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST),
+                                      MCDFindListItemByConfigIndex(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST), existingIndex));
+                }
+                else if (ConfigsCount < MCD_MAX_CONFIGS)
                 {
                     CFoundConfig& cfg = Configs[ConfigsCount];
-                    memset(&cfg, 0, sizeof(cfg));
-                    cfg.Exists = TRUE;
-                    cfg.IsCurrentVersion = FALSE;
-                    cfg.IsPortable = TRUE;
-                    cfg.IsCorrupted = FALSE;
-                    cfg.RootIndex = -1;
-                    _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), file);
-                    strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
-                    if (StrIStr(cfg.Version, "Samandarin") != NULL)
-                        for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
-                    strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
-                    cfg.Language[0] = 0;
-                    strncpy_s(cfg.Location, file, _TRUNCATE);
-                    WIN32_FILE_ATTRIBUTE_DATA fad;
-                    if (GetFileAttributesEx(file, GetFileExInfoStandard, &fad))
-                        cfg.LastUpdate = fad.ftLastWriteTime;
+                    MCDReadFileConfigurationInfo(file, cfg, FALSE);
                     int importedIndex = ConfigsCount++;
 
                     SelectedSourceIndex = importedIndex;
@@ -2250,10 +2252,7 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
         // The row is a read-only import source; the name is applied to the target
         // configuration by the caller after the target storage has been created.
         // Ulozit custom name pro pripadne ulozeni do registrů
-        if (cfgName[0] != 0)
-        {
-            strncpy_s(CustomConfigName, cfgName, _TRUNCATE);
-        }
+        strncpy_s(CustomConfigName, cfgName, _TRUNCATE);
     }
 }
 

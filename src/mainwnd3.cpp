@@ -5396,6 +5396,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     HKEY hCfgKey;
                     if (RegOpenKeyEx(hRootKey, SALAMANDER_CONFIG_REG, 0, KEY_READ, &hCfgKey) == ERROR_SUCCESS)
                     {
+                        char customName[256];
+                        customName[0] = 0;
+                        DWORD customNameSize = sizeof(customName);
+                        DWORD customNameType = 0;
+                        RegQueryValueEx(hCfgKey, "ConfigDisplayName", NULL, &customNameType, (LPBYTE)customName, &customNameSize);
+                        customName[SizeOf(customName) - 1] = 0;
                         RegCloseKey(hCfgKey);
 
                         CFoundConfig& cfg = dlg.Configs[configCount];
@@ -5409,7 +5415,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         const char* name = openSalamander ? LoadStr(IDS_MCD_OPEN_SALAMANDER)
                                            : altapSalamander ? LoadStr(IDS_MCD_ALTAP_SALAMANDER)
                                                              : LoadStr(IDS_MCD_SERVANT_SALAMANDER);
-                        sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+                        if (customName[0] != 0)
+                            strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
+                        else
+                            sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
                         // Verze: pro Samandarin pouzit format s pomlckami
                         strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
                         if (StrIStr(cfg.Version, "Samandarin") != NULL)
@@ -5460,30 +5469,31 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 }
             }
 
+
+            // Scan default portable config.reg next to salamand.exe even when it is not in known paths yet.
+            char portableConfigPath[MAX_PATH];
+            portableConfigPath[0] = 0;
+            ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
+            if (portableConfigPath[0] != 0 && GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES &&
+                configCount < MCD_MAX_CONFIGS)
+            {
+                CFoundConfig& cfg = dlg.Configs[configCount];
+                MCDReadFileConfigurationInfo(portableConfigPath, cfg, FALSE);
+                configCount++;
+            }
+
             // Scan known file storage paths
             char knownPaths[20][MAX_PATH];
             int knownCount = 0;
             ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
             for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)
             {
+                if (portableConfigPath[0] != 0 && _stricmp(knownPaths[k], portableConfigPath) == 0)
+                    continue;
                 if (GetFileAttributes(knownPaths[k]) != INVALID_FILE_ATTRIBUTES)
                 {
                     CFoundConfig& cfg = dlg.Configs[configCount];
-                    memset(&cfg, 0, sizeof(cfg));
-                    cfg.Exists = TRUE;
-                    cfg.IsCurrentVersion = FALSE;
-                    cfg.IsPortable = TRUE;
-                    cfg.RootIndex = -1;
-                    _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), knownPaths[k]);
-                    strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
-                    if (StrIStr(cfg.Version, "Samandarin") != NULL)
-                        for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
-                    strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
-                    cfg.Language[0] = 0;
-                    strncpy_s(cfg.Location, knownPaths[k], _TRUNCATE);
-                    WIN32_FILE_ATTRIBUTE_DATA fad;
-                    if (GetFileAttributesEx(knownPaths[k], GetFileExInfoStandard, &fad))
-                        cfg.LastUpdate = fad.ftLastWriteTime;
+                    MCDReadFileConfigurationInfo(knownPaths[k], cfg, FALSE);
                     configCount++;
                 }
             }

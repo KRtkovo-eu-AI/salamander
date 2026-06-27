@@ -1269,6 +1269,7 @@ protected:
 };
 
 BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg, BOOL markWelcomeProcessed, const char*& loadConfiguration);
+BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL showErrors = FALSE);
 
 //****************************************************************************
 //
