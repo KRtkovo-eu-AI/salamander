@@ -1466,12 +1466,13 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break; // when the UI is locked we want a click on the panel to bring Salamander to front
         if (LOWORD(lParam) == HTCLIENT)
         {
-            if (!IsIconic(MainWindow->HWindow) &&
-                HIWORD(lParam) == WM_LBUTTONDOWN)
-                return MA_NOACTIVATE;
-            if (!IsIconic(MainWindow->HWindow) &&
-                HIWORD(lParam) == WM_RBUTTONDOWN)
-                return MA_NOACTIVATE;
+            if (!IsIconic(MainWindow->HWindow))
+            {
+                UINT hitCode = HIWORD(lParam);
+                if (hitCode == WM_LBUTTONDOWN || hitCode == WM_RBUTTONDOWN ||
+                    hitCode == WM_MBUTTONDOWN || hitCode == WM_XBUTTONDOWN)
+                    return MA_NOACTIVATE;
+            }
         }
         break;
     }
@@ -1526,6 +1527,16 @@ CFilesBox::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         LRESULT lResult;
         if (Parent->OnRButtonUp(wParam, lParam, &lResult))
             return lResult;
+        break;
+    }
+
+    case WM_MBUTTONDOWN:
+    case WM_XBUTTONDOWN:
+    {
+        if (MainWindow->HasLockedUI())
+            break;
+        if (GetFocus() != Parent->GetListBoxHWND())
+            MainWindow->FocusPanel(Parent);
         break;
     }
 
