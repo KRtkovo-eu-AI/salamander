@@ -975,6 +975,10 @@ static LRESULT onNotifyCustomDrawOrDTPDropDown(
 
 		if (className == WC_LISTVIEW)
 		{
+			if (::GetPropW(lpnmhdr->hwndFrom, L"Salamander.DarkModeLib.CustomListView") != nullptr)
+			{
+				return ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
+			}
 			return darkListViewNotifyCustomDraw(hWnd, uMsg, wParam, lParam);
 		}
 

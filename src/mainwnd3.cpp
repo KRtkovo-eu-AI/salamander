@@ -3394,6 +3394,47 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
+// Rekurzivni kopirovani registry klice
+static BOOL CopyRegKey(HKEY hSrcKey, HKEY hDstKey)
+{
+    char name[MAX_PATH];
+    // Kopirovat vsechny hodnoty
+    DWORD valIndex = 0;
+    DWORD valType, dataSize;
+    BYTE data[4096];
+    DWORD nameLen;
+    while (TRUE)
+    {
+        nameLen = SizeOf(name);
+        dataSize = sizeof(data);
+        if (RegEnumValue(hSrcKey, valIndex, name, &nameLen, NULL, &valType, data, &dataSize) != ERROR_SUCCESS)
+            break;
+        if (RegSetValueEx(hDstKey, name, 0, valType, data, dataSize) != ERROR_SUCCESS)
+            return FALSE;
+        valIndex++;
+    }
+    // Kopirovat vsechny podklice
+    DWORD keyIndex = 0;
+    HKEY hSrcSubKey, hDstSubKey;
+    while (TRUE)
+    {
+        nameLen = SizeOf(name);
+        if (RegEnumKeyEx(hSrcKey, keyIndex, name, &nameLen, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
+            break;
+        if (RegOpenKeyEx(hSrcKey, name, 0, KEY_READ, &hSrcSubKey) == ERROR_SUCCESS)
+        {
+            if (RegCreateKeyEx(hDstKey, name, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hDstSubKey, NULL) == ERROR_SUCCESS)
+            {
+                CopyRegKey(hSrcSubKey, hDstSubKey);
+                RegCloseKey(hDstSubKey);
+            }
+            RegCloseKey(hSrcSubKey);
+        }
+        keyIndex++;
+    }
+    return TRUE;
+}
+
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -5492,9 +5533,69 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             dlg.ConfigsCount = configCount;
 
-            if (dlg.Execute() == IDOK && dlg.StorageType != (int)Configuration.StorageType)
+            if (dlg.Execute() == IDOK)
             {
-                // Storage type changed - offer restart
+                // Pokud uzivatel vybral source konfiguraci a neni to aktualni,
+                // zkopirovat ji z presne cesty zdroje do aktualni konfigurace
+                if (dlg.IndexOfConfigToLoad >= 0 && dlg.SelectedSourceIndex >= 0 &&
+                    dlg.SelectedSourceIndex < dlg.ConfigsCount &&
+                    !dlg.Configs[dlg.SelectedSourceIndex].IsPortable)
+                {
+                    const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
+
+                    // Zdrojova cesta z Location
+                    const char* srcLoc = srcCfg.Location;
+                    const char* srcSubkey = strchr(srcLoc, '\\');
+                    if (srcSubkey) srcSubkey++;
+                    if (srcSubkey) srcSubkey = strchr(srcSubkey, '\\');
+                    if (srcSubkey) srcSubkey++;
+
+                    // Cilova cesta = aktualni verze (najdeme ji pres jeji Location v configs)
+                    // Hledame config ktery je IsCurrentVersion
+                    const char* dstSubkey = NULL;
+                    for (int i = 0; i < dlg.ConfigsCount; i++)
+                    {
+                        if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
+                            dlg.Configs[i].Location[0] != 0)
+                        {
+                            const char* loc = dlg.Configs[i].Location;
+                            const char* sk = strchr(loc, '\\');
+                            if (sk) sk++;
+                            if (sk) sk = strchr(sk, '\\');
+                            if (sk) sk++;
+                            if (sk && sk[0] != 0)
+                                dstSubkey = sk;
+                            break;
+                        }
+                    }
+
+                    if (srcSubkey && srcSubkey[0] != 0 && dstSubkey && dstSubkey[0] != 0)
+                    {
+                        HKEY hSrcKey, hDstKey;
+                        if (RegOpenKeyEx(HKEY_CURRENT_USER, srcSubkey,
+                                         0, KEY_READ, &hSrcKey) == ERROR_SUCCESS)
+                        {
+                            // Vymazat cil
+                            if (RegOpenKeyEx(HKEY_CURRENT_USER, dstSubkey,
+                                             0, KEY_WRITE, &hDstKey) == ERROR_SUCCESS)
+                            {
+                                ClearKeyAux(hDstKey);
+                                RegCloseKey(hDstKey);
+                            }
+
+                            // Vytvorit cil a zkopirovat data
+                            if (RegCreateKeyEx(HKEY_CURRENT_USER, dstSubkey,
+                                               0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hDstKey, NULL) == ERROR_SUCCESS)
+                            {
+                                CopyRegKey(hSrcKey, hDstKey);
+                                RegCloseKey(hDstKey);
+                            }
+                            RegCloseKey(hSrcKey);
+                        }
+                    }
+                }
+
+                // Uložit configstorage.ini a file storage path
                 Configuration.StorageType = (CConfigurationStorageType)dlg.StorageType;
                 ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
                                                               dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
@@ -5503,8 +5604,70 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 {
                     ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
                 }
-                SalMessageBox(HWindow, LoadStr(IDS_MCD_RESTARTMSG),
-                              LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+
+                // Ulozit vlastni nazev konfigurace do TARGET (kam se config kopiruje)
+                if (dlg.CustomConfigName[0] != 0 && dlg.SelectedSourceIndex >= 0 &&
+                    dlg.SelectedSourceIndex < dlg.ConfigsCount &&
+                    !dlg.Configs[dlg.SelectedSourceIndex].IsPortable &&
+                    dlg.Configs[dlg.SelectedSourceIndex].Location[0] != 0)
+                {
+                    // Extrahujeme presnou subkey z Location ("reg:\HKEY_CURRENT_USER\<subkey>")
+                    const char* loc = dlg.Configs[dlg.SelectedSourceIndex].Location;
+                    const char* subkey = strchr(loc, '\\');
+                    if (subkey) subkey++;
+                    if (subkey) subkey = strchr(subkey, '\\');
+                    if (subkey) subkey++;
+                    if (subkey && subkey[0] != 0)
+                    {
+                        HKEY hKey;
+                        if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
+                        {
+                            HKEY hCfgKey;
+                            if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
+                            {
+                                SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
+                                            dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
+                                CloseKeyAux(hCfgKey);
+                            }
+                            CloseKeyAux(hKey);
+                        }
+                    }
+                }
+
+                // Spustit novou instanci Salamandera
+                char exePath[MAX_PATH];
+                GetModuleFileName(NULL, exePath, MAX_PATH);
+
+                SHELLEXECUTEINFO se;
+                memset(&se, 0, sizeof(SHELLEXECUTEINFO));
+                se.cbSize = sizeof(SHELLEXECUTEINFO);
+                se.nShow = SW_SHOWNORMAL;
+                se.hwnd = HWindow;
+                se.lpFile = exePath;
+
+                // Ziskat init directory (adresar kde je salamand.exe)
+                char initDir[MAX_PATH];
+                strncpy_s(initDir, exePath, _TRUNCATE);
+                char* slash = strrchr(initDir, '\\');
+                if (slash != NULL)
+                    *slash = 0;
+                se.lpDirectory = initDir;
+
+                BOOL started = ShellExecuteEx(&se);
+
+                // Vypnout AutoSave aby se pri ukonceni neprepisovala nova konfigurace
+                Configuration.AutoSave = FALSE;
+
+                // Zavrit aplikaci bez ulozeni konfigurace
+                if (started)
+                {
+                    PostMessage(HWindow, WM_USER_CLOSE_MAINWND, 0, 0);
+                }
+                else
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_MCD_RESTARTMSG),
+                                  LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+                }
             }
             return 0;
         }

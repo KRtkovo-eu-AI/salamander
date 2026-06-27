@@ -1228,6 +1228,16 @@ public:
     int SortColumn;                   // sloupec podle ktereho se sortuje (-1 = zadny)
     BOOL SortAscending;               // TRUE = vzestupne, FALSE = sestupne
     BOOL ManageMode;                  // TRUE = Manage Configurations z menu, FALSE = welcome dialog
+    char WelcomeProcessedLocation[MAX_PATH]; // presna cesta ke konfiguraci s WelcomeProcessed=1
+
+    HFONT HFontNormal;                // normalni font
+    HFONT HFontBold;                  // tucny font (vybrany radek)
+    HFONT HFontItalic;                // kurziva (aktualne pouzivana konfigurace)
+    HFONT HFontBoldItalic;            // tucny + kurziva (vybrany + aktivni)
+
+    char CustomConfigName[256];        // vlastni nazev konfigurace z text fieldu
+
+    HWND HToolTip;                     // tooltip control pro aktivni konfiguraci
 
 public:
     CManageConfigsDialog();
@@ -1248,8 +1258,13 @@ protected:
     void OnDeleteSelected();
     void OnExport();
     void OnBrowseFile();
+    void OnImport();
     void OnStorageRadioChanged();
     BOOL DeleteConfigByIndex(int configIndex);
+    BOOL IsConfigActive(int configIndex);
+    HFONT GetConfigFont(int configIndex, UINT itemState);
+    void CreateFonts();
+    void DestroyFonts();
 };
 
 //****************************************************************************

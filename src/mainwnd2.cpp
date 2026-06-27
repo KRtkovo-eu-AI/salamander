@@ -1303,8 +1303,6 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
 
         if (cfgFound)
         {
-            CloseKeyAux(hCfgKey);
-
             CFoundConfig& cfg = dlg.Configs[configCount];
             cfg.Exists = TRUE;
             cfg.IsCurrentVersion = (rootIndex == 0);
@@ -1312,9 +1310,26 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             cfg.IsCorrupted = FALSE;
             cfg.RootIndex = rootIndex;
 
-            // Nazev
-            const char* name = DetectProductName(root);
-            sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+            // Nazev - nejdriv zkusit vlastni nazev z registru, pak automaticky generovany
+            char customName[256];
+            customName[0] = 0;
+            if (GetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ, customName, sizeof(customName)) && customName[0] != 0)
+            {
+                strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
+            }
+            else
+            {
+                const char* name = DetectProductName(root);
+                sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+            }
+
+            // Zkontrolovat WelcomeProcessed v tomto klici
+            DWORD wpVal = 0;
+            GetValueAux(NULL, hCfgKey, "WelcomeProcessed", REG_DWORD, &wpVal, sizeof(wpVal));
+            if (wpVal == 1)
+                strncpy_s(dlg.WelcomeProcessedLocation, cfg.Location, _TRUNCATE);
+
+            CloseKeyAux(hCfgKey);
 
             // Verze: pro Samandarin pouzit format s pomlckami
             strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
@@ -1443,40 +1458,45 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     LoadSaveToRegistryMutex.Leave();
 
     // Check if we should skip the dialog
-    // Skip if: current version config exists AND WelcomeProcessed is set
-    BOOL hasCurrentVersionConfig = FALSE;
-    for (int i = 0; i < configCount; i++)
-    {
-        if (dlg.Configs[i].IsCurrentVersion && dlg.Configs[i].Exists)
-        {
-            hasCurrentVersionConfig = TRUE;
-            break;
-        }
-    }
+    // Skip if: WelcomeProcessed is set in any of the scanned configs
+    BOOL welcomeProcessed = (dlg.WelcomeProcessedLocation[0] != 0);
 
-    BOOL welcomeProcessed = FALSE;
-    if (hasCurrentVersionConfig)
+    if (welcomeProcessed)
     {
-        // Check WelcomeProcessed registry value
-        HKEY hKey;
-        if (OpenKeyAux(NULL, HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hKey))
+        // Config exists and was already processed -> load it directly without showing the dialog
+
+        // Pokud je WelcomeProcessed nastaven a mame prava pro zapis, automaticky vytvorime
+        // configstorage.ini s registry storage type (mohlo by chybet po upgrade z no-write uctu)
+        if (dlg.CanSaveBootstrap)
         {
-            HKEY hCfgKey2;
-            if (OpenKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey2))
+            CConfigurationStorageType bootstrapType;
+            char bootstrapPath[MAX_PATH];
+            bootstrapPath[0] = 0;
+            if (!ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapType, bootstrapPath, SizeOf(bootstrapPath)))
             {
-                DWORD processed = 0;
-                GetValueAux(NULL, hCfgKey2, "WelcomeProcessed", REG_DWORD, &processed, sizeof(DWORD));
-                welcomeProcessed = (processed == 1);
-                CloseKeyAux(hCfgKey2);
+                ConfigurationStorage.SaveStorageTypeBootstrap(cstRegistry, NULL);
             }
-            CloseKeyAux(hKey);
         }
-    }
 
-    if (hasCurrentVersionConfig && welcomeProcessed)
-    {
-        // Config exists and was already processed - load it directly
-        loadConfiguration = SalamanderConfigurationRoots[0];
+        // Nastavit loadConfiguration z presne cesty v WelcomeProcessedLocation
+        // Location je "reg:\HKEY_CURRENT_USER\<subkey>" - extrahujeme subkey
+        const char* loc = dlg.WelcomeProcessedLocation;
+        const char* subkey = strchr(loc, '\\');
+        if (subkey) subkey++;
+        if (subkey) subkey = strchr(subkey, '\\');
+        if (subkey) subkey++;
+        if (subkey && subkey[0] != 0)
+        {
+            // Najit odpovidajici root v SalamanderConfigurationRoots
+            for (int i = 0; i < SALCFG_ROOTS_COUNT; i++)
+            {
+                if (_stricmp(SalamanderConfigurationRoots[i], subkey) == 0)
+                {
+                    loadConfiguration = SalamanderConfigurationRoots[i];
+                    break;
+                }
+            }
+        }
         return TRUE;
     }
 
@@ -1502,8 +1522,103 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
                                                   dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
 
+    // Pridat file storage path do seznamu known paths
+    if (dlg.StorageType == cstRegFile && dlg.RegFilePath[0] != 0)
+    {
+        ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
+    }
+
+    // Zapsat ConfigDisplayName do TARGET konfigurace (kam se config uklada)
+    // TARGET muze byt registry klic nebo file storage - podle volby uzivatele
+    if (dlg.CustomConfigName[0] != 0 && dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
+    {
+        const CFoundConfig& targetCfg = dlg.Configs[dlg.SelectedSourceIndex];
+        if (targetCfg.IsPortable)
+        {
+            // File storage - zapsat do .reg souboru (presne cesta z configu)
+            // TODO: zatim neumime zapisovat ConfigDisplayName do .reg souboru
+        }
+        else if (targetCfg.Location[0] != 0)
+        {
+            // Registry storage - extrahujeme presnou subkey z Location
+            // Location je ve tvaru "reg:\HKEY_CURRENT_USER\<subkey>"
+            const char* loc = targetCfg.Location;
+            const char* subkey = strchr(loc, '\\'); // preskocit "reg:"
+            if (subkey) subkey++;
+            if (subkey) subkey = strchr(subkey, '\\'); // preskocit "HKEY_CURRENT_USER"
+            if (subkey) subkey++;
+            if (subkey && subkey[0] != 0)
+            {
+                HKEY hKey;
+                if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
+                {
+                    HKEY hCfgKey;
+                    if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
+                    {
+                        SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
+                                    dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
+                        CloseKeyAux(hCfgKey);
+                    }
+                    CloseKeyAux(hKey);
+                }
+            }
+        }
+    }
+
+    // WelcomeProcessed - zapise se do presneho klice kde config zije
+    if (dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
+    {
+        const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
+        if (!srcCfg.IsPortable && srcCfg.Location[0] != 0)
+        {
+            const char* loc = srcCfg.Location;
+            const char* subkey = strchr(loc, '\\');
+            if (subkey) subkey++;
+            if (subkey) subkey = strchr(subkey, '\\');
+            if (subkey) subkey++;
+            if (subkey && subkey[0] != 0)
+            {
+                HKEY hKey;
+                if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
+                {
+                    HKEY hCfgKey;
+                    if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
+                    {
+                        DWORD processed = 1;
+                        SetValueAux(NULL, hCfgKey, "WelcomeProcessed", REG_DWORD, &processed, sizeof(DWORD));
+                        CloseKeyAux(hCfgKey);
+                    }
+                    CloseKeyAux(hKey);
+                }
+            }
+        }
+    }
+
     if (dlg.IndexOfConfigToLoad != -1)
-        loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigToLoad];
+    {
+        // Nastavit loadConfiguration z presne cesty nactene konfigurace
+        const CFoundConfig& loadCfg = dlg.Configs[dlg.SelectedSourceIndex];
+        if (!loadCfg.IsPortable && loadCfg.Location[0] != 0)
+        {
+            const char* loc = loadCfg.Location;
+            const char* subkey = strchr(loc, '\\');
+            if (subkey) subkey++;
+            if (subkey) subkey = strchr(subkey, '\\');
+            if (subkey) subkey++;
+            if (subkey && subkey[0] != 0)
+            {
+                // Najit odpovidajici root v SalamanderConfigurationRoots
+                for (int i = 0; i < SALCFG_ROOTS_COUNT; i++)
+                {
+                    if (_stricmp(SalamanderConfigurationRoots[i], subkey) == 0)
+                    {
+                        loadConfiguration = SalamanderConfigurationRoots[i];
+                        break;
+                    }
+                }
+            }
+        }
+    }
     else if (DarkModeShouldUseDarkColors())
     {
         Configuration.UseWindowsDarkMode = TRUE;
