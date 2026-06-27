@@ -5350,8 +5350,162 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_IMPORTCONFIG:
         {
-            SalMessageBox(HWindow, LoadStr(IDS_CONFIGHOWTOIMPORT), LoadStr(IDS_INFOTITLE),
-                          MB_OK | MB_ICONINFORMATION);
+            // Open Manage Configurations dialog
+            CManageConfigsDialog dlg;
+            dlg.DeleteConfigurations = NULL; // no deletion from running app
+            dlg.IndexOfConfigToLoad = -1;
+            dlg.StorageType = (int)Configuration.StorageType;
+            dlg.CanSaveBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
+            dlg.ManageMode = TRUE;
+
+            // Scan for existing configurations
+            extern const char* SalamanderConfigurationRoots[];
+            extern const char* SalamanderConfigurationVersions[];
+            extern BOOL ExportConfiguration(HWND hParent, const char* fileName, BOOL clearKeyBeforeImport);
+
+            LoadSaveToRegistryMutex.Enter();
+
+            int configCount = 0;
+
+            // Add "Empty Configuration" as first item
+            if (configCount < MCD_MAX_CONFIGS)
+            {
+                CFoundConfig& cfg = dlg.Configs[configCount];
+                memset(&cfg, 0, sizeof(cfg));
+                cfg.Exists = TRUE;
+                cfg.IsCurrentVersion = FALSE;
+                cfg.IsPortable = FALSE;
+                cfg.RootIndex = -1;
+                strncpy_s(cfg.DisplayName, LoadStr(IDS_MCD_CLEANCONFIG), _TRUNCATE);
+                strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+                if (StrIStr(cfg.Version, "Samandarin") != NULL)
+                    for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
+                strncpy_s(cfg.StorageTypeStr, "-", _TRUNCATE);
+                strncpy_s(cfg.Language, "-", _TRUNCATE);
+                strncpy_s(cfg.Location, "-", _TRUNCATE);
+                configCount++;
+            }
+
+            // Scan registry configurations
+            for (int rootIndex = 0; rootIndex < SALCFG_ROOTS_COUNT && configCount < MCD_MAX_CONFIGS; rootIndex++)
+            {
+                const char* root = SalamanderConfigurationRoots[rootIndex];
+                HKEY hRootKey;
+                if (RegOpenKeyEx(HKEY_CURRENT_USER, root, 0, KEY_READ, &hRootKey) == ERROR_SUCCESS)
+                {
+                    HKEY hCfgKey;
+                    if (RegOpenKeyEx(hRootKey, SALAMANDER_CONFIG_REG, 0, KEY_READ, &hCfgKey) == ERROR_SUCCESS)
+                    {
+                        RegCloseKey(hCfgKey);
+
+                        CFoundConfig& cfg = dlg.Configs[configCount];
+                        cfg.Exists = TRUE;
+                        cfg.IsCurrentVersion = (rootIndex == 0);
+                        cfg.IsPortable = FALSE;
+                        cfg.RootIndex = rootIndex;
+
+                        BOOL openSalamander = StrIStr(root, "Open Salamander") != NULL;
+                        BOOL altapSalamander = StrIStr(root, "Altap Salamander") != NULL;
+                        const char* name = openSalamander ? LoadStr(IDS_MCD_OPEN_SALAMANDER)
+                                           : altapSalamander ? LoadStr(IDS_MCD_ALTAP_SALAMANDER)
+                                                             : LoadStr(IDS_MCD_SERVANT_SALAMANDER);
+                        sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+                        // Verze: pro Samandarin pouzit format s pomlckami
+                        strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
+                        if (StrIStr(cfg.Version, "Samandarin") != NULL)
+                        {
+                            for (char* p = cfg.Version; *p; p++)
+                                if (*p == ' ') *p = '-';
+                        }
+                        strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_REGISTRY), _TRUNCATE);
+
+                        // Read language
+                        cfg.Language[0] = 0;
+                        {
+                            HKEY hLangKey;
+                            if (RegOpenKeyEx(hRootKey, "Configuration", 0, KEY_READ, &hLangKey) == ERROR_SUCCESS)
+                            {
+                                DWORD langBufSize = sizeof(cfg.Language);
+                                DWORD langType = 0;
+                                LONG res = RegQueryValueEx(hLangKey, "Language", NULL, &langType, (LPBYTE)cfg.Language, &langBufSize);
+                                RegCloseKey(hLangKey);
+                                if (res == ERROR_SUCCESS && langBufSize > 0)
+                                {
+                                    cfg.Language[langBufSize] = 0;
+                                    // Odstranit priponu ".slg" (napr. "english.slg" -> "english")
+                                    char* dot = strrchr(cfg.Language, '.');
+                                    if (dot != NULL && _stricmp(dot, ".slg") == 0)
+                                        *dot = 0;
+                                }
+                                else
+                                {
+                                    TRACE_I("ReadLang FAILED: root=" << root << " res=" << res << " langType=" << langType << " langBufSize=" << langBufSize);
+                                    cfg.Language[0] = 0;
+                                }
+                            }
+                            else
+                            {
+                                TRACE_I("ReadLang: RegOpenKeyEx Configuration FAILED for root=" << root);
+                            }
+                        }
+
+                        _snprintf_s(cfg.Location, _TRUNCATE, "reg:\\HKEY_CURRENT_USER\\%s", root);
+
+                        // Last update time
+                        RegQueryInfoKey(hRootKey, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &cfg.LastUpdate);
+
+                        configCount++;
+                    }
+                    RegCloseKey(hRootKey);
+                }
+            }
+
+            // Scan known file storage paths
+            char knownPaths[20][MAX_PATH];
+            int knownCount = 0;
+            ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
+            for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)
+            {
+                if (GetFileAttributes(knownPaths[k]) != INVALID_FILE_ATTRIBUTES)
+                {
+                    CFoundConfig& cfg = dlg.Configs[configCount];
+                    memset(&cfg, 0, sizeof(cfg));
+                    cfg.Exists = TRUE;
+                    cfg.IsCurrentVersion = FALSE;
+                    cfg.IsPortable = TRUE;
+                    cfg.RootIndex = -1;
+                    _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), knownPaths[k]);
+                    strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+                    if (StrIStr(cfg.Version, "Samandarin") != NULL)
+                        for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
+                    strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
+                    cfg.Language[0] = 0;
+                    strncpy_s(cfg.Location, knownPaths[k], _TRUNCATE);
+                    WIN32_FILE_ATTRIBUTE_DATA fad;
+                    if (GetFileAttributesEx(knownPaths[k], GetFileExInfoStandard, &fad))
+                        cfg.LastUpdate = fad.ftLastWriteTime;
+                    configCount++;
+                }
+            }
+
+            LoadSaveToRegistryMutex.Leave();
+
+            dlg.ConfigsCount = configCount;
+
+            if (dlg.Execute() == IDOK && dlg.StorageType != (int)Configuration.StorageType)
+            {
+                // Storage type changed - offer restart
+                Configuration.StorageType = (CConfigurationStorageType)dlg.StorageType;
+                ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
+                                                              dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
+                // Pridat file storage path do seznamu known paths
+                if (dlg.StorageType == cstRegFile && dlg.RegFilePath[0] != 0)
+                {
+                    ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
+                }
+                SalMessageBox(HWindow, LoadStr(IDS_MCD_RESTARTMSG),
+                              LoadStr(IDS_INFOTITLE), MB_OK | MB_ICONINFORMATION);
+            }
             return 0;
         }
 

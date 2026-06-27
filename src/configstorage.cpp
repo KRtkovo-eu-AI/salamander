@@ -576,3 +576,98 @@ void CConfigurationStorage::UnregisterActiveRegistryKey(HKEY key)
         }
     }
 }
+
+BOOL CConfigurationStorage::LoadKnownFileStoragePaths(char paths[][MAX_PATH], int* count, int maxCount)
+{
+    *count = 0;
+    char fileName[MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    for (int i = 0; i < maxCount; i++)
+    {
+        char key[20];
+        _snprintf_s(key, _TRUNCATE, "Path%d", i);
+        char path[MAX_PATH];
+        path[0] = 0;
+        GetPrivateProfileString("KnownFileStorage", key, "", path, SizeOf(path), fileName);
+        if (path[0] != 0)
+        {
+            strncpy_s(paths[*count], path, _TRUNCATE);
+            (*count)++;
+        }
+        else
+            break;
+    }
+    return *count > 0;
+}
+
+BOOL CConfigurationStorage::AddKnownFileStoragePath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    char fileName[MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    // Nejprve zkontrolovat jestli cesta uz existuje
+    char existingPaths[20][MAX_PATH];
+    int existingCount = 0;
+    LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
+
+    for (int i = 0; i < existingCount; i++)
+    {
+        if (_stricmp(existingPaths[i], path) == 0)
+            return TRUE; // uz existuje
+    }
+
+    // Pridat na konec
+    char key[20];
+    _snprintf_s(key, _TRUNCATE, "Path%d", existingCount);
+    return WritePrivateProfileString("KnownFileStorage", key, path, fileName);
+}
+
+BOOL CConfigurationStorage::RemoveKnownFileStoragePath(const char* path)
+{
+    if (path == NULL || path[0] == 0)
+        return FALSE;
+
+    char fileName[MAX_PATH];
+    if (!GetStorageTypeBootstrapFilePath(fileName, SizeOf(fileName)))
+        return FALSE;
+
+    char existingPaths[20][MAX_PATH];
+    int existingCount = 0;
+    LoadKnownFileStoragePaths(existingPaths, &existingCount, 20);
+
+    // Najit a odstranit
+    int found = -1;
+    for (int i = 0; i < existingCount; i++)
+    {
+        if (_stricmp(existingPaths[i], path) == 0)
+        {
+            found = i;
+            break;
+        }
+    }
+    if (found < 0)
+        return FALSE;
+
+    // Presunout zbyvajici cesty
+    for (int i = found; i < existingCount - 1; i++)
+    {
+        strncpy_s(existingPaths[i], existingPaths[i + 1], _TRUNCATE);
+    }
+    existingCount--;
+
+    // Prepsat vsechny klice
+    WritePrivateProfileString("KnownFileStorage", NULL, NULL, fileName); // smazat celou sekci
+    for (int i = 0; i < existingCount; i++)
+    {
+        char key[20];
+        _snprintf_s(key, _TRUNCATE, "Path%d", i);
+        WritePrivateProfileString("KnownFileStorage", key, existingPaths[i], fileName);
+    }
+    return TRUE;
+}

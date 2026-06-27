@@ -1192,6 +1192,68 @@ protected:
 
 //****************************************************************************
 //
+// CManageConfigsDialog
+//
+
+#define MCD_MAX_CONFIGS 100
+
+struct CFoundConfig
+{
+    BOOL Exists;
+    BOOL IsCurrentVersion;    // rootIndex == 0
+    BOOL IsPortable;          // config.reg file
+    BOOL IsCorrupted;
+    int RootIndex;            // index do SalamanderConfigurationRoots (-1 = portable)
+    char DisplayName[256];    // "Open Salamander 5.0 Samandarin 0.5"
+    char Version[64];         // "5.0-samandarin-0.5"
+    char StorageTypeStr[32];  // "Registry" / "File storage" / "-"
+    char Language[50];        // "en", "cs", "-"
+    char Location[MAX_PATH];  // registry key path or file path
+    FILETIME LastUpdate;      // timestamp posledni zmeny
+};
+
+class CManageConfigsDialog : public CCommonDialog
+{
+public:
+    CFoundConfig Configs[MCD_MAX_CONFIGS];
+    int ConfigsCount;
+    BOOL ConfigChecked[MCD_MAX_CONFIGS]; // TRUE = checkbox v Delete sloupci je zaskrtnuty
+
+    BOOL* DeleteConfigurations;       // pole velikosti SALCFG_ROOTS_COUNT
+    int IndexOfConfigToLoad;          // index do SalamanderConfigurationRoots, -1 = zadny
+    int StorageType;                  // cstRegistry / cstRegFile
+    char RegFilePath[MAX_PATH];
+    BOOL CanSaveBootstrap;            // configstorage.ini writable
+    int SelectedSourceIndex;          // index do Configs[] pro zdrojovou konfiguraci
+    int SortColumn;                   // sloupec podle ktereho se sortuje (-1 = zadny)
+    BOOL SortAscending;               // TRUE = vzestupne, FALSE = sestupne
+    BOOL ManageMode;                  // TRUE = Manage Configurations z menu, FALSE = welcome dialog
+
+public:
+    CManageConfigsDialog();
+    ~CManageConfigsDialog();
+
+protected:
+    virtual void Transfer(CTransferInfo& ti);
+    virtual void Validate(CTransferInfo& ti);
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+    void InitConfigsList();
+    void PopulateConfigsList();
+    void UpdateSourcePanel();
+    void UpdateStorageControls();
+    void UpdateDeleteButtonState();
+    void SortConfigs();
+    void OnUseAsSource();
+    void OnDeleteSelected();
+    void OnExport();
+    void OnBrowseFile();
+    void OnStorageRadioChanged();
+    BOOL DeleteConfigByIndex(int configIndex);
+};
+
+//****************************************************************************
+//
 // CLanguageSelectorDialog
 //
 

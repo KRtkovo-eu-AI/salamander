@@ -2803,6 +2803,31 @@
 #define IDS_CODEPAGE_WARNING_TITLE       14221
 #define IDS_CODEPAGE_WARNING             14222
 
+// Manage Configurations dialog (CManageConfigsDialog)
+#define IDS_MCD_LASTUPDATE               14232
+#define IDS_MCD_CONFIGNAME               14233
+#define IDS_MCD_VERSION                  14234
+#define IDS_MCD_STORAGE                  14235
+#define IDS_MCD_LANG                     14236
+#define IDS_MCD_LOCATION                 14237
+#define IDS_MCD_EMPTYCONFIG              14239
+#define IDS_MCD_PORTABLE                 14256
+#define IDS_MCD_LASTUPDATE_UNKNOWN       14258
+#define IDS_MCD_STORAGE_REGISTRY         14259
+#define IDS_MCD_STORAGE_FILE             14260
+#define IDS_MCD_DELETECONFIRM2           14261
+#define IDS_MCD_OVERWRITECONFIRM         14262
+#define IDS_MCD_SAVEANDSTART             14263
+#define IDS_MCD_SAVEANDRESTART           14264
+#define IDS_MCD_RESTARTMSG               14265
+#define IDS_MCD_CLEANCONFIG              14266
+#define IDS_MCD_FILEPREFIX               14267
+#define IDS_MCD_OPEN_SALAMANDER          14268
+#define IDS_MCD_ALTAP_SALAMANDER         14269
+#define IDS_MCD_SERVANT_SALAMANDER       14270
+
+#define IDS_MENU_OPT_MANAGECONFIG        13169
+
 //#define CM_TEXTS_MAX                  18000    // maximal texts id
 
 #endif // __TEXTS_RH2

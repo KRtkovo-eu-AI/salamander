@@ -1430,3 +1430,658 @@ CCompareArgsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);
 }
+
+//****************************************************************************
+//
+// CManageConfigsDialog
+//
+
+extern const char* SalamanderConfigurationRoots[];
+extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
+extern BOOL ExportConfiguration(HWND hParent, const char* fileName, BOOL clearKeyBeforeImport);
+
+CManageConfigsDialog::CManageConfigsDialog()
+    : CCommonDialog(HLanguage, IDD_MANAGECONFIGS, NULL)
+{
+    ConfigsCount = 0;
+    ZeroMemory(Configs, sizeof(Configs));
+    ZeroMemory(ConfigChecked, sizeof(ConfigChecked));
+    DeleteConfigurations = NULL;
+    IndexOfConfigToLoad = -1;
+    StorageType = cstRegistry;
+    RegFilePath[0] = 0;
+    CanSaveBootstrap = TRUE;
+    SelectedSourceIndex = -1;
+    SortColumn = -1;
+    SortAscending = TRUE;
+    ManageMode = FALSE;
+}
+
+CManageConfigsDialog::~CManageConfigsDialog()
+{
+}
+
+static void EnableMCDStorageControls(HWND hWindow, BOOL canWrite, BOOL isFileStorage)
+{
+    EnableWindow(GetDlgItem(hWindow, IDC_MCD_FILE_PATH), canWrite && isFileStorage);
+    EnableWindow(GetDlgItem(hWindow, IDC_MCD_FILE_BROWSE), canWrite && isFileStorage);
+}
+
+static void DrawRadioBtn(HDC hdc, int x, int y, int size, BOOL filled)
+{
+    HBRUSH hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+    HPEN hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNTEXT));
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    Ellipse(hdc, x, y, x + size, y + size);
+    if (filled)
+    {
+        int inset = size / 4;
+        HBRUSH hFillBrush = CreateSolidBrush(GetSysColor(COLOR_BTNTEXT));
+        SelectObject(hdc, hFillBrush);
+        Ellipse(hdc, x + inset, y + inset, x + size - inset, y + size - inset);
+        DeleteObject(hFillBrush);
+    }
+    SelectObject(hdc, hOldBrush);
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+}
+
+void CManageConfigsDialog::InitConfigsList()
+{
+    HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
+
+    DWORD exFlags = LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES;
+    DWORD origFlags = ListView_GetExtendedListViewStyle(hList);
+    ListView_SetExtendedListViewStyle(hList, origFlags | exFlags);
+
+    LVCOLUMN lvc;
+    lvc.mask = LVCF_TEXT | LVCF_FMT | LVCF_WIDTH;
+    lvc.fmt = LVCFMT_LEFT;
+
+    char col[256];
+
+    lvc.cx = 75;
+    strncpy_s(col, LoadStr(IDS_MCD_LASTUPDATE), _TRUNCATE);
+    lvc.pszText = col;
+    ListView_InsertColumn(hList, 0, &lvc);
+
+    lvc.cx = 280;
+    strncpy_s(col, LoadStr(IDS_MCD_CONFIGNAME), _TRUNCATE);
+    lvc.pszText = col;
+    ListView_InsertColumn(hList, 1, &lvc);
+
+    lvc.cx = 120;
+    strncpy_s(col, LoadStr(IDS_MCD_VERSION), _TRUNCATE);
+    lvc.pszText = col;
+    ListView_InsertColumn(hList, 2, &lvc);
+
+    lvc.cx = 70;
+    strncpy_s(col, LoadStr(IDS_MCD_LANG), _TRUNCATE);
+    lvc.pszText = col;
+    ListView_InsertColumn(hList, 3, &lvc);
+
+    lvc.cx = 65;
+    strncpy_s(col, LoadStr(IDS_MCD_STORAGE), _TRUNCATE);
+    lvc.pszText = col;
+    ListView_InsertColumn(hList, 4, &lvc);
+
+    lvc.cx = 450;
+    strncpy_s(col, LoadStr(IDS_MCD_LOCATION), _TRUNCATE);
+    lvc.pszText = col;
+    ListView_InsertColumn(hList, 5, &lvc);
+}
+
+void CManageConfigsDialog::PopulateConfigsList()
+{
+    HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
+    ListView_DeleteAllItems(hList);
+    for (int i = 0; i < ConfigsCount; i++)
+    {
+        if (!Configs[i].Exists)
+            continue;
+
+        // Last update jako prvni sloupec (0)
+        char firstColText[50] = "";
+        if (Configs[i].LastUpdate.dwLowDateTime != 0 || Configs[i].LastUpdate.dwHighDateTime != 0)
+        {
+            SYSTEMTIME st;
+            if (FileTimeToSystemTime(&Configs[i].LastUpdate, &st))
+            {
+                if (!GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, firstColText, SizeOf(firstColText)))
+                    _snprintf_s(firstColText, _TRUNCATE, "%02d/%02d/%04d", st.wMonth, st.wDay, st.wYear);
+            }
+            else
+                strncpy_s(firstColText, LoadStr(IDS_MCD_LASTUPDATE_UNKNOWN), _TRUNCATE);
+        }
+        else
+            strncpy_s(firstColText, LoadStr(IDS_MCD_LASTUPDATE_UNKNOWN), _TRUNCATE);
+
+        LVITEM lvItem;
+        memset(&lvItem, 0, sizeof(lvItem));
+        lvItem.mask = LVIF_TEXT | LVIF_PARAM;
+        lvItem.iItem = i;
+        lvItem.iSubItem = 0;
+        lvItem.pszText = firstColText;
+        lvItem.lParam = i;
+        int idx = ListView_InsertItem(hList, &lvItem);
+
+        ListView_SetItemText(hList, idx, 1, Configs[i].DisplayName);
+        ListView_SetItemText(hList, idx, 2, Configs[i].Version);
+        ListView_SetItemText(hList, idx, 3, Configs[i].Language);
+        ListView_SetItemText(hList, idx, 4, Configs[i].StorageTypeStr);
+        ListView_SetItemText(hList, idx, 5, Configs[i].Location);
+    }
+
+    if (ConfigsCount > 0)
+    {
+        DWORD state = LVIS_SELECTED | LVIS_FOCUSED;
+        ListView_SetItemState(hList, 0, state, state);
+    }
+}
+
+void CManageConfigsDialog::UpdateSourcePanel()
+{
+    if (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount && Configs[SelectedSourceIndex].Exists)
+    {
+        CFoundConfig& cfg = Configs[SelectedSourceIndex];
+        // Pro prazdnou konfiguraci zobrazit nazev aplikace jako defaultni jmeno
+        const char* cfgName = (cfg.RootIndex == -1 && !cfg.IsPortable) ? SALAMANDER_TEXT_VERSION : cfg.DisplayName;
+        SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, cfgName);
+        SetDlgItemText(HWindow, IDC_MCD_SRC_VERSION, cfg.Version);
+        SetDlgItemText(HWindow, IDC_MCD_SRC_STORAGE, cfg.StorageTypeStr);
+        SetDlgItemText(HWindow, IDC_MCD_SRC_LANG, cfg.Language);
+        SetDlgItemText(HWindow, IDC_MCD_SRC_LOCATION, cfg.Location);
+    }
+    else
+    {
+        SetDlgItemText(HWindow, IDC_MCD_SRC_NAME, "");
+        SetDlgItemText(HWindow, IDC_MCD_SRC_VERSION, "");
+        SetDlgItemText(HWindow, IDC_MCD_SRC_STORAGE, "");
+        SetDlgItemText(HWindow, IDC_MCD_SRC_LANG, "");
+        SetDlgItemText(HWindow, IDC_MCD_SRC_LOCATION, "");
+    }
+}
+
+void CManageConfigsDialog::UpdateStorageControls()
+{
+    BOOL isFileStorage = IsDlgButtonChecked(HWindow, IDC_MCD_FILE_RADIO) == BST_CHECKED;
+    BOOL canWrite = CanSaveBootstrap;
+
+    EnableWindow(GetDlgItem(HWindow, IDC_MCD_REG_RADIO), canWrite);
+    EnableWindow(GetDlgItem(HWindow, IDC_MCD_FILE_RADIO), canWrite);
+    EnableMCDStorageControls(HWindow, canWrite, isFileStorage);
+}
+
+void CManageConfigsDialog::UpdateDeleteButtonState()
+{
+    BOOL isEmptyConfig = (SelectedSourceIndex == 0 && ConfigsCount > 0 &&
+                          Configs[0].RootIndex == -1 && !Configs[0].IsPortable);
+    BOOL hasSelection = (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount &&
+                         Configs[SelectedSourceIndex].Exists);
+
+    // Delete - nesmaze clean config
+    EnableWindow(GetDlgItem(HWindow, IDC_MCD_DELETE_SEL), hasSelection && !isEmptyConfig);
+
+    // Export - jen pro existujici konfigurace (ne clean config)
+    EnableWindow(GetDlgItem(HWindow, IDC_MCD_EXPORT), hasSelection && !isEmptyConfig);
+}
+
+void CManageConfigsDialog::SortConfigs()
+{
+    if (SortColumn < 0 || SortColumn > 5)
+        return;
+
+    // Jednoduchy bubble sort (pole je male, max 100)
+    for (int i = 0; i < ConfigsCount - 1; i++)
+    {
+        for (int j = i + 1; j < ConfigsCount; j++)
+        {
+            if (!Configs[i].Exists || !Configs[j].Exists)
+                continue;
+
+            const CFoundConfig& ca = Configs[i];
+            const CFoundConfig& cb = Configs[j];
+            int cmp = 0;
+            switch (SortColumn)
+            {
+            case 0: cmp = CompareFileTime(&ca.LastUpdate, &cb.LastUpdate); break;
+            case 1: cmp = _stricmp(ca.DisplayName, cb.DisplayName); break;
+            case 2: cmp = _stricmp(ca.Version, cb.Version); break;
+            case 3: cmp = _stricmp(ca.Language, cb.Language); break;
+            case 4: cmp = _stricmp(ca.StorageTypeStr, cb.StorageTypeStr); break;
+            case 5: cmp = _stricmp(ca.Location, cb.Location); break;
+            }
+            if (!SortAscending) cmp = -cmp;
+            if (cmp > 0)
+            {
+                CFoundConfig tmp = Configs[i];
+                Configs[i] = Configs[j];
+                Configs[j] = tmp;
+            }
+        }
+    }
+
+    // Nastavit header sort indicator
+    HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
+    HWND hHeader = ListView_GetHeader(hList);
+    for (int i = 0; i <= 5; i++)
+    {
+        HDITEM hdi;
+        memset(&hdi, 0, sizeof(hdi));
+        hdi.mask = HDI_FORMAT;
+        Header_GetItem(hHeader, i, &hdi);
+        hdi.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+        if (i == SortColumn)
+            hdi.fmt |= SortAscending ? HDF_SORTUP : HDF_SORTDOWN;
+        Header_SetItem(hHeader, i, &hdi);
+    }
+}
+
+void CManageConfigsDialog::OnUseAsSource()
+{
+    HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
+    int sel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+    if (sel >= 0 && sel < ConfigsCount)
+    {
+        SelectedSourceIndex = sel;
+        UpdateSourcePanel();
+        InvalidateRect(hList, NULL, TRUE);
+    }
+}
+
+void CManageConfigsDialog::OnDeleteSelected()
+{
+    if (SelectedSourceIndex < 0 || SelectedSourceIndex >= ConfigsCount || !Configs[SelectedSourceIndex].Exists)
+        return;
+
+    CFoundConfig& cfg = Configs[SelectedSourceIndex];
+    char msg[1000];
+    _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_MCD_DELETECONFIRM2),
+                cfg.DisplayName, cfg.Version, cfg.StorageTypeStr, cfg.Location);
+    if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
+        return;
+
+    DeleteConfigByIndex(SelectedSourceIndex);
+
+    PopulateConfigsList();
+    SelectedSourceIndex = -1;
+    UpdateSourcePanel();
+    UpdateDeleteButtonState();
+}
+
+void CManageConfigsDialog::OnExport()
+{
+    if (SelectedSourceIndex < 0 || SelectedSourceIndex >= ConfigsCount || !Configs[SelectedSourceIndex].Exists)
+        return;
+
+    char file[MAX_PATH] = "config_.reg";
+    char defDir[MAX_PATH];
+
+    if (WindowsVistaAndLater)
+    {
+        if (!CreateOurPathInRoamingAPPDATA(defDir))
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEPATHERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+    }
+    else
+    {
+        GetModuleFileName(HInstance, defDir, MAX_PATH);
+        char* slash = strrchr(defDir, '\\');
+        if (slash != NULL)
+            *slash = 0;
+    }
+
+    OPENFILENAME ofn;
+    memset(&ofn, 0, sizeof(ofn));
+    char filter[] = "Registration Files (*.reg)\0*.reg\0All Files (*.*)\0*.*\0\0";
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = HWindow;
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = file;
+    ofn.nMaxFile = SizeOf(file);
+    ofn.lpstrInitialDir = defDir;
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.lpstrDefExt = "reg";
+
+    if (SafeGetSaveFileName(&ofn))
+    {
+        if (SalGetFullName(file))
+        {
+            if (ExportConfiguration(HWindow, file, TRUE))
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_CONFIGEXPORTED), LoadStr(IDS_INFOTITLE),
+                              MB_OK | MB_ICONINFORMATION);
+            }
+            else
+                DeleteFile(file);
+        }
+    }
+}
+
+void CManageConfigsDialog::OnBrowseFile()
+{
+    char path[MAX_PATH];
+    GetDlgItemText(HWindow, IDC_MCD_FILE_PATH, path, SizeOf(path));
+    if (BrowseRegStorageFile(HWindow, path, SizeOf(path)))
+    {
+        if (CanWriteRegStorageFilePath(path))
+            SetDlgItemText(HWindow, IDC_MCD_FILE_PATH, path);
+        else
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+    }
+}
+
+void CManageConfigsDialog::OnStorageRadioChanged()
+{
+    UpdateStorageControls();
+}
+
+BOOL CManageConfigsDialog::DeleteConfigByIndex(int configIndex)
+{
+    if (configIndex < 0 || configIndex >= ConfigsCount || !Configs[configIndex].Exists)
+        return FALSE;
+
+    CFoundConfig& cfg = Configs[configIndex];
+    BOOL deleted = FALSE;
+    char deletedPath[MAX_PATH] = "";
+    strncpy_s(deletedPath, cfg.Location, _TRUNCATE);
+
+    if (cfg.IsPortable)
+    {
+        if (DeleteFile(cfg.Location))
+            deleted = TRUE;
+        // Odstranit z known paths
+        ConfigurationStorage.RemoveKnownFileStoragePath(cfg.Location);
+    }
+    else if (cfg.RootIndex >= 0)
+    {
+        HKEY key;
+        if (OpenKey(HKEY_CURRENT_USER, cfg.Location, key))
+        {
+            ClearKey(key);
+            CloseKey(key);
+            DeleteKey(HKEY_CURRENT_USER, cfg.Location);
+            deleted = TRUE;
+        }
+        if (deleted && DeleteConfigurations != NULL)
+            DeleteConfigurations[cfg.RootIndex] = TRUE;
+    }
+
+    if (deleted)
+        cfg.Exists = FALSE;
+
+    return deleted;
+}
+
+void CManageConfigsDialog::Transfer(CTransferInfo& ti)
+{
+    if (ti.Type == ttDataToWindow)
+    {
+        char buff[5000];
+        char buff2[5000];
+        GetWindowText(HWindow, buff, 5000);
+        _snprintf_s(buff2, _TRUNCATE, buff, SALAMANDER_TEXT_VERSION);
+        SetWindowText(HWindow, buff2);
+
+        InitConfigsList();
+        PopulateConfigsList();
+
+        char regPath[MAX_PATH];
+        _snprintf_s(regPath, _TRUNCATE, "reg:\\HKEY_CURRENT_USER\\%s", SalamanderConfigurationRoots[0]);
+        SetDlgItemText(HWindow, IDC_MCD_REGISTRY_PATH, regPath);
+
+        if (RegFilePath[0] == 0)
+        {
+            CConfigurationStorageType bootstrapType = (CConfigurationStorageType)StorageType;
+            ConfigurationStorage.LoadStorageTypeBootstrap(bootstrapType, RegFilePath, SizeOf(RegFilePath));
+        }
+        if (RegFilePath[0] == 0)
+            ConfigurationStorage.GetPortableConfigFilePath(RegFilePath, SizeOf(RegFilePath));
+        SetDlgItemText(HWindow, IDC_MCD_FILE_PATH, RegFilePath);
+
+        CheckRadioButton(HWindow, IDC_MCD_REG_RADIO, IDC_MCD_FILE_RADIO,
+                         StorageType == cstRegFile ? IDC_MCD_FILE_RADIO : IDC_MCD_REG_RADIO);
+
+        if (ConfigsCount > 0)
+        {
+            SelectedSourceIndex = 0;
+            UpdateSourcePanel();
+            UpdateDeleteButtonState();
+        }
+
+        UpdateStorageControls();
+    }
+    else
+    {
+        if (IsDlgButtonChecked(HWindow, IDC_MCD_FILE_RADIO) == BST_CHECKED && CanSaveBootstrap)
+        {
+            StorageType = cstRegFile;
+            GetDlgItemText(HWindow, IDC_MCD_FILE_PATH, RegFilePath, SizeOf(RegFilePath));
+        }
+        else
+        {
+            StorageType = cstRegistry;
+            RegFilePath[0] = 0;
+        }
+
+        IndexOfConfigToLoad = -1;
+        if (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount &&
+            Configs[SelectedSourceIndex].Exists && !Configs[SelectedSourceIndex].IsPortable)
+        {
+            IndexOfConfigToLoad = Configs[SelectedSourceIndex].RootIndex;
+        }
+
+        // Precist editovatelný Configuration name z IDC_MCD_SRC_NAME
+        char cfgName[256];
+        GetDlgItemText(HWindow, IDC_MCD_SRC_NAME, cfgName, SizeOf(cfgName));
+        if (cfgName[0] != 0 && SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount)
+        {
+            strncpy_s(Configs[SelectedSourceIndex].DisplayName, cfgName, _TRUNCATE);
+        }
+
+        if (DeleteConfigurations != NULL && SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount)
+        {
+            if (Configs[SelectedSourceIndex].Exists && Configs[SelectedSourceIndex].RootIndex >= 0)
+            {
+                DeleteConfigurations[Configs[SelectedSourceIndex].RootIndex] = TRUE;
+            }
+        }
+    }
+}
+
+void CManageConfigsDialog::Validate(CTransferInfo& ti)
+{
+    if (IsDlgButtonChecked(HWindow, IDC_MCD_FILE_RADIO) == BST_CHECKED && CanSaveBootstrap)
+    {
+        char path[MAX_PATH];
+        GetDlgItemText(HWindow, IDC_MCD_FILE_PATH, path, SizeOf(path));
+        if (path[0] == 0)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEPATHERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_MCD_FILE_PATH);
+            return;
+        }
+        if (!CanWriteRegStorageFilePath(path))
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+            ti.ErrorOn(IDC_MCD_FILE_PATH);
+            return;
+        }
+        // Overwrite confirmation - check if file already exists
+        DWORD attrs = GetFileAttributes(path);
+        if (attrs != INVALID_FILE_ATTRIBUTES)
+        {
+            char msg[500];
+            _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_MCD_OVERWRITECONFIRM), path);
+            if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
+            {
+                ti.ErrorOn(IDC_MCD_FILE_PATH);
+                return;
+            }
+        }
+    }
+    else // Registry storage
+    {
+        // Overwrite confirmation - check if registry config already exists
+        HKEY hKey;
+        if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hKey))
+        {
+            HKEY hCfgKey;
+            if (OpenKey(hKey, SALAMANDER_CONFIG_REG, hCfgKey))
+            {
+                CloseKey(hCfgKey);
+                CloseKey(hKey);
+
+                char regPath[MAX_PATH];
+                GetDlgItemText(HWindow, IDC_MCD_REGISTRY_PATH, regPath, SizeOf(regPath));
+                char msg[500];
+                _snprintf_s(msg, _TRUNCATE, LoadStr(IDS_MCD_OVERWRITECONFIRM), regPath);
+                if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
+                    return;
+            }
+            else
+                CloseKey(hKey);
+        }
+    }
+}
+
+static void DrawCheckbox(HDC hdc, int x, int y, int size, BOOL checked)
+{
+    // Bile pozadi pro checkbox
+    RECT rcBox;
+    rcBox.left = x;
+    rcBox.top = y;
+    rcBox.right = x + size;
+    rcBox.bottom = y + size;
+    HBRUSH hBgBrush = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+    FillRect(hdc, &rcBox, hBgBrush);
+    DeleteObject(hBgBrush);
+
+    // Ramecek
+    HPEN hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNTEXT));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Rectangle(hdc, x, y, x + size, y + size);
+
+    // Hack pokud checked
+    if (checked)
+    {
+        HPEN hCheckPen = CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
+        SelectObject(hdc, hCheckPen);
+        MoveToEx(hdc, x + 3, y + size / 2, NULL);
+        LineTo(hdc, x + size / 2 - 1, y + size - 3);
+        MoveToEx(hdc, x + size / 2 - 1, y + size - 3, NULL);
+        LineTo(hdc, x + size - 3, y + 3);
+        DeleteObject(hCheckPen);
+    }
+
+    SelectObject(hdc, hOldBrush);
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+}
+
+INT_PTR
+CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+    {
+        INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        SendMessage(HWindow, WM_SYSCOMMAND, SC_RESTORE, 0);
+
+        // Nastavit ikonu dialogu
+        HICON hIcon = (HICON)LoadImage(HInstance, MAKEINTRESOURCE(IDI_SALAMANDER), IMAGE_ICON,
+                                        GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR);
+        if (hIcon)
+            SendMessage(HWindow, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+        HICON hIconSm = (HICON)LoadImage(HInstance, MAKEINTRESOURCE(IDI_SALAMANDER), IMAGE_ICON,
+                                          GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+        if (hIconSm)
+            SendMessage(HWindow, WM_SETICON, ICON_SMALL, (LPARAM)hIconSm);
+
+        // Nastavit text tlacitka Write podle modu
+        SetDlgItemText(HWindow, IDOK, ManageMode ? LoadStr(IDS_MCD_SAVEANDRESTART) : LoadStr(IDS_MCD_SAVEANDSTART));
+
+        return ret;
+    }
+
+    case WM_NOTIFY:
+    {
+        NMHDR* nmhdr = (NMHDR*)lParam;
+        if (nmhdr->idFrom == IDC_MCD_CONFIGS_LIST)
+        {
+            if (nmhdr->code == LVN_ITEMCHANGED)
+            {
+                NMLISTVIEW* nmlv = (NMLISTVIEW*)lParam;
+                if ((nmlv->uNewState & LVIS_SELECTED) && !(nmlv->uOldState & LVIS_SELECTED))
+                {
+                    SelectedSourceIndex = nmlv->iItem;
+                    UpdateSourcePanel();
+                    UpdateDeleteButtonState();
+                }
+                else if (!(nmlv->uNewState & LVIS_SELECTED) && (nmlv->uOldState & LVIS_SELECTED))
+                {
+                    SelectedSourceIndex = -1;
+                    UpdateSourcePanel();
+                    UpdateDeleteButtonState();
+                }
+            }
+            else if (nmhdr->code == HDN_ITEMCLICK)
+            {
+                NMHEADER* nmh = (NMHEADER*)lParam;
+                if (nmh->iItem >= 0 && nmh->iItem <= 5)
+                {
+                    if (SortColumn == nmh->iItem)
+                        SortAscending = !SortAscending;
+                    else
+                    {
+                        SortColumn = nmh->iItem;
+                        SortAscending = TRUE;
+                    }
+                    SortConfigs();
+                    PopulateConfigsList();
+                }
+            }
+        }
+        break;
+    }
+
+    case WM_COMMAND:
+    {
+        switch (LOWORD(wParam))
+        {
+        case IDC_MCD_DELETE_SEL:
+            OnDeleteSelected();
+            return TRUE;
+
+        case IDC_MCD_EXPORT:
+            OnExport();
+            return TRUE;
+
+        case IDC_MCD_IMPORT:
+            // Zatim bez akce
+            return TRUE;
+
+        case IDC_MCD_FILE_BROWSE:
+            OnBrowseFile();
+            return TRUE;
+
+        case IDC_MCD_REG_RADIO:
+        case IDC_MCD_FILE_RADIO:
+            if (HIWORD(wParam) == BN_CLICKED)
+                OnStorageRadioChanged();
+            return TRUE;
+        }
+        break;
+    }
+    }
+    return CCommonDialog::DialogProc(uMsg, wParam, lParam);
+}

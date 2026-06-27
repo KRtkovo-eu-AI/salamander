@@ -4683,127 +4683,14 @@ FIND_NEW_SLG_FILE:
         CloseKey(existingRegistryConfigKey);
     }
     BOOL migrateRegistryToFile = FALSE;
-    BOOL storedConfigurationRemoved = FALSE;
     if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
     {
         storageType = cstRegistry;
         migrateRegistryToFile = TRUE;
     }
-    if (!storageTypeFromBootstrap && !migrateRegistryToFile)
-    {
-        BOOL showRegistryImportPrompt = !portableConfigExists;
-        if (portableConfigExists)
-        {
-            if (!storageTypeBootstrapWritable)
-            {
-                // configstorage.ini cannot be written: import config.reg values
-                // into the registry before deleting the file, so all configuration
-                // (including IfPathIsInaccessibleGoTo, dark mode settings, etc.)
-                // is preserved.
-                ImportConfiguration(NULL, portableConfigPath, FALSE, FALSE, NULL);
-                storageType = cstRegistry;
-                DeleteFile(portableConfigPath);
-                SetRestrictedFileStorageImported();
-                storageTypeFromBootstrap = TRUE;
-                portableConfigExists = FALSE;
-                SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_IMPORTREGDONE), LoadStr(IDS_INFOTITLE),
-                              MB_OK | MB_ICONINFORMATION);
-            }
-            else
-            {
-                MSGBOXEX_PARAMS params;
-                memset(&params, 0, sizeof(params));
-                params.HParent = NULL;
-                params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
-                params.Caption = LoadStr(IDS_QUESTION);
-                params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTREGPROMPT);
-                params.AliasBtnNames = LoadStr(IDS_CFGSTORAGE_IMPORTREGALIAS);
-
-                int res = SalMessageBoxEx(&params);
-                if (res == DIALOG_YES)
-                {
-                    storageType = cstRegFile;
-                    ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
-                    storageTypeFromBootstrap = TRUE;
-                }
-                else if (res == DIALOG_NO)
-                {
-                    storageType = cstRegistry;
-                    ImportConfiguration(NULL, portableConfigPath, FALSE, autoImportConfig,
-                                        &importCfgFromFileWasSkipped);
-                    DeleteFile(portableConfigPath);
-                    ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
-                    storageTypeFromBootstrap = TRUE;
-                    portableConfigExists = FALSE;
-                    registryConfigExists = TRUE;
-                }
-                else if (res == DIALOG_CANCEL)
-                {
-                    DeleteFile(portableConfigPath);
-                    portableConfigExists = FALSE;
-                    if (registryConfigExists)
-                        showRegistryImportPrompt = TRUE;
-                    else
-                        storedConfigurationRemoved = TRUE;
-                }
-            }
-        }
-        if (showRegistryImportPrompt && registryConfigExists && storageTypeBootstrapWritable)
-        {
-            MSGBOXEX_PARAMS params;
-            memset(&params, 0, sizeof(params));
-            params.HParent = NULL;
-            params.Flags = MSGBOXEX_YESNOCANCEL | MSGBOXEX_ICONQUESTION;
-            params.Caption = LoadStr(IDS_QUESTION);
-            params.Text = LoadStr(IDS_CFGSTORAGE_IMPORTFILEPROMPT);
-            params.AliasBtnNames = LoadStr(IDS_CFGSTORAGE_IMPORTFILEALIAS);
-
-            int res = SalMessageBoxEx(&params);
-            if (res == DIALOG_YES)
-            {
-                storageType = cstRegistry;
-                migrateRegistryToFile = TRUE;
-            }
-            else if (res == DIALOG_NO)
-            {
-                storageType = cstRegistry;
-                ConfigurationStorage.SaveStorageTypeBootstrap(storageType);
-                storageTypeFromBootstrap = TRUE;
-            }
-            else if (res == DIALOG_CANCEL)
-            {
-                DeleteStoredRegistryConfiguration(SalamanderConfigurationRoots[0]);
-                storedConfigurationRemoved = TRUE;
-            }
-        }
-    }
-    if (storedConfigurationRemoved)
-    {
-        storageType = cstRegistry;
-        migrateRegistryToFile = FALSE;
-        Configuration.StorageType = storageType;
-        ZeroMemory(deleteConfigurations, sizeof(deleteConfigurations));
-        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
-        {
-            SplashScreenCloseIfExist();
-            goto EXIT_2;
-        }
-        storageTypeFromBootstrap = ConfigurationStorage.LoadStorageTypeBootstrap(storageType, storageRegFilePath, SizeOf(storageRegFilePath));
-        Configuration.StorageType = storageType;
-        currentCfgDoesNotExist = autoImportConfig || SALAMANDER_ROOT_REG != SalamanderConfigurationRoots[0];
-        saveNewConfig = currentCfgDoesNotExist;
-        registryConfigExists = FALSE;
-        if (!currentCfgDoesNotExist && OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], existingRegistryConfigKey))
-        {
-            registryConfigExists = TRUE;
-            CloseKey(existingRegistryConfigKey);
-        }
-        if (Configuration.StorageType == cstRegFile && currentCfgDoesNotExist)
-        {
-            storageType = cstRegistry;
-            migrateRegistryToFile = TRUE;
-        }
-    }
+    // Note: The old 3-dialog block (Dialog A, Dialog B, auto-import) has been replaced
+    // by the new CManageConfigsDialog in FindLatestConfiguration(). The Welcome dialog
+    // now handles all configuration selection, storage type choice, and deletion.
 
     if ((storageType == cstRegFile || migrateRegistryToFile) && storageRegFilePath[0] == 0)
     {

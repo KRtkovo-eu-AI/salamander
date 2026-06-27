@@ -53,6 +53,11 @@ public:
     void RegisterActiveRegistryKey(HKEY key);
     void UnregisterActiveRegistryKey(HKEY key);
     BOOL UseActiveRegistryForKey(HKEY key, const char* name = NULL);
+
+    // Sprava seznamu known file storage paths
+    BOOL LoadKnownFileStoragePaths(char paths[][MAX_PATH], int* count, int maxCount);
+    BOOL AddKnownFileStoragePath(const char* path);
+    BOOL RemoveKnownFileStoragePath(const char* path);
 };
 
 extern CConfigurationStorage ConfigurationStorage;

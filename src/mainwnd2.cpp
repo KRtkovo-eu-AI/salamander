@@ -1136,38 +1136,81 @@ BOOL MyRegRenameKey(HKEY key, const char* name, const char* newName)
 // If the user chooses to exit the application, the function returns FALSE.
 //
 
+// Helper: detect product name from registry path
+static const char* DetectProductName(const char* root)
+{
+    if (StrIStr(root, "Open Salamander") != NULL)
+        return LoadStr(IDS_MCD_OPEN_SALAMANDER);
+    if (StrIStr(root, "Altap Salamander") != NULL)
+        return LoadStr(IDS_MCD_ALTAP_SALAMANDER);
+    return LoadStr(IDS_MCD_SERVANT_SALAMANDER);
+}
+
+// Helper: read language from a registry config
+static BOOL ReadConfigLanguage(HKEY hRootKey, char* language, int languageSize)
+{
+    language[0] = 0;
+
+    // Nacist Language z <root>\Configuration\Language
+    HKEY hCfgKey;
+    if (RegOpenKeyEx(hRootKey, "Configuration", 0, KEY_READ, &hCfgKey) == ERROR_SUCCESS)
+    {
+        DWORD dwSize = languageSize;
+        if (RegQueryValueEx(hCfgKey, "Language", NULL, NULL, (LPBYTE)language, &dwSize) == ERROR_SUCCESS)
+        {
+            // Odstranit priponu ".slg" (napr. "english.slg" -> "english")
+            char* dot = strrchr(language, '.');
+            if (dot != NULL && _stricmp(dot, ".slg") == 0)
+                *dot = 0;
+        }
+        RegCloseKey(hCfgKey);
+    }
+    return language[0] != 0;
+}
+
+// Helper: read config version from registry
+static DWORD ReadConfigVersion(HKEY hRootKey)
+{
+    DWORD configVersion = 1;
+    HKEY hVerKey;
+    if (HANDLES_Q(RegOpenKeyEx(hRootKey, SALAMANDER_VERSION_REG, 0, KEY_READ, &hVerKey)) == ERROR_SUCCESS)
+    {
+        configVersion = 2;
+        GetValueAux(NULL, hVerKey, SALAMANDER_VERSIONREG_REG, REG_DWORD, &configVersion, sizeof(DWORD));
+        HANDLES(RegCloseKey(hVerKey));
+    }
+    return configVersion;
+}
+
 BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration)
 {
     HKEY hRootKey;
-    loadConfiguration = NULL; // we don't want to load any configuration - default values will be used
-    int rootIndex = Configuration.StorageType == cstRegFile ? 1 : 0;
-    const char* root;
-    DWORD saveInProgress; // dummy
+    loadConfiguration = NULL;
+    DWORD saveInProgress;
     HKEY hCfgKey;
 
-    CImportConfigDialog dlg;
-    ZeroMemory(dlg.ConfigurationExist, sizeof(dlg.ConfigurationExist)); // none of the configurations found yet
+    CManageConfigsDialog dlg;
     dlg.DeleteConfigurations = deleteConfigurations;
-    dlg.IndexOfConfigurationToLoad = -1;
+    dlg.IndexOfConfigToLoad = -1;
     dlg.StorageType = Configuration.StorageType;
-
-    BOOL offerImportDlg = FALSE; // if an old configuration or keys exist, offer import
+    dlg.CanSaveBootstrap = ConfigurationStorage.CanSaveStorageTypeBootstrap();
 
     LoadSaveToRegistryMutex.Enter();
 
+    // Backup check (stejna logika jako drive)
     char backup[200];
-    sprintf_s(backup, "%s.backup.63A7CD13", SalamanderConfigurationRoots[0]); // "63A7CD13" prevents the key name from matching the user name
+    sprintf_s(backup, "%s.backup.63A7CD13", SalamanderConfigurationRoots[0]);
     HKEY backupKey;
     BOOL backupFound = OpenKeyAux(NULL, HKEY_CURRENT_USER, backup, backupKey);
     if (backupFound)
     {
         DWORD copyIsOK;
         if (GetValueAux(NULL, backupKey, SALAMANDER_COPY_IS_OK, REG_DWORD, &copyIsOK, sizeof(DWORD)))
-            copyIsOK = 1; // backup is valid
+            copyIsOK = 1;
         else
-            copyIsOK = 0; // backup is corrupted
+            copyIsOK = 0;
         HANDLES(RegCloseKey(backupKey));
-        if (!copyIsOK) // delete the corrupted backup and pretend it never existed (it probably wasn't fully created)
+        if (!copyIsOK)
         {
             TRACE_I("Configuration backup is incomplete, removing... " << backup);
             SHDeleteKey(HKEY_CURRENT_USER, backup);
@@ -1177,22 +1220,26 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             TRACE_I("Configuration backup is OK: " << backup);
     }
 
-    do
+    // Scan all registry configurations
+    int configCount = 0;
+    for (int rootIndex = 0; rootIndex < SALCFG_ROOTS_COUNT && configCount < MCD_MAX_CONFIGS; rootIndex++)
     {
-        root = SalamanderConfigurationRoots[rootIndex];
-        // check whether the key exists
+        const char* root = SalamanderConfigurationRoots[rootIndex];
         BOOL rootFound = OpenKeyAux(NULL, HKEY_CURRENT_USER, root, hRootKey);
+
+        // Corruption check
         if (rootFound &&
             GetValueAux(NULL, hRootKey, SALAMANDER_SAVE_IN_PROGRESS, REG_DWORD, &saveInProgress, sizeof(DWORD)))
-        { // this configuration is corrupted
+        {
             TRACE_E("Configuration is corrupted!");
             rootFound = FALSE;
             CloseKeyAux(hRootKey);
-            if (rootIndex == 0 && backupFound) // use the backup, if available and don't bother the user
+
+            if (rootIndex == 0 && backupFound)
             {
                 char corrupted[200];
-                sprintf_s(corrupted, "%s.corrupted.63A7CD13", root); // "63A7CD13" prevents the key name from matching the user name
-                SHDeleteKey(HKEY_CURRENT_USER, corrupted);           // if we already have a corrupted configuration, remove it-one is enough
+                sprintf_s(corrupted, "%s.corrupted.63A7CD13", root);
+                SHDeleteKey(HKEY_CURRENT_USER, corrupted);
                 if (MyRegRenameKey(HKEY_CURRENT_USER, root, corrupted) &&
                     MyRegRenameKey(HKEY_CURRENT_USER, backup, root))
                 {
@@ -1204,13 +1251,13 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
                     }
                     TRACE_I("Corrupted configuration was moved to: " << corrupted);
                     TRACE_I("Using configuration backup instead ...");
-                    continue; // in the second pass load configuration from the backup created during "critical shutdown"
+                    rootFound = OpenKeyAux(NULL, HKEY_CURRENT_USER, root, hRootKey);
                 }
                 else
                     TRACE_E("Unable to move corrupted configuration or configuration backup.");
             }
 
-            if (rootIndex == 0) // for the active version inform the user about the corrupted configuration and let them back up the key, then try to delete it (older versions - simply ignore the corrupted configuration)
+            if (rootIndex == 0 && rootFound == FALSE)
             {
                 char buf[1500];
                 _snprintf_s(buf, _TRUNCATE, LoadStr(IDS_CORRUPTEDCONFIGFOUND), root);
@@ -1223,99 +1270,247 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
                 params.Caption = SALAMANDER_TEXT_VERSION;
                 params.Text = buf;
                 char aliasBtnNames[200];
-                /* used by the export_mnu.py script that generates salmenu.mnu for the Translator
-   we let the message box buttons handle hotkey collisions by simulating it as a menu
-MENU_TEMPLATE_ITEM MsgBoxButtons[] = 
-{
-  {MNTT_PB, 0
-  {MNTT_IT, IDS_CORRUPTEDCONFIGREMOVEBTN
-  {MNTT_IT, IDS_SELLANGEXITBUTTON
-  {MNTT_PE, 0
-};
-*/
                 sprintf(aliasBtnNames, "%d\t%s\t%d\t%s", DIALOG_OK, LoadStr(IDS_CORRUPTEDCONFIGREMOVEBTN),
                         DIALOG_CANCEL, LoadStr(IDS_SELLANGEXITBUTTON));
                 params.AliasBtnNames = aliasBtnNames;
                 if (SalMessageBoxEx(&params) == IDCANCEL)
                 {
-                    CheckShutdownParams(); // optionally show this warning; if they rename the key in the registry they might never see it
-                    return FALSE;          // Exit
+                    CheckShutdownParams();
+                    return FALSE;
                 }
 
                 CheckShutdownParams();
                 LoadSaveToRegistryMutex.Enter();
                 if (HANDLES_Q(RegOpenKeyEx(HKEY_CURRENT_USER, root, 0, KEY_READ | KEY_WRITE, &hRootKey)) == ERROR_SUCCESS)
-                { // delete the corrupted configuration (if it's still there - user might have renamed it for backup)
+                {
                     TRACE_I("Deleting corrupted configuration on user demand: " << root);
                     ClearKeyAux(hRootKey);
                     CloseKeyAux(hRootKey);
                     DeleteKeyAux(HKEY_CURRENT_USER, root);
                 }
+                continue;
             }
         }
-        BOOL cfgFound = rootFound && OpenKeyAux(NULL, hRootKey, SALAMANDER_CONFIG_REG, hCfgKey);
-        if (rootFound)
-            CloseKeyAux(hRootKey);
 
-        if (rootIndex == 0 && backupFound) // backup not needed, remove it
+        BOOL cfgFound = rootFound && OpenKeyAux(NULL, hRootKey, SALAMANDER_CONFIG_REG, hCfgKey);
+
+        if (rootIndex == 0 && backupFound)
         {
             TRACE_I("Removing unnecessary configuration backup: " << backup);
             SHDeleteKey(HKEY_CURRENT_USER, backup);
             backupFound = FALSE;
         }
 
-        if (cfgFound) // a key is considered a configuration key only if the "Configuration" subkey exists (mere existence of the key isn't enough because it may contain only "AutoImportConfig")
+        if (cfgFound)
         {
             CloseKeyAux(hCfgKey);
-            if (rootIndex == 0)
-            {
-                // this is the key for the active program version => confirm loading it and return
-                loadConfiguration = root;
-                LoadSaveToRegistryMutex.Leave();
-                return TRUE;
-            }
-            // this is one of the older keys
 
-            // offer this configuration for import and deletion
-            dlg.ConfigurationExist[rootIndex] = TRUE;
-            offerImportDlg = TRUE;
+            CFoundConfig& cfg = dlg.Configs[configCount];
+            cfg.Exists = TRUE;
+            cfg.IsCurrentVersion = (rootIndex == 0);
+            cfg.IsPortable = FALSE;
+            cfg.IsCorrupted = FALSE;
+            cfg.RootIndex = rootIndex;
+
+            // Nazev
+            const char* name = DetectProductName(root);
+            sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+
+            // Verze: pro Samandarin pouzit format s pomlckami
+            strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
+            if (StrIStr(cfg.Version, "Samandarin") != NULL)
+            {
+                for (char* p = cfg.Version; *p; p++)
+                    if (*p == ' ') *p = '-';
+            }
+
+            // Storage
+            strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_REGISTRY), _TRUNCATE);
+
+            // Language
+            ReadConfigLanguage(hRootKey, cfg.Language, SizeOf(cfg.Language));
+
+            // Location
+            _snprintf_s(cfg.Location, _TRUNCATE, "reg:\\HKEY_CURRENT_USER\\%s", root);
+
+            // Last update
+            RegQueryInfoKey(hRootKey, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &cfg.LastUpdate);
+
+            CloseKeyAux(hRootKey);
+
+            configCount++;
         }
-        rootIndex++;
-    } while (rootIndex < SALCFG_ROOTS_COUNT);
+        else if (rootFound)
+        {
+            CloseKeyAux(hRootKey);
+        }
+    }
+
+    // Check for portable config.reg
+    char portableConfigPath[MAX_PATH];
+    ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
+    if (GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES && configCount < MCD_MAX_CONFIGS)
+    {
+        CFoundConfig& cfg = dlg.Configs[configCount];
+        cfg.Exists = TRUE;
+        cfg.IsCurrentVersion = FALSE;
+        cfg.IsPortable = TRUE;
+        cfg.IsCorrupted = FALSE;
+        cfg.RootIndex = -1;
+
+        _snprintf_s(cfg.DisplayName, _TRUNCATE, "%s %s (%s)",
+                    LoadStr(IDS_MCD_EMPTYCONFIG), SalamanderConfigurationVersions[0],
+                    LoadStr(IDS_MCD_PORTABLE));
+
+        strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+        if (StrIStr(cfg.Version, "Samandarin") != NULL)
+            for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
+        strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
+        cfg.Language[0] = 0;
+        strncpy_s(cfg.Location, portableConfigPath, _TRUNCATE);
+
+        DWORD attrs = GetFileAttributes(portableConfigPath);
+        // Note: GetFileAttributes doesn't give us FILETIME, use 0
+        cfg.LastUpdate.dwLowDateTime = 0;
+        cfg.LastUpdate.dwHighDateTime = 0;
+
+        configCount++;
+    }
+
+    // Check for known file storage paths (z configstorage.ini)
+    char knownPaths[20][MAX_PATH];
+    int knownCount = 0;
+    ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
+    for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)
+    {
+        // Preskocit pokud je to stejna cesta jako portable config.reg
+        if (portableConfigPath[0] != 0 && _stricmp(knownPaths[k], portableConfigPath) == 0)
+            continue;
+
+        if (GetFileAttributes(knownPaths[k]) != INVALID_FILE_ATTRIBUTES)
+        {
+            CFoundConfig& cfg = dlg.Configs[configCount];
+            memset(&cfg, 0, sizeof(cfg));
+            cfg.Exists = TRUE;
+            cfg.IsCurrentVersion = FALSE;
+            cfg.IsPortable = TRUE;
+            cfg.RootIndex = -1;
+            _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), knownPaths[k]);
+            strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+            if (StrIStr(cfg.Version, "Samandarin") != NULL)
+                for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
+            strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
+            cfg.Language[0] = 0;
+            strncpy_s(cfg.Location, knownPaths[k], _TRUNCATE);
+
+            WIN32_FILE_ATTRIBUTE_DATA fad;
+            if (GetFileAttributesEx(knownPaths[k], GetFileExInfoStandard, &fad))
+                cfg.LastUpdate = fad.ftLastWriteTime;
+
+            configCount++;
+        }
+    }
+
+    // Add "Empty Configuration" as first item
+    if (configCount < MCD_MAX_CONFIGS)
+    {
+        // Shift all configs down
+        for (int i = configCount; i > 0; i--)
+            dlg.Configs[i] = dlg.Configs[i - 1];
+
+        CFoundConfig& cfg = dlg.Configs[0];
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.Exists = TRUE;
+        cfg.IsCurrentVersion = FALSE;
+        cfg.IsPortable = FALSE;
+        cfg.IsCorrupted = FALSE;
+        cfg.RootIndex = -1;
+        strncpy_s(cfg.DisplayName, LoadStr(IDS_MCD_CLEANCONFIG), _TRUNCATE);
+        strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+        if (StrIStr(cfg.Version, "Samandarin") != NULL)
+            for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
+        strncpy_s(cfg.StorageTypeStr, "-", _TRUNCATE);
+        strncpy_s(cfg.Language, "-", _TRUNCATE);
+        strncpy_s(cfg.Location, "-", _TRUNCATE);
+        cfg.LastUpdate.dwLowDateTime = 0;
+        cfg.LastUpdate.dwHighDateTime = 0;
+
+        configCount++;
+    }
+
+    dlg.ConfigsCount = configCount;
 
     LoadSaveToRegistryMutex.Leave();
 
-    if (offerImportDlg)
+    // Check if we should skip the dialog
+    // Skip if: current version config exists AND WelcomeProcessed is set
+    BOOL hasCurrentVersionConfig = FALSE;
+    for (int i = 0; i < configCount; i++)
     {
-        HWND hSplash = GetSplashScreenHandle(); // if a splash screen exists, temporarily hide it
-        if (hSplash != NULL)
-            ShowWindow(hSplash, SW_HIDE);
-
-        int dlgRet = (int)dlg.Execute();
-
-        if (hSplash != NULL)
+        if (dlg.Configs[i].IsCurrentVersion && dlg.Configs[i].Exists)
         {
-            ShowWindow(hSplash, SW_SHOW);
-            UpdateWindow(hSplash);
-        }
-
-        if (dlgRet == IDCANCEL)
-        {
-            return FALSE; // user wants to quit Salamander
-        }
-        Configuration.StorageType = dlg.StorageType;
-        ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType, dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
-        if (dlg.IndexOfConfigurationToLoad != -1)
-            loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigurationToLoad];
-        else if (DarkModeShouldUseDarkColors())
-        {
-            // User chose "Start with default settings" and system dark mode is active:
-            // set the default Colors - Scheme to "Windows Dark Mode (experimental)".
-            Configuration.UseWindowsDarkMode = TRUE;
-            WindowsDarkModeBuildPalette(UserColors, ViewerColors);
-            CurrentColors = UserColors;
+            hasCurrentVersionConfig = TRUE;
+            break;
         }
     }
+
+    BOOL welcomeProcessed = FALSE;
+    if (hasCurrentVersionConfig)
+    {
+        // Check WelcomeProcessed registry value
+        HKEY hKey;
+        if (OpenKeyAux(NULL, HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hKey))
+        {
+            HKEY hCfgKey2;
+            if (OpenKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey2))
+            {
+                DWORD processed = 0;
+                GetValueAux(NULL, hCfgKey2, "WelcomeProcessed", REG_DWORD, &processed, sizeof(DWORD));
+                welcomeProcessed = (processed == 1);
+                CloseKeyAux(hCfgKey2);
+            }
+            CloseKeyAux(hKey);
+        }
+    }
+
+    if (hasCurrentVersionConfig && welcomeProcessed)
+    {
+        // Config exists and was already processed - load it directly
+        loadConfiguration = SalamanderConfigurationRoots[0];
+        return TRUE;
+    }
+
+    // Show the dialog
+    HWND hSplash = GetSplashScreenHandle();
+    if (hSplash != NULL)
+        ShowWindow(hSplash, SW_HIDE);
+
+    int dlgRet = (int)dlg.Execute();
+
+    if (hSplash != NULL)
+    {
+        ShowWindow(hSplash, SW_SHOW);
+        UpdateWindow(hSplash);
+    }
+
+    if (dlgRet == IDCANCEL)
+    {
+        return FALSE;
+    }
+
+    Configuration.StorageType = dlg.StorageType;
+    ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
+                                                  dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
+
+    if (dlg.IndexOfConfigToLoad != -1)
+        loadConfiguration = SalamanderConfigurationRoots[dlg.IndexOfConfigToLoad];
+    else if (DarkModeShouldUseDarkColors())
+    {
+        Configuration.UseWindowsDarkMode = TRUE;
+        WindowsDarkModeBuildPalette(UserColors, ViewerColors);
+        CurrentColors = UserColors;
+    }
+
     return TRUE;
 }
 

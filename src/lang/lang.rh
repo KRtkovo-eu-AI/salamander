@@ -725,13 +725,31 @@
 #define IDE_VGTO_OFFSET                 6221
 #define IDC_VGTO_HEX                    6222
 
+// Manage Configurations dialog
+#define IDD_MANAGECONFIGS               8200
+#define IDC_MCD_CONFIGS_LIST            6231
+#define IDC_MCD_USE_AS_SOURCE           6232
+#define IDC_MCD_EXPORT                  6233
+#define IDC_MCD_IMPORT                  6246
+#define IDC_MCD_DELETE_SEL              6234
+#define IDC_MCD_SRC_NAME                6235
+#define IDC_MCD_SRC_VERSION             6236
+#define IDC_MCD_SRC_STORAGE             6237
+#define IDC_MCD_SRC_LANG                6238
+#define IDC_MCD_SRC_LOCATION            6239
+#define IDC_MCD_REG_RADIO               6241
+#define IDC_MCD_FILE_RADIO              6242
+#define IDC_MCD_FILE_PATH               6243
+#define IDC_MCD_FILE_BROWSE             6244
+#define IDC_MCD_REGISTRY_PATH           6245
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        8200
+#define _APS_NEXT_RESOURCE_VALUE        8201
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6223
+#define _APS_NEXT_CONTROL_VALUE         6246
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

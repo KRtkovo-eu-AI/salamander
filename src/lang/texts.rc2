@@ -2032,4 +2032,29 @@ STRINGTABLE
 
  IDS_CODEPAGE_WARNING_TITLE, "Code Page Compatibility Warning"
  IDS_CODEPAGE_WARNING, "The selected language may not display all characters correctly because your Windows system locale code page (%u) does not match the code page expected by this language (%u).\n\nTo fix this, change your system locale in Windows: Settings > Time & Language > Region > Administrative > Change system locale."
+
+ // Manage Configurations dialog
+ IDS_MCD_LASTUPDATE, "Last saved"
+ IDS_MCD_CONFIGNAME, "Configuration name"
+ IDS_MCD_VERSION, "Version"
+ IDS_MCD_STORAGE, "Storage"
+ IDS_MCD_LANG, "Language"
+ IDS_MCD_LOCATION, "Location"
+ IDS_MCD_EMPTYCONFIG, "Clean configuration with default values"
+ IDS_MCD_LASTUPDATE_UNKNOWN, "-"
+ IDS_MCD_STORAGE_REGISTRY, "Registry"
+ IDS_MCD_STORAGE_FILE, "File storage"
+ IDS_MCD_DELETECONFIRM2, "Are you sure you want to delete the following configuration?\n\nName: %s\nVersion: %s\nStorage: %s\nLocation: %s\n\nThis action cannot be undone."
+ IDS_MCD_OVERWRITECONFIRM, "A configuration already exists at this location:\n\n%s\n\nDo you want to overwrite it?"
+ IDS_MCD_SAVEANDSTART, "4. Save and Start"
+ IDS_MCD_SAVEANDRESTART, "4. Save and Restart"
+ IDS_MCD_RESTARTMSG, "Configuration has been written. Please restart Open Salamander for changes to take effect."
+ IDS_MCD_CLEANCONFIG, "Clean configuration with default values"
+ IDS_MCD_FILEPREFIX, "File: %s"
+ IDS_MCD_OPEN_SALAMANDER, "Open Salamander %s"
+ IDS_MCD_ALTAP_SALAMANDER, "Altap Salamander %s"
+ IDS_MCD_SERVANT_SALAMANDER, "Servant Salamander %s"
+ IDS_MCD_PORTABLE, "portable"
+
+ IDS_MENU_OPT_MANAGECONFIG, "&Manage Configurations..."
 }
