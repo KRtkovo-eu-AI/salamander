@@ -1538,14 +1538,13 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             // File storage - zapsat do .reg souboru (presne cesta z configu)
             // TODO: zatim neumime zapisovat ConfigDisplayName do .reg souboru
         }
-        else if (targetCfg.Location[0] != 0)
+        else if (targetCfg.Location[0] != 0 && targetCfg.Location[0] != '-')
         {
-            // Registry storage - extrahujeme presnou subkey z Location
-            // Location je ve tvaru "reg:\HKEY_CURRENT_USER\<subkey>"
+            // Registry config s platnou cestou - extrahujeme presnou subkey
             const char* loc = targetCfg.Location;
-            const char* subkey = strchr(loc, '\\'); // preskocit "reg:"
+            const char* subkey = strchr(loc, '\\');
             if (subkey) subkey++;
-            if (subkey) subkey = strchr(subkey, '\\'); // preskocit "HKEY_CURRENT_USER"
+            if (subkey) subkey = strchr(subkey, '\\');
             if (subkey) subkey++;
             if (subkey && subkey[0] != 0)
             {
@@ -1563,16 +1562,68 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
                 }
             }
         }
+        else
+        {
+            // Clean config (Location = "-") - najdeme aktualni verzi v seznamu
+            for (int i = 0; i < dlg.ConfigsCount; i++)
+            {
+                if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
+                    dlg.Configs[i].Location[0] != 0 && dlg.Configs[i].Location[0] != '-')
+                {
+                    const char* loc = dlg.Configs[i].Location;
+                    const char* subkey = strchr(loc, '\\');
+                    if (subkey) subkey++;
+                    if (subkey) subkey = strchr(subkey, '\\');
+                    if (subkey) subkey++;
+                    if (subkey && subkey[0] != 0)
+                    {
+                        HKEY hKey;
+                        if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
+                        {
+                            HKEY hCfgKey;
+                            if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
+                            {
+                                SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
+                                            dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
+                                CloseKeyAux(hCfgKey);
+                            }
+                            CloseKeyAux(hKey);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     // WelcomeProcessed - zapise se do presneho klice kde config zije
     if (dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
     {
         const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
-        if (!srcCfg.IsPortable && srcCfg.Location[0] != 0)
+        const char* wpLocation = NULL;
+
+        if (!srcCfg.IsPortable && srcCfg.Location[0] != 0 && srcCfg.Location[0] != '-')
         {
-            const char* loc = srcCfg.Location;
-            const char* subkey = strchr(loc, '\\');
+            // Registry config s platnou cestou
+            wpLocation = srcCfg.Location;
+        }
+        else if (srcCfg.Location[0] == '-')
+        {
+            // Clean config - najdeme aktualni verzi v seznamu
+            for (int i = 0; i < dlg.ConfigsCount; i++)
+            {
+                if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
+                    dlg.Configs[i].Location[0] != 0 && dlg.Configs[i].Location[0] != '-')
+                {
+                    wpLocation = dlg.Configs[i].Location;
+                    break;
+                }
+            }
+        }
+
+        if (wpLocation != NULL)
+        {
+            const char* subkey = strchr(wpLocation, '\\');
             if (subkey) subkey++;
             if (subkey) subkey = strchr(subkey, '\\');
             if (subkey) subkey++;
