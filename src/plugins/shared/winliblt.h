@@ -353,7 +353,7 @@ public:
     // 'startPage' a 'lastPage' muze byt jen jedina promenna (hodnota in/odkaz out);
     // 'flags' viz help k 'PROPSHEETHEADER', pouzitelne hlavne konstanty
     // PSH_NOAPPLYNOW, PSH_USECALLBACK a PSH_HASHELP (jinak staci 'flags'==0)
-    CPropertyDialog(HWND parent, HINSTANCE modul, char* caption,
+    CPropertyDialog(HWND parent, HINSTANCE modul, const char* caption,
                     int startPage, DWORD flags, HICON icon = NULL,
                     DWORD* lastPage = NULL, PFNPROPSHEETCALLBACK callback = NULL)
         : TIndirectArray<CPropSheetPage>(10, 5, dtNoDelete)
@@ -378,7 +378,7 @@ protected:
     HWND HWindow;
     HINSTANCE Modul;
     HICON Icon;
-    char* Caption;
+    const char* Caption;
     int StartPage;
     DWORD Flags;
     PFNPROPSHEETCALLBACK Callback;
