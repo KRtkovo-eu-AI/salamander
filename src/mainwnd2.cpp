@@ -383,6 +383,9 @@ static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry,
     DWORD isMyDocs = TRUE;
     MCDSetConfigValue(registry, targetSubkey, "If Path Is Inaccessible Go To My Docs", REG_DWORD, &isMyDocs, sizeof(isMyDocs));
 
+    DWORD showBottomToolbar = TRUE;
+    MCDSetConfigValue(registry, targetSubkey, "Show Bottom ToolBar", REG_DWORD, &showBottomToolbar, sizeof(showBottomToolbar));
+
     char docsPath[MAX_PATH];
     docsPath[0] = 0;
     if (GetMyDocumentsOrDesktopPath(docsPath, SizeOf(docsPath)))
