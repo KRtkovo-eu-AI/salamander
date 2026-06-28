@@ -38,7 +38,39 @@ INT_PTR CCommonDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
       if (Parent != NULL)
         SalamanderGeneral->MultiMonCenterWindow(HWindow, Parent, TRUE);
+      ApplyServiceExplorerDarkMode(HWindow);
       break; // chci focus od DefDlgProc
+    }
+
+    case WM_THEMECHANGED:
+    {
+      ApplyServiceExplorerDarkMode(HWindow);
+      RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+      return TRUE;
+    }
+    case WM_SETTINGCHANGE:
+    {
+      ConfigureServiceExplorerDarkModeFromHost();
+      if (DarkModeHandleSettingChange(uMsg, lParam))
+      {
+        ApplyServiceExplorerDarkMode(HWindow);
+        InvalidateRect(HWindow, NULL, TRUE);
+        return TRUE;
+      }
+      break;
+    }
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+      INT_PTR result = 0;
+      if (HandleServiceExplorerDarkCtlColor(uMsg, wParam, lParam, &result))
+        return result;
+      break;
     }
   }
   return CDialog::DialogProc(uMsg, wParam, lParam);
@@ -237,67 +269,98 @@ INT_PTR CConfigPageFirst::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   switch (uMsg)
   {
-          break;
+    case WM_INITDIALOG:
+    {
+      ApplyServiceExplorerDarkMode(HWindow);
+      break;
+    }
+    case WM_THEMECHANGED:
+    {
+      ApplyServiceExplorerDarkMode(HWindow);
+      RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+      return TRUE;
+    }
+    case WM_SETTINGCHANGE:
+    {
+      ConfigureServiceExplorerDarkModeFromHost();
+      if (DarkModeHandleSettingChange(uMsg, lParam))
+      {
+        ApplyServiceExplorerDarkMode(HWindow);
+        InvalidateRect(HWindow, NULL, TRUE);
+        return TRUE;
+      }
+      break;
+    }
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+      INT_PTR result = 0;
+      if (HandleServiceExplorerDarkCtlColor(uMsg, wParam, lParam, &result))
+        return result;
+      break;
+    }
     case WM_COMMAND:
     {
-			switch (LOWORD (wParam))
+      switch (LOWORD (wParam))
       {
-                                case IDC_BUTTON_SERVICE_START:
-                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStart))
-                                                EnableButtonStates(SharedTransferInfo());
-                                        break;
-                                case IDC_BUTTON_SERVICE_STOP:
-                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStop))
-                                                EnableButtonStates(SharedTransferInfo());
-                                        break;
-                                case IDC_BUTTON_SERVICE_PAUSE:
-                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionPause))
-                                                EnableButtonStates(SharedTransferInfo());
-                                        break;
-                                case IDC_BUTTON_SERVICE_RESUME:
-                                        if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionResume))
-                                                EnableButtonStates(SharedTransferInfo());
-                                        break;
-                                case IDC_BUTTON_SERVICE_DELETE:
-                                        if(SalamanderGeneral->SalMessageBox(HWindow, "Do you really want to delete the current service?", VERSINFO_PLUGINNAME, MB_YESNOCANCEL | MB_ICONQUESTION)==IDYES)
-                                        {
-                                                SetCursor(LoadCursor(NULL,IDC_WAIT));
-                                                ShowCursor(TRUE);
-                                                DWORD returnstate=DoDeleteSvc(FSIGdata->ServiceName);
-                                                EnableButtonStates(SharedTransferInfo());
-                                                ShowCursor(FALSE);
-                                                SetCursor(LoadCursor(NULL,IDC_ARROW));
-                                                if (returnstate>0)
-                                                {
-
-                                                        char errormessage[100];
-                                                        switch (returnstate)
-                                                        {
-                                                                case 5:
-                                                                        strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
-                                                                        break;
-                                                                case 1072:
-                                                                        strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_MARKEDFORDELETION));
-                                                                        break;
-                                                                default:
-                                                                        strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
-                                                        }
-                                                        char buf[500];
-                                                        buf[499] = 0;
-                                                        _snprintf(buf, 500,
-                                                                        "%s\n\n"
-                                                                        "%s %d: %s",LoadStr(IDS_SERVICE_ERROR_OPERATION),LoadStr(IDS_SEVICE_ERROR_CODE) ,returnstate,errormessage);
-                                                        SalamanderGeneral->SalMessageBox(HWindow, buf, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
-                                                }
-                                        }
-                                        break;
-
+        case IDC_BUTTON_SERVICE_START:
+          if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStart))
+            EnableButtonStates(SharedTransferInfo());
+          break;
+        case IDC_BUTTON_SERVICE_STOP:
+          if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionStop))
+            EnableButtonStates(SharedTransferInfo());
+          break;
+        case IDC_BUTTON_SERVICE_PAUSE:
+          if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionPause))
+            EnableButtonStates(SharedTransferInfo());
+          break;
+        case IDC_BUTTON_SERVICE_RESUME:
+          if (RunServiceAction(HWindow, FSIGdata->ServiceName, FSIGdata->DisplayName, ServiceActionResume))
+            EnableButtonStates(SharedTransferInfo());
+          break;
+        case IDC_BUTTON_SERVICE_DELETE:
+          if(SalamanderGeneral->SalMessageBox(HWindow, "Do you really want to delete the current service?", VERSINFO_PLUGINNAME, MB_YESNOCANCEL | MB_ICONQUESTION)==IDYES)
+          {
+            SetCursor(LoadCursor(NULL,IDC_WAIT));
+            ShowCursor(TRUE);
+            DWORD returnstate=DoDeleteSvc(FSIGdata->ServiceName);
+            EnableButtonStates(SharedTransferInfo());
+            ShowCursor(FALSE);
+            SetCursor(LoadCursor(NULL,IDC_ARROW));
+            if (returnstate>0)
+            {
+              char errormessage[100];
+              switch (returnstate)
+              {
+                case 5:
+                  strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_INSUFFICIENTRIGHTS));
+                  break;
+                case 1072:
+                  strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_MARKEDFORDELETION));
+                  break;
+                default:
+                  strcpy(errormessage,LoadStr(IDS_SERVICE_ERROR_UNKNOWN));
+              }
+              char buf[500];
+              buf[499] = 0;
+              _snprintf(buf, 500,
+                        "%s\n\n"
+                        "%s %d: %s",LoadStr(IDS_SERVICE_ERROR_OPERATION),LoadStr(IDS_SEVICE_ERROR_CODE) ,returnstate,errormessage);
+              SalamanderGeneral->SalMessageBox(HWindow, buf, VERSINFO_PLUGINNAME, MB_OK | MB_ICONWARNING);
+            }
+          }
+          break;
       }
-
       break; // chci focus od DefDlgProc
     }
   }
-        return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
+  return CPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
 
@@ -317,6 +380,18 @@ class CCenteredPropertyWindow: public CWindow
     {
       switch (uMsg)
       {
+        case WM_CREATE:
+        case WM_INITDIALOG:
+        {
+          ApplyServiceExplorerDarkMode(HWindow);
+          break;
+        }
+        case WM_THEMECHANGED:
+        {
+          ApplyServiceExplorerDarkMode(HWindow);
+          RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+          return 0;
+        }
         case WM_WINDOWPOSCHANGING:
         {
           WINDOWPOS *pos = (WINDOWPOS *)lParam;
@@ -374,6 +449,7 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
       if (wnd->HWindow == NULL) delete wnd;  // okno neni pripojeny, zrusime ho uz tady
       else
       {
+        ApplyServiceExplorerDarkMode(wnd->HWindow);
         PostMessage(wnd->HWindow, WM_APP + 1000, 0, 0);  // pro odpojeni CCenteredPropertyWindow od dialogu
       }
     }

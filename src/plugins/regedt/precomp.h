@@ -46,3 +46,5 @@
 #include "finddlg.h"
 #include "editor.h"
 #include "export.h"
+
+#include "../../darkmode.h"

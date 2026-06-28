@@ -4,6 +4,12 @@
 
 
 char *LoadStr(int resID);
+void RefreshServiceExplorerDarkModeFromHost();
+void ConfigureServiceExplorerDarkModeFromHost();
+void ApplyServiceExplorerDarkMode(HWND hwnd);
+BOOL ApplyServiceExplorerDarkModeIfSelected(HWND hwnd);
+BOOL HandleServiceExplorerDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+
 
 extern CSalamanderGeneralAbstract	*SalamanderGeneral;
 extern CSalamanderGUIAbstract		*SalamanderGUI;

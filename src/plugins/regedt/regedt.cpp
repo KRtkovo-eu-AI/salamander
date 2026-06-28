@@ -54,6 +54,131 @@ CWindowQueueEx WindowQueue;
 
 BOOL AlwaysOnTop = FALSE;
 
+namespace
+{
+HBRUSH RegEdtDarkModeDialogBrush = NULL;
+COLORREF RegEdtDarkModeDialogBrushColor = CLR_INVALID;
+BOOL RegEdtHostPolicyKnown = FALSE;
+BOOL RegEdtHostUseWindowsDarkMode = FALSE;
+COLORREF RegEdtHostSchemeText = CLR_INVALID;
+COLORREF RegEdtHostSchemeBackground = CLR_INVALID;
+DWORD RegEdtMainThreadId = 0;
+
+HBRUSH RegEdtGetDarkModeDialogBrush(COLORREF background)
+{
+    if (RegEdtDarkModeDialogBrush == NULL || RegEdtDarkModeDialogBrushColor != background)
+    {
+        if (RegEdtDarkModeDialogBrush != NULL)
+            DeleteObject(RegEdtDarkModeDialogBrush);
+        RegEdtDarkModeDialogBrush = CreateSolidBrush(background);
+        RegEdtDarkModeDialogBrushColor = background;
+    }
+    return RegEdtDarkModeDialogBrush;
+}
+
+void ReleaseRegEdtDarkModeResources()
+{
+    if (RegEdtDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(RegEdtDarkModeDialogBrush);
+        RegEdtDarkModeDialogBrush = NULL;
+        RegEdtDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL RegEdtCanQueryHostDarkMode()
+{
+    return SG != NULL &&
+           RegEdtMainThreadId != 0 &&
+           GetCurrentThreadId() == RegEdtMainThreadId;
+}
+
+void RefreshRegEdtDarkModeFromHost()
+{
+    if (!RegEdtCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SG->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                      &useWindowsDarkMode,
+                                      sizeof(useWindowsDarkMode),
+                                      NULL))
+    {
+        RegEdtHostPolicyKnown = TRUE;
+        RegEdtHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (RegEdtHostPolicyKnown && RegEdtHostUseWindowsDarkMode)
+    {
+        RegEdtHostSchemeText = SG->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        RegEdtHostSchemeBackground = SG->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL RegEdtShouldUseWindowsDarkMode()
+{
+    return RegEdtHostPolicyKnown && RegEdtHostUseWindowsDarkMode;
+}
+
+void ConfigureRegEdtDarkModeFromHost()
+{
+    RefreshRegEdtDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = RegEdtShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && RegEdtHostSchemeText != CLR_INVALID && RegEdtHostSchemeBackground != CLR_INVALID)
+    {
+        text = RegEdtHostSchemeText;
+        background = RegEdtHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = RegEdtGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyRegEdtDarkMode(HWND hwnd)
+{
+    ConfigureRegEdtDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyRegEdtDarkModeIfSelected(HWND hwnd)
+{
+    if (!RegEdtShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyRegEdtDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleRegEdtDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!RegEdtShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureRegEdtDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     CALL_STACK_MESSAGE_NONE
@@ -231,7 +356,9 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain Salamander's general interface
     SG = salamander->GetSalamanderGeneral();
+    RegEdtMainThreadId = GetCurrentThreadId();
     SalGUI = salamander->GetSalamanderGUI();
+    RefreshRegEdtDarkModeFromHost();
 
     // set the help file name
     SG->SetHelpFileName("regedt.chm");
@@ -301,6 +428,7 @@ BOOL CPluginInterface::Release(HWND parent, BOOL force)
         {
             ReleaseDialogs();
             ReleaseFS();
+            ReleaseRegEdtDarkModeResources();
 
 #ifdef DUMP_MEM
             _CrtMemDumpAllObjectsSince(&___CrtMemState);
