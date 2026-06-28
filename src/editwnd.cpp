@@ -2022,6 +2022,20 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    {
+        if (DarkModeShouldUseDarkColors())
+        {
+            DarkModeApplyWindow(HWindow);
+            DarkModeApplyTree(HWindow);
+            if (EditLine != NULL && EditLine->HWindow != NULL)
+                DarkModeApplyWindow(EditLine->HWindow);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        }
+        break;
+    }
+
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORSTATIC:

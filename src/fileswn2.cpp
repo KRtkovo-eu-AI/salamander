@@ -39,6 +39,7 @@ static const char* TREEVIEW_SPLIT_OWNER = "SAL_TREEVIEW_SPLIT_OWNER";
 static const UINT_PTR TREEVIEW_HEADER_SUBCLASS_ID = 1;
 
 static HHOOK HDisconnectDarkModeHook = NULL;
+static HHOOK HDisconnectDarkModeCallWndHook = NULL;
 
 static void ApplyDarkModeToCreatedDisconnectDialog(HWND hWindow)
 {
@@ -65,6 +66,24 @@ static LRESULT CALLBACK DisconnectDarkModeHookProc(int code, WPARAM wParam, LPAR
         ApplyDarkModeToCreatedDisconnectDialog((HWND)wParam);
 
     return CallNextHookEx(HDisconnectDarkModeHook, code, wParam, lParam);
+}
+
+static LRESULT CALLBACK DisconnectDarkModeCallWndHookProc(int code, WPARAM wParam, LPARAM lParam)
+{
+    if (code >= 0)
+    {
+        CWPSTRUCT* message = (CWPSTRUCT*)lParam;
+        if (message != NULL &&
+            (message->message == WM_INITDIALOG ||
+             message->message == WM_SHOWWINDOW ||
+             message->message == WM_WINDOWPOSCHANGED ||
+             message->message == WM_NCACTIVATE))
+        {
+            ApplyDarkModeToCreatedDisconnectDialog(message->hwnd);
+        }
+    }
+
+    return CallNextHookEx(HDisconnectDarkModeCallWndHook, code, wParam, lParam);
 }
 
 static void DrawTreeViewHeaderIcon(HDC hdc, int left, int top, int size, COLORREF color)
@@ -1532,10 +1551,19 @@ void CFilesWindow::DisconnectNet()
     //  WNetDisconnectDialog(HWindow, RESOURCETYPE_DISK);
 
     if (DarkModeShouldUseDarkColors())
+    {
         HDisconnectDarkModeHook = SetWindowsHookEx(WH_CBT, DisconnectDarkModeHookProc, NULL, GetCurrentThreadId()); // HANDLES can't do this
+        HDisconnectDarkModeCallWndHook = SetWindowsHookEx(WH_CALLWNDPROC, DisconnectDarkModeCallWndHookProc, NULL, GetCurrentThreadId()); // HANDLES can't do this
+    }
 
     CDisconnectDialog dlg(this);
     INT_PTR disconnectResult = dlg.Execute();
+
+    if (HDisconnectDarkModeCallWndHook != NULL)
+    {
+        UnhookWindowsHookEx(HDisconnectDarkModeCallWndHook); // HANDLES can't do this
+        HDisconnectDarkModeCallWndHook = NULL;
+    }
 
     if (HDisconnectDarkModeHook != NULL)
     {
