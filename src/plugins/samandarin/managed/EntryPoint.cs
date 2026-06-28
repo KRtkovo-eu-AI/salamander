@@ -940,6 +940,7 @@ internal sealed class ConfigurationDialog : Form
         LastCheckUtc = _settings.LastCheckUtc,
         LastPromptedVersion = _settings.LastPromptedVersion,
         LastKnownRemoteVersion = _settings.LastKnownRemoteVersion,
+        PluginCatalogSourcesText = _settings.PluginCatalogSourcesText,
     };
 
     private async void CheckNowButtonOnClick(object? sender, EventArgs e)
@@ -1521,24 +1522,26 @@ internal static class PluginCatalogSources
 
     public static IReadOnlyList<string> Load()
     {
-        var file = GetPath();
-        if (!File.Exists(file))
+        var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
+        if (string.IsNullOrWhiteSpace(text))
         {
             return new[] { DefaultSource };
         }
 
-        var lines = File.ReadAllLines(file, Encoding.UTF8).Select(line => line.Trim()).Where(line => line.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         return lines.Count == 0 ? new[] { DefaultSource } : lines;
     }
 
     public static void Save(IEnumerable<string> sources)
     {
-        var file = GetPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-        File.WriteAllLines(file, sources.Where(source => !string.IsNullOrWhiteSpace(source)).Distinct(StringComparer.OrdinalIgnoreCase), Encoding.UTF8);
+        var settings = NativeConfiguration.LoadOrDefault();
+        settings.PluginCatalogSourcesText = string.Join("\n", sources.Where(source => !string.IsNullOrWhiteSpace(source)).Select(source => source.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+        NativeConfiguration.Save(settings);
     }
-
-    private static string GetPath() => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Open Salamander", "Samandarin", "plugin-catalog-sources.txt");
 }
 
 internal static class InstalledPluginScanner
@@ -1808,6 +1811,7 @@ internal sealed class UpdateSettings
     public DateTimeOffset? LastCheckUtc { get; set; }
     public string? LastPromptedVersion { get; set; }
     public string? LastKnownRemoteVersion { get; set; }
+    public string? PluginCatalogSourcesText { get; set; }
 
     public UpdateSettings Clone()
     {
@@ -1818,6 +1822,7 @@ internal sealed class UpdateSettings
             LastCheckUtc = LastCheckUtc,
             LastPromptedVersion = LastPromptedVersion,
             LastKnownRemoteVersion = LastKnownRemoteVersion,
+            PluginCatalogSourcesText = PluginCatalogSourcesText,
         };
     }
 
@@ -1857,6 +1862,7 @@ internal sealed class WindowHandleWrapper : IWin32Window
 internal static class NativeConfiguration
 {
     private const int MaxVersionLength = 128;
+    private const int MaxCatalogSourcesLength = 4096;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     private struct NativeUpdateSettings
@@ -1871,6 +1877,9 @@ internal static class NativeConfiguration
 
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MaxVersionLength)]
         public string LastKnownRemoteVersion;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MaxCatalogSourcesLength)]
+        public string PluginCatalogSourcesText;
     }
 
     [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
@@ -1961,6 +1970,11 @@ internal static class NativeConfiguration
             result.LastKnownRemoteVersion = native.LastKnownRemoteVersion;
         }
 
+        if (!string.IsNullOrWhiteSpace(native.PluginCatalogSourcesText))
+        {
+            result.PluginCatalogSourcesText = native.PluginCatalogSourcesText;
+        }
+
         return result;
     }
 
@@ -1974,6 +1988,7 @@ internal static class NativeConfiguration
             LastCheckUtcTicks = settings.LastCheckUtc?.ToUniversalTime().UtcTicks ?? 0,
             LastPromptedVersion = Sanitize(settings.LastPromptedVersion),
             LastKnownRemoteVersion = Sanitize(settings.LastKnownRemoteVersion),
+            PluginCatalogSourcesText = Sanitize(settings.PluginCatalogSourcesText, MaxCatalogSourcesLength),
         };
 
         return native;
@@ -1981,12 +1996,17 @@ internal static class NativeConfiguration
 
     private static string Sanitize(string? value)
     {
+        return Sanitize(value, MaxVersionLength);
+    }
+
+    private static string Sanitize(string? value, int maxLength)
+    {
         if (string.IsNullOrEmpty(value))
         {
             return string.Empty;
         }
 
         var sanitized = value!;
-        return sanitized.Length >= MaxVersionLength ? sanitized.Substring(0, MaxVersionLength - 1) : sanitized;
+        return sanitized.Length >= maxLength ? sanitized.Substring(0, maxLength - 1) : sanitized;
     }
 }

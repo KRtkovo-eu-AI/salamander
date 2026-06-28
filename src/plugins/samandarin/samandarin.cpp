@@ -278,6 +278,7 @@ namespace
         LONGLONG LastCheckUtcTicks;
         char LastPromptedVersion[128];
         char LastKnownRemoteVersion[128];
+        char PluginCatalogSources[4096];
     };
 
     const char* const kConfigCheckOnStartup = "CheckOnStartup";
@@ -285,6 +286,7 @@ namespace
     const char* const kConfigLastCheckUtcTicks = "LastCheckUtcTicks";
     const char* const kConfigLastPromptedVersion = "LastPromptedVersion";
     const char* const kConfigLastKnownRemoteVersion = "LastKnownRemoteVersion";
+    const char* const kConfigPluginCatalogSources = "PluginCatalogSources";
 
     void InitializeDefaults(NativeUpdateSettings* settings)
     {
@@ -299,6 +301,7 @@ namespace
         settings->LastCheckUtcTicks = 0;
         settings->LastPromptedVersion[0] = '\0';
         settings->LastKnownRemoteVersion[0] = '\0';
+        settings->PluginCatalogSources[0] = '\0';
     }
 
     void WINAPI LoadOrSaveSettingsCallback(BOOL load, HKEY regKey, CSalamanderRegistryAbstract* registry, void* param)
@@ -352,6 +355,13 @@ namespace
             {
                 settings->LastKnownRemoteVersion[sizeof(settings->LastKnownRemoteVersion) - 1] = '\0';
             }
+
+            settings->PluginCatalogSources[0] = '\0';
+            if (registry->GetValue(regKey, kConfigPluginCatalogSources, REG_SZ,
+                                    settings->PluginCatalogSources, sizeof(settings->PluginCatalogSources)))
+            {
+                settings->PluginCatalogSources[sizeof(settings->PluginCatalogSources) - 1] = '\0';
+            }
         }
         else
         {
@@ -395,6 +405,16 @@ namespace
             else
             {
                 registry->DeleteValue(regKey, kConfigLastKnownRemoteVersion);
+            }
+
+            if (settings->PluginCatalogSources[0] != '\0')
+            {
+                registry->SetValue(regKey, kConfigPluginCatalogSources, REG_SZ,
+                                   settings->PluginCatalogSources, -1);
+            }
+            else
+            {
+                registry->DeleteValue(regKey, kConfigPluginCatalogSources);
             }
         }
     }
