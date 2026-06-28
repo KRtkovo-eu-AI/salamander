@@ -706,6 +706,20 @@ protected:
     {
         switch (uMsg)
         {
+        case WM_CREATE:
+        case WM_INITDIALOG:
+        {
+            ApplyFTPDarkMode(HWindow);
+            break;
+        }
+
+        case WM_THEMECHANGED:
+        {
+            ApplyFTPDarkMode(HWindow);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return 0;
+        }
+
         case WM_WINDOWPOSCHANGING:
         {
             WINDOWPOS* pos = (WINDOWPOS*)lParam;
@@ -760,6 +774,7 @@ int CALLBACK CenterCallback(HWND HWindow, UINT uMsg, LPARAM lParam)
                 delete wnd; // window is not attached, destroy it right here
             else
             {
+                ApplyFTPDarkMode(wnd->HWindow);
                 PostMessage(wnd->HWindow, WM_APP + 1000, 0, 0); // to detach CCenteredPropertyWindow from the dialog
             }
         }

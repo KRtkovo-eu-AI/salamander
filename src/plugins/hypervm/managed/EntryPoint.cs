@@ -114,14 +114,18 @@ public static class EntryPoint
     {
         const string description = "Show local Hyper-V virtual machines in panel.";
         const string copyright = "Copyleft 2026 Ondrej Kotas, KRtkovo.eu";
-        MessageBox.Show(new WindowHandleWrapper(parent),
+        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent),
             description + Environment.NewLine + copyright,
             "About",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
         return 0;
     }
-    private static int ShowConfiguration(IntPtr parent) { MessageBox.Show(new WindowHandleWrapper(parent), "No configuration yet.", "Configuration", MessageBoxButtons.OK, MessageBoxIcon.Information); return 0; }
+    private static int ShowConfiguration(IntPtr parent)
+    {
+        ThemeHelper.ShowMessageBox(new WindowHandleWrapper(parent), "No configuration yet.", "Configuration", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return 0;
+    }
 
     private static IntPtr ParseHandle(string value) => ulong.TryParse(value, out var parsed) ? new IntPtr(unchecked((long)parsed)) : IntPtr.Zero;
 

@@ -774,6 +774,7 @@ INT_PTR CRegisterServiceDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
     {
     case WM_INITDIALOG:
         InitializeControls();
+        ApplyServiceExplorerDarkMode(HWindow);
         return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam))

@@ -760,6 +760,10 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (AlwaysOnTop)
             SetWindowPos(HWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
+        ApplyRegEdtDarkMode(HWindow);
+        if (StatusBar != NULL && StatusBar->HWindow != NULL)
+            ApplyRegEdtDarkMode(StatusBar->HWindow);
+
         break;
     }
 
@@ -781,6 +785,11 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_THEMECHANGED:
     {
         ApplyRegEdtDarkMode(HWindow);
+        if (StatusBar != NULL && StatusBar->HWindow != NULL)
+        {
+            ApplyRegEdtDarkMode(StatusBar->HWindow);
+            InvalidateRect(StatusBar->HWindow, NULL, TRUE);
+        }
         RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
         return TRUE;
     }

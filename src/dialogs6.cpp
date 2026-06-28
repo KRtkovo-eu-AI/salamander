@@ -611,6 +611,14 @@ CSharesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         InitColumns();
         Refresh();
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
         break;
     }
 
@@ -712,9 +720,26 @@ CSharesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_THEMECHANGED:
+    {
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            DarkModeUpdateListViewColors(HListView);
+        else
+            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
         break;
     }
     }
@@ -1385,9 +1410,26 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_THEMECHANGED:
+    {
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            DarkModeUpdateListViewColors(HListView);
+        else
+            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
         break;
     }
     }
@@ -2605,9 +2647,26 @@ CCfgPageIconOvrls::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    case WM_THEMECHANGED:
+    {
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+
     case WM_SYSCOLORCHANGE:
     {
-        ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            DarkModeUpdateListViewColors(HListView);
+        else
+            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
         break;
     }
 

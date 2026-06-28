@@ -54,7 +54,17 @@ void CStatusBar::AllocateBitmap()
             RECT r;
             SetRect(&r, 0, 0, Width, Height);
 
-            DrawEdge(dc, &r, BDR_SUNKENOUTER, BF_RECT);
+            const bool useDark = DarkModeShouldUseDarkColors();
+            const COLORREF backgroundColor = useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE);
+            HBRUSH backgroundBrush = CreateSolidBrush(backgroundColor);
+            if (backgroundBrush != NULL)
+            {
+                FillRect(dc, &r, backgroundBrush);
+                DeleteObject(backgroundBrush);
+            }
+
+            if (!useDark)
+                DrawEdge(dc, &r, BDR_SUNKENOUTER, BF_RECT);
 
             r.top++;
             r.bottom--;
@@ -62,7 +72,7 @@ void CStatusBar::AllocateBitmap()
             r.right--;
 
             DrawFrameControl(dc, &r, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
-            HPEN pen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
+            HPEN pen = CreatePen(PS_SOLID, 0, backgroundColor);
             HPEN oldPen = (HPEN)SelectObject(dc, pen);
             MoveToEx(dc, r.left + 2, r.bottom, NULL);
             LineTo(dc, r.right, r.bottom);
@@ -203,8 +213,9 @@ CStatusBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 HBITMAP oldBmp = (HBITMAP)SelectObject(dc, HBitmap);
 
                 HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
-                SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
-                SetBkColor(dc, GetSysColor(COLOR_BTNFACE));
+                const bool useDark = DarkModeShouldUseDarkColors();
+                SetTextColor(dc, useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_BTNTEXT));
+                SetBkColor(dc, useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_BTNFACE));
 
                 Section.Enter();
                 RECT r;

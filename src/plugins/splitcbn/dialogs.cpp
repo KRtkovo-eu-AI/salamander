@@ -10,6 +10,43 @@
 #include "split.h"
 #include "combine.h"
 
+
+namespace
+{
+BOOL HandleSplitCBNDarkDialogMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    switch (uMsg)
+    {
+    case WM_THEMECHANGED:
+        ApplySplitCBNDarkMode(hWnd);
+        RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        *result = TRUE;
+        return TRUE;
+
+    case WM_SETTINGCHANGE:
+        ConfigureSplitCBNDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplySplitCBNDarkMode(hWnd);
+            InvalidateRect(hWnd, NULL, TRUE);
+            *result = TRUE;
+            return TRUE;
+        }
+        return FALSE;
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+        return HandleSplitCBNDarkCtlColor(uMsg, wParam, lParam, result);
+    }
+    return FALSE;
+}
+}
+
 // *****************************************************************************
 //
 //  SPLIT DIALOG
@@ -231,12 +268,29 @@ namespace split
             SendMessage(h, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_AUTODETECT));
             SendMessage(h, CB_SETCURSEL, 0, 0);
             OnComboSelChange();
+            ApplySplitCBNDarkMode(hWnd);
             SetFocus(h);
 
             /*HWND h = GetDlgItem(hWnd, IDC_EDITNUMBER);
       LONG style = GetWindowLong(h, GWL_STYLE);
       SetWindowLong(h, GWL_STYLE, style | WS_VSCROLL);*/
             return FALSE;
+        }
+
+        case WM_THEMECHANGED:
+        case WM_SETTINGCHANGE:
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORMSGBOX:
+        case WM_CTLCOLORSCROLLBAR:
+        {
+            INT_PTR result = 0;
+            if (HandleSplitCBNDarkDialogMessage(hWnd, uMsg, wParam, lParam, &result))
+                return result;
+            break;
         }
 
         case WM_HELP:
@@ -630,7 +684,24 @@ namespace combine
                                          0, 0, LR_DEFAULTCOLOR);
 
             EnableButtons();
+            ApplySplitCBNDarkMode(hWnd);
             return FALSE;
+        }
+
+        case WM_THEMECHANGED:
+        case WM_SETTINGCHANGE:
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORMSGBOX:
+        case WM_CTLCOLORSCROLLBAR:
+        {
+            INT_PTR result = 0;
+            if (HandleSplitCBNDarkDialogMessage(hWnd, uMsg, wParam, lParam, &result))
+                return result;
+            break;
         }
 
         case WM_DESTROY:
@@ -734,16 +805,22 @@ namespace combine
             BOOL selected = (dis->itemState & ODS_SELECTED);
             BOOL focused = selected && GetFocus() == GetDlgItem(hWnd, dis->CtlID);
 
-            if (selected)
-                FillRect(hDC, &r, (HBRUSH)(COLOR_HIGHLIGHT + 1));
-            else
-                FillRect(hDC, &r, (HBRUSH)(COLOR_WINDOW + 1));
+            const bool useDark = DarkModeShouldUseDarkColors();
+            const COLORREF fillColor = selected ? GetSysColor(COLOR_HIGHLIGHT) :
+                                       (useDark ? DarkModeGetDialogBackgroundColor() : GetSysColor(COLOR_WINDOW));
+            HBRUSH fillBrush = CreateSolidBrush(fillColor);
+            if (fillBrush != NULL)
+            {
+                FillRect(hDC, &r, fillBrush);
+                DeleteObject(fillBrush);
+            }
 
             if (pid->index != -1)
             {
                 DrawIconEx(hDC, r.left + 2, r.top + 1, /*pid->hIcon*/ hFileIcon, 16, 16, 0, NULL, DI_NORMAL);
                 r.left += 21;
-                SetTextColor(hDC, GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_WINDOWTEXT));
+                SetTextColor(hDC, selected ? GetSysColor(COLOR_HIGHLIGHTTEXT) :
+                                    (useDark ? DarkModeGetDialogTextColor() : GetSysColor(COLOR_WINDOWTEXT)));
                 SetBkMode(hDC, TRANSPARENT);
                 DrawText(hDC, pid->text, -1, &r, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
                 r.left -= 21;
@@ -847,7 +924,24 @@ static INT_PTR CALLBACK ConfigDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
         CheckDlgButton(hWnd, IDC_CHECK_COMBINEOTHER, configCombineToOther ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(hWnd, IDC_CHECK_SPLITSUB, configSplitToSubdir /*&& configSplitToOther*/ ? BST_CHECKED : BST_UNCHECKED);
         //EnableWindow(GetDlgItem(hWnd, IDC_CHECK_SPLITSUB), configSplitToOther);
+        ApplySplitCBNDarkMode(hWnd);
         return TRUE;
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleSplitCBNDarkDialogMessage(hWnd, uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
 
     case WM_HELP:
     {
@@ -923,6 +1017,8 @@ static INT_PTR CALLBACK CRCDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         icon = (HICON)LoadImage(DLLInstance, MAKEINTRESOURCE(IDI_OK), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
         SendDlgItemMessage(hWnd, IDC_ICON_OK, STM_SETIMAGE, IMAGE_ICON, (LPARAM)icon);
 
+        ApplySplitCBNDarkMode(hWnd);
+
         if (bCrcFound)
         {
             sprintf(text, LoadStr(IDS_CRCHEX), originalCrc);
@@ -935,6 +1031,22 @@ static INT_PTR CALLBACK CRCDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             SetDlgItemText(hWnd, IDC_EDIT_CRC3, LoadStr(IDS_CRCNOTFOUND));
 
         return TRUE;
+    }
+
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleSplitCBNDarkDialogMessage(hWnd, uMsg, wParam, lParam, &result))
+            return result;
+        break;
     }
 
     case WM_COMMAND:

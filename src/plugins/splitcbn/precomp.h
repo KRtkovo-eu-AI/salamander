@@ -31,3 +31,5 @@
 #include "dbg.h"
 #include "arraylt.h"
 #include "mhandles.h"
+
+#include "../../darkmode.h"

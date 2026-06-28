@@ -12,7 +12,7 @@ class CPluginInterface : public CPluginInterfaceAbstract
 public:
     virtual void WINAPI About(HWND parent);
 
-    virtual BOOL WINAPI Release(HWND parent, BOOL force) { return TRUE; }
+    virtual BOOL WINAPI Release(HWND parent, BOOL force);
 
     virtual void WINAPI LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
     virtual void WINAPI SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract* registry);
@@ -54,6 +54,10 @@ extern BOOL configSplitToSubdir;
 extern HINSTANCE DLLInstance; // handle to SPL - language-independent resources
 extern HINSTANCE HLanguage;   // handle to SLG - language-dependent resources
 char* LoadStr(int resID);
+void RefreshSplitCBNDarkModeFromHost();
+void ConfigureSplitCBNDarkModeFromHost();
+void ApplySplitCBNDarkMode(HWND hwnd);
+BOOL HandleSplitCBNDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
 void CenterWindow(HWND hWnd);
 void GetInfo(char* buffer, CQuadWord& size);
 void StripExtension(LPTSTR fileName);
