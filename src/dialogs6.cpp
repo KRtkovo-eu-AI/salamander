@@ -788,22 +788,12 @@ BOOL CDisconnectDialog::OnDisconnect()
         if (Connections[index].Type == citNetwork)
         {
             // NETWORK
-            DISCDLGSTRUCT conn;
-            conn.cbStructure = sizeof(conn);
-            conn.hwndOwner = HWindow;
-            if (stricmp(Connections[index].Name, LoadStr(IDS_NETWORK_NONE)) == 0)
+            const char* connectionName = stricmp(Connections[index].Name, LoadStr(IDS_NETWORK_NONE)) == 0 ? Connections[index].Path
+                                                                                                           : Connections[index].Name;
+            DWORD err = WNetCancelConnection2(connectionName, CONNECT_UPDATE_PROFILE, FALSE);
+            if (err != NO_ERROR)
             {
-                conn.lpLocalName = Connections[index].Path;
-                conn.lpRemoteName = NULL;
-            }
-            else
-            {
-                conn.lpLocalName = Connections[index].Name;
-                conn.lpRemoteName = Connections[index].Path;
-            }
-            conn.dwFlags = DISC_UPDATE_PROFILE;
-            if (WNetDisconnectDialog1(&conn) != NO_ERROR)
-            {
+                SalMessageBox(HWindow, GetErrorText(err), LoadStr(IDS_NETWORKERROR), MB_OK | MB_ICONEXCLAMATION);
                 Refresh(); // we must rebuild the array and list view to remove already disconnected items
                 // without invalidating and updating the main window, the area under the Disconnect dialog isn't redrawn after closing
                 // (the dialog uses save-bits and its remembered background probably won't be invalidated,
@@ -1361,6 +1351,15 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         InitColumns();
         Refresh();
 
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
+
         if (ListView_GetItemCount(HListView) == 0)
         {
             SendMessage(HWindow, WM_COMMAND, IDCANCEL, 0);
@@ -1407,6 +1406,43 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             }
         }
+        break;
+    }
+
+    case WM_THEMECHANGED:
+    {
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_SYSCOLORCHANGE:
+    {
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+            DarkModeUpdateListViewColors(HListView);
+        else
+            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        LRESULT brush;
+        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+            return brush;
         break;
     }
 
