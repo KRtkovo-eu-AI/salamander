@@ -751,32 +751,6 @@ CSharesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CDisconnectDialog
 //
 
-static const UINT WM_DISCONNECT_DARKMODE_REAPPLY = WM_APP + 0x3D1;
-
-static void ApplyDisconnectDialogDarkMode(HWND hWindow, HWND hListView)
-{
-    if (!WinLib_DarkMode_ShouldApplyDialogTree(hWindow))
-        return;
-
-    DarkModeApplyWindow(hWindow);
-    DarkModeApplyTree(hWindow);
-    DarkModeRefreshTitleBar(hWindow);
-    DarkModeApplyStaticTextColors(hWindow, NULL);
-
-    if (hListView != NULL)
-    {
-        DarkModeApplyWindow(hListView);
-        DarkModeUpdateListViewColors(hListView);
-        HWND hHeader = ListView_GetHeader(hListView);
-        if (hHeader != NULL)
-            DarkModeApplyWindow(hHeader);
-    }
-
-    DarkModeApplyWindow(GetDlgItem(hWindow, IDOK));
-    DarkModeApplyWindow(GetDlgItem(hWindow, IDCANCEL));
-    DarkModeApplyWindow(GetDlgItem(hWindow, IDHELP));
-}
-
 CDisconnectDialog::CDisconnectDialog(CFilesWindow* panel)
     : CCommonDialog(HLanguage, IDD_DISCONNECT, IDD_DISCONNECT, panel->HWindow), Connections(10, 5)
 {
@@ -1387,9 +1361,6 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         InitColumns();
         Refresh();
 
-        ApplyDisconnectDialogDarkMode(HWindow, HListView);
-        PostMessage(HWindow, WM_DISCONNECT_DARKMODE_REAPPLY, 0, 0);
-
         if (ListView_GetItemCount(HListView) == 0)
         {
             SendMessage(HWindow, WM_COMMAND, IDCANCEL, 0);
@@ -1397,13 +1368,6 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
         break;
-    }
-
-    case WM_DISCONNECT_DARKMODE_REAPPLY:
-    {
-        ApplyDisconnectDialogDarkMode(HWindow, HListView);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
-        return TRUE;
     }
 
     case WM_NOTIFY:
@@ -1446,35 +1410,6 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    case WM_THEMECHANGED:
-    {
-        ApplyDisconnectDialogDarkMode(HWindow, HListView);
-        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
-        return TRUE;
-    }
-
-    case WM_SYSCOLORCHANGE:
-    {
-        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
-            DarkModeUpdateListViewColors(HListView);
-        else
-            ListView_SetBkColor(HListView, GetSysColor(COLOR_WINDOW));
-        break;
-    }
-
-    case WM_CTLCOLORDLG:
-    case WM_CTLCOLORSTATIC:
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLOREDIT:
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORMSGBOX:
-    case WM_CTLCOLORSCROLLBAR:
-    {
-        LRESULT brush = 0;
-        if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
-            return brush;
-        break;
-    }
     }
     return CCommonDialog::DialogProc(uMsg, wParam, lParam);
 }

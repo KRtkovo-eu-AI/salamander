@@ -2010,7 +2010,6 @@ static void renderComboBoxEdit(HWND hWnd, HDC hdc, dmlib_subclass::ComboBoxData&
 
 	if (comboBoxData.m_cbStyle == CBS_DROPDOWN)
 	{
-		const auto holdSeparatorPen = dmlib_paint::GdiObject{ hdc, dmlib::getEdgePen(), true };
 		const std::array<POINT, 2> edge{ {
 			{ rcArrow.left - 1, rcArrow.top },
 			{ rcArrow.left - 1, rcArrow.bottom }

@@ -1888,13 +1888,6 @@ BOOL CEditWindow::Create(HWND hParent, int childID)
     SendMessage(HWindow, CB_LIMITTEXT, GetCmdLineLimit(), 0);
     FillHistory();
     EnableWindow(HWindow, Enabled);
-    if (DarkModeShouldUseDarkColors())
-    {
-        DarkModeApplyWindow(HWindow);
-        DarkModeApplyTree(HWindow);
-        if (EditLine != NULL && EditLine->HWindow != NULL)
-            DarkModeApplyWindow(EditLine->HWindow);
-    }
     return hWnd != NULL;
 }
 
@@ -2019,20 +2012,6 @@ CEditWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONUP:
     {
         Tracking = FALSE;
-        break;
-    }
-
-    case WM_THEMECHANGED:
-    case WM_SETTINGCHANGE:
-    {
-        if (DarkModeShouldUseDarkColors())
-        {
-            DarkModeApplyWindow(HWindow);
-            DarkModeApplyTree(HWindow);
-            if (EditLine != NULL && EditLine->HWindow != NULL)
-                DarkModeApplyWindow(EditLine->HWindow);
-            RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
-        }
         break;
     }
 
