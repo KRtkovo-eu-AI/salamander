@@ -5036,7 +5036,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
             GetValue(actKey, CONFIG_BOTTOMTOOLBARVISIBLE_REG, REG_DWORD,
                      &Configuration.BottomToolBarVisible, sizeof(DWORD));
-            if (Configuration.BottomToolBarVisible)
+            // If mandatory layout data is missing, LoadConfig returns FALSE and the caller
+            // builds the default UI. Do not create the bottom toolbar here too, otherwise
+            // the caller's default pass toggles it back off.
+            if (ret && Configuration.BottomToolBarVisible)
                 ToggleBottomToolBar();
 
             //      GetValue(actKey, CONFIG_SPACESELCALCSPACE, REG_DWORD,
