@@ -31,6 +31,7 @@
 #include "spl_vers.h"
 
 #include "dbg.h"
+#include "mhandles.h"
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"

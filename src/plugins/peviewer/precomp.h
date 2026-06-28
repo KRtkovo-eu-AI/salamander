@@ -32,4 +32,5 @@
 #include "spl_vers.h"
 
 #include "dbg.h"
+#include "mhandles.h"
 #include "winliblt.h"

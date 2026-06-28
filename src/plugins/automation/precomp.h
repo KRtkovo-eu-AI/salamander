@@ -109,3 +109,5 @@ ICanHandleException : public IUnknown
 
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderGUIAbstract* SalamanderGUI;
+
+#include "mhandles.h"
