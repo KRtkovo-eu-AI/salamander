@@ -118,8 +118,7 @@
 #define IDC_SAVE_TO_FILE                308
 #define IDC_SAVE_TO_FILE_PATH           309
 #define IDC_SAVE_TO_FILE_BROWSE         310
-#define IDC_SELECTIONBOX                309
-#define IDC_DISABLEDANDD                310
+#define IDC_DISABLEDANDD                317
 #define IDC_SPACESELECTING              311
 #define IDC_TIMERESOLUTION              312
 #define IDE_TIMERESOLUTION              313
@@ -742,6 +741,14 @@
 #define IDC_MCD_FILE_PATH               6243
 #define IDC_MCD_FILE_BROWSE             6244
 #define IDC_MCD_REGISTRY_PATH           6245
+#define IDC_MCD_GROUP_EXISTING          6247
+#define IDC_MCD_GROUP_SOURCE            6248
+#define IDC_MCD_LABEL_VERSION           6249
+#define IDC_MCD_LABEL_LANGUAGE          6250
+#define IDC_MCD_LABEL_STORAGE           6251
+#define IDC_MCD_LABEL_LOCATION          6252
+#define IDC_MCD_LABEL_CONFIGNAME        6253
+#define IDC_MCD_GROUP_TARGET            6254
 
 // Next default values for new objects
 // 
@@ -749,7 +756,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        8201
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6246
-#define _APS_NEXT_SYMED_VALUE           101
+#define _APS_NEXT_CONTROL_VALUE         6255
+#define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

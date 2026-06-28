@@ -1511,7 +1511,7 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPT
 CAPTION "Welcome to %s"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "1. Existing configurations",-1,6,3,508,177
+    GROUPBOX        "1. Existing configurations",IDC_MCD_GROUP_EXISTING,6,3,508,177
     CONTROL         "",IDC_MCD_CONFIGS_LIST,"SysListView32",
                     LVS_REPORT | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,
                     12,14,496,144
@@ -1520,19 +1520,19 @@ BEGIN
     PUSHBUTTON      "Export selected",IDC_MCD_EXPORT,334,161,90,14
     PUSHBUTTON      "Delete selected...",IDC_MCD_DELETE_SEL,430,161,80,14
 
-    GROUPBOX        "2. Source configuration",-1,6,184,508,61
-    LTEXT           "Version",-1,12,196,40,8
+    GROUPBOX        "2. Source configuration",IDC_MCD_GROUP_SOURCE,6,184,508,61
+    LTEXT           "Version",IDC_MCD_LABEL_VERSION,12,196,40,8
     LTEXT           "",IDC_MCD_SRC_VERSION,56,196,100,8
-    LTEXT           "Language",-1,160,196,40,8
+    LTEXT           "Language",IDC_MCD_LABEL_LANGUAGE,160,196,40,8
     LTEXT           "",IDC_MCD_SRC_LANG,204,196,80,8
-    LTEXT           "Storage",-1,288,196,40,8
+    LTEXT           "Storage",IDC_MCD_LABEL_STORAGE,288,196,40,8
     LTEXT           "",IDC_MCD_SRC_STORAGE,332,196,80,8
-    LTEXT           "Location",-1,12,211,40,8
+    LTEXT           "Location",IDC_MCD_LABEL_LOCATION,12,211,40,8
     LTEXT           "",IDC_MCD_SRC_LOCATION,56,211,456,8
-    LTEXT           "Configuration name",-1,12,226,70,8
+    LTEXT           "Configuration name",IDC_MCD_LABEL_CONFIGNAME,12,226,70,8
     EDITTEXT        IDC_MCD_SRC_NAME,82,224,370,14,ES_AUTOHSCROLL
 
-    GROUPBOX        "3. Target configuration storage",-1,6,250,508,46
+    GROUPBOX        "3. Target configuration storage",IDC_MCD_GROUP_TARGET,6,250,508,46
     CONTROL         "Registry",IDC_MCD_REG_RADIO,"Button",
                     BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,12,263,42,12
     EDITTEXT        IDC_MCD_REGISTRY_PATH,82,262,370,12,ES_AUTOHSCROLL | WS_DISABLED

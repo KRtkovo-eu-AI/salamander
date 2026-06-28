@@ -339,12 +339,6 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
     // Information for the Output window
     OutWindow.Clear();
 
-    // DIAGNOSTIC: log entry
-    {
-        FILE* f; fopen_s(&f, "C:\\Users\\ok\\AppData\\Local\\Temp\\translator_diag.log", "a");
-        if (f) { fprintf(f, "OpenProject: importSubPath=%s FullIncludeFile=%s FullTargetFile=%s QuietExportSLT=%s QuietExportSLTForDiff=%d\n", importSubPath ? importSubPath : "(null)", Data.FullIncludeFile, Data.FullTargetFile, QuietExportSLT, QuietExportSLTForDiff); fclose(f); }
-    }
-
     BOOL ret = FALSE;
     BOOL showOutro = TRUE;
     if (DataRH.Load(Data.FullIncludeFile) &&
@@ -353,10 +347,6 @@ BOOL CFrameWindow::OpenProject(const char* importSubPath)
         Data.LoadSalMenu(Data.FullSalMenuFile) &&
         Data.LoadIgnoreLst(Data.FullIgnoreLstFile))
     {
-        // DIAGNOSTIC: log successful load
-        FILE* f; fopen_s(&f, "C:\\Users\\ok\\AppData\\Local\\Temp\\translator_diag.log", "a");
-        if (f) { fprintf(f, "OpenProject: all loads OK, errorLines=%d\n", OutWindow.GetErrorLines()); fclose(f); }
-
         Data.LookForIdConflicts();
 
         if ((QuietTranslate || QuietValidate && !DataRH.ContainsUnknownIdentifier) &&
