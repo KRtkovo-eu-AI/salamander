@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1038
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Legutóbbi ismert kiadás: {0}"
 81,1,"Legutóbbi ismert kiadás: Ismeretlen"
+82,1,"Bővítményfrissítések ellenőrzése…"
+83,1,"Bővítményfrissítések"
+84,1,"Az ellenőrzés az adatok JSON katalógusmanifestjei alapján összeveti a telepített bővítményeket. A letöltés és a telepítés nem történik meg; az egyes bővítményekhez használja a webes hivatkozást."
+85,1,"Frissítés"
+86,1,"Weboldal megnyitása"
+87,1,"Bezárás"
+88,1,"Csak frissítések megjelenítése"
+89,1,"Katalógusforrások, egy URL soronként:"
+90,1,"Források mentése"
+91,1,"Bővítmény"
+92,1,"Telepített verzió"
+93,1,"Legújabb verzió"
+94,1,"Állapot"
+95,1,"Forrás"
+
+[STRINGTABLE 4]
+96,1,"Jelenlegi"
+97,1,"Frissítés elérhető"
+98,1,"Ismeretlen verzió"
+99,1,"Nincs a katalógusban"
+100,1,"Katalógushiba"
+101,1,"Eltérő verzió"
+102,1,"Bővítménykatalógus betöltése…"
+103,1,"A bővítményfrissítés-ellenőrzés befejeződött."
+104,1,"Ez a bővítménysor nem biztosít weboldal URL-t."
+105,1,"A bővítménykatalógus-források mentése megtörtént."
+106,1,"Szerző"
+107,1,"Kezdőlap"
+108,1,"Érték másolása"
+109,1,"Sor másolása fejlécével"
 

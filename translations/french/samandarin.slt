@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1036
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Dernière version connue : {0}"
 81,1,"Dernière version connue : Inconnue"
+82,1,"Vérifier les mises à jour des modules..."
+83,1,"Mises à jour des modules"
+84,1,"Compare les modules installes aux manifestes de catalogue JSON. Les telechargements et l’installation ne sont pas effectues ; utilisez le lien web pour chaque module."
+85,1,"Actualiser"
+86,1,"Ouvrir la page web"
+87,1,"Fermer"
+88,1,"Afficher uniquement les mises a jour"
+89,1,"Sources du catalogue, une URL par ligne :"
+90,1,"Enregistrer les sources"
+91,1,"Module"
+92,1,"Version installee"
+93,1,"Derniere version"
+94,1,"Statut"
+95,1,"Source"
+
+[STRINGTABLE 4]
+96,1,"Actuel"
+97,1,"Mise a disposition"
+98,1,"Version inconnue"
+99,1,"Non present dans le catalogue"
+100,1,"Erreur du catalogue"
+101,1,"Version differente"
+102,1,"Chargement du catalogue des modules..."
+103,1,"Verification des mises a jour des modules terminee."
+104,1,"Cette entree de module ne fournit pas d’URL de page web."
+105,1,"Les sources du catalogue de modules ont ete enregistrees."
+106,1,"Auteur"
+107,1,"Accueil"
+108,1,"Copier la valeur"
+109,1,"Copier la ligne avec les en-têtes"
 

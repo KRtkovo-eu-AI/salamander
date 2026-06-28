@@ -23,7 +23,7 @@
 
 #include "spl_vers.h" // vytahneme cisla verzi + buildu
 
-#define VERSINFO_COPYRIGHT   "Copyleft 2025 Ondrej Kotas (KRtekTM)"
+#define VERSINFO_COPYRIGHT   "Copyleft 2026 Ondrej Kotas (KRtekTM)"
 #define VERSINFO_COMPANY     "Open Salamander"
 
 #define VERSINFO_DESCRIPTION "Samandarin update notification plugin for Open Salamander"
@@ -37,7 +37,7 @@
 #endif
 
 // for SLG translators
-#define VERSINFO_SLG_WEB     "www.altap.cz"
+#define VERSINFO_SLG_WEB     "https://krtkovo.eu"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif // __SAMANDARIN_VERSINFO_RH2

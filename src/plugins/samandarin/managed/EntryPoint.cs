@@ -1518,7 +1518,7 @@ internal static class SharedHttpClient
 
 internal static class PluginCatalogSources
 {
-    private const string DefaultSource = "https://raw.githubusercontent.com/KRtkovo-eu-AI/salamander/main/doc/plugin-catalog.json";
+    private const string DefaultSource = "https://ai.krtkovo.eu/samandarin/plugin-catalog.json";
 
     public static IReadOnlyList<string> Load()
     {
