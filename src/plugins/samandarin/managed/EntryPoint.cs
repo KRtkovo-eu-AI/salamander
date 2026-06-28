@@ -1528,7 +1528,7 @@ internal static class PluginCatalogSources
             return new[] { DefaultSource };
         }
 
-        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1612,7 +1612,7 @@ internal static class PluginVersionComparer
             return PluginVersionComparison.Unknown;
         }
 
-        if (string.Equals(installed.Trim(), latest.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(installed!.Trim(), latest!.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             return PluginVersionComparison.Current;
         }
