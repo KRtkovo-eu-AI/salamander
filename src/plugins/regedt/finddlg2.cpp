@@ -730,9 +730,9 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         StatusBar->CreateEx(0,
-                            CWINDOW_CLASSNAME,
+                            STATUSCLASSNAME,
                             (LPCTSTR)NULL,
-                            WS_CHILD | WS_VISIBLE,
+                            WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
                             0, 0, 0, 0,
                             HWindow,
                             (HMENU)IDC_STATUS,

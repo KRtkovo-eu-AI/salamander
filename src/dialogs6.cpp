@@ -1361,6 +1361,15 @@ CDisconnectDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         InitColumns();
         Refresh();
 
+        if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
+        {
+            DarkModeApplyTree(HWindow);
+            DarkModeRefreshTitleBar(HWindow);
+            DarkModeUpdateListViewColors(HListView);
+            DarkModeApplyStaticTextColors(HWindow, NULL);
+            WinLib_DarkMode_PostDeferredRedraw(HWindow);
+        }
+
         if (ListView_GetItemCount(HListView) == 0)
         {
             SendMessage(HWindow, WM_COMMAND, IDCANCEL, 0);
