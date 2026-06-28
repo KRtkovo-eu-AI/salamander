@@ -1888,6 +1888,13 @@ BOOL CEditWindow::Create(HWND hParent, int childID)
     SendMessage(HWindow, CB_LIMITTEXT, GetCmdLineLimit(), 0);
     FillHistory();
     EnableWindow(HWindow, Enabled);
+    if (DarkModeShouldUseDarkColors())
+    {
+        DarkModeApplyWindow(HWindow);
+        DarkModeApplyTree(HWindow);
+        if (EditLine != NULL && EditLine->HWindow != NULL)
+            DarkModeApplyWindow(EditLine->HWindow);
+    }
     return hWnd != NULL;
 }
 

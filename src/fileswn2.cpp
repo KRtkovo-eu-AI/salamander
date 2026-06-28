@@ -38,6 +38,35 @@ static const char* TREEVIEW_SPLIT_SUBCLASSPROC = "SAL_TREEVIEW_SPLIT_SUBCLASSPRO
 static const char* TREEVIEW_SPLIT_OWNER = "SAL_TREEVIEW_SPLIT_OWNER";
 static const UINT_PTR TREEVIEW_HEADER_SUBCLASS_ID = 1;
 
+static HHOOK HDisconnectDarkModeHook = NULL;
+
+static void ApplyDarkModeToCreatedDisconnectDialog(HWND hWindow)
+{
+    if (hWindow == NULL || !DarkModeShouldUseDarkColors())
+        return;
+
+    WCHAR className[32];
+    if (GetClassNameW(hWindow, className, _countof(className)) == 0 ||
+        lstrcmpiW(className, L"#32770") != 0)
+    {
+        return;
+    }
+
+    DarkModeApplyWindow(hWindow);
+    DarkModeApplyTree(hWindow);
+    DarkModeRefreshTitleBar(hWindow);
+    DarkModeApplyStaticTextColors(hWindow, NULL);
+    RedrawWindow(hWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+}
+
+static LRESULT CALLBACK DisconnectDarkModeHookProc(int code, WPARAM wParam, LPARAM lParam)
+{
+    if (code == HCBT_CREATEWND || code == HCBT_ACTIVATE)
+        ApplyDarkModeToCreatedDisconnectDialog((HWND)wParam);
+
+    return CallNextHookEx(HDisconnectDarkModeHook, code, wParam, lParam);
+}
+
 static void DrawTreeViewHeaderIcon(HDC hdc, int left, int top, int size, COLORREF color)
 {
     if (size < 8)
@@ -1502,8 +1531,19 @@ void CFilesWindow::DisconnectNet()
     //  because MainWindow was NULL;
     //  WNetDisconnectDialog(HWindow, RESOURCETYPE_DISK);
 
+    if (DarkModeShouldUseDarkColors())
+        HDisconnectDarkModeHook = SetWindowsHookEx(WH_CBT, DisconnectDarkModeHookProc, NULL, GetCurrentThreadId()); // HANDLES can't do this
+
     CDisconnectDialog dlg(this);
-    if (dlg.Execute() == IDCANCEL && dlg.NoConnection())
+    INT_PTR disconnectResult = dlg.Execute();
+
+    if (HDisconnectDarkModeHook != NULL)
+    {
+        UnhookWindowsHookEx(HDisconnectDarkModeHook); // HANDLES can't do this
+        HDisconnectDarkModeHook = NULL;
+    }
+
+    if (disconnectResult == IDCANCEL && dlg.NoConnection())
     {
         // dialog didn't appear because it contained zero resources -- show info
         SalMessageBox(HWindow, LoadStr(IDS_DISCONNECT_NODRIVES),

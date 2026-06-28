@@ -1658,8 +1658,17 @@ CColorGraph::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CBitmap bitmap;
             bitmap.CreateBmp(hdc, ClientRect.right, ClientRect.bottom);
 
-            HBRUSH hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
-            FillRect(bitmap.HMemDC, &ClientRect, hBrush);
+            if (DarkModeShouldUseDarkColors())
+            {
+                HBRUSH hBrush = HANDLES(CreateSolidBrush(DarkModeGetDialogBackgroundColor()));
+                FillRect(bitmap.HMemDC, &ClientRect, hBrush);
+                HANDLES(DeleteObject(hBrush));
+            }
+            else
+            {
+                HBRUSH hBrush = (HBRUSH)(COLOR_BTNFACE + 1);
+                FillRect(bitmap.HMemDC, &ClientRect, hBrush);
+            }
 
             PaintFace(bitmap.HMemDC);
 
