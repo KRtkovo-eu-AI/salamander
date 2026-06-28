@@ -3114,7 +3114,7 @@ HBRUSH DarkModeGetPanelFrameBrush()
 {
     static HBRUSH brush = NULL;
     if (brush == NULL)
-        brush = HANDLES(CreateSolidBrush(RGB(0x38, 0x38, 0x38)));
+        brush = CreateSolidBrush(RGB(0x38, 0x38, 0x38));
     return brush;
 }
 

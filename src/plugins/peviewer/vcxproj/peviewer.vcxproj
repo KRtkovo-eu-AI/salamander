@@ -165,9 +165,6 @@
     </ClCompile>
     <ClCompile Include="..\..\shared\dbg.cpp">
     </ClCompile>
-    <ClCompile Include="..\..\shared\mhandles.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="..\dump_res.cpp">
     </ClCompile>
     <ClCompile Include="..\pefile.cpp">
