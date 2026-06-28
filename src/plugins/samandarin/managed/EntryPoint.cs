@@ -1016,6 +1016,7 @@ internal sealed class PluginUpdatesDialog : Form
         ShowInTaskbar = false;
         Width = 860;
         Height = 620;
+        Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(12) };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -1089,7 +1090,9 @@ internal sealed class PluginUpdatesDialog : Form
             _rows.Clear();
             _rows.AddRange(result);
             BindRows();
-            _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesReady);
+            _statusLabel.Text = PluginCatalogService.LastErrors.Count == 0
+                ? NativeStrings.Get(NativeStringId.PluginUpdatesReady)
+                : $"{NativeStrings.Get(NativeStringId.PluginUpdatesReady)} {string.Join(" | ", PluginCatalogService.LastErrors)}";
         }
         catch (Exception ex)
         {
@@ -1135,15 +1138,40 @@ internal sealed class PluginUpdatesDialog : Form
     }
 }
 
+
+internal static class PluginIconLoader
+{
+    public static System.Drawing.Icon? Load()
+    {
+        try
+        {
+            var pluginDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            if (pluginDirectory is null)
+            {
+                return null;
+            }
+
+            var splPath = Path.Combine(pluginDirectory, "samandarin.spl");
+            return File.Exists(splPath) ? System.Drawing.Icon.ExtractAssociatedIcon(splPath) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
+
 internal static class PluginCatalogService
 {
     private static readonly JavaScriptSerializer Serializer = new();
+
+    public static IReadOnlyList<string> LastErrors { get; private set; } = Array.Empty<string>();
 
     public static async Task<IReadOnlyList<PluginUpdateRow>> CheckAsync()
     {
         var installed = InstalledPluginScanner.Scan().ToList();
         var catalog = new Dictionary<string, PluginCatalogEntry>(StringComparer.OrdinalIgnoreCase);
-        var sourceErrors = new List<PluginUpdateRow>();
+        var sourceErrors = new List<string>();
 
         foreach (var source in PluginCatalogSources.Load())
         {
@@ -1164,12 +1192,12 @@ internal static class PluginCatalogService
             }
             catch (Exception ex)
             {
-                sourceErrors.Add(PluginUpdateRow.SourceError(source, ex.Message));
+                sourceErrors.Add($"{source}: {ex.Message}");
             }
         }
 
         var rows = installed.Select(plugin => BuildRow(plugin, catalog.TryGetValue(plugin.Id, out var entry) ? entry : null)).ToList();
-        rows.AddRange(sourceErrors);
+        LastErrors = sourceErrors;
         return rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
@@ -1270,10 +1298,21 @@ internal static class InstalledPluginScanner
 
             var relative = file.Substring(pluginsRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
-            var display = string.IsNullOrWhiteSpace(info.ProductName) ? Path.GetFileNameWithoutExtension(file) : info.ProductName!;
+            var display = BuildDisplayName(id, file, info);
             var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
             yield return new InstalledPlugin(id, display, version);
         }
+    }
+    private static string BuildDisplayName(string id, string file, FileVersionInfo info)
+    {
+        if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
+            !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase))
+        {
+            return info.FileDescription!;
+        }
+
+        var fileName = Path.GetFileNameWithoutExtension(file);
+        return string.IsNullOrWhiteSpace(fileName) ? id : fileName;
     }
 }
 

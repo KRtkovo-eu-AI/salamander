@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "managed_bridge.h"
+#include "../../darkmode.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -236,6 +237,16 @@ extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int
     }
 
     return SalamanderGeneral->GetCurrentColor(color);
+}
+
+extern "C" __declspec(dllexport) void __stdcall Samandarin_SetDarkModeState(BOOL enabled)
+{
+    DarkModeSetEnabled(enabled != FALSE);
+}
+
+extern "C" __declspec(dllexport) void __stdcall Samandarin_ApplyDarkModeTree(HWND hwnd)
+{
+    DarkModeApplyTree(hwnd);
 }
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_LoadString(int resourceId, wchar_t* buffer, int bufferLength)

@@ -25,21 +25,26 @@ internal static class ThemeHelper
     {
         if (!TryGetPalette(out var palette))
         {
+            NativeMethods.SetDarkModeEnabled(false);
             return;
         }
 
+        NativeMethods.SetDarkModeEnabled(palette.IsDark);
         ApplyPalette(form, palette);
 
         if (form.IsHandleCreated)
         {
             NativeMethods.ApplyImmersiveDarkMode(form.Handle, palette.IsDark, palette.ControlBorder);
+            NativeMethods.ApplyDarkModeTree(form.Handle);
         }
 
         form.HandleCreated += (_, _) =>
         {
             if (TryGetPalette(out var refreshed))
             {
+                NativeMethods.SetDarkModeEnabled(refreshed.IsDark);
                 NativeMethods.ApplyImmersiveDarkMode(form.Handle, refreshed.IsDark, refreshed.ControlBorder);
+                NativeMethods.ApplyDarkModeTree(form.Handle);
             }
         };
     }
@@ -253,6 +258,9 @@ internal static class ThemeHelper
                 treeView.ForeColor = palette.InputForeground;
                 treeView.LineColor = palette.Accent;
                 break;
+            case DataGridView dataGridView:
+                ApplyDataGridViewPalette(dataGridView, palette);
+                break;
             case Button button when palette.IsDark:
                 button.FlatStyle = FlatStyle.Flat;
                 button.ForeColor = palette.Foreground;
@@ -266,7 +274,7 @@ internal static class ThemeHelper
                 break;
         }
 
-        if (!(control is Button))
+        if (control is not Button and not DataGridView)
         {
             control.BackColor = palette.Background;
         }
@@ -281,6 +289,26 @@ internal static class ThemeHelper
         {
             ApplyPalette(child, palette);
         }
+    }
+
+    private static void ApplyDataGridViewPalette(DataGridView dataGridView, ThemePalette palette)
+    {
+        dataGridView.EnableHeadersVisualStyles = false;
+        dataGridView.BackgroundColor = palette.InputBackground;
+        dataGridView.GridColor = palette.ControlBorder;
+        dataGridView.BorderStyle = BorderStyle.FixedSingle;
+        dataGridView.ColumnHeadersDefaultCellStyle.BackColor = palette.ControlBackground;
+        dataGridView.ColumnHeadersDefaultCellStyle.ForeColor = palette.Foreground;
+        dataGridView.ColumnHeadersDefaultCellStyle.SelectionBackColor = palette.ControlBackground;
+        dataGridView.ColumnHeadersDefaultCellStyle.SelectionForeColor = palette.Foreground;
+        dataGridView.DefaultCellStyle.BackColor = palette.InputBackground;
+        dataGridView.DefaultCellStyle.ForeColor = palette.InputForeground;
+        dataGridView.DefaultCellStyle.SelectionBackColor = palette.HighlightBackground;
+        dataGridView.DefaultCellStyle.SelectionForeColor = palette.HighlightForeground;
+        dataGridView.AlternatingRowsDefaultCellStyle.BackColor = palette.InputBackground;
+        dataGridView.AlternatingRowsDefaultCellStyle.ForeColor = palette.InputForeground;
+        dataGridView.RowHeadersDefaultCellStyle.BackColor = palette.ControlBackground;
+        dataGridView.RowHeadersDefaultCellStyle.ForeColor = palette.Foreground;
     }
 
     private static void ComboBoxOnDrawItem(object? sender, DrawItemEventArgs e)
@@ -576,8 +604,47 @@ internal static class ThemeHelper
         [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
         public static extern uint Samandarin_GetCurrentColor(int color);
 
+        [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void Samandarin_SetDarkModeState([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+        [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void Samandarin_ApplyDarkModeTree(IntPtr hwnd);
+
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        public static void SetDarkModeEnabled(bool enabled)
+        {
+            try
+            {
+                Samandarin_SetDarkModeState(enabled);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
+
+        public static void ApplyDarkModeTree(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                Samandarin_ApplyDarkModeTree(handle);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
 
         public static uint GetCurrentColor(int color)
         {
