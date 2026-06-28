@@ -194,6 +194,8 @@ internal enum NativeStringId
     PluginSourcesSaved = 105,
     PluginColumnAuthor = 106,
     PluginColumnHomepage = 107,
+    PluginCopyValue = 108,
+    PluginCopyRowWithHeaders = 109,
 }
 
 internal static class NativeStrings
@@ -1009,6 +1011,9 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
     private readonly Button _openButton;
+    private readonly ContextMenuStrip _listContextMenu;
+    private ListViewItem? _contextMenuItem;
+    private int _contextMenuSubItemIndex;
     private readonly List<PluginUpdateRow> _rows = new();
     private int _sortColumn;
     private SortOrder _sortOrder = SortOrder.Ascending;
@@ -1049,18 +1054,24 @@ internal sealed class PluginUpdatesDialog : Form
             GridLines = true,
             HideSelection = false,
             MultiSelect = false,
+            Scrollable = true,
             View = View.Details,
         };
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 220);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 120);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 120);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 150);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 140);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnHomepage), 220);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 260);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 240);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 130);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 130);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 160);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 170);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnHomepage), 280);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 300);
         _listView.ColumnClick += ListViewOnColumnClick;
         _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
-        _listView.Resize += (_, _) => AdjustListViewColumns();
+        _listView.MouseDown += ListViewOnMouseDown;
+        _listContextMenu = new ContextMenuStrip();
+        _listContextMenu.Opening += ListContextMenuOnOpening;
+        _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyValue), null, (_, _) => CopyContextCellValue());
+        _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyRowWithHeaders), null, (_, _) => CopyContextRowWithHeaders());
+        _listView.ContextMenuStrip = _listContextMenu;
         layout.Controls.Add(_listView, 0, 1);
 
         var aboveSourcesPanel = new TableLayoutPanel
@@ -1113,7 +1124,6 @@ internal sealed class PluginUpdatesDialog : Form
         CancelButton = closeButton;
         Shown += async (_, _) =>
         {
-            AdjustListViewColumns();
             await RefreshAsync().ConfigureAwait(true);
         };
     }
@@ -1187,27 +1197,49 @@ internal sealed class PluginUpdatesDialog : Form
         ThemeHelper.ApplyNativeDarkMode(_listView);
     }
 
-    private void AdjustListViewColumns()
+
+    private void ListViewOnMouseDown(object? sender, MouseEventArgs e)
     {
-        if (_listView.Columns.Count < 7)
+        if (e.Button != MouseButtons.Right)
         {
             return;
         }
 
-        int width = Math.Max(700, _listView.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
-        int[] weights = { 23, 12, 12, 14, 13, 16, 10 };
-        int used = 0;
-        for (int i = 0; i < _listView.Columns.Count; i++)
+        var hit = _listView.HitTest(e.Location);
+        _contextMenuItem = hit.Item;
+        _contextMenuSubItemIndex = hit.Item is null || hit.SubItem is null ? -1 : hit.Item.SubItems.IndexOf(hit.SubItem);
+    }
+
+    private void ListContextMenuOnOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        bool hasCell = _contextMenuItem is not null && _contextMenuSubItemIndex >= 0;
+        e.Cancel = !hasCell;
+    }
+
+    private void CopyContextCellValue()
+    {
+        if (_contextMenuItem is null || _contextMenuSubItemIndex < 0 || _contextMenuSubItemIndex >= _contextMenuItem.SubItems.Count)
         {
-            int columnWidth = Math.Max(70, width * weights[i] / 100);
-            _listView.Columns[i].Width = columnWidth;
-            used += columnWidth;
+            return;
         }
 
-        if (used < width)
+        Clipboard.SetText(_contextMenuItem.SubItems[_contextMenuSubItemIndex].Text ?? string.Empty);
+    }
+
+    private void CopyContextRowWithHeaders()
+    {
+        if (_contextMenuItem is null)
         {
-            _listView.Columns[_listView.Columns.Count - 1].Width += width - used;
+            return;
         }
+
+        var parts = new List<string>();
+        for (int i = 0; i < _listView.Columns.Count && i < _contextMenuItem.SubItems.Count; i++)
+        {
+            parts.Add($"{_listView.Columns[i].Text}: {_contextMenuItem.SubItems[i].Text}");
+        }
+
+        Clipboard.SetText(string.Join(Environment.NewLine, parts));
     }
 
     private void ListViewOnColumnClick(object? sender, ColumnClickEventArgs e)

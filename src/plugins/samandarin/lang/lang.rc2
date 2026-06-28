@@ -84,4 +84,6 @@ STRINGTABLE
  IDS_PLUGIN_SOURCES_SAVED, "Plugin catalog sources were saved."
  IDS_PLUGIN_COL_AUTHOR, "Author"
  IDS_PLUGIN_COL_HOMEPAGE, "Homepage"
+ IDS_PLUGIN_COPY_VALUE, "Copy value"
+ IDS_PLUGIN_COPY_ROW_HEADERS, "Copy row with headers"
 }

@@ -276,8 +276,10 @@ internal static class ThemeHelper
                 listView.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
             case CheckBox checkBox:
-                checkBox.FlatStyle = FlatStyle.System;
-                checkBox.UseVisualStyleBackColor = true;
+                checkBox.FlatStyle = FlatStyle.Standard;
+                checkBox.ForeColor = palette.Foreground;
+                checkBox.BackColor = palette.Background;
+                checkBox.UseVisualStyleBackColor = false;
                 checkBox.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
                 checkBox.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
