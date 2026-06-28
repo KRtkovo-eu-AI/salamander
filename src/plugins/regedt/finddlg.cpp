@@ -26,55 +26,13 @@ CStatusBar::CStatusBar()
     Width = 0;
     TextWidth = 0;
     Height = 0;
-    HBitmap = NULL;
+    UpdateInIdle = FALSE;
 }
 
 CStatusBar::~CStatusBar()
 {
     CALL_STACK_MESSAGE_NONE
     //  CALL_STACK_MESSAGE1("CStatusBar::~CStatusBar()");
-    if (HBitmap != NULL)
-        DeleteObject(HBitmap);
-}
-
-void CStatusBar::AllocateBitmap()
-{
-    CALL_STACK_MESSAGE1("CStatusBar::AllocateBitmap()");
-    HDC screenDC = GetDC(HWindow);
-    if (screenDC != NULL)
-    {
-        if (HBitmap != NULL)
-            DeleteObject(HBitmap);
-        HBitmap = (HBITMAP)CreateCompatibleBitmap(screenDC, Width, Height);
-        // pre-draw the frame and sizing grip into the bitmap
-        HDC dc = CreateCompatibleDC(screenDC);
-        if (dc)
-        {
-            HBITMAP oldBmp = (HBITMAP)SelectObject(dc, HBitmap);
-            RECT r;
-            SetRect(&r, 0, 0, Width, Height);
-
-            DrawEdge(dc, &r, BDR_SUNKENOUTER, BF_RECT);
-
-            r.top++;
-            r.bottom--;
-            r.left = TextWidth;
-            r.right--;
-
-            DrawFrameControl(dc, &r, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
-            HPEN pen = CreatePen(PS_SOLID, 0, GetSysColor(COLOR_BTNFACE));
-            HPEN oldPen = (HPEN)SelectObject(dc, pen);
-            MoveToEx(dc, r.left + 2, r.bottom, NULL);
-            LineTo(dc, r.right, r.bottom);
-            LineTo(dc, r.right, r.bottom - GetSystemMetrics(SM_CYVSCROLL) + 3);
-            SelectObject(dc, oldPen);
-            DeleteObject(pen);
-
-            SelectObject(dc, oldBmp);
-            DeleteDC(dc);
-        }
-        ReleaseDC(HWindow, screenDC);
-    }
 }
 
 void CStatusBar::SetBase(LPCWSTR text, BOOL updateInIdle)
@@ -92,10 +50,7 @@ void CStatusBar::SetBase(LPCWSTR text, BOOL updateInIdle)
         else
         {
             Dirty = TRUE;
-            RECT r;
-            SetRect(&r, 1, 1, TextWidth, Height - 1);
-            InvalidateRect(HWindow, &r, FALSE);
-            PostMessage(HWindow, WM_PAINT, 0, 0);
+            UpdateText();
         }
     }
     Section.Leave();
@@ -115,13 +70,33 @@ void CStatusBar::Set(LPCWSTR text, BOOL updateInIdle)
         else
         {
             Dirty = TRUE;
-            RECT r;
-            SetRect(&r, 1, 1, TextWidth, Height - 1);
-            InvalidateRect(HWindow, &r, FALSE);
-            PostMessage(HWindow, WM_PAINT, 0, 0);
+            UpdateText();
         }
     }
     Section.Leave();
+}
+
+void CStatusBar::UpdateParts()
+{
+    CALL_STACK_MESSAGE1("CStatusBar::UpdateParts()");
+    if (HWindow == NULL)
+        return;
+
+    RECT r;
+    GetClientRect(HWindow, &r);
+    Width = r.right - r.left;
+    Height = r.bottom - r.top;
+    TextWidth = Width - GetSystemMetrics(SM_CXHSCROLL) + 1;
+    int parts[2] = {TextWidth, -1};
+    SendMessage(HWindow, SB_SETPARTS, 2, (LPARAM)parts);
+}
+
+void CStatusBar::UpdateText()
+{
+    CALL_STACK_MESSAGE1("CStatusBar::UpdateText()");
+    if (HWindow != NULL)
+        SendMessageW(HWindow, SB_SETTEXTW, 0, (LPARAM)Text);
+    Dirty = FALSE;
 }
 
 void CStatusBar::OnEnterIdle()
@@ -137,10 +112,7 @@ void CStatusBar::OnEnterIdle()
         if (!Dirty)
         {
             Dirty = TRUE;
-            RECT r;
-            SetRect(&r, 1, 1, TextWidth, Height - 1);
-            InvalidateRect(HWindow, &r, FALSE);
-            PostMessage(HWindow, WM_PAINT, 0, 0);
+            UpdateText();
         }
     }
     Section.Leave();
@@ -153,13 +125,19 @@ CStatusBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                         lParam);
     switch (uMsg)
     {
+    case WM_CREATE:
+    {
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+        UpdateParts();
+        UpdateText();
+        return result;
+    }
+
     case WM_SIZE:
     {
-        Width = LOWORD(lParam);
-        TextWidth = Width - GetSystemMetrics(SM_CXHSCROLL) + 1;
-        Height = HIWORD(lParam);
-        AllocateBitmap();
-        return 0;
+        LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+        UpdateParts();
+        return result;
     }
 
     case WM_NCHITTEST:
@@ -184,46 +162,6 @@ CStatusBar::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (PtInRect(&r, pt))
             return HTBOTTOMRIGHT;
         break;
-    }
-
-    case WM_ERASEBKGND:
-    {
-        return TRUE;
-    }
-
-    case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-        BeginPaint(HWindow, &ps);
-        if (HBitmap)
-        {
-            HDC dc = CreateCompatibleDC(ps.hdc);
-            if (dc)
-            {
-                HBITMAP oldBmp = (HBITMAP)SelectObject(dc, HBitmap);
-
-                HFONT oldFont = (HFONT)SelectObject(dc, EnvFont);
-                SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
-                SetBkColor(dc, GetSysColor(COLOR_BTNFACE));
-
-                Section.Enter();
-                RECT r;
-                SetRect(&r, 1, 1, TextWidth, Height - 1);
-                ExtTextOutW(dc, 2, (r.top + r.bottom - EnvFontHeight) / 2, ETO_OPAQUE | ETO_CLIPPED, &r, Text, (UINT)wcslen(Text), NULL);
-                Dirty = FALSE;
-                Section.Leave();
-
-                SelectObject(dc, oldFont);
-
-                BitBlt(ps.hdc, 0, 0, Width, Height, dc, 0, 0, SRCCOPY);
-                SelectObject(dc, oldBmp);
-                DeleteDC(dc);
-            }
-        }
-
-        EndPaint(HWindow, &ps);
-
-        return 0;
     }
     }
     return CWindow::WindowProc(uMsg, wParam, lParam);

@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <CommDlg.h>
 #include <ShellAPI.h>
+#include <objbase.h>
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
@@ -31,6 +32,7 @@
 #include "spl_vers.h"
 
 #include "dbg.h"
+#include "mhandles.h"
 #include "arraylt.h"
 #include "winliblt.h"
 #include "auxtools.h"
@@ -46,3 +48,5 @@
 #include "finddlg.h"
 #include "editor.h"
 #include "export.h"
+
+#include "../../darkmode.h"

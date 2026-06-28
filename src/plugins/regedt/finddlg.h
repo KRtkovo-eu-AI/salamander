@@ -22,12 +22,12 @@ protected:
     int Width;
     int TextWidth;
     int Height;
-    HBITMAP HBitmap;
 
 public:
     CStatusBar();
     virtual ~CStatusBar();
-    void AllocateBitmap();
+    void UpdateParts();
+    void UpdateText();
 
     // set the base to which Set appends additional text
     void SetBase(LPCWSTR text, BOOL updateInIdle = FALSE);

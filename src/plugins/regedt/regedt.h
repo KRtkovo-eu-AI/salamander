@@ -94,6 +94,12 @@ BOOL ErrorL(int lastError, HWND parent, int error, ...);
 BOOL ErrorL(int lastError, int error, ...);
 int SalPrintf(char* buffer, unsigned count, const char* format, ...);
 int SalPrintfW(LPWSTR buffer, unsigned count, LPCWSTR format, ...);
+void RefreshRegEdtDarkModeFromHost();
+void ConfigureRegEdtDarkModeFromHost();
+void ApplyRegEdtDarkMode(HWND hwnd);
+BOOL ApplyRegEdtDarkModeIfSelected(HWND hwnd);
+BOOL HandleRegEdtDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result);
+
 
 // ****************************************************************************
 //

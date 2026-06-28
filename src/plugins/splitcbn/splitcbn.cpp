@@ -35,6 +35,121 @@ BOOL configSplitToOther;
 BOOL configCombineToOther;
 BOOL configSplitToSubdir;
 
+namespace
+{
+HBRUSH SplitCBNDarkModeDialogBrush = NULL;
+COLORREF SplitCBNDarkModeDialogBrushColor = CLR_INVALID;
+BOOL SplitCBNHostPolicyKnown = FALSE;
+BOOL SplitCBNHostUseWindowsDarkMode = FALSE;
+COLORREF SplitCBNHostSchemeText = CLR_INVALID;
+COLORREF SplitCBNHostSchemeBackground = CLR_INVALID;
+DWORD SplitCBNMainThreadId = 0;
+
+HBRUSH SplitCBNGetDarkModeDialogBrush(COLORREF background)
+{
+    if (SplitCBNDarkModeDialogBrush == NULL || SplitCBNDarkModeDialogBrushColor != background)
+    {
+        if (SplitCBNDarkModeDialogBrush != NULL)
+            DeleteObject(SplitCBNDarkModeDialogBrush);
+        SplitCBNDarkModeDialogBrush = CreateSolidBrush(background);
+        SplitCBNDarkModeDialogBrushColor = background;
+    }
+    return SplitCBNDarkModeDialogBrush;
+}
+
+void ReleaseSplitCBNDarkModeResources()
+{
+    if (SplitCBNDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(SplitCBNDarkModeDialogBrush);
+        SplitCBNDarkModeDialogBrush = NULL;
+        SplitCBNDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+
+BOOL SplitCBNCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL && SplitCBNMainThreadId != 0 && GetCurrentThreadId() == SplitCBNMainThreadId;
+}
+
+BOOL SplitCBNShouldUseWindowsDarkMode()
+{
+    return SplitCBNHostPolicyKnown && SplitCBNHostUseWindowsDarkMode;
+}
+}
+
+void RefreshSplitCBNDarkModeFromHost()
+{
+    if (!SplitCBNCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                              &useWindowsDarkMode,
+                                              sizeof(useWindowsDarkMode),
+                                              NULL))
+    {
+        SplitCBNHostPolicyKnown = TRUE;
+        SplitCBNHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (SplitCBNHostPolicyKnown && SplitCBNHostUseWindowsDarkMode)
+    {
+        SplitCBNHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        SplitCBNHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+void ConfigureSplitCBNDarkModeFromHost()
+{
+    RefreshSplitCBNDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = SplitCBNShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && SplitCBNHostSchemeText != CLR_INVALID && SplitCBNHostSchemeBackground != CLR_INVALID)
+    {
+        text = SplitCBNHostSchemeText;
+        background = SplitCBNHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = SplitCBNGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplySplitCBNDarkMode(HWND hwnd)
+{
+    ConfigureSplitCBNDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL HandleSplitCBNDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!SplitCBNShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureSplitCBNDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+
 static const char* KEY_INCLUDEFILEEXT = "Include Original Extension";
 static const char* KEY_CREATEBATCHFILE = "Create Batch File";
 static const char* KEY_SPLITTOOTHER = "Split To Other Panel";
@@ -90,6 +205,8 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the general Salamander interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    SplitCBNMainThreadId = GetCurrentThreadId();
+    RefreshSplitCBNDarkModeFromHost();
     SalamanderSafeFile = salamander->GetSalamanderSafeFile();
     // obtain the interface providing customized Windows controls used in Salamander
     SalamanderGUI = salamander->GetSalamanderGUI();
@@ -114,6 +231,15 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 //
 //  CPluginInterface
 //
+BOOL CPluginInterface::Release(HWND parent, BOOL force)
+{
+    CALL_STACK_MESSAGE2("CPluginInterface::Release(, %d)", force);
+    (void)parent;
+    ReleaseSplitCBNDarkModeResources();
+    return TRUE;
+}
+
+
 
 void CPluginInterface::About(HWND parent)
 {

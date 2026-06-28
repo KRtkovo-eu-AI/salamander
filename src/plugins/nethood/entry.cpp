@@ -138,6 +138,7 @@ SalamanderPluginEntry(
 
     // Initialize global variables.
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    InitializeWinLibDarkMode(SalamanderGeneral);
     SalamanderGUI = salamander->GetSalamanderGUI();
 
     // setup help file name

@@ -63,3 +63,5 @@
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif // __BORLANDC__
+
+#include "../../darkmode.h"

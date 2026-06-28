@@ -349,6 +349,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the generic Salamander interface
     SalGeneral = salamander->GetSalamanderGeneral();
+    InitializeWinLibDarkMode(SalGeneral);
 
     // set the help file name
     SalGeneral->SetHelpFileName("dbviewer.chm");

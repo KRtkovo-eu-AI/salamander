@@ -19,6 +19,131 @@ CSalamanderGUIAbstract* SalamanderGUI = NULL;
 
 namespace
 {
+HBRUSH ServiceExplorerDarkModeDialogBrush = NULL;
+COLORREF ServiceExplorerDarkModeDialogBrushColor = CLR_INVALID;
+BOOL ServiceExplorerHostPolicyKnown = FALSE;
+BOOL ServiceExplorerHostUseWindowsDarkMode = FALSE;
+COLORREF ServiceExplorerHostSchemeText = CLR_INVALID;
+COLORREF ServiceExplorerHostSchemeBackground = CLR_INVALID;
+DWORD ServiceExplorerMainThreadId = 0;
+
+HBRUSH ServiceExplorerGetDarkModeDialogBrush(COLORREF background)
+{
+    if (ServiceExplorerDarkModeDialogBrush == NULL || ServiceExplorerDarkModeDialogBrushColor != background)
+    {
+        if (ServiceExplorerDarkModeDialogBrush != NULL)
+            DeleteObject(ServiceExplorerDarkModeDialogBrush);
+        ServiceExplorerDarkModeDialogBrush = CreateSolidBrush(background);
+        ServiceExplorerDarkModeDialogBrushColor = background;
+    }
+    return ServiceExplorerDarkModeDialogBrush;
+}
+
+void ReleaseServiceExplorerDarkModeResources()
+{
+    if (ServiceExplorerDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(ServiceExplorerDarkModeDialogBrush);
+        ServiceExplorerDarkModeDialogBrush = NULL;
+        ServiceExplorerDarkModeDialogBrushColor = CLR_INVALID;
+    }
+}
+}
+
+BOOL ServiceExplorerCanQueryHostDarkMode()
+{
+    return SalamanderGeneral != NULL &&
+           ServiceExplorerMainThreadId != 0 &&
+           GetCurrentThreadId() == ServiceExplorerMainThreadId;
+}
+
+void RefreshServiceExplorerDarkModeFromHost()
+{
+    if (!ServiceExplorerCanQueryHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (SalamanderGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                      &useWindowsDarkMode,
+                                      sizeof(useWindowsDarkMode),
+                                      NULL))
+    {
+        ServiceExplorerHostPolicyKnown = TRUE;
+        ServiceExplorerHostUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (ServiceExplorerHostPolicyKnown && ServiceExplorerHostUseWindowsDarkMode)
+    {
+        ServiceExplorerHostSchemeText = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        ServiceExplorerHostSchemeBackground = SalamanderGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+BOOL ServiceExplorerShouldUseWindowsDarkMode()
+{
+    return ServiceExplorerHostPolicyKnown && ServiceExplorerHostUseWindowsDarkMode;
+}
+
+void ConfigureServiceExplorerDarkModeFromHost()
+{
+    RefreshServiceExplorerDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = ServiceExplorerShouldUseWindowsDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && ServiceExplorerHostSchemeText != CLR_INVALID && ServiceExplorerHostSchemeBackground != CLR_INVALID)
+    {
+        text = ServiceExplorerHostSchemeText;
+        background = ServiceExplorerHostSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = ServiceExplorerGetDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyServiceExplorerDarkMode(HWND hwnd)
+{
+    ConfigureServiceExplorerDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL ApplyServiceExplorerDarkModeIfSelected(HWND hwnd)
+{
+    if (!ServiceExplorerShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ApplyServiceExplorerDarkMode(hwnd);
+    return TRUE;
+}
+
+BOOL HandleServiceExplorerDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (!ServiceExplorerShouldUseWindowsDarkMode())
+        return FALSE;
+
+    ConfigureServiceExplorerDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+namespace
+{
 HBITMAP CreateServiceBitmap()
 {
   HBITMAP bitmap = reinterpret_cast<HBITMAP>(
@@ -155,6 +280,7 @@ CPluginInterfaceAbstract * WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAb
   }
 
   SalamanderGeneral = salamander->GetSalamanderGeneral();
+  ServiceExplorerMainThreadId = GetCurrentThreadId();
   SalamanderGUI = salamander->GetSalamanderGUI();
 
   HLanguage = salamander->LoadLanguageModule(salamander->GetParentWindow(), "ServiceExplorer");
@@ -170,6 +296,7 @@ CPluginInterfaceAbstract * WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAb
   salamander->SetPluginHomePageURL("http://www.jamik.de");
 
   SalamanderGeneral->GetPluginFSName(AssignedFSName, 0);
+  RefreshServiceExplorerDarkModeFromHost();
 
   if (!InitFS())
   {
@@ -193,6 +320,7 @@ void WINAPI CPluginInterface::About(HWND parent)
 
 BOOL WINAPI CPluginInterface::Release(HWND parent, BOOL force)
 {
+  ReleaseServiceExplorerDarkModeResources();
   return TRUE;
 }
 void WINAPI CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRegistryAbstract *registry)

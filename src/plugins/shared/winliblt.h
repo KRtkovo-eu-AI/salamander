@@ -25,6 +25,12 @@ void SetWinLibStrings(const char* invalidNumber, // "neni cislo" (u transferbuff
 // jinak nastane kolize jmen trid a WinLib nemuze fungovat - bude fungovat jen prvni spusteny
 // plugin); 'dllInstance' je modul pluginu (pouziva se pri registraci univerzalnich trid WinLibu)
 BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance);
+#ifdef USE_DARKMODELIB
+class CSalamanderGeneralAbstract;
+void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral);
+void RefreshWinLibDarkModeFromHost();
+void ReleaseWinLibDarkMode();
+#endif // USE_DARKMODELIB
 // je potreba zavolat po pouziti WinLibu; 'dllInstance' je modul pluginu (pouziva se pri zruseni
 // registrace univerzalnich trid WinLibu)
 void ReleaseWinLib(HINSTANCE dllInstance);
@@ -347,7 +353,7 @@ public:
     // 'startPage' a 'lastPage' muze byt jen jedina promenna (hodnota in/odkaz out);
     // 'flags' viz help k 'PROPSHEETHEADER', pouzitelne hlavne konstanty
     // PSH_NOAPPLYNOW, PSH_USECALLBACK a PSH_HASHELP (jinak staci 'flags'==0)
-    CPropertyDialog(HWND parent, HINSTANCE modul, char* caption,
+    CPropertyDialog(HWND parent, HINSTANCE modul, const char* caption,
                     int startPage, DWORD flags, HICON icon = NULL,
                     DWORD* lastPage = NULL, PFNPROPSHEETCALLBACK callback = NULL)
         : TIndirectArray<CPropSheetPage>(10, 5, dtNoDelete)
@@ -372,7 +378,7 @@ protected:
     HWND HWindow;
     HINSTANCE Modul;
     HICON Icon;
-    char* Caption;
+    const char* Caption;
     int StartPage;
     DWORD Flags;
     PFNPROPSHEETCALLBACK Callback;

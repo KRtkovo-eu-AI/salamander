@@ -684,6 +684,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        ApplyRegEdtDarkMode(HWindow);
         //DialogStackPush(HWindow);
 
         //InstallWordBreakProc(GetDlgItem(HWindow, IDC_PATTERN), TRUE); // install WordBreakProc into the combo box
@@ -729,9 +730,9 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
         StatusBar->CreateEx(0,
-                            CWINDOW_CLASSNAME,
+                            STATUSCLASSNAME,
                             (LPCTSTR)NULL,
-                            WS_CHILD | WS_VISIBLE,
+                            WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
                             0, 0, 0, 0,
                             HWindow,
                             (HMENU)IDC_STATUS,
@@ -759,6 +760,10 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (AlwaysOnTop)
             SetWindowPos(HWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
+        ApplyRegEdtDarkMode(HWindow);
+        if (StatusBar != NULL && StatusBar->HWindow != NULL)
+            ApplyRegEdtDarkMode(StatusBar->HWindow);
+
         break;
     }
 
@@ -776,6 +781,44 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+
+    case WM_THEMECHANGED:
+    {
+        ApplyRegEdtDarkMode(HWindow);
+        if (StatusBar != NULL && StatusBar->HWindow != NULL)
+        {
+            ApplyRegEdtDarkMode(StatusBar->HWindow);
+            InvalidateRect(StatusBar->HWindow, NULL, TRUE);
+        }
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureRegEdtDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyRegEdtDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleRegEdtDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
     case WM_COMMAND:
     {
         switch (LOWORD(wParam))
