@@ -1001,12 +1001,14 @@ internal sealed class ConfigurationDialog : Form
 
 internal sealed class PluginUpdatesDialog : Form
 {
-    private readonly DataGridView _grid;
+    private readonly ListView _listView;
     private readonly TextBox _sourcesTextBox;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
     private readonly Button _openButton;
     private readonly List<PluginUpdateRow> _rows = new();
+    private int _sortColumn;
+    private SortOrder _sortOrder = SortOrder.Ascending;
 
     public PluginUpdatesDialog()
     {
@@ -1015,10 +1017,16 @@ internal sealed class PluginUpdatesDialog : Form
         MinimizeBox = false;
         ShowInTaskbar = false;
         Width = 860;
-        Height = 620;
+        Height = 640;
         Icon = PluginIconLoader.Load();
 
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(12) };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 7,
+            Padding = new Padding(12),
+        };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -1029,47 +1037,65 @@ internal sealed class PluginUpdatesDialog : Form
 
         layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesDescription), AutoSize = true, MaximumSize = new System.Drawing.Size(800, 0) }, 0, 0);
 
-        _grid = new DataGridView
+        _listView = new ListView
         {
             Dock = DockStyle.Fill,
-            AllowUserToAddRows = false,
-            AllowUserToDeleteRows = false,
-            ReadOnly = true,
+            FullRowSelect = true,
+            GridLines = true,
+            HideSelection = false,
             MultiSelect = false,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            AutoGenerateColumns = false,
-            RowHeadersVisible = false,
+            View = View.Details,
         };
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnName), DataPropertyName = nameof(PluginUpdateRow.Name), Width = 180 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnInstalled), DataPropertyName = nameof(PluginUpdateRow.InstalledVersion), Width = 120 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnLatest), DataPropertyName = nameof(PluginUpdateRow.LatestVersion), Width = 120 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnStatus), DataPropertyName = nameof(PluginUpdateRow.StatusText), Width = 150 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnSource), DataPropertyName = nameof(PluginUpdateRow.Source), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-        _grid.CellDoubleClick += (_, _) => OpenSelectedPage();
-        layout.Controls.Add(_grid, 0, 1);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 220);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 120);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 120);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 150);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 330);
+        _listView.ColumnClick += ListViewOnColumnClick;
+        _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
+        layout.Controls.Add(_listView, 0, 1);
 
-        _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true };
+        var aboveSourcesPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 2,
+            Padding = new Padding(0, 6, 0, 6),
+        };
+        aboveSourcesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        aboveSourcesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true, Anchor = AnchorStyles.Left };
         _showOnlyUpdates.CheckedChanged += (_, _) => BindRows();
-        layout.Controls.Add(_showOnlyUpdates, 0, 2);
+        aboveSourcesPanel.Controls.Add(_showOnlyUpdates, 0, 0);
+
+        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true, Anchor = AnchorStyles.Right };
+        _openButton.Click += (_, _) => OpenSelectedPage();
+        aboveSourcesPanel.Controls.Add(_openButton, 1, 0);
+        layout.Controls.Add(aboveSourcesPanel, 0, 2);
 
         layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 3);
 
         _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
         layout.Controls.Add(_sourcesTextBox, 0, 4);
 
-        _statusLabel = new Label { AutoSize = true };
+        _statusLabel = new Label { AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
         layout.Controls.Add(_statusLabel, 0, 5);
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft };
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            FlowDirection = FlowDirection.RightToLeft,
+            Padding = new Padding(0, 10, 0, 0),
+            Margin = new Padding(0),
+        };
         var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
         var refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
         var saveButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSaveSources), AutoSize = true };
-        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true };
         refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
         saveButton.Click += (_, _) => SaveSources(showMessage: true);
-        _openButton.Click += (_, _) => OpenSelectedPage();
         buttons.Controls.Add(closeButton);
-        buttons.Controls.Add(_openButton);
         buttons.Controls.Add(refreshButton);
         buttons.Controls.Add(saveButton);
         layout.Controls.Add(buttons, 0, 6);
@@ -1115,13 +1141,65 @@ internal sealed class PluginUpdatesDialog : Form
 
     private void BindRows()
     {
+        var selectedName = _listView.SelectedItems.Count > 0 ? _listView.SelectedItems[0].Text : null;
         var rows = _showOnlyUpdates.Checked ? _rows.Where(row => row.Status == PluginUpdateStatus.UpdateAvailable).ToList() : _rows.ToList();
-        _grid.DataSource = rows;
+        rows.Sort(new PluginUpdateRowComparer(_sortColumn, _sortOrder));
+
+        _listView.BeginUpdate();
+        try
+        {
+            _listView.Items.Clear();
+            foreach (var row in rows)
+            {
+                var item = new ListViewItem(row.Name) { Tag = row };
+                item.SubItems.Add(row.InstalledVersion);
+                item.SubItems.Add(row.LatestVersion);
+                item.SubItems.Add(row.StatusText);
+                item.SubItems.Add(row.Source);
+                _listView.Items.Add(item);
+                if (selectedName is not null && string.Equals(selectedName, row.Name, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    item.Selected = true;
+                }
+            }
+        }
+        finally
+        {
+            _listView.EndUpdate();
+        }
+
+        NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
+        ThemeHelper.ApplyNativeDarkMode(_listView);
+    }
+
+    private void ListViewOnColumnClick(object? sender, ColumnClickEventArgs e)
+    {
+        if (_sortColumn == e.Column)
+        {
+            _sortOrder = _sortOrder == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
+        }
+        else
+        {
+            _sortColumn = e.Column;
+            _sortOrder = SortOrder.Ascending;
+        }
+
+        BindRows();
+    }
+
+    private void ListViewOnMouseDoubleClick(object? sender, MouseEventArgs e)
+    {
+        if (_listView.GetItemAt(e.X, e.Y) is null)
+        {
+            return;
+        }
+
+        OpenSelectedPage();
     }
 
     private void OpenSelectedPage()
     {
-        if (_grid.CurrentRow?.DataBoundItem is not PluginUpdateRow row || string.IsNullOrWhiteSpace(row.WebUrl))
+        if (_listView.SelectedItems.Count == 0 || _listView.SelectedItems[0].Tag is not PluginUpdateRow row || string.IsNullOrWhiteSpace(row.WebUrl))
         {
             ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginUpdatesNoUrl), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
@@ -1136,8 +1214,118 @@ internal sealed class PluginUpdatesDialog : Form
             ThemeHelper.ShowMessageBox(this, $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}", NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    private sealed class PluginUpdateRowComparer : IComparer<PluginUpdateRow>
+    {
+        private readonly int _column;
+        private readonly SortOrder _order;
+
+        public PluginUpdateRowComparer(int column, SortOrder order)
+        {
+            _column = column;
+            _order = order;
+        }
+
+        public int Compare(PluginUpdateRow? x, PluginUpdateRow? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return 0;
+            }
+
+            if (x is null)
+            {
+                return _order == SortOrder.Descending ? 1 : -1;
+            }
+
+            if (y is null)
+            {
+                return _order == SortOrder.Descending ? -1 : 1;
+            }
+
+            string left = GetValue(x);
+            string right = GetValue(y);
+            int result = string.Compare(left, right, StringComparison.CurrentCultureIgnoreCase);
+            return _order == SortOrder.Descending ? -result : result;
+        }
+
+        private string GetValue(PluginUpdateRow row) => _column switch
+        {
+            1 => row.InstalledVersion,
+            2 => row.LatestVersion,
+            3 => row.StatusText,
+            4 => row.Source,
+            _ => row.Name,
+        };
+    }
 }
 
+
+internal static class NativeListView
+{
+    private const int HDI_FORMAT = 0x0004;
+    private const int HDF_SORTDOWN = 0x0200;
+    private const int HDF_SORTUP = 0x0400;
+    private const int HDM_FIRST = 0x1200;
+    private const int HDM_GETITEMW = HDM_FIRST + 11;
+    private const int HDM_SETITEMW = HDM_FIRST + 12;
+    private const int LVM_FIRST = 0x1000;
+    private const int LVM_GETHEADER = LVM_FIRST + 31;
+
+    public static void SetSortArrow(ListView listView, int column, SortOrder order)
+    {
+        if (!listView.IsHandleCreated)
+        {
+            return;
+        }
+
+        var header = SendMessage(listView.Handle, LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
+        if (header == IntPtr.Zero)
+        {
+            return;
+        }
+
+        for (int i = 0; i < listView.Columns.Count; i++)
+        {
+            var item = new HDITEM { mask = HDI_FORMAT };
+            if (SendMessage(header, HDM_GETITEMW, new IntPtr(i), ref item) == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+            if (i == column)
+            {
+                item.fmt |= order == SortOrder.Descending ? HDF_SORTDOWN : HDF_SORTUP;
+            }
+
+            SendMessage(header, HDM_SETITEMW, new IntPtr(i), ref item);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct HDITEM
+    {
+        public int mask;
+        public int cxy;
+        public IntPtr pszText;
+        public IntPtr hbm;
+        public int cchTextMax;
+        public int fmt;
+        public IntPtr lParam;
+        public int iImage;
+        public int iOrder;
+        public uint type;
+        public IntPtr pvFilter;
+        public uint state;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref HDITEM lParam);
+}
 
 internal static class PluginIconLoader
 {
@@ -1308,11 +1496,26 @@ internal static class InstalledPluginScanner
         if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
             !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase))
         {
-            return info.FileDescription!;
+            return TrimOpenSalamanderSuffix(info.FileDescription!);
         }
 
         var fileName = Path.GetFileNameWithoutExtension(file);
         return string.IsNullOrWhiteSpace(fileName) ? id : fileName;
+    }
+
+    private static string TrimOpenSalamanderSuffix(string name)
+    {
+        var result = name.Trim();
+        foreach (var suffix in new[] { " plugin for Open Salamander", " for Open Salamander" })
+        {
+            if (result.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                result = result.Substring(0, result.Length - suffix.Length).TrimEnd();
+                break;
+            }
+        }
+
+        return result;
     }
 }
 

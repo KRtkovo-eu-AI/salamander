@@ -49,6 +49,14 @@ internal static class ThemeHelper
         };
     }
 
+    public static void ApplyNativeDarkMode(Control control)
+    {
+        if (control.IsHandleCreated)
+        {
+            NativeMethods.ApplyDarkModeTree(control.Handle);
+        }
+    }
+
     public static void InvalidatePalette()
     {
         s_cachedPalette = null;
@@ -258,9 +266,6 @@ internal static class ThemeHelper
                 treeView.ForeColor = palette.InputForeground;
                 treeView.LineColor = palette.Accent;
                 break;
-            case DataGridView dataGridView:
-                ApplyDataGridViewPalette(dataGridView, palette);
-                break;
             case Button button when palette.IsDark:
                 button.FlatStyle = FlatStyle.Flat;
                 button.ForeColor = palette.Foreground;
@@ -274,7 +279,7 @@ internal static class ThemeHelper
                 break;
         }
 
-        if (control is not Button and not DataGridView)
+        if (!(control is Button))
         {
             control.BackColor = palette.Background;
         }
@@ -289,26 +294,6 @@ internal static class ThemeHelper
         {
             ApplyPalette(child, palette);
         }
-    }
-
-    private static void ApplyDataGridViewPalette(DataGridView dataGridView, ThemePalette palette)
-    {
-        dataGridView.EnableHeadersVisualStyles = false;
-        dataGridView.BackgroundColor = palette.InputBackground;
-        dataGridView.GridColor = palette.ControlBorder;
-        dataGridView.BorderStyle = BorderStyle.FixedSingle;
-        dataGridView.ColumnHeadersDefaultCellStyle.BackColor = palette.ControlBackground;
-        dataGridView.ColumnHeadersDefaultCellStyle.ForeColor = palette.Foreground;
-        dataGridView.ColumnHeadersDefaultCellStyle.SelectionBackColor = palette.ControlBackground;
-        dataGridView.ColumnHeadersDefaultCellStyle.SelectionForeColor = palette.Foreground;
-        dataGridView.DefaultCellStyle.BackColor = palette.InputBackground;
-        dataGridView.DefaultCellStyle.ForeColor = palette.InputForeground;
-        dataGridView.DefaultCellStyle.SelectionBackColor = palette.HighlightBackground;
-        dataGridView.DefaultCellStyle.SelectionForeColor = palette.HighlightForeground;
-        dataGridView.AlternatingRowsDefaultCellStyle.BackColor = palette.InputBackground;
-        dataGridView.AlternatingRowsDefaultCellStyle.ForeColor = palette.InputForeground;
-        dataGridView.RowHeadersDefaultCellStyle.BackColor = palette.ControlBackground;
-        dataGridView.RowHeadersDefaultCellStyle.ForeColor = palette.Foreground;
     }
 
     private static void ComboBoxOnDrawItem(object? sender, DrawItemEventArgs e)
