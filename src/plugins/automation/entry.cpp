@@ -83,6 +83,7 @@ CPluginInterfaceAbstract*
     CALL_STACK_MESSAGE1("SalamanderPluginEntry()");
 
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    InitializeWinLibDarkMode(SalamanderGeneral);
     SalamanderGUI = salamander->GetSalamanderGUI();
 
     // requires latest version of Salamander

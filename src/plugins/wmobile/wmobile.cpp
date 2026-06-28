@@ -130,6 +130,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain Salamander's general interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    InitializeWinLibDarkMode(SalamanderGeneral);
     SalamanderGeneral->GetLowerAndUpperCase(&LowerCase, &UpperCase);
 
     strncpy_s(TitleWMobile, LoadStr(IDS_WMPLUGINTITLE), _TRUNCATE);

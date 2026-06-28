@@ -25,6 +25,12 @@ void SetWinLibStrings(const char* invalidNumber, // "neni cislo" (u transferbuff
 // jinak nastane kolize jmen trid a WinLib nemuze fungovat - bude fungovat jen prvni spusteny
 // plugin); 'dllInstance' je modul pluginu (pouziva se pri registraci univerzalnich trid WinLibu)
 BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance);
+#ifdef USE_DARKMODELIB
+class CSalamanderGeneralAbstract;
+void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral);
+void RefreshWinLibDarkModeFromHost();
+void ReleaseWinLibDarkMode();
+#endif // USE_DARKMODELIB
 // je potreba zavolat po pouziti WinLibu; 'dllInstance' je modul pluginu (pouziva se pri zruseni
 // registrace univerzalnich trid WinLibu)
 void ReleaseWinLib(HINSTANCE dllInstance);

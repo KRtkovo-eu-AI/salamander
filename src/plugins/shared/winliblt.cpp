@@ -35,6 +35,11 @@
 
 #include "winliblt.h"
 
+#ifdef USE_DARKMODELIB
+#include "spl_gen.h"
+#include "../../darkmode.h"
+#endif // USE_DARKMODELIB
+
 #ifdef _MSC_VER
 #ifndef itoa
 #define itoa _itoa
@@ -55,6 +60,146 @@ FWinLibLTHelpCallback WinLibLTHelpCallback = NULL; // callbacku pro pripojeni na
 
 //
 // ****************************************************************************
+
+
+#ifdef USE_DARKMODELIB
+namespace
+{
+CSalamanderGeneralAbstract* WinLibDarkModeGeneral = NULL;
+HBRUSH WinLibDarkModeDialogBrush = NULL;
+COLORREF WinLibDarkModeDialogBrushColor = CLR_INVALID;
+BOOL WinLibDarkModePolicyKnown = FALSE;
+BOOL WinLibDarkModeUseWindowsDarkMode = FALSE;
+COLORREF WinLibDarkModeSchemeText = CLR_INVALID;
+COLORREF WinLibDarkModeSchemeBackground = CLR_INVALID;
+DWORD WinLibDarkModeMainThreadId = 0;
+
+HBRUSH GetWinLibDarkModeDialogBrush(COLORREF background)
+{
+    if (WinLibDarkModeDialogBrush == NULL || WinLibDarkModeDialogBrushColor != background)
+    {
+        if (WinLibDarkModeDialogBrush != NULL)
+            DeleteObject(WinLibDarkModeDialogBrush);
+        WinLibDarkModeDialogBrush = CreateSolidBrush(background);
+        WinLibDarkModeDialogBrushColor = background;
+    }
+    return WinLibDarkModeDialogBrush;
+}
+
+BOOL CanQueryWinLibHostDarkMode()
+{
+    return WinLibDarkModeGeneral != NULL &&
+           WinLibDarkModeMainThreadId != 0 &&
+           GetCurrentThreadId() == WinLibDarkModeMainThreadId;
+}
+
+BOOL ShouldUseWinLibDarkMode()
+{
+    return WinLibDarkModePolicyKnown && WinLibDarkModeUseWindowsDarkMode;
+}
+
+void ConfigureWinLibDarkModeFromHost()
+{
+    if (WinLibDarkModeGeneral == NULL)
+        return;
+
+    RefreshWinLibDarkModeFromHost();
+
+    const BOOL useWindowsDarkMode = ShouldUseWinLibDarkMode();
+    const COLORREF fallbackText = GetSysColor(COLOR_BTNTEXT);
+    const COLORREF fallbackBackground = GetSysColor(COLOR_BTNFACE);
+    COLORREF text = fallbackText;
+    COLORREF background = fallbackBackground;
+
+    if (useWindowsDarkMode && WinLibDarkModeSchemeText != CLR_INVALID && WinLibDarkModeSchemeBackground != CLR_INVALID)
+    {
+        text = WinLibDarkModeSchemeText;
+        background = WinLibDarkModeSchemeBackground;
+    }
+
+    const COLORREF readableText = DarkModeEnsureReadableForeground(text, background);
+    HBRUSH dialogBrush = GetWinLibDarkModeDialogBrush(background);
+    DarkModeSetConfiguredColors(text, background, fallbackText, fallbackBackground);
+    DarkModeConfigureDialogColors(readableText, background, dialogBrush);
+    DarkModeSetEnabled(useWindowsDarkMode != FALSE);
+}
+
+void ApplyWinLibDarkMode(HWND hwnd)
+{
+    if (WinLibDarkModeGeneral == NULL)
+        return;
+
+    ConfigureWinLibDarkModeFromHost();
+    if (hwnd != NULL)
+    {
+        DarkModeApplyWindow(hwnd);
+        DarkModeRefreshTitleBar(hwnd);
+        DarkModeApplyTree(hwnd);
+    }
+}
+
+BOOL HandleWinLibDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR* result)
+{
+    if (WinLibDarkModeGeneral == NULL || !ShouldUseWinLibDarkMode())
+        return FALSE;
+
+    ConfigureWinLibDarkModeFromHost();
+    LRESULT brush = 0;
+    if (DarkModeHandleCtlColor(uMsg, wParam, lParam, brush))
+    {
+        *result = (INT_PTR)brush;
+        return TRUE;
+    }
+    return FALSE;
+}
+}
+
+void InitializeWinLibDarkMode(CSalamanderGeneralAbstract* salamanderGeneral)
+{
+    WinLibDarkModeGeneral = salamanderGeneral;
+    WinLibDarkModeMainThreadId = GetCurrentThreadId();
+    RefreshWinLibDarkModeFromHost();
+}
+
+void RefreshWinLibDarkModeFromHost()
+{
+    if (!CanQueryWinLibHostDarkMode())
+        return;
+
+    BOOL useWindowsDarkMode = FALSE;
+    if (WinLibDarkModeGeneral->GetConfigParameter(SALCFG_USEWINDOWSDARKMODE,
+                                                  &useWindowsDarkMode,
+                                                  sizeof(useWindowsDarkMode),
+                                                  NULL))
+    {
+        WinLibDarkModePolicyKnown = TRUE;
+        WinLibDarkModeUseWindowsDarkMode = useWindowsDarkMode;
+    }
+
+    if (WinLibDarkModePolicyKnown && WinLibDarkModeUseWindowsDarkMode)
+    {
+        WinLibDarkModeSchemeText = WinLibDarkModeGeneral->GetCurrentColor(SALCOL_ITEM_FG_NORMAL);
+        WinLibDarkModeSchemeBackground = WinLibDarkModeGeneral->GetCurrentColor(SALCOL_ITEM_BK_NORMAL);
+    }
+}
+
+void ReleaseWinLibDarkMode()
+{
+    if (WinLibDarkModeDialogBrush != NULL)
+    {
+        DeleteObject(WinLibDarkModeDialogBrush);
+        WinLibDarkModeDialogBrush = NULL;
+        WinLibDarkModeDialogBrushColor = CLR_INVALID;
+    }
+    WinLibDarkModeGeneral = NULL;
+    WinLibDarkModeMainThreadId = 0;
+    WinLibDarkModePolicyKnown = FALSE;
+    WinLibDarkModeUseWindowsDarkMode = FALSE;
+    WinLibDarkModeSchemeText = CLR_INVALID;
+    WinLibDarkModeSchemeBackground = CLR_INVALID;
+    DarkModeSetEnabled(false);
+}
+#endif // USE_DARKMODELIB
 
 void SetWinLibStrings(const char* invalidNumber, const char* error)
 {
@@ -102,6 +247,9 @@ BOOL InitializeWinLib(const char* pluginName, HINSTANCE dllInstance)
 
 void ReleaseWinLib(HINSTANCE dllInstance)
 {
+#ifdef USE_DARKMODELIB
+    ReleaseWinLibDarkMode();
+#endif // USE_DARKMODELIB
     if (WindowsManager.WindowsCount != 0)
     {
         // pruser - po unloadu pluginu muze spadnout soft, protoze se zavola window-procedura
@@ -443,9 +591,47 @@ CDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         TransferData(ttDataToWindow);
+#ifdef USE_DARKMODELIB
+        ApplyWinLibDarkMode(HWindow);
+#endif // USE_DARKMODELIB
         return TRUE; // chci focus od DefDlgProc
     }
 
+
+#ifdef USE_DARKMODELIB
+    case WM_THEMECHANGED:
+    {
+        ApplyWinLibDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureWinLibDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyWinLibDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleWinLibDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
+#endif // USE_DARKMODELIB
     case WM_HELP:
     {
         if (WinLibLTHelpCallback != NULL && HelpID != -1 &&
@@ -665,9 +851,48 @@ CPropSheetPage::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         ParentDialog->HWindow = Parent;
         TransferData(ttDataToWindow);
+#ifdef USE_DARKMODELIB
+        ApplyWinLibDarkMode(HWindow);
+        ApplyWinLibDarkMode(Parent);
+#endif // USE_DARKMODELIB
         return TRUE; // chci focus od DefDlgProc
     }
 
+
+#ifdef USE_DARKMODELIB
+    case WM_THEMECHANGED:
+    {
+        ApplyWinLibDarkMode(HWindow);
+        RedrawWindow(HWindow, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return TRUE;
+    }
+
+    case WM_SETTINGCHANGE:
+    {
+        ConfigureWinLibDarkModeFromHost();
+        if (DarkModeHandleSettingChange(uMsg, lParam))
+        {
+            ApplyWinLibDarkMode(HWindow);
+            InvalidateRect(HWindow, NULL, TRUE);
+            return TRUE;
+        }
+        break;
+    }
+
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORMSGBOX:
+    case WM_CTLCOLORSCROLLBAR:
+    {
+        INT_PTR result = 0;
+        if (HandleWinLibDarkCtlColor(uMsg, wParam, lParam, &result))
+            return result;
+        break;
+    }
+#endif // USE_DARKMODELIB
     case WM_HELP:
     {
         if (WinLibLTHelpCallback != NULL && HelpID != -1 &&

@@ -107,6 +107,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // Obtain Salamander's general interface.
     SalGeneral = salamander->GetSalamanderGeneral();
+    InitializeWinLibDarkMode(SalGeneral);
 
     // Set the basic plugin information.
     salamander->SetBasicPluginData(LoadStr(IDS_PLUGIN_NAME),
