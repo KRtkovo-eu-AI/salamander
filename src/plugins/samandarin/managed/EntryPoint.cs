@@ -5,8 +5,14 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Web.Script.Serialization;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +43,7 @@ public static class EntryPoint
                 "Initialize" => Initialize(parentHandle, payload),
                 "Configure" => ShowConfiguration(parentHandle),
                 "CheckNow" => CheckNow(parentHandle),
+                "PluginUpdates" => ShowPluginUpdates(parentHandle),
                 "Shutdown" => Shutdown(),
                 "ColorsChanged" => ColorsChanged(),
                 _ => 1,
@@ -71,6 +78,14 @@ public static class EntryPoint
     private static int CheckNow(IntPtr parent)
     {
         _ = UpdateCoordinator.CheckForUpdatesAsync(parent, userInitiated: true, showIfCurrent: true);
+        return 0;
+    }
+
+    private static int ShowPluginUpdates(IntPtr parent)
+    {
+        using var dialog = new PluginUpdatesDialog();
+        ThemeHelper.ApplyTheme(dialog);
+        ShowDialog(dialog, parent);
         return 0;
     }
 
@@ -153,6 +168,35 @@ internal enum NativeStringId
     LastAutoCheckNever = 79,
     LastKnownRelease = 80,
     LastKnownReleaseUnknown = 81,
+    MenuPluginUpdates = 82,
+    PluginUpdatesTitle = 83,
+    PluginUpdatesDescription = 84,
+    PluginUpdatesRefresh = 85,
+    PluginUpdatesOpenPage = 86,
+    PluginUpdatesClose = 87,
+    PluginUpdatesShowOnly = 88,
+    PluginUpdatesSources = 89,
+    PluginUpdatesSaveSources = 90,
+    PluginColumnName = 91,
+    PluginColumnInstalled = 92,
+    PluginColumnLatest = 93,
+    PluginColumnStatus = 94,
+    PluginColumnSource = 95,
+    PluginStatusCurrent = 96,
+    PluginStatusUpdate = 97,
+    PluginStatusUnknownVersion = 98,
+    PluginStatusNotInCatalog = 99,
+    PluginStatusCatalogError = 100,
+    PluginStatusDifferent = 101,
+    PluginUpdatesLoading = 102,
+    PluginUpdatesReady = 103,
+    PluginUpdatesNoUrl = 104,
+    PluginSourcesSaved = 105,
+    PluginColumnAuthor = 106,
+    PluginColumnHomepage = 107,
+    PluginCopyValue = 108,
+    PluginCopyRowWithHeaders = 109,
+    PluginStatusNotInstalled = 110,
 }
 
 internal static class NativeStrings
@@ -897,6 +941,7 @@ internal sealed class ConfigurationDialog : Form
         LastCheckUtc = _settings.LastCheckUtc,
         LastPromptedVersion = _settings.LastPromptedVersion,
         LastKnownRemoteVersion = _settings.LastKnownRemoteVersion,
+        PluginCatalogSourcesText = _settings.PluginCatalogSourcesText,
     };
 
     private async void CheckNowButtonOnClick(object? sender, EventArgs e)
@@ -958,6 +1003,715 @@ internal sealed class ConfigurationDialog : Form
 
         public override string ToString() => Text;
     }
+}
+
+
+internal sealed class PluginUpdatesDialog : Form
+{
+    private readonly ListView _listView;
+    private readonly TextBox _sourcesTextBox;
+    private readonly CheckBox _showOnlyUpdates;
+    private readonly Label _statusLabel;
+    private readonly Button _openButton;
+    private readonly ContextMenuStrip _listContextMenu;
+    private ListViewItem? _contextMenuItem;
+    private int _contextMenuSubItemIndex;
+    private readonly List<PluginUpdateRow> _rows = new();
+    private int _sortColumn;
+    private SortOrder _sortOrder = SortOrder.Ascending;
+
+    public PluginUpdatesDialog()
+    {
+        Text = NativeStrings.Get(NativeStringId.PluginUpdatesTitle);
+        StartPosition = FormStartPosition.CenterParent;
+        MinimizeBox = false;
+        ShowInTaskbar = false;
+        Width = 980;
+        Height = 640;
+        MinimumSize = new System.Drawing.Size(760, 520);
+        AutoScroll = true;
+        Icon = PluginIconLoader.Load();
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 7,
+            Padding = new Padding(12),
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesDescription), AutoSize = true, MaximumSize = new System.Drawing.Size(800, 0) }, 0, 0);
+
+        _listView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            FullRowSelect = true,
+            GridLines = true,
+            HideSelection = false,
+            MultiSelect = false,
+            Scrollable = true,
+            View = View.Details,
+        };
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 240);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 130);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 130);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 160);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 170);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnHomepage), 280);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 300);
+        _listView.ColumnClick += ListViewOnColumnClick;
+        _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
+        _listView.MouseDown += ListViewOnMouseDown;
+        _listContextMenu = new ContextMenuStrip();
+        _listContextMenu.Opening += ListContextMenuOnOpening;
+        _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyValue), null, (_, _) => CopyContextCellValue());
+        _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyRowWithHeaders), null, (_, _) => CopyContextRowWithHeaders());
+        _listView.ContextMenuStrip = _listContextMenu;
+        layout.Controls.Add(_listView, 0, 1);
+
+        var aboveSourcesPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 2,
+            Padding = new Padding(0, 6, 0, 6),
+        };
+        aboveSourcesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        aboveSourcesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true, Anchor = AnchorStyles.Left };
+        _showOnlyUpdates.CheckedChanged += (_, _) => BindRows();
+        aboveSourcesPanel.Controls.Add(_showOnlyUpdates, 0, 0);
+
+        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true, Anchor = AnchorStyles.Right };
+        _openButton.Click += (_, _) => OpenSelectedPage();
+        aboveSourcesPanel.Controls.Add(_openButton, 1, 0);
+        layout.Controls.Add(aboveSourcesPanel, 0, 2);
+
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 3);
+
+        _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
+        layout.Controls.Add(_sourcesTextBox, 0, 4);
+
+        _statusLabel = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 6, 0, 0) };
+        layout.Controls.Add(_statusLabel, 0, 5);
+
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            WrapContents = false,
+            FlowDirection = FlowDirection.RightToLeft,
+            Padding = new Padding(0, 10, 0, 0),
+            Margin = new Padding(0),
+        };
+        var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
+        var refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
+        var saveButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSaveSources), AutoSize = true };
+        refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+        saveButton.Click += (_, _) => SaveSources(showMessage: true);
+        buttons.Controls.Add(closeButton);
+        buttons.Controls.Add(refreshButton);
+        buttons.Controls.Add(saveButton);
+        layout.Controls.Add(buttons, 0, 6);
+
+        Controls.Add(layout);
+        CancelButton = closeButton;
+        Shown += async (_, _) =>
+        {
+            await RefreshAsync().ConfigureAwait(true);
+        };
+    }
+
+    private async Task RefreshAsync()
+    {
+        SaveSources(showMessage: false);
+        _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesLoading);
+        _openButton.Enabled = false;
+        try
+        {
+            var result = await PluginCatalogService.CheckAsync().ConfigureAwait(true);
+            _rows.Clear();
+            _rows.AddRange(result);
+            BindRows();
+            _statusLabel.Text = PluginCatalogService.LastErrors.Count == 0
+                ? NativeStrings.Get(NativeStringId.PluginUpdatesReady)
+                : $"{NativeStrings.Get(NativeStringId.PluginUpdatesReady)} {string.Join(" | ", PluginCatalogService.LastErrors)}";
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = ex.Message;
+        }
+        finally
+        {
+            _openButton.Enabled = true;
+        }
+    }
+
+    private void SaveSources(bool showMessage)
+    {
+        PluginCatalogSources.Save(_sourcesTextBox.Lines.Select(line => line.Trim()).Where(line => line.Length > 0));
+        if (showMessage)
+        {
+            ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginSourcesSaved), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+
+    private void BindRows()
+    {
+        var selectedName = _listView.SelectedItems.Count > 0 ? _listView.SelectedItems[0].Text : null;
+        var rows = _showOnlyUpdates.Checked ? _rows.Where(row => row.Status == PluginUpdateStatus.UpdateAvailable).ToList() : _rows.ToList();
+        rows.Sort(new PluginUpdateRowComparer(_sortColumn, _sortOrder));
+
+        _listView.BeginUpdate();
+        try
+        {
+            _listView.Items.Clear();
+            foreach (var row in rows)
+            {
+                var item = new ListViewItem(row.Name) { Tag = row };
+                item.SubItems.Add(row.InstalledVersion);
+                item.SubItems.Add(row.LatestVersion);
+                item.SubItems.Add(row.StatusText);
+                item.SubItems.Add(row.Author);
+                item.SubItems.Add(row.Homepage);
+                item.SubItems.Add(row.Source);
+                _listView.Items.Add(item);
+                if (selectedName is not null && string.Equals(selectedName, row.Name, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    item.Selected = true;
+                }
+            }
+        }
+        finally
+        {
+            _listView.EndUpdate();
+        }
+
+        NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
+        ThemeHelper.ApplyNativeDarkMode(_listView);
+    }
+
+
+    private void ListViewOnMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+        {
+            return;
+        }
+
+        var hit = _listView.HitTest(e.Location);
+        _contextMenuItem = hit.Item;
+        _contextMenuSubItemIndex = hit.Item is null || hit.SubItem is null ? -1 : hit.Item.SubItems.IndexOf(hit.SubItem);
+    }
+
+    private void ListContextMenuOnOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        bool hasCell = _contextMenuItem is not null && _contextMenuSubItemIndex >= 0;
+        e.Cancel = !hasCell;
+    }
+
+    private void CopyContextCellValue()
+    {
+        if (_contextMenuItem is null || _contextMenuSubItemIndex < 0 || _contextMenuSubItemIndex >= _contextMenuItem.SubItems.Count)
+        {
+            return;
+        }
+
+        Clipboard.SetText(_contextMenuItem.SubItems[_contextMenuSubItemIndex].Text ?? string.Empty);
+    }
+
+    private void CopyContextRowWithHeaders()
+    {
+        if (_contextMenuItem is null)
+        {
+            return;
+        }
+
+        var parts = new List<string>();
+        for (int i = 0; i < _listView.Columns.Count && i < _contextMenuItem.SubItems.Count; i++)
+        {
+            parts.Add($"{_listView.Columns[i].Text}: {_contextMenuItem.SubItems[i].Text}");
+        }
+
+        Clipboard.SetText(string.Join(Environment.NewLine, parts));
+    }
+
+    private void ListViewOnColumnClick(object? sender, ColumnClickEventArgs e)
+    {
+        if (_sortColumn == e.Column)
+        {
+            _sortOrder = _sortOrder == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
+        }
+        else
+        {
+            _sortColumn = e.Column;
+            _sortOrder = SortOrder.Ascending;
+        }
+
+        BindRows();
+    }
+
+    private void ListViewOnMouseDoubleClick(object? sender, MouseEventArgs e)
+    {
+        if (_listView.GetItemAt(e.X, e.Y) is null)
+        {
+            return;
+        }
+
+        OpenSelectedPage();
+    }
+
+    private void OpenSelectedPage()
+    {
+        if (_listView.SelectedItems.Count == 0 || _listView.SelectedItems[0].Tag is not PluginUpdateRow row || string.IsNullOrWhiteSpace(row.WebUrl))
+        {
+            ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginUpdatesNoUrl), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(row.WebUrl!) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ThemeHelper.ShowMessageBox(this, $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}", NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private sealed class PluginUpdateRowComparer : IComparer<PluginUpdateRow>
+    {
+        private readonly int _column;
+        private readonly SortOrder _order;
+
+        public PluginUpdateRowComparer(int column, SortOrder order)
+        {
+            _column = column;
+            _order = order;
+        }
+
+        public int Compare(PluginUpdateRow? x, PluginUpdateRow? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return 0;
+            }
+
+            if (x is null)
+            {
+                return _order == SortOrder.Descending ? 1 : -1;
+            }
+
+            if (y is null)
+            {
+                return _order == SortOrder.Descending ? -1 : 1;
+            }
+
+            string left = GetValue(x);
+            string right = GetValue(y);
+            int result = string.Compare(left, right, StringComparison.CurrentCultureIgnoreCase);
+            return _order == SortOrder.Descending ? -result : result;
+        }
+
+        private string GetValue(PluginUpdateRow row) => _column switch
+        {
+            1 => row.InstalledVersion,
+            2 => row.LatestVersion,
+            3 => row.StatusText,
+            4 => row.Author,
+            5 => row.Homepage,
+            6 => row.Source,
+            _ => row.Name,
+        };
+    }
+}
+
+
+internal static class NativeListView
+{
+    private const int HDI_FORMAT = 0x0004;
+    private const int HDF_SORTDOWN = 0x0200;
+    private const int HDF_SORTUP = 0x0400;
+    private const int HDM_FIRST = 0x1200;
+    private const int HDM_GETITEMW = HDM_FIRST + 11;
+    private const int HDM_SETITEMW = HDM_FIRST + 12;
+    private const int LVM_FIRST = 0x1000;
+    private const int LVM_GETHEADER = LVM_FIRST + 31;
+
+    public static void SetSortArrow(ListView listView, int column, SortOrder order)
+    {
+        if (!listView.IsHandleCreated)
+        {
+            return;
+        }
+
+        var header = SendMessage(listView.Handle, LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
+        if (header == IntPtr.Zero)
+        {
+            return;
+        }
+
+        for (int i = 0; i < listView.Columns.Count; i++)
+        {
+            var item = new HDITEM { mask = HDI_FORMAT };
+            if (SendMessage(header, HDM_GETITEMW, new IntPtr(i), ref item) == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+            if (i == column)
+            {
+                item.fmt |= order == SortOrder.Descending ? HDF_SORTDOWN : HDF_SORTUP;
+            }
+
+            SendMessage(header, HDM_SETITEMW, new IntPtr(i), ref item);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct HDITEM
+    {
+        public int mask;
+        public int cxy;
+        public IntPtr pszText;
+        public IntPtr hbm;
+        public int cchTextMax;
+        public int fmt;
+        public IntPtr lParam;
+        public int iImage;
+        public int iOrder;
+        public uint type;
+        public IntPtr pvFilter;
+        public uint state;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref HDITEM lParam);
+}
+
+internal static class PluginIconLoader
+{
+    public static System.Drawing.Icon? Load()
+    {
+        try
+        {
+            var pluginDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            if (pluginDirectory is null)
+            {
+                return null;
+            }
+
+            var splPath = Path.Combine(pluginDirectory, "samandarin.spl");
+            return File.Exists(splPath) ? System.Drawing.Icon.ExtractAssociatedIcon(splPath) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
+
+internal static class PluginCatalogService
+{
+    private static readonly JavaScriptSerializer Serializer = new();
+
+    public static IReadOnlyList<string> LastErrors { get; private set; } = Array.Empty<string>();
+
+    public static async Task<IReadOnlyList<PluginUpdateRow>> CheckAsync()
+    {
+        var installed = InstalledPluginScanner.Scan().ToList();
+        var catalog = new Dictionary<string, PluginCatalogEntry>(StringComparer.OrdinalIgnoreCase);
+        var sourceErrors = new List<string>();
+
+        foreach (var source in PluginCatalogSources.Load())
+        {
+            try
+            {
+                var json = await FetchStringAsync(source).ConfigureAwait(false);
+                var manifest = Serializer.Deserialize<PluginCatalogManifest>(json);
+                if (manifest?.plugins is null)
+                {
+                    continue;
+                }
+
+                foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
+                {
+                    entry.source = source;
+                    catalog[entry.id!] = entry;
+                }
+            }
+            catch (Exception ex)
+            {
+                sourceErrors.Add($"{source}: {ex.Message}");
+            }
+        }
+
+        var installedIds = new HashSet<string>(installed.Select(plugin => plugin.Id), StringComparer.OrdinalIgnoreCase);
+        var rows = installed.Select(plugin => BuildRow(plugin, catalog.TryGetValue(plugin.Id, out var entry) ? entry : null)).ToList();
+        rows.AddRange(catalog.Values
+            .Where(entry => entry.id is not null && !installedIds.Contains(entry.id))
+            .Select(BuildCatalogOnlyRow));
+        LastErrors = sourceErrors;
+        return rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    private static async Task<string> FetchStringAsync(string source)
+    {
+        if (Uri.TryCreate(source, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, AddNoCacheQuery(uri));
+            request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true, MaxAge = TimeSpan.Zero };
+            request.Headers.Pragma.ParseAdd("no-cache");
+            using var response = await SharedHttpClient.Instance.SendAsync(request).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        }
+
+        return File.ReadAllText(source, Encoding.UTF8);
+    }
+
+    private static Uri AddNoCacheQuery(Uri uri)
+    {
+        var separator = string.IsNullOrEmpty(uri.Query) ? "?" : "&";
+        return new Uri(uri, uri.PathAndQuery + separator + "samandarinRefresh=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
+    {
+        var homepage = entry.homepageUrl ?? string.Empty;
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
+    }
+
+    private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
+    {
+        if (entry is null)
+        {
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null);
+        }
+
+        var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
+        var statusId = comparison switch
+        {
+            PluginVersionComparison.Current => NativeStringId.PluginStatusCurrent,
+            PluginVersionComparison.UpdateAvailable => NativeStringId.PluginStatusUpdate,
+            PluginVersionComparison.Different => NativeStringId.PluginStatusDifferent,
+            _ => NativeStringId.PluginStatusUnknownVersion,
+        };
+
+        var homepage = entry.homepageUrl ?? string.Empty;
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
+    }
+
+    private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
+}
+
+internal static class SharedHttpClient
+{
+    public static readonly HttpClient Instance = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate, UseProxy = true, Proxy = WebRequest.DefaultWebProxy }) { Timeout = TimeSpan.FromSeconds(20) };
+
+    static SharedHttpClient()
+    {
+        Instance.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinPluginCatalog/0.3");
+    }
+}
+
+internal static class PluginCatalogSources
+{
+    private const string DefaultSource = "https://raw.githubusercontent.com/KRtkovo-eu-AI/salamander/main/doc/plugin-catalog.json";
+
+    public static IReadOnlyList<string> Load()
+    {
+        var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new[] { DefaultSource };
+        }
+
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return lines.Count == 0 ? new[] { DefaultSource } : lines;
+    }
+
+    public static void Save(IEnumerable<string> sources)
+    {
+        var settings = NativeConfiguration.LoadOrDefault();
+        settings.PluginCatalogSourcesText = string.Join("\n", sources.Where(source => !string.IsNullOrWhiteSpace(source)).Select(source => source.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+        NativeConfiguration.Save(settings);
+    }
+}
+
+internal static class InstalledPluginScanner
+{
+    public static IEnumerable<InstalledPlugin> Scan()
+    {
+        var assemblyPath = Assembly.GetExecutingAssembly().Location;
+        var pluginDirectory = Directory.GetParent(assemblyPath)?.FullName;
+        var pluginsRoot = pluginDirectory is null ? null : Directory.GetParent(pluginDirectory)?.FullName;
+        if (pluginsRoot is null || !Directory.Exists(pluginsRoot))
+        {
+            yield break;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(pluginsRoot, "*.spl", SearchOption.AllDirectories))
+        {
+            FileVersionInfo info;
+            try
+            {
+                info = FileVersionInfo.GetVersionInfo(file);
+            }
+            catch
+            {
+                info = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
+            }
+
+            var relative = file.Substring(pluginsRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
+            var display = BuildDisplayName(id, file, info);
+            var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
+            yield return new InstalledPlugin(id, display, version);
+        }
+    }
+    private static string BuildDisplayName(string id, string file, FileVersionInfo info)
+    {
+        if (!string.IsNullOrWhiteSpace(info.FileDescription) &&
+            !info.FileDescription!.Equals("Open Salamander", StringComparison.OrdinalIgnoreCase))
+        {
+            return TrimOpenSalamanderSuffix(info.FileDescription!);
+        }
+
+        var fileName = Path.GetFileNameWithoutExtension(file);
+        return string.IsNullOrWhiteSpace(fileName) ? id : fileName;
+    }
+
+    private static string TrimOpenSalamanderSuffix(string name)
+    {
+        var result = name.Trim();
+        foreach (var suffix in new[] { " plugin for Open Salamander", " for Open Salamander" })
+        {
+            if (result.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                result = result.Substring(0, result.Length - suffix.Length).TrimEnd();
+                break;
+            }
+        }
+
+        return result;
+    }
+}
+
+internal static class PluginVersionComparer
+{
+    public static PluginVersionComparison Compare(string? installed, string? latest, string? scheme)
+    {
+        if (string.IsNullOrWhiteSpace(installed) || string.IsNullOrWhiteSpace(latest))
+        {
+            return PluginVersionComparison.Unknown;
+        }
+
+        if (string.Equals(installed.Trim(), latest.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return PluginVersionComparison.Current;
+        }
+
+        var normalized = (scheme ?? "fileversion").Trim().ToLowerInvariant();
+        if (normalized == "opaque")
+        {
+            return PluginVersionComparison.Different;
+        }
+
+        int comparison = VersionComparer.Compare(latest, installed);
+        return comparison > 0 ? PluginVersionComparison.UpdateAvailable : comparison == 0 ? PluginVersionComparison.Current : PluginVersionComparison.Different;
+    }
+}
+
+internal sealed class PluginCatalogManifest { public int schemaVersion { get; set; } public PluginCatalogEntry[]? plugins { get; set; } }
+internal sealed class PluginCatalogEntry
+{
+    public string? id { get; set; }
+    public object? name { get; set; }
+    public string? author { get; set; }
+    public string? latestVersion { get; set; }
+    public string? versionScheme { get; set; }
+    public string? homepageUrl { get; set; }
+    public string? downloadPageUrl { get; set; }
+    public string? source { get; set; }
+}
+
+internal static class LocalizedText
+{
+    public static string? Resolve(object? value)
+    {
+        if (value is null) return null;
+        if (value is string text) return text;
+        if (value is Dictionary<string, object> map)
+        {
+            var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+            if (map.TryGetValue(language, out var localized)) return Convert.ToString(localized, CultureInfo.CurrentCulture);
+            if (map.TryGetValue("en", out var english)) return Convert.ToString(english, CultureInfo.CurrentCulture);
+            return map.Values.Select(v => Convert.ToString(v, CultureInfo.CurrentCulture)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        }
+        return Convert.ToString(value, CultureInfo.CurrentCulture);
+    }
+}
+
+internal enum PluginVersionComparison { Unknown, Current, UpdateAvailable, Different }
+internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, CatalogError }
+
+internal sealed class InstalledPlugin
+{
+    public InstalledPlugin(string id, string displayName, string versionText)
+    {
+        Id = id;
+        DisplayName = displayName;
+        VersionText = versionText;
+    }
+
+    public string Id { get; }
+    public string DisplayName { get; }
+    public string VersionText { get; }
+}
+
+internal sealed class PluginUpdateRow
+{
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl)
+    {
+        Name = name;
+        InstalledVersion = installedVersion;
+        LatestVersion = latestVersion;
+        StatusText = statusText;
+        Author = author;
+        Homepage = homepage;
+        Status = status;
+        Source = source;
+        WebUrl = webUrl;
+    }
+
+    public string Name { get; }
+    public string InstalledVersion { get; }
+    public string LatestVersion { get; }
+    public string StatusText { get; }
+    public string Author { get; }
+    public string Homepage { get; }
+    public PluginUpdateStatus Status { get; }
+    public string Source { get; }
+    public string? WebUrl { get; }
+
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null);
 }
 
 internal static class VersionComparer
@@ -1068,6 +1822,7 @@ internal sealed class UpdateSettings
     public DateTimeOffset? LastCheckUtc { get; set; }
     public string? LastPromptedVersion { get; set; }
     public string? LastKnownRemoteVersion { get; set; }
+    public string? PluginCatalogSourcesText { get; set; }
 
     public UpdateSettings Clone()
     {
@@ -1078,6 +1833,7 @@ internal sealed class UpdateSettings
             LastCheckUtc = LastCheckUtc,
             LastPromptedVersion = LastPromptedVersion,
             LastKnownRemoteVersion = LastKnownRemoteVersion,
+            PluginCatalogSourcesText = PluginCatalogSourcesText,
         };
     }
 
@@ -1117,6 +1873,7 @@ internal sealed class WindowHandleWrapper : IWin32Window
 internal static class NativeConfiguration
 {
     private const int MaxVersionLength = 128;
+    private const int MaxCatalogSourcesLength = 4096;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     private struct NativeUpdateSettings
@@ -1131,6 +1888,9 @@ internal static class NativeConfiguration
 
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MaxVersionLength)]
         public string LastKnownRemoteVersion;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MaxCatalogSourcesLength)]
+        public string PluginCatalogSourcesText;
     }
 
     [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
@@ -1221,6 +1981,11 @@ internal static class NativeConfiguration
             result.LastKnownRemoteVersion = native.LastKnownRemoteVersion;
         }
 
+        if (!string.IsNullOrWhiteSpace(native.PluginCatalogSourcesText))
+        {
+            result.PluginCatalogSourcesText = native.PluginCatalogSourcesText;
+        }
+
         return result;
     }
 
@@ -1234,6 +1999,7 @@ internal static class NativeConfiguration
             LastCheckUtcTicks = settings.LastCheckUtc?.ToUniversalTime().UtcTicks ?? 0,
             LastPromptedVersion = Sanitize(settings.LastPromptedVersion),
             LastKnownRemoteVersion = Sanitize(settings.LastKnownRemoteVersion),
+            PluginCatalogSourcesText = Sanitize(settings.PluginCatalogSourcesText, MaxCatalogSourcesLength),
         };
 
         return native;
@@ -1241,12 +2007,17 @@ internal static class NativeConfiguration
 
     private static string Sanitize(string? value)
     {
+        return Sanitize(value, MaxVersionLength);
+    }
+
+    private static string Sanitize(string? value, int maxLength)
+    {
         if (string.IsNullOrEmpty(value))
         {
             return string.Empty;
         }
 
         var sanitized = value!;
-        return sanitized.Length >= MaxVersionLength ? sanitized.Substring(0, MaxVersionLength - 1) : sanitized;
+        return sanitized.Length >= maxLength ? sanitized.Substring(0, maxLength - 1) : sanitized;
     }
 }

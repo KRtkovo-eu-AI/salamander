@@ -22,6 +22,7 @@ char* LoadStr(int resID);
 
 // prikazy pluginoveho menu
 #define MENUCMD_CHECKNOW 1
+#define MENUCMD_PLUGIN_UPDATES 2
 
 class CPluginInterfaceForMenuExt : public CPluginInterfaceForMenuExtAbstract
 {

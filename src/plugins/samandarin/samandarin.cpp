@@ -86,6 +86,15 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
         }
         break;
 
+    case MENUCMD_PLUGIN_UPDATES:
+        if (!ManagedBridge_ShowPluginUpdates(parent))
+        {
+            SalamanderGeneral->SalMessageBox(parent,
+                                             LoadStr(IDS_TRIGGER_CHECK_ERROR),
+                                             LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+        }
+        break;
+
     default:
         SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_UNKNOWN_COMMAND), LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
         break;
@@ -202,6 +211,8 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
 
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_CHECKNOW), 0, MENUCMD_CHECKNOW, FALSE,
                             MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_PLUGIN_UPDATES), 0, MENUCMD_PLUGIN_UPDATES, FALSE,
+                            MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 
     if (!ManagedBridge_EnsureInitialized(parent))
     {
@@ -267,6 +278,7 @@ namespace
         LONGLONG LastCheckUtcTicks;
         char LastPromptedVersion[128];
         char LastKnownRemoteVersion[128];
+        char PluginCatalogSources[4096];
     };
 
     const char* const kConfigCheckOnStartup = "CheckOnStartup";
@@ -274,6 +286,7 @@ namespace
     const char* const kConfigLastCheckUtcTicks = "LastCheckUtcTicks";
     const char* const kConfigLastPromptedVersion = "LastPromptedVersion";
     const char* const kConfigLastKnownRemoteVersion = "LastKnownRemoteVersion";
+    const char* const kConfigPluginCatalogSources = "PluginCatalogSources";
 
     void InitializeDefaults(NativeUpdateSettings* settings)
     {
@@ -288,6 +301,7 @@ namespace
         settings->LastCheckUtcTicks = 0;
         settings->LastPromptedVersion[0] = '\0';
         settings->LastKnownRemoteVersion[0] = '\0';
+        settings->PluginCatalogSources[0] = '\0';
     }
 
     void WINAPI LoadOrSaveSettingsCallback(BOOL load, HKEY regKey, CSalamanderRegistryAbstract* registry, void* param)
@@ -341,6 +355,13 @@ namespace
             {
                 settings->LastKnownRemoteVersion[sizeof(settings->LastKnownRemoteVersion) - 1] = '\0';
             }
+
+            settings->PluginCatalogSources[0] = '\0';
+            if (registry->GetValue(regKey, kConfigPluginCatalogSources, REG_SZ,
+                                    settings->PluginCatalogSources, sizeof(settings->PluginCatalogSources)))
+            {
+                settings->PluginCatalogSources[sizeof(settings->PluginCatalogSources) - 1] = '\0';
+            }
         }
         else
         {
@@ -384,6 +405,16 @@ namespace
             else
             {
                 registry->DeleteValue(regKey, kConfigLastKnownRemoteVersion);
+            }
+
+            if (settings->PluginCatalogSources[0] != '\0')
+            {
+                registry->SetValue(regKey, kConfigPluginCatalogSources, REG_SZ,
+                                   settings->PluginCatalogSources, -1);
+            }
+            else
+            {
+                registry->DeleteValue(regKey, kConfigPluginCatalogSources);
             }
         }
     }

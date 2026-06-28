@@ -22,5 +22,6 @@
 
   <ItemGroup>
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 </Project>
