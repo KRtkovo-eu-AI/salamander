@@ -133,6 +133,26 @@ static bool LaunchVmConnect(const char* vmName, HWND parent)
     return RunDetachedProcessAndWaitForInputIdle(cmdLine, parent, 10000);
 }
 
+static bool LaunchHyperVManager(HWND parent)
+{
+    char mmcPath[MAX_PATH] = {0};
+    char consolePath[MAX_PATH] = {0};
+    DWORD mmcLength = ExpandEnvironmentStringsA("%windir%\\System32\\mmc.exe", mmcPath, _countof(mmcPath));
+    DWORD consoleLength = ExpandEnvironmentStringsA("%windir%\\System32\\virtmgmt.msc", consolePath, _countof(consolePath));
+    if (mmcLength == 0 || mmcLength > _countof(mmcPath) ||
+        consoleLength == 0 || consoleLength > _countof(consolePath))
+    {
+        return false;
+    }
+
+    std::string cmdLine = "\"";
+    cmdLine += mmcPath;
+    cmdLine += "\" \"";
+    cmdLine += consolePath;
+    cmdLine += "\"";
+    return RunDetachedProcessAndWaitForInputIdle(cmdLine, parent, 10000);
+}
+
 
 struct CHyperVItemData
 {
@@ -477,15 +497,25 @@ public:
 
         if (type == fscmPanel || type == fscmPathInPanel)
         {
-            AppendMenuA(menu, MF_STRING, 2005, "Create New Machine");
-            SetMenuItemIcon(menu, 2005, IDI_MENU_NEW_VM);
+            const UINT ID_CREATE_ONLY = 2005;
+            const UINT ID_MANAGER_ONLY = 2006;
+
+            AppendMenuA(menu, MF_STRING, ID_CREATE_ONLY, "Create New Machine");
+            SetMenuItemIcon(menu, ID_CREATE_ONLY, IDI_MENU_NEW_VM);
+            AppendMenuA(menu, MF_STRING, ID_MANAGER_ONLY, "Open Hyper-V Manager");
+            SetMenuItemIcon(menu, ID_MANAGER_ONLY, IDI_PLUGIN_MAIN);
             UINT cmdIdOnly = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
             DestroyMenu(menu);
-            if (cmdIdOnly == 2005)
+            if (cmdIdOnly == ID_CREATE_ONLY)
             {
                 if (!LaunchVmCreate(parent))
                     SalamanderGeneral->SalMessageBox(parent, "Unable to start VMCreate.exe.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
                 SalamanderGeneral->PostRefreshPanelFS(this);
+            }
+            else if (cmdIdOnly == ID_MANAGER_ONLY)
+            {
+                if (!LaunchHyperVManager(parent))
+                    SalamanderGeneral->SalMessageBox(parent, "Unable to open Hyper-V Manager.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
             }
             return;
         }
@@ -518,6 +548,7 @@ public:
         const UINT ID_TURNOFF = 2003;
         const UINT ID_SHUTDOWN = 2004;
         const UINT ID_CREATE = 2005;
+        const UINT ID_MANAGER = 2006;
 
         AppendMenuA(menu, MF_STRING, ID_CONNECT, "Connect");
         SetMenuItemIcon(menu, ID_CONNECT, IDI_MENU_CONNECT);
@@ -535,6 +566,8 @@ public:
         AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
         AppendMenuA(menu, MF_STRING, ID_CREATE, "Create New Machine");
         SetMenuItemIcon(menu, ID_CREATE, IDI_MENU_NEW_VM);
+        AppendMenuA(menu, MF_STRING, ID_MANAGER, "Open Hyper-V Manager");
+        SetMenuItemIcon(menu, ID_MANAGER, IDI_PLUGIN_MAIN);
 
         UINT cmdId = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, menuX, menuY, 0, parent, NULL);
         DestroyMenu(menu);
@@ -562,13 +595,18 @@ public:
         {
             success = LaunchVmCreate(parent);
         }
+        else if (cmdId == ID_MANAGER)
+        {
+            success = LaunchHyperVManager(parent);
+        }
 
         if (!success)
         {
             SalamanderGeneral->SalMessageBox(parent, "Hyper-V command failed.", "Hyper-V Machines", MB_OK | MB_ICONERROR);
         }
 
-        SalamanderGeneral->PostRefreshPanelFS(this);
+        if (cmdId != ID_MANAGER)
+            SalamanderGeneral->PostRefreshPanelFS(this);
     }
     virtual BOOL WINAPI HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* plResult) { (void)uMsg; (void)wParam; (void)lParam; (void)plResult; return FALSE; }
     virtual BOOL WINAPI OpenFindDialog(const char* fsName, int panel) { (void)fsName; (void)panel; return FALSE; }
