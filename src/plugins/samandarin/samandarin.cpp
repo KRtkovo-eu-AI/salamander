@@ -86,6 +86,15 @@ BOOL WINAPI CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperations
         }
         break;
 
+    case MENUCMD_PLUGIN_UPDATES:
+        if (!ManagedBridge_ShowPluginUpdates(parent))
+        {
+            SalamanderGeneral->SalMessageBox(parent,
+                                             LoadStr(IDS_TRIGGER_CHECK_ERROR),
+                                             LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
+        }
+        break;
+
     default:
         SalamanderGeneral->SalMessageBox(parent, LoadStr(IDS_UNKNOWN_COMMAND), LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONERROR);
         break;
@@ -201,6 +210,8 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,)");
 
     salamander->AddMenuItem(-1, LoadStr(IDS_MENU_CHECKNOW), 0, MENUCMD_CHECKNOW, FALSE,
+                            MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
+    salamander->AddMenuItem(-1, LoadStr(IDS_MENU_PLUGIN_UPDATES), 0, MENUCMD_PLUGIN_UPDATES, FALSE,
                             MENU_EVENT_TRUE, MENU_EVENT_TRUE, MENU_SKILLLEVEL_ALL);
 
     if (!ManagedBridge_EnsureInitialized(parent))

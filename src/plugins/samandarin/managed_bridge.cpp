@@ -218,6 +218,16 @@ bool ManagedBridge_CheckNow(HWND parent)
     return ExecuteCommand(L"CheckNow", parent, gCurrentVersion.c_str());
 }
 
+bool ManagedBridge_ShowPluginUpdates(HWND parent)
+{
+    if (!ManagedBridge_EnsureInitialized(parent))
+    {
+        return false;
+    }
+
+    return ExecuteCommand(L"PluginUpdates", parent, gCurrentVersion.c_str());
+}
+
 extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int color)
 {
     if (SalamanderGeneral == nullptr)

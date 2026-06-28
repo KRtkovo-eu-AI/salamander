@@ -5,6 +5,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Web.Script.Serialization;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -37,6 +42,7 @@ public static class EntryPoint
                 "Initialize" => Initialize(parentHandle, payload),
                 "Configure" => ShowConfiguration(parentHandle),
                 "CheckNow" => CheckNow(parentHandle),
+                "PluginUpdates" => ShowPluginUpdates(parentHandle),
                 "Shutdown" => Shutdown(),
                 "ColorsChanged" => ColorsChanged(),
                 _ => 1,
@@ -71,6 +77,14 @@ public static class EntryPoint
     private static int CheckNow(IntPtr parent)
     {
         _ = UpdateCoordinator.CheckForUpdatesAsync(parent, userInitiated: true, showIfCurrent: true);
+        return 0;
+    }
+
+    private static int ShowPluginUpdates(IntPtr parent)
+    {
+        using var dialog = new PluginUpdatesDialog();
+        ThemeHelper.ApplyTheme(dialog);
+        ShowDialog(dialog, parent);
         return 0;
     }
 
@@ -153,6 +167,30 @@ internal enum NativeStringId
     LastAutoCheckNever = 79,
     LastKnownRelease = 80,
     LastKnownReleaseUnknown = 81,
+    MenuPluginUpdates = 82,
+    PluginUpdatesTitle = 83,
+    PluginUpdatesDescription = 84,
+    PluginUpdatesRefresh = 85,
+    PluginUpdatesOpenPage = 86,
+    PluginUpdatesClose = 87,
+    PluginUpdatesShowOnly = 88,
+    PluginUpdatesSources = 89,
+    PluginUpdatesSaveSources = 90,
+    PluginColumnName = 91,
+    PluginColumnInstalled = 92,
+    PluginColumnLatest = 93,
+    PluginColumnStatus = 94,
+    PluginColumnSource = 95,
+    PluginStatusCurrent = 96,
+    PluginStatusUpdate = 97,
+    PluginStatusUnknownVersion = 98,
+    PluginStatusNotInCatalog = 99,
+    PluginStatusCatalogError = 100,
+    PluginStatusDifferent = 101,
+    PluginUpdatesLoading = 102,
+    PluginUpdatesReady = 103,
+    PluginUpdatesNoUrl = 104,
+    PluginSourcesSaved = 105,
 }
 
 internal static class NativeStrings
@@ -958,6 +996,380 @@ internal sealed class ConfigurationDialog : Form
 
         public override string ToString() => Text;
     }
+}
+
+
+internal sealed class PluginUpdatesDialog : Form
+{
+    private readonly DataGridView _grid;
+    private readonly TextBox _sourcesTextBox;
+    private readonly CheckBox _showOnlyUpdates;
+    private readonly Label _statusLabel;
+    private readonly Button _openButton;
+    private readonly List<PluginUpdateRow> _rows = new();
+
+    public PluginUpdatesDialog()
+    {
+        Text = NativeStrings.Get(NativeStringId.PluginUpdatesTitle);
+        StartPosition = FormStartPosition.CenterParent;
+        MinimizeBox = false;
+        ShowInTaskbar = false;
+        Width = 860;
+        Height = 620;
+
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(12) };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesDescription), AutoSize = true, MaximumSize = new System.Drawing.Size(800, 0) }, 0, 0);
+
+        _grid = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            ReadOnly = true,
+            MultiSelect = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            AutoGenerateColumns = false,
+            RowHeadersVisible = false,
+        };
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnName), DataPropertyName = nameof(PluginUpdateRow.Name), Width = 180 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnInstalled), DataPropertyName = nameof(PluginUpdateRow.InstalledVersion), Width = 120 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnLatest), DataPropertyName = nameof(PluginUpdateRow.LatestVersion), Width = 120 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnStatus), DataPropertyName = nameof(PluginUpdateRow.StatusText), Width = 150 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = NativeStrings.Get(NativeStringId.PluginColumnSource), DataPropertyName = nameof(PluginUpdateRow.Source), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+        _grid.CellDoubleClick += (_, _) => OpenSelectedPage();
+        layout.Controls.Add(_grid, 0, 1);
+
+        _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true };
+        _showOnlyUpdates.CheckedChanged += (_, _) => BindRows();
+        layout.Controls.Add(_showOnlyUpdates, 0, 2);
+
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 3);
+
+        _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
+        layout.Controls.Add(_sourcesTextBox, 0, 4);
+
+        _statusLabel = new Label { AutoSize = true };
+        layout.Controls.Add(_statusLabel, 0, 5);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft };
+        var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
+        var refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
+        var saveButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSaveSources), AutoSize = true };
+        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true };
+        refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+        saveButton.Click += (_, _) => SaveSources(showMessage: true);
+        _openButton.Click += (_, _) => OpenSelectedPage();
+        buttons.Controls.Add(closeButton);
+        buttons.Controls.Add(_openButton);
+        buttons.Controls.Add(refreshButton);
+        buttons.Controls.Add(saveButton);
+        layout.Controls.Add(buttons, 0, 6);
+
+        Controls.Add(layout);
+        CancelButton = closeButton;
+        Shown += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+    }
+
+    private async Task RefreshAsync()
+    {
+        SaveSources(showMessage: false);
+        _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesLoading);
+        _openButton.Enabled = false;
+        try
+        {
+            var result = await PluginCatalogService.CheckAsync().ConfigureAwait(true);
+            _rows.Clear();
+            _rows.AddRange(result);
+            BindRows();
+            _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesReady);
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = ex.Message;
+        }
+        finally
+        {
+            _openButton.Enabled = true;
+        }
+    }
+
+    private void SaveSources(bool showMessage)
+    {
+        PluginCatalogSources.Save(_sourcesTextBox.Lines.Select(line => line.Trim()).Where(line => line.Length > 0));
+        if (showMessage)
+        {
+            ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginSourcesSaved), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+
+    private void BindRows()
+    {
+        var rows = _showOnlyUpdates.Checked ? _rows.Where(row => row.Status == PluginUpdateStatus.UpdateAvailable).ToList() : _rows.ToList();
+        _grid.DataSource = rows;
+    }
+
+    private void OpenSelectedPage()
+    {
+        if (_grid.CurrentRow?.DataBoundItem is not PluginUpdateRow row || string.IsNullOrWhiteSpace(row.WebUrl))
+        {
+            ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginUpdatesNoUrl), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(row.WebUrl!) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ThemeHelper.ShowMessageBox(this, $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}", NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+}
+
+internal static class PluginCatalogService
+{
+    private static readonly JavaScriptSerializer Serializer = new();
+
+    public static async Task<IReadOnlyList<PluginUpdateRow>> CheckAsync()
+    {
+        var installed = InstalledPluginScanner.Scan().ToList();
+        var catalog = new Dictionary<string, PluginCatalogEntry>(StringComparer.OrdinalIgnoreCase);
+        var sourceErrors = new List<PluginUpdateRow>();
+
+        foreach (var source in PluginCatalogSources.Load())
+        {
+            try
+            {
+                var json = await FetchStringAsync(source).ConfigureAwait(false);
+                var manifest = Serializer.Deserialize<PluginCatalogManifest>(json);
+                if (manifest?.plugins is null)
+                {
+                    continue;
+                }
+
+                foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
+                {
+                    entry.source = source;
+                    catalog[entry.id!] = entry;
+                }
+            }
+            catch (Exception ex)
+            {
+                sourceErrors.Add(PluginUpdateRow.SourceError(source, ex.Message));
+            }
+        }
+
+        var rows = installed.Select(plugin => BuildRow(plugin, catalog.TryGetValue(plugin.Id, out var entry) ? entry : null)).ToList();
+        rows.AddRange(sourceErrors);
+        return rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    private static async Task<string> FetchStringAsync(string source)
+    {
+        if (Uri.TryCreate(source, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var response = await SharedHttpClient.Instance.SendAsync(request).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        }
+
+        return File.ReadAllText(source, Encoding.UTF8);
+    }
+
+    private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
+    {
+        if (entry is null)
+        {
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), PluginUpdateStatus.NotInCatalog, string.Empty, null);
+        }
+
+        var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
+        var statusId = comparison switch
+        {
+            PluginVersionComparison.Current => NativeStringId.PluginStatusCurrent,
+            PluginVersionComparison.UpdateAvailable => NativeStringId.PluginStatusUpdate,
+            PluginVersionComparison.Different => NativeStringId.PluginStatusDifferent,
+            _ => NativeStringId.PluginStatusUnknownVersion,
+        };
+
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
+    }
+
+    private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
+}
+
+internal static class SharedHttpClient
+{
+    public static readonly HttpClient Instance = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate, UseProxy = true, Proxy = WebRequest.DefaultWebProxy }) { Timeout = TimeSpan.FromSeconds(20) };
+
+    static SharedHttpClient()
+    {
+        Instance.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinPluginCatalog/0.3");
+    }
+}
+
+internal static class PluginCatalogSources
+{
+    private const string DefaultSource = "https://raw.githubusercontent.com/KRtkovo-eu-AI/salamander/main/doc/plugin-catalog.json";
+
+    public static IReadOnlyList<string> Load()
+    {
+        var file = GetPath();
+        if (!File.Exists(file))
+        {
+            return new[] { DefaultSource };
+        }
+
+        var lines = File.ReadAllLines(file, Encoding.UTF8).Select(line => line.Trim()).Where(line => line.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return lines.Count == 0 ? new[] { DefaultSource } : lines;
+    }
+
+    public static void Save(IEnumerable<string> sources)
+    {
+        var file = GetPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllLines(file, sources.Where(source => !string.IsNullOrWhiteSpace(source)).Distinct(StringComparer.OrdinalIgnoreCase), Encoding.UTF8);
+    }
+
+    private static string GetPath() => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Open Salamander", "Samandarin", "plugin-catalog-sources.txt");
+}
+
+internal static class InstalledPluginScanner
+{
+    public static IEnumerable<InstalledPlugin> Scan()
+    {
+        var assemblyPath = Assembly.GetExecutingAssembly().Location;
+        var pluginDirectory = Directory.GetParent(assemblyPath)?.FullName;
+        var pluginsRoot = pluginDirectory is null ? null : Directory.GetParent(pluginDirectory)?.FullName;
+        if (pluginsRoot is null || !Directory.Exists(pluginsRoot))
+        {
+            yield break;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(pluginsRoot, "*.spl", SearchOption.AllDirectories))
+        {
+            FileVersionInfo info;
+            try
+            {
+                info = FileVersionInfo.GetVersionInfo(file);
+            }
+            catch
+            {
+                info = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
+            }
+
+            var relative = file.Substring(pluginsRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var id = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }).FirstOrDefault() ?? Path.GetFileNameWithoutExtension(file);
+            var display = string.IsNullOrWhiteSpace(info.ProductName) ? Path.GetFileNameWithoutExtension(file) : info.ProductName!;
+            var version = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion! : info.ProductVersion ?? string.Empty;
+            yield return new InstalledPlugin(id, display, version);
+        }
+    }
+}
+
+internal static class PluginVersionComparer
+{
+    public static PluginVersionComparison Compare(string? installed, string? latest, string? scheme)
+    {
+        if (string.IsNullOrWhiteSpace(installed) || string.IsNullOrWhiteSpace(latest))
+        {
+            return PluginVersionComparison.Unknown;
+        }
+
+        if (string.Equals(installed.Trim(), latest.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return PluginVersionComparison.Current;
+        }
+
+        var normalized = (scheme ?? "fileversion").Trim().ToLowerInvariant();
+        if (normalized == "opaque")
+        {
+            return PluginVersionComparison.Different;
+        }
+
+        int comparison = VersionComparer.Compare(latest, installed);
+        return comparison > 0 ? PluginVersionComparison.UpdateAvailable : comparison == 0 ? PluginVersionComparison.Current : PluginVersionComparison.Different;
+    }
+}
+
+internal sealed class PluginCatalogManifest { public int schemaVersion { get; set; } public PluginCatalogEntry[]? plugins { get; set; } }
+internal sealed class PluginCatalogEntry
+{
+    public string? id { get; set; }
+    public object? name { get; set; }
+    public string? latestVersion { get; set; }
+    public string? versionScheme { get; set; }
+    public string? homepageUrl { get; set; }
+    public string? downloadPageUrl { get; set; }
+    public string? source { get; set; }
+}
+
+internal static class LocalizedText
+{
+    public static string? Resolve(object? value)
+    {
+        if (value is null) return null;
+        if (value is string text) return text;
+        if (value is Dictionary<string, object> map)
+        {
+            var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+            if (map.TryGetValue(language, out var localized)) return Convert.ToString(localized, CultureInfo.CurrentCulture);
+            if (map.TryGetValue("en", out var english)) return Convert.ToString(english, CultureInfo.CurrentCulture);
+            return map.Values.Select(v => Convert.ToString(v, CultureInfo.CurrentCulture)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        }
+        return Convert.ToString(value, CultureInfo.CurrentCulture);
+    }
+}
+
+internal enum PluginVersionComparison { Unknown, Current, UpdateAvailable, Different }
+internal enum PluginUpdateStatus { Other, UpdateAvailable, NotInCatalog, CatalogError }
+
+internal sealed class InstalledPlugin
+{
+    public InstalledPlugin(string id, string displayName, string versionText)
+    {
+        Id = id;
+        DisplayName = displayName;
+        VersionText = versionText;
+    }
+
+    public string Id { get; }
+    public string DisplayName { get; }
+    public string VersionText { get; }
+}
+
+internal sealed class PluginUpdateRow
+{
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, PluginUpdateStatus status, string source, string? webUrl)
+    {
+        Name = name;
+        InstalledVersion = installedVersion;
+        LatestVersion = latestVersion;
+        StatusText = statusText;
+        Status = status;
+        Source = source;
+        WebUrl = webUrl;
+    }
+
+    public string Name { get; }
+    public string InstalledVersion { get; }
+    public string LatestVersion { get; }
+    public string StatusText { get; }
+    public PluginUpdateStatus Status { get; }
+    public string Source { get; }
+    public string? WebUrl { get; }
+
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", PluginUpdateStatus.CatalogError, source, null);
 }
 
 internal static class VersionComparer
