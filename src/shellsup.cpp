@@ -1130,6 +1130,33 @@ HRESULT AuxGetCommandString(IContextMenu2* menu, UINT_PTR idCmd, UINT uType, UIN
     return ret;
 }
 
+
+static BOOL ShellContextMenuContainsVerb(IContextMenu2* contextMenu, HMENU menu, const char* verb)
+{
+    if (contextMenu == NULL || menu == NULL || verb == NULL)
+        return FALSE;
+
+    int count = GetMenuItemCount(menu);
+    for (int i = 0; i < count; i++)
+    {
+        MENUITEMINFO mi;
+        ZeroMemory(&mi, sizeof(mi));
+        mi.cbSize = sizeof(mi);
+        mi.fMask = MIIM_ID | MIIM_TYPE;
+        if (!GetMenuItemInfo(menu, i, TRUE, &mi) || (mi.fType & MFT_SEPARATOR) != 0)
+            continue;
+
+        char cmdName[200];
+        cmdName[0] = 0;
+        if (AuxGetCommandString(contextMenu, mi.wID, GCS_VERB, NULL, cmdName, _countof(cmdName)) == NOERROR &&
+            stricmp(cmdName, verb) == 0)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 void ShellActionAux5(UINT flags, CFilesWindow* panel, HMENU h)
 { // ATTENTION: also used from CSalamanderGeneral::OpenNetworkContextMenu()
     CALL_STACK_MESSAGE_NONE
@@ -2201,6 +2228,9 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                     flags |= CMF_CANRENAME;
 
                 BOOL alreadyHaveContextMenu = FALSE;
+                CTmpEnumData selectionEnumData;
+                selectionEnumData.Indexes = (count == 0) ? &index : indexes;
+                selectionEnumData.Panel = panel;
 
                 if (onlyPanelMenu)
                 {
@@ -2252,11 +2282,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                         else
                         {
 #endif // _WIN64
-                            CTmpEnumData data;
-                            data.Indexes = (count == 0) ? &index : indexes;
-                            data.Panel = panel;
                             panel->ContextMenu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath(), (count == 0) ? 1 : count,
-                                                                     EnumFileNames, &data);
+                                                                     EnumFileNames, &selectionEnumData);
 #ifndef _WIN64
                         }
 #endif // _WIN64
@@ -2290,7 +2317,29 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                 if (panel->ContextMenu != NULL && h != NULL)
                 {
                     if (!alreadyHaveContextMenu)
+                    {
                         ShellActionAux5(flags, panel, h);
+                        if (useSelection && !ShellContextMenuContainsVerb(panel->ContextMenu, h, "open"))
+                        {
+                            // Occasionally a shell extension leaves QueryContextMenu with only a partial
+                            // menu (typically Open and several third-party verbs are missing) until the
+                            // application is restarted. Drop the bad COM object and ask the shell once
+                            // more for a fresh context menu before showing the incomplete menu.
+                            TRACE_E("ShellAction::context_menu: incomplete shell context menu, retrying QueryContextMenu");
+                            panel->ContextMenu->Release();
+                            panel->ContextMenu = NULL;
+                            DestroyMenu(h);
+                            h = CreatePopupMenu();
+                            if (h != NULL)
+                            {
+                                panel->ContextMenu = CreateIContextMenu2(MainWindow->HWindow, panel->GetPath(),
+                                                                         (count == 0) ? 1 : count, EnumFileNames,
+                                                                         &selectionEnumData);
+                                if (panel->ContextMenu != NULL)
+                                    ShellActionAux5(flags, panel, h);
+                            }
+                        }
+                    }
                     RemoveUselessSeparatorsFromMenu(h);
 
                     char cmdName[2000]; // we intentionally use 2000 instead of 200; shell extensions sometimes write twice as much (idea: Unicode = 2 * "number of characters"), etc.
