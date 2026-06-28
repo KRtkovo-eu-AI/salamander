@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // CommentsTranslationProject: TRANSLATED
 
@@ -27,6 +27,488 @@
 #include "logo.h"
 #include "tasklist.h"
 #include "pwdmngr.h"
+
+extern void ShowFileError(HWND hParent, int errTextID, const char* fileName, DWORD err);
+
+extern const char* SalamanderConfigurationVersions[SALCFG_ROOTS_COUNT];
+
+static const char* DetectProductName(const char* root);
+static BOOL MCDGetCurrentInstancePath(char* path, int pathSize);
+
+static const char* MCDSubKeyFromLocation(const char* location)
+{
+    static const char prefix[] = "reg:\\HKEY_CURRENT_USER\\";
+    const size_t prefixLen = sizeof(prefix) - 1;
+    if (location == NULL || _strnicmp(location, prefix, prefixLen) != 0)
+        return NULL;
+    const char* subkey = location + prefixLen;
+    return subkey[0] != 0 ? subkey : NULL;
+}
+
+static BOOL MCDCopyRegistryKey(CSalamanderRegistryExAbstract* inReg, HKEY inKey,
+                               CSalamanderRegistryExAbstract* outReg, HKEY outKey)
+{
+    char name[MAX_PATH];
+
+    for (DWORD keyIndex = 0;; keyIndex++)
+    {
+        HKEY inSubKey, outSubKey;
+        if (!inReg->EnumKey(inKey, keyIndex, name, SizeOf(name)))
+            break;
+        if (!inReg->OpenKey(inKey, name, inSubKey))
+            return FALSE;
+        if (!outReg->CreateKey(outKey, name, outSubKey))
+        {
+            inReg->CloseKey(inSubKey);
+            return FALSE;
+        }
+        BOOL copied = MCDCopyRegistryKey(inReg, inSubKey, outReg, outSubKey);
+        inReg->CloseKey(inSubKey);
+        outReg->CloseKey(outSubKey);
+        if (!copied)
+            return FALSE;
+    }
+
+    for (DWORD valIndex = 0;; valIndex++)
+    {
+        DWORD valType;
+        DWORD dataSize = 0;
+        if (!inReg->EnumValue(inKey, valIndex, name, SizeOf(name), &valType, NULL, NULL))
+            break;
+        if (!inReg->GetSize(inKey, name, valType, dataSize))
+            return FALSE;
+
+        BYTE stackData[512];
+        LPBYTE data = stackData;
+        if (dataSize > sizeof(stackData))
+        {
+            data = (LPBYTE)malloc(dataSize);
+            if (data == NULL)
+                return FALSE;
+        }
+
+        BOOL ok = inReg->GetValue(inKey, name, valType, data, dataSize) &&
+                  outReg->SetValue(outKey, name, valType, data, dataSize);
+        if (data != stackData)
+            free(data);
+        if (!ok)
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL MCDCopyRegistryBranchToTarget(CSalamanderRegistryExAbstract* inReg, const char* inSubkey,
+                                          CSalamanderRegistryExAbstract* outReg, const char* outSubkey,
+                                          BOOL clearTarget)
+{
+    if (inReg == NULL || outReg == NULL || inSubkey == NULL || outSubkey == NULL ||
+        inSubkey[0] == 0 || outSubkey[0] == 0)
+        return FALSE;
+
+    HKEY inKey;
+    if (!inReg->OpenKey(HKEY_CURRENT_USER, inSubkey, inKey))
+        return FALSE;
+
+    HKEY outKey;
+    if (!outReg->CreateKey(HKEY_CURRENT_USER, outSubkey, outKey))
+    {
+        inReg->CloseKey(inKey);
+        return FALSE;
+    }
+    if (clearTarget)
+        outReg->ClearKey(outKey);
+
+    BOOL ret = MCDCopyRegistryKey(inReg, inKey, outReg, outKey);
+    outReg->CloseKey(outKey);
+    inReg->CloseKey(inKey);
+    return ret;
+}
+
+static BOOL MCDSetConfigValue(CSalamanderRegistryExAbstract* registry, const char* subkey,
+                              const char* valueName, DWORD type, const void* data, DWORD dataSize)
+{
+    if (registry == NULL || subkey == NULL || subkey[0] == 0)
+        return FALSE;
+
+    HKEY hRootKey;
+    if (!registry->CreateKey(HKEY_CURRENT_USER, subkey, hRootKey))
+        return FALSE;
+
+    BOOL ret = FALSE;
+    HKEY hCfgKey;
+    if (registry->CreateKey(hRootKey, SALAMANDER_CONFIG_REG, hCfgKey))
+    {
+        ret = registry->SetValue(hCfgKey, valueName, type, data, dataSize);
+        registry->CloseKey(hCfgKey);
+    }
+    registry->CloseKey(hRootKey);
+    return ret;
+}
+
+static void MCDApplyWelcomeTargetMetadata(CSalamanderRegistryExAbstract* registry, const char* targetSubkey,
+                                          const char* customConfigName, BOOL markWelcomeProcessed)
+{
+    char effectiveName[256];
+    effectiveName[0] = 0;
+    if (customConfigName != NULL && customConfigName[0] != 0)
+        strncpy_s(effectiveName, customConfigName, _TRUNCATE);
+    else
+        sprintf_s(effectiveName, DetectProductName(targetSubkey), SalamanderConfigurationVersions[0]);
+    MCDSetConfigValue(registry, targetSubkey, "ConfigDisplayName", REG_SZ,
+                      effectiveName, (DWORD)(strlen(effectiveName) + 1));
+
+    if (markWelcomeProcessed)
+    {
+        DWORD processed = 1;
+        MCDSetConfigValue(registry, targetSubkey, "WelcomeProcessed", REG_DWORD, &processed, sizeof(processed));
+        char instancePath[MAX_PATH];
+        if (MCDGetCurrentInstancePath(instancePath, SizeOf(instancePath)))
+            MCDSetConfigValue(registry, targetSubkey, "WelcomeProcessedInstancePath", REG_SZ,
+                              instancePath, (DWORD)(strlen(instancePath) + 1));
+    }
+}
+
+static BOOL MCDParseRegFileToMemory(HWND parent, const char* fileName, CSalamanderRegistryExAbstract* memReg, BOOL showErrors = TRUE)
+{
+    if (fileName == NULL || fileName[0] == 0 || memReg == NULL)
+        return FALSE;
+
+    HANDLE file = HANDLES_Q(CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0));
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        if (showErrors) ShowFileError(parent, IDS_IMPORTCFG_OPENERR, fileName, GetLastError());
+        return FALSE;
+    }
+
+    BOOL ret = FALSE;
+    DWORD err = 0;
+    CQuadWord size;
+    LPTSTR buf = NULL;
+    BOOL haveSize = SalGetFileSize(file, size, err);
+    if (haveSize && size <= CQuadWord(10000000, 0))
+    {
+        buf = (LPTSTR)malloc((DWORD)size.Value + sizeof(WCHAR));
+        if (buf != NULL)
+        {
+            DWORD bytesRead = 0;
+            if (ReadFile(file, buf, (DWORD)size.Value, &bytesRead, NULL))
+            {
+                *(WCHAR*)((LPBYTE)buf + bytesRead) = 0;
+                if (ConvertIfNeeded(&buf, bytesRead) != 0)
+                {
+                    eRPE_ERROR regerr = Parse(buf, memReg, TRUE);
+                    if (regerr == RPE_OK)
+                        ret = TRUE;
+                    else
+                    {
+                        int errTextID = IDS_IMPORTCFG_REGERR;
+                        switch (regerr)
+                        {
+                        case RPE_NOT_REG_FILE: errTextID = IDS_IMPORTCFG_NOTREG; break;
+                        case RPE_ROOT_INVALID_KEY:
+                        case RPE_INVALID_KEY:
+                        case RPE_VALUE_MISSING_QUOTE:
+                        case RPE_VALUE_MISSING_ASSIG:
+                        case RPE_VALUE_INVALID_TYPE:
+                        case RPE_VALUE_DWORD:
+                        case RPE_VALUE_STRING:
+                        case RPE_VALUE_HEX:
+                        case RPE_INVALID_MBCS:
+                        case RPE_INVALID_FORMAT:
+                            errTextID = IDS_IMPORTCFG_INVALIDFORMAT;
+                            break;
+                        }
+                        if (showErrors) ShowFileError(parent, errTextID, fileName, 0);
+                    }
+                }
+            }
+            else
+                if (showErrors) ShowFileError(parent, IDS_IMPORTCFG_OPENERR, fileName, GetLastError());
+        }
+    }
+    else if (haveSize)
+        if (showErrors) ShowFileError(parent, IDS_IMPORTCFG_TOOBIG, fileName, 0);
+    else
+        if (showErrors) ShowFileError(parent, IDS_IMPORTCFG_OPENERR, fileName, err);
+
+    HANDLES(CloseHandle(file));
+    if (buf != NULL)
+        free(buf);
+    return ret;
+}
+
+static const char* MCDFindSourceSubkeyInRegistry(CSalamanderRegistryExAbstract* registry)
+{
+    if (registry == NULL)
+        return NULL;
+
+    for (int i = 0; i < SALCFG_ROOTS_COUNT; i++)
+    {
+        HKEY key;
+        if (registry->OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[i], key))
+        {
+            registry->CloseKey(key);
+            return SalamanderConfigurationRoots[i];
+        }
+    }
+    return NULL;
+}
+
+static int MCDRootIndexFromSubkey(const char* subkey)
+{
+    if (subkey == NULL)
+        return -1;
+    for (int i = 0; i < SALCFG_ROOTS_COUNT; i++)
+        if (_stricmp(SalamanderConfigurationRoots[i], subkey) == 0)
+            return i;
+    return -1;
+}
+
+static BOOL MCDGetCurrentInstancePath(char* path, int pathSize)
+{
+    if (path == NULL || pathSize <= 0)
+        return FALSE;
+    DWORD len = GetModuleFileName(NULL, path, pathSize);
+    if (len == 0 || len >= (DWORD)pathSize)
+    {
+        path[0] = 0;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL MCDReadRegistryString(CSalamanderRegistryExAbstract* registry, HKEY key,
+                                  const char* valueName, char* value, int valueSize)
+{
+    if (value == NULL || valueSize <= 0)
+        return FALSE;
+    value[0] = 0;
+    DWORD size = valueSize;
+    if (!registry->GetValue(key, valueName, REG_SZ, value, size) || value[0] == 0)
+        return FALSE;
+    value[valueSize - 1] = 0;
+    return TRUE;
+}
+
+static BOOL MCDReadRegistryConfigLanguage(CSalamanderRegistryExAbstract* registry, HKEY rootKey,
+                                          char* language, int languageSize)
+{
+    if (language == NULL || languageSize <= 0)
+        return FALSE;
+    language[0] = 0;
+    HKEY cfgKey;
+    if (registry->OpenKey(rootKey, "Configuration", cfgKey))
+    {
+        MCDReadRegistryString(registry, cfgKey, "Language", language, languageSize);
+        registry->CloseKey(cfgKey);
+        char* dot = strrchr(language, '.');
+        if (dot != NULL && _stricmp(dot, ".slg") == 0)
+            *dot = 0;
+    }
+    return language[0] != 0;
+}
+
+BOOL MCDReadFileConfigurationInfo(const char* fileName, CFoundConfig& cfg, BOOL showErrors)
+{
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.Exists = TRUE;
+    cfg.IsPortable = TRUE;
+    cfg.RootIndex = -1;
+    strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
+    strncpy_s(cfg.Location, fileName != NULL ? fileName : "", _TRUNCATE);
+
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    if (fileName != NULL && GetFileAttributesEx(fileName, GetFileExInfoStandard, &fad))
+        cfg.LastUpdate = fad.ftLastWriteTime;
+
+    CSalamanderRegistryExAbstract* sourceReg = REG_MemRegistryFactory();
+    if (sourceReg == NULL || !MCDParseRegFileToMemory(NULL, fileName, sourceReg, showErrors))
+    {
+        if (sourceReg != NULL)
+            sourceReg->Release();
+        _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), fileName != NULL ? fileName : "");
+        strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+        return FALSE;
+    }
+
+    const char* sourceSubkey = MCDFindSourceSubkeyInRegistry(sourceReg);
+    int rootIndex = MCDRootIndexFromSubkey(sourceSubkey);
+    if (rootIndex >= 0)
+    {
+        cfg.IsCurrentVersion = (rootIndex == 0);
+        strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
+
+        HKEY rootKey;
+        if (sourceReg->OpenKey(HKEY_CURRENT_USER, sourceSubkey, rootKey))
+        {
+            HKEY cfgKey;
+            char customName[256];
+            customName[0] = 0;
+            if (sourceReg->OpenKey(rootKey, "Configuration", cfgKey))
+            {
+                MCDReadRegistryString(sourceReg, cfgKey, "ConfigDisplayName", customName, SizeOf(customName));
+                sourceReg->CloseKey(cfgKey);
+            }
+            if (customName[0] != 0)
+                strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
+            else
+                sprintf_s(cfg.DisplayName, DetectProductName(sourceSubkey), SalamanderConfigurationVersions[rootIndex]);
+            MCDReadRegistryConfigLanguage(sourceReg, rootKey, cfg.Language, SizeOf(cfg.Language));
+            sourceReg->CloseKey(rootKey);
+        }
+    }
+
+    if (cfg.DisplayName[0] == 0)
+        _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), fileName != NULL ? fileName : "");
+    if (cfg.Version[0] == 0)
+        strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
+    sourceReg->Release();
+    return rootIndex >= 0;
+}
+
+static BOOL MCDSetValueInSubkey(CSalamanderRegistryExAbstract* registry, const char* subkey,
+                                const char* valueName, DWORD type, const void* data, DWORD dataSize)
+{
+    HKEY key;
+    if (registry == NULL || subkey == NULL || subkey[0] == 0 ||
+        !registry->CreateKey(HKEY_CURRENT_USER, subkey, key))
+        return FALSE;
+    BOOL ret = registry->SetValue(key, valueName, type, data, dataSize);
+    registry->CloseKey(key);
+    return ret;
+}
+
+static void MCDApplyCleanTargetDefaults(CSalamanderRegistryExAbstract* registry, const char* targetSubkey)
+{
+    DWORD isMyDocs = TRUE;
+    MCDSetConfigValue(registry, targetSubkey, "If Path Is Inaccessible Go To My Docs", REG_DWORD, &isMyDocs, sizeof(isMyDocs));
+
+    DWORD showBottomToolbar = TRUE;
+    MCDSetConfigValue(registry, targetSubkey, "Show Bottom ToolBar", REG_DWORD, &showBottomToolbar, sizeof(showBottomToolbar));
+
+    char docsPath[MAX_PATH];
+    docsPath[0] = 0;
+    if (GetMyDocumentsOrDesktopPath(docsPath, SizeOf(docsPath)))
+        MCDSetConfigValue(registry, targetSubkey, "If Path Is Inaccessible Go To", REG_SZ, docsPath, (DWORD)(strlen(docsPath) + 1));
+    else
+        MCDSetConfigValue(registry, targetSubkey, "If Path Is Inaccessible Go To", REG_SZ, "", 1);
+
+    if (DarkModeShouldUseDarkColors())
+    {
+        char colorsSubkey[MAX_PATH];
+        _snprintf_s(colorsSubkey, _TRUNCATE, "%s\\Colors", targetSubkey);
+        DWORD scheme = 4;
+        DWORD useWinDark = 1;
+        MCDSetValueInSubkey(registry, colorsSubkey, "Color Scheme", REG_DWORD, &scheme, sizeof(scheme));
+        MCDSetValueInSubkey(registry, colorsSubkey, "Use Windows Dark Mode", REG_DWORD, &useWinDark, sizeof(useWinDark));
+    }
+}
+
+static BOOL MCDLoadSourceIntoTargetRegistry(HWND parent, const CFoundConfig& srcCfg,
+                                            CSalamanderRegistryExAbstract* targetReg,
+                                            const char* targetSubkey)
+{
+    if (targetReg == NULL || targetSubkey == NULL || targetSubkey[0] == 0)
+        return FALSE;
+
+    if (srcCfg.RootIndex == -1 && !srcCfg.IsPortable)
+    {
+        HKEY targetKey;
+        if (targetReg->CreateKey(HKEY_CURRENT_USER, targetSubkey, targetKey))
+        {
+            targetReg->ClearKey(targetKey);
+            targetReg->CloseKey(targetKey);
+            MCDApplyCleanTargetDefaults(targetReg, targetSubkey);
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+    if (srcCfg.IsPortable)
+    {
+        CSalamanderRegistryExAbstract* sourceReg = REG_MemRegistryFactory();
+        if (sourceReg == NULL)
+            return FALSE;
+
+        BOOL ret = FALSE;
+        if (MCDParseRegFileToMemory(parent, srcCfg.Location, sourceReg))
+        {
+            const char* sourceSubkey = MCDFindSourceSubkeyInRegistry(sourceReg);
+            if (sourceSubkey != NULL)
+                ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
+            else
+            {
+                char text[MAX_PATH + 300];
+                _snprintf_s(text, _TRUNCATE, LoadStr(IDS_IMPORTCFG_NOTOURVER), srcCfg.Location);
+                SalMessageBox(parent, text, LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            }
+        }
+        sourceReg->Release();
+        return ret;
+    }
+
+    const char* sourceSubkey = MCDSubKeyFromLocation(srcCfg.Location);
+    if (sourceSubkey == NULL)
+        return FALSE;
+    if (_stricmp(sourceSubkey, targetSubkey) == 0)
+        return TRUE; // selected source is already the registry target; keep it and only apply metadata
+
+    CSalamanderRegistryExAbstract* sourceReg = REG_SysRegistryFactory();
+    if (sourceReg == NULL)
+        return FALSE;
+    BOOL ret = MCDCopyRegistryBranchToTarget(sourceReg, sourceSubkey, targetReg, targetSubkey, TRUE);
+    sourceReg->Release();
+    return ret;
+}
+
+BOOL MCDApplyConfigurationSelection(HWND parent, const CManageConfigsDialog& dlg, BOOL markWelcomeProcessed, const char*& loadConfiguration)
+{
+    loadConfiguration = NULL;
+    if (dlg.SelectedSourceIndex < 0 || dlg.SelectedSourceIndex >= dlg.ConfigsCount ||
+        !dlg.Configs[dlg.SelectedSourceIndex].Exists)
+        return FALSE;
+
+    const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
+    const char* targetSubkey = SalamanderConfigurationRoots[0]; // Registry target is intentionally the current-version configuration root.
+
+    if (dlg.StorageType == cstRegFile)
+    {
+        if (dlg.RegFilePath[0] == 0)
+            return FALSE;
+
+        CSalamanderRegistryExAbstract* targetReg = REG_MemRegistryFactory();
+        if (targetReg == NULL)
+            return FALSE;
+
+        BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey);
+        if (ret)
+        {
+            MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
+            char clearKeyName[MAX_PATH];
+            _snprintf_s(clearKeyName, _TRUNCATE, "HKEY_CURRENT_USER\\%s", targetSubkey);
+            ret = targetReg->Dump(dlg.RegFilePath, clearKeyName);
+            if (ret)
+                loadConfiguration = targetSubkey;
+            else
+                ShowFileError(parent, IDS_EXPORTCFG_FILEERR, dlg.RegFilePath, GetLastError());
+        }
+        targetReg->Release();
+        return ret;
+    }
+
+    CSalamanderRegistryExAbstract* targetReg = REG_SysRegistryFactory();
+    if (targetReg == NULL)
+        return FALSE;
+
+    BOOL ret = MCDLoadSourceIntoTargetRegistry(parent, srcCfg, targetReg, targetSubkey);
+    if (ret)
+    {
+        MCDApplyWelcomeTargetMetadata(targetReg, targetSubkey, dlg.CustomConfigName, markWelcomeProcessed);
+        loadConfiguration = targetSubkey;
+    }
+    targetReg->Release();
+    return ret;
+}
 
 //
 // ConfigVersion - version number of the loaded configuration
@@ -1182,10 +1664,12 @@ static DWORD ReadConfigVersion(HKEY hRootKey)
     return configVersion;
 }
 
-BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration)
+BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfiguration, BOOL forceWelcomeDialog, char* selectedRegFilePath, int selectedRegFilePathSize)
 {
     HKEY hRootKey;
     loadConfiguration = NULL;
+    if (selectedRegFilePath != NULL && selectedRegFilePathSize > 0)
+        selectedRegFilePath[0] = 0;
     DWORD saveInProgress;
     HKEY hCfgKey;
 
@@ -1309,6 +1793,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             cfg.IsPortable = FALSE;
             cfg.IsCorrupted = FALSE;
             cfg.RootIndex = rootIndex;
+            _snprintf_s(cfg.Location, _TRUNCATE, "reg:\\HKEY_CURRENT_USER\\%s", root);
 
             // Nazev - nejdriv zkusit vlastni nazev z registru, pak automaticky generovany
             char customName[256];
@@ -1326,8 +1811,26 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
             // Zkontrolovat WelcomeProcessed v tomto klici
             DWORD wpVal = 0;
             GetValueAux(NULL, hCfgKey, "WelcomeProcessed", REG_DWORD, &wpVal, sizeof(wpVal));
-            if (wpVal == 1)
-                strncpy_s(dlg.WelcomeProcessedLocation, cfg.Location, _TRUNCATE);
+            // WelcomeProcessed suppresses the first-run Welcome dialog only for the current
+            // target registry root.  Older discovered configurations remain import sources;
+            // they must never become an implicit active configuration just because they
+            // contain stale metadata from a previous version/import.
+            if (rootIndex == 0 && wpVal == 1)
+            {
+                char processedInstancePath[MAX_PATH];
+                processedInstancePath[0] = 0;
+                GetValueAux(NULL, hCfgKey, "WelcomeProcessedInstancePath", REG_SZ,
+                            processedInstancePath, sizeof(processedInstancePath));
+                char currentInstancePath[MAX_PATH];
+                currentInstancePath[0] = 0;
+                MCDGetCurrentInstancePath(currentInstancePath, SizeOf(currentInstancePath));
+                if ((processedInstancePath[0] != 0 && currentInstancePath[0] != 0 &&
+                     IsTheSamePath(processedInstancePath, currentInstancePath)) ||
+                    (processedInstancePath[0] == 0 && !dlg.CanSaveBootstrap))
+                {
+                    strncpy_s(dlg.WelcomeProcessedLocation, cfg.Location, _TRUNCATE);
+                }
+            }
 
             CloseKeyAux(hCfgKey);
 
@@ -1367,28 +1870,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     if (GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES && configCount < MCD_MAX_CONFIGS)
     {
         CFoundConfig& cfg = dlg.Configs[configCount];
-        cfg.Exists = TRUE;
-        cfg.IsCurrentVersion = FALSE;
-        cfg.IsPortable = TRUE;
-        cfg.IsCorrupted = FALSE;
-        cfg.RootIndex = -1;
-
-        _snprintf_s(cfg.DisplayName, _TRUNCATE, "%s %s (%s)",
-                    LoadStr(IDS_MCD_EMPTYCONFIG), SalamanderConfigurationVersions[0],
-                    LoadStr(IDS_MCD_PORTABLE));
-
-        strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
-        if (StrIStr(cfg.Version, "Samandarin") != NULL)
-            for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
-        strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
-        cfg.Language[0] = 0;
-        strncpy_s(cfg.Location, portableConfigPath, _TRUNCATE);
-
-        DWORD attrs = GetFileAttributes(portableConfigPath);
-        // Note: GetFileAttributes doesn't give us FILETIME, use 0
-        cfg.LastUpdate.dwLowDateTime = 0;
-        cfg.LastUpdate.dwHighDateTime = 0;
-
+        MCDReadFileConfigurationInfo(portableConfigPath, cfg, FALSE);
         configCount++;
     }
 
@@ -1405,23 +1887,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         if (GetFileAttributes(knownPaths[k]) != INVALID_FILE_ATTRIBUTES)
         {
             CFoundConfig& cfg = dlg.Configs[configCount];
-            memset(&cfg, 0, sizeof(cfg));
-            cfg.Exists = TRUE;
-            cfg.IsCurrentVersion = FALSE;
-            cfg.IsPortable = TRUE;
-            cfg.RootIndex = -1;
-            _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), knownPaths[k]);
-            strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
-            if (StrIStr(cfg.Version, "Samandarin") != NULL)
-                for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
-            strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
-            cfg.Language[0] = 0;
-            strncpy_s(cfg.Location, knownPaths[k], _TRUNCATE);
-
-            WIN32_FILE_ATTRIBUTE_DATA fad;
-            if (GetFileAttributesEx(knownPaths[k], GetFileExInfoStandard, &fad))
-                cfg.LastUpdate = fad.ftLastWriteTime;
-
+            MCDReadFileConfigurationInfo(knownPaths[k], cfg, FALSE);
             configCount++;
         }
     }
@@ -1459,7 +1925,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
 
     // Check if we should skip the dialog
     // Skip if: WelcomeProcessed is set in any of the scanned configs
-    BOOL welcomeProcessed = (dlg.WelcomeProcessedLocation[0] != 0);
+    BOOL welcomeProcessed = !forceWelcomeDialog && (dlg.WelcomeProcessedLocation[0] != 0);
 
     if (welcomeProcessed)
     {
@@ -1519,8 +1985,23 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
     }
 
     Configuration.StorageType = dlg.StorageType;
-    ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
-                                                  dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
+
+    const char* selectedLoadConfiguration = NULL;
+    if (!MCDApplyConfigurationSelection(NULL, dlg, TRUE, selectedLoadConfiguration))
+        return FALSE;
+    if (selectedLoadConfiguration != NULL)
+        loadConfiguration = selectedLoadConfiguration;
+    if (dlg.StorageType == cstRegFile && selectedRegFilePath != NULL && selectedRegFilePathSize > 0)
+        strncpy_s(selectedRegFilePath, selectedRegFilePathSize, dlg.RegFilePath, _TRUNCATE);
+
+    BOOL bootstrapSaved = ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
+                                                                        dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
+    if (!bootstrapSaved && (dlg.CanSaveBootstrap || dlg.StorageType == cstRegFile))
+    {
+        SalMessageBox(NULL, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                      MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
 
     // Pridat file storage path do seznamu known paths
     if (dlg.StorageType == cstRegFile && dlg.RegFilePath[0] != 0)
@@ -1528,149 +2009,7 @@ BOOL FindLatestConfiguration(BOOL* deleteConfigurations, const char*& loadConfig
         ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
     }
 
-    // Zapsat ConfigDisplayName do TARGET konfigurace (kam se config uklada)
-    // TARGET muze byt registry klic nebo file storage - podle volby uzivatele
-    if (dlg.CustomConfigName[0] != 0 && dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
-    {
-        const CFoundConfig& targetCfg = dlg.Configs[dlg.SelectedSourceIndex];
-        if (targetCfg.IsPortable)
-        {
-            // File storage - zapsat do .reg souboru (presne cesta z configu)
-            // TODO: zatim neumime zapisovat ConfigDisplayName do .reg souboru
-        }
-        else if (targetCfg.Location[0] != 0 && targetCfg.Location[0] != '-')
-        {
-            // Registry config s platnou cestou - extrahujeme presnou subkey
-            const char* loc = targetCfg.Location;
-            const char* subkey = strchr(loc, '\\');
-            if (subkey) subkey++;
-            if (subkey) subkey = strchr(subkey, '\\');
-            if (subkey) subkey++;
-            if (subkey && subkey[0] != 0)
-            {
-                HKEY hKey;
-                if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
-                {
-                    HKEY hCfgKey;
-                    if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                    {
-                        SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
-                                    dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
-                        CloseKeyAux(hCfgKey);
-                    }
-                    CloseKeyAux(hKey);
-                }
-            }
-        }
-        else
-        {
-            // Clean config (Location = "-") - najdeme aktualni verzi v seznamu
-            for (int i = 0; i < dlg.ConfigsCount; i++)
-            {
-                if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
-                    dlg.Configs[i].Location[0] != 0 && dlg.Configs[i].Location[0] != '-')
-                {
-                    const char* loc = dlg.Configs[i].Location;
-                    const char* subkey = strchr(loc, '\\');
-                    if (subkey) subkey++;
-                    if (subkey) subkey = strchr(subkey, '\\');
-                    if (subkey) subkey++;
-                    if (subkey && subkey[0] != 0)
-                    {
-                        HKEY hKey;
-                        if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
-                        {
-                            HKEY hCfgKey;
-                            if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                            {
-                                SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
-                                            dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
-                                CloseKeyAux(hCfgKey);
-                            }
-                            CloseKeyAux(hKey);
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    // WelcomeProcessed - zapise se do presneho klice kde config zije
-    if (dlg.SelectedSourceIndex >= 0 && dlg.SelectedSourceIndex < dlg.ConfigsCount)
-    {
-        const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
-        const char* wpLocation = NULL;
-
-        if (!srcCfg.IsPortable && srcCfg.Location[0] != 0 && srcCfg.Location[0] != '-')
-        {
-            // Registry config s platnou cestou
-            wpLocation = srcCfg.Location;
-        }
-        else if (srcCfg.Location[0] == '-')
-        {
-            // Clean config - najdeme aktualni verzi v seznamu
-            for (int i = 0; i < dlg.ConfigsCount; i++)
-            {
-                if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
-                    dlg.Configs[i].Location[0] != 0 && dlg.Configs[i].Location[0] != '-')
-                {
-                    wpLocation = dlg.Configs[i].Location;
-                    break;
-                }
-            }
-        }
-
-        if (wpLocation != NULL)
-        {
-            const char* subkey = strchr(wpLocation, '\\');
-            if (subkey) subkey++;
-            if (subkey) subkey = strchr(subkey, '\\');
-            if (subkey) subkey++;
-            if (subkey && subkey[0] != 0)
-            {
-                HKEY hKey;
-                if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
-                {
-                    HKEY hCfgKey;
-                    if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                    {
-                        DWORD processed = 1;
-                        SetValueAux(NULL, hCfgKey, "WelcomeProcessed", REG_DWORD, &processed, sizeof(DWORD));
-                        CloseKeyAux(hCfgKey);
-                    }
-                    CloseKeyAux(hKey);
-                }
-            }
-        }
-    }
-
-    if (dlg.IndexOfConfigToLoad != -1)
-    {
-        // Nastavit loadConfiguration z presne cesty nactene konfigurace
-        const CFoundConfig& loadCfg = dlg.Configs[dlg.SelectedSourceIndex];
-        if (!loadCfg.IsPortable && loadCfg.Location[0] != 0)
-        {
-            const char* loc = loadCfg.Location;
-            const char* subkey = strchr(loc, '\\');
-            if (subkey) subkey++;
-            if (subkey) subkey = strchr(subkey, '\\');
-            if (subkey) subkey++;
-            if (subkey && subkey[0] != 0)
-            {
-                // Najit odpovidajici root v SalamanderConfigurationRoots
-                for (int i = 0; i < SALCFG_ROOTS_COUNT; i++)
-                {
-                    if (_stricmp(SalamanderConfigurationRoots[i], subkey) == 0)
-                    {
-                        loadConfiguration = SalamanderConfigurationRoots[i];
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    else if (DarkModeShouldUseDarkColors())
+    if (loadConfiguration == NULL && DarkModeShouldUseDarkColors())
     {
         Configuration.UseWindowsDarkMode = TRUE;
         WindowsDarkModeBuildPalette(UserColors, ViewerColors);

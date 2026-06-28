@@ -1501,6 +1501,40 @@ static void DrawRadioBtn(HDC hdc, int x, int y, int size, BOOL filled)
     DeleteObject(hPen);
 }
 
+
+static int MCDGetConfigIndexFromListItem(HWND hList, int item)
+{
+    if (item < 0)
+        return -1;
+
+    LVITEM lvi;
+    memset(&lvi, 0, sizeof(lvi));
+    lvi.mask = LVIF_PARAM;
+    lvi.iItem = item;
+    if (!ListView_GetItem(hList, &lvi))
+        return -1;
+    return (int)lvi.lParam;
+}
+
+static int MCDFindListItemByConfigIndex(HWND hList, int configIndex)
+{
+    int count = ListView_GetItemCount(hList);
+    for (int item = 0; item < count; item++)
+    {
+        if (MCDGetConfigIndexFromListItem(hList, item) == configIndex)
+            return item;
+    }
+    return -1;
+}
+
+static void MCDSelectListItem(HWND hList, int item)
+{
+    if (item < 0 || item >= ListView_GetItemCount(hList))
+        return;
+    ListView_SetItemState(hList, item, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+    ListView_EnsureVisible(hList, item, FALSE);
+}
+
 void CManageConfigsDialog::InitConfigsList()
 {
     HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
@@ -1574,7 +1608,7 @@ void CManageConfigsDialog::PopulateConfigsList()
         LVITEM lvItem;
         memset(&lvItem, 0, sizeof(lvItem));
         lvItem.mask = LVIF_TEXT | LVIF_PARAM;
-        lvItem.iItem = i;
+        lvItem.iItem = ListView_GetItemCount(hList);
         lvItem.iSubItem = 0;
         lvItem.pszText = firstColText;
         lvItem.lParam = i;
@@ -1587,11 +1621,13 @@ void CManageConfigsDialog::PopulateConfigsList()
         ListView_SetItemText(hList, idx, 5, Configs[i].Location);
     }
 
-    if (ConfigsCount > 0)
+    int itemToSelect = MCDFindListItemByConfigIndex(hList, SelectedSourceIndex);
+    if (itemToSelect < 0 && ListView_GetItemCount(hList) > 0)
     {
-        DWORD state = LVIS_SELECTED | LVIS_FOCUSED;
-        ListView_SetItemState(hList, 0, state, state);
+        itemToSelect = 0;
+        SelectedSourceIndex = MCDGetConfigIndexFromListItem(hList, itemToSelect);
     }
+    MCDSelectListItem(hList, itemToSelect);
 }
 
 void CManageConfigsDialog::UpdateSourcePanel()
@@ -1638,10 +1674,10 @@ void CManageConfigsDialog::UpdateStorageControls()
 
 void CManageConfigsDialog::UpdateDeleteButtonState()
 {
-    BOOL isEmptyConfig = (SelectedSourceIndex == 0 && ConfigsCount > 0 &&
-                          Configs[0].RootIndex == -1 && !Configs[0].IsPortable);
     BOOL hasSelection = (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount &&
                          Configs[SelectedSourceIndex].Exists);
+    BOOL isEmptyConfig = (hasSelection && Configs[SelectedSourceIndex].RootIndex == -1 &&
+                          !Configs[SelectedSourceIndex].IsPortable);
 
     BOOL canDelete = hasSelection && !isEmptyConfig;
     BOOL canExport = hasSelection && !isEmptyConfig;
@@ -1669,6 +1705,17 @@ void CManageConfigsDialog::SortConfigs()
 {
     if (SortColumn < 0 || SortColumn > 5)
         return;
+
+    char selectedLocation[MAX_PATH];
+    selectedLocation[0] = 0;
+    int selectedRootIndex = -2;
+    BOOL selectedIsPortable = FALSE;
+    if (SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount && Configs[SelectedSourceIndex].Exists)
+    {
+        strncpy_s(selectedLocation, Configs[SelectedSourceIndex].Location, _TRUNCATE);
+        selectedRootIndex = Configs[SelectedSourceIndex].RootIndex;
+        selectedIsPortable = Configs[SelectedSourceIndex].IsPortable;
+    }
 
     // Jednoduchy bubble sort (pole je male, max 100)
     for (int i = 0; i < ConfigsCount - 1; i++)
@@ -1700,6 +1747,21 @@ void CManageConfigsDialog::SortConfigs()
         }
     }
 
+    if (selectedLocation[0] != 0)
+    {
+        SelectedSourceIndex = -1;
+        for (int i = 0; i < ConfigsCount; i++)
+        {
+            if (Configs[i].Exists && Configs[i].RootIndex == selectedRootIndex &&
+                Configs[i].IsPortable == selectedIsPortable &&
+                _stricmp(Configs[i].Location, selectedLocation) == 0)
+            {
+                SelectedSourceIndex = i;
+                break;
+            }
+        }
+    }
+
     // Nastavit header sort indicator
     HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
     HWND hHeader = ListView_GetHeader(hList);
@@ -1720,9 +1782,10 @@ void CManageConfigsDialog::OnUseAsSource()
 {
     HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
     int sel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
-    if (sel >= 0 && sel < ConfigsCount)
+    int configIndex = MCDGetConfigIndexFromListItem(hList, sel);
+    if (configIndex >= 0 && configIndex < ConfigsCount)
     {
-        SelectedSourceIndex = sel;
+        SelectedSourceIndex = configIndex;
         UpdateSourcePanel();
         InvalidateRect(hList, NULL, TRUE);
     }
@@ -1740,10 +1803,26 @@ void CManageConfigsDialog::OnDeleteSelected()
     if (SalMessageBox(HWindow, msg, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONQUESTION) != IDYES)
         return;
 
-    DeleteConfigByIndex(SelectedSourceIndex);
+    HWND hList = GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST);
+    int selItem = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
 
-    PopulateConfigsList();
+    if (!DeleteConfigByIndex(SelectedSourceIndex))
+    {
+        UpdateSourcePanel();
+        UpdateDeleteButtonState();
+        return;
+    }
+
     SelectedSourceIndex = -1;
+    PopulateConfigsList();
+    int itemCount = ListView_GetItemCount(hList);
+    if (itemCount > 0)
+    {
+        if (selItem >= itemCount)
+            selItem = itemCount - 1;
+        MCDSelectListItem(hList, selItem);
+        SelectedSourceIndex = MCDGetConfigIndexFromListItem(hList, selItem);
+    }
     UpdateSourcePanel();
     UpdateDeleteButtonState();
 }
@@ -2026,19 +2105,44 @@ void CManageConfigsDialog::OnImport()
 
             if (valid)
             {
+                int existingIndex = -1;
+                for (int i = 0; i < ConfigsCount; i++)
+                {
+                    if (Configs[i].Exists && Configs[i].IsPortable && IsTheSamePath(Configs[i].Location, file))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
+                }
+
                 // Pridat cestu k souboru do seznamu known file storage paths
                 ConfigurationStorage.AddKnownFileStoragePath(file);
+
+                if (existingIndex >= 0)
+                {
+                    SelectedSourceIndex = existingIndex;
+                    PopulateConfigsList();
+                    MCDSelectListItem(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST),
+                                      MCDFindListItemByConfigIndex(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST), existingIndex));
+                }
+                else if (ConfigsCount < MCD_MAX_CONFIGS)
+                {
+                    CFoundConfig& cfg = Configs[ConfigsCount];
+                    MCDReadFileConfigurationInfo(file, cfg, FALSE);
+                    int importedIndex = ConfigsCount++;
+
+                    SelectedSourceIndex = importedIndex;
+                    PopulateConfigsList();
+                    MCDSelectListItem(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST),
+                                      MCDFindListItemByConfigIndex(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST), importedIndex));
+                }
+                else
+                    PopulateConfigsList();
 
                 SalMessageBox(HWindow, LoadStr(IDS_MCD_IMPORTSUCCESS), LoadStr(IDS_INFOTITLE),
                               MB_OK | MB_ICONINFORMATION);
 
-                // Obnovit seznam konfiguraci
-                PopulateConfigsList();
-                if (ConfigsCount > 0)
-                {
-                    SelectedSourceIndex = 0;
-                    UpdateSourcePanel();
-                }
+                UpdateSourcePanel();
                 UpdateDeleteButtonState();
             }
         }
@@ -2056,9 +2160,13 @@ BOOL CManageConfigsDialog::DeleteConfigByIndex(int configIndex)
     if (cfg.IsPortable)
     {
         if (DeleteFile(cfg.Location))
+        {
             deleted = TRUE;
-        // Odstranit z known paths
-        ConfigurationStorage.RemoveKnownFileStoragePath(cfg.Location);
+            // Odstranit z known paths az po uspesnem smazani souboru.
+            ConfigurationStorage.RemoveKnownFileStoragePath(cfg.Location);
+        }
+        else
+            ShowFileError(HWindow, IDS_MCD_DELETEFILEERR, cfg.Location, GetLastError());
     }
     else if (cfg.RootIndex >= 0)
     {
@@ -2111,7 +2219,6 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
 
         if (ConfigsCount > 0)
         {
-            SelectedSourceIndex = 0;
             UpdateSourcePanel();
             UpdateDeleteButtonState();
         }
@@ -2141,15 +2248,11 @@ void CManageConfigsDialog::Transfer(CTransferInfo& ti)
         // Precist editovatelný Configuration name z IDC_MCD_SRC_NAME
         char cfgName[256];
         GetDlgItemText(HWindow, IDC_MCD_SRC_NAME, cfgName, SizeOf(cfgName));
-        if (cfgName[0] != 0 && SelectedSourceIndex >= 0 && SelectedSourceIndex < ConfigsCount)
-        {
-            strncpy_s(Configs[SelectedSourceIndex].DisplayName, cfgName, _TRUNCATE);
-        }
+        // Do not write the edited target name back to the selected source row.
+        // The row is a read-only import source; the name is applied to the target
+        // configuration by the caller after the target storage has been created.
         // Ulozit custom name pro pripadne ulozeni do registrů
-        if (cfgName[0] != 0)
-        {
-            strncpy_s(CustomConfigName, cfgName, _TRUNCATE);
-        }
+        strncpy_s(CustomConfigName, cfgName, _TRUNCATE);
     }
 }
 
@@ -2188,7 +2291,8 @@ void CManageConfigsDialog::Validate(CTransferInfo& ti)
     }
     else // Registry storage
     {
-        // Overwrite confirmation - check if registry config already exists
+        // Registry target is the current-version root shown in IDC_MCD_REGISTRY_PATH.
+        // Source rows may point elsewhere, but overwrite validation is for this explicit target.
         HKEY hKey;
         if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hKey))
         {
@@ -2396,7 +2500,8 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             LVHITTESTINFO ht;
             ht.pt = pt;
             int hitItem = ListView_HitTest(hList, &ht);
-            if (hitItem >= 0 && hitItem < ConfigsCount && IsConfigActive(hitItem))
+            int hitConfigIndex = MCDGetConfigIndexFromListItem(hList, hitItem);
+            if (hitConfigIndex >= 0 && IsConfigActive(hitConfigIndex))
             {
                 strncpy_s(pDispInfo->szText, sizeof(pDispInfo->szText) / sizeof(pDispInfo->szText[0]),
                           LoadStr(IDS_MCD_ACTIVECONFIGTOOLTIP), _TRUNCATE);
@@ -2411,13 +2516,32 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (nmhdr->code == LVN_GETINFOTIP)
         {
             NMLVGETINFOTIP* pInfoTip = (NMLVGETINFOTIP*)lParam;
-            if (pInfoTip->iItem >= 0 && pInfoTip->iItem < ConfigsCount &&
-                IsConfigActive(pInfoTip->iItem))
+            int configIndex = MCDGetConfigIndexFromListItem(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST), pInfoTip->iItem);
+            if (configIndex >= 0 && IsConfigActive(configIndex))
             {
                 strncpy_s(pInfoTip->pszText, pInfoTip->cchTextMax,
                           LoadStr(IDS_MCD_ACTIVECONFIGTOOLTIP), _TRUNCATE);
             }
             break;
+        }
+
+        if (nmhdr->hwndFrom == ListView_GetHeader(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST)) &&
+            nmhdr->code == HDN_ITEMCLICK)
+        {
+            NMHEADER* nmh = (NMHEADER*)lParam;
+            if (nmh->iItem >= 0 && nmh->iItem <= 5)
+            {
+                if (SortColumn == nmh->iItem)
+                    SortAscending = !SortAscending;
+                else
+                {
+                    SortColumn = nmh->iItem;
+                    SortAscending = TRUE;
+                }
+                SortConfigs();
+                PopulateConfigsList();
+            }
+            return TRUE;
         }
 
         if (nmhdr->idFrom == IDC_MCD_CONFIGS_LIST)
@@ -2432,8 +2556,9 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 if (nmlvcd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
-                    int itemIndex = (int)nmlvcd->nmcd.dwItemSpec;
-                    HFONT hFont = GetConfigFont(itemIndex, nmlvcd->nmcd.uItemState);
+                    int configIndex = MCDGetConfigIndexFromListItem(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST),
+                                                                       (int)nmlvcd->nmcd.dwItemSpec);
+                    HFONT hFont = GetConfigFont(configIndex, nmlvcd->nmcd.uItemState);
                     SelectObject(nmlvcd->nmcd.hdc, hFont);
                     nmlvcd->clrTextBk = CLR_DEFAULT;
                     SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_NEWFONT);
@@ -2447,7 +2572,7 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 NMLISTVIEW* nmlv = (NMLISTVIEW*)lParam;
                 if ((nmlv->uNewState & LVIS_SELECTED) && !(nmlv->uOldState & LVIS_SELECTED))
                 {
-                    SelectedSourceIndex = nmlv->iItem;
+                    SelectedSourceIndex = MCDGetConfigIndexFromListItem(GetDlgItem(HWindow, IDC_MCD_CONFIGS_LIST), nmlv->iItem);
                     UpdateSourcePanel();
                     UpdateDeleteButtonState();
                 }
@@ -2456,22 +2581,6 @@ CManageConfigsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SelectedSourceIndex = -1;
                     UpdateSourcePanel();
                     UpdateDeleteButtonState();
-                }
-            }
-            else if (nmhdr->code == HDN_ITEMCLICK)
-            {
-                NMHEADER* nmh = (NMHEADER*)lParam;
-                if (nmh->iItem >= 0 && nmh->iItem <= 5)
-                {
-                    if (SortColumn == nmh->iItem)
-                        SortAscending = !SortAscending;
-                    else
-                    {
-                        SortColumn = nmh->iItem;
-                        SortAscending = TRUE;
-                    }
-                    SortConfigs();
-                    PopulateConfigsList();
                 }
             }
         }

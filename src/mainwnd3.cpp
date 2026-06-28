@@ -3394,47 +3394,6 @@ void CMainWindow::UpdateRebarVisuals()
     RedrawWindow(HTopRebar, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
-// Rekurzivni kopirovani registry klice
-static BOOL CopyRegKey(HKEY hSrcKey, HKEY hDstKey)
-{
-    char name[MAX_PATH];
-    // Kopirovat vsechny hodnoty
-    DWORD valIndex = 0;
-    DWORD valType, dataSize;
-    BYTE data[4096];
-    DWORD nameLen;
-    while (TRUE)
-    {
-        nameLen = SizeOf(name);
-        dataSize = sizeof(data);
-        if (RegEnumValue(hSrcKey, valIndex, name, &nameLen, NULL, &valType, data, &dataSize) != ERROR_SUCCESS)
-            break;
-        if (RegSetValueEx(hDstKey, name, 0, valType, data, dataSize) != ERROR_SUCCESS)
-            return FALSE;
-        valIndex++;
-    }
-    // Kopirovat vsechny podklice
-    DWORD keyIndex = 0;
-    HKEY hSrcSubKey, hDstSubKey;
-    while (TRUE)
-    {
-        nameLen = SizeOf(name);
-        if (RegEnumKeyEx(hSrcKey, keyIndex, name, &nameLen, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
-            break;
-        if (RegOpenKeyEx(hSrcKey, name, 0, KEY_READ, &hSrcSubKey) == ERROR_SUCCESS)
-        {
-            if (RegCreateKeyEx(hDstKey, name, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hDstSubKey, NULL) == ERROR_SUCCESS)
-            {
-                CopyRegKey(hSrcSubKey, hDstSubKey);
-                RegCloseKey(hDstSubKey);
-            }
-            RegCloseKey(hSrcSubKey);
-        }
-        keyIndex++;
-    }
-    return TRUE;
-}
-
 LRESULT
 CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -5437,6 +5396,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                     HKEY hCfgKey;
                     if (RegOpenKeyEx(hRootKey, SALAMANDER_CONFIG_REG, 0, KEY_READ, &hCfgKey) == ERROR_SUCCESS)
                     {
+                        char customName[256];
+                        customName[0] = 0;
+                        DWORD customNameSize = sizeof(customName);
+                        DWORD customNameType = 0;
+                        RegQueryValueEx(hCfgKey, "ConfigDisplayName", NULL, &customNameType, (LPBYTE)customName, &customNameSize);
+                        customName[SizeOf(customName) - 1] = 0;
                         RegCloseKey(hCfgKey);
 
                         CFoundConfig& cfg = dlg.Configs[configCount];
@@ -5450,7 +5415,10 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                         const char* name = openSalamander ? LoadStr(IDS_MCD_OPEN_SALAMANDER)
                                            : altapSalamander ? LoadStr(IDS_MCD_ALTAP_SALAMANDER)
                                                              : LoadStr(IDS_MCD_SERVANT_SALAMANDER);
-                        sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
+                        if (customName[0] != 0)
+                            strncpy_s(cfg.DisplayName, customName, _TRUNCATE);
+                        else
+                            sprintf_s(cfg.DisplayName, name, SalamanderConfigurationVersions[rootIndex]);
                         // Verze: pro Samandarin pouzit format s pomlckami
                         strncpy_s(cfg.Version, SalamanderConfigurationVersions[rootIndex], _TRUNCATE);
                         if (StrIStr(cfg.Version, "Samandarin") != NULL)
@@ -5501,30 +5469,31 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 }
             }
 
+
+            // Scan default portable config.reg next to salamand.exe even when it is not in known paths yet.
+            char portableConfigPath[MAX_PATH];
+            portableConfigPath[0] = 0;
+            ConfigurationStorage.GetPortableConfigFilePath(portableConfigPath, SizeOf(portableConfigPath));
+            if (portableConfigPath[0] != 0 && GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES &&
+                configCount < MCD_MAX_CONFIGS)
+            {
+                CFoundConfig& cfg = dlg.Configs[configCount];
+                MCDReadFileConfigurationInfo(portableConfigPath, cfg, FALSE);
+                configCount++;
+            }
+
             // Scan known file storage paths
             char knownPaths[20][MAX_PATH];
             int knownCount = 0;
             ConfigurationStorage.LoadKnownFileStoragePaths(knownPaths, &knownCount, 20);
             for (int k = 0; k < knownCount && configCount < MCD_MAX_CONFIGS; k++)
             {
+                if (portableConfigPath[0] != 0 && _stricmp(knownPaths[k], portableConfigPath) == 0)
+                    continue;
                 if (GetFileAttributes(knownPaths[k]) != INVALID_FILE_ATTRIBUTES)
                 {
                     CFoundConfig& cfg = dlg.Configs[configCount];
-                    memset(&cfg, 0, sizeof(cfg));
-                    cfg.Exists = TRUE;
-                    cfg.IsCurrentVersion = FALSE;
-                    cfg.IsPortable = TRUE;
-                    cfg.RootIndex = -1;
-                    _snprintf_s(cfg.DisplayName, _TRUNCATE, LoadStr(IDS_MCD_FILEPREFIX), knownPaths[k]);
-                    strncpy_s(cfg.Version, SalamanderConfigurationVersions[0], _TRUNCATE);
-                    if (StrIStr(cfg.Version, "Samandarin") != NULL)
-                        for (char* p = cfg.Version; *p; p++) if (*p == ' ') *p = '-';
-                    strncpy_s(cfg.StorageTypeStr, LoadStr(IDS_MCD_STORAGE_FILE), _TRUNCATE);
-                    cfg.Language[0] = 0;
-                    strncpy_s(cfg.Location, knownPaths[k], _TRUNCATE);
-                    WIN32_FILE_ATTRIBUTE_DATA fad;
-                    if (GetFileAttributesEx(knownPaths[k], GetFileExInfoStandard, &fad))
-                        cfg.LastUpdate = fad.ftLastWriteTime;
+                    MCDReadFileConfigurationInfo(knownPaths[k], cfg, FALSE);
                     configCount++;
                 }
             }
@@ -5535,104 +5504,29 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
             if (dlg.Execute() == IDOK)
             {
-                // Pokud uzivatel vybral source konfiguraci a neni to aktualni,
-                // zkopirovat ji z presne cesty zdroje do aktualni konfigurace
-                if (dlg.IndexOfConfigToLoad >= 0 && dlg.SelectedSourceIndex >= 0 &&
-                    dlg.SelectedSourceIndex < dlg.ConfigsCount &&
-                    !dlg.Configs[dlg.SelectedSourceIndex].IsPortable)
-                {
-                    const CFoundConfig& srcCfg = dlg.Configs[dlg.SelectedSourceIndex];
+                Configuration.StorageType = (CConfigurationStorageType)dlg.StorageType;
 
-                    // Zdrojova cesta z Location
-                    const char* srcLoc = srcCfg.Location;
-                    const char* srcSubkey = strchr(srcLoc, '\\');
-                    if (srcSubkey) srcSubkey++;
-                    if (srcSubkey) srcSubkey = strchr(srcSubkey, '\\');
-                    if (srcSubkey) srcSubkey++;
-
-                    // Cilova cesta = aktualni verze (najdeme ji pres jeji Location v configs)
-                    // Hledame config ktery je IsCurrentVersion
-                    const char* dstSubkey = NULL;
-                    for (int i = 0; i < dlg.ConfigsCount; i++)
-                    {
-                        if (dlg.Configs[i].IsCurrentVersion && !dlg.Configs[i].IsPortable &&
-                            dlg.Configs[i].Location[0] != 0)
-                        {
-                            const char* loc = dlg.Configs[i].Location;
-                            const char* sk = strchr(loc, '\\');
-                            if (sk) sk++;
-                            if (sk) sk = strchr(sk, '\\');
-                            if (sk) sk++;
-                            if (sk && sk[0] != 0)
-                                dstSubkey = sk;
-                            break;
-                        }
-                    }
-
-                    if (srcSubkey && srcSubkey[0] != 0 && dstSubkey && dstSubkey[0] != 0)
-                    {
-                        HKEY hSrcKey, hDstKey;
-                        if (RegOpenKeyEx(HKEY_CURRENT_USER, srcSubkey,
-                                         0, KEY_READ, &hSrcKey) == ERROR_SUCCESS)
-                        {
-                            // Vymazat cil
-                            if (RegOpenKeyEx(HKEY_CURRENT_USER, dstSubkey,
-                                             0, KEY_WRITE, &hDstKey) == ERROR_SUCCESS)
-                            {
-                                ClearKeyAux(hDstKey);
-                                RegCloseKey(hDstKey);
-                            }
-
-                            // Vytvorit cil a zkopirovat data
-                            if (RegCreateKeyEx(HKEY_CURRENT_USER, dstSubkey,
-                                               0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hDstKey, NULL) == ERROR_SUCCESS)
-                            {
-                                CopyRegKey(hSrcKey, hDstKey);
-                                RegCloseKey(hDstKey);
-                            }
-                            RegCloseKey(hSrcKey);
-                        }
-                    }
-                }
+                const char* ignoredLoadConfiguration = NULL;
+                if (!MCDApplyConfigurationSelection(HWindow, dlg, TRUE, ignoredLoadConfiguration))
+                    return 0;
 
                 // Uložit configstorage.ini a file storage path
-                Configuration.StorageType = (CConfigurationStorageType)dlg.StorageType;
-                ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
-                                                              dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
-                // Pridat file storage path do seznamu known paths
+                BOOL bootstrapSaved = ConfigurationStorage.SaveStorageTypeBootstrap((CConfigurationStorageType)Configuration.StorageType,
+                                                                                         dlg.StorageType == cstRegFile ? dlg.RegFilePath : NULL);
+                if (!bootstrapSaved && (dlg.CanSaveBootstrap || dlg.StorageType == cstRegFile))
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_CFGSTORAGE_FILEWRITEERR), LoadStr(IDS_ERRORTITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+                    return 0;
+                }
                 if (dlg.StorageType == cstRegFile && dlg.RegFilePath[0] != 0)
                 {
                     ConfigurationStorage.AddKnownFileStoragePath(dlg.RegFilePath);
                 }
 
-                // Ulozit vlastni nazev konfigurace do TARGET (kam se config kopiruje)
-                if (dlg.CustomConfigName[0] != 0 && dlg.SelectedSourceIndex >= 0 &&
-                    dlg.SelectedSourceIndex < dlg.ConfigsCount &&
-                    !dlg.Configs[dlg.SelectedSourceIndex].IsPortable &&
-                    dlg.Configs[dlg.SelectedSourceIndex].Location[0] != 0)
-                {
-                    // Extrahujeme presnou subkey z Location ("reg:\HKEY_CURRENT_USER\<subkey>")
-                    const char* loc = dlg.Configs[dlg.SelectedSourceIndex].Location;
-                    const char* subkey = strchr(loc, '\\');
-                    if (subkey) subkey++;
-                    if (subkey) subkey = strchr(subkey, '\\');
-                    if (subkey) subkey++;
-                    if (subkey && subkey[0] != 0)
-                    {
-                        HKEY hKey;
-                        if (CreateKeyAux(NULL, HKEY_CURRENT_USER, subkey, hKey))
-                        {
-                            HKEY hCfgKey;
-                            if (CreateKeyAux(NULL, hKey, SALAMANDER_CONFIG_REG, hCfgKey))
-                            {
-                                SetValueAux(NULL, hCfgKey, "ConfigDisplayName", REG_SZ,
-                                            dlg.CustomConfigName, (DWORD)(strlen(dlg.CustomConfigName) + 1));
-                                CloseKeyAux(hCfgKey);
-                            }
-                            CloseKeyAux(hKey);
-                        }
-                    }
-                }
+                // Vypnout AutoSave az po uspesnem zapisu target konfigurace, aby ukonceni bezici instance
+                // neprepsalo prave importovanou cilovou konfiguraci starou konfiguraci nactenou pri startu.
+                Configuration.AutoSave = FALSE;
 
                 // Spustit novou instanci Salamandera
                 char exePath[MAX_PATH];
@@ -5654,9 +5548,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 se.lpDirectory = initDir;
 
                 BOOL started = ShellExecuteEx(&se);
-
-                // Vypnout AutoSave aby se pri ukonceni neprepisovala nova konfigurace
-                Configuration.AutoSave = FALSE;
 
                 // Zavrit aplikaci bez ulozeni konfigurace
                 if (started)

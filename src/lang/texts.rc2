@@ -2045,6 +2045,7 @@ STRINGTABLE
  IDS_MCD_STORAGE_REGISTRY, "Registry"
  IDS_MCD_STORAGE_FILE, "File storage"
  IDS_MCD_DELETECONFIRM2, "Are you sure you want to delete the following configuration?\n\nName: %s\nVersion: %s\nStorage: %s\nLocation: %s\n\nThis action cannot be undone."
+ IDS_MCD_DELETEFILEERR, "Unable to delete configuration file.\n\nFile: %s\nError: %s"
  IDS_MCD_OVERWRITECONFIRM, "A configuration already exists at this location:\n\n%s\n\nDo you want to overwrite it?"
  IDS_MCD_SAVEANDSTART, "4. Save and Start"
  IDS_MCD_SAVEANDRESTART, "4. Save and Restart"

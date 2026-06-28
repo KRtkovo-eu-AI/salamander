@@ -4621,6 +4621,31 @@ FIND_NEW_SLG_FILE:
     BOOL portableConfigExists = !restrictedFileStorageImported && portableConfigPath[0] != 0 &&
                                 GetFileAttributes(portableConfigPath) != INVALID_FILE_ATTRIBUTES;
 
+    BOOL currentRegistryConfigExistsAtStartup = FALSE;
+    HKEY hStartupRootKey;
+    if (OpenKey(HKEY_CURRENT_USER, SalamanderConfigurationRoots[0], hStartupRootKey))
+    {
+        HKEY hStartupCfgKey;
+        if (OpenKey(hStartupRootKey, SALAMANDER_CONFIG_REG, hStartupCfgKey))
+        {
+            currentRegistryConfigExistsAtStartup = TRUE;
+            CloseKey(hStartupCfgKey);
+        }
+        CloseKey(hStartupRootKey);
+    }
+
+    BOOL bootstrapStorageUsable = FALSE;
+    if (storageTypeFromBootstrap)
+    {
+        if (storageType == cstRegFile)
+            bootstrapStorageUsable = portableConfigExists;
+        else
+            bootstrapStorageUsable = currentRegistryConfigExistsAtStartup;
+    }
+
+    BOOL forceWelcomeDialog = !autoImportConfig && (!storageTypeFromBootstrap || !bootstrapStorageUsable) &&
+                              !portableConfigExists && !currentRegistryConfigExistsAtStartup;
+
     // pokud soubor existuje, bude importovan do registry; v portable file rezimu
     // je config.reg aktivni storage backend, ne legacy auto-import do HKCU
     BOOL importCfgFromFileWasSkipped = FALSE;
@@ -4652,11 +4677,15 @@ FIND_NEW_SLG_FILE:
     // nactena (NULL -> zadna; pouziji se default hodnoty)
     if (autoImportConfig)
         SALAMANDER_ROOT_REG = autoImportConfigFromKey; // pri UPGRADE nema hledani konfigurace smysl
-    else if (portableConfigExists && (!storageTypeFromBootstrap || storageType == cstRegFile))
-        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0]; // existing portable config is authoritative; do not offer Registry import
+    else if (storageTypeFromBootstrap && bootstrapStorageUsable)
+        // configstorage.ini is the authoritative storage selection with existing configuration.  Do not open
+        // the Welcome dialog again just because importable configurations exist;
+        // the dialog is only for first-time/unselected storage or explicit Manage
+        // Configurations from the menu.
+        SALAMANDER_ROOT_REG = SalamanderConfigurationRoots[0];
     else
     {
-        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG))
+        if (!FindLatestConfiguration(deleteConfigurations, SALAMANDER_ROOT_REG, forceWelcomeDialog, storageRegFilePath, SizeOf(storageRegFilePath)))
         {
             SplashScreenCloseIfExist();
             goto EXIT_2;
