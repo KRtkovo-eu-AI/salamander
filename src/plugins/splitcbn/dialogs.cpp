@@ -378,6 +378,7 @@ namespace split
         default:
             return FALSE;
         }
+        return FALSE;
     }
 
 } // namespace split
@@ -887,6 +888,7 @@ namespace combine
                 return FALSE;
         }
         }
+        return FALSE;
     }
 
 } // namespace combine
@@ -1071,6 +1073,7 @@ static INT_PTR CALLBACK CRCDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
     default:
         return FALSE;
     }
+    return FALSE;
 }
 
 void CRCDialog(TIndirectArray<char>& files, BOOL bf, UINT32 oc, HWND parent,

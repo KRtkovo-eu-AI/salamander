@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <CommDlg.h>
 #include <ShellAPI.h>
+#include <objbase.h>
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
