@@ -7,3 +7,4 @@ EXPORTS Samandarin_ApplyDarkModeTree
 EXPORTS Samandarin_LoadSettings
 EXPORTS Samandarin_SaveSettings
 EXPORTS Samandarin_SetDarkModeState
+EXPORTS Samandarin_UpdateListViewDarkMode

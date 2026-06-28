@@ -1021,7 +1021,8 @@ internal sealed class PluginUpdatesDialog : Form
         ShowInTaskbar = false;
         Width = 980;
         Height = 640;
-        MinimumSize = new System.Drawing.Size(720, 520);
+        MinimumSize = new System.Drawing.Size(760, 520);
+        AutoScroll = true;
         Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel
@@ -1045,7 +1046,7 @@ internal sealed class PluginUpdatesDialog : Form
         {
             Dock = DockStyle.Fill,
             FullRowSelect = true,
-            GridLines = false,
+            GridLines = true,
             HideSelection = false,
             MultiSelect = false,
             View = View.Details,
@@ -1059,6 +1060,7 @@ internal sealed class PluginUpdatesDialog : Form
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 260);
         _listView.ColumnClick += ListViewOnColumnClick;
         _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
+        _listView.Resize += (_, _) => AdjustListViewColumns();
         layout.Controls.Add(_listView, 0, 1);
 
         var aboveSourcesPanel = new TableLayoutPanel
@@ -1085,7 +1087,7 @@ internal sealed class PluginUpdatesDialog : Form
         _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
         layout.Controls.Add(_sourcesTextBox, 0, 4);
 
-        _statusLabel = new Label { AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
+        _statusLabel = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 6, 0, 0) };
         layout.Controls.Add(_statusLabel, 0, 5);
 
         var buttons = new FlowLayoutPanel
@@ -1109,7 +1111,11 @@ internal sealed class PluginUpdatesDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
-        Shown += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+        Shown += async (_, _) =>
+        {
+            AdjustListViewColumns();
+            await RefreshAsync().ConfigureAwait(true);
+        };
     }
 
     private async Task RefreshAsync()
@@ -1179,6 +1185,29 @@ internal sealed class PluginUpdatesDialog : Form
 
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
+    }
+
+    private void AdjustListViewColumns()
+    {
+        if (_listView.Columns.Count < 7)
+        {
+            return;
+        }
+
+        int width = Math.Max(700, _listView.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
+        int[] weights = { 23, 12, 12, 14, 13, 16, 10 };
+        int used = 0;
+        for (int i = 0; i < _listView.Columns.Count; i++)
+        {
+            int columnWidth = Math.Max(70, width * weights[i] / 100);
+            _listView.Columns[i].Width = columnWidth;
+            used += columnWidth;
+        }
+
+        if (used < width)
+        {
+            _listView.Columns[_listView.Columns.Count - 1].Width += width - used;
+        }
     }
 
     private void ListViewOnColumnClick(object? sender, ColumnClickEventArgs e)

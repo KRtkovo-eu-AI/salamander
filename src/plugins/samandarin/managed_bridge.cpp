@@ -249,6 +249,12 @@ extern "C" __declspec(dllexport) void __stdcall Samandarin_ApplyDarkModeTree(HWN
     DarkModeApplyTree(hwnd);
 }
 
+extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMode(HWND hwnd)
+{
+    DarkModeApplyTree(hwnd);
+    DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
+}
+
 extern "C" __declspec(dllexport) int __stdcall Samandarin_LoadString(int resourceId, wchar_t* buffer, int bufferLength)
 {
     if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)

@@ -51,7 +51,16 @@ internal static class ThemeHelper
 
     public static void ApplyNativeDarkMode(Control control)
     {
-        if (control.IsHandleCreated)
+        if (!control.IsHandleCreated)
+        {
+            return;
+        }
+
+        if (control is ListView)
+        {
+            NativeMethods.UpdateListViewDarkMode(control.Handle);
+        }
+        else
         {
             NativeMethods.ApplyDarkModeTree(control.Handle);
         }
@@ -248,6 +257,9 @@ internal static class ThemeHelper
             case TextBoxBase textBox:
                 textBox.BackColor = palette.InputBackground;
                 textBox.ForeColor = palette.InputForeground;
+                textBox.BorderStyle = BorderStyle.FixedSingle;
+                textBox.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                textBox.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
             case ComboBox comboBox:
                 comboBox.BackColor = palette.InputBackground;
@@ -260,6 +272,14 @@ internal static class ThemeHelper
                 listView.BackColor = palette.InputBackground;
                 listView.ForeColor = palette.InputForeground;
                 listView.BorderStyle = BorderStyle.FixedSingle;
+                listView.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                listView.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
+                break;
+            case CheckBox checkBox:
+                checkBox.FlatStyle = FlatStyle.System;
+                checkBox.UseVisualStyleBackColor = true;
+                checkBox.HandleCreated -= ControlOnHandleCreatedApplyNativeDarkMode;
+                checkBox.HandleCreated += ControlOnHandleCreatedApplyNativeDarkMode;
                 break;
             case TreeView treeView:
                 treeView.BackColor = palette.InputBackground;
@@ -293,6 +313,14 @@ internal static class ThemeHelper
         foreach (Control child in control.Controls)
         {
             ApplyPalette(child, palette);
+        }
+    }
+
+    private static void ControlOnHandleCreatedApplyNativeDarkMode(object? sender, EventArgs e)
+    {
+        if (sender is Control control)
+        {
+            ApplyNativeDarkMode(control);
         }
     }
 
@@ -595,6 +623,9 @@ internal static class ThemeHelper
         [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
         private static extern void Samandarin_ApplyDarkModeTree(IntPtr hwnd);
 
+        [DllImport("Samandarin.Spl", CallingConvention = CallingConvention.StdCall)]
+        private static extern void Samandarin_UpdateListViewDarkMode(IntPtr hwnd);
+
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
@@ -628,6 +659,26 @@ internal static class ThemeHelper
             }
             catch (EntryPointNotFoundException)
             {
+            }
+        }
+
+        public static void UpdateListViewDarkMode(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                Samandarin_UpdateListViewDarkMode(handle);
+            }
+            catch (DllNotFoundException)
+            {
+            }
+            catch (EntryPointNotFoundException)
+            {
+                ApplyDarkModeTree(handle);
             }
         }
 
