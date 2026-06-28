@@ -252,7 +252,7 @@ internal static class UpdateCoordinator
         {
             Timeout = TimeSpan.FromSeconds(15),
         };
-        HttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinUpdateNotifier/1.0");
+        HttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SamandarinUpdateNotifier/0.3");
     }
 
     public static void Initialize(string currentVersion, IntPtr parent)
@@ -1518,14 +1518,15 @@ internal static class SharedHttpClient
 
 internal static class PluginCatalogSources
 {
-    private const string DefaultSource = "https://ai.krtkovo.eu/samandarin/plugin-catalog.json";
+    private const string OfficialDefaultSource = "https://ai.krtkovo.eu/samandarin/plugin-catalog.json";
+    private const string OfficialExternalSource = "https://ai.krtkovo.eu/samandarin/plugin-catalog-unofficial.json";
 
     public static IReadOnlyList<string> Load()
     {
         var text = NativeConfiguration.LoadOrDefault().PluginCatalogSourcesText;
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new[] { DefaultSource };
+            return new[] { OfficialDefaultSource, OfficialExternalSource };
         }
 
         var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
@@ -1533,7 +1534,7 @@ internal static class PluginCatalogSources
             .Where(line => line.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return lines.Count == 0 ? new[] { DefaultSource } : lines;
+        return lines.Count == 0 ? new[] { OfficialDefaultSource, OfficialExternalSource } : lines;
     }
 
     public static void Save(IEnumerable<string> sources)
