@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1051
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Posledné známe vydanie: {0}"
 81,1,"Posledné známe vydanie: Neznáme"
+82,1,"Kontrola aktualizácií doplnkov..."
+83,1,"Aktualizácie doplnkov"
+84,1,"Kontroluje nainštalované doplnky oproti manifestom katalógu JSON. Prevzatie a inštalácia sa nevykonáva; použite webový odkaz pre každý doplnok."
+85,1,"Obnoviť"
+86,1,"Otvoriť webovú stránku"
+87,1,"Zavrieť"
+88,1,"Zobraziť iba aktualizácie"
+89,1,"Zdroje katalógu, jedna URL na riadok:"
+90,1,"Uložiť zdroje"
+91,1,"Doplnok"
+92,1,"Nainštalovaná verzia"
+93,1,"Najnovšia verzia"
+94,1,"Stav"
+95,1,"Zdroj"
+
+[STRINGTABLE 4]
+96,1,"Aktuálne"
+97,1,"Dostupná aktualizácia"
+98,1,"Neznáma verzia"
+99,1,"Nie je v katalógu"
+100,1,"Chyba katalógu"
+101,1,"Iná verzia"
+102,1,"Načítava sa katalóg doplnkov..."
+103,1,"Kontrola aktualizácií doplnkov dokončená."
+104,1,"Tento záznam doplnku neposkytuje URL webovej stránky."
+105,1,"Zdroje katalógu doplnkov boli uložené."
+106,1,"Autor"
+107,1,"Domovská stránka"
+108,1,"Kopírovať hodnotu"
+109,1,"Kopírovať riadok so záhlaviami"
 

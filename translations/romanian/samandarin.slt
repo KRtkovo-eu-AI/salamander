@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1048
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Ultima lansare cunoscută: {0}"
 81,1,"Ultima lansare cunoscută: Necunoscut"
+82,1,"Verificați actualizările pentru pluginuri..."
+83,1,"Actualizări pluginuri"
+84,1,"Verifică pluginurile instalate față de manifesturile catalogului JSON. Nu se efectuează descărcări și instalări; utilizați linkul web pentru fiecare plugin."
+85,1,"Reîmprospătează"
+86,1,"Deschide pagina web"
+87,1,"Închide"
+88,1,"Afișează numai actualizările"
+89,1,"Surse de catalog, câte un URL pe linie:"
+90,1,"Salvează sursele"
+91,1,"Plugin"
+92,1,"Versiune instalată"
+93,1,"Versiunea cea mai recentă"
+94,1,"Stare"
+95,1,"Sursă"
+
+[STRINGTABLE 4]
+96,1,"Curent"
+97,1,"Actualizare disponibilă"
+98,1,"Versiune necunoscută"
+99,1,"Nu este în catalog"
+100,1,"Eroare în catalog"
+101,1,"Versiune diferită"
+102,1,"Se încarcă catalogul de pluginuri..."
+103,1,"Verificarea actualizărilor pluginurilor a fost finalizată."
+104,1,"Această intrare de plugin nu oferă un URL pentru pagină web."
+105,1,"Sursele catalogului de pluginuri au fost salvate."
+106,1,"Autor"
+107,1,"Pagină de pornire"
+108,1,"Copiază valoarea"
+109,1,"Copiază rândul cu anteturi"
 

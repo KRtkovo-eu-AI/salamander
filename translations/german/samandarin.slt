@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1031
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Zuletzt bekannte Veröffentlichung: {0}"
 81,1,"Zuletzt bekannte Veröffentlichung: Unbekannt"
+82,1,"Plugin-Updates prüfen..."
+83,1,"Plugin-Updates"
+84,1,"Vergleicht installierte Plugins mit JSON-Katalogmanifesten. Downloads und Installation werden nicht durchgeführt; verwenden Sie den Weblink für jedes Plugin."
+85,1,"Aktualisieren"
+86,1,"Webseite öffnen"
+87,1,"Schließen"
+88,1,"Nur Updates anzeigen"
+89,1,"Katalogquellen, eine URL pro Zeile:"
+90,1,"Quellen speichern"
+91,1,"Plugin"
+92,1,"Installierte Version"
+93,1,"Aktuellste Version"
+94,1,"Status"
+95,1,"Quelle"
+
+[STRINGTABLE 4]
+96,1,"Aktuell"
+97,1,"Update verfügbar"
+98,1,"Unbekannte Version"
+99,1,"Nicht im Katalog"
+100,1,"Katalogfehler"
+101,1,"Andere Version"
+102,1,"Plugin-Katalog wird geladen..."
+103,1,"Plugin-Updateprüfung abgeschlossen."
+104,1,"Dieser Plugin-Eintrag stellt keine URL zur Webverbindung bereit."
+105,1,"Plugin-Katalogquellen wurden gespeichert."
+106,1,"Autor"
+107,1,"Startseite"
+108,1,"Wert kopieren"
+109,1,"Zeile mit Überschriften kopieren"
 

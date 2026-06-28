@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1029
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Poslední známé vydání: {0}"
 81,1,"Poslední známé vydání: Neznámé"
+82,1,"Kontrolovat aktualizace zásuvných modulů…"
+83,1,"Aktualizace zásuvných modulů"
+84,1,"Porovnává nainstalované zásuvné moduly s manifesty katalogu ve formátu JSON. Stahování ani instalace se neprovádí; použijte webový odkaz pro každý zásuvný modul."
+85,1,"Obnovit"
+86,1,"Otevřít webovou stránku"
+87,1,"Zavřít"
+88,1,"Zobrazit pouze aktualizace"
+89,1,"Zdroje katalogu, po jednom URL na řádek:"
+90,1,"Uložit zdroje"
+91,1,"Zásuvný modul"
+92,1,"Nainstalovaná verze"
+93,1,"Nejnovější verze"
+94,1,"Stav"
+95,1,"Zdroj"
+
+[STRINGTABLE 4]
+96,1,"Aktuální"
+97,1,"Dostupná aktualizace"
+98,1,"Neznámá verze"
+99,1,"Není v katalogu"
+100,1,"Chyba katalogu"
+101,1,"Jiná verze"
+102,1,"Načítání katalogu zásuvných modulů…"
+103,1,"Kontrola aktualizací zásuvných modulů dokončena."
+104,1,"Tato položka zásuvného modulu neposkytuje webovou adresu URL."
+105,1,"Zdroje katalogu zásuvných modulů byly uloženy."
+106,1,"Autor"
+107,1,"Domovská stránka"
+108,1,"Kopírovat hodnotu"
+109,1,"Kopírovat řádek spolu s hlavičkami"
 

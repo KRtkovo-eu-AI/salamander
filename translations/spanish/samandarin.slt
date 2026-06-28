@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,3082
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Último lanzamiento conocido: {0}"
 81,1,"Último lanzamiento conocido: Desconocido"
+82,1,"Comprobar actualizaciones del complemento..."
+83,1,"Actualizaciones del complemento"
+84,1,"Comprueba los complementos instalados frente a manifiestos de catálogo JSON. No se realiza la descarga ni la instalación; use el enlace web de cada complemento."
+85,1,"Actualizar"
+86,1,"Abrir página web"
+87,1,"Cerrar"
+88,1,"Mostrar solo actualizaciones"
+89,1,"Fuentes del catálogo; una URL por línea:"
+90,1,"Guardar fuentes"
+91,1,"Complemento"
+92,1,"Versión instalada"
+93,1,"Última versión"
+94,1,"Estado"
+95,1,"Fuente"
+
+[STRINGTABLE 4]
+96,1,"Actual"
+97,1,"Hay una actualización disponible"
+98,1,"Versión desconocida"
+99,1,"No está en el catálogo"
+100,1,"Error del catálogo"
+101,1,"Versión diferente"
+102,1,"Cargando el catálogo de complementos..."
+103,1,"Se completó la comprobación de actualización del complemento."
+104,1,"Esta entrada del complemento no proporciona una URL de página web."
+105,1,"Se guardaron las fuentes del catálogo de complementos."
+106,1,"Autor"
+107,1,"Página de inicio"
+108,1,"Copiar valor"
+109,1,"Copiar fila con encabezados"
 

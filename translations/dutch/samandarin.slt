@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\samandarin\samandarin.atp"
-TEXTVERSION,"0.2 (x64)"
-VERSION,"0,2,0,183"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,183"
 
 [TRANSLATION]
 LANGID,1043
@@ -52,4 +52,34 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 [STRINGTABLE 3]
 80,1,"Laatst bekende release: {0}"
 81,1,"Laatst bekende release: Onbekend"
+82,1,"Controleer plug-inupdates..."
+83,1,"Plug-inupdates"
+84,1,"Controleert geïnstalleerde plug-ins op catalogusmanifesten in JSON. Downloads en installatie worden niet uitgevoerd; gebruik de webkoppeling voor elke plug-in."
+85,1,"Vernieuwen"
+86,1,"Open webpagina"
+87,1,"Sluiten"
+88,1,"Toon alleen updates"
+89,1,"Catalogusbronnen, een URL per regel:"
+90,1,"Bronnen opslaan"
+91,1,"Plug-in"
+92,1,"Geinstalleerde versie"
+93,1,"Nieuwste versie"
+94,1,"Status"
+95,1,"Bron"
+
+[STRINGTABLE 4]
+96,1,"Huidig"
+97,1,"Update beschikbaar"
+98,1,"Onbekende versie"
+99,1,"Niet in catalogus"
+100,1,"Fout in catalogus"
+101,1,"Andere versie"
+102,1,"Plug-incatalogus wordt geladen..."
+103,1,"Controle op plug-inupdates voltooid."
+104,1,"Vermelding van plug-in voorziet niet in een URL voor een webpagina."
+105,1,"Plug-incatalogusbronnen zijn opgeslagen."
+106,1,"Auteur"
+107,1,"Homepage"
+108,1,"Waarde kopieren"
+109,1,"Rij met kopteksten kopieren"
 

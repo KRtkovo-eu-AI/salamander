@@ -10,4 +10,5 @@ void ManagedBridge_Shutdown();
 bool ManagedBridge_ShowConfiguration(HWND parent);
 void ManagedBridge_NotifyColorsChanged();
 bool ManagedBridge_CheckNow(HWND parent);
+bool ManagedBridge_ShowPluginUpdates(HWND parent);
 

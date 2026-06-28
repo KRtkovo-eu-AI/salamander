@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "managed_bridge.h"
+#include "../../darkmode.h"
 
 #include <metahost.h>
 #include <mscoree.h>
@@ -218,6 +219,16 @@ bool ManagedBridge_CheckNow(HWND parent)
     return ExecuteCommand(L"CheckNow", parent, gCurrentVersion.c_str());
 }
 
+bool ManagedBridge_ShowPluginUpdates(HWND parent)
+{
+    if (!ManagedBridge_EnsureInitialized(parent))
+    {
+        return false;
+    }
+
+    return ExecuteCommand(L"PluginUpdates", parent, gCurrentVersion.c_str());
+}
+
 extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int color)
 {
     if (SalamanderGeneral == nullptr)
@@ -226,6 +237,22 @@ extern "C" __declspec(dllexport) UINT32 __stdcall Samandarin_GetCurrentColor(int
     }
 
     return SalamanderGeneral->GetCurrentColor(color);
+}
+
+extern "C" __declspec(dllexport) void __stdcall Samandarin_SetDarkModeState(BOOL enabled)
+{
+    DarkModeSetEnabled(enabled != FALSE);
+}
+
+extern "C" __declspec(dllexport) void __stdcall Samandarin_ApplyDarkModeTree(HWND hwnd)
+{
+    DarkModeApplyTree(hwnd);
+}
+
+extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMode(HWND hwnd)
+{
+    DarkModeApplyTree(hwnd);
+    DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_LoadString(int resourceId, wchar_t* buffer, int bufferLength)
