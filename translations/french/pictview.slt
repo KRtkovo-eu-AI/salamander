@@ -498,7 +498,7 @@ COMMENT,"Version française"
 [STRINGTABLE 18]
 1160,1,"Impossible de récupérer une image de l'appareil. Vérifiez que l'appareil est bien branché et recommencez. Erreur: (0x%08X) %s"
 1161,1,"Patientez..."
-1162,0,"Reading data from the device (%d%% complete)"
+1162,1,"Lecture des donnees depuis l’appareil (%d%% complete)"
 1163,1,"Traitement des donnees (%d%% complet)"
 1164,1,"Transfert des donnees (%d%% complete)"
 
