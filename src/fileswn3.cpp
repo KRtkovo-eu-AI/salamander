@@ -1981,7 +1981,11 @@ CHANGE_AGAIN:
 
         UpdateWindow(MainWindow->HWindow);
         if (newDir != NULL)
+        {
             lstrcpyn(path, newDir, 2 * MAX_PATH);
+            if (mode == 3) // explicit Change Directory command (command line, hot path, etc.)
+                AddValueToStdHistoryValues(Configuration.ChangeDirHistory, CHANGEDIR_HISTORY_SIZE, path, FALSE);
+        }
         else // focus and top-index setting won't be done for path from dialog
         {
             suggestedTopIndex = -1;

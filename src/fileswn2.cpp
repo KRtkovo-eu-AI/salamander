@@ -2240,14 +2240,11 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
     {
         if (!cancel)
         {
-            if (UserWorkedOnThisPath)
-            {
-                const char* path = GetPath();
-                // HICON hIcon = GetFileOrPathIconAux(path, FALSE, TRUE); // we retrieve the icon
-                MainWindow->DirHistoryAddPathUnique(this, 0, path, NULL, NULL /*hIcon*/, NULL, NULL);
-                if (!newPathIsTheSame)
-                    UserWorkedOnThisPath = FALSE;
-            }
+            const char* path = GetPath();
+            // HICON hIcon = GetFileOrPathIconAux(path, FALSE, TRUE); // we retrieve the icon
+            MainWindow->DirHistoryAddPathUnique(this, 0, path, NULL, NULL /*hIcon*/, NULL, NULL);
+            if (UserWorkedOnThisPath && !newPathIsTheSame)
+                UserWorkedOnThisPath = FALSE;
 
             if (!newPathIsTheSame)
             {
@@ -2269,12 +2266,9 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
         {
             if (!cancel)
             {
-                if (UserWorkedOnThisPath)
-                {
-                    MainWindow->DirHistoryAddPathUnique(this, 1, GetZIPArchive(), GetZIPPath(), NULL, NULL, NULL);
-                    if (!newPathIsTheSame)
-                        UserWorkedOnThisPath = FALSE;
-                }
+                MainWindow->DirHistoryAddPathUnique(this, 1, GetZIPArchive(), GetZIPPath(), NULL, NULL, NULL);
+                if (UserWorkedOnThisPath && !newPathIsTheSame)
+                    UserWorkedOnThisPath = FALSE;
 
                 if (!newPathIsTheSame)
                 {
@@ -2319,13 +2313,10 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
                     char buf[MAX_PATH];
                     if (GetPluginFS()->GetCurrentPath(buf))
                     {
-                        if (UserWorkedOnThisPath)
-                        {
-                            MainWindow->DirHistoryAddPathUnique(this, 2, GetPluginFS()->GetPluginFSName(), buf, NULL,
-                                                                GetPluginFS()->GetInterface(), GetPluginFS());
-                            if (!newPathIsTheSame)
-                                UserWorkedOnThisPath = FALSE;
-                        }
+                        MainWindow->DirHistoryAddPathUnique(this, 2, GetPluginFS()->GetPluginFSName(), buf, NULL,
+                                                            GetPluginFS()->GetInterface(), GetPluginFS());
+                        if (UserWorkedOnThisPath && !newPathIsTheSame)
+                            UserWorkedOnThisPath = FALSE;
                         if (!newPathIsTheSame)
                         {
                             // we're leaving the path
