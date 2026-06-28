@@ -1,4 +1,4 @@
-﻿//****************************************************************************
+//****************************************************************************
 //
 // Copyright (c) 2023 Open Salamander Authors
 //
@@ -78,4 +78,5 @@
 #define IDS_PLUGIN_COL_HOMEPAGE 107
 #define IDS_PLUGIN_COPY_VALUE 108
 #define IDS_PLUGIN_COPY_ROW_HEADERS 109
+#define IDS_PLUGIN_STATUS_NOT_INSTALLED 110
 #endif // __SAMANDARIN_RH2

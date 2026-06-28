@@ -196,6 +196,7 @@ internal enum NativeStringId
     PluginColumnHomepage = 107,
     PluginCopyValue = 108,
     PluginCopyRowWithHeaders = 109,
+    PluginStatusNotInstalled = 110,
 }
 
 internal static class NativeStrings
@@ -1457,7 +1458,11 @@ internal static class PluginCatalogService
             }
         }
 
+        var installedIds = new HashSet<string>(installed.Select(plugin => plugin.Id), StringComparer.OrdinalIgnoreCase);
         var rows = installed.Select(plugin => BuildRow(plugin, catalog.TryGetValue(plugin.Id, out var entry) ? entry : null)).ToList();
+        rows.AddRange(catalog.Values
+            .Where(entry => entry.id is not null && !installedIds.Contains(entry.id))
+            .Select(BuildCatalogOnlyRow));
         LastErrors = sourceErrors;
         return rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
@@ -1481,6 +1486,12 @@ internal static class PluginCatalogService
     {
         var separator = string.IsNullOrEmpty(uri.Query) ? "?" : "&";
         return new Uri(uri, uri.PathAndQuery + separator + "samandarinRefresh=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
+    {
+        var homepage = entry.homepageUrl ?? string.Empty;
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
@@ -1529,7 +1540,7 @@ internal static class PluginCatalogSources
             return new[] { OfficialDefaultSource, OfficialExternalSource };
         }
 
-        var lines = text!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1613,7 +1624,7 @@ internal static class PluginVersionComparer
             return PluginVersionComparison.Unknown;
         }
 
-        if (string.Equals(installed!.Trim(), latest!.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(installed.Trim(), latest.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             return PluginVersionComparison.Current;
         }

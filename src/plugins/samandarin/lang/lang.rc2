@@ -1,4 +1,4 @@
-﻿//****************************************************************************
+//****************************************************************************
 //
 // Copyright (c) 2023 Open Salamander Authors
 //
@@ -86,4 +86,5 @@ STRINGTABLE
  IDS_PLUGIN_COL_HOMEPAGE, "Homepage"
  IDS_PLUGIN_COPY_VALUE, "Copy value"
  IDS_PLUGIN_COPY_ROW_HEADERS, "Copy row with headers"
+ IDS_PLUGIN_STATUS_NOT_INSTALLED, "Not installed"
 }
