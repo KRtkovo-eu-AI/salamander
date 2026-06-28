@@ -82,4 +82,6 @@ STRINGTABLE
  IDS_PLUGIN_UPDATES_READY, "Plugin update check completed."
  IDS_PLUGIN_UPDATES_NO_URL, "This plugin entry does not provide a web page URL."
  IDS_PLUGIN_SOURCES_SAVED, "Plugin catalog sources were saved."
+ IDS_PLUGIN_COL_AUTHOR, "Author"
+ IDS_PLUGIN_COL_HOMEPAGE, "Homepage"
 }

@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Web.Script.Serialization;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -191,6 +192,8 @@ internal enum NativeStringId
     PluginUpdatesReady = 103,
     PluginUpdatesNoUrl = 104,
     PluginSourcesSaved = 105,
+    PluginColumnAuthor = 106,
+    PluginColumnHomepage = 107,
 }
 
 internal static class NativeStrings
@@ -1016,8 +1019,9 @@ internal sealed class PluginUpdatesDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        Width = 860;
+        Width = 980;
         Height = 640;
+        MinimumSize = new System.Drawing.Size(720, 520);
         Icon = PluginIconLoader.Load();
 
         var layout = new TableLayoutPanel
@@ -1041,7 +1045,7 @@ internal sealed class PluginUpdatesDialog : Form
         {
             Dock = DockStyle.Fill,
             FullRowSelect = true,
-            GridLines = true,
+            GridLines = false,
             HideSelection = false,
             MultiSelect = false,
             View = View.Details,
@@ -1050,7 +1054,9 @@ internal sealed class PluginUpdatesDialog : Form
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 120);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 120);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 150);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 330);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 140);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnHomepage), 220);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 260);
         _listView.ColumnClick += ListViewOnColumnClick;
         _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
         layout.Controls.Add(_listView, 0, 1);
@@ -1086,6 +1092,7 @@ internal sealed class PluginUpdatesDialog : Form
         {
             Dock = DockStyle.Fill,
             AutoSize = true,
+            WrapContents = false,
             FlowDirection = FlowDirection.RightToLeft,
             Padding = new Padding(0, 10, 0, 0),
             Margin = new Padding(0),
@@ -1155,6 +1162,8 @@ internal sealed class PluginUpdatesDialog : Form
                 item.SubItems.Add(row.InstalledVersion);
                 item.SubItems.Add(row.LatestVersion);
                 item.SubItems.Add(row.StatusText);
+                item.SubItems.Add(row.Author);
+                item.SubItems.Add(row.Homepage);
                 item.SubItems.Add(row.Source);
                 _listView.Items.Add(item);
                 if (selectedName is not null && string.Equals(selectedName, row.Name, StringComparison.CurrentCultureIgnoreCase))
@@ -1254,7 +1263,9 @@ internal sealed class PluginUpdatesDialog : Form
             1 => row.InstalledVersion,
             2 => row.LatestVersion,
             3 => row.StatusText,
-            4 => row.Source,
+            4 => row.Author,
+            5 => row.Homepage,
+            6 => row.Source,
             _ => row.Name,
         };
     }
@@ -1393,7 +1404,9 @@ internal static class PluginCatalogService
     {
         if (Uri.TryCreate(source, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var request = new HttpRequestMessage(HttpMethod.Get, AddNoCacheQuery(uri));
+            request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true, MaxAge = TimeSpan.Zero };
+            request.Headers.Pragma.ParseAdd("no-cache");
             using var response = await SharedHttpClient.Instance.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -1402,11 +1415,17 @@ internal static class PluginCatalogService
         return File.ReadAllText(source, Encoding.UTF8);
     }
 
+    private static Uri AddNoCacheQuery(Uri uri)
+    {
+        var separator = string.IsNullOrEmpty(uri.Query) ? "?" : "&";
+        return new Uri(uri, uri.PathAndQuery + separator + "samandarinRefresh=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
+    }
+
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), PluginUpdateStatus.NotInCatalog, string.Empty, null);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -1418,7 +1437,8 @@ internal static class PluginCatalogService
             _ => NativeStringId.PluginStatusUnknownVersion,
         };
 
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
+        var homepage = entry.homepageUrl ?? string.Empty;
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -1549,6 +1569,7 @@ internal sealed class PluginCatalogEntry
 {
     public string? id { get; set; }
     public object? name { get; set; }
+    public string? author { get; set; }
     public string? latestVersion { get; set; }
     public string? versionScheme { get; set; }
     public string? homepageUrl { get; set; }
@@ -1592,12 +1613,14 @@ internal sealed class InstalledPlugin
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, PluginUpdateStatus status, string source, string? webUrl)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl)
     {
         Name = name;
         InstalledVersion = installedVersion;
         LatestVersion = latestVersion;
         StatusText = statusText;
+        Author = author;
+        Homepage = homepage;
         Status = status;
         Source = source;
         WebUrl = webUrl;
@@ -1607,11 +1630,13 @@ internal sealed class PluginUpdateRow
     public string InstalledVersion { get; }
     public string LatestVersion { get; }
     public string StatusText { get; }
+    public string Author { get; }
+    public string Homepage { get; }
     public PluginUpdateStatus Status { get; }
     public string Source { get; }
     public string? WebUrl { get; }
 
-    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", PluginUpdateStatus.CatalogError, source, null);
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null);
 }
 
 internal static class VersionComparer

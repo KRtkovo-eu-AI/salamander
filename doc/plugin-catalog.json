@@ -12,6 +12,7 @@
         "en": "Checks Open Salamander Samandarin and plugin update information.",
         "cs": "Kontroluje informace o aktualizacích Open Salamander Samandarin a pluginů."
       },
+      "author": "Open Salamander Project",
       "latestVersion": "0.3.0",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
