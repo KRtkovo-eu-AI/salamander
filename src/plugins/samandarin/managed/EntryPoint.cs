@@ -1050,7 +1050,7 @@ internal sealed class PluginUpdatesDialog : Form
         ShowInTaskbar = false;
         Width = 980;
         Height = 640;
-        MinimumSize = new System.Drawing.Size(850, 650);
+        MinimumSize = new System.Drawing.Size(870, 650);
         AutoScroll = true;
         Icon = PluginIconLoader.Load();
 
@@ -1067,7 +1067,7 @@ internal sealed class PluginUpdatesDialog : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 42f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesDescription), AutoSize = true, MaximumSize = new System.Drawing.Size(800, 0) }, 0, 0);
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesDescription), AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Padding = new Padding(0, 6, 0, 6) }, 0, 0);
 
         _listView = new ListView
         {
@@ -1153,7 +1153,7 @@ internal sealed class PluginUpdatesDialog : Form
     private static Label AddValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
     {
         layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 3, 8, 0) }, column, row);
-        var value = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 4, 8, 0) };
+        var value = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 6, 8, 0) };
         layout.Controls.Add(value, column + 1, row);
         return value;
     }
@@ -1161,7 +1161,7 @@ internal sealed class PluginUpdatesDialog : Form
     private static LinkLabel AddLinkValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
     {
         layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 3, 8, 0) }, column, row);
-        var value = new LinkLabel { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 4, 8, 0) };
+        var value = new LinkLabel { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 6, 8, 0) };
         value.LinkClicked += (_, _) => OpenUrl(value.Text);
         layout.Controls.Add(value, column + 1, row);
         return value;

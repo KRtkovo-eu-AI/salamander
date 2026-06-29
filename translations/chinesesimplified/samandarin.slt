@@ -84,6 +84,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 109,1,"使用标题复制整行"
 110,1,"未安装"
 111,1,"配置源"
+
+[STRINGTABLE 5]
 112,1,"插件目录源"
 113,1,"插件详细信息"
 114,1,"描述"

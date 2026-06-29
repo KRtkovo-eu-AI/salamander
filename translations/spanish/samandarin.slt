@@ -84,6 +84,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 109,1,"Copiar fila con encabezados"
 110,1,"No instalado"
 111,1,"Configurar fuentes"
+
+[STRINGTABLE 5]
 112,1,"Fuentes del catálogo de plugins"
 113,1,"Detalles del plugin"
 114,1,"Descripción"
