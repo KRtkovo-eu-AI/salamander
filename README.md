@@ -3,7 +3,7 @@ Open Salamander: Samandarin is a fast and reliable dual-pane file manager for Wi
 
 It evolves the [original project](https://github.com/OpenSalamander/salamander) with enhancements and new features while staying compatible with the upstream code and plugin ecosystem.
 
-<img width="1386" height="862" alt="image" src="https://github.com/user-attachments/assets/7dab1d1e-ce95-40e6-8870-fa440e54c097" />
+<img width="1137" height="778" alt="image" src="https://github.com/user-attachments/assets/af91dcec-fa35-461b-b691-0507c1e1591e" />
 
 
 #
@@ -12,17 +12,20 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 > Open Salamander: Samandarin remains an **intentionally experimental fork**—its **vibe-coded features** are actively evolving, **may surface unexpected issues**, and are best explored by **advanced, adventurous users** who can tolerate work-in-progress behavior.
 > 
 > Tools used:
-> - [OpenAI Codex](https://chatgpt.com/codex)
-> - [OpenCode](https://opencode.ai))
+> - [OpenAI Codex](https://chatgpt.com/codex) (models `gpt-5.3-codex`, `gpt-5.5`)
+> - [OpenCode](https://opencode.ai) (models `MiMo-V2.5`, `Qwen3.7 Plus`)
 
 
 ## Included Features Overview
 ### Portability
 - Save the Configuration into file storage instead of Registry
-<img width="687" height="139" alt="image" src="https://github.com/user-attachments/assets/d3c0219d-6216-4dcc-ba04-df3445acc535" />
+<img width="687" height="172" alt="image" src="https://github.com/user-attachments/assets/5aab6d4d-cc86-42a5-a769-95af091ecab5" />
+
+### Manage configurations
+<img width="782" height="552" alt="image" src="https://github.com/user-attachments/assets/bfd999a1-619e-481f-a14a-ca91ec63e1f8" />
 
 ### Translations
-- automatic translate with OpenAI API (model gpt-5.4-nano)
+- automatic translate with OpenAI API (model `gpt-5.4-nano`)
 <img width="416" height="232" alt="image" src="https://github.com/user-attachments/assets/2d8012d8-d07a-43ed-8140-5b1a0e48fdbb" />
 
 ### Tabbed Panels
@@ -53,6 +56,17 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### Copy/Move between plugin-FS and archives
 <img width="687" height="427" alt="salam_plug_arch" src="https://github.com/user-attachments/assets/4e4fc13c-e6f7-485c-b0d6-623378e1719b" />
 
+### Autocomplete path in Copy/Move/Quick Rename/Create Folder dialog
+<img width="688" height="61" alt="image" src="https://github.com/user-attachments/assets/4d1903d9-4570-47f8-8d7a-956df14d424b" />
+<img width="397" height="185" alt="image" src="https://github.com/user-attachments/assets/3af3f1df-8628-43e9-ad94-7d8bcc52340a" />
+
+### Plugin Updates in Samandarin plugin
+<img width="966" height="643" alt="image" src="https://github.com/user-attachments/assets/c1088472-335b-4421-82bb-fea8531beb92" />
+
+### Digitally signed
+- All binary files including installer are digitally signed
+<img width="405" height="483" alt="image" src="https://github.com/user-attachments/assets/11f33476-8c25-435c-a2ad-06f7ec858f08" />
+
 
 ## Included Plugins Overview
 ### 7-Zip 1.31
@@ -63,7 +77,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 ### FTP Client 1.35
 ### File Comparator 1.19
 ### Folders 0.1
-### Hyper-V Machines 1.04
+### Hyper-V Machines 1.05
 Show local Hyper-V virtual machines. You can Start/Turn Off/Shut Down/Connect/Create New Machine through the plugin.
 
 ### JSON Viewer .NET 1.0
@@ -78,6 +92,7 @@ Supported File Types
 ### PictView 2.21
 - using [WIC](https://learn.microsoft.com/en-us/windows/win32/wic/native-wic-codecs) backend
 ### Portable Devices 0.2
+- file operations (copy/move/rename/create etc.) with progress dialog are available.
 ### Portable Executable Viewer 3.0
 ### PrismSharp Text Viewer .NET 1.0
 The viewer focuses on human-readable text content and syntax-highlighted source files. Extensions are matched case-insensitively.
@@ -99,7 +114,7 @@ The viewer also registers [Prism lexers](https://github.com/KRtkovo-eu-AI/salama
 
 ### Registry Editor 1.14
 ### Renamer 1.13
-### Samandarin Update Notifier 0.2
+### Samandarin Update Notifier 0.3
 ### Service Explorer 0.012
 ### Split & Combine 1.11
 ### TAR 3.34
