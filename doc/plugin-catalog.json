@@ -1,22 +1,41 @@
 {
-  "schemaVersion": 1,
-  "generatedAt": "2026-06-28T00:00:00Z",
+  "schemaVersion": 2,
+  "catalogName": "Sample Plugin Catalog",
+  "generatedAt": "2026-06-29T03:07:00Z",
   "plugins": [
     {
-      "id": "samandarin",
+      "id": "plugin-folder-name",
       "name": {
-        "en": "Samandarin Update Notifier",
-        "cs": "Samandarin Update Notifier"
+        "english": "Plugin Name",
+        "czech": "Jméno zásuvného modulu",
+        "dutch": "Naam van de plugin",
+        "french": "Nom du plugin",
+        "german": "Plugin-Name",
+        "hungarian": "Plugin neve",
+        "chinesesimplified": "插件名称",
+        "romanian": "Numele pluginului",
+        "russian": "Название плагина",
+        "slovak": "Názov pluginu",
+        "spanish": "Nombre del plugin"
       },
+      "author": "Your Name",
       "description": {
-        "en": "Checks Open Salamander Samandarin and plugin update information.",
-        "cs": "Kontroluje informace o aktualizacích Open Salamander Samandarin a pluginů."
+        "english": "Plugin description in English.",
+        "czech": "Popis zásuvného modulu v češtině.",
+        "dutch": "Beschrijving van de plug-in in het Nederlands.",
+        "french": "Description du plugin en français.",
+        "german": "Plugin-Beschreibung auf Deutsch.",
+        "hungarian": "A plugin leírása magyarul.",
+        "chinesesimplified": "插件的中文描述。",
+        "romanian": "Descrierea pluginului în limba română.",
+        "russian": "Описание плагина на русском языке.",
+        "slovak": "Popis pluginu v slovenčine.",
+        "spanish": "Descripción del plugin en español."
       },
-      "author": "Open Salamander Project",
-      "latestVersion": "0.3.0",
-      "versionScheme": "fileversion",
-      "homepageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases",
-      "downloadPageUrl": "https://github.com/KRtkovo-eu-AI/salamander/releases"
+      "latestVersion": "plugin-version",
+      "versionScheme": "fileversion | opaque",
+      "homepageUrl": "Your plugin homepage URL or repository URL etc.",
+      "downloadPageUrl": "Your plugin download page URL"
     }
   ]
 }

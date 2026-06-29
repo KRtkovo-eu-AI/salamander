@@ -83,4 +83,11 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 108,1,"Copiază valoarea"
 109,1,"Copiază rândul cu anteturi"
 110,1,"Neinstalat"
+111,1,"Configurați sursele"
+
+[STRINGTABLE 5]
+112,1,"Surse catalog pluginuri"
+113,1,"Detalii plugin"
+114,1,"Descriere"
+115,1,"Pagină de descărcare"
 

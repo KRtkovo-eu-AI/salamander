@@ -83,4 +83,11 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 108,1,"Wert kopieren"
 109,1,"Zeile mit Überschriften kopieren"
 110,1,"Nicht installiert"
+111,1,"Quellen konfigurieren"
+
+[STRINGTABLE 5]
+112,1,"Plugin-Katalogquellen"
+113,1,"Plugin-Details"
+114,1,"Beschreibung"
+115,1,"Download-Seite"
 
