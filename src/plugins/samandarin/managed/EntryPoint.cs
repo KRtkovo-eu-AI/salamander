@@ -197,6 +197,11 @@ internal enum NativeStringId
     PluginCopyValue = 108,
     PluginCopyRowWithHeaders = 109,
     PluginStatusNotInstalled = 110,
+    PluginUpdatesConfigureSources = 111,
+    PluginUpdatesSourcesTitle = 112,
+    PluginDetails = 113,
+    PluginDescriptionLabel = 114,
+    PluginDownloadPage = 115,
 }
 
 internal static class NativeStrings
@@ -1009,11 +1014,19 @@ internal sealed class ConfigurationDialog : Form
 internal sealed class PluginUpdatesDialog : Form
 {
     private readonly ListView _listView;
-    private readonly TextBox _sourcesTextBox;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
     private readonly Button _openButton;
     private readonly ContextMenuStrip _listContextMenu;
+    private readonly Label _detailNameValue;
+    private readonly Label _detailAuthorValue;
+    private readonly Label _detailInstalledValue;
+    private readonly Label _detailLatestValue;
+    private readonly Label _detailStatusValue;
+    private readonly Label _detailSourceValue;
+    private readonly LinkLabel _detailHomepageValue;
+    private readonly LinkLabel _detailDownloadValue;
+    private readonly TextBox _detailDescriptionValue;
     private ListViewItem? _contextMenuItem;
     private int _contextMenuSubItemIndex;
     private readonly List<PluginUpdateRow> _rows = new();
@@ -1036,15 +1049,13 @@ internal sealed class PluginUpdatesDialog : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 7,
+            RowCount = 5,
             Padding = new Padding(12),
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 58f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 42f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesDescription), AutoSize = true, MaximumSize = new System.Drawing.Size(800, 0) }, 0, 0);
@@ -1059,16 +1070,16 @@ internal sealed class PluginUpdatesDialog : Form
             Scrollable = true,
             View = View.Details,
         };
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 140);
         _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnName), 240);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 130);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 130);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 160);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 170);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnHomepage), 280);
-        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnSource), 300);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnInstalled), 120);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnLatest), 120);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnStatus), 150);
+        _listView.Columns.Add(NativeStrings.Get(NativeStringId.PluginColumnAuthor), 140);
         _listView.ColumnClick += ListViewOnColumnClick;
         _listView.MouseDoubleClick += ListViewOnMouseDoubleClick;
         _listView.MouseDown += ListViewOnMouseDown;
+        _listView.SelectedIndexChanged += (_, _) => UpdateDetails();
         _listContextMenu = new ContextMenuStrip();
         _listContextMenu.Opening += ListContextMenuOnOpening;
         _listContextMenu.Items.Add(NativeStrings.Get(NativeStringId.PluginCopyValue), null, (_, _) => CopyContextCellValue());
@@ -1076,63 +1087,86 @@ internal sealed class PluginUpdatesDialog : Form
         _listView.ContextMenuStrip = _listContextMenu;
         layout.Controls.Add(_listView, 0, 1);
 
-        var aboveSourcesPanel = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            ColumnCount = 2,
-            Padding = new Padding(0, 6, 0, 6),
-        };
-        aboveSourcesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        aboveSourcesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-
-        _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true, Anchor = AnchorStyles.Left };
+        _showOnlyUpdates = new CheckBox { Text = NativeStrings.Get(NativeStringId.PluginUpdatesShowOnly), AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 6) };
         _showOnlyUpdates.CheckedChanged += (_, _) => BindRows();
-        aboveSourcesPanel.Controls.Add(_showOnlyUpdates, 0, 0);
+        layout.Controls.Add(_showOnlyUpdates, 0, 2);
 
-        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true, Anchor = AnchorStyles.Right };
+        var detailGroup = new GroupBox { Text = NativeStrings.Get(NativeStringId.PluginDetails), Dock = DockStyle.Fill, Padding = new Padding(10) };
+        var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 6 };
+        detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        for (int i = 0; i < 4; i++) detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        _detailNameValue = AddValue(detailLayout, NativeStringId.PluginColumnName, 0, 0);
+        _detailSourceValue = AddValue(detailLayout, NativeStringId.PluginColumnSource, 2, 0);
+        _detailAuthorValue = AddValue(detailLayout, NativeStringId.PluginColumnAuthor, 0, 1);
+        _detailStatusValue = AddValue(detailLayout, NativeStringId.PluginColumnStatus, 2, 1);
+        _detailInstalledValue = AddValue(detailLayout, NativeStringId.PluginColumnInstalled, 0, 2);
+        _detailLatestValue = AddValue(detailLayout, NativeStringId.PluginColumnLatest, 2, 2);
+        _detailHomepageValue = AddLinkValue(detailLayout, NativeStringId.PluginColumnHomepage, 0, 3);
+        _detailDownloadValue = AddLinkValue(detailLayout, NativeStringId.PluginDownloadPage, 2, 3);
+
+        detailLayout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginDescriptionLabel), AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Top, Padding = new Padding(0, 3, 8, 0) }, 0, 4);
+        _detailDescriptionValue = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle };
+        detailLayout.SetColumnSpan(_detailDescriptionValue, 3);
+        detailLayout.Controls.Add(_detailDescriptionValue, 1, 4);
+
+        var detailButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 8, 0, 0), Margin = new Padding(0) };
+        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true };
         _openButton.Click += (_, _) => OpenSelectedPage();
-        aboveSourcesPanel.Controls.Add(_openButton, 1, 0);
-        layout.Controls.Add(aboveSourcesPanel, 0, 2);
+        detailButtons.Controls.Add(_openButton);
+        detailLayout.SetColumnSpan(detailButtons, 4);
+        detailLayout.Controls.Add(detailButtons, 0, 5);
+        detailGroup.Controls.Add(detailLayout);
+        layout.Controls.Add(detailGroup, 0, 3);
 
-        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 3);
+        var bottomPanel = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 10, 0, 0) };
+        bottomPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        bottomPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _statusLabel = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 28, Padding = new Padding(0, 6, 8, 0) };
+        bottomPanel.Controls.Add(_statusLabel, 0, 0);
 
-        _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
-        layout.Controls.Add(_sourcesTextBox, 0, 4);
-
-        _statusLabel = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 6, 0, 0) };
-        layout.Controls.Add(_statusLabel, 0, 5);
-
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            WrapContents = false,
-            FlowDirection = FlowDirection.RightToLeft,
-            Padding = new Padding(0, 10, 0, 0),
-            Margin = new Padding(0),
-        };
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0) };
         var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
         var refreshButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesRefresh), AutoSize = true };
-        var saveButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSaveSources), AutoSize = true };
+        var sourcesButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesConfigureSources), AutoSize = true };
         refreshButton.Click += async (_, _) => await RefreshAsync().ConfigureAwait(true);
-        saveButton.Click += (_, _) => SaveSources(showMessage: true);
+        sourcesButton.Click += (_, _) => ShowSourcesDialog();
         buttons.Controls.Add(closeButton);
         buttons.Controls.Add(refreshButton);
-        buttons.Controls.Add(saveButton);
-        layout.Controls.Add(buttons, 0, 6);
+        buttons.Controls.Add(sourcesButton);
+        bottomPanel.Controls.Add(buttons, 1, 0);
+        layout.Controls.Add(bottomPanel, 0, 4);
 
         Controls.Add(layout);
         CancelButton = closeButton;
-        Shown += async (_, _) =>
-        {
-            await RefreshAsync().ConfigureAwait(true);
-        };
+        Shown += async (_, _) => { await RefreshAsync().ConfigureAwait(true); };
+        UpdateDetails();
+    }
+
+    private static Label AddValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
+    {
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 3, 8, 0) }, column, row);
+        var value = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 3, 8, 0) };
+        layout.Controls.Add(value, column + 1, row);
+        return value;
+    }
+
+    private static LinkLabel AddLinkValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
+    {
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 3, 8, 0) }, column, row);
+        var value = new LinkLabel { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 3, 8, 0) };
+        value.LinkClicked += (_, _) => OpenUrl(value.Text);
+        layout.Controls.Add(value, column + 1, row);
+        return value;
     }
 
     private async Task RefreshAsync()
     {
-        SaveSources(showMessage: false);
         _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesLoading);
         _openButton.Enabled = false;
         try
@@ -1152,21 +1186,22 @@ internal sealed class PluginUpdatesDialog : Form
         finally
         {
             _openButton.Enabled = true;
+            UpdateDetails();
         }
     }
 
-    private void SaveSources(bool showMessage)
+    private void ShowSourcesDialog()
     {
-        PluginCatalogSources.Save(_sourcesTextBox.Lines.Select(line => line.Trim()).Where(line => line.Length > 0));
-        if (showMessage)
+        using var dialog = new PluginCatalogSourcesDialog();
+        if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginSourcesSaved), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _ = RefreshAsync();
         }
     }
 
     private void BindRows()
     {
-        var selectedName = _listView.SelectedItems.Count > 0 ? _listView.SelectedItems[0].Text : null;
+        var selectedName = _listView.SelectedItems.Count > 0 ? (_listView.SelectedItems[0].Tag as PluginUpdateRow)?.Name : null;
         var rows = _showOnlyUpdates.Checked ? _rows.Where(row => row.Status == PluginUpdateStatus.UpdateAvailable).ToList() : _rows.ToList();
         rows.Sort(new PluginUpdateRowComparer(_sortColumn, _sortOrder));
 
@@ -1176,13 +1211,12 @@ internal sealed class PluginUpdatesDialog : Form
             _listView.Items.Clear();
             foreach (var row in rows)
             {
-                var item = new ListViewItem(row.Name) { Tag = row };
+                var item = new ListViewItem(row.Source) { Tag = row };
+                item.SubItems.Add(row.Name);
                 item.SubItems.Add(row.InstalledVersion);
                 item.SubItems.Add(row.LatestVersion);
                 item.SubItems.Add(row.StatusText);
                 item.SubItems.Add(row.Author);
-                item.SubItems.Add(row.Homepage);
-                item.SubItems.Add(row.Source);
                 _listView.Items.Add(item);
                 if (selectedName is not null && string.Equals(selectedName, row.Name, StringComparison.CurrentCultureIgnoreCase))
                 {
@@ -1197,8 +1231,23 @@ internal sealed class PluginUpdatesDialog : Form
 
         NativeListView.SetSortArrow(_listView, _sortColumn, _sortOrder);
         ThemeHelper.ApplyNativeDarkMode(_listView);
+        UpdateDetails();
     }
 
+    private void UpdateDetails()
+    {
+        var row = _listView.SelectedItems.Count > 0 ? _listView.SelectedItems[0].Tag as PluginUpdateRow : null;
+        _detailNameValue.Text = row?.Name ?? string.Empty;
+        _detailAuthorValue.Text = row?.Author ?? string.Empty;
+        _detailInstalledValue.Text = row?.InstalledVersion ?? string.Empty;
+        _detailLatestValue.Text = row?.LatestVersion ?? string.Empty;
+        _detailStatusValue.Text = row?.StatusText ?? string.Empty;
+        _detailSourceValue.Text = row?.Source ?? string.Empty;
+        _detailHomepageValue.Text = row?.Homepage ?? string.Empty;
+        _detailDownloadValue.Text = row?.WebUrl ?? string.Empty;
+        _detailDescriptionValue.Text = row?.Description ?? string.Empty;
+        _openButton.Enabled = row is not null && !string.IsNullOrWhiteSpace(row.WebUrl);
+    }
 
     private void ListViewOnMouseDown(object? sender, MouseEventArgs e)
     {
@@ -1241,6 +1290,11 @@ internal sealed class PluginUpdatesDialog : Form
             parts.Add($"{_listView.Columns[i].Text}: {_contextMenuItem.SubItems[i].Text}");
         }
 
+        if (_contextMenuItem.Tag is PluginUpdateRow row && !string.IsNullOrWhiteSpace(row.Description))
+        {
+            parts.Add($"{NativeStrings.Get(NativeStringId.PluginDescriptionLabel)}: {row.Description}");
+        }
+
         Clipboard.SetText(string.Join(Environment.NewLine, parts));
     }
 
@@ -1271,19 +1325,30 @@ internal sealed class PluginUpdatesDialog : Form
 
     private void OpenSelectedPage()
     {
-        if (_listView.SelectedItems.Count == 0 || _listView.SelectedItems[0].Tag is not PluginUpdateRow row || string.IsNullOrWhiteSpace(row.WebUrl))
+        var row = _listView.SelectedItems.Count == 0 ? null : _listView.SelectedItems[0].Tag as PluginUpdateRow;
+        if (row is null || string.IsNullOrWhiteSpace(row.WebUrl))
         {
             ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginUpdatesNoUrl), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
+        OpenUrl(row.WebUrl!);
+    }
+
+    private static void OpenUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
         try
         {
-            Process.Start(new ProcessStartInfo(row.WebUrl!) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            ThemeHelper.ShowMessageBox(this, $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}", NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemeHelper.ShowMessageBox(null, $"{NativeStrings.Get(NativeStringId.OpenBrowserError)}{Environment.NewLine}{ex.Message}", NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1300,21 +1365,9 @@ internal sealed class PluginUpdatesDialog : Form
 
         public int Compare(PluginUpdateRow? x, PluginUpdateRow? y)
         {
-            if (ReferenceEquals(x, y))
-            {
-                return 0;
-            }
-
-            if (x is null)
-            {
-                return _order == SortOrder.Descending ? 1 : -1;
-            }
-
-            if (y is null)
-            {
-                return _order == SortOrder.Descending ? -1 : 1;
-            }
-
+            if (ReferenceEquals(x, y)) return 0;
+            if (x is null) return _order == SortOrder.Descending ? 1 : -1;
+            if (y is null) return _order == SortOrder.Descending ? -1 : 1;
             string left = GetValue(x);
             string right = GetValue(y);
             int result = string.Compare(left, right, StringComparison.CurrentCultureIgnoreCase);
@@ -1323,17 +1376,59 @@ internal sealed class PluginUpdatesDialog : Form
 
         private string GetValue(PluginUpdateRow row) => _column switch
         {
-            1 => row.InstalledVersion,
-            2 => row.LatestVersion,
-            3 => row.StatusText,
-            4 => row.Author,
-            5 => row.Homepage,
-            6 => row.Source,
-            _ => row.Name,
+            1 => row.Name,
+            2 => row.InstalledVersion,
+            3 => row.LatestVersion,
+            4 => row.StatusText,
+            5 => row.Author,
+            _ => row.Source,
         };
     }
 }
 
+internal sealed class PluginCatalogSourcesDialog : Form
+{
+    private readonly TextBox _sourcesTextBox;
+
+    public PluginCatalogSourcesDialog()
+    {
+        Text = NativeStrings.Get(NativeStringId.PluginUpdatesSourcesTitle);
+        StartPosition = FormStartPosition.CenterParent;
+        MinimizeBox = false;
+        MaximizeBox = false;
+        ShowInTaskbar = false;
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        Width = 620;
+        Height = 300;
+        Icon = PluginIconLoader.Load();
+
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 0);
+        _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
+        layout.Controls.Add(_sourcesTextBox, 0, 1);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 0, 0), Margin = new Padding(0) };
+        var closeButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesClose), DialogResult = DialogResult.Cancel, AutoSize = true };
+        var saveButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSaveSources), DialogResult = DialogResult.OK, AutoSize = true };
+        saveButton.Click += (_, _) => SaveSources();
+        buttons.Controls.Add(closeButton);
+        buttons.Controls.Add(saveButton);
+        layout.Controls.Add(buttons, 0, 2);
+
+        Controls.Add(layout);
+        CancelButton = closeButton;
+        AcceptButton = saveButton;
+    }
+
+    private void SaveSources()
+    {
+        PluginCatalogSources.Save(_sourcesTextBox.Lines.Select(line => line.Trim()).Where(line => line.Length > 0));
+        ThemeHelper.ShowMessageBox(this, NativeStrings.Get(NativeStringId.PluginSourcesSaved), NativeStrings.PluginCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+}
 
 internal static class NativeListView
 {
@@ -1448,7 +1543,7 @@ internal static class PluginCatalogService
 
                 foreach (var entry in manifest.plugins.Where(entry => !string.IsNullOrWhiteSpace(entry.id)))
                 {
-                    entry.source = source;
+                    entry.source = string.IsNullOrWhiteSpace(manifest.catalogName) ? source : manifest.catalogName;
                     catalog[entry.id!] = entry;
                 }
             }
@@ -1491,14 +1586,14 @@ internal static class PluginCatalogService
     private static PluginUpdateRow BuildCatalogOnlyRow(PluginCatalogEntry entry)
     {
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? entry.id ?? NativeStrings.Get(NativeStringId.Unknown), string.Empty, entry.latestVersion ?? string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInstalled), entry.author ?? string.Empty, homepage, PluginUpdateStatus.Other, entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty);
     }
 
     private static PluginUpdateRow BuildRow(InstalledPlugin plugin, PluginCatalogEntry? entry)
     {
         if (entry is null)
         {
-            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null);
+            return new PluginUpdateRow(plugin.DisplayName, plugin.VersionText, string.Empty, NativeStrings.Get(NativeStringId.PluginStatusNotInCatalog), string.Empty, string.Empty, PluginUpdateStatus.NotInCatalog, string.Empty, null, string.Empty);
         }
 
         var comparison = PluginVersionComparer.Compare(plugin.VersionText, entry.latestVersion, entry.versionScheme);
@@ -1511,7 +1606,7 @@ internal static class PluginCatalogService
         };
 
         var homepage = entry.homepageUrl ?? string.Empty;
-        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl);
+        return new PluginUpdateRow(LocalizedText.Resolve(entry.name) ?? plugin.DisplayName, plugin.VersionText, entry.latestVersion ?? string.Empty, NativeStrings.Get(statusId), entry.author ?? string.Empty, homepage, ToStatus(comparison), entry.source ?? string.Empty, entry.downloadPageUrl ?? entry.homepageUrl, LocalizedText.Resolve(entry.description) ?? string.Empty);
     }
 
     private static PluginUpdateStatus ToStatus(PluginVersionComparison comparison) => comparison == PluginVersionComparison.UpdateAvailable ? PluginUpdateStatus.UpdateAvailable : PluginUpdateStatus.Other;
@@ -1640,12 +1735,13 @@ internal static class PluginVersionComparer
     }
 }
 
-internal sealed class PluginCatalogManifest { public int schemaVersion { get; set; } public PluginCatalogEntry[]? plugins { get; set; } }
+internal sealed class PluginCatalogManifest { public int schemaVersion { get; set; } public string? catalogName { get; set; } public PluginCatalogEntry[]? plugins { get; set; } }
 internal sealed class PluginCatalogEntry
 {
     public string? id { get; set; }
     public object? name { get; set; }
     public string? author { get; set; }
+    public object? description { get; set; }
     public string? latestVersion { get; set; }
     public string? versionScheme { get; set; }
     public string? homepageUrl { get; set; }
@@ -1661,12 +1757,43 @@ internal static class LocalizedText
         if (value is string text) return text;
         if (value is Dictionary<string, object> map)
         {
+            var normalized = new Dictionary<string, object>(map, StringComparer.OrdinalIgnoreCase);
             var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-            if (map.TryGetValue(language, out var localized)) return Convert.ToString(localized, CultureInfo.CurrentCulture);
-            if (map.TryGetValue("en", out var english)) return Convert.ToString(english, CultureInfo.CurrentCulture);
-            return map.Values.Select(v => Convert.ToString(v, CultureInfo.CurrentCulture)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+            foreach (var key in GetPreferredKeys(language))
+            {
+                if (normalized.TryGetValue(key, out var localized))
+                {
+                    var textValue = Convert.ToString(localized, CultureInfo.CurrentCulture);
+                    if (!string.IsNullOrWhiteSpace(textValue)) return textValue;
+                }
+            }
+
+            return normalized.Values.Select(v => Convert.ToString(v, CultureInfo.CurrentCulture)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         }
         return Convert.ToString(value, CultureInfo.CurrentCulture);
+    }
+
+    private static IEnumerable<string> GetPreferredKeys(string language)
+    {
+        var salamanderKey = language switch
+        {
+            "cs" => "czech",
+            "de" => "german",
+            "fr" => "french",
+            "nl" => "dutch",
+            "hu" => "hungarian",
+            "ro" => "romanian",
+            "ru" => "russian",
+            "sk" => "slovak",
+            "es" => "spanish",
+            "zh" => "chinesesimplified",
+            _ => "english",
+        };
+
+        yield return salamanderKey;
+        yield return language;
+        yield return "english";
+        yield return "en";
     }
 }
 
@@ -1689,7 +1816,7 @@ internal sealed class InstalledPlugin
 
 internal sealed class PluginUpdateRow
 {
-    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl)
+    public PluginUpdateRow(string name, string installedVersion, string latestVersion, string statusText, string author, string homepage, PluginUpdateStatus status, string source, string? webUrl, string description)
     {
         Name = name;
         InstalledVersion = installedVersion;
@@ -1700,6 +1827,7 @@ internal sealed class PluginUpdateRow
         Status = status;
         Source = source;
         WebUrl = webUrl;
+        Description = description;
     }
 
     public string Name { get; }
@@ -1711,8 +1839,9 @@ internal sealed class PluginUpdateRow
     public PluginUpdateStatus Status { get; }
     public string Source { get; }
     public string? WebUrl { get; }
+    public string Description { get; }
 
-    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null);
+    public static PluginUpdateRow SourceError(string source, string error) => new PluginUpdateRow(source, string.Empty, string.Empty, $"{NativeStrings.Get(NativeStringId.PluginStatusCatalogError)}: {error}", string.Empty, string.Empty, PluginUpdateStatus.CatalogError, source, null, string.Empty);
 }
 
 internal static class VersionComparer
