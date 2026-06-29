@@ -1016,7 +1016,6 @@ internal sealed class PluginUpdatesDialog : Form
     private readonly ListView _listView;
     private readonly CheckBox _showOnlyUpdates;
     private readonly Label _statusLabel;
-    private readonly Button _openButton;
     private readonly ContextMenuStrip _listContextMenu;
     private readonly Label _detailNameValue;
     private readonly Label _detailAuthorValue;
@@ -1092,14 +1091,13 @@ internal sealed class PluginUpdatesDialog : Form
         layout.Controls.Add(_showOnlyUpdates, 0, 2);
 
         var detailGroup = new GroupBox { Text = NativeStrings.Get(NativeStringId.PluginDetails), Dock = DockStyle.Fill, Padding = new Padding(10) };
-        var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 6 };
+        var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 5 };
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
         for (int i = 0; i < 4; i++) detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-        detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         _detailNameValue = AddValue(detailLayout, NativeStringId.PluginColumnName, 0, 0);
         _detailSourceValue = AddValue(detailLayout, NativeStringId.PluginColumnSource, 2, 0);
@@ -1115,12 +1113,6 @@ internal sealed class PluginUpdatesDialog : Form
         detailLayout.SetColumnSpan(_detailDescriptionValue, 3);
         detailLayout.Controls.Add(_detailDescriptionValue, 1, 4);
 
-        var detailButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 8, 0, 0), Margin = new Padding(0) };
-        _openButton = new Button { Text = NativeStrings.Get(NativeStringId.PluginUpdatesOpenPage), AutoSize = true };
-        _openButton.Click += (_, _) => OpenSelectedPage();
-        detailButtons.Controls.Add(_openButton);
-        detailLayout.SetColumnSpan(detailButtons, 4);
-        detailLayout.Controls.Add(detailButtons, 0, 5);
         detailGroup.Controls.Add(detailLayout);
         layout.Controls.Add(detailGroup, 0, 3);
 
@@ -1150,16 +1142,16 @@ internal sealed class PluginUpdatesDialog : Form
 
     private static Label AddValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
     {
-        layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 3, 8, 0) }, column, row);
-        var value = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 3, 8, 0) };
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Bottom, TextAlign = System.Drawing.ContentAlignment.BottomLeft, Height = 20, Padding = new Padding(0, 0, 8, 0) }, column, row);
+        var value = new Label { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 20, TextAlign = System.Drawing.ContentAlignment.BottomLeft, Padding = new Padding(0, 0, 8, 0) };
         layout.Controls.Add(value, column + 1, row);
         return value;
     }
 
     private static LinkLabel AddLinkValue(TableLayoutPanel layout, NativeStringId captionId, int column, int row)
     {
-        layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 3, 8, 0) }, column, row);
-        var value = new LinkLabel { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 22, Padding = new Padding(0, 3, 8, 0) };
+        layout.Controls.Add(new Label { Text = NativeStrings.Get(captionId) + ":", AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Bottom, TextAlign = System.Drawing.ContentAlignment.BottomLeft, Height = 20, Padding = new Padding(0, 0, 8, 0) }, column, row);
+        var value = new LinkLabel { AutoSize = false, AutoEllipsis = true, Dock = DockStyle.Fill, Height = 20, TextAlign = System.Drawing.ContentAlignment.BottomLeft, Padding = new Padding(0, 0, 8, 0) };
         value.LinkClicked += (_, _) => OpenUrl(value.Text);
         layout.Controls.Add(value, column + 1, row);
         return value;
@@ -1168,7 +1160,6 @@ internal sealed class PluginUpdatesDialog : Form
     private async Task RefreshAsync()
     {
         _statusLabel.Text = NativeStrings.Get(NativeStringId.PluginUpdatesLoading);
-        _openButton.Enabled = false;
         try
         {
             var result = await PluginCatalogService.CheckAsync().ConfigureAwait(true);
@@ -1185,7 +1176,6 @@ internal sealed class PluginUpdatesDialog : Form
         }
         finally
         {
-            _openButton.Enabled = true;
             UpdateDetails();
         }
     }
@@ -1193,6 +1183,7 @@ internal sealed class PluginUpdatesDialog : Form
     private void ShowSourcesDialog()
     {
         using var dialog = new PluginCatalogSourcesDialog();
+        ThemeHelper.ApplyTheme(dialog);
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _ = RefreshAsync();
@@ -1246,7 +1237,6 @@ internal sealed class PluginUpdatesDialog : Form
         _detailHomepageValue.Text = row?.Homepage ?? string.Empty;
         _detailDownloadValue.Text = row?.WebUrl ?? string.Empty;
         _detailDescriptionValue.Text = row?.Description ?? string.Empty;
-        _openButton.Enabled = row is not null && !string.IsNullOrWhiteSpace(row.WebUrl);
     }
 
     private void ListViewOnMouseDown(object? sender, MouseEventArgs e)
@@ -1407,7 +1397,7 @@ internal sealed class PluginCatalogSourcesDialog : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(new Label { Text = NativeStrings.Get(NativeStringId.PluginUpdatesSources), AutoSize = true }, 0, 0);
-        _sourcesTextBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
+        _sourcesTextBox = new TextBox { Multiline = true, AcceptsReturn = true, AcceptsTab = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = string.Join(Environment.NewLine, PluginCatalogSources.Load()) };
         layout.Controls.Add(_sourcesTextBox, 0, 1);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 0, 0), Margin = new Padding(0) };
@@ -1420,7 +1410,7 @@ internal sealed class PluginCatalogSourcesDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
-        AcceptButton = saveButton;
+        // Keep Enter available for inserting new catalog source lines in the multiline text box.
     }
 
     private void SaveSources()
