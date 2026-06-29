@@ -255,6 +255,25 @@ extern "C" __declspec(dllexport) void __stdcall Samandarin_UpdateListViewDarkMod
     DarkModeUpdateListViewColors(hwnd, RGB(0xFF, 0xFF, 0xFF), RGB(56, 56, 56), true);
 }
 
+
+extern "C" __declspec(dllexport) int __stdcall Samandarin_GetLanguageModulePath(wchar_t* buffer, int bufferLength)
+{
+    if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)
+    {
+        return 0;
+    }
+
+    buffer[0] = L'\0';
+    DWORD length = GetModuleFileNameW(HLanguage, buffer, static_cast<DWORD>(bufferLength));
+    if (length == 0 || length >= static_cast<DWORD>(bufferLength))
+    {
+        buffer[0] = L'\0';
+        return 0;
+    }
+
+    return static_cast<int>(length);
+}
+
 extern "C" __declspec(dllexport) int __stdcall Samandarin_LoadString(int resourceId, wchar_t* buffer, int bufferLength)
 {
     if (HLanguage == nullptr || buffer == nullptr || bufferLength <= 0)

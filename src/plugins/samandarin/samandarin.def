@@ -5,6 +5,7 @@ EXPORTS SalamanderPluginGetReqVer
 EXPORTS Samandarin_GetCurrentColor
 EXPORTS Samandarin_ApplyDarkModeTree
 EXPORTS Samandarin_LoadSettings
+EXPORTS Samandarin_GetLanguageModulePath
 EXPORTS Samandarin_SaveSettings
 EXPORTS Samandarin_SetDarkModeState
 EXPORTS Samandarin_UpdateListViewDarkMode

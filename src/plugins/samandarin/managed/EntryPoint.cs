@@ -222,8 +222,18 @@ internal static class NativeStrings
         return string.Format(CultureInfo.CurrentCulture, Get(id), args);
     }
 
+    public static string? GetLanguageModulePath()
+    {
+        var buffer = new StringBuilder(BufferLength);
+        int length = Samandarin_GetLanguageModulePath(buffer, buffer.Capacity);
+        return length > 0 ? buffer.ToString() : null;
+    }
+
     [DllImport("Samandarin.Spl", EntryPoint = "Samandarin_LoadString", ExactSpelling = true, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
     private static extern int Samandarin_LoadString(int resourceId, StringBuilder buffer, int bufferLength);
+
+    [DllImport("Samandarin.Spl", EntryPoint = "Samandarin_GetLanguageModulePath", ExactSpelling = true, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+    private static extern int Samandarin_GetLanguageModulePath(StringBuilder buffer, int bufferLength);
 }
 
 internal static class UpdateCoordinator
@@ -1748,8 +1758,7 @@ internal static class LocalizedText
         if (value is Dictionary<string, object> map)
         {
             var normalized = new Dictionary<string, object>(map, StringComparer.OrdinalIgnoreCase);
-            var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-            foreach (var key in GetPreferredKeys(language))
+            foreach (var key in GetPreferredKeys())
             {
                 if (normalized.TryGetValue(key, out var localized))
                 {
@@ -1763,27 +1772,57 @@ internal static class LocalizedText
         return Convert.ToString(value, CultureInfo.CurrentCulture);
     }
 
-    private static IEnumerable<string> GetPreferredKeys(string language)
+    private static IEnumerable<string> GetPreferredKeys()
     {
-        var salamanderKey = language switch
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in GetSalamanderLanguageCandidates())
         {
-            "cs" => "czech",
-            "de" => "german",
-            "fr" => "french",
-            "nl" => "dutch",
-            "hu" => "hungarian",
-            "ro" => "romanian",
-            "ru" => "russian",
-            "sk" => "slovak",
-            "es" => "spanish",
-            "zh" => "chinesesimplified",
-            _ => "english",
+            foreach (var key in ExpandLanguageKey(candidate))
+            {
+                if (emitted.Add(key)) yield return key;
+            }
+        }
+
+        if (emitted.Add("english")) yield return "english";
+        if (emitted.Add("en")) yield return "en";
+    }
+
+    private static IEnumerable<string> GetSalamanderLanguageCandidates()
+    {
+        var languageModulePath = NativeStrings.GetLanguageModulePath();
+        if (!string.IsNullOrWhiteSpace(languageModulePath))
+        {
+            var fileName = Path.GetFileNameWithoutExtension(languageModulePath);
+            if (!string.IsNullOrWhiteSpace(fileName)) yield return fileName;
+
+            var directoryName = Path.GetFileName(Path.GetDirectoryName(languageModulePath));
+            if (!string.IsNullOrWhiteSpace(directoryName)) yield return directoryName;
+        }
+
+        yield return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+    }
+
+    private static IEnumerable<string> ExpandLanguageKey(string language)
+    {
+        var normalized = language.Replace("-", string.Empty).Replace("_", string.Empty).Replace(" ", string.Empty).ToLowerInvariant();
+        var salamanderKey = normalized switch
+        {
+            "cs" or "cz" or "czech" => "czech",
+            "de" or "ger" or "deu" or "german" => "german",
+            "fr" or "fre" or "fra" or "french" => "french",
+            "nl" or "dut" or "nld" or "dutch" => "dutch",
+            "hu" or "hun" or "hungarian" => "hungarian",
+            "ro" or "rum" or "ron" or "romanian" => "romanian",
+            "ru" or "rus" or "russian" => "russian",
+            "sk" or "slo" or "slk" or "slovak" => "slovak",
+            "es" or "spa" or "spanish" => "spanish",
+            "zh" or "zho" or "chi" or "chinese" or "chinesesimplified" or "chs" => "chinesesimplified",
+            "en" or "eng" or "english" => "english",
+            _ => normalized,
         };
 
         yield return salamanderKey;
-        yield return language;
-        yield return "english";
-        yield return "en";
+        yield return normalized;
     }
 }
 
