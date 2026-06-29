@@ -4,19 +4,19 @@
   "generatedAt": "2026-06-29T03:07:00Z",
   "plugins": [
     {
-      "id": "sftp-plugin-dupl3xx",
+      "id": "salamander-sftp-plugin",
       "name": {
-        "english": "SFTP/SCP (x64)",
-        "czech": "SFTP/SCP (x64)",
-        "dutch": "SFTP/SCP (x64)",
-        "french": "SFTP/SCP (x64)",
-        "german": "SFTP/SCP (x64)",
-        "hungarian": "SFTP/SCP (x64)",
-        "chinesesimplified": "SFTP/SCP (x64)",
-        "romanian": "SFTP/SCP (x64)",
-        "russian": "SFTP/SCP (x64)",
-        "slovak": "SFTP/SCP (x64)",
-        "spanish": "SFTP/SCP (x64)"
+        "english": "SFTP/SCP client",
+        "czech": "SFTP/SCP klient",
+        "dutch": "SFTP/SCP client",
+        "french": "Client SFTP/SCP",
+        "german": "SFTP/SCP-Client",
+        "hungarian": "SFTP/SCP kliens",
+        "chinesesimplified": "SFTP/SCP 客户端",
+        "romanian": "Client SFTP/SCP",
+        "russian": "Клиент SFTP/SCP",
+        "slovak": "SFTP/SCP klient",
+        "spanish": "Cliente SFTP/SCP"
       },
       "author": "Dupl3xx",
       "description": {
@@ -32,10 +32,78 @@
         "slovak": "Plnohodnotný SFTP a SCP klient ako file-system doplnok pre Open Salamander 5.0 (x64). Postavený nad libssh2 + OpenSSL, takže zvláda aj modernú kryptografiu, ktorú pôvodné riešenie nepodporovalo.",
         "spanish": "Un cliente SFTP y SCP completo como complemento de sistema de archivos para Open Salamander 5.0 (x64). Basado en libssh2 + OpenSSL, puede manejar criptografía moderna que la solución original no podía soportar."
       },
-      "latestVersion": "no build released",
+      "latestVersion": "5.0 beta (x64)",
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin",
-      "downloadPageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin"
+      "downloadPageUrl": "https://github.com/Dupl3xx/salamander-sftp-plugin/tree/master/bin"
+    },
+    {
+      "id": "tar",
+      "name": {
+        "english": "TAR",
+        "chinesesimplified": "TAR",
+        "czech": "TAR",
+        "german": "TAR",
+        "dutch": "TAR",
+        "hungarian": "TAR",
+        "russian": "TAR",
+        "french": "TAR",
+        "slovak": "TAR",
+        "romanian": "TAR",
+        "spanish": "TAR"
+      },
+      "author": "lejcik",
+      "description": {
+        "english": "TAR plugin for Open Salamander",
+        "chinesesimplified": "浏览并解压 Unix 压缩包。",
+        "czech": "Prohlíží a extrahuje Unix archivy.",
+        "german": "Durchsucht und entpackt Unix Archive.",
+        "dutch": "Blader en extraheer Unix archiefbestanden.",
+        "hungarian": "Unix archívumok böngészése és kibontása.",
+        "russian": "Просмотр и извлечение из архивов Unix.",
+        "french": "Feuilleter et extraire les archives Unix.",
+        "slovak": "Prehliada a extrahuje Unix archívy.",
+        "romanian": "Rasfoieste si extrage arhive Unix.",
+        "spanish": "Hojear y extraer archivos Unix."
+      },
+      "latestVersion": "3.5 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/OpenSalamander/salamander/pull/5#issuecomment-3289439303",
+      "downloadPageUrl": "https://github.com/user-attachments/files/22319444/tar-plugin-x64.zip"
+    },
+    {
+      "id": "certview",
+      "name": {
+        "english": "Certificate Viewer",
+        "chinesesimplified": "证书查看器",
+        "czech": "Prohlížeč certifikátů",
+        "german": "Zertifikatsbetrachter",
+        "dutch": "Certificaatviewer",
+        "hungarian": "Tanúsítvány megtekintő",
+        "russian": "Просмотр сертификатов",
+        "french": "Visionneuse de certificats",
+        "slovak": "Prehliadač certifikátov",
+        "romanian": "Vizualizator de certificate",
+        "spanish": "Visor de certificados"
+      },
+      "author": "lejcik",
+      "description": {
+        "english": "Display information about certificate files, such as PEM, DER, etc.",
+        "chinesesimplified": "显示证书文件的信息，例如 PEM、DER 等。",
+        "czech": "Zobrazuje informace o souborech certifikátů, jako jsou PEM, DER atd.",
+        "german": "Zeigt Informationen über Zertifikatsdateien an, wie z. B. PEM, DER usw.",
+        "dutch": "Toont informatie over certificaatbestanden, zoals PEM, DER, enz.",
+        "hungarian": "Tanúsítvány-fájlok információinak megjelenítése, például PEM, DER stb.",
+        "russian": "Отображает информацию о файлах сертификатов, таких как PEM, DER и т. д.",
+        "french": "Affiche des informations sur les fichiers de certificat, tels que PEM, DER, etc.",
+        "slovak": "Zobrazuje informácie o súboroch certifikátov, ako sú PEM, DER atď.",
+        "romanian": "Afișează informații despre fișierele de certificat, cum ar fi PEM, DER etc.",
+        "spanish": "Muestra información sobre los archivos de certificado, como PEM, DER, etc."
+      },
+      "latestVersion": "1.3 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://github.com/lejcik/certviewer",
+      "downloadPageUrl": "https://github.com/lejcik/certviewer/releases/latest"
     }
   ]
 }
