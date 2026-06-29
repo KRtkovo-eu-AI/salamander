@@ -104,6 +104,40 @@
       "versionScheme": "fileversion",
       "homepageUrl": "https://github.com/lejcik/certviewer",
       "downloadPageUrl": "https://github.com/lejcik/certviewer/releases/latest"
+    },
+    {
+      "id": "x-tc-proxy",
+      "name": {
+        "english": "Total Commander Proxy Plugin",
+        "chinesesimplified": "Total Commander 代理插件",
+        "czech": "Zásuvný modul pro Total Commander",
+        "german": "Total Commander Proxy Plugin",
+        "dutch": "Total Commander Proxy Plugin",
+        "hungarian": "Total Commander Proxy Plugin",
+        "russian": "Total Commander Proxy Plugin",
+        "french": "Total Commander Proxy Plugin",
+        "slovak": "Total Commander Proxy Plugin",
+        "romanian": "Total Commander Proxy Plugin",
+        "spanish": "Total Commander Proxy Plugin"
+      },
+      "author": "manison",
+      "description": {
+        "english": "Total Commander Proxy Plugin for Altap Salamander",
+        "chinesesimplified": "Total Commander 代理插件用于 Altap Salamander",
+        "czech": "Zásuvný modul pro Total Commander pro Altap Salamander",
+        "german": "Total Commander Proxy Plugin für Altap Salamander",
+        "dutch": "Total Commander Proxy Plugin voor Altap Salamander",
+        "hungarian": "Total Commander Proxy Plugin az Altap Salamander számára",
+        "russian": "Total Commander Proxy Plugin для Altap Salamander",
+        "french": "Total Commander Proxy Plugin pour Altap Salamander",
+        "slovak": "Total Commander Proxy Plugin pre Altap Salamander",
+        "romanian": "Total Commander Proxy Plugin pentru Altap Salamander",
+        "spanish": "Total Commander Proxy Plugin para Altap Salamander"
+      },
+      "latestVersion": "0.84 (x64)",
+      "versionScheme": "fileversion",
+      "homepageUrl": "https://forum.altap.cz/viewtopic.php?t=2166",
+      "downloadPageUrl": "https://www.manison.cz/products/tcproxy.php?Lang=en"
     }
   ]
 }
